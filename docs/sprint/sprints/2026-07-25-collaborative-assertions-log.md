@@ -136,3 +136,4 @@ component modules genuinely do not exist).
 - 2026-07-26T06:30Z — Manager: QA verdict accepted (commit clean: tests+contract only; RED provenance verified: 6F/130P). Escalation answered via R11. Lock → developer. Spawning qa-fail fix dev (3 backend items, sonnet med) + UI2 test micro-fix (haiku).
 - 2026-07-26T06:35Z — qa-fail fix dev → a65e32a58a26642fb (sonnet, medium); UI2 test micro-fix → a7b59a00566ab0cd8 (haiku, low)
 - 2026-07-26T06:50Z — micro-fix 3 merged @ d6eee83; UI2 formula fix dev → aec4afaa83cf8f619 (haiku, medium)
+- 2026-07-26T07:00Z — Manager: UI2 formula fix verified (exact 1-line diff) + merged @ 2345b88; frontend probe 60/60. Awaiting backend fix1 dev.
