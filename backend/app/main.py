@@ -58,6 +58,15 @@ def create_app() -> FastAPI:
     app.include_router(notifications_router.router)
     register_notification_hooks(app)
 
+    # B3 — comments + history + audit (append-only registration, R6).
+    from app.audit_middleware import register_audit_hooks
+    from app.routers import comments as comments_router
+    from app.routers import history as history_router
+
+    app.include_router(comments_router.router)
+    app.include_router(history_router.router)
+    register_audit_hooks(app)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
