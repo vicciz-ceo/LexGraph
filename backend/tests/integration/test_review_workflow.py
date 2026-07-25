@@ -109,7 +109,11 @@ def test_review_decision_never_erases_ratings(client, matter_with_users):
 def test_review_decision_records_reviewed_revision(client, matter_with_users):
     m = matter_with_users
     assertion_id = _create_submitted(client, m)
-    r = client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/accept",
+        json={"acceptance_justification": "Accepted for revision-tracking coverage."},
+        headers=m["reviewer_headers"],
+    )
     body = r.json()
     assert body["reviewed_by"] == m["reviewer_id"]
     history = client.get(f"/api/v1/assertions/{assertion_id}/history", headers=m["reviewer_headers"])
