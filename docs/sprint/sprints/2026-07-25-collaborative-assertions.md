@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 8
+dev_complete_items: 9
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -55,13 +55,6 @@ the log. Every item below is a Developer track filling in real behavior
 behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
-
-### B2 — Ratings + aggregates
-Fill `app/services/ratings.py::compute_rating_summary` body; implement
-`app/routers/ratings.py` (PUT/GET/DELETE rating, summary, list) +
-`app/models/assertion_rating.py`. Depends on F1; reads assertion/revision
-rows B1 creates (no B1 file writes). RED tests:
-`tests/integration/test_ratings_api.py` (11), `tests/unit/test_ratings_aggregate.py` (7).
 
 ### B5 — Validation + duplicate detection + search/sort
 Fill `app/services/validation.py` and `app/services/duplicates.py`
@@ -109,6 +102,8 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- B2 — ratings + aggregates (`app/routers/ratings.py`, `app/services/ratings.py`), dev commit `414c1ac`, merged; 18/18 scoped green, full diff read (upsert, permission-gated rationales, DELETE audit call-site). Suite now 31F/95P.
+- TESTFIX — planner-role micro-fix `8c451ad` (acceptance justification), anti-gaming diff check passed, manager-verified 1 passed, merged.
 - B3 — comments + audit service/middleware + /history (R10) (6 files), dev commit `132ea2c`, merged `cb561d5`; 9/10 scoped green (1 expected-RED pending B2); suite 52F/74P, fully reconciled. Note for B7: comment sanitization wiring pending B5's sanitize_for_storage.
 - B1 — assertion CRUD/evidence/revisions (`app/routers/assertions.py` + include line), dev commit `4ffea3f`, merged `22b1ac8`; manager probe 16/16 in worktree + full 674-line diff read (no test edits, no boundary violations).
 - B4 — review workflow + permissions (`app/routers/review.py`, `app/services/permissions.py`), dev commit `db1a22f`, merged `b05df53`; permissions matrix 19/19; flagged the test-contract bug now confirmed (see log + pending Planner micro-fix).
