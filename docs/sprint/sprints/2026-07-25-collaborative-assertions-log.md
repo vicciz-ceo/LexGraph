@@ -126,3 +126,4 @@ component modules genuinely do not exist).
 - 2026-07-26T03:00Z — Manager: B3 verified (audit middleware + history route read; no double-write with B4) + merged @ cb561d5. Suite 52F/74P reconciled. Spawning Wave 2: B2 ∥ B5 + Planner-role Haiku micro-fix (justification line in test_review_workflow, unblocked by /history).
 - 2026-07-26T03:05Z — dev B2 → a3efc81df06a8d5df (sonnet, medium); dev B5 → a5f196869043a49c3 (sonnet, medium); planner micro-fix → adb701c506fe5901e (haiku, low)
 - 2026-07-26T04:00Z — Manager: B2 verified+merged; testfix WIP committed by agent, verified+merged by manager. Suite 31F/95P. Remaining: B5 (23), same accept-bug in 3 more tests (graph x2, notifications x1 — micro-fix 2), B1 serialization gap → B5 scope, hostile-input 3 (B5+B7), e2e 1.
+- 2026-07-26T04:05Z — planner micro-fix 2 → ac6a422788c04e0f8 (haiku, low); B5 resumed via SendMessage with serialization-enrichment scope
