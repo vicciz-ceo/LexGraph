@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T05:40:00Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-07-26T05:40:00Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-26T06:10:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
-completed_items: 0
-dev_complete_items: 12
-qa_cycles: 0
+completed_items: 10
+dev_complete_items: 0
+qa_cycles: 1
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -56,7 +56,9 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — all 12 items in Dev Complete, awaiting QA)
+- [QA-FAIL: B5] `app.services.validation.sanitize_for_storage` fails to neutralize an **unclosed** HTML tag carrying an event-handler attribute (e.g. `<img src=x onerror=alert(1)` with no trailing `>`) — the regex tag-stripper `<[^>]+>` requires a closing `>` in the same string, so the payload survives byte-for-byte in stored propositions, comments, and rating rationales. Confirmed live via the real API (POST /assertions, POST .../comments). Expected: gate G10 — hostile input stored/rendered as inert data regardless of whether the tag is closed. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_neutralizes_unclosed_tag_with_event_handler` (+ `..._even_when_followed_by_more_markup`), `backend/tests/integration/test_hostile_input.py::test_proposition_unclosed_tag_with_event_handler_is_neutralized` (+ `test_comment_unclosed_tag_with_event_handler_is_neutralized`).
+- [QA-FAIL: B5] `PATCH /api/v1/assertions/{id}` (and `POST .../revisions`) never call `sanitize_for_storage` on the new `proposition` at all — unlike the CREATE path. Confirmed live: a create-then-PATCH with `<script>window.__pwned=true;</script>...` returns the raw `<script>` tag verbatim in the 200 response. Expected: every path that stores a proposition sanitizes it, not just creation. RED test: `backend/tests/integration/test_hostile_input.py::test_patch_proposition_is_sanitized`.
+- [QA-FAIL: B3] `POST /api/v1/assertions/{id}/evidence` and `DELETE .../evidence/{evidence_id}` (app/routers/assertions.py) write zero `audit_events` rows — no direct call in the router, and `app.audit_middleware.AuditHookMiddleware` (B3-owned, already retrofits `assertion_created` onto B1's router per ruling R9) never added a matching route for evidence add/remove. Confirmed live via raw-SQL count before/after. Expected: spec §16 ("Evidence added or removed" must be audited) and gate G8 ("every ... evidence ... mutation ... produces an audit event"). RED test: `backend/tests/integration/test_comments_audit.py::test_evidence_add_and_remove_produce_audit_events`.
 
 ## Parallelization plan
 
@@ -82,26 +84,30 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B7+E1 — sanitization wiring (comments, rating rationales) + graph evidence_count; full 10-step e2e green (3 files), dev commit `f6cd11d`, merged `c2f2b02`; manager-verified diff (exact prescribed changes only).
-- B5 — validation/sanitization + duplicates + search/sort + /related + G5 detail enrichment (3 files), dev commit `a65dcd7`, merged `76ecf3b`; 24/24 scoped green; security hunks fully read (sanitizer, matter-scope checks). Suite 3F/123P.
-- B2 — ratings + aggregates (`app/routers/ratings.py`, `app/services/ratings.py`), dev commit `414c1ac`, merged; 18/18 scoped green, full diff read (upsert, permission-gated rationales, DELETE audit call-site). Suite now 31F/95P.
-- TESTFIX — planner-role micro-fix `8c451ad` (acceptance justification), anti-gaming diff check passed, manager-verified 1 passed, merged.
-- B3 — comments + audit service/middleware + /history (R10) (6 files), dev commit `132ea2c`, merged `cb561d5`; 9/10 scoped green (1 expected-RED pending B2); suite 52F/74P, fully reconciled. Note for B7: comment sanitization wiring pending B5's sanitize_for_storage.
-- B1 — assertion CRUD/evidence/revisions (`app/routers/assertions.py` + include line), dev commit `4ffea3f`, merged `22b1ac8`; manager probe 16/16 in worktree + full 674-line diff read (no test edits, no boundary violations).
-- B4 — review workflow + permissions (`app/routers/review.py`, `app/services/permissions.py`), dev commit `db1a22f`, merged `b05df53`; permissions matrix 19/19; flagged the test-contract bug now confirmed (see log + pending Planner micro-fix).
-- B6 — graph projection + notifications (6 owned files incl. notification middleware), dev commit `b4b72ff`, merged `420a51a`; unit 5/5; combined-suite reconciliation clean (61F/65P, all remaining RED maps to unstarted tracks).
-- F1 — 13 ORM models + constraints (`backend/app/models/**`, one import line in `main.py`), dev commit `251e19d`, merged `68871a3`; manager probe: 126 failed / 0 errors (all no-such-table gone, per-file counts match census), full persistence diff read and approved.
-- UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped green, manager probe confirmed.
-- UI3 — 6 workspace/review/discussion/history components (`frontend/src/components/`), dev commit `5b3aee5`, merged `4c543a3`; 27/27 scoped green, manager full-frontend probe 46/46 across UI1+UI3.
-- UI2 — AssertionSuggestionForm + AssertionEvidenceSelector (`frontend/src/components/`), dev commit `8fffe53`, merged `0c5c436`; 13/13 scoped green; manager full-frontend probe 59/59 (all 11 files). QA flag: verify submit-disabled logic semantics vs spec §6/§7 (dev reconciled two tests with `hasExactDuplicate || (propositionMissing && no similars)` — check the Planner tests didn't encode a contradiction).
+(empty — 10 items promoted to Completed, 2 bounced to Next Steps; see QA Notes)
 
 ## Completed
+
+- F1 — 13 ORM models + constraints. Verdict: PASS. Probe: full suite (all integration tests persist/read through these tables). Regression: none needed (pre-existing coverage sufficient).
+- B1 — assertion CRUD/evidence/revisions. Verdict: PASS (own scope). Probe: `test_assertions_crud.py` 24/24 green via real API; PATCH-sanitization gap in this file is attributed to B5 per spec-ownership (see Next Steps). Regression: none added here.
+- B2 — ratings + aggregates. Verdict: PASS. Probe: `test_ratings_api.py` + `test_ratings_aggregate.py` all green; DELETE audit direct call and PUT audit via middleware both confirmed via live API + raw-SQL. Regression: none needed.
+- B4 — review workflow + permissions. Verdict: PASS. Probe: permission matrix 19/19 + accept/reject/dispute/request-revision live via API; supersede endpoint had zero prior coverage — now proven live (accept, permission-denied, cross-matter-successor-rejected). Regression: `test_review_workflow.py::test_reviewer_can_supersede_with_assertion_in_same_matter` (+`test_contributor_cannot_supersede`, `test_supersede_rejects_successor_from_another_matter`).
+- B6 — graph projection + notifications. Verdict: PASS. Probe: G7 default/show-unreviewed views + matter isolation confirmed via `test_graph_projection*.py`; notification recipient-derivation confirmed matter-scoped via live cross-matter API probe (real reviewer-on-a-different-matter never sees another matter's notification). Regression: `test_notifications.py::test_reviewer_of_another_matter_does_not_see_this_matters_submission_notification`.
+- B7 — matter isolation + hostile-input wiring + sanitization wiring (comments, rating rationales) + graph evidence_count. Verdict: PASS. Probe: `test_matter_isolation.py` + `test_hostile_input.py` (original) all green; comments.py/ratings.py both correctly call `sanitize_for_storage` at create AND edit — the unclosed-tag bypass that also reproduces through these call sites is B5's function bug, not a B7 wiring gap. Regression: none added here (see B5 Next-Steps RED tests).
+- E1 — 10-step contributor→rater→reviewer→graph e2e. Verdict: PASS. Probe: `test_full_flow.py` full 10-step flow green against the real API (Playwright browser-E2E remains a documented Planner deferral for G12 — not added, per brief "optional, only if quick").
+- UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution. Verdict: PASS. Probe: `AssertionRatingWidget.tsx` uses a proper roving-tabindex `role="radiogroup"` with Arrow/Home/End nav + `aria-checked`/`aria-label` per option (gate G11); own suite 19/19. Regression: none needed.
+- UI3 — 6 workspace/review/discussion/history components. Verdict: PASS. Probe: own suite 27/27; explanatory "individual opinions, not legal conclusions" text present (`AssertionDetailPanel.tsx`, `AssertionCard.tsx`). Regression: none needed.
+- UI2 — AssertionSuggestionForm + AssertionEvidenceSelector. Verdict: PASS, with ESCALATION (see QA Notes) on the `submitDisabled` formula — own suite 13/13 green, and spec §7's absolute "proposition cannot be empty" is still enforced server-side regardless (defense in depth), so not failed outright.
 
 ## Evaluation Notes
 
 2026-07-26T05:40Z (manager, dev-phase close): full evaluator on merged tree `c2f2b02` — backend 126/126, frontend 59/59 (185/185). All 12 items in Dev Complete. Known QA-attention flags: UI2 submit-disabled semantics; regex-sanitizer edge cases; PATCH-path proposition sanitization; evidence attach accepts unresolvable span ids (pinned by B1 test); withdraw allowed from any status; notifications store is in-process per R4 (restart-volatile, documented MVP limit).
 
 ## QA Notes
+
+2026-07-26T06:10Z (QA, Sonnet high, cycle 1): Independent evaluator: backend 126/126, frontend 59/59 baseline confirmed, no flakes. 10/12 items PASS → Completed; 2 bounced (B3, B5 — see Next Steps `[QA-FAIL: ...]`), both with committed RED tests reproducing the required behavior via the real API. Attention-list a-f: (a) UI2 formula — genuine test/spec tension, see ESCALATION below, not failed; (b)(c) sanitizer bugs confirmed live → B5 FAIL (2 findings); (d) unresolvable evidence span id → 201 confirmed as documented limitation (resolvable foreign-matter spans correctly 422, `test_evidence_from_inaccessible_matter_cannot_be_attached`); (e) withdraw from `accepted` → 200/allowed, confirmed live; spec §13 is silent on preconditions so recorded as a documented limitation per brief guidance (note: spec §1 bullet 5's "withdraw their own unreviewed assertions" phrasing is in mild tension with this — flagging for awareness, not blocking); (f) notification matter-scoping confirmed correct live (cross-matter reviewer never sees another matter's notification), restart-volatility remains a documented MVP limit. New finding beyond the attention list: evidence add/remove produce zero audit_events rows (spec §16 / gate G8) → B3 FAIL. Added 4 passing regression tests (supersede flow x3, notification cross-matter x1) and 6 RED tests (sanitizer x4, PATCH-sanitization x1, evidence-audit x1) — see Completed/Next-Steps entries for exact names.
+
+ESCALATION: UI2's `submitDisabled = hasExactDuplicate || (propositionMissing && similarAssertions.length === 0)` lets an empty proposition through whenever `similarAssertions` is non-empty. The Planner's own test at `AssertionSuggestionForm.test.tsx:56-66` ("warns (without blocking)...") never types a proposition yet asserts submit is NOT disabled — so it directly pins this exact empty+similar-list combination as intended-enabled, contradicting `AssertionSuggestionForm.test.tsx:27-30` ("requires the user to enter a proposition...", empty+no-similars => disabled) and reading of spec §7 ("submitting an EMPTY proposition should never be possible"). Per brief instruction I did not edit either test or the component. Options: (1) fix the test to type a matching proposition before asserting enabled, and change the formula to `hasExactDuplicate || propositionMissing` (always required) — my lean, since it's the only version consistent with spec §7's absolute wording; (2) accept current behavior as intentional (a near-duplicate warning fully waives the empty-proposition guard) and update spec/QA-brief expectations instead. Not gate-breaking today because `validate_proposition_not_empty` still rejects blank propositions server-side (defense in depth) — no accepted-order bug reaches storage.
 
 ## Context Dump
 

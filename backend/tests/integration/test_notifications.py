@@ -76,3 +76,48 @@ def test_notifications_are_matter_scoped(client, matter_with_users):
     r = client.get("/api/v1/notifications", headers=m["outsider_headers"])
     assert r.status_code == 200
     assert r.json() == []
+
+
+def test_reviewer_of_another_matter_does_not_see_this_matters_submission_notification(
+    client, db_session
+):
+    """QA regression (2026-07-26): strengthens matter-scoping coverage --
+    the existing test above only proves a user with NO role anywhere gets
+    an empty list. This proves a reviewer WHO IS a real reviewer, just on
+    a different matter, never receives a notification meant for a
+    different matter's reviewers (app/notification_hooks.py derives
+    recipients from `matter_roles WHERE matter_id = ...`)."""
+    from tests.conftest import (
+        seed_organization,
+        seed_repository,
+        seed_matter,
+        seed_user,
+        seed_matter_role,
+        auth_header,
+    )
+
+    org = seed_organization(db_session)
+    repo = seed_repository(db_session, organization_id=org)
+    matter_a = seed_matter(db_session, repository_id=repo, name="Matter A")
+    matter_b = seed_matter(db_session, repository_id=repo, name="Matter B")
+
+    contributor_a = seed_user(db_session, display_name="Contributor A")
+    reviewer_a = seed_user(db_session, display_name="Reviewer A")
+    reviewer_b = seed_user(db_session, display_name="Reviewer B (matter B only)")
+
+    seed_matter_role(db_session, user_id=contributor_a, matter_id=matter_a, role="contributor")
+    seed_matter_role(db_session, user_id=reviewer_a, matter_id=matter_a, role="reviewer")
+    seed_matter_role(db_session, user_id=reviewer_b, matter_id=matter_b, role="reviewer")
+
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(matter_a, repo, save_as="draft"),
+        headers=auth_header(contributor_a),
+    )
+    assertion_id = create.json()["id"]
+    client.post(f"/api/v1/assertions/{assertion_id}/submit", headers=auth_header(contributor_a))
+
+    r_a = client.get("/api/v1/notifications", headers=auth_header(reviewer_a))
+    r_b = client.get("/api/v1/notifications", headers=auth_header(reviewer_b))
+    assert any(n["event_type"] == "assertion_submitted" for n in r_a.json())
+    assert not any(n["event_type"] == "assertion_submitted" for n in r_b.json())
