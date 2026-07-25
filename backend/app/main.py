@@ -38,6 +38,13 @@ def create_app() -> FastAPI:
     # `Base.metadata.create_all(engine)` call site (tests/conftest.py already
     # does this for the test engine on every test run).
 
+    # Append-only zone (R6): each track appends only its own registration
+    # line(s); merge conflicts here are resolved by concatenating both
+    # sides, then a full evaluator run.
+    from app.routers.assertions import router as assertions_router
+
+    app.include_router(assertions_router)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
