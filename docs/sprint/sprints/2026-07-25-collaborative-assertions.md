@@ -125,14 +125,6 @@ remove supporting/contradicting evidence, save-draft/submit/cancel/
 preview). Independent of backend tracks. RED tests: `AssertionSuggestionForm.test.tsx` (7),
 `AssertionEvidenceSelector.test.tsx` (6).
 
-### UI3 — Detail workspace + review panel + discussion + history
-Create `frontend/src/components/{AssertionDetailPanel,
-AssertionReviewPanel,AssertionComments,AssertionRevisionHistory,
-RelatedAssertionsPanel,AssertionComparisonView}.tsx` per spec §5/§9/§14
-(tabbed workspace, reviewer actions incl. justify-unsupported-accept,
-comment thread w/ reviewer distinction, revision compare). Independent of
-backend tracks. RED tests (5 files, 22 tests total — see census).
-
 ### E1 — Thin end-to-end flow (sequential, LAST)
 No new source files. API-driven E2E (Playwright deferred to QA's
 regression pass — decision recorded, not a scope cut) proving the full
