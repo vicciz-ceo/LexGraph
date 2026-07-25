@@ -3,8 +3,8 @@ id: "2026-07-25-collaborative-assertions"
 status: qa-fail
 current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:qa"
-locked_at: "2026-07-26T05:40:00Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-26T06:30:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T06:10:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
@@ -35,6 +35,7 @@ Data model reference, API-path assumptions, and the full Expected RED census: sa
 - R6 Append-only zones: the `include_router` block in `app/main.py::create_app()` and the docstring in `app/routers/__init__.py` — each track appends only its own registration line(s); merge conflicts there are resolved by concatenating both sides, then a full evaluator run.
 - R8 Models frozen post-F1: `backend/app/models/**` is read-only for all B-tracks; a needed schema change is a mandatory escalation, never an inline edit.
 - R9 Cross-track RED is EXPECTED in Wave-1 worktrees: backend integration tests drive routes across tracks (B4 tests create via B1; B3/B6 tests drive B1/B4/B2 routes). Each track greens its unit tests + own-route behavior, implements its full surface to the test contract, and reports which tests remain RED-for-missing-other-routes. The combined suite after all Wave-1 merges is the real gate. For cross-cutting concerns (audit rows, notifications) prefer mechanisms fully owned by your track (middleware/dependency registered via your own append-only line) over call-sites in other tracks' routers.
+- R11 UI2 escalation ruling (QA cycle 1): submit-for-review must be disabled whenever the proposition is empty, regardless of similar-assertion warnings; exact duplicate always disables. The Planner test that asserts enabled without typing a proposition is a test bug — Planner-role micro-fix types a proposition there and adds a RED test pinning disabled-when-empty-despite-similars; a Haiku Developer then simplifies the formula to `hasExactDuplicate || propositionMissing`.
 - R7 Wave sequencing (manager, from write-set + seam analysis): Wave 0 = F1 ∥ UI1 ∥ UI2 ∥ UI3; Wave 1 (after F1 merges) = B1 ∥ B3 ∥ B4 ∥ B6; Wave 2 (after Wave 1 merges) = B2 ∥ B5 (B2 needs B3's audit service — its tests assert audit rows; B5 edits B1's router file); Wave 3 = B7+E1 bundled, one Developer, sequential last. Audit call-sites in each router belong to that router's owning track, calling B3's `app/services/audit.py`. Shared frontend types stay local to each component file this sprint — no shared types module (add/add risk).
 
 ## Scaffolding already committed (Planner)
