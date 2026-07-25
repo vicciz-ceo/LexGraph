@@ -58,15 +58,26 @@ class InMemoryGraphProjection(GraphProjection):
         self._by_matter: dict[str, dict[str, dict[str, Any]]] = {}
 
     def project_assertion(self, assertion: dict[str, Any]) -> None:
-        raise NotImplementedError("developer: implement graph projection upsert (B6)")
+        matter_id = assertion["matter_id"]
+        bucket = self._by_matter.setdefault(matter_id, {})
+        bucket[assertion["id"]] = dict(assertion)
 
     def remove_assertion(self, assertion_id: str) -> None:
-        raise NotImplementedError("developer: implement graph projection removal (B6)")
+        for bucket in self._by_matter.values():
+            bucket.pop(assertion_id, None)
 
     def get_visible_assertions(
         self, matter_id: str, *, show_unreviewed: bool = False
     ) -> list[dict[str, Any]]:
-        raise NotImplementedError("developer: implement graph visibility filtering (B6)")
+        bucket = self._by_matter.get(matter_id, {})
+        if show_unreviewed:
+            return [dict(a) for a in bucket.values()]
+        return [dict(a) for a in bucket.values() if a.get("status") == "accepted"]
 
     def rebuild(self, assertions: list[dict[str, Any]]) -> None:
-        raise NotImplementedError("developer: implement graph projection rebuild (B6)")
+        # Full replace, never an incremental merge — proves the projection
+        # is rebuildable from the authoritative store (spec §11), not
+        # itself a source of truth.
+        self._by_matter = {}
+        for assertion in assertions:
+            self.project_assertion(assertion)
