@@ -739,7 +739,9 @@ def patch_assertion(
     new_revision_number = assertion.current_revision_number + 1
 
     if "proposition" in updates:
-        assertion.proposition = body.proposition
+        # B5 (qa-fail fix): sanitize like CREATE does -- PATCH is a storage
+        # path for the proposition too (gate G10).
+        assertion.proposition = sanitize_for_storage(body.proposition)
     if "assertion_type" in updates:
         assertion.assertion_type = body.assertion_type
     if "subject_entity" in updates and body.subject_entity is not None:
@@ -870,7 +872,8 @@ def create_revision(
     new_revision_number = assertion.current_revision_number + 1
 
     if body.proposition is not None:
-        assertion.proposition = body.proposition
+        # B5 (qa-fail fix): sanitize like CREATE does (gate G10).
+        assertion.proposition = sanitize_for_storage(body.proposition)
     if body.assertion_type is not None:
         assertion.assertion_type = body.assertion_type
     if body.subject_entity is not None:
