@@ -44,6 +44,15 @@ _CREATE_ASSERTION_RE = re.compile(r"^/api/v1/assertions/?$")
 _RATING_RE = re.compile(
     r"^/api/v1/assertions/(?P<assertion_id>[^/]+)/revisions/(?P<revision_number>\d+)/rating$"
 )
+# QA regression (2026-07-26): spec §16 / gate G8 require an audit event for
+# evidence added/removed. `POST .../evidence` and `DELETE .../evidence/{id}`
+# live in B1's already-merged router (app/routers/assertions.py) -- matched
+# here rather than adding a call-site there, same R9 rationale as the two
+# hooks above.
+_EVIDENCE_ADD_RE = re.compile(r"^/api/v1/assertions/(?P<assertion_id>[^/]+)/evidence/?$")
+_EVIDENCE_REMOVE_RE = re.compile(
+    r"^/api/v1/assertions/(?P<assertion_id>[^/]+)/evidence/(?P<evidence_id>[^/]+)$"
+)
 
 
 class AuditHookMiddleware(BaseHTTPMiddleware):
@@ -73,6 +82,20 @@ class AuditHookMiddleware(BaseHTTPMiddleware):
         rating_match = _RATING_RE.match(request.url.path)
         if request.method == "PUT" and rating_match:
             await self._record_rating_mutation(request, response, rating_match)
+            return
+
+        evidence_add_match = _EVIDENCE_ADD_RE.match(request.url.path)
+        if request.method == "POST" and evidence_add_match:
+            await self._record_evidence_mutation(
+                request, response, evidence_add_match, event_type="evidence_added"
+            )
+            return
+
+        evidence_remove_match = _EVIDENCE_REMOVE_RE.match(request.url.path)
+        if request.method == "DELETE" and evidence_remove_match:
+            await self._record_evidence_mutation(
+                request, response, evidence_remove_match, event_type="evidence_removed"
+            )
 
     async def _read_json_body(self, response: Response) -> dict | None:
         body = b""
@@ -150,6 +173,48 @@ class AuditHookMiddleware(BaseHTTPMiddleware):
                 assertion_id=assertion_id,
                 previous_value=None,
                 new_value=str(strength) if strength is not None else None,
+            )
+            session.commit()
+        finally:
+            session.close()
+
+    async def _record_evidence_mutation(
+        self, request: Request, response: Response, match, *, event_type: str
+    ) -> None:
+        actor_user_id = self._actor(request)
+        if not actor_user_id:
+            return
+
+        assertion_id = match.group("assertion_id")
+        evidence_id = match.groupdict().get("evidence_id")
+        if evidence_id is None:
+            # add: no id in the URL -- read it from the created-evidence body.
+            data = await self._read_json_body(response)
+            if not data:
+                return
+            evidence_id = data.get("id")
+
+        session = request.app.state.session_factory()
+        try:
+            row = session.execute(
+                text("SELECT matter_id, repository_id FROM assertions WHERE id = :id"),
+                {"id": assertion_id},
+            ).first()
+            if row is None:
+                return
+            matter_id, repository_id = row
+            # Only a short reference (evidence id), never source-span/quote
+            # content -- spec §16: no confidential full-document content in
+            # routine audit logs.
+            record_audit_event(
+                session,
+                actor_user_id=actor_user_id,
+                event_type=event_type,
+                repository_id=repository_id,
+                matter_id=matter_id,
+                assertion_id=assertion_id,
+                previous_value=None,
+                new_value=evidence_id,
             )
             session.commit()
         finally:

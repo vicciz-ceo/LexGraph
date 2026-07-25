@@ -32,6 +32,24 @@ class ValidationError(ValueError):
 _SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 
+# --- QA regression (2026-07-26): unclosed-tag bypass ------------------------
+#
+# `_TAG_RE` requires a closing `>` in the SAME string to recognize a tag, so
+# an attacker who simply never closes their tag (a well-known regex-
+# sanitizer bypass) keeps any event-handler attribute intact. We cannot rely
+# on a `>` that never arrives -- the sanitized text may later be
+# concatenated into a larger page, where a `>` belonging to unrelated
+# markup elsewhere must not "complete" the attacker's tag -- so an unclosed
+# tag is identified purely from the text we were given: a `<` + tag name
+# with no `>` anywhere in the rest of the string (the leading lookahead).
+# We only consume the tag name plus one-or-more `key=value`-shaped
+# attribute tokens (requiring at least one, since an attribute such as
+# `onerror=` is what actually carries the risk), which keeps ordinary
+# "less than" prose (`a<b`, `5 < 10`, a bare unclosed `<tag` with no
+# attributes at all) untouched, and preserves any legitimate sentence text
+# that follows the attack payload rather than discarding the whole tail.
+_UNCLOSED_TAG_RE = re.compile(r"<(?=[^>]*\Z)[a-zA-Z][a-zA-Z0-9]*(?:\s+[^\s=>]+=[^\s>]*)+")
+
 
 def sanitize_for_storage(raw_text: str) -> str:
     """Return `raw_text` with any active HTML/script content neutralized.
@@ -45,6 +63,7 @@ def sanitize_for_storage(raw_text: str) -> str:
         return raw_text
     text = _SCRIPT_STYLE_RE.sub("", raw_text)
     text = _TAG_RE.sub("", text)
+    text = _UNCLOSED_TAG_RE.sub("", text)
     return text
 
 
