@@ -109,3 +109,4 @@ component modules genuinely do not exist).
 
 (role → agentId, appended at every spawn)
 - 2026-07-25T20:05Z — planner → ab341a135505f0cb8 (sonnet, high)
+- 2026-07-25T20:39Z — Manager (Fable 5): Planner handoff verified (RED census re-run matched: 39F+87E backend; roots exist; commits pushed). Rulings R6/R7 added (append-only router zone, wave sequencing). Lock → claude-code:developer. Spawning Wave 0: F1, UI1, UI2, UI3.

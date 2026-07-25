@@ -1,12 +1,12 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: planned
+status: in-progress
 current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:planner"
-locked_at: "2026-07-25T20:02:25Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-25T20:23:12Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-25T20:39:00Z"
+last_agent: "claude-code:manager"
+last_updated: "2026-07-25T20:39:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
@@ -32,6 +32,8 @@ Data model reference, API-path assumptions, and the full Expected RED census: sa
 - R3 Auth: in-DB users + per-matter roles (viewer/contributor/reviewer/admin) with a test-friendly token scheme; no external IdP this sprint. All permission checks server-side (spec §12).
 - R4 Notifications: in-app only (spec §15 MVP). No email/push.
 - R5 Ratings are revision-scoped (spec §10 MVP): AssertionRating carries assertion_id + assertion_revision_id; one current rating per user per revision; prior-revision ratings preserved, never auto-copied.
+- R6 Append-only zones: the `include_router` block in `app/main.py::create_app()` and the docstring in `app/routers/__init__.py` — each track appends only its own registration line(s); merge conflicts there are resolved by concatenating both sides, then a full evaluator run.
+- R7 Wave sequencing (manager, from write-set + seam analysis): Wave 0 = F1 ∥ UI1 ∥ UI2 ∥ UI3; Wave 1 (after F1 merges) = B1 ∥ B3 ∥ B4 ∥ B6; Wave 2 (after Wave 1 merges) = B2 ∥ B5 (B2 needs B3's audit service — its tests assert audit rows; B5 edits B1's router file); Wave 3 = B7+E1 bundled, one Developer, sequential last. Audit call-sites in each router belong to that router's owning track, calling B3's `app/services/audit.py`. Shared frontend types stay local to each component file this sprint — no shared types module (add/add risk).
 
 ## Scaffolding already committed (Planner)
 
