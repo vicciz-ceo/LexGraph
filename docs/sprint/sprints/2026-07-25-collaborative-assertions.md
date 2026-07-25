@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 7
+dev_complete_items: 8
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -63,12 +63,6 @@ Fill `app/services/ratings.py::compute_rating_summary` body; implement
 rows B1 creates (no B1 file writes). RED tests:
 `tests/integration/test_ratings_api.py` (11), `tests/unit/test_ratings_aggregate.py` (7).
 
-### B3 — Comments + audit
-Implement `app/routers/comments.py` + `app/models/assertion_comment.py`,
-`app/models/audit_event.py`, `app/services/audit.py` (new — emits
-`audit_events` rows for every mutation across B1/B2/B4). Depends on F1.
-RED tests: `tests/integration/test_comments_audit.py` (10).
-
 ### B5 — Validation + duplicate detection + search/sort
 Fill `app/services/validation.py` and `app/services/duplicates.py`
 bodies; extend B1's `assertions.py` router with query-param search/sort
@@ -115,6 +109,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- B3 — comments + audit service/middleware + /history (R10) (6 files), dev commit `132ea2c`, merged `cb561d5`; 9/10 scoped green (1 expected-RED pending B2); suite 52F/74P, fully reconciled. Note for B7: comment sanitization wiring pending B5's sanitize_for_storage.
 - B1 — assertion CRUD/evidence/revisions (`app/routers/assertions.py` + include line), dev commit `4ffea3f`, merged `22b1ac8`; manager probe 16/16 in worktree + full 674-line diff read (no test edits, no boundary violations).
 - B4 — review workflow + permissions (`app/routers/review.py`, `app/services/permissions.py`), dev commit `db1a22f`, merged `b05df53`; permissions matrix 19/19; flagged the test-contract bug now confirmed (see log + pending Planner micro-fix).
 - B6 — graph projection + notifications (6 owned files incl. notification middleware), dev commit `b4b72ff`, merged `420a51a`; unit 5/5; combined-suite reconciliation clean (61F/65P, all remaining RED maps to unstarted tracks).
