@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 2
+dev_complete_items: 3
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -118,13 +118,6 @@ re-run and fix regressions in the owning track's files, not add new ones.
 RED tests: `tests/integration/test_matter_isolation.py` (6),
 `tests/integration/test_hostile_input.py` (6).
 
-### UI2 — Suggestion form + evidence selector
-Create `frontend/src/components/{AssertionSuggestionForm,
-AssertionEvidenceSelector}.tsx` per spec §6 (Method A/B creation, add/
-remove supporting/contradicting evidence, save-draft/submit/cancel/
-preview). Independent of backend tracks. RED tests: `AssertionSuggestionForm.test.tsx` (7),
-`AssertionEvidenceSelector.test.tsx` (6).
-
 ### E1 — Thin end-to-end flow (sequential, LAST)
 No new source files. API-driven E2E (Playwright deferred to QA's
 regression pass — decision recorded, not a scope cut) proving the full
@@ -157,6 +150,7 @@ none — greenfield, no renames.
 
 - UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped green, manager probe confirmed.
 - UI3 — 6 workspace/review/discussion/history components (`frontend/src/components/`), dev commit `5b3aee5`, merged `4c543a3`; 27/27 scoped green, manager full-frontend probe 46/46 across UI1+UI3.
+- UI2 — AssertionSuggestionForm + AssertionEvidenceSelector (`frontend/src/components/`), dev commit `8fffe53`, merged `0c5c436`; 13/13 scoped green; manager full-frontend probe 59/59 (all 11 files). QA flag: verify submit-disabled logic semantics vs spec §6/§7 (dev reconciled two tests with `hasExactDuplicate || (propositionMissing && no similars)` — check the Planner tests didn't encode a contradiction).
 
 ## Completed
 
