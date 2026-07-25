@@ -13,11 +13,20 @@ Implements the assertion-owned paths from spec §13:
     GET    /api/v1/assertions/{assertion_id}/evidence
     POST   /api/v1/assertions/{assertion_id}/evidence
     DELETE /api/v1/assertions/{assertion_id}/evidence/{evidence_id}
+    GET    /api/v1/assertions/{assertion_id}/related
 
 Review-decision routes (accept/reject/dispute/request-revision/supersede),
-ratings, comments, and search/duplicate-detection query params belong to
-other tracks (B4, B2, B3, B5 respectively) and are intentionally absent
-here — see `app/routers/__init__.py` for ownership.
+ratings, and comments belong to other tracks (B4, B2, B3 respectively) and
+are intentionally absent here — see `app/routers/__init__.py` for
+ownership.
+
+Item B5 (this track, wave 2) extended the original B1 handlers in place
+with: query-param search/sort/filter on the list endpoint (spec §17),
+proposition/date/type/entity validation plus sanitization and an inline
+duplicate check on create (`app/services/validation.py`,
+`app/services/duplicates.py`), a matter-scope check on attached evidence,
+and the new `GET .../related` route (ruling R10). B1's original handler
+bodies (submit/withdraw/patch/revisions) are unchanged.
 
 DB access is via a small local dependency reading `request.app.state.
 session_factory` (per sprint-harness instruction: no shared deps module).
@@ -35,18 +44,31 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.models.assertion import Assertion
+from app.models.assertion_comment import AssertionComment
 from app.models.assertion_evidence import AssertionEvidence
+from app.models.assertion_rating import AssertionRating
 from app.models.assertion_revision import AssertionRevision
 from app.models.matter import Matter
 from app.models.matter_role import MatterRole
 from app.models.repository import Repository
+from app.models.source_span import SourceSpan
+from app.services.duplicates import find_related_assertions
+from app.services.validation import (
+    ValidationError,
+    sanitize_for_storage,
+    validate_assertion_type,
+    validate_effective_dates,
+    validate_evidence_matter_scope,
+    validate_matter_scoped_entity_id,
+    validate_proposition_not_empty,
+)
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
 
@@ -121,6 +143,9 @@ class AssertionCreate(BaseModel):
     evidence: list[EvidenceIn] = Field(default_factory=list)
     explanation: str | None = None
     save_as: Literal["draft", "proposed"] = "draft"
+    # B5: explicit opt-in for an assertion_type outside the controlled
+    # vocabulary (spec §7 "explicitly marked as a proposed new type").
+    assertion_type_is_proposed_new: bool = False
 
 
 class AssertionPatch(BaseModel):
@@ -228,6 +253,123 @@ def _serialize_evidence(e: AssertionEvidence) -> dict:
     }
 
 
+def _serialize_comment_summary(c: AssertionComment) -> dict:
+    return {
+        "id": c.id,
+        "assertion_id": c.assertion_id,
+        "user_id": c.user_id,
+        "parent_comment_id": c.parent_comment_id,
+        "comment_text": c.comment_text,
+        "created_at": c.created_at,
+        "updated_at": c.updated_at,
+    }
+
+
+# --- Evidence/comments/revisions/ratings read helpers (GET detail, B5) -----
+#
+# These back the `evidence`/`ratings_summary`/`comments`/`revision_history`
+# keys on GET /assertions/{id} (gate G5). Ratings are computed directly
+# from `assertion_ratings` rows rather than via
+# `app.services.ratings.compute_rating_summary` (B2-owned) so this read
+# path stays correct regardless of that track's merge state into this
+# worktree; the math mirrors spec §4/§13 exactly (unrounded mean, do not
+# fabricate an aggregate when there are no ratings).
+
+
+def _evidence_rows(session: Session, assertion_id: str) -> list[AssertionEvidence]:
+    return (
+        session.execute(
+            select(AssertionEvidence).where(AssertionEvidence.assertion_id == assertion_id)
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _revision_history(session: Session, assertion_id: str) -> list[dict]:
+    revisions = (
+        session.execute(
+            select(AssertionRevision)
+            .where(AssertionRevision.assertion_id == assertion_id)
+            .order_by(AssertionRevision.revision_number.asc())
+        )
+        .scalars()
+        .all()
+    )
+    return [_serialize_revision(r) for r in revisions]
+
+
+def _comments_for_assertion(session: Session, assertion_id: str) -> list[dict]:
+    rows = (
+        session.execute(
+            select(AssertionComment).where(
+                AssertionComment.assertion_id == assertion_id,
+                AssertionComment.deleted_at.is_(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_serialize_comment_summary(c) for c in rows]
+
+
+def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
+    return session.execute(
+        select(AssertionRevision).where(
+            AssertionRevision.assertion_id == assertion.id,
+            AssertionRevision.revision_number == assertion.current_revision_number,
+        )
+    ).scalar_one_or_none()
+
+
+def _rating_strengths_for_revision(session: Session, revision_id: str | None) -> list[int]:
+    if revision_id is None:
+        return []
+    return (
+        session.execute(
+            select(AssertionRating.strength).where(
+                AssertionRating.assertion_revision_id == revision_id
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _user_rating_for_revision(
+    session: Session, revision_id: str | None, user_id: str
+) -> int | None:
+    if revision_id is None:
+        return None
+    return session.execute(
+        select(AssertionRating.strength).where(
+            AssertionRating.assertion_revision_id == revision_id,
+            AssertionRating.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+
+
+def _ratings_summary(session: Session, assertion: Assertion) -> dict | None:
+    revision = _current_revision(session, assertion)
+    strengths = _rating_strengths_for_revision(session, revision.id if revision else None)
+    if not strengths:
+        return None
+    count = len(strengths)
+    average = sum(strengths) / count
+    ordered = sorted(strengths)
+    mid = count // 2
+    median = ordered[mid] if count % 2 == 1 else (ordered[mid - 1] + ordered[mid]) / 2
+    distribution = {str(v): strengths.count(v) for v in range(1, 6)}
+    return {
+        "assertion_id": assertion.id,
+        "assertion_revision_id": revision.id if revision else None,
+        "average": average,
+        "median": median,
+        "count": count,
+        "distribution": distribution,
+    }
+
+
 # --- Permission helpers (owned by this track; no shared deps module) -------
 
 
@@ -286,6 +428,75 @@ def create_assertion(
             status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
         )
 
+    # --- B5: validate + sanitize the submitted payload before storage ------
+    # Submitted text (proposition, etc.) is never treated as instructions —
+    # sanitize_for_storage only strips active markup; validation errors are
+    # surfaced as 422s, never silently corrected.
+    proposition = sanitize_for_storage(body.proposition)
+    try:
+        validate_proposition_not_empty(proposition)
+        validate_effective_dates(body.effective_from, body.effective_to)
+        validate_assertion_type(
+            body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
+        )
+        validate_matter_scoped_entity_id(body.subject_entity.id, label="subject_entity")
+        if body.object_entity is not None:
+            validate_matter_scoped_entity_id(body.object_entity.id, label="object_entity")
+        for item in body.evidence:
+            span = session.get(SourceSpan, item.source_span_id)
+            validate_evidence_matter_scope(
+                span.matter_id if span is not None else None, body.matter_id
+            )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
+    # --- B5: duplicate/related-assertion detection (spec §8) ---------------
+    # Exact proposition matches block submission; every other match kind is
+    # surfaced as a non-blocking warning (spec §7: "similarity warnings must
+    # not prevent submission unless there is an exact duplicate").
+    existing_rows = (
+        session.execute(select(Assertion).where(Assertion.matter_id == body.matter_id))
+        .scalars()
+        .all()
+    )
+    candidate = {
+        "proposition": proposition,
+        "assertion_type": body.assertion_type,
+        "subject_entity": {"type": body.subject_entity.type, "id": body.subject_entity.id},
+        "object_entity": (
+            {"type": body.object_entity.type, "id": body.object_entity.id}
+            if body.object_entity is not None
+            else None
+        ),
+    }
+    existing_candidates = [
+        {
+            "id": row.id,
+            "proposition": row.proposition,
+            "assertion_type": row.assertion_type,
+            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
+            "object_entity": (
+                {"type": row.object_entity_type, "id": row.object_entity_id}
+                if row.object_entity_type is not None
+                else None
+            ),
+        }
+        for row in existing_rows
+    ]
+    matches = find_related_assertions(candidate, existing_candidates)
+    exact_matches = [m for m in matches if m["match_kind"] == "exact_proposition"]
+    if exact_matches:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "duplicate: an identical proposition already exists in this matter "
+                f"(assertion {exact_matches[0]['assertion_id']})"
+            ),
+        )
+    similar_matches = [m for m in matches if m["match_kind"] != "exact_proposition"]
+
     now = _now()
     assertion = Assertion(
         id=str(uuid.uuid4()),
@@ -293,7 +504,7 @@ def create_assertion(
         repository_id=body.repository_id,
         matter_id=body.matter_id,
         assertion_type=body.assertion_type,
-        proposition=body.proposition,
+        proposition=proposition,
         subject_entity_type=body.subject_entity.type,
         subject_entity_id=body.subject_entity.id,
         object_entity_type=body.object_entity.type if body.object_entity else None,
@@ -348,22 +559,139 @@ def create_assertion(
 
     session.commit()
     session.refresh(assertion)
-    return _serialize_assertion(session, assertion)
+    result = _serialize_assertion(session, assertion)
+    result["similar_assertions"] = similar_matches
+    return result
+
+
+_SORT_KEYS = {
+    "created_at": lambda a: a.created_at,
+    "updated_at": lambda a: a.updated_at,
+    "proposition": lambda a: a.proposition,
+    "assertion_type": lambda a: a.assertion_type,
+}
 
 
 @router.get("")
 def list_assertions(
     matter_id: str,
+    q: str | None = None,
+    origin: str | None = None,
+    status_: str | None = Query(default=None, alias="status"),
+    evidence_status: str | None = None,
+    jurisdiction: str | None = None,
+    min_average_rating: float | None = None,
+    min_rating_count: int | None = None,
+    unrated_by_me: bool | None = None,
+    my_rating: int | None = None,
+    sort: str | None = None,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """B5: search/filter/sort (spec §17) on top of B1's matter-scoped list.
+
+    `status` is aliased to avoid shadowing the `fastapi.status` module used
+    throughout this file.
+    """
+    _require_matter_member(session, user_id, matter_id)
+
+    stmt = select(Assertion).where(Assertion.matter_id == matter_id)
+    if origin:
+        stmt = stmt.where(Assertion.origin == origin)
+    if status_:
+        stmt = stmt.where(Assertion.status == status_)
+    if jurisdiction:
+        stmt = stmt.where(Assertion.jurisdiction == jurisdiction)
+    assertions = session.execute(stmt).scalars().all()
+
+    if q:
+        needle = q.strip().lower()
+        assertions = [a for a in assertions if needle in (a.proposition or "").lower()]
+
+    if evidence_status:
+        assertions = [a for a in assertions if _evidence_status(session, a.id) == evidence_status]
+
+    if (
+        min_average_rating is not None
+        or min_rating_count is not None
+        or unrated_by_me is not None
+        or my_rating is not None
+    ):
+        kept = []
+        for a in assertions:
+            revision = _current_revision(session, a)
+            strengths = _rating_strengths_for_revision(session, revision.id if revision else None)
+            if min_rating_count is not None and len(strengths) < min_rating_count:
+                continue
+            if min_average_rating is not None:
+                if not strengths or (sum(strengths) / len(strengths)) < min_average_rating:
+                    continue
+            if unrated_by_me or my_rating is not None:
+                user_rating = _user_rating_for_revision(
+                    session, revision.id if revision else None, user_id
+                )
+                if unrated_by_me and user_rating is not None:
+                    continue
+                if my_rating is not None and user_rating != my_rating:
+                    continue
+            kept.append(a)
+        assertions = kept
+
+    if sort:
+        reverse = sort.startswith("-")
+        key_name = sort[1:] if reverse else sort
+        keyfn = _SORT_KEYS.get(key_name, _SORT_KEYS["created_at"])
+        assertions = sorted(assertions, key=keyfn, reverse=reverse)
+
+    items = [_serialize_assertion(session, a) for a in assertions]
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/{assertion_id}/related")
+def get_related_assertions(
+    assertion_id: str,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> list[dict]:
-    _require_matter_member(session, user_id, matter_id)
-    assertions = (
-        session.execute(select(Assertion).where(Assertion.matter_id == matter_id))
+    """B5 / ruling R10: duplicate/related-assertion surface (spec §8, §13)."""
+    assertion = _get_assertion_or_404(session, assertion_id)
+    _require_matter_member(session, user_id, assertion.matter_id)
+
+    others = (
+        session.execute(
+            select(Assertion).where(
+                Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id
+            )
+        )
         .scalars()
         .all()
     )
-    return [_serialize_assertion(session, a) for a in assertions]
+    candidate = {
+        "id": assertion.id,
+        "proposition": assertion.proposition,
+        "assertion_type": assertion.assertion_type,
+        "subject_entity": {"type": assertion.subject_entity_type, "id": assertion.subject_entity_id},
+        "object_entity": (
+            {"type": assertion.object_entity_type, "id": assertion.object_entity_id}
+            if assertion.object_entity_type is not None
+            else None
+        ),
+    }
+    existing_candidates = [
+        {
+            "id": row.id,
+            "proposition": row.proposition,
+            "assertion_type": row.assertion_type,
+            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
+            "object_entity": (
+                {"type": row.object_entity_type, "id": row.object_entity_id}
+                if row.object_entity_type is not None
+                else None
+            ),
+        }
+        for row in others
+    ]
+    return find_related_assertions(candidate, existing_candidates)  # type: ignore[return-value]
 
 
 @router.get("/{assertion_id}")
@@ -374,7 +702,12 @@ def get_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
-    return _serialize_assertion(session, assertion)
+    result = _serialize_assertion(session, assertion)
+    result["evidence"] = [_serialize_evidence(e) for e in _evidence_rows(session, assertion_id)]
+    result["ratings_summary"] = _ratings_summary(session, assertion)
+    result["comments"] = _comments_for_assertion(session, assertion_id)
+    result["revision_history"] = _revision_history(session, assertion_id)
+    return result
 
 
 @router.patch("/{assertion_id}")
@@ -612,6 +945,18 @@ def add_evidence(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to attach evidence"
         )
+
+    # B5: a resolvable source span must belong to this assertion's matter
+    # (spec §7 "a user cannot attach evidence from another inaccessible
+    # matter") — see validate_evidence_matter_scope for why an unresolved
+    # span id is not itself grounds for rejection here.
+    span = session.get(SourceSpan, body.source_span_id)
+    try:
+        validate_evidence_matter_scope(span.matter_id if span is not None else None, assertion.matter_id)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     evidence = AssertionEvidence(
         id=str(uuid.uuid4()),
