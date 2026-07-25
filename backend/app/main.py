@@ -67,6 +67,11 @@ def create_app() -> FastAPI:
     app.include_router(history_router.router)
     register_audit_hooks(app)
 
+    # B2 — ratings + aggregates (append-only registration, R6).
+    from app.routers import ratings as ratings_router
+
+    app.include_router(ratings_router.router)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
