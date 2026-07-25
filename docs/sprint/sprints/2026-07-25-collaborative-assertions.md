@@ -1,10 +1,10 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T06:30:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T07:20:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T06:10:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 10
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 1
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -58,8 +58,7 @@ behind this scaffolding; no item creates its own toolchain.
 ## Next Steps
 
 - [QA-FAIL: B5] `app.services.validation.sanitize_for_storage` fails to neutralize an **unclosed** HTML tag carrying an event-handler attribute (e.g. `<img src=x onerror=alert(1)` with no trailing `>`) — the regex tag-stripper `<[^>]+>` requires a closing `>` in the same string, so the payload survives byte-for-byte in stored propositions, comments, and rating rationales. Confirmed live via the real API (POST /assertions, POST .../comments). Expected: gate G10 — hostile input stored/rendered as inert data regardless of whether the tag is closed. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_neutralizes_unclosed_tag_with_event_handler` (+ `..._even_when_followed_by_more_markup`), `backend/tests/integration/test_hostile_input.py::test_proposition_unclosed_tag_with_event_handler_is_neutralized` (+ `test_comment_unclosed_tag_with_event_handler_is_neutralized`).
-- [QA-FAIL: B5] `PATCH /api/v1/assertions/{id}` (and `POST .../revisions`) never call `sanitize_for_storage` on the new `proposition` at all — unlike the CREATE path. Confirmed live: a create-then-PATCH with `<script>window.__pwned=true;</script>...` returns the raw `<script>` tag verbatim in the 200 response. Expected: every path that stores a proposition sanitizes it, not just creation. RED test: `backend/tests/integration/test_hostile_input.py::test_patch_proposition_is_sanitized`.
-- [QA-FAIL: B3] `POST /api/v1/assertions/{id}/evidence` and `DELETE .../evidence/{evidence_id}` (app/routers/assertions.py) write zero `audit_events` rows — no direct call in the router, and `app.audit_middleware.AuditHookMiddleware` (B3-owned, already retrofits `assertion_created` onto B1's router per ruling R9) never added a matching route for evidence add/remove. Confirmed live via raw-SQL count before/after. Expected: spec §16 ("Evidence added or removed" must be audited) and gate G8 ("every ... evidence ... mutation ... produces an audit event"). RED test: `backend/tests/integration/test_comments_audit.py::test_evidence_add_and_remove_produce_audit_events`.
+(empty — qa-fail items fixed, back in Dev Complete for QA cycle 2)
 
 ## Parallelization plan
 
@@ -85,7 +84,9 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-(empty — 10 items promoted to Completed, 2 bounced to Next Steps; see QA Notes)
+- B5-fix (cycle 1) — unclosed-tag sanitizer hardening + PATCH/revisions sanitization (`validation.py`, `assertions.py`), fix commit `9d179f2`, merged `fc76c96`; QA's 5 B5 RED tests green; manager full-diff read.
+- B3-fix (cycle 1) — evidence add/remove audit rows via middleware (`audit_middleware.py`), same commit; QA's RED test green; audit rows carry ids only.
+- UI2-fix (R11) — submit disabled whenever proposition empty (1 line, `AssertionSuggestionForm.tsx`), fix commit `9d5aa3e`, merged `2345b88`; 60/60 frontend incl. new RED-turned-green pin.
 
 ## Completed
 
