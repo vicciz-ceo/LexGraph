@@ -27,3 +27,4 @@ tests across the pyramid; QA re-verifies each independently at the end.
 ## Agent roster
 
 (role → agentId, appended at every spawn)
+- 2026-07-25T20:05Z — planner → ab341a135505f0cb8 (sonnet, high)
