@@ -62,7 +62,22 @@ describe("AssertionSuggestionForm", () => {
       />
     );
     expect(await screen.findByText(/similar assertion/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/proposition/i), {
+      target: { value: "A proposition that resembles existing assertions." },
+    });
     expect(screen.getByRole("button", { name: /submit for review/i })).not.toBeDisabled();
+  });
+
+  it("submit stays disabled when proposition is empty even with similar assertions present", async () => {
+    render(
+      <AssertionSuggestionForm
+        prefill={fromSelectedTextPrefill}
+        onSubmit={vi.fn()}
+        similarAssertions={[{ id: "existing-1", proposition: "A very similar proposition." }]}
+      />
+    );
+    expect(await screen.findByText(/similar assertion/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /submit for review/i })).toBeDisabled();
   });
 
   it("submits the assertion type, proposition, evidence, and explanation on submit", () => {
