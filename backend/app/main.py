@@ -20,6 +20,8 @@ from app.db import Base, make_engine, make_session_factory
 
 
 def create_app() -> FastAPI:
+    from app import models  # register ORM mappings
+
     settings = get_settings()
     app = FastAPI(title="LexGraph API", version="0.1.0")
 
