@@ -5,6 +5,7 @@ it in `app.main.create_app()`. Track ownership (see sprint contract):
 - B1  -> assertions.py   (assertions CRUD, evidence, revisions)
 - B2  -> ratings.py      (rating PUT/GET/DELETE, summary)
 - B3  -> comments.py     (comments CRUD)
+- B3  -> history.py      (GET /assertions/{id}/history — ruling R10)
 - B4  -> review.py       (accept/reject/dispute/request-revision/supersede)
 - B5  -> extends assertions.py (search/sort query params, duplicate check)
 - B6  -> graph.py, notifications.py
