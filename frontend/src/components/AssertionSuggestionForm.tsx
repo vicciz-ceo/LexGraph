@@ -118,7 +118,7 @@ export function AssertionSuggestionForm({
   // exact duplicate does. When the caller has already surfaced possible
   // matches (similarAssertions is non-empty) the proposition-required
   // gate is considered satisfied by that upstream check.
-  const submitDisabled = hasExactDuplicate || (propositionMissing && similarAssertions.length === 0);
+  const submitDisabled = hasExactDuplicate || propositionMissing;
 
   const addEvidenceRow = () => {
     setEvidenceRows((rows) => [...rows, { id: nextRowId(), sourceSpanId: "", evidenceRole: "supports" }]);
