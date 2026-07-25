@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -118,14 +118,6 @@ re-run and fix regressions in the owning track's files, not add new ones.
 RED tests: `tests/integration/test_matter_isolation.py` (6),
 `tests/integration/test_hostile_input.py` (6).
 
-### UI1 — AssertionCard + rating widget + rating distribution
-Create `frontend/src/components/{AssertionCard,AssertionRatingWidget,
-AssertionRatingDistribution}.tsx` per spec §5 (accessible 1-5 widget:
-keyboard nav, ARIA labels, your-vs-team rating separation, no ratings ==
-no aggregate shown). Independent of backend tracks. RED tests (currently
-import-resolution failures — documented exception): `AssertionCard.test.tsx` (6),
-`AssertionRatingWidget.test.tsx` (8), `AssertionRatingDistribution.test.tsx` (5).
-
 ### UI2 — Suggestion form + evidence selector
 Create `frontend/src/components/{AssertionSuggestionForm,
 AssertionEvidenceSelector}.tsx` per spec §6 (Method A/B creation, add/
@@ -170,6 +162,8 @@ exception; 185 total). Verified by direct run, not inferred.
 none — greenfield, no renames.
 
 ## Dev Complete
+
+- UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped tests green, re-verified by manager probe on merged sprint branch.
 
 ## Completed
 
