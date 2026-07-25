@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 3
+dev_complete_items: 4
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -33,6 +33,8 @@ Data model reference, API-path assumptions, and the full Expected RED census: sa
 - R4 Notifications: in-app only (spec §15 MVP). No email/push.
 - R5 Ratings are revision-scoped (spec §10 MVP): AssertionRating carries assertion_id + assertion_revision_id; one current rating per user per revision; prior-revision ratings preserved, never auto-copied.
 - R6 Append-only zones: the `include_router` block in `app/main.py::create_app()` and the docstring in `app/routers/__init__.py` — each track appends only its own registration line(s); merge conflicts there are resolved by concatenating both sides, then a full evaluator run.
+- R8 Models frozen post-F1: `backend/app/models/**` is read-only for all B-tracks; a needed schema change is a mandatory escalation, never an inline edit.
+- R9 Cross-track RED is EXPECTED in Wave-1 worktrees: backend integration tests drive routes across tracks (B4 tests create via B1; B3/B6 tests drive B1/B4/B2 routes). Each track greens its unit tests + own-route behavior, implements its full surface to the test contract, and reports which tests remain RED-for-missing-other-routes. The combined suite after all Wave-1 merges is the real gate. For cross-cutting concerns (audit rows, notifications) prefer mechanisms fully owned by your track (middleware/dependency registered via your own append-only line) over call-sites in other tracks' routers.
 - R7 Wave sequencing (manager, from write-set + seam analysis): Wave 0 = F1 ∥ UI1 ∥ UI2 ∥ UI3; Wave 1 (after F1 merges) = B1 ∥ B3 ∥ B4 ∥ B6; Wave 2 (after Wave 1 merges) = B2 ∥ B5 (B2 needs B3's audit service — its tests assert audit rows; B5 edits B1's router file); Wave 3 = B7+E1 bundled, one Developer, sequential last. Audit call-sites in each router belong to that router's owning track, calling B3's `app/services/audit.py`. Shared frontend types stay local to each component file this sprint — no shared types module (add/add risk).
 
 ## Scaffolding already committed (Planner)
@@ -53,18 +55,6 @@ the log. Every item below is a Developer track filling in real behavior
 behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
-
-### F1 — Data model & schema (sequential, FIRST — blocks all other backend items)
-Register SQLAlchemy ORM models against `app.db.Base` (see log § Data
-model reference for the 13 tables) matching spec §2-4/§9/§16 field lists
-exactly, plus `organizations/repositories/matters/users/matter_roles/
-documents/source_spans`. Add proper constraints (unique(user_id,
-assertion_revision_id) on ratings, FKs, NOT NULL where the spec implies
-it). No routes, no service logic. Acceptance: `matter_with_users` fixture
-in `backend/tests/conftest.py` succeeds (no more `OperationalError: no
-such table`); `backend/.venv/bin/pytest backend/tests -q` shows 87 ERRORs
-convert to FAILED/PASSED (still red on missing routes/services — that's
-expected, B-tracks land those).
 
 ### B1 — Assertion CRUD, evidence, revisions
 Implement `app/routers/assertions.py` (create/get/patch/submit/withdraw/
@@ -148,6 +138,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- F1 — 13 ORM models + constraints (`backend/app/models/**`, one import line in `main.py`), dev commit `251e19d`, merged `68871a3`; manager probe: 126 failed / 0 errors (all no-such-table gone, per-file counts match census), full persistence diff read and approved.
 - UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped green, manager probe confirmed.
 - UI3 — 6 workspace/review/discussion/history components (`frontend/src/components/`), dev commit `5b3aee5`, merged `4c543a3`; 27/27 scoped green, manager full-frontend probe 46/46 across UI1+UI3.
 - UI2 — AssertionSuggestionForm + AssertionEvidenceSelector (`frontend/src/components/`), dev commit `8fffe53`, merged `0c5c436`; 13/13 scoped green; manager full-frontend probe 59/59 (all 11 files). QA flag: verify submit-disabled logic semantics vs spec §6/§7 (dev reconciled two tests with `hasExactDuplicate || (propositionMissing && no similars)` — check the Planner tests didn't encode a contradiction).
