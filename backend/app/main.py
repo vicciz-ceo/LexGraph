@@ -46,6 +46,18 @@ def create_app() -> FastAPI:
 
     app.include_router(assertions_router)
 
+    # B6 — graph projection + notifications (append-only registration, R6).
+    from app.graph_projection import InMemoryGraphProjection
+    from app.notification_hooks import register_notification_hooks
+    from app.routers import graph as graph_router
+    from app.routers import notifications as notifications_router
+
+    app.state.graph_projection = InMemoryGraphProjection()
+    app.state.notification_store = []
+    app.include_router(graph_router.router)
+    app.include_router(notifications_router.router)
+    register_notification_hooks(app)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
