@@ -1,18 +1,18 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: in-progress
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-25T20:39:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T05:40:00Z"
 last_agent: "claude-code:manager"
-last_updated: "2026-07-25T20:39:00Z"
+last_updated: "2026-07-26T05:40:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 10
+dev_complete_items: 12
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -56,14 +56,6 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-### B7 — Cross-cutting: matter isolation & hostile input (test-only, no write-set)
-No new source files — proves G9/G10 against whatever B1 (evidence
-matter-check), B4 (permission checks), and B5 (sanitization) ship.
-Sequence last among backend tracks; any Developer picking this up should
-re-run and fix regressions in the owning track's files, not add new ones.
-RED tests: `tests/integration/test_matter_isolation.py` (6),
-`tests/integration/test_hostile_input.py` (6).
-
 ### E1 — Thin end-to-end flow (sequential, LAST)
 No new source files. API-driven E2E (Playwright deferred to QA's
 regression pass — decision recorded, not a scope cut) proving the full
@@ -94,6 +86,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- B7+E1 — sanitization wiring (comments, rating rationales) + graph evidence_count; full 10-step e2e green (3 files), dev commit `f6cd11d`, merged `c2f2b02`; manager-verified diff (exact prescribed changes only).
 - B5 — validation/sanitization + duplicates + search/sort + /related + G5 detail enrichment (3 files), dev commit `a65dcd7`, merged `76ecf3b`; 24/24 scoped green; security hunks fully read (sanitizer, matter-scope checks). Suite 3F/123P.
 - B2 — ratings + aggregates (`app/routers/ratings.py`, `app/services/ratings.py`), dev commit `414c1ac`, merged; 18/18 scoped green, full diff read (upsert, permission-gated rationales, DELETE audit call-site). Suite now 31F/95P.
 - TESTFIX — planner-role micro-fix `8c451ad` (acceptance justification), anti-gaming diff check passed, manager-verified 1 passed, merged.
@@ -109,6 +102,8 @@ none — greenfield, no renames.
 ## Completed
 
 ## Evaluation Notes
+
+2026-07-26T05:40Z (manager, dev-phase close): full evaluator on merged tree `c2f2b02` — backend 126/126, frontend 59/59 (185/185). All 12 items in Dev Complete. Known QA-attention flags: UI2 submit-disabled semantics; regex-sanitizer edge cases; PATCH-path proposition sanitization; evidence attach accepts unresolvable span ids (pinned by B1 test); withdraw allowed from any status; notifications store is in-process per R4 (restart-volatile, documented MVP limit).
 
 ## QA Notes
 
