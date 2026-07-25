@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 4
+dev_complete_items: 7
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -56,13 +56,6 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-### B1 — Assertion CRUD, evidence, revisions
-Implement `app/routers/assertions.py` (create/get/patch/submit/withdraw/
-evidence add-remove/revisions) + `app/models/` files for assertion/
-evidence/revision, wired via `app.state`-based DB access into
-`create_app()`. Depends on F1. Owns: `app/routers/assertions.py`,
-`app/models/assertion*.py`. RED tests: `tests/integration/test_assertions_crud.py` (16).
-
 ### B2 — Ratings + aggregates
 Fill `app/services/ratings.py::compute_rating_summary` body; implement
 `app/routers/ratings.py` (PUT/GET/DELETE rating, summary, list) +
@@ -76,13 +69,6 @@ Implement `app/routers/comments.py` + `app/models/assertion_comment.py`,
 `audit_events` rows for every mutation across B1/B2/B4). Depends on F1.
 RED tests: `tests/integration/test_comments_audit.py` (10).
 
-### B4 — Review workflow + permissions
-Fill `app/services/permissions.py::has_permission` body; implement
-`app/routers/review.py` (accept/reject/dispute/request-revision/supersede)
-+ `app/models/matter_role.py`, `app/models/user.py`. Depends on F1. RED
-tests: `tests/integration/test_review_workflow.py` (11),
-`tests/unit/test_permissions_matrix.py` (19).
-
 ### B5 — Validation + duplicate detection + search/sort
 Fill `app/services/validation.py` and `app/services/duplicates.py`
 bodies; extend B1's `assertions.py` router with query-param search/sort
@@ -90,15 +76,6 @@ and inline duplicate-check on create (call into `duplicates.py`, do not
 rewrite B1's CRUD handlers). Depends on F1 + B1 (function-call dependency
 only, not a file conflict). RED tests: `tests/integration/test_validation_duplicates_api.py` (8),
 `tests/integration/test_search_sort.py` (8), `tests/unit/test_validation.py` (8).
-
-### B6 — Graph projection + notifications
-Fill `app/graph_projection.py::InMemoryGraphProjection` method bodies;
-fill `app/notifications.py` bodies; implement `app/routers/graph.py`
-(`GET /api/v1/matters/{id}/graph`) and notifications read route (`GET
-/api/v1/notifications`) — see log § API surface assumptions. Depends on
-F1 + B1 (assertion status) + B4 (accept/reject events). RED tests:
-`tests/integration/test_graph_projection_api.py` (6),
-`tests/integration/test_notifications.py` (4), `tests/unit/test_graph_projection.py` (5).
 
 ### B7 — Cross-cutting: matter isolation & hostile input (test-only, no write-set)
 No new source files — proves G9/G10 against whatever B1 (evidence
@@ -138,6 +115,9 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- B1 — assertion CRUD/evidence/revisions (`app/routers/assertions.py` + include line), dev commit `4ffea3f`, merged `22b1ac8`; manager probe 16/16 in worktree + full 674-line diff read (no test edits, no boundary violations).
+- B4 — review workflow + permissions (`app/routers/review.py`, `app/services/permissions.py`), dev commit `db1a22f`, merged `b05df53`; permissions matrix 19/19; flagged the test-contract bug now confirmed (see log + pending Planner micro-fix).
+- B6 — graph projection + notifications (6 owned files incl. notification middleware), dev commit `b4b72ff`, merged `420a51a`; unit 5/5; combined-suite reconciliation clean (61F/65P, all remaining RED maps to unstarted tracks).
 - F1 — 13 ORM models + constraints (`backend/app/models/**`, one import line in `main.py`), dev commit `251e19d`, merged `68871a3`; manager probe: 126 failed / 0 errors (all no-such-table gone, per-file counts match census), full persistence diff read and approved.
 - UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped green, manager probe confirmed.
 - UI3 — 6 workspace/review/discussion/history components (`frontend/src/components/`), dev commit `5b3aee5`, merged `4c543a3`; 27/27 scoped green, manager full-frontend probe 46/46 across UI1+UI3.
