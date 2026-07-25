@@ -1,0 +1,17 @@
+{
+  "id": "2026-07-25-collaborative-assertions",
+  "status": "planning",
+  "current_role": "planner",
+  "locked_by": "claude-code:planner",
+  "locked_at": "2026-07-25T20:02:25Z",
+  "last_agent": "claude-code:manager",
+  "last_updated": "2026-07-25T20:02:25Z",
+  "contract_path": "docs/sprint/sprints/2026-07-25-collaborative-assertions.md",
+  "repo_profile": "docs/sprint/repo-profile.md",
+  "total_items": 0,
+  "completed_items": 0,
+  "dev_complete_items": 0,
+  "qa_cycles": 0,
+  "previous_sprint": null,
+  "evaluator_command": null
+}
