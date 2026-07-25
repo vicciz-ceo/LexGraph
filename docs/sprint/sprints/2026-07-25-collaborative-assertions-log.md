@@ -115,3 +115,4 @@ component modules genuinely do not exist).
 - 2026-07-25T20:45Z — dev UI2 → a272f4e312246004a (sonnet, medium)
 - 2026-07-25T20:45Z — dev UI3 → a9467396891ea1dea (sonnet, medium)
 - 2026-07-25T21:12Z — Manager: UI1 verified (diff clean, own probe 19/19) + merged @ 4e750e6. Wave-0 stall event: F1/UI2/UI3 agents killed by stream watchdog (600s). Worktree autopsy: dev-f1 clean (no work), dev-ui2 clean, dev-ui3 has all 6 components uncommitted. Recovery: resume UI3 via message; fresh respawns for F1/UI2 reusing existing worktrees.
+- 2026-07-26T00:20Z — UI3 resumed via SendMessage (same agent a9467396891ea1dea); dev F1 respawn → a317ed8fecf2fb649 (sonnet, medium); dev UI2 respawn → aab01d89dbf8800ae (sonnet, medium)
