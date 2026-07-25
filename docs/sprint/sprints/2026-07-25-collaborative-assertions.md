@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 1
+dev_complete_items: 2
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -163,7 +163,8 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped tests green, re-verified by manager probe on merged sprint branch.
+- UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution (`frontend/src/components/`), dev commit `b33715d`, merged `4e750e6`; 19/19 scoped green, manager probe confirmed.
+- UI3 — 6 workspace/review/discussion/history components (`frontend/src/components/`), dev commit `5b3aee5`, merged `4c543a3`; 27/27 scoped green, manager full-frontend probe 46/46 across UI1+UI3.
 
 ## Completed
 
