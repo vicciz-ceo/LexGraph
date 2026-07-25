@@ -56,11 +56,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-### E1 — Thin end-to-end flow (sequential, LAST)
-No new source files. API-driven E2E (Playwright deferred to QA's
-regression pass — decision recorded, not a scope cut) proving the full
-spec §18 10-step flow against the real API. Depends on F1, B1, B2, B4,
-B6 all complete. RED test: `tests/e2e/test_full_flow.py` (1).
+(empty — all 12 items in Dev Complete, awaiting QA)
 
 ## Parallelization plan
 
