@@ -59,6 +59,7 @@ from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
 from app.services.permissions import has_permission
 from app.services.ratings import compute_rating_summary
+from app.services.validation import sanitize_for_storage
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["ratings"])
 
@@ -179,10 +180,13 @@ def put_rating(
 
     existing = _get_own_rating(session, revision.id, user_id)
     now = _now()
+    # B7: rationale is user-submitted free text (spec §7/G10) -- neutralize
+    # active markup before storage, same as B5's proposition handling.
+    rationale = sanitize_for_storage(body.rationale)
 
     if existing is not None:
         existing.strength = body.strength
-        existing.rationale = body.rationale
+        existing.rationale = rationale
         existing.updated_at = now
         session.commit()
         session.refresh(existing)
@@ -198,7 +202,7 @@ def put_rating(
         assertion_revision_id=revision.id,
         user_id=user_id,
         strength=body.strength,
-        rationale=body.rationale,
+        rationale=rationale,
         created_at=now,
         updated_at=now,
     )

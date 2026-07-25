@@ -37,6 +37,7 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
+from app.services.validation import sanitize_for_storage
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["comments"])
 
@@ -141,7 +142,7 @@ def create_comment(
         assertion_id=assertion_id,
         user_id=user_id,
         parent_comment_id=body.parent_comment_id,
-        comment_text=body.comment_text,
+        comment_text=sanitize_for_storage(body.comment_text),
         created_at=now,
         updated_at=now,
     )
@@ -201,7 +202,7 @@ def update_comment(
             status_code=status.HTTP_403_FORBIDDEN, detail="can only edit your own comment"
         )
 
-    comment.comment_text = body.comment_text
+    comment.comment_text = sanitize_for_storage(body.comment_text)
     comment.updated_at = _now()
 
     record_audit_event(
