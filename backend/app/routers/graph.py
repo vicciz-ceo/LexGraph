@@ -18,12 +18,18 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.graph_projection import InMemoryGraphProjection
-from app.models import Assertion, AssertionRating, AssertionRevision, MatterRole
+from app.models import (
+    Assertion,
+    AssertionEvidence,
+    AssertionRating,
+    AssertionRevision,
+    MatterRole,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["graph"])
 
@@ -106,6 +112,18 @@ def _rating_aggregate(session: Session, assertion_id: str, revision_number: int 
     return {"count": count, "mean": mean, "median": median, "distribution": distribution}
 
 
+def _evidence_count(session: Session, assertion_id: str) -> int:
+    """Count of `assertion_evidence` rows attached to this assertion (spec
+    §11: the graph may surface an evidence count, kept as its own field --
+    never merged into the rating aggregate or review-state fields above).
+    """
+    return session.execute(
+        select(func.count()).select_from(AssertionEvidence).where(
+            AssertionEvidence.assertion_id == assertion_id
+        )
+    ).scalar_one()
+
+
 def _edge(session: Session, projected: dict[str, Any]) -> dict[str, Any]:
     return {
         "assertion_id": projected["id"],
@@ -117,6 +135,7 @@ def _edge(session: Session, projected: dict[str, Any]) -> dict[str, Any]:
         "rating_aggregate": _rating_aggregate(
             session, projected["id"], projected.get("current_revision_number")
         ),
+        "evidence_count": _evidence_count(session, projected["id"]),
     }
 
 
