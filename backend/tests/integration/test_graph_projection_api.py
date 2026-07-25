@@ -39,7 +39,7 @@ def test_default_graph_view_excludes_proposed_assertions(client, matter_with_use
 def test_default_graph_view_includes_accepted_assertions(client, matter_with_users):
     m = matter_with_users
     assertion_id = _create_and_submit(client, m)
-    client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    client.post(f"/api/v1/assertions/{assertion_id}/accept", json={"acceptance_justification": "Accepted for test setup."}, headers=m["reviewer_headers"])
     r = client.get(f"/api/v1/matters/{m['matter_id']}/graph", headers=m["contributor_headers"])
     assert r.status_code == 200
     edge_ids = [e["assertion_id"] for e in r.json()["edges"]]
@@ -71,7 +71,7 @@ def test_graph_rejected_assertion_hidden_by_default(client, matter_with_users):
 def test_graph_edge_exposes_rating_aggregate_as_distinct_field(client, matter_with_users):
     m = matter_with_users
     assertion_id = _create_and_submit(client, m)
-    client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    client.post(f"/api/v1/assertions/{assertion_id}/accept", json={"acceptance_justification": "Accepted for test setup."}, headers=m["reviewer_headers"])
     client.put(
         f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
         json={"strength": 5, "rationale": None},

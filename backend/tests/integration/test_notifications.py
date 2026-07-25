@@ -36,7 +36,7 @@ def test_acceptance_notifies_author(client, matter_with_users):
     )
     assertion_id = create.json()["id"]
     client.post(f"/api/v1/assertions/{assertion_id}/submit", headers=m["contributor_headers"])
-    client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    client.post(f"/api/v1/assertions/{assertion_id}/accept", json={"acceptance_justification": "Accepted for test setup."}, headers=m["reviewer_headers"])
 
     r = client.get("/api/v1/notifications", headers=m["contributor_headers"])
     assert r.status_code == 200
