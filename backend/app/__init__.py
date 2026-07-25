@@ -1,0 +1,1 @@
+"""LexGraph backend application package."""
