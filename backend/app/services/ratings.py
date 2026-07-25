@@ -20,5 +20,32 @@ class RatingSummary(TypedDict):
 
 
 def compute_rating_summary(strengths: list[int]) -> RatingSummary | None:
-    """Return a RatingSummary for `strengths`, or None if `strengths` is empty."""
-    raise NotImplementedError("developer: implement rating aggregate computation (B2)")
+    """Return a RatingSummary for `strengths`, or None if `strengths` is empty.
+
+    Per spec §4: count, unrounded arithmetic mean, median (midpoint average
+    for even counts), and a 1-5 distribution. Callers (the ratings router)
+    are responsible for enriching this pure aggregate with per-request
+    context such as the current user's own rating or the rationale count
+    -- this function only ever sees the list of current strengths.
+    """
+    if not strengths:
+        return None
+
+    count = len(strengths)
+    average = sum(strengths) / count
+
+    sorted_strengths = sorted(strengths)
+    mid = count // 2
+    if count % 2:
+        median: float = sorted_strengths[mid]
+    else:
+        median = (sorted_strengths[mid - 1] + sorted_strengths[mid]) / 2
+
+    distribution = {str(value): strengths.count(value) for value in range(1, 6)}
+
+    return {
+        "count": count,
+        "average": average,
+        "median": median,
+        "distribution": distribution,
+    }
