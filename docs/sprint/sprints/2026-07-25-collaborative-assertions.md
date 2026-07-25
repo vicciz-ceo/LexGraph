@@ -57,7 +57,6 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-FAIL: B5] `app.services.validation.sanitize_for_storage` fails to neutralize an **unclosed** HTML tag carrying an event-handler attribute (e.g. `<img src=x onerror=alert(1)` with no trailing `>`) — the regex tag-stripper `<[^>]+>` requires a closing `>` in the same string, so the payload survives byte-for-byte in stored propositions, comments, and rating rationales. Confirmed live via the real API (POST /assertions, POST .../comments). Expected: gate G10 — hostile input stored/rendered as inert data regardless of whether the tag is closed. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_neutralizes_unclosed_tag_with_event_handler` (+ `..._even_when_followed_by_more_markup`), `backend/tests/integration/test_hostile_input.py::test_proposition_unclosed_tag_with_event_handler_is_neutralized` (+ `test_comment_unclosed_tag_with_event_handler_is_neutralized`).
 (empty — qa-fail items fixed, back in Dev Complete for QA cycle 2)
 
 ## Parallelization plan
