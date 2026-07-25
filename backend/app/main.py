@@ -32,11 +32,12 @@ def create_app() -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
 
-    # No routers included yet — this is intentional scaffolding (R2).
-    # Base.metadata currently has zero registered tables; Developer tracks
-    # register ORM models against `Base` and are responsible for their own
-    # `Base.metadata.create_all(engine)` call site (tests/conftest.py already
-    # does this for the test engine on every test run).
+    # Per-track include_router calls go here (R6 append-only zone — each
+    # track appends only its own line(s); merge conflicts are resolved by
+    # concatenating both sides, then a full evaluator run).
+    from app.routers import review as review_router
+
+    app.include_router(review_router.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
