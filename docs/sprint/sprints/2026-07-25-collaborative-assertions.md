@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 0
-dev_complete_items: 9
+dev_complete_items: 10
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -56,14 +56,6 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-### B5 — Validation + duplicate detection + search/sort
-Fill `app/services/validation.py` and `app/services/duplicates.py`
-bodies; extend B1's `assertions.py` router with query-param search/sort
-and inline duplicate-check on create (call into `duplicates.py`, do not
-rewrite B1's CRUD handlers). Depends on F1 + B1 (function-call dependency
-only, not a file conflict). RED tests: `tests/integration/test_validation_duplicates_api.py` (8),
-`tests/integration/test_search_sort.py` (8), `tests/unit/test_validation.py` (8).
-
 ### B7 — Cross-cutting: matter isolation & hostile input (test-only, no write-set)
 No new source files — proves G9/G10 against whatever B1 (evidence
 matter-check), B4 (permission checks), and B5 (sanitization) ship.
@@ -102,6 +94,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+- B5 — validation/sanitization + duplicates + search/sort + /related + G5 detail enrichment (3 files), dev commit `a65dcd7`, merged `76ecf3b`; 24/24 scoped green; security hunks fully read (sanitizer, matter-scope checks). Suite 3F/123P.
 - B2 — ratings + aggregates (`app/routers/ratings.py`, `app/services/ratings.py`), dev commit `414c1ac`, merged; 18/18 scoped green, full diff read (upsert, permission-gated rationales, DELETE audit call-site). Suite now 31F/95P.
 - TESTFIX — planner-role micro-fix `8c451ad` (acceptance justification), anti-gaming diff check passed, manager-verified 1 passed, merged.
 - B3 — comments + audit service/middleware + /history (R10) (6 files), dev commit `132ea2c`, merged `cb561d5`; 9/10 scoped green (1 expected-RED pending B2); suite 52F/74P, fully reconciled. Note for B7: comment sanitization wiring pending B5's sanitize_for_storage.
