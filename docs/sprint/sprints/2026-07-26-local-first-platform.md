@@ -3,7 +3,7 @@ id: "2026-07-26-local-first-platform"
 status: qa-fail
 current_role: developer
 branch: sprint/2026-07-26-local-first-platform
-locked_by: "claude-code:developer"
+locked_by: "claude-code:qa"
 locked_at: "2026-07-26T11:20:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T13:35:00Z"
