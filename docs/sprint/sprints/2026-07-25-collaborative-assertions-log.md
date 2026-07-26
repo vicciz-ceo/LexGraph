@@ -143,3 +143,4 @@ component modules genuinely do not exist).
 - 2026-07-26T07:55Z — Manager: QA cycle 2 accepted (commit clean: tests+contract only; RED provenance 7F/140P verified). 11/12 items Completed. Ruling R12: replace regex sanitizer with html.parser-based tokenizer — two regex rounds + a prose-corruption bug prove the approach is structurally wrong, not just under-patched. Lock → developer; spawning fix2.
 - 2026-07-26T08:00Z — sanitizer rewrite dev (R12) → a6d1a1dd5b06fbdcd (sonnet, medium)
 - 2026-07-26T08:20Z — Manager: fix2 verified (full impl read + own 14-case probe: 9 attacks neutralized, 5 prose byte-exact) + merged @ abc5806; 147/147. Valid-tag-shaped-prose limitation logged for QA cycle 3. Lock → qa.
+- 2026-07-26T08:25Z — QA cycle 3 → a5ef14b43ef2df3d0 (sonnet, high)
