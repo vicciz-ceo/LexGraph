@@ -250,14 +250,37 @@ def _sanitize_once(raw_text: str) -> str:
     bytes are stripped first so the sentinel is guaranteed unique) and
     restored in the collected text afterward, so the parser can never
     invoke an entity/charref callback and nothing is ever reconstructed.
+
+    Ruling R17 (2026-07-25): `leftover = parser.rawdata` is a snapshot
+    taken BEFORE `parser.close()` -- but `close()` itself is not a no-op
+    for every shape of leftover. For a genuinely never-closed start tag
+    (no raw-text/RCDATA wrapper involved), `close()` silently discards the
+    dangling fragment with no `handle_data` call at all, which is exactly
+    the gap `_salvage_trailing_prose` exists to patch. But when the
+    leftover is actually the unflushed content of an unclosed raw-text/
+    RCDATA wrapper (`<iframe>`, `<title>`, ...), `close()` DOES resolve
+    it -- it flushes that same pending text through `handle_data` itself,
+    so `parser.get_text()` already contains it. Running
+    `_salvage_trailing_prose` over the pre-close snapshot in that case
+    processes the same tail a second time: once via `close()`'s own flush,
+    once via the salvage fallback -- duplicating authored trailing prose
+    on each fixpoint pass, and compounding into exponential blowup or
+    fail-closed document destruction when more than one such wrapper
+    chains in one input. `close_emitted` distinguishes the two cases by
+    comparing the collected text's length immediately before and after
+    `close()`: only append the salvage fallback when `close()` itself
+    emitted nothing (the genuine never-closed-tag case), never when it
+    already flushed the tail on its own.
     """
     shielded = raw_text.replace("\x00", "").replace("&", _AMPERSAND_SENTINEL)
     parser = _SanitizingParser()
     parser.feed(shielded)
     leftover = parser.rawdata  # unresolved tail, if input ended mid-tag
+    before = len(parser.get_text())
     parser.close()
     text = parser.get_text()
-    if _ABANDONED_TAG_OPEN_RE.match(leftover):
+    close_emitted = len(text) > before
+    if not close_emitted and _ABANDONED_TAG_OPEN_RE.match(leftover):
         text += _salvage_trailing_prose(leftover)
     return text.replace(_AMPERSAND_SENTINEL, "&")
 
