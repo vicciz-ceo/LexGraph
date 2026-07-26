@@ -89,13 +89,38 @@ class ValidationError(ValueError):
 #   this converges and can only make the result MORE sanitized, never
 #   less). `sanitize_for_storage` is now that fixpoint driver; the single
 #   pass itself lives in `_sanitize_once`.
-_CDATA_CONTENT_TAGS = frozenset(
-    tag.lower()
-    for tag in (
-        *getattr(HTMLParser, "CDATA_CONTENT_ELEMENTS", ("script", "style")),
-        *getattr(HTMLParser, "RCDATA_CONTENT_ELEMENTS", ()),
-    )
-)
+#
+# Ruling R16 (2026-07-26): a post-launch audit found two further defects,
+# both fixed here:
+#   (a) `handle_entityref`/`handle_charref` used to re-emit `f"&{name};"`/
+#       `f"&#{name};"` -- appending a `;` the author never typed (`R&D` ->
+#       `R&D;`), and for a malformed numeric charref (`&#160a`, `&#5b`) the
+#       stdlib hands back a `name` that carries the trailing text, so each
+#       fixpoint pass made the string LONGER instead of shorter. That
+#       breaks the very premise the old R14 paragraph relied on ("every
+#       changing pass strictly shortens"), so the loop never converges,
+#       burns O(n^2) CPU, hits the `len(raw_text) + 2` bound, and fails
+#       closed -- silently destroying the entire document. The fix is to
+#       never let the parser see an `&` at all: `_sanitize_once` shields
+#       every `&` behind a private sentinel before `feed()` and restores
+#       it in the collected text afterward. With no `&` visible,
+#       `HTMLParser` can never produce an entity/charref callback, so
+#       nothing is reconstructed and no `;` is ever inserted -- the growth
+#       path is removed at the source rather than patched after the fact.
+#   (b) Suppressing element CONTENT for every raw-text/RCDATA wrapper
+#       (`title`/`textarea`/`xmp`/`iframe`/`noembed`/`noframes`) meant an
+#       attacker's unclosed wrapper tag swallowed all authored prose that
+#       followed it for the rest of the document. Content suppression now
+#       applies only to `script`/`style` -- their payload is code, never
+#       proposition text, so dropping it is correct. The other wrapper
+#       tags are still stripped as tags, and the stdlib tokenizer still
+#       hands back their contents as one literal (un-tokenized) data
+#       chunk; any markup nested inside that chunk (e.g. `<title><img
+#       onerror=...>`) is preserved as plain text on this pass, then
+#       recognized and stripped as real markup by the existing FIXPOINT
+#       driver (R13/R14) on the very next pass -- so nested payloads stay
+#       fully neutralized without suppressing legitimate prose.
+_CDATA_CONTENT_TAGS = frozenset({"script", "style"})
 
 # No `\A` anchor: `re.Pattern.match(string, pos)` already only ever tries to
 # match starting exactly at `pos` (it does not search forward), so `\A`
@@ -171,9 +196,13 @@ class _SanitizingParser(HTMLParser):
     """Collects only character data, dropping every tag it recognizes.
 
     `<script>`/`<style>` element content is suppressed along with their
-    tags; every other tag's surrounding text is preserved. Character/
-    entity references are reconstructed verbatim (never decoded) so
-    output is never re-escaped or rewritten -- only markup is removed.
+    tags; every other tag's surrounding text is preserved. The caller
+    (`_sanitize_once`) shields every `&` from the input before `feed()`,
+    so this parser is never fed a real entity/character reference and
+    `handle_entityref`/`handle_charref` are never invoked -- nothing is
+    reconstructed, so output is never re-escaped or rewritten, only
+    markup is removed. `convert_charrefs=False` is kept regardless so
+    `handle_data` always receives raw text unmodified.
     """
 
     def __init__(self) -> None:
@@ -193,37 +222,44 @@ class _SanitizingParser(HTMLParser):
         if not self._cdata_skip_depth:
             self._chunks.append(data)
 
-    def handle_entityref(self, name: str) -> None:
-        if not self._cdata_skip_depth:
-            self._chunks.append(f"&{name};")
-
-    def handle_charref(self, name: str) -> None:
-        if not self._cdata_skip_depth:
-            self._chunks.append(f"&#{name};")
-
     def get_text(self) -> str:
         return "".join(self._chunks)
+
+
+# Sentinel used to shield `&` from the parser entirely (Ruling R16(a)): a
+# NUL-bracketed marker that cannot collide with authored text because NUL
+# bytes are stripped from the input first, immediately below. Any `&` is
+# swapped for this sentinel before `feed()` and swapped back after the
+# text is collected, so `HTMLParser` never sees an entity/character
+# reference to reconstruct -- see `_sanitize_once`.
+_AMPERSAND_SENTINEL = "\x00A\x00"
 
 
 def _sanitize_once(raw_text: str) -> str:
     """Run one pass of the parser-based tag/raw-text-element stripper.
 
     A single pass removes every tag `HTMLParser` recognizes as such, drops
-    the contents of raw-text/RCDATA wrapper elements entirely, and salvages
-    the prose tail past the trailing run of chained abandoned (never-
-    closed) tags. It does NOT guarantee the output contains no more
-    removable markup -- see `sanitize_for_storage`, which drives this to a
-    fixpoint (e.g. for raw-text/RCDATA wrapper content revealed only after
-    another pass).
+    the contents of `script`/`style` elements entirely, and salvages the
+    prose tail past the trailing run of chained abandoned (never-closed)
+    tags. It does NOT guarantee the output contains no more removable
+    markup -- see `sanitize_for_storage`, which drives this to a fixpoint
+    (e.g. for raw-text/RCDATA wrapper content revealed only after another
+    pass, per Ruling R16(b)).
+
+    Ruling R16(a): `&` is shielded from the parser before `feed()` (NUL
+    bytes are stripped first so the sentinel is guaranteed unique) and
+    restored in the collected text afterward, so the parser can never
+    invoke an entity/charref callback and nothing is ever reconstructed.
     """
+    shielded = raw_text.replace("\x00", "").replace("&", _AMPERSAND_SENTINEL)
     parser = _SanitizingParser()
-    parser.feed(raw_text)
+    parser.feed(shielded)
     leftover = parser.rawdata  # unresolved tail, if input ended mid-tag
     parser.close()
     text = parser.get_text()
     if _ABANDONED_TAG_OPEN_RE.match(leftover):
         text += _salvage_trailing_prose(leftover)
-    return text
+    return text.replace(_AMPERSAND_SENTINEL, "&")
 
 
 def sanitize_for_storage(raw_text: str) -> str:
@@ -242,13 +278,19 @@ def sanitize_for_storage(raw_text: str) -> str:
     fixpoint that can only be more sanitized than any single pass, never
     less.
 
-    Ruling R14: every pass that changes the text strictly shortens it (a
-    pass that left the length unchanged would have to be a no-op, which is
-    the convergence condition above), so convergence is guaranteed within
-    `len(raw_text)` passes. The loop is bounded at `len(raw_text) + 2`
-    iterations -- a termination guard derived from the input, not a
-    security parameter. If the bound is ever hit without converging, that
-    is a sign the fixpoint assumption itself has been violated, so this
+    Ruling R14 (as corrected by R16(a)): R14 originally claimed every pass
+    that changes the text strictly shortens it, guaranteeing convergence
+    within `len(raw_text)` passes. That claim was FALSE for malformed
+    numeric character references (e.g. `&#160a`): the old entity/charref
+    reconstruction could hand back a string LONGER than its input, so a
+    pass could change the text without shortening it, and the fixpoint
+    would never converge. R16(a) removes that growth path at the source
+    by shielding `&` from the parser entirely (see `_sanitize_once`), so
+    every changing pass now only ever removes characters. The loop is
+    still bounded at `len(raw_text) + 2` iterations -- not because a
+    strict-shortening proof is assumed, but as a termination guard
+    derived from the input: if the bound is ever hit without converging,
+    that is a sign some fixpoint assumption has been violated, so this
     fails closed and returns "" rather than the last (possibly
     still-markup) output, the raw input, or raising.
     """
