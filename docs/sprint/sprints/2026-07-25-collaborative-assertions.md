@@ -1,18 +1,18 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T01:39:56Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T01:46:10Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T01:39:56Z"
+last_updated: "2026-07-26T01:46:10Z"
 lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 5
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -62,8 +62,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [AUDIT-FAIL: B5] Entity/charref reconstruction appends `;` never authored — corrupts ordinary legal text (`R&D spend` -> `R&D; spend`, `AT&T` -> `AT&T;`) and, for `&#<digits><hex-letter>`, prevents fixpoint convergence so the ENTIRE input is destroyed (returns `""`) after O(n^2) CPU. Manager-reproduced. Required: authored text byte-exact; no `;` insertion; convergence restored. See ruling R16(a).
-- [AUDIT-FAIL: B5] RCDATA content suppression swallows authored prose after an unclosed wrapper tag — `'Signatory: <Title> of the Company. …$1,000,000…'` -> `'Signatory: '`. Manager-reproduced. Required: only the tag itself is dropped; following prose survives; nested payloads still neutralized (via the fixpoint). See ruling R16(b).
+(empty — both audit findings fixed; in Dev Complete for final QA verification)
 
 ## Parallelization plan
 
@@ -88,6 +87,8 @@ exception; 185 total). Verified by direct run, not inferred.
 none — greenfield, no renames.
 
 ## Dev Complete
+
+- B5-fix6 (R16) — entities shielded from the parser (sentinel substitution, NULs stripped); CDATA content-suppression narrowed to script/style, wrappers handled by the fixpoint (`validation.py` only), fix commit `7de1403`, merged `9d14b52`; 216/216 backend + 60/60 frontend. Manager probe: 11 entity/charref prose cases byte-exact (incl. `R&D`, `AT&T`, `&#160a`, `&pound;500 &amp;`), no destruction, `<Title>`/`<textarea>` keep following prose, 0 leaks across 14 attack shapes, charref 0.0001s, 3000-chain 0.0043s, idempotent.
 
 ## Completed
 
