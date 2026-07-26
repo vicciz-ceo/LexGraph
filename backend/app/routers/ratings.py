@@ -59,7 +59,7 @@ from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
 from app.services.permissions import has_permission
 from app.services.ratings import compute_rating_summary
-from app.services.validation import sanitize_for_storage
+from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["ratings"])
 
@@ -182,6 +182,15 @@ def put_rating(
     assertion = _get_assertion_or_404(session, assertion_id)
     revision = _get_revision_or_404(session, assertion_id, revision_number)
     _require_permission(session, user_id, assertion.matter_id, "assertion:rate")
+
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    try:
+        validate_text_length(body.rationale, label="rationale")
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     existing = _get_own_rating(session, revision.id, user_id)
     now = _now()

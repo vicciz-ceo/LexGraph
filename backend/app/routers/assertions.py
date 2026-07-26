@@ -68,6 +68,7 @@ from app.services.validation import (
     validate_evidence_matter_scope,
     validate_matter_scoped_entity_id,
     validate_proposition_not_empty,
+    validate_text_length,
 )
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
@@ -443,6 +444,9 @@ def create_assertion(
     # surfaced as 422s, never silently corrected.
     proposition = sanitize_for_storage(body.proposition)
     try:
+        # Track A, item A8 (issue #2 sub-item, gate G4): length cap is
+        # checked against the raw submitted text, before sanitization.
+        validate_text_length(body.proposition, label="proposition")
         validate_proposition_not_empty(proposition)
         validate_effective_dates(body.effective_from, body.effective_to)
         validate_assertion_type(
@@ -759,6 +763,16 @@ def patch_assertion(
     if not updates:
         return _serialize_assertion(session, assertion)
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    if "proposition" in updates and body.proposition is not None:
+        try:
+            validate_text_length(body.proposition, label="proposition")
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this PATCH doesn't touch proposition, so a new
     # revision's raw column is never silently blanked out.
@@ -899,6 +913,16 @@ def create_revision(
             status_code=status.HTTP_409_CONFLICT,
             detail="assertion has been modified since expected_revision_number",
         )
+
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    if body.proposition is not None:
+        try:
+            validate_text_length(body.proposition, label="proposition")
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
 
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this call doesn't touch proposition.
