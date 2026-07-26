@@ -1,12 +1,12 @@
 ---
 id: "2026-07-26-local-first-platform"
-status: planned
+status: in-progress
 current_role: developer
 branch: sprint/2026-07-26-local-first-platform
-locked_by: "claude-code:planner"
-locked_at: "2026-07-26T08:51:30Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-07-26T08:51:30Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-26T09:35:00Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-07-26T09:35:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
@@ -269,21 +269,27 @@ Test: `backend/tests/unit/test_no_network_dependencies.py`.
 | `integration/test_comment_raw_text_fidelity.py` | 2 | KeyError/AssertionError |
 | `integration/test_rating_raw_text_fidelity.py` | 2 | KeyError/AssertionError |
 | `integration/test_g1_fidelity_round_trip.py` | 3 | KeyError/AssertionError |
-| `integration/test_search_raw_text_classification.py` | 2 | AssertionError (search misses raw-only match) |
+| `integration/test_search_raw_text_classification.py` | 1 | AssertionError (search misses raw-only match) |
 | `AssertionRevisionHistory.test.tsx` (new cases) | 1 | AssertionError (raw text not in DOM) |
 | `AssertionComparisonView.test.tsx` (new cases) | 1 | AssertionError |
 | `unit/test_validation_length_cap.py` | 4 | ImportError (`validate_text_length`) |
-| `integration/test_length_cap_api.py` | 7 | AssertionError (no 422 / no cap) |
+| `integration/test_length_cap_api.py` | 6 | AssertionError (no 422 / no cap); +1 GREEN companion (at-cap accepted) stays green |
 | `integration/test_hostile_input.py` (edited) | 1 | KeyError/AssertionError (`proposition_raw` missing) |
 | `integration/test_enrich_cli.py` | 3 | ModuleNotFoundError (`app.enrich`) |
 | `unit/test_enrichment_suggester.py` | 3 | ModuleNotFoundError |
 | `integration/test_enrichment_pipeline_live.py` | 2 | ModuleNotFoundError |
 | `unit/test_enricher_interface.py` | 3 | ModuleNotFoundError |
-| `integration/test_mcp_tools_live.py` | 3 | ModuleNotFoundError (`app.mcp`) |
+| `integration/test_mcp_tools_live.py` | 2 | ModuleNotFoundError (`app.mcp`) |
+| `integration/test_mcp_search_fetch_tools.py` | 2 | ModuleNotFoundError (`app.mcp`) |
 | `unit/test_mcp_registration_docs.py` | 1 | FileNotFoundError/AssertionError |
 | `unit/test_local_first_runbook_docs.py` | 1 | FileNotFoundError/AssertionError |
 | `e2e/test_local_first_platform_flow.py` | 1 | ModuleNotFoundError (`app.enrich`) |
 | `unit/test_no_network_dependencies.py` | 2 | ModuleNotFoundError |
+
+Census corrected by the manager 2026-07-26 from a measured full run
+(`41 failed, 238 passed, 1 collection error` — reconciles exactly with the
+table above; the length-cap unit file's 4 tests surface as 1 collection
+ERROR until `validate_text_length` exists).
 
 ## Stale-pin sweep
 

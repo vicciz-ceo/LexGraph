@@ -79,3 +79,10 @@ and the agent roster live here.
   assertions the new `_raw` response keys could break — only hit is an
   unrelated empty-list assertion in test_notifications.py.
 - 2026-07-26T08:55Z planner: agentId a88133499a5ca2e77 (Sonnet, high) — spawned on a96a659.
+- 2026-07-26T09:35Z manager: planner handoff verified (diff containment PASS,
+  risk-grep clean, wiring-test gate PASS, stale-pin sweep PASS). Census
+  corrected from measured run: search_raw 2→1, length_cap_api 7→6 (+1 green
+  companion), mcp_tools_live 3→2, added missing mcp_search_fetch_tools row
+  (2). Measured: backend 41 failed / 238 passed / 1 collection error;
+  frontend 60 passed + 2 new RED. Lock → claude-code:developer; Dev-A
+  (Track A bundle, Sonnet medium, solo mode) next.
