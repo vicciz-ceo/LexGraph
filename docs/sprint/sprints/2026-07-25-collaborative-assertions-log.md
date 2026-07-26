@@ -153,3 +153,4 @@ component modules genuinely do not exist).
 - 2026-07-26T09:50Z — Manager: QA cycle 4 accepted (commit clean; 3 RED verified live). Defect traced to MANAGER-chosen constant in R13, not developer error. Ruling R14: convergence bound = len(raw)+2, fail-closed to empty; manager-probed at n=9/20/60/400 (0 leaks, prose byte-exact, 0.05s). Lock → developer; spawning fix4. Valve note: qa_cycles will be 5 next — a cycle-5 PASS closes to review normally; a cycle-5 FAIL sets blocked and goes to the director.
 - 2026-07-26T09:55Z — convergence-bound dev (R14) → abfa1846d41db91b4 (sonnet, medium)
 - 2026-07-26T10:15Z — Manager: fix4 verified (diff read + own probe: chains 5-400 → 0 leaks, wrappers/evasions → 0 leaks, prose byte-exact) + merged @ 21de194; 189/189 + 60/60. Lock → qa; spawning QA cycle 5 (valve cycle).
+- 2026-07-26T10:20Z — QA cycle 5 (closing/valve) → afb2938fd3be41368 (sonnet, high)
