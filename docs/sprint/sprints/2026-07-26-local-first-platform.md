@@ -1,7 +1,7 @@
 ---
 id: "2026-07-26-local-first-platform"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: sprint/2026-07-26-local-first-platform
 locked_by: "claude-code:planner"
 locked_at: "2026-07-26T08:51:30Z"
@@ -10,7 +10,7 @@ last_updated: "2026-07-26T08:51:30Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
-total_items: 0
+total_items: 17
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -23,13 +23,22 @@ previous_sprint: "2026-07-25-collaborative-assertions"
 # Sprint: Local-first platform — authored-text fidelity, ingest pipeline, LexGraph MCP, packaging
 
 Director mandate (2026-07-26): LexGraph is a three-part local-first open-source
-system usable from Claude Code, Codex, Cursor, or Antigravity: (1) a
-scraping/enrichment stage that suggests assertions; (2) the grading app
-(exists) that edits the database; (3) a LexGraph MCP server that maps the
-database for agent sessions (CodeGraph-style: fewer tokens, less time, better
-output). Everything local — no cloud deploy; installable from a terminal.
-Also resolve GitHub issue #2 (store raw + sanitized text separately),
-including its length-cap sub-item.
+system usable from Claude Code, Codex, Cursor, or Antigravity: (1) an
+enrichment stage that suggests assertions from documents already stored in
+the database (document acquisition/scraping is explicitly out of scope);
+(2) the grading app (exists) that edits the database; (3) a LexGraph MCP
+server that maps the database for agent sessions (CodeGraph-style: fewer
+tokens, less time, better output). Everything local — no cloud deploy;
+installable from a terminal. Also resolve GitHub issue #2 (store raw +
+sanitized text separately), including its length-cap sub-item.
+
+Director scope amendment (2026-07-26, mid-planning): scraping/document
+acquisition is OUT of scope this sprint — no file-ingest CLI, no txt/md/html
+parsing pipeline, no document-loader modules. Documents arrive in the
+database by the existing means only (the current API/fixtures). Enrichment
+is the only pipeline surface this sprint: it runs over documents already
+stored in the local DB and suggests assertions as proposal drafts. See
+ruling R7.
 
 ## Acceptance gates (manager-defined)
 
@@ -44,13 +53,16 @@ including its length-cap sub-item.
   historical rows) documented in a runbook entry.
 - G4 Length cap: proposition / comment_text / rationale capped at 100,000
   chars (director may override), enforced at the API with a clear error.
-- G5 Ingest: a local CLI ingests a document file (txt/md/html at minimum)
-  into documents + provision spans; re-ingesting the same file does not
-  duplicate; failures reported clearly.
+- G5 Enrich command: a local CLI command runs the enrichment pass over
+  documents already stored in the local DB; re-running it is idempotent (no
+  duplicate suggestions); failures are reported clearly. Document
+  acquisition/scraping is out of scope — documents enter the DB via
+  existing APIs/fixtures only.
 - G6 Suggest: an enrichment pass produces suggested assertions as proposal
-  drafts with evidence linked to real ingested spans; never auto-accepted;
-  they enter the existing review workflow; authored text preserved
-  byte-exact. Enricher pluggable; built-in enricher fully offline.
+  drafts with evidence linked to real document spans already stored in the
+  DB; never auto-accepted; they enter the existing review workflow;
+  authored text preserved byte-exact. Enricher pluggable; built-in enricher
+  fully offline.
 - G7 MCP: a local stdio MCP server exposes the graph against the local DB
   with no network: an explore-style tool returns assertions + evidence +
   relationships for a query in one bounded call, plus search/fetch tools.
@@ -59,7 +71,7 @@ including its length-cap sub-item.
 - G8 Local-first install: a documented terminal sequence takes a fresh clone
   to a working system (DB init, backend, grading app, MCP) with zero cloud
   dependencies; the grading app edits the DB end-to-end locally (E2E proves
-  ingest → suggest → review → grade).
+  seed a document via the existing API → enrich/suggest → review → grade).
 
 ## Manager rulings
 
@@ -78,10 +90,225 @@ including its length-cap sub-item.
 - R6 MCP implemented in Python with the official `mcp` SDK (stdio
   transport), living in the backend package so it reuses the SQLAlchemy
   models directly.
+- R7 Director correction (2026-07-26): scraping/document acquisition
+  removed from scope; enrichment operates only on documents already present
+  in the DB. Any ingest-CLI work is out of scope.
 
 ## Next Steps
 
-(Planner fills.)
+Planner pass complete 2026-07-26. 17 items across 4 tracks. Track A is
+sequential and lands first (schema + fidelity); Tracks B/C/D are
+parallel-eligible once Track A's schema item (A1) is dev-complete, since B2
+writes propositions through the same revision-creation path A1/A2 touch.
+
+### Track A — text fidelity, sanitizer pins, length cap (G1–G4) — sequential, FIRST
+
+**A1. Raw-text columns + reversible migration + backfill**
+Add `proposition_raw` (assertion_revisions), `comment_text_raw`
+(assertion_comments), `rationale_raw` (assertion_ratings) columns (ORM +
+a hand-rolled reversible migration module, no Alembic — see Deviations).
+Migration backfills sanitized value into raw for pre-existing rows;
+downgrade drops the columns. Document the backfill in `docs/RUNBOOK.md`
+(D1). Files: `backend/app/models/assertion_revision.py`,
+`assertion_comment.py`, `assertion_rating.py`, new
+`backend/app/migrations/add_raw_text_columns.py`.
+Test: `backend/tests/integration/test_migration_raw_text_columns.py`.
+
+**A2. Write paths (assertions) store raw + sanitized**
+`POST /assertions`, `PATCH /assertions/{id}`, `POST
+/assertions/{id}/revisions` store `body.proposition` verbatim into the new
+revision's `proposition_raw`, sanitized value unchanged in `proposition`.
+`GET /assertions/{id}` exposes the current revision's raw text as
+`proposition_raw`. Files: `backend/app/routers/assertions.py`.
+Test: `backend/tests/integration/test_assertion_raw_text_fidelity.py`.
+
+**A3. Write paths (comments) store raw + sanitized**
+Comment create/update store `comment_text_raw` verbatim; list/get expose
+it. Files: `backend/app/routers/comments.py`.
+Test: `backend/tests/integration/test_comment_raw_text_fidelity.py`.
+
+**A4. Write paths (ratings) store raw + sanitized**
+Rating PUT stores `rationale_raw` verbatim; get/list expose it (same
+rationale-visibility permission gate as today). Files:
+`backend/app/routers/ratings.py`.
+Test: `backend/tests/integration/test_rating_raw_text_fidelity.py`.
+
+**A5. G1 acceptance: named examples round-trip byte-exact**
+The three issue-#2 example strings (`<Title>`, `<appendix A>`, `<img
+plaintail <b>Y</b> Z`) round-trip byte-exact through create → fetch →
+PATCH (new revision) → revision history, via the raw columns from
+A2–A4. Depends on A1+A2. Test:
+`backend/tests/integration/test_g1_fidelity_round_trip.py`.
+
+**A6. Search reads raw, not sanitized (read-path classification)**
+`GET /assertions?q=...` matches against the current revision's raw
+proposition (joined), not the lossy sanitized column — so a search term
+lost by the sanitizer (e.g. "appendix A") still finds the assertion. No
+export/diff endpoint exists in this codebase to classify separately; audit
+already stores only short status strings (spec §16), never proposition
+text. Files: `backend/app/routers/assertions.py`.
+Test: `backend/tests/integration/test_search_raw_text_classification.py`.
+
+**A7. Frontend: revision history + comparison render raw as text nodes**
+`AssertionRevisionHistory` and `AssertionComparisonView` render the raw
+proposition (never `dangerouslySetInnerHTML` — plain JSX text nodes, which
+neither component uses today) so angle-bracket prose is visible
+byte-exact in the diff/compare surfaces. Files:
+`frontend/src/components/AssertionRevisionHistory.tsx`,
+`AssertionComparisonView.tsx`.
+Tests (edited in place, new cases added):
+`frontend/src/components/__tests__/AssertionRevisionHistory.test.tsx`,
+`AssertionComparisonView.test.tsx`.
+
+**A8. Length cap: 100,000 chars enforced at the API (G4)**
+New `validate_text_length(text, *, label, max_length=100_000)` in
+`app/services/validation.py`; called for proposition (create/patch/
+revision-create), comment_text (create/update), rationale (rating put).
+Rejects with a clear 422 detail; boundary (exactly 100,000) is accepted.
+Files: `backend/app/services/validation.py`, `routers/assertions.py`,
+`comments.py`, `ratings.py`. Tests:
+`backend/tests/unit/test_validation_length_cap.py`,
+`backend/tests/integration/test_length_cap_api.py`.
+
+**A9. Stale-pin sweep: supersede the R18 "accepted limitation" framing**
+`sanitize_for_storage` itself is UNCHANGED (still browser-faithful, still
+lossy for tag-attribute-shaped prose) — the sweep does not weaken it. Only
+the one test that treated the sanitized column as the sole fidelity story
+is re-pointed to also assert byte-exact `proposition_raw`; see `## Stale-pin
+sweep` below for the exact hit list.
+
+### Track B — enrichment only (G5, G6) — parallel-eligible after A1
+
+**B1. Enrichment CLI command**
+`python -m app.enrich.cli --matter-id <id>` runs the enrichment pass over
+documents/spans already in the DB (seeded via existing conftest
+fixtures/API — no file parsing). Idempotent re-run (no duplicate draft
+assertions for a span already suggested); clear non-zero-exit failure for
+an unknown matter. Files: `backend/app/enrich/cli.py`.
+Test: `backend/tests/integration/test_enrich_cli.py`.
+
+**B2. Offline heuristic suggester + live pipeline**
+`app/enrich/suggester.py`: pure heuristic function, span text → candidate
+proposal(s) (type, proposition, evidence span). Live pipeline writes real
+`Assertion`/`AssertionRevision`/`AssertionEvidence` rows (origin
+`model_suggested`, status `draft`/`proposed`, never `accepted`) against
+real spans, visible via the existing `GET /assertions` list. Files:
+`backend/app/enrich/suggester.py`, `pipeline.py`. Tests:
+`backend/tests/unit/test_enrichment_suggester.py`,
+`backend/tests/integration/test_enrichment_pipeline_live.py`.
+
+**B3. Pluggable enricher interface (R4 boundary seam)**
+`app/enrich/base.py` defines the `Enricher` protocol; the pipeline accepts
+an injected enricher (declared boundary seam — a fake enricher is allowed
+here only), defaulting to the real built-in `HeuristicEnricher` when none
+is given. Files: `backend/app/enrich/base.py`.
+Test: `backend/tests/unit/test_enricher_interface.py`.
+
+### Track C — LexGraph MCP (G7) — parallel-eligible after A1
+
+**C1. MCP stdio server: explore/search/fetch tools, no network**
+`app/mcp/server.py` (official `mcp` SDK, stdio transport) registers
+`explore` (query → assertions + evidence + relationships in one bounded
+call), `search`, `fetch` tools reading the local SQLAlchemy session
+directly; zero network I/O. Files: `backend/app/mcp/server.py`,
+`backend/pyproject.toml` (add `mcp` dependency).
+Test: `backend/tests/integration/test_mcp_tools_live.py`.
+
+**C2. MCP registration docs**
+`docs/mcp-registration.md`: one command to register with Claude Code;
+config snippets for Codex, Cursor, Antigravity.
+Test: `backend/tests/unit/test_mcp_registration_docs.py`.
+
+### Track D — local-first install + E2E (G8) — parallel-eligible after A1+B1
+
+**D1. Local-first install runbook**
+`docs/RUNBOOK.md`: DB init/migration (incl. A1's backfill note), backend
+serve, grading-app serve, MCP registration (points to C2).
+Test: `backend/tests/unit/test_local_first_runbook_docs.py`.
+
+**D2. G8 E2E: seed → enrich → review → grade, fully local**
+Seed a matter/document/source_span via existing fixtures, run the
+enrichment pipeline (B2), submit for review, reviewer accepts via the
+existing API, assert the accepted assertion appears in
+`GET /matters/{id}/graph` — one process, one local SQLite file, no
+network. Test: `backend/tests/e2e/test_local_first_platform_flow.py`.
+
+**D3. Zero-network guardrail**
+Static test asserting `app.enrich` and `app.mcp` import none of
+`httpx`/`requests`/`urllib.request`/`aiohttp`/`socket`.
+Test: `backend/tests/unit/test_no_network_dependencies.py`.
+
+### Parallelization plan (write-sets, zero overlap)
+
+- **Track A** (sequential, first): `backend/app/models/assertion_revision.py`,
+  `assertion_comment.py`, `assertion_rating.py`; new
+  `backend/app/migrations/`; `backend/app/routers/assertions.py`,
+  `comments.py`, `ratings.py`; `backend/app/services/validation.py`;
+  `frontend/src/components/AssertionRevisionHistory.tsx`,
+  `AssertionComparisonView.tsx`. Owner of `proposition_raw`/
+  `comment_text_raw`/`rationale_raw` persistence (new repository-level
+  columns) and every write call-site listed above.
+- **Track B** (after A1): new `backend/app/enrich/` package only
+  (`cli.py`, `suggester.py`, `pipeline.py`, `base.py`). Owner of the new
+  `run_enrichment(...)` dispatcher call-site and the `Enricher` protocol.
+  Reads `app.routers.assertions`/`app.models` but does not edit them.
+- **Track C** (after A1): new `backend/app/mcp/` package only
+  (`server.py`); `backend/pyproject.toml` (dependency line only, additive).
+  Owner of the `explore`/`search`/`fetch` tool registrations. Reads
+  `app.models` but does not edit routers.
+- **Track D** (after A1+B1): `docs/RUNBOOK.md`, `docs/mcp-registration.md`
+  (new docs only); `backend/tests/e2e/test_local_first_platform_flow.py`
+  (new test only, no app code). No shared file with A/B/C.
+
+### Expected-RED census
+
+| Test file | Expected failing | Failure mode |
+|---|---|---|
+| `integration/test_migration_raw_text_columns.py` | 2 | ModuleNotFoundError (`app.migrations`) |
+| `integration/test_assertion_raw_text_fidelity.py` | 4 | KeyError/AssertionError (no `proposition_raw` key) |
+| `integration/test_comment_raw_text_fidelity.py` | 2 | KeyError/AssertionError |
+| `integration/test_rating_raw_text_fidelity.py` | 2 | KeyError/AssertionError |
+| `integration/test_g1_fidelity_round_trip.py` | 3 | KeyError/AssertionError |
+| `integration/test_search_raw_text_classification.py` | 2 | AssertionError (search misses raw-only match) |
+| `AssertionRevisionHistory.test.tsx` (new cases) | 1 | AssertionError (raw text not in DOM) |
+| `AssertionComparisonView.test.tsx` (new cases) | 1 | AssertionError |
+| `unit/test_validation_length_cap.py` | 4 | ImportError (`validate_text_length`) |
+| `integration/test_length_cap_api.py` | 7 | AssertionError (no 422 / no cap) |
+| `integration/test_hostile_input.py` (edited) | 1 | KeyError/AssertionError (`proposition_raw` missing) |
+| `integration/test_enrich_cli.py` | 3 | ModuleNotFoundError (`app.enrich`) |
+| `unit/test_enrichment_suggester.py` | 3 | ModuleNotFoundError |
+| `integration/test_enrichment_pipeline_live.py` | 2 | ModuleNotFoundError |
+| `unit/test_enricher_interface.py` | 3 | ModuleNotFoundError |
+| `integration/test_mcp_tools_live.py` | 3 | ModuleNotFoundError (`app.mcp`) |
+| `unit/test_mcp_registration_docs.py` | 1 | FileNotFoundError/AssertionError |
+| `unit/test_local_first_runbook_docs.py` | 1 | FileNotFoundError/AssertionError |
+| `e2e/test_local_first_platform_flow.py` | 1 | ModuleNotFoundError (`app.enrich`) |
+| `unit/test_no_network_dependencies.py` | 2 | ModuleNotFoundError |
+
+## Stale-pin sweep
+
+`grep -riE "browser-faithful|accepted limitation|browser faithful"` across
+`backend/tests/{unit,integration,e2e}` and `frontend/src/components/__tests__`
+found exactly two hits, both from ruling R18 (2026-07-25 sprint):
+
+- `backend/tests/unit/test_validation.py` — 3 pins on `sanitize_for_storage`
+  directly (`test_sanitize_drops_text_parsed_as_tag_attributes_browser_faithful_*`).
+  **Not re-pointed**: these test the pure sanitizer function, which issue #2
+  explicitly requires stay unweakened; their assertions remain correct and
+  unchanged. Docstrings amended in place to replace the stale "(proposed
+  for a future sprint)" note with a pointer to this sprint's raw-storage
+  resolution.
+- `backend/tests/integration/test_hostile_input.py::test_proposition_text_parsed_as_tag_attributes_dropped_browser_faithful_via_real_api`
+  — **re-pointed**: added `assert r.json()["proposition_raw"] == text`
+  (byte-exact) alongside the existing (unchanged) sanitized-column
+  assertion, since the raw column now supersedes "permanently lost" as the
+  fidelity story for this shape. This is the one hit that changes behavior
+  the Developer must satisfy (A2/A5).
+
+No other hits for "single-column" storage assumptions or `r.json() ==`
+exact-dict-equality patterns that would break from the new `_raw` response
+keys (verified via `grep -rn "json() =="` across `backend/tests` — the only
+hit is an unrelated empty-list assertion in `test_notifications.py`).
 
 ## Dev Complete
 
