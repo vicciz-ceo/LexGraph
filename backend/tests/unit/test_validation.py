@@ -6,6 +6,7 @@ Exercises `app.services.validation` directly. Bodies are
 
 from __future__ import annotations
 
+import time
 from datetime import date
 
 import pytest
@@ -500,3 +501,184 @@ def test_validate_effective_dates_accepts_open_ended_range():
 
 def test_validate_effective_dates_accepts_none_none():
     validate_effective_dates(None, None)
+
+
+# --- Post-review independent audit finding (2026-07-26): entity/charref -----
+# --- reconstruction corrupts ordinary authored text (R16(a), --------------
+# --- AUDIT-FAIL: B5) --------------------------------------------------------
+#
+# A 4-lens adversarial audit run AFTER QA closed (five cycles clean) found
+# that `_SanitizingParser.handle_entityref`/`handle_charref` re-emit
+# `f"&{name};"` -- APPENDING a `;` the author never typed. This corrupts
+# ordinary, non-adversarial legal/business prose: any bare `&` followed by
+# letters/digits that happens to look like an entity or numeric charref
+# name gets a semicolon inserted that was never in the source text,
+# violating spec §2 ("propositions are stored exactly as authored"). Worse,
+# for malformed numeric charrefs shaped `&#<digits><hex-letter>` (e.g.
+# `&#160a`, `&#5b`), each fixpoint pass GROWS the text instead of
+# shrinking it -- falsifying R14's stated "every changing pass strictly
+# shortens" invariant -- so the loop never converges, burns O(n^2) CPU,
+# and FAIL-CLOSES per R14: the ENTIRE document is silently destroyed
+# (`sanitize_for_storage` returns `""`). Manager-reproduced; see ruling
+# R16 and the AUDIT-FAIL entries under Next Steps. RED against the
+# current implementation; pins the REQUIRED behavior (byte-exact
+# preservation), not the bug.
+
+
+def test_sanitize_preserves_ampersand_before_letters_byte_exact():
+    text = "R&D spend exceeded the cap"
+    assert sanitize_for_storage(text) == text
+
+
+def test_sanitize_preserves_multiple_bare_ampersands_byte_exact():
+    text = "AT&T and Johnson & Co"
+    assert sanitize_for_storage(text) == text
+
+
+def test_sanitize_preserves_ampersand_immediately_before_capitalized_word_byte_exact():
+    text = "Smith &Jones LLP"
+    assert sanitize_for_storage(text) == text
+
+
+def test_sanitize_preserves_numeric_charref_missing_semicolon_byte_exact():
+    text = "Rule 5 &#8212 applies."
+    assert sanitize_for_storage(text) == text
+
+
+def test_sanitize_preserves_malformed_charref_does_not_destroy_document():
+    # Worst-case audit finding: this benign sentence was returning `""`
+    # (the ENTIRE document destroyed) before the fix, because `&#160a`
+    # never converges under the fixpoint driver.
+    text = "The nbsp is encoded as &#160a in the export, per Exhibit C."
+    result = sanitize_for_storage(text)
+    assert result != "", "entire document was destroyed -- see R16(a)"
+    assert result == text
+
+
+def test_sanitize_preserves_short_malformed_charref_does_not_destroy_document():
+    text = "Damages of &#5b were awarded."
+    result = sanitize_for_storage(text)
+    assert result != "", "entire document was destroyed -- see R16(a)"
+    assert result == text
+
+
+def test_sanitize_preserves_escaped_entity_literal_guard():
+    # Guard pin: author-written escaped-entity text already passes against
+    # the current implementation -- must keep passing once the
+    # entity/charref reconstruction bug above is fixed.
+    benign = "&lt;script&gt; literal"
+    assert sanitize_for_storage(benign) == benign
+
+
+def test_sanitize_charref_shaped_long_input_converges_promptly_without_destruction():
+    # Non-convergence/performance guard: a charref-shaped input at scale
+    # must not hit the O(n^2) growing-charref pathology (R16(a)) and must
+    # not fail-close to "" per R14 -- it must return promptly and intact.
+    text = "&#0a" + "A" * 8000
+    start = time.perf_counter()
+    result = sanitize_for_storage(text)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 0.5, (
+        f"sanitize_for_storage took {elapsed:.3f}s on a charref-shaped "
+        f"8KB input (required: <0.5s) -- see R16(a) growing-charref "
+        f"non-convergence."
+    )
+    assert result != "", "entire document was destroyed -- see R16(a)"
+
+
+# --- Post-review independent audit finding (2026-07-26): RCDATA content ----
+# --- suppression swallows authored prose (R16(b), AUDIT-FAIL: B5) ----------
+#
+# R13 suppressed `handle_data` output for every raw-text/RCDATA wrapper
+# element the installed `HTMLParser` recognizes (title, textarea, iframe,
+# xmp, noembed, noframes) as defense in depth. But an UNCLOSED wrapper tag
+# appearing in ordinary prose (a `<Title>` or `<textarea>` typed as if it
+# were a defined-term placeholder, not markup) causes the parser to treat
+# EVERYTHING AFTER IT as that element's suppressed "content" -- silently
+# deleting the rest of the authored document. Manager-reproduced; see
+# ruling R16(b) and the AUDIT-FAIL entry under Next Steps. Required:
+# suppress CONTENT only for `script`/`style`; the existing fixpoint driver
+# (R13) neutralizes any nested payload in every other wrapper. Dropping
+# just the tag token itself is the accepted known limitation -- losing the
+# REST of the sentence is the defect. RED against the current
+# implementation; pins the REQUIRED behavior.
+
+
+def test_sanitize_preserves_prose_after_unclosed_title_tag():
+    text = (
+        "Signatory: <Title> of the Company. The Company shall pay "
+        "$1,000,000 by 1 March 2027."
+    )
+    result = sanitize_for_storage(text)
+    assert "<title" not in result.lower()
+    assert "Signatory:" in result
+    assert "of the Company." in result
+    assert "The Company shall pay $1,000,000 by 1 March 2027." in result
+
+
+def test_sanitize_preserves_prose_after_unclosed_textarea_tag():
+    text = "The <textarea> clause and everything after it."
+    result = sanitize_for_storage(text)
+    assert "<textarea" not in result.lower()
+    assert "clause and everything after it." in result
+
+
+# --- Audit-finding regression guards (2026-07-26): content safety must -----
+# --- stay green while the entity/charref and RCDATA fixes land -------------
+#
+# R16's fix direction changes two load-bearing behaviors of
+# `sanitize_for_storage`: (a) entities/charrefs must no longer be
+# reconstructed with an appended `;` -- shielding `&` from the parser
+# entirely; and (b) CONTENT suppression for raw-text/RCDATA wrapper
+# elements narrows from R13's full list down to just `script`/`style`,
+# relying on the existing fixpoint driver (R13/R14) to neutralize any
+# nested payload in every other wrapper. These exact attack shapes are
+# named in the sprint's Next Steps as required to remain fully
+# neutralized -- a fix that restores integrity must not trade away
+# safety. No live-looking markup may leak while the fix lands.
+
+
+_AUDIT_DANGER_MARKERS = ("<script", "<img", "<svg", "onerror=", "onload=", "<iframe")
+
+
+def _assert_no_audit_danger_markers(result: str) -> None:
+    for marker in _AUDIT_DANGER_MARKERS:
+        assert marker not in result, f"{marker!r} leaked into sanitized output: {result!r}"
+
+
+def test_sanitize_guard_script_nested_inside_iframe_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<iframe><script>alert(1)</script></iframe>")
+    )
+
+
+def test_sanitize_guard_script_nested_inside_textarea_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<textarea><script>alert(1)</script></textarea>")
+    )
+
+
+def test_sanitize_guard_img_onerror_nested_inside_title_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<title><img src=x onerror=alert(1)></title>")
+    )
+
+
+def test_sanitize_guard_unclosed_img_with_onerror_stays_neutralized():
+    _assert_no_audit_danger_markers(sanitize_for_storage("<img src=x onerror=alert(1)"))
+
+
+def test_sanitize_guard_no_space_slash_img_onerror_stays_neutralized():
+    _assert_no_audit_danger_markers(sanitize_for_storage("<img/onerror=alert(1)"))
+
+
+def test_sanitize_guard_chained_svg_then_img_abandoned_tags_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<svg onload=alert(1) <img onerror=alert(2)")
+    )
+
+
+def test_sanitize_guard_script_nested_inside_template_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<template><script>alert(1)</script></template>")
+    )

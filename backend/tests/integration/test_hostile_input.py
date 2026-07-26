@@ -768,3 +768,104 @@ def test_proposition_large_chained_abandoned_tag_payload_is_not_quadratic(client
         f"(required: <0.5s). See module-level comment for the O(n^2) "
         f"mechanism and measured scaling."
     )
+
+
+# --- Post-review independent audit finding (2026-07-26): entity/charref -----
+# --- reconstruction corrupts ordinary authored text via the real API --------
+# --- (R16(a), AUDIT-FAIL: B5) ------------------------------------------------
+#
+# A 4-lens adversarial audit run AFTER QA closed (five cycles clean) found
+# that `_SanitizingParser.handle_entityref`/`handle_charref` re-emit
+# `f"&{name};"` -- APPENDING a `;` the author never typed -- and that
+# malformed numeric charrefs shaped `&#<digits><hex-letter>` (e.g.
+# `&#160a`) GROW on every fixpoint pass instead of shrinking, so the loop
+# never converges and FAIL-CLOSES per R14: the entire submitted text comes
+# back as `""`. Manager-reproduced live via the real API; see ruling R16
+# and the AUDIT-FAIL entries under Next Steps. These are ordinary,
+# non-adversarial legal/business prose strings -- the required behavior is
+# byte-exact preservation through the real create + fetch round trip on
+# every write surface that shares `sanitize_for_storage`, not just the
+# unit-level function call. RED against the current implementation; pins
+# the REQUIRED behavior.
+
+
+def test_proposition_ampersand_entity_round_trips_byte_exact_via_real_api(client, matter_with_users):
+    m = matter_with_users
+    text = "R&D spend exceeded the cap"
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    assertion_id = r.json()["id"]
+    assert r.json()["proposition"] == text
+    fetched = client.get(f"/api/v1/assertions/{assertion_id}", headers=m["contributor_headers"])
+    assert fetched.status_code == 200
+    assert fetched.json()["proposition"] == text
+
+
+def test_proposition_destructive_charref_round_trips_byte_exact_via_real_api(client, matter_with_users):
+    m = matter_with_users
+    text = "The nbsp is encoded as &#160a in the export, per Exhibit C."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    assertion_id = r.json()["id"]
+    stored = r.json()["proposition"]
+    assert stored != "", "entire document was destroyed -- see R16(a)"
+    assert stored == text
+    fetched = client.get(f"/api/v1/assertions/{assertion_id}", headers=m["contributor_headers"])
+    assert fetched.status_code == 200
+    assert fetched.json()["proposition"] == text
+
+
+def test_comment_ampersand_entity_round_trips_byte_exact_via_real_api(client, matter_with_users):
+    m = matter_with_users
+    text = "R&D spend exceeded the cap"
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={"comment_text": text},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    assert r.json()["comment_text"] == text
+    listing = client.get(
+        f"/api/v1/assertions/{assertion_id}/comments", headers=m["contributor_headers"]
+    )
+    assert listing.status_code == 200
+    stored_texts = [c["comment_text"] for c in listing.json()]
+    assert text in stored_texts
+
+
+def test_rating_rationale_destructive_charref_round_trips_byte_exact_via_real_api(
+    client, matter_with_users
+):
+    m = matter_with_users
+    text = "The nbsp is encoded as &#160a in the export, per Exhibit C."
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="proposed"),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.put(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
+        json={"strength": 4, "rationale": text},
+        headers=m["rater_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["rationale"]
+    assert stored != "", "entire rationale was destroyed -- see R16(a)"
+    assert stored == text
+    listing = client.get(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/ratings",
+        headers=m["reviewer_headers"],
+    )
+    assert listing.status_code == 200
+    ratings = [x for x in listing.json() if x["user_id"] == m["rater_id"]]
+    assert len(ratings) == 1
+    assert ratings[0]["rationale"] == text
