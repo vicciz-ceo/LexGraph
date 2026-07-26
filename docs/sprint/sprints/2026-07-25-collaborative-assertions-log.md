@@ -176,3 +176,4 @@ RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissi
 - 2026-07-26T02:14:58Z — fix7 dev (R17 conditional salvage) → a5bcb53be758389aa (sonnet, medium)
 - 2026-07-26T05:17:42Z — Manager: session resumed after interrupt; fix7 had landed+pushed before its agent died (780e569). Verified (diff read + 4-family probe: triggers instant/correct, entity prose 11/11 byte-exact, RCDATA tails kept, 0 leaks/16 shapes, idempotent) + merged @ dd91087; 230/230 + 60/60. Lock → qa for re-verification.
 - 2026-07-26T05:18:21Z — QA (R17 verification + closing gate sweep) → a988f7efc6fe5218b (sonnet, high)
+- 2026-07-26T07:31:24Z — QA respawn (prior attempt stalled in CPython source-reading, zero work landed; brief tightened to empirical-only, small tool calls) → ad1d242379538fc0e (sonnet, high)
