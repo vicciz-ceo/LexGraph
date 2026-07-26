@@ -1,17 +1,17 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: in-progress
-current_role: developer
+status: review
+current_role: planner
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T10:45:00Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T11:40:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
-completed_items: 11
+completed_items: 12
 dev_complete_items: 0
 qa_cycles: 5
 prd_sections:
@@ -61,7 +61,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-BLOCKED, cycle 5 / harness limit] B5-fix4 (R14) closes every content-safety finding from cycles 1-4 — confirmed live via the real API across all 5 write paths at chain lengths 9/12/25/100/500 abandoned tags (incl. mixed abandoned+closed+wrapper interleavings), fail-closed path, and prose byte-exactness. But the adversarial performance-sanity round required by this cycle's brief found a NEW live defect in the same fixpoint mechanism: `sanitize_for_storage`'s `len(raw_text) + 2`-bounded loop resolves at most one chained abandoned tag per pass, so a payload shaped as k chained abandoned tags costs O(k) passes x O(n) per-pass re-parse = **O(n²) wall-clock time**. No request schema anywhere caps `proposition`/`comment_text`/`rationale` length. Measured live via `POST /api/v1/assertions` (create path): n=1000 tags (28,371 bytes) → 0.350s; n=1500 (43,106 bytes) → 0.714s; n=2000 (57,824 bytes) → 1.301s; n=2500 (72,571 bytes) → 2.099s — clean quadratic scaling (2.5x input → 6x time), vs. 50,000 bytes of benign non-markup text sanitizing in 0.22ms. Extrapolating the measured constant, a single HTTP request with a few-hundred-KB payload (a plausible size for an unbounded text field) would pin a request-handling thread/worker for **minutes**; any authenticated contributor (lowest write-privileged role) can trigger it, repeatably, with no rate limit or size cap in this codebase to stop them. Content safety is unaffected (no markup leaks at any tested chain length) — this is purely a resource-exhaustion/availability defect. RED test: `backend/tests/integration/test_hostile_input.py::test_proposition_large_chained_abandoned_tag_payload_is_not_quadratic` (asserts a 2000-tag chain via the real API completes in <0.5s; currently ~1.3-1.4s). Options for the director: (1) cap `proposition`/`comment_text`/`rationale` length at the schema level (Pydantic `Field(max_length=...)`) — simplest, but a policy call on what limit is legitimate for long legal prose; (2) make `_salvage_trailing_prose` resolve ALL chained abandoned tags in one pass (regex `finditer`-style walk) instead of one-per-pass, restoring O(n) total cost without any length cap — likely the more complete fix, keeps the fixpoint driver only for genuinely nested/multi-shape cases; (3) both. This is qa_cycles=5, the harness limit — per the manager's valve instruction, QA is stopping here rather than attempting a fix or another cycle; routing to the director for a scoping decision on (1)/(2)/(3) before a Developer track picks it up as B5-fix5.
+(empty — all 12 items Completed; sprint at review pending director sign-off)
 
 ## Parallelization plan
 
@@ -87,9 +87,13 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
+(empty — all items Completed)
+
 (empty — B5-fix4 blocked, cycle 5 harness limit; content-safety confirmed PASS but a new O(n²) performance/DoS finding routes to the director rather than back to Dev Complete — see QA-BLOCKED in Next Steps above)
 
 ## Completed
+
+- B5 (final, after 5 QA cycles) — validation/sanitization/duplicates/search. Sanitizer: parser-based, fixpoint-driven, input-derived bound, fail-closed, single-pass chain salvage. Merged `e552e58`; evaluator 195/195 backend + 60/60 frontend. Manager probe: 0 leaks across chains n=9..5000 (5000 in 0.008s), nested wrappers, `/`-evasion, template/plaintext; prose byte-exact; fix5 additionally closed a previously-undetected leak on hyphenated/underscored tag names (`<my-tag onload=…`) that the merged code had leaked.
 
 - F1 — 13 ORM models + constraints. Verdict: PASS. Probe: full suite (all integration tests persist/read through these tables). Regression: none needed (pre-existing coverage sufficient).
 - B1 — assertion CRUD/evidence/revisions. Verdict: PASS (own scope). Probe: `test_assertions_crud.py` 24/24 green via real API; PATCH-sanitization gap in this file is attributed to B5 per spec-ownership (see Next Steps). Regression: none added here.
