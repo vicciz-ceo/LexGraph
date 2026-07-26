@@ -1,19 +1,19 @@
 ---
 id: "2026-07-26-local-first-platform"
-status: qa-fail
-current_role: developer
+status: review
+current_role: planner
 branch: sprint/2026-07-26-local-first-platform
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T11:20:00Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T13:35:00Z"
+last_updated: "2026-07-26T11:00:17Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
-completed_items: 16
+completed_items: 17
 dev_complete_items: 17
-qa_cycles: 1
+qa_cycles: 2
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -231,22 +231,9 @@ Test: `backend/tests/unit/test_mcp_registration_docs.py`.
 serve, grading-app serve, MCP registration (points to C2).
 Test: `backend/tests/unit/test_local_first_runbook_docs.py`.
 
-`[QA-FAIL: 2026-07-26, QA cycle 1]` `docs/RUNBOOK.md` line 6 states
-"3. A Vue.js grading application" and line 126 frames the grading app as
-a Vue project — this is factually wrong. `frontend/package.json` lists
-`"react": "^18.3.1"`, `"react-dom": "^18.3.1"`, `"@vitejs/plugin-react"`,
-and every component in `frontend/src/components/` is a `.tsx` React
-component tested with `@testing-library/react`; there is no Vue dependency
-anywhere in the repo. Expected: the intro must name the actual framework
-(React, served via Vite) so a fresh-clone installer isn't misled about
-what they're running. No test pin is possible for this — it is a
-prose-only factual claim in a doc file, not behavior; `grep -n -i
-"vue\|react" docs/RUNBOOK.md` confirms the sole hit is this one wrong
-line. (The manager's own pre-handoff log entry at
-`docs/sprint/sprints/2026-07-26-local-first-platform-log.md` already
-flagged this identical defect before QA started — independently
-reconfirmed here.) Every other command/path/env var in `docs/RUNBOOK.md`
-and `docs/mcp-registration.md` was verified correct (see `## QA Notes`).
+QA cycle 1 bounced D1 (`docs/RUNBOOK.md` mislabeled the frontend
+"Vue.js"); fixed in `0e66b73` and re-verified PASS in QA cycle 2 — see
+`## Completed` and `## QA Notes`.
 
 **D2. G8 E2E: seed → enrich → review → grade, fully local**
 Seed a matter/document/source_span via existing fixtures, run the
@@ -434,9 +421,10 @@ layer); every write path in this app goes directly through routers via
 
 ## Completed
 
-QA cycle 1 (2026-07-26), 16/17 PASS — D1 bounced, see its `[QA-FAIL: ...]`
-entry above. Verdict = PASS, probe = one live/independent check beyond the
-item's own tests, regression = new QA test name (file:
+QA cycle 1 (2026-07-26), 16/17 PASS — D1 bounced (now fixed, see below).
+QA cycle 2 (2026-07-26), 17/17 PASS. Verdict = PASS, probe = one
+live/independent check beyond the item's own tests, regression = new QA
+test name (file:
 `backend/tests/integration/test_qa_regression_local_first_platform.py`
 unless noted).
 
@@ -503,6 +491,9 @@ unless noted).
   add` command matches `server.py`'s actual module path; Codex/Cursor/
   Antigravity snippets present; no factual defects found. Regression: n/a
   (doc-only, no behavior to pin).
+- **D1** Local-first install runbook. PASS cycle 2 — probe = grep sweep
+  (`grep -in vue docs/RUNBOOK.md` zero hits, `grep -in react` names the
+  app correctly) + doc test rerun. Fix commit `0e66b73`.
 - **D2** (G8 E2E: seed → enrich → review → grade;
   `backend/tests/e2e/test_local_first_platform_flow.py`, per this
   contract's Track D item list — labeled "D3" in `## Dev Complete`'s prose,
@@ -580,6 +571,14 @@ Track D (C2+D1+D2+D3), Developer solo pass (doc-only items), dev-complete
   untested gap). D1 FAILED: `docs/RUNBOOK.md` calls the frontend
   "Vue.js" — it's React+Vite (manager's own pre-handoff log already
   flagged this). 16/17 PASS. Full transcript: see `-log.md`.
+- 2026-07-26T11:00:17Z qa (cycle 2, D1 scoped re-verify): fix commit
+  `0e66b73` confirmed in history; `git diff f4b656a..0e66b73` touches only
+  `docs/RUNBOOK.md`, 1 line. `grep -in vue docs/RUNBOOK.md` zero hits;
+  `grep -in react docs/RUNBOOK.md` names the app correctly. Doc tests
+  (`test_local_first_runbook_docs.py`, `test_mcp_registration_docs.py`)
+  2/2 passed. Full re-run: backend 290 passed, frontend 62 passed — matches
+  cycle 1 exactly, zero regressions. D1 PASS. 17/17 items PASS; sprint
+  moved to `review`.
 
 ## Context Dump
 
