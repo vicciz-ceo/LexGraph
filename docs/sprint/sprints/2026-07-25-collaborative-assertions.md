@@ -1,12 +1,12 @@
 ---
 id: "2026-07-25-collaborative-assertions"
 status: qa-fail
-current_role: planner
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:planner"
-locked_at: "2026-07-26T01:33:43Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-26T01:39:56Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T01:33:43Z"
+last_updated: "2026-07-26T01:39:56Z"
 lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
