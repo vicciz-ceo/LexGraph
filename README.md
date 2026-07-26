@@ -1,5 +1,7 @@
 # LexGraph
 
+[![CI](https://github.com/vicciz-ceo/LexGraph/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vicciz-ceo/LexGraph/actions/workflows/ci.yml)
+
 A legal knowledge-graph platform: documents, provisions, and legal relationships modeled as versioned, evidence-backed assertions.
 
 ## Core concepts
@@ -30,6 +32,8 @@ First-time backend setup:
 ```bash
 cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 ```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
 
 ## Status
 

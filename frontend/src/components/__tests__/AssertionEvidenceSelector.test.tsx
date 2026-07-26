@@ -6,8 +6,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AssertionEvidenceSelector } from "../AssertionEvidenceSelector";
+import type { AssertionEvidenceItem } from "../AssertionEvidenceSelector";
 
-const evidence = [
+const evidence: AssertionEvidenceItem[] = [
   { id: "e1", sourceSpanId: "s1", evidenceRole: "supports", quote: "text A" },
   { id: "e2", sourceSpanId: "s2", evidenceRole: "contradicts", quote: "text B" },
 ];
