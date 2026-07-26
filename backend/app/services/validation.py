@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 import uuid as _uuid
 from datetime import date, datetime
+from html.parser import HTMLParser
 
 
 class ValidationError(ValueError):
@@ -20,35 +21,102 @@ class ValidationError(ValueError):
 
 # --- Sanitization -----------------------------------------------------------
 #
-# `<script>`/`<style>` blocks are removed *with* their content (that
-# content is code, never legitimate proposition text); every other tag is
-# stripped while its inner text is preserved untouched, which is what lets
-# an event-handler attribute like `onerror=` disappear along with the tag
-# that carried it. Plain text with no markup at all must be a byte-for-
-# byte no-op (spec §2: "stored as authored") — we never HTML-escape
-# quotes/dashes/ampersands, since that would silently rewrite legitimate
-# text rather than merely neutralizing active markup.
-
-_SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b[^>]*>.*?</\1\s*>", re.IGNORECASE | re.DOTALL)
-_TAG_RE = re.compile(r"<[^>]+>")
-
-# --- QA regression (2026-07-26): unclosed-tag bypass ------------------------
+# Ruling R12 (2026-07-26): two rounds of regex patching (`_TAG_RE`, then an
+# `_UNCLOSED_TAG_RE` bolt-on for the unclosed-tag bypass) each closed one
+# hole while the naive "first `<` to the next `>`" model kept opening new
+# ones -- and independently corrupted benign prose containing an unrelated
+# `<` ... `>` pair (e.g. "amount is < $500 ... term is > 10 years"). A
+# regex has no notion of "am I inside a tag": that has to be actual parser
+# state. `sanitize_for_storage` now runs input through `html.parser
+# .HTMLParser`, the same tokenizer class browsers' tag/attribute-name
+# grammar is modeled on: it tracks state properly, so quoted attributes,
+# mixed case, newlines between attributes, and the no-space-before-
+# attribute evasion (`<img/onerror=...`) are all recognized as tag
+# machinery and dropped, while an unrelated `<`/`>` pair in plain prose is
+# just two characters of data. `<script>`/`<style>` element content is
+# dropped with the tag (that content is code, never proposition text);
+# every other tag is stripped while its surrounding text is preserved.
+# Plain text with no markup at all is a byte-for-byte no-op (spec §2:
+# "stored as authored") -- we never HTML-escape quotes/dashes/ampersands,
+# since that would silently rewrite legitimate text rather than merely
+# neutralizing active markup.
 #
-# `_TAG_RE` requires a closing `>` in the SAME string to recognize a tag, so
-# an attacker who simply never closes their tag (a well-known regex-
-# sanitizer bypass) keeps any event-handler attribute intact. We cannot rely
-# on a `>` that never arrives -- the sanitized text may later be
-# concatenated into a larger page, where a `>` belonging to unrelated
-# markup elsewhere must not "complete" the attacker's tag -- so an unclosed
-# tag is identified purely from the text we were given: a `<` + tag name
-# with no `>` anywhere in the rest of the string (the leading lookahead).
-# We only consume the tag name plus one-or-more `key=value`-shaped
-# attribute tokens (requiring at least one, since an attribute such as
-# `onerror=` is what actually carries the risk), which keeps ordinary
-# "less than" prose (`a<b`, `5 < 10`, a bare unclosed `<tag` with no
-# attributes at all) untouched, and preserves any legitimate sentence text
-# that follows the attack payload rather than discarding the whole tail.
-_UNCLOSED_TAG_RE = re.compile(r"<(?=[^>]*\Z)[a-zA-Z][a-zA-Z0-9]*(?:\s+[^\s=>]+=[^\s>]*)+")
+# One gap the stdlib tokenizer itself leaves: if a start tag never finds
+# its closing `>` anywhere in the input (another well-known bypass -- just
+# don't close your tag), `HTMLParser.close()` silently discards the entire
+# abandoned tag *and* any text after it, with no callback at all (verified
+# directly against the stdlib: `parser.rawdata` holds the unterminated
+# fragment after `feed()`, and `close()` drops it with zero handle_data
+# calls). Since the sanitized value must still preserve any legitimate
+# sentence text an attacker's unclosed payload happens to be followed by,
+# `_salvage_trailing_prose` inspects exactly that leftover, unparsed
+# fragment: it drops the tag name plus the run of `name=value` attribute
+# tokens immediately following it (the shape a live attribute like
+# `onerror=` must take), and returns whatever text comes after the last
+# recognizable attribute token untouched.
+_CDATA_CONTENT_TAGS = frozenset({"script", "style"})
+
+_ABANDONED_TAG_OPEN_RE = re.compile(r"\A<[a-zA-Z][a-zA-Z0-9]*/?")
+_ABANDONED_ATTR_RE = re.compile(r"""\s*[^\s=]+=(?:"[^"]*"|'[^']*'|[^\s]*)""")
+
+
+def _salvage_trailing_prose(leftover: str) -> str:
+    """Return the prose tail of an abandoned, never-closed tag fragment.
+
+    `leftover` is whatever `HTMLParser` could not resolve into a complete
+    tag because no `>` ever arrived. If it doesn't even look like a start
+    tag opening (e.g. an unterminated comment/declaration/end-tag, or a
+    bare trailing `<`), there is no attribute grammar to walk past, so it
+    is dropped wholesale -- it is markup debris, not authored text.
+    """
+    match = _ABANDONED_TAG_OPEN_RE.match(leftover)
+    if not match:
+        return ""
+    pos = match.end()
+    while True:
+        attr_match = _ABANDONED_ATTR_RE.match(leftover, pos)
+        if not attr_match:
+            break
+        pos = attr_match.end()
+    return leftover[pos:]
+
+
+class _SanitizingParser(HTMLParser):
+    """Collects only character data, dropping every tag it recognizes.
+
+    `<script>`/`<style>` element content is suppressed along with their
+    tags; every other tag's surrounding text is preserved. Character/
+    entity references are reconstructed verbatim (never decoded) so
+    output is never re-escaped or rewritten -- only markup is removed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self._chunks: list[str] = []
+        self._cdata_skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _CDATA_CONTENT_TAGS:
+            self._cdata_skip_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _CDATA_CONTENT_TAGS and self._cdata_skip_depth > 0:
+            self._cdata_skip_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._cdata_skip_depth:
+            self._chunks.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        if not self._cdata_skip_depth:
+            self._chunks.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        if not self._cdata_skip_depth:
+            self._chunks.append(f"&#{name};")
+
+    def get_text(self) -> str:
+        return "".join(self._chunks)
 
 
 def sanitize_for_storage(raw_text: str) -> str:
@@ -61,9 +129,13 @@ def sanitize_for_storage(raw_text: str) -> str:
     """
     if raw_text is None:
         return raw_text
-    text = _SCRIPT_STYLE_RE.sub("", raw_text)
-    text = _TAG_RE.sub("", text)
-    text = _UNCLOSED_TAG_RE.sub("", text)
+    parser = _SanitizingParser()
+    parser.feed(raw_text)
+    leftover = parser.rawdata  # unresolved tail, if input ended mid-tag
+    parser.close()
+    text = parser.get_text()
+    if _ABANDONED_TAG_OPEN_RE.match(leftover):
+        text += _salvage_trailing_prose(leftover)
     return text
 
 
