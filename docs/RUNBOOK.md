@@ -3,7 +3,7 @@
 This runbook describes how to set up and run a complete local-first LexGraph system from a fresh clone, with zero cloud dependencies. The system consists of:
 1. A local SQLite database
 2. A FastAPI backend server
-3. A Vue.js grading application
+3. A React grading application
 4. An MCP server for agent integration
 
 ## Fresh-Clone Setup
