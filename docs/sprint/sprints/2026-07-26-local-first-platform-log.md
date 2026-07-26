@@ -86,3 +86,15 @@ and the agent roster live here.
   (2). Measured: backend 41 failed / 238 passed / 1 collection error;
   frontend 60 passed + 2 new RED. Lock → claude-code:developer; Dev-A
   (Track A bundle, Sonnet medium, solo mode) next.
+- 2026-07-26T09:38Z developer (Track A): agentId a7443d93d43ec195c (Sonnet,
+  medium) — spawned on 017c9d7, solo mode, items A1–A9.
+- 2026-07-26T10:05Z developer (Track A): all 9 items dev-complete, 7
+  commits (47507b3 A1, d11324c A2, b14abe3 A3, 820a4b4 A4, c281ed6 A6,
+  cb2546b A7, a0bf1f6 A8 — A5/A9 needed no code, verified green as
+  consequences of A1/A2). Full authoritative pass: backend 20 failed / 263
+  passed (reconciles exactly with the Track B/C/D expected list, no
+  test_validation_length_cap collection error); frontend 62 passed.
+  sanitize_for_storage untouched; no dangerouslySetInnerHTML introduced.
+  dev_complete_items → 9. Pushed sprint/2026-07-26-local-first-platform @
+  a0bf1f6 (+ this bookkeeping commit). status/current_role/lock fields left
+  untouched for the manager.

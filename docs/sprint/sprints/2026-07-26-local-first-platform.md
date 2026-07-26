@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 9
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -102,6 +102,11 @@ parallel-eligible once Track A's schema item (A1) is dev-complete, since B2
 writes propositions through the same revision-creation path A1/A2 touch.
 
 ### Track A — text fidelity, sanitizer pins, length cap (G1–G4) — sequential, FIRST
+
+**DEV COMPLETE (all 9 items, Sonnet medium, solo) — see `## Dev Complete`
+below for files/commits/results per item.** Item specs kept here as
+reference for QA and for the Track B/C/D items below, which build on this
+track's schema/routes.
 
 **A1. Raw-text columns + reversible migration + backfill**
 Add `proposition_raw` (assertion_revisions), `comment_text_raw`
@@ -318,9 +323,93 @@ hit is an unrelated empty-list assertion in `test_notifications.py`).
 
 ## Dev Complete
 
+Developer pass (Track A solo, Sonnet medium), spawned on 017c9d7, all 9
+items dev-complete:
+
+- **A1** Raw-text columns + reversible migration + backfill. Files:
+  `backend/app/models/assertion_revision.py`, `assertion_comment.py`,
+  `assertion_rating.py`, `backend/app/migrations/__init__.py`,
+  `add_raw_text_columns.py`. Commit `47507b3`. Result: `upgrade`/`downgrade`
+  green (2/2); ORM columns added nullable, backfilled by the migration.
+- **A2** Assertion write paths (create/patch/create-revision) store raw +
+  sanitized. Files: `backend/app/routers/assertions.py`. Commit `d11324c`.
+  Result: 4/4 green.
+- **A3** Comment write paths store raw + sanitized. Files:
+  `backend/app/routers/comments.py` (+ `assertions.py`'s embedded comment
+  summary, for read-path consistency). Commit `b14abe3`. Result: 2/2 green.
+- **A4** Rating write paths store raw + sanitized rationale, same
+  rationale-visibility gate applied to `rationale_raw`. Files:
+  `backend/app/routers/ratings.py`. Commit `820a4b4`. Result: 2/2 green.
+- **A5** G1 named-example round-trip. No new code — green as a direct
+  consequence of A1+A2 (verified, no commit of its own). Result: 3/3 green.
+- **A6** Search matches the current revision's raw proposition, not the
+  sanitized column. Files: `backend/app/routers/assertions.py`. Commit
+  `c281ed6`. Result: 1/1 green.
+- **A7** Frontend revision-history + comparison render
+  `propositionRaw ?? proposition` as plain JSX text nodes (no
+  `dangerouslySetInnerHTML` introduced). Files:
+  `frontend/src/components/AssertionRevisionHistory.tsx`,
+  `AssertionComparisonView.tsx`. Commit `cb2546b`. Result: 2/2 new cases
+  green; full frontend suite 62/62 green.
+- **A8** `validate_text_length(text, *, label, max_length=100_000)` added
+  to `app/services/validation.py`; wired into every proposition/
+  comment_text/rationale write path (create/patch/create-revision,
+  comment create/update, rating put), checked against the raw submitted
+  text before sanitization. `sanitize_for_storage` untouched. Files:
+  `backend/app/services/validation.py`, `routers/assertions.py`,
+  `comments.py`, `ratings.py`. Commit `a0bf1f6`. Result: unit 4/4, API
+  6/6 (+1 at-cap companion stayed green) — 11/11.
+- **A9** Stale-pin sweep. No code change: `sanitize_for_storage` is
+  byte-identical to before this sprint; the Planner-edited
+  `test_hostile_input.py` pin (which asserts `proposition_raw == text`
+  alongside the unchanged sanitized-column assertion) went green as a
+  direct consequence of A2's `proposition_raw` exposure on
+  `_serialize_assertion`. Verified: full `test_hostile_input.py` 40/40
+  green, including the 17-shape hostile battery and all 3
+  `test_validation.py` browser-faithful pins untouched.
+
+Owned-file conditional grants (`backend/app/routers/history.py`,
+`backend/app/models/repository.py`): not exercised. No Track A test reads
+`GET /assertions/{id}/history` (audit-only, stores short status strings
+per spec §16, never proposition text) or a repository-pattern write layer
+(`app/models/repository.py` is the `Repository` ORM model, not a write
+layer); every write path in this app goes directly through routers via
+`Session`. Both files left untouched.
+
 ## Completed
 
 ## Evaluation Notes
+
+Track A (A1–A9), Developer solo pass, dev-complete 2026-07-26. Summary
+counts only (see `## Dev Complete` for per-item detail):
+
+- Scoped RED confirmed before work started: 21 failed across the 8 Track A
+  integration/hostile-input files + 4-test collection error in
+  `test_validation_length_cap.py` — matched the contract's corrected
+  census exactly.
+- Per-item scoped runs, all green: A1 2/2, A2 4/4, A3 2/2, A4 2/2, A5 3/3,
+  A6 1/1, A7 2/2 (+ full frontend suite), A8 11/11 (4 unit + 6 API + 1
+  at-cap companion), A9 verified via full `test_hostile_input.py` 40/40
+  (no code change required for A5 or A9 — both went green as direct
+  consequences of A1/A2's `proposition_raw` plumbing).
+- One full authoritative pass:
+  `backend/.venv/bin/pytest backend/tests -v` → **20 failed, 263 passed**;
+  `npm --prefix frontend run test -- --run` → **62 passed**. The 20
+  backend failures reconcile exactly against the contract's expected
+  Track B/C/D RED list (test_enrich_cli 3, test_enrichment_suggester 3,
+  test_enrichment_pipeline_live 2, test_enricher_interface 3,
+  test_mcp_tools_live 2, test_mcp_search_fetch_tools 2,
+  test_mcp_registration_docs 1, test_local_first_runbook_docs 1,
+  test_local_first_platform_flow 1, test_no_network_dependencies 2) — no
+  failure outside that list. `test_validation_length_cap.py`'s collection
+  error is gone.
+- `sanitize_for_storage` is byte-identical to before this sprint (not
+  edited); all 3 `test_validation.py` browser-faithful pins and the
+  17-shape hostile battery in `test_hostile_input.py` remain green.
+- No `dangerouslySetInnerHTML` introduced anywhere in the frontend diff.
+- Conditional grants (`routers/history.py`, `models/repository.py`) not
+  exercised/edited — no Track A test reads either surface; every write
+  path goes directly through routers via `Session`.
 
 ## QA Notes
 
