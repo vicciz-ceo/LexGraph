@@ -1,10 +1,10 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T08:55:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T09:20:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T08:55:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 3
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -59,7 +59,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-FAIL: B5-fix3] Adversarial round 3 on the R12 `html.parser`-rebuilt `sanitize_for_storage` found two NEW live bypass classes (distinct from the fixed cycle-2 ones): (1) **CDATA/RCDATA-wrapper bypass** — `_SanitizingParser._CDATA_CONTENT_TAGS` only suppresses output for `script`/`style`, but the stdlib `HTMLParser` this class wraps treats a wider set of elements as opaque raw-text containers internally (`HTMLParser.CDATA_CONTENT_ELEMENTS` = `script, style, xmp, iframe, noembed, noframes`; `RCDATA_CONTENT_ELEMENTS` = `textarea, title` on this Python 3.13 venv) — content nested inside any of these six wrapper tags is delivered to `handle_data` as literal unparsed text, so a `<script>` payload wrapped in e.g. `<iframe>`/`<textarea>`/`<title>` survives byte-for-byte, e.g. `<iframe><script>alert(1)</script></iframe>` sanitizes to `<script>alert(1)</script>` verbatim. Confirmed live via the real API on **all five write paths** (create, PATCH, revisions, comments, rating-rationale). (2) **Chained abandoned-tag bypass** — `_salvage_trailing_prose` only walks past ONE abandoned (never-closed) tag's attribute tokens; when a SECOND unclosed tag is chained right after the first (no `>` anywhere in the input), the second tag's raw opening markup and live attribute survive untouched, e.g. `<img src=x onerror=alert(1) <svg onload=alert(2) trailing` sanitizes to `...<svg onload=alert(2) trailing`. Confirmed live on create + comments. Expected: gate G10 — no live-looking markup survives regardless of wrapper element or how many unclosed tags are chained. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_neutralizes_script_nested_inside_{iframe,textarea,title,noembed,noframes,xmp}`, `::test_sanitize_neutralizes_dangerous_tag_nested_inside_iframe_without_script`, `::test_sanitize_neutralizes_second_of_two_chained_abandoned_tags{,_same_tag_name}`; `backend/tests/integration/test_hostile_input.py::test_proposition_script_nested_in_iframe_is_neutralized`, `::test_patch_proposition_script_nested_in_textarea_is_neutralized`, `::test_create_revision_script_nested_in_title_is_neutralized`, `::test_comment_script_nested_in_noembed_is_neutralized`, `::test_rating_rationale_script_nested_in_xmp_is_neutralized`, `::test_proposition_chained_abandoned_tags_is_neutralized`, `::test_comment_chained_abandoned_tags_is_neutralized`.
+(empty — cycle-3 findings fixed; B5-fix3 in Dev Complete for QA cycle 4)
 
 ## Parallelization plan
 
@@ -84,6 +84,8 @@ exception; 185 total). Verified by direct run, not inferred.
 none — greenfield, no renames.
 
 ## Dev Complete
+
+- B5-fix3 (R13) — fixpoint sanitization (`_sanitize_once` + bounded 8-pass loop) with raw-text/RCDATA element set read live from the installed `HTMLParser` (`validation.py` only), fix commit `e65bba9`, merged `0e2877a`; 171/171 backend, 60/60 frontend. Manager probe: 11 attack shapes incl. triple-nested wrappers → 0 leaks; 6 prose cases byte-exact.
 
 (empty — B5-fix2 bounced to Next Steps as B5-fix3; see QA-FAIL above)
 
