@@ -1,17 +1,17 @@
 {
   "id": "2026-07-26-local-first-platform",
-  "status": "dev-complete",
-  "current_role": "qa",
+  "status": "qa-fail",
+  "current_role": "developer",
   "locked_by": "claude-code:qa",
   "locked_at": "2026-07-26T11:20:00Z",
-  "last_agent": "claude-code:developer",
-  "last_updated": "2026-07-26T11:20:00Z",
+  "last_agent": "claude-code:qa",
+  "last_updated": "2026-07-26T13:35:00Z",
   "contract_path": "docs/sprint/sprints/2026-07-26-local-first-platform.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 17,
-  "completed_items": 0,
+  "completed_items": 16,
   "dev_complete_items": 17,
-  "qa_cycles": 0,
+  "qa_cycles": 1,
   "previous_sprint": "2026-07-25-collaborative-assertions",
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 }

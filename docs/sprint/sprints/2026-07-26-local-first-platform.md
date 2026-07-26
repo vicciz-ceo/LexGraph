@@ -1,19 +1,19 @@
 ---
 id: "2026-07-26-local-first-platform"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-26-local-first-platform
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T11:20:00Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-07-26T11:20:00Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-26T13:35:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
-completed_items: 0
+completed_items: 16
 dev_complete_items: 17
-qa_cycles: 0
+qa_cycles: 1
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -231,6 +231,23 @@ Test: `backend/tests/unit/test_mcp_registration_docs.py`.
 serve, grading-app serve, MCP registration (points to C2).
 Test: `backend/tests/unit/test_local_first_runbook_docs.py`.
 
+`[QA-FAIL: 2026-07-26, QA cycle 1]` `docs/RUNBOOK.md` line 6 states
+"3. A Vue.js grading application" and line 126 frames the grading app as
+a Vue project — this is factually wrong. `frontend/package.json` lists
+`"react": "^18.3.1"`, `"react-dom": "^18.3.1"`, `"@vitejs/plugin-react"`,
+and every component in `frontend/src/components/` is a `.tsx` React
+component tested with `@testing-library/react`; there is no Vue dependency
+anywhere in the repo. Expected: the intro must name the actual framework
+(React, served via Vite) so a fresh-clone installer isn't misled about
+what they're running. No test pin is possible for this — it is a
+prose-only factual claim in a doc file, not behavior; `grep -n -i
+"vue\|react" docs/RUNBOOK.md` confirms the sole hit is this one wrong
+line. (The manager's own pre-handoff log entry at
+`docs/sprint/sprints/2026-07-26-local-first-platform-log.md` already
+flagged this identical defect before QA started — independently
+reconfirmed here.) Every other command/path/env var in `docs/RUNBOOK.md`
+and `docs/mcp-registration.md` was verified correct (see `## QA Notes`).
+
 **D2. G8 E2E: seed → enrich → review → grade, fully local**
 Seed a matter/document/source_span via existing fixtures, run the
 enrichment pipeline (B2), submit for review, reviewer accepts via the
@@ -417,6 +434,88 @@ layer); every write path in this app goes directly through routers via
 
 ## Completed
 
+QA cycle 1 (2026-07-26), 16/17 PASS — D1 bounced, see its `[QA-FAIL: ...]`
+entry above. Verdict = PASS, probe = one live/independent check beyond the
+item's own tests, regression = new QA test name (file:
+`backend/tests/integration/test_qa_regression_local_first_platform.py`
+unless noted).
+
+- **A1** Raw-text columns + reversible migration + backfill. PASS — ran
+  `upgrade()`/`downgrade()`/`upgrade()` myself against a throwaway file DB
+  with a simulated pre-existing (pre-migration) row; backfill and column
+  drop/restore verified byte-exact. Regression: none needed (G3 fully
+  covers this).
+- **A2** Assertion write paths store raw + sanitized. PASS — live API
+  probe: create + PATCH with an `<appendix A>`-shaped proposition;
+  `proposition_raw` byte-exact, sanitized column correctly altered.
+  Regression: `test_proposition_raw_round_trips_unicode_emoji_and_crlf_byte_exact`.
+- **A3** Comment write paths store raw + sanitized. PASS — live API probe:
+  comment create + list expose `comment_text_raw` byte-exact. Regression:
+  `test_comment_raw_round_trips_unicode_emoji_and_crlf_byte_exact`.
+- **A4** Rating write paths store raw + sanitized rationale. PASS — live
+  API probe of PUT rating plus the visibility gate (peer/rater/reviewer).
+  Regression: `test_rating_list_nulls_rationale_for_unauthorized_peer_but_not_for_rater_or_reviewer`
+  (closes a real coverage gap — no prior test exercised the unauthorized
+  path for this gate).
+- **A5** G1 named-example round trip. PASS — 3/3 green; confirmed the
+  fixture strings are issue #2's exact quoted examples. Regression: n/a
+  (covered by A2/A8 boundary regression).
+- **A6** Search reads raw proposition, not sanitized. PASS — live API
+  probe: `q=appendix A` (a sanitizer-dropped term) finds the assertion via
+  the real endpoint. Regression: covered by
+  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`.
+- **A7** Frontend revision history + comparison render raw text nodes.
+  PASS — scoped vitest run (9/9) via real React Testing Library render;
+  `grep -rn dangerouslySetInnerHTML frontend/src` returns zero code hits
+  (one unrelated comment string in a test file). Regression: none needed
+  (component tests already exhaustive for this surface).
+- **A8** Length cap (100,000 chars) enforced at the API. PASS — 11/11
+  suite green. Regression:
+  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`
+  (boundary size composed with raw-fidelity in one case).
+- **A9** Stale-pin sweep. PASS — `git show db203ce` on both edited test
+  files confirms only the documented docstring updates + the one added
+  `proposition_raw` assertion; the sanitized-column assertions and all 3
+  `test_validation.py` browser-faithful pins are byte-identical to before.
+  Regression: n/a (historical-diff verification, not new behavior).
+- **B1** Enrichment CLI. PASS — ran the real CLI as a subprocess against a
+  seeded SQLite file DB: run 1 creates 1 draft `model_suggested` assertion
+  (confirmed via `GET /assertions`), run 2 is idempotent (0 created, DB
+  still holds exactly 1), unknown matter exits 1 with a clear stderr
+  message. Regression:
+  `test_enrich_cli_on_matter_with_zero_spans_creates_nothing_and_exits_zero`.
+- **B2** Offline heuristic suggester + live pipeline. PASS — same
+  subprocess trace confirms real `Assertion`/`AssertionRevision`/
+  `AssertionEvidence` rows, `origin=model_suggested`, `status=draft`,
+  never `accepted`. Regression:
+  `test_run_enrichment_on_matter_with_zero_spans_returns_empty_list`.
+- **B3** Pluggable `Enricher` protocol. PASS — 3/3 green; read
+  `pipeline.py`'s `enricher if enricher is not None else
+  HeuristicEnricher()` wiring directly. Regression: n/a (interface-level,
+  already exhaustive).
+- **C1** LexGraph MCP stdio server. PASS — confirmed
+  `test_mcp_tools_live.py`/`test_mcp_search_fetch_tools.py` dispatch
+  through the real `server.call_tool(...)` (not raw functions); booted
+  `python -m app.mcp.server` as a subprocess against a schema'd file DB
+  with stdin held open — stayed alive the full 5s bound, no traceback, no
+  crash. Regression: `test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`.
+- **C2** MCP registration docs. PASS — content read in full: `claude mcp
+  add` command matches `server.py`'s actual module path; Codex/Cursor/
+  Antigravity snippets present; no factual defects found. Regression: n/a
+  (doc-only, no behavior to pin).
+- **D2** (G8 E2E: seed → enrich → review → grade;
+  `backend/tests/e2e/test_local_first_platform_flow.py`, per this
+  contract's Track D item list — labeled "D3" in `## Dev Complete`'s prose,
+  see `## QA Notes`). PASS — 1/1 green; test body read in full and matches
+  gate G8 exactly against the real API, one local SQLite file, no network.
+  Regression: n/a (E2E-level, exhaustive by design).
+- **D3** (zero-network guardrail;
+  `backend/tests/unit/test_no_network_dependencies.py`, per this
+  contract's Track D item list — labeled "D2" in `## Dev Complete`'s prose,
+  see `## QA Notes`). PASS — manually grepped every import in `app/enrich/`
+  and `app/mcp/`; zero network-capable modules, matching the AST-based
+  test's verdict. Regression: n/a (static-analysis-level, exhaustive).
+
 ## Evaluation Notes
 
 Track A (A1–A9), Developer solo pass, dev-complete 2026-07-26 (see `## Dev Complete` for per-item detail):
@@ -469,6 +568,18 @@ Track D (C2+D1+D2+D3), Developer solo pass (doc-only items), dev-complete
 - Deviations from brief: none.
 
 ## QA Notes
+
+- 2026-07-26T13:35Z qa: Independent evaluator green — backend 283→290
+  passed (7 new QA regressions), frontend 62/62, zero flakes. Live-path
+  PASS: enrich CLI subprocess (idempotent, clean unknown-matter failure),
+  MCP stdio boot (5s, stdin held open, no crash), FastMCP real
+  `call_tool` dispatch confirmed, frontend raw-text rendering + zero
+  `dangerouslySetInnerHTML`. Gate sweeps PASS: G1/G2 classification
+  (JSON-only backend + 2 text-node React components), G3 migration
+  round-trip (live, throwaway DB), G4 privacy (live — closed a real
+  untested gap). D1 FAILED: `docs/RUNBOOK.md` calls the frontend
+  "Vue.js" — it's React+Vite (manager's own pre-handoff log already
+  flagged this). 16/17 PASS. Full transcript: see `-log.md`.
 
 ## Context Dump
 
