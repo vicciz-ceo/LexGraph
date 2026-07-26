@@ -148,3 +148,4 @@ component modules genuinely do not exist).
 - 2026-07-26T08:55Z — Manager: QA cycle 3 accepted (commit clean; 16 RED verified; limitation ruling accepted). Ruling R13: fixpoint sanitization — manager-probed as closing both findings with prose idempotent. Lock → developer; spawning fix3. qa_cycles 3/5 — if cycle 4 bounces again, manager reassesses the criterion rather than looping.
 - 2026-07-26T09:00Z — fixpoint sanitizer dev (R13) → ad2185d8e5d6174f5 (sonnet, medium)
 - 2026-07-26T09:20Z — Manager: fix3 verified (impl read + own 17-case probe: 0 leaks across 11 attacks incl. nested wrappers, 6 prose byte-exact) + merged @ 0e2877a; 171/171 + 60/60. Lock → qa; spawning QA cycle 4 (final).
+- 2026-07-26T09:25Z — QA cycle 4 (final) → a217c7e512ac2578c (sonnet, high)
