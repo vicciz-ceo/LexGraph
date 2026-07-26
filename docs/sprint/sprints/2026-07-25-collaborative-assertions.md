@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T08:20:00Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T07:40:00Z"
+last_updated: "2026-07-26T08:55:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 1
-qa_cycles: 2
+dev_complete_items: 0
+qa_cycles: 3
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -58,7 +58,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — cycle-2 B5 finding fixed; in Dev Complete for QA cycle 3)
+- [QA-FAIL: B5-fix3] Adversarial round 3 on the R12 `html.parser`-rebuilt `sanitize_for_storage` found two NEW live bypass classes (distinct from the fixed cycle-2 ones): (1) **CDATA/RCDATA-wrapper bypass** — `_SanitizingParser._CDATA_CONTENT_TAGS` only suppresses output for `script`/`style`, but the stdlib `HTMLParser` this class wraps treats a wider set of elements as opaque raw-text containers internally (`HTMLParser.CDATA_CONTENT_ELEMENTS` = `script, style, xmp, iframe, noembed, noframes`; `RCDATA_CONTENT_ELEMENTS` = `textarea, title` on this Python 3.13 venv) — content nested inside any of these six wrapper tags is delivered to `handle_data` as literal unparsed text, so a `<script>` payload wrapped in e.g. `<iframe>`/`<textarea>`/`<title>` survives byte-for-byte, e.g. `<iframe><script>alert(1)</script></iframe>` sanitizes to `<script>alert(1)</script>` verbatim. Confirmed live via the real API on **all five write paths** (create, PATCH, revisions, comments, rating-rationale). (2) **Chained abandoned-tag bypass** — `_salvage_trailing_prose` only walks past ONE abandoned (never-closed) tag's attribute tokens; when a SECOND unclosed tag is chained right after the first (no `>` anywhere in the input), the second tag's raw opening markup and live attribute survive untouched, e.g. `<img src=x onerror=alert(1) <svg onload=alert(2) trailing` sanitizes to `...<svg onload=alert(2) trailing`. Confirmed live on create + comments. Expected: gate G10 — no live-looking markup survives regardless of wrapper element or how many unclosed tags are chained. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_neutralizes_script_nested_inside_{iframe,textarea,title,noembed,noframes,xmp}`, `::test_sanitize_neutralizes_dangerous_tag_nested_inside_iframe_without_script`, `::test_sanitize_neutralizes_second_of_two_chained_abandoned_tags{,_same_tag_name}`; `backend/tests/integration/test_hostile_input.py::test_proposition_script_nested_in_iframe_is_neutralized`, `::test_patch_proposition_script_nested_in_textarea_is_neutralized`, `::test_create_revision_script_nested_in_title_is_neutralized`, `::test_comment_script_nested_in_noembed_is_neutralized`, `::test_rating_rationale_script_nested_in_xmp_is_neutralized`, `::test_proposition_chained_abandoned_tags_is_neutralized`, `::test_comment_chained_abandoned_tags_is_neutralized`.
 
 ## Parallelization plan
 
@@ -84,8 +84,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix2 (R12) — `sanitize_for_storage` rebuilt on stdlib `html.parser.HTMLParser` with abandoned-tag tail salvage (`validation.py` only), fix commit `1078f33`, merged `abc5806`; 147/147 backend. Manager probe: 9 attack shapes neutralized; legal prose (`< $500 ... > 10 years`), `5 < 10`, entities/quotes, prompt-injection text all byte-exact.
-- KNOWN LIMITATION for QA cycle 3 to rule on (manager probe; NOT a regression — the old regex behaved identically): authored text forming a syntactically valid tag, e.g. `a<b and c>d`, loses the bracketed span (`-> "ad"`) because a browser parses `<b and c>` as a real start tag. Browser-faithful per R12(a) but drops authored characters (tension with spec §2). Options if material: store raw+sanitized separately (schema change, out of scope under R8) or escape-instead-of-strip at render. Manager lean: accept as documented limitation.
+(empty — B5-fix2 bounced to Next Steps as B5-fix3; see QA-FAIL above)
 
 ## Completed
 
@@ -114,6 +113,8 @@ ESCALATION: UI2's `submitDisabled = hasExactDuplicate || (propositionMissing && 
 RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissing`; confirmed matching in cycle-2 QA (see QA Notes below and Completed/UI2 entry).
 
 2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
+
+2026-07-26T08:55Z (QA, Sonnet high, cycle 3): Independent evaluator baseline confirmed clean before any new tests: 147/147 backend, 60/60 frontend. Adversarial round 3 on the R12 rebuild found two NEW live findings (full detail + RED test names in Next Steps `[QA-FAIL: B5-fix3]`): CDATA/RCDATA-wrapper bypass (iframe/textarea/title/noembed/noframes/xmp — `_CDATA_CONTENT_TAGS` doesn't match the stdlib parser's own wider raw-text-element lists) confirmed live on all 5 write paths; chained-abandoned-tag bypass (second unclosed tag's markup leaks past `_salvage_trailing_prose`) confirmed live on 2 paths. All other probed shapes (quoted-attr-containing-`>`, attr-value-with-literal-`>`, backtick/unquoted-slash attrs, unterminated comment, trailing-slash-no-`>`, null-byte/tab/newline-in-tag, `</script >`/`</script\t>` spacing, deeply-nested-duplicated `<script>`) confirmed CORRECT — not regressed, pinned as 8 new regression tests. Prose-integrity: all required cases (`< $500 ... > 10 years`, `5 < 10`, `a < b`, `§8.2 & 8.4`, curly quotes/em-dash, literal `&amp;`, multi-paragraph w/ newlines, multiple unrelated comparisons) byte-exact; 4 pinned as new regression tests, rest already covered by existing tests. KNOWN LIMITATION ruling: ACCEPT `a<b and c>d` -> `"ad"` as documented, non-blocking — confirmed it only triggers when the token immediately after `<` is itself a valid HTML tag name (rare in real legal prose, which uses full words/numbers after comparison operators, not bare single/two-letter tokens); browser-faithful, matches pre-existing regex-era behavior (not a regression), and the only real fixes (dual raw+sanitized storage, or escape-at-render) are schema/pipeline changes out of scope under R8. No new instances of this class found during round-3 probing. Added 16 RED tests (9 unit + 7 integration, all through the real API) pinning required behavior for both new findings, plus 12 regression pins (8 unit adversarial-shapes + 4 unit prose-integrity) for confirmed-correct behavior. Full suite after additions: 155 backend passed + 16 RED (171 total) + 60 frontend green.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see

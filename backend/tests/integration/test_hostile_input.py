@@ -308,3 +308,164 @@ def test_prompt_injection_in_comment_does_not_alter_review_status(client, matter
     )
     r = client.get(f"/api/v1/assertions/{assertion_id}", headers=m["reviewer_headers"])
     assert r.json()["status"] == "proposed"
+
+
+# --- QA regression (2026-07-26, cycle 3): CDATA/RCDATA-wrapper bypass -------
+#
+# `sanitize_for_storage`'s `_SanitizingParser` only suppresses output for
+# `script`/`style` content. The underlying stdlib `html.parser.HTMLParser`
+# treats a wider set of elements as opaque raw-text containers internally
+# (`iframe`, `xmp`, `noembed`, `noframes` as CDATA; `textarea`, `title` as
+# RCDATA) -- exactly matching how real browsers parse these elements'
+# content as literal text, never sub-parsing nested tags. Because the
+# sanitizer's own suppression list doesn't match the parser's raw-text
+# list, a payload nested inside any of these wrapper elements is emitted
+# as literal DATA, `<script>` markup and all. Confirmed live via the real
+# API on all five write paths (create, PATCH, revisions, comments,
+# rating-rationale). RED against the current implementation; pins the
+# REQUIRED behavior (no live-looking markup survives), not the bug.
+
+
+def test_proposition_script_nested_in_iframe_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition="<iframe><script>alert(1)</script></iframe>Clause 8.4 still creates the exception.",
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<script" not in stored
+    assert "Clause 8.4 still creates the exception." in stored
+
+
+def test_patch_proposition_script_nested_in_textarea_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.patch(
+        f"/api/v1/assertions/{assertion_id}",
+        json={
+            "proposition": "<textarea><script>alert(1)</script></textarea>Patched proposition text."
+        },
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 200
+    stored = r.json()["proposition"]
+    assert "<script" not in stored
+    assert "Patched proposition text." in stored
+
+
+def test_create_revision_script_nested_in_title_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/revisions",
+        json={"proposition": "<title><script>alert(1)</script></title>Revision text stays."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<script" not in stored
+    assert "Revision text stays." in stored
+
+
+def test_comment_script_nested_in_noembed_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={"comment_text": "<noembed><script>alert(1)</script></noembed>Good point."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["comment_text"]
+    assert "<script" not in stored
+    assert "Good point." in stored
+
+
+def test_rating_rationale_script_nested_in_xmp_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="proposed"),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.put(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
+        json={
+            "strength": 4,
+            "rationale": "<xmp><script>alert(1)</script></xmp>Strong support.",
+        },
+        headers=m["rater_headers"],
+    )
+    assert r.status_code in (200, 201)
+    stored = r.json()["rationale"]
+    assert "<script" not in stored
+    assert "Strong support." in stored
+
+
+# --- QA regression (2026-07-26, cycle 3): chained abandoned-tag bypass ------
+#
+# `_salvage_trailing_prose` only recognizes a SINGLE abandoned (never-
+# closed) start tag at the head of the leftover fragment. When two
+# unclosed tags are chained back-to-back (no `>` anywhere in the whole
+# input), the attribute-token walk correctly stops at the second tag's
+# `<`, but then returns that second tag's raw opening markup and live
+# attribute untouched -- e.g. `<img ... onerror=alert(1) <svg
+# onload=alert(2) trailing` sanitizes to a value that still contains
+# `<svg onload=alert(2)`. Confirmed live via the real API. RED against the
+# current implementation; pins the REQUIRED behavior, not the bug.
+
+
+def test_proposition_chained_abandoned_tags_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition="<img src=x onerror=alert(1) <svg onload=alert(2) trailing text",
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<img" not in stored
+    assert "<svg" not in stored
+    assert "onerror" not in stored
+    assert "onload" not in stored
+
+
+def test_comment_chained_abandoned_tags_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={
+            "comment_text": "<img src=x onerror=alert(1) <img src=y onerror=alert(2) more text"
+        },
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["comment_text"]
+    assert stored.count("<img") == 0
+    assert "onerror" not in stored

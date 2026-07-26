@@ -1,17 +1,17 @@
 {
   "id": "2026-07-25-collaborative-assertions",
-  "status": "dev-complete",
-  "current_role": "qa",
+  "status": "qa-fail",
+  "current_role": "developer",
   "locked_by": "claude-code:qa",
   "locked_at": "2026-07-26T08:20:00Z",
   "last_agent": "claude-code:qa",
-  "last_updated": "2026-07-26T08:20:00Z",
+  "last_updated": "2026-07-26T08:55:00Z",
   "contract_path": "docs/sprint/sprints/2026-07-25-collaborative-assertions.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 12,
   "completed_items": 11,
-  "dev_complete_items": 1,
-  "qa_cycles": 2,
+  "dev_complete_items": 0,
+  "qa_cycles": 3,
   "previous_sprint": null,
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 }

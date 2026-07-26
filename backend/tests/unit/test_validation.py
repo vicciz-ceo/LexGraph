@@ -131,6 +131,175 @@ def test_sanitize_preserves_prose_with_multiple_unrelated_comparisons():
     assert sanitize_for_storage(benign) == benign
 
 
+# --- QA regression (2026-07-26, cycle 3): CDATA/RCDATA-adjacent-element bypass
+#
+# `_SanitizingParser._CDATA_CONTENT_TAGS` only suppresses `handle_data` for
+# `script`/`style`. But the stdlib `html.parser.HTMLParser` this class is
+# built on treats a WIDER set of elements as raw-text containers
+# internally: `HTMLParser.CDATA_CONTENT_ELEMENTS` also includes `iframe`,
+# `xmp`, `noembed`, `noframes` (their content is tokenized as one opaque
+# blob, never sub-parsed for nested tags -- exactly matching how real
+# browsers treat these elements), and `HTMLParser.RCDATA_CONTENT_ELEMENTS`
+# covers `textarea`/`title` the same way. Because our suppression list
+# doesn't match the parser's own raw-text list, a `<script>` payload
+# nested inside any of these wrapper elements is delivered to
+# `handle_data` as literal, unparsed text -- and since `_cdata_skip_depth`
+# never got incremented for the wrapper tag, that text is NOT suppressed:
+# it survives `sanitize_for_storage` byte-for-byte, e.g.
+# `<iframe><script>alert(1)</script></iframe>` -> `<script>alert(1)</script>`
+# stored verbatim. A downstream render of the "sanitized" value would
+# execute this. Confirmed live via the real API on all five write paths
+# (create, PATCH, revisions, comments, rating-rationale -- all call this
+# same shared function). RED against the current implementation; pins the
+# REQUIRED behavior (no live-looking markup survives), not the bug.
+
+
+def test_sanitize_neutralizes_script_nested_inside_iframe():
+    result = sanitize_for_storage("<iframe><script>alert(1)</script></iframe>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_textarea():
+    result = sanitize_for_storage("<textarea><script>alert(1)</script></textarea>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_title():
+    result = sanitize_for_storage("<title><script>alert(1)</script></title>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_noembed():
+    result = sanitize_for_storage("<noembed><script>alert(1)</script></noembed>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_noframes():
+    result = sanitize_for_storage("<noframes><script>alert(1)</script></noframes>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_xmp():
+    result = sanitize_for_storage("<xmp><script>alert(1)</script></xmp>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_dangerous_tag_nested_inside_iframe_without_script():
+    # Not every payload needs an inner <script> -- any tag-shaped content
+    # inside the raw-text wrapper survives the same way.
+    result = sanitize_for_storage('<iframe><img src=x onerror=alert(1)></iframe>Clause stays.')
+    assert "<img" not in result
+    assert "onerror" not in result
+    assert "Clause stays." in result
+
+
+# --- QA regression (2026-07-26, cycle 3): second abandoned tag leaks --------
+#
+# `_salvage_trailing_prose` walks the leftover, unresolved tail from ONE
+# abandoned (never-closed) start tag: it strips the tag name plus a run of
+# `name=value` attribute tokens, then returns whatever follows untouched.
+# When the untouched remainder itself contains a SECOND, independent
+# abandoned tag (e.g. two unclosed elements chained back-to-back with no
+# `>` anywhere in the whole input), the attribute-token walk correctly
+# stops at the second tag's `<` (since `<svg` isn't `key=value`-shaped),
+# but the returned "prose tail" then contains that second tag's raw
+# opening markup AND its own live-looking attribute verbatim --
+# `<img src=x onerror=alert(1) <svg onload=alert(2) trailing` sanitizes to
+# ` <svg onload=alert(2) trailing`, i.e. the second tag's `<svg
+# onload=alert(2)` survives untouched. Confirmed live via the real API.
+# RED against the current implementation; pins the REQUIRED behavior (no
+# live-looking tag/attribute text survives), not the bug.
+
+
+def test_sanitize_neutralizes_second_of_two_chained_abandoned_tags():
+    result = sanitize_for_storage(
+        "<img src=x onerror=alert(1) <svg onload=alert(2) trailing"
+    )
+    assert "<img" not in result
+    assert "<svg" not in result
+    assert "onerror" not in result
+    assert "onload" not in result
+
+
+def test_sanitize_neutralizes_second_of_two_chained_abandoned_tags_same_tag_name():
+    result = sanitize_for_storage(
+        "<img src=x onerror=alert(1) <img src=y onerror=alert(2) more text"
+    )
+    assert result.count("<img") == 0
+    assert "onerror" not in result
+
+
+# --- QA regression pins (2026-07-26, cycle 3): confirmed-correct shapes -----
+#
+# These attack/edge-case shapes were adversarially probed in cycle 3 and
+# found already handled correctly by the `html.parser`-based tokenizer.
+# Pinned here so a future change to `_SanitizingParser` or
+# `_salvage_trailing_prose` can't silently regress them.
+
+
+def test_sanitize_neutralizes_unclosed_tag_with_quoted_attribute_containing_greater_than():
+    # A literal `>` INSIDE a quoted attribute value must not be mistaken
+    # for the tag's closing bracket -- the tag stays open past it, exactly
+    # as a real browser's tokenizer would treat it.
+    result = sanitize_for_storage('<img src="x" onerror="alert(1)>" trailing prose stays')
+    assert "<img" not in result
+    assert "onerror" not in result
+    assert "trailing prose stays" in result
+
+
+def test_sanitize_neutralizes_closed_tag_with_literal_greater_than_in_attribute_value():
+    result = sanitize_for_storage('<img alt="a>b" onerror=alert(1)>Clause stays.')
+    assert "<img" not in result
+    assert "onerror" not in result
+    assert result == "Clause stays."
+
+
+def test_sanitize_neutralizes_script_with_space_before_closing_bracket():
+    # `</script >` (whitespace before `>`) is still a valid closing tag
+    # per the HTML5 spec's tag-name-state grammar.
+    result = sanitize_for_storage("<script>alert(1)</script >Clause stays.")
+    assert "<script" not in result
+    assert "alert(1)" not in result
+    assert result == "Clause stays."
+
+
+def test_sanitize_neutralizes_script_with_tab_before_closing_bracket():
+    result = sanitize_for_storage("<script>alert(1)</script\t>Clause stays.")
+    assert "<script" not in result
+    assert "alert(1)" not in result
+    assert result == "Clause stays."
+
+
+def test_sanitize_preserves_section_symbol_and_ampersand():
+    benign = "§8.2 & 8.4"
+    assert sanitize_for_storage(benign) == benign
+
+
+def test_sanitize_preserves_curly_quotes_and_em_dash():
+    benign = "“The party shall” — as defined herein — comply with §8.2 & 8.4."
+    assert sanitize_for_storage(benign) == benign
+
+
+def test_sanitize_preserves_literal_entity_text_written_by_author():
+    benign = "The literal text &amp; appears here, written by the author, not as markup."
+    assert sanitize_for_storage(benign) == benign
+
+
+def test_sanitize_preserves_multi_paragraph_text_with_newlines():
+    benign = (
+        "Paragraph one, discussing Clause 8.4.\n\n"
+        "Paragraph two, discussing Clause 9.1 < Clause 12.\n\n"
+        "Paragraph three."
+    )
+    assert sanitize_for_storage(benign) == benign
+
+
 def test_validate_proposition_not_empty_rejects_blank():
     with pytest.raises(ValidationError):
         validate_proposition_not_empty("   ")
