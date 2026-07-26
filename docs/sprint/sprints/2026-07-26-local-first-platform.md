@@ -1,13 +1,13 @@
 ---
 id: "2026-07-26-local-first-platform"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-26-local-first-platform
 locked_by: null
 locked_at: null
 last_agent: "claude-code:manager"
-last_updated: "2026-07-26T11:03:06Z"
-lint: "PASS 228 2026-07-26T11:04:23Z"
+last_updated: "2026-07-26T11:07:18Z"
+lint: "PASS 228 2026-07-26T11:07:18Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
