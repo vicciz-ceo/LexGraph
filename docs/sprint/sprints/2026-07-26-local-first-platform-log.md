@@ -88,6 +88,26 @@ and the agent roster live here.
   (Track A bundle, Sonnet medium, solo mode) next.
 - 2026-07-26T09:38Z developer (Track A): agentId a7443d93d43ec195c (Sonnet,
   medium) — spawned on 017c9d7, solo mode, items A1–A9.
+- 2026-07-26T10:35Z manager: Track A verified — containment PASS (owned
+  files only, zero test files), full 499-line diff read PASS (reversible
+  migration, raw carry-forward on untouched-proposition revisions, privacy
+  gate nulls rationale_raw, cap pre-sanitization, text-node-only frontend),
+  risk-grep clean, manager probe run matches: backend 20 failed / 263
+  passed (all B/C/D), frontend 62/62. Parallel fan-out: devB agentId
+  ae34128728ec0c470 (Sonnet, medium, items B1–B3, worktree lexgraph-devB,
+  branch …-devB @ eb38032); devC agentId a2bd8cf490d122d0d (Sonnet, medium,
+  item C1, worktree lexgraph-devC, branch …-devC @ eb38032). Dev-D
+  (C2+D1–D3) sequenced after B+C merge.
+- 2026-07-26T10:45Z manager: devC verified (containment PASS — 2 new files
+  only; full 220-line diff read PASS — read-only, no network imports,
+  bounded, raw precedence; LEXGRAPH_DATABASE_URL env name confirmed real in
+  config.py) and ff-merged → a578477. devB verified (containment PASS — 5
+  new enrich files only; full 430-line read PASS — raw/sanitized mirror,
+  draft-only, idempotent, offline) and merged → c836154. Manager combined
+  evaluator on merged tree: backend 281 passed / 2 failed (only the two
+  Track D doc tests); e2e D2 + guardrail D3 green with no code; frontend
+  green. dev_complete_items → 13. Dev-D next: doc-only scope → Haiku low
+  per model policy.
 - 2026-07-26T10:05Z developer (Track A): all 9 items dev-complete, 7
   commits (47507b3 A1, d11324c A2, b14abe3 A3, 820a4b4 A4, c281ed6 A6,
   cb2546b A7, a0bf1f6 A8 — A5/A9 needed no code, verified green as

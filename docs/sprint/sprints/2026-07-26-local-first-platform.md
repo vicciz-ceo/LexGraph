@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
 completed_items: 0
-dev_complete_items: 9
+dev_complete_items: 13
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -367,6 +367,33 @@ items dev-complete:
   `_serialize_assertion`. Verified: full `test_hostile_input.py` 40/40
   green, including the 17-shape hostile battery and all 3
   `test_validation.py` browser-faithful pins untouched.
+
+Parallel pass (devB enrichment / devC MCP, both Sonnet medium, spawned on
+eb38032 in isolated worktrees; manager merged devC ff → a578477, devB
+merge → c836154; entries applied by the manager per parallel-mode rule):
+
+- **B1** Enrichment CLI (`python -m app.enrich.cli --matter-id <id>
+  --triggered-by-user-id <id>`; reads `LEXGRAPH_DATABASE_URL`; non-zero
+  exit + stderr on unknown matter). Files: `backend/app/enrich/cli.py`.
+  Commit `9acd0f9`. Result: 3/3 green.
+- **B2** Offline heuristic suggester + live pipeline: deterministic
+  precision-first rule set → real Assertion/AssertionRevision/
+  AssertionEvidence rows, origin `model_suggested`, status `draft`, never
+  accepted; raw/sanitized split mirrors `routers/assertions.py`;
+  idempotent re-runs. Files: `backend/app/enrich/suggester.py`,
+  `pipeline.py`. Commit `be82651`. Result: 3/3 + 2/2 green.
+- **B3** Pluggable `Enricher` protocol, default `HeuristicEnricher`
+  (declared R4 boundary seam). Files: `backend/app/enrich/base.py`,
+  `__init__.py`. Commit `e3598a8`. Result: 3/3 green.
+- **C1** LexGraph MCP stdio server (`FastMCP`, tools explore/search/fetch,
+  read-only per R5, zero network, bounded results, raw-text precedence,
+  runnable `python -m app.mcp.server`). Files: `backend/app/mcp/__init__.py`,
+  `server.py`. Commit `a578477`. Result: 4/4 green.
+
+Manager-verified on the merged tree (c836154): backend 281 passed /
+2 failed — only the two Track D doc tests (`test_local_first_runbook_docs`,
+`test_mcp_registration_docs`); `test_local_first_platform_flow` (D2) and
+`test_no_network_dependencies` (D3) GREEN with no code; frontend green.
 
 Owned-file conditional grants (`backend/app/routers/history.py`,
 `backend/app/models/repository.py`): not exercised. No Track A test reads
