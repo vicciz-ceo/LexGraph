@@ -155,3 +155,4 @@ component modules genuinely do not exist).
 - 2026-07-26T10:15Z — Manager: fix4 verified (diff read + own probe: chains 5-400 → 0 leaks, wrappers/evasions → 0 leaks, prose byte-exact) + merged @ 21de194; 189/189 + 60/60. Lock → qa; spawning QA cycle 5 (valve cycle).
 - 2026-07-26T10:20Z — QA cycle 5 (closing/valve) → afb2938fd3be41368 (sonnet, high)
 - 2026-07-26T10:45Z — Manager: QA cycle 5 accepted (commit clean: tests+contract only; perf RED verified; G10 content-safety PASS re-confirmed at all chain lengths). Quadratic blowup manager-reproduced (0.08/0.30/1.18s at n=500/1000/2000). Ruling R15: linearize salvage now; no auto QA cycle 6 (valve honored — manager verification + director sign-off); length cap deferred to director as product decision. Lock → developer; spawning fix5.
+- 2026-07-26T10:50Z — linearize-salvage dev (R15) → a1b8baaabfb2fc76d (sonnet, medium)
