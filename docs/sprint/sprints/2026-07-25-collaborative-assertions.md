@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: blocked
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T10:15:00Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T09:55:00Z"
+last_updated: "2026-07-26T11:40:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 1
-qa_cycles: 4
+dev_complete_items: 0
+qa_cycles: 5
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -60,7 +60,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — cycle-4 finding fixed; B5-fix4 in Dev Complete for QA cycle 5)
+- [QA-BLOCKED, cycle 5 / harness limit] B5-fix4 (R14) closes every content-safety finding from cycles 1-4 — confirmed live via the real API across all 5 write paths at chain lengths 9/12/25/100/500 abandoned tags (incl. mixed abandoned+closed+wrapper interleavings), fail-closed path, and prose byte-exactness. But the adversarial performance-sanity round required by this cycle's brief found a NEW live defect in the same fixpoint mechanism: `sanitize_for_storage`'s `len(raw_text) + 2`-bounded loop resolves at most one chained abandoned tag per pass, so a payload shaped as k chained abandoned tags costs O(k) passes x O(n) per-pass re-parse = **O(n²) wall-clock time**. No request schema anywhere caps `proposition`/`comment_text`/`rationale` length. Measured live via `POST /api/v1/assertions` (create path): n=1000 tags (28,371 bytes) → 0.350s; n=1500 (43,106 bytes) → 0.714s; n=2000 (57,824 bytes) → 1.301s; n=2500 (72,571 bytes) → 2.099s — clean quadratic scaling (2.5x input → 6x time), vs. 50,000 bytes of benign non-markup text sanitizing in 0.22ms. Extrapolating the measured constant, a single HTTP request with a few-hundred-KB payload (a plausible size for an unbounded text field) would pin a request-handling thread/worker for **minutes**; any authenticated contributor (lowest write-privileged role) can trigger it, repeatably, with no rate limit or size cap in this codebase to stop them. Content safety is unaffected (no markup leaks at any tested chain length) — this is purely a resource-exhaustion/availability defect. RED test: `backend/tests/integration/test_hostile_input.py::test_proposition_large_chained_abandoned_tag_payload_is_not_quadratic` (asserts a 2000-tag chain via the real API completes in <0.5s; currently ~1.3-1.4s). Options for the director: (1) cap `proposition`/`comment_text`/`rationale` length at the schema level (Pydantic `Field(max_length=...)`) — simplest, but a policy call on what limit is legitimate for long legal prose; (2) make `_salvage_trailing_prose` resolve ALL chained abandoned tags in one pass (regex `finditer`-style walk) instead of one-per-pass, restoring O(n) total cost without any length cap — likely the more complete fix, keeps the fixpoint driver only for genuinely nested/multi-shape cases; (3) both. This is qa_cycles=5, the harness limit — per the manager's valve instruction, QA is stopping here rather than attempting a fix or another cycle; routing to the director for a scoping decision on (1)/(2)/(3) before a Developer track picks it up as B5-fix5.
 
 ## Parallelization plan
 
@@ -86,9 +86,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix4 (R14) — convergence bound `len(raw)+2`, fail-closed to `""` (`validation.py` only), fix commit `45f8a9c`, merged `21de194`; 189/189 backend, 60/60 frontend. Manager probe: chains at n=5/9/12/20/60/150/400 → 0 leaks; nested wrappers, template/plaintext, `/`-evasion → 0 leaks; 5 prose cases byte-exact; dev perf check 20k-char benign text converges pass 1 in 0.094ms.
-
-(empty — B5-fix3 bounced to Next Steps as B5-fix4; see QA-FAIL above)
+(empty — B5-fix4 blocked, cycle 5 harness limit; content-safety confirmed PASS but a new O(n²) performance/DoS finding routes to the director rather than back to Dev Complete — see QA-BLOCKED in Next Steps above)
 
 ## Completed
 
@@ -121,6 +119,11 @@ RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissi
 2026-07-26T08:55Z (QA, Sonnet high, cycle 3): Independent evaluator baseline confirmed clean before any new tests: 147/147 backend, 60/60 frontend. Adversarial round 3 on the R12 rebuild found two NEW live findings (full detail + RED test names in Next Steps `[QA-FAIL: B5-fix3]`): CDATA/RCDATA-wrapper bypass (iframe/textarea/title/noembed/noframes/xmp — `_CDATA_CONTENT_TAGS` doesn't match the stdlib parser's own wider raw-text-element lists) confirmed live on all 5 write paths; chained-abandoned-tag bypass (second unclosed tag's markup leaks past `_salvage_trailing_prose`) confirmed live on 2 paths. All other probed shapes (quoted-attr-containing-`>`, attr-value-with-literal-`>`, backtick/unquoted-slash attrs, unterminated comment, trailing-slash-no-`>`, null-byte/tab/newline-in-tag, `</script >`/`</script\t>` spacing, deeply-nested-duplicated `<script>`) confirmed CORRECT — not regressed, pinned as 8 new regression tests. Prose-integrity: all required cases (`< $500 ... > 10 years`, `5 < 10`, `a < b`, `§8.2 & 8.4`, curly quotes/em-dash, literal `&amp;`, multi-paragraph w/ newlines, multiple unrelated comparisons) byte-exact; 4 pinned as new regression tests, rest already covered by existing tests. KNOWN LIMITATION ruling: ACCEPT `a<b and c>d` -> `"ad"` as documented, non-blocking — confirmed it only triggers when the token immediately after `<` is itself a valid HTML tag name (rare in real legal prose, which uses full words/numbers after comparison operators, not bare single/two-letter tokens); browser-faithful, matches pre-existing regex-era behavior (not a regression), and the only real fixes (dual raw+sanitized storage, or escape-at-render) are schema/pipeline changes out of scope under R8. No new instances of this class found during round-3 probing. Added 16 RED tests (9 unit + 7 integration, all through the real API) pinning required behavior for both new findings, plus 12 regression pins (8 unit adversarial-shapes + 4 unit prose-integrity) for confirmed-correct behavior. Full suite after additions: 155 backend passed + 16 RED (171 total) + 60 frontend green.
 
 2026-07-26T09:55Z (QA, Sonnet high, cycle 4, final): Independent evaluator baseline confirmed clean: 171/171 backend, 60/60 frontend; all 16 cycle-3 RED tests confirmed green, none of the 12 cycle-3 pins regressed. Adversarial round 4 found ONE live finding: a chain of 9 abandoned tags with event-handler attributes exceeds R13's 8-pass fixpoint bound, returning a value that still contains a literal, unclosed, live `<iframe onload=alert(9)` tag — confirmed live via the real API on the create and comment paths. The mechanism itself is sound (no oscillation across 20,000 fuzzed inputs; strictly monotonic convergence); the fixed 8-pass ceiling is the defect, and it is attacker-guessable (see `[QA-FAIL: B5-fix4]` above for the required-behavior detail). Wrapper families (`<template>`, `<plaintext>`, `<svg><foreignObject>`, `<math>`), comment/CDATA sections, PI/doctype payloads, and entity-reassembly (`&lt;script&gt;` stays literal text, never stripped) all confirmed CORRECT — 15 regression pins added. Long multi-paragraph legal prose confirmed byte-exact. Added 3 RED tests (1 unit + 2 integration) + 15 green regression pins (12 unit + 3 integration). Status → qa-fail, current_role → developer, qa_cycles → 4.
+
+2026-07-26T11:40Z (QA, Sonnet high, cycle 5, closing/valve): Evaluator clean: 189/189 backend, 60/60 frontend; all cycle-4 RED green, no prior pins regressed.
+Closing adversarial round on B5-fix4 (R14): chains up to 500 abandoned tags, mixed abandoned+closed+wrapper interleavings, and fail-closed path all confirmed CORRECT live on all 5 write paths — zero content leaks; 50k-char benign doc 0.22ms; all prose (cycles 2-4 + literal `&lt;script&gt;`) byte-exact. Content safety: PASS.
+Performance sanity surfaced a NEW live defect: the `len(raw)+2`-pass loop is O(n²) on chained-abandoned-tag input (one tag resolved per pass, each pass an O(n) re-parse) — no length cap on proposition/comment_text/rationale. Measured via real POST: 1000 tags/28KB→0.35s, 2000/58KB→1.3s, 2500/73KB→2.1s (clean quadratic); extrapolates to minutes for a plausible large payload, triggerable by any contributor, repeatably.
+Verdict: BLOCKED (not PASS) — this is qa_cycles=5, the harness limit; per valve instruction, stopping here rather than fixing or cycling further. Added 1 RED perf test + 5 green content-safety pins. See QA-BLOCKED in Next Steps for full detail and director-facing options (1) schema length cap, (2) resolve all chained tags per pass (O(n) fix), (3) both.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see

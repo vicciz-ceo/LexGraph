@@ -8,6 +8,8 @@ exactly as authored (spec §2, §7).
 
 from __future__ import annotations
 
+import time
+
 from tests.conftest import assertion_payload
 
 XSS_PAYLOAD = "<script>window.__pwned = true;</script>Clause 8.4 still creates the exception."
@@ -593,3 +595,176 @@ def test_proposition_literal_entity_text_spelling_out_a_tag_name_survives_as_tex
     r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
     assert r.status_code == 201
     assert r.json()["proposition"] == benign
+
+
+# --- QA regression pins (2026-07-26, cycle 5): long-chain content safety ----
+#
+# R14's convergence bound (`len(raw_text) + 2`) content-neutralizes chains
+# far past the old fixed-8-pass ceiling. Confirmed live via the real API
+# on all 5 write paths (create, PATCH, revision-create, comment create/
+# edit, rating rationale) at chain lengths 9/12/25/100/500 -- pinning the
+# two longest here (own suite already covers 9 via the cycle-4 pin) plus a
+# mixed abandoned+closed+wrapper interleaving, which is a realistic
+# escalation of the same attack class.
+
+
+def _chained_tags(n: int, start: int = 1) -> str:
+    tag_names = (
+        "img svg body input details marquee video audio iframe embed "
+        "object form select textarea_x keygen"
+    ).split()
+    handler_names = (
+        "onerror onload onfocus ontoggle onstart onloadstart onpointerdown "
+        "onmouseover onwheel onanimationstart ontransitionend oncopy onpaste "
+        "ondrag onscroll"
+    ).split()
+    return " ".join(
+        f"<{tag_names[i % len(tag_names)]} {handler_names[i % len(handler_names)]}=alert({start + i})"
+        for i in range(n)
+    )
+
+
+_DANGER_MARKERS = (
+    "<img", "<svg", "<iframe", "<body", "<input", "<details", "<marquee",
+    "<video", "<audio", "<script", "onerror", "onload", "onfocus",
+    "ontoggle", "onstart", "onloadstart", "autofocus",
+)
+
+
+def test_proposition_chain_of_100_abandoned_tags_is_fully_neutralized(client, matter_with_users):
+    m = matter_with_users
+    chain = _chained_tags(100) + " trailing prose after 100-chain."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=chain)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "trailing prose after 100-chain." in stored
+
+
+def test_proposition_chain_of_500_abandoned_tags_is_fully_neutralized(client, matter_with_users):
+    m = matter_with_users
+    chain = _chained_tags(500) + " trailing prose after 500-chain."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=chain)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "trailing prose after 500-chain." in stored
+
+
+def test_comment_chain_of_500_abandoned_tags_is_fully_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    chain = _chained_tags(500) + " trailing comment after 500-chain."
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={"comment_text": chain},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["comment_text"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "trailing comment after 500-chain." in stored
+
+
+def test_rating_rationale_chain_of_500_abandoned_tags_is_fully_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="proposed"),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    chain = _chained_tags(500) + " trailing rationale after 500-chain."
+    r = client.put(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
+        json={"strength": 4, "rationale": chain},
+        headers=m["rater_headers"],
+    )
+    assert r.status_code in (200, 201)
+    stored = r.json()["rationale"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "trailing rationale after 500-chain." in stored
+
+
+def test_proposition_interleaved_abandoned_closed_and_wrapper_tags_is_neutralized(
+    client, matter_with_users
+):
+    """A realistic escalation of the chained-abandoned-tag attack class:
+    abandoned tags, normally-closed tags, and CDATA/RCDATA wrapper elements
+    mixed in one payload, confirmed live to be fully neutralized while
+    preserving trailing authored prose."""
+    m = matter_with_users
+    payload_text = (
+        "<img src=x onerror=alert(1) "
+        "<script>alert(2)</script>"
+        "<iframe><script>alert(3)</script></iframe>"
+        "<svg onload=alert(4) "
+        "<template><script>alert(5)</script></template>"
+        "<div onclick=alert(6) "
+        "<xmp><script>alert(7)</script></xmp>"
+        "closing prose here."
+    )
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=payload_text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "onclick" not in stored
+    assert "closing prose here." in stored
+
+
+# --- QA cycle 5 finding: quadratic-time DoS via long abandoned-tag chains --
+#
+# `sanitize_for_storage`'s fixpoint loop (R13/R14) resolves at most ONE
+# chained abandoned tag per pass (`_salvage_trailing_prose` walks past
+# exactly the first tag+its attribute run). R14 bounded the loop at
+# `len(raw_text) + 2` passes specifically so chains longer than the old
+# fixed-8 ceiling still fully converge -- but each pass itself re-parses
+# the (still mostly-intact) remaining text with `HTMLParser`, an O(n) cost.
+# For a payload shaped as k chained abandoned tags, that is O(k) passes x
+# O(n) cost per pass = O(n^2) total, with no upper bound on submitted
+# text length anywhere in the request schema (`proposition`/`comment_text`
+# /`rationale` all take unbounded `str`). Confirmed LIVE via the real API,
+# POST /api/v1/assertions, on the create path:
+#   n=1000 tags (28,371 bytes)  -> 0.350s
+#   n=1500 tags (43,106 bytes)  -> 0.714s
+#   n=2000 tags (57,824 bytes)  -> 1.301s
+#   n=2500 tags (72,571 bytes)  -> 2.099s
+# clean quadratic scaling (2.5x input -> 6x time), vs. 50,000 bytes of
+# BENIGN (non-markup) text sanitizing in 0.22ms. A single authenticated
+# contributor can submit one HTTP request (well under typical body-size
+# limits) that pins a request-handling thread/worker for a long time --
+# extrapolating the measured constant, a payload in the few-hundred-KB
+# range (still a plausible single text-field submission) would run for
+# minutes. This is a genuine, reproduced-live defect, not a theoretical
+# concern: content safety is NOT affected (no markup leaks; see the green
+# pins above), only wall-clock cost. RED against the current
+# implementation; pins the required behavior (bounded, sub-linear-feeling
+# cost for a payload of this size and shape), not the bug.
+def test_proposition_large_chained_abandoned_tag_payload_is_not_quadratic(client, matter_with_users):
+    m = matter_with_users
+    chain = _chained_tags(2000) + " trailing prose after quadratic-DoS probe."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=chain)
+    t0 = time.perf_counter()
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    elapsed = time.perf_counter() - t0
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "trailing prose after quadratic-DoS probe." in stored
+    # A ~58KB request should not take over half a second to sanitize --
+    # for comparison, 50,000 bytes of benign (non-markup) text sanitizes
+    # in well under 1ms. Currently measured ~1.3s (RED).
+    assert elapsed < 0.5, (
+        f"sanitize_for_storage shows quadratic-time behavior on chained "
+        f"abandoned tags: a 2000-tag chain (~58KB) took {elapsed:.3f}s "
+        f"(required: <0.5s). See module-level comment for the O(n^2) "
+        f"mechanism and measured scaling."
+    )
