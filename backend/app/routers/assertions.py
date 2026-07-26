@@ -268,6 +268,7 @@ def _serialize_comment_summary(c: AssertionComment) -> dict:
         "user_id": c.user_id,
         "parent_comment_id": c.parent_comment_id,
         "comment_text": c.comment_text,
+        "comment_text_raw": c.comment_text_raw,
         "created_at": c.created_at,
         "updated_at": c.updated_at,
     }

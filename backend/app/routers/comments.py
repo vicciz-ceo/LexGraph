@@ -111,6 +111,10 @@ def _serialize(c: AssertionComment) -> dict:
         "user_id": c.user_id,
         "parent_comment_id": c.parent_comment_id,
         "comment_text": c.comment_text,
+        # Track A, item A3 (issue #2, gate G1): the author's exact
+        # submitted bytes, independent of whatever sanitize_for_storage
+        # did to `comment_text` above.
+        "comment_text_raw": c.comment_text_raw,
         "created_at": c.created_at,
         "updated_at": c.updated_at,
         "deleted_at": c.deleted_at,
@@ -143,6 +147,7 @@ def create_comment(
         user_id=user_id,
         parent_comment_id=body.parent_comment_id,
         comment_text=sanitize_for_storage(body.comment_text),
+        comment_text_raw=body.comment_text,
         created_at=now,
         updated_at=now,
     )
@@ -203,6 +208,7 @@ def update_comment(
         )
 
     comment.comment_text = sanitize_for_storage(body.comment_text)
+    comment.comment_text_raw = body.comment_text
     comment.updated_at = _now()
 
     record_audit_event(
