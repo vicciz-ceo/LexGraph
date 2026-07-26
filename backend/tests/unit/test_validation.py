@@ -929,6 +929,16 @@ def test_sanitize_guard_mixed_case_textarea_script_stays_neutralized():
 
 
 # --- R18 ruling — cycle-7 finding overruled, pinned as accepted limitation -
+# --- SUPERSEDED (2026-07-26, sprint local-first-platform, issue #2): the ---
+# --- "future sprint" this section originally pointed to has arrived. The --
+# --- durable remedy (raw + sanitized text stored separately) now exists --
+# --- see `proposition_raw`/`comment_text_raw`/`rationale_raw` (Track A). --
+# --- These three unit-level pins are UNCHANGED and remain correct: they ---
+# --- test `sanitize_for_storage` directly, which issue #2 explicitly -----
+# --- requires stay unweakened. The API-level round trip that now also -----
+# --- pins byte-exact raw-column preservation for this same shape lives in -
+# --- backend/tests/integration/test_hostile_input.py (search "R18") and ---
+# --- backend/tests/integration/test_g1_fidelity_round_trip.py. -----------
 #
 # QA cycle 7 filed these as RED, claiming a new defect: prose between an
 # unclosed tag and a later tag-shaped fragment is dropped. The manager (R18)
@@ -948,12 +958,13 @@ def test_sanitize_guard_mixed_case_textarea_script_stays_neutralized():
 # this. Departing from browser-faithful parsing here would require a
 # heuristic on the security-critical sanitization path, which R12 bans.
 #
-# These tests now pin the ACTUAL (browser-faithful) output as CORRECT. The
-# durable remedy for editors who want to recover text shaped like this is
-# storing raw + sanitized text separately (proposed for a future sprint) --
-# not weakening the sanitizer. Each test still asserts no live markup
-# survives, so a future regression that leaks a tag/attribute through this
-# path (rather than merely dropping prose) still fails red.
+# These tests pin the ACTUAL (browser-faithful) SANITIZED output as CORRECT
+# and unchanged. The durable remedy for editors who want to recover text
+# shaped like this is storing raw + sanitized text separately -- now
+# implemented (Track A) -- not weakening the sanitizer. Each test still
+# asserts no live markup survives, so a future regression that leaks a
+# tag/attribute through this path (rather than merely dropping prose) still
+# fails red.
 
 
 def test_sanitize_drops_text_parsed_as_tag_attributes_browser_faithful_no_attr():

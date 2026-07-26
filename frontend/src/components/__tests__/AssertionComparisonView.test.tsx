@@ -34,4 +34,22 @@ describe("AssertionComparisonView", () => {
     );
     expect(screen.getByText(/not yet been rated/i)).toBeInTheDocument();
   });
+
+  // Track A, item A7 (issue #2 / gate G1): the comparison view is a
+  // diff/compare-classified read path, so each side must render the RAW
+  // authored proposition -- byte-exact -- as a plain text node. RED against
+  // the current component, which only knows about the (possibly lossy)
+  // sanitized `proposition` field.
+  it("renders the raw authored proposition byte-exact on each side", () => {
+    const rawLeft = "Signatory: <Title> of the Company.";
+    const rawRight = "Pre <img plaintail <b>Y</b> Z";
+    render(
+      <AssertionComparisonView
+        left={{ revisionNumber: 1, proposition: "Signatory:  of the Company.", propositionRaw: rawLeft, editedBy: "Contributor A" }}
+        right={{ revisionNumber: 2, proposition: "Pre Y Z", propositionRaw: rawRight, editedBy: "Contributor A" }}
+      />
+    );
+    expect(screen.getByText(rawLeft)).toBeInTheDocument();
+    expect(screen.getByText(rawRight)).toBeInTheDocument();
+  });
 });
