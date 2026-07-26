@@ -150,6 +150,149 @@ def test_patch_proposition_is_sanitized(client, matter_with_users):
     assert "Patched proposition text." in stored
 
 
+def test_proposition_no_space_slash_bypass_is_neutralized(client, matter_with_users):
+    """QA regression (2026-07-26, cycle 2): adversarial probe against the
+    real API found `<img/onerror=...` (no whitespace before the
+    attribute) survives `sanitize_for_storage` verbatim -- a documented
+    real-world sanitizer-evasion shape (a `/` right after the tag name
+    puts the HTML5 tokenizer into self-closing-start-tag state, and the
+    following text is then reconsumed as a normal attribute, so
+    `onerror` is live in real browsers with no closing `>` needed).
+    Confirmed stored byte-for-byte via POST /api/v1/assertions. RED
+    against the current sanitizer; pins the REQUIRED behavior."""
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition="<img/onerror=alert(1) Clause 8.4 still creates the exception.",
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<img" not in stored
+    assert "onerror" not in stored
+
+
+def test_patch_proposition_no_space_slash_bypass_is_neutralized(client, matter_with_users):
+    """Same no-space-before-attribute bypass class, probed against the
+    PATCH path specifically (PATCH calls the same `sanitize_for_storage`
+    B5 added in the cycle-1 fix, so the underlying regex gap reproduces
+    here too)."""
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.patch(
+        f"/api/v1/assertions/{assertion_id}",
+        json={"proposition": "<svg/onload=alert(1) Patched proposition text."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 200
+    stored = r.json()["proposition"]
+    assert "<svg" not in stored
+    assert "onload" not in stored
+
+
+def test_proposition_preserves_legit_text_with_lt_and_later_unrelated_gt(client, matter_with_users):
+    """QA regression (2026-07-26, cycle 2): benign prose containing both a
+    `<` and a later, unrelated `>` (common in legal/financial text --
+    amount and term thresholds in one sentence) gets the text between
+    them silently deleted by the naive `<[^>]+>` tag matcher. Spec §2
+    requires propositions be "stored exactly as authored" for benign
+    text; confirmed corrupted live via POST /api/v1/assertions. RED
+    against the current sanitizer; pins the REQUIRED behavior (no
+    mangling), not the bug."""
+    m = matter_with_users
+    benign = "The threshold is met if the amount is < $500 and the term is > 10 years."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=benign)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    assert r.json()["proposition"] == benign
+
+
+# --- QA regression (2026-07-26, cycle 2): adjacent-path pins ----------------
+#
+# The cycle-1 fix's own RED tests only proved the with-space unclosed-tag
+# bypass fixed on CREATE + comments-create + PATCH. It is also wired (and
+# passes) on create-revision, comment-edit, and rating-update -- pinning
+# those paths here since they lacked dedicated coverage.
+
+
+def test_create_revision_unclosed_tag_with_event_handler_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/revisions",
+        json={"proposition": "<img src=x onerror=alert(1) Revision text stays."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<img" not in stored
+    assert "onerror" not in stored
+    assert "Revision text stays." in stored
+
+
+def test_comment_edit_unclosed_tag_with_event_handler_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    comment = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={"comment_text": "initial comment"},
+        headers=m["contributor_headers"],
+    )
+    comment_id = comment.json()["id"]
+    r = client.patch(
+        f"/api/v1/assertions/{assertion_id}/comments/{comment_id}",
+        json={"comment_text": "<svg onload=alert(1) edited comment text."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 200
+    stored = r.json()["comment_text"]
+    assert "<svg" not in stored
+    assert "onload" not in stored
+
+
+def test_rating_rationale_update_unclosed_tag_with_event_handler_is_neutralized(
+    client, matter_with_users
+):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="proposed"),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    first = client.put(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
+        json={"strength": 3, "rationale": "initial rationale"},
+        headers=m["rater_headers"],
+    )
+    assert first.status_code == 201
+    r = client.put(
+        f"/api/v1/assertions/{assertion_id}/revisions/1/rating",
+        json={"strength": 4, "rationale": "<img src=x onerror=alert(1) updated rationale."},
+        headers=m["rater_headers"],
+    )
+    assert r.status_code == 200
+    stored = r.json()["rationale"]
+    assert "<img" not in stored
+    assert "onerror" not in stored
+
+
 def test_prompt_injection_in_comment_does_not_alter_review_status(client, matter_with_users):
     m = matter_with_users
     create = client.post(

@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T07:20:00Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T06:10:00Z"
+last_updated: "2026-07-26T07:40:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
-completed_items: 10
-dev_complete_items: 2
-qa_cycles: 1
+completed_items: 11
+dev_complete_items: 0
+qa_cycles: 2
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -57,7 +57,28 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — qa-fail items fixed, back in Dev Complete for QA cycle 2)
+- [QA-FAIL: B5, cycle 2] Cycle-1's fix closed the with-space unclosed-tag
+  bypass but two new gaps remain in `sanitize_for_storage`
+  (`backend/app/services/validation.py`): (1) no-space-before-attribute
+  bypass — `<img/onerror=alert(1)` / `<svg/onload=...` survive verbatim
+  because `_UNCLOSED_TAG_RE` requires `\s+` before every attribute, but
+  a `/` right after the tag name puts real browsers into
+  self-closing-start-tag state and the next text is reconsumed as a
+  live attribute anyway (documented OWASP evasion shape); confirmed live
+  across create/PATCH/revisions/comments/rating-rationale (shared
+  function). (2) `_TAG_RE = r"<[^>]+>"` corrupts benign prose containing
+  both a `<` and a later unrelated `>` (e.g. "amount is < $500 ... term
+  is > 10 years" loses the text between them) — pre-existing, violates
+  spec §2 "stored exactly as authored". RED tests (required behavior,
+  not the bug): `backend/tests/unit/test_validation.py::{
+  test_sanitize_neutralizes_unclosed_tag_with_no_space_before_attribute,
+  test_sanitize_neutralizes_unclosed_svg_with_no_space_before_attribute,
+  test_sanitize_preserves_prose_with_less_than_and_later_unrelated_greater_than,
+  test_sanitize_preserves_prose_with_multiple_unrelated_comparisons}`,
+  `backend/tests/integration/test_hostile_input.py::{
+  test_proposition_no_space_slash_bypass_is_neutralized,
+  test_patch_proposition_no_space_slash_bypass_is_neutralized,
+  test_proposition_preserves_legit_text_with_lt_and_later_unrelated_gt}`.
 
 ## Parallelization plan
 
@@ -83,22 +104,21 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix (cycle 1) — unclosed-tag sanitizer hardening + PATCH/revisions sanitization (`validation.py`, `assertions.py`), fix commit `9d179f2`, merged `fc76c96`; QA's 5 B5 RED tests green; manager full-diff read.
-- B3-fix (cycle 1) — evidence add/remove audit rows via middleware (`audit_middleware.py`), same commit; QA's RED test green; audit rows carry ids only.
-- UI2-fix (R11) — submit disabled whenever proposition empty (1 line, `AssertionSuggestionForm.tsx`), fix commit `9d5aa3e`, merged `2345b88`; 60/60 frontend incl. new RED-turned-green pin.
+(empty — B3-fix and UI2-fix verified PASS and moved to Completed; B5-fix bounced back to Next Steps, cycle 2)
 
 ## Completed
 
 - F1 — 13 ORM models + constraints. Verdict: PASS. Probe: full suite (all integration tests persist/read through these tables). Regression: none needed (pre-existing coverage sufficient).
 - B1 — assertion CRUD/evidence/revisions. Verdict: PASS (own scope). Probe: `test_assertions_crud.py` 24/24 green via real API; PATCH-sanitization gap in this file is attributed to B5 per spec-ownership (see Next Steps). Regression: none added here.
 - B2 — ratings + aggregates. Verdict: PASS. Probe: `test_ratings_api.py` + `test_ratings_aggregate.py` all green; DELETE audit direct call and PUT audit via middleware both confirmed via live API + raw-SQL. Regression: none needed.
+- B3-fix (cycle 2) — evidence add/remove audit rows via `audit_middleware.py` (commit `9d179f2`). Verdict: PASS. Probe: independent raw-SQL count before/after (1→2→3), rows carry ids only (no quote/document text; existing `test_audit_events_have_no_full_document_content` covers this), actor/matter/assertion/correlation_id all correct. Regression: none needed (existing RED-turned-green test + no-leak test sufficient).
 - B4 — review workflow + permissions. Verdict: PASS. Probe: permission matrix 19/19 + accept/reject/dispute/request-revision live via API; supersede endpoint had zero prior coverage — now proven live (accept, permission-denied, cross-matter-successor-rejected). Regression: `test_review_workflow.py::test_reviewer_can_supersede_with_assertion_in_same_matter` (+`test_contributor_cannot_supersede`, `test_supersede_rejects_successor_from_another_matter`).
 - B6 — graph projection + notifications. Verdict: PASS. Probe: G7 default/show-unreviewed views + matter isolation confirmed via `test_graph_projection*.py`; notification recipient-derivation confirmed matter-scoped via live cross-matter API probe (real reviewer-on-a-different-matter never sees another matter's notification). Regression: `test_notifications.py::test_reviewer_of_another_matter_does_not_see_this_matters_submission_notification`.
 - B7 — matter isolation + hostile-input wiring + sanitization wiring (comments, rating rationales) + graph evidence_count. Verdict: PASS. Probe: `test_matter_isolation.py` + `test_hostile_input.py` (original) all green; comments.py/ratings.py both correctly call `sanitize_for_storage` at create AND edit — the unclosed-tag bypass that also reproduces through these call sites is B5's function bug, not a B7 wiring gap. Regression: none added here (see B5 Next-Steps RED tests).
 - E1 — 10-step contributor→rater→reviewer→graph e2e. Verdict: PASS. Probe: `test_full_flow.py` full 10-step flow green against the real API (Playwright browser-E2E remains a documented Planner deferral for G12 — not added, per brief "optional, only if quick").
 - UI1 — AssertionCard + AssertionRatingWidget + AssertionRatingDistribution. Verdict: PASS. Probe: `AssertionRatingWidget.tsx` uses a proper roving-tabindex `role="radiogroup"` with Arrow/Home/End nav + `aria-checked`/`aria-label` per option (gate G11); own suite 19/19. Regression: none needed.
 - UI3 — 6 workspace/review/discussion/history components. Verdict: PASS. Probe: own suite 27/27; explanatory "individual opinions, not legal conclusions" text present (`AssertionDetailPanel.tsx`, `AssertionCard.tsx`). Regression: none needed.
-- UI2 — AssertionSuggestionForm + AssertionEvidenceSelector. Verdict: PASS, with ESCALATION (see QA Notes) on the `submitDisabled` formula — own suite 13/13 green, and spec §7's absolute "proposition cannot be empty" is still enforced server-side regardless (defense in depth), so not failed outright.
+- UI2 + UI2-fix (R11, cycle 2) — AssertionSuggestionForm + AssertionEvidenceSelector; `submitDisabled` formula fixed to `hasExactDuplicate || propositionMissing` (1 line, commit `9d5aa3e`, merged `2345b88`) resolving cycle-1's ESCALATION per ruling R11. Verdict: PASS. Probe: own suite 8/8 green incl. new pin `submit stays disabled when proposition is empty even with similar assertions present`; formula in `AssertionSuggestionForm.tsx` read and matches R11 exactly. Regression: none needed.
 
 ## Evaluation Notes
 
@@ -110,7 +130,9 @@ none — greenfield, no renames.
 
 ESCALATION: UI2's `submitDisabled = hasExactDuplicate || (propositionMissing && similarAssertions.length === 0)` lets an empty proposition through whenever `similarAssertions` is non-empty. The Planner's own test at `AssertionSuggestionForm.test.tsx:56-66` ("warns (without blocking)...") never types a proposition yet asserts submit is NOT disabled — so it directly pins this exact empty+similar-list combination as intended-enabled, contradicting `AssertionSuggestionForm.test.tsx:27-30` ("requires the user to enter a proposition...", empty+no-similars => disabled) and reading of spec §7 ("submitting an EMPTY proposition should never be possible"). Per brief instruction I did not edit either test or the component. Options: (1) fix the test to type a matching proposition before asserting enabled, and change the formula to `hasExactDuplicate || propositionMissing` (always required) — my lean, since it's the only version consistent with spec §7's absolute wording; (2) accept current behavior as intentional (a near-duplicate warning fully waives the empty-proposition guard) and update spec/QA-brief expectations instead. Not gate-breaking today because `validate_proposition_not_empty` still rejects blank propositions server-side (defense in depth) — no accepted-order bug reaches storage.
 
-## Context Dump
+RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissing`; confirmed matching in cycle-2 QA (see QA Notes below and Completed/UI2 entry).
+
+2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see
