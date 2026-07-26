@@ -929,34 +929,48 @@ def test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api(
     assert not any(marker in stored for marker in _DANGER_MARKERS)
 
 
-# --- R17 re-verification (QA-FAIL: B5-fix7) — cross-tag prose swallow ------
+# --- R18 ruling — cycle-7 finding overruled, pinned as accepted limitation -
 #
-# Found while boundary-probing R17's own conditional-tail-salvage fix (a
-# "never-closed plain tag followed by an unclosed wrapper" shape the QA
-# brief explicitly asked to cover). NOT caused by R17's change and does not
-# touch the `close()`/leftover code path R17 modified: a start tag that is
-# malformed but IS eventually terminated -- by borrowing a LATER, unrelated
-# tag's `>` rather than its own -- causes `HTMLParser`'s own tolerant
-# attribute grammar to consume every character in between (including
-# genuine authored prose that has nothing tag-shaped about it) as bogus
-# attribute tokens. Full root-cause + minimal direct repro in
-# backend/tests/unit/test_validation.py immediately above this comment's
-# unit-test counterpart. This violates gate G13 (destroys authored
-# characters, not just markup) and is distinct from the already-accepted
-# "prose that itself looks like a tag loses only the tag token" limitation.
+# QA cycle 7 filed this as RED, claiming a new defect: prose between an
+# unclosed tag and a later tag-shaped fragment is dropped via the real API.
+# The manager (R18) cross-checked the tokenizer directly and overruled the
+# finding -- see the full root-cause and unit-level pin in
+# backend/tests/unit/test_validation.py (search "R18 ruling"). In short:
+# `HTMLParser`'s tolerant attribute grammar (like a real browser's) treats
+# the bare word `IMPORTANT-TERM-X` and the following `<b` as bogus
+# ATTRIBUTES of the unclosed `<img` tag, consuming forward to the `>` that
+# closes `<b>` -- browser-faithful tag/attribute-machinery parsing, not a
+# prose-destruction defect. It is the same class as the already-accepted
+# `see <appendix A> for details` -> `see  for details` limitation. Not a
+# gate G13 violation. This test now pins the ACTUAL (browser-faithful)
+# behavior via the real API as CORRECT. The durable remedy is storing raw +
+# sanitized text separately (future sprint), not weakening the sanitizer.
 
 
-def test_proposition_prose_between_unclosed_tag_and_later_tag_survives_via_real_api(
+def test_proposition_text_parsed_as_tag_attributes_dropped_browser_faithful_via_real_api(
     client, matter_with_users
 ):
+    """Pins an ACCEPTED LIMITATION per ruling R18, exercised via the real API.
+
+    `IMPORTANT-TERM-X` is parsed by `HTMLParser` (like a real browser) as
+    bogus attribute text belonging to the unclosed `<img` tag -- dropped
+    exactly as a browser would drop it, the same class of limitation as
+    `see <appendix A> for details` -> `see  for details`. The durable
+    remedy is storing raw + sanitized text separately (future sprint), not
+    weakening the sanitizer.
+    """
     m = matter_with_users
     text = "Pre <img onerror=alert(1) IMPORTANT-TERM-X <b>Y</b> the rest of the sentence."
     payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
     r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
     assert r.status_code == 201
     stored = r.json()["proposition"]
-    assert "IMPORTANT-TERM-X" in stored, (
-        f"authored prose between an unclosed tag and a later tag was "
-        f"silently destroyed via the real API (gate G13): {stored!r}"
+    assert stored == "Pre Y the rest of the sentence.", (
+        f"browser-faithful output changed -- re-verify against the live "
+        f"tokenizer before updating this pin: {stored!r}"
+    )
+    assert "IMPORTANT-TERM-X" not in stored, (
+        f"IMPORTANT-TERM-X was expected to be dropped as bogus attribute "
+        f"text per R18: {stored!r}"
     )
     assert not any(marker in stored for marker in _DANGER_MARKERS)

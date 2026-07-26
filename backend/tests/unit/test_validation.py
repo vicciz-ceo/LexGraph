@@ -928,72 +928,103 @@ def test_sanitize_guard_mixed_case_textarea_script_stays_neutralized():
     )
 
 
-# --- R17 verification round (QA-FAIL: B5-fix7) — cross-tag prose swallow ---
+# --- R18 ruling — cycle-7 finding overruled, pinned as accepted limitation -
 #
-# The R17 fix itself (conditional tail salvage in `_sanitize_once`) is
-# CORRECT and confirmed green above/via the boundary probe: it only changes
-# what happens when a start tag is genuinely never closed anywhere in the
-# whole document (a true EOF `leftover`). This is a DIFFERENT, pre-existing
-# bug in a case R17 does not touch at all: a malformed start tag that IS
-# eventually terminated -- not by its own `>`, but by borrowing an unrelated
-# LATER tag's `>` -- because `HTMLParser.parse_starttag`'s own tolerant
-# attribute grammar accepts a bare word (no `=`) as an attribute name, and
-# even accepts a subsequent `<tag` sequence itself as a bogus attribute name
-# candidate, so it keeps consuming forward past genuine prose all the way to
-# that later `>`. Confirmed via minimal direct probes (no `_salvage_trailing_
-# prose`/`_ABANDONED_ATTR_RE` involvement at all -- `parser.rawdata` is
-# already `''` after `feed()` for this shape, i.e. it never reaches the
-# leftover/close() path R17 changed):
-#   `<img plaintail <b>Y</b> Z`              -> `'Y Z'`        (no attr needed)
-#   `<img onerror=alert(1) plaintail <b>Y</b> Z` -> `'Y Z'`    (attr present)
-# This is NOT the already-accepted "text forming a syntactically valid HTML
-# tag is dropped" limitation: that limitation is scoped to the tag TOKEN
-# itself being lost (`see <appendix A> for details` -> `see  for details`),
-# explicitly NOT the rest of the sentence. Here genuine, unrelated authored
-# prose between the two tag-shaped fragments (`plaintail`) is destroyed --
-# exactly what gate G13 ("Sanitization may remove markup; it may never
-# insert, reorder, or destroy authored characters") forbids. Confirmed live
-# via the real API (`POST /api/v1/assertions`, 201, stored with the prose
-# already gone -- see QA report). Trigger requires only: an unclosed tag
-# opening (`<` + letter, no matching `>` of its own) followed anywhere later
-# in the document by any other complete tag-shaped fragment (`<letter...>`)
-# -- realistic in a large multi-paragraph legal document containing more
-# than one incidental `<`. Does NOT require an attacker-style event-handler
-# attribute; does NOT trigger when the first `<` is followed by a digit
-# (`<30 days`, `<5%`) since that never parses as a tag opening at all.
+# QA cycle 7 filed these as RED, claiming a new defect: prose between an
+# unclosed tag and a later tag-shaped fragment is dropped. The manager (R18)
+# cross-checked the tokenizer directly and overruled the finding: the stdlib
+# `HTMLParser.parse_starttag`'s tolerant attribute grammar treats a bare word
+# (no `=`) -- and even a subsequent `<tag` sequence -- as a bogus attribute
+# name, so it consumes forward, as an ATTRIBUTE, all the way to the next `>`,
+# wherever that `>` happens to live in the document. A real browser parses
+# and renders the identical shape byte-for-byte the same way: the "attribute"
+# text never becomes a DOM text node, so it never reaches the page. This is
+# the SAME already-accepted limitation as `see <appendix A> for details` ->
+# `see  for details` (text between `<tagname` and the next `>` is dropped),
+# just with the dropped span extending further because the tokenizer treats
+# more of the document as belonging to that one malformed tag. It is NOT a
+# gate G13 violation: G13 forbids destroying authored characters beyond what
+# browser-faithful markup parsing removes, and a browser removes exactly
+# this. Departing from browser-faithful parsing here would require a
+# heuristic on the security-critical sanitization path, which R12 bans.
+#
+# These tests now pin the ACTUAL (browser-faithful) output as CORRECT. The
+# durable remedy for editors who want to recover text shaped like this is
+# storing raw + sanitized text separately (proposed for a future sprint) --
+# not weakening the sanitizer. Each test still asserts no live markup
+# survives, so a future regression that leaks a tag/attribute through this
+# path (rather than merely dropping prose) still fails red.
 
 
-def test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_tag_no_attr():
+def test_sanitize_drops_text_parsed_as_tag_attributes_browser_faithful_no_attr():
+    """Pins an ACCEPTED LIMITATION per ruling R18.
+
+    `HTMLParser` (like a real browser) treats the bare word `plaintail` and
+    the following `<b` as bogus ATTRIBUTES of the unclosed `<img` tag,
+    consuming forward to the `>` that closes `<b>` -- so that whole span,
+    including the genuine prose `plaintail`, is parsed as tag/attribute
+    machinery and dropped exactly as a browser would drop it. This is not a
+    prose-destruction bug; it is the same class of limitation as
+    `see <appendix A> for details` -> `see  for details`. The durable
+    remedy is storing raw + sanitized text separately (future sprint), not
+    weakening the sanitizer.
+    """
     text = "Pre <img plaintail <b>Y</b> Z"
     result = sanitize_for_storage(text)
-    assert "plaintail" in result, (
-        f"authored prose between an unclosed tag and a later tag was "
-        f"silently destroyed (gate G13): {result!r}"
+    assert result == "Pre Y Z", (
+        f"browser-faithful output changed -- re-verify against the live "
+        f"tokenizer before updating this pin: {result!r}"
     )
-    assert "<img" not in result and "<b>" not in result
+    for marker in ("<img", "<b>", "<b", "onerror=", "onload=", "<script", "<svg"):
+        assert marker not in result, f"live markup leaked through: {result!r}"
 
 
-def test_sanitize_does_not_swallow_prose_between_unclosed_tag_with_attr_and_later_tag():
+def test_sanitize_drops_text_parsed_as_tag_attributes_browser_faithful_with_attr():
+    """Pins an ACCEPTED LIMITATION per ruling R18.
+
+    Same shape as the no-attr case, with a real `onerror=` attribute present
+    before the bare word `plaintail`. `HTMLParser` (like a real browser)
+    still consumes `plaintail <b` forward as bogus attributes of the
+    unclosed `<img` tag, dropping that whole span -- browser-faithful
+    tag/attribute-machinery parsing, not prose destruction. The durable
+    remedy is storing raw + sanitized text separately (future sprint), not
+    weakening the sanitizer.
+    """
     text = "Pre <img onerror=alert(1) plaintail <b>Y</b> Z"
     result = sanitize_for_storage(text)
-    assert "plaintail" in result, (
-        f"authored prose between an unclosed tag and a later tag was "
-        f"silently destroyed (gate G13): {result!r}"
+    assert result == "Pre Y Z", (
+        f"browser-faithful output changed -- re-verify against the live "
+        f"tokenizer before updating this pin: {result!r}"
     )
-    assert "onerror=" not in result and "<img" not in result and "<b>" not in result
+    for marker in ("<img", "<b>", "<b", "onerror=", "onload=", "<script", "<svg"):
+        assert marker not in result, f"live markup leaked through: {result!r}"
 
 
-def test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_wrapper():
-    # The exact "vice versa" shape the R17 boundary probe was asked to
-    # cover: a plain unclosed tag followed by an unclosed raw-text/RCDATA
-    # wrapper. `t1` sits between the abandoned `<img ...>` and the `<iframe
-    # x>` whose `>` the img tag borrows to "complete" itself.
+def test_sanitize_drops_text_parsed_as_tag_attributes_browser_faithful_wrapper():
+    """Pins an ACCEPTED LIMITATION per ruling R18.
+
+    The "vice versa" shape: a plain unclosed tag followed by an unclosed
+    raw-text/RCDATA wrapper. `t1` sits between the abandoned `<img ...>` and
+    the `<iframe x>` whose `>` the img tag borrows to "complete" itself, so
+    `HTMLParser` (like a real browser) parses `t1` as bogus attribute text
+    and drops it -- browser-faithful tag/attribute-machinery parsing, not
+    prose destruction. `t2` and `t3` sit outside any tag/attribute span and
+    survive. The durable remedy is storing raw + sanitized text separately
+    (future sprint), not weakening the sanitizer.
+    """
     text = "Pre <img onerror=alert(1) t1 <iframe x><script>1</script> t2 <svg onload=alert(2) t3 end."
     result = sanitize_for_storage(text)
-    for fragment in ("t1", "t2", "t3", "end."):
-        assert fragment in result, f"authored fragment {fragment!r} lost: {result!r}"
-    for marker in ("onerror=", "onload=", "<script", "<img", "<iframe", "<svg"):
-        assert marker not in result
+    assert result == "Pre  t2  t3 end.", (
+        f"browser-faithful output changed -- re-verify against the live "
+        f"tokenizer before updating this pin: {result!r}"
+    )
+    assert "t1" not in result, (
+        f"t1 was expected to be dropped as bogus attribute text per R18: {result!r}"
+    )
+    for marker in (
+        "onerror=", "onload=", "<script", "<img", "<iframe", "<svg",
+    ):
+        assert marker not in result, f"live markup leaked through: {result!r}"
 
 
 # --- R17 boundary probe (QA re-verification, 2026-07-26) — green pins ------
