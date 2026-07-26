@@ -56,6 +56,11 @@ class AssertionRating(Base):
 
     strength: Mapped[int] = mapped_column(Integer, nullable=False)
     rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Track A, item A1 (issue #2, gate G1): the author's exact submitted
+    # bytes, stored alongside the (possibly lossy, browser-faithful)
+    # sanitized `rationale` column above. Nullable for the same reason
+    # `rationale` itself is nullable (rationale is optional).
+    rationale_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

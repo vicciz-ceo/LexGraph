@@ -32,6 +32,11 @@ class AssertionComment(Base):
         String(36), ForeignKey("assertion_comments.id"), nullable=True
     )
     comment_text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Track A, item A1 (issue #2, gate G1): the author's exact submitted
+    # bytes, stored alongside the (possibly lossy, browser-faithful)
+    # sanitized `comment_text` column above. See assertion_revision.py's
+    # `proposition_raw` for the nullability rationale.
+    comment_text_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

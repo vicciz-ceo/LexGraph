@@ -28,6 +28,13 @@ class AssertionRevision(Base):
     )
     revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
     proposition: Mapped[str] = mapped_column(Text, nullable=False)
+    # Track A, item A1 (issue #2, gate G1): the author's exact submitted
+    # bytes, stored alongside the (possibly lossy, browser-faithful)
+    # sanitized `proposition` column above. Nullable at the schema level
+    # only to accommodate rows backfilled by the standalone migration in
+    # `app.migrations.add_raw_text_columns`; every write path in this app
+    # populates it unconditionally (see routers/assertions.py).
+    proposition_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     assertion_type: Mapped[str] = mapped_column(String(255), nullable=False)
 
     subject_entity_type: Mapped[str] = mapped_column(String(255), nullable=False)
