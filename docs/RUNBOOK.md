@@ -52,7 +52,23 @@ unset LEXGRAPH_DATABASE_URL
 
 ### Database Schema
 
-When the backend starts for the first time, it automatically creates the schema based on the SQLAlchemy ORM models. The database is initialized on first access.
+The backend does **not** create the schema automatically — `create_app()` never calls `Base.metadata.create_all()` (only the test fixtures do). Against a fresh database, uvicorn starts and `/healthz` passes, but every real API call fails with `no such table` errors.
+
+Before starting the backend against a new file-backed database, create the schema manually (one-time step):
+
+```bash
+cd backend
+LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
+import app.models  # register ORM mappings
+from app.config import get_settings
+from app.db import Base, make_engine
+
+Base.metadata.create_all(make_engine(get_settings().database_url))
+"
+cd ..
+```
+
+Note: this step only applies to file-backed databases. With the in-memory default (`LEXGRAPH_DATABASE_URL` unset), a separate process cannot populate the server's database — use a file-backed URL for any real usage.
 
 ### Migration: Adding Raw-Text Columns
 
@@ -203,9 +219,12 @@ Here's a complete workflow from fresh clone to a working local-first LexGraph sy
    npm --prefix frontend ci
    ```
 
-2. **Initialize database**:
+2. **Initialize database** (one-time schema creation — see "Database Schema" above):
    ```bash
    export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+   cd backend
+   .venv/bin/python -c "import app.models; from app.config import get_settings; from app.db import Base, make_engine; Base.metadata.create_all(make_engine(get_settings().database_url))"
+   cd ..
    ```
 
 3. **Start the backend** (Terminal 1):
