@@ -54,7 +54,50 @@ class ValidationError(ValueError):
 # tokens immediately following it (the shape a live attribute like
 # `onerror=` must take), and returns whatever text comes after the last
 # recognizable attribute token untouched.
-_CDATA_CONTENT_TAGS = frozenset({"script", "style"})
+#
+# Ruling R13 (2026-07-26): QA cycle 3 found two bypasses, both symptoms of
+# the same root cause -- a single pass REMOVES markup but can LEAVE TEXT
+# THAT IS STILL MARKUP:
+#   (1) `HTMLParser` itself tokenizes `script`/`style`/`iframe`/`xmp`/
+#       `noembed`/`noframes` (its `CDATA_CONTENT_ELEMENTS`) and `textarea`/
+#       `title` (its `RCDATA_CONTENT_ELEMENTS`) as raw-text containers: once
+#       inside one of these, the tokenizer does NOT recognize nested tags at
+#       all -- it hands the entire contents back as one `handle_data` call,
+#       literal `<script>...` and all. Suppressing only `script`/`style`
+#       left the other four CDATA elements and both RCDATA elements as an
+#       open pass-through: `<iframe><script>alert(1)</script></iframe>`
+#       tokenizes as start-tag `iframe`, one data chunk containing the
+#       literal text `<script>alert(1)</script>`, end-tag `iframe` -- and
+#       since `_cdata_skip_depth` was never incremented for `iframe`, that
+#       literal markup text was kept. Fix: suppress `handle_data` for the
+#       parser's OWN raw-text element set, read from the installed
+#       `HTMLParser` class itself rather than hardcoded, so it always
+#       matches whatever this stdlib build actually tokenizes as raw-text.
+#   (2) `_salvage_trailing_prose` resolves exactly ONE abandoned tag: it
+#       strips the tag name plus one run of attribute tokens and returns
+#       everything after that untouched -- but "everything after" can
+#       itself contain a second, independent abandoned tag chained right
+#       after the first (`<img ... onerror=alert(1) <svg onload=alert(2)
+#       trailing`), which a single salvage pass leaves verbatim in the
+#       "preserved" tail.
+#   Both are instances of one general fact: no single fixed-shape pass over
+#   attacker-controlled text can guarantee its OUTPUT contains no more
+#   removable markup -- another wrapper tag, another chained abandoned tag,
+#   etc. The general fix is a fixpoint: re-run the one-pass sanitizer on
+#   its own output until it stops changing (each pass only ever
+#   removes/neutralizes markup, never adds or reorders authored text, so
+#   this converges and can only make the result MORE sanitized, never
+#   less). `sanitize_for_storage` is now that fixpoint driver; the single
+#   pass itself lives in `_sanitize_once`.
+_CDATA_CONTENT_TAGS = frozenset(
+    tag.lower()
+    for tag in (
+        *getattr(HTMLParser, "CDATA_CONTENT_ELEMENTS", ("script", "style")),
+        *getattr(HTMLParser, "RCDATA_CONTENT_ELEMENTS", ()),
+    )
+)
+
+_MAX_SANITIZE_PASSES = 8
 
 _ABANDONED_TAG_OPEN_RE = re.compile(r"\A<[a-zA-Z][a-zA-Z0-9]*/?")
 _ABANDONED_ATTR_RE = re.compile(r"""\s*[^\s=]+=(?:"[^"]*"|'[^']*'|[^\s]*)""")
@@ -119,16 +162,15 @@ class _SanitizingParser(HTMLParser):
         return "".join(self._chunks)
 
 
-def sanitize_for_storage(raw_text: str) -> str:
-    """Return `raw_text` with any active HTML/script content neutralized.
+def _sanitize_once(raw_text: str) -> str:
+    """Run one pass of the parser-based tag/raw-text-element stripper.
 
-    Submitted text (including anything that reads like an instruction,
-    e.g. "ignore previous instructions...") is data to be stored and
-    rendered inertly — this function never interprets or acts on content,
-    it only strips markup that a browser would otherwise execute/render.
+    A single pass removes every tag `HTMLParser` recognizes as such, drops
+    the contents of raw-text/RCDATA wrapper elements entirely, and salvages
+    the prose tail of ONE trailing abandoned (never-closed) tag. It does
+    NOT guarantee the output contains no more removable markup -- see
+    `sanitize_for_storage`, which drives this to a fixpoint.
     """
-    if raw_text is None:
-        return raw_text
     parser = _SanitizingParser()
     parser.feed(raw_text)
     leftover = parser.rawdata  # unresolved tail, if input ended mid-tag
@@ -136,6 +178,36 @@ def sanitize_for_storage(raw_text: str) -> str:
     text = parser.get_text()
     if _ABANDONED_TAG_OPEN_RE.match(leftover):
         text += _salvage_trailing_prose(leftover)
+    return text
+
+
+def sanitize_for_storage(raw_text: str) -> str:
+    """Return `raw_text` with any active HTML/script content neutralized.
+
+    Submitted text (including anything that reads like an instruction,
+    e.g. "ignore previous instructions...") is data to be stored and
+    rendered inertly — this function never interprets or acts on content,
+    it only strips markup that a browser would otherwise execute/render.
+
+    Ruling R13: one pass of `_sanitize_once` can leave behind text that is
+    itself still markup (a raw-text wrapper's literal contents, or a second
+    abandoned tag chained after the first one that got salvaged). Each pass
+    only ever removes/neutralizes markup -- it never adds or reorders
+    authored text -- so re-running it on its own output converges on a
+    fixpoint that can only be more sanitized than any single pass, never
+    less. Bounded at `_MAX_SANITIZE_PASSES` iterations as a belt-and-braces
+    limit against pathological input; if the bound is hit before the output
+    stabilizes, the last (still further-sanitized-than-raw) output is
+    returned rather than raising or falling back to the raw input.
+    """
+    if raw_text is None:
+        return raw_text
+    text = raw_text
+    for _ in range(_MAX_SANITIZE_PASSES):
+        sanitized = _sanitize_once(text)
+        if sanitized == text:
+            return sanitized
+        text = sanitized
     return text
 
 
