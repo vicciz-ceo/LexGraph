@@ -1,10 +1,10 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T09:50:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T10:15:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T09:55:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 4
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -60,7 +60,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-FAIL: B5-fix4] Adversarial round 4 on R13's fixpoint driver found ONE new live finding, distinct from every previously-fixed shape: **convergence-bound bypass** — `_salvage_trailing_prose` resolves exactly one chained abandoned (never-closed) tag per fixpoint pass (correct behavior, confirmed for a 2-tag chain by cycle 3's fix), but the fixpoint loop is capped at `_MAX_SANITIZE_PASSES` = 8. A chain of MORE than 8 abandoned tags each carrying a live event-handler attribute needs MORE than 8 passes to fully resolve, so the loop hits its bound before convergence and returns a value that IS more sanitized than the raw input but STILL contains a literal, unclosed, live tag — e.g. a 9-tag chain (`<img src=x onerror=alert(1) <svg onload=alert(2) <body onload=alert(3) <input onfocus=alert(4) autofocus <details ontoggle=alert(5) open <marquee onstart=alert(6) <video onloadstart=alert(7) <audio onloadstart=alert(8) <iframe onload=alert(9)`) sanitizes to a value still containing `<iframe onload=alert(9)` verbatim. Confirmed live via the real API on the create (proposition) and comment paths (both call the same shared `sanitize_for_storage`). This is a defect in the fixed pass ceiling, not a new markup-hiding shape the fixpoint mechanism structurally fails to recognize — the mechanism itself is sound (each additional chained tag costs exactly one more pass, strictly monotonically; no oscillation found across 20,000 fuzzed inputs). Expected: gate G10 — no live-looking markup survives regardless of chain depth; the pass bound must not be a ceiling an attacker can simply exceed by chaining more tags (e.g. make the bound a function of input length, or loop until true convergence with a size/time guard instead of a fixed iteration count). RED tests: `backend/tests/unit/test_validation.py::test_sanitize_convergence_attack_with_nine_chained_abandoned_tags_leaves_no_live_markup`; `backend/tests/integration/test_hostile_input.py::test_proposition_convergence_attack_beyond_pass_bound_is_neutralized`, `::test_comment_convergence_attack_beyond_pass_bound_is_neutralized`. All other cycle-4 adversarial probes (wrapper families beyond the raw-text/RCDATA element set — `<template>`, `<plaintext>`, `<svg><foreignObject>`, `<math>` — comment/CDATA sections, bogus/unterminated comments, processing instructions, doctype-carried payloads, and entity-reassembly `&lt;script&gt;` staying literal text, never stripped) confirmed CORRECT — 15 new regression pins added (12 unit + 3 integration), plus a long multi-paragraph legal-prose data-integrity re-check, byte-exact.
+(empty — cycle-4 finding fixed; B5-fix4 in Dev Complete for QA cycle 5)
 
 ## Parallelization plan
 
@@ -85,6 +85,8 @@ exception; 185 total). Verified by direct run, not inferred.
 none — greenfield, no renames.
 
 ## Dev Complete
+
+- B5-fix4 (R14) — convergence bound `len(raw)+2`, fail-closed to `""` (`validation.py` only), fix commit `45f8a9c`, merged `21de194`; 189/189 backend, 60/60 frontend. Manager probe: chains at n=5/9/12/20/60/150/400 → 0 leaks; nested wrappers, template/plaintext, `/`-evasion → 0 leaks; 5 prose cases byte-exact; dev perf check 20k-char benign text converges pass 1 in 0.094ms.
 
 (empty — B5-fix3 bounced to Next Steps as B5-fix4; see QA-FAIL above)
 
