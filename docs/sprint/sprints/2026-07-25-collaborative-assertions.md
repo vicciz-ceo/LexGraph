@@ -1,18 +1,18 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T02:14:19Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T05:17:42Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T02:14:19Z"
+last_updated: "2026-07-26T05:17:42Z"
 lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 6
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -63,7 +63,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-FAIL: B5-fix7] Final QA verification (post-audit) found a THIRD, distinct `sanitize_for_storage` defect family while adversarially re-probing the R16(b) fix itself — not a repeat of R16(a)/R16(b) (both stay green). Root cause: `_sanitize_once` reads `leftover = parser.rawdata` BEFORE calling `parser.close()`, correct for a genuinely never-closed start tag (which `close()` silently drops) but WRONG for an unclosed raw-text/RCDATA wrapper (`iframe`/`title`/`textarea`/`xmp`/`noembed`/`noframes`) whose own opening tag IS well-formed: for that case `close()` itself flushes the remaining CDATA content into `handle_data` (verified directly — `parser._chunks` gains a second chunk after `close()` it didn't have right after `feed()`), so `parser.get_text()` already contains it. `_sanitize_once` then ALSO runs `_salvage_trailing_prose` over the stale pre-close `leftover` snapshot whenever it happens to start with a nested tag (exactly the shape R16(b)'s own fix targets, e.g. `<title><img onerror=...>`), double-counting the same trailing prose. Confirmed live via the real API on the create path (shared `sanitize_for_storage` — all 5 write paths affected): (1) **duplication** — `Signatory: <title><img src=x onerror=alert(1)> The Company shall pay $1,000,000.` → 201, stored as `'Signatory:  The Company shall pay $1,000,000. The Company shall pay $1,000,000.'` (trailing sentence duplicated verbatim); (2) **document destruction** — two such triggers in one document (`A <iframe x><script>1</script> tail1 B <textarea y><b>bold</b> tail2 end.`) compounds the duplication pass-over-pass until it fails to converge within the `len(raw)+2` bound and FAIL-CLOSES to `""` (422 "proposition cannot be empty" at the API), destroying legitimate non-empty authored prose — exactly the class R16(a) was written to close; (3) **availability/DoS** — three such triggers NESTED/chained (96-byte input) make per-pass growth genuinely EXPONENTIAL (measured directly: 163→255→456→812 chars over 4 passes, ~1.8x/pass); `sanitize_for_storage` did not complete within a 5s hard deadline (an untimed direct trace was killed after running multiple minutes) — worse than the R16(a) charref pathology it resembles, since that one was "merely" O(n²) and always terminated promptly, while this one grows the string itself each pass. Required: no duplication, no document destruction, prompt completion (well under 1s) on all shapes above — see full root-cause comment in `backend/tests/unit/test_validation.py` immediately above `_run_with_deadline`. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_does_not_duplicate_prose_after_unclosed_title_with_nested_img`, `::test_sanitize_does_not_duplicate_prose_after_unclosed_iframe_with_nested_script`, `::test_sanitize_two_chained_unclosed_wrappers_does_not_destroy_document`, `::test_sanitize_three_nested_chained_wrappers_completes_promptly_without_blowup`; `backend/tests/integration/test_hostile_input.py::test_proposition_unclosed_title_with_nested_img_does_not_duplicate_prose_via_real_api`, `::test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api`. Sentinel-smuggling and the narrowed-suppression security battery were adversarially re-probed and confirmed CORRECT (see 8 new green regression pins in `test_validation.py`) — this is the only live finding.
+(empty — third audit family fixed; in Dev Complete for QA re-verification)
 
 ## Parallelization plan
 
@@ -88,6 +88,8 @@ exception; 185 total). Verified by direct run, not inferred.
 none — greenfield, no renames.
 
 ## Dev Complete
+
+- B5-fix7 (R17) — conditional tail salvage: append `_salvage_trailing_prose` only when `close()` did not itself emit the tail (`validation.py` only), fix commit `780e569`, merged `dd91087`; 230/230 backend + 60/60 frontend. Manager probe: blowup triggers 1/2/3/4 → `'x'`/`'xy'`/`'xyz'`/`'abcd'` @0.0001s (was duplication→destruction→>5s hang); entity prose 11/11 byte-exact; RCDATA tails survive; 0 leaks across 16 attack shapes; 2000-chain 0.0027s; 50k benign-with-ampersands 0.0005s; idempotent.
 
 (empty — B5-fix6 bounced to Next Steps as B5-fix7; see QA-FAIL above)
 
