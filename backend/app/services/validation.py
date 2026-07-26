@@ -97,29 +97,74 @@ _CDATA_CONTENT_TAGS = frozenset(
     )
 )
 
-_ABANDONED_TAG_OPEN_RE = re.compile(r"\A<[a-zA-Z][a-zA-Z0-9]*/?")
+# No `\A` anchor: `re.Pattern.match(string, pos)` already only ever tries to
+# match starting exactly at `pos` (it does not search forward), so `\A`
+# added nothing at the default `pos=0` call sites below and would actively
+# break the `pos > 0` lookups `_salvage_trailing_prose` now performs to
+# find each subsequent tag opening in a chain.
+#
+# Tag-name character class matches `HTMLParser`'s own tolerant tag-name
+# grammar (its `tagfind_tolerant`: a letter, then anything but whitespace/
+# `/`/`>`) rather than only `[a-zA-Z0-9]`. A narrower class here would
+# under-recognize a chained tag whose name contains e.g. `-`, `_`, or `:`
+# (all valid per that grammar): `_salvage_trailing_prose` would stop the
+# chain walk one tag early, leaving the rest of the chain embedded as
+# ordinary text for a later `sanitize_for_storage` fixpoint pass to
+# rediscover via the real `HTMLParser` tokenizer -- correct, but right
+# back to one extra O(n) pass per such tag name, undermining R15's
+# single-call goal.
+_ABANDONED_TAG_OPEN_RE = re.compile(r"<[a-zA-Z][^\s/>]*/?")
 _ABANDONED_ATTR_RE = re.compile(r"""\s*[^\s=]+=(?:"[^"]*"|'[^']*'|[^\s]*)""")
 
 
 def _salvage_trailing_prose(leftover: str) -> str:
-    """Return the prose tail of an abandoned, never-closed tag fragment.
+    """Return the prose tail past a run of abandoned, never-closed tags.
 
     `leftover` is whatever `HTMLParser` could not resolve into a complete
     tag because no `>` ever arrived. If it doesn't even look like a start
     tag opening (e.g. an unterminated comment/declaration/end-tag, or a
     bare trailing `<`), there is no attribute grammar to walk past, so it
     is dropped wholesale -- it is markup debris, not authored text.
+
+    Ruling R15 (2026-07-26): a single abandoned tag can be immediately
+    followed by another one (no `>` anywhere in the whole input), chained
+    back-to-back -- e.g. `<img onerror=alert(1) <svg onload=alert(2)
+    tail`. Rather than resolving only the first tag and leaving the rest
+    of the chain for a later fixpoint pass (which made the driving loop
+    in `sanitize_for_storage` do O(n) passes of O(n) work each for an
+    n-tag chain), this walks the *whole* chain in one call: after each
+    tag's attribute-token run, it checks whether the next non-whitespace
+    content is itself another abandoned-tag opening and, if so, keeps
+    going. Any whitespace between one tag's attributes and the next tag's
+    `<` is genuine authored text (not attribute grammar), so it is kept
+    -- exactly as it would have survived one gap-preserving pass at a
+    time under the old per-tag algorithm, just computed in a single walk.
     """
     match = _ABANDONED_TAG_OPEN_RE.match(leftover)
     if not match:
         return ""
     pos = match.end()
+    n = len(leftover)
+    parts: list[str] = []
     while True:
-        attr_match = _ABANDONED_ATTR_RE.match(leftover, pos)
-        if not attr_match:
+        while True:
+            attr_match = _ABANDONED_ATTR_RE.match(leftover, pos)
+            if not attr_match:
+                break
+            pos = attr_match.end()
+        gap_end = pos
+        while gap_end < n and leftover[gap_end].isspace():
+            gap_end += 1
+        next_match = _ABANDONED_TAG_OPEN_RE.match(leftover, gap_end)
+        if not next_match:
             break
-        pos = attr_match.end()
-    return leftover[pos:]
+        # `pos:gap_end` is the whitespace gap between this tag's last
+        # attribute and the next chained tag's opening -- preserve it,
+        # drop the tag opening itself, and keep walking the chain.
+        parts.append(leftover[pos:gap_end])
+        pos = next_match.end()
+    parts.append(leftover[pos:])
+    return "".join(parts)
 
 
 class _SanitizingParser(HTMLParser):
@@ -165,9 +210,11 @@ def _sanitize_once(raw_text: str) -> str:
 
     A single pass removes every tag `HTMLParser` recognizes as such, drops
     the contents of raw-text/RCDATA wrapper elements entirely, and salvages
-    the prose tail of ONE trailing abandoned (never-closed) tag. It does
-    NOT guarantee the output contains no more removable markup -- see
-    `sanitize_for_storage`, which drives this to a fixpoint.
+    the prose tail past the trailing run of chained abandoned (never-
+    closed) tags. It does NOT guarantee the output contains no more
+    removable markup -- see `sanitize_for_storage`, which drives this to a
+    fixpoint (e.g. for raw-text/RCDATA wrapper content revealed only after
+    another pass).
     """
     parser = _SanitizingParser()
     parser.feed(raw_text)
