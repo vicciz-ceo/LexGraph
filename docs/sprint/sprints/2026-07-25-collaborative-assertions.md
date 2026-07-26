@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T05:17:42Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T05:17:42Z"
-lint: "PASS 144 2026-07-26T01:09:54Z"
+last_updated: "2026-07-26T07:42:22Z"
+lint: "PASS 146 2026-07-26T07:42:27Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 1
-qa_cycles: 6
+dev_complete_items: 0
+qa_cycles: 7
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -63,7 +63,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — third audit family fixed; in Dev Complete for QA re-verification)
+- [QA-FAIL: B5-fix7] R17 (conditional tail salvage) itself is CORRECT — 6/6 R17-RED green, 0 leaks/duplication/blowup across a wide boundary sweep (4/6/10-wrapper chains, sequential + nested-inside-each-other, closed/unclosed, close()-emits-partial/empty tail), all <1ms. While boundary-probing the brief's own required "plain tag AFTER/BEFORE an unclosed wrapper" shapes, found a DIFFERENT, pre-existing defect R17 does not touch (never reaches the leftover/close() path at all — confirmed `parser.rawdata == ''` after `feed()` for this shape): a malformed start tag that IS eventually terminated, not by its own `>` but by borrowing a LATER, unrelated tag's `>`, causes `HTMLParser.parse_starttag`'s own tolerant attribute grammar to consume every character in between — including genuine authored prose with nothing tag-shaped about it — as bogus attribute tokens. Minimal repro (no attacker attribute needed): `<img plaintail <b>Y</b> Z` → `'Y Z'` (`plaintail` destroyed). Confirmed live via the real API: `Pre <img onerror=alert(1) IMPORTANT-TERM-X <b>Y</b> the rest of the sentence.` → 201, stored as `'Pre Y the rest of the sentence.'`. Trigger needs only an unclosed tag opening (`<` + letter, no matching `>`) followed anywhere later by any other complete tag-shaped fragment — realistic in a multi-paragraph legal document with more than one incidental `<`; does NOT trigger when `<` is followed by a digit (`<30 days`, `<5%`). Violates gate G13 ("may never insert, reorder, or destroy authored characters") and is distinct from the already-accepted "prose that itself looks like a tag loses only the tag token" limitation (here the REST of the sentence is lost, which the limitation's own text says would be a defect). RED tests: `backend/tests/unit/test_validation.py::test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_tag_no_attr`, `::test_sanitize_does_not_swallow_prose_between_unclosed_tag_with_attr_and_later_tag`, `::test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_wrapper`; `backend/tests/integration/test_hostile_input.py::test_proposition_prose_between_unclosed_tag_and_later_tag_survives_via_real_api`. Three known defect families (entity/charref, RCDATA-tail, security battery) re-confirmed clean; this is the only live finding.
 
 ## Parallelization plan
 
@@ -89,9 +89,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix7 (R17) — conditional tail salvage: append `_salvage_trailing_prose` only when `close()` did not itself emit the tail (`validation.py` only), fix commit `780e569`, merged `dd91087`; 230/230 backend + 60/60 frontend. Manager probe: blowup triggers 1/2/3/4 → `'x'`/`'xy'`/`'xyz'`/`'abcd'` @0.0001s (was duplication→destruction→>5s hang); entity prose 11/11 byte-exact; RCDATA tails survive; 0 leaks across 16 attack shapes; 2000-chain 0.0027s; 50k benign-with-ampersands 0.0005s; idempotent.
-
-(empty — B5-fix6 bounced to Next Steps as B5-fix7; see QA-FAIL above)
+(empty — B5-fix7 bounced to Next Steps as B5-fix8; see QA-FAIL above)
 
 ## Completed
 
@@ -115,9 +113,7 @@ none — greenfield, no renames.
 
 ## QA Notes
 
-(cycle 1 full notes + UI2 ESCALATION/RESOLVED archived to -log.md § "QA Notes archive" — kept last 5 per brief; summary: 10/12 PASS, B3+B5 bounced, UI2 escalation resolved by R11 in cycle 2.)
-
-2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
+(cycles 1-2 full notes + UI2 ESCALATION/RESOLVED archived to -log.md § "QA Notes archive" — kept last 5 per brief; summary: cycle 1 10/12 PASS, B3+B5 bounced, UI2 escalation resolved by R11; cycle 2 B3-fix+UI2-fix PASS, B5-fix FAIL on no-space-before-attribute bypass + naive-`>`-match benign-prose corruption, 7 RED + 4 regression pins added.)
 
 2026-07-26T08:55Z (QA, Sonnet high, cycle 3): Independent evaluator baseline confirmed clean before any new tests: 147/147 backend, 60/60 frontend. Adversarial round 3 on the R12 rebuild found two NEW live findings (full detail + RED test names in Next Steps `[QA-FAIL: B5-fix3]`): CDATA/RCDATA-wrapper bypass (iframe/textarea/title/noembed/noframes/xmp — `_CDATA_CONTENT_TAGS` doesn't match the stdlib parser's own wider raw-text-element lists) confirmed live on all 5 write paths; chained-abandoned-tag bypass (second unclosed tag's markup leaks past `_salvage_trailing_prose`) confirmed live on 2 paths. All other probed shapes (quoted-attr-containing-`>`, attr-value-with-literal-`>`, backtick/unquoted-slash attrs, unterminated comment, trailing-slash-no-`>`, null-byte/tab/newline-in-tag, `</script >`/`</script\t>` spacing, deeply-nested-duplicated `<script>`) confirmed CORRECT — not regressed, pinned as 8 new regression tests. Prose-integrity: all required cases (`< $500 ... > 10 years`, `5 < 10`, `a < b`, `§8.2 & 8.4`, curly quotes/em-dash, literal `&amp;`, multi-paragraph w/ newlines, multiple unrelated comparisons) byte-exact; 4 pinned as new regression tests, rest already covered by existing tests. KNOWN LIMITATION ruling: ACCEPT `a<b and c>d` -> `"ad"` as documented, non-blocking — confirmed it only triggers when the token immediately after `<` is itself a valid HTML tag name (rare in real legal prose, which uses full words/numbers after comparison operators, not bare single/two-letter tokens); browser-faithful, matches pre-existing regex-era behavior (not a regression), and the only real fixes (dual raw+sanitized storage, or escape-at-render) are schema/pipeline changes out of scope under R8. No new instances of this class found during round-3 probing. Added 16 RED tests (9 unit + 7 integration, all through the real API) pinning required behavior for both new findings, plus 12 regression pins (8 unit adversarial-shapes + 4 unit prose-integrity) for confirmed-correct behavior. Full suite after additions: 155 backend passed + 16 RED (171 total) + 60 frontend green.
 
@@ -129,6 +125,8 @@ Performance sanity surfaced a NEW live defect: the `len(raw)+2`-pass loop is O(n
 Verdict: BLOCKED (not PASS) — this is qa_cycles=5, the harness limit; per valve instruction, stopping here rather than fixing or cycling further. Added 1 RED perf test + 5 green content-safety pins. See QA-BLOCKED in Next Steps for full detail and director-facing options (1) schema length cap, (2) resolve all chained tags per pass (O(n) fix), (3) both.
 
 2026-07-26T02:20:00Z (QA, Sonnet high, cycle 6, final verification post-audit): Independent evaluator baseline confirmed clean before any new tests: 216/216 backend, 60/60 frontend; all 13 audit-RED tests (entity/charref + RCDATA) confirmed green, no prior pins regressed. Adversarially re-probed G13 in both directions per brief: sentinel-smuggling (literal `\x00A\x00`/bare-NUL inputs) confirmed SAFE — never forges or loses an `&`, NUL-stripping confirmed deliberate/documented (R16(a); PostgreSQL can't store NUL anyway); narrowed script/style-only content-suppression re-battled across 23 wrapper/nesting shapes (textarea/title/iframe/xmp/noembed/noframes/plaintext/template/svg/math/noscript, case-variation) — 0 leaks. Found ONE new live finding while probing R16(b)'s own worked example with a nested payload: `_sanitize_once` double-processes an unclosed raw-text/RCDATA wrapper's leftover (pre-close `parser.rawdata` snapshot vs. what `close()` itself already flushed), causing (1) authored-text DUPLICATION on a single trigger, (2) document destruction (fail-close to `""`) on two chained triggers, (3) confirmed EXPONENTIAL blowup / real-API hang (>5s on a 96-byte input, direct trace killed after minutes) on three nested triggers — full root-cause + detail in Next Steps `[QA-FAIL: B5-fix7]`. Added 6 RED tests (4 unit + 2 integration, real API) + 8 green regression pins (sentinel-smuggling x5, security-battery x3). Status → qa-fail, current_role → developer, qa_cycles → 6.
+
+2026-07-26T07:42:22Z (QA, Sonnet high, cycle 7, R17 re-verification): Independent evaluator baseline confirmed clean before any new tests: 230/230 backend, 60/60 frontend; all 6 R17-RED tests confirmed green, no prior pins regressed. R17 (conditional tail salvage) itself PASS: empirical boundary sweep (4/6/10-wrapper chains mixed iframe/title/textarea/xmp/noembed, sequential + nested-inside-each-other, closed/unclosed, close()-emits-partial/empty tail, ~25 shapes) — 0 duplication, 0 destruction, all <1ms, 5s SIGALRM deadline guard never tripped. Three known families re-confirmed byte-exact/clean (entity+charref, RCDATA-tail, ~15-shape security battery). Found ONE new live finding unrelated to R17's own code path (full detail in Next Steps `[QA-FAIL: B5-fix7]`): a malformed start tag terminated by borrowing a LATER unrelated tag's `>` (not its own) silently destroys genuine authored prose sitting between the two, via `HTMLParser`'s own tolerant attribute grammar — confirmed live via the real API, violates gate G13. Added 4 RED tests (3 unit + 1 integration) + 6 green regression pins (10-wrapper chain, nested-wrapper, whitespace-tail, empty-content-tail). Gate sweep G1-G13 run; G13 the only gate not currently holding. Status → qa-fail, current_role → developer, qa_cycles → 7.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see

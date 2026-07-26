@@ -927,3 +927,36 @@ def test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api(
     for fragment in ("A", "tail1", "B", "tail2", "end."):
         assert fragment in stored, f"authored fragment {fragment!r} lost: {stored!r}"
     assert not any(marker in stored for marker in _DANGER_MARKERS)
+
+
+# --- R17 re-verification (QA-FAIL: B5-fix7) — cross-tag prose swallow ------
+#
+# Found while boundary-probing R17's own conditional-tail-salvage fix (a
+# "never-closed plain tag followed by an unclosed wrapper" shape the QA
+# brief explicitly asked to cover). NOT caused by R17's change and does not
+# touch the `close()`/leftover code path R17 modified: a start tag that is
+# malformed but IS eventually terminated -- by borrowing a LATER, unrelated
+# tag's `>` rather than its own -- causes `HTMLParser`'s own tolerant
+# attribute grammar to consume every character in between (including
+# genuine authored prose that has nothing tag-shaped about it) as bogus
+# attribute tokens. Full root-cause + minimal direct repro in
+# backend/tests/unit/test_validation.py immediately above this comment's
+# unit-test counterpart. This violates gate G13 (destroys authored
+# characters, not just markup) and is distinct from the already-accepted
+# "prose that itself looks like a tag loses only the tag token" limitation.
+
+
+def test_proposition_prose_between_unclosed_tag_and_later_tag_survives_via_real_api(
+    client, matter_with_users
+):
+    m = matter_with_users
+    text = "Pre <img onerror=alert(1) IMPORTANT-TERM-X <b>Y</b> the rest of the sentence."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "IMPORTANT-TERM-X" in stored, (
+        f"authored prose between an unclosed tag and a later tag was "
+        f"silently destroyed via the real API (gate G13): {stored!r}"
+    )
+    assert not any(marker in stored for marker in _DANGER_MARKERS)

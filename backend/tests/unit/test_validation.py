@@ -926,3 +926,122 @@ def test_sanitize_guard_mixed_case_textarea_script_stays_neutralized():
     _assert_no_audit_danger_markers(
         sanitize_for_storage("<TEXTAREA><ScRiPt>alert(1)</ScRiPt></TEXTAREA>")
     )
+
+
+# --- R17 verification round (QA-FAIL: B5-fix7) — cross-tag prose swallow ---
+#
+# The R17 fix itself (conditional tail salvage in `_sanitize_once`) is
+# CORRECT and confirmed green above/via the boundary probe: it only changes
+# what happens when a start tag is genuinely never closed anywhere in the
+# whole document (a true EOF `leftover`). This is a DIFFERENT, pre-existing
+# bug in a case R17 does not touch at all: a malformed start tag that IS
+# eventually terminated -- not by its own `>`, but by borrowing an unrelated
+# LATER tag's `>` -- because `HTMLParser.parse_starttag`'s own tolerant
+# attribute grammar accepts a bare word (no `=`) as an attribute name, and
+# even accepts a subsequent `<tag` sequence itself as a bogus attribute name
+# candidate, so it keeps consuming forward past genuine prose all the way to
+# that later `>`. Confirmed via minimal direct probes (no `_salvage_trailing_
+# prose`/`_ABANDONED_ATTR_RE` involvement at all -- `parser.rawdata` is
+# already `''` after `feed()` for this shape, i.e. it never reaches the
+# leftover/close() path R17 changed):
+#   `<img plaintail <b>Y</b> Z`              -> `'Y Z'`        (no attr needed)
+#   `<img onerror=alert(1) plaintail <b>Y</b> Z` -> `'Y Z'`    (attr present)
+# This is NOT the already-accepted "text forming a syntactically valid HTML
+# tag is dropped" limitation: that limitation is scoped to the tag TOKEN
+# itself being lost (`see <appendix A> for details` -> `see  for details`),
+# explicitly NOT the rest of the sentence. Here genuine, unrelated authored
+# prose between the two tag-shaped fragments (`plaintail`) is destroyed --
+# exactly what gate G13 ("Sanitization may remove markup; it may never
+# insert, reorder, or destroy authored characters") forbids. Confirmed live
+# via the real API (`POST /api/v1/assertions`, 201, stored with the prose
+# already gone -- see QA report). Trigger requires only: an unclosed tag
+# opening (`<` + letter, no matching `>` of its own) followed anywhere later
+# in the document by any other complete tag-shaped fragment (`<letter...>`)
+# -- realistic in a large multi-paragraph legal document containing more
+# than one incidental `<`. Does NOT require an attacker-style event-handler
+# attribute; does NOT trigger when the first `<` is followed by a digit
+# (`<30 days`, `<5%`) since that never parses as a tag opening at all.
+
+
+def test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_tag_no_attr():
+    text = "Pre <img plaintail <b>Y</b> Z"
+    result = sanitize_for_storage(text)
+    assert "plaintail" in result, (
+        f"authored prose between an unclosed tag and a later tag was "
+        f"silently destroyed (gate G13): {result!r}"
+    )
+    assert "<img" not in result and "<b>" not in result
+
+
+def test_sanitize_does_not_swallow_prose_between_unclosed_tag_with_attr_and_later_tag():
+    text = "Pre <img onerror=alert(1) plaintail <b>Y</b> Z"
+    result = sanitize_for_storage(text)
+    assert "plaintail" in result, (
+        f"authored prose between an unclosed tag and a later tag was "
+        f"silently destroyed (gate G13): {result!r}"
+    )
+    assert "onerror=" not in result and "<img" not in result and "<b>" not in result
+
+
+def test_sanitize_does_not_swallow_prose_between_unclosed_tag_and_later_wrapper():
+    # The exact "vice versa" shape the R17 boundary probe was asked to
+    # cover: a plain unclosed tag followed by an unclosed raw-text/RCDATA
+    # wrapper. `t1` sits between the abandoned `<img ...>` and the `<iframe
+    # x>` whose `>` the img tag borrows to "complete" itself.
+    text = "Pre <img onerror=alert(1) t1 <iframe x><script>1</script> t2 <svg onload=alert(2) t3 end."
+    result = sanitize_for_storage(text)
+    for fragment in ("t1", "t2", "t3", "end."):
+        assert fragment in result, f"authored fragment {fragment!r} lost: {result!r}"
+    for marker in ("onerror=", "onload=", "<script", "<img", "<iframe", "<svg"):
+        assert marker not in result
+
+
+# --- R17 boundary probe (QA re-verification, 2026-07-26) — green pins ------
+#
+# Empirical sweep of deeper/mixed wrapper-blowup shapes, sequential and
+# nested-inside-each-other chains, and close()-emits-partial/empty-tail
+# cases, all run with a 5s per-input SIGALRM deadline guard. All completed
+# in <1ms with no duplication, no destruction, and no live markup -- pinned
+# here as regression coverage for shapes not previously in the suite.
+
+
+def test_sanitize_ten_mixed_unclosed_wrappers_no_duplication_or_blowup():
+    parts = []
+    wrappers = ["iframe", "title", "textarea", "xmp", "noembed"]
+    for i in range(10):
+        w = wrappers[i % len(wrappers)]
+        parts.append(f"<{w} attr{i}=x><b>bold{i}</b> tail{i} ")
+    text = "PREFIX " + " ".join(parts) + " SUFFIX."
+    result, elapsed = _run_with_deadline(sanitize_for_storage, text, deadline_seconds=5)
+    assert result is not None, "did not complete within 5s deadline"
+    assert elapsed < 1.0
+    assert result.count("SUFFIX.") == 1
+    for i in range(10):
+        assert result.count(f"tail{i}") == 1, f"tail{i} duplicated or lost: {result!r}"
+    assert "<b>" not in result and "<iframe" not in result
+
+
+def test_sanitize_wrapper_nested_inside_another_wrapper_no_duplication():
+    text = "Start <iframe a><title b><textarea c>deep content</textarea> mid1</title> mid2</iframe> End."
+    result = sanitize_for_storage(text)
+    assert result.count("deep content") == 1
+    assert result.count("mid1") == 1
+    assert result.count("mid2") == 1
+    assert result.count("End.") == 1
+    assert result != ""
+
+
+def test_sanitize_wrapper_with_only_whitespace_tail_preserves_whitespace_prose():
+    text = "Pre <title>   \n\t  end after whitespace title."
+    result = sanitize_for_storage(text)
+    assert "end after whitespace title." in result
+    assert result.count("end after whitespace title.") == 1
+
+
+def test_sanitize_wrapper_with_empty_content_then_more_wrapper_no_duplication():
+    text = "A <iframe x> B <title y><b>bold</b> tail2 end."
+    result = sanitize_for_storage(text)
+    assert result.count("tail2") == 1
+    assert result.count("end.") == 1
+    assert "A" in result and "B" in result
+    assert "<iframe" not in result and "<b>" not in result

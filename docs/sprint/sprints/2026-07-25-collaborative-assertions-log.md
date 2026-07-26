@@ -177,3 +177,29 @@ RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissi
 - 2026-07-26T05:17:42Z — Manager: session resumed after interrupt; fix7 had landed+pushed before its agent died (780e569). Verified (diff read + 4-family probe: triggers instant/correct, entity prose 11/11 byte-exact, RCDATA tails kept, 0 leaks/16 shapes, idempotent) + merged @ dd91087; 230/230 + 60/60. Lock → qa for re-verification.
 - 2026-07-26T05:18:21Z — QA (R17 verification + closing gate sweep) → a988f7efc6fe5218b (sonnet, high)
 - 2026-07-26T07:31:24Z — QA respawn (prior attempt stalled in CPython source-reading, zero work landed; brief tightened to empirical-only, small tool calls) → ad1d242379538fc0e (sonnet, high)
+
+2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
+
+## R17 verification — closing gate sweep G1-G13 (QA cycle 7, 2026-07-26)
+
+Full re-run of every gate against the current tree (230 backend + 60
+frontend passing baseline, before the 4 new cycle-7 RED tests). Each
+gate cited by the specific proving suite(s)/probe re-executed this
+round (not re-derived from memory); items G1-G12/G7 etc. correspond to
+Completed items B1-B7/UI1-UI3/E1/F1, which this brief did not ask to
+re-verify item-by-item — this sweep re-confirms each still holds on
+today's HEAD rather than re-litigating scope.
+
+- G1 Draft creation: `test_assertions_crud.py` (16/16) — draft create scoped to repository+matter, evidence attach with explicit roles. HOLDS.
+- G2 Submission: `test_assertions_crud.py` + `test_review_workflow.py` — submit-for-review marks user_suggested/draft-proposed, never auto-accepted. HOLDS.
+- G3 Ratings: `test_ratings_api.py` (11/11) — 1-5 rate + optional rationale, update/remove, one-current-per-user-per-revision, audited. HOLDS.
+- G4 Aggregates: `test_ratings_aggregate.py` (7/7) — count/unrounded-mean/median/distribution, none computed at zero ratings, never affects status/confidence/evidence. HOLDS.
+- G5 Review: `test_review_workflow.py` (14/14) — accept/reject/dispute/request-revision; `test_unsupported_assertion_cannot_be_accepted_without_justification` + `..._can_be_accepted_with_recorded_justification`; `test_review_decision_never_erases_ratings`. HOLDS.
+- G6 Revisions: `test_assertions_crud.py` + `test_review_workflow.py::test_review_decision_records_reviewed_revision` — material edit -> new revision, ratings stay attached to the rated revision, no auto-copy. HOLDS.
+- G7 Graph: `test_graph_projection_api.py` (6/6) + `test_graph_projection.py` (5/5) — default view accepted-only, show_unreviewed opt-in with distinct states, projection rebuildable not authoritative. HOLDS.
+- G8 Permissions + audit: `test_permissions_matrix.py` (19/19) + `test_comments_audit.py` (11/11) — server-side permission checks on every mutation, audit rows with actor/timestamp/matter/assertion/revision/correlation_id, no full-document content. HOLDS.
+- G9 Matter isolation: `test_matter_isolation.py` (6/6) + `test_validation_duplicates_api.py::test_evidence_from_inaccessible_matter_cannot_be_attached` — cross-matter access denied, evidence from inaccessible matter rejected, aggregates never mix matters. HOLDS.
+- G13 Authored-text fidelity: `test_validation.py` + `test_hostile_input.py` — entity/charref (`R&D`, `AT&T and Johnson & Co`, `&#160a`, `&#8212`, `&pound;500 &amp; rising`) byte-exact; R17 tail-salvage 6/6 green, 0 duplication/destruction across the cycle-7 boundary sweep. DOES NOT FULLY HOLD: one new live finding this cycle (a malformed tag borrowing a later unrelated tag's `>` destroys genuine prose in between, confirmed via real API) — see Next Steps `[QA-FAIL: B5-fix7]` and the 4 new RED tests. This is the blocking gate for this round's verdict.
+- G10 Hostile input: `test_hostile_input.py` (40/40 minus the 1 new cycle-7 RED) — script/style content dropped, prompt-injection text inert, ~15-shape security battery (script/img-onerror/img-slash-onerror/svg-onload/iframe-javascript/a-javascript/details-ontoggle/body-onload/mixed-case/CDATA-wrappers) zero live markup. Same G13 caveat above applies (shared write path).
+- G11 UI: frontend suite (60/60 green, unchanged this round) — `AssertionRatingWidget.test.tsx` roving-tabindex radiogroup with aria-checked/aria-label; `AssertionCard`/`AssertionDetailPanel`/`AssertionSuggestionForm`/`AssertionEvidenceSelector`/`AssertionComparisonView`/`AssertionRevisionHistory`/`RelatedAssertionsPanel` suites all green. HOLDS.
+- G12 End-to-end: `tests/e2e/test_full_flow.py` (1/1, re-run this cycle) — full 10-step contributor->rater->reviewer->graph flow green against the real API. HOLDS.
