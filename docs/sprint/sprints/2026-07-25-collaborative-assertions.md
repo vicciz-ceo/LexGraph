@@ -1,17 +1,17 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
+status: review
 current_role: planner
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:planner"
-locked_at: "2026-07-26T07:45:34Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T07:45:34Z"
-lint: "PASS 146 2026-07-26T07:42:27Z"
+last_updated: "2026-07-26T07:50:16Z"
+lint: "PASS 146 2026-07-26T07:50:24Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
-completed_items: 11
+completed_items: 12
 dev_complete_items: 0
 qa_cycles: 7
 prd_sections:
@@ -64,8 +64,6 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [R18] Amend 4 QA cycle-7 RED tests to pin the accepted browser-faithful behavior (Planner-role; no implementation change). Owner: Planner. Then sprint returns to review.
-
 ## Parallelization plan
 
 F1 is a hard sequential gate (all backend tracks read/write the same
@@ -90,9 +88,9 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-(empty — B5-fix7 bounced to Next Steps as B5-fix8; see QA-FAIL above)
-
 ## Completed
+
+- B5 FINAL (R17+R18) — conditional tail salvage merged `dd91087`; cycle-7 finding overruled as accepted browser-faithful limitation, 4 tests amended `c1a88c1` (teeth kept: each asserts no live markup). Evaluator 238 backend + 60 frontend, manager-run.
 
 - B5 (final, after 5 QA cycles) — validation/sanitization/duplicates/search. Sanitizer: parser-based, fixpoint-driven, input-derived bound, fail-closed, single-pass chain salvage. Merged `e552e58`; evaluator 195/195 backend + 60/60 frontend. Manager probe: 0 leaks across chains n=9..5000 (5000 in 0.008s), nested wrappers, `/`-evasion, template/plaintext; prose byte-exact; fix5 additionally closed a previously-undetected leak on hyphenated/underscored tag names (`<my-tag onload=…`) that the merged code had leaked.
 
@@ -138,10 +136,11 @@ venv built with python3.13 (R1 pin was 3.12; functionally compatible).
 
 ## Context Dump
 
-Sprint COMPLETE and at `review` — awaiting director sign-off; no agent should resume work without it.
-All 12 items Completed; evaluator green on merged tip: 195 backend + 60 frontend.
-5 QA cycles ran; every bounce was a genuine, live-reproduced defect, all now fixed and re-verified.
-Sanitizer (the one contested surface) is parser-based + fixpoint + input-derived bound + fail-closed + single-pass chain salvage.
-OPEN DIRECTOR DECISION: no length cap exists on proposition/comment_text/rationale — manager recommends a generous cap (~100k chars) as belt-and-braces; the O(n^2) DoS itself is already fixed (5000-tag chain: 0.008s).
-Known accepted limitations: valid-tag-shaped prose is dropped (browser-faithful); notifications are in-process/restart-volatile (R4 MVP); unresolvable evidence span ids accepted.
-Branch `sprint/2026-07-25-collaborative-assertions` is pushed; no PR opened yet (director's call).
+Sprint COMPLETE at `review` — awaiting director sign-off; do not resume work without it.
+All 12 items Completed. Manager-run evaluator on tip: 238 backend + 60 frontend, all green.
+7 QA cycles + 1 independent 4-lens audit ran. Every bounce but the last was a real, live-reproduced defect, all fixed and re-verified.
+The sanitizer is the contested surface: parser-based + fixpoint + input-derived bound + fail-closed + single-pass chain salvage + conditional tail salvage + `&`-shielding.
+Cycle-7 finding was OVERRULED (R18) as the accepted browser-faithful limitation; its 4 tests now pin that behavior and still assert no-live-markup.
+OPEN DIRECTOR DECISIONS: (1) no length cap on proposition/comment_text/rationale — manager recommends ~100k chars; (2) future sprint: store raw + sanitized text separately so authored `<` prose is never lost.
+Accepted limitations: tag-shaped prose dropped (browser-faithful); NULs stripped; notifications in-process; unresolvable evidence span ids accepted.
+Branch pushed; no PR opened (director's call).
