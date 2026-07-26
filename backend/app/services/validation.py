@@ -97,8 +97,6 @@ _CDATA_CONTENT_TAGS = frozenset(
     )
 )
 
-_MAX_SANITIZE_PASSES = 8
-
 _ABANDONED_TAG_OPEN_RE = re.compile(r"\A<[a-zA-Z][a-zA-Z0-9]*/?")
 _ABANDONED_ATTR_RE = re.compile(r"""\s*[^\s=]+=(?:"[^"]*"|'[^']*'|[^\s]*)""")
 
@@ -195,20 +193,27 @@ def sanitize_for_storage(raw_text: str) -> str:
     only ever removes/neutralizes markup -- it never adds or reorders
     authored text -- so re-running it on its own output converges on a
     fixpoint that can only be more sanitized than any single pass, never
-    less. Bounded at `_MAX_SANITIZE_PASSES` iterations as a belt-and-braces
-    limit against pathological input; if the bound is hit before the output
-    stabilizes, the last (still further-sanitized-than-raw) output is
-    returned rather than raising or falling back to the raw input.
+    less.
+
+    Ruling R14: every pass that changes the text strictly shortens it (a
+    pass that left the length unchanged would have to be a no-op, which is
+    the convergence condition above), so convergence is guaranteed within
+    `len(raw_text)` passes. The loop is bounded at `len(raw_text) + 2`
+    iterations -- a termination guard derived from the input, not a
+    security parameter. If the bound is ever hit without converging, that
+    is a sign the fixpoint assumption itself has been violated, so this
+    fails closed and returns "" rather than the last (possibly
+    still-markup) output, the raw input, or raising.
     """
     if raw_text is None:
         return raw_text
     text = raw_text
-    for _ in range(_MAX_SANITIZE_PASSES):
+    for _ in range(len(raw_text) + 2):
         sanitized = _sanitize_once(text)
         if sanitized == text:
             return sanitized
         text = sanitized
-    return text
+    return ""
 
 
 # --- Presence / consistency checks ------------------------------------------
