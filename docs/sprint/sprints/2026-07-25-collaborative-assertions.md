@@ -1,17 +1,17 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: review
+status: qa-fail
 current_role: planner
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: null
-locked_at: null
+locked_by: "claude-code:planner"
+locked_at: "2026-07-26T01:33:43Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T01:09:40Z"
+last_updated: "2026-07-26T01:33:43Z"
 lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
-completed_items: 12
+completed_items: 11
 dev_complete_items: 0
 qa_cycles: 5
 prd_sections:
@@ -40,6 +40,7 @@ Data model reference, API-path assumptions, and the full Expected RED census: sa
 - R13 Sanitizer fixpoint (manager ruling, QA cycle 3): both cycle-3 findings share one root cause — a single tokenizer pass REMOVES markup but can LEAVE TEXT THAT IS STILL MARKUP (raw-text/RCDATA elements such as iframe/xmp/noembed/noframes/textarea/title hand their contents back as data; chained abandoned tags salvage only the first). Enumerating element lists is the same whack-a-mole as the regex rounds. Required fix: make sanitization a FIXPOINT — apply the existing single-pass sanitize repeatedly until the output stops changing (bounded, e.g. max 8 iterations; on hitting the bound return the last output, which is strictly more sanitized, never the raw input). Manager verified by direct probe that this closes both findings (`<iframe><script>…` → `''`, chained abandoned tags → `' '`) and that all legal-prose cases are already fixpoint-stable (idempotent, so byte-exactness is preserved). ALSO extend the CDATA-skip set to every raw-text/RCDATA element the installed `HTMLParser` recognizes, as defense in depth — but the fixpoint is the load-bearing change.
 - R14 Convergence bound (manager ruling, QA cycle 4 — supersedes R13's fixed cap; the flawed constant was the MANAGER's, not the developer's): a fixed 8-pass ceiling is attacker-guessable — a chain of >8 abandoned tags returns markup verbatim (QA reproduced live). Each changing pass strictly shortens the string, so convergence is guaranteed within `len(raw_text)` passes. Required: bound the loop by `len(raw_text) + 2` instead of a constant, and FAIL CLOSED — if the loop somehow exits without converging, return `""`, never markup. Manager-probed: chains of 9/20/60/400 tags all neutralized (400 in 0.05s), all prose cases byte-exact.
 - R15 Valve disposition + linearization (manager, QA cycle 5): the harness valve exists to force human diagnosis of an undiagnosed loop. Root cause here IS precisely diagnosed by QA and is NOT a repeat of any earlier finding: content safety passed at every chain length (G10 re-confirmed); the blocker is algorithmic complexity — `_salvage_trailing_prose` strips ONE chained abandoned tag per pass, so an n-tag chain costs n passes of O(n) work → O(n²) (measured 0.08s/500, 0.30s/1000, 1.18s/2000; manager-reproduced). Disposition: (a) engineering fix proceeds now — make salvage resolve ALL chained abandoned tags in a single pass (manager-probed: residual leak False at n=9/500/2000, converges in ~1-2 passes → linear); (b) NO QA cycle 6 is auto-spawned — the valve is honored, manager verification replaces it and the DIRECTOR gives final sign-off; (c) an input LENGTH CAP on proposition/comment_text/rationale is a PRODUCT decision (what is the maximum legitimate length of a legal proposition?) and is explicitly NOT decided here — it goes to the director as a recommendation with the review handoff.
+- R16 Post-review independent audit (manager, 2026-07-26): a 4-lens adversarial audit run AFTER QA closed found severe defects five QA cycles missed. Manager reproduced all of them. Two root causes, both in `sanitize_for_storage`: (1) **entity/charref reconstruction** — `_SanitizingParser.handle_entityref/handle_charref` re-emit `f"&{name};"`, APPENDING a `;` the author never typed. Consequences: `R&D spend` -> `R&D; spend`, `AT&T and Johnson & Co` -> `AT&T; and…`, `Rule 5 &#8212 applies.` -> `&#8212;`; and for `&#<digits><hex-letter>` (e.g. `&#160a`, `&#5b`) each pass GROWS the text, so the fixpoint never converges, burns O(n^2) CPU and FAIL-CLOSES — silently destroying the whole document (`'The nbsp is encoded as &#160a…'` -> `''`). This also falsifies R14's stated "every changing pass strictly shortens" invariant. (2) **RCDATA content suppression** — suppressing CONTENT for title/textarea/xmp/iframe/noembed/noframes means an unclosed `<Title>` in prose swallows everything after it (`'Signatory: <Title> of the Company. The Company shall pay $1,000,000…'` -> `'Signatory: '`). Manager-probed fix direction: (a) shield `&` from the parser entirely (substitute a control-char sentinel before feeding, restore after; strip NULs from input first) so entities are never reconstructed; (b) suppress CONTENT only for `script`/`style` and let the FIXPOINT neutralize nested payloads in other wrappers. Probe result: all entity/charref prose byte-exact, no destruction, 0 leaks across 11 attack shapes incl. `<textarea><script>`/`<iframe><script>`/`<title><img …>`, charref case 0.0001s, 2000-tag chain 0.0013s.
 - R7 Wave sequencing (manager, from write-set + seam analysis): Wave 0 = F1 ∥ UI1 ∥ UI2 ∥ UI3; Wave 1 (after F1 merges) = B1 ∥ B3 ∥ B4 ∥ B6; Wave 2 (after Wave 1 merges) = B2 ∥ B5 (B2 needs B3's audit service — its tests assert audit rows; B5 edits B1's router file); Wave 3 = B7+E1 bundled, one Developer, sequential last. Audit call-sites in each router belong to that router's owning track, calling B3's `app/services/audit.py`. Shared frontend types stay local to each component file this sprint — no shared types module (add/add risk).
 
 ## Scaffolding already committed (Planner)
@@ -61,7 +62,8 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — all 12 items Completed; sprint at review pending director sign-off)
+- [AUDIT-FAIL: B5] Entity/charref reconstruction appends `;` never authored — corrupts ordinary legal text (`R&D spend` -> `R&D; spend`, `AT&T` -> `AT&T;`) and, for `&#<digits><hex-letter>`, prevents fixpoint convergence so the ENTIRE input is destroyed (returns `""`) after O(n^2) CPU. Manager-reproduced. Required: authored text byte-exact; no `;` insertion; convergence restored. See ruling R16(a).
+- [AUDIT-FAIL: B5] RCDATA content suppression swallows authored prose after an unclosed wrapper tag — `'Signatory: <Title> of the Company. …$1,000,000…'` -> `'Signatory: '`. Manager-reproduced. Required: only the tag itself is dropped; following prose survives; nested payloads still neutralized (via the fixpoint). See ruling R16(b).
 
 ## Parallelization plan
 
