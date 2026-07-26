@@ -157,6 +157,11 @@ def _serialize_rating(r: AssertionRating) -> dict:
         "user_id": r.user_id,
         "strength": r.strength,
         "rationale": r.rationale,
+        # Track A, item A4 (issue #2, gate G1): the author's exact
+        # submitted bytes, independent of whatever sanitize_for_storage
+        # did to `rationale` above. Same rationale-visibility permission
+        # gate as `rationale` (see list_ratings).
+        "rationale_raw": r.rationale_raw,
         "created_at": r.created_at,
         "updated_at": r.updated_at,
     }
@@ -187,6 +192,7 @@ def put_rating(
     if existing is not None:
         existing.strength = body.strength
         existing.rationale = rationale
+        existing.rationale_raw = body.rationale
         existing.updated_at = now
         session.commit()
         session.refresh(existing)
@@ -203,6 +209,7 @@ def put_rating(
         user_id=user_id,
         strength=body.strength,
         rationale=rationale,
+        rationale_raw=body.rationale,
         created_at=now,
         updated_at=now,
     )
@@ -347,5 +354,6 @@ def list_ratings(
         serialized = _serialize_rating(r)
         if not can_see_rationales and r.user_id != user_id:
             serialized["rationale"] = None
+            serialized["rationale_raw"] = None
         results.append(serialized)
     return results
