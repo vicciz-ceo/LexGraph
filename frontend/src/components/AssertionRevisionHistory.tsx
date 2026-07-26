@@ -6,6 +6,11 @@ import { useState } from "react";
 export interface AssertionRevisionSummary {
   revisionNumber: number;
   proposition: string;
+  // Track A, item A7 (issue #2 / gate G1): the raw, byte-exact authored
+  // proposition for this revision. Optional so existing callers that
+  // haven't wired it through yet keep working -- falls back to the
+  // (possibly lossy, sanitized) `proposition` field when absent.
+  propositionRaw?: string;
   editedBy: string;
   createdAt?: string;
   revisionReason?: string | null;
@@ -52,7 +57,9 @@ export function AssertionRevisionHistory({ revisions, onCompare }: AssertionRevi
             {revision.createdAt && (
               <p className="assertion-revision-date">{revision.createdAt}</p>
             )}
-            <p className="assertion-revision-proposition">{revision.proposition}</p>
+            <p className="assertion-revision-proposition">
+              {revision.propositionRaw ?? revision.proposition}
+            </p>
             {revision.revisionReason && (
               <p className="assertion-revision-reason">{revision.revisionReason}</p>
             )}
