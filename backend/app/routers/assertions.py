@@ -618,8 +618,19 @@ def list_assertions(
     assertions = session.execute(stmt).scalars().all()
 
     if q:
+        # Track A, item A6 (issue #2, gate G1): match against the current
+        # revision's RAW proposition, not the (possibly lossy) sanitized
+        # `proposition` column -- a search term the sanitizer legitimately
+        # dropped (e.g. "appendix A") must still find the assertion.
         needle = q.strip().lower()
-        assertions = [a for a in assertions if needle in (a.proposition or "").lower()]
+
+        def _matches(a: Assertion) -> bool:
+            revision = _current_revision(session, a)
+            raw = revision.proposition_raw if revision else None
+            haystack = raw if raw is not None else a.proposition
+            return needle in (haystack or "").lower()
+
+        assertions = [a for a in assertions if _matches(a)]
 
     if evidence_status:
         assertions = [a for a in assertions if _evidence_status(session, a.id) == evidence_status]
