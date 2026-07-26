@@ -6,8 +6,8 @@ branch: sprint/2026-07-25-collaborative-assertions
 locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T11:40:00Z"
-lint: "PASS 185 2026-07-25T20:24:02Z"
+last_updated: "2026-07-26T01:09:40Z"
+lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
@@ -87,10 +87,6 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-(empty — all items Completed)
-
-(empty — B5-fix4 blocked, cycle 5 harness limit; content-safety confirmed PASS but a new O(n²) performance/DoS finding routes to the director rather than back to Dev Complete — see QA-BLOCKED in Next Steps above)
-
 ## Completed
 
 - B5 (final, after 5 QA cycles) — validation/sanitization/duplicates/search. Sanitizer: parser-based, fixpoint-driven, input-derived bound, fail-closed, single-pass chain salvage. Merged `e552e58`; evaluator 195/195 backend + 60/60 frontend. Manager probe: 0 leaks across chains n=9..5000 (5000 in 0.008s), nested wrappers, `/`-evasion, template/plaintext; prose byte-exact; fix5 additionally closed a previously-undetected leak on hyphenated/underscored tag names (`<my-tag onload=…`) that the merged code had leaked.
@@ -136,3 +132,13 @@ committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see
 (sequential gate), then any of B1-B7/UI1-UI3 in parallel per the plan
 above; E1 last. Deviation: python@3.12 unavailable locally — backend
 venv built with python3.13 (R1 pin was 3.12; functionally compatible).
+
+## Context Dump
+
+Sprint COMPLETE and at `review` — awaiting director sign-off; no agent should resume work without it.
+All 12 items Completed; evaluator green on merged tip: 195 backend + 60 frontend.
+5 QA cycles ran; every bounce was a genuine, live-reproduced defect, all now fixed and re-verified.
+Sanitizer (the one contested surface) is parser-based + fixpoint + input-derived bound + fail-closed + single-pass chain salvage.
+OPEN DIRECTOR DECISION: no length cap exists on proposition/comment_text/rationale — manager recommends a generous cap (~100k chars) as belt-and-braces; the O(n^2) DoS itself is already fixed (5000-tag chain: 0.008s).
+Known accepted limitations: valid-tag-shaped prose is dropped (browser-faithful); notifications are in-process/restart-volatile (R4 MVP); unresolvable evidence span ids accepted.
+Branch `sprint/2026-07-25-collaborative-assertions` is pushed; no PR opened yet (director's call).
