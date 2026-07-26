@@ -5,14 +5,14 @@ current_role: developer
 branch: sprint/2026-07-26-local-first-platform
 locked_by: "claude-code:developer"
 locked_at: "2026-07-26T09:35:00Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-26T09:35:00Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-07-26T13:00:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
 completed_items: 0
-dev_complete_items: 13
+dev_complete_items: 17
 qa_cycles: 0
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -390,10 +390,22 @@ merge → c836154; entries applied by the manager per parallel-mode rule):
   runnable `python -m app.mcp.server`). Files: `backend/app/mcp/__init__.py`,
   `server.py`. Commit `a578477`. Result: 4/4 green.
 
-Manager-verified on the merged tree (c836154): backend 281 passed /
-2 failed — only the two Track D doc tests (`test_local_first_runbook_docs`,
-`test_mcp_registration_docs`); `test_local_first_platform_flow` (D2) and
-`test_no_network_dependencies` (D3) GREEN with no code; frontend green.
+Developer pass (Track D solo, doc-only, Haiku low), spawned on 9b9c60b:
+
+- **C2** MCP registration docs. Files: `docs/mcp-registration.md`. Commit
+  `48caf40`. Result: 1/1 green. Covers Claude Code registration (`claude mcp
+  add lexgraph`), plus config snippets for Codex, Cursor, and Antigravity.
+- **D1** Local-first install runbook. Files: `docs/RUNBOOK.md`. Commit
+  `48caf40`. Result: 1/1 green. Covers DB init/migration/backfill, backend
+  serve, grading-app serve, MCP registration, E2E workflow, environment
+  variables, and troubleshooting.
+- **D2** Zero-network guardrail (no code). Test: `backend/tests/unit/test_no_network_dependencies.py`. Result: 2/2 green with no code — verified in full pass.
+- **D3** Local-first E2E flow (no code). Test: `backend/tests/e2e/test_local_first_platform_flow.py`. Result: 1/1 green with no code — verified in full pass.
+
+Developer-verified on the dev tree (48caf40): backend 283 passed /
+0 failed; frontend 62 passed / 0 failed. Scoped doc tests 2/2 green
+before commit; full pass confirms zero regressions across all 17
+completed items (A1–A9, B1–B3, C1–C2, D1–D3).
 
 Owned-file conditional grants (`backend/app/routers/history.py`,
 `backend/app/models/repository.py`): not exercised. No Track A test reads
@@ -407,8 +419,9 @@ layer); every write path in this app goes directly through routers via
 
 ## Evaluation Notes
 
-Track A (A1–A9), Developer solo pass, dev-complete 2026-07-26. Summary
-counts only (see `## Dev Complete` for per-item detail):
+Track A (A1–A9), Developer solo pass, dev-complete 2026-07-26 (see `## Dev Complete` for per-item detail):
+
+**Previous evaluation (Track A summary)**:
 
 - Scoped RED confirmed before work started: 21 failed across the 8 Track A
   integration/hostile-input files + 4-test collection error in
@@ -437,6 +450,23 @@ counts only (see `## Dev Complete` for per-item detail):
 - Conditional grants (`routers/history.py`, `models/repository.py`) not
   exercised/edited — no Track A test reads either surface; every write
   path goes directly through routers via `Session`.
+
+Track D (C2+D1+D2+D3), Developer solo pass (doc-only items), dev-complete
+2026-07-26. Summary counts only (see `## Dev Complete` for per-item detail):
+
+- Scoped RED confirmed before work: 2 failed (doc-tests for C2, D1 only).
+- Doc files written: `docs/mcp-registration.md` (covers Claude Code + 3
+  client config snippets) and `docs/RUNBOOK.md` (fresh-clone to working
+  local-first system in one doc: DB init/migration/backfill, backend serve,
+  grading-app serve, MCP registration, E2E workflow, troubleshooting).
+- Scoped run: C2+D1 both pass 1/1 each.
+- D2 and D3 are verify-only (no code): `test_local_first_platform_flow` and
+  `test_no_network_dependencies` are already green from prior dev work
+  (B1/C1). Verified in full pass: both remain green.
+- Full authoritative pass: backend 283/283 green, frontend 62/62 green. Zero
+  regressions across all 17 completed items (A1–A9 from prior dev, B1–B3
+  from prior devB/devC, C1 from prior devC, C2+D1+D2+D3 this pass).
+- Deviations from brief: none.
 
 ## QA Notes
 

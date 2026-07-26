@@ -118,3 +118,16 @@ and the agent roster live here.
   dev_complete_items → 9. Pushed sprint/2026-07-26-local-first-platform @
   a0bf1f6 (+ this bookkeeping commit). status/current_role/lock fields left
   untouched for the manager.
+- 2026-07-26T13:00Z developer (Track D): doc-only items C2+D1+D2+D3 (Haiku
+  low). Scoped RED preflight: 2 failed (test_mcp_registration_docs 1,
+  test_local_first_runbook_docs 1). C2: `docs/mcp-registration.md` written
+  — Claude Code `claude mcp add` command + config snippets for Codex,
+  Cursor, Antigravity (1/1 green). D1: `docs/RUNBOOK.md` written — fresh-clone
+  to working local-first: DB init/migration/backfill, backend serve
+  (uvicorn app.main:app), grading-app serve (npm run dev), MCP registration,
+  E2E workflow, troubleshooting (1/1 green). D2/D3 verify-only: no code
+  required; both tests already green from prior dev work (B1/C1). Full
+  authoritative pass: backend 283 passed (all green, zero regressions
+  across all 17 items A1–A9+B1–B3+C1+C2+D1–D3); frontend 62 passed.
+  dev_complete_items → 17. Pushed sprint/2026-07-26-local-first-platform @
+  48caf40 (docs commit) + bookkeeping commit.
