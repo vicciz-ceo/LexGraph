@@ -930,6 +930,14 @@ def test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api(
 
 
 # --- R18 ruling — cycle-7 finding overruled, pinned as accepted limitation -
+# --- SUPERSEDED (2026-07-26, sprint local-first-platform, issue #2): -------
+# --- the "future sprint" this docstring pointed to has arrived. `raw_text` -
+# --- is no longer permanently lost -- it is preserved byte-exact in the ----
+# --- new `proposition_raw` column (Track A, items A1/A2). This does NOT ---
+# --- weaken `sanitize_for_storage` or the sanitized `proposition` column: -
+# --- both keep the exact browser-faithful (lossy) behavior pinned below, --
+# --- unchanged. What changes is that this is no longer the ONLY stored ----
+# --- copy of the text -- see the added `proposition_raw` assertion below. -
 #
 # QA cycle 7 filed this as RED, claiming a new defect: prose between an
 # unclosed tag and a later tag-shaped fragment is dropped via the real API.
@@ -942,9 +950,11 @@ def test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api(
 # closes `<b>` -- browser-faithful tag/attribute-machinery parsing, not a
 # prose-destruction defect. It is the same class as the already-accepted
 # `see <appendix A> for details` -> `see  for details` limitation. Not a
-# gate G13 violation. This test now pins the ACTUAL (browser-faithful)
-# behavior via the real API as CORRECT. The durable remedy is storing raw +
-# sanitized text separately (future sprint), not weakening the sanitizer.
+# gate G13 violation. This test pins the ACTUAL (browser-faithful) SANITIZED
+# behavior via the real API as CORRECT and unchanged, and additionally pins
+# the RAW column as the durable remedy issue #2 asked for: the exact bytes
+# the author submitted are never lost, even though the sanitized copy still
+# (correctly) drops them.
 
 
 def test_proposition_text_parsed_as_tag_attributes_dropped_browser_faithful_via_real_api(
@@ -974,3 +984,7 @@ def test_proposition_text_parsed_as_tag_attributes_dropped_browser_faithful_via_
         f"text per R18: {stored!r}"
     )
     assert not any(marker in stored for marker in _DANGER_MARKERS)
+    # Superseded (issue #2, Track A): the raw column is the durable remedy --
+    # the author's exact bytes are never lost, independent of the sanitized
+    # column's (unchanged, correct) browser-faithful behavior above.
+    assert r.json()["proposition_raw"] == text

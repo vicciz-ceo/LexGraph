@@ -28,3 +28,4 @@ coverage/
 # Local tooling
 .claude/settings.local.json
 .claude/worktrees/
+.codegraph/

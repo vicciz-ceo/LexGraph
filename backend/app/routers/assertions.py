@@ -68,6 +68,7 @@ from app.services.validation import (
     validate_evidence_matter_scope,
     validate_matter_scoped_entity_id,
     validate_proposition_not_empty,
+    validate_text_length,
 )
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
@@ -189,6 +190,7 @@ def _evidence_status(session: Session, assertion_id: str) -> str:
 
 
 def _serialize_assertion(session: Session, a: Assertion) -> dict:
+    current_revision = _current_revision(session, a)
     return {
         "id": a.id,
         "organization_id": a.organization_id,
@@ -196,6 +198,10 @@ def _serialize_assertion(session: Session, a: Assertion) -> dict:
         "matter_id": a.matter_id,
         "assertion_type": a.assertion_type,
         "proposition": a.proposition,
+        # Track A, item A2 (issue #2, gate G1): the current revision's raw,
+        # byte-exact authored text -- never the (possibly lossy) sanitized
+        # `proposition` column above.
+        "proposition_raw": current_revision.proposition_raw if current_revision else None,
         "subject_entity": {"type": a.subject_entity_type, "id": a.subject_entity_id},
         "object_entity": (
             {"type": a.object_entity_type, "id": a.object_entity_id}
@@ -226,6 +232,9 @@ def _serialize_revision(r: AssertionRevision) -> dict:
         "assertion_id": r.assertion_id,
         "revision_number": r.revision_number,
         "proposition": r.proposition,
+        # Track A, item A2 (issue #2, gate G1): raw, byte-exact authored
+        # text for this specific revision.
+        "proposition_raw": r.proposition_raw,
         "assertion_type": r.assertion_type,
         "subject_entity": {"type": r.subject_entity_type, "id": r.subject_entity_id},
         "object_entity": (
@@ -260,6 +269,7 @@ def _serialize_comment_summary(c: AssertionComment) -> dict:
         "user_id": c.user_id,
         "parent_comment_id": c.parent_comment_id,
         "comment_text": c.comment_text,
+        "comment_text_raw": c.comment_text_raw,
         "created_at": c.created_at,
         "updated_at": c.updated_at,
     }
@@ -434,6 +444,9 @@ def create_assertion(
     # surfaced as 422s, never silently corrected.
     proposition = sanitize_for_storage(body.proposition)
     try:
+        # Track A, item A8 (issue #2 sub-item, gate G4): length cap is
+        # checked against the raw submitted text, before sanitization.
+        validate_text_length(body.proposition, label="proposition")
         validate_proposition_not_empty(proposition)
         validate_effective_dates(body.effective_from, body.effective_to)
         validate_assertion_type(
@@ -531,6 +544,10 @@ def create_assertion(
         assertion_id=assertion.id,
         revision_number=1,
         proposition=assertion.proposition,
+        # Track A, item A2 (issue #2, gate G1): the author's exact
+        # submitted bytes, independent of whatever sanitize_for_storage
+        # did to `proposition` above.
+        proposition_raw=body.proposition,
         assertion_type=assertion.assertion_type,
         subject_entity_type=assertion.subject_entity_type,
         subject_entity_id=assertion.subject_entity_id,
@@ -605,8 +622,19 @@ def list_assertions(
     assertions = session.execute(stmt).scalars().all()
 
     if q:
+        # Track A, item A6 (issue #2, gate G1): match against the current
+        # revision's RAW proposition, not the (possibly lossy) sanitized
+        # `proposition` column -- a search term the sanitizer legitimately
+        # dropped (e.g. "appendix A") must still find the assertion.
         needle = q.strip().lower()
-        assertions = [a for a in assertions if needle in (a.proposition or "").lower()]
+
+        def _matches(a: Assertion) -> bool:
+            revision = _current_revision(session, a)
+            raw = revision.proposition_raw if revision else None
+            haystack = raw if raw is not None else a.proposition
+            return needle in (haystack or "").lower()
+
+        assertions = [a for a in assertions if _matches(a)]
 
     if evidence_status:
         assertions = [a for a in assertions if _evidence_status(session, a.id) == evidence_status]
@@ -735,6 +763,22 @@ def patch_assertion(
     if not updates:
         return _serialize_assertion(session, assertion)
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    if "proposition" in updates and body.proposition is not None:
+        try:
+            validate_text_length(body.proposition, label="proposition")
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
+    # Track A, item A2 (issue #2, gate G1): carry the previous revision's
+    # raw text forward when this PATCH doesn't touch proposition, so a new
+    # revision's raw column is never silently blanked out.
+    previous_revision = _current_revision(session, assertion)
+    proposition_raw = previous_revision.proposition_raw if previous_revision else None
+
     now = _now()
     new_revision_number = assertion.current_revision_number + 1
 
@@ -742,6 +786,7 @@ def patch_assertion(
         # B5 (qa-fail fix): sanitize like CREATE does -- PATCH is a storage
         # path for the proposition too (gate G10).
         assertion.proposition = sanitize_for_storage(body.proposition)
+        proposition_raw = body.proposition
     if "assertion_type" in updates:
         assertion.assertion_type = body.assertion_type
     if "subject_entity" in updates and body.subject_entity is not None:
@@ -769,6 +814,7 @@ def patch_assertion(
         assertion_id=assertion.id,
         revision_number=new_revision_number,
         proposition=assertion.proposition,
+        proposition_raw=proposition_raw,
         assertion_type=assertion.assertion_type,
         subject_entity_type=assertion.subject_entity_type,
         subject_entity_id=assertion.subject_entity_id,
@@ -868,12 +914,28 @@ def create_revision(
             detail="assertion has been modified since expected_revision_number",
         )
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    if body.proposition is not None:
+        try:
+            validate_text_length(body.proposition, label="proposition")
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
+    # Track A, item A2 (issue #2, gate G1): carry the previous revision's
+    # raw text forward when this call doesn't touch proposition.
+    previous_revision = _current_revision(session, assertion)
+    proposition_raw = previous_revision.proposition_raw if previous_revision else None
+
     now = _now()
     new_revision_number = assertion.current_revision_number + 1
 
     if body.proposition is not None:
         # B5 (qa-fail fix): sanitize like CREATE does (gate G10).
         assertion.proposition = sanitize_for_storage(body.proposition)
+        proposition_raw = body.proposition
     if body.assertion_type is not None:
         assertion.assertion_type = body.assertion_type
     if body.subject_entity is not None:
@@ -899,6 +961,7 @@ def create_revision(
         assertion_id=assertion.id,
         revision_number=new_revision_number,
         proposition=assertion.proposition,
+        proposition_raw=proposition_raw,
         assertion_type=assertion.assertion_type,
         subject_entity_type=assertion.subject_entity_type,
         subject_entity_id=assertion.subject_entity_id,

@@ -37,7 +37,7 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
-from app.services.validation import sanitize_for_storage
+from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["comments"])
 
@@ -111,6 +111,10 @@ def _serialize(c: AssertionComment) -> dict:
         "user_id": c.user_id,
         "parent_comment_id": c.parent_comment_id,
         "comment_text": c.comment_text,
+        # Track A, item A3 (issue #2, gate G1): the author's exact
+        # submitted bytes, independent of whatever sanitize_for_storage
+        # did to `comment_text` above.
+        "comment_text_raw": c.comment_text_raw,
         "created_at": c.created_at,
         "updated_at": c.updated_at,
         "deleted_at": c.deleted_at,
@@ -130,6 +134,15 @@ def create_comment(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    try:
+        validate_text_length(body.comment_text, label="comment_text")
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
     if body.parent_comment_id is not None:
         parent = session.get(AssertionComment, body.parent_comment_id)
         if parent is None or parent.assertion_id != assertion_id:
@@ -143,6 +156,7 @@ def create_comment(
         user_id=user_id,
         parent_comment_id=body.parent_comment_id,
         comment_text=sanitize_for_storage(body.comment_text),
+        comment_text_raw=body.comment_text,
         created_at=now,
         updated_at=now,
     )
@@ -202,7 +216,17 @@ def update_comment(
             status_code=status.HTTP_403_FORBIDDEN, detail="can only edit your own comment"
         )
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    try:
+        validate_text_length(body.comment_text, label="comment_text")
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
     comment.comment_text = sanitize_for_storage(body.comment_text)
+    comment.comment_text_raw = body.comment_text
     comment.updated_at = _now()
 
     record_audit_event(

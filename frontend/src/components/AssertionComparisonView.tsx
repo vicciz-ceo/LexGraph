@@ -5,6 +5,11 @@
 export interface AssertionComparisonRevision {
   revisionNumber: number;
   proposition: string;
+  // Track A, item A7 (issue #2 / gate G1): the raw, byte-exact authored
+  // proposition for this revision. Optional so existing callers that
+  // haven't wired it through yet keep working -- falls back to the
+  // (possibly lossy, sanitized) `proposition` field when absent.
+  propositionRaw?: string;
   editedBy: string;
 }
 
@@ -33,7 +38,9 @@ function RevisionColumn({
     <div className="assertion-comparison-column">
       <h3>Revision {revision.revisionNumber}</h3>
       <p className="assertion-comparison-author">{revision.editedBy}</p>
-      <p className="assertion-comparison-proposition">{revision.proposition}</p>
+      <p className="assertion-comparison-proposition">
+        {revision.propositionRaw ?? revision.proposition}
+      </p>
       {ratingSummary &&
         (ratingSummary.count > 0 ? (
           <p className="assertion-comparison-ratings">

@@ -336,6 +336,22 @@ def validate_proposition_not_empty(proposition: str) -> None:
         raise ValidationError("proposition cannot be empty")
 
 
+def validate_text_length(text: str, *, label: str, max_length: int = 100_000) -> None:
+    """Raise ValidationError if `text` is longer than `max_length` characters
+    (issue #2 sub-item, gate G4, ruling R3: 100,000 characters).
+
+    The boundary is inclusive: a string of exactly `max_length` characters
+    is accepted. Checked against the length of the string as submitted
+    (before `sanitize_for_storage`), since sanitization only ever shortens
+    or leaves text unchanged, never lengthens it.
+    """
+    if text is not None and len(text) > max_length:
+        raise ValidationError(
+            f"{label} exceeds the maximum length of {max_length:,} characters "
+            f"({len(text):,} submitted)"
+        )
+
+
 def validate_effective_dates(
     effective_from: date | datetime | None, effective_to: date | datetime | None
 ) -> None:

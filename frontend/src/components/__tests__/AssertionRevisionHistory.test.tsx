@@ -37,4 +37,24 @@ describe("AssertionRevisionHistory", () => {
     render(<AssertionRevisionHistory revisions={revisions} onCompare={vi.fn()} />);
     expect(screen.getByText("Clarified scope")).toBeInTheDocument();
   });
+
+  // Track A, item A7 (issue #2 / gate G1): revision history is a
+  // diff/compare-classified read path, so it must render the RAW authored
+  // proposition -- byte-exact, including angle-bracket prose the sanitizer
+  // legitimately alters -- as a plain text node (never
+  // dangerouslySetInnerHTML). RED against the current component, which only
+  // knows about the (possibly lossy) sanitized `proposition` field.
+  it("renders the raw authored proposition byte-exact, preserving angle-bracket prose", () => {
+    const rawText = "see <appendix A> for details, per Clause 9.1.";
+    const revisionsWithRaw = [
+      {
+        revisionNumber: 1,
+        proposition: "see  for details, per Clause 9.1.",
+        propositionRaw: rawText,
+        editedBy: "Contributor A",
+      },
+    ];
+    render(<AssertionRevisionHistory revisions={revisionsWithRaw} onCompare={vi.fn()} />);
+    expect(screen.getByText(rawText)).toBeInTheDocument();
+  });
 });

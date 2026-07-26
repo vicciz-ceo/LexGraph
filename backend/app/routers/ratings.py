@@ -59,7 +59,7 @@ from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
 from app.services.permissions import has_permission
 from app.services.ratings import compute_rating_summary
-from app.services.validation import sanitize_for_storage
+from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["ratings"])
 
@@ -157,6 +157,11 @@ def _serialize_rating(r: AssertionRating) -> dict:
         "user_id": r.user_id,
         "strength": r.strength,
         "rationale": r.rationale,
+        # Track A, item A4 (issue #2, gate G1): the author's exact
+        # submitted bytes, independent of whatever sanitize_for_storage
+        # did to `rationale` above. Same rationale-visibility permission
+        # gate as `rationale` (see list_ratings).
+        "rationale_raw": r.rationale_raw,
         "created_at": r.created_at,
         "updated_at": r.updated_at,
     }
@@ -178,6 +183,15 @@ def put_rating(
     revision = _get_revision_or_404(session, assertion_id, revision_number)
     _require_permission(session, user_id, assertion.matter_id, "assertion:rate")
 
+    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
+    # against the raw submitted text, before sanitization.
+    try:
+        validate_text_length(body.rationale, label="rationale")
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
     existing = _get_own_rating(session, revision.id, user_id)
     now = _now()
     # B7: rationale is user-submitted free text (spec §7/G10) -- neutralize
@@ -187,6 +201,7 @@ def put_rating(
     if existing is not None:
         existing.strength = body.strength
         existing.rationale = rationale
+        existing.rationale_raw = body.rationale
         existing.updated_at = now
         session.commit()
         session.refresh(existing)
@@ -203,6 +218,7 @@ def put_rating(
         user_id=user_id,
         strength=body.strength,
         rationale=rationale,
+        rationale_raw=body.rationale,
         created_at=now,
         updated_at=now,
     )
@@ -347,5 +363,6 @@ def list_ratings(
         serialized = _serialize_rating(r)
         if not can_see_rationales and r.user_id != user_id:
             serialized["rationale"] = None
+            serialized["rationale_raw"] = None
         results.append(serialized)
     return results

@@ -1,12 +1,12 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: null
 locked_at: null
-last_agent: "claude-code:qa"
-last_updated: "2026-07-26T07:50:16Z"
+last_agent: "claude-code:manager"
+last_updated: "2026-07-26T08:51:30Z"
 lint: "PASS 146 2026-07-26T07:50:24Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
