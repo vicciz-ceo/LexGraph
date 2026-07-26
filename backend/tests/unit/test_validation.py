@@ -300,6 +300,186 @@ def test_sanitize_preserves_multi_paragraph_text_with_newlines():
     assert sanitize_for_storage(benign) == benign
 
 
+# --- QA regression (2026-07-26, cycle 4): convergence-bound bypass ----------
+#
+# R13's fixpoint driver re-runs `_sanitize_once` until output stabilizes,
+# bounded at `_MAX_SANITIZE_PASSES` (8) passes. `_salvage_trailing_prose`
+# resolves exactly ONE abandoned (never-closed) tag per pass -- confirmed
+# in cycle 3's chained-abandoned-tag fix, which handles a 2-tag chain in
+# 2 fixpoint iterations. That fix generalizes correctly (each extra
+# chained tag costs exactly one more pass), but the fixed 8-pass ceiling
+# is itself an attacker-guessable constant: a chain of MORE than 8
+# abandoned tags with live event-handler attributes needs MORE than 8
+# passes to fully resolve, so the loop hits its bound before convergence
+# and returns an intermediate value that is more sanitized than the raw
+# input but still contains a literal, unclosed, live tag -- e.g. a
+# 9-element chain leaves `<iframe onload=alert(9)` verbatim in the
+# output. Confirmed live via the real API (POST /api/v1/assertions --
+# see test_hostile_input.py) as well as at this unit level; a value
+# containing an unclosed tag with a live event-handler attribute is
+# exactly the shape multiple earlier cycles (1 and 3) already established
+# as executable when the stored value is later concatenated into a
+# larger HTML document (the tag's `>` is supplied by surrounding markup,
+# not by the attacker's input). This is a NEW defect in the bound itself,
+# not a new markup shape the fixpoint mechanism fails to recognize -- the
+# mechanism is correct; the fixed pass ceiling is not attacker-proof.
+# RED against the current implementation; pins the REQUIRED behavior
+# (full neutralization regardless of chain depth), not the bug. A chain
+# of 7 (comfortably within the 8-pass bound) is pinned alongside it as a
+# regression proving shallower/realistic chains are unaffected.
+
+
+def test_sanitize_convergence_attack_with_nine_chained_abandoned_tags_leaves_no_live_markup():
+    chain = " ".join(
+        [
+            "<img src=x onerror=alert(1)",
+            "<svg onload=alert(2)",
+            "<body onload=alert(3)",
+            "<input onfocus=alert(4) autofocus",
+            "<details ontoggle=alert(5) open",
+            "<marquee onstart=alert(6)",
+            "<video onloadstart=alert(7)",
+            "<audio onloadstart=alert(8)",
+            "<iframe onload=alert(9)",
+        ]
+    )
+    result = sanitize_for_storage(chain + " trailing text after chain.")
+    assert "<iframe" not in result
+    assert "<svg" not in result
+    assert "<img" not in result
+    assert "onload" not in result
+    assert "onerror" not in result
+    assert "trailing text after chain." in result
+
+
+def test_sanitize_neutralizes_chain_of_seven_abandoned_tags_within_pass_bound():
+    # Regression pin: a chain shallow enough to resolve within the 8-pass
+    # bound must still fully sanitize -- the convergence-bound finding
+    # above is about exceeding the bound, not about chains in general.
+    chain = " ".join(
+        [
+            "<img src=x onerror=alert(1)",
+            "<svg onload=alert(2)",
+            "<body onload=alert(3)",
+            "<input onfocus=alert(4) autofocus",
+            "<details ontoggle=alert(5) open",
+            "<marquee onstart=alert(6)",
+            "<video onloadstart=alert(7)",
+        ]
+    )
+    result = sanitize_for_storage(chain + " trailing text after chain.")
+    assert "<video" not in result
+    assert "<marquee" not in result
+    assert "onloadstart" not in result
+    assert "onstart" not in result
+    assert "trailing text after chain." in result
+
+
+# --- QA regression pins (2026-07-26, cycle 4): confirmed-correct shapes -----
+#
+# Adversarial round 4 probed wrapper families beyond the raw-text/RCDATA
+# element set, comment/CDATA sections, processing instructions/doctypes,
+# and entity reassembly. All of the below are already handled correctly
+# by the current `html.parser`-based fixpoint -- pinned so future changes
+# can't silently regress them.
+
+
+def test_sanitize_neutralizes_script_nested_inside_template():
+    result = sanitize_for_storage("<template><script>alert(1)</script></template>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_after_plaintext():
+    # <plaintext> has no end tag at all in real HTML -- everything after
+    # it is raw text for the rest of the document. HTMLParser treats it
+    # as an ordinary (non-raw-text) start tag, so its "content" is parsed
+    # normally and any embedded <script> is stripped like any other tag.
+    result = sanitize_for_storage("<plaintext><script>alert(1)</script>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_svg_foreignobject():
+    result = sanitize_for_storage(
+        "<svg><foreignObject><script>alert(1)</script></foreignObject></svg>Clause stays."
+    )
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_nested_inside_math():
+    result = sanitize_for_storage("<math><script>alert(1)</script></math>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_inside_cdata_section():
+    result = sanitize_for_storage("<![CDATA[<script>alert(1)</script>]]>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_script_after_bogus_comment():
+    result = sanitize_for_storage("<!-->Clause stays.<script>alert(1)</script>")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_unterminated_comment_with_embedded_script():
+    result = sanitize_for_storage("<!--<script>alert(1)</script>Clause never appears.")
+    assert "<script" not in result
+    assert "alert(1)" not in result
+
+
+def test_sanitize_neutralizes_processing_instruction_wrapper():
+    result = sanitize_for_storage(
+        '<?xml-stylesheet type="text/xsl" href="evil.xsl"?>Clause stays.'
+    )
+    assert "<?" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_neutralizes_doctype_with_embedded_script():
+    result = sanitize_for_storage("<!DOCTYPE html><script>alert(1)</script>Clause stays.")
+    assert "<script" not in result
+    assert "Clause stays." in result
+
+
+def test_sanitize_preserves_literal_entity_text_that_spells_out_a_tag_name():
+    # An author literally typing `&lt;script&gt;` as prose (e.g.
+    # documenting an XSS example in a legal memo about a data-breach
+    # incident) must survive as that literal text -- it must neither
+    # become a live tag NOR be treated as markup and stripped away.
+    benign = (
+        "&lt;script&gt;alert(1)&lt;/script&gt; is the literal example "
+        "text quoted in the incident report."
+    )
+    assert sanitize_for_storage(benign) == benign
+
+
+def test_sanitize_preserves_long_multi_paragraph_legal_prose_byte_exact():
+    # Data-integrity re-check (cycle 4): long multi-paragraph prose with
+    # several </> comparisons, a footnote citation, and a literal &amp;
+    # must survive completely unchanged.
+    prose = (
+        "This Agreement is made as of the Effective Date by and between "
+        "the Parties. Section 3.2 provides that the Threshold Amount is "
+        "met only if the claim exceeds $500 and the covered term is > 10 "
+        "years from the Effective Date; conversely, if the amount is < "
+        "$100, the exception in Section 8.4 does not apply.\n\n"
+        "Footnote 1: See Smith v. Jones, 123 F.3d 456 (9th Cir. 1999) "
+        "(holding that neither inequality, standing alone, triggers the "
+        "notice obligation under Clause 8.2). Footnote 2: the parties "
+        "acknowledge that 5 < 10 and that 10 > 5.\n\n"
+        "The term “Affiliate” & “Subsidiary” shall have the meanings "
+        "set forth in Schedule A. This is a literal &amp; ampersand "
+        "written by the author, not markup. Section §8.2 & §8.4 both "
+        "apply — as defined herein."
+    )
+    assert sanitize_for_storage(prose) == prose
+
+
 def test_validate_proposition_not_empty_rejects_blank():
     with pytest.raises(ValidationError):
         validate_proposition_not_empty("   ")

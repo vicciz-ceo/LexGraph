@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T09:20:00Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T08:55:00Z"
+last_updated: "2026-07-26T09:55:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 1
-qa_cycles: 3
+dev_complete_items: 0
+qa_cycles: 4
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -59,7 +59,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — cycle-3 findings fixed; B5-fix3 in Dev Complete for QA cycle 4)
+- [QA-FAIL: B5-fix4] Adversarial round 4 on R13's fixpoint driver found ONE new live finding, distinct from every previously-fixed shape: **convergence-bound bypass** — `_salvage_trailing_prose` resolves exactly one chained abandoned (never-closed) tag per fixpoint pass (correct behavior, confirmed for a 2-tag chain by cycle 3's fix), but the fixpoint loop is capped at `_MAX_SANITIZE_PASSES` = 8. A chain of MORE than 8 abandoned tags each carrying a live event-handler attribute needs MORE than 8 passes to fully resolve, so the loop hits its bound before convergence and returns a value that IS more sanitized than the raw input but STILL contains a literal, unclosed, live tag — e.g. a 9-tag chain (`<img src=x onerror=alert(1) <svg onload=alert(2) <body onload=alert(3) <input onfocus=alert(4) autofocus <details ontoggle=alert(5) open <marquee onstart=alert(6) <video onloadstart=alert(7) <audio onloadstart=alert(8) <iframe onload=alert(9)`) sanitizes to a value still containing `<iframe onload=alert(9)` verbatim. Confirmed live via the real API on the create (proposition) and comment paths (both call the same shared `sanitize_for_storage`). This is a defect in the fixed pass ceiling, not a new markup-hiding shape the fixpoint mechanism structurally fails to recognize — the mechanism itself is sound (each additional chained tag costs exactly one more pass, strictly monotonically; no oscillation found across 20,000 fuzzed inputs). Expected: gate G10 — no live-looking markup survives regardless of chain depth; the pass bound must not be a ceiling an attacker can simply exceed by chaining more tags (e.g. make the bound a function of input length, or loop until true convergence with a size/time guard instead of a fixed iteration count). RED tests: `backend/tests/unit/test_validation.py::test_sanitize_convergence_attack_with_nine_chained_abandoned_tags_leaves_no_live_markup`; `backend/tests/integration/test_hostile_input.py::test_proposition_convergence_attack_beyond_pass_bound_is_neutralized`, `::test_comment_convergence_attack_beyond_pass_bound_is_neutralized`. All other cycle-4 adversarial probes (wrapper families beyond the raw-text/RCDATA element set — `<template>`, `<plaintext>`, `<svg><foreignObject>`, `<math>` — comment/CDATA sections, bogus/unterminated comments, processing instructions, doctype-carried payloads, and entity-reassembly `&lt;script&gt;` staying literal text, never stripped) confirmed CORRECT — 15 new regression pins added (12 unit + 3 integration), plus a long multi-paragraph legal-prose data-integrity re-check, byte-exact.
 
 ## Parallelization plan
 
@@ -85,9 +85,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix3 (R13) — fixpoint sanitization (`_sanitize_once` + bounded 8-pass loop) with raw-text/RCDATA element set read live from the installed `HTMLParser` (`validation.py` only), fix commit `e65bba9`, merged `0e2877a`; 171/171 backend, 60/60 frontend. Manager probe: 11 attack shapes incl. triple-nested wrappers → 0 leaks; 6 prose cases byte-exact.
-
-(empty — B5-fix2 bounced to Next Steps as B5-fix3; see QA-FAIL above)
+(empty — B5-fix3 bounced to Next Steps as B5-fix4; see QA-FAIL above)
 
 ## Completed
 
@@ -118,6 +116,8 @@ RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissi
 2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
 
 2026-07-26T08:55Z (QA, Sonnet high, cycle 3): Independent evaluator baseline confirmed clean before any new tests: 147/147 backend, 60/60 frontend. Adversarial round 3 on the R12 rebuild found two NEW live findings (full detail + RED test names in Next Steps `[QA-FAIL: B5-fix3]`): CDATA/RCDATA-wrapper bypass (iframe/textarea/title/noembed/noframes/xmp — `_CDATA_CONTENT_TAGS` doesn't match the stdlib parser's own wider raw-text-element lists) confirmed live on all 5 write paths; chained-abandoned-tag bypass (second unclosed tag's markup leaks past `_salvage_trailing_prose`) confirmed live on 2 paths. All other probed shapes (quoted-attr-containing-`>`, attr-value-with-literal-`>`, backtick/unquoted-slash attrs, unterminated comment, trailing-slash-no-`>`, null-byte/tab/newline-in-tag, `</script >`/`</script\t>` spacing, deeply-nested-duplicated `<script>`) confirmed CORRECT — not regressed, pinned as 8 new regression tests. Prose-integrity: all required cases (`< $500 ... > 10 years`, `5 < 10`, `a < b`, `§8.2 & 8.4`, curly quotes/em-dash, literal `&amp;`, multi-paragraph w/ newlines, multiple unrelated comparisons) byte-exact; 4 pinned as new regression tests, rest already covered by existing tests. KNOWN LIMITATION ruling: ACCEPT `a<b and c>d` -> `"ad"` as documented, non-blocking — confirmed it only triggers when the token immediately after `<` is itself a valid HTML tag name (rare in real legal prose, which uses full words/numbers after comparison operators, not bare single/two-letter tokens); browser-faithful, matches pre-existing regex-era behavior (not a regression), and the only real fixes (dual raw+sanitized storage, or escape-at-render) are schema/pipeline changes out of scope under R8. No new instances of this class found during round-3 probing. Added 16 RED tests (9 unit + 7 integration, all through the real API) pinning required behavior for both new findings, plus 12 regression pins (8 unit adversarial-shapes + 4 unit prose-integrity) for confirmed-correct behavior. Full suite after additions: 155 backend passed + 16 RED (171 total) + 60 frontend green.
+
+2026-07-26T09:55Z (QA, Sonnet high, cycle 4, final): Independent evaluator baseline confirmed clean: 171/171 backend, 60/60 frontend; all 16 cycle-3 RED tests confirmed green, none of the 12 cycle-3 pins regressed. Adversarial round 4 found ONE live finding: a chain of 9 abandoned tags with event-handler attributes exceeds R13's 8-pass fixpoint bound, returning a value that still contains a literal, unclosed, live `<iframe onload=alert(9)` tag — confirmed live via the real API on the create and comment paths. The mechanism itself is sound (no oscillation across 20,000 fuzzed inputs; strictly monotonic convergence); the fixed 8-pass ceiling is the defect, and it is attacker-guessable (see `[QA-FAIL: B5-fix4]` above for the required-behavior detail). Wrapper families (`<template>`, `<plaintext>`, `<svg><foreignObject>`, `<math>`), comment/CDATA sections, PI/doctype payloads, and entity-reassembly (`&lt;script&gt;` stays literal text, never stripped) all confirmed CORRECT — 15 regression pins added. Long multi-paragraph legal prose confirmed byte-exact. Added 3 RED tests (1 unit + 2 integration) + 15 green regression pins (12 unit + 3 integration). Status → qa-fail, current_role → developer, qa_cycles → 4.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see

@@ -469,3 +469,127 @@ def test_comment_chained_abandoned_tags_is_neutralized(client, matter_with_users
     stored = r.json()["comment_text"]
     assert stored.count("<img") == 0
     assert "onerror" not in stored
+
+
+# --- QA regression (2026-07-26, cycle 4): convergence-bound bypass ----------
+#
+# R13's fixpoint driver bounds itself at 8 passes of `_sanitize_once`.
+# `_salvage_trailing_prose` resolves exactly one chained abandoned tag per
+# pass (confirmed correct for a 2-tag chain in cycle 3's fix), so a chain
+# of MORE than 8 abandoned tags with live event-handler attributes needs
+# MORE than 8 passes to fully resolve -- the loop hits its bound first and
+# returns a value that is more sanitized than the raw input but still
+# contains a literal, unclosed, live tag (e.g. `<iframe onload=alert(9)`
+# survives verbatim from a 9-tag chain). Confirmed live via the real API
+# on the create (proposition) and comment paths -- both call the same
+# shared `sanitize_for_storage`. RED against the current implementation;
+# pins the REQUIRED behavior (full neutralization regardless of chain
+# depth), not the bug.
+
+_NINE_TAG_CHAIN = " ".join(
+    [
+        "<img src=x onerror=alert(1)",
+        "<svg onload=alert(2)",
+        "<body onload=alert(3)",
+        "<input onfocus=alert(4) autofocus",
+        "<details ontoggle=alert(5) open",
+        "<marquee onstart=alert(6)",
+        "<video onloadstart=alert(7)",
+        "<audio onloadstart=alert(8)",
+        "<iframe onload=alert(9)",
+    ]
+)
+
+
+def test_proposition_convergence_attack_beyond_pass_bound_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition=_NINE_TAG_CHAIN + " trailing text after chain.",
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<iframe" not in stored
+    assert "<svg" not in stored
+    assert "<img" not in stored
+    assert "onload" not in stored
+    assert "onerror" not in stored
+    assert "trailing text after chain." in stored
+
+
+def test_comment_convergence_attack_beyond_pass_bound_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    create = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        headers=m["contributor_headers"],
+    )
+    assertion_id = create.json()["id"]
+    r = client.post(
+        f"/api/v1/assertions/{assertion_id}/comments",
+        json={"comment_text": _NINE_TAG_CHAIN + " trailing comment text."},
+        headers=m["contributor_headers"],
+    )
+    assert r.status_code == 201
+    stored = r.json()["comment_text"]
+    assert "<iframe" not in stored
+    assert "<svg" not in stored
+    assert "<img" not in stored
+    assert "onload" not in stored
+    assert "onerror" not in stored
+    assert "trailing comment text." in stored
+
+
+# --- QA regression pins (2026-07-26, cycle 4): confirmed-correct shapes -----
+#
+# Adversarial round 4 also probed wrapper families beyond the raw-text/
+# RCDATA element set and comment/CDATA sections via the real API. Both are
+# already handled correctly by the current fixpoint sanitizer -- pinned so
+# a future change can't silently regress them.
+
+
+def test_proposition_script_nested_in_svg_foreignobject_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition=(
+            "<svg><foreignObject><script>alert(1)</script></foreignObject></svg>"
+            "Clause 8.4 still creates the exception."
+        ),
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<script" not in stored
+    assert "Clause 8.4 still creates the exception." in stored
+
+
+def test_proposition_script_inside_cdata_section_is_neutralized(client, matter_with_users):
+    m = matter_with_users
+    payload = assertion_payload(
+        m["matter_id"],
+        m["repository_id"],
+        proposition="<![CDATA[<script>alert(1)</script>]]>Clause 8.4 still creates the exception.",
+    )
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert "<script" not in stored
+    assert "Clause 8.4 still creates the exception." in stored
+
+
+def test_proposition_literal_entity_text_spelling_out_a_tag_name_survives_as_text(
+    client, matter_with_users
+):
+    m = matter_with_users
+    benign = (
+        "The incident report quotes the literal example text "
+        "&lt;script&gt;alert(1)&lt;/script&gt; verbatim."
+    )
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=benign)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    assert r.json()["proposition"] == benign
