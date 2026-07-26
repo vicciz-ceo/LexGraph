@@ -162,3 +162,4 @@ component modules genuinely do not exist).
 - 2026-07-26T01:39:56Z — Manager: audit-RED planner verified (test files only; 13 RED for right reason, 203 green incl. 8 new safety guards). Lock → developer; spawning fix6.
 - 2026-07-26T01:40:37Z — fix6 dev (R16 entity+RCDATA) → a21ad73a31e9e6d5d (sonnet, medium)
 - 2026-07-26T01:46:10Z — Manager: fix6 verified (diff read + 14-attack/14-prose probe: 0 leaks, all entity prose byte-exact, no destruction, idempotent, perf restored) + merged @ 9d14b52; 216/216 + 60/60. Gate G13 (authored-text fidelity) ADDED to close the gap that let entity corruption reach review. Lock → qa for final verification.
+- 2026-07-26T01:46:45Z — QA final verification (post-audit) → ab1d739a2b3937045 (sonnet, high)
