@@ -1,10 +1,10 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-25-collaborative-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-26T07:55:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-26T08:20:00Z"
 last_agent: "claude-code:qa"
 last_updated: "2026-07-26T07:40:00Z"
 lint: "PASS 185 2026-07-25T20:24:02Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 2
 prd_sections:
   - docs/specs/collaborative-assertions.md
@@ -58,28 +58,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-- [QA-FAIL: B5, cycle 2] Cycle-1's fix closed the with-space unclosed-tag
-  bypass but two new gaps remain in `sanitize_for_storage`
-  (`backend/app/services/validation.py`): (1) no-space-before-attribute
-  bypass — `<img/onerror=alert(1)` / `<svg/onload=...` survive verbatim
-  because `_UNCLOSED_TAG_RE` requires `\s+` before every attribute, but
-  a `/` right after the tag name puts real browsers into
-  self-closing-start-tag state and the next text is reconsumed as a
-  live attribute anyway (documented OWASP evasion shape); confirmed live
-  across create/PATCH/revisions/comments/rating-rationale (shared
-  function). (2) `_TAG_RE = r"<[^>]+>"` corrupts benign prose containing
-  both a `<` and a later unrelated `>` (e.g. "amount is < $500 ... term
-  is > 10 years" loses the text between them) — pre-existing, violates
-  spec §2 "stored exactly as authored". RED tests (required behavior,
-  not the bug): `backend/tests/unit/test_validation.py::{
-  test_sanitize_neutralizes_unclosed_tag_with_no_space_before_attribute,
-  test_sanitize_neutralizes_unclosed_svg_with_no_space_before_attribute,
-  test_sanitize_preserves_prose_with_less_than_and_later_unrelated_greater_than,
-  test_sanitize_preserves_prose_with_multiple_unrelated_comparisons}`,
-  `backend/tests/integration/test_hostile_input.py::{
-  test_proposition_no_space_slash_bypass_is_neutralized,
-  test_patch_proposition_no_space_slash_bypass_is_neutralized,
-  test_proposition_preserves_legit_text_with_lt_and_later_unrelated_gt}`.
+(empty — cycle-2 B5 finding fixed; in Dev Complete for QA cycle 3)
 
 ## Parallelization plan
 
@@ -105,7 +84,8 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-(empty — B3-fix and UI2-fix verified PASS and moved to Completed; B5-fix bounced back to Next Steps, cycle 2)
+- B5-fix2 (R12) — `sanitize_for_storage` rebuilt on stdlib `html.parser.HTMLParser` with abandoned-tag tail salvage (`validation.py` only), fix commit `1078f33`, merged `abc5806`; 147/147 backend. Manager probe: 9 attack shapes neutralized; legal prose (`< $500 ... > 10 years`), `5 < 10`, entities/quotes, prompt-injection text all byte-exact.
+- KNOWN LIMITATION for QA cycle 3 to rule on (manager probe; NOT a regression — the old regex behaved identically): authored text forming a syntactically valid tag, e.g. `a<b and c>d`, loses the bracketed span (`-> "ad"`) because a browser parses `<b and c>` as a real start tag. Browser-faithful per R12(a) but drops authored characters (tension with spec §2). Options if material: store raw+sanitized separately (schema change, out of scope under R8) or escape-instead-of-strip at render. Manager lean: accept as documented limitation.
 
 ## Completed
 
