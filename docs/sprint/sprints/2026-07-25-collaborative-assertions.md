@@ -1,19 +1,19 @@
 ---
 id: "2026-07-25-collaborative-assertions"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-25-collaborative-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-26T01:46:10Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-07-26T01:46:10Z"
+last_updated: "2026-07-26T02:20:00Z"
 lint: "PASS 144 2026-07-26T01:09:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 12
 completed_items: 11
-dev_complete_items: 1
-qa_cycles: 5
+dev_complete_items: 0
+qa_cycles: 6
 prd_sections:
   - docs/specs/collaborative-assertions.md
 design_sections: []
@@ -62,7 +62,7 @@ behind this scaffolding; no item creates its own toolchain.
 
 ## Next Steps
 
-(empty — both audit findings fixed; in Dev Complete for final QA verification)
+- [QA-FAIL: B5-fix7] Final QA verification (post-audit) found a THIRD, distinct `sanitize_for_storage` defect family while adversarially re-probing the R16(b) fix itself — not a repeat of R16(a)/R16(b) (both stay green). Root cause: `_sanitize_once` reads `leftover = parser.rawdata` BEFORE calling `parser.close()`, correct for a genuinely never-closed start tag (which `close()` silently drops) but WRONG for an unclosed raw-text/RCDATA wrapper (`iframe`/`title`/`textarea`/`xmp`/`noembed`/`noframes`) whose own opening tag IS well-formed: for that case `close()` itself flushes the remaining CDATA content into `handle_data` (verified directly — `parser._chunks` gains a second chunk after `close()` it didn't have right after `feed()`), so `parser.get_text()` already contains it. `_sanitize_once` then ALSO runs `_salvage_trailing_prose` over the stale pre-close `leftover` snapshot whenever it happens to start with a nested tag (exactly the shape R16(b)'s own fix targets, e.g. `<title><img onerror=...>`), double-counting the same trailing prose. Confirmed live via the real API on the create path (shared `sanitize_for_storage` — all 5 write paths affected): (1) **duplication** — `Signatory: <title><img src=x onerror=alert(1)> The Company shall pay $1,000,000.` → 201, stored as `'Signatory:  The Company shall pay $1,000,000. The Company shall pay $1,000,000.'` (trailing sentence duplicated verbatim); (2) **document destruction** — two such triggers in one document (`A <iframe x><script>1</script> tail1 B <textarea y><b>bold</b> tail2 end.`) compounds the duplication pass-over-pass until it fails to converge within the `len(raw)+2` bound and FAIL-CLOSES to `""` (422 "proposition cannot be empty" at the API), destroying legitimate non-empty authored prose — exactly the class R16(a) was written to close; (3) **availability/DoS** — three such triggers NESTED/chained (96-byte input) make per-pass growth genuinely EXPONENTIAL (measured directly: 163→255→456→812 chars over 4 passes, ~1.8x/pass); `sanitize_for_storage` did not complete within a 5s hard deadline (an untimed direct trace was killed after running multiple minutes) — worse than the R16(a) charref pathology it resembles, since that one was "merely" O(n²) and always terminated promptly, while this one grows the string itself each pass. Required: no duplication, no document destruction, prompt completion (well under 1s) on all shapes above — see full root-cause comment in `backend/tests/unit/test_validation.py` immediately above `_run_with_deadline`. RED tests: `backend/tests/unit/test_validation.py::test_sanitize_does_not_duplicate_prose_after_unclosed_title_with_nested_img`, `::test_sanitize_does_not_duplicate_prose_after_unclosed_iframe_with_nested_script`, `::test_sanitize_two_chained_unclosed_wrappers_does_not_destroy_document`, `::test_sanitize_three_nested_chained_wrappers_completes_promptly_without_blowup`; `backend/tests/integration/test_hostile_input.py::test_proposition_unclosed_title_with_nested_img_does_not_duplicate_prose_via_real_api`, `::test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api`. Sentinel-smuggling and the narrowed-suppression security battery were adversarially re-probed and confirmed CORRECT (see 8 new green regression pins in `test_validation.py`) — this is the only live finding.
 
 ## Parallelization plan
 
@@ -88,7 +88,7 @@ none — greenfield, no renames.
 
 ## Dev Complete
 
-- B5-fix6 (R16) — entities shielded from the parser (sentinel substitution, NULs stripped); CDATA content-suppression narrowed to script/style, wrappers handled by the fixpoint (`validation.py` only), fix commit `7de1403`, merged `9d14b52`; 216/216 backend + 60/60 frontend. Manager probe: 11 entity/charref prose cases byte-exact (incl. `R&D`, `AT&T`, `&#160a`, `&pound;500 &amp;`), no destruction, `<Title>`/`<textarea>` keep following prose, 0 leaks across 14 attack shapes, charref 0.0001s, 3000-chain 0.0043s, idempotent.
+(empty — B5-fix6 bounced to Next Steps as B5-fix7; see QA-FAIL above)
 
 ## Completed
 
@@ -112,11 +112,7 @@ none — greenfield, no renames.
 
 ## QA Notes
 
-2026-07-26T06:10Z (QA, Sonnet high, cycle 1): Independent evaluator: backend 126/126, frontend 59/59 baseline confirmed, no flakes. 10/12 items PASS → Completed; 2 bounced (B3, B5 — see Next Steps `[QA-FAIL: ...]`), both with committed RED tests reproducing the required behavior via the real API. Attention-list a-f: (a) UI2 formula — genuine test/spec tension, see ESCALATION below, not failed; (b)(c) sanitizer bugs confirmed live → B5 FAIL (2 findings); (d) unresolvable evidence span id → 201 confirmed as documented limitation (resolvable foreign-matter spans correctly 422, `test_evidence_from_inaccessible_matter_cannot_be_attached`); (e) withdraw from `accepted` → 200/allowed, confirmed live; spec §13 is silent on preconditions so recorded as a documented limitation per brief guidance (note: spec §1 bullet 5's "withdraw their own unreviewed assertions" phrasing is in mild tension with this — flagging for awareness, not blocking); (f) notification matter-scoping confirmed correct live (cross-matter reviewer never sees another matter's notification), restart-volatility remains a documented MVP limit. New finding beyond the attention list: evidence add/remove produce zero audit_events rows (spec §16 / gate G8) → B3 FAIL. Added 4 passing regression tests (supersede flow x3, notification cross-matter x1) and 6 RED tests (sanitizer x4, PATCH-sanitization x1, evidence-audit x1) — see Completed/Next-Steps entries for exact names.
-
-ESCALATION: UI2's `submitDisabled = hasExactDuplicate || (propositionMissing && similarAssertions.length === 0)` lets an empty proposition through whenever `similarAssertions` is non-empty. The Planner's own test at `AssertionSuggestionForm.test.tsx:56-66` ("warns (without blocking)...") never types a proposition yet asserts submit is NOT disabled — so it directly pins this exact empty+similar-list combination as intended-enabled, contradicting `AssertionSuggestionForm.test.tsx:27-30` ("requires the user to enter a proposition...", empty+no-similars => disabled) and reading of spec §7 ("submitting an EMPTY proposition should never be possible"). Per brief instruction I did not edit either test or the component. Options: (1) fix the test to type a matching proposition before asserting enabled, and change the formula to `hasExactDuplicate || propositionMissing` (always required) — my lean, since it's the only version consistent with spec §7's absolute wording; (2) accept current behavior as intentional (a near-duplicate warning fully waives the empty-proposition guard) and update spec/QA-brief expectations instead. Not gate-breaking today because `validate_proposition_not_empty` still rejects blank propositions server-side (defense in depth) — no accepted-order bug reaches storage.
-
-RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissing`; confirmed matching in cycle-2 QA (see QA Notes below and Completed/UI2 entry).
+(cycle 1 full notes + UI2 ESCALATION/RESOLVED archived to -log.md § "QA Notes archive" — kept last 5 per brief; summary: 10/12 PASS, B3+B5 bounced, UI2 escalation resolved by R11 in cycle 2.)
 
 2026-07-26T07:40Z (QA, Sonnet high, cycle 2): Independent evaluator: backend 136/136, frontend 60/60 baseline confirmed before any new tests. B3-fix PASS (raw-SQL count 1→2→3 add/remove, ids-only, actor/matter/assertion correct). UI2-fix PASS (8/8 own suite; formula in `AssertionSuggestionForm.tsx` reads `hasExactDuplicate || propositionMissing`, exact R11 match). B5-fix FAIL, new findings beyond the cycle-1 shapes: (1) no-space-before-attribute bypass `<img/onerror=...` / `<svg/onload=...` (real OWASP evasion shape — HTML5 tokenizer treats `/` after tag name as self-closing-start-tag then reconsumes following text as a live attribute) survives verbatim, confirmed live across create/PATCH/revisions/comments/rating-rationale (shared `sanitize_for_storage`); (2) `_TAG_RE`'s naive first-`>` matching corrupts benign prose with an unrelated later `>` (e.g. "amount < $500 ... term > 10 years" loses the middle) — pre-existing, violates spec §2. Benign single/double-quoted-attribute and bare-`<tag`-no-attrs cases confirmed still correct (not regressed). Added 7 RED tests (4 unit + 3 integration) pinning required behavior for both findings, plus 4 regression pins for already-correct adjacent paths (revisions/comment-edit/rating-update unclosed-tag, one quoted-attribute unit case) that lacked dedicated coverage. Full suite after additions: 140 backend passed + 7 RED (147 total) + 60 frontend green.
 
@@ -128,6 +124,8 @@ RESOLVED (R11, cycle 2): formula fixed to `hasExactDuplicate || propositionMissi
 Closing adversarial round on B5-fix4 (R14): chains up to 500 abandoned tags, mixed abandoned+closed+wrapper interleavings, and fail-closed path all confirmed CORRECT live on all 5 write paths — zero content leaks; 50k-char benign doc 0.22ms; all prose (cycles 2-4 + literal `&lt;script&gt;`) byte-exact. Content safety: PASS.
 Performance sanity surfaced a NEW live defect: the `len(raw)+2`-pass loop is O(n²) on chained-abandoned-tag input (one tag resolved per pass, each pass an O(n) re-parse) — no length cap on proposition/comment_text/rationale. Measured via real POST: 1000 tags/28KB→0.35s, 2000/58KB→1.3s, 2500/73KB→2.1s (clean quadratic); extrapolates to minutes for a plausible large payload, triggerable by any contributor, repeatably.
 Verdict: BLOCKED (not PASS) — this is qa_cycles=5, the harness limit; per valve instruction, stopping here rather than fixing or cycling further. Added 1 RED perf test + 5 green content-safety pins. See QA-BLOCKED in Next Steps for full detail and director-facing options (1) schema length cap, (2) resolve all chained tags per pass (O(n) fix), (3) both.
+
+2026-07-26T02:20:00Z (QA, Sonnet high, cycle 6, final verification post-audit): Independent evaluator baseline confirmed clean before any new tests: 216/216 backend, 60/60 frontend; all 13 audit-RED tests (entity/charref + RCDATA) confirmed green, no prior pins regressed. Adversarially re-probed G13 in both directions per brief: sentinel-smuggling (literal `\x00A\x00`/bare-NUL inputs) confirmed SAFE — never forges or loses an `&`, NUL-stripping confirmed deliberate/documented (R16(a); PostgreSQL can't store NUL anyway); narrowed script/style-only content-suppression re-battled across 23 wrapper/nesting shapes (textarea/title/iframe/xmp/noembed/noframes/plaintext/template/svg/math/noscript, case-variation) — 0 leaks. Found ONE new live finding while probing R16(b)'s own worked example with a nested payload: `_sanitize_once` double-processes an unclosed raw-text/RCDATA wrapper's leftover (pre-close `parser.rawdata` snapshot vs. what `close()` itself already flushed), causing (1) authored-text DUPLICATION on a single trigger, (2) document destruction (fail-close to `""`) on two chained triggers, (3) confirmed EXPONENTIAL blowup / real-API hang (>5s on a 96-byte input, direct trace killed after minutes) on three nested triggers — full root-cause + detail in Next Steps `[QA-FAIL: B5-fix7]`. Added 6 RED tests (4 unit + 2 integration, real API) + 8 green regression pins (sentinel-smuggling x5, security-battery x3). Status → qa-fail, current_role → developer, qa_cycles → 6.
 
 Greenfield repo, Planner pass complete. Scaffolding + 185 RED tests
 committed (backend FastAPI/SQLAlchemy, frontend Vite/Vitest/RTL — see

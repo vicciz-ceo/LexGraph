@@ -869,3 +869,61 @@ def test_rating_rationale_destructive_charref_round_trips_byte_exact_via_real_ap
     ratings = [x for x in listing.json() if x["user_id"] == m["rater_id"]]
     assert len(ratings) == 1
     assert ratings[0]["rationale"] == text
+
+
+# --- Final QA verification (2026-07-26, post-audit, gate G13): a THIRD -----
+# --- sanitizer defect family confirmed live via the real API ---------------
+# --- (QA-FAIL: B5-fix6) -----------------------------------------------------
+#
+# See the module-level comment in backend/tests/unit/test_validation.py
+# (immediately above `_run_with_deadline`) for the full root-cause
+# analysis: `_sanitize_once` snapshots `parser.rawdata` BEFORE calling
+# `parser.close()`, but `close()` itself can resolve (flush into
+# `handle_data`) an unclosed raw-text/RCDATA wrapper's content -- so the
+# manual `_salvage_trailing_prose` fallback then re-adds text that is
+# already present, whenever that leftover snapshot happens to start with
+# a nested tag (exactly the shape R16(b)'s own fix targets: a payload
+# nested just inside an unclosed wrapper). Confirmed live via this exact
+# API (create_assertion, 201, stored verbatim) during adversarial
+# re-probing of the R16(b) fix.
+
+
+def test_proposition_unclosed_title_with_nested_img_does_not_duplicate_prose_via_real_api(
+    client, matter_with_users
+):
+    m = matter_with_users
+    text = (
+        "Signatory: <title><img src=x onerror=alert(1)> The Company shall "
+        "pay $1,000,000."
+    )
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert r.status_code == 201
+    stored = r.json()["proposition"]
+    assert not any(marker in stored for marker in _DANGER_MARKERS)
+    assert "Signatory:" in stored
+    assert stored.count("The Company shall pay $1,000,000.") == 1, (
+        f"authored trailing sentence was duplicated via the real API: {stored!r}"
+    )
+
+
+def test_proposition_two_chained_unclosed_wrappers_not_destroyed_via_real_api(
+    client, matter_with_users
+):
+    m = matter_with_users
+    text = "A <iframe x><script>1</script> tail1 B <textarea y><b>bold</b> tail2 end."
+    payload = assertion_payload(m["matter_id"], m["repository_id"], proposition=text)
+    r = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    # Required: the legitimate authored prose survives (possibly with the
+    # wrapper tags/nested markup stripped) -- it must not be silently
+    # reduced to "" internally and rejected as an empty proposition.
+    assert r.status_code == 201, (
+        f"expected 201 with authored prose preserved; got {r.status_code}: "
+        f"{r.text[:300]} -- see final-QA finding: this document is being "
+        f"destroyed by sanitize_for_storage before validation ever sees it."
+    )
+    stored = r.json()["proposition"]
+    assert stored != ""
+    for fragment in ("A", "tail1", "B", "tail2", "end."):
+        assert fragment in stored, f"authored fragment {fragment!r} lost: {stored!r}"
+    assert not any(marker in stored for marker in _DANGER_MARKERS)

@@ -6,6 +6,7 @@ Exercises `app.services.validation` directly. Bodies are
 
 from __future__ import annotations
 
+import signal
 import time
 from datetime import date
 
@@ -681,4 +682,247 @@ def test_sanitize_guard_chained_svg_then_img_abandoned_tags_stays_neutralized():
 def test_sanitize_guard_script_nested_inside_template_stays_neutralized():
     _assert_no_audit_danger_markers(
         sanitize_for_storage("<template><script>alert(1)</script></template>")
+    )
+
+
+# --- Final QA verification (2026-07-26, post-audit, gate G13): a THIRD -----
+# --- sanitizer defect family, found while adversarially re-probing the -----
+# --- R16(b) fix itself (QA-FAIL: B5-fix6) -----------------------------------
+#
+# `_sanitize_once` captures `leftover = parser.rawdata` BEFORE calling
+# `parser.close()`, on the assumption (correct for a truly never-closed
+# start tag) that `close()` either resolves nothing further or silently
+# discards the tail. That assumption is FALSE whenever the "leftover" is
+# actually raw-text/RCDATA-element (CDATA-mode) content whose wrapper tag
+# WAS well-formed (`<iframe x>`, `<title>`, ...) but whose own closing tag
+# (`</iframe`, `</title`, ...) never appears: for that case `close()`
+# itself flushes the remaining CDATA content into `handle_data` (verified
+# directly: `parser._chunks` gains a SECOND chunk after `close()` that it
+# did not have right after `feed()`), so `parser.get_text()` already
+# contains it. But `_sanitize_once` then ALSO runs
+# `_salvage_trailing_prose` over the pre-close `leftover` snapshot
+# whenever that snapshot happens to start with something tag-shaped (a
+# nested tag is exactly what R16(b) says survives one pass inside such a
+# wrapper, e.g. `<title><img onerror=...>` or `<iframe><script>...`) --
+# double-counting the same trailing prose. Consequences, all confirmed
+# live via direct calls AND the real API:
+#   (1) Authored text is DUPLICATED (an `insert`/`reorder` of authored
+#       characters gate G13 explicitly forbids) whenever exactly one such
+#       wrapper is unclosed and its raw content starts with a nested tag
+#       -- e.g. `Signatory: <title><img src=x onerror=alert(1)> The
+#       Company shall pay $1,000,000.` -> `'Signatory:  The Company shall
+#       pay $1,000,000. The Company shall pay $1,000,000.'` (confirmed via
+#       the real POST /api/v1/assertions API: 201, stored verbatim).
+#   (2) With TWO such triggers in one document, the duplication compounds
+#       pass over pass (each pass's output is itself scanned for another
+#       trailing tag-shaped duplicate), producing super-linear growth that
+#       does not converge within the `len(raw_text) + 2` bound and
+#       FAIL-CLOSES per R14 -- silently reducing legitimate, non-empty
+#       authored prose (`'A <iframe x><script>1</script> tail1 B
+#       <textarea y><b>bold</b> tail2 end.'`) to `""`, exactly the
+#       document-destruction class R16(a) was written to close.
+#   (3) With THREE such triggers NESTED/chained in one document, the
+#       per-pass growth becomes genuinely EXPONENTIAL (measured directly:
+#       163 -> 255 -> 456 -> 812 chars over the first four passes, ~1.8x
+#       per pass) -- `sanitize_for_storage` does not complete within a 5
+#       second hard deadline on a 96-BYTE input (manager/QA-reproduced;
+#       an unbounded direct trace was killed after running for minutes).
+#       This is a severe, real, remotely-triggerable availability (DoS)
+#       regression on all 5 write paths that share `sanitize_for_storage`,
+#       worse than the R16(a) charref pathology it superficially
+#       resembles: that one was "merely" O(n^2) and always terminated
+#       promptly; this one grows the string itself each pass, so total
+#       work is unbounded well before the pass-count safety cap is ever
+#       reached.
+# None of this is a repeat of R16(a)/R16(b) -- both of those are fixed and
+# stay green (see the guard tests above and the `test_sanitize_preserves_*`
+# / `test_sanitize_guard_*` tests). This is a new interaction between the
+# `_salvage_trailing_prose` fallback (designed for genuinely-never-closed
+# start tags) and `HTMLParser.close()`'s own CDATA-mode flush (which DOES
+# resolve unclosed raw-text/RCDATA wrappers, unlike a plain unclosed start
+# tag). RED against the current implementation; pins the REQUIRED
+# behavior (no duplication, no document destruction, prompt completion).
+
+
+def _run_with_deadline(fn, *args, deadline_seconds: int, **kwargs):
+    """Run `fn(*args, **kwargs)` but fail fast (instead of hanging the
+    suite) if it has not returned within `deadline_seconds`.
+
+    A plain `elapsed = time.perf_counter() - t0; assert elapsed < X`
+    (the pattern used elsewhere in this file/module for the O(n^2)
+    charref-growth and chained-tag perf guards) is unsafe for THIS finding
+    specifically: those pathologies always terminate promptly by
+    construction (bounded pass count over a slowly-growing string), so a
+    plain elapsed-time assertion cannot hang. This one grows the string
+    itself each pass (confirmed exponential -- see module comment above), so
+    a broken implementation can run for minutes; a hard wall-clock
+    deadline (SIGALRM) turns that into a clean, fast test FAILURE instead
+    of an indefinite hang of the whole suite.
+    """
+
+    class _DeadlineExceeded(Exception):
+        pass
+
+    def _handler(signum, frame):
+        raise _DeadlineExceeded()
+
+    previous = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(deadline_seconds)
+    try:
+        t0 = time.perf_counter()
+        result = fn(*args, **kwargs)
+        elapsed = time.perf_counter() - t0
+        return result, elapsed
+    except _DeadlineExceeded:
+        return None, float(deadline_seconds)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def test_sanitize_does_not_duplicate_prose_after_unclosed_title_with_nested_img():
+    # The exact shape R16(b)'s own ruling text uses as its worked example
+    # of what must be preserved, now with a nested payload immediately
+    # inside the wrapper (the case the fixpoint is supposed to clean up on
+    # its next pass) -- confirmed live via the real API (201, stored
+    # verbatim duplicated).
+    text = (
+        "Signatory: <title><img src=x onerror=alert(1)> The Company shall "
+        "pay $1,000,000."
+    )
+    result = sanitize_for_storage(text)
+    assert "onerror=" not in result and "<img" not in result
+    assert "Signatory:" in result
+    assert result.count("The Company shall pay $1,000,000.") == 1, (
+        f"authored trailing sentence was duplicated: {result!r}"
+    )
+
+
+def test_sanitize_does_not_duplicate_prose_after_unclosed_iframe_with_nested_script():
+    text = "See <iframe src=x><script>alert(1)</script> unclosed after this note."
+    result = sanitize_for_storage(text)
+    assert "<script" not in result
+    assert "See" in result
+    assert result.count("unclosed after this note.") == 1, (
+        f"authored trailing sentence was duplicated: {result!r}"
+    )
+    # No stray markup-debris fragment (e.g. a lone '>' salvaged from the
+    # dropped tag) should appear as literal text either.
+    assert ">alert(1)" not in result
+
+
+def test_sanitize_two_chained_unclosed_wrappers_does_not_destroy_document():
+    # Two such triggers in one document must not compound into the
+    # document-destruction fail-close class R16(a) was written to close.
+    text = "A <iframe x><script>1</script> tail1 B <textarea y><b>bold</b> tail2 end."
+    result = sanitize_for_storage(text)
+    assert result != "", "entire document was destroyed -- see final-QA finding above"
+    for fragment in ("A", "tail1", "B", "tail2", "end."):
+        assert fragment in result, f"authored fragment {fragment!r} lost: {result!r}"
+    assert "<script" not in result and "<b>" not in result
+
+
+def test_sanitize_three_nested_chained_wrappers_completes_promptly_without_blowup():
+    # Manager/QA-reproduced: this exact 96-byte input does not complete
+    # within a 5s hard deadline against the current implementation (an
+    # untimed direct trace ran for minutes before being killed) -- length
+    # grows ~1.8x per fixpoint pass. Required: completes promptly (well
+    # under the deadline) with no live markup and no hang/DoS.
+    text = (
+        "A <iframe x><script>1</script> tail1 <textarea y><b>bold</b> "
+        "tail2 <title z><i>it</i> tail3 end."
+    )
+    result, elapsed = _run_with_deadline(sanitize_for_storage, text, deadline_seconds=5)
+    assert result is not None, (
+        f"sanitize_for_storage did not complete within a 5s hard deadline "
+        f"on a 96-byte input -- confirmed exponential blowup, see module "
+        f"comment above (required: well under 1s, like every other "
+        f"perf-guard case in this suite)."
+    )
+    assert elapsed < 1.0, (
+        f"sanitize_for_storage took {elapsed:.3f}s on a 96-byte "
+        f"triple-nested-wrapper input (required: <1.0s)."
+    )
+    for marker in _AUDIT_DANGER_MARKERS:
+        assert marker not in result, f"{marker!r} leaked into sanitized output: {result!r}"
+
+
+# --- Final QA verification (2026-07-26): sentinel-smuggling + NUL-byte -----
+# --- handling regression pins (green -- these already pass) ----------------
+#
+# R16(a)'s fix shields every `&` behind a private NUL-bracketed sentinel
+# (`_AMPERSAND_SENTINEL = "\x00A\x00"`) before feeding text to the parser,
+# and strips any literal NUL byte from the input FIRST so the sentinel is
+# guaranteed unique to this function's own substitution -- see the module
+# comment above `_AMPERSAND_SENTINEL`. These pins confirm, adversarially,
+# that a user cannot supply the literal sentinel bytes (or bare NUL bytes)
+# to forge an `&` that was never authored, or to corrupt the round-trip --
+# and that NUL-byte handling is the DELIBERATE, DOCUMENTED behavior described
+# in ruling R16(a) ("strip NULs from input first"), not a silent, undocumented
+# loss: PostgreSQL (the declared production datastore, ruling R1) cannot
+# store a NUL byte in a text column at all, so stripping it before storage
+# is the correct, necessary behavior for this stack, not an accident.
+
+
+def test_sanitize_literal_sentinel_bytes_do_not_survive_or_forge_ampersand():
+    text = "prefix \x00A\x00 suffix with real & amp"
+    result = sanitize_for_storage(text)
+    assert "\x00" not in result, f"a raw NUL byte leaked into output: {result!r}"
+    # Exactly one real '&' was authored; the literal sentinel bytes must
+    # never be mistaken for one, either by surviving as themselves or by
+    # being counted as an additional '&'.
+    assert result.count("&") == 1
+    assert result == "prefix A suffix with real & amp"
+
+
+def test_sanitize_ampersand_immediately_adjacent_to_literal_sentinel_bytes_is_not_corrupted():
+    # A real '&' directly touching the literal 3-byte sentinel pattern on
+    # either side must not merge, split, or duplicate into a forged '&'.
+    before = sanitize_for_storage("\x00A\x00&")
+    after = sanitize_for_storage("&\x00A\x00")
+    assert before == "A&"
+    assert after == "&A"
+
+
+def test_sanitize_repeated_literal_sentinel_bytes_do_not_forge_ampersands():
+    text = "\x00A\x00\x00A\x00\x00A\x00 & real amp after"
+    result = sanitize_for_storage(text)
+    assert "\x00" not in result
+    assert result.count("&") == 1
+    assert result == "AAA & real amp after"
+
+
+def test_sanitize_strips_bare_nul_bytes_deliberately_per_r16a():
+    # Documented, deliberate behavior (ruling R16(a); PostgreSQL cannot
+    # store NUL in a text column regardless) -- pinned here so it is a
+    # tested contract, not just a code comment.
+    text = "before\x00middle\x00after"
+    result = sanitize_for_storage(text)
+    assert result == "beforemiddleafter"
+    assert "\x00" not in result
+
+
+def test_sanitize_many_adjacent_ampersands_round_trip_exactly():
+    text = "&" * 40 + " end"
+    result = sanitize_for_storage(text)
+    assert result == text
+
+
+# --- Final QA verification (2026-07-26): additional narrowed-suppression --
+# --- wrapper-battery regression pins (green -- not previously pinned) -----
+
+
+def test_sanitize_guard_script_nested_directly_inside_svg_stays_neutralized():
+    _assert_no_audit_danger_markers(sanitize_for_storage("<svg><script>alert(1)</script></svg>"))
+
+
+def test_sanitize_guard_script_nested_inside_noscript_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<noscript><script>alert(1)</script></noscript>")
+    )
+
+
+def test_sanitize_guard_mixed_case_textarea_script_stays_neutralized():
+    _assert_no_audit_danger_markers(
+        sanitize_for_storage("<TEXTAREA><ScRiPt>alert(1)</ScRiPt></TEXTAREA>")
     )
