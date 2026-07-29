@@ -1,18 +1,18 @@
 ---
 id: "2026-07-29-mcp2-migration"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-29-mcp2-migration
 locked_by: "claude-code:developer"
 locked_at: "2026-07-29T18:20:17Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-29T18:20:17Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-07-29T18:23:16Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 0
 previous_sprint: "2026-07-26-local-first-platform"
 prd_sections: []
@@ -59,53 +59,6 @@ migration to the latest mcp version.
 
 ## Next Steps
 
-### Item 1 — Raise the `mcp` dependency floor (owner: developer)
-
-Change `backend/pyproject.toml`'s `"mcp>=1.0"` to a floor that forces the
-2.x line (e.g. `"mcp>=2.0"`) so a fresh install can't silently resolve back
-to a 1.x release. No other dependency changes (mcp 2.0's own transitive
-deps — `mcp-types`, `httpx2`, etc. — resolve automatically; nothing new to
-add to this project's own dependency list).
-
-Acceptance criteria:
-- `backend/pyproject.toml`'s `mcp` entry requires `>=2.0`; no `<2.0` pin
-  anywhere in the repo (gate G1).
-- `backend/tests/unit/test_mcp_dependency_floor.py` passes in a venv
-  rebuilt from this file.
-
-Files likely affected: `backend/pyproject.toml`.
-
-### Item 2 — Port `app/mcp/server.py` to the mcp 2.0 server API (owner: developer)
-
-Replace `from mcp.server.fastmcp import FastMCP` with
-`from mcp.server.mcpserver import MCPServer` (re-exported at
-`mcp.server.MCPServer` too) and rename the two `FastMCP` usages
-(constructor call, return-type annotation). Empirically confirmed
-(planner log) this is a drop-in rename: same `name=` constructor kwarg,
-same `@server.tool()` no-arg decorator convention, same async
-`.list_tools()`/`.call_tool(name, args)`/`.run(transport="stdio")`
-surface. No tool-body changes needed. `call_tool()`'s return wrapper does
-change shape (now a `CallToolResult` with `.content`, not a bare
-dict/sequence) — the tests already account for this (re-pointed by
-Planner), so no further test edits should be needed to turn them green.
-
-Acceptance criteria:
-- `backend/tests/integration/test_mcp_tools_live.py` (2 tests),
-  `test_mcp_search_fetch_tools.py` (2 tests), and
-  `test_qa_regression_local_first_platform.py::test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`
-  pass (gate G2).
-- `backend/tests/unit/test_no_network_dependencies.py::test_mcp_package_imports_no_network_libraries`
-  and `test_mcp_registration_docs.py` pass unchanged.
-- Full backend suite green in a venv **rebuilt from scratch**
-  (`rm -rf backend/.venv && cd backend && python3.13 -m venv .venv &&
-  .venv/bin/pip install -e '.[dev]'`) — gate G3.
-- `npm --prefix frontend run test -- --run` stays green (no frontend
-  surface expected).
-- Tool payload shapes (dict keys/values returned by `explore`/`search`/
-  `fetch`) unchanged — gate G4; existing tests pin this, QA re-verifies.
-
-Files likely affected: `backend/app/mcp/server.py`.
-
 ## Stale-pin sweep
 
 Swept `grep -riE 'fastmcp|mcp\.server|mcp>=|mcp==|mcp<'` across
@@ -138,9 +91,21 @@ grep output in the sprint log.
 
 ## Dev Complete
 
+### Item 1 — Raise the `mcp` dependency floor
+Files touched: `backend/pyproject.toml`
+Commit: `3009266`
+Result: Changed `"mcp>=1.0"` to `"mcp>=2.0"` in pyproject.toml; floor enforcement prevents silent resolution to 1.x on fresh installs.
+
+### Item 2 — Port `app/mcp/server.py` to the mcp 2.0 server API
+Files touched: `backend/app/mcp/server.py`
+Commit: `3009266`
+Result: Renamed `FastMCP` → `MCPServer` across import, return annotation, and constructor; updated docstring; scoped tests (8 tests) and full suite (291 backend + 62 frontend) green in fresh venv at mcp 2.0.0.
+
 ## Completed
 
 ## Evaluation Notes
+
+Fresh venv rebuilt from scratch resolves mcp to **2.0.0**. Full authoritative test pass: backend 291 passed (10 warnings), frontend 62 passed (11 test files). No flakes or single-file re-runs required. All six RED tests now green (no more ModuleNotFoundError for mcp.server.fastmcp). Gates G1–G4 satisfied: floor raised to >=2.0, server API migrated, full suite green in fresh venv, tool payload shapes unchanged.
 
 ## QA Notes
 
