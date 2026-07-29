@@ -1,19 +1,19 @@
 ---
 id: "2026-07-29-mcp2-migration"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: sprint/2026-07-29-mcp2-migration
 locked_by: "claude-code:qa"
 locked_at: "2026-07-29T18:25:15Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-07-29T18:23:16Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-29T18:33:33Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
-completed_items: 0
-dev_complete_items: 2
-qa_cycles: 0
+completed_items: 2
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-26-local-first-platform"
 prd_sections: []
 design_sections: []
@@ -91,17 +91,27 @@ grep output in the sprint log.
 
 ## Dev Complete
 
-### Item 1 — Raise the `mcp` dependency floor
-Files touched: `backend/pyproject.toml`
-Commit: `3009266`
-Result: Changed `"mcp>=1.0"` to `"mcp>=2.0"` in pyproject.toml; floor enforcement prevents silent resolution to 1.x on fresh installs.
-
-### Item 2 — Port `app/mcp/server.py` to the mcp 2.0 server API
-Files touched: `backend/app/mcp/server.py`
-Commit: `3009266`
-Result: Renamed `FastMCP` → `MCPServer` across import, return annotation, and constructor; updated docstring; scoped tests (8 tests) and full suite (291 backend + 62 frontend) green in fresh venv at mcp 2.0.0.
-
 ## Completed
+
+QA cycle 1 (2026-07-29), 2/2 PASS. Verdict = PASS, probe = one
+live/independent check beyond the item's own tests, regression = new QA
+test name (file: `backend/tests/integration/test_qa_regression_mcp2_migration.py`
+unless noted).
+
+- **Item 1** — Raise the `mcp` dependency floor (commit `3009266`).
+  Verdict: PASS. Probe: independent fresh-venv rebuild (`rm -rf .venv`,
+  `python3.13 -m venv .venv`, `pip install -e '.[dev]'`) resolves `mcp` to
+  `2.0.0`; `grep -rn 'mcp<' backend --include='*.toml'` empty (no `<2.0`
+  pin anywhere in the repo).
+  Regression: existing `test_mcp_dependency_floor.py::test_installed_mcp_distribution_is_2x_or_newer`.
+- **Item 2** — Port `app/mcp/server.py` to the mcp 2.0 server API (commit
+  `3009266`). Verdict: PASS. Probe: `git diff a6c1efe..3009266 --
+  backend/app/mcp/server.py` is exactly the import/class-name/docstring
+  rename (5 lines changed), zero tool-body or payload-shape changes; live
+  `call_tool`/`list_tools` dispatch tests (`test_mcp_tools_live.py`,
+  `test_mcp_search_fetch_tools.py`) green against the real SDK.
+  Regression: `test_create_server_exposes_the_list_tools_call_tool_and_run_surface_stdio_needs`
+  and `test_call_tool_with_missing_required_query_argument_raises_tool_error[search|explore]`.
 
 ## Evaluation Notes
 
@@ -109,10 +119,23 @@ Fresh venv rebuilt from scratch resolves mcp to **2.0.0**. Full authoritative te
 
 ## QA Notes
 
+- 2026-07-29T18:33:33Z qa cycle 1: independent fresh-venv rebuild + full
+  evaluator green — backend 291→294 (3 new regressions), frontend 62/62,
+  zero flakes. Live-path PASS (real `call_tool`/`list_tools` dispatch,
+  confirmed by reading the test files); G4 diff PASS (`a6c1efe..3009266`
+  on `server.py` is a pure rename, verified via `git diff`); CI install
+  path PASS (`.github/workflows/ci.yml` installs via plain `pip install
+  -e '.[dev]'`, no pinned 1.x anywhere). 2/2 PASS. Full transcript in
+  `-log.md`.
+
 ## Context Dump
 
-`backend/.venv` is at mcp **2.0.0** now (left for you — don't revert).
-
-RED set (6, all `ModuleNotFoundError: No module named 'mcp.server.fastmcp'` from `app/mcp/server.py:39`): both tests in `test_mcp_search_fetch_tools.py` and `test_mcp_tools_live.py`, `test_qa_regression_local_first_platform.py::test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`, and `test_no_network_dependencies.py::test_mcp_package_imports_no_network_libraries`.
-
-Run: `backend/.venv/bin/pytest backend/tests -v`. Do Item 1 then Item 2 (one-line `FastMCP`→`mcp.server.mcpserver.MCPServer` rename; planner log has the proof) — don't edit any test file. Rebuild the venv from scratch before declaring G3 done.
+- Sprint at `review` awaiting director/manager sign-off (review→done is
+  director-only). Both items QA-verified in 1 cycle; suite: backend 291
+  (294 incl. 3 QA regressions) / frontend 62, all green, branch pushed.
+- G1–G4 all confirmed independently (fresh venv, real `git diff`, live
+  SDK dispatch, clean CI install path) — see QA Notes / log for probes.
+- Successor start here: gates + rulings above are durable; full research
+  trail is in `2026-07-29-mcp2-migration-log.md`.
+- No known deferred surfaces from this sprint (single-purpose floor-raise
+  + rename; no new capability, nothing left on the table).

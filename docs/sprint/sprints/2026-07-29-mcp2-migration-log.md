@@ -195,3 +195,120 @@ repo-wide pass (excluding `.venv`/`node_modules`):
 - `docs/sprint/sprints/2026-07-26-local-first-platform.md` and its
   `-log.md` are closed-sprint historical record — out of scope, left
   untouched.
+
+## Agent roster (continued)
+
+- qa → this session (Sonnet high; reported 2026-07-29T18:33Z, handoff accepted)
+
+## QA pass — 2026-07-29 (cycle 1)
+
+Independent full re-verification, separate agent from the Developer. Did
+NOT reuse the Developer's venv — deleted `backend/.venv` and rebuilt from
+scratch per gate G1/G3.
+
+### Step 0 — fresh venv rebuild
+
+```
+$ rm -rf backend/.venv && cd backend && python3.13 -m venv .venv \
+    && .venv/bin/pip install -e '.[dev]'
+...
+Successfully installed ... mcp-2.0.0 mcp-types-2.0.0 ...
+
+$ backend/.venv/bin/pip show mcp
+Name: mcp
+Version: 2.0.0
+```
+
+`grep -rn 'mcp<' backend/ --include='*.toml'` (and repo-wide across
+`*.toml`/`*.txt`/`*.cfg`) → zero hits. No requirements*.txt files exist.
+`backend/pyproject.toml:13` reads `"mcp>=2.0"`. G1 confirmed independently.
+
+### Step 3 — full evaluator pass (own run, not the Developer's numbers)
+
+```
+$ backend/.venv/bin/pytest backend/tests -v
+======================= 291 passed, 10 warnings in 7.24s =======================
+
+$ npm --prefix frontend run test -- --run
+ Test Files  11 passed (11)
+      Tests  62 passed (62)
+```
+
+Matches expected totals (backend 291, frontend 62) exactly. No timeouts, no
+flakes, no single-file re-runs needed.
+
+### Step 4 — per-item verification
+
+Item 1: `git diff a6c1efe..3009266 -- backend/pyproject.toml` shows exactly
+`"mcp>=1.0"` → `"mcp>=2.0"` (1 line). Matches Dev Complete claim.
+
+Item 2: `git diff a6c1efe..3009266 -- backend/app/mcp/server.py` — full diff
+read; exactly 4 hunks / 5 changed lines: the module-docstring's `FastMCP`
+mention, the import line (`mcp.server.fastmcp` → `mcp.server.mcpserver`),
+`create_server`'s return-type annotation + its docstring's class mention,
+and the `server = FastMCP(...)` → `MCPServer(...)` constructor call. Zero
+tool-body changes (the `explore`/`search`/`fetch` closures and every
+`_serialize_*`/`_matching_assertions`/`_evidence_rows` helper are
+byte-identical). G4 clean.
+
+G2/live-path: read `test_mcp_tools_live.py` and
+`test_mcp_search_fetch_tools.py` in full. Both call
+`create_server(app.state.session_factory)` then
+`asyncio.run(server.list_tools())` / `asyncio.run(server.call_tool(name,
+{...}))` — the SDK's own dispatch, not a hand-written stand-in — and assert
+real payload content (assertion id, span id, "evidence" substring). Also
+confirmed `test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`
+(`test_qa_regression_local_first_platform.py:142`) and
+`test_mcp_package_imports_no_network_libraries`
+(`test_no_network_dependencies.py:57`) both green.
+
+### Step 5 — CI install-path check (read-only, not edited)
+
+`.github/workflows/ci.yml` backend job: `python -m pip install -e
+'.[dev]'` (fresh, unpinned) on py3.12 and py3.13 matrix legs. No lockfile,
+no constraints file, no `mcp==`/`mcp<` override anywhere in the workflow.
+Will resolve the new `mcp>=2.0` floor automatically. Clean.
+
+### Step 6 — regression tests added
+
+Empirically probed (throwaway script against a real `create_server(...)`
+instance backed by a temp-file SQLite DB, mirroring the `app` fixture)
+before writing any assertion, per the "prove it on the live path" rule:
+
+- `search`/`explore` called via `call_tool` with `{}` (missing the required
+  `query` field) does **not** return a flattenable `CallToolResult` the way
+  the not-found case does — it *raises*
+  `mcp.server.mcpserver.exceptions.ToolError` (message: `"Error executing
+  tool search: 1 validation error for searchArguments\nquery\n  Field
+  required ..."`) before any `CallToolResult` is constructed. An
+  *unexpected extra* argument (e.g. `{"query": "x", "bogus": "y"}`) does
+  NOT raise — surplus keys are silently ignored and a normal
+  `CallToolResult` comes back. An unknown tool name also raises `ToolError`
+  (`"Unknown tool: ..."`).
+- `server.list_tools`/`server.call_tool` are coroutine functions
+  (`inspect.iscoroutinefunction` True); `server.run` is a plain sync method
+  whose signature includes a `transport` parameter defaulting to `"stdio"`
+  — matches `_stdio_main`'s `server.run(transport="stdio")` call exactly.
+  Nothing in the existing suite imports or exercises `.run` at all
+  (`_stdio_main` is `# pragma: no cover`).
+
+Added `backend/tests/integration/test_qa_regression_mcp2_migration.py`
+(new file, mirrors `test_qa_regression_local_first_platform.py`'s
+per-sprint QA-file convention): 2 test functions / 3 test IDs —
+`test_create_server_exposes_the_list_tools_call_tool_and_run_surface_stdio_needs`
+and the parametrized
+`test_call_tool_with_missing_required_query_argument_raises_tool_error[search|explore]`.
+Ran in isolation (3 passed) then the full backend suite once more including
+them:
+
+```
+$ backend/.venv/bin/pytest backend/tests -v
+======================= 294 passed, 10 warnings in 7.84s =======================
+```
+
+291 + 3 new = 294, zero regressions elsewhere.
+
+### Verdict
+
+Item 1 PASS. Item 2 PASS. Gates G1–G4 all independently confirmed. Status
+→ `review`, `current_role` → `planner`, `qa_cycles` → 1.
