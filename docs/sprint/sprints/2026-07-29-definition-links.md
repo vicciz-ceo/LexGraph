@@ -1,13 +1,13 @@
 ---
 id: "2026-07-29-definition-links"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:qa"
-locked_at: 2026-07-29T18:51:49Z
-last_agent: "claude-code:qa"
-last_updated: 2026-07-29T19:06:07Z
-lint: "PASS 296 2026-07-29T19:10:54Z"
+locked_by: null
+locked_at: null
+last_agent: "claude-code:manager"
+last_updated: 2026-07-29T19:12:44Z
+lint: "PASS 296 2026-07-29T19:12:44Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 13
