@@ -196,6 +196,94 @@ def seed_source_span(
     return span_id
 
 
+# --- Sprint 2026-07-29-definition-links (ruling M1: additive `articles` +
+# `definitions` tables) -----------------------------------------------------
+#
+# Column lists below are the Planner's schema design for the new tables (M1
+# authorizes "new Article + Definition tables" generically; exact columns
+# are this sprint's Planner's call, same as the assertion-type NAMES were
+# under M2). `articles.source_span_id` is NON-NULL by design: every
+# ingested article always gets a backing `SourceSpan` row created alongside
+# it (item DL7's `ingest_wiki_law`), so `AssertionEvidence.source_span_id`
+# (which FKs to `source_spans.id`, not to anything new) can point at an
+# article's text exactly the way it already points at any other quoted
+# span -- no change to `source_spans`/`assertion_evidence` needed.
+# `definitions.terms` is stored as a JSON-encoded list of strings (Stage 2's
+# "multi-term single definition" case: one dash, N terms sharing one
+# definition body) rather than a separate join table -- a deliberately
+# minimal, additive design for this sprint's scope.
+
+
+def seed_article(
+    session: Session,
+    *,
+    document_id: str,
+    matter_id: str,
+    source_span_id: str,
+    id: str | None = None,
+    number: str = "1",
+    heading: str = "Test Article",
+    chapter: str | None = None,
+) -> str:
+    article_id = id or new_id()
+    session.execute(
+        text(
+            "INSERT INTO articles (id, document_id, matter_id, source_span_id, number, heading, chapter) "
+            "VALUES (:id, :document_id, :matter_id, :source_span_id, :number, :heading, :chapter)"
+        ),
+        {
+            "id": article_id,
+            "document_id": document_id,
+            "matter_id": matter_id,
+            "source_span_id": source_span_id,
+            "number": number,
+            "heading": heading,
+            "chapter": chapter,
+        },
+    )
+    session.commit()
+    return article_id
+
+
+def seed_definition(
+    session: Session,
+    *,
+    document_id: str,
+    matter_id: str,
+    article_id: str,
+    id: str | None = None,
+    terms: list[str] | None = None,
+    definition_text: str = "Sample definition text.",
+    scope: str = "law-wide",
+    qualifier: str | None = None,
+    parent_definition_id: str | None = None,
+) -> str:
+    import json
+
+    definition_id = id or new_id()
+    session.execute(
+        text(
+            "INSERT INTO definitions (id, document_id, matter_id, article_id, terms, "
+            "definition_text, scope, qualifier, parent_definition_id) "
+            "VALUES (:id, :document_id, :matter_id, :article_id, :terms, "
+            ":definition_text, :scope, :qualifier, :parent_definition_id)"
+        ),
+        {
+            "id": definition_id,
+            "document_id": document_id,
+            "matter_id": matter_id,
+            "article_id": article_id,
+            "terms": json.dumps(terms if terms is not None else ["Sample Term"]),
+            "definition_text": definition_text,
+            "scope": scope,
+            "qualifier": qualifier,
+            "parent_definition_id": parent_definition_id,
+        },
+    )
+    session.commit()
+    return definition_id
+
+
 @pytest.fixture()
 def matter_with_users(db_session: Session) -> dict:
     """Seed one org/repo/matter plus a contributor, a second contributor
