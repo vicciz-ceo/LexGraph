@@ -5,14 +5,14 @@ current_role: developer
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
-last_agent: "claude-code:planner"
-last_updated: 2026-07-29T13:53:29Z
+last_agent: "claude-code:developer"
+last_updated: 2026-07-29T14:19:56Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 1
+dev_complete_items: 2
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -79,16 +79,6 @@ lives under `backend/app/definition_links/` (new package) plus two new model
 files; nothing in `app/enrich/` or existing routers is touched. RED tests for
 every item already exist and are committed — Developer's job is to make them
 pass without weakening any assertion.
-
-**DL1 — Schema + assertion-type vocabulary (M1, M2).**
-Add `app/models/article.py` (`Article`: id, document_id, matter_id,
-source_span_id[FK source_spans, NOT NULL], number, heading, chapter[nullable])
-and `app/models/definition.py` (`Definition`: id, document_id, matter_id,
-article_id, terms[JSON list[str]], definition_text, scope, qualifier[nullable],
-parent_definition_id[FK definitions, nullable]); register both in
-`app/models/__init__.py`. Add `USES_DEFINITION`, `DERIVES_FROM_LAW` to
-`app/services/validation.py::ALLOWED_ASSERTION_TYPES`.
-Tests: `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_models.py backend/tests/unit/test_definition_links_assertion_vocabulary.py -v`
 
 **DL2 — Stage 0 text normalization.**
 `app/definition_links/normalize.py`: `normalize_for_parsing(raw_text) -> str`
@@ -198,6 +188,10 @@ Result: **none** — additive feature, no hits.
 
 - DL10 — mcp pin repair (M8): backend/pyproject.toml @ 821a597; `-k "mcp"` →
   7 passed, 0 failed (manager-verified probe). mcp 2.0.0 → 1.29.0.
+- DL1 — Schema + assertion-type vocabulary (M1, M2): `app/models/article.py`,
+  `app/models/definition.py`, `app/models/__init__.py`,
+  `app/services/validation.py` @ 10ab30f; test_definition_links_models.py +
+  test_definition_links_assertion_vocabulary.py → 8 passed, 0 failed.
 
 ## Completed
 
