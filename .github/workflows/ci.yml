@@ -64,14 +64,32 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Lint sprint contracts
-        # Contracts are docs/sprint/sprints/<sprint-id>.md; the matching
-        # <sprint-id>-log.md files are free-form and not linted.
+        # Contracts are docs/sprint/sprints/<sprint-id>.md, identified by their
+        # YAML frontmatter: line 1 is `---` and the block carries a top-level
+        # `status:` field. Every other doc in that directory is an auxiliary
+        # sprint artifact (<sprint-id>-log.md, and the -review / -poc-run
+        # records), has no frontmatter, and is not held to the contract rules —
+        # so selection is by frontmatter rather than by a filename blocklist.
+        # Anchoring the opening fence to line 1 matters: log bodies quote
+        # contract frontmatter verbatim, so an unanchored `---` + `status:`
+        # scan matches them.
         run: |
           shopt -s nullglob
           status=0
           found=0
+          is_contract() {
+            awk '
+              NR == 1 { if ($0 !~ /^---[[:space:]]*$/) exit 1; next }
+              /^---[[:space:]]*$/ { exit (ok ? 0 : 1) }
+              /^status:/ { ok = 1 }
+              END { exit (ok ? 0 : 1) }
+            ' "$1"
+          }
           for f in docs/sprint/sprints/*.md; do
-            case "$f" in *-log.md) continue ;; esac
+            if ! is_contract "$f"; then
+              echo "skipped (no contract frontmatter): ${f}"
+              continue
+            fi
             found=1
             echo "::group::${f}"
             if ! bash scripts/contract_lint.sh -f "$f"; then
