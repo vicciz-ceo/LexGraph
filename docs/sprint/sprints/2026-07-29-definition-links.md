@@ -6,13 +6,13 @@ branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:22:11Z
+last_updated: 2026-07-29T14:23:00Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 3
+dev_complete_items: 4
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -79,14 +79,6 @@ lives under `backend/app/definition_links/` (new package) plus two new model
 files; nothing in `app/enrich/` or existing routers is touched. RED tests for
 every item already exist and are committed — Developer's job is to make them
 pass without weakening any assertion.
-
-**DL3 — Stage 1 article/section parsing.**
-`app/definition_links/sections.py`: `Article` dataclass (number, heading,
-body, chapter) — NOT the ORM model, a parsing-only shape. `parse_articles(text)
--> list[Article]` splits on `@ N.` markers, body ends at next `@ N.` or `==`
-chapter break. `is_definitions_heading(heading) -> bool`.
-`locate_definitions_sections(articles) -> list[Article]` — must not assume §1.
-Tests: `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_sections.py -v`
 
 **DL4 — Stage 2 term/definition extraction.**
 `app/definition_links/extract.py`: `DefinitionCandidate` dataclass (terms,
@@ -186,6 +178,8 @@ Result: **none** — additive feature, no hits.
   test_definition_links_assertion_vocabulary.py → 8 passed, 0 failed.
 - DL2 — Stage 0 text normalization: `app/definition_links/normalize.py`
   @ 3f9b347; test_definition_links_normalize.py → 11 passed, 0 failed.
+- DL3 — Stage 1 article/section parsing: `app/definition_links/sections.py`
+  @ 99e2992; test_definition_links_sections.py → 8 passed, 0 failed.
 
 ## Completed
 
