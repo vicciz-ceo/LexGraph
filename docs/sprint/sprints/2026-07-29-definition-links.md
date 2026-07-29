@@ -1,16 +1,16 @@
 ---
 id: "2026-07-29-definition-links"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:planner"
 locked_at: 2026-07-29T17:30:55Z
-last_agent: "claude-code:manager"
-last_updated: 2026-07-29T17:30:55Z
+last_agent: "claude-code:planner"
+last_updated: 2026-07-29T17:48:46Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
-total_items: 10
+total_items: 13
 completed_items: 10
 dev_complete_items: 0
 qa_cycles: 2
@@ -96,8 +96,68 @@ gates reported to director.
 
 ## Next Steps
 
-(Re-opened under M9 — Planner to define DL11-DL13 from the POC findings
-report, gates G5-G7, with RED tests. Items DL1-DL10 remain Completed.)
+Sequence for ONE Developer (solo mode — same engine, shared context;
+bundling all three fixes in one dev cycle is fine).
+
+- **DL11 (G5, POC finding 1, ruling M9(a)) — attribution by article
+  identity.** Add an additive `article_index: int` field to
+  `ArticleUsesTermEdge` (`app/definition_links/matcher.py`) — the POSITION
+  of the article within the `articles` list passed to
+  `link_articles_to_definitions`, set via `enumerate(articles)` in the
+  existing loop (keep `.article_number` as a provenance field only, do not
+  remove it). In `pipeline.py::run_definition_linking`, replace
+  `number_to_article = {art.number: art for art, _ in doc_articles}` with
+  an index-based mapping — pass `matcher_arts` (already an ordered list) to
+  `link_articles_to_definitions`, then resolve each edge's `using_article`
+  via `doc_articles[edge.article_index][0]`, not a number dict. RED:
+  `tests/unit/test_definition_links_matcher.py` (2 new tests — additive
+  field + duplicate-numbered-article position test) +
+  `tests/integration/test_definition_links_pipeline_duplicate_article_attribution.py`
+  (reproduces poc-run.md §8 Issue 1 against a real, trimmed excerpt of the
+  named law, `fixtures/wiki_laws/צו איסור הלבנת הון (מפעיל מערכת
+  לתיווך)_excerpt.wiki` — two real `@ 17.` markers, verified pre-fix to
+  misattribute via a standalone probe).
+- **DL12 (G6, POC finding 2, ruling M9(b)) — repeal-marker guard.** In
+  `extract.py::_parse_block`, add a guard so a candidate whose (own, in the
+  nested-marker case) body consists SOLELY of a parenthesized repeal
+  marker — corpus-verified inflections נמחקה/נמחק/נמחקו/בוטלה/בוטל/בוטלו,
+  in any of the corpus-observed punctuation wrappings (`);))`, `).))`,
+  `)))`) — yields no `DefinitionCandidate` for that entry (siblings in the
+  same block/section are unaffected). Do NOT block a body that merely
+  mentions one of these words as substantive prose. RED:
+  `tests/unit/test_definition_links_extract_repeal_guard.py` (19 tests: 1
+  exact-corpus-shape + 15 parametrized punctuation variants + 2
+  no-over-block regressions + 1 sibling-preservation) +
+  `tests/integration/test_definition_links_pipeline_repeal_marker_guard.py`
+  (2 tests, reusing the already-vendored `חוק הבנקאות (שירות
+  ללקוח)_excerpt.wiki` fixture's real `(((נמחקה);))` entry — no new
+  fixture needed).
+- **DL13 (G7, POC finding 3, ruling M9(c)) — law-name capture fix.** In
+  `derivation.py`, widen `_LAW_REF_RE` to allow ONE balanced parenthetical
+  qualifier after the base name (before any optional `, ...<year>` tail),
+  e.g. `(?:\s*\([^()]*\))?` inserted between the name and year-clause
+  groups; then strip trailing sentence punctuation (at minimum a trailing
+  `.`) from the captured name before computing `short_name` /
+  `known_law_titles` lookup. RED: 6 new tests appended to
+  `tests/unit/test_definition_links_derivation.py` (4 corpus-real
+  paren-qualifier resolutions incl. a hyphenated qualifier + year, 1
+  trailing-period-strip resolution, 1 negative case — must not swallow a
+  SECOND, immediately-adjacent unrelated parenthetical) +
+  `tests/integration/test_definition_links_pipeline_law_ref_parenthetical_qualifier.py`
+  (resolves "בנק" → the real, paren-qualified "חוק הבנקאות (רישוי)" law,
+  using the already-vendored bank-consumer-law excerpt plus a NEW minimal
+  stub fixture `fixtures/wiki_laws/חוק הבנקאות (רישוי)_stub.wiki`).
+  Greedy trailing-clause swallow (poc-run.md §9 spot-check U2, e.g. "חוק
+  החברות ולעניין חברה להפעלת מערכת סליקה פנסיונית..."): NO deterministic,
+  corpus-grounded boundary rule was found that separates a law's own
+  trailing qualifying clause from the start of an unrelated subsequent
+  clause without semantic knowledge — left as KNOWN-REMAINING per M9(c)'s
+  explicit allowance; no test written for it.
+
+All three items are RED-confirmed against the current code (28 failing
+tests total, verified for the right reasons — see the cycle-2 Planner
+log / commit history for the exact `pytest` tails). Items DL1-DL10 remain
+Completed.
 
 ## Stale-pin sweep
 
@@ -126,6 +186,53 @@ Result: **none** — additive feature, no hits.
   frontend files need touching.
 - `tests/conftest.py` gained two new raw-SQL seed helpers (`seed_article`,
   `seed_definition`) — additive, no existing helper signature changed.
+
+### Cycle 2 (DL11-DL13, ruling M9)
+
+Swept ALL test roots (`backend/tests/unit/`, `backend/tests/integration/`,
+`backend/tests/e2e/`, `frontend/src/**/__tests__/`) for pins on
+`ArticleUsesTermEdge` fields, `article_number` usage in
+matcher/pipeline/QA-regression tests (explicitly including
+`test_qa_regression_definition_links.py` and
+`test_definition_links_pipeline_dual_unresolved_derivation.py` per the
+brief), and any `_LAW_REF_RE`/`target_law_name` pins that DL13's regex
+widening could affect.
+
+Result: **none** — zero re-points needed; all three fixes are
+behavior-preserving for every existing pinned scenario:
+
+- `grep -rn "article_number\|ArticleUsesTermEdge\|number_to_article"` across
+  `backend/tests/` (pre cycle-2 additions) hit only
+  `test_definition_links_matcher.py` (reads `.article_number` off
+  edges — an "at least" field per its own docstring, unaffected by the
+  additive `.article_index`) and `test_definition_links_extract.py`
+  (`.source_article_number`, a DIFFERENT, unrelated provenance field on
+  `DefinitionCandidate`). **Zero hits** in
+  `test_qa_regression_definition_links.py` or
+  `test_definition_links_pipeline_dual_unresolved_derivation.py` —
+  confirmed directly, not inferred.
+- No existing matcher/pipeline test constructs an `ArticleUsesTermEdge`
+  directly (all obtain edges via `link_articles_to_definitions`/
+  `run_definition_linking`'s return value) and none exercises a
+  duplicate-numbered-article scenario — every existing fixture/synthetic
+  test has at most one article per number per document, so switching
+  attribution from number-keyed to index-keyed changes nothing observable
+  for any of them (verified by running the full suite post-change-authoring
+  and diffing failures against exactly the 28 new RED tests, 0 unexpected
+  breaks).
+- DL13's `_LAW_REF_RE` widening (allow one balanced parenthetical + strip
+  trailing punctuation) only changes behavior for input text containing a
+  `(` immediately after a law-reference base name, or a law reference
+  ending directly in sentence punctuation with no `,`/`;` boundary. Checked
+  every existing `detect_cross_law_derivations` call site's input text
+  (unit tests + the 3 vendored pipeline fixtures that reach Stage 4:
+  `חוק להגנת רכוש מופקד.wiki`, `חוק הגנת הפרטיות_excerpt.wiki`, `חוק
+  המחשבים_stub.wiki`) — none contains a paren-adjacent or
+  punctuation-terminated law reference, so no existing resolved/unresolved
+  count changes.
+- Full suite run post-authoring: `backend/.venv/bin/pytest tests -q` →
+  **388 passed, 28 failed** (the 28 are exactly the new cycle-2 RED tests
+  — see `## Next Steps`; 0 previously-green tests broke).
 
 ## Dev Complete
 
