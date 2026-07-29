@@ -3,10 +3,10 @@ id: "2026-07-29-mcp2-migration"
 status: review
 current_role: planner
 branch: sprint/2026-07-29-mcp2-migration
-locked_by: null
-locked_at: null
-last_agent: "claude-code:qa"
-last_updated: "2026-07-29T18:38:21Z"
+locked_by: "claude-code:planner"
+locked_at: "2026-07-29T21:54:29Z"
+last_agent: "claude-code:manager"
+last_updated: "2026-07-29T21:54:29Z"
 lint: "PASS 141 2026-07-29T18:38:21Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
