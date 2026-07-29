@@ -5,8 +5,8 @@ current_role: planner
 branch: sprint/2026-07-29-mcp2-migration
 locked_by: "claude-code:planner"
 locked_at: "2026-07-29T21:54:29Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-07-29T21:54:29Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-07-29T21:56:49Z"
 lint: "PASS 141 2026-07-29T18:38:21Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
@@ -102,6 +102,20 @@ positives (`mcp\.server` matching inside `app.mcp.server`, our own module
 path — unaffected by the rename). `docs/sprint/sprints/2026-07-26-local-first-platform*`
 hits are closed-sprint historical record, out of scope. Full detail and
 grep output in the sprint log.
+
+### Merge-time sweep (2026-07-30)
+
+Merge of `origin/main` (fae39d0) introduced a semantic collision in
+`backend/tests/integration/test_qa_regression_definition_links.py`: DL10's
+`test_installed_mcp_package_version_is_pinned_below_2_0` asserted the
+stopgap's presence (mcp<2.0), now superseded by this sprint's floor (mcp>=2.0).
+Removed test function and `importlib.metadata` import (line 250-253, line 99);
+replaced with comment recording supersession and referring to the inverse test
+now covering the same concern:
+`backend/tests/unit/test_mcp_dependency_floor.py::test_installed_mcp_distribution_is_2x_or_newer`.
+Authority: Manager ruling R4. Confirming sweep `grep -rniE 'mcp *<|< *2\.0|fastmcp|mcp>=1' backend/tests/`
+found only historical docstring references (no executable pins). No other
+collisions discovered.
 
 ## Dev Complete
 

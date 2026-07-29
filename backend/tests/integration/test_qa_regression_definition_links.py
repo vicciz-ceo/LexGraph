@@ -96,7 +96,6 @@ by `article_index` instead of `article.number`):
 
 from __future__ import annotations
 
-import importlib.metadata
 import pathlib
 
 import pytest
@@ -245,12 +244,10 @@ def test_cli_missing_triggered_by_user_id_is_an_argparse_usage_error(matter_with
 
 
 # --- DL10: the installed package, not just pyproject.toml's text -----------
-
-
-def test_installed_mcp_package_version_is_pinned_below_2_0():
-    version = importlib.metadata.version("mcp")
-    major = int(version.split(".")[0])
-    assert major < 2, f"expected mcp<2.0 installed, got {version}"
+# SUPERSEDED by sprint 2026-07-29-mcp2-migration: the installed mcp package
+# is now >= 2.0 by design. Equivalent coverage (installed package version, not
+# pyproject.toml text) is now asserted in the opposite direction by
+# backend/tests/unit/test_mcp_dependency_floor.py::test_installed_mcp_distribution_is_2x_or_newer
 
 
 # --- DL8 (QA cycle 2): 3-term resolved-target identity-key regression ------
