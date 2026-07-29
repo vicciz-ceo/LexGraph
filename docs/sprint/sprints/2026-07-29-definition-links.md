@@ -1,18 +1,18 @@
 ---
 id: "2026-07-29-definition-links"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:developer"
-locked_at: 2026-07-29T18:50:09Z
-last_agent: "claude-code:qa"
-last_updated: 2026-07-29T18:47:05Z
+locked_by: "claude-code:qa"
+locked_at: 2026-07-29T18:51:49Z
+last_agent: "claude-code:developer"
+last_updated: 2026-07-29T18:51:49Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 13
 completed_items: 12
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 3
 prd_sections: []
 design_sections: []
@@ -96,35 +96,8 @@ gates reported to director.
 
 ## Next Steps
 
-- **DL11 — attribution by article identity: `[QA-FAIL]` bounced back to
-  Developer** (qa_cycles: 3). Manager-flagged edge (sprint log 18:15Z,
-  verified by QA cycle 3): DL11 fixed WHICH `Article` ORM row an edge
-  attributes to (via `.article_index`), but
-  `matcher.py::link_articles_to_definitions`'s `claimed_spans` overlap
-  registry is still keyed by `article.number`
-  (`claimed_spans.setdefault(article.number, [])`), not by article
-  identity. When two articles share a number and BOTH have their OWN,
-  independent, genuine use of the same defined term at the SAME char
-  offset in their own body, the shared registry treats the second
-  article's match as overlapping the first's already-claimed span in a
-  DIFFERENT body, and silently drops it — only 1 edge is produced
-  instead of 2. Per the review doc's Stage 3 spec, longest-match-wins
-  overlap-claiming is per-article-body; both articles must get their own
-  edge. Confirmed via a probe distinct from DL11's own duplicate-article
-  test (whose second duplicate has an EMPTY body and can never expose
-  this). RED test committed (pins the spec'd 2-edge outcome):
-  `backend/tests/unit/test_definition_links_matcher.py::test_link_articles_to_definitions_does_not_cross_suppress_duplicate_numbered_articles_with_overlapping_offsets`
-  — run directly: `backend/.venv/bin/pytest
-  backend/tests/unit/test_definition_links_matcher.py -k cross_suppress -v`
-  (1 failed, by design). Fix belongs in `matcher.py`'s `claimed_spans`
-  keying (needs to be per-article — e.g. keyed by `article_index`, not
-  `.number`) — implementation file, out of QA's write-scope. Full-corpus
-  re-verification (QA cycle 3, `…/scratchpad/pocrun2/`) confirms this is
-  narrow: the exact poc-run.md §8 dual-"17" case (real document, 13
-  "פעולה" edges) all correctly cite the non-empty duplicate at full
-  corpus scale — the residual bug requires BOTH duplicates to have
-  non-empty, offset-colliding bodies, not observed in this specific named
-  case but real and open per the RED pin above.
+(empty — DL11 fix cycle complete; awaiting QA cycle 4. Cycle-3 bounce
+rationale: see -log.md.)
 
 ## Stale-pin sweep
 
@@ -202,6 +175,10 @@ behavior-preserving for every existing pinned scenario:
   — see `## Next Steps`; 0 previously-green tests broke).
 
 ## Dev Complete
+
+- DL11 — matcher claimed-spans keyed by article identity (fix, cycle 4):
+  backend/app/definition_links/matcher.py @ e0ec9bb (2 lines, as ruled);
+  cycle-3 RED pin green; dev full backend 419 passed; manager probe 26 green.
 
 (empty — QA cycle 3 resolved DL12/DL13: both moved to Completed (12/13);
 DL11 bounced back to Next Steps above, qa_cycles: 3.)
