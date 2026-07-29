@@ -1,19 +1,19 @@
 ---
 id: "2026-07-29-definition-links"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:qa"
 locked_at: 2026-07-29T18:01:04Z
-last_agent: "claude-code:developer"
-last_updated: 2026-07-29T17:59:13Z
+last_agent: "claude-code:qa"
+last_updated: 2026-07-29T18:47:05Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 13
-completed_items: 10
-dev_complete_items: 3
-qa_cycles: 2
+completed_items: 12
+dev_complete_items: 0
+qa_cycles: 3
 prd_sections: []
 design_sections: []
 ---
@@ -96,68 +96,35 @@ gates reported to director.
 
 ## Next Steps
 
-Sequence for ONE Developer (solo mode — same engine, shared context;
-bundling all three fixes in one dev cycle is fine).
-
-- **DL11 (G5, POC finding 1, ruling M9(a)) — attribution by article
-  identity.** Add an additive `article_index: int` field to
-  `ArticleUsesTermEdge` (`app/definition_links/matcher.py`) — the POSITION
-  of the article within the `articles` list passed to
-  `link_articles_to_definitions`, set via `enumerate(articles)` in the
-  existing loop (keep `.article_number` as a provenance field only, do not
-  remove it). In `pipeline.py::run_definition_linking`, replace
-  `number_to_article = {art.number: art for art, _ in doc_articles}` with
-  an index-based mapping — pass `matcher_arts` (already an ordered list) to
-  `link_articles_to_definitions`, then resolve each edge's `using_article`
-  via `doc_articles[edge.article_index][0]`, not a number dict. RED:
-  `tests/unit/test_definition_links_matcher.py` (2 new tests — additive
-  field + duplicate-numbered-article position test) +
-  `tests/integration/test_definition_links_pipeline_duplicate_article_attribution.py`
-  (reproduces poc-run.md §8 Issue 1 against a real, trimmed excerpt of the
-  named law, `fixtures/wiki_laws/צו איסור הלבנת הון (מפעיל מערכת
-  לתיווך)_excerpt.wiki` — two real `@ 17.` markers, verified pre-fix to
-  misattribute via a standalone probe).
-- **DL12 (G6, POC finding 2, ruling M9(b)) — repeal-marker guard.** In
-  `extract.py::_parse_block`, add a guard so a candidate whose (own, in the
-  nested-marker case) body consists SOLELY of a parenthesized repeal
-  marker — corpus-verified inflections נמחקה/נמחק/נמחקו/בוטלה/בוטל/בוטלו,
-  in any of the corpus-observed punctuation wrappings (`);))`, `).))`,
-  `)))`) — yields no `DefinitionCandidate` for that entry (siblings in the
-  same block/section are unaffected). Do NOT block a body that merely
-  mentions one of these words as substantive prose. RED:
-  `tests/unit/test_definition_links_extract_repeal_guard.py` (19 tests: 1
-  exact-corpus-shape + 15 parametrized punctuation variants + 2
-  no-over-block regressions + 1 sibling-preservation) +
-  `tests/integration/test_definition_links_pipeline_repeal_marker_guard.py`
-  (2 tests, reusing the already-vendored `חוק הבנקאות (שירות
-  ללקוח)_excerpt.wiki` fixture's real `(((נמחקה);))` entry — no new
-  fixture needed).
-- **DL13 (G7, POC finding 3, ruling M9(c)) — law-name capture fix.** In
-  `derivation.py`, widen `_LAW_REF_RE` to allow ONE balanced parenthetical
-  qualifier after the base name (before any optional `, ...<year>` tail),
-  e.g. `(?:\s*\([^()]*\))?` inserted between the name and year-clause
-  groups; then strip trailing sentence punctuation (at minimum a trailing
-  `.`) from the captured name before computing `short_name` /
-  `known_law_titles` lookup. RED: 6 new tests appended to
-  `tests/unit/test_definition_links_derivation.py` (4 corpus-real
-  paren-qualifier resolutions incl. a hyphenated qualifier + year, 1
-  trailing-period-strip resolution, 1 negative case — must not swallow a
-  SECOND, immediately-adjacent unrelated parenthetical) +
-  `tests/integration/test_definition_links_pipeline_law_ref_parenthetical_qualifier.py`
-  (resolves "בנק" → the real, paren-qualified "חוק הבנקאות (רישוי)" law,
-  using the already-vendored bank-consumer-law excerpt plus a NEW minimal
-  stub fixture `fixtures/wiki_laws/חוק הבנקאות (רישוי)_stub.wiki`).
-  Greedy trailing-clause swallow (poc-run.md §9 spot-check U2, e.g. "חוק
-  החברות ולעניין חברה להפעלת מערכת סליקה פנסיונית..."): NO deterministic,
-  corpus-grounded boundary rule was found that separates a law's own
-  trailing qualifying clause from the start of an unrelated subsequent
-  clause without semantic knowledge — left as KNOWN-REMAINING per M9(c)'s
-  explicit allowance; no test written for it.
-
-All three items are RED-confirmed against the current code (28 failing
-tests total, verified for the right reasons — see the cycle-2 Planner
-log / commit history for the exact `pytest` tails). Items DL1-DL10 remain
-Completed.
+- **DL11 — attribution by article identity: `[QA-FAIL]` bounced back to
+  Developer** (qa_cycles: 3). Manager-flagged edge (sprint log 18:15Z,
+  verified by QA cycle 3): DL11 fixed WHICH `Article` ORM row an edge
+  attributes to (via `.article_index`), but
+  `matcher.py::link_articles_to_definitions`'s `claimed_spans` overlap
+  registry is still keyed by `article.number`
+  (`claimed_spans.setdefault(article.number, [])`), not by article
+  identity. When two articles share a number and BOTH have their OWN,
+  independent, genuine use of the same defined term at the SAME char
+  offset in their own body, the shared registry treats the second
+  article's match as overlapping the first's already-claimed span in a
+  DIFFERENT body, and silently drops it — only 1 edge is produced
+  instead of 2. Per the review doc's Stage 3 spec, longest-match-wins
+  overlap-claiming is per-article-body; both articles must get their own
+  edge. Confirmed via a probe distinct from DL11's own duplicate-article
+  test (whose second duplicate has an EMPTY body and can never expose
+  this). RED test committed (pins the spec'd 2-edge outcome):
+  `backend/tests/unit/test_definition_links_matcher.py::test_link_articles_to_definitions_does_not_cross_suppress_duplicate_numbered_articles_with_overlapping_offsets`
+  — run directly: `backend/.venv/bin/pytest
+  backend/tests/unit/test_definition_links_matcher.py -k cross_suppress -v`
+  (1 failed, by design). Fix belongs in `matcher.py`'s `claimed_spans`
+  keying (needs to be per-article — e.g. keyed by `article_index`, not
+  `.number`) — implementation file, out of QA's write-scope. Full-corpus
+  re-verification (QA cycle 3, `…/scratchpad/pocrun2/`) confirms this is
+  narrow: the exact poc-run.md §8 dual-"17" case (real document, 13
+  "פעולה" edges) all correctly cite the non-empty duplicate at full
+  corpus scale — the residual bug requires BOTH duplicates to have
+  non-empty, offset-colliding bodies, not observed in this specific named
+  case but real and open per the RED pin above.
 
 ## Stale-pin sweep
 
@@ -236,34 +203,19 @@ behavior-preserving for every existing pinned scenario:
 
 ## Dev Complete
 
-- DL11 — attribution by article identity (G5, ruling M9(a)). Additive
-  `article_index: int` on `ArticleUsesTermEdge` (`matcher.py`, set via
-  `enumerate(articles)`); `pipeline.py` resolves `using_article` via
-  `doc_articles[edge.article_index][0]` instead of a `{number: article}`
-  dict, `.article_number` kept as provenance only. Probe: 13 passed
-  (2 matcher unit + 1 pipeline integration). Files: `matcher.py`,
-  `pipeline.py`.
-- DL12 — repeal-marker guard (G6, ruling M9(b)). `extract.py::_parse_block`
-  drops a candidate (own-body, in the nested-marker branch too) whose
-  normalized body is solely a parenthesized repeal marker
-  (`_REPEAL_MARKER_RE`: נמחקה/נמחק/נמחקו/בוטלה/בוטל/בוטלו in `);))`/`).))`/
-  `)))` punctuation), leaving sibling entries in the same block/section
-  unaffected. Probe: 21 passed (19 unit + 2 pipeline integration). Files:
-  `extract.py`.
-- DL13 — law-name capture fix (G7, ruling M9(c)). `derivation.py`'s
-  `_LAW_REF_RE` widened with `(?:\s*\([^()]*\))?` between the base name and
-  the optional year-clause group, resolving ONE balanced parenthetical
-  qualifier (e.g. `חוק הבנקאות (שירות ללקוח)`); new
-  `_strip_trailing_sentence_punctuation` strips a trailing `.` from the
-  captured name before `short_name`/`known_law_titles` lookup (never from
-  `matched_text`). Greedy trailing-clause swallow (poc-run.md §9 U2) left
-  KNOWN-REMAINING per M9(c) — no deterministic boundary rule found; no test
-  written for it. Probe: 16 passed (15 unit + 1 pipeline integration, using
-  the already-vendored `חוק הבנקאות (רישוי)_stub.wiki` fixture). Files:
-  `derivation.py`.
+(empty — QA cycle 3 resolved DL12/DL13: both moved to Completed (12/13);
+DL11 bounced back to Next Steps above, qa_cycles: 3.)
 
 ## Completed
 
+- DL12 — repeal-marker guard (G6, ruling M9(b)) @ 0926323. Probe: 21
+  passed. QA fresh-corpus probe (פקודת רופאי השיניים, not in Dev's
+  fixtures) confirms; full-corpus: 0 exact-shape marker definitions
+  survive (2,981→1,063 residual, fully explained — see QA Notes). PASS.
+- DL13 — law-name capture fix (G7, ruling M9(c)) @ 9ab1c09. Probe: 16
+  passed. QA fresh-corpus probe (צו בנק ישראל, not in Dev's fixtures)
+  confirms; full-corpus unresolved DERIVES_FROM_LAW 1,565→1,086 (-479),
+  concrete חוק הבנקאות (רישוי) resolution verified. PASS.
 - DL10 — mcp<2.0 pin (M8) @ 821a597. Probe: `-k "mcp"` 7 passed; RED
   provenance pre-sprint (log). Regression: installed-version check. PASS.
 - DL1 — Article/Definition models + vocabulary @ 10ab30f. Probe: 8 passed.
@@ -341,15 +293,32 @@ it (matches contract).
   clause now persists 3 resolved edges; rerun creates 0 new rows. DL8 PASS →
   Completed (10/10). Regression @ 69b1be6. Status review, qa_cycles 2. Full
   transcript: 2026-07-29-definition-links-log.md.
+- **2026-07-29T21:45Z QA cycle 3 (sonnet/high), DL11-DL13.** Evaluator 416
+  backend + 62 frontend, no flakes (twice). DL12/DL13 PASS (own
+  fresh-corpus probes beyond Dev's fixtures). DL11 FAIL — manager-flagged
+  `claimed_spans` cross-suppression (see Next Steps); RED pin @ 57fe773.
+  Full-corpus before/after (pocrun2, fresh ingest+link): נמחקה-edges
+  2,981→1,063 (0 exact-shape defs remain, residual explained); unresolved
+  DERIVES_FROM_LAW 1,565→1,086 (-479); dual-"17" 13/13 correct at scale;
+  determinism PASS (0 new rows). Regression @ b47987f. qa-fail, cycles 3.
 
 ## Context Dump
 
-Sprint complete: 10/10 items Completed, qa_cycles 2, full evaluator green
-(385 backend + 62 frontend; manager-verified 2026-07-29T14:59Z). Status
-review — merging to main requires explicit director approval (review→done).
-Follow-ups for a future Planner: (1) guards.py Stage-5 helpers partially
-unwired into the live path (see log); (2) mcp 2.x migration deferred (M8);
-(3) no Alembic migration — new tables rely on metadata create_all; (4)
-optional API route + frontend UI for definition links (M6 stretch); (5)
-bulk-corpus ingestion CLI out of scope. Worktree venv at backend/.venv.
-Recon dossier: 2026-07-29-definition-links-review.md; history: -log.md.
+QA cycle 3: 12/13 items Completed, DL11 bounced (qa_cycles 3, status
+qa-fail, current_role developer). Evaluator green apart from the
+intentional DL11 RED pin (418 backend incl. 1 designed fail + 62
+frontend). Full-corpus re-verification (pocrun2, 6,133 laws, ~19min):
+DL12/DL13 fixes confirmed at scale (see QA Notes); DL11's core
+attribution fix (article_index) also confirmed at scale for the named
+dual-"17" case, but the manager-flagged claimed_spans registry bug is
+separate and open. Follow-ups for the next Developer pass: (1) fix
+`claimed_spans` keying in `matcher.py` to be per-article, not per-number
+(DL11 reopen); (2) guards.py Stage-5 helpers partially unwired into the
+live path (see log); (3) mcp 2.x migration deferred (M8); (4) no Alembic
+migration — new tables rely on metadata create_all; (5) optional API
+route + frontend UI for definition links (M6 stretch); (6) bulk-corpus
+ingestion CLI out of scope; (7) greedy trailing-clause swallow (poc-run.md
+§9 U2) left KNOWN-REMAINING per M9(c) — no test written, no deterministic
+fix found. Worktree venv at backend/.venv. Recon dossier:
+2026-07-29-definition-links-review.md; history: -log.md; corpus
+verification: 2026-07-29-definition-links-poc-run.md.
