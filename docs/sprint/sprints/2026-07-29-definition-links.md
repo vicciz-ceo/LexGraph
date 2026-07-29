@@ -3,8 +3,8 @@ id: "2026-07-29-definition-links"
 status: qa-fail
 current_role: developer
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:qa"
-locked_at: 2026-07-29T14:32:55Z
+locked_by: "claude-code:developer"
+locked_at: 2026-07-29T14:49:02Z
 last_agent: "claude-code:qa"
 last_updated: 2026-07-29T15:10:00Z
 lint: null
