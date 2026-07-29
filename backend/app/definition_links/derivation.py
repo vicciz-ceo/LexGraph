@@ -42,13 +42,29 @@ _BESAIF_RE = re.compile(r"^בסעיף\s+\d")
 # text (falling back to the same paragraph).
 _ANAPHORIC_RE = re.compile(r"^ב?(אותו חוק|החוק האמור|חוק האמור)")
 
-# `ב<law name>` / `בפקודת <name>`, optionally followed by a trailing
-# ", <year clause>" (Hebrew-year or plain Mandatory-era digit year).
-_LAW_REF_RE = re.compile(r"^ב((?:חוק|פקודת|פקודה)\s+[^,;()]+(?:,\s*[^,;()]*?\d{4})?)")
+# `ב<law name>` / `בפקודת <name>`, optionally followed by ONE balanced
+# parenthetical qualifier (DL13, cycle 2, G7, ruling M9(c) -- poc-run.md §8
+# Issue 3: a law's real, ingested title can require a parenthetical
+# qualifier, e.g. `חוק הבנקאות (שירות ללקוח)`; the base name's char class
+# excludes `(`/`)` so it stops right before one -- this inserted group
+# captures exactly one such qualifier before any trailing year clause), then
+# optionally a trailing ", <year clause>" (Hebrew-year or plain
+# Mandatory-era digit year).
+_LAW_REF_RE = re.compile(
+    r"^ב((?:חוק|פקודת|פקודה)\s+[^,;()]+(?:\s*\([^()]*\))?(?:,\s*[^,;()]*?\d{4})?)"
+)
 
 # A trailing ", ...<4-digit-year>" clause, stripped to get a law's
 # canonical short identity (amendments keep the same short name).
 _YEAR_TAIL_RE = re.compile(r",\s*[^,;()]*?\d{4}\s*$")
+
+# DL13's compounding artifact: the base name's char class doesn't exclude
+# sentence punctuation, so a law reference ending a sentence with no
+# trailing comma/semicolon boundary (e.g. "...בחוק החברות.") captures the
+# period into the "law name". Stripped (at minimum a trailing '.') before
+# computing the `known_law_titles` lookup key -- never from `matched_text`,
+# which preserves the raw captured span.
+_TRAILING_SENTENCE_PUNCT_RE = re.compile(r"[.]+$")
 
 
 def strip_year_suffix(name: str) -> str:
@@ -56,6 +72,13 @@ def strip_year_suffix(name: str) -> str:
     the canonical short law-title identity key (year stripped since
     amendments keep the same short name)."""
     return _YEAR_TAIL_RE.sub("", name).strip()
+
+
+def _strip_trailing_sentence_punctuation(name: str) -> str:
+    """Strip trailing sentence punctuation (at minimum a trailing '.')
+    from a captured law-reference name before computing its short-name
+    identity key (DL13, ruling M9(c))."""
+    return _TRAILING_SENTENCE_PUNCT_RE.sub("", name).rstrip()
 
 
 @dataclass(frozen=True)
@@ -115,7 +138,7 @@ def detect_cross_law_derivations(
         law_ref_match = _LAW_REF_RE.match(rest)
         if law_ref_match:
             full_name = law_ref_match.group(1)
-            short_name = strip_year_suffix(full_name)
+            short_name = _strip_trailing_sentence_punctuation(strip_year_suffix(full_name))
             last_law_name = short_name
             edges.append(
                 LawDerivesDefinitionEdge(

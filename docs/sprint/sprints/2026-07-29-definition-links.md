@@ -250,6 +250,17 @@ behavior-preserving for every existing pinned scenario:
   `)))` punctuation), leaving sibling entries in the same block/section
   unaffected. Probe: 21 passed (19 unit + 2 pipeline integration). Files:
   `extract.py`.
+- DL13 — law-name capture fix (G7, ruling M9(c)). `derivation.py`'s
+  `_LAW_REF_RE` widened with `(?:\s*\([^()]*\))?` between the base name and
+  the optional year-clause group, resolving ONE balanced parenthetical
+  qualifier (e.g. `חוק הבנקאות (שירות ללקוח)`); new
+  `_strip_trailing_sentence_punctuation` strips a trailing `.` from the
+  captured name before `short_name`/`known_law_titles` lookup (never from
+  `matched_text`). Greedy trailing-clause swallow (poc-run.md §9 U2) left
+  KNOWN-REMAINING per M9(c) — no deterministic boundary rule found; no test
+  written for it. Probe: 16 passed (15 unit + 1 pipeline integration, using
+  the already-vendored `חוק הבנקאות (רישוי)_stub.wiki` fixture). Files:
+  `derivation.py`.
 
 ## Completed
 
