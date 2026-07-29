@@ -243,6 +243,13 @@ behavior-preserving for every existing pinned scenario:
   dict, `.article_number` kept as provenance only. Probe: 13 passed
   (2 matcher unit + 1 pipeline integration). Files: `matcher.py`,
   `pipeline.py`.
+- DL12 — repeal-marker guard (G6, ruling M9(b)). `extract.py::_parse_block`
+  drops a candidate (own-body, in the nested-marker branch too) whose
+  normalized body is solely a parenthesized repeal marker
+  (`_REPEAL_MARKER_RE`: נמחקה/נמחק/נמחקו/בוטלה/בוטל/בוטלו in `);))`/`).))`/
+  `)))` punctuation), leaving sibling entries in the same block/section
+  unaffected. Probe: 21 passed (19 unit + 2 pipeline integration). Files:
+  `extract.py`.
 
 ## Completed
 

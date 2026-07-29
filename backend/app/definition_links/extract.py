@@ -34,6 +34,20 @@ _ADHOC_RE = re.compile(r"\(\s*להלן\s*[-:]\s*([^)]+?)\s*\)")
 
 _QUOTE_RE = re.compile(r'"([^"]+)"')
 
+# DL12 (cycle 2, G6, ruling M9(b)): a definitions-entry body that is SOLELY a
+# parenthesized Knesset repeal/deletion marker (poc-run.md §8 Issue 2), e.g.
+# `(((נמחקה);))`. Corpus-observed inflections (נמחקה/נמחק/נמחקו/בוטלה/בוטל/
+# בוטלו) wrapped in exactly the corpus-observed punctuation variants
+# (`);))`, `).))`, `)))`) -- anchored to the WHOLE body so a body that merely
+# mentions one of these words as substantive prose is never blocked.
+_REPEAL_MARKER_RE = re.compile(
+    r"^\(\(\((?:נמחקה|נמחקו|נמחק|בוטלה|בוטלו|בוטל)\)[;.]?\)\)$"
+)
+
+
+def _is_pure_repeal_marker(body_text: str) -> bool:
+    return bool(_REPEAL_MARKER_RE.match(body_text.strip()))
+
 
 @dataclass
 class DefinitionCandidate:
@@ -125,6 +139,9 @@ def _parse_block(
         own_body = body_text[: nested_match.start()].rstrip()
         own_body = own_body.rstrip(";").rstrip()
         nested_tail = body_text[nested_match.end() :]
+        nested_candidates = _parse_block(nested_tail, scope=scope, parent_term=terms[0])
+        if _is_pure_repeal_marker(own_body):
+            return nested_candidates
         own_candidate = DefinitionCandidate(
             terms=tuple(terms),
             definition_text=own_body,
@@ -132,8 +149,10 @@ def _parse_block(
             qualifier=qualifier,
             parent_term=parent_term,
         )
-        nested_candidates = _parse_block(nested_tail, scope=scope, parent_term=terms[0])
         return [own_candidate] + nested_candidates
+
+    if _is_pure_repeal_marker(body_text):
+        return []
 
     return [
         DefinitionCandidate(
