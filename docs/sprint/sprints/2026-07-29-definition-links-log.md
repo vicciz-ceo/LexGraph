@@ -269,3 +269,4 @@ pin `mcp` to a compatible 1.x range or update `app/mcp/server.py`'s import
 — flagged for the Manager/director, out of this Planner's write-scope
 (pyproject.toml/app/mcp are not test files).
 - 2026-07-29T15:20Z POC corpus verifier (director-requested, review-phase ops probe) → sonnet/medium; Haiku considered: yes, rejected — corpus-scale triage/failure classification needs judgment. Read-only vs repo+POC; scratch DB in session scratchpad.
+- 2026-07-29T16:20Z POC corpus verifier — DONE. Full-corpus run + determinism PASS; 3 confirmed engine issues (1 HIGH, 2 MEDIUM); report persisted to docs/sprint/sprints/2026-07-29-definition-links-poc-run.md with manager addendum (headline numbers SQL-verified; Issue-2 radius corrected to 2,981 edges corpus-wide).
