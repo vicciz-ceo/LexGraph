@@ -3,8 +3,8 @@ id: "2026-07-29-definition-links"
 status: planned
 current_role: developer
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:planner"
-locked_at: 2026-07-29T17:30:55Z
+locked_by: "claude-code:developer"
+locked_at: 2026-07-29T18:02:00Z
 last_agent: "claude-code:planner"
 last_updated: 2026-07-29T17:48:46Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
