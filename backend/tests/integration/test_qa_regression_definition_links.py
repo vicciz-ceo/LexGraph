@@ -34,11 +34,27 @@ the existing pattern in `test_qa_regression_local_first_platform.py`:
 - DL10: the fix is verified at the INSTALLED-PACKAGE level, not just in
   `pyproject.toml`'s text -- `importlib.metadata.version("mcp")` in this
   exact venv must be less than 2.0.
+
+QA cycle 2 (DL8 fix re-verify, commit 2f27703):
+
+- DL8: the corroborated resolved-target variant of the identity-key
+  collapse -- distinct from `test_definition_links_pipeline_dual_unresolved_derivation.py`'s
+  synthetic 2-edge UNRESOLVED-target regression, which cycle 1's RED pin
+  already covers. This exercises the REAL vendored fixtures: ingesting
+  `חוק המחשבים_stub.wiki` then `חוק הגנת הפרטיות_excerpt.wiki` into the
+  same matter must persist THREE `DERIVES_FROM_LAW` assertions for the
+  3-term definition at line 17 ("חומר מחשב", "מחשב" ו"פלט" - כהגדרתם
+  [[בחוק המחשבים]]) -- one per term, each naming its term in the
+  proposition and each RESOLVING (`object_entity_type="Document"`) to the
+  ingested חוק המחשבים `Document` row -- plus idempotency: a second
+  pipeline run over the same matter creates zero new assertions/definitions
+  and leaves the persisted link set unchanged.
 """
 
 from __future__ import annotations
 
 import importlib.metadata
+import pathlib
 
 import pytest
 
@@ -192,3 +208,87 @@ def test_installed_mcp_package_version_is_pinned_below_2_0():
     version = importlib.metadata.version("mcp")
     major = int(version.split(".")[0])
     assert major < 2, f"expected mcp<2.0 installed, got {version}"
+
+
+# --- DL8 (QA cycle 2): 3-term resolved-target identity-key regression ------
+
+
+def test_three_term_shared_derivation_clause_persists_three_resolved_edges(
+    db_session, matter_with_users
+):
+    """Vendored-fixture corroboration of the cycle-1 `[QA-FAIL]` (see
+    docs/sprint/sprints/2026-07-29-definition-links-log.md, "DL8 QA-FAIL
+    rationale"): before commit 2f27703, the definition at
+    `חוק הגנת הפרטיות_excerpt.wiki` line 17 -- three terms ("חומר מחשב",
+    "מחשב", "פלט") sharing one derivation clause to `[[בחוק המחשבים]]` --
+    collapsed to a SINGLE persisted `DERIVES_FROM_LAW` assertion, because
+    the pre-fix idempotency key omitted `proposition` and every term's
+    edge shared the same (subject Definition, resolved object Document)
+    pair. Post-fix, each term's distinct proposition keeps its edge
+    separate: exactly three assertions, one per term, all resolving to
+    the same ingested Document.
+    """
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+    fixtures = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "wiki_laws"
+
+    computers_text = (fixtures / "חוק המחשבים_stub.wiki").read_text(encoding="utf-8")
+    privacy_text = (fixtures / "חוק הגנת הפרטיות_excerpt.wiki").read_text(encoding="utf-8")
+
+    # Ingest the target law FIRST so `known_law_titles` resolves it.
+    computers_doc = ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title='חוק המחשבים, התשנ"ה-1995',
+        wiki_text=computers_text,
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title='חוק הגנת הפרטיות, התשמ"א-1981',
+        wiki_text=privacy_text,
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    computer_derives = [
+        a
+        for a in result["created_assertions"]
+        if a["assertion_type"] == "DERIVES_FROM_LAW"
+        and any(f'"{t}"' in a["proposition"] for t in ("חומר מחשב", "מחשב", "פלט"))
+    ]
+    assert len(computer_derives) == 3, computer_derives
+
+    for term in ("חומר מחשב", "מחשב", "פלט"):
+        matches = [a for a in computer_derives if f'"{term}"' in a["proposition"]]
+        assert len(matches) == 1, f"expected exactly 1 edge naming {term!r}, got {matches}"
+        row = db_session.get(Assertion, matches[0]["id"])
+        assert row.object_entity_type == "Document"
+        assert row.object_entity_id == computers_doc["document_id"]
+
+    # Idempotency under the new (proposition-inclusive) key: a second run
+    # over the same, unchanged matter creates nothing new and leaves the
+    # persisted assertion set unchanged.
+    before_keys = {
+        (row.assertion_type, row.subject_entity_id, row.object_entity_id, row.proposition)
+        for row in db_session.query(Assertion).filter(Assertion.matter_id == m["matter_id"]).all()
+    }
+
+    result2 = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    assert result2["created_assertions"] == []
+    assert result2["created_definitions"] == []
+
+    after_keys = {
+        (row.assertion_type, row.subject_entity_id, row.object_entity_id, row.proposition)
+        for row in db_session.query(Assertion).filter(Assertion.matter_id == m["matter_id"]).all()
+    }
+    assert after_keys == before_keys
