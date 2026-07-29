@@ -1,19 +1,19 @@
 ---
 id: "2026-07-29-definition-links"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:qa"
 locked_at: 2026-07-29T18:51:49Z
-last_agent: "claude-code:developer"
-last_updated: 2026-07-29T18:51:49Z
-lint: "PASS 178 2026-07-29T15:01:35Z"
+last_agent: "claude-code:qa"
+last_updated: 2026-07-29T19:06:07Z
+lint: "PASS 296 2026-07-29T19:10:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 13
-completed_items: 12
-dev_complete_items: 1
-qa_cycles: 3
+completed_items: 13
+dev_complete_items: 0
+qa_cycles: 4
 prd_sections: []
 design_sections: []
 ---
@@ -96,8 +96,8 @@ gates reported to director.
 
 ## Next Steps
 
-(empty — DL11 fix cycle complete; awaiting QA cycle 4. Cycle-3 bounce
-rationale: see -log.md.)
+(empty — all 13 items Completed as of QA cycle 4, status review. Cycle-3
+bounce rationale: see -log.md.)
 
 ## Stale-pin sweep
 
@@ -176,23 +176,19 @@ behavior-preserving for every existing pinned scenario:
 
 ## Dev Complete
 
-- DL11 — matcher claimed-spans keyed by article identity (fix, cycle 4):
-  backend/app/definition_links/matcher.py @ e0ec9bb (2 lines, as ruled);
-  cycle-3 RED pin green; dev full backend 419 passed; manager probe 26 green.
-
-(empty — QA cycle 3 resolved DL12/DL13: both moved to Completed (12/13);
-DL11 bounced back to Next Steps above, qa_cycles: 3.)
+None.
 
 ## Completed
 
+- DL11 — matcher claimed-spans keyed by article identity (G5, ruling
+  M9(a) reopen) @ e0ec9bb. QA4: RED pin green; 5-law spot-probe, 0
+  cross-suppression, 126/126 edges verified, determinism PASS.
 - DL12 — repeal-marker guard (G6, ruling M9(b)) @ 0926323. Probe: 21
-  passed. QA fresh-corpus probe (פקודת רופאי השיניים, not in Dev's
-  fixtures) confirms; full-corpus: 0 exact-shape marker definitions
-  survive (2,981→1,063 residual, fully explained — see QA Notes). PASS.
+  passed. Fresh-corpus probe confirms; full-corpus residual explained
+  (see QA Notes). PASS.
 - DL13 — law-name capture fix (G7, ruling M9(c)) @ 9ab1c09. Probe: 16
-  passed. QA fresh-corpus probe (צו בנק ישראל, not in Dev's fixtures)
-  confirms; full-corpus unresolved DERIVES_FROM_LAW 1,565→1,086 (-479),
-  concrete חוק הבנקאות (רישוי) resolution verified. PASS.
+  passed. Fresh-corpus probe confirms; full-corpus unresolved
+  DERIVES_FROM_LAW -479 (see QA Notes). PASS.
 - DL10 — mcp<2.0 pin (M8) @ 821a597. Probe: `-k "mcp"` 7 passed; RED
   provenance pre-sprint (log). Regression: installed-version check. PASS.
 - DL1 — Article/Definition models + vocabulary @ 10ab30f. Probe: 8 passed.
@@ -278,24 +274,23 @@ it (matches contract).
   2,981→1,063 (0 exact-shape defs remain, residual explained); unresolved
   DERIVES_FROM_LAW 1,565→1,086 (-479); dual-"17" 13/13 correct at scale;
   determinism PASS (0 new rows). Regression @ b47987f. qa-fail, cycles 3.
+- **2026-07-29T19:06Z QA cycle 4 (sonnet/high), DL11 re-verify only.**
+  Evaluator 420 backend (419+1 new regression) + 62 frontend, no flakes.
+  e0ec9bb diff-confirmed (matcher.py, 2 lines); cycle-3 RED pin green.
+  Fresh spot-probe (5 real laws, pocrun2/spot, new scratch DB): 8
+  duplicate-numbered groups, 126/126 USES_DEFINITION edges verified
+  own-body (0 cross-body leaks), determinism 0 new rows on rerun. DL11
+  PASS → Completed (13/13). Regression @ ca3b410 (fails pre-fix,
+  confirmed). Status review, qa_cycles 4.
 
 ## Context Dump
 
-QA cycle 3: 12/13 items Completed, DL11 bounced (qa_cycles 3, status
-qa-fail, current_role developer). Evaluator green apart from the
-intentional DL11 RED pin (418 backend incl. 1 designed fail + 62
-frontend). Full-corpus re-verification (pocrun2, 6,133 laws, ~19min):
-DL12/DL13 fixes confirmed at scale (see QA Notes); DL11's core
-attribution fix (article_index) also confirmed at scale for the named
-dual-"17" case, but the manager-flagged claimed_spans registry bug is
-separate and open. Follow-ups for the next Developer pass: (1) fix
-`claimed_spans` keying in `matcher.py` to be per-article, not per-number
-(DL11 reopen); (2) guards.py Stage-5 helpers partially unwired into the
-live path (see log); (3) mcp 2.x migration deferred (M8); (4) no Alembic
-migration — new tables rely on metadata create_all; (5) optional API
-route + frontend UI for definition links (M6 stretch); (6) bulk-corpus
-ingestion CLI out of scope; (7) greedy trailing-clause swallow (poc-run.md
-§9 U2) left KNOWN-REMAINING per M9(c) — no test written, no deterministic
-fix found. Worktree venv at backend/.venv. Recon dossier:
-2026-07-29-definition-links-review.md; history: -log.md; corpus
-verification: 2026-07-29-definition-links-poc-run.md.
+QA cycle 4: 13/13 Completed, status review, qa_cycles 4. Evaluator green
+(420 backend incl. new DL11 regression + 62 frontend). DL11's
+claimed_spans fix (e0ec9bb) confirmed via cycle-3 RED pin + fresh 5-law
+spot-probe (0 cross-suppression, determinism PASS) — sprint closed
+pending Planner sign-off. Known-remaining (out of scope): guards.py
+Stage-5 partially unwired; mcp 2.x deferred (M8); no Alembic migration;
+optional API/UI stretch (M6); trailing-clause swallow KNOWN-REMAINING
+(M9(c)). Venv: backend/.venv. Dossiers: -review.md, -log.md,
+-poc-run.md.
