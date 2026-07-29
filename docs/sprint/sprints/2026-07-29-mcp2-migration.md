@@ -3,18 +3,18 @@ id: "2026-07-29-mcp2-migration"
 status: review
 current_role: planner
 branch: sprint/2026-07-29-mcp2-migration
-locked_by: "claude-code:planner"
-locked_at: "2026-07-29T21:54:29Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-29T21:56:49Z"
-lint: "PASS 141 2026-07-29T18:38:21Z"
+locked_by: null
+locked_at: null
+last_agent: "claude-code:manager"
+last_updated: "2026-07-29T21:59:23Z"
+lint: "PASS 171 2026-07-29T21:59:23Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
 completed_items: 2
 dev_complete_items: 0
 qa_cycles: 1
-previous_sprint: "2026-07-26-local-first-platform"
+previous_sprint: "2026-07-29-definition-links"
 prd_sections: []
 design_sections: []
 ---
@@ -145,6 +145,8 @@ unless noted).
 
 Fresh venv rebuilt from scratch resolves mcp to **2.0.0**. Full authoritative test pass: backend 291 passed (10 warnings), frontend 62 passed (11 test files). No flakes or single-file re-runs required. All six RED tests now green (no more ModuleNotFoundError for mcp.server.fastmcp). Gates G1–G4 satisfied: floor raised to >=2.0, server API migrated, full suite green in fresh venv, tool payload shapes unchanged.
 
+Post-merge re-verification (manager, 2026-07-30, combined tree at `04047fc`, venv rebuilt from scratch): mcp 2.0.0; backend **423 passed**, frontend **62 passed**. Delta from 294 is main's definition-links suite arriving via `fae39d0`, minus DL10's retired pin.
+
 ## QA Notes
 
 - 2026-07-29T18:33:33Z qa cycle 1: independent fresh-venv rebuild + full
@@ -158,12 +160,12 @@ Fresh venv rebuilt from scratch resolves mcp to **2.0.0**. Full authoritative te
 
 ## Context Dump
 
-- Sprint at `review` awaiting director/manager sign-off (review→done is
-  director-only). Both items QA-verified in 1 cycle; suite: backend 291
-  (294 incl. 3 QA regressions) / frontend 62, all green, branch pushed.
-- G1–G4 all confirmed independently (fresh venv, real `git diff`, live
-  SDK dispatch, clean CI install path) — see QA Notes / log for probes.
-- Successor start here: gates + rulings above are durable; full research
-  trail is in `2026-07-29-mcp2-migration-log.md`.
-- No known deferred surfaces from this sprint (single-purpose floor-raise
-  + rename; no new capability, nothing left on the table).
+- Director approved merge (2026-07-30). `origin/main` integrated at `fae39d0`
+  (rulings R4/R5); DL10's superseded `<2.0` pin retired at `04047fc`.
+- Manager-verified on the COMBINED tree, scratch-built venv: mcp 2.0.0,
+  backend 423 passed, frontend 62 passed, no `<2.0` pin left in the repo.
+- G1–G4 confirmed independently in QA cycle 1 (fresh venv, real `git diff`,
+  live SDK dispatch, clean CI install path) — probes in QA Notes / log.
+- NOT independently re-QA'd: the merge + pin retirement (manager evaluator
+  run only, no second QA cycle — test-estate deletion under R4).
+- No deferred surfaces. Research trail: `2026-07-29-mcp2-migration-log.md`.

@@ -10,6 +10,7 @@ the agent roster. See the contract for working state.
 - planner → a12946da74e338fd7 (Sonnet high; reported 2026-07-29T~18:15Z, handoff accepted)
 - developer → af8c7ce6b3de6e667 (Haiku medium, bounded mechanical; reported 2026-07-29T~18:24Z, diff verified, handoff accepted)
 - qa → a3b35061d53ee91fa (Sonnet high; reported 2026-07-29T~18:34Z, 2/2 PASS, commit verified test/contract-only, handoff accepted)
+- planner (merge-time micro-fix) → abdaa611f82c69161 (Haiku low, single stale-pin re-point per SKILL.md micro-fix row; reported 2026-07-30, anti-gaming diff check PASS — touched only the brief-named test file + contract, no other assertion altered)
 
 ## Planner pass — 2026-07-29
 
