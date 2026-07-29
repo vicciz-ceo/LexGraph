@@ -6,13 +6,13 @@ branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:24:42Z
+last_updated: 2026-07-29T14:25:57Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -79,15 +79,6 @@ lives under `backend/app/definition_links/` (new package) plus two new model
 files; nothing in `app/enrich/` or existing routers is touched. RED tests for
 every item already exist and are committed — Developer's job is to make them
 pass without weakening any assertion.
-
-**DL6 — Stage 4 cross-law derivation + Stage 5 guards + M7 bidi guard.**
-`app/definition_links/derivation.py`: `TRIGGER_PHRASES`,
-`detect_cross_law_derivations(text, *, source_term, known_law_titles=None)`
-(M5: unresolved → `target_law_id=None`, raw text preserved),
-`is_generic_law_reference(text, trigger_pos)`. `app/definition_links/guards.py`:
-`is_plain_quotation`, `is_rejectable_term`, `resolve_law_title` (exact-match
-only), `is_bidi_degraded` (M7).
-Tests: `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_derivation.py backend/tests/unit/test_definition_links_guards.py -v`
 
 **DL7 — M4 article-aware wiki ingestion.**
 `app/definition_links/ingest.py`: `ingest_wiki_law(session, *, repository_id,
@@ -166,6 +157,10 @@ Result: **none** — additive feature, no hits.
 - DL5 — Stage 3 term matching + article-linking:
   `app/definition_links/matcher.py` @ 507ce85;
   test_definition_links_matcher.py → 10 passed, 0 failed.
+- DL6 — Stage 4 cross-law derivation + Stage 5 guards + M7 bidi guard:
+  `app/definition_links/derivation.py`, `app/definition_links/guards.py`
+  @ 474e34d; test_definition_links_derivation.py +
+  test_definition_links_guards.py → 20 passed, 0 failed.
 
 ## Completed
 
