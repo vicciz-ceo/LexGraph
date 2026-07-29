@@ -6,13 +6,13 @@ branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:25:57Z
+last_updated: 2026-07-29T14:28:51Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 7
+dev_complete_items: 9
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -80,24 +80,6 @@ files; nothing in `app/enrich/` or existing routers is touched. RED tests for
 every item already exist and are committed — Developer's job is to make them
 pass without weakening any assertion.
 
-**DL7 — M4 article-aware wiki ingestion.**
-`app/definition_links/ingest.py`: `ingest_wiki_law(session, *, repository_id,
-matter_id, title, wiki_text) -> {"document_id", "article_ids",
-"source_span_ids"}`. Creates one `Document`, one `Article` + backing
-`SourceSpan` per parsed article (via DL3's `parse_articles`). Never imports
-the POC's `build_assertions_db` module.
-Tests: `backend/.venv/bin/pytest backend/tests/integration/test_definition_links_ingest.py -v`
-
-**DL8 — Persistence pipeline (orchestration, M2/M5/M7 end-to-end).**
-`app/definition_links/pipeline.py`: `run_definition_linking(session, *,
-matter_id, triggered_by_user_id) -> {"created_assertions", "created_definitions",
-"skipped_degraded_article_ids"}`. Reads Articles for the matter, runs
-Stages 0/2-5 per article, writes real `Definition` + `Assertion` rows
-(USES_DEFINITION conf ≥0.9; DERIVES_FROM_LAW conf ≥0.8 resolved, strictly
-lower unresolved). Idempotent re-run. `UnknownMatterError` for bad matter_id.
-Mirrors `app/enrich/pipeline.py::run_enrichment`'s shape/idempotency approach.
-Tests: `backend/.venv/bin/pytest backend/tests/integration/test_definition_links_pipeline_live.py -v`
-
 **DL9 — M6 CLI `link-definitions`.**
 `app/definition_links/cli.py`: `main(argv) -> int`, invoked as
 `python -m app.definition_links.cli --matter-id <id> --triggered-by-user-id
@@ -161,6 +143,10 @@ Result: **none** — additive feature, no hits.
   `app/definition_links/derivation.py`, `app/definition_links/guards.py`
   @ 474e34d; test_definition_links_derivation.py +
   test_definition_links_guards.py → 20 passed, 0 failed.
+- DL7 — M4 article-aware wiki ingestion: `app/definition_links/ingest.py`
+  @ 1799c8b; test_definition_links_ingest.py → 4 passed, 0 failed.
+- DL8 — Persistence pipeline: `app/definition_links/pipeline.py`
+  @ c0a102d; test_definition_links_pipeline_live.py → 8 passed, 0 failed.
 
 ## Completed
 
