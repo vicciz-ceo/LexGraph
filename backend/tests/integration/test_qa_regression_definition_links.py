@@ -71,6 +71,27 @@ for that cycle's `[QA-FAIL]` RED pin, not duplicated here):
   (`חוק הפיקוח על שירותים פיננסיים`), independently named in
   poc-run.md §8 Issue 3 as the OTHER law accounting for the bulk of the
   unresolved-derivation gap.
+
+QA cycle 4 (DL11 fix re-verify, commit e0ec9bb -- `claimed_spans` keyed
+by `article_index` instead of `article.number`):
+
+- DL11: a FRESH real-corpus duplicate-numbered-article law, found via a
+  full-corpus scan (cycle-3's pocrun2 scratch DB) for a document where
+  BOTH copies of a shared article number have POPULATED bodies with a
+  genuine, chapter-scoped shared term -- the exact gap DL11's own
+  Developer test (`test_definition_links_pipeline_duplicate_article_attribution.py`)
+  and cycle-3's RED-pin unit test cannot cover, since the former's second
+  duplicate is empty and the latter is synthetic. `תקנות שירות אזרחי
+  (גוף מפעיל).wiki:116,119` genuinely has two `@ 12.` markers in the same
+  chapter, both using the chapter-scoped term `"מבקש"` defined at `@ 11.`
+  Standalone verification (isolated copy of the pre-fix number-keyed
+  `claimed_spans` logic run against this exact fixture, not touching real
+  source) confirmed the real trigger: the short duplicate's sole match
+  (offset 2-7) and the long duplicate's first match (offset 6-10)
+  numerically overlap, so pre-fix, the shared `claimed_spans["12"]`
+  registry silently drops the long duplicate's first occurrence. Confirms
+  the fix on genuine (non-synthetic) corpus text, not just the
+  cycle-3 RED pin's constructed same-offset scenario.
 """
 
 from __future__ import annotations
@@ -388,3 +409,128 @@ def test_law_ref_paren_qualifier_resolves_a_fresh_corpus_target_law_not_used_in_
     assert len(edges) == 1
     assert edges[0].target_law_id == "law-pikuach-kupot-gemel-id"
     assert edges[0].target_law_name == "חוק הפיקוח על שירותים פיננסיים (קופות גמל)"
+
+
+# --- QA cycle 4: DL11 re-verify, a fresh real-corpus overlapping-offset ---
+# --- duplicate-numbered-article pair (claimed_spans keying, e0ec9bb) -----
+
+
+def test_run_definition_linking_does_not_cross_suppress_a_fresh_real_corpus_duplicate_numbered_law(
+    db_session, matter_with_users
+):
+    """Real corpus fixture (trimmed verbatim, `תקנות שירות אזרחי (גוף
+    מפעיל).wiki:106-131`) -- a document DL11's own Developer test and
+    cycle-3's RED-pin unit test never touched. Chapter `פרק ג׳: בקשות
+    לאישור גוף מפעיל` genuinely contains TWO `@ 12.` markers:
+
+        @ 12. הגשת בקשה לאישור גוף מפעיל (תיקון: תשע״ט)
+        : המבקש יגיש למנהל בקשה לפי הוראות [[פרק זה]].
+
+        @ 12. בקשת גוף שאינו רשות ציבורית לשמש גוף מפעיל (תיקון: תשע״ט)
+        : (א) מבקש שאינו רשות ציבורית יכלול בבקשתו את המידע ...
+
+    both scoped to the chapter-scoped definition of `"מבקש"` at `@ 11.`
+    ("[[בפרק זה]] - ... - ”מבקש” - גוף כאמור ... המבקש לשמש גוף מפעיל").
+    Unlike DL11's own fixture (`צו איסור הלבנת הון
+    ..._excerpt.wiki`, whose second "17" duplicate mis-parses to an EMPTY
+    body and so can never reach the `claimed_spans` overlap check at all)
+    both duplicates here have real, independent, non-empty bodies -- the
+    precise gap the cycle-3 `[QA-FAIL]` RED pin's docstring names as
+    "distinct from DL11's own duplicate-article test".
+
+    Standalone verification against an ISOLATED copy of the pre-fix
+    `claimed_spans.setdefault(article.number, [])` logic (not the real
+    module -- confirmed before writing this test, not merely asserted)
+    showed this exact real text DOES trigger the bug mechanism: the short
+    duplicate's sole "מבקש" match sits at char offset 2-7 of its own body;
+    the long duplicate's FIRST "מבקש" match sits at offset 6-10 of ITS
+    OWN, entirely different body. Because pre-fix both duplicates share
+    one `claimed_spans["12"]` list, the long duplicate's first match
+    numerically overlaps the short duplicate's already-claimed (2, 7) span
+    and gets silently dropped -- even though the two spans belong to two
+    unrelated bodies. Confirms the `article_index`-keyed fix (e0ec9bb)
+    holds on genuine, real, non-synthetic corpus text.
+    """
+    from sqlalchemy import select
+
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.article import Article
+    from app.models.assertion import Assertion
+    from app.models.source_span import SourceSpan
+
+    m = matter_with_users
+    fixture_path = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "wiki_laws"
+        / "תקנות שירות אזרחי (גוף מפעיל)_excerpt.wiki"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="תקנות שירות אזרחי (גוף מפעיל), התשע״ח–2018",
+        wiki_text=fixture_path.read_text(encoding="utf-8"),
+    )
+
+    # Sanity-check the reproduction shape: two Article rows really do
+    # share number "12", both with real (non-empty) bodies -- the
+    # opposite of DL11's own empty-duplicate fixture.
+    duplicate_rows = (
+        db_session.execute(
+            select(Article).where(Article.matter_id == m["matter_id"], Article.number == "12")
+        )
+        .scalars()
+        .all()
+    )
+    assert len(duplicate_rows) == 2
+    spans_by_article = {a.id: db_session.get(SourceSpan, a.source_span_id) for a in duplicate_rows}
+    assert all(spans_by_article[a.id].quote_text.strip() for a in duplicate_rows)
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    uses_edges = [
+        a
+        for a in result["created_assertions"]
+        if a["assertion_type"] == "USES_DEFINITION" and '"מבקש"' in a["proposition"]
+    ]
+
+    # Both duplicate-numbered "12" articles must be cited as the subject
+    # of their OWN "מבקש" edge -- no cross-suppression across the shared
+    # number, and each cited article's own span genuinely contains the
+    # term (not misattributed to the other duplicate's body).
+    cited_article_ids = set()
+    for edge in uses_edges:
+        row = db_session.get(Assertion, edge["id"])
+        cited_article_ids.add(row.subject_entity_id)
+        cited_article = db_session.get(Article, row.subject_entity_id)
+        cited_span = db_session.get(SourceSpan, cited_article.source_span_id)
+        assert "מבקש" in cited_span.quote_text
+
+    duplicate_ids = {a.id for a in duplicate_rows}
+    assert duplicate_ids <= cited_article_ids, (
+        "expected BOTH duplicate-numbered '12' articles to receive their "
+        "own USES_DEFINITION edge for 'מבקש'; a number-keyed claimed_spans "
+        "registry would silently drop one via cross-body offset overlap"
+    )
+
+    # Determinism (M9(a)'s existing invariant, re-checked after the
+    # cycle-4 fix): a second pass over unchanged articles creates nothing
+    # new and leaves the persisted assertion set unchanged.
+    before_keys = {
+        (row.assertion_type, row.subject_entity_id, row.object_entity_id, row.proposition)
+        for row in db_session.query(Assertion).filter(Assertion.matter_id == m["matter_id"]).all()
+    }
+    rerun_result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    assert rerun_result["created_assertions"] == []
+    assert rerun_result["created_definitions"] == []
+    after_keys = {
+        (row.assertion_type, row.subject_entity_id, row.object_entity_id, row.proposition)
+        for row in db_session.query(Assertion).filter(Assertion.matter_id == m["matter_id"]).all()
+    }
+    assert after_keys == before_keys
