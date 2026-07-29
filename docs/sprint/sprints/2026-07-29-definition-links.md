@@ -1,12 +1,12 @@
 ---
 id: "2026-07-29-definition-links"
-status: review
+status: planning
 current_role: planner
 branch: sprint/2026-07-29-definition-links
-locked_by: null
-locked_at: null
+locked_by: "claude-code:planner"
+locked_at: 2026-07-29T17:30:55Z
 last_agent: "claude-code:manager"
-last_updated: 2026-07-29T15:01:35Z
+last_updated: 2026-07-29T17:30:55Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
@@ -41,6 +41,15 @@ gates reported to director.
 - G3: POC learnings from AI-for-others are reflected in the repo (data model
   / parsing conventions), with the specifics enumerated by recon.
 - G4: Full evaluator (backend pytest + frontend vitest) green.
+- G5 (POC finding 1): a USES_DEFINITION link's cited article is the article
+  where the match actually occurred, even when a document reuses the same
+  article number (no cross-attribution; the money-laundering-order dual
+  "17" case resolves to the article containing the text).
+- G6 (POC finding 2): definitions whose body is only a repeal marker
+  ((נמחקה) etc.) produce no Definition rows and no links.
+- G7 (POC finding 3): cross-law derivations resolve when the target law's
+  official title carries a parenthetical qualifier, and trailing sentence
+  punctuation never blocks resolution.
 
 ## Manager rulings
 
@@ -71,11 +80,24 @@ gates reported to director.
   app/mcp/server.py:39). Ruled: minimal pin `mcp>=1.0,<2.0` as item DL10;
   mcp 2.x migration deferred to a future sprint. Supersedes Planner chip
   task_ad884976.
+- M9 (re-open, director-approved "fix then merge" 2026-07-29): sprint
+  re-opened for the 3 POC-verified findings (see
+  2026-07-29-definition-links-poc-run.md §8+§12). Fix directions: (a)
+  Issue 1 — attribution by article IDENTITY, not number: additive
+  `article_index` on the matcher edge; pipeline maps by index; number kept
+  as provenance only. (b) Issue 2 — extraction rejects candidates whose
+  normalized body is solely a parenthesized repeal marker (only forms
+  observed in corpus, e.g. נמחקה/נמחק/בוטלה/בוטל inflections). (c) Issue 3
+  — `_LAW_REF_RE` allows one balanced parenthetical in the law name and
+  strips trailing sentence punctuation before title matching; the greedy
+  trailing-clause swallow (spot-check U2) is fixed only if achievable by a
+  deterministic boundary rule, else documented as known-remaining. New
+  gates G5-G7; determinism and existing green tests preserved.
 
 ## Next Steps
 
-(empty — all 10 items PASS as of QA cycle 2. Full QA-FAIL rationale for the
-cycle-1 DL8 bounce: see 2026-07-29-definition-links-log.md.)
+(Re-opened under M9 — Planner to define DL11-DL13 from the POC findings
+report, gates G5-G7, with RED tests. Items DL1-DL10 remain Completed.)
 
 ## Stale-pin sweep
 
