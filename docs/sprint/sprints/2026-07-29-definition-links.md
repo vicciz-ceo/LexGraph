@@ -1,19 +1,19 @@
 ---
 id: "2026-07-29-definition-links"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:qa"
 locked_at: 2026-07-29T14:51:16Z
-last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:51:16Z
+last_agent: "claude-code:qa"
+last_updated: 2026-07-29T14:56:28Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
-completed_items: 9
-dev_complete_items: 1
-qa_cycles: 1
+completed_items: 10
+dev_complete_items: 0
+qa_cycles: 2
 prd_sections: []
 design_sections: []
 ---
@@ -74,8 +74,8 @@ gates reported to director.
 
 ## Next Steps
 
-(empty — DL8 fix cycle complete; awaiting QA cycle 2. Full QA-FAIL rationale
-for the bounced DL8: see 2026-07-29-definition-links-log.md.)
+(empty — all 10 items PASS as of QA cycle 2. Full QA-FAIL rationale for the
+cycle-1 DL8 bounce: see 2026-07-29-definition-links-log.md.)
 
 ## Stale-pin sweep
 
@@ -107,10 +107,7 @@ Result: **none** — additive feature, no hits.
 
 ## Dev Complete
 
-- DL8 — Persistence pipeline (fix, cycle 2): app/definition_links/pipeline.py
-  @ 2f27703 — deterministic `proposition` added to BOTH identity-key
-  constructions (manager ruling, log 14:49Z); formerly-RED QA pin now green;
-  dev full backend run 384 passed; manager re-ran 18 scoped tests green.
+(empty — DL8 moved to Completed, QA cycle 2.)
 
 ## Completed
 
@@ -158,6 +155,12 @@ Result: **none** — additive feature, no hits.
   (QA-reverified). Live-path (c) confirmed: `ingest_wiki_law` persists
   real `Article`+`SourceSpan` ORM rows that `pipeline.py` subsequently
   reads via `select(Article)...`/`session.get(SourceSpan, ...)`. PASS.
+- DL8 — Persistence pipeline idempotency-key fix (cycle 2 QA-reverified):
+  `app/definition_links/pipeline.py` @ 2f27703. PASS — cycle-1 RED pin green.
+  E2E probe: `חוק הגנת הפרטיות_excerpt.wiki` line 17's 3-term clause now
+  persists 3 DERIVES_FROM_LAW edges (one per term, all → `חוק המחשבים`),
+  idempotent under the new key (rerun: 0 new rows). Regression:
+  `test_three_term_shared_derivation_clause_persists_three_resolved_edges`.
 - DL9 — M6 CLI `link-definitions`: `app/definition_links/cli.py` @ 7cf2fe6;
   test_definition_links_cli.py + test_definition_links_no_network_dependencies.py
   → 5 passed, 0 failed (QA-reverified). Live-path (a) confirmed by source
@@ -251,6 +254,31 @@ signatures, return shapes) in the RED tests was implementable as written.
   `pipeline.py` — only `is_bidi_degraded` is wired into the live path.
   Deviations: none beyond the DL8 bounce. Escalations: none.
   Status set: qa-fail, current_role: developer, qa_cycles: 1.
+- **2026-07-29T14:56:28Z QA cycle 2 (sonnet/high), DL8 re-verify only.**
+  HEAD confirmed at 37208f7. Independent full evaluator (own numbers):
+  `backend/.venv/bin/pytest backend/tests -v` → 384 passed, 0 failed;
+  `npm --prefix frontend run test -- --run` → 62 passed (11 files), 0
+  failed. No flakes.
+  Commit 2f27703 confirmed: diff touches only `pipeline.py`, 2 lines
+  added (deterministic `proposition` in both identity-key constructions).
+  Cycle-1 RED pin (`test_definition_links_pipeline_dual_unresolved_derivation.py`)
+  now green. E2E probe on real vendored fixtures: ingested
+  `חוק המחשבים_stub.wiki` + `חוק הגנת הפרטיות_excerpt.wiki` into one
+  matter — the 3-term shared clause at line 17 ("חומר מחשב"/"מחשב"/"פלט"
+  כהגדרתם [[בחוק המחשבים]]) now persists exactly 3 `DERIVES_FROM_LAW`
+  assertions, one per term, each naming its term and each resolving
+  (`object_entity_type="Document"`) to the ingested `חוק המחשבים` row —
+  confirms the cycle-1-corroborated resolved-target collapse is fixed.
+  Idempotency: a second pipeline run over the same matter created 0 new
+  assertions/definitions; persisted `(assertion_type, subject_entity_id,
+  object_entity_id, proposition)` key sets identical across both runs.
+  **DL8 PASS.** Regression test added:
+  `test_three_term_shared_derivation_clause_persists_three_resolved_edges`
+  in `test_qa_regression_definition_links.py` @ 69b1be6; full backend
+  suite re-run with it included → 385 passed, 0 failed.
+  DL8 moved Dev Complete → Completed (all 10 items now Completed).
+  Deviations: none. Escalations: none.
+  Status set: review, current_role: planner, qa_cycles: 2.
 
 ## Context Dump
 
