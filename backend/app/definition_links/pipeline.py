@@ -196,6 +196,7 @@ def run_definition_linking(
             a.subject_entity_id,
             a.object_entity_type,
             a.object_entity_id,
+            a.proposition,
         )
         for a in existing_assertions
     }
@@ -209,6 +210,7 @@ def run_definition_linking(
             fields["subject_entity_id"],
             fields.get("object_entity_type"),
             fields.get("object_entity_id"),
+            fields["proposition"],
         )
         if key in existing_keys:
             return
