@@ -7,6 +7,8 @@ the agent roster. See the contract for working state.
 
 (manager appends `role → agentId` at every spawn)
 
+- planner → a12946da74e338fd7 (Sonnet high; reported 2026-07-29T~18:15Z, handoff accepted)
+
 ## Planner pass — 2026-07-29
 
 Summary (≤10 lines): Installed `mcp==2.0.0` into `backend/.venv` and probed it

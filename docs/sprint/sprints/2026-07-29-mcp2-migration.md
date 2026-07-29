@@ -3,10 +3,10 @@ id: "2026-07-29-mcp2-migration"
 status: planned
 current_role: developer
 branch: sprint/2026-07-29-mcp2-migration
-locked_by: "claude-code:planner"
-locked_at: "2026-07-29T18:02:43Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-29T18:20:17Z"
 last_agent: "claude-code:planner"
-last_updated: "2026-07-29T18:14:58Z"
+last_updated: "2026-07-29T18:20:17Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
