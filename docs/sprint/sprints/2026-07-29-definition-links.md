@@ -3,14 +3,14 @@ id: "2026-07-29-definition-links"
 status: planned
 current_role: developer
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:planner"
-locked_at: 2026-07-29T13:24:00Z
+locked_by: "claude-code:developer"
+locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:planner"
 last_updated: 2026-07-29T13:53:29Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
-total_items: 9
+total_items: 10
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -66,6 +66,11 @@ gates reported to director.
   optional stretch; NO frontend UI this sprint.
 - M7 (degraded text): bidi-sanity guard required at linker input; degraded
   files are flagged + skipped, never auto-corrected.
+- M8 (env repair): `mcp>=1.0` resolves to 2.0.0 which removed
+  `mcp.server.fastmcp`, breaking 6 pre-existing tests (manager-verified at
+  app/mcp/server.py:39). Ruled: minimal pin `mcp>=1.0,<2.0` as item DL10;
+  mcp 2.x migration deferred to a future sprint. Supersedes Planner chip
+  task_ad884976.
 
 ## Next Steps
 
@@ -157,6 +162,16 @@ optional stretch, explicitly skipped; no frontend UI per M6).
 Tests: `backend/.venv/bin/pytest backend/tests/integration/test_definition_links_cli.py -v`
 Cross-cutting (satisfied only once the whole package exists):
 `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_no_network_dependencies.py -v`
+
+**DL10 — mcp dependency pin repair (M8; runs BEFORE DL1-DL9).**
+`backend/pyproject.toml`: change `"mcp>=1.0"` → `"mcp>=1.0,<2.0"`, then
+`cd backend && .venv/bin/pip install -e '.[dev]'`. Touch NOTHING else.
+RED set (pre-existing, already committed): the 6 tests currently failing on
+`ModuleNotFoundError: mcp.server.fastmcp` (2x test_mcp_search_fetch_tools,
+2x test_mcp_tools_live, 1x test_qa_regression_local_first_platform mcp case,
+1x test_no_network_dependencies mcp import case).
+Acceptance: `backend/.venv/bin/pytest backend/tests -k "mcp" -q` → 6 pass,
+1 deselected-pass unchanged; diff touches only backend/pyproject.toml.
 
 Run the whole track together once DL1-DL9 land:
 `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_*.py backend/tests/integration/test_definition_links_*.py -v`
