@@ -84,6 +84,13 @@ class ArticleUsesTermEdge:
     term: str
     matched_surface_form: str
     char_offset: int
+    # DL11 (cycle 2, G5, ruling M9(a)): the POSITION of the matched article
+    # within the `articles` list passed to `link_articles_to_definitions`.
+    # `.article_number` is kept as a provenance field only -- attribution
+    # back to a real article must go through `.article_index`, since a
+    # document's wiki source can contain more than one `@ N.` marker sharing
+    # the same `N` (poc-run.md §8 Issue 1).
+    article_index: int
 
 
 def _is_own_defining_entry(text: str, start: int, end: int) -> bool:
@@ -120,7 +127,7 @@ def link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermE
     edges: list[ArticleUsesTermEdge] = []
 
     for definition, term in pairs:
-        for article in articles:
+        for article_index, article in enumerate(articles):
             if not _in_scope(definition, article):
                 continue
             spans = claimed_spans.setdefault(article.number, [])
@@ -134,6 +141,7 @@ def link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermE
                 edges.append(
                     ArticleUsesTermEdge(
                         article_number=article.number,
+                        article_index=article_index,
                         term=term,
                         matched_surface_form=match.group(0),
                         char_offset=start,

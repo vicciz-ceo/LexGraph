@@ -236,6 +236,14 @@ behavior-preserving for every existing pinned scenario:
 
 ## Dev Complete
 
+- DL11 — attribution by article identity (G5, ruling M9(a)). Additive
+  `article_index: int` on `ArticleUsesTermEdge` (`matcher.py`, set via
+  `enumerate(articles)`); `pipeline.py` resolves `using_article` via
+  `doc_articles[edge.article_index][0]` instead of a `{number: article}`
+  dict, `.article_number` kept as provenance only. Probe: 13 passed
+  (2 matcher unit + 1 pipeline integration). Files: `matcher.py`,
+  `pipeline.py`.
+
 ## Completed
 
 - DL10 — mcp<2.0 pin (M8) @ 821a597. Probe: `-k "mcp"` 7 passed; RED

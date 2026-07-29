@@ -273,13 +273,21 @@ def run_definition_linking(
         for candidate, definition_row in doc_candidates:
             for term in candidate.terms:
                 term_to_definition[term] = definition_row
-        number_to_article = {art.number: art for art, _ in doc_articles}
         matcher_arts = [matcher_article for _, matcher_article in doc_articles]
 
         edges = link_articles_to_definitions([c for c, _ in doc_candidates], matcher_arts)
         for edge in edges:
             definition_row = term_to_definition.get(edge.term)
-            using_article = number_to_article.get(edge.article_number)
+            # DL11 (cycle 2, G5, ruling M9(a)): resolve by the edge's
+            # POSITION within `doc_articles`, not by a `{number: article}`
+            # dict -- a document can contain more than one `@ N.` marker
+            # sharing the same `N` (poc-run.md §8 Issue 1), so a number-keyed
+            # lookup can silently misattribute to the wrong duplicate.
+            using_article = (
+                doc_articles[edge.article_index][0]
+                if 0 <= edge.article_index < len(doc_articles)
+                else None
+            )
             if definition_row is None or using_article is None:
                 continue
             _create_assertion(
