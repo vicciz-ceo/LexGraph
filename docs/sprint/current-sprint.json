@@ -10,7 +10,7 @@
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 10,
   "completed_items": 0,
-  "dev_complete_items": 0,
+  "dev_complete_items": 1,
   "qa_cycles": 0,
   "previous_sprint": "2026-07-26-local-first-platform",
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"

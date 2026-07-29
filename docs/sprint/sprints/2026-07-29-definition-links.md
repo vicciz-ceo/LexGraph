@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -163,16 +163,6 @@ Tests: `backend/.venv/bin/pytest backend/tests/integration/test_definition_links
 Cross-cutting (satisfied only once the whole package exists):
 `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_no_network_dependencies.py -v`
 
-**DL10 — mcp dependency pin repair (M8; runs BEFORE DL1-DL9).**
-`backend/pyproject.toml`: change `"mcp>=1.0"` → `"mcp>=1.0,<2.0"`, then
-`cd backend && .venv/bin/pip install -e '.[dev]'`. Touch NOTHING else.
-RED set (pre-existing, already committed): the 6 tests currently failing on
-`ModuleNotFoundError: mcp.server.fastmcp` (2x test_mcp_search_fetch_tools,
-2x test_mcp_tools_live, 1x test_qa_regression_local_first_platform mcp case,
-1x test_no_network_dependencies mcp import case).
-Acceptance: `backend/.venv/bin/pytest backend/tests -k "mcp" -q` → 6 pass,
-1 deselected-pass unchanged; diff touches only backend/pyproject.toml.
-
 Run the whole track together once DL1-DL9 land:
 `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_*.py backend/tests/integration/test_definition_links_*.py -v`
 
@@ -205,6 +195,9 @@ Result: **none** — additive feature, no hits.
   `seed_definition`) — additive, no existing helper signature changed.
 
 ## Dev Complete
+
+- DL10 — mcp pin repair (M8): backend/pyproject.toml @ 821a597; `-k "mcp"` →
+  7 passed, 0 failed (manager-verified probe). mcp 2.0.0 → 1.29.0.
 
 ## Completed
 
