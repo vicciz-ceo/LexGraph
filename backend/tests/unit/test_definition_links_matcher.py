@@ -296,3 +296,59 @@ def test_link_articles_to_definitions_attributes_duplicate_numbered_articles_by_
     # contains the match) -- never index 1 (the empty duplicate), even
     # though both share the same `.article_number`.
     assert {e.article_index for e in edges} == {0}
+
+
+# --- QA cycle-3 manager-flagged probe (same G5 family as DL11, distinct
+# mechanism): `claimed_spans` is still keyed by `article.number`, not
+# `article_index` ---
+
+
+def test_link_articles_to_definitions_does_not_cross_suppress_duplicate_numbered_articles_with_overlapping_offsets():
+    """DL11 fixed WHICH article an edge is attributed to (`.article_index`
+    instead of a `{number: article}` dict), but `link_articles_to_definitions`
+    still builds `claimed_spans` keyed by `article.number`
+    (`claimed_spans.setdefault(article.number, [])`). When TWO articles
+    share a number and BOTH have their own, independent, genuine use of the
+    same defined term at the SAME character offset within their own body
+    (a realistic coincidence -- e.g. near-identical boilerplate opening
+    clauses in a schedule that reuses a marker number), the shared registry
+    treats the second article's match as if it were an overlapping span in
+    the FIRST article's body and silently drops it.
+
+    Per the review doc's Stage 3 spec ("Longest-match-wins": overlap
+    claiming is per-article-body -- a span can only be "claimed" against
+    other spans within the SAME body), longest-match-wins must never
+    reach across two different articles' bodies just because they happen
+    to share a `.number`. Each duplicate-numbered article's body is its
+    own independent offset space; BOTH articles must get their own
+    USES_DEFINITION edge (`article_index` 0 AND 1), not just the first.
+
+    Pre-fix (RED): `claimed_spans["17"]` records article 0's match first;
+    when article 1 (a DIFFERENT body, unrelated to article 0's text) is
+    processed, its identical-offset match is wrongly treated as
+    overlapping article 0's already-claimed span and is suppressed --
+    only 1 edge is produced instead of 2.
+    """
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    term = "פעולה"
+    # Deliberately identical prefix length in both bodies so the term
+    # lands at the SAME char_offset in each article's own body -- this is
+    # what a number-keyed (rather than article-keyed) claimed_spans
+    # registry confuses for a same-body overlap.
+    prefix = "לעניין סעיף זה, "
+    body_a = prefix + term + " ראשונה שבוצעה על ידי המבקש."
+    body_b = prefix + term + " שניה ונפרדת שבוצעה על ידי הנתבע."
+    assert body_a.find(term) == body_b.find(term)  # sanity: same offset
+
+    article_a = _Article(number="17", heading="סעיף א", body=body_a)
+    article_b = _Article(number="17", heading="סעיף ב", body=body_b)
+    definition = _DefinitionCandidate(terms=(term,), definition_text="...", scope="law-wide")
+
+    edges = link_articles_to_definitions([definition], [article_a, article_b])
+
+    # Both duplicate-numbered articles have their OWN genuine, non-
+    # overlapping-within-their-own-body use of the term -- both must be
+    # linked, independently, via their own article_index.
+    assert {e.article_index for e in edges} == {0, 1}
+    assert len(edges) == 2
