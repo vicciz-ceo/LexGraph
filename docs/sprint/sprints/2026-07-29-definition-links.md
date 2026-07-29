@@ -6,13 +6,13 @@ branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:23:00Z
+last_updated: 2026-07-29T14:24:42Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 4
+dev_complete_items: 6
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -79,25 +79,6 @@ lives under `backend/app/definition_links/` (new package) plus two new model
 files; nothing in `app/enrich/` or existing routers is touched. RED tests for
 every item already exist and are committed — Developer's job is to make them
 pass without weakening any assertion.
-
-**DL4 — Stage 2 term/definition extraction.**
-`app/definition_links/extract.py`: `DefinitionCandidate` dataclass (terms,
-definition_text, scope, qualifier, parent_term, source_article_number,
-source_chapter — last two left `None` here, filled by pipeline.py).
-`extract_definitions_from_section(text, *, scope)`,
-`extract_local_definitions(article_body)`, `extract_adhoc_definitions(text)`.
-Handles multi-term, qualifier-before-dash, list-form (no `;` trap — see
-test's "עובד הציבור" case), nested sub-definitions, ad-hoc `(להלן - X)`.
-Tests: `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_extract.py -v`
-
-**DL5 — Stage 3 term matching + article-linking.**
-`app/definition_links/matcher.py`: `find_term_uses(term, text) ->
-list[re.Match]` (closed inflection candidate set incl. prefix letters as
-part of the match span, manual boundary check, not `\b`).
-`link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermEdge]`
-— longest-match-wins, excludes the term's own defining entry, enforces
-chapter/local scope via `source_chapter`/`source_article_number`.
-Tests: `backend/.venv/bin/pytest backend/tests/unit/test_definition_links_matcher.py -v`
 
 **DL6 — Stage 4 cross-law derivation + Stage 5 guards + M7 bidi guard.**
 `app/definition_links/derivation.py`: `TRIGGER_PHRASES`,
@@ -180,6 +161,11 @@ Result: **none** — additive feature, no hits.
   @ 3f9b347; test_definition_links_normalize.py → 11 passed, 0 failed.
 - DL3 — Stage 1 article/section parsing: `app/definition_links/sections.py`
   @ 99e2992; test_definition_links_sections.py → 8 passed, 0 failed.
+- DL4 — Stage 2 term/definition extraction: `app/definition_links/extract.py`
+  @ 7be404b; test_definition_links_extract.py → 10 passed, 0 failed.
+- DL5 — Stage 3 term matching + article-linking:
+  `app/definition_links/matcher.py` @ 507ce85;
+  test_definition_links_matcher.py → 10 passed, 0 failed.
 
 ## Completed
 
