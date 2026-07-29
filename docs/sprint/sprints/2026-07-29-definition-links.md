@@ -1,18 +1,18 @@
 ---
 id: "2026-07-29-definition-links"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-29-definition-links
-locked_by: "claude-code:developer"
-locked_at: 2026-07-29T14:49:02Z
-last_agent: "claude-code:qa"
-last_updated: 2026-07-29T15:10:00Z
+locked_by: "claude-code:qa"
+locked_at: 2026-07-29T14:51:16Z
+last_agent: "claude-code:developer"
+last_updated: 2026-07-29T14:51:16Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 9
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 1
 prd_sections: []
 design_sections: []
@@ -74,34 +74,8 @@ gates reported to director.
 
 ## Next Steps
 
-- **DL8 — Persistence pipeline: `[QA-FAIL]` bounced back to Developer**
-  (qa_cycles: 1). Manager-flagged edge (sprint log line 14, verified by
-  QA): `run_definition_linking`'s idempotency de-dup key —
-  `(assertion_type, subject_entity_type, subject_entity_id,
-  object_entity_type, object_entity_id)` in `_create_assertion` — does
-  not include the derivation's term/trigger/matched-text. For an
-  UNRESOLVED `DERIVES_FROM_LAW` edge, `object_entity_type`/`object_id`
-  are always `(None, None)`, and `subject_entity_id` is the same
-  `Definition` row for every derivation detected in that definition's
-  own body. Result: TWO independently-unresolved cross-law derivations
-  in ONE definition body collapse to ONE persisted assertion instead of
-  two — contradicts the review doc's Stage 4 worked example ("3 terms
-  ... one law_derives_definition edge PER TERM to חוק המחשבים").
-  Corroborated live against the real vendored corpus (not just a
-  synthetic case): `חוק הגנת הפרטיות_excerpt.wiki` line 17 defines 3
-  terms (`חומר מחשב`, `מחשב`, `פלט`) sharing one derivation clause to
-  the (resolved, ingested) `חוק המחשבים` — only ONE `DERIVES_FROM_LAW`
-  assertion is persisted for that Definition, not 3, for the identical
-  reason (same collapse, resolved-target variant).
-  RED test committed (never weakened, asserts the SPEC'D 2-edge
-  outcome): `backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py::test_two_distinct_unresolved_cross_law_derivations_in_one_definition_both_emit_edges`
-  — run it directly: `backend/.venv/bin/pytest
-  backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py -v`
-  (currently 1 failed, by design — proves the collapse, not a flip-to-red
-  trap). Fix belongs in `app/definition_links/pipeline.py`'s
-  `_create_assertion` idempotency key (needs a per-edge-distinguishing
-  component, e.g. `source_term`/`matched_text`, for `DERIVES_FROM_LAW`
-  specifically) — implementation file, out of QA's write-scope.
+(empty — DL8 fix cycle complete; awaiting QA cycle 2. Full QA-FAIL rationale
+for the bounced DL8: see 2026-07-29-definition-links-log.md.)
 
 ## Stale-pin sweep
 
@@ -133,8 +107,10 @@ Result: **none** — additive feature, no hits.
 
 ## Dev Complete
 
-(empty — QA cycle 1 resolved every item: 9 moved to Completed, DL8 bounced
-back to Next Steps above.)
+- DL8 — Persistence pipeline (fix, cycle 2): app/definition_links/pipeline.py
+  @ 2f27703 — deterministic `proposition` added to BOTH identity-key
+  constructions (manager ruling, log 14:49Z); formerly-RED QA pin now green;
+  dev full backend run 384 passed; manager re-ran 18 scoped tests green.
 
 ## Completed
 

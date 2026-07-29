@@ -16,3 +16,20 @@ Append-only overflow sink. Never auto-loaded.
 - 2026-07-29T15:10Z qa → this agent (sonnet/high) — DONE. 9/10 items PASS (DL1-DL7, DL9, DL10), moved to Completed. DL8 `[QA-FAIL]`: confirmed the roster's own flag above — dual-unresolved cross-law derivation collapse in `pipeline.py`'s idempotency key; RED integration test committed, DL8 bounced to Next Steps. qa_cycles: 1, status: qa-fail, current_role: developer.
 - 2026-07-29T14:49Z manager qa-fail gates: QA containment PASS (2 test files + contract docs only); RED provenance verified by manager run (1 failed by design); pin-collision pre-check PASS — QA regression pins structural, and the `len(derives_edges)==1` Planner pin probed safe (fixture yields exactly 1 clause). Fix ruling: add deterministic `proposition` to BOTH identity-key constructions in `_create_assertion`/`existing_keys` (pipeline.py) — distinguishes per-edge, preserves rerun idempotency, also fixes QA's corroborated resolved-target 3-term variant.
 - 2026-07-29T14:49Z DL8-fix developer (pending spawn) → haiku/low; Haiku considered: yes — QA-fail mechanical fix row: single surface (pipeline.py, one function), fully specified by manager ruling, RED committed @ b64d26e; fresh spawn, never a resume-down.
+- 2026-07-29T14:50Z DL8-fix developer → agent af25788bd8733c764 (haiku/low) — DONE @ 2f27703 (2 lines, exactly as ruled); manager checks: diff exact, RED pin green, 18 scoped tests green.
+
+## DL8 QA-FAIL rationale (cycle 1, moved from contract Next Steps at fix time)
+
+`run_definition_linking`'s idempotency de-dup key `(assertion_type,
+subject_entity_type, subject_entity_id, object_entity_type,
+object_entity_id)` omitted any per-edge component. For UNRESOLVED
+DERIVES_FROM_LAW edges object is always (None, None) and the subject is the
+same Definition row, so two independently-unresolved cross-law derivations in
+one definition body collapsed to ONE persisted assertion — contradicting the
+review doc's Stage 4 worked example (one edge PER TERM). Corroborated on the
+real corpus: חוק הגנת הפרטיות_excerpt line 17 (3 terms sharing one derivation
+clause to the ingested חוק המחשבים) persisted 1 assertion instead of 3 —
+same collapse, resolved-target variant. RED pin:
+backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py
+(committed @ b64d26e, asserts the SPEC'D 2-edge outcome). Fixed @ 2f27703 by
+adding the deterministic proposition to both identity-key constructions.
