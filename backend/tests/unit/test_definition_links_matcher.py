@@ -23,6 +23,18 @@ Public API pinned:
 `ArticleUsesTermEdge` exposes at least `.article_number`, `.term`,
 `.matched_surface_form`, `.char_offset`.
 
+Sprint 2026-07-29-definition-links, cycle 2, item DL11 (G5, ruling M9(a)):
+`ArticleUsesTermEdge` additionally carries `.article_index` (int) -- the
+POSITION of the article within the `articles` list passed into
+`link_articles_to_definitions`, NOT a lookup by `.article_number`. This is
+the fix for poc-run.md §8 Issue 1: a document whose wiki source contains
+more than one `@ N.` marker with the same `N` (schedules/appendices reusing
+the marker syntax) previously collapsed via a plain `{number: article}`
+dict in `pipeline.py`, silently misattributing a match found in one
+duplicate-numbered article to a DIFFERENT article sharing the same number.
+`.article_number` is kept as a PROVENANCE field only -- identity/attribution
+must go through `.article_index`.
+
 `DefinitionCandidate` additionally carries two PROVENANCE fields that
 `extract_definitions_from_section`/`extract_local_definitions` themselves
 leave as `None` (they only see one article body's text, not which article or
@@ -237,3 +249,50 @@ def test_find_term_uses_is_deterministic_across_repeated_calls():
     first = [(m.group(0), m.start()) for m in find_term_uses("מאגר מידע", text)]
     second = [(m.group(0), m.start()) for m in find_term_uses("מאגר מידע", text)]
     assert first == second
+
+
+# --- DL11 (cycle 2, G5, ruling M9(a)) -- attribution by article IDENTITY ---
+
+
+def test_article_uses_term_edge_carries_an_article_index_field():
+    """Additive field: `.article_index` is the POSITION of the matched
+    article within the `articles` list, independent of `.article_number`."""
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    article = _Article(number="8", heading="שימוש", body="נעשה שימוש במונח נכס כאן.")
+    definition = _DefinitionCandidate(terms=("נכס",), definition_text="...", scope="law-wide")
+
+    edges = link_articles_to_definitions([definition], [article])
+    assert len(edges) == 1
+    assert edges[0].article_index == 0
+    assert edges[0].article_number == "8"  # provenance -- still present, unchanged
+
+
+def test_link_articles_to_definitions_attributes_duplicate_numbered_articles_by_position_not_number():
+    """poc-run.md §8 Issue 1's exact reproduction shape: a document whose
+    wiki source has TWO `@ 17.` markers (e.g. the real article, then a
+    later schedule/appendix list reusing the same number). Both articles
+    passed to `link_articles_to_definitions` share `article_number == "17"`
+    -- only the FIRST (index 0 here) actually contains the matched text; the
+    SECOND (index 1) is an unrelated body that must get its own, distinct
+    `.article_index`, never collapse onto the first via a number-keyed
+    lookup."""
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    real_article = _Article(
+        number="17", heading="ניהול רישומים ושמירתם",
+        body="פרטי כל פעולה כספית שבוצעה יישמרו, לרבות תאריך ביצוע הפעולה.",
+    )
+    duplicate_article = _Article(
+        number="17", heading=": פעולה של ארגון שאינו למטרת רווח", body="",
+    )
+    definition = _DefinitionCandidate(terms=("פעולה",), definition_text="...", scope="law-wide")
+
+    edges = link_articles_to_definitions([definition], [real_article, duplicate_article])
+
+    assert len(edges) >= 1
+    assert all(e.article_number == "17" for e in edges)
+    # Every edge must resolve to index 0 (the article whose body genuinely
+    # contains the match) -- never index 1 (the empty duplicate), even
+    # though both share the same `.article_number`.
+    assert {e.article_index for e in edges} == {0}
