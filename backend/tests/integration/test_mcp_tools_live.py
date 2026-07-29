@@ -1,12 +1,14 @@
 """Track C, item C1 — LexGraph MCP stdio server: explore tool, no network
 (gate G7, ruling R6: official `mcp` Python SDK).
 
-`app.mcp.server` does not exist yet -- ModuleNotFoundError is the expected
-RED signal. `create_server(session_factory)` must return a real
-`mcp.server.fastmcp.FastMCP` instance with an `explore` tool registered;
-this test invokes it through the SDK's own `call_tool` dispatch (the real
-registered handler), not a hand-written stand-in, against a local SQLite DB
-seeded via the existing API -- no network I/O anywhere in the call.
+`create_server(session_factory)` must return a real server instance built
+on the official `mcp` Python SDK's high-level server API (`FastMCP` under
+mcp 1.x; `mcp.server.mcpserver.MCPServer` under mcp 2.x -- the class was
+renamed upstream, not reimplemented here) with an `explore` tool
+registered; this test invokes it through the SDK's own `call_tool`/
+`list_tools` dispatch (the real registered handler), not a hand-written
+stand-in, against a local SQLite DB seeded via the existing API -- no
+network I/O anywhere in the call.
 """
 
 from __future__ import annotations
@@ -17,16 +19,24 @@ from tests.conftest import assertion_payload
 
 
 def _flatten_to_text(result) -> str:
-    """`FastMCP.call_tool` may return a dict (structured output) or a
-    sequence of MCP content blocks (each carrying a `.text` attribute) --
-    flatten either shape to one string for content assertions, since the
-    exact envelope is an implementation choice this test does not pin."""
-    if isinstance(result, dict):
+    """Flatten a `call_tool` result to one string for content assertions.
+
+    The SDK's `call_tool` may return: an object whose `.content` is a list
+    of MCP content blocks each carrying a `.text` attribute (mcp 2.x's
+    `CallToolResult`); a plain dict (structured output); or a bare sequence
+    of content blocks (older SDK shape). `.content` is checked first --
+    a `CallToolResult` is itself iterable as name/value pairs (being a
+    pydantic model), so iterating it directly instead of through
+    `.content` would silently flatten to the wrong text. The exact
+    envelope is an implementation choice this test does not pin.
+    """
+    if hasattr(result, "content"):
+        blocks = result.content
+    elif isinstance(result, dict):
         return str(result)
-    parts = []
-    for block in result:
-        parts.append(getattr(block, "text", str(block)))
-    return " ".join(parts)
+    else:
+        blocks = result
+    return " ".join(getattr(block, "text", str(block)) for block in blocks)
 
 
 def _seed_assertion_with_evidence(client, db_session, m: dict) -> tuple[str, str]:

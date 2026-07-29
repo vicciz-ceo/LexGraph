@@ -16,7 +16,7 @@ test_enrich_cli.py / test_mcp_search_fetch_tools.py / test_length_cap_api.py:
   gate G5's "re-running it is idempotent... failures are reported
   clearly" implies a zero-span matter must also complete cleanly, not
   error.
-- MCP `fetch` of a nonexistent assertion id through the real FastMCP
+- MCP `fetch` of a nonexistent assertion id through the real SDK
   `call_tool` dispatch (gate G7) -- the existing MCP tests never probe the
   not-found path.
 - Gate G4 (rating rationale privacy): no test in the repo (either this
@@ -145,7 +145,14 @@ def test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash(app):
     server = create_server(app.state.session_factory)
     result = asyncio.run(server.call_tool("fetch", {"assertion_id": "does-not-exist"}))
 
-    if isinstance(result, dict):
+    # `call_tool` may return an object whose `.content` is a list of MCP
+    # content blocks (mcp 2.x's `CallToolResult`), a plain dict, or a bare
+    # sequence of blocks (older SDK shape) -- see test_mcp_tools_live.py's
+    # `_flatten_to_text` for the full rationale (not imported here to keep
+    # this QA-regression file's dependencies minimal).
+    if hasattr(result, "content"):
+        text = " ".join(getattr(block, "text", str(block)) for block in result.content)
+    elif isinstance(result, dict):
         text = str(result)
     else:
         text = " ".join(getattr(block, "text", str(block)) for block in result)
