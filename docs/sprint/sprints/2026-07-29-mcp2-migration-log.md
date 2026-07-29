@@ -8,6 +8,7 @@ the agent roster. See the contract for working state.
 (manager appends `role → agentId` at every spawn)
 
 - planner → a12946da74e338fd7 (Sonnet high; reported 2026-07-29T~18:15Z, handoff accepted)
+- developer → af8c7ce6b3de6e667 (Haiku medium, bounded mechanical; reported 2026-07-29T~18:24Z, diff verified, handoff accepted)
 
 ## Planner pass — 2026-07-29
 

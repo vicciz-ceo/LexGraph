@@ -3,8 +3,8 @@ id: "2026-07-29-mcp2-migration"
 status: dev-complete
 current_role: qa
 branch: sprint/2026-07-29-mcp2-migration
-locked_by: "claude-code:developer"
-locked_at: "2026-07-29T18:20:17Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-29T18:25:15Z"
 last_agent: "claude-code:developer"
 last_updated: "2026-07-29T18:23:16Z"
 lint: null
