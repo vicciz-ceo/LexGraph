@@ -268,3 +268,4 @@ was changed by this track). Full-evaluator green will require someone to
 pin `mcp` to a compatible 1.x range or update `app/mcp/server.py`'s import
 — flagged for the Manager/director, out of this Planner's write-scope
 (pyproject.toml/app/mcp are not test files).
+- 2026-07-29T15:20Z POC corpus verifier (director-requested, review-phase ops probe) → sonnet/medium; Haiku considered: yes, rejected — corpus-scale triage/failure classification needs judgment. Read-only vs repo+POC; scratch DB in session scratchpad.
