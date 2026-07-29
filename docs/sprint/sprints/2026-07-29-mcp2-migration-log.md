@@ -9,6 +9,7 @@ the agent roster. See the contract for working state.
 
 - planner → a12946da74e338fd7 (Sonnet high; reported 2026-07-29T~18:15Z, handoff accepted)
 - developer → af8c7ce6b3de6e667 (Haiku medium, bounded mechanical; reported 2026-07-29T~18:24Z, diff verified, handoff accepted)
+- qa → a3b35061d53ee91fa (Sonnet high; reported 2026-07-29T~18:34Z, 2/2 PASS, commit verified test/contract-only, handoff accepted)
 
 ## Planner pass — 2026-07-29
 
