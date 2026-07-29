@@ -49,6 +49,28 @@ QA cycle 2 (DL8 fix re-verify, commit 2f27703):
   ingested חוק המחשבים `Document` row -- plus idempotency: a second
   pipeline run over the same matter creates zero new assertions/definitions
   and leaves the persisted link set unchanged.
+
+QA cycle 3 (DL12/DL13 re-verify; DL11 bounced -- see
+`test_definition_links_matcher.py`'s
+`test_link_articles_to_definitions_does_not_cross_suppress_duplicate_numbered_articles_with_overlapping_offsets`
+for that cycle's `[QA-FAIL]` RED pin, not duplicated here):
+
+- DL12: a FRESH real-corpus repeal-marker entry the Developer's own tests
+  never touched -- `פקודת רופאי השיניים.wiki:22`'s `"מחלה מסכנת" -
+  (((נמחקה);))` (Developer's fixtures only exercised `חוק החברות`'s
+  `"בית המשפט"` and `חוק הבנקאות (שירות ללקוח)`'s vendored entry) --
+  confirms the guard generalizes across documents, not just the two
+  corpus laws already vendored.
+- DL13: a FRESH real-corpus paren-qualified cross-law reference the
+  Developer's own tests never touched -- `צו בנק ישראל (מידע בעניין
+  יתרות ניירות ערך).wiki:27`'s `"קופת גמל", "קרן השתלמות", "קרן פנסיה" -
+  כהגדרתן [[בחוק הפיקוח על שירותים פיננסיים (קופות גמל), התשס"ה-2005]]`
+  (Developer's tests only exercised `חוק הבנקאות`/`חוק מיסוי מקרקעין`/
+  `חוק הסעד` paren-qualifier resolutions) -- confirms the widened
+  `_LAW_REF_RE` generalizes to a different target law family
+  (`חוק הפיקוח על שירותים פיננסיים`), independently named in
+  poc-run.md §8 Issue 3 as the OTHER law accounting for the bulk of the
+  unresolved-derivation gap.
 """
 
 from __future__ import annotations
@@ -292,3 +314,77 @@ def test_three_term_shared_derivation_clause_persists_three_resolved_edges(
         for row in db_session.query(Assertion).filter(Assertion.matter_id == m["matter_id"]).all()
     }
     assert after_keys == before_keys
+
+
+# --- QA cycle 3: DL12 re-verify, a fresh real-corpus document -------------
+
+
+def test_repeal_marker_guard_rejects_a_fresh_corpus_law_not_used_in_developer_tests():
+    """Real corpus clause (verbatim, `פקודת רופאי השיניים.wiki:20-23`) --
+    a document never touched by DL12's own Developer tests (which only
+    vendored `חוק החברות` and `חוק הבנקאות (שירות ללקוח)`):
+
+        :- "המנהל" - המנהל הכללי של משרד הבריאות, ...;
+        :- "השר" - שר הבריאות;
+        :- "מחלה מסכנת" - (((נמחקה);))
+        :- "מרפא שיניים" - מורשה לריפוי שיניים לפי [[סעיף 2(2)]];
+
+    "מחלה מסכנת" ("dangerous disease") is a REAL repealed definitions
+    entry in a law the Developer never vendored -- confirms the guard
+    generalizes past the two corpus laws already covered, while its three
+    genuine siblings in the same block are unaffected.
+    """
+    from app.definition_links.extract import extract_definitions_from_section
+
+    text = (
+        ':- "המנהל" - המנהל הכללי של משרד הבריאות, לרבות משנהו וכל נושא משרה '
+        "במשרד הבריאות שהמנהל מינה אותו למלא תפקידים על פי פקודה זו;\n"
+        ':- "השר" - שר הבריאות;\n'
+        ':- "מחלה מסכנת" - (((נמחקה);))\n'
+        ':- "מרפא שיניים" - מורשה לריפוי שיניים לפי סעיף 2(2);\n'
+    )
+
+    candidates = extract_definitions_from_section(text, scope="law-wide")
+    all_terms = {t for c in candidates for t in c.terms}
+
+    assert "מחלה מסכנת" not in all_terms
+    assert {"המנהל", "השר", "מרפא שיניים"} <= all_terms
+
+
+# --- QA cycle 3: DL13 re-verify, a fresh real-corpus paren-qualified law ---
+
+
+def test_law_ref_paren_qualifier_resolves_a_fresh_corpus_target_law_not_used_in_developer_tests():
+    """Real corpus clause (verbatim, `צו בנק ישראל (מידע בעניין יתרות ניירות
+    ערך).wiki:27`) -- a target law family (`חוק הפיקוח על שירותים
+    פיננסיים`) DL13's own Developer tests never referenced (which only
+    exercised `חוק הבנקאות`/`חוק מיסוי מקרקעין`/`חוק הסעד` paren-qualifier
+    resolutions), and independently named in poc-run.md §8 Issue 3 as the
+    OTHER law family (alongside חוק הבנקאות) responsible for the bulk of
+    the corpus's unresolved-derivation gap:
+
+        :- "קופת גמל", "קרן השתלמות", "קרן פנסיה" - כהגדרתן
+        [[בחוק הפיקוח על שירותים פיננסיים (קופות גמל), התשס"ה-2005]];
+
+    Confirms the widened `_LAW_REF_RE` (one balanced parenthetical +
+    trailing year-clause) generalizes beyond the specific laws the
+    Developer's own tests happened to pick.
+    """
+    from app.definition_links.derivation import detect_cross_law_derivations
+
+    text = (
+        '"קופת גמל", "קרן השתלמות", "קרן פנסיה" - כהגדרתן בחוק הפיקוח על '
+        'שירותים פיננסיים (קופות גמל), התשס"ה-2005;'
+    )
+
+    edges = detect_cross_law_derivations(
+        text,
+        source_term="קופת גמל",
+        known_law_titles={
+            "חוק הפיקוח על שירותים פיננסיים (קופות גמל)": "law-pikuach-kupot-gemel-id"
+        },
+    )
+
+    assert len(edges) == 1
+    assert edges[0].target_law_id == "law-pikuach-kupot-gemel-id"
+    assert edges[0].target_law_name == "חוק הפיקוח על שירותים פיננסיים (קופות גמל)"
