@@ -123,14 +123,14 @@ def link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermE
     ]
     pairs.sort(key=lambda dt: (len(dt[1].split()), len(dt[1])), reverse=True)
 
-    claimed_spans: dict[str, list[tuple[int, int]]] = {}
+    claimed_spans: dict[int, list[tuple[int, int]]] = {}
     edges: list[ArticleUsesTermEdge] = []
 
     for definition, term in pairs:
         for article_index, article in enumerate(articles):
             if not _in_scope(definition, article):
                 continue
-            spans = claimed_spans.setdefault(article.number, [])
+            spans = claimed_spans.setdefault(article_index, [])
             for match in find_term_uses(term, article.body):
                 start, end = match.start(), match.end()
                 if _is_own_defining_entry(article.body, start, end):
