@@ -2,7 +2,7 @@
 C, item C1; gate G7; rulings R5, R6).
 
 Registers three read-only tools against the local SQLAlchemy session,
-built with the official `mcp` Python SDK's `FastMCP` (stdio transport):
+built with the official `mcp` Python SDK's `MCPServer` (stdio transport):
 
 - `explore(query)` -- a query resolves to matching assertions plus their
   evidence (linked source-span quotes) and relationships (subject/object
@@ -36,7 +36,7 @@ see `docs/mcp-registration.md` for client registration commands.)
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -133,13 +133,13 @@ def _serialize_assertion_detail(session: Session, assertion: Assertion) -> dict:
     return detail
 
 
-def create_server(session_factory: sessionmaker[Session]) -> FastMCP:
-    """Build a `FastMCP` instance with `explore`/`search`/`fetch` tools
+def create_server(session_factory: sessionmaker[Session]) -> MCPServer:
+    """Build a `MCPServer` instance with `explore`/`search`/`fetch` tools
     registered, reading through a fresh `Session` (from `session_factory`)
     per call. No tool here mutates the database (ruling R5: MCP v1 is
     read-only)."""
 
-    server = FastMCP(name="lexgraph")
+    server = MCPServer(name="lexgraph")
 
     @server.tool()
     def explore(query: str) -> dict:
