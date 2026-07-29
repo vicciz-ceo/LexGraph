@@ -10,7 +10,7 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "python-multipart>=0.0.12",
-    "mcp>=1.0",
+    "mcp>=2.0",
 ]
 
 [project.optional-dependencies]
