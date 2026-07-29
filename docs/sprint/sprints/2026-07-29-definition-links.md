@@ -1,18 +1,18 @@
 ---
 id: "2026-07-29-definition-links"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T13:59:14Z
 last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:28:51Z
+last_updated: 2026-07-29T14:30:54Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
 completed_items: 0
-dev_complete_items: 9
+dev_complete_items: 10
 qa_cycles: 0
 prd_sections: []
 design_sections: []
@@ -74,25 +74,9 @@ gates reported to director.
 
 ## Next Steps
 
-Solo mode (single Developer, sequential). Items DL1-DL9 below. All new code
-lives under `backend/app/definition_links/` (new package) plus two new model
-files; nothing in `app/enrich/` or existing routers is touched. RED tests for
-every item already exist and are committed — Developer's job is to make them
-pass without weakening any assertion.
-
-**DL9 — M6 CLI `link-definitions`.**
-`app/definition_links/cli.py`: `main(argv) -> int`, invoked as
-`python -m app.definition_links.cli --matter-id <id> --triggered-by-user-id
-<id>` (parity with `app/enrich/cli.py`). Calls `run_definition_linking` on
-the live path; created assertions visible via the EXISTING
-`GET /api/v1/assertions` route — no new router this sprint (API route is
-optional stretch, explicitly skipped; no frontend UI per M6).
-Tests: `backend/.venv/bin/pytest backend/tests/integration/test_definition_links_cli.py -v`
-Cross-cutting (satisfied only once the whole package exists):
-`backend/.venv/bin/pytest backend/tests/unit/test_definition_links_no_network_dependencies.py -v`
-
-Run the whole track together once DL1-DL9 land:
-`backend/.venv/bin/pytest backend/tests/unit/test_definition_links_*.py backend/tests/integration/test_definition_links_*.py -v`
+(empty — all items DL1-DL10 are Dev Complete; see below. Cross-cutting
+no-network guard also green: `backend/.venv/bin/pytest
+backend/tests/unit/test_definition_links_no_network_dependencies.py -v`)
 
 ## Stale-pin sweep
 
@@ -147,10 +131,30 @@ Result: **none** — additive feature, no hits.
   @ 1799c8b; test_definition_links_ingest.py → 4 passed, 0 failed.
 - DL8 — Persistence pipeline: `app/definition_links/pipeline.py`
   @ c0a102d; test_definition_links_pipeline_live.py → 8 passed, 0 failed.
+- DL9 — M6 CLI `link-definitions`: `app/definition_links/cli.py` @ 7cf2fe6;
+  test_definition_links_cli.py + test_definition_links_no_network_dependencies.py
+  → 5 passed, 0 failed. `docs/RUNBOOK.md` updated @ cabda01.
 
 ## Completed
 
 ## Evaluation Notes
+
+DL1-DL9 all Dev Complete. Scoped track (unit + integration
+`test_definition_links_*`): 84 passed, 0 failed (matches the pre-verified
+RED baseline count exactly — every formerly-RED test now green, none
+weakened).
+
+Full authoritative pass:
+- `backend/.venv/bin/pytest backend/tests -v` → **374 passed, 0 failed**
+  (includes the 84 definition-links tests plus the 6 previously-broken
+  `mcp` tests, repaired by DL10's `mcp<2.0` pin).
+- `npm --prefix frontend run test -- --run` → **62 passed** (11 test
+  files), unchanged from baseline — no frontend files touched (M6: no
+  frontend UI this sprint).
+
+Deviations from brief: none. Escalations: none — no Planner test looked
+wrong or under-specified; every pinned public API (module paths, function
+signatures, return shapes) in the RED tests was implementable as written.
 
 ## QA Notes
 
