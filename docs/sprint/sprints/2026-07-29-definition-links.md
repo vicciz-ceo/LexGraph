@@ -1,18 +1,18 @@
 ---
 id: "2026-07-29-definition-links"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:developer"
 locked_at: 2026-07-29T18:02:00Z
-last_agent: "claude-code:planner"
-last_updated: 2026-07-29T17:48:46Z
+last_agent: "claude-code:developer"
+last_updated: 2026-07-29T17:59:13Z
 lint: "PASS 178 2026-07-29T15:01:35Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 13
 completed_items: 10
-dev_complete_items: 0
+dev_complete_items: 3
 qa_cycles: 2
 prd_sections: []
 design_sections: []
@@ -303,6 +303,28 @@ Full authoritative pass:
 Deviations from brief: none. Escalations: none — no Planner test looked
 wrong or under-specified; every pinned public API (module paths, function
 signatures, return shapes) in the RED tests was implementable as written.
+
+### Cycle 2 (DL11-DL13, ruling M9)
+
+DL11-DL13 all Dev Complete. Baseline confirmed 28 failed, 388 passed before
+any change. Scoped per item, iteratively green: DL11 13 passed; DL12 21
+passed; DL13 16 passed — all 28 formerly-RED cycle-2 tests now green, 0
+weakened, 0 unexpected breaks against the pre-existing 388.
+
+Full authoritative pass:
+- `backend/.venv/bin/pytest backend/tests -v` → **416 passed, 0 failed**
+  (388 + 28).
+- `npm --prefix frontend run test -- --run` → **62 passed** (11 test
+  files), unchanged — no frontend files touched (M6: no frontend UI this
+  sprint).
+
+Deviations from brief: none. Escalations: none — all three M9 fix
+directions (additive `article_index`, repeal-marker guard, `_LAW_REF_RE`
+parenthetical widening + trailing-punctuation strip) were implementable
+exactly as specified. Greedy trailing-clause swallow (poc-run.md §9 U2)
+confirmed left KNOWN-REMAINING per M9(c)'s explicit allowance — no
+deterministic, corpus-grounded boundary rule found; no test was written for
+it (matches contract).
 
 ## QA Notes
 
