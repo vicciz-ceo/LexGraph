@@ -1,19 +1,19 @@
 ---
 id: "2026-07-29-definition-links"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: sprint/2026-07-29-definition-links
 locked_by: "claude-code:qa"
 locked_at: 2026-07-29T14:32:55Z
-last_agent: "claude-code:developer"
-last_updated: 2026-07-29T14:30:54Z
+last_agent: "claude-code:qa"
+last_updated: 2026-07-29T15:10:00Z
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 10
-completed_items: 0
-dev_complete_items: 10
-qa_cycles: 0
+completed_items: 9
+dev_complete_items: 0
+qa_cycles: 1
 prd_sections: []
 design_sections: []
 ---
@@ -74,9 +74,34 @@ gates reported to director.
 
 ## Next Steps
 
-(empty — all items DL1-DL10 are Dev Complete; see below. Cross-cutting
-no-network guard also green: `backend/.venv/bin/pytest
-backend/tests/unit/test_definition_links_no_network_dependencies.py -v`)
+- **DL8 — Persistence pipeline: `[QA-FAIL]` bounced back to Developer**
+  (qa_cycles: 1). Manager-flagged edge (sprint log line 14, verified by
+  QA): `run_definition_linking`'s idempotency de-dup key —
+  `(assertion_type, subject_entity_type, subject_entity_id,
+  object_entity_type, object_entity_id)` in `_create_assertion` — does
+  not include the derivation's term/trigger/matched-text. For an
+  UNRESOLVED `DERIVES_FROM_LAW` edge, `object_entity_type`/`object_id`
+  are always `(None, None)`, and `subject_entity_id` is the same
+  `Definition` row for every derivation detected in that definition's
+  own body. Result: TWO independently-unresolved cross-law derivations
+  in ONE definition body collapse to ONE persisted assertion instead of
+  two — contradicts the review doc's Stage 4 worked example ("3 terms
+  ... one law_derives_definition edge PER TERM to חוק המחשבים").
+  Corroborated live against the real vendored corpus (not just a
+  synthetic case): `חוק הגנת הפרטיות_excerpt.wiki` line 17 defines 3
+  terms (`חומר מחשב`, `מחשב`, `פלט`) sharing one derivation clause to
+  the (resolved, ingested) `חוק המחשבים` — only ONE `DERIVES_FROM_LAW`
+  assertion is persisted for that Definition, not 3, for the identical
+  reason (same collapse, resolved-target variant).
+  RED test committed (never weakened, asserts the SPEC'D 2-edge
+  outcome): `backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py::test_two_distinct_unresolved_cross_law_derivations_in_one_definition_both_emit_edges`
+  — run it directly: `backend/.venv/bin/pytest
+  backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py -v`
+  (currently 1 failed, by design — proves the collapse, not a flip-to-red
+  trap). Fix belongs in `app/definition_links/pipeline.py`'s
+  `_create_assertion` idempotency key (needs a per-edge-distinguishing
+  component, e.g. `source_term`/`matched_text`, for `DERIVES_FROM_LAW`
+  specifically) — implementation file, out of QA's write-scope.
 
 ## Stale-pin sweep
 
@@ -108,34 +133,63 @@ Result: **none** — additive feature, no hits.
 
 ## Dev Complete
 
+(empty — QA cycle 1 resolved every item: 9 moved to Completed, DL8 bounced
+back to Next Steps above.)
+
+## Completed
+
 - DL10 — mcp pin repair (M8): backend/pyproject.toml @ 821a597; `-k "mcp"` →
-  7 passed, 0 failed (manager-verified probe). mcp 2.0.0 → 1.29.0.
+  7 passed, 0 failed (QA-reverified independently: 7 passed). mcp 2.0.0 →
+  1.29.0 confirmed at the INSTALLED-PACKAGE level
+  (`importlib.metadata.version("mcp")`), not just pyproject.toml's text.
+  QA confirmed the 6 formerly-failing tests
+  (`test_mcp_search_fetch_tools.py` x2, `test_mcp_tools_live.py` x2,
+  `test_qa_regression_local_first_platform.py` x1,
+  `test_no_network_dependencies.py::test_mcp_package_imports_no_network_libraries`
+  x1) pre-date this sprint (added in sprint/2026-07-26-local-first-platform,
+  commits 42f1a05/236a6fa/e450010) — genuine RED provenance, not
+  sprint-authored tests. PASS.
 - DL1 — Schema + assertion-type vocabulary (M1, M2): `app/models/article.py`,
   `app/models/definition.py`, `app/models/__init__.py`,
   `app/services/validation.py` @ 10ab30f; test_definition_links_models.py +
-  test_definition_links_assertion_vocabulary.py → 8 passed, 0 failed.
+  test_definition_links_assertion_vocabulary.py → 8 passed, 0 failed
+  (QA-reverified). PASS.
 - DL2 — Stage 0 text normalization: `app/definition_links/normalize.py`
-  @ 3f9b347; test_definition_links_normalize.py → 11 passed, 0 failed.
+  @ 3f9b347; test_definition_links_normalize.py → 11 passed, 0 failed
+  (QA-reverified). PASS.
 - DL3 — Stage 1 article/section parsing: `app/definition_links/sections.py`
-  @ 99e2992; test_definition_links_sections.py → 8 passed, 0 failed.
+  @ 99e2992; test_definition_links_sections.py → 8 passed, 0 failed
+  (QA-reverified). PASS.
 - DL4 — Stage 2 term/definition extraction: `app/definition_links/extract.py`
-  @ 7be404b; test_definition_links_extract.py → 10 passed, 0 failed.
+  @ 7be404b; test_definition_links_extract.py → 10 passed, 0 failed
+  (QA-reverified). PASS.
 - DL5 — Stage 3 term matching + article-linking:
   `app/definition_links/matcher.py` @ 507ce85;
-  test_definition_links_matcher.py → 10 passed, 0 failed.
+  test_definition_links_matcher.py → 10 passed, 0 failed (QA-reverified).
+  PASS.
 - DL6 — Stage 4 cross-law derivation + Stage 5 guards + M7 bidi guard:
   `app/definition_links/derivation.py`, `app/definition_links/guards.py`
   @ 474e34d; test_definition_links_derivation.py +
-  test_definition_links_guards.py → 20 passed, 0 failed.
+  test_definition_links_guards.py → 20 passed, 0 failed (QA-reverified).
+  PASS. (QA note, non-blocking: `guards.py`'s `is_plain_quotation`,
+  `is_rejectable_term`, `resolve_law_title` are unit-tested but never
+  imported/called by `extract.py`/`derivation.py`/`pipeline.py` — only
+  `is_bidi_degraded` is wired in. No current test/fixture exercises a
+  false-positive this would have caught; flagged for future-sprint
+  follow-up, not a blocker this cycle.)
 - DL7 — M4 article-aware wiki ingestion: `app/definition_links/ingest.py`
-  @ 1799c8b; test_definition_links_ingest.py → 4 passed, 0 failed.
-- DL8 — Persistence pipeline: `app/definition_links/pipeline.py`
-  @ c0a102d; test_definition_links_pipeline_live.py → 8 passed, 0 failed.
+  @ 1799c8b; test_definition_links_ingest.py → 4 passed, 0 failed
+  (QA-reverified). Live-path (c) confirmed: `ingest_wiki_law` persists
+  real `Article`+`SourceSpan` ORM rows that `pipeline.py` subsequently
+  reads via `select(Article)...`/`session.get(SourceSpan, ...)`. PASS.
 - DL9 — M6 CLI `link-definitions`: `app/definition_links/cli.py` @ 7cf2fe6;
   test_definition_links_cli.py + test_definition_links_no_network_dependencies.py
-  → 5 passed, 0 failed. `docs/RUNBOOK.md` updated @ cabda01.
-
-## Completed
+  → 5 passed, 0 failed (QA-reverified). Live-path (a) confirmed by source
+  read: `cli.py::main` calls `run_definition_linking` directly (no
+  subprocess/reimplementation). Live-path (b) confirmed: created
+  `Assertion`/`Definition` rows are visible via the EXISTING
+  `GET /api/v1/assertions` route (already exercised by this item's own
+  tests). `docs/RUNBOOK.md` updated @ cabda01. PASS.
 
 ## Evaluation Notes
 
@@ -157,6 +211,70 @@ wrong or under-specified; every pinned public API (module paths, function
 signatures, return shapes) in the RED tests was implementable as written.
 
 ## QA Notes
+
+- **2026-07-29T15:10Z QA cycle 1 (sonnet/high).** Independent evaluator
+  pass (own numbers, not reused from Developer):
+  `backend/.venv/bin/pytest backend/tests -v` → 374 passed, 0 failed;
+  `npm --prefix frontend run test -- --run` → 62 passed (11 files), 0
+  failed. No flakes.
+  Per-item reverification (exact contract test commands): DL1 8p, DL2
+  11p, DL3 8p, DL4 10p, DL5 10p, DL6 20p, DL7 4p, DL9 5p, DL10 7p — all
+  match Dev Complete's claimed counts, 0 failed. DL8's own 8 tests also
+  pass, but QA's own live-corpus probe + a new integration test exposed
+  a spec violation not caught by the Developer's 8 tests (see below) →
+  **DL8 FAIL**.
+  Live-path traces: (a) PASS — `cli.py::main` calls
+  `run_definition_linking` directly, confirmed by source read. (b) PASS
+  — CLI-created `Assertion`/`Definition` rows visible via the existing
+  `GET /api/v1/assertions` route (DL9's own tests already exercise this
+  end-to-end; re-run and confirmed). (c) PASS — `ingest_wiki_law`
+  persists real `Article`+`SourceSpan` rows that `pipeline.py` reads via
+  `select(Article)...` / `session.get(SourceSpan, ...)`.
+  Independent E2E probe (own script, scratch sqlite, real vendored
+  fixtures, CLI invoked via subprocess): ingested 5 laws (24 articles) →
+  `link-definitions` → 91 assertions / 92 definitions. G1 PASS (79
+  USES_DEFINITION edges linking real articles to real extracted
+  definitions, e.g. "נכס" §1→§2/§3/§7). G2 PASS ("חומר מחשב"/"מחשב"/"פלט"
+  כהגדרתם [[בחוק המחשבים]] in חוק הגנת הפרטיות resolves DERIVES_FROM_LAW
+  to the ingested `חוק המחשבים` document, naming both laws + term).
+  Determinism PASS: 2 additional reruns produced byte-identical link sets
+  and 0 new rows both times (91/92 → 91/92 → 91/92).
+  **Manager-flagged edge (dual unresolved derivations, sprint log line
+  14): CONFIRMED COLLAPSED.** `_create_assertion`'s idempotency key
+  `(assertion_type, subject_entity_type, subject_entity_id,
+  object_entity_type, object_entity_id)` omits the derivation's
+  term/matched-text; two independently-unresolved `DERIVES_FROM_LAW`
+  edges from the SAME Definition both key to `(..., Definition, <id>,
+  None, None)` and collide — the second is silently dropped. Also
+  reproduced on the REAL corpus in the RESOLVED-target variant: a
+  single 3-term definition (`חוק הגנת הפרטיות_excerpt.wiki` line 17,
+  "חומר מחשב"/"מחשב"/"פלט" all → `חוק המחשבים`) persists only 1
+  DERIVES_FROM_LAW assertion instead of 3 (one per term, per the review
+  doc's own worked example) — same root cause. `[QA-FAIL]` on DL8. RED
+  test committed (never modifies implementation):
+  `backend/tests/integration/test_definition_links_pipeline_dual_unresolved_derivation.py`
+  — 1 failed as expected (proves the collapse; asserts the SPEC'D
+  2-edge outcome, not a flip-to-red trap).
+  Bug-fix pin check (DL10): the 6 formerly-failing mcp tests pre-date
+  this sprint (git history: added in sprint/2026-07-26-local-first-platform
+  @ 42f1a05/236a6fa/e450010) — genuine RED provenance — and now pass;
+  `mcp` resolves to 1.29.0 (< 2.0) at the installed-package level.
+  Regression tests added for every PASSED item (9 tests,
+  `backend/tests/integration/test_qa_regression_definition_links.py`):
+  DL1 nested-Definition ORM round trip, DL2 compound Stage-0
+  normalization, DL5 three additional documented `מאגר מידע` surface
+  forms, DL6 `כאמור בחוק` non-trigger, DL7 ingest-twice non-dedup, DL9
+  missing-required-arg usage error, DL10 installed-package version
+  check.
+  Full suite with both new files: 384 collected, 383 passed, 1 failed
+  (the intentional DL8 RED pin) — everything else green.
+  Non-blocking observation (not a FAIL, no test currently exercises it):
+  `guards.py`'s Stage 5.1/5.2 functions (`is_plain_quotation`,
+  `is_rejectable_term`) and Stage 5.4's `resolve_law_title` are unit-
+  tested but never imported by `extract.py`/`derivation.py`/
+  `pipeline.py` — only `is_bidi_degraded` is wired into the live path.
+  Deviations: none beyond the DL8 bounce. Escalations: none.
+  Status set: qa-fail, current_role: developer, qa_cycles: 1.
 
 ## Context Dump
 
