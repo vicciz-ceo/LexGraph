@@ -1,13 +1,13 @@
 ---
 id: "2026-07-29-mcp2-migration"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-29-mcp2-migration
 locked_by: null
 locked_at: null
 last_agent: "claude-code:manager"
-last_updated: "2026-07-29T21:59:23Z"
-lint: "PASS 171 2026-07-29T21:59:23Z"
+last_updated: "2026-07-29T22:03:38Z"
+lint: "PASS 171 2026-07-29T22:03:38Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
@@ -160,12 +160,12 @@ Post-merge re-verification (manager, 2026-07-30, combined tree at `04047fc`, ven
 
 ## Context Dump
 
-- Director approved merge (2026-07-30). `origin/main` integrated at `fae39d0`
-  (rulings R4/R5); DL10's superseded `<2.0` pin retired at `04047fc`.
+- Closed `done` 2026-07-30 on director approval; PR #9 merged @ `8879001`.
+  `origin/main` integrated at `fae39d0` (R4/R5); DL10's superseded `<2.0`
+  pin retired at `04047fc`.
 - Manager-verified on the COMBINED tree, scratch-built venv: mcp 2.0.0,
   backend 423 passed, frontend 62 passed, no `<2.0` pin left in the repo.
-- G1–G4 confirmed independently in QA cycle 1 (fresh venv, real `git diff`,
-  live SDK dispatch, clean CI install path) — probes in QA Notes / log.
-- NOT independently re-QA'd: the merge + pin retirement (manager evaluator
+- G1–G4 confirmed independently in QA cycle 1 — probes in QA Notes / log.
+- NOT re-QA'd independently: the merge + pin retirement (manager evaluator
   run only, no second QA cycle — test-estate deletion under R4).
-- No deferred surfaces. Research trail: `2026-07-29-mcp2-migration-log.md`.
+- Inherited, not ours: CI contract-lint red on main (lints `*-poc-run.md`).
