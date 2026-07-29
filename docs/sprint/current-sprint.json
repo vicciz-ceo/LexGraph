@@ -12,6 +12,6 @@
   "completed_items": 2,
   "dev_complete_items": 0,
   "qa_cycles": 1,
-  "previous_sprint": "2026-07-26-local-first-platform",
+  "previous_sprint": "2026-07-29-definition-links",
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 }

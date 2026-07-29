@@ -56,6 +56,20 @@ migration to the latest mcp version.
   encodes a product constraint from the local-first sprint. If mcp 2.0's
   import graph unavoidably pulls network libraries at import time, ESCALATE —
   do not weaken or delete that test unilaterally.
+- R4 (merge-time, 2026-07-30): `origin/main` gained the `<2.0` stopgap via a
+  DIFFERENT sprint (definition-links item DL10 @ 821a597), which explicitly
+  deferred "mcp 2.x migration to a future sprint" — this sprint. DL10's
+  `test_qa_regression_definition_links.py::test_installed_mcp_package_version_is_pinned_below_2_0`
+  asserts `major < 2` and is the exact inverse of this sprint's floor test:
+  a pre-existing GREEN pin our intended change breaks, i.e. a planning bug
+  the Planner reconciles (SKILL.md Phase 2), not a Developer/manager edit.
+  Ruled SUPERSEDED — the stopgap it guards no longer exists.
+- R5 (merge rulings, `origin/main` → sprint branch): both textual conflicts
+  take the SPRINT side whole, no hand-blending. `backend/pyproject.toml` —
+  verified the only delta between sides is the `mcp` line, so taking ours
+  drops nothing of main's. `docs/sprint/current-sprint.json` — this sprint is
+  active; definition-links is `done`. `previous_sprint` re-pointed to
+  `2026-07-29-definition-links` (manager bookkeeping).
 
 ## Next Steps
 

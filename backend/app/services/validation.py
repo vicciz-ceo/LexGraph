@@ -382,6 +382,14 @@ ALLOWED_ASSERTION_TYPES = frozenset(
         "SUPPORTS",
         "SURVIVES_TERMINATION",
         "DISTINGUISHABLE_FROM",
+        # Sprint 2026-07-29-definition-links (ruling M2): deterministic
+        # definition-linking edges. USES_DEFINITION: an article uses a term
+        # defined elsewhere (Stage 3's article_uses_term edge).
+        # DERIVES_FROM_LAW: a definition explicitly derives from another
+        # law (Stage 4's law_derives_definition edge, including the M5
+        # unresolved-target case).
+        "USES_DEFINITION",
+        "DERIVES_FROM_LAW",
     }
 )
 
