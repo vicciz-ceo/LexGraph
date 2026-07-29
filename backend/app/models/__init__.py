@@ -12,12 +12,14 @@ No routes or service logic live here — schema only, per item F1's scope.
 
 from __future__ import annotations
 
+from app.models.article import Article
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_rating import AssertionRating
 from app.models.assertion_revision import AssertionRevision
 from app.models.audit_event import AuditEvent
+from app.models.definition import Definition
 from app.models.document import Document
 from app.models.matter import Matter
 from app.models.matter_role import MatterRole
@@ -27,12 +29,14 @@ from app.models.source_span import SourceSpan
 from app.models.user import User
 
 __all__ = [
+    "Article",
     "Assertion",
     "AssertionComment",
     "AssertionEvidence",
     "AssertionRating",
     "AssertionRevision",
     "AuditEvent",
+    "Definition",
     "Document",
     "Matter",
     "MatterRole",

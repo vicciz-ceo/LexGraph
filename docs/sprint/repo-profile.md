@@ -7,7 +7,7 @@ venv setup in its first pass and updates this file in the same commit.
 ```yaml
 platform: claude-code
 governance_skill: none
-runbook_path: none   # create docs/RUNBOOK.md when first user-facing behavior ships
+runbook_path: docs/RUNBOOK.md   # created post-2026-07-26 sprint; keep in sync when behavior changes
 evaluator_default: custom
 evaluator_commands:
   backend: "backend/.venv/bin/pytest backend/tests -v"

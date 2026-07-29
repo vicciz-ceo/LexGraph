@@ -135,6 +135,30 @@ curl http://localhost:8000/healthz
 
 The backend provides REST APIs at `/api/v1/` for managing assertions, comments, ratings, and the graph. See the API documentation at `http://localhost:8000/docs` when the server is running.
 
+### Offline Pipelines (CLI-only, no frontend UI)
+
+Two deterministic, offline batch passes run against a matter's already-stored data and write draft/proposed assertions directly to the database (no LLM/network calls). Both read `LEXGRAPH_DATABASE_URL` the same way the backend server does, so point them at the same database file the server uses.
+
+**Enrichment** (`app/enrich/`) suggests candidate assertions from existing `SourceSpan` rows:
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+.venv/bin/python -m app.enrich.cli --matter-id <matter-id> --triggered-by-user-id <user-id>
+cd ..
+```
+
+**Definition linking** (`app/definition_links/`, sprint 2026-07-29-definition-links) deterministically (regex/rule-based, no LLM/ML) connects articles within a law to the definitions the law contains, and connects laws to each other when a definition explicitly derives from another law (e.g. "כהגדרתו בחוק..."). It requires `Article` rows already ingested via `app.definition_links.ingest.ingest_wiki_law` (there is no ingestion CLI yet — call `ingest_wiki_law(session, ...)` directly, e.g. from a one-off script or a REPL, to load a `.wiki`-formatted law's text into `Document`/`Article`/`SourceSpan` rows for a matter):
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+.venv/bin/python -m app.definition_links.cli --matter-id <matter-id> --triggered-by-user-id <user-id>
+cd ..
+```
+
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=proposed`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+
 ## Grading Application
 
 ### Starting the Grading App
@@ -197,6 +221,12 @@ To run only specific tests:
 
 ```bash
 backend/.venv/bin/pytest backend/tests/unit/test_enrichment_suggester.py -v
+```
+
+To run only the definition-linking tests:
+
+```bash
+backend/.venv/bin/pytest backend/tests/unit/test_definition_links_*.py backend/tests/integration/test_definition_links_*.py -v
 ```
 
 ### Frontend Tests
