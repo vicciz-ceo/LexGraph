@@ -52,9 +52,25 @@ Draft — pending recon; finalized before Planner spawn.
 ## Manager rulings
 
 - R1: Sprint branch based on `origin/main` @ 3feaa41.
-- R2: Cross-repo scope (LexGraph vs lexgraph-assertions-db builder) to be
-  ruled after recon; if both receive code, dual-repo mode applies (one
-  contract + lock per repo).
+- R2 (resolved post-recon): dual-repo sprint. LexGraph receives the
+  status-semantics fix for its deterministic definition-links pipeline
+  (pipeline.py assigns "proposed" today) + test-estate sweep. The POC
+  builder ("/Users/nerya/AI for others/lexgraph-assertions-db", own git
+  repo, NO remote, own contract + lock, baseline `984593b`) receives the
+  status fix AND the intra-law article-mention pass — the director's
+  verification target is the POC DB. Mention derivation inside the
+  LexGraph app pipeline is OUT of this sprint (possible follow-up).
+- R3: Replacement status for deterministic assertions is **"accepted"**
+  (no human rating needed per director's semantics; derivation stays
+  encoded in origin=system_generated; reviewed_by/reviewed_at stay null).
+- R4: User-suggested assertions (`routers/assertions.py`, save_as
+  draft|proposed, origin=user_suggested) are NOT deterministic and stay
+  unchanged; AI heuristics (origin=model_suggested) keep "proposed" — that
+  is the reserved use. Surfaced to director for possible follow-up ruling
+  on user-suggested semantics.
+- R5: Recon dossier at
+  `docs/sprint/sprints/2026-07-30-deterministic-assertions-review.md`;
+  Planner briefs reference it by path, never re-inline it.
 
 ## Next Steps
 
