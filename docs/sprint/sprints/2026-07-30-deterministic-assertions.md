@@ -1,19 +1,19 @@
 ---
 id: "2026-07-30-deterministic-assertions"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: sprint/2026-07-30-deterministic-assertions
 locked_by: "claude-code:qa"
 locked_at: "2026-07-30T11:05:00Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-07-30T13:20:00Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-30T14:10:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 1
-completed_items: 0
-dev_complete_items: 1
-qa_cycles: 0
+completed_items: 1
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-29-mcp2-migration"
 prd_sections: []
 design_sections: []
@@ -117,15 +117,66 @@ Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
 
 ## Dev Complete
 
-- [x] **L1 — deterministic definition-links status: "proposed" → "accepted".** Changes committed; status now "accepted" across all deterministic definition-linking assertions (pipeline.py:49, RUNBOOK.md:160 updated). Tests green: backend 423 passed, frontend 62 passed.
-
 ## Completed
+
+- [x] **L1 — deterministic definition-links status: "proposed" → "accepted".**
+  QA-verified (independent full run, commit 6a0c0f5): `pipeline.py:49`
+  `_STATUS == "accepted"`, `_ORIGIN` unchanged (`system_generated`);
+  `docs/RUNBOOK.md` synced (:160 by the Developer in 6a0c0f5, :140 by a
+  separate doc-sync commit 731fb25). Both re-pointed live tests
+  (`test_definition_links_cli.py`, `test_definition_links_pipeline_live.py`)
+  confirmed to drive the REAL CLI entrypoint / `run_definition_linking`
+  pipeline against real `Article`/`Definition`/`Assertion` ORM rows — no
+  mocking. Diff audit (`git diff --stat 3feaa41..73f52f3`): only
+  `pipeline.py`, the two owned test files, `RUNBOOK.md`, and sprint
+  bookkeeping changed — no leakage. Full evaluator (from repo root,
+  `backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run
+  test -- --run`): **backend 423 passed, frontend 62 passed**, 0 failures,
+  0 flakes. Regression: 1 new test added,
+  `backend/tests/integration/test_qa_regression_deterministic_assertions.py::test_definition_links_pipeline_never_persists_proposed_status_across_all_edge_subtypes`
+  — reads the persisted `Assertion.status` column (not the pipeline's
+  summary dict) for every sub-type in one run (`USES_DEFINITION`,
+  `DERIVES_FROM_LAW` resolved AND unresolved — the resolved-derivation case
+  had never had its `status` checked by any prior test) and pins
+  `status == "accepted"` / `status != "proposed"` explicitly. Verified RED
+  against a reverted `_STATUS = "proposed"` (sabotage-and-revert via `git
+  checkout`, no residual diff) before being committed green.
 
 ## Evaluation Notes
 
 Scoped tests (definition-links pipeline and CLI): 12 passed. Full suite: backend 423 passed, frontend 62 passed. All acceptance gates remain green. No pre-existing green tests broken.
 
 ## QA Notes
+
+- 2026-07-30T14:10:00Z — QA cycle 1 (independent verification, separate
+  agent from the Developer of 6a0c0f5). Verdict: **PASS**.
+  - Repo state: branch `sprint/2026-07-30-deterministic-assertions` at
+    expected HEAD `73f52f3`; clean working tree at start.
+  - `pipeline.py:48-49` confirmed: `_ORIGIN = "system_generated"`,
+    `_STATUS = "accepted"`; both flow into every `_create_assertion(...)`
+    call (single choke point, verified by full-file read).
+  - Full evaluator run (repo root): `backend/.venv/bin/pytest backend/tests
+    -v && npm --prefix frontend run test -- --run` →
+    **backend 423 passed, 10 warnings; frontend 11 files / 62 passed**.
+    0 failures. No flakes observed (single run, all green).
+  - Diff audit `git diff --stat 3feaa41..73f52f3`: `pipeline.py` (2 lines),
+    the two re-pointed test files, `docs/RUNBOOK.md`, plus sprint
+    bookkeeping (`current-sprint.json`, this contract, the recon dossier,
+    the log). No implementation leakage into test files or vice versa.
+  - Live-path confirmed for both re-pointed tests: `test_definition_links_cli.py`
+    invokes `app.definition_links.cli.main(...)` directly then reads back
+    via the real `GET /api/v1/assertions` route;
+    `test_definition_links_pipeline_live.py` calls
+    `run_definition_linking` against real ingested `Article` rows — neither
+    mocks the acceptance target.
+  - Regression added: 1 test (see Completed entry above). Verified RED by
+    temporarily reverting `_STATUS` to `"proposed"` via `sed`, confirming
+    `AssertionError: assert 'proposed' == 'accepted'`, then `git checkout --`
+    to restore the file exactly (confirmed via `git status --short`
+    showing only the new test file as untracked afterward).
+  - No deviations, no escalations. G1/G3 acceptance gates for this repo
+    confirmed green; G2 (article-mention links) and G4 (DB outcome) are
+    scoped to the POC builder repo per ruling R2 and verified there.
 
 ## Context Dump
 
