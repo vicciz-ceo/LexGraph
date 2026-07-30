@@ -3,11 +3,11 @@ id: "2026-07-30-ratings-grade"
 status: review
 current_role: planner
 branch: sprint/2026-07-30-ratings-grade
-locked_by: "claude-code:qa"
-locked_at: "2026-07-30T20:55:54Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-30T21:01:53Z"
-lint: null
+last_updated: "2026-07-30T21:05:19Z"
+lint: "PASS 170 2026-07-30T21:05:20Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
