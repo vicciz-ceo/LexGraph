@@ -1,19 +1,19 @@
 ---
 id: "2026-07-30-ratings-grade"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: sprint/2026-07-30-ratings-grade
 locked_by: "claude-code:qa"
 locked_at: "2026-07-30T20:55:54Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-07-30T20:53:45Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-30T21:01:53Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
-completed_items: 0
-dev_complete_items: 2
-qa_cycles: 0
+completed_items: 2
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-30-deterministic-assertions"
 prd_sections: []
 design_sections: []
@@ -70,43 +70,6 @@ questions: (a) first rating by a non-author user ends "proposed"; (b) grade
 
 ## Next Steps
 
-- [x] **B1 — Derived standing/grade, exposed via the assertions API.**
-  New pure functions in `backend/app/services/ratings.py` (co-located per
-  R3's own text): `band_for_median(median: float) -> str` (weak <3,
-  probable ==3, strong >3 — R4's fractional edges 2.5/3.5 included) and
-  `compute_standing(status: str, ratings: list[dict], author_user_id:
-  str) -> str` (non-"proposed" statuses pass through unchanged — this
-  covers both G4's reviewer override and G5's born-accepted deterministic
-  assertions in one rule; "proposed" excludes the author's own rating
-  (G3) and returns "proposed" with none left (G1), else bands the
-  outside-only median (G2)). Wire into
-  `backend/app/routers/assertions.py::_serialize_assertion` as a new
-  `"standing"` key (needs a revision-scoped, user_id-carrying query —
-  `_rating_strengths_for_revision` only returns bare strengths today, not
-  who rated) — this key then appears on every response that already
-  includes `"status"` (create/get/list/patch/submit/withdraw), satisfying
-  "visible via the assertions API" for free. Do NOT touch `status` itself
-  (stays exactly as today; `test_ratings_api.py::test_high_aggregate_rating_does_not_change_review_status`
-  already pins that and is unchanged). Unauthorized-rater (403) and
-  invalid-strength (422) paths are already pinned by
-  `test_ratings_api.py` — no new tests needed there. RED tests: `backend/tests/unit/test_standing_grade.py`
-  (22, ImportError — documented exception), `backend/tests/integration/test_assertion_standing_api.py`
-  (11, live TestClient routes, KeyError on the missing `"standing"` key).
-
-- [x] **UI1 — Standing (grade band) display in `AssertionCard` /
-  `AssertionDetailPanel`.** Add a `standing` field to
-  `AssertionCardData`/`AssertionDetailSummary` (alongside the unchanged
-  `status`) and render it: `AssertionCard` gets a new
-  `data-testid="assertion-standing"` element; `AssertionDetailPanel`
-  gets a new sibling `<li data-indicator="standing">` next to its
-  existing `data-indicator="review-status"` line (same convention, same
-  overview-tab indicator list — spec §5 never merges separate
-  indicators). `AssertionReviewPanel` renders no status text today (only
-  reads `evidenceStatus` internally) — out of scope, nothing to change.
-  RED tests (real component renders, no mocks): `AssertionCard.test.tsx`
-  (+4), `AssertionDetailPanel.test.tsx` (+3) — all fail today on a
-  missing element/null querySelector, never an import error.
-
 ## Stale-pin sweep
 
 Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
@@ -133,19 +96,47 @@ existing test's wording collides with the new `standing`/`weak`/
 
 ## Dev Complete
 
-- **B1** — `backend/app/services/ratings.py` (`band_for_median`,
-  `compute_standing`), `backend/app/routers/assertions.py`
-  (`_rating_pairs_for_revision`, `_serialize_assertion` now emits
-  `"standing"`). Commit `5aaca94`. Result: standing derived at read
-  time per R3/R4; `backend/tests/unit/test_standing_grade.py` (22) and
-  `backend/tests/integration/test_assertion_standing_api.py` (11) green.
-- **UI1** — `frontend/src/components/AssertionCard.tsx`,
-  `frontend/src/components/AssertionDetailPanel.tsx`. Commit `5aaca94`.
-  Result: `standing` field rendered via `data-testid="assertion-standing"`
-  and `data-indicator="standing"`; `AssertionCard.test.tsx` (+4) and
-  `AssertionDetailPanel.test.tsx` (+3) green.
-
 ## Completed
+
+- [x] **B1 — Derived standing/grade, exposed via the assertions API.**
+  QA-verified (independent pass, commits 5aaca94/ea6bd43): `backend/app/services/ratings.py`
+  (`band_for_median`, `compute_standing`), `backend/app/routers/assertions.py`
+  (`_rating_pairs_for_revision`, `_serialize_assertion` now emits
+  `"standing"` on every response — create/get/list/patch/submit/withdraw,
+  confirmed by reading every `_serialize_assertion(...)` call site). R3
+  confirmed: `git diff 7dd3a27..5aaca94 -- backend/app/models` is empty
+  (no schema/model change); `status` column never mutated by rating flows;
+  `standing` is derived at read time only, never persisted. Live-path
+  G1-G5 confirmed via `test_assertion_standing_api.py` (real `TestClient`
+  routes, no mocks) plus this cycle's own regression suite,
+  `backend/tests/integration/test_qa_regression_ratings_grade.py` (4
+  tests, all live-path): list route (`GET /assertions?matter_id=...`)
+  carries `standing` per-row (not just single-GET); author-rating
+  exclusion (G3) proven through the real PUT-rating route, not just the
+  unit-tested pure function (author rates 5, outsider rates 1 → "weak",
+  never the leaked-median "probable"); a PUT-overwrite (same rater, new
+  strength) recomputes the derived grade; `withdraw_assertion` (a code
+  path distinct from `_apply_decision`) overrides an existing "strong"
+  grade to `"withdrawn"`. Full evaluator: backend 461 passed (457 + 4
+  new), frontend 69 passed, 0 failures, 0 flakes.
+- [x] **UI1 — Standing (grade band) display in `AssertionCard` /
+  `AssertionDetailPanel`.** QA-verified: `frontend/src/components/AssertionCard.tsx`
+  (`data-testid="assertion-standing"`, guarded on `standing != null`),
+  `frontend/src/components/AssertionDetailPanel.tsx`
+  (`data-indicator="standing"`, unconditional `?? status` fallback,
+  never guarded). Render-guard scrutiny: `AssertionCard`'s guard exists
+  only to avoid a `getByText(/proposed/i)` collision with a pre-existing
+  synthetic fixture (`baseAssertion` in `AssertionCard.test.tsx`) that
+  predates this sprint and has no `standing` field; the live backend API
+  always emits `standing` (see B1 above), and this frontend codebase has
+  no page/container/data-fetch layer wiring the real API response into
+  `AssertionCardData` yet (`frontend/src/` is component-library-only —
+  `AssertionCard`/`AssertionDetailPanel` are referenced nowhere outside
+  their own files and tests) — so the guard cannot hide a grade on any
+  real app data path today. No test was weakened between the RED commit
+  (e702460) and the GREEN commit (5aaca94): `git diff e702460..5aaca94 --
+  <test files>` is empty. `AssertionCard.test.tsx` (+4) and
+  `AssertionDetailPanel.test.tsx` (+3) green.
 
 ## Evaluation Notes
 
@@ -153,11 +144,23 @@ existing test's wording collides with the new `standing`/`weak`/
   `backend/tests/integration/test_assertion_standing_api.py` → 33
   passed. Frontend `AssertionCard.test.tsx` +
   `AssertionDetailPanel.test.tsx` → 18 passed.
-- Full authoritative pass: backend `pytest backend/tests -v` → 457
-  passed, 0 failed. Frontend `npm run test -- --run` → 69 passed (11
-  files), 0 failed. Raw logs → `-log.md`.
+- Full authoritative pass (Developer): backend `pytest backend/tests -v`
+  → 457 passed, 0 failed. Frontend `npm run test -- --run` → 69 passed
+  (11 files), 0 failed.
+- Full authoritative pass (QA, includes 4 new regression tests): backend
+  `pytest backend/tests -v` → 461 passed, 0 failed. Frontend unchanged →
+  69 passed (11 files), 0 failed. Raw logs → `-log.md`.
 
 ## QA Notes
+
+- 2026-07-30T21:02:28Z — QA cycle 1, independent pass. Verdict: **PASS**
+  (B1, UI1). Evaluator: backend 461 (457+4 new), frontend 69, 0 fail, 0
+  flake. Live-path G1-G5 via real `TestClient`. R3 confirmed: model diff
+  empty, `status` untouched, `standing` never persisted. Render-guard
+  safe (no real data-fetch path in this frontend yet; API always emits
+  `standing`). 4 regression tests added, RED-verified
+  (`test_qa_regression_ratings_grade.py`). No deviations/escalations.
+  Full transcript → `-log.md`.
 
 ## Context Dump
 

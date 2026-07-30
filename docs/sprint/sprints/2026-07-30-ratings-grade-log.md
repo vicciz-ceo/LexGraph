@@ -4,6 +4,7 @@
 
 - 2026-07-30T20:36Z planner (general-purpose, sonnet high) → agentId a36f5fb67d4d386af
 - 2026-07-30T20:50Z dev B1+UI1 (general-purpose, sonnet medium — aggregation/banding + API/UI) → agentId a146f68f7fdfca1eb
+- 2026-07-30T20:56Z qa (general-purpose, sonnet high) → agentId abc9df0249c92c859
 
 ## Characterization (Planner)
 
@@ -146,3 +147,116 @@ console warnings from `AssertionRatingWidget`, not a failure).
 No test files touched; no pinned name deviated from (`standing`,
 `band_for_median`, `compute_standing` implemented exactly as specified).
 No escalations. Commit `5aaca94` (feat, B1+UI1), pushed.
+
+## QA (independent verification, cycle 1)
+
+Repo confirmed at expected HEAD `42dd903`, branch
+`sprint/2026-07-30-ratings-grade`, clean tree except the roster-append
+line above (bootstrap bookkeeping, not mine).
+
+**R3 check:** `git diff 7dd3a27..5aaca94 -- backend/app/models` → empty.
+`git diff --stat 7dd3a27..5aaca94` → only `assertions.py`, `ratings.py`,
+`AssertionCard.tsx`, `AssertionDetailPanel.tsx` touched (93 insertions,
+0 deletions) — no schema migration, no `status` mutation, no persisted
+`standing` column.
+
+**Code read:** `compute_standing`/`band_for_median`
+(`backend/app/services/ratings.py:63-99`) match the contract's pinned
+design exactly. `_serialize_assertion` (`backend/app/routers/assertions.py:193-231`)
+emits `"standing"` via `compute_standing(a.status, ratings, a.author_user_id)`,
+`ratings` from the new `_rating_pairs_for_revision` (carries `user_id`,
+unlike the pre-existing bare-strength `_rating_strengths_for_revision`).
+Confirmed `_serialize_assertion` backs every one of create (605), submit
+(759), get (790), patch (859), revisions (882), withdraw (898), and list
+(700, one call per row) — "standing" is on every response for free, list
+included.
+
+**Live-path probe (Developer's `test_assertion_standing_api.py`,
+233 lines, 12 tests, real `TestClient`):** G1 (proposed/zero outside
+ratings), G2 (single outside ratings of 2/3/4 → weak/probable/strong,
+PLUS the two-rating fractional-median cases 2+3→2.5→weak and 3+4→3.5→
+strong — R4's exact edges both covered), G3 (author's own 5/5 alone
+stays "proposed"), G4 (accept AND reject both override an already-"strong"
+grade to the decision's status), G5 (real `run_definition_linking`
+pipeline, `system_generated` assertions read back `standing == status ==
+"accepted"` via the live GET route), plus an edge case (deleting the only
+outside rating reverts `standing` to "proposed"). All hit real routes, no
+mocks of the acceptance target. Confirmed via `git diff e702460..5aaca94`
+(RED commit to GREEN commit) that none of these test files were touched
+after being written RED — no weakening.
+
+**Render-guard scrutiny (UI1):** `AssertionCard.tsx:104`
+(`{standing != null && (...)}`) only omits the standing row when
+`standing` is absent. Searched `frontend/src` for any file other than
+`AssertionCard.tsx`/`AssertionDetailPanel.tsx` and their own test files
+referencing either component — none found. This frontend has no
+App/page/container/data-fetch layer at all (pure component library,
+11 components + 11 test files, nothing else) — there is no code path
+today that maps a real API response into `AssertionCardData` and could
+be affected by the guard. The guard exists solely to avoid a
+`getByText(/proposed/i)` collision with the pre-existing `baseAssertion`
+fixture (no `standing` field) in `AssertionCard.test.tsx`'s first,
+pre-sprint test. `AssertionDetailPanel.tsx:189` never guards
+(`assertion.standing ?? assertion.status`, always renders). Since the
+live backend always emits `standing` (see above), a future real
+consumer would always receive it — not a live-path FAIL today.
+
+**Evaluator (full, from repo root):**
+```
+backend/.venv/bin/pytest backend/tests -v
+======================= 457 passed, 10 warnings in 7.15s =======================
+EXIT:0
+
+npm --prefix frontend run test -- --run
+ Test Files  11 passed (11)
+      Tests  69 passed (69)
+EXIT:0
+```
+Matches expected ~457/69 exactly. No untouched-file timeouts observed;
+flake protocol not invoked.
+
+**Regression gaps identified and closed** — none of the four scenarios
+below were covered by any existing test (backend or frontend), all now
+in `backend/tests/integration/test_qa_regression_ratings_grade.py`
+(new file, 4 tests, all live `TestClient` routes):
+
+1. `test_list_assertions_route_carries_standing_for_every_row` — every
+   existing standing assertion reads a single `GET /assertions/{id}`;
+   nothing ever read `"standing"` off `GET /assertions?matter_id=...`
+   (list route), which serializes each row through the same
+   `_serialize_assertion` but via a different call site (line 700).
+2. `test_authors_rating_of_5_excluded_when_outsider_rates_1_grade_is_weak_not_probable`
+   — the existing G3 test only has the author rate (alone); the
+   author-excluded-from-median math is proven at the unit level
+   (`compute_standing` called directly) but never through the live
+   PUT-rating router + real DB round trip with BOTH an author and an
+   outside rating present together. If the author's rating leaked in
+   via a router-wiring bug (not a `compute_standing` bug), median([5,1])
+   = 3 → "probable"; correctly excluding it, median([1]) = 1 → "weak".
+   This test distinguishes the two outcomes on the live path.
+3. `test_rating_strength_overwrite_recomputes_standing_grade` — no test
+   ever PUT the same user's rating twice (upsert branch in
+   `routers/ratings.py::put_rating`, `existing is not None`) and
+   re-checked `standing` afterward; only the `AssertionRating` row
+   change itself is proven elsewhere.
+4. `test_withdrawn_assertion_standing_is_withdrawn_even_with_an_existing_high_rating`
+   — `withdraw_assertion` sets `status = "withdrawn"` directly (no
+   `_apply_decision` call, a code path distinct from accept/reject),
+   never exercised against an already-graded ("strong") assertion.
+
+Verified each test is not vacuous: temporarily reverted
+`compute_standing`'s author-exclusion filter (`ratings if r["user_id"]
+!= author_user_id` → `ratings`, i.e. author no longer excluded) and
+re-ran the new suite — test 2 failed exactly as predicted
+(`AssertionError: assert 'probable' == 'weak'`), the other 3 stayed
+green (they don't exercise that exact combination). Reverted via the
+saved original file content; `git diff backend/app/services/ratings.py`
+confirmed empty afterward (no residual sabotage).
+
+Full suite with regression tests added: `backend/.venv/bin/pytest
+backend/tests -v` → **461 passed**, 0 failed (457 + 4 new). Frontend
+unchanged, 69 passed.
+
+No deviations from the brief. No escalations. Verdict: PASS, both B1
+and UI1 move to Completed. `qa_cycles: 1`. Commit
+`test: QA regression … (sprint/2026-07-30-ratings-grade)`, pushed.
