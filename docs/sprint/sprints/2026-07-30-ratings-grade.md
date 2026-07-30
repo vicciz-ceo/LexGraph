@@ -1,13 +1,13 @@
 ---
 id: "2026-07-30-ratings-grade"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-30-ratings-grade
 locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-30T21:05:19Z"
-lint: "PASS 170 2026-07-30T21:05:20Z"
+last_updated: "2026-07-30T21:13:19Z"
+lint: "PASS 169 2026-07-30T21:13:19Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
@@ -164,7 +164,6 @@ existing test's wording collides with the new `standing`/`weak`/
 
 ## Context Dump
 
-- Sprint opened 2026-07-30 after director confirmed grading semantics.
-  Prior sprint (deterministic-assertions) closed done; ratings service
-  already aggregates 1-5 strengths (average/median/distribution);
-  assertion status transitions currently happen only in routers/review.py.
+- Closed done 2026-07-31 on director approval; PR #14 merged @ 0fd01fc.
+  Standing/grade derived at read time (no schema change); QA cycle 1 full
+  PASS (backend 461 / frontend 69); 4 QA regression tests added.
