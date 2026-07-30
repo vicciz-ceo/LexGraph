@@ -46,7 +46,7 @@ from app.models.repository import Repository
 from app.models.source_span import SourceSpan
 
 _ORIGIN = "system_generated"
-_STATUS = "proposed"
+_STATUS = "accepted"
 
 # Ruling M2's confidence tiering (a range, not a magic number): USES_DEFINITION
 # is structural (>= 0.9); DERIVES_FROM_LAW is prose-derived (>= 0.8 resolved,
