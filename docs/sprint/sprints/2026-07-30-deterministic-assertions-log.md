@@ -5,6 +5,8 @@
 - 2026-07-30T09:47Z recon-lexgraph (Explore, haiku low-med) → agentId a27fce9d54bda5693
 - 2026-07-30T09:47Z recon-assertions-db (Explore, haiku low-med) → agentId a2cdba69477f1e939
 - 2026-07-30T10:00Z shared-planner dual-repo (general-purpose, sonnet high) → agentId a72ec2b29e124ab90
+- 2026-07-30T10:30Z dev-lexgraph L1 (general-purpose, haiku low — bounded mechanical, RED committed) → agentId ac455da9693c8fa9e
+- 2026-07-30T10:30Z dev-poc P1+P2 (general-purpose, sonnet medium — real parsing logic) → agentId adc828830226cc4c7
 
 ## Planner rationale (LexGraph side)
 

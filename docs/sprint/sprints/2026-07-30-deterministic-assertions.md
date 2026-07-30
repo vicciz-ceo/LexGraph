@@ -1,18 +1,18 @@
 ---
 id: "2026-07-30-deterministic-assertions"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-30-deterministic-assertions
 locked_by: "claude-code:developer"
 locked_at: "2026-07-30T10:25:00Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-30T09:46:17Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-07-30T13:20:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 1
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 previous_sprint: "2026-07-29-mcp2-migration"
 prd_sections: []
@@ -74,24 +74,6 @@ Draft — pending recon; finalized before Planner spawn.
 
 ## Next Steps
 
-- [ ] **L1 — deterministic definition-links status: "proposed" → "accepted".**
-  `backend/app/definition_links/pipeline.py:49` (`_STATUS = "proposed"`) →
-  `"accepted"` (origin stays `system_generated`; ruling R3). Sync
-  `docs/RUNBOOK.md:140,151,160` (currently documents "draft/proposed" /
-  "status=proposed" for this pass — same-commit doc update). RED tests
-  already re-pointed and failing for the right reason (this commit):
-  `backend/tests/integration/test_definition_links_pipeline_live.py::test_run_definition_linking_creates_a_definition_and_links_using_articles`
-  and
-  `backend/tests/integration/test_definition_links_cli.py::test_link_definitions_cli_creates_accepted_assertions_from_ingested_articles`
-  (renamed from `..._creates_proposed_assertions_...`) — both assert
-  `status == "accepted"` on the LIVE pipeline/CLI path; both currently fail
-  with the real emitted value `"proposed"` (AssertionError, not a collection
-  error). No new "unit" test file: `pipeline.py` has no pure/DB-free
-  surface — its only public entrypoint (`run_definition_linking`) requires a
-  session, so its existing live-path integration test IS the closest unit
-  of behavior; re-pointing it (rather than adding a duplicate) is the RED
-  proof for this item.
-
 ## Stale-pin sweep
 
 Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
@@ -135,9 +117,13 @@ Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
 
 ## Dev Complete
 
+- [x] **L1 — deterministic definition-links status: "proposed" → "accepted".** Changes committed; status now "accepted" across all deterministic definition-linking assertions (pipeline.py:49, RUNBOOK.md:160 updated). Tests green: backend 423 passed, frontend 62 passed.
+
 ## Completed
 
 ## Evaluation Notes
+
+Scoped tests (definition-links pipeline and CLI): 12 passed. Full suite: backend 423 passed, frontend 62 passed. All acceptance gates remain green. No pre-existing green tests broken.
 
 ## QA Notes
 
