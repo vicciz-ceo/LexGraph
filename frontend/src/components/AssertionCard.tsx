@@ -20,6 +20,11 @@ export interface AssertionCardData {
   id: string;
   proposition: string;
   status: string;
+  // Sprint 2026-07-30-ratings-grade, item UI1: derived standing (the
+  // proposed-until-rated, then weak/probable/strong grade -- ruling R4).
+  // Optional so existing callers/fixtures that only set `status` keep
+  // working; falls back to `status` when absent.
+  standing?: string;
   origin: string;
   confidence: number | null;
   evidenceStatus: string;
@@ -73,6 +78,7 @@ export function AssertionCard({
   const {
     proposition,
     status,
+    standing,
     origin,
     confidence,
     evidenceStatus,
@@ -95,6 +101,12 @@ export function AssertionCard({
           <dt>Status</dt>
           <dd>{humanize(status)}</dd>
         </div>
+        {standing != null && (
+          <div className="assertion-card__meta-row">
+            <dt>Standing</dt>
+            <dd data-testid="assertion-standing">{humanize(standing)}</dd>
+          </div>
+        )}
         <div className="assertion-card__meta-row">
           <dt>Origin</dt>
           <dd>{humanize(origin)}</dd>
