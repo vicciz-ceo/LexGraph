@@ -3,11 +3,11 @@ id: "2026-07-30-deterministic-assertions"
 status: review
 current_role: planner
 branch: sprint/2026-07-30-deterministic-assertions
-locked_by: "claude-code:qa"
-locked_at: "2026-07-30T11:05:00Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-30T14:10:00Z"
-lint: null
+last_updated: "2026-07-30T10:45:06Z"
+lint: "PASS 166 2026-07-30T10:45:06Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 1
@@ -148,38 +148,19 @@ Scoped tests (definition-links pipeline and CLI): 12 passed. Full suite: backend
 
 ## QA Notes
 
-- 2026-07-30T14:10:00Z — QA cycle 1 (independent verification, separate
-  agent from the Developer of 6a0c0f5). Verdict: **PASS**.
-  - Repo state: branch `sprint/2026-07-30-deterministic-assertions` at
-    expected HEAD `73f52f3`; clean working tree at start.
-  - `pipeline.py:48-49` confirmed: `_ORIGIN = "system_generated"`,
-    `_STATUS = "accepted"`; both flow into every `_create_assertion(...)`
-    call (single choke point, verified by full-file read).
-  - Full evaluator run (repo root): `backend/.venv/bin/pytest backend/tests
-    -v && npm --prefix frontend run test -- --run` →
-    **backend 423 passed, 10 warnings; frontend 11 files / 62 passed**.
-    0 failures. No flakes observed (single run, all green).
-  - Diff audit `git diff --stat 3feaa41..73f52f3`: `pipeline.py` (2 lines),
-    the two re-pointed test files, `docs/RUNBOOK.md`, plus sprint
-    bookkeeping (`current-sprint.json`, this contract, the recon dossier,
-    the log). No implementation leakage into test files or vice versa.
-  - Live-path confirmed for both re-pointed tests: `test_definition_links_cli.py`
-    invokes `app.definition_links.cli.main(...)` directly then reads back
-    via the real `GET /api/v1/assertions` route;
-    `test_definition_links_pipeline_live.py` calls
-    `run_definition_linking` against real ingested `Article` rows — neither
-    mocks the acceptance target.
-  - Regression added: 1 test (see Completed entry above). Verified RED by
-    temporarily reverting `_STATUS` to `"proposed"` via `sed`, confirming
-    `AssertionError: assert 'proposed' == 'accepted'`, then `git checkout --`
-    to restore the file exactly (confirmed via `git status --short`
-    showing only the new test file as untracked afterward).
-  - No deviations, no escalations. G1/G3 acceptance gates for this repo
-    confirmed green; G2 (article-mention links) and G4 (DB outcome) are
-    scoped to the POC builder repo per ruling R2 and verified there.
+- 2026-07-30T10:40Z (UTC; earlier stamp 14:10 was local-time error) — QA
+  cycle 1, independent agent. Verdict **PASS**. Evaluator: backend 423 +
+  frontend 62 passed, 0 failed, no flakes. Live-path confirmed on both
+  re-pointed tests (real CLI + real pipeline, no mocks). Diff audit
+  3feaa41..73f52f3: no leakage. Regression added: 1 (sabotage-verified
+  RED then green). Full transcript in `-log.md`.
 
 ## Context Dump
 
-- Sprint created 2026-07-30 by manager; recon pending on where "proposed"
-  is set for deterministic assertions in each repo and what article-mention
-  linking already exists (builder repo has a citation graph artifact).
+- Both repos at `review`, QA cycle 1 full PASS (this repo L1 @6a0c0f5,
+  QA @251e7db; POC P1+P2 @23edbe9, QA @a319d99, local-only, no remote).
+- Rebuilt POC DB manager-verified by direct SQL: 164,237 assertions all
+  "accepted", 0 "proposed"; REFERENCES_PROVISION 63,891→65,492 (+1,601
+  same-document bare-mention edges); all other type counts unchanged;
+  backup lexgraph_assertions.pre-status-accepted-20260730.sqlite kept.
+- Awaiting director: merge sprint branch to main (PR) + close sprint.
