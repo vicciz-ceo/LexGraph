@@ -137,7 +137,7 @@ The backend provides REST APIs at `/api/v1/` for managing assertions, comments, 
 
 ### Offline Pipelines (CLI-only, no frontend UI)
 
-Two deterministic, offline batch passes run against a matter's already-stored data and write draft/proposed assertions directly to the database (no LLM/network calls). Both read `LEXGRAPH_DATABASE_URL` the same way the backend server does, so point them at the same database file the server uses.
+Two deterministic, offline batch passes run against a matter's already-stored data and write draft/accepted assertions directly to the database (no LLM/network calls). Both read `LEXGRAPH_DATABASE_URL` the same way the backend server does, so point them at the same database file the server uses.
 
 **Enrichment** (`app/enrich/`) suggests candidate assertions from existing `SourceSpan` rows:
 
