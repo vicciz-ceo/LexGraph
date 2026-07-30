@@ -6,10 +6,16 @@ UI this sprint).
 expected RED signal. Mirrors `tests/integration/test_enrich_cli.py`'s exact
 convention: `main(argv)` (the real entrypoint function, not a subprocess) is
 invoked directly, reads `LEXGRAPH_DATABASE_URL` the same way
-`app.config.get_settings()` does, and the resulting draft/proposed
-assertions are verified through the REAL, ALREADY-REGISTERED
-`GET /api/v1/assertions` route (`app/routers/assertions.py`) -- no new route
-needed this sprint (M6: API route is optional stretch).
+`app.config.get_settings()` does, and the resulting assertions are verified
+through the REAL, ALREADY-REGISTERED `GET /api/v1/assertions` route
+(`app/routers/assertions.py`) -- no new route needed this sprint (M6: API
+route is optional stretch).
+
+Sprint 2026-07-30-deterministic-assertions (ruling R3): deterministic
+definition-links output is no longer "proposed" -- it needs no human rating,
+so it is created directly as "accepted" (origin stays system_generated).
+"proposed" remains reserved for model_suggested (AI-deduced, awaiting
+rating).
 
 Invocation: `python -m app.definition_links.cli --matter-id <id>
 --triggered-by-user-id <id>` (parity with `python -m app.enrich.cli`).
@@ -38,7 +44,7 @@ def _ingest_asset_protection_law(db_session, m: dict) -> None:
     )
 
 
-def test_link_definitions_cli_creates_proposed_assertions_from_ingested_articles(
+def test_link_definitions_cli_creates_accepted_assertions_from_ingested_articles(
     client, db_session, matter_with_users
 ):
     from app.definition_links.cli import main
@@ -59,7 +65,9 @@ def test_link_definitions_cli_creates_proposed_assertions_from_ingested_articles
     assert listing.status_code == 200
     items = listing.json()["items"]
     assert len(items) >= 1
-    assert all(item["status"] == "proposed" for item in items)
+    # Ruling R3: deterministic output needs no human rating -- "accepted",
+    # never "proposed" (that status is reserved for model_suggested).
+    assert all(item["status"] == "accepted" for item in items)
     assert all(item["assertion_type"] in {"USES_DEFINITION", "DERIVES_FROM_LAW"} for item in items)
 
 

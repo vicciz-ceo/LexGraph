@@ -22,8 +22,10 @@ Public API pinned:
     `"terms"` is the list of defined term strings (Stage 2's multi-term
     case: membership-tested via `"term" in item["terms"]`, not equality).
   - `USES_DEFINITION` assertions: subject=Article, object=Definition,
-    origin="system_generated", status="proposed", confidence >= 0.9
-    (structural, ruling M2).
+    origin="system_generated", status="accepted" (sprint
+    2026-07-30-deterministic-assertions, ruling R3: deterministic output
+    needs no human rating; "proposed" stays reserved for model_suggested),
+    confidence >= 0.9 (structural, ruling M2).
   - `DERIVES_FROM_LAW` assertions: subject=Definition, object=Document
     (target law) when resolved, or object_entity_type/id both `None` when
     unresolved (ruling M5) -- confidence is materially LOWER when
@@ -81,7 +83,8 @@ def test_run_definition_linking_creates_a_definition_and_links_using_articles(
     uses_edges = [a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"]
     assert len(uses_edges) >= 1
     assert all(a["origin"] == "system_generated" for a in uses_edges)
-    assert all(a["status"] == "proposed" for a in uses_edges)
+    # Ruling R3: deterministic assertions are "accepted", never "proposed".
+    assert all(a["status"] == "accepted" for a in uses_edges)
 
 
 def test_run_definition_linking_preserves_unresolved_cross_law_derivation_with_null_target(
