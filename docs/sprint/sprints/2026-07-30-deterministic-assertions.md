@@ -3,8 +3,8 @@ id: "2026-07-30-deterministic-assertions"
 status: dev-complete
 current_role: qa
 branch: sprint/2026-07-30-deterministic-assertions
-locked_by: "claude-code:developer"
-locked_at: "2026-07-30T10:25:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-30T11:05:00Z"
 last_agent: "claude-code:developer"
 last_updated: "2026-07-30T13:20:00Z"
 lint: null
