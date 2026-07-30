@@ -3,8 +3,8 @@ id: "2026-07-30-ratings-grade"
 status: planned
 current_role: developer
 branch: sprint/2026-07-30-ratings-grade
-locked_by: "claude-code:planner"
-locked_at: "2026-07-30T20:35:12Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-07-30T20:49:37Z"
 last_agent: "claude-code:planner"
 last_updated: "2026-07-30T21:10:00Z"
 lint: null
