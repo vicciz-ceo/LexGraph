@@ -5,6 +5,12 @@ mean, median, and a 1-5 distribution from a list of current ratings. Must
 return "no aggregate" semantics when `ratings` is empty (spec: "Do not
 calculate or display an aggregate when there are no ratings") rather than
 raising or returning zeros.
+
+Sprint 2026-07-30-ratings-grade, item B1: `band_for_median` and
+`compute_standing` below derive an assertion's *standing* (the
+proposed-until-rated, then weak/probable/strong grade) at read time from
+`AssertionRating` rows -- never persisted (ruling R3). Co-located here per
+R3's own text pointing at this module.
 """
 
 from __future__ import annotations
@@ -49,3 +55,46 @@ def compute_rating_summary(strengths: list[int]) -> RatingSummary | None:
         "median": median,
         "distribution": distribution,
     }
+
+
+def band_for_median(median: float) -> str:
+    """Band a 1-5 median into weak/probable/strong per ruling R4.
+
+    Edges: weak < 3, probable == 3, strong > 3 (fractional medians band by
+    the same rule -- 2.5 is weak, 3.5 is strong).
+    """
+    if median < 3:
+        return "weak"
+    if median > 3:
+        return "strong"
+    return "probable"
+
+
+def compute_standing(status: str, ratings: list[dict], author_user_id: str) -> str:
+    """Derive an assertion's standing from its `status` and current ratings.
+
+    Non-"proposed" statuses pass through unchanged -- this covers both
+    gate G4 (an explicit reviewer decision overrides the grade
+    presentation) and gate G5 (deterministic/system_generated assertions
+    are born "accepted" and never enter the proposed-to-graded flow),
+    since neither is ever "proposed".
+
+    For "proposed", the author's own rating never counts (gate G3): if no
+    non-author rating remains, standing stays "proposed" (gate G1);
+    otherwise standing is the band of the median of the non-author
+    strengths alone (gate G2, ruling R4).
+
+    Each `ratings` item is `{"user_id": ..., "strength": ...}`.
+    """
+    if status != "proposed":
+        return status
+
+    outside_strengths = [
+        r["strength"] for r in ratings if r["user_id"] != author_user_id
+    ]
+    if not outside_strengths:
+        return "proposed"
+
+    summary = compute_rating_summary(outside_strengths)
+    assert summary is not None  # outside_strengths is non-empty here
+    return band_for_median(summary["median"])

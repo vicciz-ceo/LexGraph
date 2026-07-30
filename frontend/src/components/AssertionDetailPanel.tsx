@@ -35,6 +35,11 @@ export interface AssertionDetailSummary {
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
   status: string;
+  // Sprint 2026-07-30-ratings-grade, item UI1: derived standing (the
+  // proposed-until-rated, then weak/probable/strong grade -- ruling R4).
+  // Optional so existing callers/fixtures that only set `status` keep
+  // working; falls back to `status` when absent.
+  standing?: string;
   origin: string;
   confidence?: number | null;
   evidenceStatus: string;
@@ -181,6 +186,7 @@ export function AssertionDetailPanel({
                 : assertion.confidence}
             </li>
             <li data-indicator="review-status">Review status: {assertion.status}</li>
+            <li data-indicator="standing">Standing: {assertion.standing ?? assertion.status}</li>
             <li data-indicator="evidence-status">Evidence status: {assertion.evidenceStatus}</li>
             <li data-indicator="origin">Origin: {assertion.origin}</li>
           </ul>

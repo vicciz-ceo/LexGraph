@@ -60,6 +60,7 @@ from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
 from app.services.duplicates import find_related_assertions
+from app.services.ratings import compute_standing
 from app.services.validation import (
     ValidationError,
     sanitize_for_storage,
@@ -191,6 +192,9 @@ def _evidence_status(session: Session, assertion_id: str) -> str:
 
 def _serialize_assertion(session: Session, a: Assertion) -> dict:
     current_revision = _current_revision(session, a)
+    ratings = _rating_pairs_for_revision(
+        session, current_revision.id if current_revision else None
+    )
     return {
         "id": a.id,
         "organization_id": a.organization_id,
@@ -210,6 +214,9 @@ def _serialize_assertion(session: Session, a: Assertion) -> dict:
         ),
         "origin": a.origin,
         "status": a.status,
+        # Sprint 2026-07-30-ratings-grade, item B1 (ruling R3): derived at
+        # read time, never persisted -- `status` itself is untouched.
+        "standing": compute_standing(a.status, ratings, a.author_user_id),
         "author_user_id": a.author_user_id,
         "confidence": a.confidence,
         "jurisdiction": a.jurisdiction,
@@ -344,6 +351,25 @@ def _rating_strengths_for_revision(session: Session, revision_id: str | None) ->
         .scalars()
         .all()
     )
+
+
+def _rating_pairs_for_revision(session: Session, revision_id: str | None) -> list[dict]:
+    """Return `{"user_id": ..., "strength": ...}` rows for `revision_id`.
+
+    Unlike `_rating_strengths_for_revision` (bare strengths, used by the
+    pre-existing `ratings_summary` aggregate which counts every rating
+    including the author's), this also carries `user_id` -- needed by
+    `app.services.ratings.compute_standing` (item B1) to exclude the
+    author's own rating from the derived `standing` grade.
+    """
+    if revision_id is None:
+        return []
+    rows = session.execute(
+        select(AssertionRating.user_id, AssertionRating.strength).where(
+            AssertionRating.assertion_revision_id == revision_id
+        )
+    ).all()
+    return [{"user_id": user_id, "strength": strength} for user_id, strength in rows]
 
 
 def _user_rating_for_revision(
