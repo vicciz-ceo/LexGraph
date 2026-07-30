@@ -1,13 +1,13 @@
 ---
 id: "2026-07-30-deterministic-assertions"
-status: review
+status: done
 current_role: planner
 branch: sprint/2026-07-30-deterministic-assertions
 locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-30T10:45:06Z"
-lint: "PASS 166 2026-07-30T10:45:06Z"
+last_updated: "2026-07-30T20:31:30Z"
+lint: "PASS 165 2026-07-30T20:31:46Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 1
@@ -157,10 +157,9 @@ Scoped tests (definition-links pipeline and CLI): 12 passed. Full suite: backend
 
 ## Context Dump
 
-- Both repos at `review`, QA cycle 1 full PASS (this repo L1 @6a0c0f5,
-  QA @251e7db; POC P1+P2 @23edbe9, QA @a319d99, local-only, no remote).
-- Rebuilt POC DB manager-verified by direct SQL: 164,237 assertions all
-  "accepted", 0 "proposed"; REFERENCES_PROVISION 63,891→65,492 (+1,601
-  same-document bare-mention edges); all other type counts unchanged;
-  backup lexgraph_assertions.pre-status-accepted-20260730.sqlite kept.
-- Awaiting director: merge sprint branch to main (PR) + close sprint.
+- Closed done 2026-07-30 on director approval; PR #13 merged @ 61d8981.
+  Dual-repo peer (POC builder) also done; rebuilt DB verified 164,237
+  accepted / 0 proposed / +1,601 same-doc bare-mention edges.
+- Director semantics ruling (post-sprint): "proposed" = user-submitted AND
+  AI-deduced until rated by other users; a rating then gives a 1-5 grade
+  (weak-probable-strong) — follow-up sprint planned for the transition.
