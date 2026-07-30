@@ -78,3 +78,46 @@ describe("AssertionDetailPanel", () => {
     expect(screen.getByText(/revision 1/i)).toBeInTheDocument();
   });
 });
+
+// Sprint 2026-07-30-ratings-grade, item UI1 — standing (grade band)
+// presentation on the overview tab, alongside the existing "Review
+// status" / "Origin" / "Model confidence" / "Evidence status" indicators
+// (each already its own `<li data-indicator="...">` -- spec §5: never
+// visually merge separate indicators). `standing` is a new field on
+// `AssertionDetailSummary` (alongside the unchanged `status`); pinned via
+// a `data-indicator="standing"` sibling `<li>`, following that same
+// existing convention. `AssertionDetailPanel` renders no such element
+// today -- every test below is expected to fail on a null
+// `querySelector` match, never an import/collection error.
+describe("AssertionDetailPanel — standing (grade band presentation)", () => {
+  it("shows 'proposed' as the standing until an outside rating grades it (gate G1)", () => {
+    const { container } = render(
+      <AssertionDetailPanel
+        assertion={{ ...assertion, status: "proposed", standing: "proposed" }}
+      />
+    );
+    const standing = container.querySelector('[data-indicator="standing"]');
+    expect(standing).not.toBeNull();
+    expect(standing).toHaveTextContent(/proposed/i);
+  });
+
+  it("shows the grade band once a non-author rating exists, not 'proposed' (gate G2)", () => {
+    const { container } = render(
+      <AssertionDetailPanel assertion={{ ...assertion, status: "proposed", standing: "weak" }} />
+    );
+    const standing = container.querySelector('[data-indicator="standing"]');
+    expect(standing).toHaveTextContent(/weak/i);
+    expect(standing).not.toHaveTextContent(/proposed/i);
+  });
+
+  it("shows the reviewer's decision as the standing once reviewed, never a grade band (gate G4)", () => {
+    const { container } = render(
+      <AssertionDetailPanel
+        assertion={{ ...assertion, status: "rejected", standing: "rejected" }}
+      />
+    );
+    const standing = container.querySelector('[data-indicator="standing"]');
+    expect(standing).toHaveTextContent(/rejected/i);
+    expect(standing).not.toHaveTextContent(/weak|probable|strong/i);
+  });
+});
