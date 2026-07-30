@@ -1,18 +1,18 @@
 ---
 id: "2026-07-30-ratings-grade"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: sprint/2026-07-30-ratings-grade
 locked_by: "claude-code:developer"
 locked_at: "2026-07-30T20:49:37Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-30T21:10:00Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-07-30T20:53:45Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 0
 previous_sprint: "2026-07-30-deterministic-assertions"
 prd_sections: []
@@ -70,7 +70,7 @@ questions: (a) first rating by a non-author user ends "proposed"; (b) grade
 
 ## Next Steps
 
-- [ ] **B1 — Derived standing/grade, exposed via the assertions API.**
+- [x] **B1 — Derived standing/grade, exposed via the assertions API.**
   New pure functions in `backend/app/services/ratings.py` (co-located per
   R3's own text): `band_for_median(median: float) -> str` (weak <3,
   probable ==3, strong >3 — R4's fractional edges 2.5/3.5 included) and
@@ -93,7 +93,7 @@ questions: (a) first rating by a non-author user ends "proposed"; (b) grade
   (22, ImportError — documented exception), `backend/tests/integration/test_assertion_standing_api.py`
   (11, live TestClient routes, KeyError on the missing `"standing"` key).
 
-- [ ] **UI1 — Standing (grade band) display in `AssertionCard` /
+- [x] **UI1 — Standing (grade band) display in `AssertionCard` /
   `AssertionDetailPanel`.** Add a `standing` field to
   `AssertionCardData`/`AssertionDetailSummary` (alongside the unchanged
   `status`) and render it: `AssertionCard` gets a new
@@ -133,9 +133,29 @@ existing test's wording collides with the new `standing`/`weak`/
 
 ## Dev Complete
 
+- **B1** — `backend/app/services/ratings.py` (`band_for_median`,
+  `compute_standing`), `backend/app/routers/assertions.py`
+  (`_rating_pairs_for_revision`, `_serialize_assertion` now emits
+  `"standing"`). Commit `5aaca94`. Result: standing derived at read
+  time per R3/R4; `backend/tests/unit/test_standing_grade.py` (22) and
+  `backend/tests/integration/test_assertion_standing_api.py` (11) green.
+- **UI1** — `frontend/src/components/AssertionCard.tsx`,
+  `frontend/src/components/AssertionDetailPanel.tsx`. Commit `5aaca94`.
+  Result: `standing` field rendered via `data-testid="assertion-standing"`
+  and `data-indicator="standing"`; `AssertionCard.test.tsx` (+4) and
+  `AssertionDetailPanel.test.tsx` (+3) green.
+
 ## Completed
 
 ## Evaluation Notes
+
+- Scoped: `backend/tests/unit/test_standing_grade.py` +
+  `backend/tests/integration/test_assertion_standing_api.py` → 33
+  passed. Frontend `AssertionCard.test.tsx` +
+  `AssertionDetailPanel.test.tsx` → 18 passed.
+- Full authoritative pass: backend `pytest backend/tests -v` → 457
+  passed, 0 failed. Frontend `npm run test -- --run` → 69 passed (11
+  files), 0 failed. Raw logs → `-log.md`.
 
 ## QA Notes
 

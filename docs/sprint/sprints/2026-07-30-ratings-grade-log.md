@@ -3,6 +3,7 @@
 ## Agent roster
 
 - 2026-07-30T20:36Z planner (general-purpose, sonnet high) → agentId a36f5fb67d4d386af
+- 2026-07-30T20:50Z dev B1+UI1 (general-purpose, sonnet medium — aggregation/banding + API/UI) → agentId a146f68f7fdfca1eb
 
 ## Characterization (Planner)
 
@@ -109,3 +110,39 @@ Unable to find an element by: [data-testid="assertion-standing"]`; 3 in
 `AssertionDetailPanel.test.tsx` — null/non-Node `querySelector` result).
 All RED for the right reason; no import/collection errors on the
 frontend side (both components already exist).
+
+## GREEN confirmation (Developer)
+
+Implementation: `app.services.ratings.band_for_median`/`compute_standing`
+(pure, co-located with `compute_rating_summary`); a new
+`_rating_pairs_for_revision` helper in `routers/assertions.py` (user_id +
+strength, since the pre-existing `_rating_strengths_for_revision` only
+returns bare strengths and `compute_standing` needs to exclude the
+author's own rating); `_serialize_assertion` now emits `"standing"`
+alongside the untouched `"status"`. Frontend: `standing?: string` added
+to `AssertionCardData`/`AssertionDetailSummary` (optional, falling back
+to `status`, so pre-sprint fixtures without the field keep working);
+`AssertionCard` renders it in a new meta row only when `standing` is
+provided (`data-testid="assertion-standing"`) — guarding on presence
+avoids a duplicate-text collision with the pre-existing
+`getByText(/proposed/i)` assertion in `AssertionCard.test.tsx`'s first
+test, whose `baseAssertion` fixture has no `standing` field;
+`AssertionDetailPanel` always renders a `data-indicator="standing"`
+sibling `<li>` (no such collision risk there — its tests use
+`querySelector`/`toHaveTextContent`, not `getByText`).
+
+Scoped: `backend/.venv/bin/pytest backend/tests/unit/test_standing_grade.py
+backend/tests/integration/test_assertion_standing_api.py -q` → 33 passed
+(22 + 11). `npm --prefix frontend run test -- --run
+src/components/__tests__/AssertionCard.test.tsx
+src/components/__tests__/AssertionDetailPanel.test.tsx` → 18 passed (10 +
+8).
+
+Full authoritative pass: `backend/.venv/bin/pytest backend/tests -v` →
+457 passed, 0 failed. `npm --prefix frontend run test -- --run` → 69
+passed (11 files), 0 failed (only pre-existing, unrelated `act(...)`
+console warnings from `AssertionRatingWidget`, not a failure).
+
+No test files touched; no pinned name deviated from (`standing`,
+`band_for_median`, `compute_standing` implemented exactly as specified).
+No escalations. Commit `5aaca94` (feat, B1+UI1), pushed.
