@@ -3,8 +3,8 @@ id: "2026-07-30-ratings-grade"
 status: dev-complete
 current_role: qa
 branch: sprint/2026-07-30-ratings-grade
-locked_by: "claude-code:developer"
-locked_at: "2026-07-30T20:49:37Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-30T20:55:54Z"
 last_agent: "claude-code:developer"
 last_updated: "2026-07-30T20:53:45Z"
 lint: null
