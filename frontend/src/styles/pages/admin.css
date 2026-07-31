@@ -1,0 +1,220 @@
+/* Admin page — matter administration (prefix: adm-).
+ * Consumes tokens.css variables and the shared primitives in app.css. */
+
+/* --- Segmented control --------------------------------------------------- */
+
+.adm-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-container);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.adm-tab {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font: 500 13px/18px var(--font-family);
+  color: var(--on-surface-variant);
+}
+
+.adm-tab:hover {
+  color: var(--on-surface);
+}
+
+.adm-tab--active,
+.adm-tab--active:hover {
+  background: var(--surface-container-lowest);
+  color: var(--on-surface);
+  font-weight: 600;
+  box-shadow: var(--shadow-overlay);
+}
+
+/* --- Member roster -------------------------------------------------------- */
+
+.adm-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 220px;
+}
+
+.adm-member__id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.adm-member__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 14px/20px var(--font-family);
+}
+
+.adm-you {
+  font: var(--label-sm);
+  padding: 0 6px;
+}
+
+.adm-member__email {
+  font: var(--body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-role-col {
+  width: 190px;
+}
+
+.adm-role-select {
+  width: 170px;
+}
+
+.adm-role-label {
+  font: 500 13px/18px var(--font-family);
+}
+
+.adm-actions-col {
+  width: 110px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* --- Add member card ------------------------------------------------------ */
+
+.adm-add {
+  margin-top: var(--space-md);
+}
+
+.adm-add__hint {
+  font: var(--body-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.adm-add__row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.adm-add__row .input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.adm-add__row .select {
+  width: 170px;
+}
+
+.adm-add__error {
+  margin-top: var(--space-sm);
+  font: var(--body-sm);
+  color: var(--error);
+}
+
+.adm-note {
+  margin-top: var(--space-md);
+  font: var(--body-sm);
+  font-style: italic;
+  color: var(--on-surface-variant);
+}
+
+/* --- User accounts --------------------------------------------------------- */
+
+.adm-id-col {
+  width: 220px;
+}
+
+.adm-created {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container);
+}
+
+.adm-created__label {
+  font: var(--body-sm);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.adm-created__id {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  user-select: all;
+  word-break: break-all;
+}
+
+.adm-created__hint {
+  margin-top: 6px;
+  font: var(--body-sm);
+}
+
+/* --- Review policy reference --------------------------------------------- */
+
+.adm-policy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.adm-policy .card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font: var(--body-md);
+}
+
+.adm-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.adm-pipeline li {
+  line-height: 22px;
+}
+
+.adm-pipeline .badge {
+  margin-right: 4px;
+  vertical-align: baseline;
+}
+
+.adm-bullets {
+  list-style: disc;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.adm-matrix__role {
+  text-align: center;
+}
+
+.adm-matrix__cell {
+  text-align: center;
+  width: 92px;
+}
+
+.adm-matrix__yes {
+  color: var(--status-accepted-fg);
+  display: inline-grid;
+  place-items: center;
+}
+
+/* --- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1023px) {
+  .adm-policy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

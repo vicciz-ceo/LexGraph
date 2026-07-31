@@ -1,0 +1,335 @@
+/* Profile page — the signed-in user's activity in the current matter
+ * (prefix: pf-). Consumes tokens.css variables and app.css primitives. */
+
+/* --- Identity header ---------------------------------------------------- */
+
+.pf-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.pf-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-xl);
+  font: var(--headline-md);
+}
+
+.pf-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  font: var(--display-lg);
+  letter-spacing: -0.01em;
+}
+
+.pf-role {
+  text-transform: capitalize;
+}
+
+.pf-subtitle {
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  margin-top: var(--space-xs);
+}
+
+/* --- Stat cards ---------------------------------------------------------- */
+
+.pf-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.pf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.pf-stat__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--on-surface-variant);
+}
+
+.pf-stat__label {
+  font: var(--label-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pf-stat__value {
+  font: var(--display-lg);
+}
+
+.pf-stat__value-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pf-stat__caption {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.pf-ring {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.pf-ring circle {
+  fill: none;
+  stroke-width: 3.4;
+}
+
+.pf-ring__track {
+  stroke: var(--surface-container-high);
+}
+
+.pf-ring__meter {
+  stroke: var(--primary);
+  stroke-linecap: round;
+}
+
+/* --- Activity split ------------------------------------------------------ */
+
+.pf-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+/* --- Tabs ----------------------------------------------------------------- */
+
+.pf-tabs {
+  display: inline-flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--surface-container);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.pf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-lg);
+  font: 500 13px/18px var(--font-family);
+  color: var(--on-surface-variant);
+}
+
+.pf-tab:hover {
+  color: var(--on-surface);
+}
+
+.pf-tab--active {
+  background: var(--surface-container-lowest);
+  color: var(--on-surface);
+  font-weight: 600;
+  box-shadow: var(--shadow-overlay);
+}
+
+.pf-tab__count {
+  font: var(--label-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.pf-tab:not(.pf-tab--active) .pf-tab__count {
+  background: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+}
+
+/* --- Activity lists ------------------------------------------------------- */
+
+.pf-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pf-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.pf-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.pf-item__prop {
+  font: 500 14px/20px var(--font-family);
+  color: var(--on-surface);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pf-item__prop:hover {
+  color: var(--secondary);
+  text-decoration: none;
+}
+
+.pf-item__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.pf-item__meta-text {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.pf-item__cta {
+  flex: none;
+}
+
+.pf-empty-cta {
+  margin-top: var(--space-sm);
+}
+
+/* --- Notifications -------------------------------------------------------- */
+
+.pf-notifs {
+  display: flex;
+  flex-direction: column;
+}
+
+.pf-notif {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font: var(--body-sm);
+}
+
+.pf-notif:last-child {
+  border-bottom: none;
+}
+
+.pf-notif__title {
+  font: 500 13px/18px var(--font-family);
+}
+
+.pf-notif--unread .pf-notif__title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--secondary);
+  margin-right: 8px;
+}
+
+.pf-notif__time {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.pf-note {
+  font: var(--body-sm);
+  font-style: italic;
+  color: var(--on-surface-variant);
+  margin-top: var(--space-sm);
+}
+
+/* --- Matters card ---------------------------------------------------------- */
+
+.pf-matters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pf-matter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.pf-matter--current {
+  border-color: var(--primary);
+  background: var(--surface-container-low);
+}
+
+.pf-matter__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  font: 500 13px/18px var(--font-family);
+}
+
+.pf-matter__current {
+  font: var(--label-sm);
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pf-matter .badge {
+  flex: none;
+  text-transform: capitalize;
+}
+
+/* --- Responsive ------------------------------------------------------------ */
+
+@media (max-width: 1023px) {
+  .pf-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pf-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .pf-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-name {
+    font: var(--headline-md);
+  }
+
+  .pf-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

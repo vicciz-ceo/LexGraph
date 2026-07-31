@@ -3,7 +3,7 @@
 This runbook describes how to set up and run a complete local-first LexGraph system from a fresh clone, with zero cloud dependencies. The system consists of:
 1. A local SQLite database
 2. A FastAPI backend server
-3. A React grading application
+3. A React web application (the Consensus UI)
 4. An MCP server for agent integration
 
 ## Fresh-Clone Setup
@@ -14,6 +14,54 @@ Start with a clean clone of the repository:
 git clone https://github.com/vicciz-ceo/LexGraph.git
 cd LexGraph
 ```
+
+### Quickstart (real provisioning)
+
+The real path from an empty database to a working, admin-owned instance:
+bootstrap the workspace, sign in as the admin bootstrap creates, then
+provision further users and access from the app itself.
+
+```bash
+cd backend
+python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/python -m app.bootstrap --db dev.db
+```
+
+Bootstrap refuses to run on a non-empty database (an empty-DB guard — no
+silent mutation on top of an existing workspace) and prints the new admin's
+sign-in id — that id **is** the credential (`backend/app/auth.py`'s
+test-token seam: `Authorization: Bearer <user_id>`); there are no passwords.
+Copy it, then start both servers:
+
+```bash
+LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
+cd .. && npm --prefix frontend install && npm --prefix frontend run dev
+```
+
+Sign in at http://localhost:5173 with the printed id. From there, use
+Admin → User accounts to create further accounts and Admin → Members &
+roles to grant them roles on a matter — see
+["Provisioning users & access"](#provisioning-users--access) below for the
+full flow. The rest of this runbook is the manual, step-by-step breakdown
+of what bootstrap and the demo seed each automate.
+
+### Optional: demo workspace (local testing / mockup data)
+
+`./scripts/demo.sh` is a local-testing convenience, not a provisioning
+path — it seeds a demo workspace into `backend/dev.db` with fixed,
+hardcoded accounts and starts backend (:8000) + frontend (:5173) in one
+command:
+
+```bash
+./scripts/demo.sh
+```
+
+Sign in at http://localhost:5173 as `admin`, `reviewer`, `contributor`, or
+`viewer` (the user id *is* the role name — no admin action created these;
+they're fixtures for exercising the UI locally). The seeder
+(`backend/app/seed_demo.py`) drives the real API, so the demo data carries
+genuine revisions, ratings, comments, notifications, and audit events —
+useful for development and mockups, not for a real deployment.
 
 ### Backend Environment Setup
 
@@ -159,21 +207,55 @@ cd ..
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
-## Grading Application
+## Web Application
 
-### Starting the Grading App
+### Starting the Web App
 
-In a separate terminal, start the Vite development server for the frontend grading application:
+In a separate terminal, start the Vite development server:
 
 ```bash
 npm --prefix frontend run dev
 ```
 
-The grading application will be available at `http://localhost:5173` (or the port specified by Vite). This application allows you to:
-- View all assertions and evidence
-- Create new assertions
-- Rate and review suggested assertions
-- Edit existing assertions and comments
+The app will be available at `http://localhost:5173` (or the port specified by Vite); the dev server proxies `/api` to `http://127.0.0.1:8000` (override with `LEXGRAPH_API_PROXY`). Sign in with a user id that exists in the connected database — the bearer token *is* the user id (`backend/app/auth.py` test-token seam); with the demo seed that means `admin`, `reviewer`, `contributor`, or `viewer`.
+
+The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
+- **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
+- **Knowledge Base** — searchable accepted-assertion table with CSV export
+- **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
+- **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
+- **Contested** — adjudication queue for disputed assertions
+- **Analytics** — per-matter dashboard computed live from the assertion list
+- **Admin** — user account provisioning and matter member/role management (admin role required)
+- **Profile** — your activity, notifications, and matters
+
+### Provisioning users & access
+
+Once signed in as an admin (bootstrap prints the first one — see
+["Quickstart"](#quickstart-real-provisioning) above), provisioning further
+people is entirely in-app; no CLI or DB access is required:
+
+1. **Create the account.** Admin → **User accounts** → fill in email and
+   display name → **Create account**. The response — and the page — show
+   the new account's sign-in id prominently. That id **is** the sign-in
+   credential (there are no passwords); hand it to the person. Creating an
+   account pre-fills its email into the Members & roles add-member field
+   so granting access is the very next step.
+2. **Grant matter access.** Admin → **Members & roles** → the new
+   account's email is already filled in → pick a role (viewer,
+   contributor, reviewer, or admin) → **Add**. Roles are per-matter: the
+   same account can be a reviewer on one matter and have no access to
+   another, and admin is a per-matter admin, not a global superuser role
+   (any admin-of-some-matter can list/create user accounts, per the users
+   API's access model).
+3. **They sign in.** The new user enters the id from step 1 on the
+   sign-in page and immediately sees the UI appropriate to the role(s)
+   they were granted.
+
+This replaces hand-editing the database or re-running the demo seed for
+real usage — the seed stays a local-testing convenience (see "Optional:
+demo workspace" above), never the provisioning path for an actual
+deployment.
 
 ### Building for Production
 
@@ -239,7 +321,10 @@ npm --prefix frontend run test -- --run
 
 ## End-to-End Workflow
 
-Here's a complete workflow from fresh clone to a working local-first LexGraph system:
+Here's a complete workflow from fresh clone to a working, admin-provisioned
+local-first LexGraph system — bootstrap → sign in → create users → grant
+access, per the "Quickstart" and "Provisioning users & access" sections
+above:
 
 1. **Clone and setup**:
    ```bash
@@ -249,13 +334,15 @@ Here's a complete workflow from fresh clone to a working local-first LexGraph sy
    npm --prefix frontend ci
    ```
 
-2. **Initialize database** (one-time schema creation — see "Database Schema" above):
+2. **Bootstrap the workspace** (one-time; creates the schema, the first
+   organization/matter, and the first admin — see "Quickstart" above):
    ```bash
    export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
    cd backend
-   .venv/bin/python -c "import app.models; from app.config import get_settings; from app.db import Base, make_engine; Base.metadata.create_all(make_engine(get_settings().database_url))"
+   .venv/bin/python -m app.bootstrap
    cd ..
    ```
+   Copy the printed sign-in id — it's the admin's credential.
 
 3. **Start the backend** (Terminal 1):
    ```bash
@@ -264,16 +351,21 @@ Here's a complete workflow from fresh clone to a working local-first LexGraph sy
    .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-4. **Start the grading app** (Terminal 2):
+4. **Start the web app** (Terminal 2):
    ```bash
    npm --prefix frontend run dev
    ```
 
 5. **Access the application**:
-   - Grading app: `http://localhost:5173`
+   - Grading app: `http://localhost:5173` — sign in with the id from step 2
    - Backend API docs: `http://localhost:8000/docs`
 
-6. **Optional: Register MCP server** (Terminal 3):
+6. **Create users and grant access** — from the signed-in admin session:
+   Admin → User accounts → create an account (copy the returned sign-in
+   id) → Admin → Members & roles → grant it a role on a matter. See
+   "Provisioning users & access" above for the full walkthrough.
+
+7. **Optional: Register MCP server** (Terminal 3):
    ```bash
    export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
    claude mcp add lexgraph -- backend/.venv/bin/python -m app.mcp.server

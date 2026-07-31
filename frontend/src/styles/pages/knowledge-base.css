@@ -1,0 +1,170 @@
+/* Knowledge Base page (src/pages/KnowledgeBasePage.tsx) — kb- prefix.
+ * Builds on the shared primitives in app.css; palette comes exclusively
+ * from tokens.css variables. */
+
+/* --- Toolbar ------------------------------------------------------------ */
+
+.kb-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  background: var(--surface-container-low);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.kb-toolbar__search {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.kb-toolbar__search .icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--on-surface-variant);
+  pointer-events: none;
+}
+
+.kb-toolbar__search .input {
+  padding-left: 34px;
+}
+
+.kb-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font: var(--label-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+}
+
+.kb-control .select {
+  min-width: 132px;
+  font: var(--body-md);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--on-surface);
+}
+
+.kb-export {
+  margin-left: auto;
+}
+
+.kb-results {
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  margin: 0 0 var(--space-sm);
+}
+
+.kb-results strong {
+  color: var(--on-surface);
+  font-weight: 600;
+}
+
+/* --- Table -------------------------------------------------------------- */
+
+.kb-cell-assertion {
+  min-width: 260px;
+  max-width: 560px;
+}
+
+.kb-proposition {
+  font: 500 14px/20px var(--font-family);
+  color: var(--on-surface);
+}
+
+.kb-proposition:hover {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.kb-sub {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+  margin-top: 2px;
+}
+
+.kb-badges {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.kb-confidence {
+  display: block;
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.kb-evidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--body-sm);
+  white-space: nowrap;
+}
+
+.kb-evidence::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.kb-evidence--evidenced {
+  color: var(--status-accepted-fg);
+}
+
+.kb-evidence--unsupported {
+  color: var(--status-rejected-fg);
+}
+
+.kb-evidence--awaiting_evidence {
+  color: var(--status-pending-fg);
+}
+
+.kb-rating {
+  font: var(--body-sm);
+  white-space: nowrap;
+}
+
+.kb-date {
+  white-space: nowrap;
+  color: var(--on-surface-variant);
+}
+
+/* Superseded rows keep readable contrast: strikethrough + muted text,
+ * no row-level opacity (design-review fix). */
+.kb-row--superseded .kb-proposition {
+  text-decoration: line-through;
+  color: var(--on-surface-variant);
+}
+
+/* --- Card footer (count + legend) --------------------------------------- */
+
+.kb-tablefoot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 10px var(--space-md);
+  border-top: 1px solid var(--border);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.kb-legend {
+  font: var(--label-md);
+}

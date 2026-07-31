@@ -1,0 +1,101 @@
+/* Design tokens — ported from the Consensus Enterprise design system
+ * (design/consensus-ui/DESIGN.md frontmatter, kept in docs/design/).
+ * Single source of truth for color, type, radius, and spacing. All app
+ * CSS consumes these variables; do not hardcode palette values elsewhere. */
+
+:root {
+  /* Surfaces */
+  --surface: #f8f9ff;
+  --surface-dim: #cbdbf5;
+  --surface-bright: #f8f9ff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #eff4ff;
+  --surface-container: #e5eeff;
+  --surface-container-high: #dce9ff;
+  --surface-container-highest: #d3e4fe;
+  --on-surface: #0b1c30;
+  --on-surface-variant: #3d4947;
+  --inverse-surface: #213145;
+  --inverse-on-surface: #eaf1ff;
+  --outline: #6d7a77;
+  --outline-variant: #bcc9c6;
+
+  /* Brand */
+  --primary: #00685f;
+  --on-primary: #ffffff;
+  --primary-container: #008378;
+  --on-primary-container: #f4fffc;
+  --primary-fixed: #89f5e7;
+  --primary-fixed-dim: #6bd8cb;
+  --on-primary-fixed: #00201d;
+  --secondary: #0058be;
+  --on-secondary: #ffffff;
+  --secondary-fixed: #d8e2ff;
+  --on-secondary-fixed: #001a42;
+  --tertiary: #6b38d4;
+  --on-tertiary: #ffffff;
+  --tertiary-fixed: #e9ddff;
+  --on-tertiary-fixed: #23005c;
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+
+  /* Semantic status colors (traffic-light system from the design brief) */
+  --status-accepted-bg: #dcfce7;
+  --status-accepted-fg: #15803d;
+  --status-rejected-bg: #fee2e2;
+  --status-rejected-fg: #b91c1c;
+  --status-pending-bg: #fef3c7;
+  --status-pending-fg: #b45309;
+  --status-contested-bg: #ffedd5;
+  --status-contested-fg: #c2410c;
+  --status-neutral-bg: #e2e8f0;
+  --status-neutral-fg: #334155;
+
+  /* Source attribution (violet = AI-deduced, blue = colleague-suggested) */
+  --origin-model-bg: #ede9fe;
+  --origin-model-fg: #6d28d9;
+  --origin-user-bg: #dbeafe;
+  --origin-user-fg: #1d4ed8;
+  --origin-system-bg: #f1f5f9;
+  --origin-system-fg: #475569;
+
+  /* Borders / structure */
+  --border: #e2e8f0;
+  --row-hover: #f1f5f9;
+
+  /* Typography (Inter throughout) */
+  --font-family: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --display-lg: 600 32px/40px var(--font-family);
+  --headline-md: 600 24px/32px var(--font-family);
+  --headline-sm: 600 20px/28px var(--font-family);
+  --title-md: 600 16px/24px var(--font-family);
+  --body-lg: 400 16px/24px var(--font-family);
+  --body-md: 400 14px/20px var(--font-family);
+  --body-sm: 400 13px/18px var(--font-family);
+  --label-md: 500 12px/16px var(--font-family);
+  --label-sm: 600 11px/14px var(--font-family);
+
+  /* Shape (soft, disciplined: 4px default, 8px containers) */
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Spacing — 8px linear grid */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --container-max: 1440px;
+
+  /* Elevation (tonal layering; shadows stay soft) */
+  --shadow-overlay: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 8px 24px rgba(11, 28, 48, 0.12);
+}

@@ -1,0 +1,168 @@
+/* Sign-in page — full-viewport centered card rendered outside the AppShell.
+ * Recreates the design's decorative blurred background blobs and elevated
+ * 420px card; all colors come from tokens.css. Classes are namespaced
+ * `signin`. */
+
+.signin {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: var(--surface-container-low);
+  overflow: hidden;
+}
+
+/* --- Decorative background blobs -------------------------------------- */
+
+.signin__blob {
+  position: absolute;
+  width: 384px;
+  height: 384px;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.signin__blob--primary {
+  top: -96px;
+  right: -64px;
+  background: var(--primary-fixed);
+}
+
+.signin__blob--tertiary {
+  bottom: -96px;
+  left: -64px;
+  background: var(--tertiary-fixed);
+}
+
+/* --- Card -------------------------------------------------------------- */
+
+.signin__content {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.signin__card {
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-popover);
+  padding: var(--space-xl);
+  text-align: center;
+  animation: signin-fade-up 0.5s ease-out both;
+}
+
+@keyframes signin-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signin__card {
+    animation: none;
+  }
+}
+
+.signin__logo {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-md);
+  border-radius: var(--radius-xl);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.signin__title {
+  font: var(--headline-md);
+  letter-spacing: -0.01em;
+}
+
+.signin__subtitle {
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  margin: var(--space-sm) 0 var(--space-lg);
+}
+
+.signin__card .error-banner {
+  text-align: left;
+}
+
+/* --- Form -------------------------------------------------------------- */
+
+.signin__form {
+  text-align: left;
+}
+
+.signin__input-wrap {
+  position: relative;
+}
+
+.signin__input-wrap .icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--on-surface-variant);
+  pointer-events: none;
+}
+
+/* Outweighs app.css's `.field input:not(...):not(...)` padding rule. */
+.signin .signin__input-wrap input:not([type="checkbox"]):not([type="radio"]) {
+  padding-left: 36px;
+}
+
+.signin__submit {
+  width: 100%;
+  padding: 10px 14px;
+}
+
+/* --- Environment tag ---------------------------------------------------- */
+
+.signin__env {
+  position: absolute;
+  right: var(--space-lg);
+  bottom: var(--space-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-container-lowest);
+  font: var(--label-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+}
+
+.signin__env-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-fixed-dim);
+}
+
+/* On narrow viewports the absolute tag would collide with the card —
+ * join the flow, centered below the content, instead. */
+@media (max-width: 767px) {
+  .signin__env {
+    position: static;
+    margin-top: var(--space-lg);
+  }
+}

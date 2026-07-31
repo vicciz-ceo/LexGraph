@@ -1,0 +1,235 @@
+/* Review Queue page (ReviewQueuePage.tsx). Namespace: .rq- */
+
+.rq-filters {
+  align-items: center;
+}
+
+.rq-filters__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 var(--space-xs);
+}
+
+/* --- Layout: queue + guidelines rail ---------------------------------- */
+
+.rq-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.rq-rail {
+  display: grid;
+  gap: var(--space-md);
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 1199px) {
+  .rq-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rq-rail {
+    position: static;
+  }
+}
+
+/* --- Queue cards -------------------------------------------------------- */
+
+.rq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rq-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.rq-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rq-card__proposition {
+  font: var(--body-lg);
+}
+
+.rq-card__proposition a {
+  color: var(--on-surface);
+}
+
+.rq-card__proposition a:hover {
+  color: var(--secondary);
+}
+
+.rq-card__meta {
+  font: var(--body-sm);
+}
+
+/* Evidence status chip — semantic traffic-light colors, distinct from the
+ * review-status badge (no leading dot). */
+
+.rq-evidence--evidenced {
+  background: var(--status-accepted-bg);
+  color: var(--status-accepted-fg);
+}
+
+.rq-evidence--unsupported {
+  background: var(--status-rejected-bg);
+  color: var(--status-rejected-fg);
+}
+
+.rq-evidence--awaiting_evidence {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+}
+
+/* Model confidence chip — outlined, model-colored; deliberately styled
+ * unlike ratings and status so the three indicators never read as one. */
+
+.rq-confidence {
+  background: transparent;
+  border: 1px solid var(--origin-model-fg);
+  color: var(--origin-model-fg);
+}
+
+/* --- Rating summary strip (restyle of AssertionRatingDistribution) ------ */
+
+.rq-card__summary {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-sm);
+}
+
+.rq-card__summary-note {
+  font: var(--body-sm);
+}
+
+.rq-card .assertion-rating-distribution {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.rq-card .assertion-rating-distribution__team-rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.rq-card .assertion-rating-distribution__label {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+}
+
+.rq-card .assertion-rating-distribution__value {
+  font: var(--body-sm);
+}
+
+.rq-card .assertion-rating-distribution__value strong {
+  font: 600 15px/20px var(--font-family);
+  color: var(--primary);
+}
+
+.rq-card .assertion-rating-distribution__buckets {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.rq-card .assertion-rating-distribution__buckets li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 24px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-container-low);
+}
+
+.rq-card .assertion-rating-distribution__bucket-label {
+  font: var(--label-sm);
+  color: var(--on-surface-variant);
+}
+
+.rq-card .assertion-rating-distribution__bucket-count {
+  font: 600 12px/16px var(--font-family);
+}
+
+.rq-card .assertion-rating-distribution__empty {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+/* --- Review actions area ------------------------------------------------ */
+
+.rq-card__review {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+.rq-card__readonly {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-sm);
+  font: var(--body-sm);
+}
+
+/* --- Guidelines rail ---------------------------------------------------- */
+
+.rq-rail__heading {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+  margin-bottom: var(--space-sm);
+}
+
+.rq-rail__list {
+  list-style: disc;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font: var(--body-sm);
+}
+
+.rq-rail__scale {
+  display: grid;
+  gap: var(--space-sm);
+  font: var(--body-sm);
+}
+
+.rq-rail__scale li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.rq-rail__scale-num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-container-high);
+  font: var(--label-sm);
+}
+
+.rq-rail__note {
+  margin-top: var(--space-md);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  font: var(--body-sm);
+}
