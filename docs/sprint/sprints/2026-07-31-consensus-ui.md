@@ -3,11 +3,11 @@ id: "2026-07-31-consensus-ui"
 status: review
 current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
-locked_by: "claude-code:qa"
-locked_at: "2026-07-31T14:05:00Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-31T15:40:00Z"
-lint: null
+last_updated: "2026-07-31T11:08:11Z"
+lint: "PASS 179 2026-07-31T11:08:11Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
@@ -76,11 +76,7 @@ commit onward, standard role separation applies.
 
 ## Next Steps
 
-(none — V1 independent QA complete, see QA Notes below; all gates passed)
-
 ## Dev Complete
-
-(none — all items verified by QA and moved to Completed below)
 
 ## Completed
 
@@ -97,7 +93,7 @@ commit onward, standard role separation applies.
 - **W1 — Backend workspace surface + demo seed** (pre-harness,
   manager-authored): GET /api/v1/me, matter member roster + admin role
   management with last-admin lockout guard; seed script driving the real
-  API (15 assertions across all 8 statuses, 2 matters, 4 role-named users);
+  API (17 assertions across all 8 statuses, 2 matters, 4 role-named users);
   scripts/demo.sh. Files: backend/app/routers/workspace.py,
   backend/app/seed_demo.py, backend/tests/integration/test_workspace.py,
   scripts/demo.sh. Verified: 479/479 backend tests pass (18 new); seed
@@ -174,11 +170,10 @@ detail: 2026-07-31-consensus-ui-log.md.
 
 ## Context Dump
 
-Sprint adopts a large pre-harness baseline (see Harness-compliance
-disclosure). Nine screen agents are mid-flight in workflow wf_dfea95a4-a7c
-writing frontend/src/pages/* + styles/pages/* + pages/__tests__/*. When they
-land: manager risk-classed diff read → authoritative evaluator run → G1
-browser walkthrough (manager) → spawn QA (Sonnet, high) for V1 → gates →
-review. Demo stack: seed backend/dev.db via `python -m app.seed_demo`, serve
-uvicorn :8000, vite :5173 (proxy configured), sign-in ids
-admin/reviewer/contributor/viewer.
+Sprint complete: status review, all 11 items Completed, all four gates
+passed (QA Notes above). Nothing in flight. Successor work would start a
+NEW sprint — candidates recorded in the log: span-text resolution for
+evidence lists, detail-page name resolution, backend rating-summary
+embedding in list responses, real IdP story. Demo stack recipe: seed
+backend/dev.db via `python -m app.seed_demo`, uvicorn :8000, vite :5173,
+sign-in ids admin/reviewer/contributor/viewer.

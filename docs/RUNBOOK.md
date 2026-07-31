@@ -3,7 +3,7 @@
 This runbook describes how to set up and run a complete local-first LexGraph system from a fresh clone, with zero cloud dependencies. The system consists of:
 1. A local SQLite database
 2. A FastAPI backend server
-3. A React grading application
+3. A React web application (the Consensus UI)
 4. An MCP server for agent integration
 
 ## Fresh-Clone Setup
@@ -285,7 +285,7 @@ Here's a complete workflow from fresh clone to a working local-first LexGraph sy
    .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-4. **Start the grading app** (Terminal 2):
+4. **Start the web app** (Terminal 2):
    ```bash
    npm --prefix frontend run dev
    ```
