@@ -76,7 +76,18 @@ commit onward, standard role separation applies.
 
 ## Next Steps
 
-- **V1 — Independent QA of the full sprint** (blocked until UI1–UI9 land):
+- **D1 — Fix members-endpoint shape mismatch (client + pages)** [from G1
+  walkthrough]: client.ts types listMatterMembers as {items:[...]} but the
+  backend returns a bare array → AdminPage blank crash, dead author-name
+  resolution on ReviewQueue/Analytics. Fix client type + the three call
+  sites; also resolve non-self names on AssertionDetailPage. RED tests:
+  Planner commit (pages/__tests__).
+- **D3 — awaiting_evidence acceptance must open the justification flow**
+  [from G1 walkthrough]: pages feeding AssertionReviewPanel must treat
+  awaiting_evidence like unsupported (backend requires a justification for
+  both); today the queue fires the API and surfaces the server 4xx. RED
+  test: Planner commit.
+- **V1 — Independent QA of the full sprint** (blocked until D1/D3 land):
   re-run the evaluator, verify each item against its acceptance criteria,
   scrutinize pre-harness code (backend/app/routers/workspace.py,
   backend/app/seed_demo.py, frontend/src/{api,app,styles}) and
@@ -102,18 +113,18 @@ commit onward, standard role separation applies.
   scripts/demo.sh. Verified: 479/479 backend tests pass (18 new); seed
   executed against a scratch DB and API-smoke-checked.
 
-## In Flight (Developer pass — nine parallel screen agents, workflow wf_dfea95a4-a7c)
+## Dev Complete (continued)
 
-- **UI1 — SignInPage** · **UI2 — ReviewQueuePage** · **UI3 —
-  KnowledgeBasePage** · **UI4 — AssertionDetailPage** · **UI5 —
-  SuggestAssertionPage** · **UI6 — ContestedPage** · **UI7 — AdminPage** ·
-  **UI8 — ProfilePage** · **UI9 — AnalyticsPage**. Each: implement the
-  adapted design (briefs embedded in the workflow script; adaptation
-  authority is docs/design/consensus-ui-review.md), own Vitest coverage,
-  typecheck + own tests green before handoff. Acceptance criteria per item:
-  renders real API data for the current matter; role gating per R2;
-  design fidelity per R3/R4; tests cover load, key interactions, role
-  gating, empty/error states.
+- **UI1–UI9 — nine screens** (workflow wf_dfea95a4-a7c, commit d11ff9e):
+  SignIn, ReviewQueue, KnowledgeBase, AssertionDetail, SuggestAssertion,
+  Contested, Admin, Profile, Analytics — each page + namespaced CSS + Vitest
+  coverage (75 new tests; suite 144/144, typecheck clean). Manager G1 live
+  walkthrough verified sign-in, queue+review actions, detail+rating,
+  knowledge search, contested adjudication incl. justification flow, suggest
+  submission, profile stats, viewer role gating — EXCEPT the three defects
+  D1–D3 now in Next Steps (AdminPage crash blocks its item until D1 lands;
+  Analytics contributor names blocked on the same fix). See
+  2026-07-31-consensus-ui-log.md for the full walkthrough record.
 
 ## Completed
 
