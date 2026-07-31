@@ -1,0 +1,369 @@
+/* Suggest Assertion page (SuggestAssertionPage) — prefix: sa-.
+ * Two-column layout: form card (wrapping the shared
+ * AssertionSuggestionForm) + guidance rail. Page-scoped skinning of the
+ * form's BEM classes lives here so the shared component stays untouched. */
+
+.sa-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 1150px) {
+  .sa-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sa-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.sa-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.sa-saving {
+  margin-top: var(--space-sm);
+  font: var(--body-sm);
+}
+
+/* --- Graph-entity inputs (page-level, feed the form's prefill) ---------- */
+
+.sa-entity-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-md);
+}
+
+@media (max-width: 700px) {
+  .sa-entity-fields {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+}
+
+.sa-entity-fields .field {
+  margin-bottom: 0;
+}
+
+.sa-entity-fields input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* --- Embedded AssertionSuggestionForm skin ------------------------------ */
+
+.sa-form-card .assertion-suggestion-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sa-form-card .assertion-suggestion-form h2 {
+  font: var(--title-md);
+}
+
+.sa-form-card .assertion-suggestion-form h3 {
+  font: 600 13px/18px var(--font-family);
+}
+
+.sa-form-card .assertion-suggestion-form__prefill {
+  background: var(--surface-container-low);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sa-form-card .assertion-suggestion-form__prefill dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px var(--space-md);
+}
+
+.sa-form-card .assertion-suggestion-form__prefill dt {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+  align-self: center;
+}
+
+.sa-form-card .assertion-suggestion-form__prefill dd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.sa-form-card .assertion-suggestion-form__quotation {
+  margin: 0;
+  font: italic 400 14px/20px var(--font-family);
+  color: var(--on-surface-variant);
+}
+
+.sa-form-card .assertion-suggestion-form__standalone,
+.sa-form-card .assertion-suggestion-form__further-evidence {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font: var(--body-md);
+}
+
+.sa-form-card .assertion-suggestion-form__standalone input,
+.sa-form-card .assertion-suggestion-form__further-evidence input {
+  order: -1;
+  margin: 0;
+}
+
+.sa-form-card .assertion-suggestion-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sa-form-card .assertion-suggestion-form__field label {
+  font: 500 13px/18px var(--font-family);
+}
+
+.sa-form-card .assertion-suggestion-form__similarity-warning {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font: var(--body-sm);
+}
+
+.sa-form-card .assertion-suggestion-form__effective-dates {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-xs) var(--space-md);
+  align-items: center;
+}
+
+.sa-form-card .assertion-suggestion-form__effective-dates legend {
+  font: 600 13px/18px var(--font-family);
+  padding: 0 4px;
+}
+
+.sa-form-card .assertion-suggestion-form__effective-dates label {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-form-card .assertion-suggestion-form__effective-dates input {
+  margin-top: 0;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row label {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row input {
+  flex: 1 1 180px;
+  width: auto;
+  margin-top: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row select {
+  width: auto;
+  margin-top: 0;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence button,
+.sa-form-card .assertion-suggestion-form__evidence-row button {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-container-lowest);
+  font: 500 13px/18px var(--font-family);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence button:hover,
+.sa-form-card .assertion-suggestion-form__evidence-row button:hover {
+  background: var(--row-hover);
+}
+
+.sa-form-card .assertion-suggestion-form__preview {
+  background: var(--surface-container-low);
+  border: 1px dashed var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sa-form-card .assertion-suggestion-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.sa-form-card .assertion-suggestion-form__actions button {
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-container-lowest);
+  font: 500 14px/20px var(--font-family);
+}
+
+.sa-form-card .assertion-suggestion-form__actions button:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+
+.sa-form-card .assertion-suggestion-form__actions button:last-child {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.sa-form-card .assertion-suggestion-form__actions button:last-child:hover:not(:disabled) {
+  background: var(--primary-container);
+  border-color: var(--primary-container);
+}
+
+.sa-form-card .assertion-suggestion-form__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Similar-assertions notice (post-save) ------------------------------ */
+
+.sa-similar .card__header {
+  color: var(--status-pending-fg);
+}
+
+.sa-similar__note {
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  margin-bottom: var(--space-md);
+}
+
+.sa-similar__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.sa-similar__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--surface-container-low);
+}
+
+.sa-similar__proposition {
+  font: var(--body-md);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sa-similar__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- Guidance rail ------------------------------------------------------ */
+
+.sa-help__steps {
+  list-style: decimal;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-help__steps strong,
+.sa-help__tips strong {
+  color: var(--on-surface);
+  font-weight: 600;
+}
+
+.sa-help__origin {
+  margin-top: var(--space-md);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+  line-height: 22px;
+}
+
+.sa-help__tips {
+  list-style: disc;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-help__types {
+  margin-top: var(--space-md);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+.sa-help__types-label {
+  font: 500 13px/18px var(--font-family);
+  color: var(--on-surface);
+  margin-bottom: var(--space-sm);
+}
+
+.sa-help__types-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.sa-help__types-chips .chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}

@@ -1,0 +1,291 @@
+/* Contested page — disputed-assertion adjudication queue (prefix: ctd-).
+ * Consumes tokens.css variables and the shared primitives in app.css. */
+
+/* --- Queue table -------------------------------------------------------- */
+
+.ctd-prop-cell {
+  max-width: 460px;
+  min-width: 240px;
+}
+
+.ctd-prop-link {
+  display: block;
+  font: 500 14px/20px var(--font-family);
+  color: var(--on-surface);
+}
+
+.ctd-prop-link:hover {
+  color: var(--secondary);
+}
+
+.ctd-type {
+  margin-top: 2px;
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.ctd-strength {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.ctd-strength .consensus-bar {
+  max-width: 160px;
+}
+
+.ctd-strength .consensus-bar__segment {
+  flex: 0 0 auto;
+}
+
+.ctd-strength-text {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.ctd-date {
+  white-space: nowrap;
+  color: var(--on-surface-variant);
+}
+
+.ctd-toggle-cell {
+  width: 44px;
+  text-align: right;
+}
+
+.ctd-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--on-surface-variant);
+}
+
+.ctd-toggle:hover {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.ctd-toggle .icon {
+  transition: transform 0.15s ease;
+}
+
+.ctd-toggle--open .icon {
+  transform: rotate(90deg);
+}
+
+.ctd-row--open td {
+  background: var(--surface-container-low);
+  border-bottom-color: transparent;
+}
+
+/* --- Drawer ------------------------------------------------------------- */
+
+.ctd-drawer-row > td {
+  padding: 0;
+  background: var(--surface-container-low);
+}
+
+.ctd-table tbody .ctd-drawer-row:hover {
+  background: transparent;
+}
+
+.ctd-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.ctd-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.ctd-drawer__head .badge {
+  flex: none;
+  margin-top: 2px;
+}
+
+.ctd-drawer__proposition {
+  font: var(--body-lg);
+  max-width: 76ch;
+}
+
+.ctd-drawer__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+}
+
+.ctd-section-title {
+  font: var(--label-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+  margin-bottom: var(--space-sm);
+}
+
+/* Rating summary tiles + distribution */
+
+.ctd-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(80px, 140px));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.ctd-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ctd-tile__value {
+  font: var(--headline-sm);
+}
+
+.ctd-tile__label {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+}
+
+/* Light layout for the shared distribution component inside the drawer. */
+
+.ctd-drawer .assertion-rating-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ctd-drawer .assertion-rating-distribution__label {
+  display: block;
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+}
+
+.ctd-drawer .assertion-rating-distribution__buckets {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.ctd-drawer .assertion-rating-distribution__buckets li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 36px;
+  padding: 6px 8px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: var(--body-sm);
+}
+
+.ctd-drawer .assertion-rating-distribution__bucket-label {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.ctd-drawer .assertion-rating-distribution__bucket-count {
+  font: var(--title-md);
+}
+
+/* Evidence list */
+
+.ctd-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ctd-evidence__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 10px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: var(--body-sm);
+}
+
+.ctd-evidence__item .icon {
+  flex: none;
+  color: var(--on-surface-variant);
+}
+
+/* --- Adjudication footer ------------------------------------------------- */
+
+.ctd-adjudicate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+.ctd-adjudicate__actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.ctd-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 560px;
+  padding: var(--space-md);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ctd-confirm label {
+  font: 500 13px/18px var(--font-family);
+}
+
+.ctd-confirm__note {
+  font: var(--body-sm);
+  color: var(--status-pending-fg);
+}
+
+.ctd-confirm__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.ctd-footnote,
+.ctd-note {
+  font: var(--body-sm);
+  font-style: italic;
+  color: var(--on-surface-variant);
+}
+
+.ctd-note {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+/* --- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 1023px) {
+  .ctd-drawer__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

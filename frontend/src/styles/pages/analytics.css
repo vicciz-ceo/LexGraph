@@ -1,0 +1,245 @@
+/* Analytics page — matter-scoped dashboard (prefix: ana-).
+ * Every metric is computed client-side; charts are hand-rolled inline SVG
+ * that consume tokens.css variables — no chart library, no raw hex. */
+
+/* --- KPI cards ----------------------------------------------------------- */
+
+.ana-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.ana-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+}
+
+.ana-kpi__label {
+  font: var(--label-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--on-surface-variant);
+}
+
+.ana-kpi__value {
+  font: var(--headline-md);
+  letter-spacing: -0.01em;
+}
+
+.ana-kpi__caption {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+/* --- Charts grid --------------------------------------------------------- */
+
+.ana-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.ana-chart-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ana-card-note {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.ana-chart-note {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+/* Shared color classes: `fill` covers SVG shapes, `background` covers the
+ * matching HTML legend swatches — one class works for both. */
+
+.ana-fill--accepted {
+  fill: var(--status-accepted-fg);
+  background: var(--status-accepted-fg);
+}
+
+.ana-fill--proposed {
+  fill: var(--status-pending-fg);
+  background: var(--status-pending-fg);
+}
+
+.ana-fill--disputed {
+  fill: var(--status-contested-fg);
+  background: var(--status-contested-fg);
+}
+
+.ana-fill--rejected {
+  fill: var(--status-rejected-fg);
+  background: var(--status-rejected-fg);
+}
+
+.ana-fill--neutral {
+  fill: var(--status-neutral-fg);
+  background: var(--status-neutral-fg);
+}
+
+.ana-fill--type {
+  fill: var(--secondary);
+  background: var(--secondary);
+}
+
+.ana-fill--track {
+  fill: var(--surface-container-high);
+}
+
+/* --- Status mix (stacked bar) -------------------------------------------- */
+
+.ana-stack {
+  display: block;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.ana-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.ana-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.ana-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* --- Acceptance by origin (grouped bars) ---------------------------------- */
+
+.ana-origin {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 420px;
+}
+
+.ana-origin__value {
+  font: 600 11px var(--font-family);
+  fill: var(--on-surface);
+}
+
+.ana-origin__label {
+  font: 500 11px var(--font-family);
+  fill: var(--on-surface-variant);
+}
+
+.ana-origin__axis {
+  stroke: var(--outline-variant);
+  stroke-width: 1;
+}
+
+/* --- Assertions by type (horizontal bars) --------------------------------- */
+
+.ana-types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ana-type-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 150px) minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ana-type-row__label {
+  font: var(--body-sm);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ana-type-row svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.ana-type-row__count {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+  text-align: right;
+}
+
+/* --- Review activity (line/area) ------------------------------------------ */
+
+.ana-activity svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ana-activity__area {
+  fill: var(--primary);
+  opacity: 0.12;
+}
+
+.ana-activity__line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ana-activity__dot {
+  fill: var(--primary);
+}
+
+.ana-activity__labels {
+  display: flex;
+  justify-content: space-between;
+  font: var(--label-sm);
+  color: var(--on-surface-variant);
+}
+
+/* --- Top contributors ------------------------------------------------------ */
+
+.ana-contrib {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ana-contrib__name {
+  font: 500 13px/18px var(--font-family);
+}
+
+.ana-num,
+.table th.ana-num {
+  text-align: right;
+}
+
+/* --- Responsive ------------------------------------------------------------ */
+
+@media (max-width: 1023px) {
+  .ana-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
