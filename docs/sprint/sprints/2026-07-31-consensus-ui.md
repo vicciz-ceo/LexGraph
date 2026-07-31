@@ -1,12 +1,12 @@
 ---
 id: "2026-07-31-consensus-ui"
-status: review
+status: done
 current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-31T11:08:11Z"
+last_updated: "2026-07-31T11:50:25Z"
 lint: "PASS 179 2026-07-31T11:08:11Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
