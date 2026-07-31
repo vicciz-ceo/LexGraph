@@ -2,6 +2,7 @@
 name = "lexgraph-backend"
 version = "0.1.0"
 description = "LexGraph backend — collaborative assertion assessment and user-suggested assertions"
+license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
@@ -21,7 +22,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

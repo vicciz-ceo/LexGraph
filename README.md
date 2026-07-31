@@ -40,3 +40,9 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and p
 The collaborative-assertion feature set (see [docs/specs/collaborative-assertions.md](docs/specs/collaborative-assertions.md)) is implemented and test-covered: assertion CRUD with evidence and revisions, revision-scoped ratings with aggregates, comments, audit trail, review workflow with server-side per-matter permissions, matter isolation, hostile-input sanitization, graph projection, in-app notifications, search/sort/duplicate detection, eleven React components, and an end-to-end flow test.
 
 Known limitations are recorded in the sprint contract under `docs/sprint/sprints/`. Notable ones: in-app notifications are held in process (not durable across restarts), and text that forms a syntactically valid HTML tag is stripped by the sanitizer (browser-faithful, but it drops those characters).
+
+## License
+
+LexGraph is free software, licensed under the [Apache License 2.0](LICENSE). You can self-host it, modify it, and embed it in your own products — including commercial and closed-source ones. The license includes an express patent grant from every contributor.
+
+The license covers the platform code only. Documents, assertions, and any other content loaded into a LexGraph instance belong to the deploying organization and are governed by that organization's own terms and by the licenses of the source material — not by this license.
