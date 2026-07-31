@@ -33,6 +33,32 @@ First-time backend setup:
 cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 ```
 
+## Running the app
+
+One command sets everything up (venv, npm install, demo data) and starts both servers:
+
+```bash
+./scripts/demo.sh
+```
+
+Then open http://localhost:5173 and sign in as `admin`, `reviewer`, `contributor`, or `viewer` (auth is the documented test-token seam: the bearer token *is* the user id — see `backend/app/auth.py`). The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second matter) ships assertions in every status with ratings, comments, and evidence, so the review queue, knowledge base, contested queue, analytics, and admin console are all populated.
+
+Manually, the same thing is:
+
+```bash
+cd backend && .venv/bin/python -m app.seed_demo --db dev.db
+```
+
+```bash
+cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
+```
+
+```bash
+npm --prefix frontend install && npm --prefix frontend run dev
+```
+
+The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
+
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
 
 ## Status

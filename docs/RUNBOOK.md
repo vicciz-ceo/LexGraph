@@ -15,6 +15,21 @@ git clone https://github.com/vicciz-ceo/LexGraph.git
 cd LexGraph
 ```
 
+### Quickstart (demo workspace)
+
+The fastest path from clone to a working UI — sets up both environments, seeds
+a demo workspace into `backend/dev.db`, and starts backend (:8000) + frontend
+(:5173):
+
+```bash
+./scripts/demo.sh
+```
+
+Sign in at http://localhost:5173 as `admin`, `reviewer`, `contributor`, or
+`viewer`. The seeder (`backend/app/seed_demo.py`) drives the real API, so the
+demo data carries genuine revisions, ratings, comments, notifications, and
+audit events. The rest of this runbook is the manual, step-by-step equivalent.
+
 ### Backend Environment Setup
 
 Initialize the backend virtual environment and install dependencies:
@@ -159,21 +174,27 @@ cd ..
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
-## Grading Application
+## Web Application
 
-### Starting the Grading App
+### Starting the Web App
 
-In a separate terminal, start the Vite development server for the frontend grading application:
+In a separate terminal, start the Vite development server:
 
 ```bash
 npm --prefix frontend run dev
 ```
 
-The grading application will be available at `http://localhost:5173` (or the port specified by Vite). This application allows you to:
-- View all assertions and evidence
-- Create new assertions
-- Rate and review suggested assertions
-- Edit existing assertions and comments
+The app will be available at `http://localhost:5173` (or the port specified by Vite); the dev server proxies `/api` to `http://127.0.0.1:8000` (override with `LEXGRAPH_API_PROXY`). Sign in with a user id that exists in the connected database — the bearer token *is* the user id (`backend/app/auth.py` test-token seam); with the demo seed that means `admin`, `reviewer`, `contributor`, or `viewer`.
+
+The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
+- **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
+- **Knowledge Base** — searchable accepted-assertion table with CSV export
+- **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
+- **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
+- **Contested** — adjudication queue for disputed assertions
+- **Analytics** — per-matter dashboard computed live from the assertion list
+- **Admin** — matter member/role management (admin role required)
+- **Profile** — your activity, notifications, and matters
 
 ### Building for Production
 

@@ -72,6 +72,11 @@ def create_app() -> FastAPI:
 
     app.include_router(ratings_router.router)
 
+    # Consensus UI build-out — workspace/session surface (append-only, R6).
+    from app.routers import workspace as workspace_router
+
+    app.include_router(workspace_router.router)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
