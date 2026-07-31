@@ -1,19 +1,19 @@
 ---
 id: "2026-07-31-admin-provisioning"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: "claude-code:planner"
 locked_at: "2026-07-31T11:50:25Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-07-31T12:22:04Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-31T12:34:24Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 5
-completed_items: 0
-dev_complete_items: 5
-qa_cycles: 0
+completed_items: 5
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-31-consensus-ui"
 prd_sections: []
 design_sections: ["docs/design/consensus-ui-review.md"]
@@ -68,28 +68,43 @@ change); all four gates below confirmed.
 
 ## Dev Complete
 
+## Completed
+
 - **B1 — Bootstrap CLI.** `python -m app.bootstrap`: empty-DB guard,
   creates org+repo+matter+admin user, prints user id. Files:
   `backend/app/bootstrap.py` (new). Commit `008cfc3`. Result: 4/4 green.
+  QA: verified live in a fresh clone (G1) — bootstrap prints the admin id,
+  a re-run refuses (exit 1); added a regression pin for refusal against a
+  DB seeded by `app/seed_demo.py` (origin-agnostic guard), 5/5 green.
 - **B2 — Users API.** `GET`/`POST /api/v1/users`, global admin-on-any-matter
   gate (R2), 401/403/409/422 pinned. Files: `backend/app/routers/users.py`
   (new), `backend/app/main.py` (registration). Commit `008cfc3`. Result: 12/12 green.
+  QA: verified live via the `client` fixture (real app) and via curl
+  against a fresh-clone uvicorn instance — 201 create, 201 member grant,
+  200 `/me` with the new viewer role, 403 when that viewer tries to POST
+  `/users`. Added 2 regression pins (whitespace-padded duplicate email 409;
+  authenticated user with zero matter roles, not just non-admin, gets 403),
+  14/14 green.
 - **UI1 — Admin console "User accounts".** New admin-only tab: lists
   accounts (`api.listUsers`), creates one (`api.createUser`), surfaces the
   returned sign-in id, pre-fills the Members & roles add-member email.
   Files: `frontend/src/pages/AdminPage.tsx`, `frontend/src/api/client.ts`,
   `frontend/src/styles/pages/admin.css`. Commit `98b1519`. Result: 4/4 new + 10/10 existing green.
+  QA: confirmed the test file renders the real `AdminPage` component
+  (no self-mock); no changes needed.
 - **UI2 — Sign-in de-mocking (G3).** Removed the hardcoded `DEMO_ACCOUNTS`
   quick-fill chips section; User ID field/submit unaffected. Files:
   `frontend/src/pages/SignInPage.tsx`, `frontend/src/styles/pages/sign-in.css`.
   Commit `98b1519`. Result: 8/8 green.
+  QA: grepped built product for `DEMO_ACCOUNTS`/"demo workspace" — only
+  hit is the test file's absence assertion; no product-code remnants.
 - **D1 — Docs.** README + RUNBOOK now lead with bootstrap → sign in →
   create users → grant access; `scripts/demo.sh`/`seed_demo.py`
   repositioned as optional local-testing. Files: `README.md`,
   `docs/RUNBOOK.md`. Commit `98b1519`. Result: RUNBOOK marker test (migration/
   backfill/backend/grading/mcp) still passes; reviewed end-to-end.
-
-## Completed
+  QA: README/RUNBOOK commands, flags, ports, and id-is-credential framing
+  match the G1 execution exactly; `seed_demo.py` still runs standalone.
 
 ## Stale-pin sweep
 
@@ -122,6 +137,17 @@ plus a full pass over every test root: `backend/tests/{unit,integration,e2e}`,
   clean (sprint 2026-07-31-consensus-ui closing numbers).
 
 ## QA Notes
+
+2026-07-31T12:34:24Z — Evaluator: 504/151/clean (501 baseline + 3 new
+regression tests; no flakes). All 5 items PASS, moved to Completed. G1
+verified by fresh-clone execution: bootstrap prints admin id, re-run
+refuses (exit 1); uvicorn :8200 — `/me` 200 admin, `POST /users` 201,
+member grant 201, new user `/me` 200 viewer, `POST /users` as viewer 403;
+`npm run build` clean. G3: no product-code `DEMO_ACCOUNTS`/"demo
+workspace" hits (test-only); `seed_demo.py` still runs. G4: README/RUNBOOK
+match the executed flow. Added 3 regression tests: bootstrap refusal vs.
+seed_demo-populated DB; whitespace-padded duplicate-email 409; GET /users
+403 for a zero-role account. No implementation bugs found.
 
 ## Context Dump
 

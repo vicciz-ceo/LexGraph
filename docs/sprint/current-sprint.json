@@ -1,17 +1,17 @@
 {
   "id": "2026-07-31-admin-provisioning",
-  "status": "planning",
+  "status": "review",
   "current_role": "planner",
   "locked_by": "claude-code:planner",
   "locked_at": "2026-07-31T11:50:25Z",
-  "last_agent": "claude-code:manager",
-  "last_updated": "2026-07-31T11:50:25Z",
+  "last_agent": "claude-code:qa",
+  "last_updated": "2026-07-31T12:34:24Z",
   "contract_path": "docs/sprint/sprints/2026-07-31-admin-provisioning.md",
   "repo_profile": "docs/sprint/repo-profile.md",
-  "total_items": 0,
-  "completed_items": 0,
+  "total_items": 5,
+  "completed_items": 5,
   "dev_complete_items": 0,
-  "qa_cycles": 0,
+  "qa_cycles": 1,
   "previous_sprint": "2026-07-31-consensus-ui",
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 }

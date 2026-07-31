@@ -59,6 +59,21 @@ def test_list_users_requires_admin_on_at_least_one_matter(client, matter_with_us
     assert r.status_code == 403
 
 
+def test_list_users_forbidden_for_authenticated_user_with_no_matter_role_at_all(
+    client, matter_with_users
+):
+    # QA regression (2026-07-31-admin-provisioning): the existing 403 test
+    # above only proves the gate rejects a non-admin role (reviewer). It
+    # doesn't prove the gate also rejects a known, authenticated account
+    # that holds NO matter_roles row whatsoever -- a materially different
+    # code path through _require_admin_somewhere's `admin_row is None`
+    # branch (matter_with_users' own "outsider" persona, seeded with
+    # intentionally zero roles).
+    m = matter_with_users
+    r = client.get("/api/v1/users", headers=m["outsider_headers"])
+    assert r.status_code == 403
+
+
 def test_list_users_missing_token_is_401(client, matter_with_users):
     r = client.get("/api/v1/users")
     assert r.status_code == 401
@@ -132,6 +147,29 @@ def test_create_account_duplicate_email_is_409(client, matter_with_users, db_ses
     r = client.post(
         "/api/v1/users",
         json={"email": outsider_email, "display_name": "Dup"},
+        headers=auth_header(admin_id),
+    )
+    assert r.status_code == 409
+
+
+def test_create_account_duplicate_email_differing_only_by_surrounding_whitespace_is_409(
+    client, matter_with_users, db_session
+):
+    # QA regression (2026-07-31-admin-provisioning): app/routers/users.py's
+    # create_user strips the incoming email (`body.email.strip()`) BEFORE
+    # the duplicate check, so a caller padding an existing address with
+    # leading/trailing whitespace must still collide as 409, not slip past
+    # the uniqueness check (R4) and create a second account for the same
+    # real address. Pins the strip-before-compare behavior directly.
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+    outsider_email = client.get("/api/v1/me", headers=m["outsider_headers"]).json()["user"][
+        "email"
+    ]
+
+    r = client.post(
+        "/api/v1/users",
+        json={"email": f"  {outsider_email}  ", "display_name": "Dup Whitespace"},
         headers=auth_header(admin_id),
     )
     assert r.status_code == 409

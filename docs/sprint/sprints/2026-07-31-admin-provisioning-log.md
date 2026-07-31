@@ -75,3 +75,12 @@ absence test, in the same commit as the UI2 RED test.
 - Developer B1+B2 (backend): ab4ae45e4ff4cae99 (spawned at c9233a3)
 - Developer UI1+UI2+D1 (frontend+docs): a39ae1152f592476e (spawned at 86ae9de)
 - Manager: full diff read of 008cfc3 (auth-adjacent users router) — approved; no privilege escalation (account creation grants no roles), gate order 401→403→422/409 as pinned.
+- QA (all gates): a265993b7fa2285f7 (spawned at 3fbf70b)
+
+## Manager live verification (G1/G2/G3) — 2026-07-31
+Scratch DB /tmp/lexgraph-g1.db: bootstrap printed credential; re-run refused
+exit 1. Browser: signed in as Root Admin → Admin → User accounts → created
+"Noa Attorney" (credential banner rendered) → granted reviewer via Members →
+/me as Noa shows ('First Matter','reviewer') → signed in as Noa: reviewer
+meta, NO Admin nav, queue accessible. Sign-in page: 0 demo chips, helper
+copy "accounts are provisioned by your administrator."

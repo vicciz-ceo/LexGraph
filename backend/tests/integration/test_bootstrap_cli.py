@@ -144,3 +144,32 @@ def test_bootstrap_reads_database_url_env_when_no_db_flag(tmp_path):
     assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert db_path.exists(), "bootstrap must honor LEXGRAPH_DATABASE_URL like app/config.py"
     assert len(_rows(db_path, "users")) == 1
+
+
+def test_bootstrap_refuses_on_db_seeded_by_a_different_tool(tmp_path):
+    # QA regression (2026-07-31-admin-provisioning): the existing refusal
+    # test only proves the guard trips on a DB that bootstrap itself
+    # created. The guard's actual implementation (app/bootstrap.py) checks
+    # for ANY existing `users` row, origin-agnostic -- so it must also
+    # refuse against a database populated by app/seed_demo.py, not just a
+    # prior bootstrap run. Pins that origin-agnostic behavior directly
+    # rather than assuming it from the other test.
+    db_path = tmp_path / "seeded.db"
+    seed = subprocess.run(
+        [sys.executable, "-m", "app.seed_demo", "--db", str(db_path)],
+        cwd=BACKEND_DIR,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert seed.returncode == 0, f"stdout={seed.stdout!r} stderr={seed.stderr!r}"
+    seeded_user_count = len(_rows(db_path, "users"))
+    assert seeded_user_count > 0, "seed_demo must have created users for this test to be valid"
+
+    result = _run_bootstrap(["--db", str(db_path)])
+
+    assert result.returncode != 0, "must refuse on a DB seeded by a different tool"
+    assert (result.stdout + result.stderr).strip() != "", "refusal must print a clear message"
+    # No silent mutation: still exactly the seed's own users, nothing added.
+    assert len(_rows(db_path, "users")) == seeded_user_count
+    assert len(_rows(db_path, "organizations")) == 1
