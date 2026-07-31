@@ -54,3 +54,6 @@ verification cross-checked via DOM reads + direct API probes throughout.
 Stale localStorage from the dev-agent's session (old matter id) produced a
 one-time 403 banner before storage clear — fresh-boot behavior verified
 clean; not reproducible for fork users.
+
+## Roster update
+- Developer (D1–D3 fix): a2368941f27a7c9c8 (spawned after Planner RED commit 9b99ce4)
