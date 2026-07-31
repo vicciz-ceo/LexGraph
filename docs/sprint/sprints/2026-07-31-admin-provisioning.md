@@ -3,11 +3,11 @@ id: "2026-07-31-admin-provisioning"
 status: review
 current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
-locked_by: "claude-code:planner"
-locked_at: "2026-07-31T11:50:25Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-31T12:34:24Z"
-lint: null
+last_updated: "2026-07-31T12:37:20Z"
+lint: "PASS 159 2026-07-31T12:37:20Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 5
@@ -151,16 +151,9 @@ seed_demo-populated DB; whitespace-padded duplicate-email 409; GET /users
 
 ## Context Dump
 
-New sprint, planning phase. Prior sprint (Consensus UI) closed done; its
-demo stack may still be running locally (uvicorn :8000 + vite :5173).
-Everything about the app's architecture is in
-docs/design/consensus-ui-review.md and the prior sprint contract.
-
-Developer note (UI1/UI2/D1): a stale uvicorn process from an earlier
-checkout was found squatting on :8000 during live-browser verification
-(pre-dated commit 86ae9de, so it 404'd on `/api/v1/users`) — it was
-stopped. G1/G2/G3 were verified live: `python -m app.bootstrap` against
-an empty DB → signed in as the printed admin id → Admin → User accounts
-created a new account → its email pre-filled Members & roles → granted
-Contributor → signed in as that new user → role-appropriate UI (no Admin
-access) confirmed via the existing route gate. No demo seed involved.
+Sprint complete: status review, all 5 items Completed, gates G1-G4 passed
+(QA Notes above; live walkthrough notes in the -log.md). Nothing in
+flight. Real provisioning path: `python -m app.bootstrap` → sign in with
+printed id → Admin → User accounts / Members & roles. Demo seed remains a
+local-testing tool only. Successor candidates (log): span-text resolution,
+detail-page name resolution, rating-summary embedding, real IdP.
