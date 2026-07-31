@@ -1,18 +1,18 @@
 ---
 id: "2026-07-31-admin-provisioning"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: "claude-code:planner"
 locked_at: "2026-07-31T11:50:25Z"
 last_agent: "claude-code:developer"
-last_updated: "2026-07-31T12:07:10Z"
+last_updated: "2026-07-31T12:22:04Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 5
 completed_items: 0
-dev_complete_items: 2
+dev_complete_items: 5
 qa_cycles: 0
 previous_sprint: "2026-07-31-consensus-ui"
 prd_sections: []
@@ -66,51 +66,6 @@ change); all four gates below confirmed.
 
 ## Next Steps
 
-### UI1 — Admin console "User accounts"
-
-New "User accounts" tab on `AdminPage.tsx` (admin-only — same gate as the
-existing mutating members controls, `session.role === "admin"`): lists
-accounts via `api.listUsers()`; create-account form (email, display name)
-via `api.createUser(email, displayName)`; renders the returned id on
-success so the admin can copy it. Wiring: after a successful create, the
-new account's email pre-fills the existing "Add member" email field on
-the Members & roles tab (one assertion — that flow is already tested,
-not re-tested deeply). The tab must not render, and accounts must not be
-fetched, for non-admin roles.
-Files (Developer): `frontend/src/pages/AdminPage.tsx`,
-`frontend/src/api/client.ts` (adds `listUsers`/`createUser`, matching the
-B2 response shapes exactly).
-RED tests: `frontend/src/pages/__tests__/AdminPage.test.tsx` (api module
-mocked per existing convention) — run with
-`npm --prefix frontend run test -- --run AdminPage`.
-
-### UI2 — Sign-in de-mocking (G3)
-
-`SignInPage.tsx` no longer renders the hardcoded demo-account chips
-section (`DEMO_ACCOUNTS`, the admin/reviewer/contributor/viewer
-quick-fill buttons) — accounts are now provisioned by an admin, not
-baked into the sign-in page. The User ID field and submit button are
-unaffected and must still render.
-Files (Developer): `frontend/src/pages/SignInPage.tsx`.
-RED tests + stale-pin re-point (same commit — see sweep below):
-`frontend/src/pages/__tests__/SignInPage.test.tsx` — run with
-`npm --prefix frontend run test -- --run SignInPage`.
-
-### D1 — Docs (doc-only, no RED test)
-
-README + RUNBOOK document bootstrap → sign in → create users → grant
-access as THE provisioning path (replacing the "run the seed, sign in as
-`admin`" framing as the primary flow). `app/seed_demo.py` and
-`scripts/demo.sh` are repositioned as an optional local-testing mockup,
-clearly labeled as such, not "the" path. Must preserve every marker
-`backend/tests/unit/test_local_first_runbook_docs.py` checks for in
-`docs/RUNBOOK.md` (case-insensitive substrings: "migration", "backfill",
-"backend", "grading", "mcp") — that test is untouched by this sprint and
-must keep passing.
-Files (Developer): `README.md`, `docs/RUNBOOK.md`.
-Acceptance: reads correctly end-to-end from a fresh clone; no RED test —
-verified by review, not pytest/vitest.
-
 ## Dev Complete
 
 - **B1 — Bootstrap CLI.** `python -m app.bootstrap`: empty-DB guard,
@@ -119,6 +74,20 @@ verified by review, not pytest/vitest.
 - **B2 — Users API.** `GET`/`POST /api/v1/users`, global admin-on-any-matter
   gate (R2), 401/403/409/422 pinned. Files: `backend/app/routers/users.py`
   (new), `backend/app/main.py` (registration). Commit `008cfc3`. Result: 12/12 green.
+- **UI1 — Admin console "User accounts".** New admin-only tab: lists
+  accounts (`api.listUsers`), creates one (`api.createUser`), surfaces the
+  returned sign-in id, pre-fills the Members & roles add-member email.
+  Files: `frontend/src/pages/AdminPage.tsx`, `frontend/src/api/client.ts`,
+  `frontend/src/styles/pages/admin.css`. Commit `98b1519`. Result: 4/4 new + 10/10 existing green.
+- **UI2 — Sign-in de-mocking (G3).** Removed the hardcoded `DEMO_ACCOUNTS`
+  quick-fill chips section; User ID field/submit unaffected. Files:
+  `frontend/src/pages/SignInPage.tsx`, `frontend/src/styles/pages/sign-in.css`.
+  Commit `98b1519`. Result: 8/8 green.
+- **D1 — Docs.** README + RUNBOOK now lead with bootstrap → sign in →
+  create users → grant access; `scripts/demo.sh`/`seed_demo.py`
+  repositioned as optional local-testing. Files: `README.md`,
+  `docs/RUNBOOK.md`. Commit `98b1519`. Result: RUNBOOK marker test (migration/
+  backfill/backend/grading/mcp) still passes; reviewed end-to-end.
 
 ## Completed
 
@@ -160,3 +129,12 @@ New sprint, planning phase. Prior sprint (Consensus UI) closed done; its
 demo stack may still be running locally (uvicorn :8000 + vite :5173).
 Everything about the app's architecture is in
 docs/design/consensus-ui-review.md and the prior sprint contract.
+
+Developer note (UI1/UI2/D1): a stale uvicorn process from an earlier
+checkout was found squatting on :8000 during live-browser verification
+(pre-dated commit 86ae9de, so it 404'd on `/api/v1/users`) — it was
+stopped. G1/G2/G3 were verified live: `python -m app.bootstrap` against
+an empty DB → signed in as the printed admin id → Admin → User accounts
+created a new account → its email pre-filled Members & roles → granted
+Contributor → signed in as that new user → role-appropriate UI (no Admin
+access) confirmed via the existing route gate. No demo seed involved.
