@@ -72,7 +72,9 @@ const roster: MatterMember[] = [
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.role = "admin";
-  mockedApi.listMatterMembers.mockResolvedValue({ items: roster });
+  // Backend GET /matters/{id}/members returns a bare JSON array (see
+  // backend/app/routers/workspace.py::list_members), not { items: [...] }.
+  mockedApi.listMatterMembers.mockResolvedValue(roster);
   mockedApi.setMatterMemberRole.mockResolvedValue(roster[1]);
   mockedApi.addMatterMember.mockResolvedValue(roster[2]);
   mockedApi.removeMatterMember.mockResolvedValue(undefined);
@@ -100,6 +102,19 @@ describe("AdminPage", () => {
     // Role selects reflect each membership.
     expect(screen.getByLabelText("Role for Boaz Levi")).toHaveValue("contributor");
     expect(screen.getByLabelText("Role for Carmel Noy")).toHaveValue("reviewer");
+  });
+
+  it("renders the roster table when the API resolves a bare members array (D1)", async () => {
+    // Pins the AdminPage crash fix: the backend returns a bare array, not
+    // { items: [...] }. Before the fix this throws "Cannot read properties
+    // of undefined (reading 'length')" and the roster never renders.
+    await renderPage();
+
+    expect(screen.getByText("Ada Stern")).toBeInTheDocument();
+    expect(screen.getByText("Boaz Levi")).toBeInTheDocument();
+    expect(screen.getByText("Carmel Noy")).toBeInTheDocument();
+    expect(screen.getByLabelText("Role for Boaz Levi")).toBeInTheDocument();
+    expect(screen.getByLabelText("Role for Carmel Noy")).toBeInTheDocument();
   });
 
   it("changes a member's role and refreshes the roster", async () => {

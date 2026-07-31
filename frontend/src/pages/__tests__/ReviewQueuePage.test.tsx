@@ -119,6 +119,15 @@ const disputedAssertion = makeAssertion({
   proposition: "Service of process was completed on 12 March.",
 });
 
+const awaitingEvidenceAssertion = makeAssertion({
+  id: "a5",
+  origin: "user_suggested",
+  evidence_status: "awaiting_evidence",
+  current_revision_number: 1,
+  created_at: "2026-07-29T09:00:00Z",
+  proposition: "The notice period runs from the date of mailing, not receipt.",
+});
+
 const summaryA1: RatingSummary = {
   count: 5,
   average: 3.8,
@@ -135,18 +144,18 @@ beforeEach(() => {
   hoisted.session.role = "reviewer";
   hoisted.session.currentMatter.role = "reviewer";
 
-  vi.mocked(api.listMatterMembers).mockResolvedValue({
-    items: [
-      {
-        user: { id: "u1", email: "ada@example.com", display_name: "Ada Reviewer" },
-        role: "reviewer",
-      },
-      {
-        user: { id: "u2", email: "noa@example.com", display_name: "Noa Contributor" },
-        role: "contributor",
-      },
-    ],
-  });
+  // Backend GET /matters/{id}/members returns a bare JSON array (see
+  // backend/app/routers/workspace.py::list_members), not { items: [...] }.
+  vi.mocked(api.listMatterMembers).mockResolvedValue([
+    {
+      user: { id: "u1", email: "ada@example.com", display_name: "Ada Reviewer" },
+      role: "reviewer",
+    },
+    {
+      user: { id: "u2", email: "noa@example.com", display_name: "Noa Contributor" },
+      role: "contributor",
+    },
+  ]);
 
   vi.mocked(api.listAssertions).mockImplementation(
     async (_matterId: string, params: AssertionListParams = {}) => {
@@ -273,6 +282,64 @@ describe("ReviewQueuePage", () => {
       expect(api.acceptAssertion).toHaveBeenCalledWith(
         "a2",
         "Counsel confirmed the clause against the executed original.",
+      ),
+    );
+  });
+
+  it("resolves the author's display name from the bare members array (D2)", async () => {
+    // Backend returns a bare array, not { items: [...] }. Before the fix,
+    // res.items is undefined and the lookup silently fails, so the card
+    // falls back to the raw author id instead of the display name.
+    vi.mocked(api.listMatterMembers).mockResolvedValue([
+      { user: { id: "admin", email: "a@x", display_name: "Ada Admin" }, role: "admin" },
+    ]);
+    vi.mocked(api.listAssertions).mockImplementation(
+      async (_matterId: string, params: AssertionListParams = {}) => {
+        if (params.status === "proposed") {
+          const items = [makeAssertion({ id: "a9", author_user_id: "admin" })];
+          return { items, total: items.length };
+        }
+        return { items: [], total: 0 };
+      },
+    );
+
+    render(<ReviewQueuePage />);
+
+    expect(await screen.findByText(/Suggested by Ada Admin/)).toBeInTheDocument();
+    expect(screen.queryByText(/Suggested by admin\b/)).not.toBeInTheDocument();
+  });
+
+  it("opens the justification form before accepting an assertion awaiting evidence (D3)", async () => {
+    // Backend requires an acceptance justification whenever there is no
+    // supporting evidence — both "unsupported" and "awaiting_evidence".
+    // Before the fix, only "unsupported" opens the pre-flight form and
+    // "awaiting_evidence" fires acceptAssertion immediately.
+    const user = userEvent.setup();
+    vi.mocked(api.listAssertions).mockImplementation(
+      async (_matterId: string, params: AssertionListParams = {}) => {
+        if (params.status === "proposed") {
+          return { items: [awaitingEvidenceAssertion], total: 1 };
+        }
+        return { items: [], total: 0 };
+      },
+    );
+
+    render(<ReviewQueuePage />);
+    await screen.findByText(awaitingEvidenceAssertion.proposition);
+
+    await user.click(screen.getByRole("button", { name: "Accept" }));
+    expect(api.acceptAssertion).not.toHaveBeenCalled();
+
+    const textarea = await screen.findByLabelText(
+      "Justification for accepting without supporting evidence",
+    );
+    await user.type(textarea, "Confirmed via opposing counsel's admission letter.");
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(api.acceptAssertion).toHaveBeenCalledWith(
+        "a5",
+        "Confirmed via opposing counsel's admission letter.",
       ),
     );
   });

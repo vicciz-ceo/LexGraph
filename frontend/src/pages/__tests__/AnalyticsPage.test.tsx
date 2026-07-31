@@ -176,18 +176,18 @@ const fixtures: Assertion[] = [
 beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.listAssertions.mockResolvedValue({ items: fixtures, total: fixtures.length });
-  mockedApi.listMatterMembers.mockResolvedValue({
-    items: [
-      {
-        user: { id: "u-anna", email: "anna@example.com", display_name: "Anna Levi" },
-        role: "contributor",
-      },
-      {
-        user: { id: "u-boris", email: "boris@example.com", display_name: "Boris Katz" },
-        role: "reviewer",
-      },
-    ],
-  });
+  // Backend GET /matters/{id}/members returns a bare JSON array (see
+  // backend/app/routers/workspace.py::list_members), not { items: [...] }.
+  mockedApi.listMatterMembers.mockResolvedValue([
+    {
+      user: { id: "u-anna", email: "anna@example.com", display_name: "Anna Levi" },
+      role: "contributor",
+    },
+    {
+      user: { id: "u-boris", email: "boris@example.com", display_name: "Boris Katz" },
+      role: "reviewer",
+    },
+  ]);
   mockedApi.ratingSummary.mockImplementation(async (id: string) => {
     if (id === "a-1") {
       return makeSummary({
@@ -305,6 +305,17 @@ describe("AnalyticsPage", () => {
     const ghostCells = within(ghostRow as HTMLElement).getAllByRole("cell");
     expect(ghostCells[1]).toHaveTextContent("1");
     expect(ghostCells[2]).toHaveTextContent("0");
+  });
+
+  it("renders contributor display names from the bare members array (D2)", async () => {
+    // Backend returns a bare array, not { items: [...] }. Before the fix,
+    // res.items is undefined and the member lookup map stays empty, so
+    // contributors fall back to raw user ids instead of display names.
+    await renderLoaded();
+
+    expect(await screen.findByText("Anna Levi")).toBeInTheDocument();
+    expect(screen.getByText("Boris Katz")).toBeInTheDocument();
+    expect(screen.queryByText("u-anna")).not.toBeInTheDocument();
   });
 
   it("shows em-dashes when nothing is reviewed, rated, or AI-deduced", async () => {
