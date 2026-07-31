@@ -73,3 +73,5 @@ See the contract's `## Stale-pin sweep` section — one file touched
 (`SignInPage.test.tsx`), two stale-existence tests replaced by one
 absence test, in the same commit as the UI2 RED test.
 - Developer B1+B2 (backend): ab4ae45e4ff4cae99 (spawned at c9233a3)
+- Developer UI1+UI2+D1 (frontend+docs): a39ae1152f592476e (spawned at 86ae9de)
+- Manager: full diff read of 008cfc3 (auth-adjacent users router) — approved; no privilege escalation (account creation grants no roles), gate order 401→403→422/409 as pinned.
