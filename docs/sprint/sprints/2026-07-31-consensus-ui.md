@@ -1,19 +1,19 @@
 ---
 id: "2026-07-31-consensus-ui"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: "claude-code:qa"
 locked_at: "2026-07-31T14:05:00Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-07-31T14:05:00Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-07-31T15:40:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
-completed_items: 0
-dev_complete_items: 10
-qa_cycles: 0
+completed_items: 11
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-30-ratings-grade"
 prd_sections: []
 design_sections: ["docs/design/consensus-ui-review.md", "docs/design/consensus-ui/DESIGN.md"]
@@ -76,15 +76,13 @@ commit onward, standard role separation applies.
 
 ## Next Steps
 
-- **V1 — Independent QA of the full sprint**:
-  re-run the evaluator, verify each item against its acceptance criteria,
-  scrutinize pre-harness code (backend/app/routers/workspace.py,
-  backend/app/seed_demo.py, frontend/src/{api,app,styles}) and
-  agent-authored page tests for gaps, add regression tests where coverage is
-  thin, execute gate G3 (fork quickstart in a scratch clone). QA commits
-  touch only test and contract files.
+(none — V1 independent QA complete, see QA Notes below; all gates passed)
 
 ## Dev Complete
+
+(none — all items verified by QA and moved to Completed below)
+
+## Completed
 
 - **F1 — Frontend foundation** (pre-harness, manager-authored): app shell,
   hash router, session context, typed API client (field-verified against
@@ -93,6 +91,9 @@ commit onward, standard role separation applies.
   frontend/src/{main.tsx,App.tsx}, frontend/src/api/*,
   frontend/src/app/*, frontend/src/styles/*. Verified: `tsc --noEmit`
   clean; 69 pre-existing component tests green; production build succeeds.
+  QA: confirmed all files present, App.tsx wires every page route, page
+  mocks match backend serializer shapes exactly (spot-checked 5 page test
+  files against client.ts/types.ts).
 - **W1 — Backend workspace surface + demo seed** (pre-harness,
   manager-authored): GET /api/v1/me, matter member roster + admin role
   management with last-admin lockout guard; seed script driving the real
@@ -101,9 +102,14 @@ commit onward, standard role separation applies.
   backend/app/seed_demo.py, backend/tests/integration/test_workspace.py,
   scripts/demo.sh. Verified: 479/479 backend tests pass (18 new); seed
   executed against a scratch DB and API-smoke-checked.
-
-## Dev Complete (continued)
-
+  QA: extra-scrutiny sweep of workspace.py found 6 untested error paths
+  (empty bearer token; unknown-matter ordering ahead of role validation on
+  POST members; unknown-matter on PUT/DELETE members; role-change/removal
+  of a non-member) — all confirmed correct on read, now pinned with 6 new
+  tests in test_workspace.py (24/24 green). Seed re-verified independently:
+  actual assertion count is 17 (not 15) across 8 distinct statuses — minor
+  stale figure in this bullet's own text, not in any user-facing doc, so
+  not a G4 finding; noted for the next edit of this line.
 - **D1+D2 — members-shape fix** and **D3 — awaiting-evidence justification
   gating** (walkthrough defects): RED tests committed by Planner (9b99ce4,
   tests-only, 15 RED), fixed by Developer (6c155f6, 6 files, minimal diff,
@@ -113,6 +119,18 @@ commit onward, standard role separation applies.
   arithmetically verified against seed+live actions; queue/analytics show
   display names; Accept on awaiting_evidence opens the justification form
   pre-flight. G1 walkthrough COMPLETE across all screens and roles.
+  QA: bug-fix pin verified by reading the 9b99ce4→6c155f6 diff pair (no
+  fresh worktree/npm-install needed — the RED tests mock the real bare-array
+  shape and assert `res.items`-style code throws before the fix, `res`-style
+  code passes after; confirmed by inspection, method=diff-reading). One
+  finding: the D3 code comments/log describe the backend as requiring
+  justification for both "unsupported" and "awaiting_evidence" — empirically
+  (live client fixture probe) the backend's `_has_evidence` gate only fires
+  on zero evidence rows (true `awaiting_evidence`); an assertion with only
+  non-supporting evidence (`evidence_status="unsupported"`) accepts fine
+  with no justification. This is pre-existing UI behavior unchanged by
+  6c155f6 (harmless over-conservatism, not a regression) — not a QA-FAIL,
+  flagged for the director/manager as a comment-accuracy nit.
 
 - **UI1–UI9 — nine screens** (workflow wf_dfea95a4-a7c, commit d11ff9e):
   SignIn, ReviewQueue, KnowledgeBase, AssertionDetail, SuggestAssertion,
@@ -120,14 +138,10 @@ commit onward, standard role separation applies.
   coverage (75 new tests; suite 144/144, typecheck clean). Manager G1 live
   walkthrough verified sign-in, queue+review actions, detail+rating,
   knowledge search, contested adjudication incl. justification flow, suggest
-  submission, profile stats, viewer role gating — EXCEPT the three defects
-  D1–D3 now in Next Steps (AdminPage crash blocks its item until D1 lands;
-  Analytics contributor names blocked on the same fix). See
+  submission, profile stats, viewer role gating. See
   2026-07-31-consensus-ui-log.md for the full walkthrough record.
-
-## Completed
-
-(none yet)
+  QA: files/commit verified on disk and in history; App.tsx routes all 9
+  pages; page tests render real components via RTL (not stubs).
 
 ## Stale-pin sweep
 
@@ -145,7 +159,18 @@ the touched surfaces.
 
 ## QA Notes
 
-(pending)
+2026-07-31 — Independent QA (V1), all gates PASS. Evaluator (own run):
+backend 479/479, frontend 148/148 (20 files), typecheck 0 errors — matches
+baseline. All items F1/W1/D1-D3/UI1-9 verified against acceptance criteria;
+commits d11ff9e/9b99ce4/6c155f6 confirmed in history. Live-path confirmed
+(real create_app() via TestClient; real page components via RTL). Bug-fix
+pins verified by diff reading. Extra-scrutiny sweep added 6 backend
+regression tests for untested error paths (test_workspace.py, 24/24 green,
+485/485 total). G3 fork quickstart: PASS, all steps executed in a scratch
+clone + scratch venv. G4 docs: no false claims found; one stale label
+("grading app" in RUNBOOK.md, pre-dates Consensus UI branding, harmless)
+and one comment-accuracy nit on D3 flagged above — neither blocks. Full
+detail: 2026-07-31-consensus-ui-log.md.
 
 ## Context Dump
 

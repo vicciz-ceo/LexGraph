@@ -50,6 +50,17 @@ def test_me_missing_header_is_401(client):
     assert client.get("/api/v1/me").status_code == 401
 
 
+def test_me_empty_bearer_token_is_401(client):
+    # "Authorization: Bearer " with nothing (or only whitespace) after the
+    # scheme is a malformed credential per app/auth.py::get_bearer_user_id
+    # (raises AuthHeaderError on an empty token), not a header that happens
+    # to resolve to an empty-string user id.
+    r = client.get("/api/v1/me", headers={"Authorization": "Bearer "})
+    assert r.status_code == 401
+    r = client.get("/api/v1/me", headers={"Authorization": "Bearer    "})
+    assert r.status_code == 401
+
+
 # --- Member roster ----------------------------------------------------------
 
 
@@ -148,6 +159,20 @@ def test_add_member_invalid_role_is_422(client, matter_with_users, db_session):
     assert r.status_code == 422
 
 
+def test_add_member_unknown_matter_is_404_even_with_invalid_role(client, matter_with_users):
+    # Ordering: add_member checks matter existence (_get_matter_or_404)
+    # before it validates the role body (_validate_role). An unknown matter
+    # must win with 404, not surface a 422 about the bogus role — the
+    # caller isn't even admin of a matter that doesn't exist.
+    m = matter_with_users
+    r = client.post(
+        "/api/v1/matters/nope/members",
+        json={"email": "whoever@example.test", "role": "owner"},
+        headers=m["reviewer_headers"],
+    )
+    assert r.status_code == 404
+
+
 def test_admin_changes_member_role(client, matter_with_users, db_session):
     m = matter_with_users
     admin_id = _seed_admin(db_session, m["matter_id"])
@@ -221,3 +246,51 @@ def test_second_admin_can_be_demoted(client, matter_with_users, db_session):
     )
     assert r.status_code == 200
     assert r.json()["role"] == "reviewer"
+
+
+# --- Unknown-matter and non-member edge cases on the mutating routes --------
+#
+# The roster GET already has an unknown-matter 404 test
+# (test_members_unknown_matter_is_404); the three mutating routes
+# (POST/PUT/DELETE) share the same _get_matter_or_404 guard but had no
+# direct coverage before this QA pass.
+
+
+def test_role_change_unknown_matter_is_404(client, matter_with_users):
+    m = matter_with_users
+    r = client.put(
+        f"/api/v1/matters/nope/members/{m['contributor_id']}",
+        json={"role": "reviewer"},
+        headers=m["reviewer_headers"],
+    )
+    assert r.status_code == 404
+
+
+def test_remove_member_unknown_matter_is_404(client, matter_with_users):
+    m = matter_with_users
+    r = client.delete(
+        f"/api/v1/matters/nope/members/{m['contributor_id']}",
+        headers=m["reviewer_headers"],
+    )
+    assert r.status_code == 404
+
+
+def test_role_change_on_non_member_is_404(client, matter_with_users, db_session):
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    r = client.put(
+        f"/api/v1/matters/{m['matter_id']}/members/{m['outsider_id']}",
+        json={"role": "reviewer"},
+        headers=auth_header(admin_id),
+    )
+    assert r.status_code == 404
+
+
+def test_remove_non_member_is_404(client, matter_with_users, db_session):
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    r = client.delete(
+        f"/api/v1/matters/{m['matter_id']}/members/{m['outsider_id']}",
+        headers=auth_header(admin_id),
+    )
+    assert r.status_code == 404
