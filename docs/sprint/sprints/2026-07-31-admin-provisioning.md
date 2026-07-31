@@ -1,12 +1,12 @@
 ---
 id: "2026-07-31-admin-provisioning"
-status: review
+status: done
 current_role: planner
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-07-31T12:37:20Z"
+last_updated: "2026-07-31T12:59:20Z"
 lint: "PASS 159 2026-07-31T12:37:20Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"

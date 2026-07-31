@@ -1,11 +1,11 @@
 {
   "id": "2026-07-31-admin-provisioning",
-  "status": "review",
+  "status": "done",
   "current_role": "planner",
   "locked_by": null,
   "locked_at": null,
   "last_agent": "claude-code:manager",
-  "last_updated": "2026-07-31T12:37:20Z",
+  "last_updated": "2026-07-31T12:59:20Z",
   "contract_path": "docs/sprint/sprints/2026-07-31-admin-provisioning.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 5,
