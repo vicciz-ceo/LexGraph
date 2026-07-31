@@ -1,16 +1,16 @@
 ---
 id: "2026-07-31-admin-provisioning"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: "claude-code:planner"
 locked_at: "2026-07-31T11:50:25Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-07-31T11:50:25Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-07-31T11:59:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 5
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -66,9 +66,82 @@ change); all four gates below confirmed.
 
 ## Next Steps
 
-(Planner defines items B1 bootstrap CLI, B2 users API, UI1 admin-console
-user accounts, UI2 sign-in de-mocking, D1 docs — with acceptance criteria
-and RED tests per item.)
+### B1 — Bootstrap CLI
+
+`python -m app.bootstrap` (new `backend/app/bootstrap.py`). On an EMPTY
+database (no `users` rows): creates one organization + repository +
+matter + the first user, with an `admin` `matter_roles` row on that
+matter; prints the sign-in user id clearly to stdout (R3 — the id IS the
+credential). Flags: `--db <path>` (sets `LEXGRAPH_DATABASE_URL`, mirrors
+`app/seed_demo.py`) or read `LEXGRAPH_DATABASE_URL` directly when `--db`
+is omitted; `--org-name`, `--matter-name`, `--user-name`, `--user-email`
+(sane defaults acceptable). Creates tables via `Base.metadata.create_all`
+like `seed_demo.py`. On a NON-empty database (any `users` row exists):
+refuses, non-zero exit, prints a message, mutates nothing.
+Files: `backend/app/bootstrap.py` (new).
+RED tests: `backend/tests/integration/test_bootstrap_cli.py` — run with
+`backend/.venv/bin/pytest backend/tests/integration/test_bootstrap_cli.py -v`.
+
+### B2 — Users API
+
+`GET /api/v1/users` → bare JSON array `[{id, email, display_name}, ...]`.
+`POST /api/v1/users` → body `{email, display_name, id?}`, 201 with
+`{id, email, display_name}` (id prominent in the response, R3). Gate
+(R2): caller holds `admin` role on ≥1 matter — NOT scoped to the current
+matter. 401 unknown/missing token; 403 non-admins (incl. reviewers); 409
+duplicate email (R4, API-layer check, no DB unique constraint); 422
+invalid email / empty display_name / duplicate caller-chosen id.
+Files: new router (workspace.py conventions — local `get_session`/
+`get_current_user_id`, `APIRouter(prefix="/api/v1")`) + one registration
+line in `app/main.py`'s append-only zone (that file's own R6 ruling from
+an earlier sprint, not this sprint's R6).
+RED tests: `backend/tests/integration/test_users_api.py` — run with
+`backend/.venv/bin/pytest backend/tests/integration/test_users_api.py -v`.
+
+### UI1 — Admin console "User accounts"
+
+New "User accounts" tab on `AdminPage.tsx` (admin-only — same gate as the
+existing mutating members controls, `session.role === "admin"`): lists
+accounts via `api.listUsers()`; create-account form (email, display name)
+via `api.createUser(email, displayName)`; renders the returned id on
+success so the admin can copy it. Wiring: after a successful create, the
+new account's email pre-fills the existing "Add member" email field on
+the Members & roles tab (one assertion — that flow is already tested,
+not re-tested deeply). The tab must not render, and accounts must not be
+fetched, for non-admin roles.
+Files (Developer): `frontend/src/pages/AdminPage.tsx`,
+`frontend/src/api/client.ts` (adds `listUsers`/`createUser`, matching the
+B2 response shapes exactly).
+RED tests: `frontend/src/pages/__tests__/AdminPage.test.tsx` (api module
+mocked per existing convention) — run with
+`npm --prefix frontend run test -- --run AdminPage`.
+
+### UI2 — Sign-in de-mocking (G3)
+
+`SignInPage.tsx` no longer renders the hardcoded demo-account chips
+section (`DEMO_ACCOUNTS`, the admin/reviewer/contributor/viewer
+quick-fill buttons) — accounts are now provisioned by an admin, not
+baked into the sign-in page. The User ID field and submit button are
+unaffected and must still render.
+Files (Developer): `frontend/src/pages/SignInPage.tsx`.
+RED tests + stale-pin re-point (same commit — see sweep below):
+`frontend/src/pages/__tests__/SignInPage.test.tsx` — run with
+`npm --prefix frontend run test -- --run SignInPage`.
+
+### D1 — Docs (doc-only, no RED test)
+
+README + RUNBOOK document bootstrap → sign in → create users → grant
+access as THE provisioning path (replacing the "run the seed, sign in as
+`admin`" framing as the primary flow). `app/seed_demo.py` and
+`scripts/demo.sh` are repositioned as an optional local-testing mockup,
+clearly labeled as such, not "the" path. Must preserve every marker
+`backend/tests/unit/test_local_first_runbook_docs.py` checks for in
+`docs/RUNBOOK.md` (case-insensitive substrings: "migration", "backfill",
+"backend", "grading", "mcp") — that test is untouched by this sprint and
+must keep passing.
+Files (Developer): `README.md`, `docs/RUNBOOK.md`.
+Acceptance: reads correctly end-to-end from a fresh clone; no RED test —
+verified by review, not pytest/vitest.
 
 ## Dev Complete
 
@@ -76,9 +149,28 @@ and RED tests per item.)
 
 ## Stale-pin sweep
 
-(pending Planner — NOTE: removing the sign-in demo chips WILL break
-existing SignInPage tests that assert them; the sweep must re-point those
-pins in the same commit.)
+Command: `grep -riE "demo workspace|DEMO_ACCOUNTS|admin.*reviewer.*contributor.*viewer" frontend/src/pages/__tests__ backend/tests`,
+plus a full pass over every test root: `backend/tests/{unit,integration,e2e}`,
+`frontend/src/components/__tests__`, `frontend/src/pages/__tests__`.
+
+- Only hit: `frontend/src/pages/__tests__/SignInPage.test.tsx` — two tests
+  ("fills the input from a demo-account chip and clears any prior error",
+  "offers one chip per demo role") asserted the demo chips EXIST.
+  Re-pointed in the same commit as the UI2 RED test: both removed and
+  replaced with one new test, "does not render the hardcoded demo-account
+  quick-fill chips (G3)", asserting their ABSENCE while still asserting
+  the User ID field + submit button render.
+- `backend/tests/{unit,integration,e2e}`: no hits.
+- `frontend/src/components/__tests__`: no hits.
+- `backend/tests` grep for `seed_demo`: no hits — no test imports or
+  exercises `app/seed_demo.py` directly, so D1's doc repositioning of the
+  seed touches no test file.
+- `backend/tests/unit/test_local_first_runbook_docs.py` checked
+  separately (not a stale pin — no gate-changing content, just a
+  marker-substring check against `docs/RUNBOOK.md`): still passes as long
+  as D1's RUNBOOK edits keep the words migration/backfill/backend/
+  grading/mcp somewhere in the doc. Left untouched; flagged in D1's
+  acceptance criteria above so Developer doesn't drop those sections.
 
 ## Evaluation Notes
 
