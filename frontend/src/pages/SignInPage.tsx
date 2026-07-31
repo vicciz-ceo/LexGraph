@@ -14,11 +14,6 @@ import { ApiError } from "../api/client";
 import { Icon } from "../app/icons";
 import { useSession } from "../app/session";
 
-/** Accounts created by the demo seed (`python -m app.seed_demo`,
- * DEMO_USERS): the user id IS the role name. Chips only fill the input;
- * the user still submits explicitly. */
-const DEMO_ACCOUNTS = ["admin", "reviewer", "contributor", "viewer"] as const;
-
 const UNKNOWN_USER_MESSAGE =
   "Unknown user ID — accounts are provisioned by your administrator.";
 const NETWORK_MESSAGE =
@@ -53,12 +48,6 @@ export function SignInPage() {
     }
   }
 
-  function fillDemoAccount(demoUserId: string) {
-    setUserId(demoUserId);
-    setError(null);
-    inputRef.current?.focus();
-  }
-
   return (
     <div className="signin">
       <div className="signin__blob signin__blob--primary" aria-hidden="true" />
@@ -73,8 +62,7 @@ export function SignInPage() {
             LexGraph
           </h1>
           <p className="signin__subtitle">
-            Enter your user ID — accounts are provisioned by your administrator
-            or the demo seed.
+            Enter your user ID — accounts are provisioned by your administrator.
           </p>
 
           {error && (
@@ -111,27 +99,6 @@ export function SignInPage() {
               {pending ? "Signing in…" : "Sign in"}
             </button>
           </form>
-        </section>
-
-        <section
-          className="signin__demo"
-          aria-label="Demo workspace accounts"
-        >
-          <p className="signin__demo-label">
-            Demo workspace accounts (after running the seed)
-          </p>
-          <div className="signin__demo-chips">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account}
-                type="button"
-                className="signin__demo-chip"
-                onClick={() => fillDemoAccount(account)}
-              >
-                {account}
-              </button>
-            ))}
-          </div>
         </section>
       </main>
 

@@ -132,39 +132,6 @@
   padding: 10px 14px;
 }
 
-/* --- Demo account chips ------------------------------------------------ */
-
-.signin__demo {
-  text-align: center;
-}
-
-.signin__demo-label {
-  font: var(--label-md);
-  color: var(--on-surface-variant);
-  margin-bottom: var(--space-sm);
-}
-
-.signin__demo-chips {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.signin__demo-chip {
-  padding: 5px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-container-lowest);
-  font: 500 13px/18px var(--font-family);
-  color: var(--on-surface-variant);
-}
-
-.signin__demo-chip:hover {
-  background: var(--row-hover);
-  color: var(--on-surface);
-}
-
 /* --- Environment tag ---------------------------------------------------- */
 
 .signin__env {
@@ -191,8 +158,8 @@
   background: var(--primary-fixed-dim);
 }
 
-/* On narrow viewports the absolute tag would collide with the wrapped
- * demo chips — join the flow, centered below the content, instead. */
+/* On narrow viewports the absolute tag would collide with the card —
+ * join the flow, centered below the content, instead. */
 @media (max-width: 767px) {
   .signin__env {
     position: static;

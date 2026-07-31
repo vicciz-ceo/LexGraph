@@ -35,19 +35,20 @@ cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 
 ## Running the app
 
-One command sets everything up (venv, npm install, demo data) and starts both servers:
+Provisioning a real instance starts with bootstrap — one command creates the
+first organization, matter, and admin user on an empty database, and prints
+that admin's sign-in id (the id *is* the credential; there are no passwords):
 
 ```bash
-./scripts/demo.sh
+cd backend && .venv/bin/python -m app.bootstrap --db dev.db
 ```
 
-Then open http://localhost:5173 and sign in as `admin`, `reviewer`, `contributor`, or `viewer` (auth is the documented test-token seam: the bearer token *is* the user id — see `backend/app/auth.py`). The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second matter) ships assertions in every status with ratings, comments, and evidence, so the review queue, knowledge base, contested queue, analytics, and admin console are all populated.
-
-Manually, the same thing is:
-
-```bash
-cd backend && .venv/bin/python -m app.seed_demo --db dev.db
-```
+Flags (all optional — see `python -m app.bootstrap --help`): `--org-name`,
+`--matter-name`, `--user-name`, `--user-email` customize the first
+organization/matter/admin; `--db` points at a SQLite file (defaults to
+`LEXGRAPH_DATABASE_URL` from the environment). Bootstrap refuses to run
+against a database that already has users, so it's safe to leave in a
+script. Copy the printed sign-in id, then start the servers:
 
 ```bash
 cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
@@ -56,6 +57,35 @@ cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:
 ```bash
 npm --prefix frontend install && npm --prefix frontend run dev
 ```
+
+Open http://localhost:5173 and sign in with the id bootstrap printed. From
+there, the signed-in admin creates further user accounts and grants them
+matter roles from the in-app admin console (Admin → User accounts, then
+Members & roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
+for the full walkthrough. No seed or mockup data is required for real use.
+
+### Optional: demo workspace for local testing
+
+`./scripts/demo.sh` is a local-testing convenience, not the provisioning
+path: it sets up both environments, seeds a demo workspace (`admin`,
+`reviewer`, `contributor`, `viewer` — the user id *is* the role name) into
+`backend/dev.db`, and starts both servers in one command:
+
+```bash
+./scripts/demo.sh
+```
+
+Manually, the same demo seed is:
+
+```bash
+cd backend && .venv/bin/python -m app.seed_demo --db dev.db
+```
+
+The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second
+matter) ships assertions in every status with ratings, comments, and
+evidence, so the review queue, knowledge base, contested queue, analytics,
+and admin console are all populated for exercising the UI — useful for
+local development and mockup data, not for a real deployment.
 
 The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
 

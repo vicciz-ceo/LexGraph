@@ -122,6 +122,41 @@
   color: var(--on-surface-variant);
 }
 
+/* --- User accounts --------------------------------------------------------- */
+
+.adm-id-col {
+  width: 220px;
+}
+
+.adm-created {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container);
+}
+
+.adm-created__label {
+  font: var(--body-sm);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.adm-created__id {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--border);
+  user-select: all;
+  word-break: break-all;
+}
+
+.adm-created__hint {
+  margin-top: 6px;
+  font: var(--body-sm);
+}
+
 /* --- Review policy reference --------------------------------------------- */
 
 .adm-policy {

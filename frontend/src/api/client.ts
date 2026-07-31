@@ -21,6 +21,7 @@ import type {
   RatingSummary,
   RelatedMatch,
   Revision,
+  UserInfo,
 } from "./types";
 
 const TOKEN_KEY = "lexgraph.token";
@@ -138,6 +139,14 @@ export const api = {
 
   removeMatterMember: (matterId: string, userId: string) =>
     request<void>("DELETE", `/matters/${matterId}/members/${userId}`),
+
+  // --- user accounts (B2/UI1: admin-on-any-matter gate, backend/app/routers/users.py) ---
+  listUsers: () => request<UserInfo[]>("GET", "/users"),
+
+  createUser: (email: string, displayName: string, id?: string) =>
+    request<UserInfo>("POST", "/users", {
+      body: { email, display_name: displayName, ...(id ? { id } : {}) },
+    }),
 
   // --- assertions ---------------------------------------------------------
   listAssertions: (matterId: string, params: AssertionListParams = {}) =>

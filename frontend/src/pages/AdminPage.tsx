@@ -14,7 +14,7 @@ import type { FormEvent } from "react";
 import "../styles/pages/admin.css";
 
 import { ApiError, api } from "../api/client";
-import type { MatterMember, MatterRoleName } from "../api/types";
+import type { MatterMember, MatterRoleName, UserInfo } from "../api/types";
 import { Icon } from "../app/icons";
 import { useActiveSession } from "../app/session";
 
@@ -39,6 +39,16 @@ function describeError(error: unknown): string {
   if (error instanceof ApiError && error.status === 403) {
     return "Your role on this matter no longer permits member management.";
   }
+  if (error instanceof Error) return error.message;
+  return "The action failed.";
+}
+
+/** User-accounts tab error copy — global (admin-on-any-matter), not
+ * matter-scoped, so it doesn't reuse describeError's 403 copy above. The
+ * backend's ApiError.message already carries the right detail text (409
+ * duplicate email, 422 invalid email/blank name, 403 no admin role
+ * anywhere). */
+function describeAccountError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "The action failed.";
 }
@@ -200,7 +210,7 @@ function ReviewPolicyPanel() {
   );
 }
 
-type AdminTab = "members" | "policy";
+type AdminTab = "members" | "accounts" | "policy";
 
 export function AdminPage() {
   const session = useActiveSession();
@@ -219,6 +229,16 @@ export function AdminPage() {
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<MatterRoleName>("contributor");
   const [addError, setAddError] = useState<string | null>(null);
+
+  // --- User accounts tab (B2/UI1) ----------------------------------------
+  const [accounts, setAccounts] = useState<UserInfo[] | null>(null);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [accountsReloadKey, setAccountsReloadKey] = useState(0);
+  const [newAccountEmail, setNewAccountEmail] = useState("");
+  const [newAccountName, setNewAccountName] = useState("");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createdAccount, setCreatedAccount] = useState<UserInfo | null>(null);
 
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -254,6 +274,55 @@ export function AdminPage() {
     const res = await api.listMatterMembers(matterId);
     if (aliveRef.current) setMembers(res);
   }, [matterId]);
+
+  // Accounts are global (not per-matter), so only fetch them once the
+  // admin actually opens the tab -- and never for non-admins, who never
+  // see the tab button in the first place (defense in depth).
+  useEffect(() => {
+    if (tab !== "accounts" || !canManage) return;
+    let cancelled = false;
+    setAccounts(null);
+    setAccountsError(null);
+    api.listUsers().then(
+      (res) => {
+        if (!cancelled) setAccounts(res);
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        setAccountsError(
+          error instanceof Error ? error.message : "Failed to load user accounts.",
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, canManage, accountsReloadKey]);
+
+  async function submitCreateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = newAccountEmail.trim();
+    const displayName = newAccountName.trim();
+    if (email === "" || displayName === "") return;
+    setCreateBusy(true);
+    setCreateError(null);
+    try {
+      const created = await api.createUser(email, displayName);
+      if (!aliveRef.current) return;
+      setCreatedAccount(created);
+      setNewAccountEmail("");
+      setNewAccountName("");
+      // Wiring: hand the new account straight to the Members & roles tab's
+      // add-by-email field so granting it a role is the very next step.
+      setAddEmail(created.email);
+      setAccountsReloadKey((k) => k + 1);
+    } catch (error) {
+      if (!aliveRef.current) return;
+      setCreateError(describeAccountError(error));
+    } finally {
+      if (aliveRef.current) setCreateBusy(false);
+    }
+  }
 
   async function runMutation(call: () => Promise<unknown>) {
     setBusy(true);
@@ -446,6 +515,111 @@ export function AdminPage() {
     );
   }
 
+  function renderAccountsPanel() {
+    if (accountsError) {
+      return (
+        <div className="error-banner">
+          {accountsError}{" "}
+          <button
+            type="button"
+            className="btn btn--sm btn--secondary"
+            onClick={() => setAccountsReloadKey((k) => k + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    if (accounts === null) {
+      return <div className="loading">Loading user accounts…</div>;
+    }
+    return (
+      <>
+        <div className="card">
+          <div className="table-wrap">
+            <table className="table adm-table">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th className="adm-id-col">Sign-in id</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account) => (
+                  <tr key={account.id}>
+                    <td>
+                      <div className="adm-member">
+                        <span className="avatar">{initials(account.display_name)}</span>
+                        <div className="adm-member__id">
+                          <span className="adm-member__name">{account.display_name}</span>
+                          <span className="muted adm-member__email">{account.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="mono adm-id-col">{account.id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <form className="card adm-add" onSubmit={(event) => void submitCreateAccount(event)}>
+          <header className="card__header">Create account</header>
+          <div className="card__body">
+            <p className="muted adm-add__hint">
+              Creates a new sign-in-able account. There are no passwords — the id
+              shown after creation is the sign-in credential; hand it to the user.
+            </p>
+            <div className="adm-add__row">
+              <input
+                className="input"
+                type="email"
+                placeholder="colleague@firm.example"
+                aria-label="Email for the new account"
+                value={newAccountEmail}
+                onChange={(event) => setNewAccountEmail(event.target.value)}
+              />
+              <input
+                className="input"
+                type="text"
+                placeholder="Full name"
+                aria-label="Display name for the new account"
+                value={newAccountName}
+                onChange={(event) => setNewAccountName(event.target.value)}
+              />
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={
+                  createBusy ||
+                  newAccountEmail.trim() === "" ||
+                  newAccountName.trim() === ""
+                }
+              >
+                Create account
+              </button>
+            </div>
+            {createError && <p className="adm-add__error">{createError}</p>}
+            {createdAccount && (
+              <div className="adm-created" role="status">
+                <p className="adm-created__label">
+                  Account created — this id is the sign-in credential, hand it to
+                  the user:
+                </p>
+                <code className="mono adm-created__id">{createdAccount.id}</code>
+                <p className="muted adm-created__hint">
+                  {createdAccount.email} was pre-filled into the Members & roles
+                  add-member field so you can grant it a role next.
+                </p>
+              </div>
+            )}
+          </div>
+        </form>
+      </>
+    );
+  }
+
   return (
     <div className="adm-page">
       <header className="page-header">
@@ -475,6 +649,17 @@ export function AdminPage() {
         >
           Members & roles
         </button>
+        {canManage && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "accounts"}
+            className={tab === "accounts" ? "adm-tab adm-tab--active" : "adm-tab"}
+            onClick={() => setTab("accounts")}
+          >
+            User accounts
+          </button>
+        )}
         <button
           type="button"
           role="tab"
@@ -486,7 +671,9 @@ export function AdminPage() {
         </button>
       </div>
 
-      {tab === "members" ? renderMembersPanel() : <ReviewPolicyPanel />}
+      {tab === "members" && renderMembersPanel()}
+      {tab === "accounts" && canManage && renderAccountsPanel()}
+      {tab === "policy" && <ReviewPolicyPanel />}
     </div>
   );
 }
