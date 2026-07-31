@@ -115,34 +115,27 @@ describe("SignInPage", () => {
     expect(banner).toHaveTextContent(/could not reach the lexgraph server/i);
   });
 
-  it("fills the input from a demo-account chip and clears any prior error", async () => {
-    signIn.mockRejectedValue(new ApiError(401, "unknown user"));
+  // Re-pointed for sprint 2026-07-31-admin-provisioning, gate G3 ("no
+  // mockup data in the app"): the two tests this replaced
+  // ("fills the input from a demo-account chip ..." and "offers one chip
+  // per demo role") asserted the hardcoded demo-account quick-fill chips
+  // EXISTED. That fixture is being removed — accounts are provisioned by
+  // an admin (bootstrap CLI + Users API), not hardcoded in the sign-in
+  // page — so this is now a RED test pinning their ABSENCE instead.
+  it("does not render the hardcoded demo-account quick-fill chips (G3)", () => {
     render(<SignInPage />);
 
     expect(
-      screen.getByText(/demo workspace accounts \(after running the seed\)/i),
-    ).toBeInTheDocument();
-
-    // Produce an error first so the chip can clear it.
-    typeUserId("nobody");
-    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
-    await screen.findByRole("alert");
-
-    fireEvent.click(screen.getByRole("button", { name: /^reviewer$/i }));
-
-    expect(screen.getByLabelText(/user id/i)).toHaveValue("reviewer");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    // Chips only fill the input — no extra sign-in call.
-    expect(signIn).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers one chip per demo role", () => {
-    render(<SignInPage />);
-
+      screen.queryByText(/demo workspace accounts/i),
+    ).not.toBeInTheDocument();
     for (const role of ["admin", "reviewer", "contributor", "viewer"]) {
       expect(
-        screen.getByRole("button", { name: new RegExp(`^${role}$`, "i") }),
-      ).toBeInTheDocument();
+        screen.queryByRole("button", { name: new RegExp(`^${role}$`, "i") }),
+      ).not.toBeInTheDocument();
     }
+
+    // The real sign-in surface must still be there.
+    expect(screen.getByLabelText(/user id/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
   });
 });
