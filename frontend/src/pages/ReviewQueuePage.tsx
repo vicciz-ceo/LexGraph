@@ -123,7 +123,7 @@ export function ReviewQueuePage() {
       .then((res) => {
         if (cancelled) return;
         const names: Record<string, string> = {};
-        for (const member of res.items) names[member.user.id] = member.user.display_name;
+        for (const member of res) names[member.user.id] = member.user.display_name;
         setMemberNames(names);
       })
       .catch(() => {
@@ -351,7 +351,16 @@ export function ReviewQueuePage() {
                             assertion={{
                               id: assertion.id,
                               status: assertion.status,
-                              evidenceStatus: assertion.evidence_status,
+                              // The backend requires an acceptance justification
+                              // whenever there is no supporting evidence, which
+                              // covers both "unsupported" and "awaiting_evidence".
+                              // The panel only gates on "unsupported", so map the
+                              // latter onto it here (display chips elsewhere still
+                              // use the real evidence_status).
+                              evidenceStatus:
+                                assertion.evidence_status === "awaiting_evidence"
+                                  ? "unsupported"
+                                  : assertion.evidence_status,
                               currentRevisionNumber:
                                 assertion.current_revision_number ?? undefined,
                             }}

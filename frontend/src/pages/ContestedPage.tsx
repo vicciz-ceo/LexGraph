@@ -283,7 +283,13 @@ export function ContestedPage() {
                     className="btn btn--primary"
                     disabled={actionBusy}
                     onClick={() => {
-                      if (assertion.evidence_status === "unsupported") {
+                      // The backend requires an acceptance justification
+                      // whenever there is no supporting evidence, which
+                      // covers both "unsupported" and "awaiting_evidence".
+                      if (
+                        assertion.evidence_status === "unsupported" ||
+                        assertion.evidence_status === "awaiting_evidence"
+                      ) {
                         setPendingAction("accept");
                         setActionError(null);
                       } else {

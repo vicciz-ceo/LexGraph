@@ -124,7 +124,7 @@ export const api = {
   me: () => request<Me>("GET", "/me"),
 
   listMatterMembers: (matterId: string) =>
-    request<{ items: MatterMember[] }>("GET", `/matters/${matterId}/members`),
+    request<MatterMember[]>("GET", `/matters/${matterId}/members`),
 
   setMatterMemberRole: (matterId: string, userId: string, role: MatterRoleName) =>
     request<MatterMember>("PUT", `/matters/${matterId}/members/${userId}`, {

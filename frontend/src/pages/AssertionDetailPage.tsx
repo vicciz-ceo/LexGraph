@@ -527,7 +527,15 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   assertion={{
                     id: detail.id,
                     status: detail.status,
-                    evidenceStatus: detail.evidence_status,
+                    // The backend requires an acceptance justification whenever
+                    // there is no supporting evidence, which covers both
+                    // "unsupported" and "awaiting_evidence". The panel only
+                    // gates on "unsupported", so map the latter onto it here
+                    // (the status badge above still uses the real evidence_status).
+                    evidenceStatus:
+                      detail.evidence_status === "awaiting_evidence"
+                        ? "unsupported"
+                        : detail.evidence_status,
                     currentRevisionNumber: detail.current_revision_number ?? undefined,
                   }}
                   onAccept={(payload) =>

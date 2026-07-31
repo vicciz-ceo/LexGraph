@@ -327,7 +327,7 @@ export function AnalyticsPage() {
     api.listMatterMembers(matterId).then(
       (res) => {
         if (cancelled) return;
-        setMembers(Object.fromEntries(res.items.map((m) => [m.user.id, m.user])));
+        setMembers(Object.fromEntries(res.map((m) => [m.user.id, m.user])));
       },
       () => {
         /* Names are a nicety — fall back to raw user ids. */

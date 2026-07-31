@@ -235,7 +235,7 @@ export function AdminPage() {
     setBanner(null);
     api.listMatterMembers(matterId).then(
       (res) => {
-        if (!cancelled) setMembers(res.items);
+        if (!cancelled) setMembers(res);
       },
       (error: unknown) => {
         if (cancelled) return;
@@ -252,7 +252,7 @@ export function AdminPage() {
   /** Re-fetch the roster in place (no loading flash) after a mutation. */
   const refresh = useCallback(async () => {
     const res = await api.listMatterMembers(matterId);
-    if (aliveRef.current) setMembers(res.items);
+    if (aliveRef.current) setMembers(res);
   }, [matterId]);
 
   async function runMutation(call: () => Promise<unknown>) {
