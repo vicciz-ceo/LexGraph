@@ -72,3 +72,4 @@ contract, not just as Planner's test opinions):
 See the contract's `## Stale-pin sweep` section — one file touched
 (`SignInPage.test.tsx`), two stale-existence tests replaced by one
 absence test, in the same commit as the UI2 RED test.
+- Developer B1+B2 (backend): ab4ae45e4ff4cae99 (spawned at c9233a3)

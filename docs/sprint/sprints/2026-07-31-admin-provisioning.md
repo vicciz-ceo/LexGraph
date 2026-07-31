@@ -5,14 +5,14 @@ current_role: developer
 branch: claude/stitch-consensus-platform-b5fa87
 locked_by: "claude-code:planner"
 locked_at: "2026-07-31T11:50:25Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-07-31T11:59:00Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-07-31T12:07:10Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 5
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 0
 previous_sprint: "2026-07-31-consensus-ui"
 prd_sections: []
@@ -66,38 +66,6 @@ change); all four gates below confirmed.
 
 ## Next Steps
 
-### B1 — Bootstrap CLI
-
-`python -m app.bootstrap` (new `backend/app/bootstrap.py`). On an EMPTY
-database (no `users` rows): creates one organization + repository +
-matter + the first user, with an `admin` `matter_roles` row on that
-matter; prints the sign-in user id clearly to stdout (R3 — the id IS the
-credential). Flags: `--db <path>` (sets `LEXGRAPH_DATABASE_URL`, mirrors
-`app/seed_demo.py`) or read `LEXGRAPH_DATABASE_URL` directly when `--db`
-is omitted; `--org-name`, `--matter-name`, `--user-name`, `--user-email`
-(sane defaults acceptable). Creates tables via `Base.metadata.create_all`
-like `seed_demo.py`. On a NON-empty database (any `users` row exists):
-refuses, non-zero exit, prints a message, mutates nothing.
-Files: `backend/app/bootstrap.py` (new).
-RED tests: `backend/tests/integration/test_bootstrap_cli.py` — run with
-`backend/.venv/bin/pytest backend/tests/integration/test_bootstrap_cli.py -v`.
-
-### B2 — Users API
-
-`GET /api/v1/users` → bare JSON array `[{id, email, display_name}, ...]`.
-`POST /api/v1/users` → body `{email, display_name, id?}`, 201 with
-`{id, email, display_name}` (id prominent in the response, R3). Gate
-(R2): caller holds `admin` role on ≥1 matter — NOT scoped to the current
-matter. 401 unknown/missing token; 403 non-admins (incl. reviewers); 409
-duplicate email (R4, API-layer check, no DB unique constraint); 422
-invalid email / empty display_name / duplicate caller-chosen id.
-Files: new router (workspace.py conventions — local `get_session`/
-`get_current_user_id`, `APIRouter(prefix="/api/v1")`) + one registration
-line in `app/main.py`'s append-only zone (that file's own R6 ruling from
-an earlier sprint, not this sprint's R6).
-RED tests: `backend/tests/integration/test_users_api.py` — run with
-`backend/.venv/bin/pytest backend/tests/integration/test_users_api.py -v`.
-
 ### UI1 — Admin console "User accounts"
 
 New "User accounts" tab on `AdminPage.tsx` (admin-only — same gate as the
@@ -144,6 +112,13 @@ Acceptance: reads correctly end-to-end from a fresh clone; no RED test —
 verified by review, not pytest/vitest.
 
 ## Dev Complete
+
+- **B1 — Bootstrap CLI.** `python -m app.bootstrap`: empty-DB guard,
+  creates org+repo+matter+admin user, prints user id. Files:
+  `backend/app/bootstrap.py` (new). Commit `008cfc3`. Result: 4/4 green.
+- **B2 — Users API.** `GET`/`POST /api/v1/users`, global admin-on-any-matter
+  gate (R2), 401/403/409/422 pinned. Files: `backend/app/routers/users.py`
+  (new), `backend/app/main.py` (registration). Commit `008cfc3`. Result: 12/12 green.
 
 ## Completed
 
