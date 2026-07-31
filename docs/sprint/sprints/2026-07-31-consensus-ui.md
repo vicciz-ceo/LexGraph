@@ -1,18 +1,18 @@
 ---
 id: "2026-07-31-consensus-ui"
-status: in-progress
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/stitch-consensus-platform-b5fa87
-locked_by: "claude-code:developer"
-locked_at: "2026-07-31T10:55:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-07-31T14:05:00Z"
 last_agent: "claude-code:manager"
-last_updated: "2026-07-31T10:55:00Z"
+last_updated: "2026-07-31T14:05:00Z"
 lint: null
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
 completed_items: 0
-dev_complete_items: 2
+dev_complete_items: 10
 qa_cycles: 0
 previous_sprint: "2026-07-30-ratings-grade"
 prd_sections: []
@@ -76,18 +76,7 @@ commit onward, standard role separation applies.
 
 ## Next Steps
 
-- **D1 — Fix members-endpoint shape mismatch (client + pages)** [from G1
-  walkthrough]: client.ts types listMatterMembers as {items:[...]} but the
-  backend returns a bare array → AdminPage blank crash, dead author-name
-  resolution on ReviewQueue/Analytics. Fix client type + the three call
-  sites; also resolve non-self names on AssertionDetailPage. RED tests:
-  Planner commit (pages/__tests__).
-- **D3 — awaiting_evidence acceptance must open the justification flow**
-  [from G1 walkthrough]: pages feeding AssertionReviewPanel must treat
-  awaiting_evidence like unsupported (backend requires a justification for
-  both); today the queue fires the API and surfaces the server 4xx. RED
-  test: Planner commit.
-- **V1 — Independent QA of the full sprint** (blocked until D1/D3 land):
+- **V1 — Independent QA of the full sprint**:
   re-run the evaluator, verify each item against its acceptance criteria,
   scrutinize pre-harness code (backend/app/routers/workspace.py,
   backend/app/seed_demo.py, frontend/src/{api,app,styles}) and
@@ -114,6 +103,16 @@ commit onward, standard role separation applies.
   executed against a scratch DB and API-smoke-checked.
 
 ## Dev Complete (continued)
+
+- **D1+D2 — members-shape fix** and **D3 — awaiting-evidence justification
+  gating** (walkthrough defects): RED tests committed by Planner (9b99ce4,
+  tests-only, 15 RED), fixed by Developer (6c155f6, 6 files, minimal diff,
+  manager-read in full). Suite 148/148 + typecheck + backend 479/479
+  re-verified by manager independently. Live re-verification: AdminPage
+  renders + add-member + last-admin 409 banner; Analytics KPIs
+  arithmetically verified against seed+live actions; queue/analytics show
+  display names; Accept on awaiting_evidence opens the justification form
+  pre-flight. G1 walkthrough COMPLETE across all screens and roles.
 
 - **UI1–UI9 — nine screens** (workflow wf_dfea95a4-a7c, commit d11ff9e):
   SignIn, ReviewQueue, KnowledgeBase, AssertionDetail, SuggestAssertion,
