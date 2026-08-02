@@ -1,16 +1,16 @@
 ---
 id: "2026-08-02-us-state-law"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-08-02T10:00:34Z"
-lint: null
+last_agent: "claude-code:planner"
+last_updated: "2026-08-02T10:28:30Z"
+lint: "PASS 267 2026-08-02T10:28:55Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 6
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -18,6 +18,7 @@ previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
 design_sections:
   - docs/sprint/sprints/2026-08-02-us-state-law-review.md
+  - docs/sprint/sprints/2026-08-02-us-state-law-log.md
 ---
 
 # Sprint: U.S. state law compatibility — deterministic pipeline
@@ -103,15 +104,140 @@ turns each into failing tests across the pyramid before any Developer is spawned
 
 ## Test baseline (Planner fills in — R4)
 
-_TBD — Planner records the true pre-sprint pass/fail counts here._
+`docs/repo-profile.md`'s snapshot (126 backend / 39 FAILED / 87 ERROR; 59
+frontend RED) is **stale and wrong**. True baseline, verified 2026-08-02:
+- Backend: `backend/.venv/bin/pytest backend/tests -q` → **504 passed**, 0
+  failed, 0 error (14 warnings, pre-existing deprecation noise only).
+- Frontend: `npm --prefix frontend run test -- --run` → **151 passed** (20
+  files), 0 failed.
+- Typecheck: `npm --prefix frontend run typecheck` → exit 0, no output.
+
+No pre-existing failures to protect against — this sprint starts all-green.
+Full commands + output: sprint log §"R4 — true test baseline".
 
 ## Stale-pin sweep
 
-_TBD — Planner._
+Swept all 4 test roots (case-insensitive `grep -riE` for jurisdiction
+literals) + `*.snap` (none exist). **No re-pointing needed**: the only
+hits are `"IL"`/`"US-DE"` fixture literals already valid under the chosen
+vocabulary (`ContestedPage.test.tsx:74`, `KnowledgeBasePage.test.tsx:59`,
+`ProfilePage.test.tsx:70`, `ReviewQueuePage.test.tsx:91`,
+`AssertionDetailPage.test.tsx:80,132`) plus 2 unrelated prose matches
+(the word "jurisdiction" inside proposition/comment text, not a value).
+One REAL drift risk found outside the sweep's test-root scope:
+`app/seed_demo.py` sets `jurisdiction="EU"` (4x, via the real API) — not
+in the new vocabulary; flagged as a required same-commit fix for the
+vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-_TBD — Planner defines items here._
+### Item 1 — Jurisdiction controlled vocabulary [G5] [track: vocabulary]
+
+Canonical 54-code list (`IL` + 50 `US-<postal>` + `US-DC`/`US-PR`/`US-FED`)
+in `backend/app/services/jurisdiction.py` (`JURISDICTION_CODES`,
+`validate_jurisdiction`, mirrors `validation.py`'s `ALLOWED_ASSERTION_TYPES`
+pattern), wired into `POST/PATCH/revisions` + `GET .../assertions` query
+param, plus a NEW `GET /api/v1/jurisdictions` endpoint (frontend source of
+truth — R5's call, not a hand mirror). Frontend gets a compile-time TS
+mirror at `frontend/src/constants/jurisdictions.ts`. **Must also fix
+`seed_demo.py`'s `jurisdiction="EU"` (4x) in the same commit** — see
+stale-pin sweep above. Acceptance: `backend/tests/unit/
+test_jurisdiction_vocabulary.py`, `backend/tests/integration/
+test_jurisdiction_api_validation.py` (7 tests, live TestClient), `frontend/
+src/constants/__tests__/jurisdictions.test.ts` all green;
+`test_bootstrap_cli.py` (seed_demo) still passes.
+
+### Item 2 — Jurisdiction-profile seam, Hebrew ported [G1] [track: seam]
+
+`app.definition_links.profiles.get_profile(code) -> JurisdictionProfile`
+registry (additive — existing `sections.py`/`matcher.py`/`derivation.py`/
+`normalize.py` bare functions stay untouched, ~20 tests import them
+directly). `HebrewProfile` (`"IL"`) thin-wraps them. Also lands
+`Document.jurisdiction` (NOT NULL, default `"IL"`) +
+`ingest_wiki_law(..., jurisdiction="IL")` (default, not required —
+backward-compat for every existing Hebrew call site) and
+`link_articles_to_definitions(..., *, profile=None)`. Blocks Item 3
+(US profile needs the registry) and Item 5 (stamping needs
+`Document.jurisdiction`). Acceptance: `backend/tests/unit/
+test_definition_links_profiles.py` (Hebrew fidelity proof against real
+`.wiki` fixtures), `backend/tests/integration/
+test_definition_links_pipeline_profile_dispatch.py` (live pipeline,
+byte-identical Hebrew output through the new dispatch path).
+
+### Item 3 — US jurisdiction profile [G2, G3, G4] [track: us-profile]
+
+English Definitions-heading detection (tolerant of the REAL Delaware
+scrape-noise heading format — see fixture README), extraction
+(`.extract_definitions_from_section`, extends the director's named-module
+list by necessity — G2 is unsatisfiable without it), `\b`-word-boundary
+term matching (no Hebrew prefix-letter expansion), and citation
+grammar (`§ 101`, `Section 5`, `15 U.S.C. § 1`) via new
+`.find_citations`/`.detect_cross_law_derivations` profile methods.
+Depends on Item 2's registry. Acceptance: `backend/tests/unit/
+test_definition_links_us_profile.py` (14 tests against real DE fixture
+rows + synthetic edge cases), `backend/tests/integration/
+test_us_profile_definitions_section_end_to_end.py` (Stage 1-3 chained).
+
+### Item 4 — Jurisdiction stamping on every created assertion [G5] [track: stamping]
+
+`pipeline.py`'s `_create_assertion` reads the owning article's Document's
+`.jurisdiction` instead of the hardcoded `jurisdiction=None`
+(`pipeline.py:233`). Per-document, not per-matter (a matter may mix
+jurisdictions). Depends on Item 2's `Document.jurisdiction` column.
+Acceptance: `backend/tests/integration/
+test_definition_links_pipeline_jurisdiction_stamping.py` (2 tests, live
+pipeline + DB re-read, mixed-jurisdiction matter case).
+
+### Item 5 — US dataset ingester [G6] [track: ingester]
+
+`app.definition_links.ingest_us_statutes.ingest_us_statute_rows(session,
+*, repository_id, matter_id, title, rows, jurisdiction)` — one Document
+per file, one Article+SourceSpan per row; `jurisdiction` required (no
+default — brand-new function, no back-compat need). Error paths: missing
+`text` column (skip + report, not fatal), unknown jurisdiction, empty
+batch, idempotent re-ingest. `app.definition_links.ingest_us_statutes_cli`
+— ONE documented command (`--input <parquet> --repository-id --matter-id
+--title --jurisdiction`), reads via `pyarrow` (NEW dependency — Developer
+adds it), resumable. The 109-file measured bulk run (R3: rows/wall-time/
+peak-memory/per-file failures) is a separate, explicitly-invoked
+deliverable, never part of `pytest`. Acceptance: `backend/tests/
+integration/test_ingest_us_statutes.py` (6 tests incl. 3 error paths),
+`test_ingest_us_statutes_cli.py` (3 tests, real local `.parquet` fixture,
+RED today via missing `pyarrow`).
+
+### Item 6 — UI jurisdiction pass [G7] [track: ui]
+
+Picker: `AssertionSuggestionForm`'s free-text jurisdiction `<input>`
+becomes a `<select>` sourced from Item 1's constants. Filter: KB page +
+Review Queue page each get a "Jurisdiction" `<select>` that re-filters via
+`AssertionListParams.jurisdiction` (badges already render on both pages
+today — verified, not retested). Preference: `ProfilePage` gets a
+"Default jurisdiction" control persisted to `localStorage`
+(`lexgraph:default-jurisdiction:<userId>` — frontend-only, no backend
+prefs mechanism exists; Planner's call, see log). Depends on Item 1.
+Acceptance: `AssertionSuggestionForm.jurisdiction.test.tsx` (3),
+`KnowledgeBasePage.jurisdiction_filter.test.tsx` (2),
+`ReviewQueuePage.jurisdiction_filter.test.tsx` (2),
+`ProfilePage.jurisdiction_preference.test.tsx` (3).
+
+## Parallelization proposal (Planner proposes, manager rules)
+
+- **Sequenced, not parallel:** Item 2 (seam) must land before Item 3 (US
+  profile needs the registry) and Item 4 (stamping needs
+  `Document.jurisdiction`). Item 1 (vocabulary) should land before Item 4
+  and Item 6 (both consume valid codes / the API endpoint), per R5.
+- **Parallel-safe once Item 1 + Item 2 are merged:** Item 3 (US profile,
+  new files only: `profiles.py`'s US registration + new US-only regex
+  module), Item 5 (dataset ingester, entirely new files:
+  `ingest_us_statutes.py`, `ingest_us_statutes_cli.py`), and Item 6 (UI,
+  frontend-only files) touch disjoint write sets — no file overlap among
+  them. Item 4 (stamping, edits `pipeline.py`) should NOT run concurrently
+  with Item 3 if Item 3 also touches `pipeline.py`'s Stage-2 dispatch
+  call site — recommend Item 3's Developer touch only `profiles.py` and
+  new US-only module(s), leaving `pipeline.py`'s dispatch wiring to
+  Item 2/4, to keep Item 3 and Item 4 non-overlapping.
+- Item 1 is the ONE item with no dependencies — always safe to start first
+  (per R5, already committed standalone below).
 
 ## Dev Complete
 
@@ -131,13 +257,11 @@ _None yet._
 
 ## Context Dump
 
-Sprint opened by the manager 2026-08-02. Recon complete (two rounds; first-round
-deterministic + dataset scouts failed and were re-run). Dossier at
-`docs/sprint/sprints/2026-08-02-us-state-law-review.md` is the authoritative
-findings record — read it, do not re-recon.
-
-Verified by the manager directly: the HF dataset is live, public, non-gated,
-CC-BY-4.0, 109 files, per-state parquet naming (`us_tx_statutes.parquet`).
-
-Next: Planner establishes the true test baseline (R4), defines items, authors RED
-tests. Nothing is implemented yet.
+Planner pass complete 2026-08-02: true baseline established (all-green,
+see above), 6 items defined, RED tests authored + confirmed for all 6
+(23 backend RED signals, 14 frontend RED tests across 5 files — full
+per-file breakdown in the sprint log). Real DE fixture rows committed at
+`backend/tests/fixtures/us_statutes/`. Zero implementation written.
+Next: manager reviews item/track split, rules on parallelization, spawns
+Developer(s) starting with Item 1 (no dependencies) and Item 2 (blocks
+Items 3/4). Full rationale for every design call: sprint log.
