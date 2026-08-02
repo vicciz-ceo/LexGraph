@@ -110,11 +110,22 @@ def _in_scope(definition, article) -> bool:
     return True  # law-wide (or any other/unspecified scope)
 
 
-def link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermEdge]:
+def link_articles_to_definitions(
+    definitions, articles, *, profile=None
+) -> list[ArticleUsesTermEdge]:
     """Run each definition's term matcher over every article body within
     its scope, applying longest-match-wins (Stage 3.6) and excluding a
     term's own defining entry (Stage 3.7).
+
+    `profile` (sprint 2026-08-02-us-state-law, item 2, gate G1) is an
+    optional keyword-only `JurisdictionProfile`-shaped object. When given,
+    term matching delegates to `profile.find_term_uses` instead of this
+    module's Hebrew-specific `find_term_uses`; when omitted (the default),
+    behavior is byte-identical to before this parameter existed -- every
+    existing call site (this module's own tests, `pipeline.py`) passes no
+    such kwarg and is unaffected.
     """
+    term_uses = profile.find_term_uses if profile is not None else find_term_uses
     # (definition, term) pairs, longest term first (token count, then
     # character length) so a longer term claims its span before a shorter,
     # overlapping term is considered.
@@ -131,7 +142,7 @@ def link_articles_to_definitions(definitions, articles) -> list[ArticleUsesTermE
             if not _in_scope(definition, article):
                 continue
             spans = claimed_spans.setdefault(article_index, [])
-            for match in find_term_uses(term, article.body):
+            for match in term_uses(term, article.body):
                 start, end = match.start(), match.end()
                 if _is_own_defining_entry(article.body, start, end):
                     continue

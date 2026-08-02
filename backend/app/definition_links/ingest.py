@@ -31,10 +31,16 @@ def ingest_wiki_law(
     matter_id: str,
     title: str,
     wiki_text: str,
+    jurisdiction: str = "IL",
 ) -> dict:
     """Parse `wiki_text` into articles and persist one `Document` row for
     `title`, one `Article` + one backing `SourceSpan` row per parsed
     article.
+
+    `jurisdiction` (sprint 2026-08-02-us-state-law, item 2, gate G1)
+    defaults to `"IL"` -- deliberately a DEFAULT, not a required kwarg,
+    so every existing Hebrew call site (~20 tests) that calls this
+    function with no such kwarg at all keeps working unchanged.
 
     Returns `{"document_id": str, "article_ids": list[str],
     "source_span_ids": list[str]}` -- the latter two in the same
@@ -45,6 +51,7 @@ def ingest_wiki_law(
         repository_id=repository_id,
         matter_id=matter_id,
         title=title,
+        jurisdiction=jurisdiction,
     )
     session.add(document)
 
