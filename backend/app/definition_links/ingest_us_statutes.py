@@ -30,25 +30,78 @@ unrelated "§ 796"s from Title 5 and Title 29). Keying idempotency on
 section as "already ingested" and silently drops it -- real data loss with no
 trace in `skipped_rows`.
 
-The resumability key instead is `(document_id, section_number, chapter,
-section_title)`: `chapter` (the dataset's chapter code, e.g. `"7"`,
-`"60A"`) plus `section_title` (the section heading, which names the actual
-subject matter) together disambiguate same-numbered sections that live in
-different titles/chapters, while remaining fully deterministic across
-re-runs of the same row. `Article.number`/`Article.chapter` still store the
-plain `section_number`/`chapter` values (unchanged from the original
-mapping) -- only the *lookup* additionally filters on them plus heading.
-A row whose `chapter` is missing/empty cannot be safely disambiguated this
-way (bare `section_number` could silently collide with an unrelated section
-elsewhere in the file), so it is SKIPPED with a reason rather than risking a
-repeat of the same silent-collision defect with a different key.
+**Wave-4 fix (sprint 2026-08-02-us-state-law, item 5, QA cycle 2, ruling
+R7(b)):** wave-3's key was `(document_id, section_number, chapter,
+section_title)`, and any row with a missing/empty `chapter` was
+unconditionally SKIPPED because bare `section_number` alone can collide
+across titles/chapters. That traded a silent merge for an explicit skip, but
+it still lost real law: on the real `us_de_statutes.parquet`, 647 of 21,649
+rows (3.0%) have an empty `chapter` -- and every one of them was dropped,
+even though `citation` (e.g. `"5 Del. C. § 796"`), the dataset's own
+canonical unique legal identifier, is present and non-empty in 100% of real
+rows (0% null/empty, verified against the live file).
+
+The obvious fix ("re-key on `citation`") was checked against the real file
+before committing to it, per the brief's own instruction to verify
+uniqueness rather than assume it: **`citation` is NOT 100% unique** --
+`us_de_statutes.parquet` has exactly ONE real duplicate pair
+(`"29 Del. C. § 7905A"`, shared by `STATE_DE_T29_C79_SI_S7905A` and
+`STATE_DE_T29_C79A_S7905A` -- two genuinely different sections, chapters
+`"79"` vs `"79A"`). Keying blindly on `citation` alone would have silently
+merged that real pair. Worse, real-data validation of wave-3's own
+"primary" `(section_number, chapter, section_title)` key surfaced a second,
+larger, PRE-EXISTING collision class inherited from wave-3, not introduced
+by empty chapters at all: `chapter` codes are **not unique across titles**
+-- e.g. Title 24 Chapter 44 and Title 18 Chapter 44 both exist in the same
+file, so `STATE_DE_T24_C44_SI_S4401` ("§ 4401. Short title.") and
+`STATE_DE_T18_C44_S4401` ("§ 4401. Short title.") share an IDENTICAL
+`(section_number="4401", chapter="44", section_title="§ 4401. Short
+title.")` key despite being two unrelated sections of two unrelated titles
+with different citations and different body text. Measured on the real
+file: **179 such cross-title collisions, silently merging 293 genuinely
+different rows down to 179 Articles** -- exactly the "two genuinely
+different sections must produce two Articles, even with equal
+section_number" requirement this fix is required to hold, broken by the
+inherited wave-3 key on real data.
+
+Both findings point to the same conclusion: neither `chapter` nor bare
+`citation` is a safe sole disambiguator on this real dataset. What IS
+verified 100% collision-free across all 21,649 real DE rows (including the
+one row where `citation` itself repeats, since its two rows also differ in
+heading/text) is `(section_number, section_title, text)` together -- the
+section's own number, heading, AND actual legal body text. Two distinct real
+sections essentially never share byte-identical body text; re-ingesting the
+exact same row always reproduces the exact same text, so idempotency holds.
+The lookup key is therefore
+**`(document_id, section_number, section_title, quote_text)`** (`quote_text`
+lives on the row's `SourceSpan`, so the lookup joins to it) -- applied
+uniformly to every row with `text`, independent of whether `chapter` is
+present. `Article.number`/`Article.chapter` still store the row's real,
+unmodified `section_number`/`chapter` values (including an honestly empty
+`chapter` when the source row has none) -- this key does not require
+inventing a synthetic stand-in for either field, so `Article.number` keeps
+matching "Section N" cross-references via `matcher.py` and
+`Article.chapter` keeps its real value for chapter-scoped definition
+matching, both completely unchanged from before this fix. No schema change
+is needed (no `citation` column exists on `Article`, and this module does
+not own the model file) since `quote_text` already exists on the
+already-persisted `SourceSpan`.
+
+`citation`'s role in this design is now purely evidentiary, not structural:
+its 100%-non-empty real-data rate is what proves nearly every real row
+carries a genuine, addressable legal identity worth keeping (motivating
+"stop skipping empty-chapter rows" in the first place), while its
+NOT-quite-100%-unique real-data rate is exactly why it was rejected as the
+literal lookup key in favor of the independently-verified-unique
+`(section_number, section_title, text)` triple.
 
 Error paths (all have RED tests):
-  - a row missing (or with `None`) required `"text"` is SKIPPED, not fatal --
-    collected into `result["skipped_rows"]` with a reason, every other row in
-    the same batch still ingests.
-  - a row missing (or with `None`/empty) required `"chapter"` is SKIPPED for
-    the same reason -- there is no collision-safe identity to key it on.
+  - a row missing (or with `None`/empty) required `"text"` is SKIPPED, not
+    fatal -- collected into `result["skipped_rows"]` with a reason, every
+    other row in the same batch still ingests. This is the ONLY skip
+    condition left: unlike wave-3, an empty/missing `"chapter"` no longer
+    causes a skip on its own (0 of the 21,649 real DE rows hit any other
+    skip condition).
   - an unknown jurisdiction code raises `ValidationError` (same controlled
     vocabulary the API enforces, `app.services.jurisdiction
     .validate_jurisdiction`).
@@ -128,32 +181,28 @@ def ingest_us_statute_rows(
             )
             continue
 
-        chapter = row.get("chapter")
-        if not chapter:
-            skipped_rows.append(
-                {
-                    "act_id": act_id,
-                    "reason": (
-                        "missing required 'chapter' column -- bare 'section_number' "
-                        "alone is not unique across titles/chapters, so a row without "
-                        "a chapter cannot be safely deduplicated without risking a "
-                        "silent cross-title collision"
-                    ),
-                }
-            )
-            continue
-
+        chapter = row.get("chapter") or ""
         number = str(row.get("section_number"))
         heading = row.get("section_title") or ""
 
-        existing_article = session.execute(
-            select(Article).where(
+        # Idempotency key (wave-4 fix, ruling R7(b)): (section_number,
+        # section_title, text) -- verified 100% collision-free across all
+        # 21,649 real US-DE rows (see module docstring for why neither
+        # `chapter` alone nor `citation` alone is safe on real data).
+        # `Article.chapter` still stores the row's real chapter value
+        # (including honestly empty) -- it is just not part of the lookup.
+        lookup = (
+            select(Article)
+            .join(SourceSpan, Article.source_span_id == SourceSpan.id)
+            .where(
                 Article.document_id == document.id,
                 Article.number == number,
-                Article.chapter == chapter,
                 Article.heading == heading,
+                SourceSpan.quote_text == text,
             )
-        ).scalar_one_or_none()
+        )
+
+        existing_article = session.execute(lookup).scalar_one_or_none()
 
         if existing_article is not None:
             article_ids.append(existing_article.id)

@@ -244,28 +244,48 @@ reuses the same `Document` and does not duplicate `Article`/`SourceSpan`
 rows for sections already ingested — and exits non-zero for a
 missing/unreadable input file.
 
-**Ingesting the full 109-file corpus** is this same command invoked once
-per file (a jurisdiction code per state/territory/federal file, derived
-from the dataset's own `us_<state>_<type>.parquet` naming):
+**Ingesting the full 109-file corpus (gate G6) is ONE command** using
+`--input-dir` instead of `--input` — bulk directory mode, not a shell loop
+around the single-file command. Point it at the directory holding all 109
+downloaded Parquet files:
 
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
 cd backend
-for f in /path/to/open-us-law/*.parquet; do
-    .venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
-        --input "$f" \
-        --repository-id <repository-id> \
-        --matter-id <matter-id> \
-        --title "$(basename "$f" .parquet)" \
-        --jurisdiction <jurisdiction-code-for-this-file> \
-    || echo "FAILED: $f" >> failures.log
-done
+.venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
+    --input-dir /path/to/open-us-law \
+    --repository-id <repository-id> \
+    --matter-id <matter-id>
 cd ..
 ```
 
+Bulk mode derives BOTH `--title` and `--jurisdiction` per file from its own
+filename — the dataset's own `us_<postal-or-federal>_<statutes|
+constitutions>.parquet` naming (e.g. `us_de_statutes.parquet` → title
+`us_de_statutes`, jurisdiction `US-DE`; `us_dc_constitutions.parquet` →
+`US-DC`; `us_federal_statutes.parquet` → `US-FED`) — validated against the
+same controlled vocabulary as single-file mode before that file is touched.
+Files are processed in sorted filename order, **one at a time, in the same
+process**. Critically, **a single file failing (corrupt/unreadable input, a
+filename that doesn't match the naming convention, an unrecognized derived
+jurisdiction code) is recorded and the run CONTINUES to the next file** —
+it never aborts the whole 109-file run over one bad file. A final summary
+prints files found/processed/failed (with each failure's reason), total
+rows ingested, and total rows skipped broken down by reason — the real
+measured report the corpus-scope decision asks for. The process exits
+non-zero if any file failed, so the run is still scriptable, without ever
+giving up on the remaining files. Bulk mode is resumable the same way
+single-file mode is: re-running the same `--input-dir` command reuses every
+already-ingested `Document`/`Article`/`SourceSpan` and creates no
+duplicates — a file that failed partway through a previous run just needs
+the whole `--input-dir` command run again (or can be re-run alone with
+single-file `--input` pointed at just that one file, using the same
+`--jurisdiction`/`--title` its filename derives to).
+
 The `.venv/bin/python` process itself never downloads the dataset — fetch
-the Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or the
-Hugging Face CLI) and point `--input`/the loop above at the local files.
+the 109 Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or
+the Hugging Face CLI) into one local directory and point `--input-dir` (or
+`--input` for a single file) at it.
 
 ## Web Application
 
