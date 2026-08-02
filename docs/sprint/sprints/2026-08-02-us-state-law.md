@@ -1,19 +1,19 @@
 ---
 id: "2026-08-02-us-state-law"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-08-02T10:28:30Z"
-lint: "PASS 267 2026-08-02T10:28:55Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-08-02T11:02:46Z"
+lint: "PASS 238 2026-08-02T11:03:56Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
-completed_items: 0
-dev_complete_items: 6
-qa_cycles: 0
+completed_items: 4
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
 design_sections:
@@ -131,81 +131,63 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-_All items moved to Dev Complete._
+### Item 3 — US jurisdiction profile [G2, G3, G4]
+[QA-FAIL: `USProfile`/`get_profile` have zero production call sites (grep-
+verified: referenced only inside `profiles.py`/`us_profile.py` and test files) —
+`pipeline.py` never dispatches to any profile, so a real US-DE document ingested
+via `ingest_us_statute_rows` and run through the real `run_definition_linking`
+recognizes ZERO Definitions sections and creates ZERO assertions/definitions.
+Proven by `test_real_pipeline_never_recognizes_a_real_us_definitions_section_for_a_us_document`
+(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py). Expected:
+G2/G3/G4 satisfied by the real pipeline, not only by unit tests that call
+`get_profile(...)`'s methods directly, bypassing `pipeline.py` entirely.
+ADDITIONALLY: `is_definitions_heading`'s unanchored `\bDefinitions?\b` substring
+check false-positives on real non-definitions headings ("Application of
+Definitions to Prior Acts", "Repeal of Definitions") — proven by
+`test_us_profile_is_definitions_heading_false_positives_on_non_definitions_headings`.
+Expected: only genuine Definitions sections match. Fix needs `pipeline.py` (item 4's
+file) to call `get_profile(document.jurisdiction)` per document at Stages 1-4, plus
+tightening the heading regex.]
+
+### Item 5 — US dataset ingester [G6 — code only]
+[QA-FAIL: `ingest_us_statute_rows`'s idempotency key is `(document_id,
+section_number)` only, ignoring title/chapter — the module's own docstring warns
+real statute files repeat a bare section number across titles/chapters, but the
+implementation doesn't guard it. A second, genuinely different row sharing an
+already-seen `section_number` is silently dropped: not persisted, not counted in
+`skipped_rows` either. Proven by
+`test_ingest_us_statute_rows_drops_a_row_when_its_section_number_collides_with_another_rows_across_titles`
+(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py). Expected: every
+genuinely distinct row persists as its own Article, or is explicitly reported as
+skipped — idempotency key must include title/chapter, not section_number alone.]
 
 ## Dev Complete
 
-### Item 1 — Jurisdiction controlled vocabulary [G5]
-Files: `app/services/jurisdiction.py` (new), `app/routers/assertions.py`,
-`app/main.py`, `app/seed_demo.py`, `frontend/src/constants/jurisdictions.ts` (new).
-Branch `claude/us-state-law-vocabulary` @ `be609a5`, merged to sprint branch.
-Result: 54-code vocabulary enforced on POST/PATCH/revisions + list filter (422 on
-invalid, null still allowed); `GET /api/v1/jurisdictions` serves the canonical list;
-seed_demo's invalid `"EU"` fixed. 70 backend + 4 frontend target tests green.
-Manager verification: diff read, zero test files touched; `main.py` 3-line addition
-is inside the documented append-only registration zone — accepted.
+_None — all 6 items processed this QA cycle (4 to Completed, 2 bounced above)._
 
-### Item 2 — Jurisdiction-profile seam, Hebrew ported [G1]
-Files: `app/definition_links/profiles.py` (new), `.../ingest.py`, `.../matcher.py`,
-`app/models/document.py`.
-Branch `claude/us-state-law-seam` @ `7daf286`, merged to sprint branch.
-Result: `get_profile(code)` registry + `HebrewProfile` pass-through; additive only —
-existing bare functions untouched; `profile=None` and `jurisdiction="IL"` defaults
-keep every Hebrew call site working. 16 target tests green, all 504 pre-existing
-tests still green (G1 satisfied).
-Manager verification: full diff read (persistence surface). `server_default="IL"`
-deviation accepted — `conftest.py` seeds documents via raw SQL that bypasses the
-ORM default, and that fixture is Planner-owned, so a DB-level default was the
-correct fix rather than editing the test.
+## Completed
 
-### Item 3 — US jurisdiction profile [G2, G3, G4]
-Files: `app/definition_links/us_profile.py` (new), `.../profiles.py`.
-Branch `claude/us-state-law-us-profile` @ `b7d2678`, merged.
-Result: `USProfile` registered for all 53 non-IL codes; English Definitions
-headings (substring-based, tolerant of real DE scrape-noise), curly-quote-aware
-numbered-entry term extraction, `\b` word-boundary matching, citation grammar
-(`Section N`/`§ N`/`N U.S.C. § N`) with most-specific-first overlap claiming and
-same-chapter exclusion. 19 target tests green.
-Manager verification: diff read. Design decision (one US-family profile, not
-per-state) is documented with evidence and is additively splittable later.
-
-### Item 4 — Jurisdiction stamping [G5]
-Files: `app/definition_links/pipeline.py`.
-Branch `claude/us-state-law-stamping` @ `9662def`, merged.
-Result: per-document jurisdiction map replaces hardcoded `jurisdiction=None` at
-both creation sites (Stage 3 USES_DEFINITION, Stage 4 DERIVES_FROM_LAW). 2 target
-tests green; mixed-jurisdiction matter case covered.
-Manager verification: full diff read (persistence). **QA FOCUS:**
-`document_jurisdictions.get(...)` returns `None` on a miss — a silent null
-jurisdiction would violate G5. Probe this.
-
-### Item 5 — US dataset ingester [G6 — code only]
-Files: `app/definition_links/ingest_us_statutes.py` (new), `..._cli.py` (new),
-`backend/pyproject.toml` (+pyarrow>=17.0), `docs/RUNBOOK.md`.
-Branch `claude/us-state-law-ingester` @ `6a8d737`, merged.
-Result: one Document per file / one Article+SourceSpan per row; jurisdiction
-validated; text-less rows skipped with reasons; empty batch rejected; idempotent
-re-ingest; CLI streams via `iter_batches` (bounded memory), non-zero exit on
-missing input. 10 target tests green.
-Manager verification: diff read. **G6 IS NOT YET PROVEN** — the measured 109-file
-run has not been executed. Code-complete only.
-
-### Item 6 — UI jurisdiction pass [G7]
-Files: `AssertionSuggestionForm.tsx`, `KnowledgeBasePage.tsx`,
-`ReviewQueuePage.tsx`, `ProfilePage.tsx`.
-Branch `claude/us-state-law-ui` @ `70db22e`, merged.
-Result: free-text jurisdiction input → `<select>`; jurisdiction filter on KB and
-Review Queue; default-jurisdiction preference on Profile persisted to
-localStorage. 10 target tests green, full frontend suite 165 green, typecheck clean.
-Manager verification: containment checked (frontend-only, no test files).
+- **Item 1 — Jurisdiction controlled vocabulary [G5].** Commit `be609a5`.
+  QA: PASS — P5: 54-code vocabulary byte-identical across backend/frontend/live
+  endpoint; regression `test_frontend_jurisdiction_list_source_matches_backend_source_exactly`.
+- **Item 2 — Jurisdiction-profile seam, Hebrew ported [G1].** Commit `7daf286`.
+  QA: PASS (narrow claim — Hebrew pass-through verified identical on untested inputs).
+  QA FLAG: `pipeline.py` never calls `get_profile` — seam unwired; see Item 3 QA-FAIL.
+- **Item 4 — Jurisdiction stamping [G5].** Commit `9662def`.
+  QA: PASS — P1: null-jurisdiction miss proven unreachable via either production
+  ingester; regression `test_document_jurisdiction_is_never_null_after_either_production_ingester_runs`.
+- **Item 6 — UI jurisdiction pass [G7].** Commit `70db22e`.
+  QA: PASS — frontend 165/165 green, typecheck clean; vocabulary drift-guard
+  (Item 1) covers this item's picker source too.
 
 **Merged-tree evaluator (manager-run, 2026-08-02, all 6 items):**
 backend **621 passed / 0 failed / 0 errors**; frontend **165 passed / 0 failed**;
 typecheck clean. Zero regressions against the 504/151 baseline.
 
-## Completed
-
-_None yet._
+**QA-run evaluator (2026-08-02, independent re-run):** backend **626 passed**
+(621 + 5 new QA PASS-regression tests) **/ 0 failed** on the merged tree, **+ 3
+intentional RED tests** in `test_qa_regression_us_state_law_FAIL.py` proving the
+2 bounces above; frontend **165 passed / 0 failed**; typecheck clean.
 
 ## Evaluation Notes
 
@@ -213,7 +195,36 @@ _None yet._
 
 ## QA Notes
 
-_None yet._
+- **Mandatory live-path trace (central finding).** `get_profile`/`USProfile`
+  have ZERO production call sites (grep-verified) — `pipeline.py` still
+  calls the bare `sections`/`extract`/`matcher`/`derivation` functions
+  directly for every document regardless of jurisdiction. A real US-DE
+  document ingested via item 5's ingester and run through the real
+  `run_definition_linking` produces zero definitions/assertions. Item 3's
+  own "end-to-end" test bypasses `pipeline.py`; item 4's "US document"
+  test uses HEBREW text merely labeled `US-DE`. Bounced item 3.
+- **P1 (silent null jurisdiction) — not reachable, item 4 PASS.** Both real
+  ingesters (`ingest_wiki_law`, `ingest_us_statute_rows`) always create a
+  Document and its Articles with the SAME `matter_id` in one call, and
+  `Document.jurisdiction` is NOT NULL (ORM default + DB `server_default`,
+  both `"IL"`). A genuinely-ingested Article's document is always present
+  in `document_jurisdictions` with a real value — the `.get()` miss branch
+  is defensive-only, unreachable via any production path. Regression added.
+- **P2 (`HebrewProfile.find_citations` stub) — moot, not a live risk.**
+  Since `pipeline.py` never calls `get_profile` for ANY jurisdiction
+  (Hebrew included — see live-path trace above), `find_citations` is
+  unreachable for Hebrew too, same as for US. G1 holds only because the
+  bare Hebrew functions were never touched, not because dispatch correctly
+  routes to `HebrewProfile`.
+- **P3 (US heading false-positive) — confirmed, item 3 bounced.**
+  `is_definitions_heading`'s unanchored `\bDefinitions?\b` search matches
+  "Application of Definitions to Prior Acts" and "Repeal of Definitions" —
+  neither is a definitions section. RED test committed.
+- **P4 (idempotency data loss) — confirmed, item 5 bounced.**
+  `ingest_us_statute_rows` keys idempotency by `(document_id,
+  section_number)` only; a second row sharing a section number across
+  titles/chapters within one file is silently dropped, uncounted even in
+  `skipped_rows`. RED test committed with real fixture text proving loss.
 
 ## Context Dump
 
