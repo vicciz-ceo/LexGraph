@@ -22,6 +22,7 @@ import { Icon } from "../app/icons";
 import type { IconName } from "../app/icons";
 import { Link, useHashLocation } from "../app/router";
 import { useActiveSession } from "../app/session";
+import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 
 const DEBOUNCE_MS = 250;
 
@@ -96,6 +97,7 @@ export function KnowledgeBasePage() {
   const [debouncedQ, setDebouncedQ] = useState(urlQ);
   const [status, setStatus] = useState<AssertionStatus | "">("accepted");
   const [origin, setOrigin] = useState<AssertionOrigin | "">("");
+  const [jurisdiction, setJurisdiction] = useState("");
   const [sort, setSort] = useState("-created_at");
   const [data, setData] = useState<AssertionList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,6 +136,7 @@ export function KnowledgeBasePage() {
     if (debouncedQ) params.q = debouncedQ;
     if (status) params.status = status;
     if (origin) params.origin = origin;
+    if (jurisdiction) params.jurisdiction = jurisdiction;
     api.listAssertions(matterId, params).then(
       (result) => {
         if (cancelled) return;
@@ -149,7 +152,7 @@ export function KnowledgeBasePage() {
     return () => {
       cancelled = true;
     };
-  }, [matterId, debouncedQ, status, origin, sort, reloadNonce]);
+  }, [matterId, debouncedQ, status, origin, jurisdiction, sort, reloadNonce]);
 
   // Ratings are per revision and not embedded in the list payload — fetch a
   // summary per visible row (cached by assertion + revision).
@@ -288,6 +291,21 @@ export function KnowledgeBasePage() {
             onChange={(event) => setOrigin(event.target.value as AssertionOrigin | "")}
           >
             {ORIGIN_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="kb-control">
+          <span>Jurisdiction</span>
+          <select
+            className="select"
+            value={jurisdiction}
+            onChange={(event) => setJurisdiction(event.target.value)}
+          >
+            <option value="">All jurisdictions</option>
+            {JURISDICTION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

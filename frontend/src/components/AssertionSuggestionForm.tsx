@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ChangeEvent, ReactElement } from "react";
 
+import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
+
 // UI2 — assertion suggestion form (spec §6). Supports Method A (create
 // from selected text — repository/matter/document/provision/quotation
 // pre-populated) and Method B (create from graph entities — subject/
@@ -276,12 +278,18 @@ export function AssertionSuggestionForm({
 
       <div className="assertion-suggestion-form__field">
         <label htmlFor="assertion-jurisdiction">Jurisdiction</label>
-        <input
+        <select
           id="assertion-jurisdiction"
-          type="text"
           value={jurisdiction}
           onChange={(event) => setJurisdiction(event.target.value)}
-        />
+        >
+          <option value="">Select jurisdiction…</option>
+          {JURISDICTION_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <fieldset className="assertion-suggestion-form__effective-dates">

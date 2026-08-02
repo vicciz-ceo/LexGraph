@@ -21,6 +21,7 @@ import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
+import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 
 /** Keep per-card summary fetches bounded on large queues. */
 const SUMMARY_FETCH_CAP = 30;
@@ -105,6 +106,7 @@ export function ReviewQueuePage() {
 
   const [statusKey, setStatusKey] = useState<StatusFilterKey>("proposed");
   const [originKey, setOriginKey] = useState<OriginFilterKey>("all");
+  const [jurisdiction, setJurisdiction] = useState("");
 
   const [items, setItems] = useState<Assertion[] | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
@@ -141,12 +143,16 @@ export function ReviewQueuePage() {
 
     const filter = STATUS_FILTERS.find((f) => f.key === statusKey) ?? STATUS_FILTERS[0];
     const originParams = originKey === "all" ? {} : { origin: originKey };
+    const jurisdictionParams = jurisdiction ? { jurisdiction } : {};
     const listPromises = filter.statuses.map((status) =>
-      api.listAssertions(matterId, { status, ...originParams }),
+      api.listAssertions(matterId, { status, ...originParams, ...jurisdictionParams }),
     );
     // The pending chip always reflects the full proposed inbox regardless
     // of the active pills.
-    const pendingPromise = api.listAssertions(matterId, { status: "proposed" });
+    const pendingPromise = api.listAssertions(matterId, {
+      status: "proposed",
+      ...jurisdictionParams,
+    });
 
     Promise.all([pendingPromise, ...listPromises])
       .then(async ([pending, ...lists]) => {
@@ -184,7 +190,7 @@ export function ReviewQueuePage() {
     return () => {
       cancelled = true;
     };
-  }, [matterId, statusKey, originKey, reloadKey]);
+  }, [matterId, statusKey, originKey, jurisdiction, reloadKey]);
 
   async function runReviewAction(action: () => Promise<unknown>) {
     setActionError(null);
@@ -256,6 +262,22 @@ export function ReviewQueuePage() {
             {filter.label}
           </button>
         ))}
+        <span className="rq-filters__divider" aria-hidden="true" />
+        <label className="rq-filters__jurisdiction">
+          <span>Jurisdiction</span>
+          <select
+            className="select"
+            value={jurisdiction}
+            onChange={(event) => setJurisdiction(event.target.value)}
+          >
+            <option value="">All jurisdictions</option>
+            {JURISDICTION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="rq-layout">
