@@ -207,6 +207,66 @@ cd ..
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
+### Ingesting US statutes (`vaquill/open-us-law` dataset)
+
+Sprint 2026-08-02-us-state-law (item 5, gate G6) adds an ingester for the
+[`vaquill/open-us-law`](https://huggingface.co/datasets/vaquill/open-us-law)
+Hugging Face dataset (109 Parquet files, ~1.1GB, ~2M sections — 50 states +
+DC + PR + federal, statutes + constitutions). `pyarrow` is a real backend
+dependency (see `backend/pyproject.toml`) so `pip install -e '.[dev]'` in
+the "Backend Environment Setup" step above already installs it.
+
+Each Parquet file is ingested with **one command**, which creates one
+`Document` (using `--title`) and one `Article` + `SourceSpan` per row:
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+.venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
+    --input /path/to/us_de_statutes.parquet \
+    --repository-id <repository-id> \
+    --matter-id <matter-id> \
+    --title "Delaware Code -- Statutes" \
+    --jurisdiction US-DE
+cd ..
+```
+
+`--jurisdiction` must be one of the controlled-vocabulary codes served at
+`GET /api/v1/jurisdictions` (e.g. `US-DE`, `US-CA`, `US-DC`, `US-PR`,
+`US-FED`) — an unrecognized code fails the command rather than silently
+tagging the wrong jurisdiction. The file is streamed in row-group batches
+(`--batch-size`, default 5000) rather than loaded into memory all at once,
+so it scales to the dataset's largest state files; progress (rows
+ingested/skipped per batch) prints as it runs. A row missing its `text`
+column is skipped and reported, not fatal to the rest of the file. The
+command is resumable/idempotent — re-running it against the same file
+reuses the same `Document` and does not duplicate `Article`/`SourceSpan`
+rows for sections already ingested — and exits non-zero for a
+missing/unreadable input file.
+
+**Ingesting the full 109-file corpus** is this same command invoked once
+per file (a jurisdiction code per state/territory/federal file, derived
+from the dataset's own `us_<state>_<type>.parquet` naming):
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+for f in /path/to/open-us-law/*.parquet; do
+    .venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
+        --input "$f" \
+        --repository-id <repository-id> \
+        --matter-id <matter-id> \
+        --title "$(basename "$f" .parquet)" \
+        --jurisdiction <jurisdiction-code-for-this-file> \
+    || echo "FAILED: $f" >> failures.log
+done
+cd ..
+```
+
+The `.venv/bin/python` process itself never downloads the dataset — fetch
+the Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or the
+Hugging Face CLI) and point `--input`/the loop above at the local files.
+
 ## Web Application
 
 ### Starting the Web App
