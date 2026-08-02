@@ -1,7 +1,7 @@
 ---
 id: "2026-08-02-us-state-law"
-status: in-progress
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
 completed_items: 0
-dev_complete_items: 2
+dev_complete_items: 6
 qa_cycles: 0
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
@@ -131,80 +131,7 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-### Item 3 — US jurisdiction profile [G2, G3, G4] [track: us-profile]
-
-English Definitions-heading detection (tolerant of the REAL Delaware
-scrape-noise heading format — see fixture README), extraction
-(`.extract_definitions_from_section`, extends the director's named-module
-list by necessity — G2 is unsatisfiable without it), `\b`-word-boundary
-term matching (no Hebrew prefix-letter expansion), and citation
-grammar (`§ 101`, `Section 5`, `15 U.S.C. § 1`) via new
-`.find_citations`/`.detect_cross_law_derivations` profile methods.
-Depends on Item 2's registry. Acceptance: `backend/tests/unit/
-test_definition_links_us_profile.py` (14 tests against real DE fixture
-rows + synthetic edge cases), `backend/tests/integration/
-test_us_profile_definitions_section_end_to_end.py` (Stage 1-3 chained).
-
-### Item 4 — Jurisdiction stamping on every created assertion [G5] [track: stamping]
-
-`pipeline.py`'s `_create_assertion` reads the owning article's Document's
-`.jurisdiction` instead of the hardcoded `jurisdiction=None`
-(`pipeline.py:233`). Per-document, not per-matter (a matter may mix
-jurisdictions). Depends on Item 2's `Document.jurisdiction` column.
-Acceptance: `backend/tests/integration/
-test_definition_links_pipeline_jurisdiction_stamping.py` (2 tests, live
-pipeline + DB re-read, mixed-jurisdiction matter case).
-
-### Item 5 — US dataset ingester [G6] [track: ingester]
-
-`app.definition_links.ingest_us_statutes.ingest_us_statute_rows(session,
-*, repository_id, matter_id, title, rows, jurisdiction)` — one Document
-per file, one Article+SourceSpan per row; `jurisdiction` required (no
-default — brand-new function, no back-compat need). Error paths: missing
-`text` column (skip + report, not fatal), unknown jurisdiction, empty
-batch, idempotent re-ingest. `app.definition_links.ingest_us_statutes_cli`
-— ONE documented command (`--input <parquet> --repository-id --matter-id
---title --jurisdiction`), reads via `pyarrow` (NEW dependency — Developer
-adds it), resumable. The 109-file measured bulk run (R3: rows/wall-time/
-peak-memory/per-file failures) is a separate, explicitly-invoked
-deliverable, never part of `pytest`. Acceptance: `backend/tests/
-integration/test_ingest_us_statutes.py` (6 tests incl. 3 error paths),
-`test_ingest_us_statutes_cli.py` (3 tests, real local `.parquet` fixture,
-RED today via missing `pyarrow`).
-
-### Item 6 — UI jurisdiction pass [G7] [track: ui]
-
-Picker: `AssertionSuggestionForm`'s free-text jurisdiction `<input>`
-becomes a `<select>` sourced from Item 1's constants. Filter: KB page +
-Review Queue page each get a "Jurisdiction" `<select>` that re-filters via
-`AssertionListParams.jurisdiction` (badges already render on both pages
-today — verified, not retested). Preference: `ProfilePage` gets a
-"Default jurisdiction" control persisted to `localStorage`
-(`lexgraph:default-jurisdiction:<userId>` — frontend-only, no backend
-prefs mechanism exists; Planner's call, see log). Depends on Item 1.
-Acceptance: `AssertionSuggestionForm.jurisdiction.test.tsx` (3),
-`KnowledgeBasePage.jurisdiction_filter.test.tsx` (2),
-`ReviewQueuePage.jurisdiction_filter.test.tsx` (2),
-`ProfilePage.jurisdiction_preference.test.tsx` (3).
-
-## Parallelization proposal (Planner proposes, manager rules)
-
-- **Sequenced, not parallel:** Item 2 (seam) must land before Item 3 (US
-  profile needs the registry) and Item 4 (stamping needs
-  `Document.jurisdiction`). Item 1 (vocabulary) should land before Item 4
-  and Item 6 (both consume valid codes / the API endpoint), per R5.
-- **Parallel-safe once Item 1 + Item 2 are merged:** Item 3 (US profile,
-  new files only: `profiles.py`'s US registration + new US-only regex
-  module), Item 5 (dataset ingester, entirely new files:
-  `ingest_us_statutes.py`, `ingest_us_statutes_cli.py`), and Item 6 (UI,
-  frontend-only files) touch disjoint write sets — no file overlap among
-  them. Item 4 (stamping, edits `pipeline.py`) should NOT run concurrently
-  with Item 3 if Item 3 also touches `pipeline.py`'s Stage-2 dispatch
-  call site — recommend Item 3's Developer touch only `profiles.py` and
-  new US-only module(s), leaving `pipeline.py`'s dispatch wiring to
-  Item 2/4, to keep Item 3 and Item 4 non-overlapping.
-- Item 1 is the ONE item with no dependencies — always safe to start first
-  (per R5, already committed standalone below).
+_All items moved to Dev Complete._
 
 ## Dev Complete
 
@@ -231,9 +158,50 @@ deviation accepted — `conftest.py` seeds documents via raw SQL that bypasses t
 ORM default, and that fixture is Planner-owned, so a DB-level default was the
 correct fix rather than editing the test.
 
-**Merged-tree evaluator (manager-run, 2026-08-02):** backend 591 passed / 12 failed
-/ 18 errors; frontend 155 passed / 10 failed. Every remaining failure belongs to
-Items 3, 4, 5, 6 — no regression against the 504/151 baseline.
+### Item 3 — US jurisdiction profile [G2, G3, G4]
+Files: `app/definition_links/us_profile.py` (new), `.../profiles.py`.
+Branch `claude/us-state-law-us-profile` @ `b7d2678`, merged.
+Result: `USProfile` registered for all 53 non-IL codes; English Definitions
+headings (substring-based, tolerant of real DE scrape-noise), curly-quote-aware
+numbered-entry term extraction, `\b` word-boundary matching, citation grammar
+(`Section N`/`§ N`/`N U.S.C. § N`) with most-specific-first overlap claiming and
+same-chapter exclusion. 19 target tests green.
+Manager verification: diff read. Design decision (one US-family profile, not
+per-state) is documented with evidence and is additively splittable later.
+
+### Item 4 — Jurisdiction stamping [G5]
+Files: `app/definition_links/pipeline.py`.
+Branch `claude/us-state-law-stamping` @ `9662def`, merged.
+Result: per-document jurisdiction map replaces hardcoded `jurisdiction=None` at
+both creation sites (Stage 3 USES_DEFINITION, Stage 4 DERIVES_FROM_LAW). 2 target
+tests green; mixed-jurisdiction matter case covered.
+Manager verification: full diff read (persistence). **QA FOCUS:**
+`document_jurisdictions.get(...)` returns `None` on a miss — a silent null
+jurisdiction would violate G5. Probe this.
+
+### Item 5 — US dataset ingester [G6 — code only]
+Files: `app/definition_links/ingest_us_statutes.py` (new), `..._cli.py` (new),
+`backend/pyproject.toml` (+pyarrow>=17.0), `docs/RUNBOOK.md`.
+Branch `claude/us-state-law-ingester` @ `6a8d737`, merged.
+Result: one Document per file / one Article+SourceSpan per row; jurisdiction
+validated; text-less rows skipped with reasons; empty batch rejected; idempotent
+re-ingest; CLI streams via `iter_batches` (bounded memory), non-zero exit on
+missing input. 10 target tests green.
+Manager verification: diff read. **G6 IS NOT YET PROVEN** — the measured 109-file
+run has not been executed. Code-complete only.
+
+### Item 6 — UI jurisdiction pass [G7]
+Files: `AssertionSuggestionForm.tsx`, `KnowledgeBasePage.tsx`,
+`ReviewQueuePage.tsx`, `ProfilePage.tsx`.
+Branch `claude/us-state-law-ui` @ `70db22e`, merged.
+Result: free-text jurisdiction input → `<select>`; jurisdiction filter on KB and
+Review Queue; default-jurisdiction preference on Profile persisted to
+localStorage. 10 target tests green, full frontend suite 165 green, typecheck clean.
+Manager verification: containment checked (frontend-only, no test files).
+
+**Merged-tree evaluator (manager-run, 2026-08-02, all 6 items):**
+backend **621 passed / 0 failed / 0 errors**; frontend **165 passed / 0 failed**;
+typecheck clean. Zero regressions against the 504/151 baseline.
 
 ## Completed
 
