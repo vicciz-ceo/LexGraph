@@ -1,5 +1,6 @@
 """Jurisdiction-profile seam (sprint 2026-08-02-us-state-law, director
-decision #1, item 2, gate G1).
+decision #1, item 2, gate G1; extended by item 3, gates G2-G4, to register
+the `"US-*"`/`"US-FED"` profile family).
 
 An ADDITIVE registry layer, NOT a rename/relocation of the existing
 bare module-level functions in `sections.py`/`normalize.py`/`matcher.py`/
@@ -23,11 +24,19 @@ Each keeps the SAME parameter names/order/defaults as the module-level
 function it wraps -- a drop-in replacement at a pipeline call site, not
 a redesigned API.
 
-Deliberately OUT of scope for this item: `guards.is_bidi_degraded` and
-`extract.py`'s functions (RTL-bidi guarding and definition-block
-extraction stay Hebrew-only/shared for this sprint), and any non-`"IL"`
-profile (the US profile is a later item in this sprint, registered
-separately once its module exists).
+Item 3 (gates G2-G4) extends the Protocol with two more methods, needed
+because the US profile has capabilities the Hebrew engine doesn't:
+
+    .find_citations(text: str) -> list[str]
+    .extract_definitions_from_section(text, *, scope) -> list[DefinitionCandidate]
+
+`HebrewProfile` implements both WITHOUT changing any Hebrew behavior:
+`find_citations` trivially returns `[]` (no citation grammar in scope for
+Hebrew this sprint) and `extract_definitions_from_section` delegates to
+the existing, unchanged `extract.extract_definitions_from_section`.
+
+Deliberately OUT of scope for this item: `guards.is_bidi_degraded` (RTL-
+bidi guarding stays Hebrew-only for this sprint).
 """
 
 from __future__ import annotations
@@ -35,7 +44,10 @@ from __future__ import annotations
 import re
 from typing import Protocol
 
-from app.definition_links import derivation, matcher, normalize, sections
+from app.definition_links import derivation, extract, matcher, normalize, sections
+from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.us_profile import USProfile
+from app.services.jurisdiction import JURISDICTION_CODES
 
 
 class JurisdictionProfile(Protocol):
@@ -56,6 +68,12 @@ class JurisdictionProfile(Protocol):
         source_term: str,
         known_law_titles: dict[str, str] | None = None,
     ) -> list: ...
+
+    def find_citations(self, text: str) -> list[str]: ...
+
+    def extract_definitions_from_section(
+        self, text: str, *, scope: str
+    ) -> list[DefinitionCandidate]: ...
 
 
 class HebrewProfile:
@@ -87,13 +105,27 @@ class HebrewProfile:
             text, source_term=source_term, known_law_titles=known_law_titles
         )
 
+    def find_citations(self, text: str) -> list[str]:
+        # No citation grammar in scope for Hebrew this sprint (item 3's
+        # docstring/README companion assertion) -- trivially empty.
+        return []
 
-# Registered profiles, keyed by jurisdiction code. Only `"IL"` is
-# registered by this item -- the US profile is added by a later item in
-# this sprint, in its own module, via this same registry.
-_REGISTRY: dict[str, JurisdictionProfile] = {
-    "IL": HebrewProfile(),
-}
+    def extract_definitions_from_section(
+        self, text: str, *, scope: str
+    ) -> list[DefinitionCandidate]:
+        return extract.extract_definitions_from_section(text, scope=scope)
+
+
+# Registered profiles, keyed by jurisdiction code. `"IL"` is the Hebrew
+# profile (item 2); every other code in `JURISDICTION_CODES`
+# (`US-<postal>`, `US-DC`, `US-PR`, `US-FED`) shares ONE `USProfile`
+# instance per code (item 3 -- see `us_profile.py`'s module docstring for
+# why a single US-family profile serves all 53 non-`"IL"` codes rather than
+# a per-state profile).
+_REGISTRY: dict[str, JurisdictionProfile] = {"IL": HebrewProfile()}
+_REGISTRY.update(
+    {code: USProfile(code=code) for code in JURISDICTION_CODES if code != "IL"}
+)
 
 
 def get_profile(code: str) -> JurisdictionProfile:
