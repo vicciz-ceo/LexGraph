@@ -39,34 +39,170 @@ from app.definition_links.derivation import LawDerivesDefinitionEdge
 from app.definition_links.extract import DefinitionCandidate
 
 # --- G2: Definitions-heading detection --------------------------------------
+#
+# History / rationale (wave-4 QA cycle-2 fix, items Q3a/Q3b):
+#
+# The wave-3 implementation was a single regex,
+# `^(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b`, with a nested
+# quantifier (`(?:...)*`) wrapped around an alternation. That shape is the
+# textbook catastrophic-backtracking (ReDoS) construct: on any heading
+# whose leading non-letter run does NOT end in "Definitions", the engine
+# tries exponentially many ways to partition that run between the two
+# alternatives before giving up. Manager-measured wall-clock time exploded
+# from 58.7ms (21-char noise run) to 15.8s (29-char run) on inputs that are
+# NOT pathological -- they're the dataset's ordinary scrape-noise shape.
+# This sits on `pipeline.py` Stage 2's real per-article call path, so one
+# bad heading could hang a ~2M-row bulk ingest indefinitely.
+#
+# It was also wrong: real Delaware section numbers routinely embed a
+# letter (`12D-102`, `4A-103`, `9002B`, `2502H`) -- the `[^A-Za-z]+`
+# noise-skipper halts at that letter and never reaches "Definitions",
+# silently under-matching 15.6% (152/973) of the real dataset's genuine
+# Definitions headings.
+#
+# This rewrite is a short chain of linear-time, non-nested-quantifier
+# regexes plus a `str.split()` tokenization -- no step re-scans a range of
+# the input under a different alternative, so there is no backtracking
+# blowup regardless of input shape (proved in the module's test/validation
+# run, not just asserted here).
+#
+# The matching rule (works out the "subject vs. mentioned" tension R6/Q3b
+# demands -- see docstring examples below):
+#
+#   1. Strip any leading run of non-letter/non-digit scrape noise (mojibake,
+#      §, CR/LF, whitespace).
+#   2. Strip a section-number label immediately after that noise: either
+#      the spelled-out `"Section <N>."` form, or a bare number token that
+#      may embed letters and a dash the way real DE numbering does
+#      (`12D-102.`, `4A-103.`, `9002B.`) -- `\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*`.
+#   3. MATCH if "Definition(s)" is the FIRST WORD of whatever remains --
+#      i.e. it is the heading's own immediate subject
+#      ("Definitions", "Definitions and Interpretation", "796. Definitions.").
+#   4. OTHERWISE, MATCH if "Definition(s)" is the LAST substantive word
+#      (ignoring a trailing "[...]" annotation and trailing punctuation),
+#      tokenizing on whitespace AND separator punctuation (`-`, en/em dash,
+#      `:`, `;`, `,`) so a no-space "Topic-Definitions" heading still
+#      splits into separate tokens the same as a spaced one -- AND the
+#      token immediately before it is not a preposition/function word
+#      (`_PRECEDING_EXCLUSION_WORDS`, e.g. "of", "to", "for"). A preposition
+#      means "Definitions" is a grammatical OBJECT ("Repeal of Definitions",
+#      "Application of Definitions to Prior Acts" -- QA cycle-1's
+#      over-match probe, must stay False); anything else immediately
+#      before it -- an adjective ("General Definitions", "Other
+#      Definitions"), a dash/colon separator ("Payment Order-Definitions"),
+#      or the corpus's mojibake dash artifact `â`/`Â`
+#      ("Payment order â Definitions.") -- means "Definitions" is the
+#      heading's own subject, just introduced/qualified rather than being
+#      the literal first word.
+#
+# Real-data validation (2026-08-02, wave-4 fix): see the developer report
+# for miss-rate/false-positive numbers against the full `us_de_statutes`,
+# `us_ny_statutes`, `us_tx_statutes`, and `us_ca_statutes` real datasets.
 
-# The real Delaware `section_title` shape is scrape-noise-prefixed non-letter
-# junk (mojibake `Â`, a raw CRLF, leading whitespace, the `§` symbol, a bare
-# section number, a trailing period) followed by the section's own title
-# (see module docstring / `backend/tests/fixtures/us_statutes/README.md`).
-# A "clean" synthetic heading can instead carry that same section-number
-# prefix spelled out as the word "Section" (e.g. "Section 101. Definitions.").
-# This is deliberately NOT a start-of-raw-string anchor (that fails on 100%
-# of the real dataset, which always carries the scrape-noise prefix) and NOT
-# an unanchored substring search either (that over-matches real non-
-# definitions headings where "Definitions" is merely mentioned elsewhere in
-# a longer phrase, e.g. "Application of Definitions to Prior Acts", "Repeal
-# of Definitions") -- it skips over any leading run of non-letter characters
-# (scrape noise, digits, punctuation, whitespace) and/or a "Section <N>."
-# label, then requires "Definition(s)" to be the FIRST WORD of whatever
-# remains -- i.e. the heading's own operative subject, not a word embedded
-# later in an unrelated title.
-_DEFINITIONS_HEADING_RE = re.compile(r"^(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b")
+_SECTION_NUMBER_TOKEN_RE = re.compile(r"\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*\.?")
+_SECTION_LABEL_RE = re.compile(r"Section\s+\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*\.?")
+_FIRST_WORD_DEFINITIONS_RE = re.compile(r"Definitions?\b")
+_LAST_WORD_DEFINITIONS_RE = re.compile(r"^Definitions?$")
+_TRAILING_BRACKET_RE = re.compile(r"\s*\[[^\]]*\]\s*$")
+
+# Splits the tail of a heading into tokens on whitespace OR separator
+# punctuation (hyphen, en dash, em dash, colon, semicolon, comma), so
+# "Payment Order-Definitions" (no space around the hyphen) tokenizes the
+# same as "Payment order â Definitions" (mojibake dash WITH surrounding
+# spaces) -- single quantifier over a fixed character class, no
+# alternation-nesting, unconditionally linear.
+_TAIL_TOKEN_SPLIT_RE = re.compile(r"[\s\-–—:;,]+")
+
+# Function words that, immediately before "Definitions", mark it as the
+# grammatical OBJECT of the preceding word rather than this heading's own
+# subject (e.g. "Repeal **of** Definitions"). Deliberately small and
+# preposition-only -- an adjective, dash, colon, or foreign/mojibake token
+# immediately before "Definitions" is treated as introducing/qualifying
+# the subject, not governing it, and is therefore NOT excluded.
+_PRECEDING_EXCLUSION_WORDS = frozenset(
+    {
+        "of",
+        "to",
+        "for",
+        "under",
+        "in",
+        "by",
+        "from",
+        "with",
+        "on",
+        "as",
+        "than",
+        "regarding",
+        "concerning",
+        "including",
+        "except",
+        "about",
+        "into",
+        "upon",
+        "within",
+        "without",
+        "between",
+        "among",
+        "through",
+    }
+)
+
+# Deliberately `[A-Za-z0-9]`, NOT `\w`/`.isalpha()`: the real scrape-noise
+# mojibake characters (`Â`, `â`, ...) are Unicode *letters* by category
+# (accented Latin), so a Unicode-aware "is this a letter" test stops the
+# noise-skip too early and leaves the mojibake byte stuck in front of the
+# section number. ASCII-only is also what real English statute text is
+# expected to be once past the scrape-noise prefix. Single quantifier over
+# a fixed negated character class -- no alternation, no nesting, so this
+# is unconditionally linear-time.
+_LEADING_NOISE_RE = re.compile(r"^[^A-Za-z0-9]+")
+
+
+def _strip_leading_noise(s: str) -> str:
+    """Skip a leading run of characters that are neither ASCII letters nor
+    digits (scrape-noise mojibake, `§`, CR/LF, whitespace) -- a single
+    bounded regex match, no backtracking possible (see `_LEADING_NOISE_RE`
+    comment for why this is ASCII-only, not Unicode-`isalpha`)."""
+    m = _LEADING_NOISE_RE.match(s)
+    return s[m.end() :] if m else s
 
 
 def is_definitions_heading(heading: str) -> bool:
-    """True when, after any leading scrape-noise and/or spelled-out
-    "Section <N>." prefix is skipped, `heading`'s first word is
-    "Definition"/"Definitions" -- i.e. that word is the heading's own
-    operative subject, not merely present somewhere inside a longer,
-    unrelated heading (see module-level regex comment).
+    """True when `heading`'s own operative subject is "Definition(s)" --
+    see the module-level comment above for the exact rule and its
+    rationale. Every step is a bounded linear-time scan (no nested
+    quantifier over an alternation anywhere in this function), so runtime
+    is proportional to `len(heading)` regardless of input shape.
     """
-    return bool(_DEFINITIONS_HEADING_RE.match(heading))
+    rest = _strip_leading_noise(heading)
+
+    label_match = _SECTION_LABEL_RE.match(rest)
+    if label_match:
+        rest = rest[label_match.end() :]
+    else:
+        number_match = _SECTION_NUMBER_TOKEN_RE.match(rest)
+        if number_match:
+            rest = rest[number_match.end() :]
+
+    rest = rest.lstrip()
+
+    if _FIRST_WORD_DEFINITIONS_RE.match(rest):
+        return True
+
+    trimmed = _TRAILING_BRACKET_RE.sub("", rest)
+    trimmed = trimmed.rstrip(" \t\r\n.")
+
+    tokens = [t for t in _TAIL_TOKEN_SPLIT_RE.split(trimmed) if t]
+    if not tokens or not _LAST_WORD_DEFINITIONS_RE.match(tokens[-1]):
+        return False
+    if len(tokens) == 1:
+        return True  # unreachable in practice (rule 3 above already caught
+        # a lone "Definitions" token), kept for defensiveness.
+    preceding = tokens[-2]
+    if preceding.lower() in _PRECEDING_EXCLUSION_WORDS:
+        return False  # a preposition (e.g. "of") -- "Definitions" is a
+        # grammatical object here, not this heading's own subject.
+    return True
 
 
 # --- G2 (continued): extracting defined terms out of a Definitions section --
