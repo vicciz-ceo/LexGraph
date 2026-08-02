@@ -17,6 +17,11 @@ import { Icon } from "../app/icons";
 import type { IconName } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
+import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
+
+function defaultJurisdictionKey(userId: string): string {
+  return `lexgraph:default-jurisdiction:${userId}`;
+}
 
 const ORIGIN_CHIPS: Record<Assertion["origin"], { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -91,6 +96,16 @@ export function ProfilePage() {
     session.role === "contributor" ||
     session.role === "reviewer" ||
     session.role === "admin";
+
+  const [defaultJurisdiction, setDefaultJurisdiction] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(defaultJurisdictionKey(userId)) ?? "";
+  });
+
+  const handleDefaultJurisdictionChange = (value: string) => {
+    setDefaultJurisdiction(value);
+    window.localStorage.setItem(defaultJurisdictionKey(userId), value);
+  };
 
   const [matterAssertions, setMatterAssertions] = useState<Assertion[] | null>(null);
   const [awaiting, setAwaiting] = useState<AssertionList | null>(null);
@@ -433,6 +448,28 @@ export function ProfilePage() {
             </section>
 
             <aside className="pf-side">
+              <div className="card" data-testid="pf-jurisdiction-preference">
+                <div className="card__header">Preferences</div>
+                <div className="card__body">
+                  <label htmlFor="pf-default-jurisdiction">Default jurisdiction</label>
+                  <select
+                    id="pf-default-jurisdiction"
+                    className="select"
+                    value={defaultJurisdiction}
+                    onChange={(event) => handleDefaultJurisdictionChange(event.target.value)}
+                  >
+                    <option value="">No default</option>
+                    {JURISDICTION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="pf-note">
+                    Used to pre-select jurisdiction when suggesting new assertions.
+                  </p>
+                </div>
+              </div>
               <div className="card" data-testid="pf-matters">
                 <div className="card__header">My matters</div>
                 <div className="card__body">
