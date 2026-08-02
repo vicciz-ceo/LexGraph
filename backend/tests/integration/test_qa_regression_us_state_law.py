@@ -48,8 +48,18 @@ producing 3 real definitions and 2 DERIVES_FROM_LAW assertions stamped
 kept byte-identical, only the docstring framing changed from "RED, proves a
 bounce" to "green, guards against a regression" -- per the sprint contract's
 instruction that the estate carry no permanently "FAIL"-named file once a
-cycle's bounces are fixed. `test_qa_regression_us_state_law_FAIL.py` now
-holds only QA cycle 2's fresh findings.
+cycle's bounces are fixed.
+
+Folded in from QA cycle 2 (2026-08-02, QA cycle 3): the three cycle-2
+bounce-proofs (Q2 empty-chapter row drop, Q3a ReDoS on a long non-letter
+run, Q3b under-match on a letter-embedded section number) all now PASS
+against the wave-4 fixes -- independently re-run and re-verified by QA
+cycle 3. Moved here for the same reason as above;
+`test_qa_regression_us_state_law_FAIL.py` (cycle 2's file) is deleted.
+QA cycle 3's OWN fresh findings (6 new real defects across items 3 and 5,
+found by testing 6 real state files -- IL, TX, FL, OH, PA, CA -- none of
+which the Developer or QA cycle 2 had tested) are recorded separately in
+`test_qa_regression_us_state_law_cycle3_FAIL.py`, RED on purpose.
 """
 
 from __future__ import annotations
@@ -57,6 +67,8 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import signal
+import time
 
 import pytest
 
@@ -412,3 +424,117 @@ def test_ingest_us_statute_rows_no_longer_drops_a_row_when_its_section_number_co
     )
     span_b = db_session.get(SourceSpan, result["source_span_ids"][1])
     assert row_b["text"] in span_b.quote_text, "row_b's real text was never persisted at all"
+
+
+# =============================================================================
+# Folded in from QA cycle 2's test_qa_regression_us_state_law_FAIL.py --
+# all three now PASS against the wave-4 fixes (independently re-verified by
+# QA cycle 3, not merely re-run). Assertions kept byte-identical to the
+# cycle-2 originals; only docstrings were reworded from "RED, proves a
+# bounce" to "green, guards against a regression".
+# =============================================================================
+
+QA_CYCLE2_FIXTURE_JSON = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "us_statutes"
+    / "de_qa_cycle2_rows.json"
+)
+
+
+def _load_qa_cycle2_rows() -> dict[str, dict]:
+    rows = json.loads(QA_CYCLE2_FIXTURE_JSON.read_text(encoding="utf-8"))
+    return {r["act_id"]: r for r in rows}
+
+
+# --- Item 5, Q2 (QA cycle 2): empty-chapter real row is no longer dropped --
+
+
+def test_ingest_us_statute_rows_no_longer_drops_a_real_row_with_empty_chapter(
+    db_session, matter_with_users
+):
+    """Q2 (QA cycle 2) confirmed FIXED: the wave-4 idempotency key no longer
+    requires `chapter` to be non-empty -- a real DE row with an empty
+    `chapter` but a valid, unique `citation` is ingested, not skipped (ruling
+    R7(b): 647/21,649 real DE rows, 3.0%, share this exact shape)."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+
+    m = matter_with_users
+    rows = _load_qa_cycle2_rows()
+    row = rows["STATE_DE_T5_C7_SVIII_S796"]
+    assert row["chapter"] == "", "fixture must reproduce the real empty-chapter shape"
+    assert row["citation"] == "5 Del. C. § 796", "citation is the real, unique canonical id"
+
+    result = ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Delaware Code -- Statutes (QA cycle2 Q2 probe, now green)",
+        rows=[{k: v for k, v in row.items() if not k.startswith("_")}],
+        jurisdiction="US-DE",
+    )
+
+    assert result["skipped_rows"] == []
+    assert len(result["article_ids"]) == 1
+
+
+# --- Item 3, Q3a (QA cycle 2): no more catastrophic backtracking -----------
+
+
+def _run_with_deadline(fn, *args, deadline_seconds: int, **kwargs):
+    """Run `fn(*args, **kwargs)` but fail fast (instead of hanging the
+    suite) if it has not returned within `deadline_seconds` -- kept as a
+    permanent regression guard even though the underlying implementation is
+    now linear-time (a future regression back to a backtracking construct
+    must not hang this suite either)."""
+
+    class _DeadlineExceeded(Exception):
+        pass
+
+    def _handler(signum, frame):
+        raise _DeadlineExceeded()
+
+    previous = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(deadline_seconds)
+    try:
+        t0 = time.perf_counter()
+        result = fn(*args, **kwargs)
+        elapsed = time.perf_counter() - t0
+        return result, elapsed
+    except _DeadlineExceeded:
+        return None, float(deadline_seconds)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def test_is_definitions_heading_no_longer_hangs_on_a_real_de_heading_with_a_long_noise_prefix():
+    """Q3a (QA cycle 2) confirmed FIXED: the wave-4 rewrite (linear-time,
+    no nested-quantifier-over-alternation) returns well within budget on the
+    real DE heading (43-char leading non-letter run, dataset-wide maximum)
+    that hung the wave-3 regex for 15.8s+."""
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle2_rows()
+    heading = rows["STATE_DE_T10_C54_S5402"]["section_title"]
+
+    result, elapsed = _run_with_deadline(is_definitions_heading, heading, deadline_seconds=3)
+    assert result is not None, f"is_definitions_heading did not return within {elapsed:.0f}s"
+    assert result is False, "this heading is genuinely not a Definitions section"
+
+
+# --- Item 3, Q3b (QA cycle 2): letter-in-section-number no longer breaks --
+# --- the "Definitions is the first word" check -----------------------------
+
+
+def test_is_definitions_heading_no_longer_undermatches_a_real_multiterm_definitions_section():
+    """Q3b (QA cycle 2) confirmed FIXED: a real DE section number embedding
+    a letter (`4A-103`) no longer defeats the noise-skip; the genuine
+    'Payment order â€” Definitions.' UCC-convention heading now matches."""
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle2_rows()
+    heading = rows["STATE_DE_T6_A4A_P1_S4A-103"]["section_title"]
+    assert heading == "§ Â\r\n        4A-103. Payment order â Definitions."
+
+    assert is_definitions_heading(heading) is True

@@ -1,19 +1,19 @@
 ---
 id: "2026-08-02-us-state-law"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-08-02T11:34:57Z"
-lint: "PASS 293 2026-08-02T11:35:03Z"
+last_updated: "2026-08-02T12:45:00Z"
+lint: "PASS 348 2026-08-02T12:45:22Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
 completed_items: 4
 dev_complete_items: 0
-qa_cycles: 2
+qa_cycles: 3
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
 design_sections:
@@ -156,77 +156,112 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-_QA cycle 1's bounces for items 3 and 5 (heading substring false-positive, the
-missing pipeline.py dispatch wiring, and the section_number-only idempotency
-key) were fixed by Developers and independently re-verified as genuinely
-fixed by QA cycle 2 (see `## QA Notes` — Q1). Both items bounce again below,
-this time for NEW defects QA cycle 2 found in the wave-3 fixes themselves,
-proven against REAL Delaware rows, not the cycle-1 defects reopening._
+_QA cycle 2's bounces for items 3 and 5 (ReDoS on a long non-letter run, the
+letter-in-section-number under-match, and the empty-`chapter` row drop) were
+fixed by Developers and independently re-verified as genuinely fixed by QA
+cycle 3 (see `## QA Notes` — Q1/Q2). Both items bounce again below, for SIX
+NEW defects QA cycle 3 found — this time by deliberately testing 6 real
+state files NEITHER the Developer NOR QA cycle 2 had ever used (IL, TX, FL,
+OH, PA, CA), per the cycle-3 brief's explicit instruction to do so. All 6 are
+proven against REAL rows from those 6 files, committed at
+`backend/tests/fixtures/us_statutes/qa_cycle3_rows.json` (full derivation in
+that directory's README.md), not synthetic constructions._
 
-### Item 3 — US jurisdiction profile [G2], NEW defects in the wave-3 heading fix
-[QA-FAIL (Q3a, catastrophic backtracking / ReDoS): `us_profile
-._DEFINITIONS_HEADING_RE`'s `(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b`
-construct is the classic `(X+)*` catastrophic-backtracking shape. On a real
-US-DE heading with a long leading run of non-letter characters that does NOT
-end up matching "Definitions" (`STATE_DE_T10_C54_S5402`'s real
-`section_title`, a 43-char non-letter prefix — the dataset-wide maximum
-across all 21,649 real DE rows), `is_definitions_heading` does not return
-within 8 real wall-clock seconds (the PRE-fix unanchored substring check
-returned instantly on the same input — this is a regression the wave-3 fix
-itself introduced). Proven by
-`test_is_definitions_heading_hangs_catastrophically_on_a_real_de_heading`
-(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py, bounded
-by a 3s SIGALRM deadline so the suite fails fast instead of hanging). This
-call sits directly on `pipeline.py` Stage 2's real per-article path
-(`profile.is_definitions_heading(art.heading)`) — a single pathological
-heading during the G6 bulk ingest (109 files, ~2M articles) would hang the
-deterministic pipeline indefinitely on that one article.
+### Item 3 — US jurisdiction profile [G2], the wave-4 heading fix is still badly broken on real data outside DE/NY
 
-ADDITIONALLY [QA-FAIL (Q3b, under-match regression)]: the same regex requires
-"Definitions" to be the heading's first word after stripping a leading
-non-letter run, but real DE section identifiers routinely embed a letter
-INSIDE the section number itself (`4A-103`, `12D-102`, `9002A` — the standard
-modern DE supplemental-section numbering convention), which breaks that
-leading-non-letter-run assumption. `STATE_DE_T6_A4A_P1_S4A-103`'s real
-heading ("Payment order — Definitions.") is a genuine 5-term Definitions
-section (standard UCC "Topic — Definitions." convention, Title 6 Articles
-2/2A/3/4/4A/8/9) that is silently NOT recognized. Verified not a one-off: of
-973 real DE headings containing the word "Definition(s)", 152 (15.6%) are
-under-matched by this exact failure mode. Proven by
-`test_is_definitions_heading_undermatches_a_real_multiterm_definitions_section`
-(same file). Expected: `is_definitions_heading` must both (a) terminate in
-bounded time on any input, including long non-matching non-letter runs, and
-(b) recognize "Topic — Definitions."-shaped real headings, not only
-"Definitions."-first headings — likely needs a different anchoring strategy
-than a nested-quantifier regex (e.g. a bounded/possessive skip of the leading
-noise, or splitting on a fixed noise-prefix pattern instead of `[^A-Za-z]+`
-repeated inside a `*` group), plus a check against "Topic — Definitions"
-without reopening the P3 false-positive (`"Application of Definitions to
-Prior Acts"` must still not match).]
+[QA-FAIL (defect 1, structural — no regex fix can address this alone): for
+real Illinois rows, `section_title` is ALWAYS a generic `"Section N"`
+placeholder — the genuine heading text ("Sec. 15. Definitions.") lives only
+in the row's `text` body, which `is_definitions_heading` never sees (it is
+only ever called on `Article.heading`, sourced from `section_title` in
+`pipeline.py` Stage 2). Verified: **99.6% of all 72,456 real IL rows**, and
+separately **100% of all 161,429 real CA rows**, and **100% of all 28,154
+real GA rows**, share this exact shape — `section_title` never carries
+descriptive heading text for these 3 states at all (~262,000+ real rows,
+before counting the rest of the ~2M-row corpus not yet checked). Proven at
+both the unit level
+(`test_is_definitions_heading_cannot_recognize_a_state_whose_section_title_carries_no_heading_text`)
+and the live production-pipeline level
+(`test_real_pipeline_misses_a_real_illinois_definitions_section_end_to_end`
+— the real `ingest_us_statute_rows` → `run_definition_linking` path creates
+ZERO definitions from a real, genuine 5-term Illinois Definitions section),
+both in `backend/tests/integration/test_qa_regression_us_state_law_cycle3_FAIL.py`.
 
-### Item 5 — US dataset ingester [G6], real-data row loss (ruling R7(b))
-[QA-FAIL (Q2): the wave-3 idempotency fix SKIPS any row with a missing/empty
-`chapter`, even when `citation` — the dataset's actual canonical unique
-identifier, non-empty in 0% of real rows — is present and unique. On the REAL
-`us_de_statutes.parquet` (21,649 rows), 647 rows (3.0%) have an empty
-`chapter` and are silently dropped this way — real law lost, one state alone,
-with the full 109-file corpus this scales to the same ~3% cut across the
-board. QA independently reproduced this percentage against the live
-HuggingFace file during investigation (not part of the committed test, per
-ruling R6). Proven by
-`test_ingest_us_statute_rows_drops_a_real_row_with_empty_chapter_but_unique_citation`
-(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py), using a
-REAL row (`STATE_DE_T5_C7_SVIII_S796`, citation `5 Del. C. § 796`) with only
-`chapter` blanked to the real-world empty-string shape. Expected: a row with
-an empty `chapter` but a valid, unique `citation` must be ingested (e.g. by
-falling back to `citation` as the disambiguating key when `chapter` is
-absent), not unconditionally skipped — `citation` is empty in 0% of real
-rows and is the dataset's own canonical unique identifier.]
+ADDITIONALLY [QA-FAIL (defect 2, case-sensitivity — Texas)]:
+`is_definitions_heading`'s regexes require exact-case `Definitions?`
+(capital D, lowercase rest). Texas's real, standard heading convention is
+ALL CAPS (e.g. `"§ 452.351. DEFINITION."`). Verified: **0 of 5,033** real
+Texas headings containing the word "definition" match — a complete,
+state-wide G2 miss for the entire state. Proven by
+`test_is_definitions_heading_misses_all_caps_texas_definitions_headings`.
+
+ADDITIONALLY [QA-FAIL (defect 3, same case-sensitivity bug, different real
+shape — Ohio)]: Ohio's real headings routinely end in lowercase
+`"...definitions"` in normal sentence case (e.g. `"§ 4513.01. Traffic laws -
+equipment - load definitions"`), not the DE/PA capital-D convention the
+wave-4 fix was validated against. Verified: **747 of 970 (77%)** of real OH
+"definition"-containing headings use this lowercase shape and can never
+match. Proven by
+`test_is_definitions_heading_misses_lowercase_definitions_in_normal_sentence_case_headings`.
+
+ADDITIONALLY [QA-FAIL (defect 4, number-stripping — Florida/Ohio's dotted
+section-number convention)]: `_SECTION_NUMBER_TOKEN_RE` does not consume a
+dot-separated section number (`"941.34"`) past the first period, leaving a
+numeric fragment (`"34"`) stuck in front of "Definition" and breaking both
+the first-word and last-word match rules. Verified: **127 of 748 (17%)** of
+real Florida capital-D "Definition(s)" headings are under-matched this exact
+way. Proven by
+`test_is_definitions_heading_misses_dotted_section_numbers_like_florida_and_ohio`.
+
+Expected: `is_definitions_heading` must (a) be case-insensitive for the
+"Definitions" token match itself (both first-word and last-word rules), (b)
+fully consume dot-separated section numbers, not just up to the first
+period, and (c) the ingester/pipeline needs a documented fallback for states
+whose `section_title` carries no descriptive text at all (at minimum IL, CA,
+GA) — likely extracting the heading from the leading `"Sec. N. <Heading>."`
+clause of `text` itself when `section_title` is a bare `"Section N"`
+placeholder, since no per-field fix inside `is_definitions_heading` can see
+information that was never passed to it.
+
+### Item 5 — US dataset ingester [G6], the wave-4 idempotency key is not collision-free beyond the one file it was checked against
+
+[QA-FAIL (defect 5): the `(section_number, section_title, text)` key
+silently merges two REAL, DIFFERENT Pennsylvania sections (`74 Pa.C.S. § 7`
+vs `51 Pa.C.S. § 7`) that happen to share byte-identical cross-title
+boilerplate text — directly disproving the wave-4 fix's own docstring claim
+that "two distinct real sections essentially never share byte-identical
+body text". Verified: **9 collision groups / 11 rows silently merged, out
+of only 14,547 real rows**, in `us_pa_statutes.parquet` alone — a file the
+Developer never checked. Proven by
+`test_ingest_us_statute_rows_silently_merges_two_different_real_pennsylvania_sections`.
+
+ADDITIONALLY [QA-FAIL (defect 6, same key defect, larger + compounded by
+defect 1 above)]: California — whose `section_title` is *also* always the
+generic `"Section N"` (defect 1) — shows the identical collision shape at
+much larger scale: **83 collision groups / 176 rows silently merged, out of
+161,429 real rows** (the single largest file in the ~2M-row corpus). This
+was found by re-running the bulk-ingest CLI end-to-end on the real,
+un-truncated `us_pa_statutes.parquet` file and cross-checking its reported
+"rows ingested" summary count (14,547) against the database's actual
+`Article` row count afterward (14,536) — the two numbers silently
+disagreed by 11, which is what led to finding this collision class; the
+same cross-check technique then found CA's much larger instance of it.
+Proven by
+`test_ingest_us_statute_rows_silently_merges_two_different_real_california_sections`.
+
+Expected: neither `chapter`, `citation` alone, nor `(section_number,
+section_title, text)` is a safe sole key on the full real corpus (each has
+a real, verified collision or drop somewhere in it) — the bulk-mode CLI's
+own "rows ingested" summary number must also be corrected to distinguish
+"newly created Article" from "matched an existing Article" (today both are
+folded into the same `article_ids` count), since a `.parquet` file's own
+internal duplicate-text collisions are otherwise invisible in that summary,
+undermining ruling R3's "real measured report" requirement.
 
 ## Dev Complete
 
 _None — items 3 and 5 processed this QA cycle (both bounced again above, for
-NEW defects distinct from cycle 1's, which are confirmed fixed)._
+NEW defects distinct from cycle 2's, which are confirmed fixed)._
 
 ## Completed
 
@@ -256,42 +291,50 @@ test count unchanged), **+ 3 intentional NEW RED tests** in
 `test_qa_regression_us_state_law_FAIL.py` proving cycle 2's fresh findings
 (Q2, Q3a, Q3b); frontend **165 passed / 0 failed**; typecheck clean.
 
+**QA cycle 3 independent re-run:** backend **632 passed / 0 failed** on the
+routine suite (cycle 2's 3 RED bounce-proofs re-verified genuinely fixed and
+folded into `test_qa_regression_us_state_law.py`; `..._FAIL.py` cycle-2 file
+deleted; net test count unchanged) **+ 7 intentional NEW RED tests** in
+`test_qa_regression_us_state_law_cycle3_FAIL.py` proving 6 fresh real-data
+defects (items 3 and 5, both bounced again — see `## Next Steps`), found by
+independently testing 6 real state files (IL, TX, FL, OH, PA, CA) neither
+the Developer nor QA cycle 2 had used; frontend **165 passed / 0 failed**;
+typecheck clean.
+
 ## Evaluation Notes
 
 _None yet._
 
 ## QA Notes
 
-- **Q1 — cycle-1 fixes genuinely verified, not merely test-satisfied.** All 3
-  cycle-1 bounce-proofs re-run green. Independently reproduced the live path
-  from scratch (own script, not the committed test): real DE rows through
-  the real `ingest_us_statute_rows` → `run_definition_linking` produced
-  exactly 3 definitions (Affiliate, Branch office, Insured depository
-  institution) + 2 DERIVES_FROM_LAW assertions incl. `12 U.S.C. § 1813(c)`,
-  all stamped `US-DE` — matches the manager's R7(a) probe exactly. Folded
-  into `test_qa_regression_us_state_law.py`.
-- **Q2 — CONFIRMED, item 5 bounced (ruling R7(b)).** Reproduced the
-  manager's 647/21,649 (3.0%) empty-`chapter` figure independently against
-  the live `us_de_statutes.parquet` (citation empty in 0%, confirmed).
-  Committed RED test uses a real row with only `chapter` blanked. See
-  `## Next Steps`.
-- **Q3 — NEW, severe: item 3's wave-3 heading fix broken two ways, bounced.**
-  (a) ReDoS: `_DEFINITIONS_HEADING_RE` catastrophically backtracks; a real
-  DE heading (43-char non-letter prefix, dataset-wide max) doesn't return
-  within 8s — on `pipeline.py` Stage 2's live path, hangs the G6 bulk run.
-  (b) Under-match: real section numbers with an embedded letter (`4A-103`)
-  break the "Definitions first word" assumption — 152/973 (15.6%) of real
-  DE headings silently missed. Full detail + real fixture: sprint log
-  §"QA cycle 2".
-- **Q4 — Hebrew fidelity PASS.** All 18 Hebrew pipeline integration tests
-  green with dispatch now live; `HebrewProfile.find_citations` confirmed
-  unreachable from any production call site (grep: only test files call
-  `.find_citations`).
-- **Q5 — bulk-run readiness: NOT ready, blocked by Q3a.** The Q3a ReDoS
-  alone would hang the definition-linking pass on the real corpus. 4 more
-  lower-severity concerns (N+1 queries, session memory growth across a
-  file, mid-file-corruption reporting, no filename→jurisdiction mapping)
-  logged in full in the sprint log, same section as Q3.
+- **Q1 (cycle 3) — item 3 bounced again for 4 NEW defects, 6 states never
+  tested before (IL/TX/FL/OH/PA/CA).** Cycle-2 fixes hold. NEW: (1)
+  `section_title` carries NO heading text for IL/CA/GA (structural, proven
+  live-path too). (2) case-sensitive match misses ALL-CAPS Texas (0/5,033).
+  (3) misses lowercase Ohio headings (747/970). (4) dotted numbers
+  (`941.34`) under-match FL (127/748). Stoplist probe found a real gerund
+  gap (`excluding`/`governing`) but 0 real occurrences — reported, not a
+  bounce reason. Full breakdown: log §"QA cycle 3".
+- **Q2 (cycle 3) — item 5 bounced again: the wave-4 key collides beyond
+  DE.** `(section_number, section_title, text)` merges 2 real PA sections
+  (11 rows/14,547 lost) and 2 real CA sections (176/161,429 lost) sharing
+  boilerplate text — disproves the fix's "essentially never" claim.
+  `chapter`/idempotency probes from R7(b) still hold; `section_title`
+  never empty in ~550k rows sampled. Full detail: log §"QA cycle 3".
+- **Q3 (cycle 3) — bulk mode correct but its OWN summary is provably
+  inaccurate; 2M rows feasible but slow.** `--input-dir` correctly
+  continues past a bad filename + corrupt file, non-zero exit — but its
+  "rows ingested" count hid the Q2 PA collision (14,547 reported vs 14,536
+  real DB rows). Timing: real FL file, 24,866 rows = 34.7s (SQLite) →
+  ~46min extrapolated for 2M (best case). N+1 SELECT + one session
+  spanning the whole run confirmed unaddressed. Log §"QA cycle 3".
+- **Q4 — Hebrew fidelity PASS, unchanged.** All Hebrew pipeline tests
+  green; `find_citations` still has zero call sites in `pipeline.py`.
+- **Q5 — gate sign-off, this cycle only.** G1/G4/G5/G7 PASS. G2/G3 FAIL
+  (item 3's defects zero out whole real jurisdictions). G6 CODE-ONLY: bulk
+  logic correct, but summary unverified-accurate and item 3/5 defects will
+  cause more loss at scale; full 109/105-file run NOT run by QA — manager's
+  job post-signoff. Full table: log §"QA cycle 3".
 
 ## Context Dump
 

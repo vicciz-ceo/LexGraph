@@ -53,6 +53,69 @@ profile's heading detector must either tolerate/strip this noise or match
 on a substring/contains basis. This is the "edge case" R6 asks for; it did
 not need to be hand-picked, it is the norm for this file.
 
+## `qa_cycle3_rows.json` — QA cycle 3 findings (2026-08-02)
+
+8 REAL rows (full original columns, values unmodified), one or two per
+defect, pulled from **6 different real state files the Developer never
+tested** (`us_il_statutes.parquet`, `us_tx_statutes.parquet`,
+`us_fl_statutes.parquet`, `us_oh_statutes.parquet`, `us_pa_statutes.parquet`,
+`us_ca_statutes.parquet`) — independent QA verification per the cycle-3
+brief's Q1/Q2 mandate to test files beyond the Developer's DE/NY pair:
+
+1. **`STATE_IL_C325_A7_S15`** — real Illinois row. `section_title` is the
+   generic `"Section 15"` (verified: **99.6% of all 72,456 real IL rows**,
+   and separately **100% of all 161,429 real CA rows**, and **100% of all
+   28,154 real GA rows**, have this shape — `section_title` never carries
+   descriptive heading text for these three states at all). The real,
+   genuine "Sec. 15. Definitions." heading only exists inside the row's
+   `text` body, which `is_definitions_heading` never sees (it is only ever
+   called on `Article.heading`, sourced from `section_title` —
+   `pipeline.py` Stage 2). No regex fix can recover this: the input field
+   itself carries no heading. Proves a 100%, state-wide G2 miss for at
+   least 3 of the ~53 real jurisdictions (~260,000+ rows), independent of
+   and additional to the heading-matcher regex defects below.
+2. **`STATE_TX_Ctn_C452_S452.351`** — real Texas row, heading
+   `"§ 452.351. DEFINITION."` (Texas's real, standard ALL-CAPS statutory
+   heading convention). `is_definitions_heading` is case-sensitive
+   (`Definitions?` requires a capital `D`, lowercase rest) and **matches 0
+   of the real `us_tx_statutes.parquet` file's 5,033 genuine ALL-CAPS
+   Definitions headings** — a complete, state-wide G2 miss for Texas.
+3. **`STATE_FL_TXLVII_C941_PI_S941.34`** — real Florida row, heading
+   `"941.34 Definition of "state.""`. Florida's (and Ohio's, and others')
+   real section-number convention is dot-separated (`NNN.NNN`), which
+   `_SECTION_NUMBER_TOKEN_RE` (`\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*\.?`) does not
+   fully consume — it stops after the first `.`, leaving a numeric
+   fragment (`"34"`) stuck in front of "Definition", breaking both the
+   first-word and last-word rules. Verified: **127 of 748 real FL
+   capital-D "Definition(s)" headings (17%)** are under-matched this exact
+   way.
+4. **`STATE_OH_T45_C4513_S4513.01`** — real Ohio row, heading
+   `"§ 4513.01. Traffic laws - equipment - load definitions"` (lowercase
+   `definitions` as the heading's genuine last word — Ohio's normal
+   sentence-case convention, not the DE/PA capital-D convention the fix was
+   validated against). Same case-sensitivity defect as row 2, on a
+   different real-data shape: **747 of 970 real OH "definition"-containing
+   headings (77%)** use this lowercase convention and can never match.
+5/6. **`STATE_PA_T74_C7_S7` / `STATE_PA_T51_C7_S7`** — two REAL, genuinely
+   DIFFERENT Pennsylvania sections (different citations, `74 Pa.C.S. § 7`
+   vs `51 Pa.C.S. § 7`) that share an identical `(section_number="7",
+   section_title="Status of certain businesses.", text=...)` triple
+   (byte-identical cross-title boilerplate). Disproves the wave-4 fix's own
+   claim that "two distinct real sections essentially never share
+   byte-identical body text": verified **9 such collision groups / 11 rows
+   silently merged, out of only 14,547 real PA rows** — on a file the
+   Developer never checked.
+7/8. **`STATE_CA_Cwic_S7` / `STATE_CA_Cins_S7`** — the same collision
+   shape on California (`section_title` is *also* always the generic
+   `"Section N"` there, compounding both defects at once): verified **83
+   collision groups / 176 rows silently merged, out of 161,429 real CA
+   rows** (the single largest state file in the corpus).
+
+Provenance: same dataset/commit as the rows above, fetched 2026-08-02 by
+QA cycle 3 into a disposable scratch directory outside `backend/.venv`
+(ruling R6 — the committed tests below load only this committed JSON, never
+the network).
+
 ## Retrieval (fixture creation only — never run by the test suite, R6)
 
 ```

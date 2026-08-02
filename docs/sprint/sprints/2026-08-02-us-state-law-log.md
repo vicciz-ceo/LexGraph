@@ -420,3 +420,200 @@ README documents).
    _jurisdiction` fails loudly and immediately on a wrong/unrecognized
    code (never silently mistags a document), so the failure mode is safe,
    just not maximally convenient for a 109-file run.
+
+## QA cycle 3 (2026-08-02) — full detail
+
+Method: downloaded 12 real state files beyond the Developer's DE/NY pair
+(FL, IL, DE, NY, CA, TX, PR, WA, OH, GA, PA — plus DE/NY re-checked) into a
+scratch dir outside `backend/.venv` (ruling R6), ran the real
+`is_definitions_heading`/`ingest_us_statute_rows`/CLI code directly against
+them, cross-checked every claim against the actual DB where applicable.
+None of this touched implementation code; only committed test files +
+fixtures + this contract were modified.
+
+### Q1 — item 3, full accuracy breakdown per state (case-INsensitive "definition" as the candidate pool, matching manager methodology restricted to exact-capital-D gives an incomplete picture — see below)
+
+| file | rows | any-case candidates | exact-capital-D candidates | matched | missed-among-capD |
+|---|---|---|---|---|---|
+| DE | 21,649 | 1,036 | 973 | 973 | 0 |
+| NY | 40,102 | 1,547 | 1,416 | 1,416 | 0 |
+| FL | 24,866 | 852 | 748 | 621 | **127** |
+| TX | 122,535 | 5,033 | **0** | 0 | 0 (never had a capD candidate at all — ALL-CAPS convention) |
+| WA | 51,498 | 2,007 | 1,974 | 1,785 | **189** |
+| OH | 33,161 | 970 | 223 | 154 | **69** |
+| PA | 14,547 | 547 | 532 | 532 | 0 |
+| GA | 28,154 | 0 | 0 | 0 | 0 (section_title never contains descriptive text at all — see below) |
+
+The manager/Developer's "0 missed / 0 false positives" claim is TRUE for
+DE/NY specifically, restricted to capital-D candidates — but does NOT
+generalize: FL/WA/OH all show real misses even under that same narrow
+methodology, before even reaching the case-sensitivity or structural
+defects below.
+
+**Root-caused missed cases (samples, all real headings):**
+- FL dotted-number ("941.34 Definition..." → "34 Definition..." after
+  partial number-strip → neither first-word nor last-word rule fires):
+  `250.542 Definitions; mutual aid.`, `686.501 Definitions; ss.
+  686.501-686.506.`, `409.403 Definitions; Interstate Compact...`
+- WA/OH same root cause plus their own dash-heavy citation conventions:
+  `RCW 58.04.003: Definition of surveyor.`, `§ 3113.45. Definitions for
+  sections 3113.451 to 3113.459`
+
+**Case-sensitivity, verified separately (any-case candidates minus
+exact-capital-D candidates = "can never match regardless of any other
+fix"):** DE 63, NY 131, FL 104, TX **5,033 (100% of TX's candidates)**, WA
+33, OH **747 (77% of OH's candidates)**, PA 15.
+
+**Structural defect (`section_title` carries no descriptive heading text
+at all, verified against every row in the file, not a sample):**
+- IL: 72,162/72,456 rows (99.6%) have `section_title` exactly matching
+  `"Section <N>"`; confirmed via a real row (`STATE_IL_C325_A7_S15`,
+  "Sec. 15. Definitions.", 5 real defined terms) that the real
+  `ingest_us_statute_rows → run_definition_linking` path creates ZERO
+  definitions from.
+- CA: 161,422/161,429 rows (100%) — same shape.
+- GA: `section_title` is always a bare citation string ("Georgia Code
+  Title 2. Agriculture § 2-12-8"), 0/28,154 rows contain the word
+  "definition" anywhere in `section_title`; grep of `text`'s first 150
+  chars for a "Definitions" pattern still finds 48 real GA rows that are
+  genuine Definitions sections, all silently unreachable via heading
+  detection.
+
+**Adversarial stoplist probe (constructed real-shaped headings):**
+correctly rejects `"Repeal of Definitions"`, `"Exceptions/Amendments to
+Definitions"`, `"Subject to Definitions"`, `"Provisions Without
+Definitions"`; correctly accepts `"General/Other Definitions"`,
+`"Payment Order-Definitions"`, `"Terms and Definitions"`. Found a real gap:
+`_PRECEDING_EXCLUSION_WORDS` includes "including"/"except" but NOT
+"excluding"/"containing"/"having"/"governing" — constructed cases like
+`"Chapter Excluding Definitions"`, `"Rules Governing Definitions"` over-
+match (return True) when they arguably shouldn't. Scanned all ~700k real
+headings sampled across 12 files for this exact gerund-before-Definitions
+shape: **0 real occurrences found**. Reporting honestly per the brief's
+instruction ("find the edges... even if you still PASS") — this edge is
+real but currently theoretical, not itself a bounce reason.
+
+### Q2 — item 5, collision-key verification beyond DE
+
+Collision count of `(section_number, section_title, text)` across full
+real files: IL 72,456 rows / 0 collisions; FL 24,866 / 0; **CA 161,429 rows
+/ 176 collisions across 83 groups**; **PA 14,547 rows / 11 collisions
+across 9 groups** (both confirmed genuinely different sections by
+different `citation`/title, e.g. PA's `74 Pa.C.S. § 7` vs `51 Pa.C.S. § 7`
+sharing verbatim cross-title boilerplate). `citation` would have correctly
+disambiguated every one of these (all citations differ), even though
+`citation` alone was correctly rejected earlier for its own single known DE
+duplicate — no single field the dataset provides is safe alone; a
+composite key including `citation` (falling back only when `citation`
+itself collides) may be the right shape, but that is an implementation
+decision for the Developer, not QA's to make.
+
+`section_title`/`text` emptiness swept across ALL rows of 12 real files
+(~460k rows total): `section_title` empty in 0.00% of rows in every file
+checked — not an observed real risk in this dataset, though the code path
+(`heading = row.get("section_title") or ""`) is still exercised safely if
+it ever occurs (would only collide with another row sharing the exact same
+number+empty-title+text, which — per the same argument the wave-4
+docstring makes for `text` — is not observed).
+
+`chapter` emptiness, for context: DE 3.0%, CA 4.6%, **NY 100%** (every
+single one of NY's 40,102 rows has an empty `chapter` — the wave-4 fix is
+maximally load-bearing for this state specifically), all others checked
+0%.
+
+### Q3 — bulk mode, real run
+
+Ran `ingest_us_statutes_cli.py --input-dir` against a directory of 3 real
+files: `us_pa_statutes.parquet` (valid), `some_random_filename.parquet`
+(real IL data under an unmappable name), `us_wy_statutes.parquet` (a
+truncated/corrupt 2KB stub under a valid-looking name). Result: correctly
+SKIPPED the unmappable filename (reason printed, added to `files_failed`,
+continued), correctly FAILED the corrupt file with a clear
+"Parquet magic bytes not found" message (continued), correctly ingested
+the valid file with per-batch progress, correct non-zero exit code (1),
+and a final summary listing both failures with reasons plus the numeric
+totals for the one successful file.
+
+Cross-checking the summary against the DB (first invocation reported
+"14,547 ingested, 0 skipped" for `us_pa_statutes.parquet`; DB afterward
+held exactly 14,536 real `Article` rows for that Document) surfaced the PA
+collision class documented under Q2 above — the CLI's own "ingested"
+number silently double-counts collision-merged rows as if they were newly
+created, which is not distinguishable from the summary alone.
+
+Timing (real full-file, un-truncated, SQLite backing store, `--batch-size
+5000`, single-file `--input` mode): `us_fl_statutes.parquet` (24,866 rows)
+= 34.68s wall-clock end to end (25.06s user + 7.22s system, 93% CPU) =
+~717 rows/sec. Honest extrapolation to a 2,000,000-row corpus at this same
+rate: ~2,789s ≈ **46.5 minutes**, on SQLite, on this machine, assuming
+every file behaves like FL (some are far larger — CA alone is 161,429
+rows/71MB, federal statutes ~88.7MB per the recon dossier). This is a
+*best case*: production likely runs against a networked Postgres, where
+the same N+1 per-row SELECT-then-flush pattern (confirmed again by direct
+code read of `ingest_us_statute_rows`: one `session.execute(lookup)` +
+up to 2 `session.flush()` calls per row, no batch-level pre-fetch or bulk
+upsert) would multiply per-round-trip network latency by roughly 2-4x per
+row, plausibly pushing the real number well past an hour. The single
+`session` object is reused for the ENTIRE bulk run across every file
+(`_run_bulk` creates one `session_factory()` before the file loop and only
+closes it in `finally` after all files) — confirmed by direct code read
+that nothing calls `session.expunge_all()` or recycles the session between
+files, so cycle 2's identity-map-growth concern is structurally still
+present and unaddressed, just not independently re-measured at full 2M-row
+scale this cycle (that scale run is the manager's job, post-signoff, per
+the brief).
+
+**Separately noted (not itself a code defect, but affects G6's "all 109
+files" framing):** `huggingface_hub.list_repo_files` against the real
+`vaquill/open-us-law` dataset returns **105** `.parquet` files (53
+`*_statutes.parquet` + 52 `*_constitutions.parquet` — every jurisdiction
+has a statutes file; DC is the only jurisdiction with no separate
+constitutions file), not 109. The manager should use 105 as the real
+target count for G6's "measured report", or reconcile the discrepancy
+before the full run, so the eventual report isn't scored against a wrong
+denominator.
+
+### Q4 — Hebrew, full detail
+
+`backend/tests/integration/test_definition_links_pipeline_live.py` +
+`test_definition_links_pipeline_profile_dispatch.py` +
+`test_definition_links_pipeline_jurisdiction_stamping.py` (13 tests) plus
+the full `unit/test_definition_links_*` Hebrew-specific modules all green.
+`grep -rn "find_citations" backend/app` shows exactly 3 non-definitional
+hits: the function's own definition and docstring reference in
+`us_profile.py`, and `profiles.py`'s Protocol declaration + `HebrewProfile`
+wrapper (which itself trivially returns `[]`, per that file's own
+docstring, "no citation grammar in scope for Hebrew"). `pipeline.py` calls
+only `is_definitions_heading`, `extract_definitions_from_section`, and
+`detect_cross_law_derivations` on the dispatched profile — never
+`find_citations` — confirming it remains dead code for both jurisdiction
+families, unchanged from cycle 2's finding.
+
+### Q5 — full gate table (this cycle's own evidence)
+
+- **G1 (Hebrew unharmed):** PASS. Q4 above; no Hebrew test or behavior
+  touched this cycle.
+- **G2 (a real US statute parses):** **FAIL.** Item 3's defects 1-4 above
+  mean this is false for large real slices of the corpus: 0% for
+  Illinois/California/Georgia (structural), 0% for Texas (case), 77%
+  under-match for Ohio, 17% under-match for Florida.
+- **G3 (English term linking, word-boundary):** Effectively **FAIL** as a
+  practical matter — G3 only fires once G2 has found a Definitions
+  section to extract terms from; for the states above there is nothing to
+  link. `find_term_uses`'s own word-boundary logic (unit-tested,
+  untouched this cycle) is not itself defective.
+- **G4 (US citations recognised):** PASS, unchanged from cycle 2 —
+  `find_citations`/`detect_cross_law_derivations` were not touched by
+  wave 4 and were not part of this cycle's probes; no new evidence either
+  way beyond re-running the existing green suite.
+- **G5 (jurisdiction stamped/validated):** PASS, re-confirmed — Item 1/4's
+  regressions (drift-guard, null-jurisdiction-unreachable) still green.
+- **G6 (whole corpus loads):** **CODE ONLY, NOT PASS.** Bulk-mode
+  continue-past-failure behavior verified correct (Q3); its own summary
+  accuracy is NOT trustworthy without a DB cross-check (Q3); item 3/5's
+  defects will cause additional real silent loss during the actual run;
+  the real dataset has 105 files, not 109 (see Q3); the full 109/105-file
+  run has NOT been executed by QA — that is the manager's job after
+  sign-off, per the brief, and must not be read as done here.
+- **G7 (reviewer works state-by-state):** PASS, unchanged — frontend
+  165/165, typecheck clean, no probes this cycle found new UI-side risk.
