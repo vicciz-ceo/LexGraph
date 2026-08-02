@@ -68,6 +68,12 @@ do not re-derive its findings).
 - **R5 — Vocabulary is shared surface.** The jurisdiction enum is touched by
   backend models, API schemas, and frontend types. It is defined ONCE, upfront,
   in a single Planner-owned commit before any parallel track starts.
+- **R6 — No test may download the corpus.** The routine suite must run offline
+  and fast. RED/regression tests use SMALL fixtures containing REAL rows copied
+  out of the vaquill parquet files (real column names, real statute text) and
+  committed to the repo. The 1.1GB full-corpus run of G6 is a separate,
+  explicitly-invoked, measured deliverable — never part of `pytest backend/tests`.
+  Any network-dependent test is marked and skipped by default.
 
 ## Acceptance gates (manager-defined, plain language)
 
