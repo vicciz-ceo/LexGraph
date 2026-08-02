@@ -42,9 +42,13 @@ def create_app() -> FastAPI:
     # Append-only zone (R6): each track appends only its own registration
     # line(s); merge conflicts here are resolved by concatenating both
     # sides, then a full evaluator run.
+    from app.routers.assertions import jurisdictions_router
     from app.routers.assertions import router as assertions_router
 
     app.include_router(assertions_router)
+    # Sprint 2026-08-02-us-state-law, item 1 (ruling R5): jurisdiction
+    # controlled-vocabulary endpoint, `GET /api/v1/jurisdictions`.
+    app.include_router(jurisdictions_router)
 
     # B6 — graph projection + notifications (append-only registration, R6).
     from app.graph_projection import InMemoryGraphProjection
