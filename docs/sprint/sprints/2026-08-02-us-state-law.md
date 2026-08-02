@@ -1,7 +1,7 @@
 ---
 id: "2026-08-02-us-state-law"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
@@ -75,6 +75,19 @@ do not re-derive its findings).
   committed to the repo. The 1.1GB full-corpus run of G6 is a separate,
   explicitly-invoked, measured deliverable — never part of `pytest backend/tests`.
   Any network-dependent test is marked and skipped by default.
+
+- **R7 — Manager live-path + real-data findings (2026-08-02, after wave 3).**
+  (a) Live path VERIFIED by the manager directly: 3 real Delaware rows through
+  the real `ingest_us_statute_rows` -> `run_definition_linking` produce 3
+  definitions (`Affiliate`, `Branch office`, `Insured depository institution`)
+  and 2 DERIVES_FROM_LAW assertions incl. real federal cite `12 U.S.C. § 1813(c)`,
+  all stamped `US-DE`, zero nulls. Pre-fix the same probe produced 0 and 0.
+  (b) **NEW DEFECT, item 5, found by manager probe of the REAL dataset:** the
+  wave-3 idempotency fix skips any row with an empty `chapter`. On the real
+  `us_de_statutes.parquet` (21,649 rows) **647 rows (3.0%) have an empty
+  `chapter`** and would be dropped — real law lost, one state alone. `citation`
+  is null/empty in **0%** of rows and is the canonical unique legal identifier
+  (e.g. `5 Del. C. § 796`). QA must reproduce this and bounce item 5.
 
 ## Acceptance gates (manager-defined, plain language)
 
