@@ -1,7 +1,7 @@
 ---
 id: "2026-08-02-us-state-law"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
@@ -88,6 +88,18 @@ do not re-derive its findings).
   `chapter`** and would be dropped — real law lost, one state alone. `citation`
   is null/empty in **0%** of rows and is the canonical unique legal identifier
   (e.g. `5 Del. C. § 796`). QA must reproduce this and bounce item 5.
+
+- **R8 — Wave 4 verified by the manager directly (2026-08-02).** Heading matcher:
+  linear time confirmed (0.0009 ms flat; 0.018 ms at 4,000-char noise — was
+  15,800 ms at 29 chars). Accuracy on REAL data: **0 missed / 0 false positives**
+  across `us_de_statutes` (21,649 headings, 973 candidates) AND `us_ny_statutes`
+  (40,102 headings, 1,416 candidates); both over-match cases still rejected.
+  Ingester: Developer found a THIRD defect the manager had missed — chapter codes
+  collide ACROSS titles (179 collisions merging 293 real sections) — and correctly
+  refuted the manager's `citation`-as-key suggestion (1 duplicate pair in 21,649).
+  Final key `(section_number, section_title, text)` verified collision-free on all
+  21,649 real DE rows; full real-file ingest 21,649 -> 21,649 Articles, 0 skipped,
+  idempotent on re-run. Suite: **632 passed / 0 failed**.
 
 ## Acceptance gates (manager-defined, plain language)
 
