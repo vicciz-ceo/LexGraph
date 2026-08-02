@@ -294,3 +294,129 @@ found (`seed_demo.py`'s `"EU"`) is APPLICATION code, not a test file — see
 above, flagged as a required same-commit fix for the vocabulary item's
 Developer, not something this sweep re-points itself (out of the sweep's
 defined scope: test roots only).
+
+## QA cycle 2 — full detail (overflow from `## QA Notes`)
+
+### Q3 full finding — item 3's wave-3 heading fix is broken two ways
+
+**(a) Catastrophic backtracking (ReDoS) in `_DEFINITIONS_HEADING_RE`.**
+`us_profile.py`'s tightened regex is
+`^(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b`. The `Section\s+\d+\.?`
+alternative never fires on real data (real headings use `§`, never the
+spelled-out word "Section"), so the only alternative that ever matches the
+leading noise is `[^A-Za-z]+`, repeated inside an outer `*` — the textbook
+`(X+)*` catastrophic-backtracking shape: when the overall match ultimately
+fails, the engine tries every way of partitioning the non-letter run across
+repetitions of the group before giving up, which is exponential in the
+run's length.
+
+Synthetic confirmation (isolated from real data, to characterize the growth
+curve):
+```
+n=25 (25 spaces + non-matching letter): 1.10s
+n=30: still running after 5s (capped)
+```
+Real-data confirmation: scanned all 21,649 real rows of
+`us_de_statutes.parquet` for the length of each heading's leading non-letter
+run (cheap `^[^A-Za-z]*` prefix match, no backtracking risk). Distribution:
+`>=15`: 21,522 rows (nearly all — the mojibake scrape-noise prefix alone is
+~10-15 chars); `>=20`: 1,483; `>=25`: 23; `>=30`: 1; `>=40`: 1 (max 43,
+`STATE_DE_T10_C54_S5402`). That single real row's real heading:
+```
+'§ Â\r\n        5402. \r\n                  @*@*Evans v. State@*END@*\r\n                  @*bold@* [See Evans v. State, 872 A.2d 539 (Del. 2005) concerning unconstitutionality of this section.].@*END@*'
+```
+`is_definitions_heading(...)` on this exact string, capped with a SIGALRM(8),
+did not return — confirmed hang, not merely "slow." The PRE-fix unanchored
+`\bDefinitions?\b` substring check (no nested quantifier, linear time)
+returns instantly on the same input, so this is a regression introduced BY
+the wave-3 tightening, not a pre-existing issue. First attempt at a full
+21,649-row `DEF_RE.match` sweep (2s-per-row SIGALRM cap) itself ran past
+120s and had to be killed — independent circumstantial confirmation that
+MANY real headings, not just the one committed to the fixture, trigger slow
+backtracking (the 20-43-char-prefix population above, ~1,500+ rows in this
+one state file alone).
+
+**(b) Under-match: letter-embedded section numbers break the "first word"
+assumption.** Filtered to the 973 real DE headings containing the word
+"Definition(s)" (`\bDefinitions?\b` search — no backtracking risk, plain
+substring). Of these, 938 have a short (<20 char) non-letter prefix, safe to
+regex-test directly without ReDoS risk; the other 35 were skipped in this
+sweep (risky/slow, would need the same bounded-deadline treatment as (a) to
+test safely — not attempted, out of scope for this pass, but several of
+them — e.g. `'§ Â\r\n        3-103. Definitions.'`,
+`'§ Â\r\n        9-102. Definitions and index of definitions.'` — visibly
+SHOULD match and would be worth re-checking once (a) is fixed). Of the 938
+safe ones: 786 matched, **152 did not** (16.2% of the safe subset, 15.6% of
+the full 973). Every one of the 152 shares the same root cause: the section
+number itself contains a letter (`12D-102`, `4A-103`, `9002A`, `10201A`,
+`8102A`, `3-103`... — this list is large; full 152-row dump captured during
+investigation, not reproduced here, sample of ~150 shown in QA's terminal
+history). Representative real example used in the committed test/fixture:
+`STATE_DE_T6_A4A_P1_S4A-103`, heading `"§ Â\r\n        4A-103. Payment order
+â Definitions."`, body is a genuine 5-term UCC-style Definitions section
+(`"Payment order"`, `"Beneficiary"`, `"Beneficiary's bank"`, `"Receiving
+bank"`, `"Sender"`, each `"Term" means ...`) — this exact numbered-block/
+leading-quote shape is what `extract_definitions_from_section` already knows
+how to parse; only the heading gate is wrongly excluding it.
+
+Real full JSON rows for both `STATE_DE_T10_C54_S5402` and
+`STATE_DE_T6_A4A_P1_S4A-103` are committed at
+`backend/tests/fixtures/us_statutes/de_qa_cycle2_rows.json`, alongside the
+Q2 blanked-chapter row, per ruling R6 (no network access in the committed
+suite; these were fetched once during investigation via
+`huggingface_hub.hf_hub_download`, same recipe as the existing fixture
+README documents).
+
+### Q5 full finding — bulk-run readiness concerns, in order of severity
+
+1. **Blocking: Q3a's ReDoS.** `run_definition_linking` calls
+   `profile.is_definitions_heading(art.heading)` once per Article with no
+   timeout anywhere in the call chain. At ~2M real articles across 109
+   files, hitting even one heading shaped like `STATE_DE_T10_C54_S5402`'s
+   (and DE alone already has one, plus ~1,500 rows with a >=20-char
+   non-letter prefix that are at least at meaningfully elevated risk) is
+   expected to hang the definition-linking pass indefinitely. This must be
+   fixed before the manager's planned bulk run, not treated as a nice-to-
+   have.
+2. **N+1 query pattern.** `ingest_us_statute_rows`'s per-row
+   `existing_article` lookup (`select(Article).where(...)`) plus two
+   `session.flush()` calls per new row means ~2M+ individual round trips
+   across the full corpus — a real wall-clock cost (not a correctness
+   issue) worth batching/bulk-checking before a from-scratch 109-file run,
+   given R3 requires the run to be measured and honest about timing.
+3. **Session identity-map growth across a whole file.** The CLI's
+   `ingest_us_statutes_cli.py` opens ONE `Session` for the whole file and
+   only closes it in a `finally` after all `iter_batches()` batches are
+   processed; `ingest_us_statute_rows` commits per batch, but a commit does
+   not evict already-flushed ORM objects from the session's identity map —
+   they accumulate for the life of the file. The docstring's "keeps memory
+   bounded" claim is true only for the raw pyarrow row buffers, not for the
+   accumulated SQLAlchemy object graph. Largest real files: federal
+   statutes 88.7MB, CA statutes 71.1MB (recon dossier §4) — likely
+   hundreds of thousands of rows each. Worth watching (`session
+   .expunge_all()` after each batch commit, or periodic session
+   recycling) if the manager sees memory growth during the real run.
+4. **Mid-file corruption not distinguished from a clean zero-row failure.**
+   `pq.ParquetFile(input_path)`'s own open-time errors are caught and
+   reported cleanly (exit 1, clear stderr message). A corruption that only
+   surfaces mid-iteration (inside the `for batch in
+   parquet_file.iter_batches()` loop, e.g. a bad row group later in a
+   large file) is NOT caught by the narrow `except (ValidationError,
+   ValueError)` around that loop — it propagates as an uncaught pyarrow
+   exception. The process still exits non-zero (Python's default
+   unhandled-exception behavior), so the runbook's `|| echo "FAILED: $f"
+   >> failures.log` loop still correctly logs the file as failed and moves
+   on to the next one (no abort-whole-run risk) — but batches that
+   committed before the crash stay committed, and `failures.log` alone
+   can't tell the operator "this file ingested 0 rows" from "this file
+   ingested 40,000 rows then crashed" without a DB query. Low severity
+   given the idempotent re-run story (fixing/re-fetching the file and
+   re-running is safe), but worth a documented caveat in RUNBOOK.md.
+5. **No automated filename → jurisdiction-code mapping.** The RUNBOOK's
+   documented bulk-run loop leaves `<jurisdiction-code-for-this-file>` as a
+   manual per-file fill-in the operator must supply (the dataset's own
+   `us_<state>_statutes.parquet` naming makes this mechanical, but nothing
+   in this codebase automates the mapping). Low severity: `validate
+   _jurisdiction` fails loudly and immediately on a wrong/unrecognized
+   code (never silently mistags a document), so the failure mode is safe,
+   just not maximally convenient for a 109-file run.

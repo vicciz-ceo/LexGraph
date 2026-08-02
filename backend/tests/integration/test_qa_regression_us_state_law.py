@@ -8,7 +8,7 @@ kept in a separate file so a `pytest -k qa_regression` sweep can
 distinguish "QA added and expects green" from "QA added and expects red,
 on purpose, to prove a bounce").
 
-Item-by-item:
+Item-by-item (QA cycle 1):
 
 - Item 1 (vocabulary) PASS: a genuine backend<->frontend DRIFT GUARD --
   the sprint contract's own R5 design notes call this out as a documented
@@ -36,6 +36,20 @@ Item-by-item:
   two-file idempotent re-ingest keeps behaving correctly (companion to the
   FAIL file's collision reproduction, so the passing case doesn't regress
   while the bug above it gets fixed).
+
+Folded in from QA cycle 1 (2026-08-02, QA cycle 2): the three cycle-1
+bounce-proofs (P3 heading false-positive, the mandatory live-path trace for
+item 3, and P4 the cross-title section_number collision for item 5) all now
+PASS against the wave-3 fixes -- independently re-run and re-verified by QA
+cycle 2 (including a from-scratch live-path reproduction: real DE rows
+through the real `ingest_us_statute_rows` -> `run_definition_linking`
+producing 3 real definitions and 2 DERIVES_FROM_LAW assertions stamped
+`US-DE`, matching the manager's own probe exactly). Moved here, assertions
+kept byte-identical, only the docstring framing changed from "RED, proves a
+bounce" to "green, guards against a regression" -- per the sprint contract's
+instruction that the estate carry no permanently "FAIL"-named file once a
+cycle's bounces are fixed. `test_qa_regression_us_state_law_FAIL.py` now
+holds only QA cycle 2's fresh findings.
 """
 
 from __future__ import annotations
@@ -57,6 +71,10 @@ FRONTEND_JURISDICTIONS_TS = (
 US_STATUTES_FIXTURE = (
     pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "de_sample_rows.json"
 )
+
+
+def _load_us_statutes_rows() -> list[dict]:
+    return json.loads(US_STATUTES_FIXTURE.read_text(encoding="utf-8"))
 
 
 # --- Item 1 (vocabulary) PASS: real backend<->frontend drift guard ---------
@@ -253,3 +271,144 @@ def test_ingest_us_statute_rows_idempotent_reingest_across_two_separate_files_st
     # 3 rows/file * 2 files = 6 distinct articles, NOT 12 (idempotent) and
     # not fewer (no cross-file bleed).
     assert len(articles) == 6
+
+
+# =============================================================================
+# Folded in from QA cycle 1's test_qa_regression_us_state_law_FAIL.py --
+# all three now PASS against the wave-3 fixes (independently re-verified by
+# QA cycle 2, not merely re-run). Assertions kept byte-identical to the
+# cycle-1 originals; only docstrings were reworded from "RED, proves a
+# bounce" to "green, guards against a regression".
+# =============================================================================
+
+
+# --- Item 3 (US profile), probe P3: heading substring-match false-positive -
+# --- regression guard -- confirmed fixed by the tightened first-word check -
+
+
+def test_us_profile_is_definitions_heading_does_not_false_positive_on_non_definitions_headings():
+    """P3 (QA cycle 1) confirmed FIXED: `is_definitions_heading` no longer
+    matches real non-definitions headings that merely CONTAIN the word
+    "Definitions" ("Application of Definitions to Prior Acts", "Repeal of
+    Definitions"), while still matching the real DE fixture's genuine,
+    scrape-noise-prefixed Definitions headings. (QA cycle 2 separately
+    found a NEW regression the tightened regex itself introduces -- see
+    `test_qa_regression_us_state_law_FAIL.py`'s Q3a/Q3b.)"""
+    from app.definition_links.us_profile import is_definitions_heading
+
+    non_definitions_headings = [
+        "Application of Definitions to Prior Acts",
+        "Repeal of Definitions",
+    ]
+    for heading in non_definitions_headings:
+        assert is_definitions_heading(heading) is False, (
+            f"{heading!r} was mis-classified as a Definitions-section heading; "
+            "the unanchored \\bDefinitions?\\b substring check over-matches"
+        )
+
+    # Sanity: genuine definitions headings must still match (the fix must
+    # not regress the real DE fixture's scrape-noise-prefixed heading).
+    assert is_definitions_heading("§ Â\r\n        796. Definitions.") is True
+    assert is_definitions_heading("§ Â\r\n        5227. Definition.") is True
+
+
+# --- Item 3/4, mandatory live-path trace: US profile now reachable in prod -
+
+
+def test_real_pipeline_recognizes_a_real_us_definitions_section_for_a_us_document(
+    db_session, matter_with_users
+):
+    """QA cycle 1's mandatory live-path trace confirmed FIXED: the real
+    production pipeline (`run_definition_linking`) now dispatches to
+    `get_profile(document.jurisdiction)` per document -- a real US-DE row
+    ingested via the real `ingest_us_statute_rows` and run through the real
+    `run_definition_linking` recognizes the real "Definitions" section and
+    creates real definitions/assertions, matching the manager's own
+    from-scratch probe (3 definitions, 2 DERIVES_FROM_LAW assertions
+    stamped US-DE) which QA cycle 2 independently reproduced."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    rows = _load_us_statutes_rows()  # real Delaware rows; row 0 is a genuine Definitions section
+
+    ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Delaware Code -- Statutes (QA live-path trace)",
+        rows=rows,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    all_terms = {t for d in result["created_definitions"] for t in d["terms"]}
+    assert "Affiliate" in all_terms, (
+        "the real production pipeline (run_definition_linking) never recognized "
+        "the real US-DE 'Definitions' section at all -- it created "
+        f"{result['created_definitions']!r} definitions and "
+        f"{result['created_assertions']!r} assertions from a real US Definitions "
+        "row with 3 real defined terms. app.definition_links.profiles.get_profile "
+        "is never called from pipeline.py, so USProfile is unreachable from any "
+        "real product entry point; G2/G3/G4 are unmet at the product level"
+    )
+    assert "Branch office" in all_terms
+    assert "Insured depository institution" in all_terms
+    derives = [a for a in result["created_assertions"] if a["assertion_type"] == "DERIVES_FROM_LAW"]
+    assert len(derives) == 2
+    for a in derives:
+        assert a["status"] == "accepted"
+
+
+# --- Item 5, probe P4: cross-title section_number collision -- regression --
+# --- guard -- confirmed fixed by the (document_id, section_number, ---------
+# --- chapter, section_title) idempotency key --------------------------------
+
+
+def test_ingest_us_statute_rows_no_longer_drops_a_row_when_its_section_number_collides_across_titles(
+    db_session, matter_with_users
+):
+    """P4 (QA cycle 1) confirmed FIXED: `ingest_us_statute_rows`'s
+    idempotency key now includes `chapter`/`section_title`, not just
+    `section_number` -- a second, genuinely different row that happens to
+    share an already-seen `section_number` across titles/chapters is no
+    longer silently merged into the first row's Article."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+    from app.models.source_span import SourceSpan
+
+    m = matter_with_users
+    rows = _load_us_statutes_rows()
+    row_a = dict(rows[0])  # act_id STATE_DE_T5_C7_SVIII_S796, section_number "796"
+    row_b = dict(rows[1])  # act_id STATE_DE_T29_C60A_S6060, real DIFFERENT text
+
+    # Simulate a real cross-title collision: a different title/chapter's
+    # section happens to share Title 5 Section 796's bare section number.
+    row_b["section_number"] = row_a["section_number"]
+    row_b["act_id"] = "STATE_DE_T29_DIFFERENT_SECTION_SHARING_796"
+    assert row_a["text"] != row_b["text"]  # genuinely different real content
+
+    result = ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Delaware Code -- Statutes (QA collision probe)",
+        rows=[row_a, row_b],
+        jurisdiction="US-DE",
+    )
+
+    assert len(result["skipped_rows"]) == 0, (
+        "row_b was not reported as skipped either -- it silently vanished, "
+        "which is worse than an explicit skip: a bulk-run report would show "
+        "a plausible row count while quietly losing a real section"
+    )
+    assert len(set(result["article_ids"])) == 2, (
+        "row_b (a genuinely different section) was silently merged into "
+        "row_a's Article because ingest_us_statute_rows keys idempotency by "
+        "(document_id, section_number) only, ignoring title/chapter -- real "
+        "statute files repeat bare section numbers across titles/chapters"
+    )
+    span_b = db_session.get(SourceSpan, result["source_span_ids"][1])
+    assert row_b["text"] in span_b.quote_text, "row_b's real text was never persisted at all"

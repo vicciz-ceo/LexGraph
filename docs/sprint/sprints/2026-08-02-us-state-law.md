@@ -1,19 +1,19 @@
 ---
 id: "2026-08-02-us-state-law"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-08-02T11:02:46Z"
-lint: "PASS 238 2026-08-02T11:03:56Z"
+last_updated: "2026-08-02T11:34:57Z"
+lint: "PASS 293 2026-08-02T11:35:03Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
 completed_items: 4
 dev_complete_items: 0
-qa_cycles: 1
+qa_cycles: 2
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
 design_sections:
@@ -144,39 +144,77 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-### Item 3 — US jurisdiction profile [G2, G3, G4]
-[QA-FAIL: `USProfile`/`get_profile` have zero production call sites (grep-
-verified: referenced only inside `profiles.py`/`us_profile.py` and test files) —
-`pipeline.py` never dispatches to any profile, so a real US-DE document ingested
-via `ingest_us_statute_rows` and run through the real `run_definition_linking`
-recognizes ZERO Definitions sections and creates ZERO assertions/definitions.
-Proven by `test_real_pipeline_never_recognizes_a_real_us_definitions_section_for_a_us_document`
-(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py). Expected:
-G2/G3/G4 satisfied by the real pipeline, not only by unit tests that call
-`get_profile(...)`'s methods directly, bypassing `pipeline.py` entirely.
-ADDITIONALLY: `is_definitions_heading`'s unanchored `\bDefinitions?\b` substring
-check false-positives on real non-definitions headings ("Application of
-Definitions to Prior Acts", "Repeal of Definitions") — proven by
-`test_us_profile_is_definitions_heading_false_positives_on_non_definitions_headings`.
-Expected: only genuine Definitions sections match. Fix needs `pipeline.py` (item 4's
-file) to call `get_profile(document.jurisdiction)` per document at Stages 1-4, plus
-tightening the heading regex.]
+_QA cycle 1's bounces for items 3 and 5 (heading substring false-positive, the
+missing pipeline.py dispatch wiring, and the section_number-only idempotency
+key) were fixed by Developers and independently re-verified as genuinely
+fixed by QA cycle 2 (see `## QA Notes` — Q1). Both items bounce again below,
+this time for NEW defects QA cycle 2 found in the wave-3 fixes themselves,
+proven against REAL Delaware rows, not the cycle-1 defects reopening._
 
-### Item 5 — US dataset ingester [G6 — code only]
-[QA-FAIL: `ingest_us_statute_rows`'s idempotency key is `(document_id,
-section_number)` only, ignoring title/chapter — the module's own docstring warns
-real statute files repeat a bare section number across titles/chapters, but the
-implementation doesn't guard it. A second, genuinely different row sharing an
-already-seen `section_number` is silently dropped: not persisted, not counted in
-`skipped_rows` either. Proven by
-`test_ingest_us_statute_rows_drops_a_row_when_its_section_number_collides_with_another_rows_across_titles`
-(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py). Expected: every
-genuinely distinct row persists as its own Article, or is explicitly reported as
-skipped — idempotency key must include title/chapter, not section_number alone.]
+### Item 3 — US jurisdiction profile [G2], NEW defects in the wave-3 heading fix
+[QA-FAIL (Q3a, catastrophic backtracking / ReDoS): `us_profile
+._DEFINITIONS_HEADING_RE`'s `(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b`
+construct is the classic `(X+)*` catastrophic-backtracking shape. On a real
+US-DE heading with a long leading run of non-letter characters that does NOT
+end up matching "Definitions" (`STATE_DE_T10_C54_S5402`'s real
+`section_title`, a 43-char non-letter prefix — the dataset-wide maximum
+across all 21,649 real DE rows), `is_definitions_heading` does not return
+within 8 real wall-clock seconds (the PRE-fix unanchored substring check
+returned instantly on the same input — this is a regression the wave-3 fix
+itself introduced). Proven by
+`test_is_definitions_heading_hangs_catastrophically_on_a_real_de_heading`
+(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py, bounded
+by a 3s SIGALRM deadline so the suite fails fast instead of hanging). This
+call sits directly on `pipeline.py` Stage 2's real per-article path
+(`profile.is_definitions_heading(art.heading)`) — a single pathological
+heading during the G6 bulk ingest (109 files, ~2M articles) would hang the
+deterministic pipeline indefinitely on that one article.
+
+ADDITIONALLY [QA-FAIL (Q3b, under-match regression)]: the same regex requires
+"Definitions" to be the heading's first word after stripping a leading
+non-letter run, but real DE section identifiers routinely embed a letter
+INSIDE the section number itself (`4A-103`, `12D-102`, `9002A` — the standard
+modern DE supplemental-section numbering convention), which breaks that
+leading-non-letter-run assumption. `STATE_DE_T6_A4A_P1_S4A-103`'s real
+heading ("Payment order — Definitions.") is a genuine 5-term Definitions
+section (standard UCC "Topic — Definitions." convention, Title 6 Articles
+2/2A/3/4/4A/8/9) that is silently NOT recognized. Verified not a one-off: of
+973 real DE headings containing the word "Definition(s)", 152 (15.6%) are
+under-matched by this exact failure mode. Proven by
+`test_is_definitions_heading_undermatches_a_real_multiterm_definitions_section`
+(same file). Expected: `is_definitions_heading` must both (a) terminate in
+bounded time on any input, including long non-matching non-letter runs, and
+(b) recognize "Topic — Definitions."-shaped real headings, not only
+"Definitions."-first headings — likely needs a different anchoring strategy
+than a nested-quantifier regex (e.g. a bounded/possessive skip of the leading
+noise, or splitting on a fixed noise-prefix pattern instead of `[^A-Za-z]+`
+repeated inside a `*` group), plus a check against "Topic — Definitions"
+without reopening the P3 false-positive (`"Application of Definitions to
+Prior Acts"` must still not match).]
+
+### Item 5 — US dataset ingester [G6], real-data row loss (ruling R7(b))
+[QA-FAIL (Q2): the wave-3 idempotency fix SKIPS any row with a missing/empty
+`chapter`, even when `citation` — the dataset's actual canonical unique
+identifier, non-empty in 0% of real rows — is present and unique. On the REAL
+`us_de_statutes.parquet` (21,649 rows), 647 rows (3.0%) have an empty
+`chapter` and are silently dropped this way — real law lost, one state alone,
+with the full 109-file corpus this scales to the same ~3% cut across the
+board. QA independently reproduced this percentage against the live
+HuggingFace file during investigation (not part of the committed test, per
+ruling R6). Proven by
+`test_ingest_us_statute_rows_drops_a_real_row_with_empty_chapter_but_unique_citation`
+(backend/tests/integration/test_qa_regression_us_state_law_FAIL.py), using a
+REAL row (`STATE_DE_T5_C7_SVIII_S796`, citation `5 Del. C. § 796`) with only
+`chapter` blanked to the real-world empty-string shape. Expected: a row with
+an empty `chapter` but a valid, unique `citation` must be ingested (e.g. by
+falling back to `citation` as the disambiguating key when `chapter` is
+absent), not unconditionally skipped — `citation` is empty in 0% of real
+rows and is the dataset's own canonical unique identifier.]
 
 ## Dev Complete
 
-_None — all 6 items processed this QA cycle (4 to Completed, 2 bounced above)._
+_None — items 3 and 5 processed this QA cycle (both bounced again above, for
+NEW defects distinct from cycle 1's, which are confirmed fixed)._
 
 ## Completed
 
@@ -184,8 +222,11 @@ _None — all 6 items processed this QA cycle (4 to Completed, 2 bounced above).
   QA: PASS — P5: 54-code vocabulary byte-identical across backend/frontend/live
   endpoint; regression `test_frontend_jurisdiction_list_source_matches_backend_source_exactly`.
 - **Item 2 — Jurisdiction-profile seam, Hebrew ported [G1].** Commit `7daf286`.
-  QA: PASS (narrow claim — Hebrew pass-through verified identical on untested inputs).
-  QA FLAG: `pipeline.py` never calls `get_profile` — seam unwired; see Item 3 QA-FAIL.
+  QA cycle 2: PASS, upgraded from cycle 1's narrow claim — dispatch is now
+  wired into the live pipeline and Hebrew is confirmed UNCHANGED end-to-end
+  (18/18 Hebrew pipeline integration tests green; `HebrewProfile.find_citations`
+  confirmed to have zero call sites anywhere in `app/`, including `pipeline.py`
+  — dead code, but not a live risk for either jurisdiction family).
 - **Item 4 — Jurisdiction stamping [G5].** Commit `9662def`.
   QA: PASS — P1: null-jurisdiction miss proven unreachable via either production
   ingester; regression `test_document_jurisdiction_is_never_null_after_either_production_ingester_runs`.
@@ -193,14 +234,15 @@ _None — all 6 items processed this QA cycle (4 to Completed, 2 bounced above).
   QA: PASS — frontend 165/165 green, typecheck clean; vocabulary drift-guard
   (Item 1) covers this item's picker source too.
 
-**Merged-tree evaluator (manager-run, 2026-08-02, all 6 items):**
-backend **621 passed / 0 failed / 0 errors**; frontend **165 passed / 0 failed**;
-typecheck clean. Zero regressions against the 504/151 baseline.
+**Manager-measured state entering cycle 2:** backend **629 passed / 0 failed**;
+frontend **165 passed**; typecheck clean; all 3 cycle-1 bounce-proofs green.
 
-**QA-run evaluator (2026-08-02, independent re-run):** backend **626 passed**
-(621 + 5 new QA PASS-regression tests) **/ 0 failed** on the merged tree, **+ 3
-intentional RED tests** in `test_qa_regression_us_state_law_FAIL.py` proving the
-2 bounces above; frontend **165 passed / 0 failed**; typecheck clean.
+**QA cycle 2 independent re-run:** backend **629 passed / 0 failed** (unchanged
+— QA's own cycle-1 bounce-proofs were folded into
+`test_qa_regression_us_state_law.py` in place of 3 that used to be RED, net
+test count unchanged), **+ 3 intentional NEW RED tests** in
+`test_qa_regression_us_state_law_FAIL.py` proving cycle 2's fresh findings
+(Q2, Q3a, Q3b); frontend **165 passed / 0 failed**; typecheck clean.
 
 ## Evaluation Notes
 
@@ -208,36 +250,36 @@ _None yet._
 
 ## QA Notes
 
-- **Mandatory live-path trace (central finding).** `get_profile`/`USProfile`
-  have ZERO production call sites (grep-verified) — `pipeline.py` still
-  calls the bare `sections`/`extract`/`matcher`/`derivation` functions
-  directly for every document regardless of jurisdiction. A real US-DE
-  document ingested via item 5's ingester and run through the real
-  `run_definition_linking` produces zero definitions/assertions. Item 3's
-  own "end-to-end" test bypasses `pipeline.py`; item 4's "US document"
-  test uses HEBREW text merely labeled `US-DE`. Bounced item 3.
-- **P1 (silent null jurisdiction) — not reachable, item 4 PASS.** Both real
-  ingesters (`ingest_wiki_law`, `ingest_us_statute_rows`) always create a
-  Document and its Articles with the SAME `matter_id` in one call, and
-  `Document.jurisdiction` is NOT NULL (ORM default + DB `server_default`,
-  both `"IL"`). A genuinely-ingested Article's document is always present
-  in `document_jurisdictions` with a real value — the `.get()` miss branch
-  is defensive-only, unreachable via any production path. Regression added.
-- **P2 (`HebrewProfile.find_citations` stub) — moot, not a live risk.**
-  Since `pipeline.py` never calls `get_profile` for ANY jurisdiction
-  (Hebrew included — see live-path trace above), `find_citations` is
-  unreachable for Hebrew too, same as for US. G1 holds only because the
-  bare Hebrew functions were never touched, not because dispatch correctly
-  routes to `HebrewProfile`.
-- **P3 (US heading false-positive) — confirmed, item 3 bounced.**
-  `is_definitions_heading`'s unanchored `\bDefinitions?\b` search matches
-  "Application of Definitions to Prior Acts" and "Repeal of Definitions" —
-  neither is a definitions section. RED test committed.
-- **P4 (idempotency data loss) — confirmed, item 5 bounced.**
-  `ingest_us_statute_rows` keys idempotency by `(document_id,
-  section_number)` only; a second row sharing a section number across
-  titles/chapters within one file is silently dropped, uncounted even in
-  `skipped_rows`. RED test committed with real fixture text proving loss.
+- **Q1 — cycle-1 fixes genuinely verified, not merely test-satisfied.** All 3
+  cycle-1 bounce-proofs re-run green. Independently reproduced the live path
+  from scratch (own script, not the committed test): real DE rows through
+  the real `ingest_us_statute_rows` → `run_definition_linking` produced
+  exactly 3 definitions (Affiliate, Branch office, Insured depository
+  institution) + 2 DERIVES_FROM_LAW assertions incl. `12 U.S.C. § 1813(c)`,
+  all stamped `US-DE` — matches the manager's R7(a) probe exactly. Folded
+  into `test_qa_regression_us_state_law.py`.
+- **Q2 — CONFIRMED, item 5 bounced (ruling R7(b)).** Reproduced the
+  manager's 647/21,649 (3.0%) empty-`chapter` figure independently against
+  the live `us_de_statutes.parquet` (citation empty in 0%, confirmed).
+  Committed RED test uses a real row with only `chapter` blanked. See
+  `## Next Steps`.
+- **Q3 — NEW, severe: item 3's wave-3 heading fix broken two ways, bounced.**
+  (a) ReDoS: `_DEFINITIONS_HEADING_RE` catastrophically backtracks; a real
+  DE heading (43-char non-letter prefix, dataset-wide max) doesn't return
+  within 8s — on `pipeline.py` Stage 2's live path, hangs the G6 bulk run.
+  (b) Under-match: real section numbers with an embedded letter (`4A-103`)
+  break the "Definitions first word" assumption — 152/973 (15.6%) of real
+  DE headings silently missed. Full detail + real fixture: sprint log
+  §"QA cycle 2".
+- **Q4 — Hebrew fidelity PASS.** All 18 Hebrew pipeline integration tests
+  green with dispatch now live; `HebrewProfile.find_citations` confirmed
+  unreachable from any production call site (grep: only test files call
+  `.find_citations`).
+- **Q5 — bulk-run readiness: NOT ready, blocked by Q3a.** The Q3a ReDoS
+  alone would hang the definition-linking pass on the real corpus. 4 more
+  lower-severity concerns (N+1 queries, session memory growth across a
+  file, mid-file-corruption reporting, no filename→jurisdiction mapping)
+  logged in full in the sprint log, same section as Q3.
 
 ## Context Dump
 
