@@ -110,6 +110,20 @@ def run_definition_linking(
         session.execute(select(Article).where(Article.matter_id == matter_id)).scalars().all()
     )
 
+    # Per-document jurisdiction lookup: a matter may legitimately mix
+    # jurisdictions (e.g. an Israeli law and a Delaware statute side by
+    # side), so every assertion must be stamped from the jurisdiction of
+    # the Document its owning Article belongs to -- never a single
+    # matter-wide value.
+    document_jurisdictions: dict[str, str] = {
+        doc.id: doc.jurisdiction
+        for doc in session.execute(
+            select(Document).where(Document.matter_id == matter_id)
+        )
+        .scalars()
+        .all()
+    }
+
     skipped_degraded_article_ids: list[str] = []
     live_articles: list[tuple[Article, MatcherArticle]] = []
     for art in articles_orm:
@@ -230,7 +244,7 @@ def run_definition_linking(
             status=_STATUS,
             author_user_id=triggered_by_user_id,
             confidence=fields["confidence"],
-            jurisdiction=None,
+            jurisdiction=fields["jurisdiction"],
             effective_from=None,
             effective_to=None,
             created_at=now,
@@ -298,6 +312,7 @@ def run_definition_linking(
                 object_entity_type="Definition",
                 object_entity_id=definition_row.id,
                 confidence=_USES_DEFINITION_CONFIDENCE,
+                jurisdiction=document_jurisdictions.get(using_article.document_id),
             )
 
     # Stage 4: cross-law derivations. `known_law_titles` covers every
@@ -308,7 +323,7 @@ def run_definition_linking(
     )
     known_law_titles = {strip_year_suffix(doc.title): doc.id for doc in documents}
 
-    for candidate, definition_row, _owning_art in resolved:
+    for candidate, definition_row, owning_art in resolved:
         for term in candidate.terms:
             derivation_edges = detect_cross_law_derivations(
                 candidate.definition_text, source_term=term, known_law_titles=known_law_titles
@@ -335,6 +350,7 @@ def run_definition_linking(
                     object_entity_type=object_entity_type,
                     object_entity_id=object_entity_id,
                     confidence=confidence,
+                    jurisdiction=document_jurisdictions.get(owning_art.document_id),
                 )
 
     session.commit()
