@@ -25,18 +25,17 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.definition_links.derivation import detect_cross_law_derivations, strip_year_suffix
+from app.definition_links.derivation import strip_year_suffix
 from app.definition_links.extract import (
     DefinitionCandidate,
     extract_adhoc_definitions,
-    extract_definitions_from_section,
     extract_local_definitions,
 )
 from app.definition_links.guards import is_bidi_degraded
 from app.definition_links.matcher import link_articles_to_definitions
 from app.definition_links.normalize import normalize_for_parsing, strip_wikilinks
+from app.definition_links.profiles import get_profile
 from app.definition_links.sections import Article as MatcherArticle
-from app.definition_links.sections import is_definitions_heading
 from app.models.article import Article
 from app.models.assertion import Assertion
 from app.models.definition import Definition
@@ -124,6 +123,27 @@ def run_definition_linking(
         .all()
     }
 
+    # Per-document jurisdiction-profile dispatch (sprint 2026-08-02-us-state-law,
+    # item 3, gates G2-G4): Stages 2-4 resolve `get_profile(document.jurisdiction)`
+    # PER DOCUMENT rather than calling the bare Hebrew `sections`/`extract`/
+    # `matcher`/`derivation` functions directly -- a matter may hold documents
+    # from more than one jurisdiction side by side. `HebrewProfile` (the "IL"
+    # profile) is a pass-through to those exact, unchanged functions, so
+    # routing Hebrew through this dispatch is a no-op -- proven by the full
+    # Hebrew suite, not merely assumed (ruling R2/gate G1). Falls back to
+    # `"IL"` only for the defensive case of a document row that vanished from
+    # `document_jurisdictions` between the two queries above (matches
+    # `Document.jurisdiction`'s own NOT NULL default).
+    profile_cache: dict[str, object] = {}
+
+    def _profile_for_document(document_id: str):
+        code = document_jurisdictions.get(document_id, "IL")
+        profile = profile_cache.get(code)
+        if profile is None:
+            profile = get_profile(code)
+            profile_cache[code] = profile
+        return profile
+
     skipped_degraded_article_ids: list[str] = []
     live_articles: list[tuple[Article, MatcherArticle]] = []
     for art in articles_orm:
@@ -142,9 +162,12 @@ def run_definition_linking(
     # (ORM) article for provenance/persistence.
     all_candidates: list[tuple[DefinitionCandidate, Article]] = []
     for art, matcher_article in live_articles:
-        if is_definitions_heading(art.heading):
+        profile = _profile_for_document(art.document_id)
+        if profile.is_definitions_heading(art.heading):
             scope = _determine_scope(matcher_article.body)
-            for candidate in extract_definitions_from_section(matcher_article.body, scope=scope):
+            for candidate in profile.extract_definitions_from_section(
+                matcher_article.body, scope=scope
+            ):
                 candidate.source_chapter = art.chapter if scope == "chapter" else None
                 all_candidates.append((candidate, art))
         else:
@@ -289,7 +312,11 @@ def run_definition_linking(
                 term_to_definition[term] = definition_row
         matcher_arts = [matcher_article for _, matcher_article in doc_articles]
 
-        edges = link_articles_to_definitions([c for c, _ in doc_candidates], matcher_arts)
+        edges = link_articles_to_definitions(
+            [c for c, _ in doc_candidates],
+            matcher_arts,
+            profile=_profile_for_document(document_id),
+        )
         for edge in edges:
             definition_row = term_to_definition.get(edge.term)
             # DL11 (cycle 2, G5, ruling M9(a)): resolve by the edge's
@@ -324,8 +351,9 @@ def run_definition_linking(
     known_law_titles = {strip_year_suffix(doc.title): doc.id for doc in documents}
 
     for candidate, definition_row, owning_art in resolved:
+        profile = _profile_for_document(owning_art.document_id)
         for term in candidate.terms:
-            derivation_edges = detect_cross_law_derivations(
+            derivation_edges = profile.detect_cross_law_derivations(
                 candidate.definition_text, source_term=term, known_law_titles=known_law_titles
             )
             for derivation_edge in derivation_edges:

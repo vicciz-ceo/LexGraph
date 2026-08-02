@@ -40,17 +40,33 @@ from app.definition_links.extract import DefinitionCandidate
 
 # --- G2: Definitions-heading detection --------------------------------------
 
-# Substring/contains basis (see module docstring) -- "Definition" or
-# "Definitions" as a whole word anywhere in the (possibly scrape-noise-
-# prefixed) heading string.
-_DEFINITIONS_HEADING_RE = re.compile(r"\bDefinitions?\b")
+# The real Delaware `section_title` shape is scrape-noise-prefixed non-letter
+# junk (mojibake `Â`, a raw CRLF, leading whitespace, the `§` symbol, a bare
+# section number, a trailing period) followed by the section's own title
+# (see module docstring / `backend/tests/fixtures/us_statutes/README.md`).
+# A "clean" synthetic heading can instead carry that same section-number
+# prefix spelled out as the word "Section" (e.g. "Section 101. Definitions.").
+# This is deliberately NOT a start-of-raw-string anchor (that fails on 100%
+# of the real dataset, which always carries the scrape-noise prefix) and NOT
+# an unanchored substring search either (that over-matches real non-
+# definitions headings where "Definitions" is merely mentioned elsewhere in
+# a longer phrase, e.g. "Application of Definitions to Prior Acts", "Repeal
+# of Definitions") -- it skips over any leading run of non-letter characters
+# (scrape noise, digits, punctuation, whitespace) and/or a "Section <N>."
+# label, then requires "Definition(s)" to be the FIRST WORD of whatever
+# remains -- i.e. the heading's own operative subject, not a word embedded
+# later in an unrelated title.
+_DEFINITIONS_HEADING_RE = re.compile(r"^(?:[^A-Za-z]+|Section\s+\d+\.?)*Definitions?\b")
 
 
 def is_definitions_heading(heading: str) -> bool:
-    """True when `heading` contains the word "Definition"/"Definitions"
-    anywhere (tolerant of leading scrape-noise -- see module docstring).
+    """True when, after any leading scrape-noise and/or spelled-out
+    "Section <N>." prefix is skipped, `heading`'s first word is
+    "Definition"/"Definitions" -- i.e. that word is the heading's own
+    operative subject, not merely present somewhere inside a longer,
+    unrelated heading (see module-level regex comment).
     """
-    return bool(_DEFINITIONS_HEADING_RE.search(heading))
+    return bool(_DEFINITIONS_HEADING_RE.match(heading))
 
 
 # --- G2 (continued): extracting defined terms out of a Definitions section --
