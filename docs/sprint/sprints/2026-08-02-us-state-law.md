@@ -1,18 +1,18 @@
 ---
 id: "2026-08-02-us-state-law"
-status: planned
+status: in-progress
 current_role: developer
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
-last_agent: "claude-code:planner"
+last_agent: "claude-code:manager"
 last_updated: "2026-08-02T10:28:30Z"
 lint: "PASS 267 2026-08-02T10:28:55Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 0
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
@@ -131,39 +131,6 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-### Item 1 — Jurisdiction controlled vocabulary [G5] [track: vocabulary]
-
-Canonical 54-code list (`IL` + 50 `US-<postal>` + `US-DC`/`US-PR`/`US-FED`)
-in `backend/app/services/jurisdiction.py` (`JURISDICTION_CODES`,
-`validate_jurisdiction`, mirrors `validation.py`'s `ALLOWED_ASSERTION_TYPES`
-pattern), wired into `POST/PATCH/revisions` + `GET .../assertions` query
-param, plus a NEW `GET /api/v1/jurisdictions` endpoint (frontend source of
-truth — R5's call, not a hand mirror). Frontend gets a compile-time TS
-mirror at `frontend/src/constants/jurisdictions.ts`. **Must also fix
-`seed_demo.py`'s `jurisdiction="EU"` (4x) in the same commit** — see
-stale-pin sweep above. Acceptance: `backend/tests/unit/
-test_jurisdiction_vocabulary.py`, `backend/tests/integration/
-test_jurisdiction_api_validation.py` (7 tests, live TestClient), `frontend/
-src/constants/__tests__/jurisdictions.test.ts` all green;
-`test_bootstrap_cli.py` (seed_demo) still passes.
-
-### Item 2 — Jurisdiction-profile seam, Hebrew ported [G1] [track: seam]
-
-`app.definition_links.profiles.get_profile(code) -> JurisdictionProfile`
-registry (additive — existing `sections.py`/`matcher.py`/`derivation.py`/
-`normalize.py` bare functions stay untouched, ~20 tests import them
-directly). `HebrewProfile` (`"IL"`) thin-wraps them. Also lands
-`Document.jurisdiction` (NOT NULL, default `"IL"`) +
-`ingest_wiki_law(..., jurisdiction="IL")` (default, not required —
-backward-compat for every existing Hebrew call site) and
-`link_articles_to_definitions(..., *, profile=None)`. Blocks Item 3
-(US profile needs the registry) and Item 5 (stamping needs
-`Document.jurisdiction`). Acceptance: `backend/tests/unit/
-test_definition_links_profiles.py` (Hebrew fidelity proof against real
-`.wiki` fixtures), `backend/tests/integration/
-test_definition_links_pipeline_profile_dispatch.py` (live pipeline,
-byte-identical Hebrew output through the new dispatch path).
-
 ### Item 3 — US jurisdiction profile [G2, G3, G4] [track: us-profile]
 
 English Definitions-heading detection (tolerant of the REAL Delaware
@@ -241,7 +208,32 @@ Acceptance: `AssertionSuggestionForm.jurisdiction.test.tsx` (3),
 
 ## Dev Complete
 
-_None yet._
+### Item 1 — Jurisdiction controlled vocabulary [G5]
+Files: `app/services/jurisdiction.py` (new), `app/routers/assertions.py`,
+`app/main.py`, `app/seed_demo.py`, `frontend/src/constants/jurisdictions.ts` (new).
+Branch `claude/us-state-law-vocabulary` @ `be609a5`, merged to sprint branch.
+Result: 54-code vocabulary enforced on POST/PATCH/revisions + list filter (422 on
+invalid, null still allowed); `GET /api/v1/jurisdictions` serves the canonical list;
+seed_demo's invalid `"EU"` fixed. 70 backend + 4 frontend target tests green.
+Manager verification: diff read, zero test files touched; `main.py` 3-line addition
+is inside the documented append-only registration zone — accepted.
+
+### Item 2 — Jurisdiction-profile seam, Hebrew ported [G1]
+Files: `app/definition_links/profiles.py` (new), `.../ingest.py`, `.../matcher.py`,
+`app/models/document.py`.
+Branch `claude/us-state-law-seam` @ `7daf286`, merged to sprint branch.
+Result: `get_profile(code)` registry + `HebrewProfile` pass-through; additive only —
+existing bare functions untouched; `profile=None` and `jurisdiction="IL"` defaults
+keep every Hebrew call site working. 16 target tests green, all 504 pre-existing
+tests still green (G1 satisfied).
+Manager verification: full diff read (persistence surface). `server_default="IL"`
+deviation accepted — `conftest.py` seeds documents via raw SQL that bypasses the
+ORM default, and that fixture is Planner-owned, so a DB-level default was the
+correct fix rather than editing the test.
+
+**Merged-tree evaluator (manager-run, 2026-08-02):** backend 591 passed / 12 failed
+/ 18 errors; frontend 155 passed / 10 failed. Every remaining failure belongs to
+Items 3, 4, 5, 6 — no regression against the 504/151 baseline.
 
 ## Completed
 
