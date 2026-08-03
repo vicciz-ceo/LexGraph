@@ -265,3 +265,101 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+## `pr_sample_rows.json` — Puerto Rico Spanish-language fixtures (sprint
+2026-08-04-defs-us-pr, Planner, 2026-08-04)
+
+10 REAL rows (full original columns, values unmodified) pulled from
+`us_pr_statutes.parquet` (HF snapshot
+`datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad/`,
+23,636 rows, never downloaded by any test — read once by the Planner via a
+disposable scratch script outside `backend/.venv`, same discipline as R6).
+Picked from a full-corpus survey (every row scanned, not a sample) to cover
+every entry-marker/idiom shape measured — see the sprint contract's
+`## Spanish idiom survey (measured)` section and this sprint's log for the
+full counts. One row per shape:
+
+1. **`STATE_PR_LEY_249_2003_ART3`** — bare canonical heading (`"Artículo 3.
+   Definiciones"`). Body: 9 entries, letter-period markers (`a.` .. `i.`),
+   curly-quoted terms, colon separator (`“Término”: definición`). The
+   dominant canonical shape (`letter-period` marker family, `quote+colon`
+   separator family).
+2. **`STATE_PR_LEY_63_2023_ART3`** — compound/truncated heading (`section_
+   title` runs on past "Definiciones" into the body's own opening prose —
+   see item 8's note below for why; here it merely runs into the section's
+   own scope-setting sentence, not into an entry). 6 entries, `(a)`..`(f)`
+   full-paren markers, UNQUOTED terms + em-dash + verb idiom (`Es`/
+   `Significará`/`Será`) — no colon, no quotes at all.
+3. **`STATE_PR_LEY_77_1957_ART30_020`** — heading `"Artículo 30.020.
+   Definiciones:"` (trailing colon variant). Body opens `"A los fines de
+   este Capítulo, ..."` — the CHAPTER-scope trigger phrase, the only one of
+   these 10 rows with non-law-wide section scope. 9 entries, `(a)`..`(i)`
+   full-paren markers, quoted terms + colon + `Significa`/`Es`.
+4. **`STATE_PR_LEY_77_1957_ART1_090`** — heading `"Secretario, definición"`
+   (singular, semicolon/comma-joined single-term Civil-Code-style variant).
+   Body is a SINGLE entry with NO list marker at all: `"Secretario. —
+   Significa el Secretario de Hacienda."` — 27.4% of all canonical rows
+   (174/635) have no genuine multi-entry marker; this is the minimal real
+   example of that shape.
+5. **`STATE_PR_LEY_85_2018_ART9_04`** — heading `"Posesión de Armas y
+   Sustancias Controladas en las Escuelas"` (NOT a Definiciones heading —
+   `is_definitions_heading` must return `False`). Body contains an AD-HOC,
+   article-scoped definition embedded in an ordinary substantive article:
+   `'A los fines de este Artículo "cualquier tipo de arma" incluye
+   todas las armas...'` — the Spanish analog of Hebrew's `extract_local_
+   definitions` (`לענין זה, "X" - ...`), scope="local". Director-mandated
+   "definitions outside the canonical placement" case (P2), and the P3
+   article-scope proof case.
+6. **`STATE_PR_LEY_160_2013_ART5_4`** — heading `"...Programa de
+   Aportaciones Definidas"` ("Defined Contributions Program" — a pension-
+   law term of art). FALSE-POSITIVE GUARD: contains the `defini*` substring
+   but is NOT a definitions heading (`is_definitions_heading` must return
+   `False`). 12/635 `defini*`-containing headings corpus-wide share this
+   `Aportaciones Definidas` stem — a naive substring check would wrongly
+   flag every one.
+7. **`STATE_PR_LEY_165_2020_ART1_2`** — heading is a Table-of-Contents
+   listing (`"Tabla de Contenido ... Artículo 1.4 Definiciones Ar[tículo
+   1.5...]"`, truncated) that happens to mention "Definiciones" as one item
+   in a TOC, not as this article's own subject. FALSE-POSITIVE GUARD:
+   `is_definitions_heading` must return `False` (neither first-word nor
+   last-word position — see item 8).
+8. **`STATE_PR_LEY_135_1979_ART1`** — a REAL, NOT-INJECTED data-quality
+   artifact (this dataset's PR analog of the DE mojibake / PA collision
+   findings above): `section_title` and `text` are split at a fixed
+   ~200-character boundary that lands MID-WORD — the heading ends
+   `"...Estado Libre Asoc"` and `text` resumes `"iado de Puerto Rico..."`
+   (one word, "Asociado", torn in half across the two columns). Verified
+   9/635 canonical rows (1.4%) have a `section_title` > 120 chars from this
+   exact artifact. Consequence: entry (a) ("Oficina") is defined entirely
+   inside the truncated `section_title` overflow and is **absent from
+   `text`** — no regex over `text` alone can recover it; this is a genuine
+   corpus-quality limitation, not a code defect (same category as the PA
+   collision/CA quote-mismatch findings above), flagged for QA. Despite the
+   garbage tail, `is_definitions_heading` MUST still return `True` for this
+   heading (via a first-word-position rule: "Definiciones" is the first
+   token after the "Artículo 1." prefix, even though the string keeps
+   running past it) — proving the heading rule needs first-word-anchored
+   matching, not last-word-only. Body (from `text`, entries b-e only):
+   letter-close-paren-only markers (`b)`, `c)`, `d)`, `e)`), quoted terms +
+   colon + `significará`.
+9. **`STATE_PR_LEY_15_2024_ART3`** — bare canonical heading. Body: 6
+   entries, `a)`..`f)` letter-CLOSE-PAREN-ONLY markers (no opening paren —
+   this newer-law convention appears in 82/635 canonical rows), UNQUOTED
+   terms + period + em-dash, no verb idiom needed (definition text starts
+   directly with a noun phrase, e.g. `"Composta. — Proceso de
+   descomposición..."`).
+10. **`STATE_PR_LEY_70_1997_ART1`** — heading `"Comité de Acción para la
+    Prevención de la Mortalidad Infantil"` (NOT a Definiciones heading).
+    Body contains `"(en adelante, Comité)"` — the Spanish inline apposition
+    family (`en adelante`, "hereinafter"), 49 corpus-wide occurrences,
+    mechanically distinct from the `A los fines de` ad-hoc family (item 5):
+    no idiom verb, no quoted term — just a parenthetical restating the
+    immediately-preceding noun phrase as its own short name. Spanish analog
+    of Hebrew's `extract_adhoc_definitions` (`(להלן - X)`), scope="local".
+
+Provenance: same dataset/commit as the US-state rows above
+(`vaquill/open-us-law`, CC-BY-4.0, underlying text public domain), fetched
+2026-08-04 via a disposable scratch script (`pyarrow` is present in THIS
+sprint's own worktree venv — `backend/.venv/bin/pip list` shows
+`pyarrow==25.0.0` already installed, unlike the 2026-08-02 sprint's venv —
+so no separate scratch venv was needed this time; the parquet file itself
+was still never read by anything under `backend/tests`).
