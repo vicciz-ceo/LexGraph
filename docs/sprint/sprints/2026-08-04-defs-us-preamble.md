@@ -125,7 +125,24 @@ _None._
 
 ## Context Dump
 
-Manager setup complete: worktree + venv + identity verified. Core seam spec
-not yet published — plan and author RED tests meanwhile; developers do
-non-shared-module work only until core merges. Planner spawned with the
-findings above.
+Manager setup complete: worktree + venv + identity verified. U5 baseline
+measured: **641 passed, 0 failed** at `bd18411`.
+
+**Core seam spec IS published** (log M-R7). This sprint's entire deliverable
+is one new file `backend/app/definition_links/rules/us_body_preamble.py`
+(rule kind `BodyPreambleRule`, `derive_heading: body -> synthesized heading |
+None`, registered via `register_body_preamble_rule`) plus our own tests.
+Detection kinds are baseline-first, registry-second, first-match-wins in
+filename-sort order. Zero edits to `pipeline.py`/`matcher.py`/`profiles.py`/
+`extract.py` — that satisfies U3.
+
+**Open question M-R7(a)**: `BodyPreambleRule.derive_heading` receives only the
+body, never the heading. If registry rules are tried whenever the baseline
+returns `None` (regardless of heading shape), MD/NE/MS/SD are unblocked with
+no core dependency — but gate A's false-positive guard is gone and all
+precision risk lands on our rule. Planner must settle this against core's
+real code before tests are finalized.
+
+Planner attempt #1 died mid-exploration with no work product and no partial
+state (log M-R5); attempt #2 runs the same brief with an incremental
+commit-per-deliverable requirement.

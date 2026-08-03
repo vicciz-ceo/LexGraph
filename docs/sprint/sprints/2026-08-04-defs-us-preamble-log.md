@@ -101,3 +101,87 @@ what counts as a definition; per P-R6 the Planner is always Sonnet high.
 **Haiku considered: no** — this is open-ended discovery over real statutory
 prose with a zero-miss bar, not a bounded mechanical change.
 `model=inherit` not used.
+
+### M-R4 — Baseline for U5, measured (not assumed)
+
+`backend/.venv/bin/pytest backend/tests -q` at `bd18411`:
+**641 passed, 0 failed, 18 warnings in 14.62s.** This is the U5 reference.
+
+Also verified independently (constraint enforcement, not trust): **no test in
+`backend/tests/` reads the vaquill snapshot** — every `parquet`/`huggingface`
+reference is a docstring or a committed local fixture. Repo fixture convention
+is `backend/tests/fixtures/us_statutes/*.json` holding verbatim full parquet
+row dicts, 4–37 KB per file. Re-check after any role vendors new fixtures.
+
+### M-R5 — Planner attempt #1 died mid-run; retry recorded
+
+The program manager flagged that this sprint had **no live background child**
+while the manager reported "Planner running". Verified rather than assumed:
+
+- Transcript `agent-ad74ac35c5b90e094.jsonl` exists — 64 records, 424 KB — so
+  the agent genuinely launched and worked.
+- Its last record is an **empty assistant turn**; there is no result record
+  and, unlike sibling agents, **no `.meta.json`**. It terminated without
+  returning.
+- `git log` shows no Planner commit and `git status --porcelain` is **empty**
+  — it died during the read/explore phase (last calls: `Read`, `Bash` grep,
+  `codegraph_explore`) before writing anything. **No work product lost beyond
+  the exploration; no partial or corrupt state in the worktree.**
+
+Manager ruling: the failure mode is silent agent death with total work loss,
+because the agent batched all writing to the end. Attempt #2 adds an
+**incremental-durability requirement** — commit and push after each deliverable
+(D1–D4) — so a second death costs one deliverable, not the phase. Same brief
+and same model/effort otherwise (M-R3).
+
+Process lesson: *a recorded spawn ruling is not a running agent.* The manager
+must confirm a child is live (transcript growing, or a commit landing) before
+reporting it as running, and must never end a turn with no live child and no
+pending work.
+
+### M-R6 — Boundary conflicts pre-approved for routing
+
+Program manager's answer to M-R2: the three cross-sprint conflicts
+(MS → scoped-inline, SD → headings verb-form, SD unquoted term → markers) are
+**pre-approved for routing**. Once the Planner's D2 dossier quantifies them,
+the manager sends an **item-level split proposal**; the program manager rules
+or relays to the director under P-R2. The panel does NOT settle ownership
+itself — it produces the numbers that make the split decidable.
+
+### M-R7 — Core seam spec published; this sprint's slot is explicit
+
+`## Seam spec (published)` appeared on `origin/claude/defs-core-scope` (found
+on poll 7 of a bounded watch). Read in full. What it means here:
+
+- This sprint's deliverable is **exactly one new file**,
+  `backend/app/definition_links/rules/us_body_preamble.py`, plus its own
+  tests. Rule modules self-register by *existing* in `rules/` (the package
+  `__init__` imports every module via `pkgutil.iter_modules`), so file
+  creation is the whole change and six panels cannot conflict.
+- Our rule kind is **`BodyPreambleRule(jurisdiction_codes, derive_heading)`**
+  where `derive_heading: Callable[[str], str | None]` maps **body text → a
+  synthesized heading**. Registered via `register_body_preamble_rule`.
+- Detection kinds are **baseline-first, registry-second, first-match-wins in
+  filename-sort order**. Extraction kinds union. Ours is a detection kind.
+- Core deletes `_is_placeholder_heading` / `_derive_heading_from_body` /
+  `_extract_inline_quoted_definitions` from `pipeline.py`, moving them
+  verbatim behind `USProfile.derive_heading_from_body(heading, body)` and
+  `extract_definitions_from_section(..., heading_was_derived=...)`.
+- **Zero edits** permitted by us to `pipeline.py`, `matcher.py`,
+  `profiles.py`, or `extract.py`'s existing functions — satisfying U3.
+
+**M-R7(a) — OPEN QUESTION the Planner must settle against core's real code.**
+`BodyPreambleRule.derive_heading` receives **only the body**, never the
+heading. If registered body-preamble rules are tried whenever the *baseline*
+returns `None` — including when the heading is not a placeholder at all —
+then MD/NE/MS/SD are **not** blocked by the gate-A finding of M-R1, and this
+sprint needs no core change to `_is_placeholder_heading`. But the entire
+false-positive guard that gate A provided (restricting derivation to
+information-free headings) would then be **absent for registry rules**,
+putting 100% of the precision burden on our own rule's discrimination — over
+every US section in the corpus, not just placeholder-headed ones. If instead
+the placeholder gate still wraps registry dispatch, MD/NE/MS stay blocked and
+we have a hard dependency on core. The spec does not say which. The Planner
+resolves this by reading core's actual implementation and tests on
+`origin/claude/defs-core-scope`; if the code does not yet answer it, it is a
+panel question for core and the manager escalates it.
