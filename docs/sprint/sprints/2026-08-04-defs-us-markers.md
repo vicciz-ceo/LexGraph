@@ -3,9 +3,10 @@ id: "2026-08-04-defs-us-markers"
 status: planning
 current_role: planner
 branch: claude/defs-us-markers
-locked_by: null
-locked_at: null
-last_agent: "claude-code:program-manager"
+worktree: /Users/nerya/LexGraph-wt/defs-us-markers
+locked_by: "claude-code:planner"
+locked_at: "2026-08-04T01:00:00Z"
+last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
@@ -80,6 +81,24 @@ registrations append-only. Out-of-family misses route via program manager.
 All program standing constraints apply (program doc): CodeGraph first;
 red-before-green live-path tests; Planner owns tests; QA independent; no
 test downloads the corpus; absolute zero-miss bar; P-R2.
+
+## Manager rulings
+
+Full text in `2026-08-04-defs-us-markers-log.md` §M1. Summary:
+- **U-R1** — "captured" = captured CLEANLY (right term, right boundary);
+  boundary quality is a measurable RED assertion, not prose.
+- **U-R2** — the `_extract_inline_quoted_definitions` rewiring is a JOINT
+  decision with the core panel; no Developer touches it before both Planners
+  record the boundary in writing in both contracts.
+- **U-R3** — the correctly-empty classifier is a Planner deliverable and is
+  independently verified by QA.
+- **U-R4** — P-R2 escalation per conflict class, with real statute rows.
+
+## Boundary with core sprint (`2026-08-04-defs-core-scope`)
+
+_Status: NOT YET AGREED. Core's `## Seam spec (published)` was absent as of
+`origin/claude/defs-core-scope` @ `5b93ef8`. This section is filled in by the
+Planner once both Planners agree; no work on shared modules until then._
 
 ## Next Steps
 
