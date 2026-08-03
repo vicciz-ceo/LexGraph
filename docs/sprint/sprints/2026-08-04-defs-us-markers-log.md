@@ -835,3 +835,67 @@ is spec, not code. Therefore:
   standalone NEW module with no registry dependency, QA calls it directly for
   gate U4's zero-miss sweep, and it already has 15 RED tests. It is dispatched
   now.
+
+---
+
+## M4 — manager verification of Developer (correctly_empty.py): **BOUNCED**
+
+**CHECK 1 — scope discipline: PASS.** `git diff ea09e23..HEAD --stat` → exactly
+one file, `backend/app/definition_links/correctly_empty.py` (+159). Zero files
+under `backend/tests/` touched. Zero shared-module edits. Full read of the
+module: no fixture `act_id` hardcoding anywhere, pure function of `body_text`,
+159 lines (within the 300-line budget), documented with rationale.
+
+**CHECK 2 — suite: PASS.** `15 failed, 659 passed` — exactly the 15 target
+tests turned green, the other 15 (blocked waves) unchanged. No regressions.
+
+**CHECK 3 — ADVERSARIAL live-corpus check: FAIL.** The unit tests only exercise
+the vendored rows, so I ran the classifier over the FULL real parquet for
+WA/VA/FED/DC/WI/WY: every Definitions-headed, zero-candidate section, asking
+the question the tests cannot ask — *does any row this classifier calls
+"correctly empty" actually contain extractable real definitions?*
+
+| Jur | zero-candidate | called correctly-empty | terminal/xref | **FALSE correctly-empty** |
+|---|---|---|---|---|
+| WA | 1,778 | 8 | 0/8 | **4** |
+| VA | 1,065 | 0 | 0/0 | 0 |
+| FED | 1,600 | 0 | 0/0 | 0 |
+| DC | 332 | 184 | 184/0 | 0 |
+| WI | 62 | 2 | 0/2 | 0 |
+| WY | 56 | 19 | 0/19 | 0 |
+
+**4 of WA's 8 cross-reference classifications are wrong — a 50% error rate in
+that bucket.** Real examples, each carrying ~20 genuine defined terms:
+`STATE_WA_T82_C23A_S010` (`Petroleum product`, `Possession`, `Control`…),
+`STATE_WA_T18_C44_S011` (`Committee`, `Department`, `Designated escrow
+officer`…), `STATE_WA_T70A_C30_S010`. The terminal-status half is clean
+(DC 184/184 correct); the defect is confined to `_CROSS_REFERENCE_RE`.
+
+**Exact mechanism (diagnosed, not guessed).** `_CROSS_REFERENCE_RE`'s citation
+group `[^\n]+?` is lazy but unrestricted — it may swallow arbitrary text
+INCLUDING sentence-ending periods. `STATE_WA_T82_C23A_S010` opens with the
+self-referential preamble `"The definitions in this section apply throughout
+this chapter…"` (offset 32) and, 1,800 characters of real definitions later,
+happens to CLOSE with a genuine cross-reference sentence: `"…the definitions
+in chapters 82.04, 82.08, and 82.12 RCW apply to this chapter."` (second
+`apply` at offset 1826). The regex anchors on that SECOND `apply`, the citation
+group swallows all the intervening real law, the trailing clause consumes
+` to this chapter`, and `fullmatch` succeeds. The "entire body must be nothing
+but the cross-reference sentence" intent is therefore defeated by any section
+that merely ENDS with such a sentence.
+
+The trailing clause already forbids crossing a sentence boundary; the citation
+group does not. That asymmetry is the bug.
+
+**Ruling U-R7 — this bounces to the panel, and the TEST comes first.** The
+Developer's work was in-scope and disciplined; the miss is a test-coverage
+gap, which is Planner territory. Role separation holds: the **Planner**
+authors the RED test (vendoring the real WA rows above), THEN the **Developer**
+fixes the regex. The Developer does not write the test; the Planner does not
+touch the module.
+
+This is the second time the same failure mode has been caught on this
+deliverable (§M3 was the first, in the Planner's own design). It vindicates
+ruling U-R3: an unverified "correctly empty" classifier is the single easiest
+way to fake a zero-miss result, and unit tests over hand-picked rows cannot
+prove its absence — only a full-corpus adversarial sweep can.
