@@ -241,17 +241,104 @@ def is_definitions_heading(heading: str) -> bool:
 
 # --- G2 (continued): extracting defined terms out of a Definitions section --
 
-# A numbered-paragraph entry marker, e.g. "(1)", "(2)" -- the real DE
-# fixture's Definitions-section body shape. Matched at the start of a line
-# (mirrors extract.py's `_ENTRY_START_RE` block-splitting approach for
-# Hebrew's `:-`-marked entries, adapted to this structurally different
-# marker).
-_ENTRY_START_RE = re.compile(r"^\s*\(\d+\)\s*")
-
 # The real fixture uses CURLY quotes (“/”) around each defined
 # term, not straight ASCII quotes -- both accepted here since a clean/
 # synthetic input might reasonably use either.
 _LEADING_QUOTE_RE = re.compile(r'^[“"]([^”"]+)[”"]')
+
+# Wave-7 fix (QA cycle 4, item 3 -- "one term swallows three others"):
+#
+# A numbered-paragraph entry marker is NOT always a single digit in
+# parens. The original rule (a bare `\(\d+\)` at the start of a line)
+# matches DE's real fixture shape ("(1) ... (2) ... (3) ...") but real
+# California drafting nests a top-level single-LETTER marker with a
+# digit sub-marker immediately after it on the SAME line
+# ("(d) (1) “Dispose” means ..."), and later top-level entries
+# in that same section switch to a BARE letter marker with no digit at
+# all ("(e) “Open-space purposes” means ..."). The digit-only
+# rule never recognizes a letter-only line as a new entry, so once the
+# last digit-marked sub-entry is opened, every following line -- no
+# matter its own top-level marker -- was silently appended to that SAME
+# block all the way to the end of the section: the real defect, a single
+# 26,715-character "Dispose" block absorbing 3 other terms
+# ("Open-space purposes", "Sectional planning area", "Sectional planning
+# area document").
+#
+# Fix: an entry starts wherever a line, after stripping a leading CHAIN
+# of one or more parenthesized marker tokens (each `\(\w+\)` -- digit,
+# single letter, or roman numeral, however many chain together, e.g.
+# "(d) (1)"), is immediately followed by a quoted term. This covers
+# DE's plain "(1) "Term"..." shape (a one-token chain) AND CA's nested
+# "(d) (1) "Term"..."/bare "(e) "Term"..." shapes (chains of 1 or more
+# tokens) with the SAME rule, while a marker chain NOT immediately
+# followed by a quote (an ordinary un-quoted sub-item, e.g. "(A) The
+# sale of the surplus land.") never starts a spurious new entry on its
+# own.
+#
+# A bare digit marker (`\(\d+\)`, e.g. "(2)", "(32)") is ADDITIONALLY
+# always treated as an entry boundary even with no quote immediately
+# after it -- this is the ORIGINAL rule, kept unconditionally: real
+# sections routinely interleave several non-defining numbered
+# paragraphs ("(b) For each fiscal year ...", "(d) (1) Except as
+# otherwise provided ...") between one lettered defining entry and the
+# next, with NO further quote for hundreds/thousands of characters: a
+# quote-only rule would run the current block all the way to the next
+# actual quoted term, re-inflating exactly the bloat this fix exists to
+# remove. Keeping the original unconditional-digit boundary means a
+# later bare "(N)" -- defining or not -- still closes out whatever
+# block is currently open, bounding it the same way it always has for
+# DE/TX's pure-digit convention, while the new quote-anchored chain
+# rule additionally catches the letter-marked entries the original
+# rule could never see at all.
+#
+# Each token in the chain is matched by its own single, bounded,
+# non-nested quantifier (`\(\w+\)\s*`, no alternation inside it) -- the
+# loop below just repeats that ONE match call token-by-token, so there
+# is no nested quantifier over an alternation anywhere and no
+# possibility of the earlier ReDoS shape (see the module-level comment
+# on `is_definitions_heading`): stripping an N-token chain is exactly N
+# bounded match calls, and there is no ambiguity in how a chain
+# partitions into tokens (each one is delimited by literal parens), so
+# there is nothing for the engine to backtrack over -- unconditionally
+# linear in the length of `text`.
+_MARKER_TOKEN_RE = re.compile(r"\(\w+\)\s*")
+_BARE_DIGIT_MARKER_RE = re.compile(r"^\s*\(\d+\)\s*")
+
+
+def _strip_marker_chain_before_quote(line: str) -> str | None:
+    """If `line`, once a leading run of whitespace and parenthesized
+    marker tokens is stripped, begins directly with a quoted term,
+    return the remainder (marker chain removed) -- this line starts a
+    new definition entry. Otherwise return `None`.
+    """
+    rest = line.lstrip()
+    stripped_any = False
+    while True:
+        match = _MARKER_TOKEN_RE.match(rest)
+        if match is None:
+            break
+        rest = rest[match.end() :]
+        stripped_any = True
+    if not stripped_any or not _LEADING_QUOTE_RE.match(rest):
+        return None
+    return rest
+
+
+def _entry_start_remainder(line: str) -> str | None:
+    """Return the remainder of `line` with its leading entry marker(s)
+    stripped if `line` starts a new definition entry, else `None`. Tries
+    the (quote-anchored) marker-chain rule first; falls back to the
+    original unconditional bare-digit-marker rule so a later bare
+    "(N)" still closes out an open block even with no quote right after
+    it (see the rationale comment above `_MARKER_TOKEN_RE`).
+    """
+    chain_remainder = _strip_marker_chain_before_quote(line)
+    if chain_remainder is not None:
+        return chain_remainder
+    digit_match = _BARE_DIGIT_MARKER_RE.match(line)
+    if digit_match is not None:
+        return line[digit_match.end() :]
+    return None
 
 
 def _split_into_numbered_blocks(text: str) -> list[str]:
@@ -259,10 +346,11 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
     blocks: list[list[str]] = []
     current: list[str] | None = None
     for line in lines:
-        if _ENTRY_START_RE.match(line):
+        new_entry_start = _entry_start_remainder(line)
+        if new_entry_start is not None:
             if current is not None:
                 blocks.append(current)
-            current = [_ENTRY_START_RE.sub("", line, count=1)]
+            current = [new_entry_start]
         elif current is not None:
             current.append(line)
     if current is not None:
