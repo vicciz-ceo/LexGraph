@@ -463,3 +463,98 @@ undisclosed — the program manager's checkout is confirmed clean
   yet), so there is a small chance the real post-core call shape differs
   slightly from what I wrote — flagging as a plausible (not confirmed)
   friction point for whoever picks up Phase B.
+
+---
+
+## 2026-08-04 — Manager review of the Planner handoff
+
+Handoff diff verified by the manager (three-dot, materialized to
+`planner_handoff.diff`, 1,740 lines; full read of the contract hunks and the
+unit/negative-guard tests, `--stat` + targeted reads elsewhere).
+
+**Verified independently, not taken on the Planner's word:**
+- **Zero production-code edits**: `git diff --stat b4f7833...HEAD -- backend/app/`
+  is **empty**. Gate U3 holds so far.
+- **No test reads the corpus or the network**: grep for
+  `parquet|huggingface|hf_hub|requests\.|urlopen` across all three new test
+  files → **none**. Program constraint / prior ruling R6 holds.
+- **RED reproduced by the manager**: the three new test files →
+  **30 failed, 0 passed in 0.17s**. 29 `ModuleNotFoundError`, 1 genuine
+  assertion failure in `TestRealProductionPipeline` (the DB-backed pipeline
+  runs and creates zero definitions) — that one is a real live-path RED, not
+  an import artefact.
+- **Test quality**: positive tests assert the fixture's verbatim
+  `section_title` BEFORE asserting behaviour, so a fixture edit cannot
+  silently rescue a test. Negative guards use **real rows** (TX true
+  negative, AZ/AR preposition, NY "as defined in", AK/TX morphology) plus the
+  pre-existing real IL `Section 15` guard; the only two synthetic strings are
+  labelled as such with a stated reason. Accepted.
+- **Planner's self-flagged workspace breach**: it applied one edit to the
+  program manager's checkout `/Users/nerya/LexGraph` before catching and
+  reverting it. **Manager verified that checkout is clean**:
+  `git -C /Users/nerya/LexGraph status --short` → only the pre-existing
+  untracked `.claude/settings.json`; HEAD `3925f41`, unchanged by us. No
+  commit or push ever occurred there. Recorded as a process near-miss; the
+  Planner disclosing it unprompted is the behaviour we want.
+
+### H-R5 — Phase A is buildable now, but NOT the way item 1 described
+
+Item 1 was internally inconsistent (a module-level `register_heading_rule`
+import cannot coexist with "19 unit tests green" — the ImportError fails them
+all). Manager findings, both verified live:
+
+1. The `rules/` package exists **nowhere yet** — not on this branch, and not
+   on `origin/claude/defs-core-scope`. `rules/__init__.py` and
+   `rules/registry.py` are core-authored and stable-forever per the seam, so
+   **our Developer must not create either**.
+2. **PEP 420 namespace packages work here** (manager probe: a `rules/`
+   directory holding one module, no `__init__.py`, imports correctly as
+   `app.definition_links.rules.us_heading_variants`).
+
+**Ruling:** Phase A ships the **pure function only** — no `__init__.py`, no
+registration call. That takes all 19 unit tests green with zero core
+dependency and zero rebase-collision risk. The `register_heading_rule(...)`
+call lands in Phase B item 3, after the rebase. Contract item 1 corrected
+accordingly.
+
+### H-R6 — the row-count discrepancy is fully explained; no data problem
+
+The Planner honestly flagged that it could not reconcile the log's 2,038,247
+total against its own 2,014,611 recount, and refused to silently correct a
+number it could not explain. **Correct instinct; here is the answer:**
+
+```
+2,038,247 − 2,014,611 = 23,636 = exactly Puerto Rico's row count
+```
+
+The scout's TOTAL summed all 53 files (PR included in the total even though
+PR was excluded from every analysis column); the Planner's total covered the
+52 in-scope files only. **Both scans read identical data** — which is why all
+three derived numbers (83,303 / 61,075 / 22,228) matched exactly. No
+correction needed to any measurement; the log's total is relabelled here as
+"53 files including PR".
+
+### Manager acceptance of the Planner's corrections
+
+- **Misspelled cluster is 6 rows, not 16** — accepted (exhaustive
+  token-frequency census beats the earlier cluster estimate).
+- **R-COLON dropped as 100% redundant with R-MID** — accepted, and it
+  supersedes the manager's own H-R2 framing of NH colon-numbering as a
+  distinct sub-cause. The mechanism the Planner gives is right and the
+  manager re-checked it: baseline's `_TAIL_TOKEN_SPLIT_RE` already splits on
+  `:`, so colon numbering only ever defeats the FIRST-word rule, and every
+  case where that matters is a mid-token case R-MID already catches. **H-R2's
+  "NEW sub-cause" line is hereby superseded** — recorded rather than edited,
+  this log is append-only.
+- **Verb-form yield is 46/9,813 (0.47%), not literally zero** — accepted, and
+  it refines H-R1 rather than contradicting it. WI is 41.7% real yield
+  (`STATE_WI_C939_S939.22`, "Words and phrases defined.", 27 clean
+  candidates) while NV — 90% of the cluster — is genuinely 0%. The manager's
+  0/85 sample and this population count are statistically consistent.
+  **H-R1's routing rule stands**, but the framing narrows to: verb-form
+  outside WI/WV/WY is ~0% yield; WI/WV/WY carry real end-to-end value.
+- One federal verb-form hit (`USC_T42_C7_S409`) the Planner hand-checked was
+  a **spurious** extraction (a quoted cross-reference mis-parsed as a
+  definition). Correctly kept out of the fixtures; **routed to the program
+  manager for the markers panel** as an extraction-quality observation.
+

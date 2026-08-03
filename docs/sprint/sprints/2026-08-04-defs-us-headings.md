@@ -118,13 +118,30 @@ green alongside them.
    write the module anyway, it is correct code waiting on an import.
    Serves **U1, U3**. CHECK:
    `backend/tests/unit/test_definition_links_us_heading_variants.py`
-   fully green (19 tests: 10 positive-rule + 9 negative-guard). This item
-   does NOT require core — only `app.definition_links.rules.registry`
-   (imported at the bottom of the new module) is missing right now, and
-   that import can be stubbed/deferred by writing `matches_heading_variant`
-   first and the registration call last, then running the unit test file
-   alone (it never imports `registry`) to confirm the pure function is
-   correct before wiring the registration call.
+   fully green (19 tests: 10 positive-rule + 9 negative-guard).
+
+   **Manager correction (ruling H-R5) — item 1 as originally written was
+   internally inconsistent** ("write the registration call, accept
+   `ModuleNotFoundError`" cannot coexist with "unit tests fully green": a
+   module-level import error fails all 19). Corrected shape, verified live
+   by the manager:
+   - The `rules/` package does **not exist on this branch or on
+     `origin/claude/defs-core-scope`** — core has not written it yet.
+     `rules/__init__.py` and `rules/registry.py` are **core-authored and
+     stable forever** per the seam; **the Developer must NOT create
+     either** (doing so guarantees a rebase collision and forks the
+     auto-discovery implementation).
+   - Manager verified empirically that **PEP 420 namespace packages work
+     here**: a `rules/` directory containing only our module, with NO
+     `__init__.py`, imports fine as
+     `app.definition_links.rules.us_heading_variants`.
+   - **Phase A therefore ships the PURE FUNCTION ONLY**: create
+     `rules/us_heading_variants.py` containing `matches_heading_variant`
+     and its own normalization helpers, with **no `__init__.py` and no
+     `register_heading_rule` import/call**. All 19 unit tests go green
+     now, with zero core dependency.
+   - The `register_heading_rule(...)` call is added in **Phase B, item 3**
+     (post-rebase), when `rules/registry.py` actually exists.
 
 2. **Composed deterministic-engine end-to-end tests green** — no code
    change beyond item 1; these exercise `matches_heading_variant` chained
