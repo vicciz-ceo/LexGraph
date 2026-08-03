@@ -1,7 +1,7 @@
 ---
 id: "2026-08-02-us-state-law"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
@@ -103,6 +103,25 @@ do not re-derive its findings).
   (c) **Georgia still effectively blind:** 5 detected / 28,154 rows. GA's
   convention (`"As used in this chapter, the term:"`) carries no "definitions"
   word. Deliberately not forced under the zero-false-positive priority.
+
+- **R16 — Wave 7 merged; manager-verified WITH a stated residual (2026-08-03).**
+  Root cause was broader than QA's report: the entry splitter only accepted a bare
+  `(N)` digit marker, so LETTER-led entries (`(d) (1) "Dispose" means`, `(e)
+  "Open-space purposes" means`, TX's `(6)(A) "Gross revenues"`) were never treated
+  as boundaries. Not a CA-only bug — DE (+756 terms) and TX (+75) were silently
+  losing terms too. Evaluator: **641 backend / 165 frontend / typecheck clean**.
+  **Manager probe of the exact defective row (`STATE_CA_..._S54221`): 10
+  definitions now extracted (was 2); `Open-space purposes` recovered; `Dispose`
+  26,715 -> 286 chars.**
+  **RESIDUAL, not fixed — carried as a known limitation:** the bloat MOVED rather
+  than cleared. `Open-space purposes` is now itself **21,174 chars**, and two
+  extracted "terms" on that row are sentence fragments (`A contract or contracts
+  serving as an enforceable restrict...`), not defined terms. Corpus-wide impact
+  looks small (QA cycle 4 sampled 120 terms across IL/CA/DE/TX: 120/120 genuine;
+  Developer measured >5,000-char records CA 13 -> 5), but this one real section is
+  still not cleanly parsed. Manager decision: DO NOT spend the last QA cycle
+  bouncing this; document it and let QA cycle 5 sign off gates with the limitation
+  recorded. Follow-up sprint candidate.
 
 ## Acceptance gates (manager-defined, plain language)
 
