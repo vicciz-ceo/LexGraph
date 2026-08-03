@@ -123,6 +123,27 @@ do not re-derive its findings).
   bouncing this; document it and let QA cycle 5 sign off gates with the limitation
   recorded. Follow-up sprint candidate.
 
+- **R17 — GATE G6 PROVEN. Full-corpus run executed and measured by the manager
+  (2026-08-03/04), per ruling R3.** Not sampled, not extrapolated:
+  | metric | measured |
+  |--------|----------|
+  | parquet files found / processed / failed | **105 / 105 / 0** |
+  | rows newly ingested | **2,045,897** |
+  | rows skipped (counted, with reason) | **112** — all "missing required 'text' column" |
+  | rows accounted for | **2,046,009** = 2,045,897 + 112 (invariant holds) |
+  | DB documents / articles / source_spans | **105 / 2,045,897 / 2,045,897** |
+  | distinct jurisdictions stamped | **53** (50 states + DC + PR + FED) |
+  | download wall time | 0.4 min (1.19 GB) |
+  | ingest wall time | **18.9 min** |
+  | peak RSS | **606 MB** (QA feared multi-GB; it did not materialise) |
+  | CLI exit code | 0 |
+  **The CLI's self-reported count matches the DB ground truth EXACTLY** — the
+  manager queried the database directly rather than trusting the tool's summary,
+  which is precisely the conflation QA cycle 3 caught and wave 5b fixed. Zero
+  silent loss: every one of the 112 skipped rows is reported with a reason.
+  Corrects an earlier manager error: the corpus is **105** parquet files, not 109
+  (109 = total repo files including non-data files).
+
 ## Acceptance gates (manager-defined, plain language)
 
 Each gate is a pass/fail condition about observable product behavior. The Planner
