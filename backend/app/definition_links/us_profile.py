@@ -72,9 +72,11 @@ from app.definition_links.extract import DefinitionCandidate
 #   1. Strip any leading run of non-letter/non-digit scrape noise (mojibake,
 #      §, CR/LF, whitespace).
 #   2. Strip a section-number label immediately after that noise: either
-#      the spelled-out `"Section <N>."` form, or a bare number token that
-#      may embed letters and a dash the way real DE numbering does
-#      (`12D-102.`, `4A-103.`, `9002B.`) -- `\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*`.
+#      the spelled-out `"Section <N>."` form, or a bare number token made of
+#      one or more `.`/`-`-joined segments (each a digit run optionally
+#      followed by letters), covering real DE (`12D-102.`, `4A-103.`,
+#      `9002B.`), real FL/OH dotted numbers (`941.34`, `4513.01`), and real
+#      TX letter-then-dot numbers (`2A.103.`) alike -- see `_SEGMENT_RE`.
 #   3. MATCH if "Definition(s)" is the FIRST WORD of whatever remains --
 #      i.e. it is the heading's own immediate subject
 #      ("Definitions", "Definitions and Interpretation", "796. Definitions.").
@@ -99,11 +101,43 @@ from app.definition_links.extract import DefinitionCandidate
 # for miss-rate/false-positive numbers against the full `us_de_statutes`,
 # `us_ny_statutes`, `us_tx_statutes`, and `us_ca_statutes` real datasets.
 
-_SECTION_NUMBER_TOKEN_RE = re.compile(r"\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*\.?")
-_SECTION_LABEL_RE = re.compile(r"Section\s+\d+[A-Za-z]*(?:-\d+[A-Za-z]*)*\.?")
-_FIRST_WORD_DEFINITIONS_RE = re.compile(r"Definitions?\b")
-_LAST_WORD_DEFINITIONS_RE = re.compile(r"^Definitions?$")
-_TRAILING_BRACKET_RE = re.compile(r"\s*\[[^\]]*\]\s*$")
+# Wave-5 rewrite: a section number is now a CHAIN of "segments" (digits
+# optionally followed by letters) joined by "." or "-", e.g. Delaware's
+# `12D-102`/`4A-103`/`9002B` (letters, dash-continuation), Florida/Ohio's
+# `941.34`/`4513.01` (dot-continuation), and Texas's `2A.103` (a letter
+# segment continued by a DOT, a combination none of the earlier per-state
+# fixtures exercised on their own). `_SEGMENT_RE` is the single repeated
+# unit; the outer group repeats it for as many `.`/`-`-joined segments as
+# are present, and a final optional bare `.` is the label-ending period
+# (distinguished from a dot-continuation only by NOT being followed by a
+# digit, which the greedy `(?:[.-]{_SEGMENT_RE})*` already consumes first).
+# Every group is gated on a distinct leading token (digit run, letter run,
+# a literal separator) with no alternation between them, so the engine
+# never has more than one way to partition the string -- a single
+# deterministic left-to-right scan, still unconditionally linear-time.
+_SEGMENT_RE = r"\d+[A-Za-z]*"
+_SECTION_NUMBER_TOKEN_RE = re.compile(rf"{_SEGMENT_RE}(?:[.-]{_SEGMENT_RE})*\.?")
+_SECTION_LABEL_RE = re.compile(
+    rf"Section\s+{_SEGMENT_RE}(?:[.-]{_SEGMENT_RE})*\.?", re.IGNORECASE
+)
+# Wave-5 addition: `re.IGNORECASE` on both -- Texas's real standard
+# convention is ALL CAPS (`DEFINITIONS.`), Ohio's is lowercase mid-sentence
+# (`...load definitions`); the DE/PA capital-D convention these were
+# originally validated against is just one case variant among several real
+# state drafting conventions, not the norm. Case-folding a fixed literal
+# word is still a bounded, linear check (no new backtracking surface).
+_FIRST_WORD_DEFINITIONS_RE = re.compile(r"Definitions?\b", re.IGNORECASE)
+_LAST_WORD_DEFINITIONS_RE = re.compile(r"^Definitions?$", re.IGNORECASE)
+# Wave-5 fix: allow ONE trailing `.` after the closing `]` -- real DE rows
+# routinely have the section's own terminal period AFTER a trailing
+# "[Effective ...]"/"[Transferred]"/"[For application ...]" annotation
+# (`"...definitions [Effective May 22, 2026]."`), which the un-widened
+# anchor (`\]\s*$`) never matched (the string doesn't end in `]`, it ends
+# in `].`) -- silently leaving the bracket AND a bogus final token
+# (`"2026]"` or similar) in the tail-token list, defeating the last-word
+# rule even though "Definitions" genuinely is the heading's own subject
+# once the annotation is disregarded. Still a single bounded scan.
+_TRAILING_BRACKET_RE = re.compile(r"\s*\[[^\]]*\]\.?\s*$")
 
 # Splits the tail of a heading into tokens on whitespace OR separator
 # punctuation (hyphen, en dash, em dash, colon, semicolon, comma), so
