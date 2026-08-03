@@ -966,3 +966,68 @@ git pull/merge on `claude/defs-us-multiterm` — nothing here is destructive
 to anything attempt-1 has pushed so far (none of it had been pushed as of
 this commit; only this attempt had `origin/claude/defs-us-multiterm` at
 `41d8d91`).
+
+---
+
+## 2026-08-04 — Planner fix, peer-review defect (Sonnet/high)
+
+**Escalation received**: the sprint manager relayed an independent review
+finding `backend/tests/fixtures/us_statutes/inline_parenthetical_sample_rows.json`'s
+`STATE_OK_T74_S74-6106` excerpt was NOT byte-exact against the real
+corpus — a stray `TM` token (trademark-superscript artifact of the source
+PDF's text extraction, on its own line between "United" and "States
+Geological Survey" in the real `text` column) had been silently dropped,
+and the row's `_fixture_note` incorrectly called the excerpt
+"byte-verbatim."
+
+**Independently reproduced before fixing anything**: pulled
+`STATE_OK_T74_S74-6106` fresh from
+`us_ok_statutes.parquet` and confirmed the real text contains `'...the
+United\n\nTM\n\nStates Geological Survey...'` while the committed fixture
+had `'...the United States Geological Survey...'` — the reviewer's finding
+is correct. Root cause: this excerpt was hand-typed from a truncated
+terminal printout while building the original fixture set, not sliced
+programmatically from the real string — exactly the kind of manual step
+that drops "visual noise" a machine wouldn't. Also ran a full
+byte-substring audit across ALL 11 rows in the 3 multiterm fixture files
+(`excerpt["text"] in real_text`, per row) to check for the SAME class of
+overclaim elsewhere, per the reviewer's request: **this OK row was the
+only failure — the other 10 (including the 2 other trimmed excerpts, MI
+and ND) are genuine byte-exact substrings**, confirmed programmatically,
+not re-asserted from memory.
+
+**Fix applied: option (a), byte-exact restoration** (preferred per the
+review) — extracted the real substring directly from the parquet text
+(start anchor `"The boundary\n\nline from Shawnee Creek..."`, end anchor
+`"...south\n\nbank of the Red River."`), replacing the hand-typed
+paragraph. The corrected excerpt keeps the real text's own double-newline
+paragraph breaks (855 chars) rather than the previous hand-normalized
+single-space version, includes the `TM` token, and re-verified as an exact
+`in`-substring of the real corpus text via a fresh script run (not the
+same script that produced the original — an independent check). Also
+corrected the row's `_fixture_note` (previously claimed "byte-verbatim"
+without qualification; now states plainly what was wrong, why, and how it
+was fixed) and `backend/tests/fixtures/us_statutes/README.md`'s
+provenance section (previously asserted 3-row spot-check coverage without
+flagging the 4th, self-authored OK row as unverified at commit time; now
+documents the audit and its one finding).
+
+**Re-ran the full suite immediately after the fix**:
+```
+cd /Users/nerya/LexGraph-wt/defs-us-multiterm
+backend/.venv/bin/pytest backend/tests -q
+15 failed, 644 passed, 18 warnings in 12.51s
+```
+Identical to the pre-fix count — expected, since the OK row is used only
+by `test_definition_links_inline_parenthetical.py::
+test_ok_boundary_marker_apposition_is_not_treated_as_a_definition`, a
+guard asserting `"-..-"`/`"Reference Map"` are NOT extracted as terms,
+which remains true (and is now proven against the row's real, complete,
+un-cleaned text rather than a quietly tidier stand-in — arguably a
+STRONGER guard than before, since real source noise like a stray `TM`
+token sitting inside the guarded paragraph is now part of what the guard
+proves the future rule must tolerate without misfiring).
+
+**No other files touched.** Per the manager's explicit instruction to fix
+only this defect and change nothing else, no test logic, no `Next Steps`
+item, and no other fixture row was edited this pass.

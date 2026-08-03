@@ -279,6 +279,24 @@ Every row was independently pulled from the real parquet file and, for the
 byte-diffed against the real corpus file before being committed (see the
 sprint log's Planner entry for the verification trace).
 
+**Correction (2026-08-04, post-peer-review):** an automated byte-substring
+audit run against ALL 11 rows in this section (`excerpt_text in real_text`,
+for every row, full or trimmed) found exactly ONE that failed:
+`STATE_OK_T74_S74-6106`'s excerpt had been hand-typed from a truncated
+terminal printout rather than sliced programmatically from the real text,
+and had silently dropped a stray `TM` token (a trademark-superscript
+artifact of the source PDF's extraction, appearing on its own line between
+"United" and "States Geological Survey" in the real corpus). That is a
+content edit, not whitespace normalization, and the row's own
+`_fixture_note` at the time incorrectly called it "byte-verbatim." Fixed:
+the excerpt is now the real text's own exact substring (paragraph breaks
+included, `TM` included), re-verified programmatically
+(`excerpt in real_text` → `True`) — see that row's own `_fixture_note` and
+the sprint log's dated correction entry for the full before/after. The
+other 10 rows' byte-exactness (full-row or genuine-substring, per their own
+`_fixture_note` where trimmed) was re-confirmed correct by the same audit,
+not just re-asserted.
+
 **`multiterm_f5_rows.json`** (family 5, "The term(s) 'X', 'Y', and 'Z'
 mean(s)..." shared clauses) — used by both
 `backend/tests/unit/test_definition_links_multiterm_shared_clause.py`
