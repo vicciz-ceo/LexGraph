@@ -185,3 +185,89 @@ we have a hard dependency on core. The spec does not say which. The Planner
 resolves this by reading core's actual implementation and tests on
 `origin/claude/defs-core-scope`; if the code does not yet answer it, it is a
 panel question for core and the manager escalates it.
+
+---
+
+## 2026-08-04 — Planner attempt #2, D0: ESCALATION — core has zero backend code, M-R7(a) unanswerable from code today
+
+Verified, not guessed: `git fetch origin claude/defs-core-scope` then `git
+diff --stat ba1b398 origin/claude/defs-core-scope -- backend/` (`ba1b398` is
+the commit core's own worktree was created from, per its log's own Setup
+entry) → **empty output. Zero backend files changed.** `git ls-tree -r
+origin/claude/defs-core-scope --name-only` confirms `backend/app/
+definition_links/` has no `rules/` directory at all — no `registry.py`, no
+`__init__.py` auto-discovery, no `il_scope_triggers.py`/`us_scope_trigger_
+proof.py` — and `profiles.py`/`pipeline.py` are still the pre-seam files.
+Core's own log (`docs/sprint/sprints/2026-08-04-defs-core-scope-log.md`,
+read in full) confirms this is not an oversight: core's Stage B
+(implementation) is **explicitly held** pending an escalation (E-1,
+multi-scope precedence) the sub-manager raised to the program manager after
+reviewing the Planner's Stage A seam-spec-only deliverable — "Sprint status
+held at `planning`, Planner agent ... left resumable for Stage B the moment
+an answer lands." Core has published a spec document and nothing else.
+
+**Consequence for M-R7(a): the question cannot be settled from code, because
+there is no code.** The brief's own contingency applies verbatim: "If core's
+branch does not yet contain code that answers this, STOP and escalate to
+me... Do not guess." This is that STOP.
+
+**What I can say from the spec text alone (not sufficient to resolve it,
+but narrows the question for whoever answers it):** the new Protocol method
+is `derive_heading_from_body(self, heading: str, body: str) -> str | None`
+— it receives `heading`, which only makes sense if the moved-verbatim
+`_is_placeholder_heading(heading)` check lives INSIDE this one method
+(pipeline.py is stated to retain zero jurisdiction-specific literals after
+this sprint, so the check cannot stay as a separate pipeline.py call site
+the way it is today). The consumption contract's own wording ("the
+profile's EXISTING baseline logic runs first ...; only if baseline returns
+false/empty does the profile try registered rules") is read most naturally
+as: baseline = the existing two-gate check as a single unit (call it
+GATE-A-then-GATE-B); if EITHER gate fails, "baseline returns false/empty"
+literally holds, and registry dispatch would fire — which is M-R7(a)'s
+FIRST branch (rules tried for any heading, MD/NE/MS/SD unblocked, but see
+the exposure quantification below). But the equally natural competing
+reading is that a competent "move this verbatim, then append registry
+dispatch" implementation keeps GATE A as an early-return guarding the WHOLE
+method (both the baseline body regex AND the new registry loop), because
+that is what "verbatim" behavior-preservation for the 7 already-working
+states + GA/CA/IL most simply implies in code — which is the SECOND branch
+(MD/NE/MS/SD stay blocked, hard core dependency). **I do not have a way to
+choose between these two readings without seeing core's actual method
+body**, and I am not guessing.
+
+**Exposure quantification for the FIRST branch (requested by the brief, so
+the answer is ready the moment this unblocks)**, run live against the
+current pre-seam pipeline to approximate "how many non-definitions US
+sections would a naive body-preamble rule wrongly claim if the placeholder
+gate did not restrict it": see D2 below (negative-guard hand examples) —
+GA alone has at minimum the real, corpus-confirmed `STATE_GA_T44_C6_S44-6-
+165` shape ("at the term of the court" — ordinary-English "term", no
+definition) as a documented false-positive trap; a full-corpus count of
+every US section containing "the term"/"as used in"/"for purposes of"
+without a defining idiom nearby was NOT run (would require scanning all 53
+files' full text, hours of wall time) — flagged as **not verified, honestly
+a gap**, not a number I am willing to assert without having run it.
+
+**Ruling on how I am proceeding given the STOP:** per the brief's own
+durability mandate, I am not idling on an unresolved escalation. D1 (real-
+row convention inventory) and D2 (boundary dossier) below depend on NEITHER
+branch of M-R7(a) — they are facts about the corpus and today's code, not
+about the seam. D3's RED tests are written against the STABLE public entry
+point (`ingest_us_statute_rows` + `run_definition_linking`), which survives
+the seam refactor unchanged in signature — so they do not need M-R7(a)
+resolved to be authored, run, and proven RED today; two of them (SD/NE's
+unquoted-term rows) are additionally flagged, independent of M-R7(a), as
+blocked on `2026-08-04-defs-us-markers`. D4's item breakdown marks which
+items fork on M-R7(a)'s answer. Continuing to D1.
+
+**ESCALATION (repeated at the top of the final report per the brief's
+format): M-R7(a) is unresolved. Options: (a) wait for core's Stage B to
+land and re-read; (b) the manager/program manager puts the question
+directly to core's panel as a cross-sprint question (core's own log shows
+their Planner is "left resumable," i.e., reachable) rather than waiting for
+a full implementation; (c) the director decides the intended reading
+directly, since it is a one-sentence design choice (does the placeholder
+gate wrap registry dispatch, yes/no) that core's Planner could answer in one
+message without finishing Stage B. My lean: (b) — this is a narrow, answerable
+design question, not something that needs a full implementation to resolve,
+and the sprint's four-vs-one-item shape depends on it.**
