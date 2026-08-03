@@ -1,6 +1,6 @@
 ---
 id: "2026-08-02-us-state-law"
-status: review
+status: done
 current_role: planner
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"

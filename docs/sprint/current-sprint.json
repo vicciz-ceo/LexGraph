@@ -1,11 +1,11 @@
 {
   "id": "2026-08-02-us-state-law",
-  "status": "review",
+  "status": "done",
   "current_role": "planner",
   "locked_by": null,
   "locked_at": null,
   "last_agent": "claude-code:manager",
-  "last_updated": "2026-08-03T21:20:31Z",
+  "last_updated": "2026-08-03T21:31:24Z",
   "contract_path": "docs/sprint/sprints/2026-08-02-us-state-law.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 6,
