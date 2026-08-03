@@ -1,17 +1,17 @@
 {
   "id": "2026-08-02-us-state-law",
-  "status": "qa-fail",
-  "current_role": "developer",
+  "status": "review",
+  "current_role": "planner",
   "locked_by": null,
   "locked_at": null,
   "last_agent": "claude-code:manager",
-  "last_updated": "2026-08-02T10:51:06Z",
+  "last_updated": "2026-08-03T21:20:31Z",
   "contract_path": "docs/sprint/sprints/2026-08-02-us-state-law.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "total_items": 6,
-  "completed_items": 4,
+  "completed_items": 6,
   "dev_complete_items": 0,
-  "qa_cycles": 3,
+  "qa_cycles": 5,
   "previous_sprint": "2026-07-31-admin-provisioning",
   "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 }
