@@ -44,6 +44,18 @@ materializing the whole file with `read_table()` up front. Every batch's
 row/skip counts are printed as they complete, so progress is observable on
 a long-running multi-hundred-thousand-row file.
 
+**Honest "rows ingested" summary (wave 5b fix, QA cycle 3's Q3 finding):**
+QA cycle 3 found the wave-4 summary folded "newly created Article" and
+"matched an already-ingested `act_id`" into one "rows ingested" count --
+which is exactly how an 11-row real PA text collision went unnoticed (a
+14,547-reported vs 14,536-real-`Article`-rows mismatch was the trace that
+led to finding it). `ingest_us_statute_rows` now returns
+`created_article_ids` alongside `article_ids` (see that module's
+docstring), and this CLI reports "rows newly ingested" and "rows matched
+(already ingested)" as two separate numbers -- both per-file and in the
+final bulk summary -- rather than one combined count that can silently hide
+a collision.
+
 **Resumability**: delegates entirely to `ingest_us_statute_rows`'s own
 idempotency -- re-running this exact command (either mode) against the exact
 same file(s) a second time creates no duplicate rows. In bulk mode, a file
@@ -93,11 +105,20 @@ class _FileResult:
 
     ok: bool
     error: str | None = None
-    ingested: int = 0
+    created: int = 0
+    matched: int = 0
     skipped: int = 0
     skipped_reasons: Counter = field(default_factory=Counter)
     document_id: str | None = None
     batch_count: int = 0
+
+    @property
+    def ingested(self) -> int:
+        """Rows successfully processed either way (newly created OR matched
+        an already-ingested `act_id`) -- kept as a convenience total; prefer
+        `created`/`matched` separately for an honest summary (QA cycle 3's
+        Q3 finding: a combined count hid a real collision)."""
+        return self.created + self.matched
 
 
 def derive_jurisdiction_and_title_from_filename(path: Path) -> tuple[str, str] | None:
@@ -158,17 +179,21 @@ def _ingest_one_file(
                 rows=rows,
                 jurisdiction=jurisdiction,
             )
+            batch_created = len(batch_result["created_article_ids"])
+            batch_matched = len(batch_result["article_ids"]) - batch_created
             result.document_id = batch_result["document_id"]
-            result.ingested += len(batch_result["article_ids"])
+            result.created += batch_created
+            result.matched += batch_matched
             result.skipped += len(batch_result["skipped_rows"])
             for skipped in batch_result["skipped_rows"]:
                 result.skipped_reasons[skipped["reason"]] += 1
             if print_progress:
                 print(
                     f"ingest-us-statutes: '{input_path.name}' batch {result.batch_count} -- "
-                    f"{len(batch_result['article_ids'])} row(s) ingested, "
-                    f"{len(batch_result['skipped_rows'])} skipped "
-                    f"(running total: {result.ingested} ingested, {result.skipped} skipped)"
+                    f"{batch_created} row(s) newly ingested, {batch_matched} matched "
+                    f"(already ingested), {len(batch_result['skipped_rows'])} skipped "
+                    f"(running total: {result.created} new, {result.matched} matched, "
+                    f"{result.skipped} skipped)"
                 )
     except (ValidationError, ValueError) as exc:
         session.rollback()
@@ -264,8 +289,9 @@ def _run_single_file(args: argparse.Namespace) -> int:
         return 1
 
     print(
-        f"ingest-us-statutes complete: {result.ingested} row(s) ingested, "
-        f"{result.skipped} skipped, document {result.document_id}, from '{input_path}'"
+        f"ingest-us-statutes complete: {result.created} row(s) newly ingested, "
+        f"{result.matched} matched (already ingested), {result.skipped} skipped, "
+        f"document {result.document_id}, from '{input_path}'"
     )
     return 0
 
@@ -288,7 +314,8 @@ def _run_bulk(args: argparse.Namespace) -> int:
 
     files_processed = 0
     files_failed: list[tuple[str, str]] = []
-    total_ingested = 0
+    total_created = 0
+    total_matched = 0
     total_skipped = 0
     skipped_reasons: Counter = Counter()
 
@@ -328,12 +355,14 @@ def _run_bulk(args: argparse.Namespace) -> int:
                 continue
 
             files_processed += 1
-            total_ingested += result.ingested
+            total_created += result.created
+            total_matched += result.matched
             total_skipped += result.skipped
             skipped_reasons.update(result.skipped_reasons)
             print(
-                f"ingest-us-statutes: '{path.name}' complete -- {result.ingested} "
-                f"ingested, {result.skipped} skipped, jurisdiction {jurisdiction}, "
+                f"ingest-us-statutes: '{path.name}' complete -- {result.created} "
+                f"newly ingested, {result.matched} matched (already ingested), "
+                f"{result.skipped} skipped, jurisdiction {jurisdiction}, "
                 f"document {result.document_id}"
             )
     finally:
@@ -341,15 +370,17 @@ def _run_bulk(args: argparse.Namespace) -> int:
         engine.dispose()
 
     print("ingest-us-statutes bulk run summary:")
-    print(f"  files found:      {len(files)}")
-    print(f"  files processed:  {files_processed}")
-    print(f"  files failed:     {len(files_failed)}")
+    print(f"  files found:          {len(files)}")
+    print(f"  files processed:      {files_processed}")
+    print(f"  files failed:         {len(files_failed)}")
     for name, reason in files_failed:
         print(f"    - {name}: {reason}")
-    print(f"  rows ingested:    {total_ingested}")
-    print(f"  rows skipped:     {total_skipped}")
+    print(f"  rows newly ingested:  {total_created}")
+    print(f"  rows matched (already ingested): {total_matched}")
+    print(f"  rows skipped:         {total_skipped}")
     for reason, count in skipped_reasons.most_common():
         print(f"    - {count}x: {reason}")
+    print(f"  rows accounted for:   {total_created + total_matched + total_skipped}")
 
     return 1 if files_failed else 0
 

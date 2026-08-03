@@ -236,13 +236,21 @@ cd ..
 `US-FED`) — an unrecognized code fails the command rather than silently
 tagging the wrong jurisdiction. The file is streamed in row-group batches
 (`--batch-size`, default 5000) rather than loaded into memory all at once,
-so it scales to the dataset's largest state files; progress (rows
-ingested/skipped per batch) prints as it runs. A row missing its `text`
-column is skipped and reported, not fatal to the rest of the file. The
-command is resumable/idempotent — re-running it against the same file
-reuses the same `Document` and does not duplicate `Article`/`SourceSpan`
-rows for sections already ingested — and exits non-zero for a
-missing/unreadable input file.
+so it scales to the dataset's largest state files; progress (rows newly
+ingested / matched (already ingested) / skipped per batch) prints as it
+runs. A row missing its `text` or `act_id` column is skipped and reported,
+not fatal to the rest of the file. The command is resumable/idempotent —
+re-running it against the same file reuses the same `Document` and does not
+duplicate `Article`/`SourceSpan` rows for sections already ingested — and
+exits non-zero for a missing/unreadable input file.
+
+Idempotency is keyed on the dataset's own per-row `act_id` (verified 100%
+unique across all 570,397 real rows sampled from 10 real state files,
+including the two largest checked, `us_ca_statutes.parquet` at 161,429 rows
+and `us_pa_statutes.parquet` at 14,547 rows) — not on any combination of
+`section_number`/`section_title`/`text`, which real cross-title boilerplate
+can make byte-identical for two genuinely different sections (see
+`ingest_us_statutes.py`'s module docstring for the full collision history).
 
 **Ingesting the full 109-file corpus (gate G6) is ONE command** using
 `--input-dir` instead of `--input` — bulk directory mode, not a shell loop
@@ -271,7 +279,10 @@ filename that doesn't match the naming convention, an unrecognized derived
 jurisdiction code) is recorded and the run CONTINUES to the next file** —
 it never aborts the whole 109-file run over one bad file. A final summary
 prints files found/processed/failed (with each failure's reason), total
-rows ingested, and total rows skipped broken down by reason — the real
+rows newly ingested, total rows matched (already ingested — i.e. a
+re-ingested `act_id`, reported SEPARATELY from newly-created rows so a
+same-batch collision or a partial re-run cannot hide inside a single
+combined count), and total rows skipped broken down by reason — the real
 measured report the corpus-scope decision asks for. The process exits
 non-zero if any file failed, so the run is still scriptable, without ever
 giving up on the remaining files. Bulk mode is resumable the same way
