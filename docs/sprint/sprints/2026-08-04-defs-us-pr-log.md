@@ -319,3 +319,133 @@ lean (exclude from this pass's item plan, flag for QA/future follow-up
 rather than build a narrow-enough gate blind) did not require director-
 level arbitration; recorded as a documented follow-up instead, not a
 silent drop.
+
+---
+
+## 2026-08-04 — Manager: verification of the Planner handoff (ACCEPTED)
+
+I do not accept "the Planner said so". Everything below is a check I ran
+myself in this worktree against the real corpus and the real code.
+
+**Role boundary — HELD.** `git diff --name-only 969140d...HEAD | grep -E
+'^backend/app/|^frontend/src/'` returns NOTHING. Ten files changed: 6 new
+test files, 1 new fixture, 1 purely-additive fixtures README (`--numstat`:
+`99 0`, zero deletions), contract, log. No existing test was edited — the
+program's standing "editing an existing test to fit is a planning bug"
+constraint is satisfied by construction, not by assertion.
+
+**Fixtures are REAL, verbatim corpus rows — verified, not trusted.** I read
+`us_pr_statutes.parquet` directly and compared all 10 vendored rows on BOTH
+`section_title` and `text`:
+
+```
+EXACT MATCH: STATE_PR_LEY_249_2003_ART3 / _63_2023_ART3 / _77_1957_ART30_020
+             _77_1957_ART1_090 / _85_2018_ART9_04 / _160_2013_ART5_4
+             _165_2020_ART1_2 / _135_1979_ART1 / _15_2024_ART3 / _70_1997_ART1
+RESULT: 10 exact, 0 problems, of 10 fixture rows
+```
+
+Nothing was paraphrased, cleaned, or invented — including the ugly ones (the
+truncated-mid-word `STATE_PR_LEY_135_1979_ART1` title artifact is real).
+This mattered: a Spanish-language sprint is exactly where a fabricated
+fixture would be hardest to spot by eye.
+
+**Survey headline numbers — independently reproduced.** My own script, my
+own regex, no reference to the Planner's code:
+
+```
+rows: 23636
+section_title contains 'defini':                    652
+of those, matching stem definici(on|ones):          635   <- Planner: 635
+excluded (no stem):                                  17   <- Planner: 17
+genuine-heading rows whose BODY contains a newline:   0
+ANY corpus row whose body contains a newline:         0   <- structural claim CONFIRMED
+rows with mojibake markers:                           0   <- PR does NOT share RI's defect
+genuine PR Definiciones headings recognized by CURRENT code: 0 / 635
+```
+
+Three consequences I am treating as established fact for the rest of this
+sprint: (1) the recon's "~529 Definiciones headings" undercounted — it is
+**635**; (2) the before-rate for gate P4 really is **0/635**, so the gate's
+"before = 0" is measured, not assumed; (3) **zero newlines anywhere in the
+corpus** means `USProfile`'s line-based `_split_into_numbered_blocks` is not
+merely mis-vocabularied for Spanish, it is structurally inapplicable. That
+third point is the strongest single argument in the seam proposal and it
+holds up.
+
+**Idiom counts — reconciled, one immaterial delta.** The Planner's counts
+did not match my first (case-sensitive substring) pass, so I re-ran under
+three counting methods to find out why rather than reporting a discrepancy
+I hadn't explained. Case-insensitive word-boundary counting reproduces
+**6 of 7** exactly (`significa` 596, `tendrán el significado` 309, `tendrá
+el significado` 15, `se entenderá por` 62, `quiere decir` 7, `se entiende
+por` 15). The seventh, `significará`, is **337 by my count vs. 340
+reported** — a 0.9% delta, immaterial to rule design and to every
+conclusion drawn from it. Recorded here so QA does not re-discover it as a
+mystery; QA should feel free to re-derive rather than inherit.
+
+The survey's load-bearing NEW finding survives verification: the
+`tendrá(n) el/los significado(s)` family (309 rows for one variant alone,
+exact match) is co-dominant with `significa` and was **absent from the
+recon's lead entirely**. Ruling M-R2 (own survey, not the recon's list) paid
+for itself — had the panel built to the recon's inventory, this sprint would
+have shipped a large silent miss straight through a zero-miss gate.
+
+**RED proof — re-run by me, not quoted from the Planner.**
+
+```
+$ backend/.venv/bin/pytest backend/tests --continue-on-collection-errors -q
+641 passed, 6 xfailed, 18 warnings, 5 errors in 13.58s
+ERROR ...test_pr_profile_{headings,extraction,citations,ad_hoc_definitions,no_english_regression}.py
+```
+
+And the baseline, with the six new files excluded, to prove the 641 are
+pre-existing and untouched:
+
+```
+$ backend/.venv/bin/pytest backend/tests -q --ignore=<the 6 new files>
+641 passed, 18 warnings in 13.48s
+```
+
+So: baseline 641 passed / 0 xfailed, unchanged; all 6 new xfails are the
+core-gated P3 scope tests; 5 files RED via `ModuleNotFoundError`.
+
+**Manager's caveat on the RED signal.** `ModuleNotFoundError` is a *weak*
+red — it proves the module is absent, not that each assertion discriminates.
+I therefore read every test body rather than trusting the count. They are
+substantive: exact candidate counts (9/6/6/1) against named real Spanish
+terms, a guard that entry (c) re-quoting its own term must not swallow entry
+(d), false-positive guards on real `Aportaciones Definidas` and a real
+table-of-contents heading, and — for P5/M-R4 — the real Delaware fixture fed
+through `PRProfile` directly. The P5 test would genuinely fail if the
+Spanish rules were made language-blind, because the English word
+"Definitions" contains the substring `defin`; that is the collision M-R4
+exists to catch, and it is now pinned. **M-R4 satisfied.**
+
+**Verdict: Planner handoff ACCEPTED.** Item plan (9 items) frozen as the
+sprint's scope. Honest gap the Planner flagged rather than hid: item 8, the
+end-to-end `run_definition_linking` live-path test, is NOT yet authored and
+is sequenced after core — I am carrying that forward as an open obligation,
+not a completed item.
+
+### Manager ruling M-R5 — Developer proceeds now on seam-agnostic work
+
+The seam proposal (`PRProfile` as a distinct class) is published on this
+branch for the core panel to review per M-R3, and I am relaying it to the
+program manager. I am **not** stalling the sprint on that review, because
+the work splits cleanly:
+
+- The Spanish RULE LOGIC — heading stem detector, continuous-string entry
+  extractor, local/ad-hoc extractors, citation grammar — is identical under
+  BOTH seam options. It lives in a NEW module (`pr_profile.py`), touches no
+  shared file, and is buildable today. Items 1, 2, 3 (functions), 4, 6.
+- Only REGISTRATION differs between the options, and registration is a
+  shared-module edit (`profiles.py::_REGISTRY`) that M-R3 already forbids
+  before core publishes. Items 5, 7, 8 stay parked.
+
+Residual risk, stated plainly: if the core panel rejects the distinct-class
+proposal, the `PRProfile` wrapper and the tests' import surface get rehomed.
+That is roughly the wrapper plus import lines — the rule functions and every
+assertion about Spanish behavior survive untouched. I judge that cheaper
+than idling an entire implementation phase behind a review I cannot
+synchronously obtain. Recorded as a deliberate trade, not an oversight.
