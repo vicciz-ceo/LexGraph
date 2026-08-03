@@ -558,3 +558,89 @@ correction needed to any measurement; the log's total is relabelled here as
   definition). Correctly kept out of the fixtures; **routed to the program
   manager for the markers panel** as an extraction-quality observation.
 
+
+---
+
+## 2026-08-04 — Developer handoff + MANAGER'S INDEPENDENT CORPUS VERIFICATION
+
+Developer (Sonnet/medium — one self-contained pure-function module against a
+fully-specified RED suite; Haiku considered, rejected: the rules encode
+drafting judgement where a subtle error silently costs precision) delivered
+`backend/app/definition_links/rules/us_heading_variants.py`, 269 lines
+(under the 300-line style gate), at `c986001`.
+
+**Manager-verified handoff (not taken on the Developer's word):**
+- `git diff --stat 1b211e1...HEAD -- backend/app/` → **exactly one new file**,
+  269 insertions. Gate **U3 holds**.
+- `git diff --stat 1b211e1...HEAD -- backend/tests/` → **empty**. Role
+  separation held: the Developer touched no test.
+- Manager re-ran everything: unit **19 passed**; composed e2e **8 passed**;
+  full suite **669 passed, 2 failed in 12.83s** (baseline was 641 → 28 of the
+  30 new tests are green, zero regressions).
+- The 2 remaining failures are exactly the core-blocked pair
+  (`test_module_self_registers_...` needs `rules/registry.py`;
+  `TestRealProductionPipeline` needs core's pipeline wiring). The contract
+  predicted 3; the Developer flagged the favourable difference itself rather
+  than letting the count quietly disagree — `test_baseline_first_registry_
+  second_contract_is_safe_to_compose` composes real functions by hand and
+  was never core-blocked. Accepted.
+- **Anti-gaming audit**: grep of the module for fixture act_ids and fixture
+  heading literals → **none**. The module is six general rules, one function
+  each, with its own normalization constants (no import of `us_profile.py`'s
+  private symbols — ruling H-R4 holds).
+
+### The check that actually proves U1/U5/U6 — full-corpus, manager-run
+
+A green fixture suite is not evidence that a matcher works (this program's
+own recorded lesson: a named wiring test is not a live-path test, and a key
+verified on one data file proves nothing about the rest). So the manager
+wrote and ran an **independent** measurement over **all 2,014,611 rows of all
+52 in-scope parquet files**, composing exactly what the seam will compose:
+`after = is_definitions_heading(t) or matches_heading_variant(t)`.
+Script: `scratchpad/manager_verify_u4_u6.py` (manager-authored, not by any
+agent whose work it checks).
+
+```
+titles containing 'defin' : 83,303
+recognized BEFORE         : 61,075
+recognized AFTER          : 81,382
+NEWLY recognized          : 20,307
+miss pool                 : 22,228
+union recall on miss pool : 20,307/22,228 = 91.4%
+```
+
+**This reproduces the Planner's claimed 20,307 / 91.4% exactly**, on an
+independently written script — the two agreeing to the row is meaningful.
+
+**U6 — the three states the mandate names all move, hard:**
+
+| State | before | after | newly |
+|---|---|---|---|
+| WA | 74.3% | **96.5%** | 539 |
+| FL | 84.6% | **98.5%** | 133 |
+| NY | 91.4% | **98.6%** | 118 |
+
+Top movers overall: NV 12.4%→99.6% (+8,878), IN 22.3%→90.3% (+1,790),
+MI 63.9%→99.2% (+1,594), SD 47.2%→91.1% (+743).
+
+**U5 — precision audit on the full corpus, two independent tests:**
+1. New rule fires on a title containing **no `defin` substring at all**:
+   **0 rows.**
+2. New rule fires on a title with a `defin` substring but no exact
+   `definitions?`/`defined` token: **123 rows** — which the manager then
+   classified rather than assuming:
+
+   ```
+   {'trunc': 117, 'misspell': 6, 'GENUINE_NOISE': 0, 'other': 0}   sum = 123
+   ```
+
+   All 117 are the Colorado source-truncation cluster (**R-TRUNC**, intended)
+   and all 6 are the misspelling cluster (**R-MISSPELL**, intended).
+   **Zero** genuine morphology-noise rows (`definite`/`undefined`/`redefine`/
+   `defining`) were captured, and zero rows were unexplained. The imprecise
+   thing was the manager's first audit regex, not the module.
+
+**Verdict: on every test the manager could construct against the real corpus,
+the new rule adds 20,307 recognitions and zero false positives.** Gates U1
+(heading layer), U5 and U6 are satisfied at the Phase-A level; their formal
+QA certification still has to run against the post-core wired state.
