@@ -1,10 +1,10 @@
 ---
 id: "2026-08-04-defs-us-headings"
-status: planning
-current_role: planner
+status: in-progress
+current_role: manager
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
-locked_by: "claude-code:planner"
+locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04T00:00:00Z"
 last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
@@ -13,7 +13,7 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 9
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 2
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -232,7 +232,28 @@ lost
 
 ## Dev Complete
 
-_None._
+- **Item 1 — `rules/us_heading_variants.py`** (dev `c986001`). Six rules
+  (R-SEC, R-MID, R-VERB-bare, R-VERB-extended, R-TRUNC, R-MISSPELL), 269
+  lines, pure function, no `__init__.py`, no registration call (ruling
+  H-R5). CHECK PASSED: unit suite **19 passed**; `git diff --stat -- backend/app/`
+  = exactly one new file (U3); `-- backend/tests/` = empty (role separation).
+- **Item 2 — composed deterministic-engine end-to-end** (no extra code).
+  CHECK PASSED: `TestComposedDeterministicEngine` **8 passed**, incl. the 4
+  positive yields (CT 82, MO 6, WI 27, CT-misspelled 3), the term-use
+  link-back proof, and the 3 zero-yield hand-offs pinned as documented
+  markers-family routing (H-R1).
+
+Full suite: **669 passed, 2 failed** (baseline 641 → +28 green, zero
+regressions). The 2 failures are the core-blocked pair, item 3's dependency.
+
+**Manager's independent full-corpus verification** (not the fixture suite —
+`scratchpad/manager_verify_u4_u6.py`, all 2,014,611 rows, 52 files):
+newly recognized **20,307 / 22,228 miss pool = 91.4%**, reproducing the
+Planner's figure exactly on independently written code. WA 74.3%→96.5%,
+FL 84.6%→98.5%, NY 91.4%→98.6% (U6's named states). Precision: **zero**
+false positives — 0 rows matched without a `defin` substring, and the 123
+non-canonical-token matches are exactly 117 R-TRUNC + 6 R-MISSPELL intended
+captures with 0 morphology noise and 0 unexplained. Details in `-log.md`.
 
 ## Completed
 
