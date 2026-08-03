@@ -380,3 +380,116 @@ on the real unquoted row) — same hard dependency on
 placeholder_heading` correctly returns `False` for them, this is not a bug,
 SD's headings genuinely aren't information-free), PLUS the same marker gap
 as NE for the majority (57%) unquoted sub-shape.
+
+---
+
+## 2026-08-04 — Planner attempt #2, D2: boundary dossier for the three M-R2 conflicts
+
+### MS: whole-body BLOCK (ours) vs clause-in-a-different-section (scoped-inline's)
+
+Hand-labeled a 30-row sample of MS's 637 preamble-signal rows BLOCK/CLAUSE
+by reading each body in full (script + labels: scratchpad `planner_ms_
+discriminator.py`, recovered from attempt #1 and independently re-run by
+me — same 22/30 agreement reproduced). **Discriminator**: "trigger phrase
+appears within 5 chars of the body's real start" AND "the last recognized
+`"Term" means` entry's end position leaves less than 50% of the body as
+trailing tail" → BLOCK, else CLAUSE. **Error rate: 8/30 = 26.7% (73.3%
+agreement)**, and — important for the split decision — **100% of the 8
+errors are the SAME direction**: real BLOCKs the discriminator calls
+CLAUSE, never the reverse. Root cause (read every one of the 8): each is a
+SINGLE-entry body whose one definition's own prose runs long (e.g.
+`STATE_MS_T57_C35_S44-3`, 493 chars, one entry, 86% "tail" — but the "tail"
+is the SAME definition's own continuing sentences, "A project may also
+include any fixtures... A project may be for any freight transportation
+purpose..." — not a different topic). The crude tail-ratio metric cannot
+tell "still explaining the one term" from "moved on to something else"
+without sentence-level parsing.
+
+Real examples of both kinds:
+- **BLOCK** (ours): `STATE_MS_T45_C9_S35-51` — "As used in this article,
+  the term: (a) "Commissioner" means... (b) "Department" means..." — 7
+  entries, tail is 10% of body. `STATE_MS_T75_C12_S55-5` — "The words,
+  terms and phrases as used in this chapter shall have the following
+  meanings... (a) The term "commissioner" means..." — 10 entries, tail 41%.
+- **CLAUSE** (scoped-inline's): `STATE_MS_T39_C1_S3-25` — "The state...may
+  offer digital or online resources... For purposes of this section, the
+  term " minor " means any person under the age of eighteen (18). (2) A
+  vendor or other person...must have safety policies..." — 1 entry, tail
+  93% (genuinely a different topic after the definition). `STATE_MS_T27_
+  C1_S7-26` — pass-through-entity tax election section, one definitional
+  aside, tail 91% (continues with filing-election procedure, unrelated to
+  the definition).
+
+**Conclusion for the split**: of MS's 637 preamble-signal rows, a crude
+but honest discriminator finds roughly a 2-to-1 split favoring BLOCK once
+corrected for its own documented conservative bias (single-long-definition
+bodies undercounted as CLAUSE) — i.e., MORE than half of MS's 637 rows are
+this sprint's territory (whole-body definitions blocks), with a genuine,
+real minority that IS a single definitional clause embedded in an
+otherwise-different section (scoped-inline's stated territory per the
+sprint contract's own boundary rule). Both kinds are real and both are
+common enough to matter — this is not a case where one interpretation
+turns out to dominate.
+
+### SD: verb-form heading vs body-preamble requirement
+
+Of 218 preamble-signal rows: 120 (55%) have a verb-form "X defined"
+heading (headings-sprint territory by name), 5 (2%) already say
+"Definitions", 93 (43%) have an unrelated heading entirely (this sprint's
+plain territory, no overlap).
+
+**Would fixing the heading alone capture the 120 verb-form rows? Verified
+live: NO, not even the quoted subset.** `pipeline.py`'s inline-quote
+fallback (`_extract_inline_quoted_definitions`) — the ONLY extractor that
+can parse SD's no-`(N)`-marker bodies at all, quoted or not (confirmed:
+`extract_definitions_from_section` alone returns `[]` on every SD example
+tested) — is gated to fire **only when `used_body_derived_heading` is
+True** (pipeline.py:429, preserved by the seam spec's own stated
+replacement: "if empty AND `heading_was_derived`, try the inline-quoted
+extractor"). A `HeadingRule` that makes `is_definitions_heading("Loan
+processor or underwriter defined")` return True DIRECTLY (heading
+recognized on its own terms, not synthesized from body) sets `heading_was_
+derived`/`used_body_derived_heading` to **False** — so the inline fallback
+would never even be attempted, and extraction still yields zero, for EVERY
+SD row, quoted or unquoted. **This means a headings-sprint-only fix for SD
+does not unblock SD's extraction at all** — SD's capture genuinely needs
+EITHER this sprint's body-preamble path (which sets `heading_was_derived
+=True`, unlocking the fallback) OR the markers sprint generalizing the
+inline-quote fallback to fire outside the derived-heading case (the
+program roster's own description of that sprint's job — "the existing-but-
+unwired inline fallback rescues most" VA/WA/FED/WV/DC misses — reads as
+exactly this generalization). Whichever lands first satisfies the
+dependency; it is not a hard sequencing requirement on ONE specific sprint.
+
+### SD unquoted term: can any current extractor parse it?
+
+Already answered in D1 with a live re-check here: **no.** 124/218 (57%)
+of SD's rows are the unquoted `"the term, X, means"` shape; 15/218 (7%)
+are quoted `""X" means"`. Verified live on real rows: the quoted shape
+(`STATE_SD_T11_C9_S11-9-10`) IS parseable by the inline-quote fallback (1
+candidate, "blighted area") once that fallback is reached; the unquoted
+shape (`STATE_SD_T54_C14_S54-14-12.1`) is parsed by NEITHER extractor (both
+return `[]`) — no quote characters anywhere near the term for either
+regex to anchor on. This is squarely `2026-08-04-defs-us-markers`
+territory (M-R2 boundary #3, confirmed with live evidence, not assumed).
+
+### Item-level split proposal (for the manager to escalate per P-R2, pre-approved routing M-R6)
+
+| Contested group | Rows | Proposed owner | Why |
+|---|---|---|---|
+| MS whole-body BLOCK rows (definitional entries consume most of the body) | ~400-450 of 637 (est., see discriminator's conservative bias) | **this sprint (defs-us-preamble)** | Matches the contract's own boundary rule verbatim: "recognizing a definitions-bearing BLOCK with no heading signal" |
+| MS single-clause CLAUSE rows (one definition inside a substantively-different section) | ~190-240 of 637 (est.) | **defs-us-scoped-inline** | Matches that sprint's stated territory: "scope-trigger parsing inside otherwise-ordinary sections" |
+| SD verb-form headings, AS A HEADING-RECOGNITION SIGNAL only | 120 of 218 | **defs-us-headings** (heading detection) — but does NOT by itself unblock extraction, see above | Headings sprint already owns the "X defined" verb-form family by name (program roster) |
+| SD body-preamble path (unlocks the inline-quote fallback for SD's un-`(N)`-marked bodies) | 218 of 218 (all of them, quoted or not, need this OR the markers generalization) | **this sprint (defs-us-preamble)**, coordinating with `defs-us-markers` | Verified live: heading fix alone does not unblock extraction; the body-preamble path (or markers' fallback generalization) is load-bearing regardless of heading ownership |
+| SD unquoted-comma term parsing (124 of 218, 57%) | 124 of 218 | **defs-us-markers** | Confirmed live: unparseable by any current extractor, a marker-shape problem, not a detection problem |
+| NE unquoted term parsing | 511 of 559 (91.4%) | **defs-us-markers** | Same confirmed live gap as SD's unquoted case |
+| NE quoted term (achievable within this sprint alone) | 46 of 559 (8.2%) | **this sprint (defs-us-preamble)** | Verified live: existing extractor already parses it once heading is recognized |
+
+**NE quoted/unquoted split, closed (was a D1 gap, measured before finalizing
+D2 rather than left open)**: full-corpus count of NE's 559 multi-entry BLOCK
+rows by entry quoting style — **511 (91.4%) unquoted-only, 46 (8.2%)
+quoted-only, 2 (0.4%) mixed**. NE skews far more unquoted than SD (57%) —
+the table above (`up to 559`) is now precise: **511 of 559 need
+defs-us-markers; 46 of 559 are achievable within this sprint's own scope
+once heading recognition lands** (verified live in D1 via `STATE_NE_C30_
+S30-3803`, the quoted Nebraska Uniform Trust Code example).
