@@ -699,3 +699,166 @@ families, unchanged from cycle 2's finding.
   the earlier 14,547-vs-14,536 discrepancy. Suite: 637 passed / 2 failed (both the
   IL items owned by wave 6).
 
+## QA cycle 4 (2026-08-03) — full detail
+
+### Q1 — precision audit (R15a), the headline probe
+
+Replayed `pipeline.py`'s exact Stage-2 dispatch (derive heading from body when
+`section_title` is a placeholder → try `USProfile.extract_definitions_from_
+section` first → fall back to `_extract_inline_quoted_definitions` only if
+that yields nothing) over **every real row** in `us_il_statutes.parquet`
+(72,456 rows) and `us_ca_statutes.parquet` (161,429 rows), and the original
+(`is_definitions_heading` on the row's own `section_title` directly) path over
+`us_de_statutes.parquet` (21,649) and `us_tx_statutes.parquet` (122,535).
+Candidate counts reproduced the manager's numbers exactly: **IL 9,661** (100%
+via the inline-quote fallback), **CA 6,960** (5,163 fallback / 1,797 via the
+profile's own extractor on a derived heading), confirming the probe replicates
+production behaviour, not an approximation.
+
+Random sample of 30 terms per state (seeded, reproducible): **IL 30/30
+genuine**, **CA 30/30 genuine**, **DE 30/30 genuine**, **TX 30/30 genuine** —
+no sentence fragments, no citations-as-terms, no empty/1-char terms in any
+sample. Automated full-corpus outlier scan (term length, definition length,
+empty/tiny values) found:
+
+- **IL**: 0 confirmed junk extractions. 8 "tiny" (≤2-char) terms are all
+  genuine real abbreviations (`VA`, `PC`, `LO`, `LP`, `AD`, `Wd`×3). 11 "long"
+  (>80-char) terms are genuine (if unusual) phrase-as-term drafting, e.g.
+  "Costs incurred in connection with the development, construction,
+  acquisition or improvement of a project" — a real defined term repeated
+  verbatim across 4 different IL acts. 83 verbose (>1,500-char) definitions
+  are genuine multi-clause definitions (e.g. "employee" spanning
+  subsections (a)-(o) in a single pension-law sentence), not boundary bleed.
+- **CA**: one initially-suspected defect (a real row where entry (a)'s term
+  uses the SAME left-curly quote character on both sides —
+  `STATE_CA_Cshc_D1_C1_A6.5_S217`, "Adjustment factor") does **NOT** survive
+  the live path: `pipeline.py` calls `normalize_for_parsing` (collapses all
+  curly-quote variants to plain `"`, `normalize.py`'s `_QUOTE_VARIANTS_RE`)
+  BEFORE Stage 2 extraction runs, which fixes the mismatch. Proven wrong by a
+  live-path test (kept as a green regression guard, not a bounce — see below).
+  **One genuine, live-path-confirmed defect remains**: real row
+  `STATE_CA_Cgov_T5_D2_P1_C5_A8_S54221` produces a single "Dispose"
+  `Definition` whose `definition_text` is **26,715 characters** and contains
+  the complete text of 3 OTHER separately-defined terms ("Open-space
+  purposes", "Sectional planning area", "Sectional planning area document")
+  concatenated inside it — none of the 3 is ever recovered as its own row.
+  This is in `USProfile.extract_definitions_from_section` (the ORIGINAL
+  DE/TX-shared extractor, not new wave-6 code), newly EXPOSED to CA bodies by
+  wave 6's heading-derivation dispatch (CA never reached this function
+  before). 1 confirmed instance / 1,797 CA candidates via this path (0.06%).
+- **DE**: 0 confirmed junk (0 empty, 0 tiny defs; largest single definitions,
+  up to 12,064 chars, checked for embedded OTHER-term swallow — none found).
+- **TX**: a distinct, comparable-severity defect in the ORIGINAL extractor
+  (not new): one real row (`STATE_TX_Cin_C1305_S1305.004`, a semicolon-
+  separated list of cross-referenced terms — `"compensable injury," "doctor,"
+  ...` all "have the meanings assigned by Section X") produces 11 terms with
+  degenerate `";"` definition text plus 1 fully empty definition (12/20,695 ≈
+  0.058%).
+
+**Verdict**: precision is high (>99.9%) for all four states; the wave-6
+fallback's own precision (IL: 0 confirmed defects found; CA fallback path
+specifically: 0, since the sole surviving defect is in the shared extractor,
+not the fallback) is not materially worse than the original extractor's own
+real-data defect rate (TX: 0.058%). **Item 3 bounces anyway** for the one
+concrete, reproducible, live-path-proven "Dispose" boundary-swallow defect
+(RED test `test_real_pipeline_swallows_three_other_terms_into_one_bloated_
+california_definition`, `test_qa_regression_us_state_law_cycle4_FAIL.py`) —
+a single 26 KB garbled record is exactly the "reviewers must clean up"
+failure mode ruling R15a warns about, regardless of its low incidence rate.
+
+### Q2 — ingest integrity, a file never touched before (Washington)
+
+Wave-5b Developer verified PA/CA; this cycle used `us_wa_statutes.parquet`
+(51,498 real rows, untouched by any prior wave/cycle) through the REAL CLI
+(`ingest_us_statutes_cli.py`, single-file mode) against a fresh sqlite DB,
+then cross-checked the DB myself (not just trusting the printed summary):
+
+- Run 1: CLI printed "51,498 newly ingested, 0 matched, 0 skipped" — DB query
+  confirms exactly 51,498 `Article` rows, 1 `Document`. Honest.
+- Run 2 (re-ingest same file): CLI printed "0 newly ingested, 51,498 matched,
+  0 skipped" — DB `Article` count unchanged at 51,498. Idempotent.
+- 1,026 distinct `section_number` values are each shared by 2+ Articles (e.g.
+  "001" shared by ~90 different WA chapters) — all correctly produced as
+  distinct Articles (`act_id` keying holds; no collision-driven merge).
+- Timing: 51,498 rows / 13.8s ≈ 3,732 rows/sec (first ingest), 51,498 / 5.5s ≈
+  9,363 rows/sec (re-ingest, lookup-only). Separately ran the single largest
+  file in the whole corpus, `us_ca_statutes.parquet` (161,429 rows): 41.15s
+  wall (≈ 3,923 rows/sec), peak RSS 278 MB / peak footprint 380 MB
+  (`/usr/bin/time -l`).
+- Empty-`chapter` ingestion: WA has zero empty-`chapter` rows to exercise
+  (data-completeness difference, not a code path difference) — already
+  verified on 647 real DE rows in wave 4/QA cycle 2 and untouched by any
+  ingest-key change since (the key is `act_id` alone; `chapter` is
+  informational only, never part of the key).
+
+### Q3 — Hebrew fidelity (G1), final re-check
+
+167 Hebrew/definition-link tests pass unchanged (`pytest -k "hebrew or
+definition_link"`). `HebrewProfile.code == "IL"` (`profiles.py:86`), and
+`pipeline.py`'s body-derivation guard explicitly excludes
+`profile.code != "IL"` — Hebrew documents structurally cannot reach
+`_derive_heading_from_body` / `_extract_inline_quoted_definitions` regardless
+of heading shape. Unchanged from cycle 3.
+
+### Q4 — placeholder-heading misfire probe, adversarial, all 7 working states
+
+Ran `_is_placeholder_heading` against every real `section_title` in
+DE/NY/TX/OH/FL/PA/WA (308,358 rows total): **0 misfires** in DE, TX, OH, FL,
+WA; **1** in NY (`STATE_NY_AENV_A30_S30-0101`, the Developer's own known
+case) and **6 NEW in PA** (`STATE_PA_T23_C29_S2904`,
+`STATE_PA_T13_C27_S2707`, `STATE_PA_T12_C23_S2309`,
+`STATE_PA_T16_C13_S1301`, `STATE_PA_T61_C97_S9762`,
+`STATE_PA_T71_C51_S5102`) — all 7 are ordinary `"Section N"` headings that
+happen to match the bare-placeholder pattern. For every one of the 7, ran
+`_derive_heading_from_body` on the row's real body: **all 7 return `None`**
+(neither the IL embedded-heading nor the CA/GA preamble convention appears in
+any of these ordinary, non-Definitions bodies), so `is_definitions_section`
+never flips to `True` — **0 real behavioural misfires**, confirmed live, not
+just at the pattern-match level.
+
+### Q5 — Georgia (R15c), quantified
+
+`us_ga_statutes.parquet`: 28,154 total rows, **5 detected** (matches R15c).
+**438 rows (1.56%)** open with the exact stated convention (case-insensitive
+`"As used in this chapter, the term"` in the first 300 chars of body) — the
+real, quantified scope of the follow-up (a body-preamble convention with no
+"definitions" word at all, distinct from CA/IL's, deliberately not chased
+this sprint per the zero-false-positive priority). Only 71 rows have the word
+"definition" anywhere in the first 300 chars, most of which is the 5 already
+detected via other means.
+
+### Q6 — bulk-run readiness, full evidence
+
+Real timing: WA 51,498 rows / 13.8s; CA (largest file) 161,429 rows / 41.15s;
+a 3-file bulk-mode run (DE+FL+WA, 98,013 rows combined) / 24.44s ≈ 4,011
+rows/sec. Extrapolated to the full ~2,000,000-row corpus at this machine's
+measured rate: **~8-9 minutes** best case (faster than cycle 3's ~46-minute
+estimate — likely batch-size/hardware variance; both numbers reported
+honestly, not reconciled). Memory: CA alone peaked at 380 MB footprint / 278
+MB RSS; the 3-file combined run peaked at 354 MB (footprint), not obviously additive
+across files at this scale — but bulk mode holds ONE session across ALL 105
+files without ever expunging, so the SQLAlchemy identity map grows with
+TOTAL rows processed in the run, not per-file; extrapolating the observed
+≈2.5-3.6 KB/row overhead across 2,000,000 rows suggests **several GB peak
+RSS** for the true full run — a real, quantified risk worth the manager
+monitoring during the actual G6 run, not a blocker.
+
+**Go/no-go: GO**, with the memory-growth caveat above flagged for the
+manager's own run to watch.
+
+### Gate sign-off (cycle 4, full table)
+
+- **G1 (Hebrew unharmed)**: PASS — Q3 above.
+- **G2 (English Definitions parses)**: PASS overall, with the item-3 bounce
+  above as a live, scoped defect (not a gate-wide failure — DE/TX/IL still
+  parse correctly; the "Dispose" case is one CA row's boundary detection).
+- **G3 (term linking, word-boundary)**: PASS — unchanged since cycle 2/3,
+  no new evidence against it this cycle.
+- **G4 (US citations recognised)**: PASS — unchanged since cycle 2/3.
+- **G5 (jurisdiction stamped + validated)**: PASS — unchanged (item 4
+  regression guard still green in the 640-passed run).
+- **G6 (full corpus loads)**: CODE-ONLY PASS — Q2/Q6 evidence above; the
+  manager's own full ~105-file run is the actual gate-closing deliverable.
+- **G7 (reviewer works state-by-state)**: PASS — unchanged, frontend 165/165
+  green, typecheck clean.
+

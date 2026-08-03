@@ -538,3 +538,262 @@ def test_is_definitions_heading_no_longer_undermatches_a_real_multiterm_definiti
     assert heading == "§ Â\r\n        4A-103. Payment order â Definitions."
 
     assert is_definitions_heading(heading) is True
+
+
+
+# --- QA cycle 3's 6 bounce-proofs (2026-08-02), now CONFIRMED FIXED --------
+#
+# All 6 were originally committed RED in
+# `test_qa_regression_us_state_law_cycle3_FAIL.py` to bounce items 3 and 5
+# a second time (heading-matcher defects 1-4, ingest-key collision defects
+# 5-6 -- see the sprint contract's cycle-3 "## Next Steps" entry for full
+# per-defect detail). QA cycle 4 independently re-ran every one of them
+# against the same real fixture rows and confirmed all 6 now pass against
+# the wave-6/wave-5b fixes -- folded in here (net test count unchanged,
+# same pattern as cycle 2's fold); the standalone `_cycle3_FAIL.py` file
+# is deleted so the sprint does not end with a "FAIL"-named file.
+
+
+
+QA_CYCLE3_FIXTURE_JSON = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "us_statutes"
+    / "qa_cycle3_rows.json"
+)
+
+
+def _load_qa_cycle3_rows() -> dict[str, dict]:
+    rows = json.loads(QA_CYCLE3_FIXTURE_JSON.read_text(encoding="utf-8"))
+    return {r["act_id"]: r for r in rows}
+
+
+# --- Item 3, defect 1: section_title carries no heading text at all --------
+
+
+def test_is_definitions_heading_correctly_rejects_a_bare_section_placeholder_with_no_heading_text():
+    """Manager ruling R12: the previous version of this test asserted
+    `is_definitions_heading("Section 15") is True`. That assertion was
+    INVALID -- making it pass would make `is_definitions_heading` return
+    True for ANY bare `"Section N"` heading, which appears throughout every
+    state's corpus for perfectly ordinary, non-Definitions sections, and
+    would destroy the zero-false-positive property verified across 10 real
+    states (ruling R9).
+
+    `is_definitions_heading` is behaving CORRECTLY here: a bare placeholder
+    carries no definitions signal, so it must be rejected. This test now
+    pins that correct, current behaviour so the zero-false-positive
+    invariant is protected by a regression test, and documents that the
+    REAL Illinois/California/Georgia defect lives one layer up, in the
+    pipeline feeding the wrong field into this function -- see the
+    live-path test immediately below, which is the actual spec for the fix.
+    """
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle3_rows()
+    row = rows["STATE_IL_C325_A7_S15"]
+    assert row["section_title"] == "Section 15", (
+        "fixture must reproduce the real IL shape: section_title is a bare "
+        "'Section N' placeholder, never a descriptive heading"
+    )
+    assert "Definitions" in row["text"], (
+        "the real body DOES contain a genuine 'Sec. 15. Definitions.' heading -- "
+        "it just isn't in section_title, which is all is_definitions_heading sees"
+    )
+    assert is_definitions_heading(row["section_title"]) is False, (
+        f"is_definitions_heading({row['section_title']!r}) must return False: a "
+        "bare 'Section N' placeholder (with no descriptive text at all) carries "
+        "no definitions signal, and this same shape is the generic label prefix "
+        "of ordinary, non-Definitions sections throughout every state's corpus. "
+        "Returning True here would make is_definitions_heading match ANY "
+        "'Section N' heading state-wide, destroying the zero-false-positive "
+        "result verified across 10 real states (ruling R9). The real IL/CA/GA "
+        "defect -- section_title never carrying the real heading text for "
+        "these states (verified: 99.6% of all 72,456 real IL rows, 100% of all "
+        "161,429 real CA rows, and 100% of all 28,154 real GA rows share this "
+        "exact shape) -- belongs at the pipeline level (Stage 2 of "
+        "pipeline.py must derive the heading from the row's text body when "
+        "section_title is a bare placeholder), not inside is_definitions_heading "
+        "itself. See the live-path test below for that real requirement."
+    )
+
+
+def test_real_pipeline_misses_a_real_illinois_definitions_section_end_to_end(
+    db_session, matter_with_users
+):
+    """Live-path confirmation (not just the unit-level miss above): the real
+    production pipeline creates ZERO definitions from a real, genuine
+    Illinois Definitions row."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    rows = _load_qa_cycle3_rows()
+    row = rows["STATE_IL_C325_A7_S15"]
+
+    ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Illinois Compiled Statutes (QA cycle3 probe)",
+        rows=[{k: v for k, v in row.items() if not k.startswith("_")}],
+        jurisdiction="US-IL",
+    )
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    assert len(result["created_definitions"]) > 0, (
+        "the real production pipeline recognized ZERO definitions in a real "
+        "Illinois 'Sec. 15. Definitions.' section (5 real defined terms: "
+        "'Bias-free', 'BIPOC', 'Child', 'Child welfare court personnel', "
+        "'Department', ...) -- G2 fails completely for this real jurisdiction"
+    )
+
+
+# --- Item 3, defect 2: ALL-CAPS convention (Texas) never matches ------------
+
+
+def test_is_definitions_heading_misses_all_caps_texas_definitions_headings():
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle3_rows()
+    row = rows["STATE_TX_Ctn_C452_S452.351"]
+    assert row["section_title"] == "§ 452.351. DEFINITION."
+
+    assert is_definitions_heading(row["section_title"]) is True, (
+        f"{row['section_title']!r} is a real, genuine one-term Texas Definitions "
+        "section ('bond' includes a note) using Texas's real, standard ALL-CAPS "
+        "heading convention -- but is_definitions_heading's case-sensitive "
+        "Definitions? check (capital D, lowercase rest) never matches ALL-CAPS "
+        "'DEFINITION'/'DEFINITIONS'. Verified: 0 of 5,033 real Texas headings "
+        "containing the word 'definition' match -- a complete, state-wide G2 miss"
+    )
+
+
+# --- Item 3, defect 3: lowercase mid-sentence convention (Ohio) -------------
+
+
+def test_is_definitions_heading_misses_lowercase_definitions_in_normal_sentence_case_headings():
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle3_rows()
+    row = rows["STATE_OH_T45_C4513_S4513.01"]
+    assert row["section_title"] == "§ 4513.01. Traffic laws - equipment - load definitions"
+
+    assert is_definitions_heading(row["section_title"]) is True, (
+        f"{row['section_title']!r} is a real Ohio section whose own operative "
+        "subject is definitions (it cross-references another section's "
+        "definitions), ending in lowercase 'definitions' -- Ohio's real normal "
+        "sentence-case convention, not the DE/PA capital-D convention the fix "
+        "was validated against. Verified: 747 of 970 (77%) of real Ohio "
+        "'definition'-containing headings use this lowercase shape and can "
+        "never match is_definitions_heading's case-sensitive check"
+    )
+
+
+# --- Item 3, defect 4: dotted section numbers (Florida, Ohio, ...) ----------
+
+
+def test_is_definitions_heading_misses_dotted_section_numbers_like_florida_and_ohio():
+    from app.definition_links.us_profile import is_definitions_heading
+
+    rows = _load_qa_cycle3_rows()
+    row = rows["STATE_FL_TXLVII_C941_PI_S941.34"]
+    assert row["section_title"] == "941.34 Definition of “state.”"
+
+    assert is_definitions_heading(row["section_title"]) is True, (
+        f"{row['section_title']!r} is a real, genuine one-term Florida "
+        "Definitions section -- but Florida's (and Ohio's) real dot-separated "
+        "section-number convention ('941.34') is not fully consumed by "
+        "_SECTION_NUMBER_TOKEN_RE (which stops after the first '.', at '941.'), "
+        "leaving the fragment '34' stuck in front of 'Definition' and breaking "
+        "both the first-word and last-word match rules. Verified: 127 of 748 "
+        "(17%) of real Florida capital-D 'Definition(s)' headings are "
+        "under-matched this exact way"
+    )
+
+
+# --- Item 5, defect 5: real PA cross-title text collision -------------------
+
+
+def test_ingest_us_statute_rows_silently_merges_two_different_real_pennsylvania_sections(
+    db_session, matter_with_users
+):
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+
+    m = matter_with_users
+    rows = _load_qa_cycle3_rows()
+    row_a = rows["STATE_PA_T74_C7_S7"]
+    row_b = rows["STATE_PA_T51_C7_S7"]
+    assert row_a["citation"] != row_b["citation"], "must be two genuinely different sections"
+    assert row_a["text"] == row_b["text"], (
+        "fixture must reproduce the real cross-title boilerplate collision: "
+        "byte-identical body text across two different PA titles"
+    )
+
+    result = ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Pennsylvania Consolidated Statutes (QA cycle3 collision probe)",
+        rows=[
+            {k: v for k, v in row_a.items() if not k.startswith("_")},
+            {k: v for k, v in row_b.items() if not k.startswith("_")},
+        ],
+        jurisdiction="US-PA",
+    )
+
+    assert len(result["skipped_rows"]) == 0, "neither row was reported skipped either"
+    assert len(set(result["article_ids"])) == 2, (
+        f"row_b ({row_b['citation']}) was silently merged into row_a's "
+        f"({row_a['citation']}) Article because both real, genuinely DIFFERENT "
+        "Pennsylvania sections share an identical (section_number, "
+        "section_title, text) triple -- byte-identical cross-title boilerplate "
+        "text, which the wave-4 fix's own docstring claimed 'essentially never' "
+        "happens on real data. Verified: 9 such collision groups / 11 rows "
+        "silently merged in the real 14,547-row us_pa_statutes.parquet file "
+        "alone, a file the Developer never checked"
+    )
+
+
+# --- Item 5, defect 6: real CA cross-title text collision (worse: also -----
+# --- has the item-3 generic-section_title defect) ---------------------------
+
+
+def test_ingest_us_statute_rows_silently_merges_two_different_real_california_sections(
+    db_session, matter_with_users
+):
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+
+    m = matter_with_users
+    rows = _load_qa_cycle3_rows()
+    row_a = rows["STATE_CA_Cwic_S7"]
+    row_b = rows["STATE_CA_Cins_S7"]
+    assert row_a["citation"] != row_b["citation"], "must be two genuinely different sections"
+    assert row_a["section_title"] == row_b["section_title"] == "Section 7"
+    assert row_a["text"] == row_b["text"], (
+        "fixture must reproduce the real cross-code boilerplate collision"
+    )
+
+    result = ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="California Codes (QA cycle3 collision probe)",
+        rows=[
+            {k: v for k, v in row_a.items() if not k.startswith("_")},
+            {k: v for k, v in row_b.items() if not k.startswith("_")},
+        ],
+        jurisdiction="US-CA",
+    )
+
+    assert len(result["skipped_rows"]) == 0
+    assert len(set(result["article_ids"])) == 2, (
+        f"row_b ({row_b['citation']}) was silently merged into row_a's "
+        f"({row_a['citation']}) Article. Verified: 83 collision groups / 176 "
+        "rows silently merged in the real 161,429-row us_ca_statutes.parquet "
+        "file (the single largest file in the whole ~2M-row corpus) -- found by "
+        "re-running the bulk-ingest CLI end-to-end on a real file and "
+        "cross-checking its reported 'rows ingested' count against the "
+        "database's actual Article count (they disagreed)"
+    )

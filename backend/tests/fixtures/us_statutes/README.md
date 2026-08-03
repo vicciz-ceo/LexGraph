@@ -155,3 +155,31 @@ needs) is the Developer's job for the G6 (dataset ingester) item.
   uses `"US-DE"` as its jurisdiction literal
   (`frontend/src/pages/__tests__/AssertionDetailPage.test.tsx:80`) — reusing
   the same state keeps the sprint's fixtures consistent end-to-end.
+
+## `qa_cycle4_rows.json` — QA cycle 4 precision audit findings (2026-08-03)
+
+2 REAL rows (full original columns, values unmodified), both pulled from
+`us_ca_statutes.parquet` — found by a full-corpus scan (ruling R15a) that
+replayed `pipeline.py`'s exact Stage-2 dispatch over all 161,429 real CA
+rows and manually judged a random sample plus every length-outlier
+candidate, rather than sampling a handful of rows up front:
+
+1. **`STATE_CA_Cshc_D1_C1_A6.5_S217`** — real CA row, "§ 217. Definitions"
+   (Job Order Contracting article). Entry (a)'s own body uses the SAME
+   left-curly quote character (`“`) on BOTH sides of its term
+   ("Adjustment factor"), instead of a matching `“...”` pair — a real
+   mojibake/scrape shape. Initially suspected to garble term extraction
+   (the raw text alone reproduces the garbling), but does NOT survive the
+   live path: `pipeline.py` calls `normalize_for_parsing` before Stage 2
+   extraction, which collapses all curly-quote variants to plain `"`,
+   making the pair consistent again. Kept as a green regression guard, not
+   a bounce proof.
+2. **`STATE_CA_Cgov_T5_D2_P1_C5_A8_S54221`** — real CA row, Surplus Land Act
+   definitions (32,477-char body, `section_title` the generic `"Section
+   54221"` placeholder). Contains "Dispose" plus at least 3 more distinct
+   defined terms ("Open-space purposes", "Sectional planning area",
+   "Sectional planning area document") — the shared numbered-entry
+   extractor (`USProfile.extract_definitions_from_section`) fails to
+   recognize the entry boundary after "Dispose"'s own lettered sub-clauses
+   and swallows all 3 remaining terms into one 26,715-character
+   `definition_text`. Genuine, live-path-confirmed defect (item 3 bounce).
