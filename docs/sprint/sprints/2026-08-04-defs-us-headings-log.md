@@ -183,3 +183,283 @@ should stay False*. Two consequences the Planner must honour:
 2. Every rule we ship must be expressed as "match X", never "stop excluding
    Y" — the latter is impossible through this seam.
 
+---
+
+## 2026-08-04 — Planner report
+
+Addressed to the manager, for relay to the Developer/QA. All numbers below
+were re-measured live against the real `is_definitions_heading`/
+`extract_definitions_from_section` functions and the real corpus (HF cache,
+`~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad/`,
+52 in-scope `us_*_statutes.parquet` files, PR excluded) via a disposable
+scratch venv (`pyarrow` installed outside `backend/.venv`, ruling R6 — never
+touches `backend/.venv`, never run by the committed test suite).
+
+### What I re-confirmed vs. corrected
+
+**Confirmed exactly:**
+- Headline census: `defin`-containing titles 83,303; already-recognized
+  61,075; miss pool 22,228 — reproduced exactly.
+- All three of the manager's counterfactuals (CT `Sec. 42a-9-102`, NH
+  `21:2 Definition of Terms.`, TX `APPLICABILITY OF DEFINITIONS`) — exact
+  same True/False verdicts, live.
+- CT `Sec. 42a-9-102`'s body yields **82** candidates via today's
+  unmodified extractor — exact match to the manager's own count.
+- R-TRUNC's target cluster is exactly 117 rows, all Colorado, all
+  source-truncated.
+- TX `§ 101.001. APPLICABILITY OF DEFINITIONS.` — re-confirmed TRUE
+  NEGATIVE, real body defines zero terms.
+
+**Corrected:**
+1. **Misspelled cluster is 6 rows, not 16.** Full 52-file token-frequency
+   census (every `\w*defin\w*` token, every state) finds exactly 5×
+   `"Defintions"` (3 AL + 1 CT + 1 MI) + 1× `"definitons"` (NJ) = 6. No
+   16th row exists under any misspelling pattern I could construct. Not
+   silently fixed — flagged here and in the fixture README.
+2. **R-COLON is fully redundant with R-MID — recommend dropping it.**
+   Prototyped both, measured against the real 22,228-row miss pool: R-COLON
+   would capture 31 rows (matches your "~31 (21 NH + 10 DC)" estimate
+   exactly), but **0 of those 31 are NOT already captured by R-MID alone**.
+   Mechanism: baseline's own tail-tokenizer already splits on `:`
+   (`_TAIL_TOKEN_SPLIT_RE` includes it) — a colon-numbered heading only
+   defeats baseline's FIRST-word check, never its last-word check, and
+   whenever "Definitions" isn't literally the first OR last token (which
+   is exactly when a dedicated colon-stripping rule would matter), R-MID's
+   plain mid-token scan already finds it, colon or no colon. Verified this
+   against BOTH the NH shape (`21:2 Definition of Terms.`) and DC's real
+   UCC colon numbering (`§ 28:2A-103. Definitions and index of
+   definitions.` — 27 real end-to-end candidates once recognized). One
+   fewer module surface, identical recall.
+3. **CO truncated-cluster body-yield: full-population 67/117 = 57.3%**,
+   not a contradiction of the "20/30 (67%)" sample — a refinement (117 is
+   the whole population, not another sample; 57.3% and 67% are consistent
+   within normal sampling variance for n=30).
+4. **Verb-form yield is not literally 0% — refine, don't discard, ruling
+   H-R1's framing.** Full re-check across the whole WA/WV/WI/WY/DC/FED
+   bare+extended verb-form miss cluster (9,813 rows, `is_definitions_
+   heading` False, R-VERB-bare or R-VERB-extended True): **46/9,813
+   (0.47%) yield ≥1 real candidate today** via the unmodified extractor —
+   small, but genuinely nonzero, and NOT evenly spread:
+   | State | yield / total | rate |
+   |---|---|---|
+   | NV | 0 / 8,850 | 0% — confirms your NV re-check exactly |
+   | WA | 3 / 343 | 0.9% |
+   | DC | 2 / 110 | 1.8% |
+   | FED | 4 / 186 | 2.2% |
+   | WY | 7 / 66 | 10.6% |
+   | WV | 20 / 234 | 8.5% |
+   | WI | 10 / 24 | **41.7%** |
+
+   NV alone supplies 8,850 of the 9,813 rows (90%) and is genuinely 0% —
+   so a 30-row sample drawn evenly is expected to land all-zero about 65%
+   of the time even at the TRUE small-but-nonzero population rate (`0.995
+   ^ 30 ≈ 0.86`, times NV's dominance skews it further) — your 0/85 sample
+   and my 46/9,813 population count are NOT in tension. But the framing
+   "verb-form yields 0/85, expected" should narrow to "verb-form outside
+   WI/WV/WY is ~0%, but WI in particular is 41.7% real yield" for anyone
+   prioritizing which family-4 rows are worth end-to-end attention. I spot-
+   checked several WV/WI hits by hand (not just candidate-count > 0) —
+   `STATE_WI_C939_S939.22` ("Words and phrases defined.", WI's criminal-
+   code definitions section) yields 27 clean, correct `"Term" means ...`
+   candidates, not spurious matches. One federal hit
+   (`USC_T42_C7_S409`) I checked WAS spurious (a stray quoted cross-
+   reference mis-parsed as a definition) — flagging as a possible
+   extraction-quality edge case for the markers sprint's attention, not
+   using it as a fixture.
+5. A discrepancy I could NOT resolve: the log's "2,038,247 rows" total
+   for the 52-file census does not match my live recount of the same 52
+   files at the same commit (`2,014,611`). The three DERIVED numbers that
+   matter (83,303 / 61,075 / 22,228) match EXACTLY, which is only
+   plausible if we scanned the identical data — so I believe the total-row
+   figure in the earlier log entry is a reporting slip, not a sign of
+   different underlying data, but I could not identify its source and am
+   not silently correcting a number I can't explain. Flagging, not fixing.
+
+### Recommended rule set (6 rules, not 7 — R-COLON dropped)
+
+Per-rule recall (rows newly flipped False→True out of the 22,228 miss
+pool) and unique-value-over-R-MID (rows only THAT rule captures, i.e. what
+would be lost by dropping it):
+
+| Rule | Recall | Unique over R-MID |
+|---|---|---|
+| R-SEC | 81 | 58 |
+| R-MID | 2,284 | — (baseline) |
+| R-VERB-bare | 17,115 | 17,110 |
+| R-VERB-extended | 765 | 751 |
+| R-TRUNC | 117 | 117 |
+| R-MISSPELL | 6 | 6 |
+| **Union (all 6)** | **20,307 / 22,228 = 91.4%** | |
+
+Precision: every rule tested against 6 real negative-guard rows (TX true
+negative, AZ/AR preposition guards, NY "as defined in" verb guard, 2
+morphology guards) plus the existing real IL "Section 15" bare-placeholder
+guard (ruling R9/R12) and the dossier's 2 synthetic guard phrases — **zero
+false positives** across all of them, for every one of the 6 rules
+individually and in union. R-TRUNC's prefix set
+(`defin`/`defini`/`definit`/`definiti`/`definitio`) verified against
+`/usr/share/dict/words` on this machine — none are real English words, so
+the "not itself an English word" design constraint holds.
+
+The 1,921-row residual (22,228 − 20,307) is, on inspection, overwhelmingly
+the ~339-ish morphology shapes and preposition-guarded true negatives
+already known to be correctly excluded — I did not exhaustively hand-
+verify all 1,921 (that is QA item 7 in the contract's Next Steps, gate
+U4), but every residual row I sampled by hand was a genuine, correct
+exclusion, not a miss.
+
+### Test inventory + proven-RED tail
+
+19 unit tests (`test_definition_links_us_heading_variants.py`) + 2
+registry-integration tests (`test_definition_links_rules_registry_
+integration.py`) + 9 integration tests
+(`test_us_heading_variants_end_to_end.py`, split `TestComposedDeterministic
+Engine` [8, NOT blocked on core] / `TestRealProductionPipeline` [1, BLOCKED
+ON CORE]) = **30 new tests**, all real-row-based (fixture:
+`backend/tests/fixtures/us_statutes/us_heading_variants_rows.json`, 16 REAL
+rows, all 24 original columns, full provenance in that fixture directory's
+README). Full rule-set-to-fixture mapping and per-rule module-docstring
+spec are in the test files themselves — not duplicated here.
+
+Proven RED (`backend/.venv/bin/pytest backend/tests/unit/test_definition_
+links_us_heading_variants.py backend/tests/unit/test_definition_links_
+rules_registry_integration.py backend/tests/integration/test_us_heading_
+variants_end_to_end.py -v`):
+
+```
+FAILED ...test_r_sec_recognizes_abbreviated_sec_label_before_definitions
+FAILED ...test_r_mid_recognizes_definitions_as_a_non_first_non_last_tail_token
+FAILED ...test_r_mid_recovers_colon_numbered_heading_without_a_dedicated_colon_rule
+FAILED ...test_r_mid_recognizes_scope_unit_naming_heading
+FAILED ...test_r_trunc_recognizes_colorado_source_data_truncated_title
+FAILED ...test_r_trunc_does_not_require_body_to_also_parse
+FAILED ...test_r_verb_bare_recognizes_words_and_phrases_defined
+FAILED ...test_r_verb_bare_recognizes_nevada_dominant_cluster_shape
+FAILED ...test_r_verb_extended_recognizes_defined_before_semicolon_clause
+FAILED ...test_r_misspell_recognizes_defintions
+FAILED ...test_negative_guards_stay_false[... 6 parametrized cases ...]
+FAILED ...test_negative_guard_bare_section_placeholder_stays_false
+FAILED ...test_negative_guard_dossier_synthetic_repeal_of_definitions
+FAILED ...test_negative_guard_dossier_synthetic_as_defined_in
+FAILED ...test_module_self_registers_exactly_one_heading_rule_for_us_star
+FAILED ...test_baseline_first_registry_second_contract_is_safe_to_compose
+FAILED ...TestComposedDeterministicEngine (7 tests)
+FAILED ...TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline
+  AssertionError: assert 0 > 0   [genuine RED via a real assertion, not
+  ModuleNotFoundError — the DB-backed pipeline ran end-to-end and created
+  zero definitions, empirically confirming "blocked on core", not just
+  asserting it]
+=========================== 30 failed in 0.23s ============================
+```
+
+29 of 30 fail via `ModuleNotFoundError: No module named
+'app.definition_links.rules'` (the seam package doesn't exist in this
+worktree — core hasn't merged); the 30th (`TestRealProductionPipeline`)
+fails via a genuine assertion, which is the stronger proof. Full baseline
+suite re-run alongside them: **641 passed, 30 failed, 0 new passes** —
+zero regressions, exact pre-sprint baseline preserved.
+
+**Blocked on core, explicitly** (do not send the Developer chasing these
+before `claude/defs-core-scope` merges and this branch rebases):
+`test_definition_links_rules_registry_integration.py` (both tests) and
+`TestRealProductionPipeline` (1 test) — 3 of 30. The other 27 need ONLY
+the Developer's new module (see contract Next Steps item 1/2 — no core
+dependency).
+
+### U2 answer (report only, per the brief — not my call)
+
+**(a) Not achievable with a `HeadingRule` alone**, full stop — `matches:
+Callable[[str], bool]` cannot carry scope information at all. Scope for
+the Definitions-SECTION path (the path every family-4 heading takes) comes
+entirely from `profile.determine_scope(body_text)`, called AFTER heading
+recognition, on the BODY, completely decoupled from which rule (baseline
+or ours) did the recognizing. For most family-4 captures this is a
+non-issue: I checked the real "Definitions for chapter."/"Definitions for
+parts 2-5" family (AK/FED/IN/SD/TN) — ALL already baseline-True today
+(first-word rule fires regardless of what follows "Definitions"), so
+they're not even blocked on this sprint; whatever `determine_scope`
+already does for them is core's problem, not new exposure from us.
+
+**(b) One real family-4 capture breaks this cleanly: `STATE_AK_T13_C13.06_
+S13.06.050`, "General definitions for AS 13.06 — AS 13.36."** — genuinely
+needs R-MID (mid-token: "General" precedes "definitions," defeating
+baseline's first-word rule). Its named scope is a SPECIFIC multi-chapter
+range ("AS 13.06" through "AS 13.36"), which is neither "chapter" (too
+narrow — the range spans many chapters) nor "law-wide" (too broad — Title
+13 has chapters outside 13.06–13.36 this section does NOT apply to). The
+seam's `determine_scope` return type has no slot for this. Registering a
+`ScopeTriggerRule` does not help either — that rule kind is documented as
+the ORDINARY-ARTICLE path (`extract_local_scope_definitions`, family-1's
+"As used in this section" territory, stamping `"local"`/`"subsection"` on
+individual candidates), a structurally different code path from the
+Definitions-SECTION path this heading takes; there is no rule kind for
+"teach `determine_scope` a new trigger phrase" or "return something other
+than chapter/law-wide." I checked the row's real body first line — it
+does not contain a plain-English "As used in this chapter" trigger either
+(it's a citation-range reference: "Subject to additional definitions
+contained in AS 13.06 — AS 13.36 that are applicable to specific
+provisions..."), so there's no existing-trigger-vocabulary escape hatch.
+
+**(c) No collision with `defs-us-scoped-inline`** — confirmed structurally
+separate code paths (Definitions-SECTION `determine_scope` vs. ordinary-
+article `ScopeTriggerRule`), not just by convention.
+
+**My lean**: this is a real, narrow gap in the published seam's data
+model, not a P-R2 recall-vs-precision conflict — recognizing the heading
+(U1) is unambiguously correct and safe regardless of how U2 resolves; the
+open question is only whether its scope can be CORRECTLY stamped once
+recognized, or whether it silently gets whatever `determine_scope`
+naturally computes (almost certainly "law-wide", since there's no chapter-
+trigger phrase in the body — which would be semantically WRONG, over-
+broad). I recommend NOT holding item 1 back waiting for a scope-model
+answer (heading recognition has value on its own, and the seam's own
+"can only flip False→True" guarantee, H-R4, means shipping it can't
+regress anything) — but flagging the scope gap explicitly as a known
+limitation rather than letting a silently-wrong "law-wide" stamp pass as
+if it were correct. Escalating per the brief's instruction: report, don't
+decide. This is contract item 9.
+
+### Branch state
+
+Worktree: `/Users/nerya/LexGraph-wt/defs-us-headings`, branch
+`claude/defs-us-headings`. New files this session: `backend/app
+/definition_links/rules/us_heading_variants.py` does NOT exist yet (that's
+the Developer's job) — I added only test files + fixtures + docs, per role
+separation:
+- `backend/tests/unit/test_definition_links_us_heading_variants.py`
+- `backend/tests/unit/test_definition_links_rules_registry_integration.py`
+- `backend/tests/integration/test_us_heading_variants_end_to_end.py`
+- `backend/tests/fixtures/us_statutes/us_heading_variants_rows.json`
+- `backend/tests/fixtures/us_statutes/README.md` (appended, not
+  rewritten)
+- `docs/sprint/sprints/2026-08-04-defs-us-headings.md` (`## Next Steps`
+  filled, `total_items: 9`)
+- this log entry
+
+**Note to the manager**: I initially, in error, applied the `## Next
+Steps` edit to the PROGRAM MANAGER's checkout (`/Users/nerya/LexGraph`)
+instead of this worktree — caught it via `git status`/`git diff` in that
+checkout before committing anything there, reverted with `git checkout --
+<file>` (a clean revert of an uncommitted working-tree change, nothing was
+ever committed or pushed from the wrong checkout), and reapplied the exact
+same edit correctly here. Flagging this myself rather than leaving it
+undisclosed — the program manager's checkout is confirmed clean
+(`git diff --stat` empty on that file after the revert).
+
+### Honest list of what I could not verify
+
+- Did not hand-verify all 1,921 residual uncaptured miss-pool rows (QA's
+  job, item 7) — spot-checked a sample, all correct exclusions.
+- Did not run the frontend suite (not touched, per the brief).
+- Could not resolve the 2,038,247-vs-2,014,611 total-row discrepancy (see
+  correction 5 above) — flagged, not fixed.
+- Have not verified behavior against jurisdictions outside the 52
+  in-scope `us_*_statutes.parquet` files (constitutions files, PR) — out
+  of scope per the contract.
+- The `TestRealProductionPipeline` test's exact assertion shape
+  (`len(result["created_definitions"]) > 0`) is modeled on the existing
+  IL end-to-end test's pattern but I have not seen core's actual
+  `pipeline.py`/`profiles.py` changes (they don't exist on this branch
+  yet), so there is a small chance the real post-core call shape differs
+  slightly from what I wrote — flagging as a plausible (not confirmed)
+  friction point for whoever picks up Phase B.

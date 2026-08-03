@@ -183,3 +183,174 @@ candidate, rather than sampling a handful of rows up front:
    recognize the entry boundary after "Dispose"'s own lettered sub-clauses
    and swallows all 3 remaining terms into one 26,715-character
    `definition_text`. Genuine, live-path-confirmed defect (item 3 bounce).
+
+## `us_heading_variants_rows.json` — sprint 2026-08-04-defs-us-headings (family 4)
+
+16 REAL rows (all 24 original columns, values unmodified), one per candidate
+rule or negative-guard case, pulled 2026-08-04 from 10 different real state
+files (`us_ct_statutes.parquet`, `us_mo_statutes.parquet`,
+`us_dc_statutes.parquet`, `us_ak_statutes.parquet`, `us_co_statutes.parquet`,
+`us_wi_statutes.parquet`, `us_nv_statutes.parquet`, `us_al_statutes.parquet`,
+`us_tx_statutes.parquet`, `us_az_statutes.parquet`, `us_ar_statutes.parquet`,
+`us_ny_statutes.parquet`) via a disposable scratch venv outside
+`backend/.venv` (same retrieval method as the 2026-08-02 fixtures below —
+`huggingface_hub`/`pyarrow` are still not installed in `backend/.venv`;
+never run by the test suite, ruling R6). Dataset commit
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (the corpus was re-synced since
+the 2026-08-02 fixtures' `d2d76035...` commit — that older snapshot is a
+10-file partial download and can no longer reproduce the full 52-file
+census; `301000fc...` is what both the sprint's evidence scout and this
+fixture were pulled from, confirmed by reproducing the scout's headline
+census numbers exactly: 83,303 `defin*` titles / 61,075 already-recognized
+/ 22,228 miss pool, live, against this exact snapshot).
+
+Every row's live behavior against the REAL `us_profile.is_definitions_heading`
+and `us_profile.extract_definitions_from_section` (base commit `b4f7833`,
+before this sprint's rule module exists) is asserted in
+`backend/tests/unit/test_definition_links_us_heading_variants.py` and
+`backend/tests/integration/test_us_heading_variants_end_to_end.py` — the
+numbers below are reproduced there, not just asserted here:
+
+**Positive — a family-4 candidate rule should flip this heading False→True:**
+
+1. **`STATE_CT_T42a_C9_S42a-9-102`** (`"Sec. 42a-9-102. Definitions and
+   index of definitions."`) — R-SEC (own `Sec.`/`Secs.`/`Art.`/`Article`
+   label-strip candidate): today's `_SECTION_LABEL_RE` only accepts the
+   spelled-out word `Section`, so this abbreviated-label CT UCC heading is a
+   baseline miss. Body parses TODAY (before any rule change) into **82
+   real candidates** via `extract_definitions_from_section` — the
+   sprint's flagship U1 live-path proof (heading recognition alone, once
+   shipped, immediately produces 82 real `Definition` rows end-to-end).
+2. **`STATE_CT_T36a_C668_S36a-636`** (`"Sec. 36a-636. Defintions."`) —
+   R-MISSPELL. Body parses into **3 real candidates** today — a second,
+   independent end-to-end proof, isolated from R-SEC (the misspelling
+   defeats R-SEC's own first/last-word check too, so this row is captured
+   by R-MISSPELL alone, not by rule overlap).
+3. **`STATE_MO_C334_S334.043`** (`"334.043 Reciprocity — definitions —
+   procedure — fees."`) — R-MID (mid-token candidate: any tail token,
+   regardless of position, exactly `Definition(s)`). Near-verbatim match to
+   the program dossier's own cited family-4 example. Body parses into **6
+   real candidates** today.
+4. **`STATE_DC_T28_C_S28:2A-103`** (`"§ 28:2A-103. Definitions and index
+   of definitions."`) — R-MID again, on DC's UCC title-colon-chapter
+   numbering (`28:2A-103`). Chosen deliberately to demonstrate that R-MID's
+   plain token scan recovers this shape WITHOUT any dedicated colon-aware
+   number-stripping rule (see Planner's report: a prototyped R-COLON rule
+   was measured and dropped as 100% redundant with R-MID — 0 of its 31
+   target rows were not already covered by R-MID alone). Body parses into
+   **27 real candidates** today.
+5. **`STATE_AK_T13_C13.06_S13.06.050`** (`"General definitions for AS
+   13.06 — AS 13.36."`) — R-MID (mid-token; "General" precedes
+   "definitions" so baseline's first-word rule never fires). Body parses
+   into **0 candidates today** (the body is one unbroken paragraph with no
+   line break before its first `"(1)"` marker, so the extractor's
+   line-anchored entry-boundary scan never finds a start — a markers-family
+   defect, hand off, do not fix here). Also the sprint's chosen worked
+   example for the U2 scope-seam question: the heading names a specific
+   multi-chapter range (`AS 13.06` through `AS 13.36`), a scope granularity
+   the published core seam's `determine_scope` (chapter | law-wide only)
+   cannot express — see the Planner's report/log for the full escalation.
+6. **`STATE_CO_T2_A3_P1_S2-3-110.5`** (title ends `"...access to records -
+   definitio"`, CO's real source-data truncation) — R-TRUNC (last tail
+   token is a strict, verified-not-a-real-word prefix of `"definitions"` of
+   length ≥5: `defin`/`defini`/`definit`/`definiti`/`definitio`, checked
+   against `/usr/share/dict/words` on this machine — none are real English
+   words). Body parses into **9 real candidates** today — the title
+   truncation does NOT affect the body, which is complete.
+7. **`STATE_CO_T22_A33_P1_S22-33-106.3`** (title ends `"...student
+   statements - definitio"`) — R-TRUNC again, deliberately chosen as a
+   **zero-yield** companion to row 6: body parses into **0 candidates**
+   today (a normal single-topic disciplinary-investigations section whose
+   own defined term, if any, isn't in the `(N) "Term" means` shape the
+   extractor recognizes) — hand off, do not fix here. Live full-population
+   re-check: R-TRUNC's target cluster is exactly 117 CO rows (matches the
+   panel log exactly); body-yield across all 117 (not a 30-row sample) is
+   **67/117 (57.3%)**, refining the log's 20/30 (67%) sample estimate
+   rather than contradicting it.
+8. **`STATE_WI_C939_S939.22`** (`"Words and phrases defined."`, WI's
+   real criminal-code Definitions section) — R-VERB-bare (last tail token
+   exactly `defined`), the sprint mandate's own cited verb-form example.
+   Body parses into **27 real candidates today** — an important
+   correction to the panel log's "verb-form yields 0/85 sampled, expected"
+   framing: it is NOT literally zero population-wide. Live re-check across
+   the full WA/WV/WI/WY/DC/FED verb-form miss cluster (9,813 rows):
+   **46/9,813 (0.47%) yield ≥1 candidate today**, concentrated in WV
+   (20/234, 8.5%), WI (10/24, 41.7%!), WY (7/66, 10.6%) — NV, which
+   supplies 8,850 of those 9,813 rows (90%), is confirmed still **0/8,850
+   (0%)**, so the log's NV-specific "0/25 re-check" finding stands exactly;
+   only the blanket "verb-form" framing needed narrowing to "verb-form
+   outside Nevada."
+9. **`STATE_NV_T58_C706_S706.074`** (`'"Hazardous material" defined'`) —
+   R-VERB-bare, chosen as the **representative zero-yield** row for NV's
+   dominant 8,829-row bare-verb-form cluster (52% of the entire family-4
+   miss pool): confirmed **0 candidates** today — hand off, do not fix
+   here, per ruling H-R1.
+10. **`STATE_AL_T25_C9_S25-9-276`** (`'Section 25-9-276 "Blasting Agent"
+    and "Explosives" Defined; Storage and Transportation of Blasting
+    Agents, Explosives, and Detonators Generally'`) — R-VERB-extended
+    ("defined" immediately followed by `;` then more clause text, the
+    census's "verb-form extended" shape). Body parses into **1 real
+    candidate today** — the one non-zero example found while re-checking
+    this sub-cluster (otherwise 0/30 as logged); most R-VERB-extended rows
+    remain a markers-family hand-off.
+
+**Negative — must STAY False under every family-4 rule (precision guards):**
+
+11. **`STATE_TX_Cfa_C101_S101.001`** (`"§ 101.001. APPLICABILITY OF
+    DEFINITIONS."`) — re-verified TRUE NEGATIVE per the panel log: real
+    body is `"(a) Definitions in this chapter apply to this title. (b) If
+    ... a term defined by this chapter has a meaning different ..."` — a
+    precedence clause defining zero terms. No family-4 rule fires on it.
+12. **`STATE_AZ_T33_C6.1_A1_S821`** (`"33-821 Exemption from
+    definition"`) — real corpus instance of the preposition-exclusion
+    guard (`"from"` immediately precedes `"definition"`): pins that R-MID's
+    own copy of `_PRECEDING_EXCLUSION_WORDS`-equivalent logic must also
+    reject this, not just baseline's.
+13. **`STATE_AR_T23_C64_S1_S23-64-103`** (`"Exceptions to definitions"`)
+    — same guard, `"to"` preposition, different state.
+14. **`STATE_NY_ANPC_A4_S406`** (`"Private foundation, as defined in the
+    United States internal revenue code of 1954: provisions included in
+    the certificate of incorporation"`) — real corpus instance of the
+    `"... as defined in ..."` verb-form guard: "defined" is followed by
+    `" in "`, not directly by `;`/`:`, so R-VERB-extended must not fire,
+    and it is nowhere near the last tail token, so R-VERB-bare must not
+    fire either.
+15. **`STATE_AK_T32_C32.06_S32.06.406`** (`"Continuation of partnership
+    beyond definite term or particular undertaking."`) — real morphology
+    guard: `"definite"`, not `"definition(s)"`/`"defined"` — must stay
+    False under every rule (R-MID's `^Definitions?$` token match and
+    R-VERB's `^defined$` token match both require an EXACT token, so
+    `"definite"` cannot satisfy either).
+16. **`STATE_TX_Cgv_C2001_S2001.175`** (`"§ 2001.175. PROCEDURES FOR
+    REVIEW UNDER SUBSTANTIAL EVIDENCE RULE OR UNDEFINED SCOPE OF
+    REVIEW."`) — real morphology guard, `"undefined"` — same reasoning,
+    different word, ALL-CAPS convention (also exercises R-SEC's
+    label-strip path finding no `Sec.`/`Section` label and correctly
+    falling through unmatched).
+
+Row 6's negative-guard companion for the existing bare-`"Section N"`-
+placeholder guard (ruling R9/R12) is NOT re-vendored here — the tests
+reuse the existing real IL row (`STATE_IL_C325_A7_S15`) already committed
+in `qa_cycle3_rows.json` above, loaded via that file's existing loader.
+
+### A correction to the panel log's evidence (misspelled cluster count)
+
+Live re-verification (full 52-file token-frequency census, every
+`\w*defin\w*` token counted) finds the misspelled cluster
+(`Defintions`/`definitons`-shaped, excluding correctly-non-heading
+morphology like `definite`/`undefined`) is **6 rows exactly** — 5×
+`"Defintions"` (3 in `us_al_statutes.parquet`, 1 in `us_ct_statutes.parquet`,
+1 in `us_mi_statutes.parquet`) + 1× `"definitons"`
+(`us_nj_statutes.parquet`) — not the panel log's cited **16**. No `16th`
+row exists anywhere in the corpus under any `defin*`-prefixed misspelling
+pattern searched. Reported to the manager as a correction, not silently
+fixed.
+
+### Retrieval (fixture creation only — never run by the test suite, R6)
+
+Same disposable-scratch-venv method as above
+(`huggingface_hub`/`pyarrow` installed outside `backend/.venv`), reading
+directly from the local HF cache
+(`~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad/`)
+rather than re-downloading — the full 52-file corpus was already cached
+locally for this sprint's evidence scout.
