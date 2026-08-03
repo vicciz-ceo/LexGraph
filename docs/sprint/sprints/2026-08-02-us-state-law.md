@@ -1,10 +1,10 @@
 ---
 id: "2026-08-02-us-state-law"
-status: review
+status: done
 current_role: planner
 branch: claude/us-state-law-compat-6d3ae8
-locked_by: "claude-code:planner"
-locked_at: "2026-08-02T10:00:34Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-08-03T21:18:00Z"
 lint: "PASS 320 2026-08-03T21:18:13Z"
