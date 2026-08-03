@@ -418,3 +418,76 @@ above), no boundary disagreement with core exists yet (core has not
 published anything to disagree with), and the one out-of-family overlap
 (VT, family 3 + family 5) is flagged to the program manager per the brief's
 own instruction, not escalated as a panel deadlock.
+
+---
+
+## M2 — manager verification of planner pass 1 (2026-08-04)
+
+I verified the handoff MYSELF rather than accepting the Planner's report.
+Three-dot diff materialized to scratchpad (`git diff origin/main...HEAD`),
+`--stat` reviewed, and the test file read in full (it is the load-bearing
+artifact of this handoff).
+
+**CHECK 1 — role separation held.** `git diff origin/main...HEAD --name-only`
+filtered for anything outside `docs/` and `backend/tests/` → **empty**. The
+Planner touched no production code. 5 files: contract, log, fixtures README,
+one fixture JSON, one test file.
+
+**CHECK 2 — tests are genuinely RED on the live path.**
+`backend/.venv/bin/pytest backend/tests/integration/test_us_markers_wave1_inline_quote_fallback.py -q`
+→ **`6 failed, 1 passed`**. The single pass is the deliberate sanity test
+(headings ARE already recognized — proving the miss is purely extraction, not
+detection). The tests drive the REAL production path
+(`ingest_us_statute_rows` → `run_definition_linking`, both imported
+unmodified), not a re-implementation.
+
+**CHECK 3 — no regressions.** Full suite `backend/.venv/bin/pytest
+backend/tests -q` → **`6 failed, 642 passed`**. Baseline was 641 passed; 641
++ 1 new sanity pass = 642, and exactly the 6 new tests are red. Nothing that
+was green went red.
+
+**CHECK 4 — no test reads the corpus snapshot.** Grepped `backend/tests/` for
+`huggingface`/`datasets--vaquill`/`snapshots/301000` → the only hit is a prose
+line in an existing docstring, no path read. The new tests read only the
+vendored `us_markers_wave1_rows.json`.
+
+**CHECK 5 — fixtures are VERBATIM real corpus rows (independently proven).** I
+loaded the real parquet files myself and compared field-by-field. All 6 rows
+located; `section_title` and `text` byte-identical to the fixture for every
+one:
+
+| act_id | title verbatim | text verbatim | chars |
+|---|---|---|---|
+| `STATE_VA_T23.1_SI_C3_S23.1-300` | True | True | 2,472 |
+| `STATE_VA_T4.1_SII_C6_S4.1-600` | True | True | 14,629 |
+| `STATE_WA_T47_C14_S020` | True | True | 332 |
+| `STATE_WA_T9A_C04_S110` | True | True | 7,318 |
+| `USC_T16_C65_S4503d` | True | True | 1,025 |
+| `USC_T15_C12_S431` | True | True | 3,239 |
+
+**CHECK 6 — the Planner's headline NEW finding reproduces under MY OWN run.**
+This is the finding that justifies the tests' extra strictness, so I did not
+take it on report. Running the UNMODIFIED `_extract_inline_quoted_definitions`
+(i.e. simulating a naive "just flip the `used_body_derived_heading` gate" fix)
+against the real fixture bodies:
+
+| row | current extractor | naive fallback | defect I observed |
+|---|---|---|---|
+| `USC_T15_C12_S431` | 0 | 1 | `agricultural products` = **3,169 chars, contains "Editorial Notes"** |
+| `USC_T16_C65_S4503d` | 0 | 3 | `State` = 626 chars, **contains "Editorial Notes"** |
+| `STATE_VA_T4.1_SII_C6_S4.1-600` | 0 | 48 | `sell` = **1 char (degenerate)** |
+| `STATE_WA_T9A_C04_S110` | 0 | 19 | `Vehicle` = **1 char**, plus phantom top-level term `motor vehicle` |
+
+Confirmed: the recon dossier's "77-93% rescuable" counts only WHETHER
+candidates come back, never their QUALITY. A naive gate flip would ship real
+garbage into the corpus. The Planner caught this independently and encoded it
+as assertions that FAIL against the naive fix — exactly what ruling U-R1
+demands. **Verdict: planner pass 1 ACCEPTED.**
+
+**Manager arbitration on the Planner's boundary proposal (d).** I do NOT
+forward the Planner's division of labour unchanged. The Planner proposes the
+CORE Developer wire the gate replacement AND carry wave 1's boundary fixes in
+the same change. I disagree: that puts family-3 BEHAVIOUR change inside the
+core sprint, where neither the RED tests nor the family expertise live, and
+leaves my QA verifying another panel's implementation. My lean is recorded in
+the escalation to the program manager (see §M3).
