@@ -1041,3 +1041,169 @@ force extraction was right. They stay uncaptured, documented here as
 proven-not-a-definition, and QA must treat them as expected-zero in the P4
 sweep rather than as outstanding misses. Bucket D remains the only genuine
 director question from this sprint.
+
+---
+
+## 2026-08-04 — Developer: cycle-2 implementation, 53 RED tests -> green
+
+Read the cycle-2 Planner entry, rulings M-R6/M-R7, and the contract's
+`### Cycle-2 corrections` before touching anything. Worked only in
+`pr_profile.py`; touched no test, no fixture, no shared module.
+
+### What changed
+
+- **`_extract_term_and_definition`**: added the 6 diagnosed separator
+  shapes. Quoted patterns: comma+idiom (with an optional `"TermA" o
+  "TermB"` alt-term prefix, real row `STATE_PR_LEY_60_1988_ART1`/
+  `STATE_PR_LEY_3_2022_ART4`-shaped rows), ASCII-hyphen dash (added to
+  the existing typographic-dash character class), and a bare-no-
+  separator shape split into TWO patterns -- idiom-required and
+  capitalized-required -- rather than one permissive "quote then
+  anything" rule. Unquoted patterns: colon (new) and own-trailing-period
+  (new). A leading-decorative-dash strip handles A5
+  (`STATE_PR_LEY_190_1995_ART2`'s `a. — "Term" significa...`).
+- **`_ENTRY_MARKER_RE`**: added the "ch" two-character marker
+  (`STATE_PR_LEY_46_2008_ART3`) and a lookbehind excluding a marker
+  candidate whose qualifying period is a lone single-letter abbreviation
+  token (fixes the `"U. S. Geological Survey"` false-positive marker
+  misfire, `STATE_PR_LEY_51_2003_ART2`).
+- **`extract_definitions_from_section` dispatch**: checks whether the
+  LEAD-IN text before the first marker matches a narrow bare-copulative-
+  idiom shape (`"Agente General es la persona..."`); if so, the whole
+  body is one entry with an incidental enumerated sub-list, not a
+  multi-entry list (`STATE_PR_LEY_77_1957_ART9_040`).
+- **`is_definitions_heading`**: extracted the existing single-clause
+  rule into `_matches_definicion_stem`, added enclosing-parenthesis
+  stripping (gap 2), and clause-splits the tail on `;`/`,`/em-dash
+  before applying the stem rule to each clause (gap 1) -- a flat split
+  turned out to handle the one row needing two delimiter levels
+  (`STATE_PR_LEY_26_1941_ART78`) without any hierarchical logic, since
+  comma and semicolon are both clause delimiters at the same flat level.
+
+### Precision bugs found and fixed beyond the pinned tests
+
+The 53 tests went green well before the corpus self-check was clean.
+Three real precision regressions turned up only by running the fixes
+over the full parquet, all now fixed (self-check numbers below are
+post-fix):
+
+1. **M-R7 violation**: an early, unbounded version of the new unquoted-
+   period pattern fabricated a huge bogus "term" out of an entire
+   paragraph for `STATE_PR_RENTAS_SEC2022_01`/`_SEC2042_01` (`"(a) En
+   General.- El caudal relicto bruto..."` -- the ASCII-hyphen subsection
+   label has no whitespace right after its own period, so `\.\s+`
+   correctly skipped it, but the pattern then kept expanding across the
+   whole block hunting for ANY later period+capital-letter). Fixed by
+   excluding any `.-` sequence from ever being absorbed into the term
+   (fails closed instead of running away), not by an arbitrary length
+   cap -- a flat 80-char cap was tried first and cost real corpus recall
+   on genuinely longer valid terms, so it was replaced with this
+   structural exclusion.
+2. **Quoted-block fallthrough**: a block starting with a quote but using
+   an idiom outside the recognized set (`"se refiere a"`, not one of
+   `significa/significará/será/es`) fell through to the UNQUOTED
+   patterns, which don't exclude quote characters and searched arbitrarily
+   far into the definition for their own separator
+   (`STATE_PR_LEY_4_2022_ART1_03` entry (e)). Fixed by splitting the
+   pattern list into a quoted group and an unquoted group, gated on
+   whether the block starts with a quote character -- a quoted block that
+   matches no quoted pattern now returns `None` rather than falling
+   through.
+3. **Unbounded forward search**: `_UNQUOTED_TERM_COLON_RE`/`_DASH_RE`/
+   `_PERIOD_RE` all search forward non-greedily for their own separator
+   with no bound, so a block with no EARLY separator (colon/dash/period)
+   near its real start could match a much LATER, unrelated one deep in
+   the definition text (`STATE_PR_CIVIL_ART326`: no markers, `"Poder es
+   la facultad..."`, no colon/dash near the front) or the WRONG one when
+   colon (tried first) reaches past a correct, nearer dash to a colon
+   sitting inside the definition's own prose (`STATE_PR_LEY_3_2022_ART4`:
+   `"Comandante de Operaciones Regionales – Significa ... a saber: Región
+   1..."` -- colon inside the list intro, dash is the real separator).
+   Fixed by bounding all three unquoted patterns' term group to <=100
+   chars (the longest real term across every fixture is 72 chars).
+
+None of these three were caught by the 53 pinned tests or the 641-row
+baseline -- only running the full corpus surfaced them. Flagging this
+explicitly per the brief's "tell me if a fix starts capturing prose"
+instruction, even though these are precision fixes rather than a bucket-D
+widening: the corpus self-check step is what caught them, not the test
+suite, which is exactly the cycle-1 lesson the corpus-floor test file
+exists to institutionalize.
+
+### Full suite
+
+```
+backend/.venv/bin/pytest backend/tests -q
+772 passed, 6 xfailed, 18 warnings
+```
+
+719 (cycle-1 baseline + cycle-1 PR tests) + 53 (cycle-2 RED tests) = 772,
+zero failures. The 6 xfails are all `test_pr_profile_scope.py` (verified
+individually via `-rxX`, all core-gated per M-R3, none XPASSed). Role
+boundary self-check: `git diff --name-only` against the prior commit
+shows only `backend/app/definition_links/pr_profile.py` touched -- no
+test, no fixture, no shared module.
+
+### Corpus self-check (real `us_pr_statutes.parquet`, 23,636 rows, read
+once from the on-disk HF snapshot via a disposable scratchpad script --
+never downloaded, never committed, same discipline as every prior pass)
+
+- **Headings**: 633/635 genuine headings detected (0 false positives
+  corpus-wide). The 2 misses are exactly the 2 correct-reject TOC rows
+  (`STATE_PR_LEY_165_2020_ART1_2`, `STATE_PR_LEY_51_2020_ART1_2`) --
+  every row that is genuinely NOT a TOC listing is now detected.
+- **Extraction**: 513/633 detected sections yield >=1 candidate --
+  **81.0%**, up from cycle 1's measured 56.4%.
+- **Fabrication guard**: 0 candidates corpus-wide with a term longer than
+  120 chars (checked after the 3 precision fixes above; an earlier,
+  pre-fix version of this same self-check had 290 such candidates out of
+  5936 total -- a 6x-higher rate than the unmodified cycle-1 baseline's
+  28/3490 -- which is what drove the precision-bug hunt documented
+  above).
+- **M-R7 rows re-verified directly**: `STATE_PR_LEY_77_1957_ART36_030`,
+  `STATE_PR_RENTAS_SEC2022_01`, `STATE_PR_RENTAS_SEC2042_01` all yield
+  `[]` (0 candidates) against the live corpus text, matching the ruling.
+
+### For QA
+
+- The 120 remaining zero-yield detected sections (633 - 513) are, on
+  spot-check, overwhelmingly bucket-D-shaped (copulative/passive prose:
+  `"Son bienes las cosas..."`, `"los pasivos se definirán como..."`) or
+  use an idiom outside the measured set (`"se refiere a"` as a QUOTED-
+  term idiom, distinct from the already-handled UNQUOTED `"se refiere
+  a"` in bucket B) -- none were force-fixed, per the brief's explicit
+  instruction not to widen into bucket D. Not re-catalogued into buckets
+  by name; flagging so QA's P4 sweep does not mistake "still zero" for
+  "newly regressed."
+- Every candidate corpus-wide was swept for a >120-char term as a
+  fabrication tripwire (see above); QA may want to re-run a similar
+  sweep independently rather than trusting this report's number alone,
+  per the sprint's "I will run my own version of this check" standing
+  instruction.
+- No `determine_chapter_scope` work done; `test_pr_profile_scope.py`
+  stays xfail, unchanged, core-gated per M-R3.
+
+### Design choices / residual risk on the record
+
+- The quoted-idiom set (`significa`/`significará`/`será`/`es`) is
+  deliberately NOT widened to include `se refiere a` (seen used both as
+  an unquoted-colon idiom, already handled, and as a quoted-bare idiom,
+  NOT handled) -- widening the idiom alternation used by the bare-idiom
+  patterns has a wider blast radius (it's shared with the dispatch-
+  fallback lead-in check) than I was willing to take unilaterally against
+  a corpus-wide check I could only run once at the end. Flagging as a
+  candidate follow-up, not fixing now.
+- The 100-char bound on the 3 unquoted forward-searching patterns and the
+  quoted-vs-unquoted pattern-group split are both NEW precision
+  disciplines this cycle needed that weren't anticipated by the RED
+  tests (which only pin recall on the diagnosed shapes, not corpus-wide
+  precision) -- worth the Planner/manager knowing this class of "search
+  forward for a distant separator" bug exists as a pattern to watch for
+  in any future extension of this module.
+
+### Pushed
+
+```
+d02ffed dev: cycle-2 fixes for PR extraction/heading gaps (53 RED tests -> green)
+```
+Branch `claude/defs-us-pr`, pushed to origin.
