@@ -980,3 +980,64 @@ silently dropping it — but I have NOT surveyed its full corpus-wide count,
 so I am not asserting it is safe, only that it looks structurally
 distinguishable from D. Not blocking cycle 2's handoff; flagging for the
 manager to route.
+
+---
+
+## 2026-08-04 — Manager: cycle-2 Planner verified + ruling M-R7 (bucket-B escalation settled in-panel)
+
+**Verified myself, not accepted on report.**
+- Role boundary: `git diff --name-only 0f6823d...HEAD | grep '^backend/app/'`
+  → NOTHING. No existing test modified (`--diff-filter=M` over
+  `backend/tests/unit/` → nothing). Tests-only, as required.
+- All **24** cycle-2 fixture rows byte-compared against the live parquet on
+  BOTH `section_title` and `text`: **24 byte-exact, 0 problems.** Vendored
+  data is real, again.
+- RED re-run by me: `53 failed, 719 passed, 6 xfailed`. The 53 are genuine
+  assertion failures against unmodified `pr_profile.py`, not import errors —
+  a materially stronger red than cycle 1's `ModuleNotFoundError`, because
+  each one now discriminates real behavior.
+
+**The Planner corrected me, and it was right to.** My bucket-C label
+("marker-inventory gap") was wrong for both examples I named: `A.` and
+`a. —` markers already match `_ENTRY_MARKER_RE` today. My categorizer was a
+crude proxy regex and I over-read it. The real bucket-A root cause is
+narrower and better than my framing: `_extract_term_and_definition` only
+tries **3 separator patterns**, and the corpus needs **6** — quoted+idiom
+with no separator at all (~133 of the 153, the dominant shape),
+quoted+comma+idiom, quoted+ASCII-hyphen+idiom, quoted-bare, unquoted+colon
+(no such pattern exists today), unquoted+own-trailing-period. Likewise 11 of
+the 13 heading misses collapse into ONE gap (the rule checks first/last word
+of the whole tail, but real headings put "definición" first inside an inner
+semicolon/comma/dash clause), not the 5 unrelated families I listed. A panel
+that only confirms its manager is not worth running; recorded as a
+correction to my M-R6 analysis, not buried.
+
+Incidental finds I did not have: the traditional Spanish two-character `ch)`
+marker (`STATE_PR_LEY_46_2008_ART3`), a marker false-positive on spaced
+abbreviations, and a dispatch-logic bug.
+
+### Ruling M-R7 — the 3 bucket-B rows are correct-zero, NOT misses, and do NOT escalate
+
+The Planner flagged `STATE_PR_LEY_77_1957_ART36_030`,
+`STATE_PR_RENTAS_SEC2022_01`, `STATE_PR_RENTAS_SEC2042_01` as sharing bucket
+D's character and asked me to route them. I read them and I am settling this
+in-panel rather than spending the director's attention on it:
+
+- `ART36_030` body is `"Se considerará que una sociedad tiene una forma
+  representativa de gobierno cuando: (a) Disponga en su constitución…"` —
+  the `(a)`/`(b)` items are **conditions**, not defined terms.
+- `SEC2022_01` body is `"(a) En General.- El caudal relicto bruto…"` —
+  `"En General"` is a **subsection label**, not a term.
+
+These are not a zero-miss-versus-precision tradeoff, which is what makes
+them different from bucket D. Extracting them would not capture a definition
+imprecisely; it would **fabricate a defined term that does not exist**
+(`"En General"` is not a term of art in this statute). Gate P4's own wording
+is "every hit captured **or proven not-a-definition**" — this is the
+proven-not-a-definition branch, and the proof is the text itself.
+
+**Ruling:** the 3 rows are correct-zero. The Planner's instinct to refuse to
+force extraction was right. They stay uncaptured, documented here as
+proven-not-a-definition, and QA must treat them as expected-zero in the P4
+sweep rather than as outstanding misses. Bucket D remains the only genuine
+director question from this sprint.
