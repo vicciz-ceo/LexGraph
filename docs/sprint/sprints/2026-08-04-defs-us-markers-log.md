@@ -747,3 +747,91 @@ reconciliation is deferred, not a disagreement).
 
 **Commit**: local only, not pushed, per the brief. Exact SHA reported to the
 manager alongside this pass's summary.
+
+---
+
+## M3 — manager verification of planner pass 2 + boundary RESOLVED (2026-08-04)
+
+### Verification of pass 2 (done by me, not accepted on report)
+
+**CHECK 1 — role separation held.** `git diff origin/main...HEAD --name-only`
+outside `docs/` and `backend/tests/` → **empty**. Still zero production code.
+
+**CHECK 2 — suite state.** Full run → **`30 failed, 644 passed`**. 644 = 642
++ 2 new deliberate sanity passes; the 30 red = 6 (wave 1, unchanged) + 24 new.
+Nothing previously green went red.
+
+**CHECK 3 — all 19 NEW fixture rows are verbatim real corpus rows.** I loaded
+the real parquet files myself and compared `section_title` and `text`
+field-by-field for every row in both new fixture files: **19/19 located,
+0 mismatches.** (Combined with pass 1: 25/25 vendored rows proven verbatim.)
+
+**CHECK 4 — the classifier self-correction is REAL and it matters.** This is
+the most consequential thing in pass 2, so I reproduced it independently
+against the full real WA parquet rather than taking the number on report.
+
+- WA Definitions-headed, zero-candidate rows: **1,778** — matches the
+  Planner's count exactly.
+- A cross-reference rule anchored at the START of the body (pass 1's design)
+  classifies **683 of 1,778 (38.4%)** of them as "correctly empty" (the
+  Planner, with their slightly broader regex, measured 734 / 41.3%; my
+  independent reconstruction used a narrower pattern, hence the small
+  delta — same order, same conclusion).
+- The CORRECTED rule (the whole body must be nothing but the cross-reference
+  sentence) classifies **0** of 1,778 by my reconstruction (Planner: 4).
+- Decisive evidence on the flagship row `STATE_WA_T47_C14_S020`: its body
+  literally opens `"The definitions set forth in this section apply
+  throughout this chapter."` and then goes on to define **2 real terms**
+  (`Right-of-way`, `Airspace`) — the very row wave 1's headline test asserts
+  we must recover.
+
+**This was the loophole that would have let this sprint claim zero-miss while
+silently writing off ~700 real WA misses as "correctly empty."** Ruling U-R3
+(classifier is a Planner deliverable, independently verified, never the
+Developer's explanation for a residue) is exactly what caught it, and the
+Planner caught it on itself. **Verdict: planner pass 2 ACCEPTED**, and the
+corrected classifier is now a gating deliverable, not a footnote.
+
+### Manager ruling U-R5 — the core boundary is RESOLVED; no escalation needed
+
+Core published its `## Seam spec (published)` (branch `claude/defs-core-scope`
+@ `5610fb1`, plus manager rulings @ `9272f6e`). I read it myself. It changes
+the answer to our open boundary question:
+
+1. **We do NOT need to remove the `heading_was_derived` gate, and we do not
+   need core's Developer to carry our behaviour change.** The seam keeps that
+   gate on the *moved-verbatim* legacy inline extractor (C3 is a
+   behaviour-preserving migration). Separately, Seam 2 gives us
+   `EntrySplitterRule` + `TermClauseRule` in a new file
+   `backend/app/definition_links/rules/us_entry_marker_variants.py`, and the
+   consumption contract is **baseline-first, registry-second**: the `(N)`-block
+   splitter runs first and returns EMPTY on exactly our family-3 bodies —
+   which is precisely when our registered rule fires, *regardless of how the
+   heading was found*. That is a complete, legal path to wave 1 with **zero
+   shared-module edits** (gate U3 satisfied by construction).
+2. This is strictly BETTER than flipping the gate: flipping it would have
+   re-used the defective legacy function that my §M2 check proved emits
+   3,169-char editorial-notes swallows and 1-char definitions. Registering our
+   own boundary-correct rule means we never inherit those defects.
+3. Core's manager ruling **M1** moved `EntrySplitterRule` from
+   first-match-wins to **union of all matching rules**, so our family-3 rule
+   cannot be silently pre-empted by another family's rule — favourable to us
+   and to the zero-miss bar.
+
+**Therefore the Planner's pass-1 boundary proposal (d) — that core's Developer
+wire the gate replacement and carry wave 1's boundary fixes — is SUPERSEDED
+and withdrawn.** Family-3 behaviour change stays in this sprint, where the RED
+tests and the family expertise live, which was my §M2 arbitration lean. No
+escalation to the program manager is required on the boundary.
+
+### Ruling U-R6 — what this sprint's Developer may do NOW
+
+Core has published DOCS ONLY: `git ls-tree origin/claude/defs-core-scope --
+backend/app/definition_links/` shows **no `rules/` directory** — the registry
+is spec, not code. Therefore:
+- **BLOCKED until core merges to main:** waves 1-7 (every rule module), since
+  `rules/registry.py` does not exist to register against.
+- **NOT BLOCKED:** `backend/app/definition_links/correctly_empty.py`. It is a
+  standalone NEW module with no registry dependency, QA calls it directly for
+  gate U4's zero-miss sweep, and it already has 15 RED tests. It is dispatched
+  now.
