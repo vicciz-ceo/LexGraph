@@ -644,3 +644,47 @@ MI 63.9%→99.2% (+1,594), SD 47.2%→91.1% (+743).
 the new rule adds 20,307 recognitions and zero false positives.** Gates U1
 (heading layer), U5 and U6 are satisfied at the Phase-A level; their formal
 QA certification still has to run against the post-core wired state.
+
+---
+
+## 2026-08-04 — Manager quantification of the U2 gap (before escalating)
+
+The Planner escalated U2 with one real example. A one-row anecdote is not a
+basis for a program-level decision, so the manager measured the **size of the
+affected class** across the full corpus before forwarding it.
+
+Of the **20,308 newly-recognized headings**, the number that name a scope unit
+at all is **10 — 0.05%**. Complete enumeration (this is the whole class, not a
+sample):
+
+| # | Juris | act_id | scope named |
+|---|---|---|---|
+| 1 | AK | `STATE_AK_T13_C13.06_S13.06.050` | multi-chapter RANGE (`AS 13.06 — AS 13.36`) |
+| 2 | CT | `STATE_CT_T12_C202_S12-35b` | "for sections concerning state liens…" |
+| 3 | KY | `STATE_KY_TIII_C17_S17.185` | "Definitions for section" |
+| 4 | KY | `STATE_KY_TXIII_C156_S156.106` | "for section and KRS 161.605" |
+| 5 | KY | `STATE_KY_TXXI_C246_S246.420` | "Definitions for section" |
+| 6 | KY | `STATE_KY_TXI_C139_S139.486` | "Definitions for section" |
+| 7 | NJ | `STATE_NJ_T17_C35_S35-23` | `"Agent" defined; penalty…` |
+| 8 | TN | `STATE_TN_T6_C51_S6-51-101` | "Part definitions and definitions for Section 6-51-301" |
+| 9 | UT | `STATE_UT_T78A_S78A_5_201` | "Definition of drug court program" |
+| 10 | VA | `STATE_VA_T8.01_C1_S8.01-2` | "General definitions for this title" |
+
+Two things this measurement changes about the escalation:
+
+1. **The blast radius is 10 rows, not a family.** Whatever is decided, it does
+   not gate the sprint's 20,307-row recall win.
+2. **This is NOT new exposure created by this sprint.** The same
+   inexpressible-scope shapes occur in headings baseline ALREADY recognizes
+   (`Definitions for chapter.`, `Definitions for parts 2-5` — the Planner
+   verified these are baseline-True today, independent of us). The seam's
+   2-value scope model under-describes those rows right now, in production,
+   with or without this sprint. Our 10 rows are a small increment on a
+   pre-existing, larger, core-owned modelling gap — which is an argument for
+   routing the scope-model question to the CORE panel as a program-level
+   follow-up rather than treating it as a family-4 blocker.
+
+Manager's lean recorded here and forwarded: ship Phase A, record these 10
+`act_id`s as a named known limitation, and route the scope-model question to
+core — do NOT hold a 20,307-row correctness win for a 10-row modelling gap,
+and do NOT let a silently-wrong "law-wide" stamp pass unrecorded.
