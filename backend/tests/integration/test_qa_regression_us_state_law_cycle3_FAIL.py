@@ -18,13 +18,24 @@ Developer verified against.
 [QA-FAIL] Item 3 -- US jurisdiction profile [G2], heading matcher still
 badly broken on real data outside DE/NY, three distinct root causes:
 
-  1. `test_is_definitions_heading_cannot_recognize_a_state_whose_section_title_carries_no_heading_text`
-     (structural defect, no regex can fix it): for real Illinois rows (and
-     verified separately for California/Georgia -- see fixture README),
+  1. `test_is_definitions_heading_correctly_rejects_a_bare_section_placeholder_with_no_heading_text`
+     (pipeline-level defect, corrected per ruling R12: no regex fix to
+     `is_definitions_heading` belongs here, and none is asserted -- see
+     R12 in the sprint log): for real Illinois rows (and verified
+     separately for California/Georgia -- see fixture README),
      `section_title` is ALWAYS a generic `"Section N"` placeholder; the
      genuine "Sec. 15. Definitions." heading exists only inside the row's
-     `text` body, which `is_definitions_heading` never sees. 100% miss,
-     state-wide, for at least 3 of ~53 real jurisdictions.
+     `text` body. `is_definitions_heading` correctly returns False on the
+     bare placeholder itself -- treating "Section N" as a heading match
+     would produce false positives on every one of the ~53 real
+     jurisdictions where "Section N" is simply the generic label prefix
+     of an ordinary, non-Definitions section. The real defect is that
+     Stage 2 of `pipeline.py` feeds the placeholder `section_title` into
+     the heading check instead of deriving the heading from the row's
+     `text` body when `section_title` is a bare placeholder; the live-path
+     test below (`test_real_pipeline_misses_a_real_illinois_definitions_section_end_to_end`)
+     pins that real requirement end-to-end. 100% miss, state-wide, for at
+     least 3 of ~53 real jurisdictions, fixed at the pipeline level.
 
   2. `test_is_definitions_heading_misses_all_caps_texas_definitions_headings`
      (case-sensitivity defect): Texas's real, standard heading convention
@@ -92,7 +103,23 @@ def _load_rows() -> dict[str, dict]:
 # --- Item 3, defect 1: section_title carries no heading text at all --------
 
 
-def test_is_definitions_heading_cannot_recognize_a_state_whose_section_title_carries_no_heading_text():
+def test_is_definitions_heading_correctly_rejects_a_bare_section_placeholder_with_no_heading_text():
+    """Manager ruling R12: the previous version of this test asserted
+    `is_definitions_heading("Section 15") is True`. That assertion was
+    INVALID -- making it pass would make `is_definitions_heading` return
+    True for ANY bare `"Section N"` heading, which appears throughout every
+    state's corpus for perfectly ordinary, non-Definitions sections, and
+    would destroy the zero-false-positive property verified across 10 real
+    states (ruling R9).
+
+    `is_definitions_heading` is behaving CORRECTLY here: a bare placeholder
+    carries no definitions signal, so it must be rejected. This test now
+    pins that correct, current behaviour so the zero-false-positive
+    invariant is protected by a regression test, and documents that the
+    REAL Illinois/California/Georgia defect lives one layer up, in the
+    pipeline feeding the wrong field into this function -- see the
+    live-path test immediately below, which is the actual spec for the fix.
+    """
     from app.definition_links.us_profile import is_definitions_heading
 
     rows = _load_rows()
@@ -105,15 +132,21 @@ def test_is_definitions_heading_cannot_recognize_a_state_whose_section_title_car
         "the real body DOES contain a genuine 'Sec. 15. Definitions.' heading -- "
         "it just isn't in section_title, which is all is_definitions_heading sees"
     )
-    assert is_definitions_heading(row["section_title"]) is True, (
-        f"is_definitions_heading({row['section_title']!r}) returned False -- this "
-        "real Illinois row IS a genuine Definitions section, but section_title "
-        "carries no heading text at all (verified: 99.6% of all 72,456 real IL "
-        "rows, and 100% of all 161,429 real CA rows, and 100% of all 28,154 real "
-        "GA rows, share this exact shape). No regex fix to is_definitions_heading "
-        "can recover this on its own -- the input field it is called on "
-        "(Article.heading, sourced from section_title in pipeline.py Stage 2) "
-        "never carries the real heading text for these states"
+    assert is_definitions_heading(row["section_title"]) is False, (
+        f"is_definitions_heading({row['section_title']!r}) must return False: a "
+        "bare 'Section N' placeholder (with no descriptive text at all) carries "
+        "no definitions signal, and this same shape is the generic label prefix "
+        "of ordinary, non-Definitions sections throughout every state's corpus. "
+        "Returning True here would make is_definitions_heading match ANY "
+        "'Section N' heading state-wide, destroying the zero-false-positive "
+        "result verified across 10 real states (ruling R9). The real IL/CA/GA "
+        "defect -- section_title never carrying the real heading text for "
+        "these states (verified: 99.6% of all 72,456 real IL rows, 100% of all "
+        "161,429 real CA rows, and 100% of all 28,154 real GA rows share this "
+        "exact shape) -- belongs at the pipeline level (Stage 2 of "
+        "pipeline.py must derive the heading from the row's text body when "
+        "section_title is a bare placeholder), not inside is_definitions_heading "
+        "itself. See the live-path test below for that real requirement."
     )
 
 
