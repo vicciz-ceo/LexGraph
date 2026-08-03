@@ -1207,3 +1207,89 @@ never downloaded, never committed, same discipline as every prior pass)
 d02ffed dev: cycle-2 fixes for PR extraction/heading gaps (53 RED tests -> green)
 ```
 Branch `claude/defs-us-pr`, pushed to origin.
+
+---
+
+## 2026-08-04 — Manager: cycle-2 verification, TWO ESCALATIONS, sprint paused
+
+### Verification of the Developer's cycle 2 (all run by me)
+
+- Boundaries: `git diff --name-only 6d94809...HEAD` → `pr_profile.py` + this
+  log ONLY. No test, no fixture, no shared module. Held.
+- Full suite: **`772 passed, 6 xfailed`**, zero failures. The 6 xfails are
+  all `test_pr_profile_scope.py` (core-gated); none XPASSed.
+- My own full-corpus run (independent script, not the Developer's):
+
+```
+headings detected: 633/635, false positives: 0
+  the only 2 not detected are the 2 Table-of-Contents rows — CORRECT rejections
+extraction on rows the panel never vendored: 507/627 = 80.9%   (cycle 1: 56.4%)
+total terms extracted: 5,594
+```
+
+Heading detection is now effectively **635/635 correct decisions with zero
+false positives** corpus-wide. Extraction went 0% → 56.4% → 80.9%.
+
+- **Precision audit** (mine — the failure mode I most expected after a
+  widening pass): term length min 2 / median 16 / p95 45 / **max 102**;
+  **0 terms over 120 chars**, 0 empty terms, 9 of 5,594 terms containing ≥2
+  periods. Before the Developer's own precision fixes there were 290
+  fabricated long terms — he found that himself via a corpus check and fixed
+  it structurally rather than with a length cap. No fabrication smell remains.
+- **Ruling M-R7 re-verified live**: all three correct-zero rows still return
+  exactly 0 candidates.
+
+### Residual 120 zero-yield sections — categorized, and they are NOT one thing
+
+| Class | Rows | Disposition |
+|---|---|---|
+| **D — copulative/prose definitions** | **84** | **ESCALATION 2 (director)** |
+| M-R7 correct-zero (conditions / `"En General"` labels) | 3 | Settled, correctly zero |
+| Still-fixable panel workload | **33** | Cycle 3 — no director input needed |
+
+The 33 are ordinary remaining gaps, e.g. `El término "equipo solar"
+significa todo equipo…` (`STATE_PR_LEY_133_1979_ART1` — the `El término
+"X" significa` lead-in shape), `a) Documento acreditativo - significará…`
+(`STATE_PR_LEY_209_2016_ART2`), `(a) Sociedad.- … el término "sociedad"
+incluye…` (`STATE_PR_RENTAS_SEC1070_01`). These are a normal Planner→
+Developer cycle, not a judgment call. I am NOT folding them into the
+director question and I am NOT letting them be mistaken for done.
+
+### ESCALATION 1 — cross-sprint seam conflict (M-R3), for the program manager
+
+Core published its `## Seam spec` while this sprint's cycle 2 was running
+(`origin/claude/defs-core-scope` @ `9272f6e`). It is a **rule-registry**
+model: `register_heading_rule` / `register_entry_splitter_rule` /
+`register_term_clause_rule` / `register_scope_trigger_rule`, keyed by
+`jurisdiction_codes`, consumed **baseline-first, registry-second** — and it
+states family panels build "new rule MODULES registered into the seam —
+broader phrase/marker/heading coverage, **not new mechanism**."
+
+That contradicts this sprint's published seam proposal (`PRProfile` as a
+distinct Spanish profile class, the `HebrewProfile` sibling), which core's
+Planner wrote its spec without having seen. Core's spec keeps IL on
+`HebrewProfile` and puts every `US-*` code on `USProfile` + registered
+rules; it contains no carve-out for a non-English US jurisdiction.
+
+Mechanically core's model *can* carry PR — `USProfile`'s baseline returns
+False on Spanish headings and empty on Spanish bodies (zero newlines defeat
+its line splitter), so PR rules would always get their turn under
+baseline-first. The disagreement is about guarantees, not feasibility, and
+it is a real one, so it goes up rather than getting decided by me.
+
+### ESCALATION 2 — bucket D, program standing question Q-1 (P-R2)
+
+84 real PR definitions are copulative/prose with no entry marker and no
+canonical defining idiom. Under ABSOLUTE ZERO-MISS they are misses and gate
+P4 fails. Capturing them means matching Spanish copulative prose, which will
+fire on ordinary substantive text corpus-wide — the exact zero-miss vs.
+zero-false-positive conflict P-R2 says panels must never settle silently.
+Real examples are in the escalation returned to the program manager.
+
+### Sprint state at pause
+
+Not blocked in the harness sense (`qa_cycles` is 0, not 5) — paused on two
+escalations plus a known 33-row cycle-3 workload. **QA has not yet run**:
+every verdict in this log is Planner + Developer + my own independent
+verification, which is NOT the same thing as the independent QA role, and
+gate P4 formally belongs to QA. Recorded honestly rather than claimed.
