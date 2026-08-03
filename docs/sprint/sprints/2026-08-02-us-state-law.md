@@ -76,84 +76,12 @@ do not re-derive its findings).
   explicitly-invoked, measured deliverable — never part of `pytest backend/tests`.
   Any network-dependent test is marked and skipped by default.
 
-- **R7 — Manager live-path + real-data findings (2026-08-02, after wave 3).**
-  (a) Live path VERIFIED by the manager directly: 3 real Delaware rows through
-  the real `ingest_us_statute_rows` -> `run_definition_linking` produce 3
-  definitions (`Affiliate`, `Branch office`, `Insured depository institution`)
-  and 2 DERIVES_FROM_LAW assertions incl. real federal cite `12 U.S.C. § 1813(c)`,
-  all stamped `US-DE`, zero nulls. Pre-fix the same probe produced 0 and 0.
-  (b) **NEW DEFECT, item 5, found by manager probe of the REAL dataset:** the
-  wave-3 idempotency fix skips any row with an empty `chapter`. On the real
-  `us_de_statutes.parquet` (21,649 rows) **647 rows (3.0%) have an empty
-  `chapter`** and would be dropped — real law lost, one state alone. `citation`
-  is null/empty in **0%** of rows and is the canonical unique legal identifier
-  (e.g. `5 Del. C. § 796`). QA must reproduce this and bounce item 5.
-
-- **R8 — Wave 4 verified by the manager directly (2026-08-02).** Heading matcher:
-  linear time confirmed (0.0009 ms flat; 0.018 ms at 4,000-char noise — was
-  15,800 ms at 29 chars). Accuracy on REAL data: **0 missed / 0 false positives**
-  across `us_de_statutes` (21,649 headings, 973 candidates) AND `us_ny_statutes`
-  (40,102 headings, 1,416 candidates); both over-match cases still rejected.
-  Ingester: Developer found a THIRD defect the manager had missed — chapter codes
-  collide ACROSS titles (179 collisions merging 293 real sections) — and correctly
-  refuted the manager's `citation`-as-key suggestion (1 duplicate pair in 21,649).
-  Final key `(section_number, section_title, text)` verified collision-free on all
-  21,649 real DE rows; full real-file ingest 21,649 -> 21,649 Articles, 0 skipped,
-  idempotent on re-run. Suite: **632 passed / 0 failed**.
-
-- **R9 — Wave 5 heading matcher: manager-verified per-state coverage (2026-08-02).**
-  Independently reproduced the Developer's table on 10 real state files. Zero
-  false positives in every state; timing 0.002 ms/call (linear held).
-  | st | rows | cands | missed | miss% |
-  |----|------|-------|--------|-------|
-  | tx | 122,535 | 5,033 | 24 | **0.5%** (was 100%) |
-  | oh | 33,161 | 970 | 20 | **2.1%** (was 84.1%) |
-  | fl | 24,866 | 852 | 47 | **5.5%** (was 27.1%) |
-  | de | 21,649 | 1,036 | 16 | 1.5% |
-  | ny | 40,102 | 1,547 | 68 | 4.4% |
-  | pa | 14,547 | 547 | 4 | 0.7% |
-  | wa | 51,498 | 2,007 | 207 | 10.3% |
-  | ca / il / ga | 262,039 | **0** | — | structural, see R10 |
-  Residual misses are multi-topic headings ("APPLICABILITY OF DEFINITIONS",
-  "...; definitions; penalties.") where definitions is not the section's own
-  subject — deliberately not chased, to hold false positives at zero.
-- **R10 — CA/IL/GA root cause FOUND (Developer escalation, accepted).** Not
-  unknowable after all: `section_title` for these states is a bare placeholder
-  (`"Section 103-9"`, `"Section 22970.21"`, or a bare citation for GA). The real
-  heading text lives inside the `text` body (`"Sec. 15. Definitions. As used in
-  this Act..."`), which Stage 2 never receives. No change to `us_profile.py` can
-  recover it — the fix is a `pipeline.py` Stage-2 input change. 262,039 rows
-  across 3 states affected. Escalated to the director; NOT fixed in wave 5 per
-  the director's binding "characterise, do not guess" ruling.
-- **R11 — Wave 5 ingester agent did not complete.** It blocked on a background
-  notification and pushed nothing; its work is lost. Cause: the manager omitted
-  the standing "never block on Monitor" rule from the wave-5 brief preamble.
-  Manager fault, not agent fault. Re-spawned fresh in wave 5b.
-
-- **R12 — Director approved wave 6 (CA/IL/GA), and QA's IL unit test is INVALID.**
-  Director ruling (AskUserQuestion, 2026-08-03): fix CA/IL/GA rather than defer.
-  Manager ruling on the test estate: `test_is_definitions_heading_cannot_recognize_
-  a_state_whose_section_title_carries_no_heading_text` asserts
-  `is_definitions_heading("Section 15") is True`. That is a planning bug — making
-  it pass would return True for ANY `"Section N"` heading, destroying the
-  zero-false-positive result of R9 across all 10 states. The Developer's
-  escalation was correct. The VALID spec is the sibling live-path test
-  `test_real_pipeline_misses_a_real_illinois_definitions_section_end_to_end`.
-  Wave 6 splits accordingly: a test-owning agent rewrites the invalid unit test;
-  a Developer changes `pipeline.py` Stage 2 to derive the heading from the body
-  when `section_title` is a bare placeholder. Developers may not touch tests.
-
-- **R13 — Wave 5b ingester: manager-verified (2026-08-03).** Key is now the
-  dataset's own per-row `act_id` (e.g. `STATE_PA_T74_C7_S7`). Manager checked it
-  independently across **10 real state files / 570,397 rows: 0 duplicates, 0
-  null-or-empty**. Prior keys each failed on the next file tried; this one is the
-  data's own identity, not an inferred composite. Developer additionally ran PA
-  (14,547) and CA (161,429) fully through the real CLI twice each: ingested count
-  == real DB Article count exactly, second run 0 new / 0 duplicates. CLI summary
-  now separates "newly ingested" from "already present" — the conflation that hid
-  the earlier 14,547-vs-14,536 discrepancy. Suite: 637 passed / 2 failed (both the
-  IL items owned by wave 6).
-
+- **R7-R13 — historical verification rulings** (wave 3/4/5/5b findings, live-path
+  proofs, per-state coverage tables, invalid-test ruling): moved to
+  `2026-08-02-us-state-law-log.md#manager-rulings-r7-r13` to hold the contract
+  budget. Key standing outcomes: heading matcher verified 0 false positives across
+  10 states; ingest key is the dataset's own `act_id` (0 collisions / 570,397 real
+  rows); QA's IL unit test was ruled invalid and inverted.
 - **R14 — Wave 6 verified by the manager (2026-08-03).** Real rows through the
   REAL pipeline: **IL 40 rows -> 240 definitions / 102 assertions** (terms
   `Bias-free`, `BIPOC`, `Child welfare court personnel`); **CA 40 rows -> 73
