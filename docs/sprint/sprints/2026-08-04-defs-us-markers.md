@@ -1,19 +1,19 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: planning
-current_role: planner
+status: in-progress
+current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "claude-code:planner"
 locked_at: "2026-08-04T01:00:00Z"
-last_agent: "claude-code:planner"
+last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 10
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []

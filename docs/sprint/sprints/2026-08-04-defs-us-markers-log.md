@@ -1020,3 +1020,79 @@ hits).
 
 **Commit**: local only, not pushed, per U-R7 role separation. SHA reported
 to the manager alongside this pass's reply.
+
+---
+
+## M5 — bounce cycle closed; Developer fix VERIFIED (2026-08-04)
+
+**Planner (b3ec520) — ACCEPTED.** Tests/docs only, zero production files. Added
+5 RED tests: the 4 real offending WA rows plus a GENERAL guard
+(`test_general_guard_real_content_before_any_genuine_cross_reference_suffix_
+is_never_correctly_empty`) so a future regex tweak cannot re-open the hole
+row-by-row. All 14 `correctly_empty` fixture rows re-verified byte-identical
+to the real parquet by me. Suite moved 15→20 failed, 659→660 passed: exactly
++5 RED, nothing else disturbed.
+
+**Developer (8daee65) — ACCEPTED, and it went deeper than my diagnosis.** One
+production file, zero test files. Suite: **`15 failed, 665 passed`** — exactly
+the target (5 new tests green, original 15 classifier tests still green, the 15
+blocked-wave failures untouched).
+
+The Developer found a SECOND shape my diagnosis had missed, which is why my
+proposed sentence-boundary fix would have been insufficient:
+- **(a)** my diagnosed shape — a later `apply` on the same line lets the lazy
+  citation group swallow the real middle (`STATE_WA_T82_C23A_S010`,
+  `STATE_WA_T18_C44_S011`, `STATE_WA_T70A_C30_S010`).
+- **(b)** `STATE_WA_T70_C28_S008` — only ONE trigger occurrence, and its real
+  entries are separated by `;`/`:` rather than `.`, so a period-based sentence
+  boundary never fires at all. Bounding to a line or a sentence does not fix
+  this row.
+
+Their fix instead uses a stronger corpus-wide invariant: a genuine citation or
+scope clause never contains a literal `"`, while every real definition entry
+does — so quote characters are barred from the citation and trailing spans.
+
+**MY adversarial re-verification (the decisive check — not their claim).**
+Re-ran the full sweep over all 53 jurisdiction parquet files, and added a NEW
+probe for the risk their invariant creates: an UNQUOTED definition body (the
+DC `A bond… means…` shape) has no quote characters, so a quote-based invariant
+could in principle wave it through.
+
+| metric | before fix | after fix |
+|---|---|---|
+| Definitions-headed zero-candidate sections | 34,241 | 34,241 |
+| called correctly-empty | 228 | **224** |
+| **[A] FALSE correctly-empty** (quoted real terms extractable) | **4** | **0** |
+| **[B] SUSPECT** (cross-ref verdict + means-idiom + >300 chars, i.e. possible unquoted-definition false-empty) | — | **0** |
+
+Only the 4 bad verdicts were removed; the 224 genuine ones survive (DC 184,
+WY 19, MN 6, UT 5, WA 4, TX 2, WI 2, AL 1, NC 1). **No over-correction — the
+cross_reference class did not collapse**, which was the failure mode I warned
+both roles against. **Bounce cycle CLOSED.**
+
+## Honest state of gate U4 (for the program manager)
+
+The classifier is now trustworthy, and it tells us the real size of the
+problem: **34,241 Definitions-headed sections corpus-wide extract zero
+candidates, and only 224 (0.65%) are provably correctly-empty.** The
+remaining ~34,017 are real misses. That is the true scale of this sprint's
+zero-miss bar — far larger than the recon dossier's 7-jurisdiction detail
+implied, and it is now measured rather than estimated.
+
+## Context Dump
+
+Sprint blocked on the core sprint, not on this panel.
+1. Branch `claude/defs-us-markers`; own worktree + venv; baseline was 641.
+2. Delivered: 30 live-path RED tests (wave 1 VA/WA/FED, auto-rescue UT/TX/AZ,
+   not-yet-rescued AL/DC/RI/AK/TN/SC, gate-U4 classifier) + the shipped
+   `correctly_empty.py`. Suite now `15 failed, 665 passed`.
+3. The 15 remaining RED are ALL blocked: they need `rules/registry.py`, which
+   core has published as SPEC ONLY (no `rules/` dir on `claude/defs-core-scope`).
+4. Boundary with core is RESOLVED (U-R5): wave 1 ships as an
+   `EntrySplitterRule`+`TermClauseRule` in a NEW file
+   `rules/us_entry_marker_variants.py` under baseline-first/registry-second
+   consumption. No shared-module edit, no gate removal, no escalation needed.
+5. On re-spawn: wait for core to merge to main, rebase, then Developer
+   implements the rule modules against the real registry, then QA.
+6. QA has NOT run on this sprint yet — that is the main outstanding role.
+7. All 25+14 vendored fixture rows verified byte-identical to the real parquet.
