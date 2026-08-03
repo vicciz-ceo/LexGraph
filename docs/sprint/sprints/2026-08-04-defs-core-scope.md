@@ -3,9 +3,10 @@ id: "2026-08-04-defs-core-scope"
 status: planning
 current_role: planner
 branch: claude/defs-core-scope
-locked_by: null
-locked_at: null
-last_agent: "claude-code:program-manager"
+worktree: /Users/nerya/LexGraph-wt/defs-core-scope
+locked_by: "claude-code:planner"
+locked_at: "2026-08-04T00:00:00Z"
+last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
