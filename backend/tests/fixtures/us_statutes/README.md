@@ -363,3 +363,129 @@ sprint's own worktree venv — `backend/.venv/bin/pip list` shows
 `pyarrow==25.0.0` already installed, unlike the 2026-08-02 sprint's venv —
 so no separate scratch venv was needed this time; the parquet file itself
 was still never read by anything under `backend/tests`).
+
+## `pr_sample_rows_cycle2.json` — cycle-2 miss-workload fixtures (sprint
+2026-08-04-defs-us-pr, Planner, cycle 2, 2026-08-04)
+
+24 REAL rows (full original columns, values unmodified), all pulled from
+the SAME `us_pr_statutes.parquet` snapshot as `pr_sample_rows.json` above
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`), byte-compared against the
+live on-disk parquet after writing (script output: `ALL BYTE-IDENTICAL`).
+A SIBLING file to `pr_sample_rows.json`, not a merge into it, per the
+manager's cycle-2 brief — cycle 1's fixture rows and their tests are
+untouched.
+
+**Why these rows exist.** Cycle 1's 5-fixture extraction suite and 9-
+fixture heading suite all passed, yet the manager's full-corpus sweep found
+56.4% real extraction coverage and 15/635 real heading misses (`docs/
+sprint/sprints/2026-08-04-defs-us-pr-log.md`, "Manager: Developer
+verification + GENERALIZATION GAP"). Every row below was picked from the
+manager's own measured miss workload
+(`scratchpad/pr_miss_workload.json`, buckets A/B/C and the 13 real heading
+misses — bucket D is explicitly OUT of scope, per ruling M-R6) to pin one
+independently-diagnosed root cause each. Full root-cause diagnosis lives in
+each test file's module docstring
+(`backend/tests/unit/test_pr_profile_extraction_cycle2.py`,
+`test_pr_profile_headings_cycle2.py`) and in the sprint log's cycle-2
+Planner entry — this section is the provenance/inventory, not the
+diagnosis.
+
+**Extraction rows** (bucket A — extractor separator-pattern gaps; bucket C
+re-diagnosis; bucket B — settled):
+
+1. `STATE_PR_LEY_77_1957_ART39_050` — A1: curly-quoted term directly
+   followed by `significa`, no separator character at all (14 top-level
+   entries, one with a nested `(a)`–`(g)` sub-list).
+2. `STATE_PR_LEY_73_2003_ART2` — A1: same shape, STRAIGHT quotes (proves
+   the fix is not curly-quote-specific).
+3. `STATE_PR_LEY_189_1996_ART2` — A2: quoted term + ASCII hyphen-minus `-`
+   (not a typographic em/en dash) + idiom.
+4. `STATE_PR_LEY_214_1995_ART2` — A3: quoted term, no separator, NO idiom
+   verb either — a bare capitalized noun-phrase definition.
+5. `STATE_PR_LEY_33_2017_ART3` — A4: unquoted term + colon (no
+   `_UNQUOTED_TERM_COLON_RE` exists in `pr_profile.py` today).
+6. `STATE_PR_LEY_39_1988_ART2` — A1, minimal (3-entry) confirmatory row.
+7. `STATE_PR_LEY_493_1952_ART1` — A1 confirmatory row.
+8. `STATE_PR_LEY_318_1999_ART2` — A1 confirmatory row.
+9. `STATE_PR_LEY_167_1988_ART2` — A1-variant: quoted term + COMMA + idiom.
+10. `STATE_PR_LEY_60_1988_ART1` — A1-variant: quoted term + comma + idiom,
+    with an alternate-term "o" construct in entry (a).
+11. `STATE_PR_LEY_66_1975_ART3` — A6: unquoted term + its OWN trailing
+    period (not colon, not dash) + bare definition.
+12. `STATE_PR_AMBIENTAL_ART51` — A6 confirmatory row, digit-period marker
+    family.
+13. `STATE_PR_LEY_190_1995_ART2` — A5 (bucket-C re-diagnosis): marker
+    followed by a decorative em-dash, THEN the quoted term
+    (`a. — "Nueva programación" significa...`). `_ENTRY_MARKER_RE` already
+    matches this row's `a.`–`k.` markers correctly (live-verified) — this
+    is a block-prefix gap, not a marker-inventory gap.
+14. `STATE_PR_LEY_199_2015_ART2` — bucket B, settled: unquoted + colon
+    (A4-class), several entries use lowercase `es`/no canonical survey
+    idiom at all — the marker list itself establishes definitional
+    context (M-R6).
+15. `STATE_PR_LEY_46_2008_ART3` — bucket B, settled: unquoted + colon
+    (A4-class) PLUS a genuinely NEW, distinct marker-inventory finding:
+    traditional Spanish alphabetical enumeration treats "ch" as its own
+    letter, producing a real two-character marker `ch)` that
+    `_ENTRY_MARKER_RE`'s single-character-class alternatives never match
+    (confirmed live: only 6/7 real markers found, `ch)` silently
+    swallowed into entry `c)`'s block).
+16. `STATE_PR_LEY_51_2003_ART2` — bucket B, settled: A6 (unquoted term +
+    trailing period) PLUS an independent, previously-undiscovered defect:
+    `_ENTRY_MARKER_RE` misfires on the spaced abbreviation `"U. S.
+    Geological Survey"` inside entry bodies (`S.` alone matches the
+    letter-period marker alternative), fragmenting entry 1's
+    `definition_text` mid-sentence even once the A6 separator gap is
+    fixed.
+17. `STATE_PR_LEY_77_1957_ART9_040` — bucket B, settled: a no-top-level-
+    marker single-entry Civil-Code-style article (`"Agente General es la
+    persona nombrada..."`) whose body ALSO contains an incidental `(1)`–
+    `(11)` sub-list of the SAME term's own duties. Today's all-or-nothing
+    marker dispatch takes the markers path because `(1)`–`(11)` exist
+    somewhere in the text, silently discarding the term/lead-in text
+    before the first marker and fragmenting the body into 11 bogus
+    entries instead of the correct single one.
+18. `STATE_PR_LEY_52_2019_ART3` — a CORRECT-ZERO guard, not a miss: the
+    entire body defers wholesale to another law's definitions
+    (`"...se entenderán de aplicación las definiciones de la Ley Núm. 228
+    ..."`) and defines zero local terms. Must continue to yield zero
+    candidates.
+
+**Heading rows** (the 13 real heading misses, gap re-diagnosed as clause-
+scoped first-word matching plus a separate parenthesis-stripping need — see
+`test_pr_profile_headings_cycle2.py`'s module docstring for the full
+per-family breakdown):
+
+19. `STATE_PR_CIVIL_ART365` — Civil-Code semicolon-compound family
+    (`"Parentesco; definición y alcance"`). 6 more real headings of this
+    same family (verbatim `section_title` strings, verified live against
+    the corpus) are pinned as bare-string `parametrize` cases in the test
+    file rather than re-vendored as full fixture rows.
+20. `STATE_PR_LEY_77_1964_ART1` — parenthesized whole heading
+    (`"(Definiciones)"`). The second real corpus row sharing this exact
+    shape, `STATE_PR_LEY_60_1963_ART100` (a 3,470-word row, not worth
+    vendoring in full for a heading-only check), is pinned as a bare
+    heading string instead.
+21. `STATE_PR_LEY_15_1931_SEC22` — trailing-preposition family
+    (`"Obrero o empleado, definición de"`).
+22. `STATE_PR_MUNICIPAL_ART7_212` — em-dash compound family
+    (`"Tasación y Cobro de Deficiencia —Definición de Términos"`).
+23. `STATE_PR_LEY_77_1957_ART15_020` — comma-delimited mid-token compound,
+    same family as #19 but a different delimiter and a different real law
+    (`"Microseguros, definición y clases autorizadas"`).
+24. `STATE_PR_LEY_51_2020_ART1_2` — the SECOND real Table-of-Contents
+    false-positive guard (cycle 1 only vendored the first,
+    `STATE_PR_LEY_165_2020_ART1_2`). Both must stay rejected after the
+    heading-rule widening — this is the row M-R6 explicitly named as the
+    widening's own regression risk.
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by the Planner via a disposable scratch script
+(`/private/tmp/.../scratchpad/diagnose_bucket_a.py` and siblings — outside
+`backend/.venv`, never committed), reading directly from the already-cached
+HF snapshot on disk (`~/.cache/huggingface/hub/datasets--vaquill--open-us-
+law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad/us_pr_statutes.
+parquet`) — no network download performed this cycle, the snapshot was
+already local from cycle 1. Every row's fields were verified byte-identical
+against a fresh `pyarrow.parquet.read_table` of that same file immediately
+before committing.

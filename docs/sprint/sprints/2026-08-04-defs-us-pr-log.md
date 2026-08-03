@@ -733,3 +733,250 @@ there is already a test pinning one of them.
   are. Every family panel should run its implementation over its full corpus
   BEFORE declaring dev-complete. I found this in cycle 1 only because I ran
   the corpus myself instead of accepting a green suite.
+
+## 2026-08-04 — Planner: cycle-2 re-diagnosis, RED tests, corpus-shaped floor
+
+Read the full workload dump (`scratchpad/pr_miss_workload.json`, buckets
+`heading_misses`/A/B/C/D) and this log's M-R6 entry in full before touching
+anything. Per M-R6: buckets A, B, C and the 13 real heading misses are mine
+to test; bucket D stays escalated; role separation holds — I read
+`pr_profile.py` to diagnose, I did not edit it.
+
+### Method
+
+Rather than trust M-R6's bucket characterizations as final, I re-ran the
+LIVE `pr_profile.py` code (via a disposable scratch script,
+`scratchpad/diagnose_bucket_a.py` and siblings, reading the already-cached
+`us_pr_statutes.parquet` snapshot on disk — same discipline as every prior
+fixture-vendoring pass, never touching `backend/.venv` or any committed
+test) against every named example in M-R6's buckets, and against a broader
+sample from the raw workload dump, printing exactly which regex/pattern
+matched or failed and why. This surfaced two things M-R6's prose summary
+could not: (1) bucket C's own named examples are NOT actually blocked by a
+marker-regex gap (both markers already match live) — M-R6's
+characterization was a reasonable first-pass hypothesis from the outside,
+wrong on the mechanism; (2) three genuinely NEW defects hiding inside
+bucket B that M-R6 never named at all (a two-letter Spanish marker gap, a
+marker false-positive on spaced abbreviations, and a dispatch-logic gap).
+
+### Bucket-A root cause (for the Developer — full detail in the contract's
+`### Cycle-2 corrections` and in `test_pr_profile_extraction_cycle2.py`'s
+module docstring)
+
+`_extract_term_and_definition` tries exactly 3 separator patterns:
+quoted+colon, quoted+typographic-dash (`–—` only), unquoted+typographic-
+dash. Every one of the 153 bucket-A rows I live-checked fails because its
+real separator shape is none of those three — NOT because of quote-
+character handling (curly `“”` and straight `"` are both already accepted
+by the existing patterns' character classes). Six distinct, independently
+confirmed shapes, each with a live example:
+
+| Shape | Example | Real row |
+|---|---|---|
+| Quoted term, idiom verb, NO separator at all (curly) | `"Cuenta" significa...` | `STATE_PR_LEY_77_1957_ART39_050` |
+| Same, straight quotes | `"Body Piercer" significa...` | `STATE_PR_LEY_73_2003_ART2` |
+| Quoted term + comma + idiom | `"Análisis Clínico", significará...` | `STATE_PR_LEY_167_1988_ART2` |
+| Quoted term + ASCII hyphen `-` + idiom | `"Activo" - significa...` | `STATE_PR_LEY_189_1996_ART2` |
+| Quoted term, no separator, NO idiom verb | `"Activos líquidos" Aquellos activos que...` | `STATE_PR_LEY_214_1995_ART2` |
+| Unquoted term + colon | `Certificación: documento oficial...` | `STATE_PR_LEY_33_2017_ART3` |
+| Unquoted term + own trailing period | `Agencia. Cualquier departamento...` | `STATE_PR_LEY_66_1975_ART3` |
+
+The first shape alone (quoted+idiom+no-separator, both quote styles) is
+~133/153 of bucket A. There is no `_UNQUOTED_TERM_COLON_RE` in the module
+at all today — only a dash variant exists for unquoted terms.
+
+### Bucket-C re-diagnosis (correction, not confirmation, of M-R6)
+
+Live-checked BOTH of M-R6's own named C examples directly:
+
+- `STATE_PR_LEY_430_2000_ART3` (`A.`/`B.`/`C.`... uppercase-letter-period
+  markers): `_ENTRY_MARKER_RE.finditer` finds all 26 real markers
+  correctly — the period-marker alternative's `[a-zA-Z]` class is
+  case-insensitive by construction. Zero-yield here is plain bucket-A
+  (quoted term + `significa`, no separator). Not a marker gap.
+- `STATE_PR_LEY_190_1995_ART2` (`a. —`/`b. —`... markers): also matched
+  correctly, 12/12. What fails is the BLOCK content: `a. — "Nueva
+  programación" significa...` has a decorative em-dash between the marker
+  and the term that no separator pattern expects a block to start with.
+  This genuinely IS new (A5 in the test file), but it's a block-prefix
+  gap, not a marker-regex gap.
+
+So the "marker-inventory gap" framing in M-R6 does not hold for either
+named example. It DOES hold, but for a THIRD, different real row I found
+by diagnosing bucket B instead: `STATE_PR_LEY_46_2008_ART3` uses the
+traditional Spanish alphabetical sequence where "ch" is its own letter,
+producing a genuine two-character marker `ch)` that
+`_ENTRY_MARKER_RE`'s single-character classes cannot match at all
+(confirmed live: only 6/7 real markers found, `ch)` silently absorbed into
+entry `c)`'s block). I re-surveyed the marker inventory specifically
+looking for more shapes like this across the rest of bucket A/B/C's real
+bodies and found no further gap beyond this one and the A5 dash-prefix
+case — the marker alternatives (paren/close-paren/period, letter/digit)
+otherwise hold up across every row checked.
+
+### An incidental precision defect, found via bucket B
+
+`STATE_PR_LEY_51_2003_ART2`'s body contains the spaced abbreviation `"U.
+S. Geological Survey"` three times inside entry prose. `S.` alone (single
+letter, preceded by `U. ` ending in period+space) is indistinguishable
+from a genuine letter-period entry marker today — `_ENTRY_MARKER_RE` finds
+7 "markers" in this row (`1. S. S. 2. S. 3. 4.`) where only 4 are real,
+fragmenting entry 1's `definition_text` mid-sentence. This is the mirror
+image of a zero-miss defect: it is a FALSE marker match, not a missed one,
+and it would not have been caught by any zero-miss sweep — only by reading
+the actual extracted `definition_text` for a row that superficially
+"succeeds." Pinned in `test_a6_captures_all_four_entries_despite_spaced_
+abbreviation_marker_misfire`.
+
+### A dispatch-logic gap, found via bucket B, not named in M-R6 at all
+
+`STATE_PR_LEY_77_1957_ART9_040` (`"Agente General, definición"`) is a
+single-entry, no-top-level-marker Civil-Code article: `"Agente General es
+la persona nombrada por un asegurador..."`. Its body also contains an
+enumerated `(1)`..`(11)` list of the SAME term's own duties — sub-clauses
+of one definition, not 11 separate entries. `extract_definitions_from_
+section`'s dispatch is all-or-nothing (`if not markers: <single-entry>;
+else: <markers-path>`) — because `(1)`..`(11)` exist somewhere in the
+text, the whole body takes the markers path, which has no "entry −1" for
+text before the first marker: the term and its lead-in are silently
+dropped, 11 bogus fragments are produced instead. Pinned in
+`test_single_no_marker_entry_survives_a_trailing_incidental_sub_list`.
+
+### Heading misses: one clause-scoping gap, one orthogonal gap, not 5
+
+`is_definitions_heading` only checks the first-or-last substantive token
+of the WHOLE tail. Live-checking each of the 13 real misses individually:
+11 share ONE root cause — the stem sits as the first (or trailing-
+preposition-suffixed) word of an INNER clause (semicolon-, comma-, or
+em-dash-delimited), not of the whole tail. One row
+(`STATE_PR_LEY_26_1941_ART78`) needs clause-splitting at TWO levels
+(comma inside semicolon) since "definición" is neither the first nor last
+word of the whole tail OR of the outer semicolon-clause, only of the
+innermost comma-sub-clause. The remaining 2 (`"(Definiciones)"`, fully
+parenthesized) need an orthogonal fix: parentheses aren't in
+`_TAIL_TOKEN_SPLIT_RE`'s split class, so the whole parenthesized string
+tokenizes as one un-matchable token — needs enclosing-paren stripping
+before the existing rule runs. Both real TOC rejections
+(`STATE_PR_LEY_165_2020_ART1_2` from cycle 1, `STATE_PR_LEY_51_2020_
+ART1_2` newly vendored this cycle) are re-pinned and confirmed to stay
+rejected under this diagnosis — I did not just trust that a clause-based
+widening would leave them alone, I checked: neither has "Definiciones"
+adjacent to any semicolon/comma/em-dash boundary of ITS OWN heading tail.
+
+### Fixtures vendored
+
+24 REAL rows, `backend/tests/fixtures/us_statutes/pr_sample_rows_cycle2.json`
+(sibling file, cycle 1's `pr_sample_rows.json` untouched), byte-compared
+against a fresh read of the live parquet immediately before committing
+(script output: `ALL BYTE-IDENTICAL`, field-count check also passed). Full
+per-row provenance and family mapping in the fixtures README's new
+`## pr_sample_rows_cycle2.json` section. `act_id`s: `STATE_PR_LEY_
+77_1957_ART39_050`, `STATE_PR_LEY_73_2003_ART2`, `STATE_PR_LEY_189_
+1996_ART2`, `STATE_PR_LEY_214_1995_ART2`, `STATE_PR_LEY_33_2017_ART3`,
+`STATE_PR_LEY_39_1988_ART2`, `STATE_PR_LEY_493_1952_ART1`, `STATE_PR_LEY_
+318_1999_ART2`, `STATE_PR_LEY_167_1988_ART2`, `STATE_PR_LEY_60_1988_ART1`,
+`STATE_PR_LEY_66_1975_ART3`, `STATE_PR_AMBIENTAL_ART51`, `STATE_PR_LEY_
+190_1995_ART2`, `STATE_PR_LEY_199_2015_ART2`, `STATE_PR_LEY_46_2008_ART3`,
+`STATE_PR_LEY_51_2003_ART2`, `STATE_PR_LEY_77_1957_ART9_040`, `STATE_PR_
+LEY_52_2019_ART3`, `STATE_PR_CIVIL_ART365`, `STATE_PR_LEY_77_1964_ART1`,
+`STATE_PR_LEY_15_1931_SEC22`, `STATE_PR_MUNICIPAL_ART7_212`, `STATE_PR_
+LEY_77_1957_ART15_020`, `STATE_PR_LEY_51_2020_ART1_2`.
+
+### Tests authored, RED proof
+
+3 new files: `test_pr_profile_extraction_cycle2.py` (20 tests),
+`test_pr_profile_headings_cycle2.py` (13 tests),
+`test_pr_profile_corpus_floor_cycle2.py` (the deliverable-4 aggregate
+floor — 4 parametrized groups + 1 bookkeeping test, 33 rows total: 10
+cycle-1 + 23 of cycle 2's 24). No existing test file edited.
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+53 failed, 719 passed, 6 xfailed, 18 warnings in 13.36s
+```
+
+719 = cycle 1's 694-passed baseline + this cycle's 25 correctly-passing
+assertions (negative/false-positive guards, the correct-zero guard, and
+cycle-1 rows re-asserted at floor granularity) — confirmed by running the
+3 new files in isolation first (53 failed, 25 passed there alone) before
+running the full suite, so the 719 total is provably not hiding a
+collection error. Every one of the 53 failures is a genuine assertion
+failure (not an import/collection error) against the still-unfixed live
+`pr_profile.py` — proof the tests exercise real gaps, not typos.
+
+### Deliverable 4 — is the corpus-shaped floor the right idea?
+
+Yes, and I built it as specified rather than substituting my own judgment:
+`test_pr_profile_corpus_floor_cycle2.py` vendors 33 real rows (not a fresh
+33 — reuses cycle 1's already-committed 10 plus 23 of this cycle's 24, so
+no fixture bloat) and asserts a FLOOR, not exact behavior: every row
+independently known to be genuinely capturable yields >=1 candidate, every
+known-rejection row yields 0. It deliberately does not assert exact term
+sets/counts (that's the family-specific files' job) — the coarser
+granularity is exactly what would have caught cycle 1's 56.4% gap without
+needing to re-predict the extractor's exact internals. One risk I flag
+rather than hide: because it's a FLOOR, it will not itself tell a future
+Planner WHICH shape broke if it fails — the family-specific tests remain
+the diagnostic layer, this file is the tripwire.
+
+### ESCALATION: 3 of the manager's 7 bucket-B rows are not clean per-term
+marker lists — same character as bucket D, not folded into P-R2 by name
+
+M-R6 called bucket B "settled — safe to capture" for all 7 rows. Diagnosing
+all 7 individually against the real text, 4 are genuinely clean per-marker
+term lists (already tested: `STATE_PR_LEY_199_2015_ART2`,
+`STATE_PR_LEY_46_2008_ART3`, `STATE_PR_LEY_51_2003_ART2`,
+`STATE_PR_LEY_77_1957_ART9_040`). The other 3 are NOT:
+
+- `STATE_PR_LEY_77_1957_ART36_030` (`"Definiciones—Forma representativa de
+  gobierno"`): body is `"Se considerará que una sociedad tiene una forma
+  representativa de gobierno cuando: (a) Disponga en su constitución...;
+  (b) los representantes electos constituyan mayoría...; ..."` — the
+  `(a)`/`(b)`/... items are CONDITIONS of one single concept ("forma
+  representativa de gobierno"), not separate defined terms.
+- `STATE_PR_RENTAS_SEC2022_01` (`"Definición de Caudal Relicto Bruto"`) and
+  `STATE_PR_RENTAS_SEC2042_01` (`"Definición de Donaciones"`): both bodies
+  are `"(a) En General.- El [término] incluirá..."` — the article's own
+  HEADING names the one term being defined; the `(a)`/`(b)`/`(1)`/`(2)`...
+  markers are subsection labels ("En General", etc.) of ONE definition's
+  own elaboration, not a list of distinct terms.
+
+Forcing a per-marker-term extraction on these 3 would fabricate terms that
+are not in the text — exactly the discipline `_extract_term_and_
+definition`'s own docstring already protects ("skipped, not fabricated").
+The only way to correctly capture these 3 is either (a) treat the whole
+body (or its "(a) En General" clause) as ONE candidate whose TERM comes
+from the article's own HEADING, not from the body — a capability neither
+`extract_definitions_from_section` nor any PR extractor function has today
+(the module's own docstring frames it as strictly body-only, scope passed
+in by the caller) — or (b) leave them at zero, an accepted limitation.
+That is the same substantive fork as bucket D (capture-via-heading-context
+vs. accept-the-miss), just arrived at from a different starting bucket.
+
+Options, with real examples above:
+1. **Fold these 3 into bucket D's escalation** — same P-R2/Q-1 call,
+   decided together with the other 86 D rows, so the program gets one
+   coherent ruling on "heading-named-term, body-has-no-explicit-term"
+   definitions rather than two separate ones.
+2. **Treat as a distinct, narrower question**: unlike bucket D's free-form
+   copulative prose, these 3 (and likely more like them corpus-wide) have
+   a STRUCTURAL tell — a singular, semicolon/comma-joined Civil-Code-style
+   heading (`"X, definición de Y"` / `"Y; definición"`) naming exactly one
+   term, with a body that has NO quoted/colon/dash term-marker anywhere.
+   That structural signal is narrower and higher-precision than bucket
+   D's "any copulative sentence" risk — worth asking whether it's safe to
+   decide on its own rather than folding into the wider D question.
+3. **Leave as accepted misses, no further action this sprint** — the 3
+   rows do not move the needle on P4's real capture rate (3/268) and item
+   10 already fixes the other 4/7 of bucket B.
+
+My lean: **option 2**, narrowly. The "heading names the one term, body
+elaborates via unlabeled subsections" shape is common enough in the Civil
+Code and PR Rentas Internas families (I saw the same shape recur across
+several rows I only spot-checked, not fully catalogued) that it may be
+worth its own measured survey rather than either lumping it into D's 86 or
+silently dropping it — but I have NOT surveyed its full corpus-wide count,
+so I am not asserting it is safe, only that it looks structurally
+distinguishable from D. Not blocking cycle 2's handoff; flagging for the
+manager to route.
