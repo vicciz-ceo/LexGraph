@@ -101,6 +101,35 @@ do not re-derive its findings).
   21,649 real DE rows; full real-file ingest 21,649 -> 21,649 Articles, 0 skipped,
   idempotent on re-run. Suite: **632 passed / 0 failed**.
 
+- **R9 — Wave 5 heading matcher: manager-verified per-state coverage (2026-08-02).**
+  Independently reproduced the Developer's table on 10 real state files. Zero
+  false positives in every state; timing 0.002 ms/call (linear held).
+  | st | rows | cands | missed | miss% |
+  |----|------|-------|--------|-------|
+  | tx | 122,535 | 5,033 | 24 | **0.5%** (was 100%) |
+  | oh | 33,161 | 970 | 20 | **2.1%** (was 84.1%) |
+  | fl | 24,866 | 852 | 47 | **5.5%** (was 27.1%) |
+  | de | 21,649 | 1,036 | 16 | 1.5% |
+  | ny | 40,102 | 1,547 | 68 | 4.4% |
+  | pa | 14,547 | 547 | 4 | 0.7% |
+  | wa | 51,498 | 2,007 | 207 | 10.3% |
+  | ca / il / ga | 262,039 | **0** | — | structural, see R10 |
+  Residual misses are multi-topic headings ("APPLICABILITY OF DEFINITIONS",
+  "...; definitions; penalties.") where definitions is not the section's own
+  subject — deliberately not chased, to hold false positives at zero.
+- **R10 — CA/IL/GA root cause FOUND (Developer escalation, accepted).** Not
+  unknowable after all: `section_title` for these states is a bare placeholder
+  (`"Section 103-9"`, `"Section 22970.21"`, or a bare citation for GA). The real
+  heading text lives inside the `text` body (`"Sec. 15. Definitions. As used in
+  this Act..."`), which Stage 2 never receives. No change to `us_profile.py` can
+  recover it — the fix is a `pipeline.py` Stage-2 input change. 262,039 rows
+  across 3 states affected. Escalated to the director; NOT fixed in wave 5 per
+  the director's binding "characterise, do not guess" ruling.
+- **R11 — Wave 5 ingester agent did not complete.** It blocked on a background
+  notification and pushed nothing; its work is lost. Cause: the manager omitted
+  the standing "never block on Monitor" rule from the wave-5 brief preamble.
+  Manager fault, not agent fault. Re-spawned fresh in wave 5b.
+
 ## Acceptance gates (manager-defined, plain language)
 
 Each gate is a pass/fail condition about observable product behavior. The Planner
