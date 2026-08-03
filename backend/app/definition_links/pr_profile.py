@@ -135,10 +135,68 @@ _SPANISH_PREPOSITIONS = frozenset(
 )
 
 
+# --- Cycle-2 heading fixes (P1 generalization gap) ---------------------------
+#
+# Live-corpus sweep found 13/635 real heading misses, collapsing into TWO
+# independent gaps (see sprint contract's `### Cycle-2 corrections` and this
+# module's sibling test file `test_pr_profile_headings_cycle2.py` for the
+# full diagnosis):
+#
+#   Gap 1 (11/13 misses) -- CLAUSE-SCOPED first-word position. Real PR
+#   headings frequently place the stem as the first (or trailing-
+#   preposition-suffixed) word of an INNER semicolon-, comma-, or em-dash-
+#   delimited CLAUSE ("Parentesco; definición y alcance",
+#   "Microseguros, definición y clases autorizadas"), not necessarily of
+#   the WHOLE tail. Fix: split the tail into clauses on `;`, `,`, `–`/`—`
+#   and apply the EXISTING first-word-or-last-word-with-preposition-
+#   exclusion rule to EACH clause independently -- a flat split (not a
+#   hierarchical one) already handles the one row needing two delimiter
+#   levels ("Agregado, Definición de; Limitado...") because comma and
+#   semicolon are both clause delimiters at the same flat level, so
+#   "Definición de" surfaces as its own clause regardless of which
+#   delimiter type bounds it on either side.
+#   Both real TOC rejections stay rejected under this widening: neither
+#   has a semicolon/comma/em-dash immediately adjacent to "Definiciones"
+#   in its OWN heading tail (it's buried in a whitespace-joined run-on),
+#   so clause-splitting never isolates it as its own clause there.
+#
+#   Gap 2 (2/13 misses) -- fully-parenthesized whole heading
+#   ("(Definiciones)"). Orthogonal to gap 1: parentheses aren't in
+#   `_TAIL_TOKEN_SPLIT_RE`'s split class, so the whole parenthesized
+#   string tokenizes as one un-matchable token. Fix: strip a single
+#   enclosing `(...)` wrapper (only when it spans the ENTIRE remaining
+#   tail, with no internal unmatched parens) before the existing rule
+#   (now including gap 1's clause-splitting) runs.
+
+_CLAUSE_DELIM_RE = re.compile(r"[;,–—]")
+
+
+def _matches_definicion_stem(text: str) -> bool:
+    """True when the Spanish stem is the first substantive token of `text`,
+    or its last substantive token without an immediately preceding Spanish
+    preposition -- the original single-clause rule, now applied per-clause
+    by `is_definitions_heading` (see the module comment above)."""
+    text = text.strip()
+    if _DEFINICION_FIRST_WORD_RE.match(text):
+        return True
+
+    trimmed = text.rstrip(" \t\r\n.")
+    tokens = [t for t in _TAIL_TOKEN_SPLIT_RE.split(trimmed) if t]
+    if not tokens or not _DEFINICION_LAST_WORD_RE.match(tokens[-1]):
+        return False
+    if len(tokens) == 1:
+        return True
+    preceding = tokens[-2]
+    if preceding.lower() in _SPANISH_PREPOSITIONS:
+        return False  # a Spanish preposition -- the stem is a
+        # grammatical object here, not this heading's own subject.
+    return True
+
+
 def is_definitions_heading(heading: str) -> bool:
     """True when `heading`'s own operative subject is the Spanish stem
-    "Definici(ón|ones)" -- see the module-level comment above for the exact
-    rule."""
+    "Definici(ón|ones)" -- see the module-level comments above for the
+    exact rule (base single-clause rule plus the two cycle-2 gap fixes)."""
     rest = heading
 
     label_match = _SECTION_LABEL_RE.match(rest)
@@ -150,20 +208,27 @@ def is_definitions_heading(heading: str) -> bool:
             rest = rest[number_match.end() :]
     rest = rest.lstrip()
 
-    if _DEFINICION_FIRST_WORD_RE.match(rest):
-        return True
+    # Gap 2: a fully-parenthesized whole tail -- strip the enclosing parens
+    # (only when they wrap the ENTIRE remaining tail with nothing left
+    # outside them, and there is no internal unmatched paren) before the
+    # clause-scoped rule below runs.
+    paren_candidate = rest.rstrip(" \t\r\n.")
+    if (
+        paren_candidate.startswith("(")
+        and paren_candidate.endswith(")")
+        and "(" not in paren_candidate[1:-1]
+        and ")" not in paren_candidate[1:-1]
+    ):
+        inner = paren_candidate[1:-1].strip()
+        if inner:
+            rest = inner
 
-    trimmed = rest.rstrip(" \t\r\n.")
-    tokens = [t for t in _TAIL_TOKEN_SPLIT_RE.split(trimmed) if t]
-    if not tokens or not _DEFINICION_LAST_WORD_RE.match(tokens[-1]):
-        return False
-    if len(tokens) == 1:
-        return True
-    preceding = tokens[-2]
-    if preceding.lower() in _SPANISH_PREPOSITIONS:
-        return False  # a Spanish preposition -- the stem is a
-        # grammatical object here, not this heading's own subject.
-    return True
+    # Gap 1: check the stem against the WHOLE tail as well as every inner
+    # semicolon/comma/em-dash-delimited clause (a flat split of `rest`
+    # returns `[rest]` unchanged when no delimiter is present, so this is a
+    # strict generalization of the original whole-tail-only rule, not a
+    # replacement for it).
+    return any(_matches_definicion_stem(clause) for clause in _CLAUSE_DELIM_RE.split(rest))
 
 
 # --- Item 2 (P1/P2): Spanish Definiciones-section entry extraction ----------
@@ -188,30 +253,208 @@ def is_definitions_heading(heading: str) -> bool:
 # with no opening paren), and period (`a.`, `1.`, the period one
 # required to be followed by whitespace so it is never confused with a
 # dot-continued section number like "1.090").
+#
+# `_MARKER_UNIT_RE` adds "ch" as its own two-character letter alternative
+# (tried before the single-character class) -- traditional Spanish
+# alphabetical enumeration treats "ch" as its own letter, producing a real
+# marker `ch)` (`STATE_PR_LEY_46_2008_ART3`) that a single-character
+# `[a-zA-Z]` class can never match (cycle-2 marker-inventory gap).
+#
+# The boundary prefix carries a SECOND lookbehind, `(?<!\b[A-Za-z]\.)`,
+# excluding a candidate whose qualifying period is itself the trailing
+# period of an isolated single-letter token (e.g. the "U." in a spaced
+# abbreviation like "U. S. Geological Survey") -- without it, that lone
+# "U." satisfies the ordinary `(?<=[.;:\]])\s+` boundary and the following
+# "S." misfires as a spurious entry marker, fragmenting the real entry's
+# `definition_text` mid-sentence (cycle-2 precision defect, found in
+# `STATE_PR_LEY_51_2003_ART2`). A genuine entry always ends its previous
+# block with an ordinary multi-letter Spanish word, which never matches
+# this exclusion (no word boundary sits directly before its last letter).
+_MARKER_UNIT_RE = r"(?:ch|[a-zA-Z]|\d{1,3})"
 _ENTRY_MARKER_RE = re.compile(
-    r"(?:^|(?<=[.;:\]])\s+)"
-    r"(?:\((?:[a-zA-Z]|\d{1,3})\)"
-    r"|(?:[a-zA-Z]|\d{1,3})\)"
-    r"|(?:[a-zA-Z]|\d{1,3})\.(?=\s))"
+    r"(?:^|(?<=[.;:\]])(?<!\b[A-Za-z]\.)\s+)"
+    rf"(?:\({_MARKER_UNIT_RE}\)"
+    rf"|{_MARKER_UNIT_RE}\)"
+    rf"|{_MARKER_UNIT_RE}\.(?=\s))"
     r"\s*"
 )
 
-# A block's term/definition separator: quoted term + colon (dominant
-# canonical shape, 26+ rows -- curly `“”` in 437/635 canonical rows,
-# straight `"` in 76/635, both accepted); quoted term + em/en-dash
-# fallback; unquoted term + optional-period + em/en-dash (272/635 rows use
-# this family, with or without a verb idiom -- `Es`/`Significará`/`Será`
-# directly after the dash, or the definition starting with a bare noun
-# phrase, e.g. `Secretario. – Se refiere al...`).
+# A block's term/definition separator. Cycle 1 shipped 3 patterns (quoted+
+# colon, quoted+typographic-dash, unquoted+typographic-dash) but the real
+# corpus needs 6 more -- live-diagnosed against 153 real zero-yield rows,
+# see sprint contract's `### Cycle-2 corrections` and this module's sibling
+# test file `test_pr_profile_extraction_cycle2.py`'s module docstring for
+# the full per-shape table with real examples. Tried in this order (most
+# specific separator character first, so a more permissive pattern never
+# preempts a more specific one that should win):
+#
+#   1. quoted term + colon (dominant canonical shape, unchanged from cycle
+#      1) -- curly `“”` in 437/635 canonical rows, straight `"` in 76/635,
+#      both accepted.
+#   2. quoted term + comma + a defining-verb idiom immediately after the
+#      comma (`"Análisis Clínico", significará...`) -- the idiom lookahead
+#      keeps an ordinary comma after a quoted phrase from misfiring as a
+#      definition separator. An OPTIONAL `" o "` + a second quoted phrase
+#      is allowed between the first quote and the comma (`"Barbero" o
+#      "Estilista en Barbería", significará...`, `STATE_PR_LEY_60_1988_
+#      ART1`) -- the FIRST quoted phrase is still what gets captured as
+#      the term; the entry is not silently dropped just because it names
+#      an alternate term via "o".
+#   3. quoted term + em/en-dash OR a plain ASCII hyphen-minus (`"Activo" -
+#      significa...` -- cycle 1 only accepted the typographic dash). The
+#      same optional `" o "` + second-quoted-phrase allowance as pattern 2
+#      applies here too (`"Gobierno de Puerto Rico" o "Gobierno"
+#      -significará...`, same real row).
+#   4/5. quoted term, NO separator character at all, just whitespace then
+#      the rest of the block -- the single largest real shape (~133/153 of
+#      bucket A). Split into TWO patterns, NOT unified into one permissive
+#      "whitespace then anything" rule, because a fully unconstrained
+#      version of this shape is language-BLIND and regresses gate P5 (M-
+#      R4): a real English `"Affiliate" has the meaning specified in
+#      ...` (`STATE_DE_T5_C7_SVIII_S796`) has the IDENTICAL quote-then-
+#      whitespace-then-prose structure and would be wrongly captured too
+#      if the pattern did not also require a Spanish-specific signal
+#      immediately after the whitespace:
+#        4. a directly-following Spanish defining-verb idiom
+#           (`"Cuenta" significa...`) -- English's "has"/"means"/"shall"
+#           never match this alternation.
+#        5. NO idiom verb, but the definition starts with a CAPITALIZED
+#           word (`"Activos líquidos" Aquellos activos que...`) -- English
+#           "has the meaning..." starts lower-case ("has"), so this
+#           pattern does not match it either; both together still cover
+#           every real A1/A3 row measured.
+#      Tried LAST among the quoted patterns (least specific), though in
+#      practice they never wrongly preempt 1-3: none of those require
+#      whitespace as the character immediately after the closing quote,
+#      so these patterns' own `\s+` requirement already excludes those
+#      shapes.
+#   5. unquoted term + colon (`Certificación: documento oficial...` -- no
+#      `_UNQUOTED_TERM_COLON_RE` existed at all before cycle 2). The
+#      excluded-char class keeps the non-greedy term search from crossing
+#      a sentence boundary to reach a colon that belongs to unrelated,
+#      later prose (real example: `STATE_PR_LEY_52_2019_ART3`'s cross-law
+#      deferral sentence has a `Núm.`-abbreviation period long before its
+#      only colon -- excluding periods from the term class correctly
+#      blocks this pattern from firing there at all). Also length-bounded
+#      to <=100 chars (same reasoning as patterns 6/7 below): a colon can
+#      legitimately sit deep INSIDE a correctly-dash-separated
+#      definition's own prose (`STATE_PR_LEY_3_2022_ART4`: "Comandante de
+#      Operaciones Regionales – Significa el(la) oficial de rango
+#      designado a comandar alguna de las cuatro regiones policíacas, a
+#      saber: Región 1...") -- without the bound, this pattern (tried
+#      before the dash pattern) reaches straight past the real, near
+#      dash separator to that unrelated, much later colon instead.
+#   6. unquoted term + optional-period + em/en-dash (unchanged from cycle
+#      1, 272/635 rows use this family, with or without a verb idiom --
+#      `Es`/`Significará`/`Será` directly after the dash, or the
+#      definition starting with a bare noun phrase, e.g. `Secretario. –
+#      Se refiere al...`).
+#   7. unquoted term + its OWN trailing period (not colon, not dash) then
+#      a bare, capitalized definition (`Agencia. Cualquier
+#      departamento...`). THREE guards keep this from misfiring: the
+#      trailing `(?=[A-ZÁÉÍÓÚÑÜ])` lookahead requires the next real
+#      sentence to start with a capital letter (so an abbreviation like
+#      `Núm. 228` -- digit, not a capital letter, after the period -- is
+#      never mistaken for a split point); the `(?<!\.[A-Z])` lookbehind
+#      excludes a period that is itself the second half of a chained
+#      single-letter abbreviation (`U.S.` in `U.S. Geological Survey` --
+#      the period right after the "S" is preceded by "." + "S", so this
+#      pattern correctly keeps expanding past it to the REAL term-ending
+#      period after "Survey", real example `STATE_PR_LEY_51_2003_ART2`
+#      entry 4, `"U.S. Geological Survey. Servicio Geológico Federal..."`);
+#      and the group itself is built from `(?:[^.]|\.(?!-))+?` instead of
+#      a plain `.+?` -- a period immediately followed by an ASCII hyphen
+#      (no space) can NEVER be absorbed into the term, so the match fails
+#      CLOSED (returns no match at all, rather than skipping past it to
+#      hunt for some other, unrelated period later in the block) whenever
+#      the block opens with a subsection-label shape like `"(a) En
+#      General.- El caudal relicto bruto..."`. Confirmed live corpus-wide
+#      against `STATE_PR_RENTAS_SEC2022_01`/`_SEC2042_01` (M-R7's correct-
+#      zero rows): an earlier version of this pattern used unrestricted
+#      `.+?`, which happily skipped the unmatchable "En General.-" and
+#      kept expanding across the ENTIRE first block hunting for the next
+#      period+capital-letter anywhere in the paragraph, fabricating a huge
+#      bogus "term" out of the whole thing. This exclusion targets the
+#      exact structural shape at fault instead of an arbitrary length cap
+#      (which was tried first and cost real corpus-wide recall on
+#      genuinely long-but-valid terms elsewhere).
 _QUOTED_TERM_COLON_RE = re.compile(r'^["“]([^"”]+)["”]\s*:\s*')
-_QUOTED_TERM_DASH_RE = re.compile(r'^["“]([^"”]+)["”]\s*\.?\s*[–—]\s*')
-_UNQUOTED_TERM_DASH_RE = re.compile(r"^(.+?)\s*\.?\s*[–—]\s*")
 
-_TERM_SEPARATOR_PATTERNS = (
-    _QUOTED_TERM_COLON_RE,
-    _QUOTED_TERM_DASH_RE,
-    _UNQUOTED_TERM_DASH_RE,
+# A canonical Spanish defining-verb idiom, shared by the comma-idiom
+# pattern below and the dispatch-fallback bare-idiom pattern further down.
+_DEFINING_IDIOM_ALTERNATION = r"(?:significará|significa|será|es)\b"
+
+_QUOTED_TERM_COMMA_IDIOM_RE = re.compile(
+    r'^["“]([^"”]+)["”](?:\s+o\s+["“][^"”]+["”])?\s*,\s*(?='
+    + _DEFINING_IDIOM_ALTERNATION
+    + r")",
+    re.IGNORECASE,
 )
+_QUOTED_TERM_DASH_RE = re.compile(
+    r'^["“]([^"”]+)["”](?:\s+o\s+["“][^"”]+["”])?\s*\.?\s*[–—-]\s*'
+)
+_QUOTED_TERM_BARE_IDIOM_RE = re.compile(
+    r'^["“]([^"”]+)["”]\s+(?=' + _DEFINING_IDIOM_ALTERNATION + r")",
+    re.IGNORECASE,
+)
+_QUOTED_TERM_BARE_CAPITALIZED_RE = re.compile(r'^["“]([^"”]+)["”]\s+(?=[A-ZÁÉÍÓÚÑÜ])')
+_UNQUOTED_TERM_COLON_RE = re.compile(r"^([^.:;\n]{1,100}?):\s*")
+# Both unquoted patterns below bound their term group to <=100 chars.
+# Real unquoted terms are short noun phrases (the longest measured across
+# every fixture, `"Programa de educación agrícola o programas
+# especializados en agricultura"`, is 72 chars) -- an UNBOUNDED non-greedy
+# group, with no quote character to anchor its own far end the way the
+# quoted patterns have, will happily walk straight through an entire
+# multi-sentence block hunting for its first reachable dash or period
+# anywhere at all, fabricating a huge, wrong "term" out of most of the
+# block whenever no separator sits near the real start (confirmed live
+# corpus-wide, e.g. `STATE_PR_CIVIL_ART326`'s `"Poder es la facultad por
+# la que..."` -- no colon or dash anywhere near the front -- previously
+# matched a full paragraph as one "term" via a dash many sentences later).
+_UNQUOTED_TERM_DASH_RE = re.compile(r"^(.{1,100}?)\s*\.?\s*[–—]\s*")
+_UNQUOTED_TERM_PERIOD_RE = re.compile(
+    r"^((?:[^.]|\.(?!-)){1,100}?)(?<!\.[A-Z])\.\s+(?=[A-ZÁÉÍÓÚÑÜ])"
+)
+
+# Split into a QUOTED group and an UNQUOTED group, tried separately (see
+# `_extract_term_and_definition` below) rather than as one flat, ordered
+# list -- a block that visibly STARTS with a quote character but matches
+# none of the quoted patterns (an unrecognized idiom like "se refiere a",
+# not one of `_DEFINING_IDIOM_ALTERNATION`'s 4 words) must be skipped
+# entirely, not handed to the unquoted patterns. The unquoted patterns'
+# char classes do not exclude quote characters, so without this split they
+# would happily treat the leading quote mark as an ordinary character and
+# keep searching -- often for a very long distance -- for their own
+# separator (a colon, dash, or period) somewhere deep in the DEFINITION
+# text instead, fabricating a huge, wrong "term" out of most of the block.
+# Confirmed live corpus-wide: `STATE_PR_LEY_4_2022_ART1_03` entry (e),
+# `"Cuenta Dotal de Equiparación" se refiere a la cuenta restricta,
+# creada...` -- "se refiere a" is not a recognized idiom, so no quoted
+# pattern matches, but `_UNQUOTED_TERM_PERIOD_RE` used to keep expanding
+# straight through the quote marks and the entire definition sentence to
+# the FIRST unrelated period+capital-letter it could find, three sentences
+# later.
+_QUOTED_TERM_SEPARATOR_PATTERNS = (
+    _QUOTED_TERM_COLON_RE,
+    _QUOTED_TERM_COMMA_IDIOM_RE,
+    _QUOTED_TERM_DASH_RE,
+    _QUOTED_TERM_BARE_IDIOM_RE,
+    _QUOTED_TERM_BARE_CAPITALIZED_RE,
+)
+_UNQUOTED_TERM_SEPARATOR_PATTERNS = (
+    _UNQUOTED_TERM_COLON_RE,
+    _UNQUOTED_TERM_DASH_RE,
+    _UNQUOTED_TERM_PERIOD_RE,
+)
+_QUOTE_CHARS = '"“'
+
+# A5 -- a marker can be followed by a DECORATIVE em/en-dash before the
+# actual term (`a. — "Nueva programación" significa...`,
+# `STATE_PR_LEY_190_1995_ART2`) -- a block-PREFIX gap, not a new
+# term/separator shape: stripped before the patterns above ever run, so
+# what remains (`"Nueva programación" significa...`) is the ordinary A1
+# bare-quoted shape.
+_LEADING_DECORATIVE_DASH_RE = re.compile(r"^[–—]\s*")
 
 
 def _extract_term_and_definition(block: str) -> tuple[str, str] | None:
@@ -219,8 +462,19 @@ def _extract_term_and_definition(block: str) -> tuple[str, str] | None:
     the first separator pattern that matches. Returns `None` for a block
     with no recognizable term/separator shape -- skipped, not fabricated
     (mirrors `USProfile.extract_definitions_from_section`'s "entries with
-    no leading quoted term are skipped" discipline)."""
-    for pattern in _TERM_SEPARATOR_PATTERNS:
+    no leading quoted term are skipped" discipline).
+
+    A block that STARTS with a quote character only ever tries the QUOTED
+    patterns, never the unquoted ones -- see the comment above
+    `_QUOTED_TERM_SEPARATOR_PATTERNS` for why falling through to an
+    unquoted pattern on quoted content is unsafe."""
+    block = _LEADING_DECORATIVE_DASH_RE.sub("", block, count=1)
+    patterns = (
+        _QUOTED_TERM_SEPARATOR_PATTERNS
+        if block[:1] in _QUOTE_CHARS
+        else _UNQUOTED_TERM_SEPARATOR_PATTERNS
+    )
+    for pattern in patterns:
         match = pattern.match(block)
         if match:
             term = match.group(1).strip()
@@ -228,6 +482,23 @@ def _extract_term_and_definition(block: str) -> tuple[str, str] | None:
             if term and definition_text:
                 return term, definition_text
     return None
+
+
+# A no-marker, single-entry article whose body ALSO contains an incidental
+# enumerated sub-list of that SAME term's own duties/clauses (e.g.
+# `(1)`..`(11)`) needs a bare-copulative-idiom shape with NO punctuation
+# separator at all (`Agente General es la persona nombrada...`,
+# `STATE_PR_LEY_77_1957_ART9_040`) -- see `extract_definitions_from_section`
+# below for why this is a DISPATCH fix (checked against the LEAD-IN before
+# the first marker, not a 4th quoted/unquoted pattern added to the general
+# per-block list above). Deliberately narrow (capital-letter-anchored,
+# length-bounded, no punctuation allowed in the term) precisely so it
+# cannot collide with English text the way a broader colon/dash-based
+# check would (see the dispatch docstring for the real regression this
+# avoids).
+_UNQUOTED_BARE_IDIOM_TERM_RE = re.compile(
+    r"^([A-ZÁÉÍÓÚÑ][^.:;\n]{0,80}?)\s+" + _DEFINING_IDIOM_ALTERNATION
+)
 
 
 def extract_definitions_from_section(text: str, *, scope: str) -> list[DefinitionCandidate]:
@@ -243,6 +514,37 @@ def extract_definitions_from_section(text: str, *, scope: str) -> list[Definitio
     by the caller -- this function does not itself inspect the body for
     scope-setting phrases (a separate, core-seam-owned concern; see
     `test_pr_profile_scope.py`).
+
+    Dispatch (cycle-2 fix): a body with NO markers always takes the
+    single-entry path, unchanged from cycle 1. A body WITH markers used to
+    be all-or-nothing -- ANY marker anywhere sent the whole body down the
+    markers path, which has no "entry -1" for text before the first
+    marker. That silently dropped the term and lead-in of a genuinely
+    single-entry, no-top-level-marker article whose body happens to
+    contain an INCIDENTAL enumerated sub-list of that one term's own
+    duties/clauses (`STATE_PR_LEY_77_1957_ART9_040`: `"Agente General es
+    la persona nombrada..."`, followed by a `(1)`..`(11)` duties list),
+    producing 11 bogus fragment "entries" instead of the one real
+    candidate.
+
+    Fix: check whether the LEAD-IN text (everything before the FIRST
+    marker) itself matches the narrow bare-copulative-idiom shape
+    (`_UNQUOTED_BARE_IDIOM_TERM_RE` -- capital-letter-anchored term,
+    directly followed by a Spanish idiom word). If it does, the whole body
+    is a single entry; treat the enumerated markers found after it as
+    incidental sub-clauses of that ONE definition, not a top-level entries
+    list. This check is deliberately NARROWER than "does the first
+    marker's own block fail to parse" (an earlier version of this fix used
+    that broader check and it regressed gate P5/M-R4: a genuine English
+    multi-entry preamble like `"As used in this subchapter:"` also fails
+    to parse its own first entry -- `"Affiliate" has the meaning
+    specified in...` never matches a Spanish idiom -- but its PREAMBLE
+    also happens to satisfy the general unquoted-colon pattern, wrongly
+    treating the preamble itself as a fabricated "term". Anchoring
+    specifically on the bare-idiom shape, which requires an explicit
+    Spanish idiom WORD immediately after the term with nothing but
+    whitespace between them, has no English collision: no English word
+    matches `significa`/`significará`/`será`/`es` as a whole word).
     """
     markers = list(_ENTRY_MARKER_RE.finditer(text))
     candidates: list[DefinitionCandidate] = []
@@ -255,6 +557,17 @@ def extract_definitions_from_section(text: str, *, scope: str) -> list[Definitio
                 DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
             )
         return candidates
+
+    lead_in = text[: markers[0].start()]
+    lead_in_match = _UNQUOTED_BARE_IDIOM_TERM_RE.match(lead_in)
+    if lead_in_match:
+        term = lead_in_match.group(1).strip()
+        definition_text = text[lead_in_match.end() :].strip()
+        if term and definition_text:
+            candidate = DefinitionCandidate(
+                terms=(term,), definition_text=definition_text, scope=scope
+            )
+            return [candidate]
 
     for index, marker in enumerate(markers):
         start = marker.end()
