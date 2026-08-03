@@ -265,3 +265,84 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+## `us_scoped_inline_rows.json` — sprint 2026-08-04-defs-us-scoped-inline (Planner, D4)
+
+25 REAL rows (full original columns, values unmodified), fetched directly
+from the on-disk HF snapshot (never downloaded — same cache path every
+other fixture here uses:
+`~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/
+301000fc3465374ee0f23c3c6953a8a861e95cad/us_<st>_statutes.parquet`).
+Verified live against the REAL current code (`is_definitions_heading`,
+`extract_local_definitions`, `extract_adhoc_definitions`,
+`_is_placeholder_heading`) — every row's heading is NOT recognized as a
+Definitions section, is NOT a placeholder heading (so no body-derivation
+rescue applies), and both Hebrew-only local/adhoc extractors return `[]` —
+i.e. every genuine positive row here is a confirmed, live, 100% miss today
+(family 1's exact root cause, `pipeline.py`'s `else:` branch).
+
+Covers the convention-inventory (D1) variant space actually found across
+the 12 lead states (UT/OH/ME/MO/MT/TN/VT/OR/RI/SC/PA/TX — MO/RI not
+separately vendored here, already well covered by the other 10):
+
+- **Trigger axis**: `As used in this <unit>`, `For purposes of this <unit>`,
+  `For the purpose(s) of this <unit>`, `When used in this <unit>`, bare
+  `In this <unit>` (strict-adjacency only — see below), marker-prefixed
+  (`(a) As used in...`, `(a)(1) When used in...`), and the trigger appearing
+  AFTER its term (`"State facilities," when used in this chapter, shall
+  mean...` — `STATE_VT_T3_C45_S2291`). Scope units covered: section,
+  subsection, chapter, part, subchapter, article, title.
+- **Body axis**: bare `"X" means`, numbered/lettered `(N)`/`(a)` `"X" means`,
+  `the term "X" includes/means`, `"X" shall mean`, `"X" has the meaning`
+  (incl. the real OH cross-reference shape `"X" has the same meaning as in
+  section N` — `STATE_OH_T33_C3313_S3313.906`), `"X" includes` (TX,
+  `STATE_TX_Cwa_C55_S55.047`), colon-then-numbered-list, colon-then-lettered-
+  list (incl. Oregon's real capital-letter `(A)(B)` convention), and nested
+  roman-numeral sub-clauses inside a lettered entry (`STATE_UT_T53G_S53G_
+  10_402`'s `(b) "Refusal skills" means instruction: (i)...(iv)`) that must
+  stay part of THAT entry's `definition_text`, not spawn spurious entries.
+  A single definition's own body-internal numbered/lettered sub-list (no
+  new quoted term at each item — `STATE_MT_T23_C5_P8_S23-5-801`,
+  `STATE_TN_T36_C5_S36-5-910`, `STATE_VT_T11C_C7_S701`) must likewise stay
+  part of the ONE preceding term's `definition_text`, not be misread as
+  unnamed additional entries.
+- **Multi-scope-in-one-body**: `STATE_VT_T3_C45_S2291` defines 3 terms in
+  one section body under 3 DIFFERENT scope units (title/chapter/chapter) —
+  scope must be resolved per-entry, never once for the whole body.
+- **Negative controls (false-positive bait)**: `STATE_UT_T10_S10_21_302`
+  (`"...is the same as defined in Section 15A-1-302"` — unquoted term, no
+  recognized idiom); `STATE_UT_T11_S11_59_603` (bare "in this section"
+  mid-sentence, no adjacent quote/colon at all — proves bare `In`/`in`
+  cannot be a standalone trigger, see Planner's precision measurement in
+  the sprint log: bare `in this <unit>` is only ~21% genuine across the 12
+  lead states, 72.7% pure prose noise).
+- **Escalation-flagged boundary case (NOT auto-included as a positive)**:
+  `STATE_PA_T15_C57_S5749` — `"For the purposes of this subchapter: (1)
+  References to \"other enterprises\" shall include..."` — a construction/
+  interpretation clause about how OTHER text should be read, not a
+  `"X" means Y`-shaped definition. Real, genuinely ambiguous; see the
+  sprint log's D2 section for the Planner's lean (exclude) and the
+  escalation to the manager.
+- **Baseline regression-guard rows** (U5): `STATE_MT_T76_C13_P1_S76-13-107`,
+  `STATE_IN_T13_A23_C12_S13-23-12-3`, `STATE_NY_ATAX_A9_S197-D` — real rows
+  from 3 of the program's 12 baseline states, verified to contain NO
+  family-1 trigger phrase at all (ordinary substantive prose) — the new
+  rule module must return `[]` for every one of these, never a false
+  positive. (An earlier candidate, `STATE_MT_T87_C1_P2_S87-1-217`, was
+  DROPPED from this set once its full text was read closely: it turns out
+  to itself be a rich, genuine multi-trigger F1 row — `"(3) For the
+  purposes of this subsection, "problem wolves" means..."` PLUS `"(6) As
+  used in this section: (a) "consultation" means... (b) "large game
+  species" means... (c) "large predators" means..."`, i.e. FOUR terms
+  across TWO different scope units, subsection and section/local, in one
+  body. Not wired into any test in this sprint's fixture set — flagged
+  here as a real example worth a future test if this family's coverage is
+  ever revisited, and as a reminder that a row's opening sentence is not
+  reliable evidence of its whole body.)
+
+Provenance: same dataset/commit as every other fixture in this directory,
+fetched 2026-08-04 by the Planner via the worktree's own read of the local
+HF cache (no network I/O — `pyarrow` already present in this worktree's
+venv, unlike the disposable-venv note above from the 2026-08-02 sprint).
+Analysis/fetch scripts (scratchpad, not committed):
+`/private/tmp/claude-501/-Users-nerya-LexGraph/87b55b0a-5a38-44b6-887d-1e093b526197/scratchpad/f1_inventory.py`,
+`f1_precision.py`, `fetch_fixture_rows.py`.

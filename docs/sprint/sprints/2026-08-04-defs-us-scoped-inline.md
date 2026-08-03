@@ -84,7 +84,81 @@ Full reasoning in `2026-08-04-defs-us-scoped-inline-log.md` (append-only).
 
 ## Next Steps
 
-_Planner defines items._
+Full design rationale, the D1 convention inventory, D2 boundary verdict, and
+D3 scope-unit gap table are in the panel log (`## 2026-08-04 — Planner`).
+This section is the executable item list only.
+
+### Phase A — buildable now (no core dependency; ruling S-R2 fences all of
+Phase A to ONE new file; zero edits to `pipeline.py`/`extract.py`/
+`matcher.py`/`profiles.py`/`us_profile.py`/`sections.py`)
+
+1. **Create `backend/app/definition_links/rules/__init__.py`** (empty,
+   new package) and **`backend/app/definition_links/rules/us_scoped_inline
+   .py`** exposing:
+
+   ```python
+   def extract_us_scoped_inline_definitions(body: str) -> list[DefinitionCandidate]
+   ```
+
+   A pure function (`DefinitionCandidate` imported read-only from
+   `app.definition_links.extract` — same dataclass `extract_local_
+   definitions` already uses, so Phase B can hand its output straight into
+   `pipeline.py`'s existing candidate list). Serves gates **U1**, **U2**
+   (the scope-STAMPING half), **U3**. Full behavioral spec — trigger
+   vocabulary, scope-unit mapping table, recognized defining idioms, the
+   entry-boundary/no-over-split algorithm, and every excluded shape — is in
+   the panel log's D1/D2 sections; the RED tests below are the executable
+   version of that spec and are the actual source of truth for edge cases.
+
+   Proven by (all currently RED with `ModuleNotFoundError`, pasted tails in
+   the log):
+   - `backend/tests/unit/test_us_scoped_inline_rules_trigger_axis.py` (13
+     tests — trigger phrase recognition, scope-unit mapping, marker-prefix
+     tolerance, trigger-after-term).
+   - `backend/tests/unit/test_us_scoped_inline_rules_body_axis.py` (14
+     tests — every idiom shape, multi-entry splitting, the two
+     must-not-over-split cases, multi-scope-in-one-body).
+   - `backend/tests/unit/test_us_scoped_inline_rules_negative_controls.py`
+     (6 tests — false-positive bait, baseline-state no-trigger rows, the
+     escalated PA boundary case).
+
+   `.source_article_number`/`.source_chapter` stay `None` on every returned
+   candidate (matches `extract_local_definitions`'s existing convention —
+   the caller fills these in from the owning `Article`, Phase B's job, not
+   this function's).
+
+### Phase B — blocked on `2026-08-04-defs-core-scope` merging to `main` and
+publishing its `## Seam spec`
+
+2. **Register** `extract_us_scoped_inline_definitions` through core's
+   per-jurisdiction rule registry for every `US-*`/`US-FED` code (never
+   `IL`). Exact registration API is core's seam spec's call — not
+   pre-decided here (ruling S-R1: no test was written against it before it
+   publishes).
+3. **Wire the registered rule into `pipeline.py` Stage 2's `else:` branch**
+   (pipeline.py:436-442) so a US-profile article whose heading is NOT a
+   recognized Definitions heading routes through the new rule instead of
+   (or alongside, per core's seam) the Hebrew-only `extract_local_
+   definitions`/`extract_adhoc_definitions`. **Critical provenance
+   requirement**: use the SAME conditional pattern the `if is_definitions_
+   section:` branch already uses at pipeline.py:434 — `if candidate.scope
+   == "chapter": candidate.source_chapter = art.chapter` /
+   `elif candidate.scope == "local": candidate.source_article_number =
+   art.number` — NOT the current `else:` branch's unconditional
+   `source_article_number = art.number` (every existing Hebrew else-branch
+   candidate is `scope="local"`; this family's are not — a `"chapter"` or
+   other-unit-scoped candidate wired through the old unconditional line
+   would be silently mis-stamped). Serves gates **U1**, **U2** (both
+   directions), **U3**.
+   Proven by: `backend/tests/integration/test_us_scoped_inline_pipeline_live.py`
+   (4 tests, currently RED with real assertion failures against the
+   unmodified pipeline — go GREEN once this step lands).
+4. **Confirm** `backend/tests/integration/test_us_scoped_inline_pipeline_baseline_regression.py`
+   stays GREEN, unchanged, after step 3 (gate **U5**).
+5. **Full-corpus before/after capture-rate measurement** for this family's
+   trigger signal across all 53 jurisdictions (gate **U6**) — QA's sweep,
+   unblocked once steps 2-4 land; flagged here as the next acceptance gate,
+   not a Developer task.
 
 ## Dev Complete
 
