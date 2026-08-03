@@ -16,97 +16,106 @@ existing call sites, so there is no backward-compatibility reason to accept
 an unvalidated/missing jurisdiction, and gate G5 requires every ingested
 document to carry a real, validated jurisdiction from the start.
 
-Idempotency: re-ingesting the same `(repository_id, matter_id, title)` reuses
-the existing `Document` row (rather than creating a second one for what is
-semantically the same file), and re-ingesting a row whose section identity
-already has an `Article` under that `Document` reuses the existing
-`Article`/`SourceSpan` rather than inserting a duplicate. This dataset's rows
-are keyed by `act_id`, but `act_id` is not itself part of the `Article`
-schema (an additive-only surface, per ruling M1) -- and bare `section_number`
-alone is NOT unique either: real statute files legitimately repeat a bare
-section number across different titles/chapters within one file (e.g. two
-unrelated "§ 796"s from Title 5 and Title 29). Keying idempotency on
-`(document_id, section_number)` alone therefore treats a genuinely different
-section as "already ingested" and silently drops it -- real data loss with no
-trace in `skipped_rows`.
+**Wave 5b fix (QA cycle 3 bounce, defects 5/6): the idempotency key is now
+`act_id`, not a composite of body fields.** Every prior key tried
+(`section_number` alone; `+ chapter + section_title`; `+ section_title +
+text`) was verified collision-free on ONE real file and then broken by the
+NEXT real file:
 
-**Wave-4 fix (sprint 2026-08-02-us-state-law, item 5, QA cycle 2, ruling
-R7(b)):** wave-3's key was `(document_id, section_number, chapter,
-section_title)`, and any row with a missing/empty `chapter` was
-unconditionally SKIPPED because bare `section_number` alone can collide
-across titles/chapters. That traded a silent merge for an explicit skip, but
-it still lost real law: on the real `us_de_statutes.parquet`, 647 of 21,649
-rows (3.0%) have an empty `chapter` -- and every one of them was dropped,
-even though `citation` (e.g. `"5 Del. C. § 796"`), the dataset's own
-canonical unique legal identifier, is present and non-empty in 100% of real
-rows (0% null/empty, verified against the live file).
+  - wave-3's `(section_number, chapter, section_title)` dropped 647/21,649
+    (3.0%) real DE rows with an empty `chapter`.
+  - wave-4's `(section_number, section_title, text)` was verified
+    collision-free on all 21,649 real DE rows, but QA cycle 3 found it
+    silently MERGES genuinely different real sections that happen to share
+    byte-identical cross-title boilerplate `text` under an equally generic
+    `section_title` -- **9 collision groups / 11 rows lost in the real
+    14,547-row `us_pa_statutes.parquet`** (e.g. `74 Pa.C.S. § 7` merged into
+    `51 Pa.C.S. § 7`) and, far worse, **83 collision groups / 176 rows lost
+    in the real 161,429-row `us_ca_statutes.parquet`** (California's
+    `section_title` is *always* a bare `"Section N"` placeholder -- see
+    `app.definition_links.us_profile`'s ruling R10 -- which makes the
+    collision far more likely, not a rare fluke).
 
-The obvious fix ("re-key on `citation`") was checked against the real file
-before committing to it, per the brief's own instruction to verify
-uniqueness rather than assume it: **`citation` is NOT 100% unique** --
-`us_de_statutes.parquet` has exactly ONE real duplicate pair
-(`"29 Del. C. § 7905A"`, shared by `STATE_DE_T29_C79_SI_S7905A` and
-`STATE_DE_T29_C79A_S7905A` -- two genuinely different sections, chapters
-`"79"` vs `"79A"`). Keying blindly on `citation` alone would have silently
-merged that real pair. Worse, real-data validation of wave-3's own
-"primary" `(section_number, chapter, section_title)` key surfaced a second,
-larger, PRE-EXISTING collision class inherited from wave-3, not introduced
-by empty chapters at all: `chapter` codes are **not unique across titles**
--- e.g. Title 24 Chapter 44 and Title 18 Chapter 44 both exist in the same
-file, so `STATE_DE_T24_C44_SI_S4401` ("§ 4401. Short title.") and
-`STATE_DE_T18_C44_S4401` ("§ 4401. Short title.") share an IDENTICAL
-`(section_number="4401", chapter="44", section_title="§ 4401. Short
-title.")` key despite being two unrelated sections of two unrelated titles
-with different citations and different body text. Measured on the real
-file: **179 such cross-title collisions, silently merging 293 genuinely
-different rows down to 179 Articles** -- exactly the "two genuinely
-different sections must produce two Articles, even with equal
-section_number" requirement this fix is required to hold, broken by the
-inherited wave-3 key on real data.
+Rather than keep chasing a bigger tuple of body-derived fields (every one of
+which is repeated dataset boilerplate somewhere in a 2M-row corpus), this
+fix uses the dataset's OWN per-row identifier, `act_id` (e.g.
+`"STATE_PA_T74_C7_S7"`, `"STATE_PA_T51_C7_S7"` -- note these two encode
+their different source titles even though every other field collides).
+**Verified directly against all 10 real state files already available
+locally (570,397 rows total, including the two files -- PA and CA -- QA
+cycle 3 proved the wave-4 key broken on): `act_id` is 100% non-null and
+100% unique in EVERY file**, including `us_ca_statutes.parquet` (161,429
+rows, the single largest file in the whole corpus) and `us_pa_statutes
+.parquet` (14,547 rows). See the collision table in this sprint's developer
+report for the full per-file measurement.
 
-Both findings point to the same conclusion: neither `chapter` nor bare
-`citation` is a safe sole disambiguator on this real dataset. What IS
-verified 100% collision-free across all 21,649 real DE rows (including the
-one row where `citation` itself repeats, since its two rows also differ in
-heading/text) is `(section_number, section_title, text)` together -- the
-section's own number, heading, AND actual legal body text. Two distinct real
-sections essentially never share byte-identical body text; re-ingesting the
-exact same row always reproduces the exact same text, so idempotency holds.
-The lookup key is therefore
-**`(document_id, section_number, section_title, quote_text)`** (`quote_text`
-lives on the row's `SourceSpan`, so the lookup joins to it) -- applied
-uniformly to every row with `text`, independent of whether `chapter` is
-present. `Article.number`/`Article.chapter` still store the row's real,
-unmodified `section_number`/`chapter` values (including an honestly empty
-`chapter` when the source row has none) -- this key does not require
-inventing a synthetic stand-in for either field, so `Article.number` keeps
-matching "Section N" cross-references via `matcher.py` and
-`Article.chapter` keeps its real value for chapter-scoped definition
-matching, both completely unchanged from before this fix. No schema change
-is needed (no `citation` column exists on `Article`, and this module does
-not own the model file) since `quote_text` already exists on the
-already-persisted `SourceSpan`.
+Because `act_id` is not itself a column on the `Article`/`SourceSpan`
+schema (an additive-only surface, per ruling M1 -- this module does not own
+either model file, so no column can be added), it cannot be looked up via a
+`WHERE act_id = ...` clause the way `section_number`/`section_title`/`text`
+were. Instead, `Article.id` (the existing primary key) is derived
+DETERMINISTICALLY from `(document.id, act_id)` via `uuid.uuid5` -- the same
+document + the same `act_id` always produces the same `Article.id`, so:
 
-`citation`'s role in this design is now purely evidentiary, not structural:
-its 100%-non-empty real-data rate is what proves nearly every real row
-carries a genuine, addressable legal identity worth keeping (motivating
-"stop skipping empty-chapter rows" in the first place), while its
-NOT-quite-100%-unique real-data rate is exactly why it was rejected as the
-literal lookup key in favor of the independently-verified-unique
-`(section_number, section_title, text)` triple.
+  - **Two genuinely different sections -> two Articles.** Different
+    `act_id` (which is 100% unique per real file) means different derived
+    `Article.id`; PA's `74 Pa.C.S. § 7` and `51 Pa.C.S. § 7` no longer
+    collide despite sharing identical `(section_number, section_title,
+    text)`, and neither do CA's `Cal. WIC § 7` / `Cal. INS § 7`.
+  - **Re-ingest is still a no-op.** Re-running the exact same file (same
+    `Document`, found by the existing `(repository_id, matter_id, title)`
+    lookup, so it has the same `document.id` even across separate process
+    runs) with the same `act_id` per row reproduces the identical
+    `Article.id`, found via `session.get` and reused -- no duplicate.
+  - **No mutation of fields other code depends on.** `Article.number`,
+    `Article.heading`, and `Article.chapter` still store the row's real,
+    unmodified `section_number`/`section_title`/`chapter` -- unlike the
+    rejected alternative of encoding disambiguating data INTO one of those
+    fields, which would have corrupted `matcher.py`'s `article.number ==
+    definition.source_article_number` / `article.chapter ==
+    definition.source_chapter` cross-reference matching, or
+    `is_definitions_heading`'s heading-text matching (both operate on the
+    row's real values elsewhere in the pipeline and are not owned by this
+    module). `SourceSpan.quote_text` likewise stays byte-identical to the
+    row's real `text` -- nothing synthetic is appended to it either, since
+    it is downstream input to definitions extraction (`pipeline.py`) and to
+    evidence display; corrupting it to smuggle in a disambiguator would
+    have traded one silent-merge bug for a silent-corruption one.
+
+A row missing (or with `None`/empty) `act_id` cannot be identified at all --
+`citation` came close to 100% but had 1 real duplicate pair in the one file
+it was checked against (see wave-4 history above), so nothing else in the
+row schema is trusted as a substitute. Such a row is SKIPPED and reported,
+the same as a row missing `text` -- consistent with this module's existing
+"never silently drop, always count" discipline. (Not observed in any of the
+570,397 real rows checked across the 10 available state files -- `act_id`
+looks to be a mandatory dataset column -- but the requirement here is "count
+and report any skip", not "assume it can never happen".)
 
 Error paths (all have RED tests):
   - a row missing (or with `None`/empty) required `"text"` is SKIPPED, not
     fatal -- collected into `result["skipped_rows"]` with a reason, every
-    other row in the same batch still ingests. This is the ONLY skip
-    condition left: unlike wave-3, an empty/missing `"chapter"` no longer
-    causes a skip on its own (0 of the 21,649 real DE rows hit any other
-    skip condition).
+    other row in the same batch still ingests.
+  - a row missing (or with `None`/empty) required `"act_id"` is likewise
+    SKIPPED and reported (new in wave 5b -- no prior key depended on
+    `act_id` being present, so this skip condition did not exist before).
   - an unknown jurisdiction code raises `ValidationError` (same controlled
     vocabulary the API enforces, `app.services.jurisdiction
     .validate_jurisdiction`).
   - an empty `rows` list raises `ValueError` -- never a silent no-op that
     could be mistaken for "ingested, zero sections".
+
+Return shape: `{"document_id", "article_ids", "created_article_ids",
+"source_span_ids", "skipped_rows"}`. `article_ids`/`source_span_ids` cover
+EVERY successfully-processed row (both newly-created articles and rows that
+matched an already-ingested `act_id`), same as before this fix, so existing
+callers/tests that only care about "how many rows came out the other end"
+are unaffected. `created_article_ids` is NEW: the subset of `article_ids`
+that were newly inserted by THIS call -- added so the bulk CLI's summary can
+report "rows newly ingested" separately from "rows that matched an
+already-ingested `act_id`" (QA cycle 3's Q3: the wave-4 CLI folded both into
+one "rows ingested" count, which is exactly how an 11-row PA text collision
+went unnoticed -- 14,547 reported vs 14,536 real `Article` rows in the DB).
 """
 
 from __future__ import annotations
@@ -120,6 +129,22 @@ from app.models.article import Article
 from app.models.document import Document
 from app.models.source_span import SourceSpan
 from app.services.jurisdiction import validate_jurisdiction
+
+# Namespace for deriving a stable, deterministic `Article.id` /
+# `SourceSpan.id` from `(document_id, act_id)` via `uuid.uuid5` -- any fixed
+# namespace works (uuid5 only requires it be stable across calls so the
+# same input always reproduces the same output); `uuid.NAMESPACE_URL` is the
+# standard library's own pre-defined constant, reused here rather than
+# inventing a bespoke one.
+_ARTICLE_ID_NAMESPACE = uuid.NAMESPACE_URL
+
+
+def _derive_article_id(document_id: str, act_id: str) -> str:
+    return str(uuid.uuid5(_ARTICLE_ID_NAMESPACE, f"lexgraph:us-statute-article:{document_id}:{act_id}"))
+
+
+def _derive_source_span_id(document_id: str, act_id: str) -> str:
+    return str(uuid.uuid5(_ARTICLE_ID_NAMESPACE, f"lexgraph:us-statute-span:{document_id}:{act_id}"))
 
 
 def ingest_us_statute_rows(
@@ -135,11 +160,13 @@ def ingest_us_statute_rows(
     `Article` + backing `SourceSpan` per row.
 
     Returns `{"document_id": str, "article_ids": list[str],
-    "source_span_ids": list[str], "skipped_rows": list[dict]}` --
-    `article_ids`/`source_span_ids` are in the same order as the
-    successfully-ingested rows appear in `rows`; `skipped_rows` holds
-    `{"act_id": ..., "reason": ...}` for every row that failed to ingest
-    (never fatal to the rest of the batch).
+    "created_article_ids": list[str], "source_span_ids": list[str],
+    "skipped_rows": list[dict]}` -- `article_ids`/`source_span_ids` are in
+    the same order as the successfully-ingested rows appear in `rows` and
+    include BOTH newly-created and already-existing (matched) rows;
+    `created_article_ids` is the subset that were newly inserted by this
+    call; `skipped_rows` holds `{"act_id": ..., "reason": ...}` for every
+    row that failed to ingest (never fatal to the rest of the batch).
     """
     validate_jurisdiction(jurisdiction)
 
@@ -169,12 +196,20 @@ def ingest_us_statute_rows(
         session.flush()
 
     article_ids: list[str] = []
+    created_article_ids: list[str] = []
     source_span_ids: list[str] = []
     skipped_rows: list[dict] = []
 
     for row in rows:
         act_id = row.get("act_id")
         text = row.get("text")
+
+        if not act_id:
+            skipped_rows.append(
+                {"act_id": act_id, "reason": "missing required 'act_id' column"}
+            )
+            continue
+
         if not text:
             skipped_rows.append(
                 {"act_id": act_id, "reason": "missing required 'text' column"}
@@ -185,24 +220,16 @@ def ingest_us_statute_rows(
         number = str(row.get("section_number"))
         heading = row.get("section_title") or ""
 
-        # Idempotency key (wave-4 fix, ruling R7(b)): (section_number,
-        # section_title, text) -- verified 100% collision-free across all
-        # 21,649 real US-DE rows (see module docstring for why neither
-        # `chapter` alone nor `citation` alone is safe on real data).
-        # `Article.chapter` still stores the row's real chapter value
-        # (including honestly empty) -- it is just not part of the lookup.
-        lookup = (
-            select(Article)
-            .join(SourceSpan, Article.source_span_id == SourceSpan.id)
-            .where(
-                Article.document_id == document.id,
-                Article.number == number,
-                Article.heading == heading,
-                SourceSpan.quote_text == text,
-            )
-        )
-
-        existing_article = session.execute(lookup).scalar_one_or_none()
+        # Idempotency key (wave 5b fix, QA cycle 3 bounce): the dataset's
+        # own per-row `act_id`, verified 100% unique across all 570,397
+        # real rows in the 10 real state files available locally (incl. PA
+        # and CA, the two files that broke the wave-4 body-field key -- see
+        # module docstring). `Article.id` is derived deterministically from
+        # `(document.id, act_id)` so the same row, re-ingested into the
+        # same document, always reproduces the same id -- found via a
+        # primary-key lookup and reused rather than re-inserted.
+        article_id = _derive_article_id(document.id, act_id)
+        existing_article = session.get(Article, article_id)
 
         if existing_article is not None:
             article_ids.append(existing_article.id)
@@ -210,7 +237,7 @@ def ingest_us_statute_rows(
             continue
 
         source_span = SourceSpan(
-            id=str(uuid.uuid4()),
+            id=_derive_source_span_id(document.id, act_id),
             document_id=document.id,
             matter_id=matter_id,
             quote_text=text,
@@ -219,7 +246,7 @@ def ingest_us_statute_rows(
         session.flush()
 
         article = Article(
-            id=str(uuid.uuid4()),
+            id=article_id,
             document_id=document.id,
             matter_id=matter_id,
             source_span_id=source_span.id,
@@ -231,6 +258,7 @@ def ingest_us_statute_rows(
         session.flush()
 
         article_ids.append(article.id)
+        created_article_ids.append(article.id)
         source_span_ids.append(source_span.id)
 
     session.commit()
@@ -238,6 +266,7 @@ def ingest_us_statute_rows(
     return {
         "document_id": document.id,
         "article_ids": article_ids,
+        "created_article_ids": created_article_ids,
         "source_span_ids": source_span_ids,
         "skipped_rows": skipped_rows,
     }
