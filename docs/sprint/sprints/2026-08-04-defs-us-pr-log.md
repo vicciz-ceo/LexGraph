@@ -643,3 +643,93 @@ that wasn't already resolved by the Planner's own survey (the `en
 adelante` vs. `conocido como`/`denominado` line was already drawn by the
 Planner, and this Developer's scope only implements the safe side of
 that line, per item 3).
+
+---
+
+## 2026-08-04 — Manager: Developer verification + GENERALIZATION GAP (cycle 1 rejected as incomplete)
+
+**Boundaries — HELD.** `git diff --name-only 044a2c0...HEAD` shows exactly
+two files: the new `backend/app/definition_links/pr_profile.py` and this
+log. No shared module, no test, no fixture touched. Role separation intact.
+
+**Tests — re-run by me.** `694 passed, 6 xfailed` full suite; `641 passed`
+with the six new files ignored (baseline exactly reproduced); the 6 scope
+tests confirmed `xxxxxx` = XFAIL, not XPASS, not error. Everything the
+Developer reported is true.
+
+**But passing the tests is not passing the gate.** The tests pin 5 real
+fixture rows. Gate P4 is a zero-miss sweep of all 23,636. So I ran the NEW
+module over the FULL corpus myself — the check the test suite structurally
+cannot make — and the result changes the sprint's state:
+
+```
+ground-truth canonical rows (stem in section_title):   635
+headings detected by new code:                         620   (0 false positives)
+MISSED headings:                                        15   (13 real + 2 correct TOC rejections)
+
+detected sections EXCLUDING the 10 vendored fixtures:  614
+  yielding >=1 candidate:                              346
+  yielding ZERO:                                       268
+  extraction rate on rows the panel never saw:       56.4%
+```
+
+**56.4% is not zero-miss.** Before this sprint the rate was 0%, so this is
+real progress and the Developer's work is sound as far as it was specified —
+but the specification (the test suite) under-determined the corpus. This is
+a PLANNING gap, not a Developer failure: the Developer implemented exactly
+what was pinned, and I will not have him "fix" it by guessing at unpinned
+behavior. Cycle goes back to the Planner for test extension, per role
+separation.
+
+**I categorized the 268 zero-yield rows so the panel gets a workload, not a
+number** (full dump with `act_id` + body head:
+`scratchpad/pr_miss_workload.json`):
+
+| Bucket | Rows | Character | Settled? |
+|---|---|---|---|
+| **A** | 153 | Has ≥2 real entry markers AND a real defining idiom, still yields zero — e.g. `STATE_PR_LEY_77_1957_ART39_050`: `Según se emplean en este Capítulo: (1) "Cuenta" significa ... (2) "Asociación" significa ...`. Full-paren digit marker + curly quote + `significa`, all three catalogued in the survey. | **Unambiguous bug.** No judgment needed. |
+| **B** | 7 | ≥2 markers, no canonical idiom — `(a) Diabetes tipo 1: es un desorden autoinmune…`. The marker list itself establishes definitional context. | Settled — safe inside a marker list. |
+| **C** | 22 | Real idiom, marker shape not in the survey's six — `A.` UPPERCASE-letter-period (`A. "Estado Libre Asociado" significa…`) and `a. —` marker-plus-dash. | **Marker-inventory gap.** Settled. |
+| **D** | 86 | Copulative/prose definitions with no marker and no canonical idiom — `Son bienes las cosas o derechos que pueden ser apropiables…` (Civil Code), `los pasivos se definirán como…`, `asegurador del país del Plan de Lloyd es una sociedad…`. Substantively these ARE definitions. | **NOT settled — P-R2 / program Q-1.** |
+
+Bucket A quote style: curly 124 / straight 9 / unquoted 20 — so it is not a
+single quote-character bug; several distinct shapes are failing.
+
+**The 13 real heading misses** form clean families, not noise:
+- Civil-Code mid-token compound `X; definición y <noun>` — 7 rows
+  (`Subrogación; definición y alcance`, `Tutela; definición y objeto`,
+  `Parentesco; definición y alcance`, `Acto jurídico; definición y
+  clasificación`, `Inoponibilidad; definición y clases`, `Retención;
+  definición y ejercicio`, `Las normas de la compraventa; definición y
+  aplicabilidad`). "definición" is neither first nor last substantive word.
+- Parenthesized whole heading `(Definiciones)` — 2 rows
+  (`STATE_PR_LEY_60_1963_ART100`, `STATE_PR_LEY_77_1964_ART1`). The
+  Planner's own survey COUNTED these 2 and no test pinned them.
+- Trailing-preposition `…, definición de` — 2 rows.
+- Em-dash compound `—Definición de Términos` — 1 row.
+- `Microseguros, definición y clases autorizadas` — 1 row.
+
+The 2 Table-of-Contents rows are CORRECT rejections and must stay rejected —
+there is already a test pinning one of them.
+
+### Manager ruling M-R6 — cycle 2 scope, and what escalates
+
+- **Planner authors RED tests for buckets A, B, C and the 13 heading
+  misses.** These are settled: they need no director input, only real
+  coverage. Vendor new real fixture rows for each family. This is the
+  Planner's job because the Developer must never write tests, and it is the
+  Planner's under-specification that let a 56.4% implementation pass.
+- **Bucket D does NOT get silently decided by this panel.** 86 real
+  copulative/prose definitions is exactly program ruling P-R2 and standing
+  question Q-1 ("when zero-miss and zero-false-positive conflict, which
+  yields?"). Capturing `Son bienes las cosas o derechos…` requires matching
+  Spanish copulative prose, which will fire on ordinary substantive text
+  across the corpus. Under the director's ABSOLUTE ZERO-MISS bar these 86
+  are misses and P4 fails; under precision-first they are an accepted
+  limitation. I escalate this to the program manager with these real
+  examples rather than picking a side.
+- **Lesson recorded for the program**: a test suite built from N hand-picked
+  fixture rows cannot prove a zero-miss gate, no matter how real the rows
+  are. Every family panel should run its implementation over its full corpus
+  BEFORE declaring dev-complete. I found this in cycle 1 only because I ran
+  the corpus myself instead of accepting a green suite.
