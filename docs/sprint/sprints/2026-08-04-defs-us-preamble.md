@@ -106,14 +106,116 @@ real rows; the manager then escalates per P-R2.
 
 ## Next Steps
 
-1. **Convention inventory (real rows, live code)** for GA/MD/NE/MS/SD —
-   confirm or correct the manager's table; establish MD/NE's actual
-   definition-introducing convention.
-2. **Boundary dossier** for the three M-R2 conflicts with counts + real
-   `act_id` examples, sufficient for a director decision.
-3. **RED tests** (live-path, proven red) for the unblocked GA fix and for
-   whatever MD/NE inventory establishes; vendored small real-row fixtures
-   only — no test may read the parquet snapshot.
+D0-D2 done (Planner attempt #2, full detail in `-log.md`). **D0 is an open
+ESCALATION**: core's branch (`origin/claude/defs-core-scope`) has ZERO
+backend code as of this writing — verified via `git diff --stat` — so
+whether `BodyPreambleRule` registry dispatch is tried for a heading that
+already failed the placeholder gate (M-R7(a)) cannot be settled from code.
+Items 2-9 below are written to be correct under EITHER answer, with their
+core-dependency shape spelled out per item; item 1 is the escalation itself.
+
+1. **Settle M-R7(a)** (blocking design question, not a code change). CHECK:
+   a direct answer from core's Planner/the director, or core's Stage B
+   landing and being re-read. Until answered, items 3/4/6/8 below cannot be
+   marked done even once `us_body_preamble.py` exists and is correct,
+   because whether the rule ever RUNS for MD/NE/MS/SD depends on this.
+   **Blocked on core** (or the director, per the escalation's lean (b)).
+
+2. **GA capture** — register a `BodyPreambleRule` recognizing "As used in
+   this &lt;chapter/article&gt;, the term:" (1,222/1,224 real rows already
+   pass Gate A regardless of M-R7(a)'s answer — GA is NOT gated by the open
+   question). Serves **U1, U6**. CHECK: `test_us_body_preamble_capture_
+   red.py::test_ga_as_used_in_this_chapter_the_term_is_captured` and both
+   GA tests in `test_definition_links_us_preamble_family.py` go green;
+   full-corpus GA rate re-measured (was 5/28,154 per the program dossier,
+   target ~1,222+/28,154). **Blocked on core's registry mechanism
+   (Seam 2) landing at all, NOT on M-R7(a)'s specific answer.**
+
+3. **MD capture** — register recognizing "In this &lt;section/subtitle/
+   title&gt;... the following words have the meanings indicated." Serves
+   **U1, U6**. CHECK: `test_md_in_this_section_the_following_words_have_
+   the_meanings_indicated` green; full-corpus MD rate measured (was
+   0/39,552, target up to 3,327/39,552). **Blocked on M-R7(a) resolving
+   favorably (branch: registry tried regardless of heading) OR core
+   separately widening `_is_placeholder_heading`/Gate A to recognize MD's
+   `"§N–NNN."` shape (branch: gate still wraps dispatch) — a hard core
+   dependency either way, exact shape depends on the answer.**
+
+4. **NE capture, quoted subset (46/559)** — register recognizing NE's "For
+   purposes of.../In the &lt;Named Code&gt;:" preambles. Serves **U1, U6**.
+   CHECK: `test_ne_in_the_named_code_quoted_term_means_is_captured` green.
+   **Same dependency shape as item 3** (NE's heading, "View Statute
+   N-NNNN", fails Gate A the same way MD's does).
+
+5. **NE unquoted subset (511/559) + SD unquoted subset (124/218)** — no
+   further work possible in THIS sprint's file; both are confirmed live
+   (D1/D2) unparseable by any current extractor even with a perfect
+   heading. Serves **U1** (documents the miss rather than silently
+   dropping it). CHECK: `test_ne_unquoted_term_means_needs_markers_sprint_
+   too` / `test_sd_unquoted_comma_term_needs_markers_sprint_too` go green.
+   **Blocked on `2026-08-04-defs-us-markers`, not core.**
+
+6. **MS capture, BLOCK-shaped rows** — register recognizing "As used in
+   this article/chapter/section, the term:" for MS's bare "Miss. Code Ann.
+   § N-N-N" headings. Serves **U1, U2, U6**. CHECK: `test_ms_as_used_in_
+   this_article_the_term_is_captured` green; full-corpus MS rate measured
+   against the D2 discriminator's BLOCK-subset estimate (~400-450/637).
+   **Same dependency shape as item 3** (MS's heading also fails Gate A
+   outright).
+
+7. **MS CLAUSE-shaped rows (~190-240/637) — routing, not building.** Per
+   the D2 split proposal, these route to `defs-us-scoped-inline`, pending
+   the program manager's P-R2 ruling on the item-level split table. Not
+   this sprint's file. CHECK: program manager's routing decision recorded
+   in the program log; the receiving sprint's own gate covers it. Tracked
+   here only so it is not silently dropped by either panel.
+
+8. **SD capture, quoted subset (15/218)** — register recognizing SD's "For
+   the purposes of this chapter, the term "X" means". Serves **U1, U2,
+   U6**. CHECK: `test_sd_the_term_quoted_means_is_captured` green. **Sharper
+   dependency than items 3/4/6**: SD's headings (e.g. "Loan processor or
+   underwriter defined") are genuinely NOT placeholders — `_is_placeholder_
+   heading` correctly returns `False` for them, so no amount of widening
+   the placeholder-recognizer's pattern list can rescue SD the way it can
+   MD/NE/MS. Under M-R7(a)'s branch 1 (registry tried whenever baseline
+   returns None, for any reason) SD unlocks with NO further core change.
+   Under branch 2 (gate wraps everything), SD is not just blocked but
+   **structurally unreachable by a `BodyPreambleRule` under the current
+   architecture** — informative-but-non-Definitions headings never reach
+   body derivation at all, and rescuing SD would need a different
+   mechanism than this sprint's file can provide. This is the sharpest
+   consequence of M-R7(a) found in this sprint and strengthens the case
+   for resolving it directly rather than waiting for a full core
+   implementation (see the escalation's lean).
+
+9. **Scope stamping for chapter-scoped rows (GA/MS)** — "As used in this
+   chapter/article" needs core's `determine_scope` (Seam 1/C2, core's own
+   "Done here" list) to recognize it as an English chapter-scope trigger.
+   Not this sprint's file to build. Serves **U2**. CHECK:
+   `test_us_body_preamble_scope_red.py::test_chapter_scoped_ga_definition_
+   links_a_same_chapter_use_but_not_a_different_chapter_use` goes green in
+   BOTH halves (capture AND the in-scope/out-of-scope split). **Blocked on
+   core's C2 scope-trigger coverage of this specific phrasing** — a
+   separate, named dependency from M-R7(a).
+
+10. **Regression guard** — baseline states (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/
+    NY/OK) and existing IL/Hebrew tests stay green, unedited. Serves **U5**.
+    CHECK: `backend/.venv/bin/pytest backend/tests -q` — pre-sprint 641
+    passing tests all still pass. **Already true today** (641 baseline + 6
+    of this sprint's own green tests = 647 passed, 12 intentional RED,
+    verified at commit `38ee931`) and true by construction (zero edits to
+    `pipeline.py`/`matcher.py`/`profiles.py`/`extract.py`). Not blocked on
+    anything.
+
+11. **Full-corpus before/after measurement** — once items 2/3/4/6/8 land,
+    re-run a D1-style live scan across all 5 states (GA/MD/NE/MS/SD) plus
+    ideally the contract's named low-volume states (OR/PA/RI/SC/TN/TX/UT/
+    VT) to report the honest new capture number (GA was 5/28,154 per the
+    program dossier). Serves **U4, U6**. CHECK: a probe script's output
+    committed to the log, old vs. new counts side by side, every hit
+    manually judged captured-or-proven-not-a-definition (U4's zero-miss
+    sweep bar). This is QA's deliverable per the harness role split, not
+    the Planner's — flagged here so it is not lost.
 
 ## Dev Complete
 

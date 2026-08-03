@@ -493,3 +493,32 @@ the table above (`up to 559`) is now precise: **511 of 559 need
 defs-us-markers; 46 of 559 are achievable within this sprint's own scope
 once heading recognition lands** (verified live in D1 via `STATE_NE_C30_
 S30-3803`, the quoted Nebraska Uniform Trust Code example).
+
+---
+
+## 2026-08-04 — Planner attempt #2, D4 note: SD sharpens the D0 escalation, not just widens its scope
+
+Found while writing the item breakdown (contract `## Next Steps`, item 8),
+recorded here because it changes the STAKES of M-R7(a), not just its
+bookkeeping. MD/NE/MS all fail Gate A because their headings ARE
+placeholders of a shape `_is_placeholder_heading` doesn't yet recognize —
+core widening that regex's pattern list is a bounded, obviously-available
+rescue path independent of which way M-R7(a) resolves. **SD is
+different: its headings are NOT placeholders.** `_is_placeholder_heading`
+correctly returns `False` for "Loan processor or underwriter defined" —
+that's real, informative text, just not the word "Definitions". No
+widening of the PLACEHOLDER pattern list can ever rescue SD, because SD's
+headings were never meant to match it. So: if M-R7(a) resolves to branch 1
+(registry tried whenever baseline returns None, for any reason), SD
+unlocks for free, no further core work. If it resolves to branch 2 (gate
+wraps registry dispatch too), SD is not merely "blocked pending a core
+fix" the way MD/NE/MS are — it is **structurally unreachable by a
+`BodyPreambleRule` under the seam as currently specified**, full stop,
+regardless of any future placeholder-list widening; rescuing it would need
+a different mechanism (e.g., trying body derivation whenever `is_
+definitions_heading` is False, not only when the heading is ALSO a
+placeholder — a broader change than this sprint's contract authorizes).
+This asymmetry — MD/NE/MS have a rescue path under branch 2, SD does not —
+is new information for whoever answers M-R7(a) and strengthens (not just
+supports) the escalation's lean toward asking core directly rather than
+waiting for a full Stage B implementation to read.
