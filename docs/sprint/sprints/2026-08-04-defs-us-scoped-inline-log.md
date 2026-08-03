@@ -278,3 +278,96 @@ escalated as blocking. No hard escalation this cycle: core's seam spec
 absence was already ruled on (S-R1/S-R2), and no F1/F2 boundary conflict
 was found in the states actually tested.
 
+
+---
+
+## 2026-08-04 — Manager: Planner handoff verified + core seam spec conflict
+
+### Handoff verification (manager-run, not taken on the Planner's word)
+
+- Three-dot diff materialized (`git diff origin/main...HEAD`, 2,278 lines) and
+  reviewed. `--stat`: 9 files, +2,195/-7. **Zero production files touched** —
+  tests, fixtures and docs only. Role separation held.
+- Full read of the load-bearing file
+  `backend/tests/integration/test_us_scoped_inline_pipeline_live.py` (294
+  lines): it drives the REAL `ingest_us_statute_rows` → `run_definition_linking`
+  and asserts on persisted `Definition.scope` plus `USES_DEFINITION`
+  assertions. Both U2 directions are present and are real assertions, not
+  mocks: `local` scope (own-article reuse links; synthetic sibling article does
+  NOT) and `chapter` scope (same-chapter sibling links; different-chapter
+  sibling does NOT).
+- **Corpus-leak check**: `grep` for `parquet|huggingface|.cache|hf_hub|datasets`
+  across all 5 new test files → the only hit is a comment stating tests do not
+  read the parquet. Clean.
+- **Fixture authenticity independently proven.** I re-read all 12 states'
+  parquet files and compared `section_title` + `text` byte-for-byte against the
+  25 vendored rows: **25/25 verbatim real, 0 suspect.** This matters because the
+  Planner self-reported one fixture-construction error; the check confirms the
+  committed fixture is clean.
+- **RED independently reproduced**: `backend/.venv/bin/pytest backend/tests -q`
+  → `37 failed, 644 passed`. The 644 passing confirms the pre-existing suite is
+  green, so the RED is fully attributable to the new tests. 33 unit failures are
+  `ModuleNotFoundError: No module named 'app.definition_links.rules'`; the 4
+  integration failures are genuine `AssertionError`s against the unmodified
+  pipeline (e.g. `assert []` — "the real Maine subsection-scoped definition was
+  never captured"). Import-error RED and assertion RED are both legitimate here.
+- All 5 test files are under the 300-line style gate.
+
+Verdict: Planner handoff ACCEPTED.
+
+### Core published its `## Seam spec` — and it conflicts with this family
+
+Polled `origin/claude/defs-core-scope` after the Planner returned: advanced
+`5b93ef8` → `9272f6e`, and `## Seam spec (published)` now exists. Read in full.
+
+Good news: core's worked example names our module path exactly
+(`backend/app/definition_links/rules/us_scoped_inline.py`) — the Planner's
+guess was right, and Phase A's file placement needs no change. Rules
+self-register by existing in `rules/`, so U3's "zero edits to shared modules"
+is satisfied by construction.
+
+**The conflict.** Core's `ScopeTriggerRule` is
+`extract: Callable[[str, str], list[DefinitionCandidate]]` — it receives
+`(article_body, article_number)` and nothing else. The scope data contract
+states the ordinary-article path's rules stamp `"local"` or `"subsection"`
+ONLY; `"chapter"` is reachable exclusively through `determine_scope`, which
+core restricts to the Definitions-SECTION path. The worked example confirms
+the shape: the rule stamps `source_article_number` itself.
+
+Therefore a registered rule **structurally cannot produce a chapter-scoped
+candidate** — it never sees the owning article's `chapter`, so it can never
+stamp `source_chapter`, which is exactly what `matcher._in_scope`'s existing
+`"chapter"` branch compares against. A candidate returned as `scope="chapter"`
+with `source_chapter=None` would silently link only articles whose chapter is
+also `None`.
+
+This is not a theoretical gap. Per the Planner's D3 measurements (12 lead
+states, 424,719 rows, 29,033 genuine hits), `chapter` is **6,870 genuine hits
+= 23.7% of this family's volume** — the second-largest scope unit, behind only
+`section`. It is already enforceable by today's `matcher._in_scope` at zero
+new cost. A real, vendored, already-pinned example: `STATE_VT_T3_C45_S2291`
+(`"State facilities," when used in this chapter, shall mean...`, chapter
+`"45"`). Indiana — a baseline regression-guard state — has the highest raw
+trigger count of the 36 first-round states and leans heavily chapter-scoped.
+
+Secondary, same root cause: `part` (2,187) + `subchapter` (1,861) = **13.9%**
+have no representation either. Core does deliver `subsection` (1,297, 4.5%).
+The residue (`article`/`title`/`paragraph`/`division`/`subdivision`/`subpart`,
+~4.0% combined) the Planner leans to defer, and I agree.
+
+### S-R3 — Escalating rather than choosing a side (program P-R2)
+
+The three ways to proceed without core changing anything all break a gate:
+coercing chapter→`"law-wide"` OVER-links and violates the director's explicit
+"assertions only to mentions within the section they are specified for";
+coercing chapter→`"local"` UNDER-links and violates the absolute zero-miss
+bar; dropping chapter entirely fails U1 and U4 on 23.7% of the family. This is
+precisely the recall-vs-precision conflict class P-R2 forbids a panel from
+settling silently, and core's spec declares itself STABLE with changes
+escalating through the sub-manager. Escalated to the program manager; Developer
+NOT spawned, because the answer changes the Planner's test expectations
+(several tests currently assert scope strings `"part"`/`"subchapter"`/
+`"article"`/`"title"` that core's 4-way vocabulary does not contain) and
+amending tests is the Planner's job, never the Developer's.
+
+Phase A is NOT started. Everything committed and pushed before returning.
