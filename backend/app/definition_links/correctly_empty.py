@@ -101,24 +101,59 @@ _HISTORY_TAIL_RE = re.compile(r"\n\s*History:.*\Z", re.IGNORECASE | re.DOTALL)
 # self-referential preamble followed by real definitions on a later line
 # -- that content has nowhere to go and the match fails.
 #
-# The trailing clause needs one further refinement: real citation scope
-# clauses carry their own abbreviation periods (e.g. real WI row "...apply
-# to chs. 851 to 882 ."), so a blanket "no periods" rule would wrongly
-# reject that genuine row. A period is treated as a non-terminal
-# abbreviation/citation continuation only when followed by a digit or a
-# LOWERCASE letter (`chs. 851`, `ss. 851.01`); a period followed by an
-# uppercase letter, a quote, an open paren, or the end of the body reads
-# as a real sentence boundary and is left for the single closing `\.?` --
-# which is exactly what stops "...apply throughout this chapter. (1)
-# "Right-of-way" means..." (paren after the period) and "...that law. As
-# used in this article..." (capital letter after the period) from being
-# swallowed. `(?-i: ...)` locally turns off this pattern's own
-# case-insensitivity so "uppercase" here really means uppercase, not
-# "any letter" under `re.IGNORECASE`.
+# BOUNCE CYCLE (ruling U-R7): a full-corpus adversarial sweep found 4 real
+# WA rows the newline/period restrictions above let through -- all open
+# with the textbook self-referential preamble "The definitions in this
+# section apply throughout this chapter[,.:] ..." and then carry 2-12
+# real `"Term" means ...` definitions, but ALL of it sits on ONE line (no
+# `\n` anywhere), so `[^\n]` alone does not stop the match. Two distinct
+# shapes, both real:
+#
+#   (a) `STATE_WA_T82_C23A_S010` / `STATE_WA_T18_C44_S011` /
+#       `STATE_WA_T70A_C30_S010` -- the same line happens to contain a
+#       SECOND, later "apply"/"applicable" occurrence (a genuine closing
+#       cross-reference sentence, or an unrelated-content concatenation
+#       artifact). The old citation group `[^\n]+?` is lazy but otherwise
+#       unrestricted, so on backtracking it swallows the entire real
+#       middle to reach that later trigger.
+#   (b) `STATE_WA_T70_C28_S008` -- only ONE trigger occurrence; its real
+#       entries are separated by `;`/`:`, not `.`, so the old trailing
+#       clause's period-boundary heuristic never fires at all and it
+#       swallows everything straight through to the body's own final
+#       period.
+#
+# Bounding the citation/trailing spans to a line (shape a) is therefore
+# NOT sufficient on its own for shape (b) -- a single-line body with only
+# one trigger still needs a boundary inside that line. The fix used here
+# instead relies on a stronger, corpus-wide invariant: a genuine citation
+# or scope clause never contains a literal `"`, while every real
+# definition entry in this corpus opens with a quoted term
+# (`"Term" means ...`). Barring `"` from BOTH the citation span and the
+# trailing clause means neither span can cross into or through real
+# defining content to reach a later trigger (shape a) or swallow a
+# semicolon/colon-separated real entry (shape b) -- regardless of
+# newlines or periods. This is IN ADDITION TO, not instead of, the
+# existing period-boundary refinement below (still needed for the
+# genuine WI row's own abbreviation periods, which carry no quotes).
+#
+# The trailing clause needs one further refinement beyond the `"` bar:
+# real citation scope clauses carry their own abbreviation periods (e.g.
+# real WI row "...apply to chs. 851 to 882 ."), so a blanket "no periods"
+# rule would wrongly reject that genuine row. A period is treated as a
+# non-terminal abbreviation/citation continuation only when followed by a
+# digit or a LOWERCASE letter (`chs. 851`, `ss. 851.01`); a period
+# followed by an uppercase letter, a quote, an open paren, or the end of
+# the body reads as a real sentence boundary and is left for the single
+# closing `\.?` -- which is exactly what stops "...apply throughout this
+# chapter. (1) "Right-of-way" means..." (paren after the period) and
+# "...that law. As used in this article..." (capital letter after the
+# period) from being swallowed. `(?-i: ...)` locally turns off this
+# pattern's own case-insensitivity so "uppercase" here really means
+# uppercase, not "any letter" under `re.IGNORECASE`.
 _CROSS_REFERENCE_RE = re.compile(
     r"(?:the\s+)?definitions?\s+(?:contained\s+|set\s+forth\s+)?in\s+"
-    r"[^\n]+?\s+(?:apply|shall\s+apply|govern|are\s+applicable)\b"
-    r"(?:[^.\n]|\.(?=\s*(?-i:[0-9a-z])))*\.?\s*\Z",
+    r'[^"\n]+?\s+(?:apply|shall\s+apply|govern|are\s+applicable)\b'
+    r'(?:[^".\n]|\.(?=\s*(?-i:[0-9a-z])))*\.?\s*\Z',
     re.IGNORECASE,
 )
 
