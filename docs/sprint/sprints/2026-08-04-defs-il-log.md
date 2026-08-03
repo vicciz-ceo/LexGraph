@@ -653,3 +653,58 @@ either duplicate core's or pin a parser contract this panel does not own.
 **Gate I4's zero-miss sweep must treat class (f) as a named, mandatory
 check** — QA is not allowed to report zero-miss while 124 laws parse to
 nothing.
+
+---
+
+## 2026-08-04 — Manager: core's seam spec landed; escalation set re-scored
+
+Core pushed `origin/claude/defs-core-scope` (`9272f6e`) with
+`## Seam spec (published)` (`5610fb1`) AFTER my ruling M2 was written. I
+read it before escalating, and it changes the picture — for the better on
+one point, not at all on the other.
+
+### What the seam gives us
+
+- `Definition.scope` becomes 4-way: `"chapter" | "local" | "subsection" |
+  "law-wide"`, plus a new persisted `Definition.source_subsection` column
+  and `profile.split_into_subsections()`.
+- Rules ship as NEW FILES in `backend/app/definition_links/rules/`, auto
+  -discovered by `pkgutil.iter_modules` — a family panel's only repo change
+  is adding its own file. **Genuinely conflict-free**, as promised.
+- Our four/five trigger classes map cleanly onto `ScopeTriggerRule`
+  (classes a/b/c/e) and `EntrySplitterRule`/`TermClauseRule` (class d).
+
+### **E2 is RESOLVED by the seam — withdrawing it.**
+
+The fifth class (`בפסקה זו`, paragraph scope, 522 files) needed a
+granularity narrower than `"local"`. The seam's new `"subsection"` value is
+exactly that, and core explicitly names "IL: קטן/lettered markers" as its
+own Stage-B work. So class 5 ships as a registered `ScopeTriggerRule`
+stamping `"subsection"`. No director decision needed. **E2 withdrawn.**
+
+### **E1 is NOT resolved — it stays open.**
+
+The seam's four levels are chapter / local / subsection / law-wide. סימן
+(siman) sits BETWEEN chapter and article, and nested חלק between law and
+chapter; neither exists in the seam, and `Article.chapter` remains a single
+flat field populated only from exactly-`==` headings. So `בסימן זה` (200
+files) and `בחלק זה` (68 files) still have nowhere to store their scope.
+**Gate I3 as written ("including סימן/פרק/חלק units") cannot be met.**
+
+### Phase B remains hard-blocked
+
+The `rules/` package does not exist on `main` (`origin/main` is at
+`3925f41`; core is unmerged and is itself held on its own escalation E-1 —
+multi-scope precedence, a different question from mine but one that also
+touches our classes). So ruling M2's Phase-B gate still holds: no IL rule
+module can be written until core merges.
+
+### Escalation set, final
+
+| # | Status | Owner of the answer |
+|---|---|---|
+| E1 — סימן/חלק unrepresentable; I3 unachievable as written | **OPEN — escalating** | director / core boundary |
+| E2 — `בפסקה זו` paragraph scope | **WITHDRAWN** — seam's `"subsection"` covers it | resolved |
+| E3 — class (d) false-positive trap | settled by me, ruling **M7** | manager |
+| E4 — bulk-CLI resumability | settled by me, ruling **M6** | manager |
+| E5 — class (f): 124 laws parse to zero articles, 12 with real definitions wholly lost | **OPEN — escalating** | director / core boundary |
