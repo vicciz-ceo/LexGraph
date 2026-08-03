@@ -265,3 +265,97 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+## `multiterm_f5_rows.json` / `multiterm_f6_rows.json` / `inline_parenthetical_sample_rows.json` — sprint 2026-08-04-defs-us-multiterm (families 5+6)
+
+All rows below are REAL, vendored verbatim (full original parquet columns,
+values unmodified except where a row is explicitly noted as a TRIMMED
+excerpt via its own `_fixture_note` field) from the local HF snapshot at
+`~/.cache/huggingface/hub/datasets--vaquill--open-us-law` (no test reads
+that path directly — every test reads only these committed JSON files).
+Every row was independently pulled from the real parquet file and, for the
+3 rows this sprint's Planner did not personally re-pull a second time
+(`STATE_TX_Cgv_C2002_S2002.001`, `STATE_MI_C388_AAct-94-of-1979_S388.1606`,
+`STATE_NH_TXXXVII_C408-C_S14`, `STATE_ND_T26.1_C26.1-59_S26.1-59-01`),
+byte-diffed against the real corpus file before being committed (see the
+sprint log's Planner entry for the verification trace).
+
+**`multiterm_f5_rows.json`** (family 5, "The term(s) 'X', 'Y', and 'Z'
+mean(s)..." shared clauses) — used by both
+`backend/tests/unit/test_definition_links_multiterm_shared_clause.py`
+(extractor-function level) and
+`backend/tests/integration/test_multiterm_f5_shared_clause.py` +
+`test_multiterm_f5_blocked_on_markers.py` (full production-pipeline level):
+
+1. `STATE_VT_T23_C35_S3700` — VT, `"mail," "mails," "mailing," and
+   "mailed" mean...`, no `(N)` markers at all (simultaneously family 3
+   zero-yield). Full row, 194-char body.
+2. `STATE_SD_T3_C14_S3-14-5` — SD, `The terms "office," "officer,"
+   "executive," and "administrative,"... mean...` under a genuine
+   "Definitions" heading (dossier's "extractor yield UNCONFIRMED" row —
+   this sprint confirms it live as zero-yield, identical shape to VT).
+   Full row, 578-char body.
+3. `STATE_MT_T16_C11_P4_S16-11-402` — MT, a working 9-entry "Definitions"
+   section whose entry (2) ("Affiliate") body contains a NESTED shared
+   clause (`"owns," "is owned" and "ownership" mean...`) plus a nested
+   single-term one (`"person" means...`). Full row, 4,728-char body.
+4. `STATE_MI_C388_AAct-94-of-1979_S388.1606` — MI, TRIMMED excerpt
+   (entries 9-13 of a 26-entry, 50,376-char real section) containing one
+   genuine top-level 3-term shared clause plus 4 ordinary single-term
+   entries kept as an in-fixture regression guard.
+5. `STATE_TX_Cgv_C2009_S2009.003` / `STATE_TX_Cgv_C2002_S2002.001` — TX,
+   both full rows — the "parent-clause pointer" shape named in the prior
+   sprint's (`2026-08-02-us-state-law`) recorded residual ("13 of 75
+   degenerate recovered terms"): a lettered list of bare quoted terms
+   whose shared definition ("have the meanings assigned by Section
+   2001.003") sits on the PARENT line, not attached to any child entry.
+
+**`multiterm_f6_rows.json`** (family 6, inline parenthetical/cross-reference
+definitions) — used by
+`backend/tests/integration/test_multiterm_f6_blocked_on_core_seam.py`:
+
+1. `STATE_OR_T41_C496_S496.716` — OR, full row (3,002-char body), the
+   dossier's cross-reference variant (`"Enforcement officer" has the
+   meaning given that term in ORS 153.005...`). Live-confirmed this
+   sprint: the idiom-gap check itself is NOT the blocker (it matches "has
+   the meaning" fine when reached directly) — the row is never REACHED by
+   any extractor in the real pipeline (heading is a genuine substantive
+   caption, not a Definitions heading or a placeholder).
+2. `STATE_NH_TXXXVII_C408-C_S14` — NH, full row (4,083-char body), Nurse
+   Licensure Compact withdrawal article: `...may withdraw from the compact
+   ("withdrawing state") by enacting a statute...` — a genuine apposition
+   with no means-idiom, unreachable for the same "else-branch is
+   Hebrew-only" reason as ND below.
+3. `STATE_ND_T26.1_C26.1-59_S26.1-59-01` — ND, TRIMMED excerpt (Article
+   XIV "Withdrawal" of a 46,007-char interstate-compact document)
+   reproducing the identical `("withdrawing state")` apposition shape in a
+   second real state, confirming it is not an NH-specific artifact.
+
+**`inline_parenthetical_sample_rows.json`** (family 6, extractor-FUNCTION
+level, complementary to `multiterm_f6_rows.json` above — these two rows
+test a DIFFERENT F6 sub-case: true idiom-gap rejection, not reachability)
+— used by `backend/tests/unit/test_definition_links_inline_parenthetical.py`:
+
+1. `STATE_NH_TXXVII_C301-B_S1` — NH, full row (99-char body), a short-title
+   apposition (`This act may be cited as ... (the "Act").`) that would be
+   rejected by `_MEANS_IDIOM_GAP_RE` even if reached (no "means"/"shall
+   mean"/"has the meaning" anywhere in the sentence) — the "pure" family-6
+   case the recon dossier's own wording describes.
+2. `STATE_OK_T74_S74-6106` — OK, TRIMMED excerpt (one paragraph of a
+   14,913-char interstate boundary compact) containing a parenthesized
+   quoted string that names DASH CHARACTERS on a map
+   (`("-..-")`), not a legal term — the FALSE-POSITIVE GUARD fixture:
+   pins that whatever new apposition-detection logic gets built must NOT
+   treat this shape as a definition.
+
+**Provenance note on file duplication:** three of these test files
+(`test_multiterm_f5_shared_clause.py`,
+`test_multiterm_f5_blocked_on_markers.py`,
+`test_multiterm_f6_blocked_on_core_seam.py`, and their two `_rows.json`
+fixtures) were written by an earlier Planner spawn for this same sprint
+that crashed before completing or committing (sprint log: "Planner spawn
+attempt 1"). The current Planner found these uncommitted
+files still present in the worktree, independently re-verified every real
+row against the live parquet snapshot byte-for-byte (see sprint log), found
+them accurate and non-redundant with its own work, and adopted them as part
+of this sprint's deliverable rather than discarding verified real-world
+analysis.

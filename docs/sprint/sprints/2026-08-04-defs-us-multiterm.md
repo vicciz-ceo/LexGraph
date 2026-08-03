@@ -11,7 +11,7 @@ last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 10
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -83,7 +83,212 @@ Full text in `2026-08-04-defs-us-multiterm-log.md`. Summary:
 
 ## Next Steps
 
-_Planner defines items._
+Numbered, independently verifiable. Every item's proving test already
+exists and is committed RED (see the log's Planner entry for full output).
+Two items are explicitly blocked on other sprints; do not spend Developer
+time on them until the blocking work lands (rebase after).
+
+1. **Top-level multi-term shared-clause capture (MI shape).** `(N) "Term1",
+   "Term2", and "Term3" mean X` — today `USProfile.extract_definitions_
+   from_section`'s block parser (`_LEADING_QUOTE_RE.match(block)`,
+   us_profile.py:373) captures only the FIRST quoted span; the rest are
+   dead prose in `definition_text`. Fix: extend the leading-quote capture
+   to pull EVERY comma/and-joined quoted span immediately before the block's
+   defining idiom into one candidate's `.terms` tuple — porting (to
+   English) the same logic Hebrew's `extract._parse_terms_and_qualifier`
+   already uses (extract.py:71-79). Serves **U1**. Proven RED by
+   `test_multiterm_f5_shared_clause.py::
+   test_mi_top_level_multi_term_clause_resolves_all_three_terms` and
+   `test_definition_links_multiterm_shared_clause.py`'s MI-shaped
+   assertions. Not blocked on any other sprint. **Coordination flag:**
+   touches `us_profile.py`, a file the markers and headings sprints may
+   also be editing concurrently (no registry exists yet to isolate rule
+   modules, P-R1/C4 not yet landed) — confirm with the manager whether a
+   merge-order/file-lock convention is needed before this lands.
+
+2. **Nested multi-term shared-clause recovery (MT shape).** A multi-term
+   clause embedded INSIDE another entry's own `definition_text` (entry
+   "Affiliate" containing `"Solely for purposes of this definition, the
+   terms \"owns,\" \"is owned\" and \"ownership\" mean..."`) — today
+   silently absorbed with no trace. Fix: after item 1's list-capture logic
+   exists, re-scan every candidate's OWN `definition_text` for a second,
+   subordinate occurrence of the same quoted-list-before-idiom shape and
+   split it out as additional entries sharing the parent candidate's scope
+   — this is the SAME underlying mechanism as item 1, applied recursively;
+   design it as one shared helper if practical. Serves **U1**. Out of
+   scope, deliberately: "person" (a nested SINGLE-term sub-definition in
+   the same MT sentence) — reported to the program manager as a
+   structurally-related but out-of-family gap (English has no analogue of
+   Hebrew's `_NESTED_MARKER_RE`/`parent_term` recursion at all). Proven RED
+   by `test_multiterm_f5_shared_clause.py::
+   test_mt_nested_multi_term_clause_resolves_all_three_terms` and
+   `test_definition_links_multiterm_shared_clause.py::
+   test_mt_s16_11_402_nested_shared_clause_terms_are_extracted`. Same
+   `us_profile.py` coordination flag as item 1.
+
+3. **TX parent-clause redirect attachment.** `(4) The following terms have
+   the meanings assigned by Section 2001.003: (A) "contested case"; (B)
+   "party"; ...` — the block splitter already produces one candidate PER
+   lettered child (not a zero-yield miss) but each `definition_text` is
+   degenerate trailing punctuation (";", "; and", "") because the parent
+   "(4)" line itself never becomes a candidate (`_LEADING_QUOTE_RE` doesn't
+   match text starting with plain prose) and its redirect text is
+   discarded rather than attached to its children. This is the prior
+   sprint's recorded residual ("13 of 75 / 17.33% degenerate recovered
+   terms", 2026-08-02-us-state-law-log.md) — root-caused precisely by this
+   Planner. **PANEL QUESTION (see log): this exact residual is ALSO
+   claimed by `claude/defs-us-markers`'s contract** ("entry-boundary
+   bloat/truncation... TX 17.33% degenerate recovered terms"). Recommend
+   this sprint owns it (mechanism is multi-term/parent-clause semantics,
+   not marker-format boundary detection) — needs manager arbitration
+   before a Developer starts. Serves **U1**. Proven RED by
+   `test_multiterm_f5_shared_clause.py::
+   test_tx_parent_clause_redirect_list_2009_003` /
+   `test_tx_parent_clause_redirect_list_2002_001` and
+   `test_definition_links_multiterm_shared_clause.py::
+   test_tx_s2009_003_parent_clause_terms_get_the_real_shared_definition_text`.
+
+4. **VT/SD marker-less multi-term sentence fan-out — BLOCKED on
+   `claude/defs-us-markers`.** Both real rows (`STATE_VT_T23_C35_S3700`,
+   `STATE_SD_T3_C14_S3-14-5`) are ONE unmarked sentence with zero `(N)`
+   entry markers at all — `_split_into_numbered_blocks` finds no entry-start
+   line and returns an empty list, so `extract_definitions_from_section`
+   yields 0 candidates today (SD's yield, flagged "UNCONFIRMED" in the
+   dossier, is CONFIRMED zero-yield by this Planner, live). See the log's
+   markers-boundary proposal for the exact contract. Once markers' splitter
+   change lands and this sprint rebases, item 1/2's list-capture logic
+   should require zero further changes to also fix these two rows — verify
+   that expectation with a live rerun once unblocked, don't assume it.
+   Serves **U1**. Proven RED (for the stacked, honestly-labeled reason) by
+   `test_multiterm_f5_blocked_on_markers.py` (both tests).
+
+5. **F6 apposition, no-heading-context — BLOCKED on `claude/defs-core-
+   scope` C3.** `("withdrawing state")`-style shorthand appositions (real
+   examples: NH `STATE_NH_TXXXVII_C408-C_S14`, ND
+   `STATE_ND_T26.1_C26.1-59_S26.1-59-01`, plus the pre-existing NH
+   short-title fixture `STATE_NH_TXXVII_C301-B_S1`) sit inside ORDINARY
+   (non-Definitions-heading) article bodies. `pipeline.py`'s non-
+   Definitions-section `else` branch (pipeline.py:436-442) calls the
+   Hebrew-only `extract_local_definitions`/`extract_adhoc_definitions`
+   UNCONDITIONALLY — an English analogue (an `extract_us_adhoc_
+   definitions`-shaped function: scan for `("Term")` immediately after a
+   naming/introducing phrase, reject anything followed by NO further
+   defining idiom being required — this IS the trigger, not a rejection
+   condition) needs that branch to become profile-dispatched, which is
+   core's own C3 mandate ("extraction lives behind the seam"), not yet
+   landed. **Precision guard already written and green today**:
+   `test_definition_links_inline_parenthetical.py::
+   test_ok_boundary_marker_apposition_is_not_treated_as_a_definition` (a
+   real `("-..-")` map-marker apposition that must NEVER be captured) —
+   keep this passing when the new rule lands. Serves **U1**. Proven RED by
+   `test_multiterm_f6_blocked_on_core_seam.py::
+   test_nh_plain_apposition_with_no_means_idiom_resolves` /
+   `test_nd_plain_apposition_with_no_means_idiom_resolves` and
+   `test_definition_links_inline_parenthetical.py::
+   test_nh_s1_act_apposition_is_extracted_as_a_definition`.
+
+6. **F6 cross-reference variant (OR) — BLOCKED on core-scope C3 AND
+   `claude/defs-us-scoped-inline` (family 1).** `STATE_OR_T41_
+   C496_S496.716`: `"Enforcement officer" has the meaning given that term
+   in ORS 153.005...`. **Correction to the recon dossier**: this is NOT an
+   idiom-gap rejection — live-tested, `pipeline._MEANS_IDIOM_GAP_RE`
+   already matches "has the meaning" and `_extract_inline_quoted_
+   definitions` already extracts all 5 of this row's terms correctly WHEN
+   RUN DIRECTLY against the body. The real blocker is reachability: this
+   section's heading is a genuine substantive caption (not a placeholder),
+   so `_derive_heading_from_body`/the inline fallback never gets invoked at
+   all — the body is actually family 1's "As used in this section:"
+   scoped-inline shape. Once family 1 + core C3 land, verify whether this
+   sprint's own idiom handling needs ANY changes (current evidence says
+   no). **PANEL QUESTION (see log)**: is a definition whose only content is
+   a cross-reference pointer ("has the meaning given ... in ORS 153.005"),
+   with no substantive text of its own, something that should even create
+   a `Definition` row, or correctly nothing? Serves **U1**. Proven RED by
+   `test_multiterm_f6_blocked_on_core_seam.py::
+   test_or_cross_reference_style_definitions_resolve`.
+   **Update — core seam published mid-Planner-run**: `claude/defs-core-
+   scope`'s `## Seam spec (published)` landed during this session (was
+   absent at manager setup). It names this sprint's two target rule
+   modules verbatim (`rules/us_multiterm_shared_clause.py` as a
+   `TermClauseRule`, `rules/us_inline_parenthetical.py` as a
+   `ScopeTriggerRule`) — items 5/6 above are no longer blocked on core's
+   MECHANISM landing, only on the Developer rebasing onto it once core's
+   own Developer track lands the code (the seam doc alone is not yet
+   runnable code). One open interface question the seam doesn't resolve:
+   `TermClauseRule.parse` takes ONE already-split block, but item 3's TX
+   parent-clause fix needs the PARENT block's text attached to 4 SEPARATE
+   CHILD blocks — the Developer should raise this with core's panel before
+   assuming a whole-section bypass (mirroring today's
+   `_extract_inline_quoted_definitions` pattern) is the right answer. Full
+   trace: log §3.
+
+7. **Row-shape design decision — PANEL QUESTION, resolve before items 1-4
+   implement.** The contract's literal wording ("every term ... becomes its
+   OWN definition row") conflicts with the existing, deliberate,
+   already-shipped design: `Definition.terms` is a JSON list explicitly
+   built for "Stage 2's multi-term single definition case" (definition.py
+   docstring), and `matcher.link_articles_to_definitions` ALREADY resolves
+   `definition.terms` one at a time (matcher.py:132-134,140-160) into
+   independent `USES_DEFINITION` assertions per term against a SHARED row
+   — no matcher/pipeline change needed for "each term resolves
+   individually" under that design. Recommend: reuse the existing
+   one-row/N-terms design (zero shared-module edits, matches Hebrew
+   precedent, already proven end-to-end). All RED tests in this sprint are
+   written to pass under EITHER resolution (term-set membership + shared
+   definition-text-content assertions only, never row-count). Needs
+   director/manager sign-off, not a Developer judgment call.
+
+8. **U2 scope enforcement — verification-only item, mostly blocked on core
+   C1/C2.** `_determine_scope` returns `"law-wide"` for every real English
+   row tested this sprint (confirmed live for all 8 F5/F6 fixture rows) —
+   English chapter/local scope triggers don't exist yet (core's own remit).
+   `matcher._in_scope`/`link_articles_to_definitions` are ALREADY
+   jurisdiction-agnostic and require no change for multi-term rows (a
+   `Definition` with `scope="local"` and `terms=(A,B,C)` already restricts
+   each of A/B/C independently — this is existing, tested behavior, not
+   new work). Once core C1/C2 land and produce non-law-wide English scope,
+   re-verify live with a real multi-term+scope-trigger row (none exists in
+   this sprint's fixtures — the real rows sampled are all law-wide) rather
+   than assuming U2 is automatically satisfied. **PANEL QUESTION (see
+   log §5, Q3)**: SD `STATE_SD_T3_C14_S3-14-5`'s real text restricts its
+   4-term clause to `"when used in § 3-14-3 or 3-14-4"` — two NAMED
+   sibling sections, a scope shape that fits NONE of the now-published
+   seam's 4 values (`chapter`/`local`/`subsection`/`law-wide`). Recommend
+   deferring SD's scope correctness to a follow-up once core's Planner has
+   weighed in, while still requiring SD's 4 terms to extract (item 4) for
+   U1 — do not block item 4 on this question.
+
+8b. **Out-of-family finding — route via program manager, not this
+   sprint's to fix.** `STATE_MT_T16_C11_P4_S16-11-402` entry (1)
+   (`"Adjusted for inflation"`) is silently dropped today for a reason
+   unrelated to multi-term clauses: the real row's `text` column repeats
+   the section heading on the SAME line as entry (1)'s own `"(1)"` marker,
+   so `_split_into_numbered_blocks`'s line-start-anchored marker check
+   never fires for that line and the whole line (recap + entry 1) is
+   dropped. Verified live (log §2). Likely belongs to
+   `claude/defs-us-markers` (family 3, entry-marker mismatch) but flagged
+   for the program manager to route, not decided here.
+
+9. **U4 zero-miss sweep — QA deliverable, Planner-designed methodology.**
+   Full design in the log's Planner entry: per-jurisdiction regex
+   pre-filter (multi-term: 2+ adjacent quoted spans before "mean(s)"/"shall
+   mean", no marker between quotes; parenthetical: `("Term")` with no
+   idiom in the following ~80 chars) over all 53 real
+   `us_<state>_statutes.parquet` files, each candidate hand-judged against
+   3 buckets (captured / genuine miss / correctly-not-a-definition, with
+   the OK `("-..-")` shape as the canonical correctly-rejected example),
+   reported per-jurisdiction with counts — never a sampled extrapolation.
+   Depends on items 1-6 landing (or partially, reported honestly per
+   family) before it can report "captured" rates; the sweep METHODOLOGY
+   itself can be dry-run against today's code first to re-confirm the
+   baseline miss rates the dossier reports.
+
+10. **U6 measured before/after report.** Run item 9's sweep script twice
+    (pre-fix commit, post-fix commit) across all 53 jurisdictions' real
+    parquet files; report rows scanned, candidates found, captured vs.
+    correctly-rejected vs. genuine-miss counts per family, wall time —
+    same standard as the prior sprint's full-corpus R17 report. Blocked on
+    items 1-6's Developer work landing first.
 
 ## Dev Complete
 
