@@ -97,8 +97,24 @@ order to save tokens** — the `.codegraph/` index exists (built 2026-08-04,
 
 ## Sprint roster
 
-_TBD after recon (workflow `wf_aba457ee-0d4`): family table with
-family → states → convention classes → sprint id._
+Recon dossier: `2026-08-04-definition-completeness-recon.md` (in this dir).
+US family assignments for OR/PA/RI/SC/SD/TN/TX/UT/VT/VA/WA/WV/WI/WY/DC/PR/FED
+are PROVISIONAL until the B3 re-recon (workflow `wf_7f1827d1-1a7`) lands;
+those 17 jurisdictions were unassessed in the first recon round.
+
+| Sprint | Branch | Scope | Merge order |
+|---|---|---|---|
+| `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | Scope-restricted linking at article/subsection/chapter granularity; profile-dispatched scope triggers; extraction moved behind the seam; per-jurisdiction rule registry | **1 — critical path; everyone builds behind its published seam spec** |
+| `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
+| `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in this section…" scoped-inline defs, 0% captured, all states affected — the English `extract_local_definitions` analog + scope stamping | 2+ (after core) |
+| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | Family 2: body preamble without the literal word "Definitions" (GA/MD/NE/MS zero-signal states) | 2+ (after core) |
+| `2026-08-04-defs-us-markers` | `claude/defs-us-markers` | Family 3: heading found but entry-marker mismatch (AL/AZ/AK/IL/AR; bare digit-dot, unquoted caps, mojibake) | 2+ (after core) |
+| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI) | 2+ (after core) |
+| `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH) + inline parentheticals | 2+ (after core) |
+| _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict | last |
+
+Working-baseline regression-guard states for every US sprint:
+IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
 
 ## Standing questions for the director
 
