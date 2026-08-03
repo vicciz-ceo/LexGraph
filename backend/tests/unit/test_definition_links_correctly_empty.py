@@ -79,6 +79,50 @@ All rows below are REAL, vendored verbatim (byte-verified against the
 source parquet this pass) into `us_markers_correctly_empty_rows.json`;
 the wave-1 defect fixture is reused for its own negative rows (no new
 vendoring needed for those). No test here reads the corpus snapshot.
+
+## Bounce cycle: a real defect in the SHIPPED module, found by the
+## manager's adversarial full-corpus sweep (ruling U-R7)
+
+After the Developer implemented `correctly_empty.py` against this file's
+original 15 tests (all green), the manager ran the classifier over every
+Definitions-headed, zero-candidate section in the REAL, FULL corpus (all
+53 jurisdiction files -- 34,241 such sections). 228 (0.67%) are called
+correctly-empty by the shipped module; of those, **exactly 4, all WA, are
+WRONG** -- each carries substantial real definitional content (2-12
+`"Term" means ...` entries apiece). Every other jurisdiction's verdicts
+are clean; the module IS strongly miss-biased overall (the bias ruling
+U-R3 demands) -- this is a narrow, specific regex defect, not a
+systemic one, and the fix (owned by the Developer, not this file) must
+not overcorrect into never returning `cross_reference` at all, or gate
+U4 becomes unfalsifiable in the other direction.
+
+**Root cause, diagnosed by reading the shipped regex** (`_CROSS_REFERENCE_
+RE`'s citation group, `[^\n]+?`, is lazy but otherwise unrestricted, and
+the trailing-clause group tolerates any non-period character freely) --
+confirmed by the fact that **all 4 real offending rows have ZERO newline
+characters** (single-line bodies, unlike the genuine cross-reference rows
+above, which are short single sentences with nothing to swallow). Two
+distinct exploitable shapes, both present among the 4 real rows:
+
+  (a) The body OPENS with a self-referential "The definitions in this
+      section apply..." preamble, contains real definitions, and
+      (coincidentally, or via an unrelated-content data-artifact --
+      see the test docstrings below) CLOSES with a second, later
+      occurrence of `apply`/`govern`/`are applicable`. Because there is
+      no `\n` to stop it, `[^\n]+?` backtracks straight through the real
+      content to reach that second occurrence, and `fullmatch` succeeds.
+  (b) The body has only the ONE self-referential trigger, but its real
+      entries are separated by SEMICOLONS, not periods -- the trailing-
+      clause group's `[^.\n]` branch swallows semicolons, quotes, digits,
+      and parens without complaint, so the match succeeds even with only
+      one trigger occurrence, all the way to the body's own final period.
+
+A fix that only special-cases "reject if the trigger phrase appears
+twice" would close shape (a) but NOT shape (b) -- this is why the general
+guard test below is required, not just the 4 named-row tests: it
+recombines REAL content (with real, varied punctuation) with a genuine
+trailing cross-reference sentence PROGRAMMATICALLY, at test-run time, so
+it cannot be satisfied by a fix tuned to the 4 exact byte-strings above.
 """
 
 from __future__ import annotations
@@ -249,3 +293,137 @@ def test_wave1_defect_rows_are_not_correctly_empty(act_id):
     result = _classify(body)
     assert result.is_correctly_empty is False, f"{act_id} is a real, substantial miss"
     assert result.reason is None
+
+
+# --- BOUNCE CYCLE: the manager's adversarial full-corpus sweep found ----
+# 4 real, false "correctly_empty" verdicts in the SHIPPED module (ruling
+# U-R7). See this file's module docstring ("Bounce cycle" section) for
+# the root-cause diagnosis (single-line bodies defeat the `[^\n]`
+# newline boundary the shipped regex relies on, two distinct ways).
+
+
+@pytest.mark.parametrize(
+    "act_id, min_means_count",
+    [
+        # (a) opens self-referential, real content, closes on a SECOND
+        # real "apply"/"applicable" occurrence later in the same line.
+        ("STATE_WA_T82_C23A_S010", 7),  # Petroleum product, Possession, Control, ...
+        # (a) variant: the row's OWN text field concatenates a SECOND,
+        # unrelated section's content (a real, non-injected vaquill
+        # data-artifact, not this test's concern) whose own trailing
+        # "...are applicable to a disability insurance producer." is what
+        # the regex latches onto -- proves the defect doesn't even need a
+        # genuinely-matching second citation, just the bare trigger words.
+        ("STATE_WA_T18_C44_S011", 11),  # Committee, Department, Designated escrow officer, ...
+        # (a) variant: same unrelated-content-concatenation artifact,
+        # closes on "...do not apply with respect to..." (negated, like
+        # pass 1's VA "do not apply" false positive -- the regex does not
+        # parse negation, it only looks for the bare word "apply").
+        ("STATE_WA_T70A_C30_S010", 12),  # Approved shellfish tag or label, Commercial quantity, ...
+        # (b) ONLY the self-referential trigger occurs -- real entries are
+        # semicolon-separated with no internal periods, so the shipped
+        # regex's permissive `[^.\n]` trailing-clause class swallows all
+        # of it without ever needing a second trigger occurrence.
+        ("STATE_WA_T70_C28_S008", 2),  # Department, Secretary, Tuberculosis control
+    ],
+)
+def test_real_wa_false_positive_rows_are_not_correctly_empty(act_id, min_means_count):
+    """The 4 real rows the manager's full-corpus sweep found misclassified
+    by the shipped module (34,241 zero-candidate sections corpus-wide, 228
+    called correctly-empty, exactly these 4 wrong -- all WA, all the same
+    class of newline-dependent regex defect). Each genuinely opens with a
+    self-referential "The definitions in this section apply..." preamble
+    -- textbook cross-reference SHAPE -- but carries substantial real
+    defining content that the classifier must not discard."""
+    rows = _load(CORRECTLY_EMPTY_FIXTURE)
+    body = rows[act_id]["text"]
+    assert body.count('" means') >= min_means_count, (
+        f"sanity: {act_id} must carry its real definitions"
+    )
+    assert "\n" not in body, (
+        f"sanity: {act_id} must be the real single-line body this defect depends on"
+    )
+    result = _classify(body)
+    assert result.is_correctly_empty is False, (
+        f"{act_id} has {body.count('\" means')}+ real quoted definitions -- must be a MISS, "
+        "not correctly-empty, regardless of its self-referential opening"
+    )
+    assert result.reason is None
+
+
+def _real_content_prefix(body: str, cut_marker: str) -> str:
+    """Return everything in `body` up to (excluding) the first occurrence
+    of `cut_marker`, trailing-whitespace-stripped. Used only to drop a
+    row's OWN trailing content (its accidental second trigger, or a
+    concatenated-unrelated-section artifact) before recombining the row's
+    genuine leading real content with a DIFFERENT row's genuine
+    cross-reference sentence below -- both halves are REAL vendored text,
+    the recombination happens at test-run time, not vendored as if it
+    were itself one real row."""
+    return body[: body.index(cut_marker)].rstrip()
+
+
+def test_general_guard_real_content_before_any_genuine_cross_reference_suffix_is_never_correctly_empty():
+    """The general form of the bounce-cycle defect (see module docstring):
+    ANY body carrying real, substantial defining content before a
+    trailing genuine cross-reference sentence must classify as a MISS --
+    not merely the 4 exact byte-strings above. Each case below
+    recombines a REAL leading fragment (self-referential opening + real
+    definitions, sliced from one of the 4 rows above, its own accidental
+    trailing content dropped) with a DIFFERENT row's REAL, independently-
+    verified genuine cross-reference sentence, at test-run time. A fix
+    tuned only to recognize the 4 named rows above (e.g. by hard-coding
+    their exact text, or by only checking "does the trigger phrase occur
+    exactly once") would still fail these -- proving the fix is general,
+    not a memorized lookup table. All 4 combinations below are confirmed
+    to reproduce the SAME false-positive against the currently shipped
+    module (not merely a hypothetical)."""
+    rows = _load(CORRECTLY_EMPTY_FIXTURE)
+
+    t82_prefix = _real_content_prefix(
+        rows["STATE_WA_T82_C23A_S010"]["text"], " (6) Except for terms defined"
+    )
+    t18_prefix = _real_content_prefix(rows["STATE_WA_T18_C44_S011"]["text"], "(1) Insurance producer")
+    t70a_prefix = _real_content_prefix(
+        rows["STATE_WA_T70A_C30_S010"]["text"], "(1) Pursuant to the federal clean air act"
+    )
+    t70c28_full = rows["STATE_WA_T70_C28_S008"]["text"]  # no accidental trailing content to drop
+
+    wi_crossref = rows["STATE_WI_C851_S851.002"]["text"]
+    wy_crossref = rows["STATE_WY_T99_C3_S99-3-1101"]["text"]
+    wa_genuine_crossref = rows["STATE_WA_T43_C99N_S010"]["text"]
+
+    combos = {
+        "t82_real_content + WY_genuine_crossref": t82_prefix + " " + wy_crossref,
+        "t18_real_content + WA_genuine_crossref": t18_prefix + " " + wa_genuine_crossref,
+        "t70a_real_content + WI_genuine_crossref_with_history_tail": t70a_prefix + " " + wi_crossref,
+        "t70c28_real_content + WY_genuine_crossref": t70c28_full + " " + wy_crossref,
+    }
+
+    for name, body in combos.items():
+        result = _classify(body)
+        assert result.is_correctly_empty is False, (
+            f"{name}: a REAL defining-content prefix followed by a REAL genuine "
+            f"cross-reference sentence must be a MISS, not correctly-empty -- got "
+            f"{result!r} for body ending {body[-120:]!r}"
+        )
+        assert result.reason is None
+
+
+def test_genuine_cross_reference_class_is_not_disabled_by_the_fix():
+    """Guard against overcorrection (director's explicit instruction on
+    this bounce cycle): a fix that makes `cross_reference` NEVER fire
+    again would also make gate U4 unfalsifiable -- these 4 already-green
+    positives (see `test_real_genuine_cross_reference_bodies_are_correctly_
+    empty` above) must stay green. This is a regression guard, not new
+    evidence -- restated here so a future regex change that trades the
+    false-positive problem for a false-negative one fails loudly in THIS
+    file, next to the defect it must not overcorrect."""
+    rows = _load(CORRECTLY_EMPTY_FIXTURE)
+    for act_id in ("STATE_WI_C851_S851.002", "STATE_WY_T99_C3_S99-3-1101", "STATE_WA_T43_C99N_S010"):
+        body = rows[act_id]["text"]
+        result = _classify(body)
+        assert result.is_correctly_empty is True, (
+            f"{act_id}: must remain correctly-empty -- the fix must not disable this class"
+        )
+        assert result.reason == "cross_reference"

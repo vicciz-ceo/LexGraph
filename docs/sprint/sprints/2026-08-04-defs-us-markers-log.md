@@ -899,3 +899,124 @@ deliverable (§M3 was the first, in the Planner's own design). It vindicates
 ruling U-R3: an unverified "correctly empty" classifier is the single easiest
 way to fake a zero-miss result, and unit tests over hand-picked rows cannot
 prove its absence — only a full-corpus adversarial sweep can.
+
+---
+
+## P3 -- planner bounce-cycle fix (ruling U-R7) (2026-08-04)
+
+Sonnet/high. Worktree already held the Developer's `correctly_empty.py`
+(commit `d266489`) and the manager's bounce verification (`2648be4`) --
+same shared worktree, no fetch/rebase needed (local HEAD was already at
+`2648be4`). Read `correctly_empty.py` in full (permitted -- I author tests
+against it, I do not edit it) to diagnose the exact regex mechanism before
+writing anything.
+
+**Root cause, confirmed by reading the shipped regex + the 4 real rows**:
+`_CROSS_REFERENCE_RE`'s citation group (`[^\n]+?`) is lazy but otherwise
+unbounded, and the trailing-clause group tolerates any non-period
+character. All 4 real offending rows have **zero newline characters**
+(confirmed: `"\n" not in body` for all four) -- the genuine cross-reference
+rows are short single sentences with nothing to swallow, so this never
+showed up there. Two distinct exploitable shapes, both present among the 4
+real rows (diagnosed independently, not merely copied from the manager's
+report):
+
+- **Shape (a)** -- self-referential opening, real content, and a SECOND
+  later occurrence of `apply`/`are applicable` closes the match via
+  backtracking across the whole (newline-free) line.
+  `STATE_WA_T82_C23A_S010`'s second occurrence is a genuine (if
+  misapplied) cross-citation sentence; `STATE_WA_T18_C44_S011` and
+  `STATE_WA_T70A_C30_S010` are more interesting -- their `text` fields
+  each concatenate a SECOND, wholly UNRELATED section's content with no
+  separator (a real, non-injected vaquill data-artifact: escrow-licensing
+  text runs straight into health-care "Insurance producer" licensing text;
+  shellfish-sanitation text runs straight into vehicle-emissions text) --
+  the regex latches onto that unrelated block's own trailing
+  "...are applicable to..."/"...do not apply with respect to..." (the
+  latter NEGATED, same shape as pass 2's own VA finding), proving the
+  defect doesn't even need a genuinely relevant second citation.
+- **Shape (b)** -- `STATE_WA_T70_C28_S008`: only ONE trigger occurrence
+  (the self-referential opening). Its 2 real entries are SEMICOLON-
+  separated with no internal periods, so the trailing-clause group's
+  `[^.\n]` branch swallows everything up to the body's own final period
+  without ever needing a second trigger. A fix that only checks "does the
+  trigger phrase occur twice" would close shape (a) but not shape (b).
+
+**Fixture**: appended the 4 real WA rows to the existing
+`us_markers_correctly_empty_rows.json` (10 -> 14 rows), byte-verified
+against `us_wa_statutes.parquet` this pass (`section_title`/`text`, all
+4, all `True`). Manager's addendum row (`STATE_WA_T70_C28_S008`) included.
+README updated with full per-row rationale (rows 11-14 section).
+
+**Tests authored**, appended to
+`backend/tests/unit/test_definition_links_correctly_empty.py` (my own
+file from pass 2 -- extended, not replaced):
+
+1. `test_real_wa_false_positive_rows_are_not_correctly_empty` --
+   parametrized over the 4 real rows, each asserting `is_correctly_empty
+   is False` plus a sanity floor on real `"Term" means` occurrences and a
+   sanity check that the body genuinely has zero newlines (pins the
+   mechanism, not just the symptom).
+2. `test_general_guard_real_content_before_any_genuine_cross_reference_suffix_is_never_correctly_empty`
+   -- the GENERAL guard the brief asked for, not just 3 more row-specific
+   cases. Recombines, at test-run time, each offending row's real leading
+   content (self-referential opening + real definitions, its own
+   accidental trailing content sliced off via a documented cut marker)
+   with a DIFFERENT already-vendored row's real, independently-verified
+   genuine cross-reference sentence (WI/WY/WA-genuine, rows 5-7). All 4
+   cross-combinations were confirmed (before writing the assertion) to
+   ALSO reproduce the same false positive against the shipped module --
+   this is live evidence the defect is general (any real content + any
+   genuine trailing cross-reference sentence, not memorized byte-strings),
+   not a hypothetical. A fix tuned only to the 4 named rows above (e.g. a
+   lookup table, or "reject if the trigger phrase repeats") would still
+   fail this test.
+3. `test_genuine_cross_reference_class_is_not_disabled_by_the_fix` --
+   restates the 3 existing genuine-positive assertions (WI/WY/WA-genuine)
+   as an explicit anti-overcorrection guard, per the addendum's explicit
+   instruction not to let the fix collapse the `cross_reference` class to
+   never firing (which would make gate U4 unfalsifiable in the other
+   direction). Not new evidence -- a regression guard placed next to the
+   defect it must not overcorrect.
+
+**Proven RED against the current (buggy) module**:
+
+```
+backend/.venv/bin/pytest backend/tests/unit/test_definition_links_correctly_empty.py -v
+...
+5 failed, 16 passed
+```
+
+5 failed = the 4 named-row tests + the general guard test (all 4
+recombinations inside it). 16 passed = the original 15 (all green since
+the Developer's fix landed) + the new anti-overcorrection regression
+guard (currently passing, as it should -- nothing to fix there yet).
+
+**Full suite**:
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+20 failed, 660 passed, 18 warnings in 12.27s
+```
+
+660 = 659 (manager's post-fix baseline) + 1 new passing test
+(anti-overcorrection guard). 20 failed = 15 (unchanged: 6 wave-1 + 3
+auto-rescue + 6 not-yet-rescued, all still awaiting their own
+implementations) + 5 new bounce-cycle RED. No regressions -- every test
+green before this pass is still green.
+
+**Corpus scale, recorded per the manager's explicit request**: 34,241
+Definitions-headed zero-candidate sections corpus-wide (all 53
+jurisdiction files), of which only 228 (0.67%) are currently provable
+correctly-empty by the shipped classifier -- the real size of what this
+sprint's remaining waves (2 through 7, 9 folded into 5) must still
+capture, far larger than recon's original 7-jurisdiction sample implied.
+
+**Role separation**: `correctly_empty.py` not touched (diffed --
+zero production-code files in this pass's changes, only the fixture and
+the one test file). No test reads the corpus snapshot (grepped, zero
+hits).
+
+**Commit**: local only, not pushed, per U-R7 role separation. SHA reported
+to the manager alongside this pass's reply.

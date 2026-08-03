@@ -323,12 +323,13 @@ methodology and measured rates in this sprint's log, `## P1 — planner pass
 
 ## `us_markers_correctly_empty_rows.json` — planner pass 2, gate U4 classifier (2026-08-04)
 
-10 REAL rows (full original 24 columns, values unmodified), for
-`test_correctly_empty_classifier.py`'s RED tests defining the
-`app.definition_links.correctly_empty` module's required contract (sprint
-log `## P2`, gate U4, ruling U-R3). All verified byte-identical to the
-source parquet this pass (`section_title` and `text`, all 19 new rows
-across both new fixture files, every one `True`).
+14 REAL rows (full original 24 columns, values unmodified — 10 from
+planner pass 2, 4 more from the bounce cycle below), for
+`test_definition_links_correctly_empty.py`'s RED tests defining/pinning
+the `app.definition_links.correctly_empty` module's contract (sprint log
+`## P2`/bounce cycle, gate U4, rulings U-R3/U-R7). All verified
+byte-identical to the source parquet (`section_title` and `text`, every
+row, every check `True`).
 
 **Terminal-status class** (all real DC rows — DC's zero-candidate set is
 53.6%/178/332 this class alone, this sprint's log `## P1`):
@@ -391,6 +392,59 @@ corrected rule: **WA 4/1,778 (0.2%)**, not pass 1's reported 734/1,778
 (41.3%) — VA drops from 2/1,065 (0.2%) to 0/1,065 (0.0%). DC/WI/WY numbers
 are unchanged (unaffected by the fix). Full detail in the sprint log's
 `## P2` entry.
+
+## Rows 11-14 — bounce cycle, real defect in the SHIPPED module (2026-08-04)
+
+4 more real WA rows (same 24-column schema, byte-verified), added after
+the manager's adversarial full-corpus sweep (34,241 real Definitions-
+headed zero-candidate sections, all 53 jurisdiction files) found the
+Developer-shipped `correctly_empty.py` calls 228 of them correctly-empty,
+of which exactly these 4 are WRONG (ruling U-R7) — every other
+jurisdiction's verdicts are clean:
+
+11. `STATE_WA_T82_C23A_S010` (1,848 chars, 7 `"Term" means` entries:
+    Petroleum product, Possession, Previously taxed petroleum product,
+    Rack, Wholesale value, plus nested `Control`/`Actual possession`/
+    `Constructive possession`). Opens with the same self-referential
+    preamble as row 8 above; the shipped regex's citation group crosses
+    all ~1,800 intervening chars (the body has ZERO newlines) to latch
+    onto a SECOND, genuine "...the definitions in chapters 82.04, 82.08,
+    and 82.12 RCW apply to this chapter." sentence at the very end.
+12. `STATE_WA_T18_C44_S011` (4,021 chars, 11 real entries: Committee,
+    Controlling person, Department, Designated escrow officer, Director,
+    ..., Split escrow). Same mechanism; the row's own `text` field
+    concatenates a SECOND, unrelated section's content (a real,
+    non-injected vaquill data-artifact — the escrow-licensing text abruptly
+    becomes health-care "Insurance producer" licensing text mid-string,
+    no separator) whose own trailing "...are applicable to a disability
+    insurance producer." is what the regex actually latches onto — proves
+    the defect doesn't need a genuinely relevant second citation, just the
+    bare trigger words appearing anywhere later on the same (newline-free)
+    line.
+13. `STATE_WA_T70A_C30_S010` (2,677 chars, 12 real entries: Approved
+    shellfish tag or label, Commercial quantity, Department, ...,
+    Shellstock). Same concatenated-unrelated-content artifact as row 12
+    (shellfish-sanitation text becomes vehicle-emissions text mid-string);
+    closes on "...do not apply with respect to..." — a NEGATED "apply"
+    (same shape as pass 1's VA `STATE_VA_T29.1_C7_A2.1_S29.1-733.2`
+    finding above) — the regex does not parse negation, only the bare
+    word.
+14. `STATE_WA_T70_C28_S008` (386 chars, 2 real entries: Department,
+    Secretary, plus a third unquoted "Tuberculosis control"). A DIFFERENT
+    exploit shape from 11-13: only ONE trigger occurrence (the
+    self-referential opening) — the real entries are semicolon-separated
+    with no internal periods, so the shipped regex's trailing-clause
+    group (which tolerates any non-period character) swallows all of it
+    without ever needing a second trigger. Proves a fix that merely
+    rejects "trigger phrase occurs twice" would still miss this row.
+
+`test_definition_links_correctly_empty.py`'s general guard test
+additionally recombines each row's real leading content (self-referential
+opening + real definitions, its own accidental trailing content dropped)
+with a DIFFERENT row's real genuine cross-reference sentence (rows 5-7),
+at test-run time — proving the required fix is general, not a lookup
+table keyed on these 4 exact byte-strings. All 4 recombinations reproduce
+the same false positive against the currently shipped module.
 
 ## `us_markers_wave2_subcases_rows.json` — planner pass 2, priorities 2 & 3 (2026-08-04)
 
