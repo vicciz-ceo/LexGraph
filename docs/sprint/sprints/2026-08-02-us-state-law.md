@@ -143,6 +143,17 @@ do not re-derive its findings).
   a Developer changes `pipeline.py` Stage 2 to derive the heading from the body
   when `section_title` is a bare placeholder. Developers may not touch tests.
 
+- **R13 — Wave 5b ingester: manager-verified (2026-08-03).** Key is now the
+  dataset's own per-row `act_id` (e.g. `STATE_PA_T74_C7_S7`). Manager checked it
+  independently across **10 real state files / 570,397 rows: 0 duplicates, 0
+  null-or-empty**. Prior keys each failed on the next file tried; this one is the
+  data's own identity, not an inferred composite. Developer additionally ran PA
+  (14,547) and CA (161,429) fully through the real CLI twice each: ingested count
+  == real DB Article count exactly, second run 0 new / 0 duplicates. CLI summary
+  now separates "newly ingested" from "already present" — the conflation that hid
+  the earlier 14,547-vs-14,536 discrepancy. Suite: 637 passed / 2 failed (both the
+  IL items owned by wave 6).
+
 ## Acceptance gates (manager-defined, plain language)
 
 Each gate is a pass/fail condition about observable product behavior. The Planner
