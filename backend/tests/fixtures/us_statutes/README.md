@@ -265,3 +265,58 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+## `us_markers_wave1_rows.json` — sprint 2026-08-04-defs-us-markers, wave 1 (2026-08-04)
+
+6 REAL rows (full original columns, values unmodified), pulled from
+`us_va_statutes.parquet` (2), `us_wa_statutes.parquet` (2), and
+`us_federal_statutes.parquet` (2) — family 3's "no-marker inline-quote"
+sub-case (a real Definitions-headed section whose body is `"Term" means
+...` sentences with NO `(N)`-paragraph markers, which
+`USProfile.extract_definitions_from_section` cannot parse). Confirmed live
+against the real, unmodified `_extract_inline_quoted_definitions`
+(pipeline.py:246-289) and `run_definition_linking` end to end; full
+methodology and measured rates in this sprint's log, `## P1 — planner pass
+1`.
+
+1. **`STATE_VA_T23.1_SI_C3_S23.1-300`** — clean rescue, 9 real terms
+   (College degree, Cost of education, Educational and general fees,
+   Educational and general services, student enrollment, Fiscal year, Peer
+   institutions, STEM, Student), each 44-658 chars. The recon dossier's own
+   named VA example row.
+2. **`STATE_VA_T4.1_SII_C6_S4.1-600`** — real VA Cannabis Control Act
+   Definitions section (14,629-char body), 48 genuine terms (32-1,108
+   chars each) plus a real false-positive trap: "sell" (inside `"Sale" and
+   "sell" includes ... by any means.`) sits ~170 chars before the literal
+   word "means" in UNRELATED prose — the naive fallback's bounded
+   idiom-gap match treats that as sell's own defining idiom, collapsing
+   its captured `definition_text` to a single `"."` character.
+3. **`STATE_WA_T47_C14_S020`** (`RCW 47.14.020: Definitions.`) — clean
+   rescue, 2 real terms (Right-of-way, Airspace). The exact row the recon
+   dossier's own dossier quotes for WA's dominant miss shape.
+4. **`STATE_WA_T9A_C04_S110`** (`RCW 9A.04.110: Definitions.`) — real WA
+   criminal-code Definitions section (7,318-char body), 18 genuine terms
+   plus a real nested-quote trap: "Vehicle"'s own definition contains
+   `a "motor vehicle" as defined in ...` — the naive fallback treats
+   "motor vehicle" as a second, phantom top-level term (no defining
+   sentence of its own in this statute), truncating "Vehicle" itself to a
+   single `"a"` character.
+5. **`USC_T16_C65_S4503d`** — small (1,025-char), real, clean-LOOKING FED
+   Definitions section, 3 real terms (Institutes of Tropical Forestry,
+   Secretary, State). Exposes a SEPARATE, systematic defect: the LAST
+   recognized entry ("State") swallows the row's trailing citation plus
+   appended "Editorial Notes" header (its naive definition_text is 626
+   chars and contains the literal string "Editorial Notes") — this
+   happens on essentially every FED row that carries the dataset's
+   appended-notes shape, not just pathological ones.
+6. **`USC_T15_C12_S431`** — small (3,239-char), real FED Definitions
+   section. Only entry (a) ("agricultural products") uses the fallback's
+   recognized "means" idiom; entries (b)-(f) use idioms it doesn't
+   recognize as a boundary ("shall be held to include and mean", "shall
+   be construed to mean") — so the naive fallback swallows ALL of (b)-(f)
+   plus the row's appended "Editorial Notes"/"References in Text" tail
+   into "agricultural products"'s own definition_text (3,169 of 3,239
+   chars). Full-corpus check (this sprint's log): 83.0% of FED
+   zero-candidate Definitions sections carry this same appended-notes
+   shape, and 99.2% of all >=5,000-char inline-fallback candidates across
+   VA+WA+FED come from a row with it — FED's dominant, and previously
+   unmeasured, boundary hazard.
