@@ -302,7 +302,18 @@ _None._
 
 Manager setup done 2026-08-04: worktree `/Users/nerya/LexGraph-wt/defs-us-multiterm`
 on `claude/defs-us-multiterm` from `origin/main` 83532fe; own backend venv
-built and verified importing worktree code. Core seam spec NOT yet published
-(checked `origin/claude/defs-core-scope`) — panel plans + authors RED tests
-meanwhile. Next: Planner (Sonnet/high) spawn — re-confirm F5/F6 examples live,
-agree the VT boundary in writing with the markers Planner, author RED tests.
+built and verified importing worktree code.
+
+**Planner pass complete 2026-08-04.** Core seam spec (`claude/defs-core-
+scope`) was NOT published at manager setup, WAS published mid-Planner-run
+(re-checked live, confirmed real, names this sprint's two target rule
+module files verbatim — log §3). All 10 Next Steps items above are
+independently RED-test-verified; markers-boundary proposal written (log
+§4, not yet agreed in writing by markers' Planner, who had not started as
+of this pass); 3 PANEL QUESTIONs + 1 out-of-family finding (item 8b)
+recorded for the manager. Full suite: `backend/.venv/bin/pytest
+backend/tests -q` → **15 failed (new RED), 644 passed (641 baseline +
+3 new guards), 0 error**. Next: manager reviews, relays markers-boundary
+proposal + PANEL QUESTIONs, then spawns Developer (Sonnet/medium) once
+core's Developer track (not just its Planner's seam-spec doc) has landed
+runnable code to rebase onto for items 5/6.
