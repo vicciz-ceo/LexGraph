@@ -449,3 +449,197 @@ That is roughly the wrapper plus import lines — the rule functions and every
 assertion about Spanish behavior survive untouched. I judge that cheaper
 than idling an entire implementation phase behind a review I cannot
 synchronously obtain. Recorded as a deliberate trade, not an oversight.
+
+---
+
+## 2026-08-04 — Developer: implementation of items 1/2/3(functions)/4/6
+
+**Scope held.** One new file only:
+`backend/app/definition_links/pr_profile.py` (537 lines). `git status
+--short` before commit shows exactly one untracked file — no edit to
+`profiles.py`, `pipeline.py`, `extract.py`, `matcher.py`, `us_profile.py`,
+`sections.py`, `normalize.py`, or any model/migration; no test file
+touched. Registry wiring (item 7), scope determination (item 5), and
+pipeline dispatch (item 3's wiring, item 8) were not implemented, per
+M-R3/M-R5 — confirmed by `grep -n "pr_profile" backend/app/definition_
+links/pipeline.py` returning nothing.
+
+**Method.** Read the contract's survey tables and the panel log's raw
+per-shape counts, then the six RED test files as the literal spec (per
+the developer brief: "READ THEM AS YOUR SPECIFICATION"), then
+`codegraph explore` for `USProfile`/`HebrewProfile`/`DefinitionCandidate`/
+`extract_local_definitions`/`extract_adhoc_definitions`/
+`_extract_inline_quoted_definitions`/the `JurisdictionProfile` Protocol
+before writing a line — one call surfaced verbatim source for all of
+`profiles.py`, `us_profile.py`, `extract.py`, and the relevant
+`pipeline.py` slice in a single round trip. Before touching the real
+module file, every regex (heading detector, entry-marker scanner,
+term/separator splitter, local/adhoc triggers, citation grammar) was
+prototyped against the actual 10 vendored fixture rows in a scratch
+script — this caught one real design gap before it ever reached a test
+run (below) and is the reason the first full test run inside the actual
+module still needed one fix (a transcription slip between the verified
+prototype and the production file, also below).
+
+**Design choices forced by the tests / worth recording:**
+
+- **Entry-marker anchor needed THREE boundary characters, not two.**
+  The contract's survey note ("regex required a preceding `[.;]\s` or
+  start-of-string") undercounts the real anchor set needed for a
+  zero-miss *extractor* (as opposed to a frequency-counting survey
+  script): `STATE_PR_LEY_249_2003_ART3`'s and `STATE_PR_LEY_77_1957_
+  ART30_020`'s own FIRST markers each follow the section's lead-in
+  colon ("...significado: a. ..."), not a period — so the anchor class
+  had to be `[.;:]`, colon included, or entry (a) of two of the five
+  extraction tests silently vanishes into the (nonexistent) preceding
+  block. Separately, `STATE_PR_LEY_77_1957_ART30_020` entry (i) follows
+  a mid-body scrape artifact — a `[Ley 77 de 19 de Junio de 1957, según
+  enmendada]` page-break annotation — so its marker `(i)` is preceded by
+  `]`, not by any sentence punctuation at all. Final anchor:
+  `(?:^|(?<=[.;:\]])\s+)`, three boundary characters plus start-of-string.
+  This is additive to the contract's survey note, not a contradiction of
+  it — the survey was counting marker FREQUENCY across the corpus, not
+  solving "how do I find this specific marker's own left edge," and the
+  colon/bracket cases only surface once you try to actually split real
+  bodies into blocks.
+- **Self-caught regression: parenthesization slip on the first pass
+  through the real module.** The prototype script (never committed,
+  scratch-only) had the anchor correctly as
+  `(?:^|(?<=[.;:\]])\s+)` — `\s+` INSIDE the second alternative only, so
+  the `^`-at-absolute-start branch needs no whitespace to match. When I
+  hand-transcribed this into the production file I mis-grouped it as
+  `(?:^|(?<=[.;\]]))\s+` (colon dropped AND `\s+` moved outside the
+  alternation, so even the start-of-string branch now required leading
+  whitespace that doesn't exist when a marker IS the first character,
+  e.g. `STATE_PR_LEY_63_2023_ART3`'s `(a) Instituto...` and `STATE_PR_
+  LEY_15_2024_ART3`'s `a) Composta...`). This produced 4 real test
+  failures on the first `pytest` run inside the module (all four
+  "missing entry (a)" shaped) — caught immediately by running the actual
+  target test files, not asserted away. Fixed by restoring the exact
+  prototyped form. Recording this because it is the one place my own
+  hand-transcription, not test-driven design, introduced a defect — the
+  test suite is what caught it, which is the discipline working as
+  intended, not a close call.
+- **`extract_adhoc_definitions`' `definition_text` needed a real
+  antecedent, not a trivial echo.** The Hebrew analog
+  (`extract.extract_adhoc_definitions`) sets `definition_text=term` (the
+  short name echoed back at itself) since Hebrew's `(להלן - X)` idiom
+  carries no separate long-form phrase in that function's scope. The
+  Spanish `(en adelante, X)` idiom's OWN semantics (per the contract:
+  "an inline parenthetical apposition restating an immediately-preceding
+  long noun phrase under a short name") make that echo actively
+  misleading for PR — "Comité" defined as "Comité" says nothing. Neither
+  test file asserts `definition_text`'s exact content for this function
+  (only `.terms`/`.scope`), so this was a judgment call, not a forced
+  test outcome: I capture the noun phrase immediately preceding the
+  parenthetical (back to the nearest `.;:()` boundary or string start,
+  found by a plain `rfind` scan, not a regex lookbehind trick) as
+  `definition_text`, falling back to the term itself only if that
+  antecedent is empty. Flagging this because it is real behavior beyond
+  what any test pins down — QA or a future caller should not assume it
+  is contractually guaranteed the way the tested fields are.
+- **`is_definitions_heading`'s Spanish-preposition exclusion list has no
+  real-corpus example in the 10 vendored fixture rows.** The contract
+  names the shape ("first-word-OR-last-word-with-Spanish-preposition-
+  exclusion") and I implemented a `_SPANISH_PREPOSITIONS` set mirroring
+  `USProfile`'s `_PRECEDING_EXCLUSION_WORDS` (de, del, a, al, en, para,
+  por, según, con, sin, sobre, entre, hasta, desde, ante, bajo, contra,
+  durante, mediante, salvo, tras), but every negative-guard test in
+  `test_pr_profile_headings.py` is independently excluded already by the
+  stem-match requirement itself (`Definidas`/`definitiva` don't contain
+  the literal `ci` the stem needs) or by the last-word check simply
+  failing (the TOC row's real last token is the truncated `"Ar"`, not
+  `"Definiciones"`) — none of the ten fixture rows exercises the
+  preposition-exclusion branch on a stem match that would otherwise be a
+  false positive. Implemented for design fidelity to the contract and
+  because `USProfile` carries the same shape, but it is currently
+  UNVERIFIED against any real PR corpus example. Flagging for QA's
+  zero-miss sweep to find (or fail to find) a real corpus heading like
+  "Aplicación de Definiciones a ..." that would actually exercise it.
+
+**Verification (my own, not asserted):**
+
+```
+$ backend/.venv/bin/pytest backend/tests/unit/test_pr_profile_headings.py \
+    backend/tests/unit/test_pr_profile_extraction.py \
+    backend/tests/unit/test_pr_profile_ad_hoc_definitions.py \
+    backend/tests/unit/test_pr_profile_citations.py \
+    backend/tests/unit/test_pr_profile_no_english_regression.py \
+    backend/tests/unit/test_pr_profile_scope.py -v
+...
+53 passed, 6 xfailed in 0.07s
+```
+
+All 6 `test_pr_profile_scope.py` tests still `xfail` (not error, not
+xpass) — `determine_chapter_scope` was not implemented, per scope
+(confirmed by reading the tail of the `-v` output: every one reports
+`XFAIL`, none reports `XPASS`). `test_registering_us_pr_does_not_change_
+what_us_de_resolves_to` in the no-english-regression file now runs for
+real (module import succeeds) and passes — `get_profile("US-DE")` still
+resolves to `USProfile`, confirming the registry was genuinely untouched,
+not merely un-diffed.
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+694 passed, 6 xfailed, 18 warnings in 12.38s
+```
+
+694 = the 641 pre-existing baseline + 53 new PR tests, exactly. Re-run
+with the six new files excluded to prove the 641 are unmoved:
+
+```
+$ backend/.venv/bin/pytest backend/tests -q --ignore=<6 new files>
+641 passed, 18 warnings in 11.96s
+```
+
+**Protocol conformance, checked directly (not just "it compiles"):**
+
+```
+$ backend/.venv/bin/python -c "
+from app.definition_links.pr_profile import PRProfile
+from app.definition_links.profiles import JurisdictionProfile
+p = PRProfile(code='US-PR')
+for m in [m for m in dir(JurisdictionProfile) if not m.startswith('_')]:
+    print(m, hasattr(p, m))
+"
+detect_cross_law_derivations True
+extract_definitions_from_section True
+find_citations True
+find_term_uses True
+is_definitions_heading True
+normalize_for_parsing True
+```
+
+**Lint/format.** No `ruff`/`black` config in `backend/pyproject.toml`, and
+neither tool is installed in this worktree's venv (`python -m ruff`/
+`python -m black` both `No module named ...`) — same absence the Planner
+would have hit had this item been in the RED-test pass. Checked manually
+against the file's own longest lines (max 99 chars, consistent with
+`us_profile.py`'s existing ~92-char lines) and confirmed `py_compile`
+succeeds cleanly.
+
+**File size note (not a violation of anything this sprint's contract
+asks for).** `pr_profile.py` is 537 lines — the contract's item plan
+explicitly assigns items 1/2/3(functions)/4/6 to ONE module ("Same
+module" repeated at every item), so this is the assigned shape, not a
+drift from it; `us_profile.py` (546 lines) is the closest precedent in
+this exact package for a single-file per-jurisdiction profile at this
+size.
+
+**For QA:** the zero-miss full-corpus sweep should pay particular
+attention to (a) the entry-marker anchor set (`.`/`;`/`:`/`]`/
+start-of-string) against markers this Developer's 10-row fixture sample
+didn't exercise — the survey's own 174/635-no-marker and 27.4% figures
+suggest real diversity beyond what's tested here; (b) the Spanish-
+preposition exclusion branch in `is_definitions_heading`, unverified
+against any real corpus row per the note above; (c) the two items the
+Planner already flagged (`conocido como`/`denominado` narrow-gating,
+and the `STATE_PR_LEY_135_1979_ART1`-style truncated-title corpus
+limitation) — neither was in this Developer's scope, both still open.
+
+**Escalations:** none. No test looked wrong; nothing required editing a
+shared module; no P-R2 zero-miss-vs-false-positive judgment call arose
+that wasn't already resolved by the Planner's own survey (the `en
+adelante` vs. `conocido como`/`denominado` line was already drawn by the
+Planner, and this Developer's scope only implements the safe side of
+that line, per item 3).
