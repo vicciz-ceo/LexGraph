@@ -3,9 +3,10 @@ id: "2026-08-04-defs-us-multiterm"
 status: planning
 current_role: planner
 branch: claude/defs-us-multiterm
-locked_by: null
-locked_at: null
-last_agent: "claude-code:program-manager"
+worktree: /Users/nerya/LexGraph-wt/defs-us-multiterm
+locked_by: "claude-code:planner"
+locked_at: "2026-08-04T00:00:00Z"
+last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
@@ -72,6 +73,14 @@ All program standing constraints apply (program doc): CodeGraph first;
 red-before-green live-path tests; Planner owns tests; QA independent; no
 test downloads the corpus; absolute zero-miss bar; P-R2.
 
+## Manager rulings
+
+Full text in `2026-08-04-defs-us-multiterm-log.md`. Summary:
+- **M-R1** — CodeGraph queries run against the index in the main checkout
+  (`codegraph explore` with cwd `/Users/nerya/LexGraph`, read-only) because
+  worktrees carry no `.codegraph/`; all edits/tests/commits stay in the
+  worktree.
+
 ## Next Steps
 
 _Planner defines items._
@@ -86,5 +95,9 @@ _None._
 
 ## Context Dump
 
-New sprint. Planner: read program doc + dossier §2 families 5-6 + §6
-addendum, re-confirm examples live, author RED tests.
+Manager setup done 2026-08-04: worktree `/Users/nerya/LexGraph-wt/defs-us-multiterm`
+on `claude/defs-us-multiterm` from `origin/main` 83532fe; own backend venv
+built and verified importing worktree code. Core seam spec NOT yet published
+(checked `origin/claude/defs-core-scope`) — panel plans + authors RED tests
+meanwhile. Next: Planner (Sonnet/high) spawn — re-confirm F5/F6 examples live,
+agree the VT boundary in writing with the markers Planner, author RED tests.
