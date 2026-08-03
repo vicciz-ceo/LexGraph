@@ -1,7 +1,7 @@
 ---
 id: "2026-08-02-us-state-law"
-status: qa-fail
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
@@ -153,6 +153,28 @@ do not re-derive its findings).
   now separates "newly ingested" from "already present" — the conflation that hid
   the earlier 14,547-vs-14,536 discrepancy. Suite: 637 passed / 2 failed (both the
   IL items owned by wave 6).
+
+- **R14 — Wave 6 verified by the manager (2026-08-03).** Real rows through the
+  REAL pipeline: **IL 40 rows -> 240 definitions / 102 assertions** (terms
+  `Bias-free`, `BIPOC`, `Child welfare court personnel`); **CA 40 rows -> 73
+  definitions / 25 assertions** (`Electronic poll book`, `Vote by mail ballot drop
+  box`); **DE unchanged at 217/125** (no regression). Both IL and CA produced ZERO
+  before this wave. Suite 639 passed / 0 failed — first full green since QA
+  cycle 1. Test-owner correctly INVERTED the invalid assertion (now asserts a bare
+  `"Section N"` placeholder is REJECTED), turning R12's hazard into a guard.
+- **R15 — Two open risks carried into QA cycle 4 (manager-flagged).**
+  (a) **Precision is unmeasured.** Wave 6 added an inline-quote extraction
+  FALLBACK inside `pipeline.py` (not the profile) because IL/CA bodies carry no
+  `(N)` markers. Every prior cycle measured RECALL (how much we miss). Nobody has
+  measured PRECISION — whether the ~9,661 IL / ~6,961 CA candidate terms are
+  genuine defined terms or noise. A fallback extractor firing on body-derived text
+  is exactly where junk terms would enter. QA must sample and judge quality.
+  (b) **Architectural smell:** definition-extraction logic now lives in
+  `pipeline.py` rather than behind the jurisdiction profile. Developer flagged it
+  honestly as a deviation forced by file ownership. Not a defect; a follow-up.
+  (c) **Georgia still effectively blind:** 5 detected / 28,154 rows. GA's
+  convention (`"As used in this chapter, the term:"`) carries no "definitions"
+  word. Deliberately not forced under the zero-false-positive priority.
 
 ## Acceptance gates (manager-defined, plain language)
 
