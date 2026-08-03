@@ -1,11 +1,11 @@
 ---
 id: "2026-08-04-defs-us-scoped-inline"
-status: planning
+status: in_progress
 current_role: planner
 branch: claude/defs-us-scoped-inline
-locked_by: null
-locked_at: null
-last_agent: "claude-code:program-manager"
+locked_by: "claude-code:sprint-manager"
+locked_at: "2026-08-04"
+last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
@@ -68,6 +68,20 @@ All program standing constraints apply (program doc): CodeGraph first;
 red-before-green live-path tests; Planner owns tests; QA independent; no
 test downloads the corpus; absolute zero-miss bar; P-R2.
 
+## Manager rulings
+
+Full reasoning in `2026-08-04-defs-us-scoped-inline-log.md` (append-only).
+
+- **S-R1** — Core's `## Seam spec` is NOT yet published (`origin/claude/defs-core-scope`
+  @ `5b93ef8`). RED tests are authored against two core-proof targets: the new
+  pure rule module this sprint owns, and the pipeline live path
+  (`run_definition_linking`, `pipeline.py:311`) asserting persisted
+  `Definition.scope` + `USES_DEFINITION` edges. No test may be written against
+  core's registry-registration API before the spec publishes.
+- **S-R2** — Developers are fenced to the new rule module until core merges to
+  `main`. Zero edits to `pipeline.py` / `extract.py` / `matcher.py` /
+  `profiles.py` / `us_profile.py` / `sections.py` (gate U3).
+
 ## Next Steps
 
 _Planner defines items._
@@ -82,5 +96,9 @@ _None._
 
 ## Context Dump
 
-New sprint. Planner: read program doc + dossier (§2 family 1, §6 addendum),
-re-confirm recon examples against live code, then author RED tests.
+Sprint opened. Worktree `/Users/nerya/LexGraph-wt/defs-us-scoped-inline` off
+`origin/main` `83532fe`; own backend venv built and importing. Panel log
+opened with the manager's verified architecture read (F1 root cause is the
+`else:` branch at `pipeline.py:436-442` calling Hebrew-only
+`extract_local_definitions`/`extract_adhoc_definitions` for US articles).
+Core seam spec still unpublished — Planner proceeds per S-R1/S-R2.
