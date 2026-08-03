@@ -862,3 +862,147 @@ manager's own run to watch.
 - **G7 (reviewer works state-by-state)**: PASS — unchanged, frontend 165/165
   green, typecheck clean.
 
+## QA cycle 5 (2026-08-03/04) — FINAL, full detail
+
+Evaluator baseline reproduced exactly as the contract states before any new
+probing: backend `pytest backend/tests -q` → **641 passed**, 0 failed;
+frontend `npm run test -- --run` → **165 passed**; `npm run typecheck` →
+exit 0. `pytest -k "hebrew or definition_link"` → **167 passed** (Q4,
+unchanged from cycle 4).
+
+### Q1 — wave-7 precision re-audit, targeted at the ~2,400 recovered terms
+
+Replayed `pipeline.py`'s exact Stage-2 dispatch over every real row in
+`us_ca_statutes.parquet` (161,429), `us_de_statutes.parquet` (21,649), and
+`us_tx_statutes.parquet` (122,535). General random samples of 30
+terms/state (seeded): **CA 30/30, DE 30/30, TX 30/30 genuine** — matches
+cycle 4's own numbers, confirming no general regression.
+
+Went further this cycle: isolated the SPECIFIC subset wave 7 newly
+recovers (an entry whose leading marker chain contains a letter token or
+more than one token, e.g. `(d) (1) "Term"` — the shape `_BARE_DIGIT_
+MARKER_RE` alone could never have split before wave 7) and sampled 30 of
+THOSE specifically per state, plus an automated full-population scan for
+degenerate (<15-char) definition text within that subset:
+
+- **CA**: 6,753 letter-led candidates (of 8,566 total for the state); 30/30
+  manual sample genuine; automated scan: 15 degenerate (0.22%), all a
+  `"Term" means:` stub immediately followed by a bare, unquoted `(1)` /
+  `(2)` sub-enumeration — the PRE-EXISTING "unconditional bare-digit-marker"
+  fallback (present before wave 7, unrelated to the letter-chain fix)
+  closes the entry right there, since it does not require a quote to
+  follow. Real example: `STATE_CA_Chsc_D2_C2.2_A3.17_S1357.600`,
+  `"Creditable coverage" means:` (the actual enumeration that used to
+  follow is now in a separate, unlinked block).
+- **DE**: 756 letter-led candidates (of 9,246 total); 30/30 manual sample
+  genuine; 13 degenerate (1.72%) via the identical `"Term" means:`-stub
+  mechanism above (e.g. `STATE_DE_T11_C5_SII_S761`, three terms all
+  truncated to `means:`).
+- **TX**: 75 letter-led candidates (of 20,770 total) — a much smaller
+  absolute recovery than CA/DE; 30-sample draw pulled all 30 available
+  (fewer than 30 exist, so it is the full population). Automated scan: 13
+  degenerate (**17.33%** of this small subset) — TWO distinct real-data
+  shapes: (a) the `means:`-stub truncation above, and (b) a DIFFERENT,
+  TX-specific convention — `"(N) The following terms have the meanings
+  assigned by Section X: (A) "term1"; (B) "term2"; ...` — where each
+  lettered sub-item is JUST a quoted term name with a trailing `;`/`.` and
+  NO definition text of its own (the real definition lives in the PARENT
+  item's preamble, one level up, which this extractor has no way to
+  attach). Real example: `STATE_TX_Cgv_C2009_S2009.003` → 4 degenerate
+  "terms" (`contested case`, `party`, `person`, `rule.`) each with a
+  1-6-char "definition" (`;`, `; and`, empty). A second, near-identical row
+  (`STATE_TX_Cgv_C2002_S2002.001`) reproduces the exact same shape.
+
+Comparison point: the PRE-EXISTING (non-letter-led, bare-digit) shape's own
+degenerate rate is CA 0/1,813 (0%), DE 5/8,490 (0.06%), TX 20/20,695
+(0.10%) — consistent with cycle 4's already-documented TX list-defect
+(12/20,695). So the letter-led subset's defect rate (0.22% / 1.72% / 17.33%)
+is materially HIGHER than the pre-existing shape's own rate, particularly
+for TX's small recovered set — a genuine, newly-quantified nuance, not
+previously measured at this resolution. **Not a regression** (these
+letter-led terms were never extracted AT ALL before wave 7 — recovering
+them at ~83-99% clean beats recovering 0% of them), and the SAME root cause
+(the shared extractor's boundary detection is imprecise around nested
+lettered/numbered sub-clauses) as R16's already-accepted "Dispose"/
+"Open-space purposes" residual — just the inverse symptom (truncates too
+early instead of swallowing too much). Recorded as an additional Known
+Limitation (see contract), not bounced — cycle 5's charter is sign-off, and
+this is the same accepted-scope defect class as R16 with a fresh
+measurement, not a new independent failure.
+
+### Q2 — R16 residual accuracy + corpus-wide bloat quantification
+
+Independently reproduced the exact row R16 describes
+(`STATE_CA_Cgov_T5_D2_P1_C5_A8_S54221`) through the live dispatch: **10
+unique terms now extracted (was 2)** — 12 raw candidate hits collapse to
+10 distinct term names (`Surplus land` and `Dispose` each hit twice, same
+term). `Dispose` = **286 chars** (one of its two hits; matches R16 exactly).
+`Open-space purposes` = **21,174 chars** (matches R16 exactly). Exactly
+**2** extracted "terms" are sentence fragments, both starting `"A contract
+or contracts serving as an enforceable restrict..."` (matches R16's own
+quoted text verbatim). **R16's description is verified TRUE and COMPLETE
+— no correction needed.**
+
+Corpus-wide quantification (full live-dispatch replay, all **105** real
+parquet files, every jurisdiction derived from its own filename exactly as
+the bulk CLI does): **258,472** total extracted definition candidates,
+**424** exceed 5,000 characters — **0.164%**. Cross-check: this scan
+independently reproduces the Developer's own prior CA number exactly (CA
+now has 5 records >5,000 chars, matching the contract's "CA 13 -> 5"
+claim), which is strong evidence the replay methodology is faithful to
+production. Worst single record: `USC_T5_C83_S8331` ("representative
+payee", federal), 164,059 chars — a federal-benefits definitions section
+with an enormous nested enumeration, same root cause, not CA-specific.
+
+### Q3 — independent re-verification of R17's G6 claims
+
+Confirmed the corpus really is **105** parquet files: `find` over the
+actual HF snapshot directory (not blobs) returns exactly 105 unique
+`*.parquet` basenames — matches R17's corrected number exactly (an
+unfiltered recursive `find` over the whole cache tree double-counts
+blobs+symlinks and misleadingly returns 116; the snapshot directory alone,
+which is what `--input-dir` bulk mode is pointed at, has exactly 105).
+
+Independently scanned every file's `text` column for empty strings (the
+`skipped_rows` "missing required 'text' column" condition — `if not
+text:`) directly via pyarrow, without running the CLI: **112** rows
+corpus-wide (110 in `us_ga_statutes.parquet`, 2 in `us_nc_statutes.parquet`)
+— matches R17's "112 skipped" number EXACTLY, independently.
+
+Spot-check via the real CLI against a fresh sqlite DB (schema created per
+`docs/RUNBOOK.md`'s documented recipe): ingested `us_ak_constitutions`
+(44 rows), `us_wy_constitutions` (314), `us_de_statutes` (21,649, 0
+skipped), and `us_nc_statutes` (26,685 rows: 26,683 ingested + 2 skipped,
+invariant holds). Queried the DB directly (not the CLI's own summary): for
+all 4 files, `Article` count == CLI-reported "newly ingested" count
+EXACTLY (44 / 314 / 21,649 / 26,683; total `source_spans` = 22,007 = sum of
+the first three). Re-ran `us_nc_statutes` a second time: CLI reported "0
+new, 26,683 matched, 2 skipped" — idempotent, DB count unchanged. The 2
+skipped NC rows were confirmed to have a genuinely empty `text` field in
+the raw parquet data (not a code bug) — a real reason, not a placeholder.
+**Every number in R17 checks out; nothing is wrong.**
+
+### Q6 — Georgia and heading-miss numbers re-verified unchanged
+
+Re-ran the exact GA/WA/FL/NY measurements from R9/R15c against the current
+(post-wave-7) code: GA 5/28,154 detected, 438/28,154 (1.56%) share the
+undetected convention — unchanged (wave 7 touched entry-splitting inside
+an already-recognized Definitions body, not heading detection at all).
+WA 10.3%, FL 5.5%, NY 4.4% heading-matcher miss rates — unchanged, exactly
+reproduced from R9's own numbers.
+
+### Gate sign-off (cycle 5, FINAL)
+
+- **G1**: PASS — 167 Hebrew/definition-link tests green, `HebrewProfile.
+  code=="IL"` still structurally blocks the fallback.
+- **G2**: PASS-with-limitation — real US statutes parse correctly at
+  >99.8% precision; residual boundary-detection defect (bloat + truncation,
+  both directions) documented as a known limitation, not gate-blocking.
+- **G3**: PASS — unchanged, word-boundary matching not touched by wave 7.
+- **G4**: PASS — unchanged, citation grammar not touched by wave 7.
+- **G5**: PASS — unchanged, jurisdiction stamping regression guard green.
+- **G6**: PASS — R17's full-corpus run independently re-verified in Q3
+  above (105 files, 112 skipped-with-reason, DB counts match exactly); no
+  longer code-only, now RUN-verified end to end.
+- **G7**: PASS — frontend 165/165 green, typecheck clean.
+

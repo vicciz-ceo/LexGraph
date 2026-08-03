@@ -1,19 +1,19 @@
 ---
 id: "2026-08-02-us-state-law"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/us-state-law-compat-6d3ae8
 locked_by: "claude-code:planner"
 locked_at: "2026-08-02T10:00:34Z"
 last_agent: "claude-code:qa"
-last_updated: "2026-08-03T20:38:00Z"
-lint: "PASS 290 2026-08-03T20:38:15Z"
+last_updated: "2026-08-03T21:18:00Z"
+lint: "PASS 320 2026-08-03T21:18:13Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
-completed_items: 5
+completed_items: 6
 dev_complete_items: 0
-qa_cycles: 4
+qa_cycles: 5
 previous_sprint: "2026-07-31-admin-provisioning"
 prd_sections: []
 design_sections:
@@ -199,49 +199,13 @@ vocabulary item's Developer (change to `"IL"`). Full detail: sprint log.
 
 ## Next Steps
 
-_Cycle 3's 6 defects (items 3 and 5, heading-matcher + ingest-key collisions)
-were fixed and independently re-verified as genuinely fixed this cycle
-(folded into `test_qa_regression_us_state_law.py`; full cycle-3 defect
-detail preserved at log §"QA cycle 3"). Item 5 now PASSES outright (see
-`## Completed`). Item 3 bounces again below for ONE new, narrower defect
-found by this cycle's headline precision audit (ruling R15a) — full detail
-at log §"QA cycle 4"._
-
-### Item 3 — US jurisdiction profile [G2/G3], one live-path-confirmed boundary-swallow defect in a real California section
-
-[QA-FAIL (defect 8): a real California row
-(`STATE_CA_Cgov_T5_D2_P1_C5_A8_S54221`, committed at
-`backend/tests/fixtures/us_statutes/qa_cycle4_rows.json`) produces one
-`Definition` for the term "Dispose" whose `definition_text` is **26,715
-characters** and contains the complete, separately-defined text of 3 OTHER
-real terms ("Open-space purposes", "Sectional planning area", "Sectional
-planning area document") concatenated inside it — none of the 3 is ever
-recovered as its own `Definition`. Root cause: `USProfile.extract_
-definitions_from_section` (the shared DE/TX/IL/CA numbered-entry extractor,
-NOT new wave-6 code) fails to recognize a new `"Term" means` entry start
-after a run of lettered sub-clauses inside the PRECEDING entry, and keeps
-consuming text until the NEXT entry it does recognize (3 entries later) —
-newly EXPOSED to CA bodies for the first time by wave 6's heading-derivation
-dispatch (CA never reached this function before this sprint). Proven
-live-path by `test_real_pipeline_swallows_three_other_terms_into_one_
-bloated_california_definition` in `backend/tests/integration/
-test_qa_regression_us_state_law_cycle4_FAIL.py`. A companion suspected
-defect in the SAME row (a curly-quote-style mismatch in entry (a)) was
-investigated and found NOT to survive the live path —
-`normalize_for_parsing` already collapses curly-quote variants before
-extraction runs — kept as a green regression guard in the same file, not a
-second bounce.
-
-Expected: the shared extractor's entry-boundary detection must recognize a
-new `"Term" means`/`has the meaning` entry start even immediately after a
-run of lettered/numbered sub-clauses (`(A)`/`(B)`) belonging to the
-PRECEDING entry's own body, rather than only re-synchronizing several
-entries later.
+_None — sprint complete. All 6 items PASS, all 7 gates signed off (see
+`## Completed` and `## Known limitations at sprint close`). Next action is
+the director's merge decision._
 
 ## Dev Complete
 
-_None — item 3 processed this QA cycle (bounced again above, for ONE new
-defect distinct from cycle 3's six, all of which are now confirmed fixed)._
+_None._
 
 ## Completed
 
@@ -249,82 +213,108 @@ defect distinct from cycle 3's six, all of which are now confirmed fixed)._
   QA: PASS — P5: 54-code vocabulary byte-identical across backend/frontend/live
   endpoint; regression `test_frontend_jurisdiction_list_source_matches_backend_source_exactly`.
 - **Item 2 — Jurisdiction-profile seam, Hebrew ported [G1].** Commit `7daf286`.
-  QA cycle 4: PASS, re-confirmed — 167 Hebrew/definition-link tests green;
-  `HebrewProfile.code == "IL"` structurally blocks the wave-6 body-derivation
-  fallback from ever reaching Hebrew documents (`pipeline.py`'s own guard).
+  QA cycle 5: PASS, re-confirmed final time — 167 Hebrew/definition-link
+  tests green, unchanged after wave 7 (`HebrewProfile.code=="IL"` guard).
+- **Item 3 — US jurisdiction profile [G2/G3].** Wave 7 (entry-splitter fix
+  for letter-led entries). QA cycle 5: PASS-with-limitation — live-path
+  verified the cycle-4 bounce is fixed (`Open-space purposes` recovered,
+  `Dispose` 26,715→286 chars); residual bloat/truncation quantified and
+  recorded as a known limitation, not re-bounced (see below).
 - **Item 4 — Jurisdiction stamping [G5].** Commit `9662def`.
   QA: PASS — P1: null-jurisdiction miss proven unreachable via either production
   ingester; regression `test_document_jurisdiction_is_never_null_after_either_production_ingester_runs`.
-- **Item 5 — US dataset ingester [G6].** Wave 5b fix. QA cycle 4: PASS —
-  re-verified on `us_wa_statutes.parquet` (51,498 real rows, never checked
-  before): CLI summary exactly matches DB Article count both fresh and
-  re-ingested; 1,026 shared `section_number`s correctly produce distinct
-  Articles (log §"QA cycle 4" Q2).
+- **Item 5 — US dataset ingester [G6].** Wave 5b fix. QA cycle 5: PASS —
+  R17's full 105-file/2,045,897-row corpus run independently spot-checked
+  (4 real files, DB counts match CLI exactly, 112 corpus-wide skips
+  reproduced exactly); no longer code-only, gate is RUN-verified.
 - **Item 6 — UI jurisdiction pass [G7].** Commit `70db22e`.
   QA: PASS — frontend 165/165 green, typecheck clean; vocabulary drift-guard
   (Item 1) covers this item's picker source too.
 
-**Manager-measured state entering cycle 2:** backend **629 passed / 0 failed**;
-frontend **165 passed**; typecheck clean.
+## Known limitations at sprint close
 
-**QA cycle 2:** backend **629 passed** + 3 new RED (Q2/Q3a/Q3b); frontend
-**165/0**. **QA cycle 3:** backend **632 passed** (cycle 2's 3 folded green)
-+ 7 new RED (6 fresh real-data defects, items 3/5 bounced); frontend
-**165/0**. Full detail for both: log §"QA cycle 2"/§"QA cycle 3".
-
-**QA cycle 4 independent re-run:** backend **640 passed / 1 failed** on the
-routine suite (cycle 3's 7 RED bounce-proofs re-verified genuinely fixed and
-folded into `test_qa_regression_us_state_law.py`;
-`..._cycle3_FAIL.py` deleted, net test count unchanged) **+ 1 intentional
-NEW RED test** (plus 1 new green regression guard disproving a second
-suspected defect) in `test_qa_regression_us_state_law_cycle4_FAIL.py`,
-proving one fresh real-data defect (item 3 bounced again — see
-`## Next Steps`), found by a full-corpus precision audit (ruling R15a) of
-`us_ca_statutes.parquet`; frontend **165 passed / 0 failed**; typecheck
-clean.
+- **Georgia's definitions convention is undetected.** Only 5 of 28,154 GA
+  rows are recognized; 438 rows (1.56%) open with `"As used in this
+  chapter, the term:"`, a convention with no "definitions" word at all. A
+  follow-up needs a GA-specific body-preamble rule, added carefully to
+  avoid false positives elsewhere.
+- **A small number of extracted definitions are still garbled.** The
+  shared extractor's entry-boundary detection is imprecise around nested
+  lettered/numbered sub-clauses, in BOTH directions: it can swallow too
+  much (the CA "Dispose" row: fixed from 26,715→286 chars, but
+  `Open-space purposes` on the same row is itself ~21,174 chars with 2
+  sentence-fragment "terms"), or cut too early (a `"Term" means:` stub
+  right before an unquoted sub-list, or — TX only — a list of terms that
+  share one definition stated in a parent clause). Corpus-wide: 424 of
+  258,472 extracted definitions (0.16%) exceed 5,000 characters; among
+  wave 7's newly-recovered terms specifically, degenerate (near-empty)
+  definitions run CA 0.22%, DE 1.72%, TX 17.33% of that small subset
+  (TX: 13 of only 75 recovered). A follow-up needs the extractor to
+  distinguish "new entry" from "sub-clause enumeration inside the current
+  entry" more precisely.
+- **Extraction logic lives in `pipeline.py`, not behind the profile seam.**
+  The inline-quote fallback and body-heading derivation were added to
+  `pipeline.py` rather than `USProfile`, a deviation from the intended
+  architecture forced by file-ownership constraints. Not a functional bug;
+  a structural cleanup for later.
+- **Heading-matcher recall gaps in 3 of 7 working states.** WA 10.3%, FL
+  5.5%, NY 4.4% of real Definitions sections are not recognized (real
+  headings with extra words, e.g. multi-topic titles) — a recall gap, not
+  a false-positive risk; zero false positives held throughout.
+- **Bulk-ingest memory is unbounded within one run.** Bulk directory mode
+  holds one DB session across all 105 files without expunging, so the
+  identity map grows with total rows processed; the manager's real run
+  measured 606 MB peak RSS for the full corpus, well under the several-GB
+  worst case once feared, but a very large future corpus could still grow
+  this unboundedly without a periodic expunge/flush.
 
 ## Evaluation Notes
 
-_None yet._
+Cycle 5 (final) reproduces the contract's stated baseline exactly: backend
+641 passed / 0 failed, frontend 165 passed / 0 failed, typecheck clean,
+167/167 Hebrew+definition-link tests green. No implementation code touched
+this cycle (QA scope only); 2 tests renamed out of
+`test_qa_regression_us_state_law_cycle4_FAIL.py` into the standing
+`test_qa_regression_us_state_law.py` file per close-out (both already
+passed; net test count unchanged), and the FAIL-named file deleted.
 
 ## QA Notes
 
-- **Q1 (cycle 4) — PRECISION audit (R15a), the headline probe.** Full-corpus
-  scan (every real row, exact live dispatch replayed) + 30-term random
-  samples for IL/CA/DE/TX: all 4 states' random samples 30/30 genuine, no
-  fragments/citations/empty terms. Fallback (IL/CA) precision is NOT
-  materially worse than the original extractor (DE/TX) — but ONE confirmed,
-  live-path-proven junk record found (CA "Dispose", 26,715-char definition
-  swallowing 3 other terms) → item 3 bounced. Full breakdown incl. all junk
-  examples: log §"QA cycle 4" Q1.
-- **Q2 (cycle 4) — ingest integrity PASS on a never-tested file (WA).**
-  51,498 real rows: CLI summary exactly matches DB both fresh (51,498
-  new/0/0) and re-ingested (0/51,498/0); 1,026 shared section_numbers all
-  correctly produce distinct Articles. Item 5 now PASSES. Log §"QA cycle 4".
-- **Q3/Q4 — Hebrew PASS, placeholder-misfire PASS.** 167 Hebrew tests green,
-  `HebrewProfile.code=="IL"` structurally blocks the fallback. Placeholder
-  pattern matched 7 ordinary rows across all 7 working states (1 NY + 6 NEW
-  in PA) but 0 caused a real behavioural flip (body-derivation returns None
-  for all 7, confirmed live). Log §"QA cycle 4".
-- **Q5 — Georgia quantified.** 5/28,154 detected (confirms R15c); 438 rows
-  (1.56%) share the exact undetected `"As used in this chapter, the term"`
-  convention — real scope for the follow-up. Not fixed this sprint (by
-  design). Log §"QA cycle 4".
-- **Q6 + gate sign-off — GO, with a flagged memory caveat.** WA/CA/3-file
-  bulk timing all measured (~3,700-4,000 rows/sec); extrapolated ~8-9 min
-  for 2M rows. Memory bounded per-file (~280-380MB) but bulk mode's single
-  un-expunged session means the identity map grows with TOTAL rows across
-  all 105 files — extrapolated several-GB peak RSS, worth the manager
-  monitoring. G1/G3/G4/G5/G7 PASS, G2 PASS-with-one-scoped-defect, G6
-  CODE-ONLY. Full gate table: log §"QA cycle 4".
+- **Q1 (cycle 5, FINAL) — wave-7 precision re-audit.** General 30-term
+  samples CA/DE/TX all 30/30 genuine (matches cycle 4). Targeted the
+  ~2,400 letter-led recovered terms specifically: degenerate-definition
+  rate CA 0.22%, DE 1.72%, TX 17.33% (13/75) — materially above the
+  pre-existing shape's own ~0.1% rate, but not a regression (these terms
+  were extracted 0% of the time before wave 7). Same root cause as R16's
+  residual, inverse symptom (truncation, not swallow). Log §"QA cycle 5" Q1.
+- **Q2 (cycle 5, FINAL) — R16 residual verified TRUE, bloat quantified.**
+  Reproduced the exact row: 10 unique terms (was 2), `Dispose` 286 chars,
+  `Open-space purposes` 21,174 chars, exactly 2 sentence-fragment terms —
+  all match R16 verbatim; no correction needed. Corpus-wide (full 105-file
+  live-dispatch replay): 424 of 258,472 extracted definitions (0.164%)
+  exceed 5,000 chars. Log §"QA cycle 5" Q2.
+- **Q3 (cycle 5, FINAL) — R17's G6 numbers independently re-verified,
+  all correct.** Corpus is exactly 105 parquet files (confirmed via the
+  real snapshot directory). 112 skipped-with-reason reproduced exactly via
+  an independent pyarrow scan (110 GA + 2 NC, all genuinely empty `text`).
+  Spot-ingested 4 real files through the live CLI against a fresh DB: DB
+  Article counts match CLI-reported counts exactly every time; idempotent
+  re-run confirmed. Log §"QA cycle 5" Q3.
+- **Q4 — Hebrew final, unchanged.** 167/167 Hebrew+definition-link tests
+  green after wave 7; `HebrewProfile.code=="IL"` guard unchanged.
+- **Q5/Q6 — Georgia + heading-miss numbers re-verified unchanged; FINAL
+  gate sign-off.** GA 5/28,154 (438 rows, 1.56%, undetected convention),
+  WA/FL/NY 10.3%/5.5%/4.4% heading-miss — all reproduced exactly,
+  unaffected by wave 7. G1/G3/G4/G5/G7 PASS, G2 PASS-with-limitation, G6
+  now RUN-verified PASS (was code-only). Full table: log §"QA cycle 5".
 
 ## Context Dump
 
-Planner pass complete 2026-08-02: true baseline established (all-green,
-see above), 6 items defined, RED tests authored + confirmed for all 6
-(23 backend RED signals, 14 frontend RED tests across 5 files — full
-per-file breakdown in the sprint log). Real DE fixture rows committed at
-`backend/tests/fixtures/us_statutes/`. Zero implementation written.
-Next: manager reviews item/track split, rules on parallelization, spawns
-Developer(s) starting with Item 1 (no dependencies) and Item 2 (blocks
-Items 3/4). Full rationale for every design call: sprint log.
+Sprint COMPLETE as of QA cycle 5 (final): all 6 items PASS, all 7 gates
+signed off (G2 and G6 formerly open, now closed — see Completed), 641
+backend / 165 frontend / typecheck clean, 167/167 Hebrew tests unchanged.
+Known limitations documented above (Georgia, residual bloat/truncation,
+architecture wrinkle, heading-miss rates, bulk-memory growth) — all
+accepted scope, none gate-blocking. Next: director reviews for merge to
+`main`; no further QA/dev cycles needed. Full evidentiary detail for every
+claim in this contract: sprint log (`-log.md`).

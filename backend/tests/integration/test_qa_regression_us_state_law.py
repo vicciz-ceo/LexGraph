@@ -797,3 +797,132 @@ def test_ingest_us_statute_rows_silently_merges_two_different_real_california_se
         "cross-checking its reported 'rows ingested' count against the "
         "database's actual Article count (they disagreed)"
     )
+
+
+# --- Folded in from QA cycle 4 (2026-08-03): both tests in ------------------
+# --- `test_qa_regression_us_state_law_cycle4_FAIL.py` now PASS after wave 7's -
+# --- entry-splitter fix (letter-led entry boundaries) -- item 3's "Dispose" --
+# --- boundary-swallow defect (26,715-char definition absorbing 3 other real --
+# --- terms) is fixed live-path: "Open-space purposes" is now recovered as ---
+# --- its own Definition, and "Dispose" itself is now 286 chars, not 26,715. -
+# --- QA cycle 5 re-ran both tests directly and confirmed 2 passed before ----
+# --- folding them in here (renamed from the FAIL file per close-out). -------
+# --- RESIDUAL (see contract's "Known limitations" section, cycle 5): --------
+# --- "Open-space purposes" itself is now ~21,174 chars and 2 of the other ---
+# --- recovered "terms" on this row are sentence fragments -- not fixed, -----
+# --- just no longer swallowing OTHER terms' text. Carried as a documented ---
+# --- known limitation, not re-bounced. --------------------------------------
+
+QA_CYCLE4_FIXTURE_JSON = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "us_statutes"
+    / "qa_cycle4_rows.json"
+)
+
+
+def _load_qa_cycle4_rows() -> dict[str, dict]:
+    rows = json.loads(QA_CYCLE4_FIXTURE_JSON.read_text(encoding="utf-8"))
+    return {r["act_id"]: r for r in rows}
+
+
+def test_real_pipeline_correctly_recovers_a_quote_style_mismatched_term_in_a_real_california_section(
+    db_session, matter_with_users
+):
+    """Green regression guard: a real CA row whose entry (a) uses the SAME
+    left-curly quote character on both sides of its term ("Adjustment
+    factor" ... instead of a matching open/close pair) does NOT reach the
+    production pipeline as garbage, because `normalize_for_parsing`
+    collapses curly-quote variants to plain `"` before Stage 2 extraction
+    runs, which happens to make the pair consistent again."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    rows = _load_qa_cycle4_rows()
+    row = rows["STATE_CA_Cshc_D1_C1_A6.5_S217"]
+    assert row["section_title"] == "Section 217", (
+        "fixture must reproduce the real CA placeholder-heading shape"
+    )
+    assert "“Adjustment factor“ means" in row["text"], (
+        "fixture must reproduce the real quote-style-mismatch mojibake in "
+        "the RAW row -- both quote marks around the term are the SAME "
+        "left-curly character, not a matching open/close pair"
+    )
+
+    ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="California Codes (QA cycle4 quote-mismatch probe)",
+        rows=[{k: v for k, v in row.items() if not k.startswith("_")}],
+        jurisdiction="US-CA",
+    )
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    all_terms = {term for d in result["created_definitions"] for term in d["terms"]}
+
+    assert "Adjustment factor" in all_terms, (
+        "the real production pipeline should recover the genuine term "
+        '"Adjustment factor" cleanly from this real CA section'
+    )
+    assert not any(len(term) > 100 for term in all_terms), (
+        f"no genuine defined legal term in this section should run longer "
+        f"than ~100 characters: {sorted((t for t in all_terms if len(t) > 100), key=len)!r}"
+    )
+
+
+def test_real_pipeline_recovers_open_space_purposes_as_its_own_definition_after_wave7(
+    db_session, matter_with_users
+):
+    """Wave-7 fix verified live-path: 'Dispose' no longer absorbs the rest
+    of the section's other, separately-defined terms -- 'Open-space
+    purposes' (and its neighbours) are now recovered as their own
+    Definition rows, and 'Dispose' itself is a short, clean definition."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.definition import Definition
+
+    m = matter_with_users
+    rows = _load_qa_cycle4_rows()
+    row = rows["STATE_CA_Cgov_T5_D2_P1_C5_A8_S54221"]
+    assert row["section_title"] == "Section 54221"
+    assert '“Open-space purposes” means' in row["text"], (
+        "fixture must reproduce the real CA section containing (at least) "
+        "4 distinct defined terms after 'Dispose': 'Open-space purposes', "
+        "'Sectional planning area', and 'Sectional planning area document'"
+    )
+
+    ingest_us_statute_rows(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="California Codes (QA cycle4 boundary-swallow probe)",
+        rows=[{k: v for k, v in row.items() if not k.startswith("_")}],
+        jurisdiction="US-CA",
+    )
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    all_terms = {term for d in result["created_definitions"] for term in d["terms"]}
+
+    assert "Open-space purposes" in all_terms, (
+        '"Open-space purposes" is a real, separately-defined term in this '
+        "same real CA section, immediately after \"Dispose\" -- wave 7's "
+        "entry-splitter fix (recognizing a new entry start after a run of "
+        "lettered sub-clauses) now recovers it as its own Definition"
+    )
+
+    dispose_defs = [
+        db_session.get(Definition, d["id"])
+        for d in result["created_definitions"]
+        if "Dispose" in d["terms"]
+    ]
+    assert dispose_defs, '"Dispose" itself must still be recovered as a term'
+    for definition_row in dispose_defs:
+        assert len(definition_row.definition_text) < 2000, (
+            f'"Dispose"\'s own definition_text is {len(definition_row.definition_text)} '
+            "characters long -- after wave 7 it must be a short, clean "
+            "definition, not a 26,715-character record swallowing 3 other terms"
+        )
