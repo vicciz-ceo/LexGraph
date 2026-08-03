@@ -96,12 +96,19 @@ Full text in `2026-08-04-defs-us-markers-log.md` §M1. Summary:
 
 ## Boundary with core sprint (`2026-08-04-defs-core-scope`)
 
-_Status: PROPOSED by this sprint's Planner (pass 1, 2026-08-04); NOT YET
-AGREED. Polled `origin/claude/defs-core-scope` @ `5b93ef8` (re-fetched this
-pass) -- still only the planner-lock skeleton, no `## Seam spec (published)`
-section. This proposal is relayed to the program manager for the core
-panel; no Developer of ours touches shared modules until both contracts
-record agreement (U-R2)._
+_Status: PROPOSED by this sprint's Planner (pass 1, 2026-08-04). **UPDATE
+(pass 2, same day)**: core's `## Seam spec (published)` IS NOW LIVE on
+`origin/claude/defs-core-scope` (polled this pass) -- `EntrySplitterRule`/
+`TermClauseRule`/`ScopeTriggerRule` registry kinds, a profile-overridable
+`normalize_for_parsing`, and `extract_definitions_from_section`'s
+try-baseline-then-registered-rules dispatch all match what this sprint's
+pass-1 proposal (c)(1)-(4) asked for. Full re-reconciliation against the
+published spec (confirming waves 3/4/5/6/10 above each map onto a named
+seam hook, and re-raising anything that doesn't) is NOT done this pass
+(outside pass 2's assigned priorities) -- flagged for the next planner
+pass or the sub-manager before any Developer starts implementation. No
+Developer of ours touches shared modules until that reconciliation is
+recorded (U-R2 still applies)._
 
 **(a) What this sprint WILL touch**: only NEW files -- the wave-1 fixture
 (`backend/tests/fixtures/us_statutes/us_markers_wave1_rows.json`) and test
@@ -175,56 +182,79 @@ planner pass 1`.
 ## Next Steps
 
 Ordered by corpus impact; full rationale and measured rates in the log's
-`## P1` §3. Each item independently testable, each names its gate(s).
+`## P1`/`## P2` sections. Each item independently testable, each names
+its gate(s). **Core's seam spec is now PUBLISHED** (`## Seam spec
+(published)`, `origin/claude/defs-core-scope`, polled this pass) -- items
+below note whether they land as a registry-rule module (`EntrySplitterRule`/
+`TermClauseRule`, seam `rules/us_entry_marker_variants.py`) once core's
+Developer ships C1-C4, superseding the earlier "possibly blocked" framing.
+Not re-planned this pass (out of pass-2's assigned priorities); flagged for
+the next planner pass or the sub-manager.
 
-1. **Wave 1 [U1, U6] -- RED tests authored THIS pass.** No-marker
-   inline-quote (VA/WA/FED) + boundary-precision guards (degenerate
-   near-empty, phantom nested term, editorial-notes swallow). Corpus
-   impact: 4,443 zero-candidate rows (VA 1,065 + WA 1,778 + FED 1,600,
-   full-corpus counts, this pass). Side effect (not separately
-   implemented): also auto-rescues UT's nested-lettered-subclause shape,
-   TX's ALL-CAPS-singular shape, and most of AZ's bare-digit-dot shape --
-   confirmed live, needs only their own named-row RED tests for QA
-   verification, not new implementation. **BLOCKED on the core seam**
-   (touches pipeline.py's C3 territory) -- tests are NOT blocked, already
-   RED against the real production entry point.
-2. **Wave 2 [U1, U4] -- idiom-set broadening.** Recognize `shall include`
-   / `includes` / `shall be deemed to refer to` / single-term
-   `"X" shall have the meaning set forth in <cite>` as entry boundaries.
-   Corpus impact (this pass's sample, not yet full-count): VA 40, FED 123
-   residual rows. **BLOCKED on core** (same shared code area as wave 1).
-3. **Wave 3 [U1] -- SC/AZ residual bare-marker splitting.** SC's bare
-   `(N)` boundary noise (a literal `"(2)"` fragment leaking into the prior
-   entry's text); AZ's no-quote minority. **Possibly NOT blocked on core**
-   if C4's registry supports an additive per-jurisdiction splitter --
-   open question (c)(4) above.
-4. **Wave 4 [U1] -- RI/AK mojibake-quote normalization.** RI confirmed
-   NOT auto-rescued by wave 1 (mojibake bytes aren't recognized as quotes
-   by either path). **Open question (c)(3) above** -- may be independent
-   of C3/C4 timing if `normalize_for_parsing` is profile-overridable.
-5. **Wave 5 [U1] -- DC unquoted-term definitions.** Zero quote characters
-   in the body; needs a non-quote-anchored rule. Ships as a NEW registry
-   module (U3) once C4 exists.
-6. **Wave 6 [U1] -- TN colon-then-list.** Confirmed NOT rescued by wave 1
-   (idiom mismatch). Bespoke handling needed; minority of TN's family-3
-   volume (TN's dominant miss is family 1, another sprint's territory).
-7. **Wave 7 [U1] -- OR prose-body boundary check.** `needed housing`
-   captures 3,182/3,332 body chars -- not yet confirmed clean vs.
-   swallowing; needs closer inspection before folding into wave 1.
+1. **Wave 1 [U1, U6] -- RED tests authored pass 1, still the correct
+   contract.** No-marker inline-quote (VA/WA/FED) + boundary-precision
+   guards. Corpus impact: 4,443 zero-candidate rows. **BLOCKED on the core
+   seam** landing (touches pipeline.py's exact C3 migration target).
+   Side-effect auto-rescue claim (UT/TX/AZ) -- **RED tests authored THIS
+   pass, `test_us_markers_wave1_auto_rescue_subcases.py`** -- TX confirmed
+   genuinely clean; UT and AZ needed CORRECTION (not rejection): both
+   have their own boundary defect distinct from wave 1's known ones (UT
+   swallows the next 2 entries when their idiom isn't "means"; AZ leaks
+   the next entry's bare digit-dot marker, same defect class as item 3
+   below) -- see log `## P2`.
+2. **Wave 2 [U1, U4] -- idiom-set broadening.** Unchanged from pass 1.
+   **BLOCKED on core** (same shared code area as wave 1).
+3. **Wave 3 [U1] -- SC/AZ marker-splitter fix.** SC's bare `(N)` boundary
+   noise + a SECOND, previously-unrecorded SC defect this pass (trailing
+   "Effect of Amendment" commentary swallow); AZ's no-quote minority PLUS
+   (new this pass) a marker-leak defect in AZ's own "auto-rescued"
+   dominant shape (see item 1). **RED tests authored THIS pass** for SC,
+   `test_us_markers_not_yet_rescued_subcases.py`; AZ's marker-leak guard
+   is in item 1's test file. Likely ships as an `EntrySplitterRule` module
+   under the now-published seam.
+4. **Wave 4 [U1] -- RI/AK mojibake-quote normalization.** Corrected this
+   pass: RI (`\x80\x9c`/`\x9d`) and AK (`\x93`/`\x94`) use TWO DIFFERENT
+   mojibake byte sequences, not one shared shape -- a fix covering only
+   one does not cover the other. AK's full-corpus rate (new measurement
+   this pass): 766/767 (99.9%) zero-candidate, larger than RI's known
+   15%. **RED tests authored THIS pass** for both,
+   `test_us_markers_not_yet_rescued_subcases.py`. Per the published seam,
+   ships as a profile-level `normalize_for_parsing` override -- confirmed
+   available (Seam 1), not blocked on C3/C4 timing.
+5. **Wave 5 [U1] -- DC unquoted-term + AL unquoted-ALL-CAPS.** Folded
+   into one item this pass (both non-quote-anchored, same rule family).
+   **RED tests authored THIS pass** for both,
+   `test_us_markers_not_yet_rescued_subcases.py`. AL is the highest-value
+   item in this whole list: 1,603/1,653 = 97.0% zero-candidate, full
+   corpus. Ships as a `TermClauseRule` module under the published seam.
+6. **Wave 6 [U1] -- TN colon-then-list.** **RED test authored THIS pass**,
+   `test_us_markers_not_yet_rescued_subcases.py`. Note: the real row's
+   `text` field itself carries a duplicated-content data-quality quirk
+   (not injected) -- test asserts content presence + trailing-annotation
+   exclusion, not an exact length; see the test's own docstring.
+7. **Wave 7 [U1] -- OR prose-body boundary check.** Unchanged from pass
+   1, not picked up this pass -- still needs closer inspection before any
+   test is authored.
 8. **VT overlap -- flagged to the program manager, not claimed.**
-   `STATE_VT_T23_C35_S3700` is family 3 AND family 5
-   (`defs-us-multiterm`'s territory) at once; see log for the live
-   mechanism proof.
-9. **AL unquoted-ALL-CAPS -- not yet assigned a wave.** Confirmed live,
-   97.0% zero-candidate (1,603/1,653), NOT rescued by wave 1. Belongs with
-   wave 5's non-quote-anchored rule or its own wave; sizing deferred to
-   the next planner pass. No RED test authored this pass (out of this
-   pass's VA/WA/FED scope per the brief).
-10. **Correctly-empty classifier, committed for real [U4, U-R3].** This
-    pass's classifier (terminal-status + cross-reference regexes) lives
-    only in an uncommitted scratchpad script; needs a real, committed,
-    QA-callable module (candidate home: `app/definition_links/
-    correctly_empty.py`) before gate U4's zero-miss sweep can rely on it.
+   Unchanged from pass 1.
+9. _Retired as a separate item -- folded into item 5 above._
+10. **Correctly-empty classifier, committed for real [U4, U-R3] -- RED
+    tests authored THIS pass**, `test_definition_links_correctly_empty.py`,
+    defining the required contract for a new
+    `app/definition_links/correctly_empty.py` module (not yet
+    implemented -- every test in this file currently fails with
+    `ModuleNotFoundError`, deferred to test-run time so it doesn't abort
+    collection of the rest of the suite). **Material correction to pass
+    1's own classifier measurement, found this pass**: the cross-reference
+    rule as pass 1 described it ("matched at the START of the stripped
+    body") is dangerously over-broad -- it misclassifies wave 1's OWN
+    flagship WA test row (2 real terms) and two real VA rows (46 and 7
+    real terms) as "correctly empty". Corrected rule requires the ENTIRE
+    body (minus an optional trailing `History:` annotation) to be nothing
+    but the cross-reference sentence. Recomputed full-corpus rate: **WA
+    4/1,778 (0.2%)**, not pass 1's reported 734/1,778 (41.3%); VA 0/1,065
+    (0.0%), not 2/1,065. DC/WI/WY unaffected. Full detail: log `## P2`,
+    fixtures README.
 
 ## Dev Complete
 

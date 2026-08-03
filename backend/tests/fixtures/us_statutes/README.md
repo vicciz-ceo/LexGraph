@@ -320,3 +320,91 @@ methodology and measured rates in this sprint's log, `## P1 — planner pass
    shape, and 99.2% of all >=5,000-char inline-fallback candidates across
    VA+WA+FED come from a row with it — FED's dominant, and previously
    unmeasured, boundary hazard.
+
+## `us_markers_correctly_empty_rows.json` — planner pass 2, gate U4 classifier (2026-08-04)
+
+10 REAL rows (full original 24 columns, values unmodified), for
+`test_correctly_empty_classifier.py`'s RED tests defining the
+`app.definition_links.correctly_empty` module's required contract (sprint
+log `## P2`, gate U4, ruling U-R3). All verified byte-identical to the
+source parquet this pass (`section_title` and `text`, all 19 new rows
+across both new fixture files, every one `True`).
+
+**Terminal-status class** (all real DC rows — DC's zero-candidate set is
+53.6%/178/332 this class alone, this sprint's log `## P1`):
+1. `STATE_DC_T47_C28_S47-2843` — body `"Repealed."`.
+2. `STATE_DC_T42_C36_S42-3631` — body `"Expired."`.
+3. `STATE_DC_T2_C3_S2-308.13` — body `"Recodified as § 2-381.01 ."`.
+4. `STATE_DC_T33_C1_S33-112.03` — body `"Reserved."`. **Caveat, checked
+   exhaustively this pass**: no row in the full 53-state corpus combines
+   a `Reserved.`/`Renumbered.`/`Omitted.`/`Vacant.` body with a heading
+   `is_definitions_heading` recognizes (0 hits, all 53 `*_statutes.parquet`
+   files scanned) — this row's OWN heading is `"§ 33-112.03. [Reserved]."`,
+   not Definitions-shaped. Vendored anyway because the classifier's
+   contract is a pure function of `body_text` (see module docstring in the
+   test file) and this is REAL corpus text proving the `Reserved.` literal
+   shape genuinely exists — not because this specific row would ever reach
+   the classifier in production.
+
+**Cross-reference class** — corrected this pass, see below:
+5. `STATE_WI_C851_S851.002`, 6. `STATE_WY_T99_C3_S99-3-1101`,
+   7. `STATE_WA_T43_C99N_S010` — three real, genuine other-citation
+   cross-references (one per jurisdiction), each a single short sentence
+   naming a DIFFERENT section/chapter than the one it's in, with nothing
+   operative after it (WI has a trailing `History: ...` amendment-citation
+   annotation, real, carries no defining content).
+
+**NEGATIVE class — critical guard, must classify as MISS, not
+correctly-empty:**
+8. `STATE_WA_T47_C14_S020` — wave-1's OWN flagship WA test row (2 real
+   terms, `Right-of-way`/`Airspace`). Its body opens with `"The
+   definitions set forth in this section apply throughout this
+   chapter."` — a SELF-referential preamble (the definitions are right
+   HERE, not elsewhere) immediately followed by real defining content.
+9. `STATE_VA_T29.1_C7_A2.1_S29.1-733.2` — real VA watercraft-titling
+   Definitions section, 9,658 chars, **46 real quoted definitions**. Body
+   opens `"The definitions in this section do not apply to..."`.
+10. `STATE_VA_T58.1_SI_C17_A9_S58.1-1735` — real VA rental-tax Definitions
+    section, 3,726 chars, **7 real quoted definitions**. Body opens
+    `"The definitions in § 46.2-1408 shall apply, mutatis mutandis, to
+    this article."` — names a REAL other citation, same surface shape as
+    the genuine cross-reference rows above, but followed by substantial
+    operative content of its own.
+
+**Why rows 8-10 matter (material correction to pass 1's classifier
+measurement, sprint log `## P2`):** pass 1's log defined the
+cross-reference rule as matched "at the START of the stripped body" with
+no requirement that the match consume the WHOLE body. Applying that
+literal rule to the full real corpus this pass (not merely the WI/WY
+examples pass 1 checked) finds it is dangerously over-broad: **727 of
+WA's 734 naive "cross-reference" hits (99.0%) — including row 8, wave
+1's own flagship test row — are self-referential preambles with real
+defining content immediately after them, not actual cross-references.**
+Both VA rows above are further proof: 46 and 7 real definitions
+respectively, both opening with a citation-shaped sentence that a
+start-anchored-only match would misclassify as "correctly empty." The
+corrected rule (requires the ENTIRE stripped body, after an optional
+trailing `History:` annotation, to be short — nothing substantial follows
+the cross-reference sentence) reclassifies all three of rows 8-10 as MISS
+and leaves rows 1-7 unaffected. Recomputed full-corpus rate with the
+corrected rule: **WA 4/1,778 (0.2%)**, not pass 1's reported 734/1,778
+(41.3%) — VA drops from 2/1,065 (0.2%) to 0/1,065 (0.0%). DC/WI/WY numbers
+are unchanged (unaffected by the fix). Full detail in the sprint log's
+`## P2` entry.
+
+## `us_markers_wave2_subcases_rows.json` — planner pass 2, priorities 2 & 3 (2026-08-04)
+
+9 REAL rows (full original 24 columns, values unmodified), for two new
+integration test files verifying (a) pass 1's claimed wave-1
+"auto-rescue" side effects on UT/TX/AZ, corrected per U-R1 boundary
+rigor, and (b) the sub-cases wave 1 does NOT rescue (AL/DC/RI/AK/TN/SC).
+Full per-row rationale, exact expected term sets, and the two NEW
+boundary defects found this pass (UT's swallow-through-non-means-idiom,
+AZ's leaked-next-marker) are in the sprint log's `## P2` entry and each
+test's own docstring — not duplicated here per this file's size budget.
+
+Rows: `STATE_UT_T75B_S75B_1_301`, `STATE_TX_Cfi_C37_S37.001`,
+`STATE_AZ_T15_C14_A7_S1871` (priority 2); `STATE_AL_T1_C19_S22-19-141`,
+`STATE_DC_T28_C25_S28-2501`, `STATE_RI_T35_C35-13_S35-13-2`,
+`STATE_AK_T44_C44.42_S44.42.900`, `STATE_TN_T50_C2_S50-2-115`,
+`STATE_SC_T5_C1_S5-1-20` (priority 3).

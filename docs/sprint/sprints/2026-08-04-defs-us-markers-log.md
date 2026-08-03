@@ -491,3 +491,259 @@ the same change. I disagree: that puts family-3 BEHAVIOUR change inside the
 core sprint, where neither the RED tests nor the family expertise live, and
 leaves my QA verifying another panel's implementation. My lean is recorded in
 the escalation to the program manager (see §M3).
+
+---
+
+## P2 -- planner pass 2 (2026-08-04)
+
+Sonnet/high. Read in mandated order: this contract, this log's `## P1`/`## M2`,
+program doc, prior sprint's known-limitations, fixtures README, pass 1's own
+test files. CodeGraph used first (`codegraph explore` over the
+definition_links directory, extract.py/us_profile.py symbols) before Reading
+any file directly. Polled `origin/claude/defs-core-scope`: **the seam spec is
+now published** (`## Seam spec (published)`, `EntrySplitterRule`/
+`TermClauseRule`/`ScopeTriggerRule` registry kinds, profile-overridable
+`normalize_for_parsing`) -- noted in the contract's boundary section; full
+re-reconciliation deferred (out of this pass's assigned priorities).
+Worktree confirmed clean at `2e8a8d5`; baseline re-verified
+`backend/.venv/bin/pytest backend/tests -q` -> `6 failed, 642 passed` before
+any new test was written, matching the manager's M2 figure exactly.
+
+### Priority 1 -- correctly-empty classifier RED tests (gate U4, ruling U-R3)
+
+New file: `backend/tests/unit/test_definition_links_correctly_empty.py` (15
+tests). Defines the required contract for a NOT-YET-IMPLEMENTED module:
+
+```python
+# backend/app/definition_links/correctly_empty.py
+from dataclasses import dataclass
+from typing import Literal
+
+CorrectlyEmptyReason = Literal["terminal_status", "cross_reference"]
+
+@dataclass(frozen=True)
+class CorrectlyEmptyResult:
+    is_correctly_empty: bool
+    reason: CorrectlyEmptyReason | None  # None iff is_correctly_empty is False
+
+def classify_correctly_empty(body_text: str) -> CorrectlyEmptyResult: ...
+```
+
+Pure function of `body_text`; caller is responsible for the two preconditions
+(Definitions-recognized heading, zero extracted candidates) -- documented in
+the test file's module docstring, not re-checked by the function itself.
+Priority order: (1) terminal-status (whole stripped body is exactly
+`Repealed.`/`Expired.`/`Reserved.`/`Renumbered.`/`Omitted.`/`Vacant.`/
+`Recodified as ...`), (2) cross-reference (see correction below), (3)
+otherwise MISS.
+
+To avoid a missing-module collection error aborting the WHOLE suite's
+collection (verified: a top-level `from app.definition_links.correctly_empty
+import ...` produces `!!!! Interrupted: 1 error during collection !!!!` and
+runs ZERO tests, backend-wide -- unacceptable, it would hide the 642-passed
+baseline), the import is deferred inside a `_classify` helper so each test
+fails individually AT RUN TIME with a clear `ModuleNotFoundError`, and
+collection of every other file proceeds normally. Verified:
+`pytest backend/tests -q` -> `21 failed, 642 passed` at this point (6 wave-1 +
+15 new), no collection abort, no regressions.
+
+**Real vendored rows** (new fixture `us_markers_correctly_empty_rows.json`,
+10 rows, byte-verified against the source parquet this pass -- all `True`):
+terminal-status class from DC (`Repealed.`/`Expired.`/`Recodified as
+...`/`Reserved.`, the last one caveated -- see fixture README, no row in the
+full 53-state corpus combines a `Reserved.` body with a Definitions-
+recognized heading, verified exhaustively); genuine cross-reference class
+from WI/WY/WA (one each, all short single-sentence other-citations).
+
+**A material, corpus-proven correction to my OWN pass-1 classifier
+design**, found by testing it against the FULL real corpus rather than
+pass 1's WI/WY spot-checks: pass 1's cross-reference rule ("matched at the
+START of the stripped body") is dangerously over-broad. Reproducing it
+against real WA/VA data:
+
+- **727 of WA's 734 naive-rule hits (99.0%) are SELF-referential**
+  ("The definitions set forth in this section apply throughout this
+  chapter.") immediately followed by real defining content -- including
+  `STATE_WA_T47_C14_S020`, **wave 1's own flagship WA test row** (2 real
+  captured terms). The naive rule would have called this "correctly empty"
+  and silently erased a proven miss -- precisely the failure mode ruling
+  U-R3 exists to prevent.
+- Two real VA rows independently prove the same failure: `STATE_VA_T29.
+  1_C7_A2.1_S29.1-733.2` (9,658 chars, **46 real quoted definitions**, opens
+  "The definitions in this section do not apply to...") and `STATE_VA_
+  T58.1_SI_C17_A9_S58.1-1735` (3,726 chars, **7 real quoted definitions**,
+  opens "The definitions in § 46.2-1408 shall apply..." -- names a REAL
+  other citation, same surface shape as a genuine cross-reference, but with
+  substantial content of its own following it).
+- **Corrected rule**: requires the ENTIRE stripped body (after removing an
+  optional trailing `History: ...` amendment-citation annotation -- WI's
+  real convention) to be nothing but the cross-reference sentence, not
+  merely to start with one. Verified against all known evidence (script,
+  scratchpad, not committed): WI x2, WY, WA-genuine all still classify
+  correctly-empty; the WA flagship row and both VA rows now correctly
+  classify as MISS.
+- **Recomputed full-corpus rate** (corrected rule, run against real
+  `is_definitions_heading`/`extract_definitions_from_section`, this pass):
+  **WA 4/1,778 (0.2%)**, not pass 1's reported 734/1,778 (41.3%); **VA
+  0/1,065 (0.0%)**, not 2/1,065 (0.2%). DC (0/332), WI (2/62, 3.2%), WY
+  (19/56, 33.9%) are unchanged -- the fix only matters for jurisdictions
+  whose dominant idiom is a self-referential "definitions apply to this
+  section" preamble immediately followed by real content (VA/WA), not for
+  states whose genuine cross-references are short standalone sentences.
+
+This is not a P-R2 escalation (zero-miss vs. zero-false-positive): the fix
+serves BOTH simultaneously, same as wave 1's FED editorial-notes fix -- an
+engineering correction to an under-specified rule, not a value tradeoff.
+
+Three negative tests directly encode rows 8-10 above (the two VA rows plus
+the WA flagship row) as the "critical guard" the brief asked for; a fourth
+parametrized test reuses wave 1's own 5 remaining fixture rows (VA/WA/FED
+defect + clean rows) as further negative evidence, no new vendoring needed.
+
+### Priority 2 -- auto-rescue sub-case RED tests (UT/TX/AZ)
+
+New file: `backend/tests/integration/test_us_markers_wave1_auto_rescue_
+subcases.py` (4 tests: 1 sanity + UT/TX/AZ). Live-path (`ingest_us_statute_
+rows` -> `run_definition_linking`, unmodified), same discipline as wave 1.
+`pytest ... -q` -> `3 failed, 1 passed` (today's real pipeline returns 0 for
+all three, same gate as VA/WA/FED).
+
+Reproducing pass 1's claim by calling the CURRENT, unmodified
+`_extract_inline_quoted_definitions` directly (same live-path method the
+manager used to verify pass 1's VA/WA/FED findings) found the claim needed
+CORRECTION for two of the three rows, not rejection:
+
+- **TX** (`STATE_TX_Cfi_C37_S37.001`): confirmed genuinely clean, as
+  claimed. 1 term ("emergency"), 738 chars, the whole body IS this one
+  definition (same shape as pass 1's own PA row).
+- **UT** (`STATE_UT_T75B_S75B_1_301`): NEW defect found this pass.
+  "Insolvent"'s captured definition_text swallows the two FOLLOWING entries
+  ("Paid and delivered", "Personal property") whole (599 chars, ends
+  mid-marker "...(7)") because their idiom ("does not include"/"includes")
+  isn't "means"/"shall mean"/"has the meaning", so `_MEANS_IDIOM_GAP_RE`
+  never recognizes them as a boundary. Same defect CLASS as VA's "sell"
+  collapse / FED's editorial-notes swallow (pass 1's own log) -- missed for
+  UT specifically because pass 1 measured only candidate existence on this
+  row, not boundary quality. Test asserts the 5 real "means"-idiom terms
+  with `"Insolvent"` capped under 260 chars and neither forbidden term
+  string present.
+- **AZ** (`STATE_AZ_T15_C14_A7_S1871`): NEW defect found this pass, same
+  class as SC's already-named `"(2)"` leak (contract wave 3): "Qualified
+  higher education expenses"'s captured definition_text ends
+  `"...internal revenue code.\n\n13."` -- it swallows the NEXT entry's bare
+  digit-dot marker. Test asserts all 17 real terms, none degenerate, and no
+  entry ends with a leaked trailing marker (`\d{1,3}\.\s*$`).
+
+Contract's `## Next Steps` updated: item 1 now cites this correction; item 3
+(wave 3, SC/AZ) now explicitly covers AZ's marker-leak too, not just its
+no-quote minority.
+
+### Priority 3 -- not-yet-rescued sub-case RED tests (AL/DC/RI/AK/TN/SC)
+
+New file: `backend/tests/integration/test_us_markers_not_yet_rescued_
+subcases.py` (7 tests: 1 sanity + 6 sub-cases). `pytest ... -q` -> `6 failed,
+1 passed` (today's real pipeline returns `[]` for all six -- no existing code
+path, main or fallback, can see any of these shapes).
+
+Highest corpus impact first, as directed:
+
+- **AL** (highest value): `STATE_AL_T1_C19_S22-19-141`, unquoted ALL-CAPS
+  `(N) TERM. Sentence.` shape, no quotes anywhere. Re-confirmed this pass:
+  1,603/1,653 = 97.0% of AL's Definitions-headed sections zero-candidate,
+  full corpus (unchanged from pass 1's measurement). Test asserts exact
+  terms `ORGAN`/`ATTENDING PHYSICIAN` with exact clean definition text
+  (both single-sentence, no boundary ambiguity on this row).
+- **DC unquoted-term shape**: `STATE_DC_T28_C25_S28-2501`. Zero quotes; the
+  term is the grammatical SUBJECT of its own sentence (`"A bond, ...,
+  means ..."`, `"An undertaking means ..."`) -- structurally harder than
+  AL's numbered-marker shape. Test asserts terms `bond`/`undertaking` with
+  substring + no-cross-swallow checks (not exact string match, given the
+  subject-extraction ambiguity is real implementation-design territory).
+- **RI/AK mojibake**: corrected this pass -- RI and AK use TWO DIFFERENT
+  byte sequences (RI `\x80\x9c`/`\x9d`, AK `\x93`/`\x94`), not one shared
+  shape as the contract's prose implied. A fix for one does NOT cover the
+  other. AK's full-corpus rate (new measurement, not previously stated):
+  **766/767 (99.9%)** zero-candidate -- larger than RI's known 15%. RI test
+  (`STATE_RI_T35_C35-13_S35-13-2`) asserts exactly 14 real terms -- NOT 15:
+  entry 11 ("Public entity") re-mentions "public entity" (mojibake-quoted
+  again) inside its OWN definition prose; a naive quote-scanner that
+  doesn't distinguish an entry-opening quote from an in-body re-quote would
+  over-count by one, same defect CLASS as wave 1's WA "motor vehicle"
+  phantom-nested-term guard. Verified the true count via a marker-anchored
+  regex (quote immediately after `"(N) "`), not a bare quote-pair scan. AK
+  test (`STATE_AK_T44_C44.42_S44.42.900`) asserts only the 2 unambiguous
+  "means"-idiom terms (`commissioner`/`department`) as a subset, not an
+  exact set -- entries 3-4 ("transportation"/"transportation mode") share
+  one clause via "or" and use the "includes" idiom, needing BOTH wave 4 AND
+  wave 2 before capture is even possible, and may overlap
+  `defs-us-multiterm`'s territory (same overlap class as pass 1's flagged
+  VT row) -- flagged, not claimed.
+- **TN colon-then-list**: `STATE_TN_T50_C2_S50-2-115`, re-confirmed NOT
+  rescued by wave 1 (idiom mismatch, as pass 1 found). New observation this
+  pass: the row's real `text` field itself contains the SAME statutory
+  content duplicated (once flowing, once line-broken) -- a genuine,
+  non-injected data-quality quirk. Test asserts content presence +
+  trailing-citation-annotation exclusion, not an exact length, to avoid
+  over-specifying how a future implementation should handle the
+  duplication (not this pass's job to resolve).
+- **SC bare-`(N)` boundary noise**: `STATE_SC_T5_C1_S5-1-20`, the
+  contract's own named row. Confirmed SC IS reachable via the CURRENT
+  fallback once wave 1's gate is removed (same mechanism as VA/WA/FED) but
+  NOT cleanly -- the contract's own named defect (`"Municipality"` ends
+  with a leaked `"(2)"` fragment) PLUS a SECOND, previously-unrecorded
+  defect found this pass: `"Publicly-owned property"` swallows a trailing
+  "Effect of Amendment" commentary annotation (a FED-editorial-notes-shaped
+  hazard). SC therefore stays RED even after wave 1 lands -- wave 3's
+  marker-splitter fix is a separate, not-yet-implemented item. Test asserts
+  both terms' exact clean text and both forbidden-leak guards.
+
+### Fixtures
+
+Two new files, both byte-verified against the source parquet this pass
+(`section_title` and `text`, all 19 new rows, all `True`):
+`us_markers_correctly_empty_rows.json` (10 rows) and
+`us_markers_wave2_subcases_rows.json` (9 rows). README updated with full
+per-row provenance and rationale (not duplicated here). No committed test
+reads the corpus snapshot (grepped `huggingface`/`datasets--vaquill`/
+`snapshots/301000` across all three new test files -- zero hits).
+
+### Full suite after this pass
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+30 failed, 644 passed, 18 warnings in 12.75s
+```
+
+644 = 642 (pass-1 baseline) + 2 new sanity-passing tests (one per new
+integration file). 30 failed = 6 (wave 1, unchanged) + 15 (priority 1) + 3
+(priority 2) + 6 (priority 3). Every new failure is RED against the real
+production entry point or (priority 1 only) a clear, deliberately
+non-collection-aborting `ModuleNotFoundError` for a not-yet-implemented
+module. No regressions: every test green before this pass is still green.
+
+### Contract updates
+
+`## Next Steps` rewritten: items 1/3/4/5/6/10 now note which RED tests
+exist and what corrections were found; item 9 (AL) retired, folded into
+item 5 (DC). `## Boundary with core sprint` status line updated: the seam
+spec is now published (noted, full reconciliation deferred to the next
+pass). `total_items` left at 10 (the renumbered/folded list still has 10
+entries).
+
+### Escalation check
+
+Nothing in this pass met the STOP-and-return bar. The WA/VA cross-reference
+over-match and the UT/AZ boundary defects are engineering corrections that
+serve BOTH zero-miss and zero-false-positive at once (same shape as wave 1's
+FED finding) -- not P-R2 conflicts. No recon or pass-1 claim was rejected
+outright; TX's auto-rescue claim reproduced exactly as stated, UT/AZ's
+needed correction but not rejection, and the RI/AK "shared mojibake shape"
+wording needed a factual split (two byte sequences) but both remain
+real, in-scope, not-yet-implemented misses. No new boundary disagreement
+with core (its seam spec, now published, already matches this sprint's own
+pass-1 request in the parts I checked this pass -- full line-by-line
+reconciliation is deferred, not a disagreement).
+
+**Commit**: local only, not pushed, per the brief. Exact SHA reported to the
+manager alongside this pass's summary.
