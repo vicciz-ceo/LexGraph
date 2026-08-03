@@ -33,6 +33,14 @@ notes: |
   this environment (only python@3.13 via Homebrew) — venv built with
   python3.13; functionally compatible with the R1 pin, flagged as a minor
   deviation in the sprint contract.
+
+  Update (2026-08-02, sprint 2026-08-02-us-state-law Planner, ruling R4):
+  the 126/39-FAILED/87-ERROR snapshot above is from 2026-07-25 and is
+  STALE — re-verified 2026-08-02: backend 504/504 passed, frontend
+  151/151 passed (20 files), typecheck clean. Whatever fixed the
+  pre-existing red landed in an intervening sprint and was never synced
+  back here. Always re-verify locally rather than trusting this note's
+  numbers going forward.
 ```
 
 ## Live environment

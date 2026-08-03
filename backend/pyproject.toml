@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "python-multipart>=0.0.12",
     "mcp>=2.0",
+    "pyarrow>=17.0",
 ]
 
 [project.optional-dependencies]

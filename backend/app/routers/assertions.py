@@ -60,6 +60,7 @@ from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
 from app.services.duplicates import find_related_assertions
+from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
     ValidationError,
@@ -73,6 +74,14 @@ from app.services.validation import (
 )
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
+
+# Sprint 2026-08-02-us-state-law, item 1 (ruling R5): the canonical
+# jurisdiction vocabulary endpoint, prefix-separate from the assertions
+# router above (`/api/v1/assertions/...`) since this serves
+# `/api/v1/jurisdictions`, not an assertions sub-resource. Registered
+# alongside `assertions_router` in `app.main.create_app()`. Route handler
+# itself is defined below `get_current_user_id` (needs that dependency).
+jurisdictions_router = APIRouter(prefix="/api/v1", tags=["jurisdictions"])
 
 EVIDENCE_ROLES = (
     "supports",
@@ -110,6 +119,17 @@ def get_current_user_id(request: Request) -> str:
         return get_bearer_user_id(request.headers.get("Authorization"))
     except AuthHeaderError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+@jurisdictions_router.get("/jurisdictions")
+def list_jurisdictions(
+    user_id: str = Depends(get_current_user_id),
+) -> list[str]:
+    """Serve the canonical jurisdiction controlled vocabulary (G5, R5): the
+    frontend's runtime source of truth, so a dropdown can never drift from
+    the backend list without a code change on both sides.
+    """
+    return list(JURISDICTION_CODES)
 
 
 # --- Request/response schemas -----------------------------------------------
@@ -478,6 +498,8 @@ def create_assertion(
         validate_assertion_type(
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
+        if body.jurisdiction is not None:
+            validate_jurisdiction(body.jurisdiction)
         validate_matter_scoped_entity_id(body.subject_entity.id, label="subject_entity")
         if body.object_entity is not None:
             validate_matter_scoped_entity_id(body.object_entity.id, label="object_entity")
@@ -644,6 +666,12 @@ def list_assertions(
     if status_:
         stmt = stmt.where(Assertion.status == status_)
     if jurisdiction:
+        try:
+            validate_jurisdiction(jurisdiction)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
         stmt = stmt.where(Assertion.jurisdiction == jurisdiction)
     assertions = session.execute(stmt).scalars().all()
 
@@ -799,6 +827,14 @@ def patch_assertion(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
             ) from exc
 
+    if "jurisdiction" in updates and body.jurisdiction is not None:
+        try:
+            validate_jurisdiction(body.jurisdiction)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this PATCH doesn't touch proposition, so a new
     # revision's raw column is never silently blanked out.
@@ -945,6 +981,14 @@ def create_revision(
     if body.proposition is not None:
         try:
             validate_text_length(body.proposition, label="proposition")
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
+    if body.jurisdiction is not None:
+        try:
+            validate_jurisdiction(body.jurisdiction)
         except ValidationError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)

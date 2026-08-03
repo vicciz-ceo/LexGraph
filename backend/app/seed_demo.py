@@ -250,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         "Supplier must notify Acme of a Data Incident within 72 hours.",
         "APPLIES_TO",
         evidence=[{"source_span_id": msa_spans[1], "evidence_role": "supports"}],
-        jurisdiction="EU",
+        jurisdiction="IL",
     )
     mark_model_suggested(a_incident, 0.92)
     rate("contributor", a_incident, 4, "Matches the notification clause.")
@@ -294,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
         "Customer data may only be processed in the jurisdictions listed in Annex 2.",
         "APPLIES_TO",
         evidence=[{"source_span_id": msa_spans[5], "evidence_role": "supports"}],
-        jurisdiction="EU",
+        jurisdiction="IL",
     )
     mark_model_suggested(a_jurisdiction, 0.78)
     rate("reviewer", a_jurisdiction, 4, None)
@@ -379,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
         "APPLIES_TO",
         matter=dpa,
         evidence=[{"source_span_id": dpa_spans[1], "evidence_role": "supports"}],
-        jurisdiction="EU",
+        jurisdiction="IL",
     )
     act("reviewer", a_dpa, "accept")
     a_dpa2 = create(
@@ -388,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         "INTERPRETS",
         matter=dpa,
         evidence=[{"source_span_id": dpa_spans[0], "evidence_role": "supports"}],
-        jurisdiction="EU",
+        jurisdiction="IL",
     )
     mark_model_suggested(a_dpa2, 0.81)
 

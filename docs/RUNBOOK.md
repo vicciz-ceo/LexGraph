@@ -207,6 +207,97 @@ cd ..
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
+### Ingesting US statutes (`vaquill/open-us-law` dataset)
+
+Sprint 2026-08-02-us-state-law (item 5, gate G6) adds an ingester for the
+[`vaquill/open-us-law`](https://huggingface.co/datasets/vaquill/open-us-law)
+Hugging Face dataset (109 Parquet files, ~1.1GB, ~2M sections — 50 states +
+DC + PR + federal, statutes + constitutions). `pyarrow` is a real backend
+dependency (see `backend/pyproject.toml`) so `pip install -e '.[dev]'` in
+the "Backend Environment Setup" step above already installs it.
+
+Each Parquet file is ingested with **one command**, which creates one
+`Document` (using `--title`) and one `Article` + `SourceSpan` per row:
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+.venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
+    --input /path/to/us_de_statutes.parquet \
+    --repository-id <repository-id> \
+    --matter-id <matter-id> \
+    --title "Delaware Code -- Statutes" \
+    --jurisdiction US-DE
+cd ..
+```
+
+`--jurisdiction` must be one of the controlled-vocabulary codes served at
+`GET /api/v1/jurisdictions` (e.g. `US-DE`, `US-CA`, `US-DC`, `US-PR`,
+`US-FED`) — an unrecognized code fails the command rather than silently
+tagging the wrong jurisdiction. The file is streamed in row-group batches
+(`--batch-size`, default 5000) rather than loaded into memory all at once,
+so it scales to the dataset's largest state files; progress (rows newly
+ingested / matched (already ingested) / skipped per batch) prints as it
+runs. A row missing its `text` or `act_id` column is skipped and reported,
+not fatal to the rest of the file. The command is resumable/idempotent —
+re-running it against the same file reuses the same `Document` and does not
+duplicate `Article`/`SourceSpan` rows for sections already ingested — and
+exits non-zero for a missing/unreadable input file.
+
+Idempotency is keyed on the dataset's own per-row `act_id` (verified 100%
+unique across all 570,397 real rows sampled from 10 real state files,
+including the two largest checked, `us_ca_statutes.parquet` at 161,429 rows
+and `us_pa_statutes.parquet` at 14,547 rows) — not on any combination of
+`section_number`/`section_title`/`text`, which real cross-title boilerplate
+can make byte-identical for two genuinely different sections (see
+`ingest_us_statutes.py`'s module docstring for the full collision history).
+
+**Ingesting the full 109-file corpus (gate G6) is ONE command** using
+`--input-dir` instead of `--input` — bulk directory mode, not a shell loop
+around the single-file command. Point it at the directory holding all 109
+downloaded Parquet files:
+
+```bash
+export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+cd backend
+.venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
+    --input-dir /path/to/open-us-law \
+    --repository-id <repository-id> \
+    --matter-id <matter-id>
+cd ..
+```
+
+Bulk mode derives BOTH `--title` and `--jurisdiction` per file from its own
+filename — the dataset's own `us_<postal-or-federal>_<statutes|
+constitutions>.parquet` naming (e.g. `us_de_statutes.parquet` → title
+`us_de_statutes`, jurisdiction `US-DE`; `us_dc_constitutions.parquet` →
+`US-DC`; `us_federal_statutes.parquet` → `US-FED`) — validated against the
+same controlled vocabulary as single-file mode before that file is touched.
+Files are processed in sorted filename order, **one at a time, in the same
+process**. Critically, **a single file failing (corrupt/unreadable input, a
+filename that doesn't match the naming convention, an unrecognized derived
+jurisdiction code) is recorded and the run CONTINUES to the next file** —
+it never aborts the whole 109-file run over one bad file. A final summary
+prints files found/processed/failed (with each failure's reason), total
+rows newly ingested, total rows matched (already ingested — i.e. a
+re-ingested `act_id`, reported SEPARATELY from newly-created rows so a
+same-batch collision or a partial re-run cannot hide inside a single
+combined count), and total rows skipped broken down by reason — the real
+measured report the corpus-scope decision asks for. The process exits
+non-zero if any file failed, so the run is still scriptable, without ever
+giving up on the remaining files. Bulk mode is resumable the same way
+single-file mode is: re-running the same `--input-dir` command reuses every
+already-ingested `Document`/`Article`/`SourceSpan` and creates no
+duplicates — a file that failed partway through a previous run just needs
+the whole `--input-dir` command run again (or can be re-run alone with
+single-file `--input` pointed at just that one file, using the same
+`--jurisdiction`/`--title` its filename derives to).
+
+The `.venv/bin/python` process itself never downloads the dataset — fetch
+the 109 Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or
+the Hugging Face CLI) into one local directory and point `--input-dir` (or
+`--input` for a single file) at it.
+
 ## Web Application
 
 ### Starting the Web App
