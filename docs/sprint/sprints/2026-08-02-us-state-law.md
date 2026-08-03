@@ -130,6 +130,19 @@ do not re-derive its findings).
   the standing "never block on Monitor" rule from the wave-5 brief preamble.
   Manager fault, not agent fault. Re-spawned fresh in wave 5b.
 
+- **R12 — Director approved wave 6 (CA/IL/GA), and QA's IL unit test is INVALID.**
+  Director ruling (AskUserQuestion, 2026-08-03): fix CA/IL/GA rather than defer.
+  Manager ruling on the test estate: `test_is_definitions_heading_cannot_recognize_
+  a_state_whose_section_title_carries_no_heading_text` asserts
+  `is_definitions_heading("Section 15") is True`. That is a planning bug — making
+  it pass would return True for ANY `"Section N"` heading, destroying the
+  zero-false-positive result of R9 across all 10 states. The Developer's
+  escalation was correct. The VALID spec is the sibling live-path test
+  `test_real_pipeline_misses_a_real_illinois_definitions_section_end_to_end`.
+  Wave 6 splits accordingly: a test-owning agent rewrites the invalid unit test;
+  a Developer changes `pipeline.py` Stage 2 to derive the heading from the body
+  when `section_title` is a bare placeholder. Developers may not touch tests.
+
 ## Acceptance gates (manager-defined, plain language)
 
 Each gate is a pass/fail condition about observable product behavior. The Planner
