@@ -468,3 +468,80 @@ backend/.venv/bin/pytest backend/tests -q
 
 `## Next Steps` in the sprint contract has been filled with 8 numbered
 items, each tagged Phase A/B, each naming its gate and RED test(s).
+
+---
+
+## 2026-08-04 — Manager verification of the Planner handoff + rulings M6-M8
+
+### Verification I performed MYSELF (not "the agent said so")
+
+- Three-dot diff materialized: `git diff --stat origin/main...HEAD` — 17
+  files, **zero** `backend/app/` production files. No frozen module touched.
+- `git diff --name-status origin/main...HEAD -- backend/tests` — every entry
+  is `A` (addition). **No existing test modified or deleted** (prior R2 bar
+  holds).
+- Manager-run suite: **`11 failed, 642 passed, 18 warnings in 13.39s`**.
+  Baseline was 641 passed; 642 = 641 untouched + 1 new green fixture sanity
+  check; the 11 failures are exactly the new RED tests. RED is proven by my
+  own run, not the Planner's.
+- Corpus integrity: `find data -newermt "-2 hours" -type f` → empty;
+  `ls data/laws | wc -l` → 12,266 unchanged; corpus `git status --porcelain`
+  → clean. **The read-only POC corpus was not written to.**
+- Read `test_definition_links_il_chapter_scope_live.py` in full: it is
+  genuinely live-path (`ingest_wiki_law` → `run_definition_linking` → assert
+  on `Definition` rows and `USES_DEFINITION` edges), seam-agnostic (touches
+  no frozen-module internal), and asserts BOTH directions (articles 13/16/17
+  same-chapter link; article 20 different-chapter must NOT). This survives
+  core's refactor — accepted as the I3 proof-test.
+
+**Handoff ACCEPTED.**
+
+### M6 — ruling on E4 (bulk-CLI resumability). Manager decision, not escalated.
+
+This sits inside my own gate definition, so I decide it rather than spending
+a director escalation. **I1's bar is ONE uninterrupted full run over all
+6,133 laws**, and its headline numbers must be pure `created` counts — that
+is what "the same standard as the US 2,045,897-row run" means. To keep a
+resumed run possible without silently duplicating (`ingest_wiki_law` has no
+idempotency, correctly flagged by the Planner), the new CLI gets an
+**opt-in `--skip-existing-titles` flag, DEFAULT OFF**, reporting any skips
+under their own named counter so they can never be confused with `created`.
+Default-off preserves measurement honesty; opt-in preserves operability.
+New-module-only, so still Phase A.
+
+### M7 — ruling on E3 (class (d) false-positive trap). Arbitrated, NOT a P-R2 escalation.
+
+P-R2 requires escalation when zero-miss and zero-false-positive genuinely
+CONFLICT — i.e. when you must sacrifice one. That is not this case: the
+Planner proposed a two-pass rule that captures the real (d-i)/(d-ii)
+definitions AND rejects the (d-iii) numbered-continuation trap (~30+ real
+files), by reusing the existing `_find_split_dash` /
+`_parse_terms_and_qualifier` discipline rather than inventing heuristics.
+A solved conflict is a design decision, not a director question.
+
+**Adopted** as specified, with two binding conditions:
+1. The residual failure mode the Planner named (a genuinely multi-term
+   numbered list whose FIRST entry opens with prose before its own quote —
+   not observed in sampling) becomes a **named, mandatory check in QA's I4
+   sweep**, not a footnote.
+2. The other named failure mode — a הגדרות-headed section that is a
+   placeholder/repeal or merely CITES another law's definitions
+   (`: ראו הגדרות בחוק ...`) — must still yield `[]`. Also a named I4 check.
+If QA demonstrates either failure mode is real AND unavoidable, THAT
+becomes the P-R2 escalation, with its corpus examples.
+
+### M8 — E1 + E2 are genuine escalations; sequencing decision
+
+E1 (סימן/חלק unrepresentable in the schema) and E2 (`בפסקה זו` paragraph
+scope, finer still) are real architecture forks that cross into
+core-scope's remit and bear directly on the director's own mandate wording
+("relevant only to specific articles or subsections"). They also determine
+whether gate **I3 as written** ("including סימן/פרק/חלק units") is
+achievable at all. These escalate.
+
+**Sequencing:** I am NOT stopping on them yet. Phase B is already blocked on
+core (which has published no seam), so an immediate stop buys the director
+nothing, while item 1 (I1, the measured full-corpus run) is unblocked Phase-A
+work whose OUTPUT will quantify the E1/E2 gap corpus-wide. I therefore run
+the Developer on I1, execute the real 6,133-law measured run myself, and then
+escalate E1/E2 carrying hard corpus numbers instead of estimates.
