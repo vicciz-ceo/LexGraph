@@ -182,6 +182,40 @@ candidate, rather than sampling a handful of rows up front:
    extractor (`USProfile.extract_definitions_from_section`) fails to
    recognize the entry boundary after "Dispose"'s own lettered sub-clauses
    and swallows all 3 remaining terms into one 26,715-character
+
+## `{ga,md,ne,ms,sd}_preamble_rows.json` / `us_preamble_rows.json` — sprint
+   2026-08-04-defs-us-preamble (US family 2: body preambles without the
+   literal word "Definitions")
+
+Real, verbatim, unmodified full parquet row dicts (never downloaded by any
+test — pulled live from the on-disk vaquill snapshot by the Planner, per
+this sprint's D1/D2/D3; see `docs/sprint/sprints/2026-08-04-defs-us-
+preamble-log.md` for the full inventory each row was selected from).
+
+- `{state}_preamble_rows.json` (one file per state, `ga`/`md`/`ne`/`ms`/
+  `sd`, list-of-row-dict shape matching `de_sample_rows.json`): each file's
+  FIRST row(s) are POSITIVE examples (a real body-preamble definitions
+  block, today captured by neither gate) used by
+  `test_us_body_preamble_capture_red.py`; the LAST row in each is a
+  NEGATIVE example (the family's trigger vocabulary present, but nothing is
+  actually defined — a cross-reference, an administrative/operative
+  sentence, a legal rule) used by `test_us_body_preamble_negative_guard
+  .py`. `ne`/`sd` each carry an extra row documenting a shape that is
+  captured by heading-recognition alone but still can't be EXTRACTED by any
+  current code (unquoted term text) — a confirmed `2026-08-04-defs-us-
+  markers` cross-sprint dependency, not a bug in this sprint's rule.
+- `us_preamble_rows.json` (dict keyed by `act_id`, NOT the list shape —
+  inherited as-is from a surviving untracked file left by this sprint's
+  Planner attempt #1, which died mid-session before committing anything
+  but after writing real work directly into the worktree; independently
+  verified and adopted by attempt #2 rather than duplicated, per
+  `test_definition_links_us_preamble_family.py`'s own docstring for full
+  provenance of each of its 4 rows).
+
+Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`),
+fetched 2026-08-04 from the local HF snapshot already on disk at
+`~/.cache/huggingface/hub/datasets--vaquill--open-us-law` — never
+downloaded by any committed test.
    `definition_text`. Genuine, live-path-confirmed defect (item 3 bounce).
 
 ## `ny_m14_newline_defect_row.json` — M14 newline-defect RED test fixture (2026-08-04)
