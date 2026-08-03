@@ -545,3 +545,111 @@ nothing, while item 1 (I1, the measured full-corpus run) is unblocked Phase-A
 work whose OUTPUT will quantify the E1/E2 gap corpus-wide. I therefore run
 the Developer on I1, execute the real 6,133-law measured run myself, and then
 escalate E1/E2 carrying hard corpus numbers instead of estimates.
+
+---
+
+## 2026-08-04 — Manager verification of the Developer handoff + I1 measured run
+
+### Developer handoff verification (mine, not reported)
+
+- `git diff --name-status b3cd641..HEAD` → exactly two entries, both `A`:
+  `ingest_wiki_corpus.py`, `ingest_wiki_corpus_cli.py`. **No test, no
+  fixture, no frozen module touched** — checked explicitly against all five
+  frozen files plus `ingest.py`: all unchanged.
+- Style gate: 213 + 145 = 358 lines across two files, both **under 300**.
+- Manager-run suite: **`8 failed, 645 passed, 18 warnings in 14.27s`** — the
+  641 pre-existing tests still green, the 4 CLI tests now green, and the 8
+  Phase-B RED tests still RED (correct: fixing them requires frozen files).
+- **Correctness check I ran because the code worried me:** `_ingest_one_file`
+  calls `session.rollback()` in its failure path. If the CLI committed only
+  at the end, one bad file would discard every previously-ingested law. I
+  checked: `ingest.py:84` calls `session.commit()` per law, so the rollback
+  can only discard the current file's partial work. **Safe** — but this is a
+  load-bearing coupling to `ingest.py`'s commit behavior and should be
+  re-checked if `ingest.py` ever changes.
+
+**Handoff ACCEPTED.**
+
+### I1 — the real full-corpus measured run (executed by me)
+
+Command (explicitly invoked, NOT part of `pytest`):
+```
+LEXGRAPH_DATABASE_URL="sqlite:///<scratch>/corpus_run.db" \
+  backend/.venv/bin/python -m app.definition_links.ingest_wiki_corpus_cli \
+  --input-dir "/Users/nerya/AI for others/israeli-laws-wiki/data/laws" \
+  --repository-id <repo> --matter-id <matter>
+```
+Measured result — real numbers, no extrapolation:
+```
+files found:             6133
+files processed:         6133
+files failed:            0
+total articles ingested: 127903
+existing titles skipped: 0
+wall time:               37.426s
+peak memory:             79986688 bytes  (76.3 MiB)
+```
+Cross-checked against `/usr/bin/time -l`: `37.77 real`, `maximum resident
+set size 79986688` — agrees with the CLI's own instrumentation.
+Corpus re-verified untouched after the run.
+
+### **I1 verdict: PASS on its literal terms — with a material caveat that I am escalating (new class (f))**
+
+The gate asked whether the corpus loads, and it does: 6,133/6,133, zero
+failures. But "ingested" is NOT the same as "reachable", and under the
+director's absolute zero-miss bar the difference is the whole point. The
+Developer flagged, as a passing observation, that 2 of its 4 smoke files
+ingested with 0 articles. I chased it corpus-wide rather than letting it go.
+
+**Measured (probe over all 6,133 files, calling the real `parse_articles`):**
+```
+documents:                     6133
+articles:                      127903
+documents with 0 articles:     124   (2.02%)
+articles/doc (nonzero):        min=1  median=8  max=1203
+```
+Of those 124 zero-article laws, **57 contain at least one definition
+signal** (`להלן` 47, quote-dash grammar 14, scope triggers 6, a
+הגדרות heading 5). Breaking down the CAUSE:
+```
+zero-article files:                                124
+  ...with a bare/unnumbered "@" marker:            101   (12 of these contain quote-dash definitions)
+  ...with no "@" at all:                            21
+  ...other:                                          2
+```
+**Root cause, confirmed live.** `sections.parse_articles` requires the
+`@ N.` numbered-article shape. A law whose body uses a BARE `@` (no number)
+parses to zero articles, so `run_definition_linking` never sees any of its
+text. Verified end-to-end on `רשימת הזכויות לפי חוק לקידום התחרות
+ולצמצום הריכוזיות.wiki`: the file is 10,502 bytes, DOES contain `@`,
+`parse_articles` → **0 articles**, and its real definitions are therefore
+entirely unreachable:
+```
+::- "סיווג" - סיווג המנוי בסעיף 271א(ד) לתקנות התעבורה;
+::- "צד קשור" - אדם או תאגיד השולטים במבקש הבקשה, ...
+::- "קטגוריה" - קטגוריה המנויה בסעיף 271א(א) לתקנות התעבורה, ...
+::- "שליטה" - כהגדרתה בחוק ניירות ערך, התשכ"ח-1968 (להלן - חוק ניירות ערך), ...
+```
+Its `<מבוא>` preamble also carries `(להלן - החוק)` — lost as well.
+
+**This is a SIXTH miss class, not in the recon dossier, and architecturally
+distinct from classes (a)-(e).** Those are extraction failures INSIDE a
+parsed article. This is a structural loss one layer EARLIER, at article
+parsing, so no amount of trigger-content work in this sprint can reach it.
+It lives in `sections.py` — **frozen**, and owned by core's refactor.
+
+Conservative floor on the damage: **12 laws** with unambiguous quote-dash
+definitions are wholly invisible today; up to 57 have some definition
+signal. That is a direct, measured breach of the zero-miss bar.
+
+### M9 — ruling on class (f)
+
+Class (f) is **out of this sprint's implementable scope** (frozen
+`sections.py`) and **was not in any gate**, so I am not silently absorbing
+it into I2/I3. It escalates as **E5**, with the numbers above. I did NOT
+have the Planner write a RED test for it: the fix belongs to whoever owns
+`sections.py` (core, or a follow-up sprint), and a test authored here would
+either duplicate core's or pin a parser contract this panel does not own.
+**Gate I4's zero-miss sweep must treat class (f) as a named, mandatory
+check** — QA is not allowed to report zero-miss while 124 laws parse to
+nothing.
