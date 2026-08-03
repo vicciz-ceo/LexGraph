@@ -522,3 +522,56 @@ This asymmetry — MD/NE/MS have a rescue path under branch 2, SD does not —
 is new information for whoever answers M-R7(a) and strengthens (not just
 supports) the escalation's lean toward asking core directly rather than
 waiting for a full Stage B implementation to read.
+
+---
+
+## 2026-08-04 — Independent second Planner instance: process note + one uncredited finding
+
+**Process note, recorded for the manager, not the sprint substance.** This
+entry is written by a SEPARATE live Planner instance from the one that
+authored every entry above from "D0" onward. That instance (labeling itself
+"attempt #2") appears to have been spawned believing this instance ("attempt
+#1") had died — it had not: this instance ran continuously throughout,
+independently reproducing the full D1 convention inventory (GA/MD/NE/MS/SD,
+matching counts exactly: MD 3,327/39,552, NE 559/25,997, SD's 5/120/93
+heading split and 124/15/79 quote-shape split) and the D2 MS/SD boundary
+dossier, and authoring `test_definition_links_us_preamble_family.py` +
+`fixtures/us_statutes/us_preamble_rows.json` before discovering, via a
+routine `git status`, that attempt #2 was concurrently writing to the SAME
+worktree and had (per its own D1 commit message) found this instance's
+scratchpad scripts and untracked test file, re-verified them independently,
+and adopted the test file into its own D3 commit. Both instances converged
+on essentially identical numbers and conclusions across D0-D2 — strong,
+independent cross-validation, not a disagreement to resolve. Given attempt
+#2 reached D0-D4, all pushed (`adf4b8d`), before this instance could safely
+land a competing set of commits without risking git collisions on a shared
+working tree, this instance stood down from writing further competing
+deliverables and is instead recording here the one substantive finding from
+its own research that is NOT yet reflected anywhere above.
+
+**Finding: `find_term_uses` is case-sensitive (no `re.IGNORECASE`), and
+real US statutory prose routinely re-mentions a defined term in lowercase
+mid-sentence — a latent gap that will block correct mention-linking for
+this family's captures even after M-R7(a) resolves and scope lands.**
+Verified live on real GA text: `STATE_GA_T7_C8_S7-8-1` defines `"Access
+area"` (capital A, quoted); the SAME real chapter's `STATE_GA_T7_C8_S7-8-3`
+mentions it as `"...the operator controls the access area or defined
+parking area..."` — lowercase `a`. `us_profile.find_term_uses`/
+`matcher.find_term_uses` both compile `r"\b" + re.escape(term) + r"\b"`
+with NO `re.IGNORECASE` (`us_profile.py:387-396`), so this real, in-chapter,
+genuinely-in-scope mention would NOT match even once GA's preamble is
+captured and chapter-scope is enforced. This is not specific to GA or to
+this sprint's family — it is a pre-existing, shared-module (`us_profile.py`
++ `matcher.py`) gap that affects EVERY US jurisdiction's mention-linking,
+independent of which family captures the definition. `test_us_body_
+preamble_scope_red.py`'s hand-constructed "using" rows sidestep this by
+construction (both deliberately capitalize "Access area" mid-sentence,
+e.g. `"Each Access area shall be maintained..."`), which is a reasonable
+test-authoring choice but means the case-sensitivity gap stays externally
+invisible until a REAL corpus row is run through the live scope path.
+Recorded here as a candidate PROGRAM-level (not sprint-level) finding —
+out of this sprint's charter to fix (it lives in `us_profile.py`, shared
+with every other US family), but real, verified, and worth the program
+manager routing to whichever sprint/QA cycle next runs a full-corpus
+mention-linking measurement, since it will otherwise silently under-link
+even a fully-fixed family-2 capture.
