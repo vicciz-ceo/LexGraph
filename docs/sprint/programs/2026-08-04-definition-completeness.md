@@ -97,20 +97,26 @@ order to save tokens** — the `.codegraph/` index exists (built 2026-08-04,
 
 ## Sprint roster
 
-Recon dossier: `2026-08-04-definition-completeness-recon.md` (in this dir).
-US family assignments for OR/PA/RI/SC/SD/TN/TX/UT/VT/VA/WA/WV/WI/WY/DC/PR/FED
-are PROVISIONAL until the B3 re-recon (workflow `wf_7f1827d1-1a7`) lands;
-those 17 jurisdictions were unassessed in the first recon round.
+Recon dossier: `2026-08-04-definition-completeness-recon.md` (in this dir),
+§6 addendum covers OR→FED. All 53 US jurisdictions now assessed; none is
+miss-free. Three NEW families found in the addendum: verb-form headings
+(`"X" defined` — VA/WA/WV/WI/WY/DC/FED, 0% captured), unquoted-term
+definitions (DC), and **Puerto Rico is Spanish-language** (~529 Definiciones
+sections, 100% invisible to the English-only USProfile) — PR gets its own
+sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
+84% / VA 97% / WA 98% of detected Definitions sections extract ZERO today
+(markers sprint).
 
 | Sprint | Branch | Scope | Merge order |
 |---|---|---|---|
 | `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | Scope-restricted linking at article/subsection/chapter granularity; profile-dispatched scope triggers; extraction moved behind the seam; per-jurisdiction rule registry | **1 — critical path; everyone builds behind its published seam spec** |
 | `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
-| `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in this section…" scoped-inline defs, 0% captured, all states affected — the English `extract_local_definitions` analog + scope stamping | 2+ (after core) |
-| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | Family 2: body preamble without the literal word "Definitions" (GA/MD/NE/MS zero-signal states) | 2+ (after core) |
-| `2026-08-04-defs-us-markers` | `claude/defs-us-markers` | Family 3: heading found but entry-marker mismatch (AL/AZ/AK/IL/AR; bare digit-dot, unquoted caps, mojibake) | 2+ (after core) |
-| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI) | 2+ (after core) |
-| `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH) + inline parentheticals | 2+ (after core) |
+| `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
+| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | Family 2: body preamble without the literal word "Definitions" (GA/MD/NE/MS zero-signal states + SD-dominant + low-volume everywhere) | 2+ (after core) |
+| `2026-08-04-defs-us-markers` | `claude/defs-us-markers` | Family 3 (highest corpus impact): entry-marker mismatch — bare digit-dot, unquoted caps, mojibake (AL/AZ/AK/IL/AR/RI), bare-(N) (SC), nested lettered sub-clauses (UT), colon-then-list (TN), AND the no-marker inline-quote sub-case dominating VA(97%)/WA(98%)/FED(84%)/WV/DC + DC's unquoted-term shape. The existing-but-unwired inline fallback rescues most (dossier §6 finding #1) | 2+ (after core) |
+| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
+| `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
+| `2026-08-04-defs-us-pr` | `claude/defs-us-pr` | NEW: Puerto Rico Spanish-language rules — Definiciones headings, significa / A los fines de / se entenderá por idioms, Spanish scope phrases; ~529 sections 100% missed today | 2+ (after core) |
 | _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict | last |
 
 Working-baseline regression-guard states for every US sprint:
