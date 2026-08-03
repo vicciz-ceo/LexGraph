@@ -271,3 +271,112 @@ gate wrap registry dispatch, yes/no) that core's Planner could answer in one
 message without finishing Stage B. My lean: (b) — this is a narrow, answerable
 design question, not something that needs a full implementation to resolve,
 and the sprint's four-vs-one-item shape depends on it.**
+
+---
+
+## 2026-08-04 — Planner attempt #2, D1: convention inventory for GA/MD/NE/MS/SD, real rows, live code
+
+Method for all five: `backend/.venv/bin/python` importing the real
+`USProfile`/`pipeline._is_placeholder_heading`/`pipeline._derive_heading_
+from_body` from THIS worktree, run against the on-disk vaquill snapshot
+(never downloaded). Every count below was reproduced by me independently
+(re-run, not just read from a stale output file) before being written here.
+Scripts live in the shared session scratchpad (`planner_md_ne_convention
+.py`, `planner_md_ne_classify.py`, `planner_sd_dossier.py` — discovered
+already on disk from attempt #1, which reached much further than the
+manager's git-only check (M-R5) could see: git tracks commits, not the
+scratchpad or even everything attempt #1 wrote directly into the worktree
+as untracked files — `test_definition_links_us_preamble_family.py` was one
+such untracked survivor, adopted into D3 below after independent
+verification, not taken on faith).
+
+**GA (28,154 rows) — manager's table confirmed, no correction.** 1,224
+preamble-signal rows, 1,222 pass Gate A, only 1 passes Gate B. Convention:
+`"As used in this <chapter/article>, the term:"` then `(N) "Term" means`.
+Examples: `STATE_GA_T7_C8_S7-8-1` ("As used in this chapter, the term: (1)
+"Access area" means any paved walkway..."), `STATE_GA_T50_C8_S50-8-80`
+("As used in this article, the term: (1) "Area" means a standard
+metropolitan statistical area..."). Blocked by: Gate B only.
+
+**MD (39,552 rows) — manager's narrow probe corrected, as flagged.** The
+`the term`-anchored signal used for the full-corpus table finds only 2 raw
+hits (`for_purposes_of_the_term`), both non-representative. MD's REAL
+dominant convention, found by broadening the signal set to 9 independent
+phrase families and cross-checking against a full-body entry count: **"In
+this <section/subtitle/title>[,] the following words have the meanings
+indicated. (N) "Term" means / has the meaning stated..."** — 3,327/39,552
+rows (8.4%) carry >=2 such entries in the full body (a genuine multi-term
+BLOCK, this sprint's territory, not a single incidental clause). 0/39,552
+MD headings ever say "Definitions" (own separate check, ALL rows, not just
+signal-matched ones) — MD's heading is ALWAYS a bare `"§N–NNN."`
+pinpoint-citation placeholder, confirmed not recognized by `_is_placeholder_
+heading` (`_is_placeholder_heading("§5–114.")` is `False`; regex expects
+either `"Section \d..."` or a `"...Code Title N. ... § ..."` breadcrumb,
+neither of which `"§N–NNN."` matches). Examples: `STATE_MD_Agtp_T9_S2_S9-
+258` ("(a) (1) In this section the following words have the meanings
+indicated. (2) "Dwelling" has the meaning stated in § 9–105..."),
+`STATE_MD_Agho_T7_S1_S7-101` ("(a) In this title the following words have
+the meanings indicated. (a–1) "Alkaline hydrolysis" has the meaning
+stated..."). Blocked by: Gate A only (once past Gate A, the existing
+extractor already parses these bodies unmodified — verified live, both
+`extract_definitions_from_section` and the inline-quote fallback succeed on
+the real MD row).
+
+**NE (25,997 rows) — manager's narrow probe corrected, MOST corrected of
+the four, exactly as flagged as the genuinely open question.** The `the
+term`-anchored signal finds only 2 hits and BOTH are false positives
+(confirmed by the manager: bodies are substantive, not definitional). NE's
+real convention, found the same broadened way, is **NOT** GA's "the
+term:"-shaped preamble at all — NE's actual shapes are (a) `"For purposes
+of [the Named Act / sections N to M]... the following definitions apply:
+(N) Term means..."` and (b) `"In the <Named Code/Act>: (N) "Term" means/
+includes..."`, both with NO literal "the term" phrase anywhere. Broadened
+signal finds 699 candidate rows; 559 are genuine multi-entry BLOCKs (>=2
+entries). 0/699 captured today. Two sub-shapes matter for D3/D4: **quoted**
+entries (e.g. `STATE_NE_C30_S30-3803`, Nebraska Uniform Trust Code: `(1)
+"Action", with respect to an act of a trustee, includes a failure to act.
+(2) "Ascertainable standard" means...`) are extractable TODAY by the
+existing extractor once a heading is recognized (verified live: 27
+candidates extracted) — achievable within this sprint's own scope; **un­
+quoted** entries (e.g. `STATE_NE_C44_S44-5003`: `(1) Health insurance plan
+means a plan which includes...`, `STATE_NE_C48_S48-1229`: `(1) Employee
+means any individual...`) are NOT extractable by any current code today
+even with a perfect heading (verified live: both `extract_definitions_from_
+section` and the inline-quote fallback return `[]` on the real unquoted
+body) — a hard dependency on `2026-08-04-defs-us-markers`. NE's `section_
+title` is essentially always `"View Statute N-NNNN"` (a scrape artifact) or
+a bare number, never recognized by Gate A. Blocked by: Gate A (both
+sub-shapes), PLUS a marker/quote-format gap for the unquoted sub-shape
+specifically.
+
+**MS (158,688 rows) — manager's table confirmed.** 637 preamble-signal
+rows, 0 pass either gate (heading is always `"Miss. Code Ann. § N-N-N"`, not
+recognized by Gate A). Convention: `"As used in this <chapter/article/
+section>, the term:"` (dominant) plus `"For (the) purposes of this
+<chapter/section>, the term ... means"` (dominant single-clause variant —
+see D2). Examples: `STATE_MS_T45_C9_S35-51` ("As used in this article, the
+term: (a) "Commissioner" means the Commissioner..." — 7 lettered entries),
+`STATE_MS_T39_C1_S3-25` ("...For purposes of this section, the term "
+minor " means any person under the age of eighteen..." — single clause deep
+inside a 5,632-char section about something else). Blocked by: Gate A only.
+
+**SD (39,589 rows) — manager's table confirmed, structurally split by
+heading AND by term-quoting, both relevant to D2/D4.** 218 preamble-signal
+rows. Heading: 5 already say "Definitions", 120 are verb-form ("X defined",
+headings-sprint overlap, M-R2 boundary #2), 93 are other/unrelated
+headings. Body term-quoting (independent axis): 124/218 (57%) are
+**unquoted, comma-delimited** (`"the term, X, means"`, e.g.
+`STATE_SD_T54_C14_S54-14-12.1`, heading "Loan processor or underwriter
+defined": `"...the term, loan processor or underwriter, means..."`) — 15/218
+(7%) are **quoted** (`"X" means`, e.g. `STATE_SD_T11_C9_S11-9-10`, heading
+"Blighted area defined": `"...the term "blighted area" means..."`) — 79/218
+(36%) match neither shape in the first 400 chars. Verified live: the
+QUOTED subset is extractable TODAY once a heading is recognized (inline-
+quote fallback succeeds, confirmed on the real row above); the UNQUOTED
+subset is NOT extractable by any current code (both extractors return `[]`
+on the real unquoted row) — same hard dependency on
+`2026-08-04-defs-us-markers` as NE's unquoted sub-shape. Blocked by: Gate A
+(SD's headings are real descriptive text, not placeholders — `_is_
+placeholder_heading` correctly returns `False` for them, this is not a bug,
+SD's headings genuinely aren't information-free), PLUS the same marker gap
+as NE for the majority (57%) unquoted sub-shape.
