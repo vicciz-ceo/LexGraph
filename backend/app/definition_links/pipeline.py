@@ -33,7 +33,7 @@ from app.definition_links.matcher import (
     link_articles_to_definitions,
     scope_rank,
 )
-from app.definition_links.normalize import normalize_for_parsing, strip_wikilinks
+from app.definition_links.normalize import strip_wikilinks
 from app.definition_links.profiles import get_profile
 from app.definition_links.rules.registry import UnitStep
 from app.definition_links.sections import Article as MatcherArticle
@@ -183,7 +183,8 @@ def run_definition_linking(
         if is_bidi_degraded(raw_body):
             skipped_degraded_article_ids.append(art.id)
             continue
-        normalized = normalize_for_parsing(raw_body)
+        profile = _profile_for_document(art.document_id)
+        normalized = profile.normalize_for_parsing(raw_body)
         stripped_body, _hints = strip_wikilinks(normalized)
         live_articles.append(
             (art, MatcherArticle(number=art.number, heading=art.heading, body=stripped_body, chapter=art.chapter))
