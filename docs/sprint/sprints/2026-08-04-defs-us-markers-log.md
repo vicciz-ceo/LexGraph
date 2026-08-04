@@ -1299,3 +1299,93 @@ loan as defined…"`) joins our unquoted-term family with DC/NC/AL. Binding
 caveat carried into the Developer brief: **`scope_unit_kind` declarations come
 from each state's OWN measured convention, never the illustrative table**
 (M-D3 erratum, seam v2.7).
+
+---
+
+## M9 — Developer build VERIFIED and ACCEPTED (2026-08-04)
+
+**CHECK 1 — scope discipline: PASS.** `git diff b30e4f8..HEAD --name-only`
+outside `rules/` and `docs/` → **empty**. Six NEW rule modules only
+(`us_markers_boundary.py` 239, `us_markers_unquoted_terms.py` 81,
+`us_markers_fl_scope_trigger.py` 65, `us_markers_tn_idiom.py` 61,
+`us_markers_mojibake.py` 56, `us_markers_inline_quote.py` 39 = 541 lines).
+Zero test files, zero shared-module edits, all well under the 300-line budget.
+Gate **U3 satisfied by construction**.
+
+**CHECK 2 — suite: `1 failed, 814 passed`** (65.9s; the suite is ~4x slower now
+that rules are active — worth watching). The single failure is the FED
+last-entry test the Developer flagged honestly as out of reach: the defect is
+in `us_profile.py`'s baseline `_split_into_numbered_blocks`, which runs before
+any registered rule and wins the dedup race. Correctly NOT fixed by a
+shared-module edit.
+
+**CHECK 3 — corpus claims re-measured by ME, independently.** I re-ran the
+sweep through the real profile with rules auto-discovered:
+
+| Jur | headed | zero-yield | my rate | Dev claim | >5,000-char | <10-char |
+|---|---|---|---|---|---|---|
+| VA | 1,096 | 48 | **4.4%** | 4.4% | 0 | 1 |
+| WA | 1,800 | 116 | **6.4%** | 6.4% | 3 | 5 |
+| AL | 1,653 | 230 | **13.9%** | 13.9% | 0 | 7 |
+
+**Every claimed number reproduces exactly.** This is the first agent report in
+this sprint whose corpus figures I could confirm to the decimal without
+correction — accepted.
+
+Headline recall movement (Developer-measured, VA/WA/AL independently
+confirmed): VA 97.2→4.4, WA 98.8→6.4, FED 83.3→7.3, UT 97.5→2.3, SC 97.8→4.3,
+RI 100→7.2, AK 99.9→4.6, AZ 99.0→13.7, AL 97.0→13.9, NC 51.8→14.1,
+TX 21.3→3.3, DC 27.3→27.2 (DC barely moved — reported honestly, not
+overclaimed).
+
+**Residual boundary damage — NOT zero, recorded honestly under U-R1.** WA still
+carries 3 definitions over 5,000 chars; VA/WA/AL carry 1/5/7 under 10 chars.
+The Developer caught and fixed three larger swallows pre-ship (TN 153,837-char,
+AZ 20,925-char, FED 26,028-char) via a list-introducer exclusion plus a
+3,000-char ceiling. The remainder is small but real and belongs to QA's sweep,
+not to a claim of "clean".
+
+**Ruling U-R9 — the FL scope-trigger module is out of family.**
+`us_markers_fl_scope_trigger.py` implements an ordinary-article
+`ScopeTriggerRule`, which is `defs-us-scoped-inline` territory, not family 3.
+It was built per my own brief's instruction, is narrowly gated to `US-FL`, and
+harms nothing — but I am flagging it to the program manager as a boundary
+encroachment for that panel to adopt or veto, rather than letting it merge
+silently as ours.
+
+## M10 — three queued items from the program manager: positions recorded
+
+None require action before this build lands; all are accepted into this
+sprint's ledger with a position, so the next pass starts informed.
+
+**Q-A — boilerplate-label classification (joint with scoped-inline).** Accepted
+as ours. Our share is deciding when a `(N) LABEL.` token is a real entry
+boundary versus a generic structural sub-header, plus the blocklist ("in
+general", "en general", "generally", "definitions", …). Position: the hazard is
+real and matches what we already hit — capturing "in general" as a term would
+match nearly everywhere in scope, the same false-positive class as the phantom
+`motor vehicle` term we killed in wave 1. **Preferred interface: a shared
+helper, not a registry rule** — classification is a predicate, and the
+registry's kinds are all producers; a `TermClauseRule` would force scoped-inline
+to consume our rule's output rather than our judgment. I will coordinate the
+interface with the scoped-inline manager when we plan it. Their load-bearing
+zero-gap mutation test stays untouched.
+
+**Q-B — multiterm's two registered EntrySplitterRules.** Noted, and I accept
+the ruling that they stay registered. Design-time authority is ours, and the
+flagged risk is real: `entry_splitter` contributions are additive and their TX
+splitter **re-contributes the whole section text**, which is exactly the shape
+that produced our worst swallows. Our TX/VT splitters will be designed after
+reading their two modules and contract. **The TX `2009.003` residual (4
+pre-existing degenerate 1-term rows causing double `USES_DEFINITION`
+assertions) is ours by M-R5 and folds into our entry-boundary work**, which is
+the same defect class as the <10-char residuals in CHECK 3 above.
+
+**Q-C — `STATE_WA_T50_C29_S030` (headings panel, H-R1).** Accepted into our
+zero-yield mandate alongside the NY unquoted-paragraph row. Acceptance
+condition understood: extraction must yield at least the term the
+heading/citation pair implies so their pointer-row edge can attach. **Not yet
+confirmed fixed** — my sweep did not surface this row through the
+heading-recognized path, so its status is genuinely unknown and it needs an
+explicit named-row RED test from the Planner next pass. I will coordinate the
+expected term with their manager if it is ambiguous.
