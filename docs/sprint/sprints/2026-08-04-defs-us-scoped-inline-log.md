@@ -2378,3 +2378,115 @@ re-derives independently anything it actually relies on — and in particular
 must not quote the 92.7%/30%/18%/12% splits as measured facts without
 re-deriving them. The residue COUNT (714 rows) is the figure most worth
 re-checking, since the ownership split is sized against it.
+
+---
+
+## 2026-08-04 — Manager: S-R15 verification + VERDICT (lean: OPTION B,
+outermost) — with one consequence nobody has priced in yet
+
+Time-boxed verification of Planner pass 7's escalation. I did NOT re-derive
+the 19.4% aggregate (QA cycle 2's job by ruling); I verified the load-bearing
+pieces and the semantics.
+
+### (a) The SC counterexample — reproduced EXACTLY, end-to-end
+
+I did not run the Planner's script. I built an INDEPENDENT harness driving the
+REAL merged `matcher._subsection_contains_offset` with a real `USProfile`, and
+got:
+
+`STATE_SC_T12_C6_A9_S12-6-1170` — trigger path `[(upper_alpha 'A'), (digit '2')]`
+- shipped INNERMOST stamps `value='2' kind='digit'` → **links 0 of 4** genuine reuses
+- OUTERMOST would stamp `value='A' kind='upper_alpha'` → **links 4 of 4**
+
+Total silent under-link on a clean, correctly-resolved, non-period-style row.
+Confirmed.
+
+**P-R10 probe sanity (the check that makes the above trustworthy):** the same
+harness, run against Oregon — S-R14's OWN validation row, whose behavior is
+already established — reproduces the known result (innermost links the 4466
+mention, which is why direction 1 passes today). A harness that could not
+reproduce a known number would make the SC figure worthless. It reproduces.
+Oregon additionally shows innermost **1/4** vs outermost **3/4**, so the
+under-link reproduces on S-R14's own state, exactly as escalated.
+
+### (b) The semantic argument — TESTED against the drafters' own words, and
+it holds overwhelmingly but is NOT airtight
+
+I tested it independently of our extractor AND of core's resolver, by counting
+how the statutes describe their own hierarchy in cross-references (53 files):
+
+| supports "subsection = top level under section" | count |
+|---|---|
+| `subsection (X) of this section` | 156,496 |
+| `paragraph (X) of this subsection` | 39,626 |
+| `subdivision (X) of this subsection` | 6,721 |
+| `subparagraph (X) of this subsection` | 100 |
+
+**202,943 supporting occurrences across 48 of 53 jurisdictions.**
+
+**Answer to the question that would break the argument: YES, such states
+exist — but at trace volume.** `subsection (X) of this subdivision` / `of this
+paragraph` occurs **12 times total** — SD 6, NY 3, VT 2, federal 1 — i.e.
+**0.006%**. And they are not all noise: South Dakota genuinely nests
+subsection UNDER subdivision (`STATE_SD_T58_C5A_S58-5A-4`: "the information
+required by subsection (a) of this subdivision"), and Vermont likewise
+(`STATE_VT_T24_C60_S1992`: "Notwithstanding subsection (A) of this
+subdivision (2)").
+
+So the honest formulation is **not** "option B is definitionally correct
+everywhere" but: *in 48 of 53 jurisdictions the drafters' own words put
+"subsection" at the top level, and the handful of inverted conventions are
+identifiable by name.* The over-linking risk is not definitionally empty — it
+is empirically ~0.006% and concentrated in three named states. I would rather
+hand the director that than a cleaner claim that does not survive contact with
+South Dakota.
+
+Oregon proves the point from inside a single row: the same statute says
+"paragraph (b) of this subsection" AND "subsection (1) of this section" AND
+"for the purposes of this subparagraph" — section ⊃ subsection ⊃ paragraph ⊃
+subparagraph, stated by the drafter. Our innermost interim pins that
+definition to the PARAGRAPH, which the statute's own vocabulary contradicts.
+
+### THE CONSEQUENCE NOBODY HAS PRICED IN: option B breaks the Oregon
+direction-2 test, and that test is semantically WRONG
+
+Reading the raw Oregon markers, the definition at `(c)` (offset 3401) sits
+inside top-level subsection **`(2)`** (offset 1262). The mentions the
+direction-2 test calls "a DIFFERENT subsection" — offsets 2046/2344, in
+`(2)(a)(A)`/`(2)(a)(B)` — are in the **SAME subsection (2)**, merely a
+different PARAGRAPH.
+
+So `test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_
+subsection` encodes the innermost/paragraph reading as ground truth. Under
+option B those mentions SHOULD link, and that test will fail — correctly.
+**Adopting B means RE-AUTHORING that test, not preserving it.** It is a test
+the Planner just restored, so this must not be discovered by QA later.
+
+**And a second trap on the same row:** core's resolver returns top-level
+`digit '1'` for that trigger, but ground truth is `(2)` — it latched onto the
+CITATION "under subsection (1) of this section" (offset 1752) instead of the
+structural `(2)`. That is exactly the pin-cite corruption class routed to core.
+On Oregon, outermost therefore reaches the semantically right answer **for the
+wrong reason** (definition and mentions share the same bogus `'1'`). QA must
+not certify any row whose path is corrupted this way.
+
+### (c) VERDICT — lean OPTION B (outermost), conditional
+
+1. **Adopt B as a MEASURED default, not a claimed universal** — 48/53 by the
+   drafters' own vocabulary, with SD/NY/VT named as known inverted
+   conventions carrying ~0.006% of cross-reference usage.
+2. **Re-author the Oregon direction-2 test** as part of adopting B. Its
+   current assertion is semantically wrong under B.
+3. **Keep S-R15's swappable decision point** (already one line). Triggers
+   naming deeper units ("this paragraph") route through the declared-kind
+   matcher, which core already supports — option C's territory, not a reason
+   to reject B.
+4. **Not re-derived by me, deliberately**: the 19.4% / 1,254-of-6,472
+   aggregate. QA cycle 2 owns it. My verification covers the counterexample,
+   the harness sanity, and the semantics.
+
+Direction-of-risk note for the director: under innermost, the failure is a
+SILENT UNDER-LINK (a miss — disqualifying under the absolute zero-miss bar).
+Under outermost, the failure is an over-link (a precision cost) bounded to one
+top-level subsection and, per the vocabulary census, empirically rare. Those
+are not symmetric.
