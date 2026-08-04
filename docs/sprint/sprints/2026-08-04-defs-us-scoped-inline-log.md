@@ -1791,3 +1791,127 @@ scratchpad):
 All 6 rows exist, all 6 yield nothing. Combined with the predecessor's 6/6
 byte-verification of the pinned rows, **all 12 confirmed misses are real** —
 the Developer is not chasing a phantom on any of the 8 root causes.
+
+---
+
+## 2026-08-04 — Manager: Developer fix cycle 2 verified + ACCEPTED; D-Q1 endorsed
+
+Branch `claude/defs-us-scoped-inline-dev` @ `cfedc98`, clean tree. Everything
+below I ran myself; nothing is taken from the Developer's report.
+
+### Fence and overflow sanction — verified mechanically
+
+- `git diff --name-only origin/main...HEAD -- backend/app/` → exactly TWO
+  files: `rules/us_scoped_inline.py` (263 lines) and the new
+  `rules/us_scoped_inline_shapes.py` (217). Both under the 300-line gate.
+  Zero test edits; zero shared-module edits. **U3 holds.**
+- The overflow sanction was conditional on the helper adding no dispatch
+  surface, so I checked it rather than reading the docstring's promise:
+  no executable `register_*` call, no `registry` import at all, no
+  back-import of `us_scoped_inline`. The single registration in the whole
+  sprint is still `us_scoped_inline.py`'s one line. **Sanction satisfied.**
+
+### Suite
+
+`backend/.venv/bin/pytest backend/tests -q` → **748 passed, 2 xfailed, 0
+failed.** The 6 QA cycle-1 REDs are green; the 2 strict xfails are still
+xfailed, so the S-R11 revert tripwire is intact and `_SCOPE_BY_UNIT
+["subsection"]` was not touched.
+
+### The two load-bearing precision gates — read, not assumed
+
+QA cycle 1 proved these two survive weak mutations, so a green suite is not
+evidence about them. I diffed them by hand:
+
+- `_BARE_CONNECTOR_RE` is **byte-identical** to its pre-cycle definition
+  (`r"\s*(?:(?P<colon>:)|(?P<comma>,))?\s*"`), merely relocated to the helper.
+- `_MARKER_QUOTE_RE`'s adjacency half (`\s*["“]`) is **unchanged**. Only
+  `_MARKER_RE`'s marker SYNTAX widened, to admit period-style `1.`
+  (`(?<!\d)[0-9]{1,3}\.`). Wider marker vocabulary, identical gap tolerance —
+  which is exactly the distinction the gate protects.
+
+One genuine widening I want on the record because it is easy to miss:
+`_UNIT_TAIL` went from one optional parenthetical (`?`) to a chain (`*`), and
+that applies to the bare-`in` trigger as well as the strong ones. Bounded
+(≤12 chars per group) and still behind the strict adjacency gate, so I accept
+it — but it IS new trigger surface, and QA should treat it as such.
+
+### The 12 confirmed misses — re-run by me on the shipped code
+
+The 6 pinned rows are covered by the now-green tests. For the 6 unpinned rows
+I re-ran my own pre-cycle script against the shipped module:
+
+| act_id | before | after |
+|---|---|---|
+| `STATE_FL_TXVIII_C253_S253.04` | 0 | 2 — Seagrass, Seagrass scarring |
+| `STATE_DC_T47_C20_S47-2002.01` | 0 | 4 — incl. Street vendor, MST |
+| `STATE_MS_T27_C29_S51-5` | 0 | 3 — incl. Motor vehicle, Public highway |
+| `STATE_OH_T17_C1707_S1707.47` | 0 | 3 — Claimant, Final order, Victim |
+| `STATE_OR_T62_C835_S835.200` | 0 | 1 — seaplane |
+| `STATE_NY_ARPP_A8_S280-D` | 0 | **0** — routed out, see below |
+
+**11 of 12 fixed.** NY is empty BY SCOPE, not by defect (below).
+
+### D-Q1 — ENDORSED, after my own deep-verification
+
+The Developer measured the bare-copula `is` widening over 589,406 rows / 10
+states: 846 extra candidates, 0/40 hand-classified false positives, and
+shipped it unnarrowed. It also disclosed honestly that 27 of those 40 were
+judged from a preview rather than the full row — so the endorsement rests on
+a sample whose weaker half was self-declared.
+
+I therefore picked **5 rows myself**, weighted toward the shapes that look
+most FP-prone in preview, and judged each against the FULL untruncated
+corpus text:
+
+- `STATE_CA_Cpen_P1_T7_C6_S139` — `As used in this section, "a credible
+  threat" is a threat made with the intent and the apparent ability…` —
+  **genuine.**
+- `STATE_OH_T3_C307_S307.692` — `As used in this section, "promotion of
+  tourism" is the encouragement through advertising…` — **genuine.**
+- `STATE_MI_…_S168.4` — `"Village" is defined in section 9.` — **genuine**
+  pointer definition (D-MT-E1 requires capturing these).
+- `STATE_GA_T14_C3_S14-3-140` — `"Notice" is described in Code Section
+  14-3-141.` — **genuine** pointer.
+- `STATE_TX_Ced_C48_S48.2551` — the riskiest shape in the whole sample, a
+  single-letter term `"E"`. Full text shows a statutory formula-variable
+  block: `(1) "DPV" is… (2) "E" is… (3) "MCR" is… (4) "PYDPV" is… (5) "PYMCR"
+  is…`. These are real defined terms for the section's tax formula —
+  **genuine, correctly captured.**
+
+**5/5 genuine on my independent picks; 0/45 measured FPs in total.** No
+material false-positive class exists to escalate under D-Q1, so the
+unnarrowed ship is within policy and the recall argument for rejecting an
+article-restriction stands. **Endorsed.**
+
+### Two findings of my own, carried to QA cycle 2
+
+**Finding A — duplicated candidates from duplicated corpus text.** While
+reading the GA row I noticed every entry is emitted TWICE, because the corpus
+`text` itself repeats each sentence verbatim (`(32) "Notice" is described in
+Code Section 14-3-141 . (32) "Notice" is described in Code Section 14-3-141 .`).
+A corpus data-quality artifact, not a rule bug — the rule faithfully extracts
+what is there. But it raises two questions this cycle must not wave through:
+(i) does the live pipeline's dedup collapse same-rule duplicate candidates
+into ONE `Definition` row? The existing dedup test covers cross-RULE overlap,
+which is a different path. (ii) does this duplication **inflate the +8,899
+corpus candidate delta** that QA is being asked to sample for precision — i.e.
+is part of the headline improvement double-counted rather than new capture?
+A measured improvement that silently counts the same definition twice is
+exactly the kind of number this program has committed to not shipping.
+
+**Finding B — single-character defined terms.** `"E"` is a genuine definition,
+but a one-letter term with `\b`-bounded literal matching is a downstream
+precision hazard wherever it is in scope. Not this cycle's defect and not
+this family's file; recorded as an observation for the program.
+
+### Routed OUT (not ours to fix)
+
+`STATE_NY_ARPP_A8_S280-D` still captures zero. Cause is the **unquoted
+lettered-paragraph** convention: the rule requires a quoted term by design,
+a deliberate precision gate this panel did not invent and must not quietly
+relax. That shape belongs to the **markers panel's unquoted-term family**.
+Reported to the program manager as a routing item so it is owned rather than
+orphaned.
+
+**Verdict: Developer handoff ACCEPTED.**
