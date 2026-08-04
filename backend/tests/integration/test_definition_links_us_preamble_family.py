@@ -323,27 +323,111 @@ def test_real_pipeline_captures_a_real_maryland_body_preamble_definitions_sectio
 
 
 # --- Live-path RED: NE ------------------------------------------------------
+#
+# Re-scoped by the consolidating Planner (sprint 2026-08-04-defs-us-preamble,
+# D2/M-R18): the original single test here (`test_real_pipeline_captures_a_
+# real_nebraska_body_preamble_definitions_section_end_to_end`) asserted full
+# 4-term capture for `STATE_NE_C43_S43-3329`, whose entries are ALL unquoted
+# ("(1) Account means...", no quote marks anywhere in the body -- confirmed
+# live below). That assertion can never pass from THIS sprint's file alone --
+# its own docstring already conceded the row needs a NEW unquoted-term entry
+# splitter (`2026-08-04-defs-us-markers` territory), but neither the test's
+# name nor its assertion disclosed that, making this sprint's gate hostage to
+# another panel's delivery (manager-confirmed defect, M-R18, independently
+# found by scout S4). Split into two tests, coverage preserved exactly, now
+# correctly attributed:
+#
+# 1. `test_real_nebraska_unquoted_body_preamble_is_a_genuine_in_family_
+#    candidate_but_no_current_extractor_can_parse_it` -- a unit-level pin
+#    (mirroring the GA gate-level pin above) documenting precisely what a
+#    `BodyPreambleRule` CAN and CANNOT do for this real row using ONLY
+#    today's real, unedited code: (a) the row is a genuine in-family
+#    candidate (its body opens with this sprint's own trigger convention,
+#    "the following definitions apply:"); (b) it is unrecognized today for
+#    the ordinary reason (no placeholder heading, so body derivation is
+#    never attempted -- ungated dispatch is what THIS sprint's registry rule
+#    will need to fix); (c) EVEN WITH a correct heading, BOTH real
+#    extractors (`USProfile.extract_definitions_from_section`,
+#    `pipeline._extract_inline_quoted_definitions`) already return `[]` on
+#    this exact body, live-verified, isolating the unquoted-term gap as a
+#    pure EXTRACTION defect, not a recognition defect. This test is GREEN
+#    today (like the family's negative-guard tests) and pins the boundary a
+#    `BodyPreambleRule` built in this sprint's own file CAN deliver:
+#    recognition, never unquoted extraction.
+# 2. `test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_
+#    body_preamble_definitions_needs_markers_sprint_too` -- the renamed
+#    original test, assertion UNCHANGED (all 4 real terms still required,
+#    nothing weakened), name now disclosing the true cross-sprint
+#    dependency up front, matching the convention already established by
+#    this sprint's own `test_ne_unquoted_term_means_needs_markers_sprint_too`
+#    in `test_us_body_preamble_capture_red.py` (a DIFFERENT real NE row,
+#    `STATE_NE_C44_S44-5003`, same unquoted shape, same disclosed
+#    dependency). Intentionally stays RED after `us_body_preamble.py` ships
+#    alone -- that is the correct, disclosed state, not a defect.
 
 
-def test_real_pipeline_captures_a_real_nebraska_body_preamble_definitions_section_end_to_end(
+def test_real_nebraska_unquoted_body_preamble_is_a_genuine_in_family_candidate_but_no_current_extractor_can_parse_it():
+    """Unit-level pin (real code, no live pipeline run needed): documents
+    the exact boundary between this sprint's territory (recognizing the
+    preamble) and `2026-08-04-defs-us-markers`'s territory (splitting an
+    unquoted entry) for `STATE_NE_C43_S43-3329`, so the live-path sibling
+    below can be read as "needs markers too" rather than "this sprint's
+    rule is broken."
+    """
+    from app.definition_links.pipeline import (
+        _extract_inline_quoted_definitions,
+        _is_placeholder_heading,
+    )
+    from app.definition_links.us_profile import extract_definitions_from_section
+
+    rows = _load_preamble_rows()
+    row = rows["STATE_NE_C43_S43-3329"]
+
+    assert "the following definitions apply" in row["text"][:200].lower(), (
+        "fixture must reproduce NE's real dominant family-2 trigger "
+        "convention ('For purposes of ..., the following definitions "
+        "apply:') -- this row is a genuine in-family candidate, not an "
+        "unrelated shape"
+    )
+    assert _is_placeholder_heading(row["section_title"]) is False, (
+        f"{row['section_title']!r} is NE's real 'View Statute N-NNNN' "
+        "heading shape -- confirmed NOT a bare placeholder, so today's "
+        "gated dispatch never even attempts body derivation for it "
+        "(matches D1: 0/559 captured today for any reason)"
+    )
+    assert extract_definitions_from_section(row["text"], scope="law-wide") == [], (
+        "USProfile.extract_definitions_from_section must return [] for "
+        "this row's real unquoted entries even given a correct heading -- "
+        "if this assertion fails, the extractor now parses unquoted terms "
+        "and the sibling test below should be re-evaluated, not silently "
+        "left mis-scoped"
+    )
+    assert _extract_inline_quoted_definitions(row["text"], scope="law-wide") == [], (
+        "the inline-quote fallback is quote-anchored and must also return "
+        "[] for this unquoted shape -- confirms the gap is a pure "
+        "extraction defect (markers-sprint territory), not a recognition "
+        "defect (this sprint's territory)"
+    )
+
+
+def test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_body_preamble_definitions_needs_markers_sprint_too(
     db_session, matter_with_users
 ):
-    """Live-path confirmation: the real production pipeline creates ZERO
-    definitions from a real, genuine Nebraska 'For purposes of ..., the
-    following definitions apply:' preamble section today.
-
-    NE is NOT the GA shape either (D1 finding -- the manager's original
-    probe found only 2 NE rows, both false positives; the real dominant
-    convention, found by a broad full-corpus signal scan, is 559/25,997
-    rows, 2.15%). Unlike GA/MD, NE's terms are UNQUOTED ('Account means
-    ...', no quote marks) -- confirmed live (see this sprint's report):
-    NEITHER `USProfile.extract_definitions_from_section` NOR
+    """Live-path confirmation, name now disclosing the cross-sprint
+    dependency up front (assertion UNCHANGED from the original test this
+    replaces -- see the module-level note above): the real production
+    pipeline creates ZERO definitions from a real, genuine Nebraska 'For
+    purposes of ..., the following definitions apply:' preamble section
+    today, and will STILL create zero from `us_body_preamble.py` alone,
+    because NE's terms are UNQUOTED ('Account means ...', no quote marks) --
+    confirmed live by the unit-level pin above: NEITHER
+    `USProfile.extract_definitions_from_section` NOR
     `pipeline._extract_inline_quoted_definitions` extracts anything from
-    this shape, both being quote-anchored. Going green therefore needs
-    BOTH this sprint's preamble-recognition fix AND a NEW unquoted-term
-    entry splitter -- the latter is `2026-08-04-defs-us-markers` territory
-    (entry-marker/quote-shape parsing), a cross-sprint dependency flagged
-    in this sprint's report, not planned as an edit here.
+    this shape, both being quote-anchored. Going green needs BOTH this
+    sprint's preamble-recognition fix AND a NEW unquoted-term entry
+    splitter -- the latter is `2026-08-04-defs-us-markers` territory
+    (entry-marker/quote-shape parsing), a cross-sprint dependency now
+    disclosed by this test's own name, not just its docstring.
     """
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
@@ -374,5 +458,8 @@ def test_real_pipeline_captures_a_real_nebraska_body_preamble_definitions_sectio
         "unquoted multi-term convention (D1 finding). NOTE: going green "
         "here needs a NEW unquoted-term entry splitter in addition to "
         "preamble recognition -- see this sprint's report for the "
-        "cross-sprint dependency on 2026-08-04-defs-us-markers"
+        "cross-sprint dependency on 2026-08-04-defs-us-markers. This test "
+        "is EXPECTED to stay RED after this sprint's own rule ships alone "
+        "(see the module-level note above and the unit-level pin test) -- "
+        "its name discloses that, it is not a bug in this sprint's rule."
     )

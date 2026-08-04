@@ -1337,3 +1337,59 @@ discriminator bias that already produced a 67% false-CLAUSE rate. That is
 sustained judgment, not transcription. **Haiku considered: no.**
 `model=inherit` not used. It is the **sole writer** in this worktree
 (M-R8/M-R15); no other agent writes here while it runs.
+
+---
+
+## 2026-08-04 — Consolidating Planner: D1–D6 (sole writer, per M-R15/M-R20)
+
+Read all four scout findings files, both CLAUSE packages, the S1/S2
+per-jurisdiction JSONs, the sprint contract, and M-R13..M-R20 in full before
+writing anything. Committing after each deliverable per the director's
+worktree-safety instruction (two writers already caused an incident this
+sprint, M-R8).
+
+### P-D2 — NE test defect re-scoped (manager's highest priority, M-R18)
+
+Confirmed the defect independently (re-ran the assertion against real code,
+did not take the manager's/S4's report on faith): `extract_definitions_
+from_section(row["text"], scope="law-wide")` and `_extract_inline_quoted_
+definitions(row["text"], scope="law-wide")` both return `[]` for
+`STATE_NE_C43_S43-3329`'s real, unquoted body, live-verified in this
+worktree's venv today. `_is_placeholder_heading(row["section_title"])` is
+also `False` (NE's real `"View Statute 43-3329"` heading is not a bare
+placeholder), so today's gated dispatch never even attempts body derivation
+for it — matches D1's 0/559 exactly.
+
+**Split `test_definition_links_us_preamble_family.py`'s single mis-scoped
+NE test into two, coverage unchanged, correctly attributed:**
+
+1. `test_real_nebraska_unquoted_body_preamble_is_a_genuine_in_family_
+   candidate_but_no_current_extractor_can_parse_it` — NEW unit-level pin
+   (mirrors this file's own existing GA gate-level-pin convention), calling
+   only real, unedited code. Pins exactly what a `BodyPreambleRule` built in
+   THIS sprint's file can and cannot deliver for this row: (a) the row
+   genuinely carries this sprint's own trigger convention ("the following
+   definitions apply:"); (b) it is unrecognized today for the ordinary
+   reason (no placeholder heading); (c) both real extractors already return
+   `[]` given this exact body, isolating the unquoted-term gap as a pure
+   extraction defect (`2026-08-04-defs-us-markers` territory), not a
+   recognition defect (this sprint's territory). **GREEN today** (like the
+   family's negative-guard tests) — verified by running it.
+2. `test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_
+   body_preamble_definitions_needs_markers_sprint_too` — the original test,
+   renamed to disclose the cross-sprint dependency in its own name (matching
+   the sibling convention already established by `test_us_body_preamble_
+   capture_red.py`'s `test_ne_unquoted_term_means_needs_markers_sprint_too`,
+   a DIFFERENT real NE row, `STATE_NE_C44_S44-5003`, same shape). **Assertion
+   is byte-for-byte unchanged** — still requires all 4 real terms
+   (`Account`, `Authorized attorney`, `Child support`, `Department`) —
+   nothing weakened. **Verified RED for the right reason**: ran it directly,
+   fails with `assert {...4 terms...} <= set()` (empty `created_definitions`
+   from the real pipeline), the same live-path failure mode as every other
+   capture test in this sprint, not an import error or a fixture defect.
+
+Verified the whole file after the edit: `2 passed` (the new unit pin + the
+pre-existing GA gate-level pin), `4 failed` (GA capture, GA false-positive
+guard, MD capture, the renamed NE test) — exactly the expected shape before
+`us_body_preamble.py`/core's registry exist. No test outside the NE block
+was touched.
