@@ -27,6 +27,9 @@ Internal orchestration records. Not auto-loaded; not director-facing.
   clean-exited post QA cycle 2; runs Phase C): aebd052825067b722
 - 2026-08-04 scoped-inline phase-2 manager (opus, fresh context after
   predecessor clean-exited post QA cycle-1 bounce): a1b29c30b33e45591
+- 2026-08-04 headings phase-3 manager (opus, fresh context after phase-2
+  manager context-exhausted clean exit @ b79f588; runs dev cycle 5 + QA
+  cycle 4): a1d2487867915919a
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
