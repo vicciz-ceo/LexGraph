@@ -1230,3 +1230,401 @@ xfailed" baseline with the 1 failure moved into the xfailed bucket). The
 DoD's stated "743 passed" appears to be a minor arithmetic slip against the
 manager's own reported starting tally; reporting the real, reproduced
 number rather than the target figure.
+
+---
+
+## 2026-08-04 — QA (cycle 1, independent verification pass)
+
+Workspace verified at `6cb5eef`. Read the contract (gates U1-U6), the full
+log (S-R1..S-R11), and `us_scoped_inline.py` (read-only) before starting.
+Zero implementation edits made -- `git diff --name-only origin/main...HEAD`
+under `backend/app/` shows only `us_scoped_inline.py`, and that file's own
+diff against this cycle's starting commit is empty (`git status --short`:
+only 2 new untracked test/fixture files added by this cycle).
+
+### U4 -- denominator audited, then independently re-executed (P-R7)
+
+**Audit of D12's design**: sound. Sampling (pure `random.Random` draw over
+`sorted(act_id)`-ordered rows, zero regex/keyword touch at draw time) and
+judging (plain-language prompt, never given the trigger vocabulary) are
+correctly separated, and D12's own honesty caveat (a sample bounds a rate,
+it does not prove literal zero) is accurate. Adopted the design; did NOT
+reuse the Planner's own D1 population (regex-built, correctly D12's own
+target for what NOT to use as a denominator).
+
+**Independent execution**: stratified random sample, N=10/jurisdiction, all
+53 jurisdictions, 530 rows, seed `20260804`, drawn fresh from the real
+parquet (script `qa_u4_sample.py`, scratchpad-only, grep-audited for zero
+overlap with this family's trigger vocabulary in the actual sampling logic
+-- the only vocabulary-adjacent text is prose comments). Reduced from D12's
+suggested 200-300/jurisdiction for single-session judging capacity --
+disclosed, not hidden; widens this sweep's confidence interval versus a
+larger sample.
+
+Judged by 7 independent parallel agent readers (6 primary batches, ~88-89
+rows each, plus a 60-row cross-validation subsample judged blind by an
+8th... 7th independent reader), each given ONLY the plain-language D12
+prompt (term/scope/idiom vocabulary never mentioned). Cross-validation
+agreement: **58/60 = 96.7%** (2 disagreements, both genuinely
+borderline calls, not judge errors -- reasonable reliability for this
+method). Aggregate: 82/530 batch positives (15.5%), 9/60 crossval
+positives (15.0%) -- consistent rates across independent judge pools.
+
+**Divergence proof (non-circularity)**: this family's own trigger regex,
+run over the SAME 530 rows: 91.7% raw agreement with the judges, but the
+INTERESTING cells are the disagreements -- 78.8% precision (14/66 regex
+hits are bait the judges rejected) and only **63.4% recall** (the regex
+never even fires on 30 of the 82 judge-confirmed genuine definitions).
+Neither direction is empty and neither is near-total -- exactly the
+"genuinely disagrees both ways" signature D12 said would prove
+independence; perfect agreement would have been the red flag.
+
+**Triage of the 82 judge-positives** (full untruncated text re-fetched from
+parquet; routed through the REAL `is_definitions_heading` +
+`derive_heading_from_body` rescue logic, then the real
+`extract_us_scoped_inline_definitions`):
+
+| Bucket | Count |
+|---|---|
+| F3_NOT_OURS (heading recognized, S-R3 boundary) | 18 |
+| OUT_OF_FAMILY_NO_TRIGGER (no scope-unit trigger at all, not this family's remit) | 25 |
+| CAPTURED | 17 |
+| **CANDIDATE_MISS** | **22** |
+
+**Manual read of all 22 CANDIDATE_MISS rows** (full text, trigger-match
+context, rule output) found **12 rows are CONFIRMED real misses squarely
+WITHIN this family's own already-claimed vocabulary** -- a recognized
+STRONG trigger, a quoted term, a recognized idiom or colon-list, present in
+the real text, yet the rule returns nothing -- across 8 distinct,
+empirically isolated root causes (each verified by direct interactive
+reproduction against the real, unmodified `extract_us_scoped_inline_
+definitions`, not inferred from regex reading alone):
+
+1. **Unmarked colon-then-quoted-list** (no parenthesized marker before
+   each entry) -- `_leading_events` routes every colon-triggered event to
+   `_multi_entries`, which ONLY recognizes marker-prefixed entries;
+   `_single_entry` is never tried as a fallback. Loses the ENTIRE block,
+   not just under-splits. Confirmed: `STATE_IL_C20_A2105_S2105-370` (2
+   terms), `STATE_VA_T58.1_SI_C3_A10_S58.1-405.1` (7 terms). Most severe
+   class found.
+2. **Period-style list markers** ("1." "2." not "(1)" "(2)") --
+   `_MARKER_RE` requires literal parens. Confirmed:
+   `STATE_FL_TXVIII_C253_S253.04`.
+3. **Chained parenthetical unit qualifiers** after the trigger's unit word
+   (`this subsection (1)(a)(I)(A)`) -- `_UNIT_TAIL`'s optional qualifier
+   group consumes only the first parenthetical. Confirmed:
+   `STATE_CO_T39_A27_P1_S39-27-102`.
+4. **Intervening secondary citation clause** between the unit word and the
+   definiendum (`as used in this section AND [citation], the term X
+   means`) -- `_STRONG_CONNECTOR_RE` has zero tolerance for inserted text.
+   Confirmed on THREE independent rows:
+   `STATE_DE_T6_C15_SIX_S15-901`, `STATE_OH_T17_C1707_S1707.47`,
+   `STATE_OR_T62_C835_S835.200`.
+5. **"the term:" with no space before the colon** breaks colon detection
+   (the `the term\s+` connector alternative requires trailing whitespace
+   before it can even try to reach a colon). Confirmed:
+   `STATE_DC_T47_C20_S47-2002.01`.
+6. **Connector vocabulary too narrow for "shall have (the following)
+   meaning(s)"** -- only "(the following terms) mean/means" is recognized.
+   Confirmed: `STATE_NY_ARPP_A8_S280-D` ("shall have the following
+   meanings"), `STATE_MS_T27_C29_S51-5` ("shall have meanings as
+   follows").
+7. **Plural "have the same meaning as"** not recognized (only singular
+   "has..."). Confirmed: `STATE_TN_T55_C9_S55-9-414`.
+8. **Bare copula "is"** (without "defined as") not a recognized idiom.
+   Confirmed: `STATE_ND_T50_C50-25.1_S50-25.1-09.1`.
+
+Each of the 6 distinct root causes above (not counting the 2 duplicate-
+class rows OH/OR and FL) is now pinned as a RED test with REAL,
+unmodified, byte-verified corpus text: `backend/tests/unit/
+test_us_scoped_inline_qa_cycle1_missed_conventions.py` (187 lines, 6
+tests, all FAIL today against the unmodified rule) +
+`backend/tests/fixtures/us_statutes/qa_cycle1_missed_conventions_rows.json`
+(6 real rows, 6/6 byte-verified against the live parquet at fetch time).
+Per QA's role boundary: tests only, `us_scoped_inline.py` untouched.
+
+**Remaining 10 of the 22 CANDIDATE_MISS rows** (12 confirmed-bug rows
+above + these 10 = 22, arithmetic checked), not pinned as RED (not
+in-vocabulary bugs, reported for the manager's routing/ruling instead):
+
+- **5 rows, unquoted term + otherwise-recognized idiom** (`AZ_T11_C3_A12_
+  S600`, `ID_T6_C22_S6-2202`, `MA_PIII_TII_C231_S85Z`, `SD_T32_C9_
+  S32-9-17.2`'s embedded-trigger variant, `MI_C123_...S123.1281`) -- the
+  rule requires a quoted term BY DESIGN (matches the documented precision
+  gate and the Planner's own negative-control precedent). This is a real,
+  measured recall cost from a deliberate precision tradeoff, not a bug --
+  a recall-vs-precision question, reported rather than settled here
+  (P-R2). Note: `NY_ARPP_A8_S280-D` (already counted above under bug #6,
+  the "shall have the following meanings" connector gap) ALSO
+  independently exhibits this same unquoted-labeled-paragraph convention
+  as a second, compounding issue on the same row -- not double-counted in
+  the 22-row total, flagged here so the two causes aren't conflated.
+- **4 rows, a genuinely different, unrecognized idiom**: "referred to in
+  this `<unit>` as the 'X'" (content-then-term naming/aliasing, the
+  REVERSE of "X means Y") -- `STATE_CO_T24_A34_P1_S24-34-108` ("program"),
+  `STATE_LA_Crevised-statutes_T33_S9038.71` (3 terms: Baker/district/
+  property), `STATE_ME_T20-A_P5_C417-A_S11424` ("capital reserve
+  requirement"), `STATE_RI_T16_C16-59_S16-59-1` ("the council"). A U1
+  convention-inventory gap, not a vocabulary typo -- would need new
+  parsing logic (reversed clause order), not a regex tweak.
+- **1 row, `USC_T15_C22_S1127`** (federal Lanham Act, "Construction and
+  definitions; intent of chapter") -- a single "In the construction of
+  this chapter, unless the contrary is plainly apparent..." preamble
+  governs a long list of terms with NO per-entry trigger repetition;
+  "in the construction of this X" does not match the bare-`in`
+  vocabulary's "in this X" pattern. Also a live routing question: this
+  heading arguably should resolve to F3 (`is_definitions_heading`) and
+  currently does not -- flagged for the manager to route (core's
+  `sections.py`/`us_profile.py`, not this family's file).
+
+**U4 VERDICT: FAIL.** Proving check: 12 confirmed misses (8 distinct root
+causes, empirically reproduced via direct interactive execution of the
+real, unmodified `extract_us_scoped_inline_definitions` against real,
+byte-verified corpus text) inside this family's own already-claimed
+vocabulary, found via a P-R7-compliant, signal-agnostic random sample
+across all 53 jurisdictions -- not synthetic edge cases. 6 are pinned as
+committed RED tests. Per the QA role boundary, not fixed here.
+
+### U6 -- full-corpus (all 53 jurisdictions, 2,038,135 rows scanned) per-slice before/after
+
+Script `qa_u6_full_corpus.py` (scratchpad): independent "genuine" heuristic
+(D1/D3-style -- trigger regex hit + adjacent quote-then-idiom or a nearby
+colon; NOT the production rule's own buggy splitting logic, to avoid
+hiding the misses just found) extended from the Planner's 12-lead-state
+scan to the full corpus. 271.7s wall time.
+
+**Genuine trigger volume by scope-unit word, full 53-jurisdiction corpus**
+(258,958 total genuine hits -- proportions broadly match the Planner's
+12-state D1/D3 figures, refined at full scale):
+
+| Unit | Hits | % | Maps to |
+|---|---|---|---|
+| section | 123,393 | 47.6% | local |
+| chapter | 50,165 | 19.4% | chapter |
+| subsection | 21,945 | 8.5% | local (S-R11 interim) |
+| article | 13,748 | 5.3% | law-wide |
+| part | 10,665 | 4.1% | law-wide |
+| act | 10,628 | 4.1% | law-wide |
+| subchapter | 9,350 | 3.6% | law-wide |
+| paragraph | 8,393 | 3.2% | law-wide |
+| subdivision | 6,936 | 2.7% | law-wide |
+| title | 1,751 | 0.7% | law-wide |
+| division | 1,383 | 0.5% | law-wide |
+| subpart | 601 | 0.2% | law-wide |
+
+**AFTER: rule's own candidate output, tallied by persisted `.scope`**
+(280,312 total candidates -- NOT directly comparable 1:1 to the genuine-hit
+table above: one trigger can yield multiple candidates via a list, and
+some genuine hits are multi-counted per entry; reported as volume/scale,
+not a row-level recall percentage, which the 530-row sample already
+measured more precisely at 63.4%):
+
+| Scope (after) | Candidates | % of captured |
+|---|---|---|
+| local | 129,528 | 46.2% |
+| law-wide | 75,647 | 27.0% |
+| chapter | 75,137 | 26.8% |
+
+**Before, all slices: 0** (uncontested -- `pipeline.py`'s `else:` branch
+called Hebrew-only extractors for every US article pre-sprint, re-verified
+architecture fact, not re-derived).
+
+**Per-slice honesty, as the brief required (never one headline number)**:
+
+- **section -> local**: ~53.8% of genuine family volume (Planner's
+  12-state figure; 47.6% at full 53-state scale) -- fully live, correctly
+  scoped, U2 both-directions PROVEN on the real pipeline
+  (`test_us_scoped_inline_pipeline_live.py`).
+- **chapter -> chapter**: ~23.7% (19.4% full-scale) -- fully live,
+  correctly scoped, U2 both-directions PROVEN live.
+- **subsection -> local (S-R11 interim)**: ~4.5% (8.5% full-scale, LARGER
+  than the Planner's 12-state figure -- subsection usage is more common
+  outside the original lead states) -- captured, but OVER-LINKED to the
+  whole owning article. `test_us_scoped_inline_pipeline_subsection_live.py`
+  keeps TRUE subsection behavior pinned `xfail(strict=True)`; I
+  independently re-verified this self-alarming mechanism actually works
+  (see Mutation section below) rather than trusting the design description.
+- **part/subchapter -> law-wide (S-R9)**: ~13.9% (7.7% full-scale) +
+  ~4.0% residue (article/act/paragraph/subdivision/title/division/subpart,
+  ~20.4% full-scale) -- captured, OVER-LINKED to the entire ingested
+  Document.
+
+**Over-link cost, quantified (the number the manager re-escalates under
+P-R2)**: `ingest_us_statute_rows` (`ingest_us_statutes.py:164`) ingests
+whatever `rows` the caller batches into ONE `Document`; `scope="law-wide"`
+is unrestricted (`matcher._in_scope`), so the over-link exposure is bounded
+by the Document's article count -- in practice however the caller batches
+rows in production, but AT LEAST the corpus's own `title_number` grouping
+(a reasonable lower-bound proxy for a sane batching granularity). Measured
+directly from the real corpus (`qa_overlink_cost.py`): mean **977.6** rows
+per (jurisdiction, title), median 324, up to **122,535** rows in the
+largest single title (TX). Against the REJECTED chapter-fallback's
+narrower unit (mean 40.1 rows/chapter, median 13): **law-wide over-links
+~24.4x more articles on average than a chapter-scoped fallback would
+have** -- and chapter-fallback was itself already proven unsound (Maine:
+one Part spans 106 chapters, S-R9). **Caveat, disclosed not hidden**:
+36.8% of ALL corpus rows (750,594) have a NULL `title_number` (entirely
+null for FL/IA/IL/KS/KY/MA/MI/MN/MO/NC/NH/NM/PR/TX/WI/WV; 70% null for CA;
+93% for NE), so for those jurisdictions the true production batching
+granularity -- and therefore the true over-link exposure, which could be
+the ENTIRE STATE CODE (up to 161,429 rows for CA, 122,535 for TX) if
+production batches whole-state rather than per-title -- is NOT
+determinable from the corpus data alone. Could not verify beyond this.
+
+For `subsection -> local` (S-R11), the over-link is bounded by definition
+to the single owning article (S-R11's own accepted tradeoff, self-
+alarmed) -- categorically smaller than the law-wide slice, not separately
+quantified in article-count terms this cycle (would need a per-article
+subsection-count distribution; flagged as unverified, not fabricated).
+
+**U6 VERDICT: PASS-WITH-CAVEAT.** Proving check: full 2,038,135-row
+53-jurisdiction sweep (real command + output above), per-slice breakdown
+with both the Planner's 12-state figures and this cycle's independent
+full-scale figures shown side by side, over-link multiplier measured
+directly from real corpus title/chapter grouping. Caveat: the true
+over-link ceiling for the 36.8%-of-corpus null-`title_number` states is
+unverified and could be substantially larger than the measured 24.4x.
+
+### U1 -- convention-variant hunt: 2 new gaps found beyond U4's bug list
+
+Beyond the 8 in-vocabulary bug classes above (which ARE U1 findings too --
+a rule that silently drops an entire unmarked colon-list is a convention
+the inventory should have caught), two further real, distinct SHAPES were
+found in the 530-row sample that the vocabulary was never designed to
+recognize at all (not vocabulary bugs, feature gaps):
+
+1. "Referred to in this `<unit>` as the 'X'" aliasing/naming (4 rows,
+   listed above under U4's routed-out findings).
+2. "In the construction of this `<unit>`, unless..." single-preamble-
+   governs-a-whole-list shape (USC Lanham Act, listed above).
+
+### U2 -- verified, not assumed
+
+Both directions LIVE-PROVEN for `local` and `chapter` only, exactly as the
+brief said to expect: read `test_us_scoped_inline_pipeline_live.py` in
+full -- both scenarios construct a real defining row plus a synthetic
+in-scope AND out-of-scope sibling, assert the `USES_DEFINITION` edge
+target set directly against persisted `Assertion.subject_entity_id`/
+`object_entity_id` (not the summary dict). `subsection` is xfailed by
+design (S-R10/S-R11); independently re-verified the xfail mechanism itself
+works (see Mutation section).
+
+### U3 -- zero edits to shared modules
+
+`git diff --name-only origin/main...HEAD` (full command output, this
+cycle): only `backend/app/definition_links/rules/us_scoped_inline.py`
+under `backend/app/` -- confirmed clean, matches every prior handoff
+verification this sprint.
+
+### U5 -- baseline states hold, full suite green modulo this cycle's own RED
+
+`backend/.venv/bin/pytest backend/tests -q` before adding any QA test:
+**742 passed, 2 xfailed** (matches the sprint's stated starting state
+exactly). After adding the 6 QA RED tests: **6 failed, 742 passed, 2
+xfailed** -- the 6 failures are 100% attributable to this cycle's own new
+file; nothing pre-existing regressed.
+
+### Mutation rigor on the load-bearing greens
+
+Scratch copy at `/private/tmp/.../scratchpad/mutation_copy` (full repo
+copy, own venv -- verified the venv's editable-install finder maps `app`
+to the ORIGINAL worktree's absolute path, NOT the copy; pytest's own
+`pythonpath = ["."]` ini option overrides this for test runs, but a bare
+`python -c` does not -- this cost real debugging time before I trusted the
+mutation results; flagging so a future QA cycle doesn't repeat it).
+
+| Test | Mutation | Result |
+|---|---|---|
+| `test_local_scope_links_a_mention_within_the_same_article_only` | `_SCOPE_BY_UNIT["section"]` -> `"law-wide"` | **CAUGHT** (real AssertionError, `'law-wide' == 'local'`) |
+| `test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_different_one` | `_extract`'s `candidate.source_chapter = ctx.chapter` stamping removed | **CAUGHT** (same-chapter sibling stopped linking) |
+| `test_core_proof_rule_and_a_second_overlapping_rule_dedupe_to_one_definition` | pipeline.py's dedup lookup forced to always `None` (scratch-copy-only edit, never touched the real repo) | **CAUGHT** (3 Definition rows instead of 1) |
+| `test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_subsection` (xfail mechanism) | Simulated the post-core-fix revert: `_SCOPE_BY_UNIT["subsection"]` flipped back to `"subsection"` (mapping only, core's resolver bug NOT fixed in the scratch copy) | **CONFIRMED WORKING**: direction 2 correctly XPASSes, `strict=True` correctly turns that into a suite FAILURE -- the self-alarming revert design is real, not just described |
+| `test_bare_in_this_section_mid_sentence_prose_yields_nothing` (negative control) | Removed the bare-`in` strict comma/colon adjacency gate entirely | **NOT CAUGHT** by the negative-control suite (still 6/6 pass) -- but a targeted synthetic probe confirms the gate DOES do real work (`'Nothing in this section "widget" means...'` becomes a false positive once the gate is removed); the *committed* fixture row this test uses just doesn't happen to have a quote immediately after "in this section", so the downstream quote-match requirement redundantly protects it. **Finding: no committed test isolates the adjacency gate itself** -- a regression there could ship silently as long as no fixture row happens to pair a bare "in this `<unit>`" with a coincidental nearby quote. |
+| `test_references_to_term_shall_include_is_excluded_by_design` (negative control) | Widened `_MARKER_QUOTE_RE`'s marker-to-quote gap from immediate to <=20 chars | **NOT CAUGHT** by the negative-control OR body-axis suite (42/42 unchanged) -- the PA row is independently protected by the idiom-vocabulary gate ("shall include" is not a recognized idiom), not by the marker-adjacency mechanism this test's own docstring credits. A fully UNBOUNDED gap (500 chars) IS caught, by the ROMAN-NUMERAL test (`test_nested_roman_numeral_subclauses_stay_inside_their_own_entry`) -- so there is real protection somewhere in the suite, just not from the test that documents itself as testing this exact mechanism, and not at moderate gap distances. |
+
+### Fixture byte-checks
+
+`backend/tests/fixtures/us_statutes/us_scoped_inline_rows.json`: **26/26**
+rows byte-identical (`section_title` + `text`) against the live parquet
+(count grew from the Planner's own last-verified 25 -- the Planner pass-2
+addition of `STATE_MO_C44_S44.091` is included and verified). This cycle's
+own new fixture, `qa_cycle1_missed_conventions_rows.json`: **6/6**
+byte-identical (verified twice -- once implicitly at fetch time by reading
+directly from the parquet, once independently re-checked afterward as a
+separate script run). 32/32 real rows byte-verified in total this cycle.
+
+### False-positive rate
+
+Ran the real rule against the FULL (untruncated) text of all 530
+trigger-blind sample rows: fires (>=1 candidate) on 26/530 rows. Of those,
+**initially 4 looked like false positives** (rule fired, judge said
+NEGATIVE) -- direct investigation of all 4 found EVERY one is actually a
+methodology artifact, not a rule defect: the definition sits PAST the
+4000-char cap I imposed on the judges' sample text (`STATE_AZ_T15_C9_A1_
+S910`'s "state aid" definition at offset 15,736 of a 15,807-char row;
+similarly for `STATE_AZ_T20_C11_A1_S2108`, `STATE_MO_C260_S260.925`,
+`STATE_OK_T18_S18-1142`) -- the judges never saw that part of the text, so
+their NEGATIVE call was correct given what they were shown, and the rule
+was RIGHT to fire. **Corrected false-positive rate: 0/26 = 0%** on this
+sample (small N, wide confidence interval, but a genuinely strong result,
+and I would rather report a self-caught methodology bug than an inflated
+15.4% headline). **Residual, disclosed limitation**: this same 4000-char
+cap means a genuine definition sitting past the cap, in a row whose VISIBLE
+portion has no definition AND that the rule (bug included) ALSO fails to
+capture, would be invisible to BOTH the judges and this false-positive
+check -- 47/530 (8.9%) sample rows were truncated; not re-verified against
+full text by a fresh judging pass this cycle (would require re-dispatching
+judge agents; flagged as unverified, not silently assumed clean).
+Separately, the mutation-rigor section above found the strict bare-`in`
+adjacency gate DOES hold precision when actually exercised (confirmed by
+direct synthetic probe), consistent with this 0% measured rate.
+
+### What I could NOT verify
+
+- The true over-link ceiling for the 36.8%-of-corpus null-`title_number`
+  jurisdictions (could be much larger than the measured 24.4x if
+  production batches whole-state).
+- Whether a genuine definition hides past the 4000-char sample cap in any
+  of the 47 truncated, judge-NEGATIVE rows that the rule ALSO fails to
+  capture (the one blind spot the false-positive re-check cannot close).
+- `subsection -> local`'s over-link cost in article-count terms (would
+  need a per-article subsection-count distribution; not measured).
+- Whether the "referred to in this `<unit>` as the 'X'" aliasing shape or
+  the unquoted-term precision tradeoff should be captured -- reported for
+  the manager's ruling (P-R2-style), not decided here.
+- GA/MD/NE/MS (F2's assigned states) were not independently re-audited for
+  a reverse F1/F2 boundary conflict this cycle (the Planner flagged the
+  same gap in pass 1 and it was never closed).
+
+### Per-gate verdicts (summary)
+
+- **U1**: FAIL-WITH-FINDINGS -- 8 confirmed in-vocabulary bugs (6 RED-test-
+  pinned) + 2 unrecognized convention shapes, found via a P-R7-compliant
+  sweep, not synthetic invention.
+- **U2**: PASS for `local`/`chapter` (both directions, live, proven by
+  reading the real assertions in `test_us_scoped_inline_pipeline_live.py`
+  and confirming the mutation-caught results above); `subsection` remains
+  correctly xfailed (verified the xfail mechanism itself is real, not
+  just documented).
+- **U3**: PASS -- `git diff --name-only origin/main...HEAD` output pasted
+  above, only one production file touched.
+- **U4**: **FAIL** -- 12 confirmed misses in-family, P-R7-compliant
+  denominator independently built and executed (not merely adopted),
+  divergence proven non-circular (63.4% recall / 78.8% precision vs. the
+  family's own regex), cross-validated at 96.7% agreement.
+- **U5**: PASS -- 742 passed/2 xfailed baseline reproduced exactly before
+  adding any QA test; the only new failures are this cycle's own 6 RED
+  tests.
+- **U6**: PASS-WITH-CAVEAT -- full 53-jurisdiction, 2,038,135-row sweep,
+  per-slice breakdown, over-link cost quantified at ~24.4x for the
+  measurable majority of the corpus, with the null-`title_number`
+  36.8% explicitly flagged as unverified rather than assumed.
+
+No `ESCALATION:` filed this cycle -- every finding above is either
+classifiable as a confirmed in-family miss (RED-test-provable, reported
+per the QA role boundary) or an already-named P-R2 conflict class the
+manager already owns (unquoted-term precision tradeoff, the aliasing
+idiom, the law-wide/subsection over-link cost) -- nothing here needed a
+NEW recall-vs-precision judgment call from QA, or touches a shared module.
+
+Commit: test files + this log entry only, no implementation touched.
