@@ -68,6 +68,25 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-04 (markers build verified — largest recall event of the program):
+  claude/defs-us-markers @ 4d1adff, 6 new rules/ modules (541 lines, zero
+  shared/test edits), suite 1 failed / 814 passed. Zero-yield before→after:
+  VA 97.2→4.4, WA 98.8→6.4, AL 97.0→13.9 (manager-reproduced EXACTLY),
+  FED 83.3→7.3, UT 97.5→2.3, SC 97.8→4.3, RI 100→7.2, AK 99.9→4.6,
+  AZ 99.0→13.7, NC 51.8→14.1, TX 21.3→3.3; DC 27.3→27.2 honestly flat
+  (its misses are the last-entry class). Manager proved dispatch live with
+  a spy EntrySplitterRule pre-build (all 8 registry accessors now called
+  in production). Held RED = FED last-entry defect in shared
+  us_profile._split_into_numbered_blocks (runs before rules, wins dedup) —
+  routed to core follow-on-2 (recorded in program doc). U-R9: FL
+  ScopeTriggerRule flagged as scoped-inline territory → adopt-or-veto
+  relayed to scoped-inline. WA STATE_WA_T50_C29_S030 accepted into markers'
+  zero-yield mandate, status honestly unknown (needs named-row RED next
+  pass). Boilerplate-classification interface position: shared helper, not
+  registry rule (predicate vs producer); markers coordinates with
+  scoped-inline directly. Boundary-damage residuals named (WA 3 defs
+  >5,000 chars; VA/WA/AL 1/5/7 defs <10 chars) → QA next role.
+
 - 2026-08-04 (headings cycle-3 escalation + succession): headings @ b79f588,
   811/0, U1 live-path leg proven (CT test flipped green with panel file
   untouched — 20,307-heading recall win live); dispatch semantics (A)
