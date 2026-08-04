@@ -111,7 +111,7 @@ def test_federal_conservation_easements_definitions_first_two_clean_terms_are_ca
         db_session,
         matter_with_users,
         act_id="USC_T7_C50_S1997",
-        jurisdiction="US-FEDERAL",
+        jurisdiction="US-FED",
         title="FED conservation easements (test)",
     )
     created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
