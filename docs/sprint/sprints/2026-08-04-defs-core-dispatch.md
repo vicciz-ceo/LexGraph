@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-core-dispatch"
-status: planned
-current_role: developer
+status: review
+current_role: qa
 branch: claude/defs-core-dispatch
 worktree: /Users/nerya/LexGraph-wt/defs-core-dispatch
 locked_by: null
 locked_at: null
 last_agent: "claude-code:dispatch-manager"
-last_updated: "2026-08-04T15:19:19Z"
+last_updated: "2026-08-04T17:05:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
-lint: "PASS 184 2026-08-04T15:19:19Z"
-completed_items: 0
+lint: "PASS 154 2026-08-04T17:05:01Z"
+completed_items: 11
 dev_complete_items: 0
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-04-defs-core-scope"
 prd_sections: []
 design_sections:
@@ -85,100 +85,71 @@ The two panel managers' positive-control probes are the Planner's blueprints.
 
 ## Next Steps
 
-- [ ] **I1 — `HeadingRule` consumed by `is_definitions_heading`** (both
-  profiles). Detection kind, first-positive-wins, tried after the profile's
-  own baseline.
-- [ ] **I2 — `BodyPreambleRule` consumed by `derive_heading_from_body`, and
-  the `_is_placeholder_heading` GATE REMOVED.** Seam v2 §4/M6 — "registered
-  `BodyPreambleRule`s are ALWAYS tried next if nothing was found yet" — is
-  director-confirmed (**D-PREAMBLE-ALL**) and NOT implemented: manager
-  verified `us_profile.py:517` early-returns `None` when the heading is not
-  a placeholder, so registered rules can never run. Baseline (placeholder
-  gate + body scan) still runs FIRST; the rules run when it yields nothing.
-- [ ] **I3 — `EntrySplitterRule` + `TermClauseRule` consumed by
-  `extract_definitions_from_section`.** Both are UNION kinds (M1 moved
-  `EntrySplitterRule` off the first-wins side) — every matching rule's
-  candidates are kept; rules never suppress each other (zero-miss).
-- [ ] **I4 — `StructuralUnitRule` consumed as ARTICLE-METADATA enrichment**
-  (**manager ruling M-D1**, seam v2.6 §1 — NOT a `UnitPath` producer, no
-  relation to `resolve_unit_path`). Shape reverts to M11's
-  `derive: (StructuralContext) -> tuple[ScopeUnit, ...]`; UNION; core keeps
-  stamping `ScopeUnit("chapter", ...)` itself and rules ADD, never replace.
-  Consumption point: where article structural metadata is populated, feeding
-  **`matcher._in_scope`'s generic-kind branch** (`getattr(article,
-  "structural_units", ())`) — dead today because nothing populates it.
-  US parquet breadcrumb availability is RESOLVED (verified on a real file);
-  do not re-escalate it.
-- [ ] **I5 — new `ScopeKindRule` kind behind `determine_scope`** (**manager
-  ruling M-D2**, seam v2.6 §2). `(jurisdiction_codes, detect: (str) -> str |
-  None)`; `register_scope_kind_rule`; **baseline-first, then
-  first-non-None-wins** in filename-sort order — NOT a union (a body has
-  exactly one scope kind). Baseline still wins when it matches, so the 7
-  working US states are untouched. Planner refused to coerce
-  `ScopeTriggerRule` into a boolean detector — correctly; that would
-  mis-scope definitions against the director's constraint.
-- [ ] **I6 — D-DF enablement: additive optional `body_confirms` on
-  `HeadingRule`.** `body_confirms: Callable[[str], bool] | None = None`,
-  consumed as `matches(heading) and (body_confirms is None or
-  body_confirms(body))`. The headings panel verified `body` is already in
-  scope at the detection site (`pipeline.py:198/215`), so this is
-  **seam-shape only, no new plumbing**. MUST stay backward-compatible with
-  every already-written `HeadingRule`.
-- [ ] **I8 — `ScopeKindRule` RED tests** (Planner round-trip after M-D2).
-- [ ] **I7 — PER-KIND live-path dispatch tests, all SEVEN kinds.** The
-  mandatory new test class. For each kind: register a probe rule, call the
-  profile method `pipeline.py` actually calls, and assert **the answer
-  CHANGES**. Includes the two already-live kinds — the point is a permanent
-  guard, not a patch. This is the class whose absence let the gap survive two
-  QA cycles.
-
-- [ ] **I9 (NEW, scoped-inline panel finding) — `resolve_unit_path`
-  mis-parses inline legislative-history annotations as sub-article markers.**
-  Maine carries `(NEW)` / `(AMD)` / `(AFF)` editorial parentheticals inline
-  and pervasively. **Manager reproduced on the live seam** — for a real-shaped
-  ME body, offsets after an `(AMD)` annotation resolve to
-  `(UnitStep('lower_alpha','b'), UnitStep(kind='sub', value='AMD'))`: a garbage
-  step appended to the true path, degrading subsection-scope enforcement.
-  Under zero-miss this is **wrong-path data, not missing data** — the same
-  severity class as the M12 citation truncation.
-  **Sequencing:** NOT folded into the in-flight Developer batch (its RED does
-  not exist yet, and red-before-green is not negotiable). Planner authors the
-  RED from REAL Maine rows first; a Developer fixes after the current batch
-  merges. Fixture material: `claude/defs-us-scoped-inline` @ `4909afb`.
-  **Also required:** determine whether other states carry similar editorial
-  parentheticals, with a P-R7-compliant (signal-agnostic) denominator — a
-  Maine-only fix would be a guess, not a finding.
-  Fix shape is the Developer's choice against the RED (exclusion set vs
-  uppercase-alpha-token guard), not specified here.
-
-- [ ] **I10 (NEW, scoped-inline panel) — subsection scope LEVEL SEMANTICS**
-  (**manager ruling M-D3**, seam v2.7). `scope="subsection"` links NOTHING on
-  the US live path: a rule stamped `'(c)'`, the resolver returned
-  `[('sub','1'),('digit','1'),('upper_alpha','A')]`, containment compared
-  `mention_path[0].value` → always False. Three mismatches: LEVEL (always
-  compared outermost), FORMAT (`'(c)'` vs `'c'`), KIND (see I11).
-  Fix per M-D3: bare-label canonical stamp (core normalizes defensively);
-  additive `scope_unit_kind` declaring the level; containment compares at the
-  step whose kind matches, falling back to outermost when absent.
-- [ ] **I11 (NEW, scoped-inline panel) — resolver mis-kinds the outermost
-  step.** `resolve_unit_path` returns `kind='sub'` where the real outermost
-  marker is a DIGIT — the near-universal US convention. **Manager reproduced**
-  on real OR row `STATE_OR_T22_C238_S238.300`: offsets inside `(1)` yield
-  `UnitStep(kind='sub', value='1')`.
-  **Same root cause as I9** (independently found by the I9 Planner): any
-  unclassifiable or misclassified token is PUSHED as `kind='sub'` rather than
-  skipped or correctly kinded. I9/I11 share one classifier surface.
-  **I10 and I11 MUST land together** (M-D3): level-matching is inert while
-  kinds are wrong; I11 alone fixes neither level nor format.
+_None — all 11 items dev-complete and QA-verified (cycle 1). Merge to main is
+the program manager's (P-R5)._
 
 ## Completed
 
-_None._
+- **I1** — `HeadingRule` consumed by `is_definitions_heading`, both profiles.
+  Live-path dispatch proven; QA mutation-verified US+IL.
+- **I2** — `BodyPreambleRule` consumed by `derive_heading_from_body`,
+  placeholder gate removed (D-PREAMBLE-ALL). QA mutation-verified US+IL.
+- **I3** — `EntrySplitterRule` + `TermClauseRule` consumed by
+  `extract_definitions_from_section` as UNION kinds. QA mutation-verified
+  US+IL.
+- **I4** — `StructuralUnitRule` as article-metadata enrichment (M-D1);
+  population site `pipeline.py:212-228`. QA replaced the stub test with a
+  live-path probe.
+- **I5** — New `ScopeKindRule` behind `determine_scope` (M-D2), baseline-first
+  then first-non-None. QA mutation-verified US+IL.
+- **I6** — Additive optional `body_confirms` on `HeadingRule` (D-DF).
+  Backward-compatible with every existing rule; pinned green.
+- **I7** — Per-kind live-path dispatch tests, all seven kinds x both profiles.
+  QA re-proved each is falsifiable (7x2 grid, all RED->GREEN).
+- **I8** — `ScopeKindRule` RED tests (Planner round-trip after M-D2). Green.
+- **I9** — ME editorial annotations no longer parsed as markers:
+  unclassifiable tokens SKIPPED, not pushed as `kind='sub'`. The unproven
+  word-list guard was removed (P-E3) after mutation proved it dead weight.
+- **I10** — Subsection scope LEVEL semantics (M-D3/seam v2.7): defensive paren
+  normalization + additive `scope_unit_kind`, containment compares at the
+  matching-kind step, outermost fallback, declared-kind-absent = not covered.
+- **I11** — Resolver kind correctness: per-call ladder selection across THREE
+  measured conventions - federal lower_alpha, digit-outermost (OR),
+  upper_alpha-outermost (OH, 99.4% of 17,951 structured rows). Follow-on
+
+## QA Notes
+
+**Cycle 1 — PASS on every gate except C, which was a claim-accuracy failure,
+not a functional one; corrected in code and re-verified.** Independent QA
+(own worktree/venv) ran: 7x2 dispatch mutation grid (all 14 genuinely
+load-bearing); live `StructuralUnitRule` probe replacing the stub test; IL
+parity (zero IL tests touched + 4 new Hebrew probes on the new code paths);
+32/32 containment cells on REAL OR/FED/OH rows plus 2 live `run_definition_
+linking` scenarios. Evaluator: 770 backend / 165 frontend / tsc clean.
+
+**Gate C FAIL and its resolution.** QA's full-census scan (all 53 parquet
+files, 2,038,247 rows, signal-agnostic denominator) disproved the
+"upper_roman-outermost has zero corpus presence" justification: 5 real rows
+(0.00025%). Manager verified all 5 are in-sentence PROSE enumerations, not a
+jurisdiction convention, and measured the effect as exactly ONE spurious
+`upper_alpha` step, non-cascading. Fixed by correcting the code's honesty
+note (AST-verified comment-only); kept as a named limitation.
+
+**Findings carried forward, not blockers.** (a) Ladder selection reads only
+the FIRST parenthesized token, so citation noise picks the ladder — measured
+prevalence of rows whose first marker is noise: OH 6.51%, FED 1.60%, OR 0.20%
+(of rows having any marker). Pre-existing, byte-identical before/after, but
+amplified; program-level. (b) Two subsection-scoped definitions at DIFFERENT
+levels tie at `scope_rank` 0 and both link — zero-miss-safe, but QA argues it
+is distinct from M10's kind-ties because a principled narrowest answer exists
+here. (c) Single-char roman siblings (`(iv)`→`(v)`) collapse the stack via the
+outermost-first ancestor match — pre-existing, byte-identical before/after,
+unmeasured. (d) `heading_breadcrumbs=()` remains a named limitation.
 
 ## Context Dump
 
-**CHECKPOINT — manager handoff at a clean boundary.** ALL RED authoring is DONE and merged. Suite at HEAD: **21 failed / 735 passed**; the 21 are the intended I9+I10+I11 REDs, baseline 734 intact. Remaining: ONE Developer batch on the shared classifier surface, then full independent QA, then merge.
-**Seam v2.7 AND its M-D3 ERRATUM are authoritative** — read the erratum, not just M-D3: the word-to-kind table is ILLUSTRATIVE-FEDERAL-ONLY, the MECHANISM binds, panels declare `scope_unit_kind` from their own observed convention. Three-way outermost-kind divergence is real (lower_alpha federal / digit most states / upper_alpha OH).
-**I9+I10+I11 share ONE root cause** (unclassifiable tokens pushed as kind='sub'; ladder hard-coded federal-style) and MUST land together.
-**QA lesson, binding:** per-kind dispatch has a per-SHAPE corollary — prove containment against REAL emitted shapes, not one synthetic shape. Two prior sign-offs (C4, C1) failed by generalizing a single-instance proof.
-**Traps:** CodeGraph indexes `main` — Read branch-divergent files directly. Never `git stash` (shared stack). One writer per worktree, each its OWN venv. Commit incrementally — 3 agents died mid-run. No test reads the corpus.
+**SPRINT COMPLETE — awaiting program-manager merge.** Branch `claude/defs-core-dispatch` @ HEAD, clean, pushed. Evaluator: backend 770 passed / 0 failed, frontend 25 files / 165 tests, `tsc --noEmit` clean. Production surface: `us_profile.py`, `matcher.py`, `extract.py` ONLY. Zero existing tests modified (all test changes are additions).
+**All 7 rule kinds are live and mutation-proven on BOTH profiles** — P-R8's "proven for 2 of 7" is closed.
+**Three ladder conventions now handled** (federal lower_alpha / digit-outermost / upper_alpha-outermost OH, the last measured at 99.4% of OH's structured rows). It is an ENUMERATED set of three, deliberately not a per-depth-learned mechanism — a 4th convention falls through to federal.
+**Named limitations, all in QA Notes and in code docstrings:** ladder selection keys on the first parenthesized token (OH 6.51% noise-first); upper_roman-outermost yields one spurious step (5 corpus rows); single-char roman sibling collapse (pre-existing); subsection-level ties both link; `heading_breadcrumbs=()`.
+**Traps:** CodeGraph indexes `main` — read branch-divergent files directly. Never `git stash` (shared stack). One writer per worktree, each its OWN venv. No test reads the corpus.
