@@ -7,12 +7,12 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-dispatch
 locked_by: "claude-code:dispatch-manager"
 locked_at: "2026-08-04T12:26:23Z"
 last_agent: "claude-code:dispatch-manager"
-last_updated: "2026-08-04T13:32:23Z"
+last_updated: "2026-08-04T14:49:18Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 9
-lint: "PASS 167 2026-08-04T13:32:23Z"
+total_items: 11
+lint: "PASS 187 2026-08-04T14:49:18Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -150,6 +150,26 @@ The two panel managers' positive-control probes are the Planner's blueprints.
   Maine-only fix would be a guess, not a finding.
   Fix shape is the Developer's choice against the RED (exclusion set vs
   uppercase-alpha-token guard), not specified here.
+
+- [ ] **I10 (NEW, scoped-inline panel) — subsection scope LEVEL SEMANTICS**
+  (**manager ruling M-D3**, seam v2.7). `scope="subsection"` links NOTHING on
+  the US live path: a rule stamped `'(c)'`, the resolver returned
+  `[('sub','1'),('digit','1'),('upper_alpha','A')]`, containment compared
+  `mention_path[0].value` → always False. Three mismatches: LEVEL (always
+  compared outermost), FORMAT (`'(c)'` vs `'c'`), KIND (see I11).
+  Fix per M-D3: bare-label canonical stamp (core normalizes defensively);
+  additive `scope_unit_kind` declaring the level; containment compares at the
+  step whose kind matches, falling back to outermost when absent.
+- [ ] **I11 (NEW, scoped-inline panel) — resolver mis-kinds the outermost
+  step.** `resolve_unit_path` returns `kind='sub'` where the real outermost
+  marker is a DIGIT — the near-universal US convention. **Manager reproduced**
+  on real OR row `STATE_OR_T22_C238_S238.300`: offsets inside `(1)` yield
+  `UnitStep(kind='sub', value='1')`.
+  **Same root cause as I9** (independently found by the I9 Planner): any
+  unclassifiable or misclassified token is PUSHED as `kind='sub'` rather than
+  skipped or correctly kinded. I9/I11 share one classifier surface.
+  **I10 and I11 MUST land together** (M-D3): level-matching is inert while
+  kinds are wrong; I11 alone fixes neither level nor format.
 
 ## Completed
 

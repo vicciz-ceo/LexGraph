@@ -1,11 +1,11 @@
 # Seam spec — sprint 2026-08-04-defs-core-scope (published)
 
-**AUTHORITATIVE VERSION: v2.6.** Read v2.6 first, then v2.5; v2.6 is final
+**AUTHORITATIVE VERSION: v2.7.** Read v2.7 first, then v2.6; v2.7 is final
 (all director rulings, the QA-fail cycle 2 correction, and the
 defs-core-dispatch shape rulings M-D1/M-D2). Earlier versions below
 are retained VERBATIM as history because family panels planned against them
 and need to see what changed — but where any earlier version disagrees with
-v2.6, **v2.6 wins**.
+v2.7, **v2.7 wins**.
 
 Notable supersessions: v2.2 WITHDREW v2's `register_scope_unit_kind`/`rank_for`
 rank registry (a pinned test asserts their absence); v2.1 withdrew v2's
@@ -1302,3 +1302,66 @@ matches, so the 7 already-working US states are untouched.
 
 Motivating case: Puerto Rico's Spanish chapter-scope phrases had nowhere to
 register. Panels: register a `ScopeKindRule`; do not edit `us_profile.py`.
+
+
+---
+
+## Seam spec v2.7 (published) — subsection scope LEVEL SEMANTICS (manager ruling M-D3)
+
+Append-only, same convention as v2.5/v2.6. **This is the contract family
+panels must stamp against.** Written because the scoped-inline panel proved
+`scope="subsection"` links NOTHING on the US live path.
+
+### The defect, stated precisely
+
+A family rule stamped `scope_value='(c)'` — the INNERMOST label, parenthesized.
+`resolve_unit_path` returned `[('sub','1'),('digit','1'),('upper_alpha','A')]`.
+Containment compared `mention_path[0].value` (`'1'`) against `('(c)',)` → False,
+always. **Three independent mismatches in one comparison:**
+
+1. **Level** — containment always compared the OUTERMOST step; the rule meant
+   a different level entirely.
+2. **Format** — `'(c)'` (parenthesized) vs `'c'` (bare).
+3. **Kind correctness** — the outermost step was mis-kinded `sub` when the real
+   marker is a digit (the near-universal US convention). That is item I11 and
+   is a prerequisite, not a detail: **matching by kind is meaningless until the
+   resolver emits correct kinds.**
+
+### RULING M-D3 — scope declares its LEVEL; containment compares AT that level
+
+1. **Canonical stamp format is a BARE label.** `'c'`, not `'(c)'`; `'1'`, not
+   `'(1)'`. Core normalizes defensively (strips surrounding parens/whitespace)
+   so a panel's stray parens cannot silently produce a never-matching scope —
+   but bare is the declared contract and panels must stamp bare.
+2. **A subsection-scoped definition declares WHICH LEVEL it means**, via an
+   additive optional field alongside `scope_value` (e.g.
+   `scope_unit_kind: str | None`). The trigger word names the level; US
+   drafting convention: **"subsection" → the outermost lettered/numbered unit,
+   "paragraph" → the digit level, "subparagraph" → the upper-alpha level.**
+3. **Containment compares at the MATCHING level, not at `mention_path[0]`.**
+   Find the step in `mention_path` whose `.kind` matches the declared
+   `scope_unit_kind` and compare its `.value`. When `scope_unit_kind` is
+   absent, fall back to today's outermost-step comparison so every existing
+   stamp keeps its current meaning (backward compatible).
+
+### Relationship to v2.2 §3 — read this before objecting
+
+v2.2 declared `kind` a **provenance/display label only, never an input to a
+ranking decision**, replacing `rank_for(kind)` with `len(path)`. **M-D3 does
+not reverse that.** Ranking/narrowest-governs remains purely depth-based.
+M-D3 uses `kind` for a different question — *which level does this scope
+refer to* — which v2.2 never assigned to depth and never forbade. Ranking:
+depth. Level identification: kind. Two questions, two mechanisms.
+
+### Sequencing consequence (binding)
+
+**I10 and I11 must land together.** I10's level-matching is inert or wrong
+while the resolver mis-kinds steps, and I11 alone does not fix the level or
+format mismatches. Neither is complete without the other.
+
+### Interim state, approved
+
+The scoped-inline panel is normalizing to bare labels now and interim-mapping
+`subsection` → `local` until this lands (program-manager approved). **Revert
+condition:** once M-D3 ships, that interim mapping must be removed and the
+panel's rules must stamp bare labels plus a declared `scope_unit_kind`.
