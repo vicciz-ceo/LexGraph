@@ -1315,3 +1315,141 @@ fallback — never quietly over-linked.
 
 M-R4, M-R5 (incl. the 17.33% metric decomposition), M-R8's parent-redirect
 corollary, and the M-R7 incident retraction (M-R6 matches the program rule).
+
+---
+
+## 2026-08-04 — Planner: E1 two-capture RED tests (Sonnet/high, bounded resume)
+
+Resumed for the bounded amendment: pin E1's two-capture ruling in RED tests.
+Read the last three log entries + the refreshed contract Next Steps before
+touching anything. Worktree was clean and in sync with `origin/claude/
+defs-us-multiterm` at `3924dcf` (`git status --short` empty, `git fetch`
+confirmed no divergence) — no concurrent writer, unlike the earlier incident.
+
+### Verified (i)/(ii) myself, real code, before writing anything
+
+```
+$ backend/.venv/bin/python -c "
+from app.definition_links.us_profile import find_citations
+print(find_citations('\"Enforcement officer\" has the meaning given that term in ORS 153.005 (Definitions).'))
+print(find_citations('\"Governmental body\" has the meaning assigned by Section 552.003.'))
+print(find_citations('The following terms have the meanings assigned by Section 2001.003:'))
+"
+[]
+['Section 552']
+['Section 2001']
+```
+Byte-identical to the manager's groundwork. Read `us_profile.py:409-419`
+directly (via `codegraph explore`, cwd `/Users/nerya/LexGraph`, M-R1):
+`_CITATION_PATTERNS` really has no state-code form — confirms (i); `
+_SECTION_WORD_RE = re.compile(r"\bSection\s+\d+\b")` really stops before any
+`.` — confirms (ii) precisely as described, a truncation to a DIFFERENT real
+section, not an absence.
+
+### (iii) resolved — the manager's control-probe concern was real, but fixable
+
+Reproduced the manager's exact claim first: called
+`detect_cross_law_derivations` with the three REAL pointer idioms verbatim
+→ `[]`, `[]`, `[]` (matches). Then built my OWN two control probes using
+`_TRIGGER_PHRASES`' actual registered values (`"has the meaning specified
+in"`, `"as defined in"`) with a `Section N.NNN` citation immediately after:
+
+```
+detect_cross_law_derivations('"Foo" has the meaning specified in Section 552.003.', source_term="Foo")
+  -> [LawDerivesDefinitionEdge(source_term='Foo', trigger_phrase='has the meaning specified in',
+                                matched_text='Section 552', target_law_name=None, target_law_id=None)]
+detect_cross_law_derivations('"Foo" as defined in Section 552.003.', source_term="Foo")
+  -> [LawDerivesDefinitionEdge(..., trigger_phrase='as defined in', matched_text='Section 552', ...)]
+```
+Both non-empty — my construction, unlike the manager's, produced a real
+edge. Isolated why probes can legitimately return `[]` even with a
+registered phrase: `detect_cross_law_derivations` requires the citation to
+`match()` (anchored, not `search()`ed) starting IMMEDIATELY after the
+trigger phrase's trailing whitespace — any extra words in between (e.g. "in
+the definition set forth in Section 552.003") make the match fail silently:
+```
+detect_cross_law_derivations('"Foo" has the meaning specified in the definition set forth in Section 552.003.', source_term="Foo")
+  -> []
+```
+This is the most likely explanation for the manager's own `[]` controls
+(without being able to see their exact probe text, I cannot confirm which
+extra-words shape they used, but I reproduced a failure mode with the exact
+same signature). **Conclusion, defensible**: the invocation
+`detect_cross_law_derivations(text, source_term=...)` is correct as used
+throughout this file's new tests; the trigger-phrase gap (iii) is real and
+is now pinned. Captured as a standalone GREEN control test
+(`test_detect_cross_law_derivations_recognizes_a_registered_trigger_phrase_control`)
+so this resolution is provable by anyone re-running the suite, not just
+asserted in prose.
+
+### What I pinned
+
+New file only, zero existing files edited:
+`backend/tests/unit/test_definition_links_e1_pointer_reference_capture.py`
+(246 lines). Reuses the already-vendored `multiterm_f5_rows.json`/
+`multiterm_f6_rows.json` fixtures (no new fixture, no corpus read); every
+sentence is sliced from the real row `text` via anchor-based regex, never
+hand-retyped (the discipline this sprint adopted after the OK-row `TM`-token
+peer-review defect).
+
+- `test_detect_cross_law_derivations_recognizes_a_registered_trigger_phrase_control`
+  — GREEN control, establishes correct invocation (see above).
+- `test_or_enforcement_officer_state_code_citation_is_invisible_today` — (i),
+  OR `STATE_OR_T41_C496_S496.716`, `find_citations(...) == ["ORS 153.005"]`.
+- `test_or_enforcement_officer_reference_edge_needs_both_i_and_iii_fixed` —
+  (i)+(iii) combined, same row, `detect_cross_law_derivations` must produce
+  one edge with `matched_text == "ORS 153.005"`.
+- `test_tx_governmental_body_section_citation_is_truncated_to_a_wrong_target`
+  — (ii) as an explicit wrong-target equality assertion (`citations == [...]`,
+  not `in`), TX `STATE_TX_Cgv_C2009_S2009.003` entry (2) `"Governmental
+  body"`. Note: capture 1 for this term is ALREADY correct today (verified
+  live: `extract_definitions_from_section` already returns
+  `definition_text="has the meaning assigned by Section 552.003."` for
+  it — it's a single-quote entry, not blocked on item 3's fan-out fix) — only
+  capture 2 is RED here.
+- `test_tx_governmental_body_reference_edge_needs_both_ii_and_iii_fixed` —
+  (ii)+(iii) combined, same term.
+- `test_tx_parent_clause_2001_003_citation_is_truncated_to_a_wrong_target` —
+  (ii), TX `STATE_TX_Cgv_C2002_S2002.001` entry (4)'s six-term parent
+  clause (the identical sentence also occurs verbatim in `S2009.003`'s
+  entry (4) — confirmed byte-identical live, one fix covers both real
+  rows).
+- `test_tx_parent_clause_2001_003_reference_edge_needs_both_ii_and_iii_fixed`
+  — (ii)+(iii) combined, plural-verb idiom ("have the meanings assigned
+  by"), one representative `source_term="contested case"` call (per M-R4,
+  per-term fan-out at THIS primitive's call site is a pipeline-shape
+  question for the seam, not fabricated here).
+
+Deliberately NOT pinned at the pipeline/integration level (`run_
+definition_linking`'s `created_definitions`/`created_assertions`): that
+would require guessing at an interface core has not published (seam v2).
+Every new test calls only the two REAL, already-existing, already
+profile-dispatched primitives (`us_profile.find_citations` /
+`.detect_cross_law_derivations`) — no plumbing, per the scope order.
+
+### Full suite proof
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+21 failed, 645 passed, 18 warnings in 13.56s
+```
+21 = 15 pre-existing RED (unchanged, same names, re-verified in the run
+above) + 6 new RED. 645 = 644 pre-existing green (641 baseline + 3 prior
+guards, unchanged) + 1 new GREEN control. `git status --short` shows exactly
+one new untracked file; `git diff --stat` against the pre-session tree is
+empty (zero existing files touched).
+
+### Not established / left honest
+
+- Could not reproduce the MANAGER's own exact `[]` control-probe text (they
+  did not record it verbatim in the log) — reproduced A failure mode with
+  the same symptom (extra words between trigger phrase and citation breaking
+  the anchored `match()`) rather than confirming it was THE cause. Recorded
+  as the most likely explanation, not a certainty.
+- Item 11's PIPELINE-level "how does a captured reference actually get
+  stored/queried" is untouched by design (core seam v2) — these tests prove
+  the primitives are wrong today, not what the eventual `Definition`/
+  assertion shape for a reference will look like.
+- Did not re-run the U4/U6 sweep or touch Developer-track items 1-10 in any
+  way beyond the two `us_profile.py`-coordination-flag re-expressions M-R8
+  already ruled on.

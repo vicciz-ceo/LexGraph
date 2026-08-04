@@ -12,7 +12,7 @@ last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 10
+total_items: 11
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -93,19 +93,22 @@ time on them until the blocking work lands (rebase after).
    "Term2", and "Term3" mean X` — today `USProfile.extract_definitions_
    from_section`'s block parser (`_LEADING_QUOTE_RE.match(block)`,
    us_profile.py:373) captures only the FIRST quoted span; the rest are
-   dead prose in `definition_text`. Fix: extend the leading-quote capture
-   to pull EVERY comma/and-joined quoted span immediately before the block's
+   dead prose in `definition_text`. **Re-expressed per M-R8** (core's
+   published Seam 2 pre-declares this sprint's module filenames and a
+   `TermClauseRule` kind — `parse: Callable[[str], list[DefinitionCandidate]]`,
+   one entry block to PLURAL candidates — discovered by directory listing):
+   ships as a NEW FILE, `rules/us_multiterm_shared_clause.py`, that pulls
+   EVERY comma/and-joined quoted span immediately before the block's
    defining idiom into one candidate's `.terms` tuple — porting (to
    English) the same logic Hebrew's `extract._parse_terms_and_qualifier`
-   already uses (extract.py:71-79). Serves **U1**. Proven RED by
-   `test_multiterm_f5_shared_clause.py::
+   already uses (extract.py:71-79). **ZERO edits to `us_profile.py`.**
+   Serves **U1**. Proven RED by `test_multiterm_f5_shared_clause.py::
    test_mi_top_level_multi_term_clause_resolves_all_three_terms` and
    `test_definition_links_multiterm_shared_clause.py`'s MI-shaped
-   assertions. Not blocked on any other sprint. **Coordination flag:**
-   touches `us_profile.py`, a file the markers and headings sprints may
-   also be editing concurrently (no registry exists yet to isolate rule
-   modules, P-R1/C4 not yet landed) — confirm with the manager whether a
-   merge-order/file-lock convention is needed before this lands.
+   assertions. Not blocked on any other sprint. **Coordination flag
+   WITHDRAWN (M-R8):** the seam's directory-auto-discovery registry means
+   file creation never conflicts in git; the markers/headings concurrent-
+   edit concern this item previously flagged no longer applies.
 
 2. **Nested multi-term shared-clause recovery (MT shape).** A multi-term
    clause embedded INSIDE another entry's own `definition_text` (entry
@@ -116,16 +119,17 @@ time on them until the blocking work lands (rebase after).
    subordinate occurrence of the same quoted-list-before-idiom shape and
    split it out as additional entries sharing the parent candidate's scope
    — this is the SAME underlying mechanism as item 1, applied recursively;
-   design it as one shared helper if practical. Serves **U1**. Out of
-   scope, deliberately: "person" (a nested SINGLE-term sub-definition in
-   the same MT sentence) — reported to the program manager as a
-   structurally-related but out-of-family gap (English has no analogue of
-   Hebrew's `_NESTED_MARKER_RE`/`parent_term` recursion at all). Proven RED
-   by `test_multiterm_f5_shared_clause.py::
+   design it as one shared helper if practical. **Re-expressed per M-R8**:
+   ships in the SAME new file as item 1 (`rules/us_multiterm_shared_clause
+   .py`) — zero `us_profile.py` edits. Serves **U1**. Out of scope,
+   deliberately: "person" (a nested SINGLE-term sub-definition in the same
+   MT sentence) — reported to the program manager as a structurally-related
+   but out-of-family gap (English has no analogue of Hebrew's
+   `_NESTED_MARKER_RE`/`parent_term` recursion at all). Proven RED by
+   `test_multiterm_f5_shared_clause.py::
    test_mt_nested_multi_term_clause_resolves_all_three_terms` and
    `test_definition_links_multiterm_shared_clause.py::
-   test_mt_s16_11_402_nested_shared_clause_terms_are_extracted`. Same
-   `us_profile.py` coordination flag as item 1.
+   test_mt_s16_11_402_nested_shared_clause_terms_are_extracted`.
 
 3. **TX parent-clause redirect attachment.** `(4) The following terms have
    the meanings assigned by Section 2001.003: (A) "contested case"; (B)
@@ -290,6 +294,38 @@ time on them until the blocking work lands (rebase after).
     correctly-rejected vs. genuine-miss counts per family, wall time —
     same standard as the prior sprint's full-corpus R17 report. Blocked on
     items 1-6's Developer work landing first.
+
+11. **E1 pointer capture 2 — reference/link, primitives-only, NOT the
+    plumbing.** Director ruling (log "ESCALATIONS RESOLVED"): a pointer-only
+    cross-reference entry (`"X" has the meaning assigned by Section N`) is a
+    definition with TWO captures — (1) the definition row, redirect sentence
+    as `definition_text` (already correct today for single-term pointers
+    like TX `Governmental body`; still blocked on item 3's fan-out for the
+    six-term TX `2001.003` parent clause and on item 6 for OR) — and (2) a
+    captured reference/link to the target law/section. **Scope discipline
+    (director/program-manager order): this sprint does NOT build reference
+    plumbing** (where a family rule's pointer target becomes a pipeline-
+    emitted reference/assertion is core's seam v2, spanning 32 jurisdictions
+    and 4+ panels). This item is bounded to the two REAL, already-existing,
+    already profile-dispatched primitives the eventual wiring will need
+    (`us_profile.find_citations` / `.detect_cross_law_derivations`), each
+    with THREE distinct, separately-verified defects: (i) no state-code
+    citation grammar at all (`ORS 153.005` → `[]`); (ii) decimal section
+    numbers TRUNCATED to a DIFFERENT, real, existing section (`Section
+    552.003` → `Section 552`) — a wrong-target defect, not a miss; (iii) the
+    three real pointer idioms (`has the meaning given that term in`, `has
+    the meaning assigned by`, `have the meanings assigned by`) are absent
+    from `_TRIGGER_PHRASES`. Serves **U1** (zero-miss extends to the
+    reference, per the director). Proven RED by
+    `test_definition_links_e1_pointer_reference_capture.py` (6 RED + 1 GREEN
+    control establishing the correct `detect_cross_law_derivations`
+    invocation, resolving the log's previously-unresolved (iii) item) —
+    OR `Enforcement officer`/TX `Governmental body`/TX `2001.003` parent
+    clause, all three real rows named in the ruling. **Not blocked on any
+    other sprint for the primitive-level fix** (both functions already live
+    in `us_profile.py`, profile-dispatched); the PIPELINE-level wiring that
+    turns a produced reference into a stored/queryable capture is core's
+    seam v2 and is explicitly out of scope here.
 
 ## Dev Complete
 
