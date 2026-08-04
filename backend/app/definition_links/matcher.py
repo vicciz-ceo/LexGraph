@@ -133,6 +133,33 @@ def _value_matches(actual, expected) -> bool:
     return actual == expected
 
 
+# I10 (sprint 2026-08-04-defs-core-dispatch, manager ruling M-D3, seam
+# v2.7, point 1): defensive format normalization -- strip surrounding
+# parentheses/whitespace off a `scope_value` string so a rule that (against
+# the bare-label contract) stamps `'(a)'` behaves identically to the bare
+# `'a'` it was supposed to be. Bare is the declared contract; this is a
+# safety net only, not a new accepted format -- a stray pair of parens from
+# a family panel's rule must never silently produce a scope that can never
+# match. Applied uniformly to both the legacy outermost-comparison path and
+# the new scope_unit_kind level-matching path below, so both read the SAME
+# normalized value; it is a no-op on every value already bare (which is
+# every value any pre-existing test passes), so the `article.subsections`
+# stub branch's existing behavior is unaffected byte-for-byte.
+def _strip_scope_value_format(value):
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if stripped.startswith("(") and stripped.endswith(")") and len(stripped) >= 2:
+        stripped = stripped[1:-1].strip()
+    return stripped
+
+
+def _normalize_scope_value(expected):
+    if isinstance(expected, tuple):
+        return tuple(_strip_scope_value_format(v) for v in expected)
+    return _strip_scope_value_format(expected)
+
+
 def _in_scope(definition, article) -> bool:
     """Coarse, article-level (position-independent) containment check --
     the ONLY check for "chapter"/"local"/"law-wide"; a necessary (but for
@@ -180,22 +207,36 @@ def _subsection_contains_offset(definition, article, char_offset: int, profile=N
        shape) -- kept EXACTLY as-is for the unit-level tests in
        `test_definition_links_matcher.py` that build a `SimpleNamespace`
        stub carrying this attribute directly; a real `MatcherArticle`
-       never has it, so this branch is never reached in production.
+       never has it, so this branch is never reached in production. This
+       branch never consults `scope_unit_kind` -- the v1 `Subsection` stub
+       shape has no below-article `UnitPath`/kind vocabulary of its own to
+       compare against, so a declared `scope_unit_kind` is simply not
+       reachable here (only `resolve_unit_path`-backed paths carry
+       per-step kinds at all).
     2. Otherwise, when a `profile` is given (the real live-path case),
        reuse the ALREADY-LIVE `profile.resolve_unit_path(article,
        char_offset)` retrieval seam (seam spec v2.2 §1-2/v2.4 §1) instead
        of building a second, parallel span-tracking mechanism -- exactly
        the reuse the design note asked for. `resolve_unit_path` returns
-       the sub-article marker path open AT `char_offset`; the OUTERMOST
-       step (`path[0]`) is the containing subsection's label. Comparing
-       only `.value` (never `.kind`) matches v2.2's "kind is a
-       provenance/display label only" rule -- a rule stamps `scope_value`
-       as a bare label string, with no kind vocabulary of its own to
-       compare against.
+       the sub-article marker path open AT `char_offset`.
+
+       I10 (manager ruling M-D3, seam v2.7): a definition MAY additionally
+       declare `scope_unit_kind` (e.g. `"digit"`, `"lower_alpha"`,
+       `"upper_alpha"`) naming WHICH below-article LEVEL `scope_value` is
+       meant to be compared against -- not always the outermost step.
+       When declared, containment searches `mention_path` for the step
+       whose `.kind` equals the declared string and compares THAT step's
+       `.value`; a declared kind absent from `mention_path` entirely means
+       the mention is NOT covered (never a silent match -- a mention that
+       never reaches the declared level cannot be "inside" it). When
+       `scope_unit_kind` is absent/`None` (read via `getattr` -- existing
+       `SimpleNamespace`/frozen-dataclass stubs in unit tests never carry
+       this new field), containment falls back to comparing the OUTERMOST
+       step (`path[0]`), unchanged from before this item.
     """
     if definition.scope != "subsection":
         return True
-    expected = definition.scope_value
+    expected = _normalize_scope_value(definition.scope_value)
     allowed = expected if isinstance(expected, tuple) else (expected,)
 
     subsections = getattr(article, "subsections", None)
@@ -209,7 +250,14 @@ def _subsection_contains_offset(definition, article, char_offset: int, profile=N
     mention_path = profile.resolve_unit_path(article, char_offset=char_offset)
     if not mention_path:
         return False
-    return mention_path[0].value in allowed
+
+    scope_unit_kind = getattr(definition, "scope_unit_kind", None)
+    if scope_unit_kind is None:
+        return mention_path[0].value in allowed
+    for step in mention_path:
+        if step.kind == scope_unit_kind:
+            return step.value in allowed
+    return False
 
 
 def definition_covers_mention(definition, article, char_offset: int, profile=None) -> bool:
