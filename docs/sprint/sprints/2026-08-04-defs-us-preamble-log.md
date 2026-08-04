@@ -1267,3 +1267,73 @@ Unchanged from M-R11 and re-verified: core's branch is docs-only, no `rules/`
 package. Nothing here is implementable yet. The ruling explicitly endorses
 running inventory + RED authoring NOW so the panel is not idle, with
 implementation following core's merge.
+
+---
+
+## 2026-08-04 — Manager: scouts returned, verified, consolidating Planner dispatched
+
+### M-R18 — Scout outputs verified against the files, not accepted on report
+
+All four scouts completed and reported through the program manager (they had
+no channel to me by name). Every one confirmed zero repo writes. I verified:
+
+- All four findings files exist and are substantial: `scout_S1_findings.md`
+  (45,810 b), `scout_S2_findings.md` (48,026 b), `scout_S3_findings.md`
+  (31,746 b), `scout_S4_findings.md` (39,215 b), plus CLAUSE packages
+  (`scout_S3_clause_package.json` 25,657 b, `scout_S4_clause_package.json`
+  29,313 b) and S1/S2 per-jurisdiction JSONs.
+- **The read-only design held.** `git status --porcelain` on this worktree is
+  clean apart from my own committed docs; the scouts wrote only to disjoint
+  scratchpad paths. The M-R15 separation of reading from writing worked as
+  intended — four agents ran concurrently with zero write contention.
+
+**S4's test-defect claim independently CONFIRMED by me** (the highest-impact
+claim, so the one I checked myself rather than delegating):
+`test_real_pipeline_captures_a_real_nebraska_body_preamble_definitions_
+section_end_to_end` (`test_definition_links_us_preamble_family.py:328`)
+targets `STATE_NE_C43_S43-3329` and asserts capture of 4 unquoted terms
+(`Account`, `Authorized attorney`, `Child support`, `Department`). **Its own
+docstring concedes** that going green needs "BOTH this sprint's preamble-
+recognition fix AND a NEW unquoted-term entry splitter -- the latter is
+`2026-08-04-defs-us-markers` territory". A test in this sprint's suite that
+cannot pass on this sprint's work alone makes this sprint's gate hostage to
+another panel's delivery. Genuine defect; must be re-scoped.
+
+### M-R19 — Headline findings that change the plan
+
+- **S3's is the structurally important result**: the 40-state tail holds only
+  ~30 genuine BLOCK rows, and **two shared idioms (B1 GA-style colon-list, B2
+  words-have-meanings) cover essentially all of it**. That converts the long
+  tail from 39 bespoke rules into a **parameterized rule + test matrix** — the
+  single biggest simplification available to this sprint.
+- **S1 found a real production bug**: the inline fallback's last entry runs to
+  end-of-text (proven on FL 540.11 — ~100% claimed vs ~12% true coverage).
+  This **inflates any capture measurement that uses the fallback**, so our
+  before/after numbers (U6) must not be taken from it uncorrected. Already
+  routed to the markers panel; consequence for us is measurement hygiene.
+- **S2**: FED ~45.5% BLOCK but with 26.4% legislative-history contamination
+  and 86% contaminated last-entries (compounded by S1's bug); DC uniform 48%
+  BLOCK + 26 genuinely unquoted rows; NY has a literal-`\n` corpus bug causing
+  a 100% extraction blackout — **already accepted by core as its I8, do not
+  re-route**.
+- **S4**: MS population is **2.7x** D1's (second convention, "shall have the
+  meaning(s) ascribed herein", hand-confirmed); CA has 1,401 signal rows (748
+  new exposure, 663 BLOCK) — a large population this sprint inherits; IL is
+  **79% CLAUSE**, an outlier; MD's count is 44% of D1's and **unreconciled**.
+- **S4 also found and fixed a tail-ratio bias in the D2 discriminator** (67%
+  false-CLAUSE rate on SD). **The consolidating Planner must not reuse that
+  discriminator style unfixed** — this is the kind of methodology error that
+  silently mis-routes whole populations between panels.
+- **Count methodologies do not reconcile** (S1's FL 330–646 vs QA D1's 1,031;
+  S4's MD gap). Honest floor/ceiling reporting is required; a single
+  confident number here would be fabricated precision.
+
+### M-R20 — Model/effort for the consolidating Planner
+
+Planner: **Sonnet / high** — it must reconcile conflicting count
+methodologies, re-scope a defective test without weakening it, design a
+parameterized rule+test matrix across ~50 jurisdictions, and avoid a
+discriminator bias that already produced a 67% false-CLAUSE rate. That is
+sustained judgment, not transcription. **Haiku considered: no.**
+`model=inherit` not used. It is the **sole writer** in this worktree
+(M-R8/M-R15); no other agent writes here while it runs.
