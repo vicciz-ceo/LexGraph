@@ -144,6 +144,10 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   definition = the definition row + a captured reference/link to its target
   law/section (incl. internal same-law section targets). Seam plumbing in
   core v2; affects 7,610 rows / 32 jurisdictions across four panels.
+  **Clarified (director, 2026-08-04): NO typed "pointer" field — ever.** The
+  reference edge connecting the definition to the law/section it mentions IS
+  the typing; the connection itself carries the semantics. No schema field,
+  no follow-up item for one.
 
 ## Program routing decisions (program manager)
 
