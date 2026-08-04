@@ -20,6 +20,19 @@ from dataclasses import dataclass
 # body text of whichever article they fall inside.
 _ARTICLE_MARKER_RE = re.compile(r"^@\s+(?P<number>\d+[א-ת]*)\.\s*(?P<heading>.*)$")
 
+# A bare `@` marker -- no number, no trailing period, nothing else on the
+# line (sprint 2026-08-04-defs-core-scope, manager ruling M8(a)). 124 of
+# 6,133 real israeli-laws-wiki documents use a bare `@` as their section
+# marker for at least one section; without this branch, such a line falls
+# through to the ordinary body-text case below and its whole section
+# (including any definitions inside it) is silently merged into whichever
+# article/section happens to be open -- or, for a document that uses ONLY
+# bare `@` markers, `current_number` never becomes non-`None` at all and
+# `parse_articles` returns an empty list, dropping the entire document.
+# Deliberately anchored to the WHOLE line (`$`) so it never matches a
+# marker that legitimately carries trailing content, e.g. `@ [יד]`.
+_BARE_ARTICLE_MARKER_RE = re.compile(r"^@\s*$")
+
 # A `==...==` (chapter) or `===...===` (subsection/"סימן") heading line.
 # Both END an article's body scope; only the double-equals ("==", not
 # "===") form updates the tracked `.chapter` (a subsection nested under a
@@ -71,6 +84,7 @@ def parse_articles(text: str) -> list[Article]:
     current_heading: str = ""
     current_body_lines: list[str] = []
     current_chapter: str | None = None
+    bare_marker_count = 0
 
     def _flush() -> None:
         if current_number is not None:
@@ -89,6 +103,19 @@ def parse_articles(text: str) -> list[Article]:
             _flush()
             current_number = marker_match.group("number")
             current_heading = marker_match.group("heading").strip()
+            current_body_lines = []
+            continue
+
+        if _BARE_ARTICLE_MARKER_RE.match(line):
+            # A bare `@` still starts its OWN new section -- it must never
+            # fall through to the ordinary body-text branch below (M8(a)).
+            # It has no number of its own, so a synthetic, non-colliding
+            # placeholder (never matches `_ARTICLE_MARKER_RE`'s
+            # `\d+[א-ת]*` number shape) identifies it.
+            _flush()
+            bare_marker_count += 1
+            current_number = f"@{bare_marker_count}"
+            current_heading = ""
             current_body_lines = []
             continue
 

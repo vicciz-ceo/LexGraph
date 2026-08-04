@@ -391,8 +391,16 @@ def find_term_uses(term: str, text: str) -> list[re.Match[str]]:
     substring of a longer word (`\\b` handles this natively: e.g. `term=
     "Affiliate"` will not match inside `"Affiliates"` or `"disaffiliated"`,
     since there is no word-boundary at that position).
+
+    Case-insensitive (sprint 2026-08-04-defs-core-scope, manager ruling
+    M8(b)): real US rows re-mention a capitalized defined term in lowercase
+    later in the same law (e.g. "Access area" defined, later used as
+    "access area" in running text), and today's exact-case matching misses
+    that mention entirely. The fix is narrowly scoped to case-folding the
+    literal term ONLY -- `\\b`-word-boundary anchoring is unchanged, so this
+    stays a case-insensitive EXACT match, never a fuzzy/substring one.
     """
-    pattern = re.compile(r"\b" + re.escape(term) + r"\b")
+    pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
     return list(pattern.finditer(text))
 
 
