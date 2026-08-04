@@ -2155,3 +2155,231 @@ All four items now verified on the live path against merged core:
 Gates **U1, U3, U5** stand met on the live path; **U6** re-measured (94.5%);
 **U2** remains the accepted 10-row Option-C limitation (recheck against the
 now-merged seam is a QA item); **U4** is QA cycle 3's certification.
+
+---
+
+## 2026-08-04 — QA cycle 3 report: BOUNCE — U4 and D-MT-E1 both fail
+
+Independent recompute, all scripts written from scratch (`scratchpad/qac3_*`,
+never read another agent's script). Every headline number below was produced
+by code I wrote, not copied from the contract or the log.
+
+### Denominator + U4 reproduction
+
+Own extraction (`qac3_extract_defin_rows.py`, evidence venv, pyarrow) over
+all 52 in-scope `us_*_statutes.parquet` files (PR excluded): **2,014,611**
+total rows, **83,303** defin-titled — exact match to the pinned convention.
+Analysis (`qac3_analyze.py`, backend venv, real unmodified production
+functions): miss pool **22,228**; unconditional **20,945** (94.23%);
+`matches_defined_for_heading` population **110**, confirmed **60** /
+suppressed **50**; union **21,004/22,228 = 94.49%** — every one of these
+reproduces the manager's/Planner's cited figures exactly. Decomposition
+equivalence (`matches_heading_variant` == `unconditional or defined_for`):
+**0 violations** across all 83,303 headings. Precision: **123 = 117 R-TRUNC +
+6 R-MISSPELL**, **0** captures without a `defin` substring — exact match.
+
+**U4 does NOT certify.** Classified the full 1,224-row residual (not a
+sample): the 245-row D-HG cluster is still 100% intact and guarded (cross-
+checked act_id-for-act_id against `-guarded-cluster.md`); found and
+mechanically verified (via `_preposition_governs` called directly) a **29-row
+sibling cluster** — `"Applicability/Application of definitions in/and X"`
+headings guarded by the identical interior-token preposition mechanism, just
+never enumerated by name in the 245-row report (same D-HG ruling applies,
+recommend appending to that doc). Confirmed pension jargon (155), TX's
+`DEFINED AREA`/`DESIGNATED PROPERTY` municipal-district jargon (169),
+`definite`/`indefinite` morphology (161), authority-to-define delegation (91,
+regex-verified against a tight grammatical pattern, not each hand-read),
+active-voice `define`/`defines`/`defining` verb forms outside R-VERB's
+passive-participle design (38) — all correctly excluded, as prior cycles
+found. Manually read all remaining ~500 rows one by one. Found **four new,
+real, evidenced mechanical gaps**, none previously reported:
+
+1. **`"[TERM] defined and [continuation]"`** — `and` is not in R-VERB-
+   extended's connector whitelist. **45 rows, 19 states, 0 currently
+   captured.** Hand-verified 7/8 sampled bodies as genuine definitions
+   (`STATE_MI_C440_AAct-174-of-1962_S440.4952`: body literally `As used in
+   this section, "creditor process" means...`; also IA, KS, ND, NV, OK, WA
+   confirmed). 14/45 are Louisiana's templated `"pollution defined and
+   prohibited"` heading whose body never mentions "pollution" at all
+   (verified — 0 occurrences in a 3,598-char body) — heading-correct,
+   body-empty, same accepted H-R1 category as CO/NV/AK. Recommend the same
+   D-DF-style body-gate treatment question this sprint already applied to
+   `for` — escalate, don't decide.
+2. **RI mojibake em-dash** (`\x80\x94`/`\x80\x9c`/`\x80\x9d` byte sequences
+   in place of a real Unicode dash) defeats the dash-connector check. **10
+   rows, all Rhode Island, 0 captured.** Hand-verified 2/2 sampled bodies
+   clean (e.g. `STATE_RI_T44_C44-18_S44-18-15.2`: body `"Remote seller"
+   means any seller...`). Narrow, high-confidence, low-risk — same class as
+   R-TRUNC's existing corpus-defect handling.
+3. **`"Other defined terms"` / `"Other definitions [appearing in ...]"` /
+   `"Index of definitions in [code/act/chapter/title]"`** — a real,
+   repeated drafting convention (a cross-reference TABLE mapping each term
+   to the section that actually defines it), found in **CT, IA, ME, CO, OK,
+   SC (7 rows), 0 captured.** Hand-verified 6/6 sampled bodies — every one
+   is a genuine pointer table (e.g. `STATE_CO_T5_A1_P3_S5-1-303`: `"Actuarial
+   method" section 5-1-301 (1)`, dozens of entries). This entire class is
+   **D-MT-E1 pointer-definition territory** — high-value finding.
+4. **`"[TERM] defined ([qualifier])."` / `"[TERM] defined to [verb]..."`**
+   — a parenthetical or the word `to` immediately after `defined` isn't in
+   the whitelist. **7 rows: KY(1), MO(4), PA(1, repealed, harmless),
+   VA(1, uncertain).** Hand-verified KY and all 4 MO bodies genuine (e.g.
+   `STATE_MO_C50_S50.770`: body `"supplies"... means materials,
+   equipment...`).
+
+Total newly-evidenced capturable-miss rows: **69** (conservatively; the 14 LA
+rows are heading-correct/body-empty, still a legitimate U1 capture). Every
+row is a real act_id, hand-verified against real corpus text — reported per
+P-R2, not decided here.
+
+### P-R7 boundary cross-reference
+
+No live channel to page the manager existed in this session (single-agent
+QA run, no multi-agent orchestrator to address). Rather than guess or
+re-scan the corpus (forbidden), read the preamble panel's own **committed**
+sprint log directly (`LexGraph-wt/defs-us-preamble/docs/sprint/sprints/
+2026-08-04-defs-us-preamble-log.md`) — a legitimate, named, citable artifact,
+not a generic scratchpad file (P-R9 respected). Their QA's `qa_d1_corpus_
+scan.py` is a corpus-wide (2,038,247 rows, all 53 files), **signal-
+independent** (body-prose-driven, not heading-derived) candidate scan: 7,383
+rows, 1,468 gated + 5,915 ungated-only, touching 50/53 jurisdictions. The
+six named zero-`defin`-title states (CA/GA/IL/MD/MS/NE) are confirmed
+covered (CA/GA via the gated bucket, MD/MS/NE via ungated-only) — the
+contract's "known starting point" holds. Caveat, stated plainly: the
+preamble panel is itself pre-QA (`qa_cycles: 0`, `status: parked-blocked`)
+and its own P-D1 section admits its count methodologies do not fully
+reconcile (MD gap, floor/ceiling ranges) — this is the best obtainable
+cross-reference in this session, not a mutually-certified closed boundary.
+One specific residual: Alaska shows **zero** ungated-only exposure under
+their 3-regex candidate rule — not necessarily a gap (AK's definitions
+sections may simply carry `defin`-signal headings, this family's own
+territory), but not independently confirmed clean either.
+
+### Gate U6 — measured before/after, per jurisdiction
+
+Own per-state computation, all 52 states (`qac3_per_state.json`). Baseline
+reproduced **exactly**: WA 74.26%, FL 84.56%, NY 91.35%. After (current
+shipped code, D-DF included): **WA 98.60%, FL 98.63%, NY 98.70%** — all
+three **exceed** the contract's own earlier-cited 96.5%/98.5%/98.6% figures,
+because those were measured before the H-R7/H-R9 bug-fix cycles landed; not
+a regression, an improvement over a stale snapshot. Zero H-R3 violations
+(`after < baseline`) across all 52 states — the biggest movers were IN
+(22.3%→90.4%) and NV (12.4%→99.6%), consistent with the dossier's own
+targets. IN's after-rate is the lowest of all states because 184 of the
+245-row D-HG cluster is Indiana's own `"Application of definitions"`
+convention (correctly guarded, not a defect).
+
+### D-DF verification (60/50 reproduced) — read all 50 suppressed, not 25
+
+`includes`-verb defining class: **~15-16 rows** (AK, MI, MO, OK, 10×OR,
+2×WA) — closely corroborates the sprint's own cited 15; D-Q1 open question,
+reported not decided. **D-MT-E1 pointer-shaped rows wrongly SUPPRESSED,
+should be CAPTURED per the director's own WA_T50 ruling — a real defect**:
+`STATE_NV_T38_C432A_S432A.1774` (`"child care facility"... Has the meaning
+ascribed to it in NRS 432A.024`) and `STATE_OR_T28_C293_S293.235`
+(`"state agency" has the meaning given that term in ORS 293.226`) are
+direct structural analogs to the ruled WA_T50 shape; `STATE_AZ_T43_C3_A1_
+S308` (external IRC reference) is a third, weaker candidate. SD's 11 rows
+use its own unquoted comma-delimited `"the term, X, means"` convention,
+which structurally cannot match D-DF's quoted-term-only regex by design —
+consistent with SD's already-known/routed markers-family gap, not new.
+One narrow near-miss: `STATE_WA_T48_C21_S015`, `"is FURTHER defined as
+follows"` — the `is\s+defined\s+as` regex doesn't tolerate an inserted
+adverb. Remainder (AL, ID, ND-repealed, CT-citation-only, NC×2, SC, WY,
+TN, NM×2/WA-49 unquoted-term) genuinely non-defining or an already-
+documented limitation — correctly suppressed.
+
+### D-MT-E1 two-capture check — `STATE_WA_T50_C29_S030` — FAILS, verified live
+
+Direct calls to the real, unmodified production functions on this row's
+real corpus text:
+
+- `detect_cross_law_derivations(text, source_term="wages")` → **`[]`**.
+  None of the 5 trigger phrases match: the real text is `...shall mean
+  "wages" as defined for purpose of payment of benefits in RCW 50.04.320`
+  — `"for purpose of payment of benefits"` sits between `defined` and
+  `in RCW`, breaking the `"as defined in"` trigger's contiguous-phrase
+  requirement. **No reference edge would ever emit for this row today.**
+- Worse: `extract_definitions_from_section(body, scope=..., heading_
+  was_derived=False)` — the ACTUAL argument value on the live path, since
+  this heading was recognized via the `HeadingRule` registry, never via
+  `derive_heading_from_body` — also returns **`[]`**. The body is a single
+  unnumbered sentence; the inline-quote fallback extractor that WOULD parse
+  it is gated behind `heading_was_derived`, which is only ever True for the
+  CA/IL/GA-style body-derived-heading path. Confirmed
+  `heading_was_derived=True` (not what actually runs) WOULD extract it
+  correctly.
+
+**Net: on the live path today this row produces zero Definition rows and
+zero DERIVES_FROM_LAW edges.** Not "captured without its reference edge" —
+not captured at all. This is the director's own named precedent case for
+D-MT-E1; it fails outright.
+
+### Dispatch-semantics confirmation
+
+Confirmed both claims independently: read the merged source
+(`us_profile.py:1276-1291`) AND ran my own adversarial live probe (registered
+a gated-first rule that always fails `body_confirms`, then an unconditional
+second rule, against a throwaway jurisdiction code) — result **True**,
+confirming (A) OR-across-all, not first-wins. Also confirmed a lone gated
+rule alone returns False/True correctly by body content, and that a
+baseline-True heading is never touched by the registry loop even with
+adversarial rules registered (H-R3's zero-false-positive baseline
+structurally protected).
+
+### Regression + precision (task 7)
+
+`backend/.venv/bin/pytest backend/tests -q` → **811 passed, 0 failed** —
+exact match. Adversarial precision hunt on the 60 D-DF-confirmed rows (does
+`_SELF_DEFINITION_RE`'s matched quoted term actually correspond to the
+row's own heading term?): 3 apparent mismatches, all explained as artifacts
+(a line-wrap newline inside a quoted term; the already-unconditionally-
+captured MI row matching its own SECOND term; the OR row matching its own
+second alternation term) — **0 genuine new false positives** introduced by
+`defines_in_body`.
+
+### U2 recheck
+
+The seam's generic scope mechanism is confirmed **live and merged**:
+`matcher._in_scope` supports M9 tuple-valued `source_chapter`/`source_
+article_number`/`scope_value` (`_value_matches` does `actual in expected`
+for a tuple) on the EXISTING `"chapter"`/`"local"` kinds, plus a fully
+generic non-standard-kind path matched against `article.structural_units`
+for any registered `StructuralUnitRule` kind. This converts U2 from a hard
+technical blocker into an implementation question, per the ruling's own
+framing. Concretely: AK's multi-chapter range and at least 2 of the 4 KY
+`"for section and KRS X"` rows are directly expressible TODAY via a
+tuple-valued `source_chapter`/`source_article_number` on the existing
+`"chapter"`/`"local"` kinds — no new scope-kind registration needed. The
+other rows (CT's prose scope description, NJ, TN's dual-scope, UT, VA's
+title-level scope) are plausibly expressible via the generic kind +
+`StructuralUnitRule` path but unverified/unimplemented — this is now a
+normal Developer item, not a permanent limitation, but I did not implement
+or fully re-verify each of the 10 individually (outside QA's role).
+
+### U3 (registry-only)
+
+Verified via `git show --stat` on every one of this panel's own commits:
+100% touch only `backend/app/definition_links/rules/us_heading_variants.py`
+under `backend/app/`. PASS.
+
+### Per-gate verdicts
+
+| Gate | Verdict | Check |
+|---|---|---|
+| U1 | PASS | source read + own dispatch probe + full-suite CT pipeline test green |
+| U2 | Limitation status changed, not a fail | seam mechanism confirmed live; ≥3/10 rows concretely expressible now without new registration; recommend as normal Developer item |
+| U3 | PASS | `git show --stat` on every panel commit, 100% single-file |
+| U4 | **FAIL** | 69 newly-evidenced, hand-verified capturable-miss rows across 4 new mechanical-gap classes, on top of the 245+29-row guarded cluster correctly holding |
+| U5 | PASS | 811/0 suite; 0 H-R3 violations across 52 states; 0 equivalence violations; 0 genuine new FPs on adversarial hunt |
+| U6 | PASS | baseline exact-match; after exceeds the contract's own cited figures for all 3 named states; full 52-state table computed |
+| D-DF | Defect found | 60/50 reproduced exactly, but 2+ D-MT-E1-pointer-shaped rows wrongly suppressed instead of captured |
+| D-MT-E1 (two-capture) | **FAIL** | verified live: `STATE_WA_T50_C29_S030` produces zero Definition rows and zero reference edges today |
+
+### Recommendation: BOUNCE
+
+Two independent, concretely-verified gate failures (U4's 69 new real
+misses; D-MT-E1's own named precedent row producing nothing on the live
+path) plus a real D-DF defect (pointer rows wrongly suppressed). Under the
+director's absolute zero-miss bar this cannot certify. Full row lists,
+scripts, and intermediate JSON are in the shared scratchpad, all prefixed
+`qac3_` per P-R9.
