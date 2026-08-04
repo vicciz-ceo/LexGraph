@@ -1655,3 +1655,35 @@ definitions == []`), verified by running each file directly, not
 inferred. Every negative-guard test passes today. No test in any new file
 reads or downloads the parquet snapshot — every row was fetched once,
 during authoring, and vendored byte-for-byte.
+
+### P-D5 — Consolidated CLAUSE routing package
+
+Merged all four scouts' own CLAUSE packages into ONE, per M-R16: S1's
+`classify7` output filtered `label == "CLAUSE"` (FL/NC/AL/MO), S2's
+FEDERAL/DC/NY clustered results filtered `n_clustered_terms == 1`
+(NY using S2's OWN newline-defect-corrected version, not the raw one), S3's
+already-built 38-state package, S4's already-built GA/MD/NE/MS/SD/CA/IL
+package. Committed as two files: `2026-08-04-defs-us-preamble-clause-
+package.json` (the data — **2,659 real `act_id`s across 51 jurisdictions**,
+deduplicated) and `2026-08-04-defs-us-preamble-clause-package.md` (the
+summary: top-15-by-volume table, 3 verbatim examples, caveats).
+
+**Followed the director's discriminator-bias instruction explicitly**: MS
+and SD's entries come from S4's OWN CORRECTED discriminator (trigger
+position alone), NOT the tail-ratio-inclusive one that produced a 67%
+false-CLAUSE rate on SD (M-R19) — stated prominently in the package's own
+`.md` file, not just this log, since the scoped-inline panel will read the
+package directly, not necessarily this log.
+
+**Verified before merging, not assumed**: NE's rows appear in BOTH S3's
+generic 40-state scan and S4's own dedicated NE inventory — confirmed
+identical (both count 2), deduplicated to 2, not double-counted. GA/IL
+were deliberately reported ONLY by S4 (S3's own design, to avoid
+double-counting territory it deferred) — confirmed no overlap risk.
+
+**Not done in this pass, stated in the package's own file, not hidden**:
+no re-classification of any row across scouts (this merges four
+already-verified lists, it does not re-run a single unified discriminator
+over all 2,659 rows); only 3 rows got a fresh verbatim cross-check for the
+summary's own examples, the remaining 2,656 are exactly as each scout's
+own script produced them.
