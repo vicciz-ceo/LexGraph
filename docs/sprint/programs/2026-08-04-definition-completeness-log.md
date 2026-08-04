@@ -14,6 +14,8 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04 panel manager, defs-us-headings (opus): a5e7bb61c9278644e
 - 2026-08-04 panel manager, defs-us-multiterm (opus): a007e4bbf7f366192
 - 2026-08-04 panel manager, defs-us-pr (opus): a0f33c079eda12235
+- 2026-08-04 core QA-phase manager (opus, fresh context after impl-phase
+  manager clean-exit): a9efb2de1f275f494
 
 ## Events
 
