@@ -5284,3 +5284,59 @@ $ backend/.venv/bin/pytest backend/tests -q
 Commit follows this entry; branch `claude/defs-us-pr`.
 
 ---
+
+---
+
+## 2026-08-04 — Manager: CLEAN PARK. Panel awaits the core dispatch merge.
+
+### Close-out verification
+
+- **QA cycle-6 handoff** (`d65a365`): log-only, 220 lines, zero backend and
+  zero contract changes, suite unchanged. Verified.
+- **Docstring correction** (`b7034b1`, Haiku Developer — bounded comment edit,
+  wording supplied, zero design latitude): `git diff` is **comment-only**,
+  one file, 9 insertions / 3 deletions, no logic touched. Suite unchanged at
+  `30 failed / 915 passed / 12 xfailed`, FAILED = precisely the held 30.
+  The corrected text states the count/positions distinction accurately, gives
+  BOTH independent reasons the shift is currently inert, and carries the
+  forward warning to use the ORIGINAL `article_body` coordinate space.
+
+QA independently confirmed both halves of my docstring finding and added the
+second inertness reason I had not found (all PR candidates stamp `local`
+scope, so the downstream offset-branching path short-circuits). Two unrelated
+reasons, neither of which I had fully established alone.
+
+### Final state
+
+| | |
+|---|---|
+| Branch | `claude/defs-us-pr`, pushed, tree clean |
+| Suite | `30 failed / 915 passed / 12 xfailed` |
+| The 30 | the held partition, byte-verified untouched across cycles 5-6 |
+| The 12 | `xfail(strict=True, raises=…)` deferrals — a changed exception type or an unexpected pass fails HARD (probed by me, not assumed) |
+| Gates | P1 PARTIAL/HELD · P2 PARTIAL · P3 PARTIAL · P4 HELD · **P5 PASS** |
+| Dev Complete | 18a, 26, 27, 28, 29 |
+| QA cycles | 3 (cycles 4, 5, 6) |
+
+### What this panel actually delivered
+
+PR went from **100% invisible** to a live, registered, dispatched Spanish rule
+set: two `ScopeTriggerRule`s and one `CitationRule` under `USProfile`, with
+live capture at 15/766 (1.96%) on a signal-agnostic denominator — small by
+design, because the large recall items are deliberately held rather than
+shipped mis-scoped.
+
+The more consequential deliverable was the **P-R8 finding**: five of seven
+registry rule kinds dispatched to nothing, which would have let four sibling
+panels ship dead code that looked green. That reopened core.
+
+### For whoever takes the wake
+
+M-R14's three entry criteria are BLOCKING and are stated at the top of the
+contract's Context Dump. The temptation on wake will be to rebuild 18c first
+because it is the biggest recall win. **Do the hyphen fix and the 117/633
+re-measurement first** — 18c's entire justification is that the residual
+disappears by construction, and that claim is unverified until it is measured
+against the dispatched pipeline. Shipping 18c on the strength of the argument
+rather than the measurement would repeat exactly the mistake that produced
+the inertness escalation: a premise that read true and measured false.
