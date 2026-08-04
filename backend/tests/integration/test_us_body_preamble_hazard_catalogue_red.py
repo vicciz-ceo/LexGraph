@@ -165,7 +165,7 @@ def test_montana_row_already_produces_a_real_spurious_forwarding_candidate_from_
     in 61-1-101 , except the term does not include...', a pure
     forwarding-reference pointer, not a local definition. Confirmed live.
     """
-    from app.definition_links.pipeline import _extract_inline_quoted_definitions
+    from app.definition_links.us_profile import _extract_inline_quoted_definitions
 
     row = _row("STATE_MT_T7_C14_P41_S7-14-4103")
     candidates = _extract_inline_quoted_definitions(row["text"], scope="law-wide")

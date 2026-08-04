@@ -49,7 +49,7 @@ def test_gate_b_prefix_cap_is_exactly_why_this_real_california_row_misses_today(
     which gate this specific CA row needs an ungated body-preamble rule to
     clear, distinct from GA/MD/NE/MS/SD's own reasons.
     """
-    from app.definition_links.pipeline import _derive_heading_from_body, _is_placeholder_heading
+    from app.definition_links.us_profile import _derive_heading_from_body, _is_placeholder_heading
 
     row = _row()
     assert row["section_title"] == "Section 187010", (

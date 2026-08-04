@@ -93,7 +93,7 @@ def test_body_definitions_preamble_regex_does_not_recognize_georgias_real_as_use
     placeholder_with_no_heading_text` in `test_qa_regression_us_state_
     law.py`).
     """
-    from app.definition_links.pipeline import (
+    from app.definition_links.us_profile import (
         _BODY_DEFINITIONS_PREAMBLE_RE,
         _derive_heading_from_body,
         _is_placeholder_heading,
@@ -282,8 +282,8 @@ def test_real_pipeline_captures_a_real_maryland_body_preamble_definitions_sectio
     (verified live): 'Identity fraud', 'Identity theft passport'.
     """
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
-    from app.definition_links.pipeline import _is_placeholder_heading
     from app.definition_links.pipeline import run_definition_linking
+    from app.definition_links.us_profile import _is_placeholder_heading
 
     m = matter_with_users
     rows = _load_preamble_rows()
@@ -374,11 +374,11 @@ def test_real_nebraska_unquoted_body_preamble_is_a_genuine_in_family_candidate_b
     below can be read as "needs markers too" rather than "this sprint's
     rule is broken."
     """
-    from app.definition_links.pipeline import (
+    from app.definition_links.us_profile import (
         _extract_inline_quoted_definitions,
         _is_placeholder_heading,
+        extract_definitions_from_section,
     )
-    from app.definition_links.us_profile import extract_definitions_from_section
 
     rows = _load_preamble_rows()
     row = rows["STATE_NE_C43_S43-3329"]

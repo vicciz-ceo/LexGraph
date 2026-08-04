@@ -209,8 +209,7 @@ def test_va_general_definitions_for_this_title_heading_is_a_genuine_near_miss_no
     widening -- the heading itself carries real words, just not the
     specific word the matcher looks for.
     """
-    from app.definition_links.pipeline import _is_placeholder_heading
-    from app.definition_links.us_profile import is_definitions_heading
+    from app.definition_links.us_profile import _is_placeholder_heading, is_definitions_heading
 
     rows = _rows()
     row = rows["STATE_VA_T8.01_C1_S8.01-2"]

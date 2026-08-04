@@ -138,7 +138,7 @@ def test_federal_last_entry_extraction_swallows_the_next_unrelated_subsection_co
     are out of bounds here) -- this pin exists so the defect stays visible
     and attributable, not silently absorbed into a passing capture test.
     """
-    from app.definition_links.pipeline import _extract_inline_quoted_definitions
+    from app.definition_links.us_profile import _extract_inline_quoted_definitions
 
     row = _row("USC_T7_C50_S1997")
     candidates = _extract_inline_quoted_definitions(row["text"], scope="law-wide")
