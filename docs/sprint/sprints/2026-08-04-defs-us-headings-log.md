@@ -1650,3 +1650,36 @@ knowingly leaves a minority of real definitions sections uncaptured. **The
 panel's standing recommendation is to KEEP the guard** (three independent
 measurements agree the trade is bad), recorded here so the choice is explicit
 rather than silent.
+
+---
+
+## 2026-08-04 — Director ruling D-HG + program ruling P-R7 received
+
+**D-HG (director) — keep the guard.** Our P-R2 escalation is resolved: the
+heading stays untrusted, and the genuine minority is rescued through the
+preamble panel's BODY-content rules under ungated dispatch — zero-miss through
+the right mechanism, junk stays out. **The panel's recommendation was upheld.**
+Handoff artifact produced by the manager directly against the shipped module
+and all 52 in-scope files: `2026-08-04-defs-us-headings-guarded-cluster.md`,
+**245 rows**, exactly matching QA cycle 2's independent count.
+
+Composition: governing word `of` 232, `from` 7, `to` 3, `in` 2, `with` 1.
+By jurisdiction: **IN 184**, WV 11, TX 10, NV 4, AL/AZ/MI/SC/WA 3 each, NM 2,
+remainder singletons. Indiana's 184 are dominated by *"the definitions in this
+chapter apply throughout this article"* — a cross-reference heading whose BODY
+frequently does carry a real definition list, which is precisely the shape
+D-HG routes to the preamble panel. That is a strong sign the ruling's mechanism
+fits the actual data.
+
+**P-R7 (program law) — ground truth must be independent of the capture
+mechanism's own signals.** Recorded in the contract as binding on QA cycle 3.
+The honest statement of our limitation: **this sprint's entire 22,228-row miss
+pool is derived from the `defin` substring**, which is the same signal our
+rules key on. It measures heading-recognition recall correctly, but it is
+structurally incapable of seeing a definitions section whose heading contains
+no `defin` at all. QA cycle 1 already identified and stated this boundary
+(CA/GA/IL/MD/MS/NE — `defin` in zero titles, ~486k rows) and confirmed it was
+neither counted as recognized nor as residual. What P-R7 now requires beyond
+that is the **explicit cross-reference** with the preamble panel's consolidated
+body-driven inventory proving the two families' coverage meets with no gap —
+coordinated through the program manager, not re-derived here.

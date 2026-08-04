@@ -188,6 +188,29 @@ branch rebasing onto it)
    tests green, the pre-sprint 641 still green, total count exactly
    641 + 30 = 671 passed (this sprint added no other tests).
 
+### Binding rulings received from above (apply in QA cycle 3)
+
+- **D-HG (director)** — the preposition guard **STAYS**. The genuine minority
+  in that cluster is rescued by the preamble panel's body-content rules under
+  ungated dispatch, not by relaxing our heading guard. The complete 245-row
+  list is handed off in
+  `docs/sprint/sprints/2026-08-04-defs-us-headings-guarded-cluster.md`; any row
+  NEITHER path reaches goes back to the director **by name**. **Do not relax
+  the guard.** This closes the panel's P-R2 escalation.
+- **P-R7 (program law)** — a zero-miss sweep must build ground truth
+  INDEPENDENT of the capture mechanism's own signals. **Our 22,228-row miss
+  pool is `defin`-substring-derived**, so it is valid for measuring
+  heading-recognition recall but is structurally blind to definitions sections
+  carrying NO `defin` substring anywhere (GA-style body-preamble-only signals).
+  **U4 cannot be certified on the `defin` pool alone.** QA cycle 3 must add an
+  explicit boundary cross-reference against the preamble panel's consolidated
+  body-driven inventory — obtained by coordinating with that panel via the
+  program manager, **not** by re-scanning the corpus — demonstrating that this
+  family's misses end exactly where that family's coverage begins, **with no
+  gap between**. Any population reached by neither is a director-level miss and
+  is reported by name. Known starting point: CA/GA/IL/MD/MS/NE have `defin` in
+  ZERO section titles (~486k rows) and are already routed to that panel.
+
 ### QA (after Phase A+B dev-complete)
 
 7. **Zero-miss full-corpus sweep, gate U4.** Independently re-run the
