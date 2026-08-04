@@ -879,3 +879,104 @@ deferred one.
 
 Model note: pass 3 is Sonnet/high, not Haiku — the 5 amendments are mechanical,
 but S-R10's test is genuine live-path test design.
+
+---
+
+## 2026-08-04 — Planner (pass 3)
+
+CodeGraph checked first (`codegraph explore` from `/Users/nerya/LexGraph` for
+`_subsection_label`/`_subsection_contains_offset`/`resolve_unit_path`) --
+confirmed against the branch's own on-disk source by direct read per the
+manager's binding process note, no discrepancy.
+
+### Task A — 5 placeholder scope assertions amended per S-R9
+
+All 5 amended to `"law-wide"`, `PENDING D8/S-R5` comments replaced with a
+short S-R9 citation (unrepresentable narrowing -> law-wide, zero-miss-safe,
+precision cost recorded), matching the D9-pass precedent already set for
+`"article"`/`"title"`. Two tests renamed (`..._maps_to_subchapter_scope` ->
+`..._falls_back_to_law_wide_scope`, `..._maps_to_part_scope` -> same) since
+the old names asserted the literal as fact; the other 3 kept their names
+(never encoded the scope string). Module docstring's mapping table
+(trigger-axis file) updated to mark `part`/`subchapter` RESOLVED rather than
+PENDING, for consistency with the S-R9 ruling now landed. No other
+assertion in any of the 5 tests touched -- the splitting/term assertions
+(`len(matches) == 1`, term-set memberships, `definition_text` substring
+checks) are byte-identical to before. `grep -n "PENDING D8"` across both
+files now returns zero hits. Re-ran the full unit suite for both files
+standalone: **28/28 passed**, confirming the amendments and nothing else
+broke.
+
+`trigger_axis.py` grew to 320 lines with the first draft of the new
+docstrings/comments -- over the 300-line gate -- tightened the same
+material (S-R9 reasoning kept, wording compressed) down to **297 lines**,
+re-verified the 28/28 pass held after trimming. `body_axis.py`: **295
+lines**, comment-only changes, no risk of drift.
+
+### Task B — ruling S-R10: subsection-label agreement, LIVE-TESTED, FAILS
+
+New file `backend/tests/integration/test_us_scoped_inline_pipeline_subsection_live.py`
+(211 lines), two tests, both driving the real `ingest_us_statute_rows` ->
+`run_definition_linking`. Row: the real, unmodified `STATE_OR_T22_C238_
+S238.300` (Oregon -- deliberately NON-Maine, so the known Maine-annotation
+defect cannot be blamed for the result). Its own real text defines
+`"number of years of membership"` via `"(c) As used in this subsection, ...
+means..."`, and NATURALLY (no invented prose) reuses the term twice more
+later in that SAME `(c)` clause, and twice earlier in a DIFFERENT clause
+(`(2)(a)(A)`/`(2)(a)(B)`) of the SAME article, before the definition even
+appears -- real, both-directions material in one row, ground-truthed via
+`re.finditer` against the real text in both tests, no hard-coded offsets or
+label literals anywhere.
+
+Design note on the two-test split: Stage 3's assertion dedup key is
+`(subject, object, proposition)`, not per-mention, so a single ingest with
+BOTH kinds of mention present at once cannot attribute a resulting (or
+missing) `USES_DEFINITION` edge to either direction specifically. The
+"different subsection" test therefore ingests the SAME real row's text
+MECHANICALLY TRUNCATED right after the defining sentence ends -- every
+remaining character is a real, verbatim substring of the vendored row nothing
+invented -- which drops the two later in-subsection reuses while keeping the
+two earlier out-of-subsection ones and the definition itself intact, so any
+edge in that scenario is unambiguously attributable.
+
+**Result, independently reproduced via `pytest backend/tests -q`: 1 failed,
+743 passed** (742 + this file's 2 new tests, 1 of each). Broken down:
+
+- `test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_
+  subsection` -- **PASSES**. Non-vacuous: ground-truthed 2 real
+  out-of-subsection mentions exist in the truncated body before asserting.
+- `test_subsection_scoped_definition_links_a_mention_inside_its_own_
+  subsection` -- **FAILS**. `assert uses_edges` -> `assert []`. The real,
+  unmodified Oregon definition is captured correctly (`scope ==
+  "subsection"`), but its own later in-article, in-subsection reuse gets
+  ZERO `USES_DEFINITION` edges. Exactly the silent under-link S-R10
+  predicted.
+
+**Root cause, isolated by direct execution (not guessed), and NOT
+Maine-specific -- a plain format mismatch, general to every parenthetical-
+style subsection label**: `us_scoped_inline._subsection_label`'s capturing
+group `\([0-9A-Za-z]{1,3}\)` includes the literal parens in the returned
+string (e.g. `"(c)"`). `us_profile.resolve_unit_path`'s marker regex
+`\(([A-Za-z]+|\d+)\)` captures only the INSIDE content (e.g. `"c"`, no
+parens) into its `UnitStep.value`. `matcher._value_matches` is a plain `==`
+(no normalization). So `"(c)" == "c"` is `False` by construction, for EVERY
+parenthetical-style subsection label, in EVERY jurisdiction, independent of
+whether the nesting-depth algorithm itself is otherwise correct.
+
+Verified live (scratch, not committed) that `resolve_unit_path` compounds
+this: its "kind ladder" (`lower_alpha, digit, upper_alpha, ...`) predicts
+the OUTERMOST marker is always `lower_alpha`; the Oregon row's real
+outermost marker is `"(1)"` (digit), so it is pushed as an unrecognized
+`"sub"` step at stack position 0 -- and `_marker_matches_kind` never
+recognizes `"sub"` as replaceable, so position 0 stays frozen at `('sub',
+'1')` for the REST of the document. Confirmed empirically: all 5 real
+occurrences of "number of years of membership" in the row (2 out-of-
+subsection, 1 defining, 2 in-subsection) resolve to the IDENTICAL
+`path[0] == UnitStep(kind='sub', value='1')`, regardless of true position --
+`"(c)"` never matches `"1"` either way. Two independent, compounding defects
+in `us_profile.py` (core's shared module, out of this sprint's role/file
+remit -- reported, not patched, per the brief).
+
+**Per the brief: STOPPING here. Test written, run, failure verified and
+root-caused; `us_scoped_inline.py` NOT touched.** `git diff HEAD --
+backend/app/definition_links/rules/us_scoped_inline.py` is empty.

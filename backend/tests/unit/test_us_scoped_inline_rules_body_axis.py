@@ -206,9 +206,12 @@ def test_definitions_own_numbered_elaboration_list_is_not_split_into_new_entries
     candidates = extract_us_scoped_inline_definitions(row["text"])
     matches = [c for c in candidates if "fantasy sports league" in c.terms]
     assert len(matches) == 1
-    # PENDING D8/S-R5 ruling -- literal "part" is a placeholder, see
-    # trigger-axis file's test_for_purposes_of_this_part_maps_to_part_scope.
-    assert matches[0].scope == "part"
+    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" -- see
+    # the trigger-axis file's
+    # test_for_purposes_of_this_part_falls_back_to_law_wide_scope docstring
+    # for the full reasoning (unrepresentable narrowing -> law-wide,
+    # zero-miss-safe, precision cost recorded). Was scope == "part".
+    assert matches[0].scope == "law-wide"
     assert "entrance fee" in matches[0].definition_text
 
 
@@ -226,8 +229,11 @@ def test_shared_clause_own_numbered_list_not_split_tennessee():
     candidates = extract_us_scoped_inline_definitions(row["text"])
     assert "financial institution" in _terms(candidates)
     fi = _by_term(candidates, "financial institution")
-    # PENDING D8/S-R5 ruling -- see the trigger-axis file's part-scope test.
-    assert fi.scope == "part"
+    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" -- see
+    # the trigger-axis file's
+    # test_for_purposes_of_this_part_falls_back_to_law_wide_scope docstring.
+    # Was scope == "part".
+    assert fi.scope == "law-wide"
 
 
 def test_shared_clause_own_list_not_split_vermont():

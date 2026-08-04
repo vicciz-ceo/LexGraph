@@ -49,25 +49,19 @@ were stamped with a dead kind literal).
     "act"         -> "law-wide"   (D3: "this act" == the whole document ==
                                     already-unenforced law-wide semantics,
                                     no coordination gap, just a name map)
-    "article"     -> "law-wide"   (residue kind, ~4% combined volume;
-    "title"       -> "law-wide"    manager agreed to defer asking core for
-                                    dedicated enforcement -- rather than
-                                    stamp a GUARANTEED-dead literal, this
-                                    falls back to core's OWN established
-                                    precedent for an unrepresentable
-                                    narrowing, seam spec v2 S1's AK
-                                    multi-chapter-range fallback:
-                                    zero-miss-safe, precision cost recorded,
-                                    not silently dropped)
-    "part"        -> PENDING      (13.9% combined genuine volume -- ruling
-    "subchapter"  -> PENDING       S-R5 explicitly left this open for D8
-                                    measurement + a manager ruling; see
-                                    those tests below and the `-log.md`'s
-                                    D8 section for the measured numbers.
-                                    NOT resolved by this pass -- do not
-                                    treat the literal "part"/"subchapter"
-                                    strings these specific tests still
-                                    assert as a final answer)
+    "article"     -> "law-wide"   (residue kind, ~4% combined volume; rather
+    "title"       -> "law-wide"    than stamp a GUARANTEED-dead literal,
+                                    falls back to core's OWN AK-range
+                                    unrepresentable-narrowing precedent:
+                                    zero-miss-safe, precision cost recorded)
+    "part"        -> "law-wide"   (RESOLVED, ruling S-R9, pass 3, 13.9%
+    "subchapter"  -> "law-wide"    combined volume, same residue-kind
+                                    treatment. D8: a single Maine Part spans
+                                    106 chapters, so a chapter-fallback would
+                                    silently MISS 105 of them; subchapter has
+                                    0/1,861 genuine hits with even a
+                                    breadcrumb node to fall back on. Was
+                                    `scope == "part"`/`"subchapter"`.)
 
 All fixture rows load from the vendored, real, un-modified corpus rows in
 `tests/fixtures/us_statutes/us_scoped_inline_rows.json` (ruling: no test
@@ -165,33 +159,36 @@ def test_for_purposes_of_this_section_maps_to_local_scope():
     assert "concurrence" in _terms(candidates)
 
 
-def test_for_the_purpose_of_this_subchapter_maps_to_subchapter_scope():
-    """PENDING D8/S-R5 ruling, NOT amended this pass: 100% non-null
-    row-level `chapter` field (12 lead states) but 0/1,861 genuine hits
-    have a breadcrumb "subchapter" node -- structurally UNVERIFIABLE, not
-    confirmed. See the `-log.md` D8 section; literal "subchapter" is a
-    placeholder pending the manager's fallback ruling."""
+def test_for_the_purpose_of_this_subchapter_falls_back_to_law_wide_scope():
+    """Ruling S-R9 (resolves the D8/S-R5 PENDING question): `"subchapter"`
+    is a residue kind, same treatment as `"article"`/`"title"` above --
+    `_in_scope`'s generic branch reads `article.structural_units`, absent
+    on a real `MatcherArticle`, so a literal `scope="subchapter"` would
+    link ZERO mentions. D8 found 0/1,861 genuine hits even have a
+    breadcrumb "subchapter" node -- no sound fallback but law-wide. Was
+    `scope == "subchapter"` pre-ruling; amended Planner pass 3."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_PA_T53_C81_S8129"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     unfunded = _by_term(candidates, "unfunded debt")
-    assert unfunded.scope == "subchapter"
+    assert unfunded.scope == "law-wide"
 
 
-def test_for_purposes_of_this_part_maps_to_part_scope():
-    """PENDING D8/S-R5 ruling, NOT amended this pass -- see the `-log.md`
-    D8 section: 2,187 genuine `"part"` hits, 100% non-null `chapter`
-    field, but a real breadcrumb counter-example (Maine: `part` CONTAINS
-    multiple chapters, `title > part > chapter > section`) that would make
-    a naive chapter-fallback UNDER-link. Literal "part" is a placeholder
-    pending the manager's ruling."""
+def test_for_purposes_of_this_part_falls_back_to_law_wide_scope():
+    """Ruling S-R9 (resolves the D8/S-R5 PENDING question): `"part"` is a
+    residue kind. D8 measured a chapter-fallback UNSOUND -- a single Maine
+    Part spans 106 distinct chapters (`title > part > chapter > section`),
+    so `scope="chapter"` would silently MISS 105 of them. `_in_scope`'s
+    generic branch is also dead on the live path (S-R5), so a literal
+    `scope="part"` would link nothing at all. Falls back to `"law-wide"`,
+    zero-miss-safe. Was `scope == "part"` pre-ruling; amended pass 3."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_TN_T34_C6_S34-6-302"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     parent = _by_term(candidates, "parent")
-    assert parent.scope == "part"
+    assert parent.scope == "law-wide"
 
 
 # --- "When used in this <unit>" ---------------------------------------------
@@ -233,18 +230,20 @@ def test_bare_in_this_article_with_immediate_quote_is_a_genuine_trigger():
 
 def test_bare_in_this_part_with_immediate_colon_list_is_a_genuine_trigger():
     """`STATE_SC_T37_C6_S37-6-402`: `"In this part: (1) “Contested
-    case” means..."` -- bare `In` immediately followed by a colon then
-    a numbered list of quoted-term entries."""
+    case” means..."` -- bare `In` immediately followed by a colon then a
+    numbered list of quoted-term entries; orthogonal to the scope-fallback
+    question below."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_SC_T37_C6_S37-6-402"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     terms = _terms(candidates)
     assert {"Contested case", "License", "Licensing", "Party"} <= terms
-    # PENDING D8/S-R5 ruling -- see test_for_purposes_of_this_part_maps_to_
-    # part_scope's docstring above; not amended this pass.
+    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" -- see
+    # test_for_purposes_of_this_part_falls_back_to_law_wide_scope. Was
+    # scope == "part".
     for term in ("Contested case", "License", "Licensing", "Party"):
-        assert _by_term(candidates, term).scope == "part"
+        assert _by_term(candidates, term).scope == "law-wide"
 
 
 # --- marker-prefixed (mid-sentence) trigger variant -------------------------
