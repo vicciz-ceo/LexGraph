@@ -5749,3 +5749,65 @@ GREEN, must not move the 30 held REDs, the 12 pre-existing xfails, or
 independently re-verifies (byte-fixture re-check, precision re-sample,
 regression sweep against the 30-held/12-xfail partition). Then P1
 (canonical wiring) proceeds per M-R15's order.
+
+---
+
+## 2026-08-04 — Manager: gate-1 Planner VERIFIED (4895826); Developer next
+
+### Handoff verification, materialized
+
+| Check | Result |
+|---|---|
+| State | HEAD `4895826`, parent `05aabcb`, == origin, tree clean ✔ |
+| Production untouched | `git diff --stat 05aabcb..HEAD -- backend/app/` → **empty** ✔ (Planner proposed the fix, did not apply it) |
+| Held REDs byte-untouched | all 6 held files → **empty** ✔ |
+| Suite | `33 failed / 986 passed / 13 xfailed` = 30 held (14+6+6+2+1+1) + 3 new ✔ |
+| Fixture byte-exactness | **Re-verified by me** against the real parquet, 3 rows × 3 fields: `STATE_PR_RENTAS_SEC1072_04` (2745), `STATE_PR_LEY_236_2015_ART2` (1209), `STATE_PR_LEY_163_2005_ART2` (282) — **ALL BYTE-EXACT** ✔ |
+
+### The root cause, independently confirmed
+
+The Planner's diagnosis checks out exactly, read side by side:
+
+```python
+_UNQUOTED_TERM_DASH_RE   = r"^(.{1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*"
+_UNQUOTED_TERM_PERIOD_RE = r"^((?:[^.]|\.(?!-)){1,100}?)(?<!\.[A-Z])\.\s+(?=[A-ZÁÉÍÓÚÑÜ])"
+                              ^^^^^^^^^^^^^^^^^^^^^ refuses a period followed by a hyphen
+```
+
+The PERIOD sibling already refuses the `.-` subsection-label boundary
+("`Definiciones.- Para fines de esta sección`", the common PR tax-code
+convention). The DASH pattern's term group is a bare `.{1,100}?` and never
+received the same discipline, so it walks straight across that boundary.
+
+**This is the strongest kind of fix: it restores symmetry between two sibling
+patterns rather than adding a new special case.** A narrowing invented to hit
+a measured number would have been far weaker evidence than a narrowing that
+makes the dash pattern behave like the period pattern it was modelled on. It
+also explains the Planner's finding that 17 instances predate cycle 5 — the
+defect was always there; cycle 5's ASCII-hyphen widening only enlarged its
+reach.
+
+### Numbers accepted
+
+235 changed outcomes — an **exact independent match** to QA's count, from a
+separately-written per-block script. Two independent measurements agreeing to
+the unit is real corroboration, not an echo: QA and the Planner built their
+splitters separately. Proposal: reject 61/235 at ~100% junk (40/40
+hand-confirmed, ~0% recall cost), retain 208/235 at ~41-53% precision (up from
+~30-35%), both genuine anchor rows preserved end-to-end. **NARROW, not drop** —
+dropping would cost ~90-110 genuine captures.
+
+### Named residual — on the ledger, not buried
+
+The hyphenated-prose false-positive class with no period
+(`STATE_PR_LEY_163_2005_ART2`, "Consejo Juanadino Pro - Festejos") is **NOT**
+fixed by this narrowing and is pinned as a documented xfail. Recorded in the
+contract's residual ledger. The broader marker-lookahead narrowing that would
+have caught it was tried, measured to bleed into the typographic-dash branch's
+existing behavior, and rejected — a follow-up option, not a silent gap.
+
+### Next
+
+Developer applies the one-line narrowing per the Planner's spec, turns the 3
+REDs green; then QA independently re-verifies the 61/208 split before P1
+canonical wiring proceeds (M-R15 order).
