@@ -410,7 +410,9 @@ def run_definition_linking(
             covering = [
                 (definition_row, scope_rank(candidate.scope))
                 for candidate, definition_row in candidates_by_term.get(edge.term, [])
-                if definition_covers_mention(candidate, using_matcher_article, edge.char_offset)
+                if definition_covers_mention(
+                    candidate, using_matcher_article, edge.char_offset, profile=profile
+                )
             ]
             if not covering:
                 continue

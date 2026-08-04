@@ -163,29 +163,66 @@ def _in_scope(definition, article) -> bool:
     )
 
 
-def _subsection_contains_offset(definition, article, char_offset: int) -> bool:
+def _subsection_contains_offset(definition, article, char_offset: int, profile=None) -> bool:
     """Fine, position-dependent check: for a `scope="subsection"`
     definition, does `char_offset` fall inside the matching labeled
-    `Subsection` of `article`? A no-op (always True) for every other
-    scope -- `_in_scope` above is already sufficient for those."""
+    subsection of `article`? A no-op (always True) for every other
+    scope -- `_in_scope` above is already sufficient for those.
+
+    Two data sources, baseline-first (sprint 2026-08-04-defs-core-scope,
+    QA cycle-2 fix for the C1 bounce -- the live production `MatcherArticle`
+    never carries a `.subsections` attribute, so this branch was
+    unconditionally `False` on the real pipeline path; see
+    `test_a_subsection_scoped_definition_links_a_mention_inside_its_own_
+    subsection_live`):
+
+    1. `article.subsections` (v1's `Subsection(label, start, end)` stub
+       shape) -- kept EXACTLY as-is for the unit-level tests in
+       `test_definition_links_matcher.py` that build a `SimpleNamespace`
+       stub carrying this attribute directly; a real `MatcherArticle`
+       never has it, so this branch is never reached in production.
+    2. Otherwise, when a `profile` is given (the real live-path case),
+       reuse the ALREADY-LIVE `profile.resolve_unit_path(article,
+       char_offset)` retrieval seam (seam spec v2.2 §1-2/v2.4 §1) instead
+       of building a second, parallel span-tracking mechanism -- exactly
+       the reuse the design note asked for. `resolve_unit_path` returns
+       the sub-article marker path open AT `char_offset`; the OUTERMOST
+       step (`path[0]`) is the containing subsection's label. Comparing
+       only `.value` (never `.kind`) matches v2.2's "kind is a
+       provenance/display label only" rule -- a rule stamps `scope_value`
+       as a bare label string, with no kind vocabulary of its own to
+       compare against.
+    """
     if definition.scope != "subsection":
         return True
-    subsections = getattr(article, "subsections", ())
     expected = definition.scope_value
     allowed = expected if isinstance(expected, tuple) else (expected,)
-    return any(
-        sub.label in allowed and sub.start <= char_offset < sub.end for sub in subsections
-    )
+
+    subsections = getattr(article, "subsections", None)
+    if subsections:
+        return any(
+            sub.label in allowed and sub.start <= char_offset < sub.end for sub in subsections
+        )
+
+    if profile is None:
+        return False
+    mention_path = profile.resolve_unit_path(article, char_offset=char_offset)
+    if not mention_path:
+        return False
+    return mention_path[0].value in allowed
 
 
-def definition_covers_mention(definition, article, char_offset: int) -> bool:
+def definition_covers_mention(definition, article, char_offset: int, profile=None) -> bool:
     """Whether `definition`'s scope governs a mention at `char_offset`
     within `article` -- the SAME containment `link_articles_to_
     definitions` applies internally, exposed for `pipeline.py`'s Stage 3
     re-resolution (each edge re-checked against every candidate
-    definition sharing its term, not a flat last-write-wins dict)."""
+    definition sharing its term, not a flat last-write-wins dict).
+    `profile` is optional (defaulted `None`, matching every existing call
+    site) -- only consumed by `_subsection_contains_offset`'s live-path
+    branch above; every other scope kind is unaffected by it."""
     return _in_scope(definition, article) and _subsection_contains_offset(
-        definition, article, char_offset
+        definition, article, char_offset, profile=profile
     )
 
 
@@ -225,7 +262,7 @@ def link_articles_to_definitions(
                 start, end = match.start(), match.end()
                 if _is_own_defining_entry(article.body, start, end):
                     continue
-                if not _subsection_contains_offset(definition, article, start):
+                if not _subsection_contains_offset(definition, article, start, profile=profile):
                     continue
                 if any(not (end <= s or e <= start) for s, e in spans):
                     continue
