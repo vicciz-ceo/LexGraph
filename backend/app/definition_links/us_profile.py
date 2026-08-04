@@ -633,6 +633,107 @@ def extract_definitions_from_section(
 
 # --- G3: English word-boundary term matching --------------------------------
 
+# Sprint 2026-08-04-defs-core-scope, QA-fail cycle 2, item I10, director
+# ruling D-CF: structural-context guard on the M8(b)/I6 case-fold fix ------
+#
+# The defect D-CF names: a statute defines a term that happens to BE one of
+# English legal drafting's own structural/navigation nouns (a real, common
+# shape -- e.g. a statute defining "Division" as an agency name). Once
+# `find_term_uses` case-folds (M8(b)), every ORDINARY structural cross-
+# reference of the form "...pursuant to this division (i)..." /
+# "...Part (a) shall..." / "...under Title 1 of..." also matches as a USE
+# of that defined term -- it is not one; it is the drafter navigating to
+# another part of the same body of law, using the same word that happens to
+# also be defined elsewhere. D-CF's ruling: case-folding stays (I6 is not
+# reverted), but a match sitting inside exactly this shape -- a STRUCTURAL
+# UNIT WORD immediately followed by a NUMBERING token -- is suppressed.
+#
+# `_STRUCTURAL_UNIT_WORDS` is the closed, small set of nouns that name a
+# structural division of a US statute (the same vocabulary
+# `resolve_unit_path`'s own citation ladder navigates), measured directly
+# against the real corpus before this guard was written (P-R7-compliant
+# denominator -- population built from definition idioms in the prose,
+# never from this code's own trigger regexes): of 106,275 rows containing a
+# quoted-term definition idiom, exactly 1,157 (1.09%) define one of these
+# words as a term at all, "division" alone accounting for 932 of them (81%)
+# -- so this guard can only ever fire on a small, known-bounded slice of
+# real definition-bearing rows, never on an arbitrary defined term like
+# "Access area" or "Affiliate".
+#
+# Design point (deliberately made explicit here, not left implicit -- flag
+# raised upward per the sprint QA process, this is the documented decision
+# taken): the guard below is CONTEXT-based, not CASE-based. It suppresses a
+# structural-reference match regardless of the matched text's own case --
+# including an EXACT-CASE match, e.g. "Part (a)" with a capital P against a
+# defined term "Part". That match pre-dates I6/M8(b) entirely (case-folding
+# is irrelevant to it) and would keep matching even if M8(b) were fully
+# reverted. This is broader than D-CF's literal phrasing ("a case-fold
+# match is SUPPRESSED where the hit sits inside a structural-reference
+# pattern"), which read narrowly could be limited to matches that ONLY
+# exist because of the case-fold. The context-based reading is taken
+# instead because it is the semantically correct one: "Part (a) shall be
+# at the rate..." is a structural cross-reference whether or not "Part" is
+# capitalized -- the drafter is pointing at a subdivision of the section,
+# not using a defined term, and that fact does not depend on case. Given
+# the measured blast radius above (~1.1% of definition-bearing rows can
+# ever be touched at all, and the dominant "division" case is lowercase in
+# its structural form anyway, so the case question does not even arise for
+# 81% of the affected population), reading D-CF context-based costs
+# essentially nothing beyond the literal reading while closing a gap the
+# literal reading would otherwise leave open.
+_STRUCTURAL_UNIT_WORDS = frozenset(
+    {
+        "division",
+        "subdivision",
+        "article",
+        "part",
+        "section",
+        "title",
+        "chapter",
+        "paragraph",
+        "subsection",
+        "subchapter",
+    }
+)
+
+# The "numbering token" half of the structural-reference shape -- matched
+# immediately (whitespace only in between) after a structural unit word:
+#
+#   - a parenthesized marker shaped like a genuine sub-article numbering
+#     token -- a digit run ("(1)"), a single or double letter of either
+#     case ("(a)", "(b)", "(aa)"), or a run of roman-numeral characters
+#     ("(i)", "(ii)"), mirroring the same marker shapes
+#     `resolve_unit_path`'s own ladder recognizes below (kept as an
+#     independent, local regex rather than calling into that function --
+#     deliberately no coupling between the two features, so a future
+#     change to the unit-path ladder can never silently change this
+#     guard's behavior or vice versa); or
+#   - a BARE number with no parens at all ("Title 1", D-CF's own third
+#     named example shape).
+#
+# Both alternatives are single, non-nested quantifiers over fixed
+# character classes -- no alternation-in-nested-quantifier, so this is
+# unconditionally linear-time, same discipline as every other regex in
+# this module.
+_STRUCTURAL_NUMBERING_TOKEN_RE = re.compile(
+    r"\s+(?:\((?:\d+|[A-Za-z]{1,2}|[ivxlcdmIVXLCDM]{1,7})\)|\d+)"
+)
+
+
+def _is_structural_reference(term: str, text: str, match_end: int) -> bool:
+    """D-CF guard: True when the case-fold match of `term` in `text` ending
+    at `match_end` sits inside a structural-reference pattern -- `term`
+    itself is one of `_STRUCTURAL_UNIT_WORDS`, immediately followed by a
+    numbering token (see `_STRUCTURAL_NUMBERING_TOKEN_RE`). Deliberately
+    scoped to the exact term matched, not any word anywhere near it: an
+    unrelated defined term (e.g. "Access area") is never eligible for
+    suppression no matter what follows it in the text, since it is never a
+    member of the closed unit-word set to begin with.
+    """
+    if term.strip().lower() not in _STRUCTURAL_UNIT_WORDS:
+        return False
+    return bool(_STRUCTURAL_NUMBERING_TOKEN_RE.match(text, match_end))
+
 
 def find_term_uses(term: str, text: str) -> list[re.Match[str]]:
     """Every non-overlapping occurrence of the literal `term` in `text`,
@@ -649,9 +750,21 @@ def find_term_uses(term: str, text: str) -> list[re.Match[str]]:
     that mention entirely. The fix is narrowly scoped to case-folding the
     literal term ONLY -- `\\b`-word-boundary anchoring is unchanged, so this
     stays a case-insensitive EXACT match, never a fuzzy/substring one.
+
+    Structural-context guard (sprint 2026-08-04-defs-core-scope, director
+    ruling D-CF, QA-fail cycle 2 item I10): a match is additionally
+    suppressed when it sits inside a structural cross-reference -- a unit
+    word (`_STRUCTURAL_UNIT_WORDS`) immediately followed by a numbering
+    token, e.g. "division (ii)", "Part (a)", "Title 1". See the module
+    comment above `_STRUCTURAL_UNIT_WORDS` for the defect this closes, the
+    measured blast radius, and why the guard is context-based (fires
+    regardless of the match's own case) rather than limited to matches that
+    exist only because of the case-fold.
     """
     pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
-    return list(pattern.finditer(text))
+    return [
+        m for m in pattern.finditer(text) if not _is_structural_reference(term, text, m.end())
+    ]
 
 
 # Sprint 2026-08-04-defs-core-scope, item I9 (ruling M15, program-manager

@@ -11,8 +11,10 @@ anchoring entirely, so `NULL` (== "no sub-article path known") is the
 correct, honest value for every pre-existing row, not an approximation.
 
 Same raw-DDL-against-a-plain-`Engine` shape as `add_raw_text_columns.py`,
-`add_definition_scope_value_column.py`'s sibling precedent named in the
-sprint contract.
+this module's sibling precedent named in the sprint contract. (No
+`add_definition_scope_value_column.py` sibling exists -- seam spec v2.5,
+item I11, settled `Definition.scope_value` as transient-by-design, so no
+column/migration for it was ever added.)
 """
 
 from __future__ import annotations
