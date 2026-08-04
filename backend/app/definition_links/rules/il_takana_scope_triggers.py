@@ -21,36 +21,34 @@ covered for the 3-word variant, same precedent as item 3's
 text never overlaps (`בתקנה` vs. `לענין`/`לעניין` are different leading
 words), so a given real occurrence can only ever match one of them --
 no double-capture risk.
+
+Sprint 2026-08-04-defs-il Phase C (item C1): the trigger-to-quote
+connector was hardcoded to a literal comma; the real corpus also uses a
+bare space, colon, or dash. Widened via the shared `il_trigger_grammar`
+connector/parser (program efficiency directive).
 """
 
 from __future__ import annotations
 
-import re
-
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_trigger_grammar import (
+    extract_quote_first_candidates,
+    quote_first_re,
+)
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
     register_scope_trigger_rule,
 )
 
-_TWO_WORD_RE = re.compile(r'בתקנה זו,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE)
-_THREE_WORD_RE = re.compile(
-    r'(?:לענין|לעניין) תקנה זו,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE
-)
+_TWO_WORD_RE = quote_first_re(r"בתקנה זו")
+_THREE_WORD_RE = quote_first_re(r"(?:לענין|לעניין) תקנה זו")
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
     results: list[DefinitionCandidate] = []
     for pattern in (_TWO_WORD_RE, _THREE_WORD_RE):
-        for match in pattern.finditer(article_body):
-            results.append(
-                DefinitionCandidate(
-                    terms=(match.group(1).strip(),),
-                    definition_text=match.group(2).strip(),
-                    scope="local",
-                )
-            )
+        results.extend(extract_quote_first_candidates(article_body, pattern, scope="local"))
     return results
 
 

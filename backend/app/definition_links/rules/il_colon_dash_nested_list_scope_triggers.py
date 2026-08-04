@@ -50,6 +50,19 @@ Deliberately does NOT import item 9's private helpers (keeps this module
 independently readable, avoids coupling two independently-shipped rule
 files) -- the algorithm is the same one item 9 already proved, written
 generically here.
+
+Sprint 2026-08-04-defs-il Phase C (ruling M16 + item C4): the
+preamble->scope vocabulary table (`_SCOPE_TRIGGER_WORDS`/`_infer_scope`)
+and the candidate-building helper (`_make_candidate`) now live in the
+SHARED `il_list_shape_scope.py` module -- reused verbatim by the NEW
+single-colon `:-` sibling rule (`il_single_colon_list_scope_triggers.py`,
+item C4) so the vocabulary is measured and maintained ONCE, not
+duplicated per marker width (program efficiency directive). This module
+itself is UNCHANGED behaviorally except for M16's own fix: an
+instrument-naming preamble (`בחוק זה -`, `בתקנות אלה -`, ...) now
+classifies `"law-wide"` instead of under-claiming `"local"` -- the SAME
+vocabulary extension the new sibling rule needs, added to the shared
+table rather than duplicated here.
 """
 
 from __future__ import annotations
@@ -57,6 +70,7 @@ from __future__ import annotations
 import re
 
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_list_shape_scope import infer_scope, make_candidate
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
@@ -66,56 +80,6 @@ from app.definition_links.rules.registry import (
 _PREAMBLE_RE = re.compile(r"\S.*\s-\s*$")
 _ENTRY_LINE_RE = re.compile(r"^\s*::-\s*(.*)$")
 _TERM_DASH_RE = re.compile(r'^"([^"]+)"\s*-\s*(.*)$')
-
-# Longest/most-specific phrase first, so a phrase that CONTAINS a
-# shorter sibling as a substring (e.g. "בתקנת משנה זו" is not itself
-# contained by anything here, but this ordering discipline is kept
-# uniform and defensive against future additions) is never shadowed by
-# checking the shorter one first.
-_SCOPE_TRIGGER_WORDS: tuple[tuple[str, str], ...] = (
-    ("בסעיף קטן זה", "subsection"),
-    ("בתקנת משנה זו", "subsection"),
-    ("לענין תקנת משנה זו", "subsection"),
-    ("לעניין תקנת משנה זו", "subsection"),
-    ("בפסקת משנה זו", "subsection"),
-    ("בפרק זה", "chapter"),
-    ("בסימן זה", "siman"),
-    ("בחלק זה", "chelek"),
-    ("בתקנה זו", "local"),
-    ("לענין תקנה זו", "local"),
-    ("לעניין תקנה זו", "local"),
-    ("בסעיף זה", "local"),
-    ("לענין זה", "local"),
-    ("לעניין זה", "local"),
-    ("בפסקה זו", "paragraph"),
-    ("לענין פסקה זו", "paragraph"),
-    ("לעניין פסקה זו", "paragraph"),
-    ("בפרט זה", "item"),
-)
-
-
-def _infer_scope(preamble_line: str) -> str:
-    for phrase, scope in _SCOPE_TRIGGER_WORDS:
-        if phrase in preamble_line:
-            return scope
-    return "local"
-
-
-def _make_candidate(
-    term: str, definition_text: str, scope: str, ctx: RuleContext
-) -> DefinitionCandidate:
-    if scope == "chapter":
-        return DefinitionCandidate(
-            terms=(term,),
-            definition_text=definition_text,
-            scope=scope,
-            source_chapter=ctx.chapter,
-        )
-    if scope == "local":
-        return DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
-    return DefinitionCandidate(
-        terms=(term,), definition_text=definition_text, scope=scope, scope_value=None
-    )
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
@@ -127,7 +91,7 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
         if not _PREAMBLE_RE.search(lines[i].rstrip()):
             i += 1
             continue
-        scope = _infer_scope(lines[i])
+        scope = infer_scope(lines[i])
         i += 1
         while i < n:
             line = lines[i]
@@ -141,7 +105,7 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
             if term_match:
                 term = term_match.group(1).strip()
                 definition_text = term_match.group(2).strip().rstrip(";").strip()
-                results.append(_make_candidate(term, definition_text, scope, ctx))
+                results.append(make_candidate(term, definition_text, scope, ctx))
             i += 1
     return results
 

@@ -25,13 +25,24 @@ False and no spurious `USES_DEFINITION` edge can ever be fabricated from
 an under-specified `scope_value`. Full containment for this class is a
 separate concern this RED-test cycle does not ask this Developer to
 solve.
+
+Sprint 2026-08-04-defs-il Phase C (item C1): the trigger-to-quote
+connector was hardcoded to a literal comma; the real corpus also uses a
+bare space, colon, or dash -- widened via the shared `il_trigger_grammar`
+connector/parser (program efficiency directive). The real `צו בדבר
+העסקת עובדים...` art.6 fixture also surfaced the corpus's own `((-))`
+double-paren-escaped-dash idiom as the term/definition split marker
+(`"שוהה לא חוקי" ((-)) כהגדרתו ...`) -- handled generically by the
+shared parser (see its docstring), not special-cased here.
 """
 
 from __future__ import annotations
 
-import re
-
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_trigger_grammar import (
+    extract_quote_first_candidates,
+    quote_first_re,
+)
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
@@ -39,25 +50,21 @@ from app.definition_links.rules.registry import (
 )
 
 _TRIGGER_PATTERNS = (
-    re.compile(r'בסעיף קטן זה,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE),
-    re.compile(r'בתקנת משנה זו,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE),
-    re.compile(r'(?:לענין|לעניין) תקנת משנה זו,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE),
-    re.compile(r'בפסקת משנה זו,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE),
+    quote_first_re(r"בסעיף קטן זה"),
+    quote_first_re(r"בתקנת משנה זו"),
+    quote_first_re(r"(?:לענין|לעניין) תקנת משנה זו"),
+    quote_first_re(r"בפסקת משנה זו"),
 )
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
     results: list[DefinitionCandidate] = []
     for pattern in _TRIGGER_PATTERNS:
-        for match in pattern.finditer(article_body):
-            results.append(
-                DefinitionCandidate(
-                    terms=(match.group(1).strip(),),
-                    definition_text=match.group(2).strip(),
-                    scope="subsection",
-                    scope_value=None,
-                )
-            )
+        for candidate in extract_quote_first_candidates(
+            article_body, pattern, scope="subsection"
+        ):
+            candidate.scope_value = None
+            results.append(candidate)
     return results
 
 
