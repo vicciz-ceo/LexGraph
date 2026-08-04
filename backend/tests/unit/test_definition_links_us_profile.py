@@ -361,3 +361,80 @@ def test_il_hebrew_find_citations_is_unaffected_by_the_m12_baseline_fix():
 
     profile = HebrewProfile()
     assert profile.find_citations("כל טקסט לדוגמה עם Section 552.003 בתוכו") == []
+
+
+# --- Sprint 2026-08-04-defs-core-scope, seam v2.3 -- the THIRD M12 defect --
+#
+# `_TRIGGER_PHRASES` (us_profile.py:443) is `("has the meaning specified
+# in", "as defined in")` today -- missing the three real idioms below,
+# needed for `detect_cross_law_derivations` to fire AT ALL on these rows
+# (`claude/defs-us-multiterm@f1011f0`'s own
+# `test_*_reference_edge_needs_both_*_and_iii_fixed`; read-only fetch, not
+# checked out). This is a literal phrase-list addition to the EXISTING
+# tuple, not a new rule kind (v2.3: M12 itself is scoped to
+# `find_citations`/`_CITATION_PATTERNS`) -- core fixes this alongside the
+# other two defects as one baseline change, so QA checks all three.
+#
+# Each test below uses an ALREADY-recognized "Section N" citation shape
+# (no decimal point) rather than the exact real fixture's decimal-numbered
+# citation, so the RED signal here isolates the phrase-list gap alone --
+# distinct from the two `find_citations` defects already pinned above,
+# which stay RED/green independently of whether the phrase is recognized.
+
+
+def test_us_profile_detect_cross_law_derivations_recognizes_the_has_the_meaning_given_that_term_in_idiom():
+    """v2.3's third defect, idiom 1 of 3: 'has the meaning given that term
+    in' (the real OR row's own idiom) is not in `_TRIGGER_PHRASES` today,
+    so this real defining clause is entirely invisible to
+    `detect_cross_law_derivations` -- not merely mis-parsed, not detected
+    at all."""
+    from app.definition_links.us_profile import detect_cross_law_derivations
+
+    entry_text = '"Enforcement officer" has the meaning given that term in Section 5.'
+    edges = detect_cross_law_derivations(
+        entry_text, source_term="Enforcement officer", known_law_titles={}
+    )
+    assert len(edges) >= 1, (
+        "expected at least one derivation edge -- `_TRIGGER_PHRASES` does "
+        "not include 'has the meaning given that term in' today, so this "
+        "real idiom (the OR 'Enforcement officer' row) is invisible to "
+        "detect_cross_law_derivations."
+    )
+    assert any("has the meaning given that term in" in e.trigger_phrase.lower() for e in edges)
+
+
+def test_us_profile_detect_cross_law_derivations_recognizes_the_has_the_meaning_assigned_by_idiom():
+    """v2.3's third defect, idiom 2 of 3: 'has the meaning assigned by'
+    (the real TX 'Governmental body' row's own idiom, singular form)."""
+    from app.definition_links.us_profile import detect_cross_law_derivations
+
+    entry_text = '"Governmental body" has the meaning assigned by Section 6.'
+    edges = detect_cross_law_derivations(
+        entry_text, source_term="Governmental body", known_law_titles={}
+    )
+    assert len(edges) >= 1, (
+        "expected at least one derivation edge -- `_TRIGGER_PHRASES` does "
+        "not include 'has the meaning assigned by' today, so this real "
+        "idiom (the TX 'Governmental body' row) is invisible to "
+        "detect_cross_law_derivations."
+    )
+    assert any("has the meaning assigned by" in e.trigger_phrase.lower() for e in edges)
+
+
+def test_us_profile_detect_cross_law_derivations_recognizes_the_have_the_meanings_assigned_by_idiom():
+    """v2.3's third defect, idiom 3 of 3: 'have the meanings assigned by'
+    (plural form -- the real TX six-term shared PARENT CLAUSE idiom, one
+    clause introducing several terms at once)."""
+    from app.definition_links.us_profile import detect_cross_law_derivations
+
+    entry_text = "The following terms have the meanings assigned by Section 7:"
+    edges = detect_cross_law_derivations(
+        entry_text, source_term="Governmental body", known_law_titles={}
+    )
+    assert len(edges) >= 1, (
+        "expected at least one derivation edge -- `_TRIGGER_PHRASES` does "
+        "not include 'have the meanings assigned by' today, so the real TX "
+        "six-term shared parent clause is invisible to "
+        "detect_cross_law_derivations."
+    )
+    assert any("have the meanings assigned by" in e.trigger_phrase.lower() for e in edges)
