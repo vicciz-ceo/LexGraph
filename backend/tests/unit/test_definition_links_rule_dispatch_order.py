@@ -207,3 +207,107 @@ def test_scope_trigger_rule_union_two_rules_neither_suppresses_the_other_us():
     candidates = profile.extract_local_scope_definitions(body, article_number="1")
     terms = {c.terms for c in candidates}
     assert terms == {("Union Scope Term A",), ("Union Scope Term B",)}
+
+
+# --- IL parity for the three union-kind guards above ------------------------
+#
+# (Sprint manager round-trip note: `BodyPreambleRule`'s "baseline never
+# overridden" guard has NO IL counterpart -- `HebrewProfile.derive_heading_
+# from_body` baseline is UNCONDITIONALLY `None` (documented in profiles.py:
+# "IL has no placeholder-heading concept... never invent a heading from
+# Hebrew body text"), so there is no real scenario where IL baseline
+# "already found something" to protect. Constructing one would mean
+# fabricating a placeholder-heading concept for Hebrew that does not exist
+# in the real data -- not a cheap fixture gap, a nonexistent one. Flagged
+# rather than forced.)
+
+
+def test_entry_splitter_rule_union_two_rules_neither_suppresses_the_other_il():
+    profile = get_profile(_IL_CODE)
+    text = "ZZZ_UNION_SPLIT_A_IL וגם ZZZ_UNION_SPLIT_B_IL בלי סימונים כלל."
+    assert profile.extract_definitions_from_section(text, scope="law-wide") == []
+
+    registry.register_entry_splitter_rule(
+        registry.EntrySplitterRule(
+            jurisdiction_codes=(_IL_CODE,),
+            split=lambda t: (
+                [':- "מונח פיצול א" - הגדרה א.'] if "ZZZ_UNION_SPLIT_A_IL" in t else []
+            ),
+        )
+    )
+    registry.register_entry_splitter_rule(
+        registry.EntrySplitterRule(
+            jurisdiction_codes=(_IL_CODE,),
+            split=lambda t: (
+                [':- "מונח פיצול ב" - הגדרה ב.'] if "ZZZ_UNION_SPLIT_B_IL" in t else []
+            ),
+        )
+    )
+
+    candidates = profile.extract_definitions_from_section(text, scope="law-wide")
+    terms = {c.terms for c in candidates}
+    assert terms == {("מונח פיצול א",), ("מונח פיצול ב",)}
+
+
+def test_term_clause_rule_union_two_rules_neither_suppresses_the_other_il():
+    profile = get_profile(_IL_CODE)
+    # Two ":-"-marked blocks, neither with a standalone "-" outside quotes --
+    # baseline finds two blocks, zero candidates.
+    text = ":- ZZZ_UNION_CLAUSE_A_IL מלל בלי מקף חלוקה.\n:- ZZZ_UNION_CLAUSE_B_IL גם בלי מקף."
+    assert profile.extract_definitions_from_section(text, scope="law-wide") == []
+
+    registry.register_term_clause_rule(
+        registry.TermClauseRule(
+            jurisdiction_codes=(_IL_CODE,),
+            parse=lambda block: (
+                [DefinitionCandidate(terms=("מונח סעיף א",), definition_text="הגדרה א", scope="law-wide")]
+                if "ZZZ_UNION_CLAUSE_A_IL" in block
+                else []
+            ),
+        )
+    )
+    registry.register_term_clause_rule(
+        registry.TermClauseRule(
+            jurisdiction_codes=(_IL_CODE,),
+            parse=lambda block: (
+                [DefinitionCandidate(terms=("מונח סעיף ב",), definition_text="הגדרה ב", scope="law-wide")]
+                if "ZZZ_UNION_CLAUSE_B_IL" in block
+                else []
+            ),
+        )
+    )
+
+    candidates = profile.extract_definitions_from_section(text, scope="law-wide")
+    terms = {c.terms for c in candidates}
+    assert terms == {("מונח סעיף א",), ("מונח סעיף ב",)}
+
+
+def test_scope_trigger_rule_union_two_rules_neither_suppresses_the_other_il():
+    profile = get_profile(_IL_CODE)
+    body = "ZZZ_UNION_SCOPE_A_IL וגם ZZZ_UNION_SCOPE_B_IL בלי ביטוי הפעלה קיים."
+    assert profile.extract_local_scope_definitions(body, article_number="1") == []
+
+    registry.register_scope_trigger_rule(
+        registry.ScopeTriggerRule(
+            jurisdiction_codes=(_IL_CODE,),
+            extract=lambda b, ctx: (
+                [DefinitionCandidate(terms=("מונח היקף א",), definition_text="הגדרה א", scope="local")]
+                if "ZZZ_UNION_SCOPE_A_IL" in b
+                else []
+            ),
+        )
+    )
+    registry.register_scope_trigger_rule(
+        registry.ScopeTriggerRule(
+            jurisdiction_codes=(_IL_CODE,),
+            extract=lambda b, ctx: (
+                [DefinitionCandidate(terms=("מונח היקף ב",), definition_text="הגדרה ב", scope="local")]
+                if "ZZZ_UNION_SCOPE_B_IL" in b
+                else []
+            ),
+        )
+    )
+
+    candidates = profile.extract_local_scope_definitions(body, article_number="1")
+    terms = {c.terms for c in candidates}
+    assert terms == {("מונח היקף א",), ("מונח היקף ב",)}
