@@ -1071,3 +1071,50 @@ the intended terms -- not an import/collection error).
    containment) with no further architecture blocker found. If the
    Developer is dispatched now, these five are safe to implement
    immediately without waiting on E1(wiring)/E6/E7.
+
+---
+
+## 2026-08-04 — Program ruling P-R8 received; ruling M11 (live/dead split)
+
+Rebased onto `origin/main` `0f4e8fc` (8 commits replayed, no conflicts);
+venv refreshed; suite re-verified by me: **12 failed, 704 passed** (8 prior
+REDs + the Planner's 4 new ones; 704 baseline intact).
+
+**P-R8: 5 of 7 registry rule kinds are DEAD on the live path.** This is
+*convergent* with my Planner's own independent finding (E6/E7/E1-wiring),
+which it reached by exhaustive grep for callers of
+`entry_splitter_rules_for` / `term_clause_rules_for` /
+`structural_unit_rules_for` — zero, in all cases. Two panels finding the
+same defect by different routes is strong evidence; I am treating P-R8 as
+authoritative and my Planner's escalations as answered by it.
+
+### M11 — what this sprint builds NOW vs. what holds
+
+**`ScopeTriggerRule` is LIVE** (core's own `rules/il_scope_triggers.py`
+dispatches for real). Every one of our Hebrew trigger-content classes is a
+`ScopeTriggerRule`, so the *capture* half of this sprint is buildable now:
+
+| Item | Class | Stamps | Status under M11 |
+|---|---|---|---|
+| 2a | `בפרק זה` | `scope="chapter"` (+ `source_chapter`) | **BUILD NOW** — capture AND containment (chapter kind was wired before the seam sprint) |
+| 2b | `בסימן זה`/`בחלק זה` | `scope="siman"`/`"chelek"` | **BUILD NOW, capture only** — containment HELD (StructuralUnitRule dead) |
+| 3 | 3-word `לעניין סעיף זה` | `scope="local"` | **BUILD NOW** |
+| 4 | ad-hoc `(בפרק זה - X)` | chapter / siman / chelek by trigger | **BUILD NOW** — chapter containment live; siman/chelek capture-only |
+| 7 | `בפסקה זו` | sub-article | **BUILD NOW, capture only** — containment open (E7: `resolve_unit_path`'s marker regex is hardcoded) |
+| 9 | `בפרט זה` (sixth class, P-E3) | item-level | **BUILD NOW, capture only** |
+| 5 | class (d) prose-body sections | — | **HELD** — needs `EntrySplitterRule`/`TermClauseRule` (both dead) or a frozen-module edit. Holds either way. |
+| 6 | I3's סימן/חלק containment half | — | **HELD** — blocked-on-core-dispatch |
+
+**Consequence for gates, stated honestly:** I2 becomes largely achievable
+now (capture for classes a/b/c/e/f); **I3 splits** — its `בפרק זה` chapter
+half is achievable now, its סימן/חלק half is blocked-on-core-dispatch.
+Item 5 is the single largest held item (592 files, ~9.7% of the corpus)
+and I am recording it as the sprint's most consequential blocker, per the
+Planner's escalation #2.
+
+`לפרק זה` was DROPPED from class (a) on live evidence (103 occurrences,
+100% cross-references, zero definitional). Recorded because it *reduces*
+claimed coverage — the honest direction.
+
+I4's adversarial sweep still waits for full implementation, and remains
+bound by M10 (corrected E5 facts + P-R7 independent denominators).
