@@ -859,9 +859,15 @@ def extract_local_definitions(article_body: str) -> list[DefinitionCandidate]:
     `article_body` before either trigger pattern ever scans it, so a
     footer landing mid-span is simply gone before the non-greedy group can
     stop on it. Only `definition_text` (and, in principle, `term`) can be
-    affected -- candidate COUNT and match positions of the surrounding
-    prose are unchanged, since the footer is replaced with a single space
-    rather than deleted outright, preserving word boundaries either side."""
+    affected -- candidate COUNT is unchanged, but match positions DO shift.
+    The footer replacement shrinks the string (~143 characters), moving
+    downstream offsets leftward. Word boundaries are preserved; absolute
+    positions are not. This is currently safe: this function derives no
+    position coordinates from matches (no `start()`/`end()`/`span()` calls),
+    `DefinitionCandidate` carries no positional field, and all candidates
+    stamp `local` scope which short-circuits the downstream offset-branching
+    path. However, any future work deriving a position from a match object
+    must use ORIGINAL `article_body` coordinate space, not this stripped copy's."""
     footer_stripped_body = _PAGE_BREAK_FOOTER_RE.sub(" ", article_body)
     candidates: list[DefinitionCandidate] = []
     for match in _LOCAL_TRIGGER_RE.finditer(footer_stripped_body):
