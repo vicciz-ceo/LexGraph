@@ -14,7 +14,7 @@ own wording: "sections/matcher/derivation/normalize rules live" behind
 the profile):
 
     .code: str
-    .is_definitions_heading(heading: str) -> bool
+    .is_definitions_heading(heading: str, body: str = "") -> bool
     .normalize_for_parsing(text: str) -> str
     .find_term_uses(term: str, text: str) -> list[re.Match[str]]
     .detect_cross_law_derivations(text, *, source_term,
@@ -89,7 +89,7 @@ class JurisdictionProfile(Protocol):
 
     code: str
 
-    def is_definitions_heading(self, heading: str) -> bool: ...
+    def is_definitions_heading(self, heading: str, body: str = "") -> bool: ...
 
     def normalize_for_parsing(self, text: str) -> str: ...
 
@@ -137,8 +137,19 @@ class HebrewProfile:
     # granularity exactly (C5: zero behavior change).
     main_unit_kind = "local"
 
-    def is_definitions_heading(self, heading: str) -> bool:
-        return sections.is_definitions_heading(heading)
+    def is_definitions_heading(self, heading: str, body: str = "") -> bool:
+        """Baseline (`sections.is_definitions_heading`, unchanged, C5-safe)
+        first -- a baseline positive is never overridden. Only when
+        baseline returns False are registered `HeadingRule`s for this
+        profile's own code tried, first-positive-wins (sprint
+        2026-08-04-defs-core-dispatch, item I1); a rule's optional
+        `body_confirms` (I6) additionally gates its own match on `body`."""
+        if sections.is_definitions_heading(heading):
+            return True
+        for rule in registry.heading_rules_for(self.code):
+            if rule.matches(heading) and (rule.body_confirms is None or rule.body_confirms(body)):
+                return True
+        return False
 
     def normalize_for_parsing(self, text: str) -> str:
         return normalize.normalize_for_parsing(text)
@@ -185,17 +196,48 @@ class HebrewProfile:
         # (`derive_heading_from_body` below is trivially always `None`),
         # so this kwarg is accepted for Protocol-shape parity and simply
         # ignored -- behavior is IDENTICAL whether or not it is passed.
-        return extract.extract_definitions_from_section(text, scope=scope)
+        #
+        # Sprint 2026-08-04-defs-core-dispatch, item I3: `EntrySplitterRule`/
+        # `TermClauseRule` are UNION kinds -- baseline's own blocks
+        # (`extract._split_into_blocks`) are unioned with every registered
+        # `EntrySplitterRule`'s own raw blocks for this profile's code, then
+        # EVERY block (baseline or rule-contributed) is run through
+        # baseline's own per-block parser (`extract._parse_block`) AND every
+        # registered `TermClauseRule.parse` -- zero-miss, no rule suppresses
+        # another. Baseline-only behavior (no rules registered) is
+        # byte-identical to calling `extract.extract_definitions_from_
+        # section` directly, since that is exactly what this reduces to.
+        baseline_blocks = extract._split_into_blocks(text)
+        extra_blocks: list[str] = []
+        for rule in registry.entry_splitter_rules_for(self.code):
+            extra_blocks.extend(rule.split(text))
+        all_blocks = baseline_blocks + extra_blocks
+
+        candidates: list[DefinitionCandidate] = []
+        for block in all_blocks:
+            candidates.extend(extract._parse_block(block, scope=scope, parent_term=None))
+        for block in all_blocks:
+            for rule in registry.term_clause_rules_for(self.code):
+                candidates.extend(rule.parse(block))
+        return candidates
 
     # --- Sprint 2026-08-04-defs-core-scope (gates C1-C3, seam spec) -----
 
     def determine_scope(self, body_text: str) -> str:
         """Replaces the free function `pipeline._determine_scope` -- same
         2-way contract (`"chapter"` / `"law-wide"`), IL's own trigger
-        phrases byte-identical to today (C5)."""
+        phrases byte-identical to today (C5). Baseline wins whenever it
+        matches (never overridden); only when baseline finds no trigger
+        are registered `ScopeKindRule`s for this profile's own code tried,
+        first-non-None-wins in registration order (sprint
+        2026-08-04-defs-core-dispatch, item I5/I8, manager ruling M-D2)."""
         first_line = next((ln for ln in body_text.splitlines() if ln.strip()), "")
         if any(trigger in first_line for trigger in _IL_CHAPTER_SCOPE_TRIGGERS):
             return "chapter"
+        for rule in registry.scope_kind_rules_for(self.code):
+            detected = rule.detect(body_text)
+            if detected is not None:
+                return detected
         return "law-wide"
 
     def extract_local_scope_definitions(
@@ -222,8 +264,16 @@ class HebrewProfile:
 
     def derive_heading_from_body(self, heading: str, body: str) -> str | None:
         """IL has no placeholder-heading concept (that is a US CA/IL
-        [state]/GA-only wave-6 shape) -- always `None`, never invent a
-        heading from Hebrew body text."""
+        [state]/GA-only wave-6 shape) -- baseline is always `None`, never
+        inventing a heading from Hebrew body text on its own. Sprint
+        2026-08-04-defs-core-dispatch, item I2 (seam v2 M6, director
+        ruling D-PREAMBLE-ALL): registered `BodyPreambleRule`s for this
+        profile's own code are ALWAYS tried next since baseline never
+        finds anything for IL -- first-non-None-wins, registration order."""
+        for rule in registry.body_preamble_rules_for(self.code):
+            derived = rule.derive_heading(body)
+            if derived is not None:
+                return derived
         return None
 
     def resolve_unit_path(self, article, char_offset: int | None = None):

@@ -595,6 +595,21 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
     return candidates
 
 
+def _leading_quote_candidate(block: str, *, scope: str) -> DefinitionCandidate | None:
+    """One numbered/quote-anchored block -> a `DefinitionCandidate`, or
+    `None` if the block has no leading quoted term (not a recognizable
+    defined-term entry). Factored out so `USProfile.extract_definitions_
+    from_section` (sprint 2026-08-04-defs-core-dispatch, item I3) can apply
+    the SAME per-block parsing rule to blocks contributed by a registered
+    `EntrySplitterRule`, not just baseline's own numbered blocks."""
+    term_match = _LEADING_QUOTE_RE.match(block)
+    if not term_match:
+        return None
+    term = term_match.group(1)
+    definition_text = block[term_match.end() :].strip()
+    return DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
+
+
 def extract_definitions_from_section(
     text: str, *, scope: str, heading_was_derived: bool = False
 ) -> list[DefinitionCandidate]:
@@ -615,17 +630,18 @@ def extract_definitions_from_section(
     extractor (`_extract_inline_quoted_definitions`) -- preserves the
     exact "zero-risk for the 7 already-working states" guarantee, since
     `heading_was_derived` is always False for them.
+
+    Baseline-only: this bare function never consults the rule registry --
+    `USProfile.extract_definitions_from_section` (the profile method) is
+    the one that additionally unions in registered `EntrySplitterRule`/
+    `TermClauseRule` output (sprint 2026-08-04-defs-core-dispatch, item
+    I3), matching every existing direct caller/test of this function.
     """
     candidates: list[DefinitionCandidate] = []
     for block in _split_into_numbered_blocks(text):
-        term_match = _LEADING_QUOTE_RE.match(block)
-        if not term_match:
-            continue
-        term = term_match.group(1)
-        definition_text = block[term_match.end() :].strip()
-        candidates.append(
-            DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
-        )
+        candidate = _leading_quote_candidate(block, scope=scope)
+        if candidate is not None:
+            candidates.append(candidate)
     if not candidates and heading_was_derived:
         candidates = _extract_inline_quoted_definitions(text, scope=scope)
     return candidates
@@ -1103,8 +1119,21 @@ class USProfile:
     # just aren't the DECLARED default).
     main_unit_kind: str = "local"
 
-    def is_definitions_heading(self, heading: str) -> bool:
-        return is_definitions_heading(heading)
+    def is_definitions_heading(self, heading: str, body: str = "") -> bool:
+        """Baseline (the bare `is_definitions_heading` function above,
+        unchanged) first -- a baseline positive is never overridden. Only
+        when baseline returns False are registered `HeadingRule`s for this
+        profile's own code tried, first-positive-wins (sprint
+        2026-08-04-defs-core-dispatch, item I1); a rule's optional
+        `body_confirms` (I6) additionally gates its own match on `body`."""
+        from app.definition_links.rules import registry
+
+        if is_definitions_heading(heading):
+            return True
+        for rule in registry.heading_rules_for(self.code):
+            if rule.matches(heading) and (rule.body_confirms is None or rule.body_confirms(body)):
+                return True
+        return False
 
     def normalize_for_parsing(self, text: str) -> str:
         return normalize_for_parsing(text)
@@ -1138,9 +1167,38 @@ class USProfile:
     def extract_definitions_from_section(
         self, text: str, *, scope: str, heading_was_derived: bool = False
     ) -> list[DefinitionCandidate]:
-        return extract_definitions_from_section(
-            text, scope=scope, heading_was_derived=heading_was_derived
-        )
+        """Sprint 2026-08-04-defs-core-dispatch, item I3: `EntrySplitterRule`/
+        `TermClauseRule` are UNION kinds -- baseline's own numbered blocks
+        (`_split_into_numbered_blocks`) are unioned with every registered
+        `EntrySplitterRule`'s own raw blocks for this profile's code, then
+        EVERY block (baseline or rule-contributed) is run through
+        baseline's own per-block leading-quote parser AND every registered
+        `TermClauseRule.parse` -- zero-miss, no rule suppresses another.
+        The `heading_was_derived` inline-quoted fallback still runs last,
+        only when the union above produced nothing, preserving the exact
+        "zero-risk for the 7 already-working states" guarantee (baseline-
+        only behavior, no rules registered, is byte-identical to calling
+        the bare `extract_definitions_from_section` function directly)."""
+        from app.definition_links.rules import registry
+
+        baseline_blocks = _split_into_numbered_blocks(text)
+        extra_blocks: list[str] = []
+        for rule in registry.entry_splitter_rules_for(self.code):
+            extra_blocks.extend(rule.split(text))
+        all_blocks = baseline_blocks + extra_blocks
+
+        candidates: list[DefinitionCandidate] = []
+        for block in all_blocks:
+            candidate = _leading_quote_candidate(block, scope=scope)
+            if candidate is not None:
+                candidates.append(candidate)
+        for block in all_blocks:
+            for rule in registry.term_clause_rules_for(self.code):
+                candidates.extend(rule.parse(block))
+
+        if not candidates and heading_was_derived:
+            candidates = _extract_inline_quoted_definitions(text, scope=scope)
+        return candidates
 
     def detect_cross_law_derivations(
         self,
@@ -1154,10 +1212,44 @@ class USProfile:
         )
 
     def determine_scope(self, body_text: str) -> str:
-        return determine_scope(body_text)
+        """Baseline (the bare `determine_scope` function above, unchanged)
+        wins whenever it already detects `"chapter"` -- never overridden.
+        Only when baseline falls through to its `"law-wide"` default are
+        registered `ScopeKindRule`s for this profile's own code tried,
+        first-non-None-wins in registration order (sprint
+        2026-08-04-defs-core-dispatch, item I5/I8, manager ruling M-D2)."""
+        from app.definition_links.rules import registry
+
+        baseline = determine_scope(body_text)
+        if baseline == "chapter":
+            return baseline
+        for rule in registry.scope_kind_rules_for(self.code):
+            detected = rule.detect(body_text)
+            if detected is not None:
+                return detected
+        return baseline
 
     def derive_heading_from_body(self, heading: str, body: str) -> str | None:
-        return derive_heading_from_body(heading, body)
+        """Baseline (the bare `derive_heading_from_body` function above,
+        unchanged -- still gated on `_is_placeholder_heading`, which is
+        what keeps the 7 already-working states and CA/IL[state]/GA
+        byte-for-byte unaffected) first -- a baseline non-`None` result is
+        never overridden. Only when baseline yields `None` (either because
+        `heading` isn't a placeholder at all, or it is but the body-scan
+        found nothing) are registered `BodyPreambleRule`s for this
+        profile's own code tried, first-non-None-wins in registration
+        order (sprint 2026-08-04-defs-core-dispatch, item I2, seam v2 M6,
+        director ruling D-PREAMBLE-ALL)."""
+        from app.definition_links.rules import registry
+
+        baseline = derive_heading_from_body(heading, body)
+        if baseline is not None:
+            return baseline
+        for rule in registry.body_preamble_rules_for(self.code):
+            derived = rule.derive_heading(body)
+            if derived is not None:
+                return derived
+        return None
 
     def extract_local_scope_definitions(
         self, article_body: str, *, article_number: str, chapter: str | None = None
