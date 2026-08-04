@@ -3051,3 +3051,79 @@ genuinely undecidable tradeoff needing separate director arbitration.
 ### Pushed
 
 Commit SHA and `git log --oneline -1` in my final report to the manager.
+
+---
+
+## 2026-08-04 — Manager: cycle-4 Planner verified; ESCALATION relayed; clean exit
+
+**Verified by me, not accepted on report:**
+- Boundaries: no `backend/app/` file touched; no existing unit/integration
+  test modified. Tests-only, as required.
+- **28/28 cycle-4 fixture rows byte-exact** against the parquet — including
+  the first byte-verified vendoring of ruling M-R7's three correct-zero rows,
+  which until now existed only as prose quotations in this log. Good catch by
+  the Planner; those rows carry a manager ruling and deserved real fixtures.
+- Suite `41 failed, 834 passed, 8 xfailed` (41 = 6 pre-existing QA RED,
+  untouched, + 35 new; 834 = 825 + 9 new GREEN guards).
+- Contract lint `PASS 321` — the Planner freed ~140 lines by archiving
+  settled, already-duplicated cycle-3 content rather than letting the budget
+  drift. Correct instinct.
+
+**The sweep did what P-R7 demands.** Ground truth was built from two lines
+independent of our extractor's idiom list: a 21-idiom census with
+hand-classified samples, and two structural sweeps with ZERO idiom dependence
+(blank/generic titles; bare-term headings). Conventions found:
+
+- **Blank-title Definiciones sections — 47 rows.** `section_title` is a bare
+  `"Artículo N."`; the body opens with a Definiciones preamble. Verified live:
+  `extract_definitions_from_section` already parses these correctly once
+  routed to them (`STATE_PR_LEY_241_1950_ART2` → 6/6). A pure RECOGNITION
+  gap — this is exactly what core's `derive_heading_from_body` exists for.
+- **TRANSITO-class bare-term headings — 117 rows**, and notably NOT a Traffic
+  Code quirk: it spans Traffic Code articles 1 AND 16, plus the Insurance
+  Code (`STATE_PR_LEY_77_1957_ART16_330`). QA saw ~127 in one law; the
+  Planner proved it is a general PR drafting shape.
+- **Whole-body quoted-idiom scan — 889 hits**, 96-100% genuine on two
+  independent random samples.
+- **Explicitly EXCLUDED with data**, rather than by intuition: `incluye`,
+  `comprende`, `se considera como`, and bare `se define`/`según se define`
+  (~95% pointer/cross-reference usage, not new definitions). A broader
+  generalization (any bare-term heading + term in first sentence) was tested,
+  measured at 1,702 hits, sampled overwhelmingly false, and REJECTED.
+- **Live corruption bug found, not hypothesized**: `STATE_PR_LEY_240_2002_ART3`
+  currently yields a candidate whose `definition_text` is literally footer
+  boilerplate.
+
+Measuring a candidate rule, finding it bad, and killing it with the numbers
+written down is exactly the standard P-R7 was made for.
+
+### ESCALATION relayed to the program manager — item 18c
+
+The Planner escalated, correctly, under standing director policy (every
+recall-vs-false-positive conflict class escalates with data): should item
+18c's whole-body quoted-idiom scan ship?
+
+- **For**: 889 currently-missed definitions; 96-100% precision on two
+  independent random samples.
+- **Against**: it is the broadest mechanism this sprint has proposed, and it
+  fires without requiring any scope-trigger phrase.
+- **The single measured false-positive shape** is a re-mention of an
+  already-defined term — narrow, identifiable, and directly guardable (and
+  possibly absorbed anyway by pipeline's existing
+  `(article_id, sorted(terms))` dedup).
+- **Planner's lean and mine agree**: ship it, guard that one measured shape
+  directly, rather than gating the whole mechanism.
+
+I am relaying rather than deciding because the standing policy says this
+class goes up. It costs nothing: the Developer cannot implement until core
+merges to main and this branch rebases, so the sprint is gated on core
+regardless.
+
+### Sprint state at clean exit
+
+Cycle 4 is PLANNED and RED; implementation is deliberately deferred behind
+core's merge (ruling M-R11 — our P2 gap closes by implementing
+`extract_local_scope_definitions` + rule modules, never by touching
+`pipeline.py`). Gates unchanged since QA: P1/P5 PASS, P3 honestly deferred,
+P2/P4 FAIL with the work to fix them now planned and pinned by 35 new RED
+tests. `qa_cycles: 1` — nowhere near the 5-cycle valve.
