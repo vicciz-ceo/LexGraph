@@ -18,10 +18,18 @@ is what each fixture row is drawn from:
   word "Definitions") blocks capture -- confirmed live: only 1/1,224 rows
   passes Gate B. Once recognized, the body's `(N) "Term" means` entries are
   fully parseable by the EXISTING `USProfile.extract_definitions_from_
-  section` (verified live on this exact fixture: 6 real candidates,
-  "Access area"/"Access device"/"Candlefoot power"/"Control"/"Customer"/
-  "Defined parking area") -- this is a single-gate fix, not an extractor
-  change.
+  section` (verified live on this exact fixture) -- this is a single-gate
+  fix, not an extractor change. The positive test below asserts a
+  SUBSET of 6 of those terms ("Access area"/"Access device"/"Candlefoot
+  power"/"Control"/"Customer"/"Defined parking area"); the row's real,
+  full defined-term set is actually **12 terms**, not 6 (manager ruling
+  M-R31, `-log.md`: independently re-derived from the vendored body's own
+  `(N) "Term" means` / `"Term" shall have the same meaning as` entries --
+  "Access area", "Access device", "Candlefoot power", "Control",
+  "Customer", "Defined parking area", "Financial institution", "Hours of
+  darkness", "Operator", "Owner of an automated teller machine", "Public
+  road", "Remote service terminal") -- the fabrication-guard test below
+  asserts the full, exact 12-term set.
 - **MD** (`STATE_MD_Agcr_T8_S3_S8-305`): MD's real convention is NOT GA's
   shape (the manager's original "the term"-anchored probe found only 1 MD
   row -- confirmed too narrow). MD's dominant family-2 convention, found by
@@ -186,6 +194,19 @@ def test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_th
     in the SAME matter so the assertion is exact: the final definitions
     set must equal exactly the genuine row's real terms, never more.
 
+    `expected_terms` is the FULL real term set (12 terms), not the 6-term
+    subset the positive test above checks. Manager ruling M-R31
+    (`-log.md`): the original 6-term expectation here was factually wrong
+    -- independently re-verified against the vendored 7,640-char body
+    (every one of the 12 below is a genuine `(N) "Term" means` /
+    `"Term" shall have the same meaning as` entry actually present in the
+    text, confirmed by reading the body, not by pasting the pipeline's
+    output). This stays an EXACT-SET (`==`) assertion, not `<=` --
+    relaxing to `<=` would let a future fabricated term slip through
+    silently and destroy this test's purpose as a fabrication guard; `==`
+    against the true full set keeps the guard at full strength while
+    fixing its previously-wrong premise.
+
     Currently RED for the same reason as the test above (GA's genuine row
     captures 0 today) -- the negative expectation is baked into the same
     exact-set assertion so a FUTURE over-broad Gate-B regex (e.g. one that
@@ -219,6 +240,10 @@ def test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_th
     )
 
     created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
+    # Full real term set for STATE_GA_T7_C8_S7-8-1 (manager ruling M-R31):
+    # every one of these 12 is a genuine `(N) "Term" means` / `"Term" shall
+    # have the same meaning as` entry independently confirmed present in
+    # the vendored body text -- not copied from a pipeline run.
     expected_terms = {
         "Access area",
         "Access device",
@@ -226,6 +251,12 @@ def test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_th
         "Control",
         "Customer",
         "Defined parking area",
+        "Financial institution",
+        "Hours of darkness",
+        "Operator",
+        "Owner of an automated teller machine",
+        "Public road",
+        "Remote service terminal",
     }
     assert created_terms == expected_terms, (
         f"expected exactly the genuine row's real terms {sorted(expected_terms)}, "

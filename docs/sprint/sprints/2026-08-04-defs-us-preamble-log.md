@@ -2267,3 +2267,55 @@ to touch them. A **Planner** (tests are its property) makes both amendments.
 changing its expectation, and the GA one is precisely where a careless
 `<=` would silently destroy a fabrication guard. **Haiku considered: no.**
 `model=inherit` not used.
+
+## 2026-08-04 — Planner: amendment 1 (GA fabrication guard, M-R31)
+
+### P-D1 — GA full term set independently re-verified, `==` preserved
+
+Read the vendored `STATE_GA_T7_C8_S7-8-1` body directly (7,640 chars,
+`backend/tests/fixtures/us_statutes/us_preamble_rows.json`) BEFORE running
+anything, to derive the expected set from the statute text itself, not
+from the pipeline's output. All 12 numbered entries use a genuine defining
+idiom (`(N) "Term" means ...` for 10 of them, `(2) "Access device" shall
+have the same meaning as ...` for the 11th, `(4) "Control" of an access
+area or defined parking area means ...` for the 12th):
+
+Access area, Access device, Candlefoot power, Control, Customer, Defined
+parking area, Financial institution, Hours of darkness, Operator, Owner of
+an automated teller machine, Public road, Remote service terminal.
+
+This is exactly the 12-term set M-R31 already named. Then ran the real
+pipeline on the fixture row (before touching the assertion) to confirm
+its actual output — the real production `created_terms` for this row is
+this SAME 12-term set, term-for-term, with nothing extra and nothing
+missing. The two derivations (statute text, live pipeline) match, and the
+match is a confirmation of an independently-derived set, not the source of
+it — the test does not paste-the-pipeline's-output-into-the-assertion (the
+tautology M-R31/the sprint contract warns against).
+
+Amended `test_real_pipeline_does_not_fabricate_a_definition_from_a_
+georgia_section_that_merely_uses_the_word_term_without_defining_anything`
+(`test_definition_links_us_preamble_family.py`): `expected_terms` widened
+from the factually-wrong 6-term set to the full, real 12-term set above.
+**`assert created_terms == expected_terms` kept as `==`, not relaxed to
+`<=`** — per M-R31, `<=` would let a future fabricated term pass silently
+and destroy this test's purpose as a fabrication guard. Docstring and the
+module-level GA convention note updated to disclose the true 12-term total
+and cite M-R31, so a future reader does not mistake the positive test's
+6-term `<=` subset check (left unchanged — still a true subset of 12, no
+amendment needed there) for the row's full term count.
+
+Verified green: both GA tests in the file pass
+(`test_real_pipeline_captures_a_real_georgia_body_preamble_definitions_
+section_end_to_end` and the fabrication-guard test above).
+
+**Not verified by me**: the negative-control row
+(`STATE_GA_T44_C6_S44-6-165`, "at the term of the court") still produces
+zero spurious `Definition` rows — this assertion is untouched by my edit
+and was already passing pre-amendment (the 0-vs-6 diff was entirely on the
+genuine row's side), so I did not re-derive it from the text independently;
+I only confirmed the whole test now passes.
+
+Diff so far: `backend/tests/integration/test_definition_links_us_preamble_
+family.py` only. Committing and pushing this amendment now, before
+starting amendment 2, per the sole-writer instruction (no batching).
