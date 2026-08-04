@@ -763,3 +763,132 @@ def test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_pat
         "so a consumer cannot distinguish subsection (א) from (ב) for the "
         "same defined term in the same article (D-ANCHOR)."
     )
+
+
+# --- D-E1 (director ruling, binding): narrowest scope governs, STRICT
+# --- (non-tied) case, live path. The sprint's own M10 tie test proves
+# --- the EQUAL-rank case (both survive); no existing test constructs two
+# --- DIFFERENT-rank candidates (chapter vs. local) covering the SAME
+# --- mention to prove the broader one is actually SUPPRESSED, or that
+# --- the broader definition still fires elsewhere in its own chapter
+# --- where no narrower one applies. QA gap fill (Duty C). -----------------
+
+
+def test_narrowest_scope_governs_a_local_definition_suppresses_a_same_term_chapter_definition_but_the_chapter_definition_still_fires_where_no_local_one_applies_live(
+    db_session, matter_with_users
+):
+    """D-E1: 'A mention inside multiple definitions' scopes links ONLY to
+    the narrowest (subsection > article/local > chapter/part > law-wide);
+    the general definition still fires wherever no narrower one was
+    detected.' Constructs BOTH halves live, in one document:
+
+    - Article 1 (a real Definitions section, heading 'Definitions', body
+      opening with 'For purposes of this chapter, ...') stamps a
+      scope='chapter' Definition for 'Term', chapter '9'.
+    - Article 10 (ordinary article, chapter '9') registers a throwaway
+      scope='local' ScopeTriggerRule match ('As used in this section,
+      "Term" means ...', the sprint's own C2 proof-rule shape) AND
+      contains a SEPARATE, genuine mention of 'Term' in its own body.
+    - Article 20 (ordinary article, SAME chapter '9', no local rule
+      match) contains a genuine mention of 'Term' with nothing narrower
+      covering it.
+
+    Expected (D-E1): article 10's mention links ONLY to the local
+    Definition (the chapter Definition must NOT also fire there — it is
+    strictly narrower-governed, not a tie); article 20's mention links to
+    the chapter Definition (no narrower candidate applies there, so the
+    broader one is not suppressed globally, only locally)."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.definition_links.rules.registry import (
+        RuleContext,  # noqa: F401
+        ScopeTriggerRule,
+        register_scope_trigger_rule,
+    )
+    from app.definition_links.extract import DefinitionCandidate
+    from app.models.assertion import Assertion
+
+    def _extract(article_body, ctx):
+        import re
+
+        pattern = re.compile(
+            r'D-E1-PROOF-TRIGGER: "([^"]+)" means (.*?)(?=\.\s|$)',
+            re.IGNORECASE | re.DOTALL,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text=match.group(2).strip(),
+                scope="local",
+                source_article_number=ctx.article_number,
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    register_scope_trigger_rule(
+        ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract)
+    )
+
+    m = matter_with_users
+    wiki_text = (
+        "==9==\n"
+        '@ 1. Definitions\n'
+        "For purposes of this chapter, the following definitions apply:\n"
+        '(1) "Term" means a chapter-wide default meaning.\n'
+        "@ 10. Local override article\n"
+        'D-E1-PROOF-TRIGGER: "Term" means a locally overridden meaning.\n'
+        "A Term is mentioned here for testing, inside the locally-scoped "
+        "article itself.\n"
+        "@ 20. Plain chapter-scoped article\n"
+        "A Term is mentioned here too, but this article has no local "
+        "override -- the chapter-wide definition must still govern it.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test D-E1 Narrowest-Governs Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    chapter_def = next(
+        d for d in result["created_definitions"] if d["terms"] == ["Term"] and d["scope"] == "chapter"
+    )
+    local_def = next(
+        d for d in result["created_definitions"] if d["terms"] == ["Term"] and d["scope"] == "local"
+    )
+    assert chapter_def["id"] != local_def["id"]
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    article_10_edges = [e for e in uses_edges if "Article 10 " in e["proposition"]]
+    article_20_edges = [e for e in uses_edges if "Article 20 " in e["proposition"]]
+
+    assert article_10_edges, "expected article 10's mention to link at all"
+    article_10_targets = {
+        db_session.get(Assertion, e["id"]).object_entity_id for e in article_10_edges
+    }
+    assert article_10_targets == {local_def["id"]}, (
+        "D-E1: article 10's mention sits inside BOTH the chapter-scoped "
+        "and the local-scoped 'Term' definitions -- only the NARROWER "
+        "(local) one may govern; the broader (chapter) one must be "
+        f"suppressed there, not tied. Got target ids: {article_10_targets!r} "
+        f"(local={local_def['id']!r}, chapter={chapter_def['id']!r})"
+    )
+
+    assert article_20_edges, "expected article 20's mention to link at all"
+    article_20_targets = {
+        db_session.get(Assertion, e["id"]).object_entity_id for e in article_20_edges
+    }
+    assert article_20_targets == {chapter_def["id"]}, (
+        "D-E1: article 20's mention has no narrower (local) definition "
+        "covering it, so the broader chapter-scoped definition must still "
+        f"fire there. Got target ids: {article_20_targets!r} "
+        f"(chapter={chapter_def['id']!r})"
+    )
