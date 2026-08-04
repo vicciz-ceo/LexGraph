@@ -2383,3 +2383,63 @@ path) plus a real D-DF defect (pointer rows wrongly suppressed). Under the
 director's absolute zero-miss bar this cannot certify. Full row lists,
 scripts, and intermediate JSON are in the shared scratchpad, all prefixed
 `qac3_` per P-R9.
+
+---
+
+## 2026-08-04 — Manager verification of QA cycle 3: BOUNCE ACCEPTED
+
+QA commit `a2faa30` is **doc-only** (1 file, the log, +228) — role separation
+held. `qa_cycles: 3`.
+
+**Both load-bearing findings independently reproduced by the manager:**
+
+1. **U4 FAIL — the `defined and` gap is real. Exactly 45 rows**, reproducing
+   QA's count precisely: `defined and` in `section_title`, baseline False, and
+   neither registered rule fires. Manager-read samples are plainly genuine
+   definitions: `Felony defined and classified.`, `Misdemeanor defined and
+   classified.`, `Ice Cream Defined and Standardized`, `Common-law and
+   statutory easements defined and determined.` **This is another
+   H-R7/H-R9-class defect** — `and` is missing from R-VERB-extended's connector
+   whitelist, exactly as `for`/comma/period were in cycle 2. Bounce accepted.
+
+2. **D-MT-E1 two-capture — reproduced, but ROUTING differs from QA's framing.**
+   On `STATE_WA_T50_C29_S030` the manager called the real production functions:
+   - `profile.is_definitions_heading(heading, body)` → **True** (U1 works; the
+     heading IS recognized and body-confirmed)
+   - `find_citations(body)` → **`['RCW 50.04.320']`** (the citation IS found)
+   - `extract_definitions_from_section(body, heading_was_derived=False)` →
+     **0 candidates**
+   - `detect_cross_law_derivations(...)` → **0 edges**
+
+   So the row is correctly IDENTIFIED as a definitions section and its citation
+   is extractable, but the body yields **zero definition candidates**, leaving
+   nothing for a reference edge to attach to. **Per ruling H-R1 this is
+   markers-family work, not this panel's**: "U1 'captured' = heading RECOGNIZED
+   on the live path. Bodies that then yield zero are markers-family work: log
+   the `act_id`, route via the program manager, touch no extraction code here."
+   The fix lives in `us_profile.extract_definitions_from_section`, a shared
+   core-owned module this panel is forbidden to edit (U3).
+
+   **QA is factually right that D-MT-E1's two-capture does not happen on the
+   director's own named row. It is a genuine program-level gap — but it is not
+   fixable inside this sprint's write-set.** Escalated, with the act_id, rather
+   than silently reclassified as someone else's problem.
+
+**Other QA findings accepted as recorded** (not independently re-verified by
+the manager; QA hand-verified against corpus text): RI mojibake em-dash 10
+rows; `Other defined terms`/`Index of definitions in X` pointer-table
+convention 7 rows (D-MT-E1 territory); `defined (qualifier)`/`defined to
+[verb]` 7 rows. Total newly-evidenced capturable misses: **69**.
+
+**Gates standing after cycle 3:** U1 PASS, U3 PASS, U5 PASS (811/0, zero H-R3
+violations), U6 PASS (baseline reproduced exactly; after-rates 98.6/98.6/98.7%
+for WA/FL/NY, exceeding the contract's cited figures). **U4 FAILS a third
+time.** U2's limitation is now **expressible** against the merged seam — it
+converts from a permanent limitation to a normal Developer item.
+
+**P-R7 remains UNCERTIFIED and is the manager's failure, not QA's.** QA was
+instructed to request the preamble panel's consolidated matrix through the
+manager, but the manager was mid-run and unreachable, so QA fell back to
+reading that panel's committed log directly — whose own inventory is pre-QA
+and admits non-reconciled counts. **U4 cannot certify on this.** The manager
+must obtain the matrix pointer from the program manager before QA cycle 4.
