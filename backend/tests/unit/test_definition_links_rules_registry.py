@@ -31,11 +31,22 @@ Design this file pins down (seam spec v2.2 Seam 1, v2.1 Seam 2, v2.3 M12):
 
 from __future__ import annotations
 
-# RED: this module does not exist yet.
-from app.definition_links.rules import registry
+# Sprint 2026-08-04-defs-core-scope, collection-error pattern fix (baseline
+# defect confirmed by the manager's Round-9 handoff verification): this
+# import used to sit at MODULE level, which made `app.definition_links.
+# rules.registry` not existing yet abort COLLECTION for this whole file
+# (`Interrupted: 1 error during collection` -- 0 tests executed, not a
+# per-test RED signal) and, worse, took the entire `pytest backend/tests`
+# run down with it (the contract's own evaluator command has no
+# `--continue-on-collection-errors`). Every test below now imports
+# `registry` itself, inside its own body, so a missing module fails each
+# test individually (a normal test FAILURE) and the rest of the suite
+# still collects and runs. Do not hoist this back to module level.
 
 
 def test_register_and_lookup_scope_trigger_rule_by_exact_code():
+    from app.definition_links.rules import registry
+
     def _extract(article_body, ctx):
         return []
 
@@ -48,6 +59,8 @@ def test_register_and_lookup_scope_trigger_rule_by_exact_code():
 
 
 def test_register_and_lookup_scope_trigger_rule_by_us_wildcard():
+    from app.definition_links.rules import registry
+
     def _extract(article_body, ctx):
         return []
 
@@ -61,6 +74,8 @@ def test_register_and_lookup_scope_trigger_rule_by_us_wildcard():
 
 
 def test_heading_body_preamble_entry_splitter_term_clause_rules_register_and_lookup():
+    from app.definition_links.rules import registry
+
     heading_rule = registry.HeadingRule(jurisdiction_codes=("US-MO",), matches=lambda h: False)
     preamble_rule = registry.BodyPreambleRule(
         jurisdiction_codes=("US-MD",), derive_heading=lambda b: None
@@ -83,6 +98,7 @@ def test_structural_unit_rule_registers_and_looks_up():
     """v2.1/v2.2 M11 -- the rule kind that derives an article's
     `unit_path`; without it a below-baseline-chapter scope (part/
     subchapter/siman/...) has nothing to compare against."""
+    from app.definition_links.rules import registry
 
     def _derive(ctx):
         return (registry.UnitStep(kind="part", value="II"),)
@@ -102,6 +118,7 @@ def test_citation_rule_registers_and_looks_up():
     """v2.3 M12 -- `find_citations` becomes rule-extensible (reverses part
     of M7); a jurisdiction with idiosyncratic citation grammar registers
     a `CitationRule` instead of needing a whole new profile class."""
+    from app.definition_links.rules import registry
 
     def _find(text):
         return ["ORS 153.005"] if "ORS" in text else []
@@ -117,6 +134,8 @@ def test_citation_rule_registers_and_looks_up():
 def test_unit_step_and_unit_path_construction():
     """v2.2 -- one generic ordered path replaces v1's `Subsection` and
     v2's `ScopeUnit`. `()` is the law-wide path (a prefix of everything)."""
+    from app.definition_links.rules import registry
+
     root = registry.UnitStep(kind="chapter", value="12")
     leaf = registry.UnitStep(kind="article", value="5")
     path: tuple = (root, leaf)
@@ -130,6 +149,8 @@ def test_rank_for_and_register_scope_unit_kind_no_longer_exist():
     specificity is path length now, not a registered integer. Pinning
     their absence so a future edit doesn't silently resurrect a second,
     now-contradictory ranking mechanism alongside `UnitPath`."""
+    from app.definition_links.rules import registry
+
     assert not hasattr(registry, "rank_for")
     assert not hasattr(registry, "register_scope_unit_kind")
 
@@ -139,6 +160,8 @@ def test_rule_context_carries_article_number_chapter_and_unit_path():
     frozen context object, not positional args, so future context growth
     is additive rather than a six-panel breaking change. v2.2 shape:
     `unit_path` replaces v2's `structural_units`."""
+    from app.definition_links.rules import registry
+
     step = registry.UnitStep(kind="chapter", value="12")
     ctx = registry.RuleContext(article_number="153.005", chapter="12", unit_path=(step,))
     assert ctx.article_number == "153.005"
@@ -147,6 +170,8 @@ def test_rule_context_carries_article_number_chapter_and_unit_path():
 
 
 def test_structural_context_carries_article_number_and_heading_breadcrumbs():
+    from app.definition_links.rules import registry
+
     ctx = registry.StructuralContext(
         article_number="34", heading_breadcrumbs=((2, "פרק ו"), (3, "סימן ב"))
     )
