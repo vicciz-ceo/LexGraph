@@ -745,3 +745,37 @@ fetched 2026-08-04 by the Planner via disposable scratch scripts
 (`/private/tmp/.../scratchpad/pr_c4_*.py`, outside `backend/.venv`, never
 committed), reading directly from the already-cached HF snapshot on disk
 — no network download performed.
+
+## `pr_sample_rows_qa_cycle5.json` — QA independent cycle-5 live-bug
+findings (sprint 2026-08-04-defs-us-pr, QA, 2026-08-04)
+
+4 REAL rows (full original columns, values unmodified), same
+`us_pr_statutes.parquet` snapshot (`301000fc3465374ee0f23c3c6953a8a861e95cad`)
+as every PR fixture above, byte-compared against the live on-disk parquet
+immediately after writing (script output: `4 rows checked, 0 problems`). A
+SIBLING file — every prior cycle's fixtures/tests are untouched.
+
+Exhaustive (not sampled) corpus-wide sweeps of the two functions cycle-5
+registered live via `ScopeTriggerRule` (`extract_local_definitions`,
+`extract_adhoc_definitions`) found two real precision bugs, each affecting
+a measured fraction of ALL corpus-wide matches (not an isolated row). Full
+diagnosis in each test's docstring
+(`test_pr_profile_qa_cycle5_live_bugs.py`) and the panel log's QA cycle-5
+entry; this is the provenance inventory only.
+
+1. `STATE_PR_LEY_236_2015_ART12`, `STATE_PR_LEY_83_1941_SEC28` —
+   `extract_local_definitions` bug: `definition_text` truncated at the
+   unstripped page-break footer boilerplate (2/12 corpus-wide matches
+   affected, 17% — cycle 3's footer-strip fix was never ported from
+   `extract_heading_anchored_definition` to this function).
+2. `STATE_PR_LEY_17_2017_ART3`, `STATE_PR_LEY_74_1965_ART21` —
+   `extract_adhoc_definitions` bug: a stray leading curly-quote character
+   left in the captured term whenever a Spanish definite article sits
+   between "en adelante," and the opening quote (9/32 corpus-wide
+   candidates affected, 28%).
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by QA via a disposable scratch script
+(`/private/tmp/.../scratchpad/pr_qa5_*.py`, outside `backend/.venv`, never
+committed), reading directly from the already-cached HF snapshot on disk
+— no network download performed.

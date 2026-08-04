@@ -4450,3 +4450,336 @@ this panel has been trying to hold all sprint.
 Re-partition ACCEPTED. Cycle-5 implementation set (18a/26/27/28/29) is
 complete and stable. Handing to **independent QA** — which has not run since
 cycle 4, and has never run against implemented, registered, live-path PR code.
+
+---
+
+## 2026-08-04 — QA: independent cycle-5 verification (43c20f5), gate table,
+P-R7 capture measurement, vacuous-green mutation audit, 2 new live bugs
+
+Read the program doc (D-Q1, P-R7, P-R8, D-PR-18c, D-PR-A), the contract's
+gates/M-R13/Dev-Complete, and the log's last four entries before touching
+anything. Independent throughout: own scripts against the real, on-disk
+`us_pr_statutes.parquet` snapshot (`301000fc3465374ee0f23c3c6953a8a861e95cad`,
+23,636 rows — same hash the panel has used all sprint), never read by any
+test; own mutation harness for every "meaningful vs vacuous" claim below.
+Scratchpad files prefixed `pr_qa5_` throughout, per P-R9; none of another
+panel's files were read. `git status --short` before any edit: clean.
+
+### (0) Live-path architecture, verified before measuring anything
+
+`get_profile("US-PR")` returns `USProfile(code="US-PR")`, **never**
+`PRProfile` — confirmed live. `USProfile.is_definitions_heading` is the
+English-only regex (`Definitions?`), so it returns `False` for every real
+Spanish heading (`is_definitions_heading("Artículo 3. Definiciones")` →
+`False`, live-checked). Consequence, confirmed by reading `pipeline.py:
+198-232`: **every PR article, canonical or not, falls into the `else`
+branch today** and is handled exclusively by `USProfile.
+extract_local_scope_definitions` — i.e. by the registry's
+`scope_trigger_rules_for("US-PR")`, i.e. by exactly the 2 rules this cycle
+registered. `pr_profile.py`'s own `is_definitions_heading`/
+`extract_definitions_from_section`/`extract_heading_anchored_definition`
+(the whole P1/P4 canonical-section machinery, "94.8% capture") are 100%
+unreachable from `get_profile`/`run_definition_linking` today — confirmed
+by identity check: `USProfile.extract_definitions_from_section is
+us_profile.extract_definitions_from_section` (the separate ENGLISH
+function), never `pr_profile`'s. This is NOT a new finding — it is exactly
+what M-R13's Option-D reasoning already stated (HeadingRule dispatch dead,
+held on core) — but I verified it directly rather than inheriting it, since
+it is the load-bearing fact behind gate P1's verdict below.
+
+### (1) Gate verdicts
+
+| Gate | Verdict | Proving check |
+|---|---|---|
+| **P1** | **PARTIAL / HELD** (unchanged from cycle 4, precisely reconfirmed) | `get_profile("US-PR").is_definitions_heading` is English-only and `False` for every real Spanish heading, live-checked on `STATE_PR_LEY_249_2003_ART3` (the mandate's own example row). Canonical-section detection+extraction is correct when `pr_profile`'s own functions are called directly (633/635, 0 FP — established, re-confirmed unchanged) but **0% reachable via `get_profile`/`run_definition_linking`** — core-gated (HeadingRule dispatch, items 19-24), exactly as scoped OUT of this cycle. Not a regression; expected and acknowledged. |
+| **P2** | **PARTIAL** | P-R7-compliant denominator (below): live-path capture on non-canonical Spanish-idiom-bearing rows went **0% → 2.0% (15/766)**, real and non-vacuous (proven via `get_profile("US-PR").extract_local_scope_definitions`, both raw-body and pipeline-faithful-normalized). Genuine progress, but small **by explicit design** (18c, which would drive most of the recall, is deferred per M-R13). Additionally: of what IS captured live, `extract_adhoc_definitions` corrupts 9/32 (28%) of its OWN corpus-wide candidates with a stray leading quote character (new finding, §7 below) — a real precision cost on top of the low recall. |
+| **P3** | **PARTIAL** | Article-scope half (item 28) genuinely proven live, both directions: `test_pr_profile_article_scope_live_cycle5.py` passes (same-article links, different-article/cross-document doesn't) — re-run individually, confirmed not vacuous (a synthetic-but-realistic fixture built on the `A los fines de este Artículo` trigger, mutation-equivalent to the P2 mutation proofs below since it's the same registered rule). Chapter-scope half (`determine_scope`) genuinely absent — `test_pr_profile_scope_cycle4.py`'s 6 REDs confirmed still failing for the identical `AttributeError`/missing-method reason, file byte-untouched (`git diff` empty) — correctly HELD, not silently dropped. |
+| **P4** | **HELD / far from met** (unchanged verdict, now precisely quantified) | Full-corpus zero-miss bar. Within canonical sections: 0% reachable live (see P1). Outside canonical: 2.0% of the P-R7 denominator (766 rows) — 98% of the outside-canonical idiom population remains uncaptured, entirely by design (18c deferred). This is not new information (P4 has FAILed every cycle since cycle-4 QA) but the gap is now measured against a fresh, independently-built, precision-checked denominator rather than assumed unchanged from cycle 4's 833. |
+| **P5** | **PASS** | Both directions mutation-proven (§4). Suite: `34 failed / 911 passed / 12 xfailed` — the 30 pre-existing HELD REDs (byte-untouched, confirmed) + 4 new QA REDs I added (§7); 911 passed and 12 xfailed both **unchanged** from the Developer/re-partition handoff. Zero regressions anywhere in the existing suite. |
+
+No gate is marked PASS on held work; P1/P3-chapter/P4 stay explicitly
+non-PASS as scoped.
+
+### (2) P-R7 denominator + capture measurement — the headline number
+
+**Denominator construction (independent of the shipped rules' own
+vocabulary).** The shipped rules recognize only: (a) three explicit
+scope-trigger phrases ("A los fines/efectos de este Artículo", "Para
+propósitos de este Artículo") plus two narrow lead-ins, and (b) the
+"(en adelante, X)" apposition. My denominator uses a completely different
+signal class — a generic Spanish definitional-idiom vocabulary
+(`significa`/`significará`/`se entiende por`/`se entenderá por`/`tendrá el
+significado`/`quiere decir`/`entendiéndose por`), matched against
+**non-canonical rows only** (own regex, `[Dd]efinici[oó]n(es)?` against
+`section_title`, 635 canonical / 23,001 non-canonical — reproduces the
+panel's own established split exactly). None of the denominator's idiom
+words overlap with the shipped rules' trigger vocabulary; a row lands in
+the denominator because it USES a Spanish definitional idiom somewhere,
+regardless of whether it also happens to carry one of the shipped rules'
+specific trigger phrases.
+
+**Precision-filtered before use, not before construction.** An initial
+sweep (11 idiom variants after accent-folding) gave 931 rows. Two of those
+idiom families failed my own fresh precision sample and were EXCLUDED:
+`se considera(rá) como` (24-row random sample, 0/24 genuine
+standalone-term definitions — almost all are classification prose, e.g.
+"se considera como un contrato de duración indeterminada"; this
+independently reproduces cycle-4 Planner's own finding on the same idiom,
+0/14 genuine) and `denota` (2/2 hits are both "denotando", a gerund, not
+the idiom at all). **Final denominator: 766 non-canonical rows carrying a
+precision-checked genuine Spanish definitional idiom** (vs. the panel's
+own prior 833 — smaller because more precision-filtered, same
+signal-agnostic construction method; both numbers are legitimate, mine is
+the more conservative one and is the one I measured capture against).
+`se entiende por` (13/13 sampled) and `tendrá el significado` (8/8
+sampled) were spot-checked and are high-precision; `significa(rá)` and
+`quiere decir` inherit cycle-4's own 93-100% samples.
+
+**Measurement, both raw-body and pipeline-faithful (curly-quote
+normalization checked, per P-R10's own named trap):**
+
+```
+denominator: 766
+BEFORE (only the generic US-* English proof rule registered): 0/766 (0.0%)
+AFTER  (cycle-5: extract_local_definitions widened + extract_adhoc_definitions): 15/766 (1.96%)
+```
+
+Reproduced twice — once passing the raw parquet `text` directly, once
+replaying `pipeline.py`'s exact chain (`profile.normalize_for_parsing` →
+`strip_wikilinks`, which curly-quote-normalizes 503/766 bodies) — **identical
+15-row result both times**, so the normalization step does not change the
+answer (the shipped patterns already accept both quote styles). The 15
+captured act_ids: `STATE_PR_LEY_77_1957_ART9_400`,
+`STATE_PR_MUNICIPAL_ART3_052`, `STATE_PR_RENTAS_SEC1081_04`,
+`STATE_PR_LEY_1_1966_ART8/9/10/11`, `STATE_PR_MUNICIPAL_ART2_015`,
+`STATE_PR_LEY_5_1986_ART29`, `STATE_PR_LEY_230_2004_ART8`,
+`STATE_PR_LEY_83_1941_SEC28`, `STATE_PR_RENTAS_ART3` (4 candidates),
+`STATE_PR_MUNICIPAL_ART2_058`, `STATE_PR_TRANSITO_ART7_07`.
+
+This is real, live-path, non-vacuous progress (0% → 2.0%), and it is
+consistent with — not contradicting — the panel's own M-R13 framing: the
+shipped rules are trigger-gated by design, and 18c (the untriggered
+whole-body sweep that would drive most of the outside-canonical recall) is
+deferred. Nobody claimed more than this would ship this cycle; I am
+reporting the honest, measured size of what remains.
+
+### (3) Vacuous-greens re-check, with mutation evidence
+
+The brief named six: 3 P5 tests, the M-R12 guard test, the gender-
+disclaimer guard, and the inverted residual test. I checked all six plus
+2 more the Planner's own cycle-5 entry separately declared vacuous
+(citation-rule file) for the same reason.
+
+| Test | Cycle-5 status | Evidence |
+|---|---|---|
+| `test_still_does_not_swallow_the_gender_disclaimer_row` (gender-disclaimer guard) | **STILL VACUOUS** | `STATE_PR_LEY_214_2004_ART2`'s body contains NONE of the 2 shipped rules' triggers (verified: no "A los fines/efectos/propósitos de este Artículo", no "en adelante"). `extract_local_scope_definitions` on it returns `[]`, same as before registration, for the same reason. Mutation: reproduced the ACTUAL historical bug (widen `_DEFINING_IDIOM_ALTERNATION` to include "se refiere a") directly against `extract_definitions_from_section` — confirmed it DOES collapse this row's 26 real terms into 1 fabricated candidate (the exact regression the guard is about) — but that function has zero production callers, so the guard (written against the live SEAM) can never observe it. The guard's own threat model lives entirely in dead code. |
+| M-R12 guard test (`test_the_inline_sweep_bails_on_a_real_canonical_definiciones_body...`) | **STILL VACUOUS** | Its own stated meaningfulness condition ("the Developer's guard is built correctly") was never satisfied — item 18c (the sweep the guard protects) was NOT built this cycle (M-R13). Verified directly: `STATE_PR_LEY_214_1995_ART2`'s body opens "Para propósitos de **esta ley**" (law-wide), not "...este Artículo" (the shipped trigger) — `extract_local_definitions`/`extract_adhoc_definitions` both return `[]` on it, same reason as before registration. Passes today for an entirely different (accidental) reason than the one its docstring claims. |
+| `test_documented_residual_a_single_bare_canonical_definition_is_not_captured_as_local_scope_live` (inverted residual test) | **CONFIRMED STILL VACUOUS**, docstring's own admission verified correct | Reasoned through all 3 possible intermediate states of (core dispatch landed?, 18c built+registered?): only when BOTH land does the assertion become non-trivially true (canonical rows route to the `if` branch by construction); if 18c lands WITHOUT core's dispatch, this exact row (one of the 38-row residual with no preamble signal) WOULD be captured again by the M-R12-guarded sweep and the assertion would rightly FAIL — proving the stated future condition is precisely correct, not just plausible-sounding. |
+| `test_get_profile_us_pr_extracts_no_local_scope_definitions_from_real_english_prose` (P5, local-scope direction) | **MEANINGFUL** | Mutation: added an aligned English trigger ("As used in this subchapter" + marker-tolerant separator) to `_LOCAL_TRIGGER_RE` and reassigned `extract_local_definitions` — candidates went `[]` → 1 fabricated ("Affiliate"). Kills the test. |
+| `test_run_definition_linking_creates_no_definitions_for_a_real_english_row_ingested_as_us_pr_live` / `test_a_real_english_state_document_is_completely_unaffected...` (P5, pipeline + cross-jurisdiction) | **MEANINGFUL** | Same underlying mechanism as above (pipeline-level extension) plus `registry._matches`'s exact-code isolation (read + mutation-proven separately, §4). |
+| `test_baseline_ordering_means_the_bare_section_symbol_wins_over_the_fuller_lpra_form_documented` (citation baseline-ordering) | **NOW MEANINGFUL** (flipped from vacuous) | Direct call proves the registered rule DOES contribute: `pr_profile.find_citations(text)` → `['25 L.P.R.A. § 3121']` on its own, but `get_profile("US-PR").find_citations(text)` → `['§ 3121']` — the fuller form is genuinely produced and then genuinely discarded by baseline-first-claim ordering, a real mechanism now exercised (before registration there was nothing to discard). |
+| `test_registering_us_pr_citations_does_not_change_a_real_english_state_row_live` (P5, citation direction) | **MEANINGFUL** | Mutation: broadened `_LEY_NUM_DE_FECHA_RE` to bare `\d{4}` — `via_us_pr` picked up `'1956'` (from "...Act of 1956...") that `baseline_only` doesn't have. Kills the test. |
+| `test_unions_the_local_trigger_extractor` (not one of "the six" — a genuine RED→GREEN capture proof, sanity-checked anyway) | **MEANINGFUL, confirmed** | Mutation: removed the `se define`/`la frase` lead-in group from `_LOCAL_TRIGGER_RE` — `STATE_PR_LEY_20_2017_ART4_14`'s "toque de queda" capture disappears. Kills the test. |
+
+Net: **2 of the six are still vacuous** (gender-disclaimer guard, M-R12
+guard test) — both for the SAME root cause (their threat model lives in
+code the shipped rules never reach: dead `extract_definitions_from_section`
+for the first, unbuilt 18c for the second) — **1 is correctly,
+self-declaredly vacuous with its future condition verified accurate**
+(inverted residual), and **5 became genuinely meaningful**, all confirmed
+by mutation, not by re-reading the docstring's claim.
+
+### (4) P5 both directions, mutation-proven
+
+Direction A (real English row through the live PR path): `test_get_
+profile_us_pr_extracts_no_local_scope_definitions_from_real_english_prose`
+— killed by the aligned-English-trigger mutation above. Direction B (real
+English-jurisdiction document unaffected by PR rules being registered):
+verified two ways — (a) `registry._matches` read directly: exact-code
+match only, the `"US-*"` wildcard clause is the only broadening and does
+not apply to a single-code `("US-PR",)` tuple; (b) mutation: patched
+`_matches` to a prefix-sharing bug (`any(code.startswith("US-") and
+jc.startswith("US-") for jc in jurisdiction_codes)`) — `scope_trigger_
+rules_for("US-DE")` went from 1 rule to 3 (both PR-specific rules leaked
+in), confirming the isolation property this test's mechanism depends on is
+real and breakable (core-owned code, not this cycle's write-set, so not
+independently re-tested at the pipeline level — code-read + targeted
+mutation is what I have).
+
+### (5) Fixture byte-verification
+
+`git diff --stat 55056e5..HEAD -- backend/tests/fixtures/` → **empty**,
+confirming the Planner's "zero new fixture rows this cycle" claim exactly.
+Spot-checked all 6 real rows cycle-5's tests actually reference (own
+script against the live parquet, all 24 columns compared):
+`STATE_PR_LEY_85_2018_ART9_04`, `STATE_PR_LEY_214_1995_ART2`,
+`STATE_PR_LEY_133_1979_ART1`, `STATE_PR_LEY_214_2004_ART2`,
+`STATE_PR_LEY_20_2017_ART4_14` (all `pr_sample_rows*.json`) and
+`STATE_DE_T5_C7_SVIII_S796` (`de_sample_rows.json`, checked against
+`us_de_statutes.parquet`) — **6/6 byte-exact, 0 problems**.
+`test_pr_profile_article_scope_live_cycle5.py` uses no fixture rows
+(synthetic content, as the log already states) — nothing to check there.
+
+### (6) Counter reconciliation — audited, not merely inherited
+
+Traced `total_items`/`dev_complete_items` through every commit
+(`git show <sha>:...front-matter`): `0` (sprint open) → `9` (cycle-1
+Planner) → `12` (cycle-2 Planner, `c77f471`) → `dev_complete_items: 6`
+(cycle-2 verified, `c07c842`) → `dev_complete_items: 10` (cycle-3
+verified, `88c4bf8`) → **frozen at `10` through all of cycle 4** (cycle 4
+never had a completed Developer pass — the phase-2 blocker was found
+immediately after rebase, before cycle 4's tests could be implemented) →
+into cycle 5. The contract's own `## Dev Complete` section was **literally
+"_None._"** at `88c4bf8`, the exact commit where the numeric counter
+became 10 — the counter was updated without a matching named list, which
+is why the manager could not audit it from the contract's own prose.
+
+I reconstructed a set of exactly 10 items whose arithmetic matches BOTH
+deltas (0→6 at cycle 2, 6→10 at cycle 3) under one consistent rule — count
+only items with NO core-blocked/deferred component:
+**items 1, 2, 4 (cycle 1 — heading detection, section extraction, citation
+grammar; NOT item 3, whose pipeline-wiring half never landed, and NOT item
+6, whose registry-conformance half was 1/6 tests `importorskip`'d) + 10,
+11, 12 (cycle 2, all fully complete) + 13, 14, 15, 16 (cycle 3, all fully
+complete; item 17 excluded, core-gated xfail)** = 3 + 3 + 4 = **10**,
+exact match. This is a **reconstruction that fits the numbers**, not a
+rediscovery of a recorded fact — the contract never named the set. Given
+the arithmetic fits perfectly under one simple, defensible rule (applied
+consistently at both deltas), I consider `10` **supported**, and therefore
+`14` (10 + this cycle's 4: `18a+26`, `27`, `28`, `29`) is sound. Worth
+noting: items 6/7's ORIGINAL design (a registered, distinct `PRProfile`
+class) was superseded by the seam core actually shipped (rule registry +
+`USProfile`) — item 6 will likely never gain its blocked registry half
+under the adopted seam, which is a documentation staleness, not a bug.
+
+### (7) Adversarial sweep — 18a widening
+
+**Lead 1, the hyphen narrowing, redone per-block (real denominator), not
+whole-body.** Reproduced `extract_definitions_from_section`'s own block
+split (`_ENTRY_MARKER_RE`) and dispatch order exactly (imported regexes,
+not reimplemented), swapping only the dash pattern between OLD/NEW.
+**Result: 235 per-block dispatch outcomes change (not 28 — the whole-body
+denominator undercounted by 8x)**, 213 of them brand-new captures. Random
+sample of 25: roughly 7-9 genuine (`Parte`, `Jueza Administradora`,
+`híbridos` x2, `Propiedad de quince (15) años`, `Residente de Puerto
+Rico`...) against **roughly 15-17 clear false positives** — a section
+heading captured as a "definition" with the rest of a numbered sub-list as
+its "text" (`Modificaciones.- Para propósitos de este párrafo...`,
+`Definiciones.- Para fines de este párrafo` swallowing 3 separate real
+definitions into 1 bogus entry), a footer/watermark literally captured as
+definition_text (`Regla General.` → `"LexJuris de Puerto Rico ©2011..."`),
+a budget-appropriation line item (`Consulta con el Pueblo` →
+`"0- 1,050,800 Rev. 02 de septiembre de 2020..."`), tax-bracket table rows
+(`Por cada galón medida en exceso de... - dos dólares...`), and garbled
+mid-sentence fragments split at a stray hyphen (`Se excluirá todo el
+ingreso derivado de trabajos de investigación para` / `(A) los Estados
+Unidos...`). Estimated precision on this signal, per-block: **roughly
+30-35%**, far below the 96-100% established for the (structurally
+different, quoted-only) item-18c sweep. **Scoped per the brief's own
+instruction**: confirmed independently that `extract_definitions_from_
+section` has zero production callers (`USProfile.extract_definitions_
+from_section is us_profile.extract_definitions_from_section`, never
+`pr_profile`'s — verified by identity check) — **this is a post-dispatch
+risk, not a shipping defect this cycle**, but it is measured now to be
+considerably worse than the "28 new matches, largely unexamined" framing
+suggested, and should be a hard gate for whoever wires this machinery up
+post-core-dispatch, not a pass-through. Full 235-row list saved to
+scratchpad (`pr_qa5_dash_per_block_full.json`), not committed (measurement
+only).
+
+**Lead 2, `_LOCAL_TRIGGER_UNQUOTED_RE` (live, shipped).** Exhaustive
+corpus-wide sweep (all 23,636 rows, not sampled): **6 total matches,
+6/6 genuinely correct** (all real "A los fines de este Artículo, el
+término X significará/será Y" definitions). No false positives found. Safe
+as shipped.
+
+**Bonus finding 1 (live, shipped) — footer truncation in `extract_local_
+definitions`.** Exhaustive sweep of `_LOCAL_TRIGGER_RE` (the quoted local
+trigger, also live/shipped): 12 total corpus-wide matches, all 12
+semantically correct, but **2/12 (17%)** have `definition_text` truncated
+mid-sentence at the unstripped page-break footer boilerplate (cycle 3's
+footer-strip fix was ported to `extract_heading_anchored_definition` but
+never to this function). Real act_ids: `STATE_PR_LEY_236_2015_ART12`,
+`STATE_PR_LEY_83_1941_SEC28`.
+
+**Bonus finding 2 (live, shipped) — stray-quote term corruption in
+`extract_adhoc_definitions`.** Exhaustive sweep: 32 total corpus-wide
+candidates, **9/32 (28%)** carry a stray leading curly-quote character in
+the captured TERM (e.g. `'“Plan Estratégico'` instead of `'Plan
+Estratégico'`) — root cause: `_ADHOC_TRIGGER_RE`'s optional leading-quote
+strip only anticipates the quote sitting directly after "en adelante,\s*",
+but the real corpus frequently has a Spanish definite article between the
+comma and the quote ("(en adelante, el "Plan Estratégico")"); the article
+strip (`_LEADING_SPANISH_ARTICLE_RE`) runs afterward but leaves the
+embedded opening curly quote (not excluded by the group's character
+class) behind. Real act_ids: `STATE_PR_LEY_17_2017_ART3` (×2),
+`STATE_PR_LEY_20_2014_ART5`, `STATE_PR_LEY_88_1966_ART11`,
+`STATE_PR_LEY_74_1965_ART21`, `STATE_PR_LEY_125_2008_ART7`,
+`STATE_PR_LEY_17_2017_ART2` (×3).
+
+Both bonus findings are on **live, dispatched, shipped** code (unlike
+Lead 1) — pinned as 4 new RED tests, 4 new byte-verified fixture rows (see
+Deliverables).
+
+### Deliverables added (tests/fixtures only, role boundary held throughout)
+
+- `backend/tests/integration/test_pr_profile_qa_cycle5_live_bugs.py` — 4
+  new RED tests pinning the two live bugs above (2 tests each), driving
+  `get_profile("US-PR")` (the real seam), not a direct `pr_profile` call.
+- `backend/tests/fixtures/us_statutes/pr_sample_rows_qa_cycle5.json` — 4
+  REAL rows, byte-compared against a fresh parquet read immediately before
+  commit (`4 rows checked, 0 problems`). README section appended
+  documenting provenance.
+- `git diff --stat -- backend/app/` → **empty** — zero production code
+  touched, confirmed before every measurement above and again now.
+- Full suite after my additions: `backend/.venv/bin/pytest backend/tests
+  -q` → `34 failed, 911 passed, 12 xfailed, 18 warnings` — the 30 held REDs
+  (byte-untouched, individually re-confirmed) + my 4 new REDs; 911 passed
+  and 12 xfailed both **exactly unchanged** from the Developer/re-partition
+  handoff — no existing test weakened, retargeted, or newly broken.
+
+### What I could NOT verify, honestly
+
+- **Test 2/3 of the P5 language-regression file** (full `run_definition_
+  linking` pipeline runs) were confirmed passing and their underlying
+  mechanism was mutation-proven at the unit level (§4), but I did not
+  additionally run a full pipeline-level mutation for them specifically
+  (time budget) — the unit-level proof plus a direct code-read of
+  `registry._matches` is what stands behind that verdict, not a pipeline-
+  level mutation kill.
+- **The 235-row per-block dash-narrowing precision estimate (~30-35%)** is
+  from one random n=25 sample, not an exhaustive hand-classification of
+  all 235 — the SCALE and the presence of multiple distinct false-positive
+  shapes (footer, budget table, heading-label, garbled fragment) are
+  solid; the exact percentage has ordinary sampling uncertainty. Flagged
+  as an estimate, not a count, unlike the two bonus findings (which are
+  exhaustive, not sampled).
+- **Whether "10" dev-complete items is THE originally-intended set**, as
+  opposed to a different combination that also happens to sum correctly —
+  the contract's own record never named one, so this is unknowable with
+  certainty from the record (per the brief's own explicit fallback); my
+  reconstruction is the most parsimonious one that fits both deltas under
+  a single consistent rule, offered as "supported," not "confirmed."
+
+### Nothing escalated
+
+No recall-vs-precision conflict CLASS requiring director arbitration (the
+18a/26/27/28/29 shipped surface is precision-safe by construction —
+trigger-gated); no dead/unwired dispatch beyond what P-R8 already named
+and this entry re-confirmed; no gate un-assessable; no contract/log claim
+my measurement contradicts (the 833→766 difference is a legitimate
+precision-filtering refinement of the SAME signal-agnostic method, not a
+contradiction — stated explicitly in §2). The two new live bugs (§7 bonus
+findings) are ordinary precision defects, not P-R2/D-Q1-class tradeoffs —
+reported as RED tests for the next Planner cycle to fix, not escalated.
+
+### Suite tail
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+34 failed, 911 passed, 12 xfailed, 18 warnings in 12.46s
+```
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`.
