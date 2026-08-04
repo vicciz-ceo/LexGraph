@@ -1205,3 +1205,52 @@ re-measurement. **U4 FAILS.** `qa_cycles: 1`; items 1–2 return to in-progress.
   more sub-40-character stubs — the same textually-correct/zero-value
   phenomenon already documented for baseline (341 rows). Not a defect;
   recorded so it is not later mistaken for one.
+
+---
+
+## 2026-08-04 — Developer cycle 2 verified by the manager
+
+Dev cycle 2 at `965880a`. Manager verification, all re-run independently:
+
+- **All six defects fixed, all guards still hold** (manager probe): BUG1–BUG5
+  now True; the ME false positive now False; and the four standing guards (TX
+  `APPLICABILITY OF DEFINITIONS`, morphology `undefined`, `Repeal of
+  definitions`, `Terms as defined in section 5`) all still False.
+- **Full suite**: 669 passed, 2 failed — the same two core-blocked tests, no
+  third failure, baseline 641 intact.
+- **U3 still holds**: exactly one production file; 299 lines (under the
+  300-line style gate); zero Developer edits to tests.
+
+**Manager's independent full-corpus re-measurement:**
+
+```
+recall  20,307/22,228 (91.4%)  ->  20,864/22,228 (93.9%)
+residual        1,921          ->           1,364
+```
+
+**A discrepancy the manager chased rather than accepted.** The manager's audit
+reported **128** non-canonical-token matches where the Developer reported
+**123**. Re-running the audit with a corrected word-boundary class (`/`, `.`,
+`(`, `)` are boundaries too — exactly the punctuation the BUG4/BUG5 fixes
+introduced) gives:
+
+```
+{'trunc': 117, 'misspell': 6, 'GENUINE_NOISE': 0, 'other': 0}   total = 123
+```
+
+**The Developer was right and the manager's first script was stale.** Recorded
+because the sprint's standard is that a number is checked, not asserted — in
+this instance the check exonerated the code and corrected the manager.
+
+**Net result of cycle 2: +557 rows recognized, one real false positive
+removed, zero new false positives, zero regressions.**
+
+### H-R8 — one deliberate residual, recorded not hidden
+
+The Developer declined to chase federal `"Property defined-(Rule)"` (single
+hyphen, no whitespace). Its BUG2 regex requires whitespace before a lone
+hyphen precisely so `"defined-benefit plan"` pension jargon stays excluded —
+which QA cycle 1 identified as the dominant shape in the raw `defined`
+bucket and a precision disaster to chase. **Manager accepts**: one row traded
+to protect a large jargon class is the right side of that trade, and it is
+recorded here rather than left silent.
