@@ -7,12 +7,12 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-dispatch
 locked_by: "claude-code:dispatch-manager"
 locked_at: "2026-08-04T12:26:23Z"
 last_agent: "claude-code:dispatch-manager"
-last_updated: "2026-08-04T12:26:23Z"
+last_updated: "2026-08-04T12:56:21Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 7
-lint: "PASS 136 2026-08-04T12:27:04Z"
+total_items: 8
+lint: "PASS 148 2026-08-04T12:56:21Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -99,13 +99,24 @@ The two panel managers' positive-control probes are the Planner's blueprints.
   `extract_definitions_from_section`.** Both are UNION kinds (M1 moved
   `EntrySplitterRule` off the first-wins side) — every matching rule's
   candidates are kept; rules never suppress each other (zero-miss).
-- [ ] **I4 — `StructuralUnitRule` consumed by structural-unit sourcing.**
-  Per v2.2 §4 this is the one "derive this article's `unit_path`" seam.
-  Respect v2.4 §1: `UnitPath` is BELOW-article only.
-- [ ] **I5 — `determine_scope` gains a rule seam.** Currently a hardcoded
-  `_US_CHAPTER_SCOPE_TRIGGERS` list (manager verified `us_profile.py:1003`)
-  with no registry hook, so PR's Spanish chapter-scope triggers have nothing
-  to register into. Baseline-first, same as every other kind.
+- [ ] **I4 — `StructuralUnitRule` consumed as ARTICLE-METADATA enrichment**
+  (**manager ruling M-D1**, seam v2.6 §1 — NOT a `UnitPath` producer, no
+  relation to `resolve_unit_path`). Shape reverts to M11's
+  `derive: (StructuralContext) -> tuple[ScopeUnit, ...]`; UNION; core keeps
+  stamping `ScopeUnit("chapter", ...)` itself and rules ADD, never replace.
+  Consumption point: where article structural metadata is populated, feeding
+  **`matcher._in_scope`'s generic-kind branch** (`getattr(article,
+  "structural_units", ())`) — dead today because nothing populates it.
+  US parquet breadcrumb availability is RESOLVED (verified on a real file);
+  do not re-escalate it.
+- [ ] **I5 — new `ScopeKindRule` kind behind `determine_scope`** (**manager
+  ruling M-D2**, seam v2.6 §2). `(jurisdiction_codes, detect: (str) -> str |
+  None)`; `register_scope_kind_rule`; **baseline-first, then
+  first-non-None-wins** in filename-sort order — NOT a union (a body has
+  exactly one scope kind). Baseline still wins when it matches, so the 7
+  working US states are untouched. Planner refused to coerce
+  `ScopeTriggerRule` into a boolean detector — correctly; that would
+  mis-scope definitions against the director's constraint.
 - [ ] **I6 — D-DF enablement: additive optional `body_confirms` on
   `HeadingRule`.** `body_confirms: Callable[[str], bool] | None = None`,
   consumed as `matches(heading) and (body_confirms is None or
@@ -113,6 +124,7 @@ The two panel managers' positive-control probes are the Planner's blueprints.
   scope at the detection site (`pipeline.py:198/215`), so this is
   **seam-shape only, no new plumbing**. MUST stay backward-compatible with
   every already-written `HeadingRule`.
+- [ ] **I8 — `ScopeKindRule` RED tests** (Planner round-trip after M-D2).
 - [ ] **I7 — PER-KIND live-path dispatch tests, all SEVEN kinds.** The
   mandatory new test class. For each kind: register a probe rule, call the
   profile method `pipeline.py` actually calls, and assert **the answer

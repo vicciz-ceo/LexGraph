@@ -1,10 +1,11 @@
 # Seam spec — sprint 2026-08-04-defs-core-scope (published)
 
-**AUTHORITATIVE VERSION: v2.5.** Read v2.5 first; it is final (all director
-rulings are in, plus one QA-fail cycle 2 correction). Earlier versions below
+**AUTHORITATIVE VERSION: v2.6.** Read v2.6 first, then v2.5; v2.6 is final
+(all director rulings, the QA-fail cycle 2 correction, and the
+defs-core-dispatch shape rulings M-D1/M-D2). Earlier versions below
 are retained VERBATIM as history because family panels planned against them
 and need to see what changed — but where any earlier version disagrees with
-v2.5, **v2.5 wins**.
+v2.6, **v2.6 wins**.
 
 Notable supersessions: v2.2 WITHDREW v2's `register_scope_unit_kind`/`rank_for`
 rank registry (a pinned test asserts their absence); v2.1 withdrew v2's
@@ -1218,3 +1219,86 @@ text predates this correction and was aspirational, not evidence the
 module exists or must be built now. Left unedited (production code is
 outside this Planner's remit); read it as "the shape to use if/when
 `scope_value` is ever persisted," not as a live cross-reference.
+
+
+---
+
+## Seam spec v2.6 (published) — `ScopeKindRule`; `StructuralUnitRule`'s shape restated (sprint 2026-08-04-defs-core-dispatch, manager rulings M-D1/M-D2)
+
+Append-only correction, same convention as v2.5. Two shapes family panels
+need in order to register anything at all; both were **specified in intent
+and left unshaped**, which is why two panels had nothing to register into.
+
+### 1. `StructuralUnitRule` is ARTICLE-METADATA ENRICHMENT — not a `UnitPath` producer (M-D1)
+
+The dispatch Planner read a data-shape contradiction: `StructuralContext`
+carries `heading_breadcrumbs` (ABOVE-article data) while v2.4 §1 re-scoped
+`UnitPath` to BELOW-article only, and `resolve_unit_path` has no dispatch
+point. **The contradiction is real but it is a versioning artifact, not a
+design flaw.** The resolution is derivable from the spec's own history:
+
+- **v2.1 §3 (M11)** introduced the kind as
+  `derive: Callable[[StructuralContext], tuple[ScopeUnit, ...]]` — its stated
+  purpose being that panels had "no way to PUT the corresponding unit onto
+  the owning ARTICLE, so part/subchapter/siman/chelek enforcement had no data
+  to compare against." Consumption: UNION; "core still owns stamping
+  `ScopeUnit("chapter", article.chapter)` itself, unconditionally; registered
+  rules ADD to that set, never replace it."
+- **v2.2 §4** unified it into the one "derive this article's `unit_path`"
+  seam, returning `UnitPath` — covering both above- and below-article.
+- **v2.4 §1** REVERSED that unification: `UnitPath` is below-article only, and
+  above-article kinds "keep using v2's existing mechanism unchanged." v2.4 did
+  not restate `StructuralUnitRule`'s signature, which is the gap the Planner hit.
+
+**RULING M-D1: v2.4's reversal returns `StructuralUnitRule` to its M11 shape.**
+`derive: Callable[[StructuralContext], tuple[ScopeUnit, ...]]`, producing
+ABOVE-article container units stamped onto the ARTICLE. It is **not** a
+below-article `UnitPath` producer and has **no** relationship to
+`resolve_unit_path`.
+
+**Consumption point:** wherever an article's structural metadata is populated
+(parse / pipeline pre-stage), feeding **`matcher._in_scope`'s generic-kind
+branch** — which today reads `getattr(article, "structural_units", ())` and is
+DEAD precisely because nothing populates it. That branch was flagged as
+unreachable during the previous sprint's QA cycle 1 ("no rule in this sprint
+stamps a generic kind"); I4 is what makes it live. Two independent findings,
+one root cause.
+
+**Input availability, resolved — do not re-escalate:** M11 flagged US/parquet
+breadcrumb availability as UNVERIFIED. It was subsequently verified against a
+real parquet file (previous sprint, manager Round 9): `de_sample_rows.parquet`
+carries `breadcrumb`, `display_path`, `chapter`, `chapter_name`,
+`title_number`, `section_number`, `subsection_count`. **US-side structural data
+IS reachable.** No ingest-contract escalation is needed.
+IL-side per M11: `sections.parse_articles` already scans every `=`-depth
+heading break and discards depths past 2 — accumulating all depths into
+`heading_breadcrumbs` is core's own ONE-PLACE additive change (default `()`,
+so every existing construction site is unaffected).
+
+### 2. `ScopeKindRule` — the missing kind behind `determine_scope` (M-D2)
+
+`determine_scope` maps BODY TEXT to a SCOPE KIND (`"chapter"` /
+`"law-wide"`). No existing kind fits that contract: `ScopeTriggerRule`
+produces definition CANDIDATES, and coercing it into a boolean detector would
+mis-scope definitions — which the director's scoped-definitions constraint
+forbids. The Planner was right to refuse the hack.
+
+```python
+@dataclass(frozen=True)
+class ScopeKindRule:
+    jurisdiction_codes: tuple[str, ...]
+    detect: Callable[[str], str | None]
+    # body_text -> a scope-kind string ("chapter", "law-wide", or a kind a
+    # panel registers), or None meaning "this rule has no opinion".
+```
+
+`register_scope_kind_rule(rule: ScopeKindRule) -> None` in `rules/registry.py`,
+same import-time mechanism as the other kinds. **Dispatch: baseline-first,
+then first-non-None-wins in filename-sort order** — the same shape as
+`BodyPreambleRule`, and deliberately NOT a union: a body has exactly one scope
+kind, so unioning would be meaningless. Baseline (`_US_CHAPTER_SCOPE_TRIGGERS`
+for US, the Hebrew trigger set for IL) runs FIRST and still wins when it
+matches, so the 7 already-working US states are untouched.
+
+Motivating case: Puerto Rico's Spanish chapter-scope phrases had nowhere to
+register. Panels: register a `ScopeKindRule`; do not edit `us_profile.py`.
