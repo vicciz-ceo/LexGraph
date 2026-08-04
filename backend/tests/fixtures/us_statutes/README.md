@@ -183,3 +183,41 @@ candidate, rather than sampling a handful of rows up front:
    recognize the entry boundary after "Dispose"'s own lettered sub-clauses
    and swallows all 3 remaining terms into one 26,715-character
    `definition_text`. Genuine, live-path-confirmed defect (item 3 bounce).
+
+## `ny_m14_newline_defect_row.json` — M14 newline-defect RED test fixture (2026-08-04)
+
+1 REAL row, `STATE_NY_ABNK_A15_T6_S6021` ("Preemptive rights", N.Y. Banking
+Law § 6021, 7,019-char body, 6 real defined terms across 14
+lettered/numbered entries), copied byte-for-byte from the real
+`us_ny_statutes.parquet` snapshot — extracted by this sprint's Scout S2
+pass (`scout_S2_findings.md`/`scout_S2_full_rows.json`, never downloaded or
+read directly by this Planner or by any test, ruling R6).
+
+**What it proves**: `us_ny_statutes.parquet`'s `text` column stores every
+line break as the LITERAL two-character sequence `\n` (backslash + letter
+"n"), never a real newline byte — verified corpus-wide by the Scout,
+40,102/40,102 real NY rows. `USProfile.extract_definitions_from_section`'s
+`_split_into_numbered_blocks` does `text.split("\n")` (a REAL newline) to
+find each entry's own line; against NY's literal-`\n` bodies this always
+returns the WHOLE body as one unsplittable line, so zero entries are ever
+recognized — corpus-wide, every one of NY's 1,479 already-heading-
+recognized "Definitions" sections yields zero candidates from this
+extractor. This is the single largest known contributor to the sprint's
+34,017 zero-yield count.
+
+Fields present are exactly what the Scout's extraction preserved (`act_id,
+citation, citation_short, section_title, breadcrumb, display_path, chapter,
+chapter_name, title_number, title_name, text, word_count`) — a subset of
+the full 24-column schema (unlike `de_sample_rows.json`'s complete-column
+convention), since the Scout's saved artifact does not carry every original
+column. `chapter`, `section_title`, and `text` (the columns
+`ingest_us_statute_rows`/extraction actually read) are all real,
+unmodified values.
+
+This row's own `section_title` ("Preemptive rights") is NOT itself
+heading-recognized as "Definitions" — that is a separate, already-known NY
+defect (heading detection), out of scope for M14. The RED test using this
+fixture (`test_ingest_us_statutes_ny_newline_defect.py`) deliberately calls
+`get_profile("US-NY").extract_definitions_from_section` directly rather
+than relying on `pipeline.py`'s heading-dispatch gate, so its assertion is
+discriminated purely by the newline defect.

@@ -1362,3 +1362,43 @@ ingest proves untestable on the live path.
 v2.2 WITHDREW `register_scope_unit_kind`/`rank_for` and that a pinned test
 asserts their absence — the exact stale-text error I made in Developer #1's
 brief (Round 11), now swept forward rather than repeated.
+
+## M14 Planner report (RED test authored)
+
+**Layer finding confirms the manager's lean, plus one extra fact.**
+`pipeline.py`:377 calls the BARE `normalize.normalize_for_parsing` (Stage 0)
+UNCONDITIONALLY for every article, before profile dispatch even runs —
+`USProfile.normalize_for_parsing` (the per-profile passthrough at
+`us_profile.py`:407-410) is never called from the real pipeline at all; it
+is dead code for this defect. This sharpens the ingest-vs-normalize
+tradeoff: fixing in the shared `normalize.normalize_for_parsing` would sit
+on Hebrew's own unconditional call path (line 377 runs for `IL` documents
+too), so "Hebrew untouched" would be true only by test, not construction —
+confirms ingest is the safer layer, exactly as leaned.
+
+**Fixture provenance caveat, disclosed rather than silently decided.** No
+real sample rows from the "1,479 already-heading-recognized" NY population
+were available to me — the scout verified that count directly against the
+live corpus but did not persist sample rows from it, and I am barred from
+reading the live parquet myself. The only real NY row data available
+(`scout_S2_full_rows.json`, 136 rows) is the SEPARATE body-preamble-family
+candidate population (0/136 heading-recognized). I picked a real row from
+that set (`STATE_NY_ABNK_A15_T6_S6021`, "Preemptive rights") that
+demonstrates the IDENTICAL mechanism (`text.split("\n")` on literal-`\n`
+text inside `_split_into_numbered_blocks`) going 0 -> 6 real named terms —
+the brief's own framing that this defect is "independent of any convention
+family" covers this. To avoid confounding the assertion with NY's SEPARATE,
+already-known heading-recognition gap (this row's own `section_title`
+isn't itself "Definitions"-shaped), the test calls `get_profile("US-NY")
+.extract_definitions_from_section` directly rather than routing through
+`pipeline.py`'s `is_definitions_heading` dispatch gate — this is the exact
+same function `pipeline.py` calls once that gate passes, so nothing here is
+a private helper or a reimplementation. Not escalated as a STOP: the fix is
+testable without new production code, the layer question is settled by a
+behavior-level test, and Hebrew is unaffected (zero production-code edits).
+
+RED test: `backend/tests/integration/test_ingest_us_statutes_ny_newline_defect.py::test_real_ny_row_with_literal_backslash_n_yields_its_definitions_via_the_live_pipeline`.
+Fixture: `backend/tests/fixtures/us_statutes/ny_m14_newline_defect_row.json`.
+Baseline confirmed unchanged before adding: 26 failed / 656 passed / 0
+errors. After adding: 27 failed / 656 passed / 0 errors (exactly +1, no
+drop).

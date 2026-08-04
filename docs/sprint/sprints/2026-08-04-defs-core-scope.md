@@ -144,6 +144,17 @@ silently resolved.
   `::test_us_profile_detect_cross_law_derivations_recognizes_the_have_the_meanings_assigned_by_idiom`;
   the internal-same-law pointer emission path (v2.1 §4) end-to-end at
   `test_definition_links_pipeline_scope_seam.py::test_a_whole_definition_pointer_to_an_internal_same_law_article_emits_a_derives_from_law_edge_to_that_article`.
+- [ ] **I8 — M14: NY `text` stores literal `\n` (never a real newline,
+  40,102/40,102 rows) -- `_split_into_numbered_blocks`'s `text.split("\n")`
+  never fires, so 1,479/1,479 heading-recognized NY Definitions sections
+  yield zero candidates.** Acceptance: a real NY numbered-entry body's
+  literal-`\n` text yields its real defined terms by Stage 2. Layer:
+  Planner leans **ingest** (Hebrew untouched by construction; see -log.md).
+  RED + live call-site (one layer-agnostic test, chains real
+  `ingest_us_statute_rows` -> `normalize_for_parsing` -> `get_profile
+  ("US-NY").extract_definitions_from_section`):
+  `backend/tests/integration/test_ingest_us_statutes_ny_newline_defect.py::test_real_ny_row_with_literal_backslash_n_yields_its_definitions_via_the_live_pipeline`.
+  Fixture: `backend/tests/fixtures/us_statutes/ny_m14_newline_defect_row.json`.
 
 **Closed by Stage C, previously "Explicitly OPEN":** M9 enumerated-scope
 live-path proof — RED at
