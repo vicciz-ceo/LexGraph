@@ -2140,3 +2140,78 @@ panel, for two reasons:
 
 Routed to the program manager with the act_id, the shape, and the measured
 scale. Not in this sprint's 8 root causes; not silently absorbed.
+
+---
+
+## 2026-08-04 — Manager: program rulings actioned (force-push, S-R14 endorsed,
+AL class sent to measurement)
+
+### 1. Branch rewrite published, backup made durable FIRST
+
+Program manager authorized the force-push with conditions; executed in the
+required order and verified rather than assumed:
+
+1. Confirmed the backup tag actually covers the old remote line —
+   `git merge-base --is-ancestor b8cf5e8 si-prerebase-backup` → true.
+2. Pushed `si-prerebase-backup` to origin **before** any rewrite.
+3. Force-pushed with **`--force-with-lease=…:b8cf5e8`** rather than a bare
+   `--force`, so the push would have been REJECTED had origin moved off the
+   value I reasoned about. Result: `+ b8cf5e8...0ad2243 (forced update)`.
+4. Verified with `ls-remote`: remote head `0ad22434998a…` == local HEAD;
+   remote tag at `493732e…`.
+
+### 2. S-R14 ENDORSED at program level — recorded as a PRINCIPLE
+
+The program manager endorsed single-source derivation and named it the same
+reuse-don't-parallel principle behind core's own C1 fix, noting that our
+Oregon depth-vs-glyph proof shows the M-D3 erratum's per-STATE framing was
+itself insufficient: kind is per-DEPTH, so no per-state table could have been
+right. S-R15's treatment of level selection as a named open question with one
+swappable decision point was endorsed as-is. No change to the briefs already
+running.
+
+The core-seam observation (`RuleContext.unit_path` hardcoded `()` on main, so
+rules must import `resolve_unit_path` directly) is recorded in the S-R14
+section above and has been added to the program-close list as a seam-threading
+cleanup candidate.
+
+### 3. The AL `(N) LABEL. "X"` class: MEASURE FIRST — routed to a scout, not
+to the director
+
+Program ruling: "tens of thousands" is an ESTIMATE, and the director gets real
+numbers. Correct, and my own routing entry above should have said measured
+rather than repeating the scan's estimate — recorded as a correction to myself.
+
+Spawned a measurement analyst (Sonnet/high, own worktree + venv,
+`claude/defs-us-scoped-inline-scout1`) with a read-only fence — no production
+code, no tests — required to deliver:
+
+- **(a) a P-R7-compliant count** that does NOT build its population from our
+  own marker/trigger vocabulary, reporting raw hits vs. DISTINCT rows
+  separately (a single row can hold dozens of entries; conflating the two is
+  how a scary headline gets manufactured), and — the number that actually
+  matters — the **genuine un-rescued residue** after running the real
+  `is_definitions_heading`/`derive_heading_from_body` logic, since a
+  heading-recognized row is boundary S-R3's, not our miss.
+- **(b) a hand-judged ≥40-row sample** answering whether the LABEL or the
+  quoted term is the real definiendum (they coincide in the Alabama row —
+  do they always?), what a wrong capture would COST (a bogus term that then
+  matches across its whole scope is far worse than one that matches nothing),
+  and how many hits are genuine definitions at all rather than penalty
+  schedules or cross-reference lists wearing the same shape.
+- **(c) the inherited trade stated plainly**, quantified both directions.
+- **(d) a JOINT OWNERSHIP proposal** written for a manager with none of our
+  context, with reproducible act_ids — routed to the markers panel THROUGH the
+  program manager, who brokers. The scout was explicitly told not to contact
+  that panel and not to decide ownership itself.
+
+It was also told that a deflating result is a GOOD outcome: if the residue is
+small, or these rows are already captured elsewhere, that finding is worth more
+than a dramatic number.
+
+**Standing tension both panels would inherit, restated so it cannot be lost:**
+the fix for this class is to let a label sit between the marker and the quote —
+which is *precisely* the mutation `test_marker_quote_adjacency_gate_is_load_
+bearing_alabama` now fails on by design, and precisely the gate QA cycle-1
+mutation testing proved was doing real work. Nobody should widen that regex
+without the measurement in hand.
