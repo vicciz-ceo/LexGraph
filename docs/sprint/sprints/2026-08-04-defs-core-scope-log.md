@@ -987,3 +987,70 @@ under this sprint's additive fixes, confirmed empirically via the full
 suite run, not merely reasoned).
 
 Planner `a6f809d491c471d13` returning its Stage B report now.
+
+---
+
+## 2026-08-04 — Round 8: SPEC FINAL. Two director rulings + dossier. Stage B released.
+
+**D-ANCHOR — "path now, graph nodes later" is FINAL** (director, main @
+`321ddab`). Option C is the ruling, no longer a provisional posture.
+Assertions anchor at the row-level unit + a structured subsection path of
+ARBITRARY depth; promoting referenced subsections to first-class entities is
+a possible LATER phase, explicitly not this program. The manager's
+retrieval-seam test-shape rule is CONFIRMED at director level and stays
+binding — precisely because tests written that way survive a future
+promotion. Sub-article anchoring may now be pinned FULLY; the deliberate
+storage-shape gap stays recorded in the contract for QA.
+
+**D-PREAMBLE-ALL — manager ruling M6 CONFIRMED at director level**, with a
+scope mandate attached: the director explicitly requires ALL states
+researched AND coded. That mandate belongs to the PREAMBLE PANEL, not to
+core. The preamble panel's QA-measured 5,915-row ungated exposure is resolved
+by full per-state inventory + rules, NOT by gating. No core spec change
+required — but the Planner was instructed to tighten M6's precision-guard
+wording if it is even slightly re-readable as authorizing a gate later. A
+future reader must not be able to mistake the precision guard for a gating
+condition.
+
+**Research dossier landed** — `docs/sprint/programs/2026-08-04-law-system-units.md`
+(48 lines, `origin/main` @ `e3e7633`). Manager verified it is reachable from
+this worktree via `git cat-file -e origin/main:<path>` before pointing the
+Planner at it. **Read-only access instructed (`git show origin/main:<path>`);
+explicitly NO merge of main into this branch — the program manager owns
+merges and the manager has deliberately not performed one.**
+
+Measured main units, now the declared per-system profile parameter (fed by
+research, NOT invented — the Round 4 caution honored end-to-end): **IL סעיף /
+US states Section / US federal Section-but-subsection-de-facto (35.4%
+sub-section citations, an 8-LEVEL ladder) / PR Artículo.** Convergent finding
+across all four systems: **no system ever cites a bare sub-unit without its
+parent** — which validates the row-anchor + path model empirically. Planner
+instructed to state that in the spec as the design's evidential basis rather
+than leaving the model looking like a preference.
+
+**Three dossier consequences flagged to the Planner as test-relevant:**
+(1) the federal 8-level ladder is a REAL depth requirement — nothing may
+hard-code depth 2 or 3, and at least one test must exercise genuinely deep
+nesting, since a path model that quietly assumes two levels passes every
+shallow test and fails on federal; (2) "never a bare sub-unit without its
+parent" is an INVARIANT worth pinning, not merely an observation — a path is
+always rooted at its article row; (3) the per-system main unit is populated
+from measured values only, and a value the dossier does not give comes back
+to the manager rather than being guessed.
+
+**Stage B RELEASED — nothing held.** The program manager confirms the spec is
+stable and no further revisions are queued from above. All items live: C1-C5,
+M8(a), M8(b), rule registry, both `find_citations` defects, pointer emission,
+sub-article anchoring. Standing gates restated to the Planner unchanged:
+structural wiring gate (no Developer spawn without a named live call-site
+test as `file::test`), M8(b)'s Hebrew proof = full IL suite passing UNCHANGED
+(the caseless-Hebrew argument is reasoning, not evidence), genuine RED, offline
+fixtures, stale-pin sweep, batched pushes, frontmatter to `planned`/`developer`.
+
+**Manager note for the record.** Eight rounds, four published seam revisions,
+one withdrawn mechanism (M4(b)'s rank registry), one self-reversal (M12
+reversing M7) — and zero lines of production code or throwaway tests written.
+The two-stage Planner structure plus stop-before-tests is what made the churn
+cheap; had tests been authored in Round 2 against article-granular anchoring
+and a 4-tier scope enum, essentially all of them would have been discarded.
+Recorded as a process datum for future programs on a moving spec.
