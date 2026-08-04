@@ -2150,3 +2150,49 @@ merge). E1 pointer file re-confirmed: `pytest tests/unit/test_
 definition_links_e1_pointer_reference_capture.py -q` -> `7 passed`.
 
 **No expected value changed. Nothing further to escalate.**
+
+---
+
+## 2026-08-04 — M-R11 VERIFIED; Developer authorized (items 1-2)
+
+Manager-run verification of `c570290`:
+- Diff = 2 test modules + this log. **Zero production code.**
+- Both helpers now call `profile.extract_definitions_from_section(...)`
+  (`inline_parenthetical.py:103`, `multiterm_shared_clause.py:97`); the stale
+  "same function the method delegates to" docstring claim is corrected.
+- Suite: **15 failed / 779 passed**. The Planner re-baselined honestly and
+  **corrected me**: my "709" was stale — I measured it before the dispatch
+  merge reached this branch. Its number, not mine, was right. Recorded because
+  a manager's stale figure becomes everyone's baseline if unchallenged.
+- E1 pointer pins: **7 passed**. RED names byte-identical to before.
+
+### The 15 REDs, split for the Developer
+
+**11 buildable now (items 1-2):** MI/MT/TX F5 (`test_mi_top_level…`,
+`test_mt_nested…` x2, `test_tx_parent_clause_redirect_list_2002_001`/
+`_2009_003`, `test_tx_s2009_003…`, `test_mt_s16_11_402…`), NH/ND/OR F6
+(`test_nh_plain_apposition…`, `test_nd_plain_apposition…`,
+`test_or_cross_reference_style…`, `test_nh_s1_act_apposition…`).
+
+**4 stay RED by boundary** — VT `S3700` and SD `3-14-5`, each at BOTH unit and
+integration level (`test_vt_s3700…`, `test_sd_s3_14_5…`,
+`test_vt_marker_less…`, `test_sd_marker_less…`). Note the program manager's
+wake said "the two that stay red"; it is **four test functions over two rows**
+— stated precisely so nobody reads a passing count as regression. My own probe
+proved why: marker-less bodies yield zero blocks from
+`_split_into_numbered_blocks`, and `TermClauseRule` is only consulted per
+block, so no term-clause rule can reach them. They need markers'
+`EntrySplitterRule`.
+
+### M-R12 — duplicate-emission hazard (pre-briefed to the Developer)
+
+`TermClauseRule` is a **union** kind: `registry.py:139-141` — "every matching
+rule's candidates are kept." The dispatch loop runs the baseline
+`_leading_quote_candidate(block)` over every block AND then every registered
+rule over the SAME blocks (`us_profile.py:1344-1351`). A rule that naively
+parses every block will therefore DOUBLE-EMIT for the ordinary
+`(N) "Term" means …` blocks the baseline already handles — silently inflating
+the baseline states (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK) and breaking U5.
+**The rule must return `[]` for any block the baseline already parses
+correctly, and claim only the shapes the baseline provably misses.** This is
+the single most likely way to pass the 11 REDs while regressing the 779.
