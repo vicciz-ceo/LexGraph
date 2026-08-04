@@ -3362,3 +3362,84 @@ precise failure this panel's own P-R7 ruling was written to stop.
 article-scope half are genuinely reachable today. If the program manager wants
 motion while core decides, that is the honest subset — but it is roughly a
 third of the sprint, and it cannot close P1, P2 or P4.
+
+---
+
+## 2026-08-04 — Manager: escalation RULED (P-R8, Option A); cycle 5 opens on the reachable subset
+
+### The ruling (program manager, relayed verbatim in substance)
+
+**Option A, confirmed as program ruling P-R8** (main @ `0f4e8fc`). Core reopens
+for a focused dispatch-completion sprint `2026-08-04-defs-core-dispatch`
+covering all five dead kinds, the ungated `derive_heading_from_body` per
+D-PREAMBLE-ALL, a `determine_scope` rule seam (our `Capítulo` need named in
+its scope), and per-kind live-path dispatch tests. Option C rejected on our
+own reasoning. Our evidence tables were the primary exhibit; the headings
+panel independently converged on the same finding within the hour.
+
+**Our orders:** proceed NOW with the reachable subset — item 18c (with the
+D-PR-18c re-mention guard), the Spanish citation grammar, and P3's
+article-scope half. The Planner realigns ONLY the tests for those items;
+dead-kind realignments HOLD until core's dispatch merges. P1/P2-canonical/P4
+items and item 24 (footer corruption) stay held. Program manager wakes us
+when core's dispatch lands.
+
+### RED inventory, split reachable vs held (measured, not estimated)
+
+41 REDs total, from the verified baseline run:
+
+| Test file | REDs | Item | Status |
+|---|---|---|---|
+| `test_pr_profile_local_scope_definitions_cycle4.py` | 6 | 18 (a+c) | **REACHABLE** |
+| `test_pr_profile_qa_cycle4_findings.py` | 5 | 18a widening | **REACHABLE** |
+| `test_pr_profile_ordinary_misses_cycle4.py` | 14 | 21 | HELD (`TermClauseRule`) |
+| `test_pr_profile_scope_cycle4.py` | 6 | 25 | HELD — all 6 are `determine_scope`/chapter-scope, no rule seam exists |
+| `test_pr_profile_bare_term_heading_cycle4.py` | 6 | 20 | HELD (`HeadingRule`) |
+| `test_pr_profile_derived_heading_definitions_cycle4.py` | 2 | 19 | HELD (`BodyPreambleRule`) |
+| `test_pr_profile_footer_artifact_cycle4.py` | 1 | 24 | HELD |
+| `test_pr_profile_cycle4_marker_gate_and_residue.py` | 1 | 22/23 | HELD |
+
+**11 reachable, 30 held.** Note the trap this table defuses: every one of the
+6 `test_pr_profile_scope_cycle4.py` REDs targets `determine_scope`, so
+**P3's article-scope half has NO existing test** — it needs new live-path
+tests, not a realignment of those six.
+
+### Ruling M-R12 — item 18c must ship the population it was measured on
+
+A hazard the seam's shape creates, found by reading the live call site rather
+than assuming: `RuleContext` carries `article_number`, `chapter`, `unit_path`
+— **no heading**. And `pipeline.py:229` calls `extract_local_scope_definitions`
+in the **`else`** branch, i.e. on articles NOT recognized as Definitions
+sections. Since `USProfile.is_definitions_heading` returns False for every
+Spanish heading today, **all 23,636 PR rows currently reach that branch,
+including the ~529 canonical `Definiciones` sections.**
+
+So a naive 18c whole-body sweep would fire on canonical Definiciones sections
+and stamp `scope="local"` on definitions that are genuinely law-wide or
+chapter-wide — the precise Option C defect the program manager just rejected
+on our reasoning. It would also silently change behavior the moment core's
+dispatch lands and those sections move to the `if` branch.
+
+**Ruling: the shipped rule's firing population must equal the population
+whose precision was measured.** D-PR-18c's green light rests on 889 rows at
+96-100% sampled precision, measured over NON-canonical articles. A precision
+claim only transfers if the shipped rule fires on the same set. Therefore:
+
+1. The Planner MEASURES how many of the 889 sit in rows whose heading is a
+   canonical Spanish Definiciones heading, and whether the cycle-4 census
+   filtered them out. Reconcile the shipped population against the sampled
+   one and state the number.
+2. If canonical rows are in scope of the live rule but were outside the
+   measured set, the rule needs a **body-based** guard (the heading is not
+   available to it) — e.g. bailing on a Definiciones-block preamble — designed
+   against real corpus rows, not invented.
+3. The rule's behavior must be **invariant across core's dispatch landing**:
+   the same rows in, the same candidates out, before and after canonical
+   sections start routing to the `if` branch. This is a required test.
+4. Scope correctness is not negotiable for recall. If a row can only be
+   captured by mis-scoping it, it is not captured this cycle — it is held.
+
+### Cycle-5 sequence
+
+Planner (Sonnet high) → Developer (Sonnet medium) → QA (Sonnet high), spawned
+one at a time with each handoff diff verified by me, materialized.
