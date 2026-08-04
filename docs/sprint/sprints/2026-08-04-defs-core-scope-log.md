@@ -1219,3 +1219,146 @@ re-investigates a closed question.
 
 **Original Stage B Planner: DONE, not to be re-engaged** (program manager's
 instruction; everything it knows is on disk).
+## 2026-08-04 — Round 11: manager verification of Developer batch 1 (dev1 @ 9e5dc36)
+
+STAGED, not yet committed — the Stage C Planner is actively writing in the
+`defs-core-scope` worktree and owns the contract + log files there. Committing
+this while it runs risks clobbering its uncommitted work at the FILE level
+(git would not save us). Commit this, merge dev1, and update the contract in
+ONE pass the moment the Planner reports.
+
+**Non-delegable checks I ran MYSELF on the branch, not from the relay:**
+
+1. **Three-dot diff materialized** (`origin/claude/defs-core-scope...origin/claude/defs-core-scope-dev1`)
+   → 4 files, ALL under `backend/app/definition_links/`:
+   `rules/__init__.py` (+23), `rules/registry.py` (+227), `sections.py` (+27),
+   `us_profile.py` (+9/-1).
+2. **Zero test edits — the check that matters for a Developer.** Filter for
+   `tests?/|\.snap|fixture` → **NONE**. The Developer touched no test, no
+   fixture, no snapshot. Rule held.
+3. **Risk grep** (`fetch|axios|/api/|Authorization|Bearer|localStorage|
+   process.env|NODE_ENV|import.meta.env|navigator.webdriver|CI`) on the
+   materialized diff → **0 hits**. No hunk needed a full read on risk grounds.
+4. **Out-of-scope files confirmed untouched**: `pipeline.py`, `matcher.py`,
+   `profiles.py`, `extract.py` do not appear in the diff at all, and
+   `us_profile.py`'s only functional change is I6's (below). The scope fence
+   held without my having to enforce it.
+5. **Suite reproduced independently** in the dev1 worktree with the CONTRACT'S
+   OWN evaluator command (no `--continue-on-collection-errors` this time):
+   **`17 failed, 656 passed, 18 warnings in 13.61s`**, exit 0. Matches the
+   Developer's claim exactly. 644 → 656 = **12 net new passes**; the
+   collection error is GONE, so the plain evaluator command works again —
+   the defect I found in Round 9 is closed by I4 landing, as predicted.
+   Remaining 17 failures are all I1/I2/I7 territory, i.e. genuine RED for
+   unbuilt items.
+6. **I6's single modified line, read in full** (the one deletion in an
+   existing file):
+   `-    pattern = re.compile(r"\b" + re.escape(term) + r"\b")`
+   `+    pattern = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)`
+   `re.escape` preserved, both `\b` anchors preserved, ONLY the IGNORECASE
+   flag added. This is a case-insensitive EXACT match — **no substring or
+   fuzzy widening**, exactly as claimed. The narrowest possible fix for
+   M8(b). Accepted.
+
+**I4 discrepancy — Developer was RIGHT, my brief was STALE. My error, recorded.**
+My Developer brief's I4 line named `register_scope_unit_kind`/`rank_for` as
+part of the registry. The pinned RED test
+`test_definition_links_rules_registry.py::test_rank_for_and_register_scope_unit_kind_no_longer_exist`
+asserts `not hasattr(registry, "rank_for")` and
+`not hasattr(registry, "register_scope_unit_kind")`. Verified: `registry.py`
+mentions them only in a comment explaining their deliberate absence. The
+Developer built to the pinned test and the current spec, and flagged the
+conflict honestly instead of silently diverging — **the correct resolution,
+and exactly the escalate-don't-edit behavior the brief demanded.** The stale
+text is MY fault: I carried M4(b)'s rank registry forward from an earlier
+brief after v2.2 withdrew it — a withdrawal I recorded myself in Round 8 and
+then failed to propagate into the Developer brief. Cost: zero (the Developer
+caught it). Lesson recorded: when a ruling is withdrawn, sweep the un-sent
+brief text too, not just the log.
+
+**Merge posture.** `git merge-tree --write-tree` → **CLEAN, no conflicts**, and
+`git merge-base --is-ancestor` confirms dev1 is a **pure fast-forward** of the
+sprint branch (sprint `d8d998e`, dev1 `9e5dc36`). No merge commit needed.
+
+**Why the push is HELD, not delayed by accident.** Fast-forwarding
+`claude/defs-core-scope` to `9e5dc36` right now would leave the active Stage C
+Planner's local branch divergent, so its next push would be rejected
+non-fast-forward mid-task. Nothing is gained by pushing now: the next
+Developer batch (I1/I2/I7) is gated on Stage C's RED set, not on this merge,
+and the work is already safe and pushed on its own branch. Held deliberately;
+executed the moment the Planner reports. Git also physically prevents the
+alternative — `claude/defs-core-scope` is checked out in the Planner's
+worktree, so it cannot be checked out anywhere else for an integration merge.
+
+**Verdict: I4, I5, I6 → Dev Complete, pending QA.** All three verified by me,
+not accepted as prose.
+
+---
+
+## 2026-08-04 — Round 12: Stage C verified, dev1 merged, M14 ACCEPTED
+
+**Stage C handoff verified myself** (`d8d998e..157098c`): 5 files — 4 test files
++ contract. Filter for non-test/non-doc → **NONE, zero production code.**
+Suite reproduced with the contract's OWN evaluator, no flags:
+**`38 failed, 644 passed, 18 warnings in 13.45s`, 0 errors** — matches the
+relayed claim exactly, and the collection error is genuinely gone.
+
+Two spot-checks beyond the numbers:
+- **The 2 deleted test lines** are the module-level `from app.definition_links.
+  rules import registry` being moved into test bodies — the exact
+  collection-error pattern fix I ordered in Round 9. Correct.
+- **M10's tie test now guards the vacuity flaw its predecessor had**:
+  `assert len(tied_definitions) == 2` before the behavioral assertion, then
+  `matching_object_ids == tied_definition_ids` (set equality, not
+  "at least one"). This is a genuine tie, not a green-for-wrong-reasons.
+  The predecessor's honest removal → successor's correct construction is the
+  panel working as intended.
+
+**dev1 merged.** Sprint had advanced past dev1's base, so no longer a
+fast-forward — `git merge-tree` pre-check CLEAN, then `--no-ff` merge as
+`c641df3`. **Full evaluator on the COMBINED tree**: backend
+**656 passed / 26 failed / 0 errors**, frontend **25 files / 165 passed**.
+Arithmetic checks out: 644 + 12 (I4/I5/I6) = 656 passing; 38 RED − 12 now
+green = 26. Pushed; remote verified `dc968f97`. I4/I5/I6 → Dev Complete.
+
+**M14 (NY literal-newline blackout) — ACCEPTED into this sprint as I8.**
+I verified the headline claim MYSELF against the real parquet rather than
+routing it on the scout's word:
+```
+NY rows: 40102
+rows containing a REAL newline byte: 0
+rows containing literal backslash-n: 40102
+```
+100% of 40,102 rows. Decision to take it rather than defer to a program
+follow-up: it is **core-owned by construction** — no registry rule can reach
+an ingest/normalization defect, so no family panel CAN fix it; it is the same
+shape as M8(a) (measured zero-miss breach, shared module, small surgical
+change); it is the largest single known contributor to the 34,017 zero-yield
+count; and a Planner-role pass was already spawnable, so marginal cost was
+low. Under D-PREAMBLE-ALL + absolute zero-miss it cannot stay dark.
+
+**Layer decision — my lean recorded, deliberately not forced.** Ingest
+(`ingest_us_statutes.py`) over `normalize_for_parsing`, because Hebrew never
+traverses the US ingester, making "Hebrew untouched" true BY CONSTRUCTION
+rather than only by test; it is conceptually a source-data defect; and all US
+states share that ingester so a sibling parquet with the same problem is
+covered too. But the M14 Planner is instructed to pin **behavior, not layer**,
+so the Developer can implement wherever actually works, and to escalate if
+ingest proves untestable on the live path.
+
+**Spawned concurrently, disjoint write sets:**
+- **Developer #2** (Sonnet/medium) — I1/I2/I3/I7, own worktree
+  `defs-core-dev2` / branch `claude/defs-core-scope-dev2`, own venv verified
+  importing its own code. Briefed with the two most-missable spec points: that
+  narrowest-governs is longest-matching-prefix with equal-depth ties BOTH
+  emitting (M10, pinned — do not "fix"), and that the Stage-3 attribution
+  rewrite is REQUIRED, since without it I1's scope filtering is computed and
+  then discarded by the flat `term_to_definition` dict.
+- **M14 Planner** (Sonnet/high) — tests only, sprint worktree, explicitly
+  forbidden from creating any `backend/app/**` file so it cannot collide with
+  Developer #2.
+
+**Brief-staleness lesson applied.** Developer #2's brief explicitly says
+v2.2 WITHDREW `register_scope_unit_kind`/`rank_for` and that a pinned test
+asserts their absence — the exact stale-text error I made in Developer #1's
+brief (Round 11), now swept forward rather than repeated.
