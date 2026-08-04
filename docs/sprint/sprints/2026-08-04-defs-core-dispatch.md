@@ -1,18 +1,18 @@
 ---
 id: "2026-08-04-defs-core-dispatch"
 status: planned
-current_role: planner
+current_role: developer
 branch: claude/defs-core-dispatch
 worktree: /Users/nerya/LexGraph-wt/defs-core-dispatch
-locked_by: "claude-code:dispatch-manager"
-locked_at: "2026-08-04T12:26:23Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:dispatch-manager"
-last_updated: "2026-08-04T14:49:18Z"
+last_updated: "2026-08-04T15:19:19Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
-lint: "PASS 187 2026-08-04T14:49:18Z"
+lint: "PASS 184 2026-08-04T15:19:19Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -177,11 +177,8 @@ _None._
 
 ## Context Dump
 
-**Fresh sprint, planning.** Branch `claude/defs-core-dispatch` from main
-`0f4e8fc`. Implementation only — behavior is already specified in
-`2026-08-04-defs-core-scope-seam.md` (**v2.5 authoritative**).
-**Root cause to internalize:** a one-kind live proof was generalized to seven;
-the registry test stops at registration+lookup. I7 closes that permanently.
-**Traps:** CodeGraph indexes `main`, not branches — Read/Grep branch-divergent
-files. Never `git stash` (stack shared across worktrees). One writer per
-worktree; each needs its OWN backend venv. No test may read the corpus.
+**CHECKPOINT — manager handoff at a clean boundary.** ALL RED authoring is DONE and merged. Suite at HEAD: **21 failed / 735 passed**; the 21 are the intended I9+I10+I11 REDs, baseline 734 intact. Remaining: ONE Developer batch on the shared classifier surface, then full independent QA, then merge.
+**Seam v2.7 AND its M-D3 ERRATUM are authoritative** — read the erratum, not just M-D3: the word-to-kind table is ILLUSTRATIVE-FEDERAL-ONLY, the MECHANISM binds, panels declare `scope_unit_kind` from their own observed convention. Three-way outermost-kind divergence is real (lower_alpha federal / digit most states / upper_alpha OH).
+**I9+I10+I11 share ONE root cause** (unclassifiable tokens pushed as kind='sub'; ladder hard-coded federal-style) and MUST land together.
+**QA lesson, binding:** per-kind dispatch has a per-SHAPE corollary — prove containment against REAL emitted shapes, not one synthetic shape. Two prior sign-offs (C4, C1) failed by generalizing a single-instance proof.
+**Traps:** CodeGraph indexes `main` — Read branch-divergent files directly. Never `git stash` (shared stack). One writer per worktree, each its OWN venv. Commit incrementally — 3 agents died mid-run. No test reads the corpus.
