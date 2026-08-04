@@ -2028,3 +2028,88 @@ Recorded so QA cycle 3 does not mistake them for semantics the shipped code
 actually depends on. Also confirmed: **a baseline positive is never
 overridden**, so no registered rule can flip a currently-True heading False —
 ruling H-R3's zero-false-positive baseline is structurally protected.
+
+---
+
+## 2026-08-04 — Dev cycle 4 (D-DF) implemented, bounced once, verified
+
+Developer (Sonnet medium) shipped the two-rule decomposition; manager bounced
+it on a measured under-capture; both verified independently.
+
+### Manager verification of the implementation
+
+| Check | Result |
+|---|---|
+| `git diff -- backend/tests/` | **empty** both rounds — role separation held |
+| Suite | **811 passed / 0 failed** |
+| Registration shape (live) | `US-CT` → 2 rules, `[0] matches_heading_variant_unconditional / body_confirms=None`, `[1] matches_defined_for_heading / body_confirms=defines_in_body`; `IL` → 0 |
+| Decomposition equivalence | **0 violations across all 83,956 corpus headings** — the Planner pinned it on 25; it holds corpus-wide |
+| Isolation | exactly **109** headings move to body-gated, and **all 109** are matched by the narrow predicate — zero collateral |
+| Denominator reconfirmed | exact reproduction of the inherited **83,303 / 22,228 / 94.7%** on independently written code |
+
+**Denominator convention pinned for QA cycle 3 (P-R7 relevant):** in-scope =
+**52** `us_*_statutes.parquet` files, **Puerto Rico excluded** (own sprint,
+Spanish-language), `defin` matched **case-insensitively**. Excluding PR's 653
+titles is exactly what reconciles 83,956 → 83,303. QA must use this or its
+numbers will not be comparable across cycles.
+
+**Correction to a Planner claim:** the Planner reasoned that no `defined for`
+row also matches unconditionally, calling the edge case theoretical. The
+manager's full-population check found **1 real instance** —
+`STATE_MI_C450_AAct-284-of-1972_S450.1569`, `"Corporation" defined for
+purposes of MCL 450.1561 to 450.1567; "business organization" defined.` — which
+carries a SECOND, independent definitional clause and so fires
+`_rule_verb_bare`. It captures unconditionally, which is correct, and its body
+confirms anyway. Benign, but the claim was empirically wrong and is corrected
+here.
+
+### The bounce — measured under-capture (H-R7/H-R9 class)
+
+First implementation confirmed only **55/110 (50%)** while D-DF's stated intent
+was "**72+ genuine kept**" and the predecessor's own conservative scan (an
+explicit LOWER bound) found 72. Two mechanical gaps, both fixed:
+
+1. **`shall mean` missing** (4 rows) — inconsistent with this codebase's own
+   idiom set (`us_profile._MEANS_IDIOM_GAP_RE` = `means|shall mean|has the
+   meaning`). Added. `has the meaning` deliberately still EXCLUDED: that is the
+   cross-reference shape D-DF exists to suppress.
+2. **Intervening-qualifier gap** (2 rows) — real drafting puts short qualifiers
+   between term and verb (`"affiliated interest" with a public utility means`,
+   `the term "capital," when referring to an Oregon commercial bank, means`).
+   Whitelist replaced with a bounded, quote-forbidding non-greedy gap mirroring
+   `us_profile._MEANS_IDIOM_GAP_RE`.
+
+**Then a false positive removed.** The Developer honestly FLAGGED, rather than
+counted, `STATE_WA_T41_C04_S005`: at a 200-char bound the regex bridged
+`"period of war"` across 103 chars to a `means` defining a *different*,
+unquoted sub-term. Manager measured bound sensitivity over the full 110 rows:
+
+| bound | confirmed | OR_757 | OR_708A | WA_T41 (FP) |
+|---|---|---|---|---|
+| 60 / 80 | 60 | True | True | **False** |
+| 100 / 200 | 61 | True | True | True |
+
+Bound set to **80** — deliberately diverging from `us_profile`'s 200, which
+operates on already-segmented entries rather than whole section bodies. Keeps
+both genuine qualifier gaps (28 and 51 chars), drops the bridge. **60/110
+clean beats 61-with-a-known-FP** (ruling H-R3).
+
+**Final measured position:** recall on the 22,228 miss pool **94.5%**
+(20,945 unconditional + 59 body-confirmed), versus 94.7% pre-D-DF and a 94.2%
+unconditional-only floor. D-DF cost 0.2pp of heading recall to remove ~50
+unconfirmed captures.
+
+### OPEN — escalated to the program manager, not decided here
+
+D-DF's stated intent was ~72+ kept; **we keep 60**. The residual is dominated
+by **15 rows whose bodies define via `includes`** rather than `means`
+(`A "period of war" includes: (a) World War I; ...`). Whether `includes` is a
+defining verb is a genuine **D-Q1** precision/recall question with real
+examples, not a mechanical defect — the Planner explicitly left it unpinned in
+either direction. Also flagged by the Developer, and NOT counted:
+`STATE_WA_T50_C29_S030` (`"wages" shall mean "wages" as defined for purpose of
+payment of benefits in RCW 50.04.320`) — a cross-reference phrased with `shall
+mean`, arguably the shape D-DF suppresses; it is currently CONFIRMED, so it is
+a possible residual false positive worth QA's attention.
+
+Module is **479 lines** vs the soft 300 convention — recorded, not cut.
