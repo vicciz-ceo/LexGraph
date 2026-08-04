@@ -743,3 +743,152 @@ flagged.
 
 Both changes committed separately from D1/D2 per this sprint's
 incremental-commit requirement.
+
+---
+
+## 2026-08-04 — QA: D2, independent audit of the Planner's test suite
+
+Scope per the brief: do NOT redo the manager's M-R10 verification (diff
+shape, 647/12 split, fixture byte-exactness — already independently
+verified there). Audit what M-R10 did NOT check: are the 6 new GREEN tests
+legitimately constraining, do the 12 RED tests actually prove the gates
+they claim, and are the negative/FP guards strong enough given D1.
+
+### Are the 6 new GREEN tests vacuous?
+
+The 6: 1 unit-level gate pin
+(`test_body_definitions_preamble_regex_does_not_recognize_georgias_real_
+as_used_in_the_term_shape`) + 5 negative-FP guards
+(`test_us_body_preamble_negative_guard.py`'s GA/MD/NE/MS/SD tests).
+Confirmed by direct count: `backend/.venv/bin/pytest
+backend/tests/integration/test_us_body_preamble_negative_guard.py
+backend/tests/integration/test_definition_links_us_preamble_family.py -q`
+shows exactly 1 + 5 = 6 passed among these two files (the other 4 tests in
+`test_definition_links_us_preamble_family.py` are RED), matching the
+manager's count.
+
+**Unit-level pin**: asserts three things directly against
+`pipeline._is_placeholder_heading`/`_BODY_DEFINITIONS_PREAMBLE_RE`/
+`_derive_heading_from_body` — real, currently-existing functions. If that
+code were deleted the import would fail and the test would error, not
+silently pass — not vacuous. Its own docstring correctly says it is a
+diagnostic pin, not a spec for the fix.
+
+**The 5 negative-FP guards**: "would pass even if production code were
+deleted" is TRUE today for all 5 (nothing captures ANY US preamble today,
+so `created_definitions == []` is trivially true) — that is expected of
+every RED-first negative guard and is not itself vacuity. The real
+question is whether they would still discriminate once a REAL rule lands.
+Tested this directly (not just reasoned about it) by building an
+independent candidate `BodyPreambleRule.derive_heading` regex from the
+sprint log's own D1 inventory (GA/MS "As used in this <unit> ... the
+term", MD "In this <unit> ... the following words have the meanings
+indicated" — see D1 below for the full regex) and running the 5 negative
+fixture rows through it:
+
+- GA/MD/MS/SD negatives: none contain "the term" (GA/MS shape) or "the
+  following words have the meanings indicated" (MD shape) near their own
+  trigger phrase, so my candidate regex correctly excludes all 4. More
+  importantly, I confirmed these 4 tests would CATCH a plausible *looser*
+  bug — a candidate regex requiring only the bare trigger phrase ("as used
+  in this X" / "for purposes of this X") with no "the term" anchor DOES
+  match all 4 negative rows — so these 4 tests demonstrably discriminate
+  against a real, plausible over-broad implementation. Not vacuous.
+- NE negative (`STATE_NE_C60_S60-643`, "Operator's license shall have the
+  meaning found in section 60-474.") does not begin with an "As used in
+  this X"/"For purposes of this X" trigger phrase at all — it guards a
+  narrower, different hazard (a bare forwarding-reference sentence being
+  treated as definitional on its own) than the other 4, and would not be
+  reached by a trigger-phrase-anchored candidate rule's regex in the first
+  place. Not vacuous, but its protection is of a different, narrower kind
+  than advertised by grouping it with the other 4 — flagged below as a
+  coverage gap, not a defect in the existing test.
+
+**Verdict: none of the 6 green tests are vacuous.** All demonstrably
+constrain behavior; one (NE) protects a narrower hazard class than the
+other 4, which motivated the new test below.
+
+### Do the 12 RED tests prove the gates/items they claim? Gate/item map
+
+| Test | File | Item | Gate(s) |
+|---|---|---|---|
+| `test_ga_as_used_in_this_chapter_the_term_is_captured` | capture_red | 2 (GA) | U1, U6 |
+| `test_real_pipeline_captures_a_real_georgia_...` | family | 2 (GA) | U1, U6 |
+| `test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_...` | family | 2 (GA) | U1, U5 |
+| `test_md_in_this_section_the_following_words_have_the_meanings_indicated` | capture_red | 3 (MD) | U1, U6 |
+| `test_real_pipeline_captures_a_real_maryland_...` | family | 3 (MD) | U1, U6 |
+| `test_ne_in_the_named_code_quoted_term_means_is_captured` | capture_red | 4 (NE quoted) | U1, U6 |
+| `test_ne_unquoted_term_means_needs_markers_sprint_too` | capture_red | 5 (NE unquoted) | U1 (documents miss) |
+| `test_real_pipeline_captures_a_real_nebraska_...` | family | 5 (NE unquoted — NOT item 4; fixture `STATE_NE_C43_S43-3329` is the unquoted shape, docstring confirms) | U1 (documents miss) |
+| `test_ms_as_used_in_this_article_the_term_is_captured` | capture_red | 6 (MS block) | U1, U2, U6 |
+| `test_sd_the_term_quoted_means_is_captured` | capture_red | 8 (SD quoted) | U1, U2, U6 |
+| `test_sd_unquoted_comma_term_needs_markers_sprint_too` | capture_red | 5 (SD unquoted) | U1 (documents miss) |
+| `test_chapter_scoped_ga_definition_links_a_same_chapter_use_but_not_a_different_chapter_use` | scope_red | 9 (GA half only) | U2 |
+
+(11 rows above; the RED count is 12 because
+`test_real_pipeline_does_not_fabricate_...` is counted RED in the manager's
+tally even though its assertion is a negative-shape guard — it is RED
+today only because the exact-set assertion `created_terms == expected_terms`
+currently sees `created_terms == set()` for the genuine GA row too, per its
+own docstring. Recorded that way here to match the manager's 12, not as a
+disagreement.)
+
+**Every test does drive the gate/item it claims** — I did not find a test
+whose assertion is disconnected from its documented purpose. **One real
+gap found**: item 9 in the sprint contract names "GA/MS" for chapter-scope
+stamping, but `test_us_body_preamble_scope_red.py` contains only ONE test,
+GA-only. **MS's own chapter/article-scoped convention (item 6's "As used
+in this article, the term:" — the SAME trigger family as GA's, just a
+different jurisdiction) has ZERO scope-enforcement test** — U2's live-path
+"both directions" proof exists only for GA. This is a real, reportable gap
+(the brief: "flag any gate with NO test coverage" — U2 has coverage, but
+not for the second jurisdiction the contract itself names). I did not add
+a fix for this myself: building a same-chapter/different-chapter MS
+scope-scaffolding test would require either a second real MS row with
+usable chapter metadata or hand-constructed scaffolding rows (the pattern
+`test_us_body_preamble_scope_red.py` itself uses for GA) — a reasonable
+next-QA-cycle addition, not urgent enough to add today given item 9 is
+already blocked on the same core scope-trigger dependency for both states
+and the underlying mechanism is already proven once (GA). Flagging to the
+manager rather than guessing at scaffolding under time pressure.
+
+**U3, U4** are correctly NOT covered by any committed test — U3 (zero
+shared-module edits) is a structural fact best verified by `git diff`
+(which the manager already did), not something a pytest assertion usefully
+proves; U4 (full 53-jurisdiction sweep) requires reading the parquet
+snapshot, which no test may do. Both are satisfied by non-test artifacts
+(the manager's diff review; QA's D1 corpus scan below) — not a coverage
+gap, a correct absence.
+
+### New test added (QA-authored, new file only — Planner's tests untouched)
+
+D1 (below) found a REAL, corpus-confirmed row that reproduces the NE
+guard's exact hazard class (a forwarding-reference clause with no
+definition text of its own) but — unlike the NE fixture — under a body
+shape that DOES match a trigger-phrase-anchored candidate rule:
+`STATE_MS_T17_C2_S25-34`, "(2) For purposes of this section, the term
+\"political subdivision\" shall have the same meaning as provided under
+Section 11-46-1." Added:
+
+- `backend/tests/fixtures/us_statutes/qa_d2_forwarding_reference_rows.json`
+  — one REAL, VERBATIM, full parquet row (all original columns), fetched
+  live from the on-disk snapshot by a QA scratchpad script (never
+  downloaded by any test).
+- `backend/tests/integration/test_us_body_preamble_negative_guard_qa_
+  forwarding_reference.py` — one new test,
+  `test_ms_for_purposes_of_this_section_the_term_shall_have_the_same_
+  meaning_as_provided_under_is_a_forwarding_reference_not_captured`,
+  asserting `created_definitions == []` for this row.
+
+**Confirmed GREEN today** (`pytest ... -v`: 1 passed) — same "nothing
+captures anything yet" reason as every other negative guard. **Confirmed
+NOT vacuous** by direct demonstration: widening the current inline-quote
+extractor's idiom list by one plausible phrase
+(`shall have the same meaning as`, a natural next step if someone tried to
+also rescue NE's own "shall have the same meaning" rows) DOES cause a
+spurious pointer-only `"political subdivision" -> "shall have the same
+meaning as provided under Section 11-46-1"` candidate to be produced on
+this exact real row when run through the unmodified extraction chain in a
+scratch script — proving this new test would catch that specific,
+plausible future regression, which the existing NE guard would not (its
+own fixture row never reaches a trigger-anchored regex at all).
