@@ -1,12 +1,24 @@
 """Rule: ad-hoc parenthetical `(TRIGGER - term)` markers, widened beyond
 today's `להלן`-only `extract_adhoc_definitions` (sprint 2026-08-04-defs-il,
-program 2026-08-04-definition-completeness, item 4; gate I2(c)).
+program 2026-08-04-definition-completeness, item 4 + item 10 "round 2";
+gate I2(c)).
 
 Same unquoted-apposition grammar as `extract._ADHOC_RE`
 (`\\(\\s*TRIGGER\\s*[-:]\\s*term\\s*\\)`), NEW trigger words `בפרק זה`/
-`בסימן זה`/`בחלק זה` -- this is an ADDITIONAL rule, distinct from (and
-does not touch) the existing `להלן`-triggered `il_scope_triggers.py`
-registration.
+`בסימן זה`/`בחלק זה`/`בסעיף זה`/`בפסקה זו` -- this is an ADDITIONAL rule,
+distinct from (and does not touch) the existing `להלן`-triggered
+`il_scope_triggers.py` registration.
+
+Round 2 (item 10, manager-requested): `בסעיף זה` (2,335 real occurrences /
+572 files corpus-wide -- the single largest population found in this
+sprint's whole re-spec pass, live-measured through `sections.
+parse_articles`, not raw grep) and `בפסקה זו` (221/117) recur in this same
+unquoted-apposition grammar, uncaptured by either `_ADHOC_RE` or this
+rule's original 3-word trigger set. Only the 2,328/213 occurrences sitting
+inside ORDINARY (non-הגדרות-headed) articles are reachable by widening
+this rule -- occurrences embedded inside a definitions-heading section's
+own entry body are a separate, E6-blocked gap (item 11) this rule cannot
+fix (`ScopeTriggerRule` is never invoked for that dispatch branch).
 
 Scope is dispatched BY TRIGGER WORD, not uniform:
 - `בפרק זה` -> `scope="chapter"`, `source_chapter=ctx.chapter` (same
@@ -16,12 +28,21 @@ Scope is dispatched BY TRIGGER WORD, not uniform:
   (same capture-only limitation as `il_siman_chelek_scope_triggers.py` --
   containment is a separate, unwired architecture gap, not something this
   rule can fix).
+- `בסעיף זה` -> `scope="local"` -- same granularity as the already-
+  trusted quote-first `בסעיף זה`/`לענין זה` triggers; `source_article_
+  number` is left unset here and auto-defaulted to the current article by
+  `HebrewProfile.extract_local_scope_definitions`, giving this sub-case
+  correct containment for free, same as item 3's rule.
+- `בפסקה זו` -> `scope="paragraph"` (the SAME generic kind
+  `il_paragraph_scope_triggers.py` already registers for the quote-first
+  grammar, item 7), `scope_value=None` -- same capture-only limitation.
 
 Reuses the existing <=4-token safety cap on the captured term (Planner's
 corpus scan: only 46/1041 sampled real parentheticals exceed it; 0/1041
-verb-shaped false positives) -- same discipline as `extract_adhoc_
-definitions`, applied here independently since that function is frozen
-and not called by this new rule.
+verb-shaped false positives; round 2's own 25-sample manual check found
+zero verb-shaped/citation-shaped false positives for `בסעיף זה`) -- same
+discipline as `extract_adhoc_definitions`, applied here independently
+since that function is frozen and not called by this new rule.
 """
 
 from __future__ import annotations
@@ -35,9 +56,17 @@ from app.definition_links.rules.registry import (
     register_scope_trigger_rule,
 )
 
-_TRIGGER_RE = re.compile(r"\(\s*(בפרק זה|בסימן זה|בחלק זה)\s*[-:]\s*([^)]+?)\s*\)")
+_TRIGGER_RE = re.compile(
+    r"\(\s*(בפרק זה|בסימן זה|בחלק זה|בסעיף זה|בפסקה זו)\s*[-:]\s*([^)]+?)\s*\)"
+)
 
-_SCOPE_BY_TRIGGER = {"בפרק זה": "chapter", "בסימן זה": "siman", "בחלק זה": "chelek"}
+_SCOPE_BY_TRIGGER = {
+    "בפרק זה": "chapter",
+    "בסימן זה": "siman",
+    "בחלק זה": "chelek",
+    "בסעיף זה": "local",
+    "בפסקה זו": "paragraph",
+}
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
@@ -57,6 +86,15 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
                 definition_text=term,
                 scope=scope,
                 source_chapter=ctx.chapter,
+            )
+        elif scope == "local":
+            # `source_article_number` left unset -- auto-defaulted to the
+            # current article by `HebrewProfile.extract_local_scope_
+            # definitions`, same as item 3's 3-word-trigger rule.
+            candidate = DefinitionCandidate(
+                terms=(term,),
+                definition_text=term,
+                scope=scope,
             )
         else:
             candidate = DefinitionCandidate(
