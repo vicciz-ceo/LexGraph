@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-headings"
 status: blocked
-current_role: manager
+current_role: developer
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
 locked_by: "claude-code:sprint-manager"
@@ -356,29 +356,43 @@ What the phase-2 manager did: verified the inherited state, merged core into
 this branch (`1d17d81`, merge not rebase — accepted deviation, see log), landed
 Phase B item 4 (`f461371`), escalated both seam gaps, and got them ruled.
 
-**Suite state: 729 passed / 1 failed.** The single failure is
-`test_us_heading_variants_end_to_end.py::TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline`
-— the core dispatch gap, red **by construction**, not a defect of this panel.
-This is the cleanest possible waiting position: everything this panel can
-prove is green, and the one red is precisely the thing core is now fixing.
+**Suite state: 728 passed / 13 failed — all 13 red by design.** 12 are the
+Planner's pre-authored D-DF REDs (11 `ImportError` on symbols the Developer
+has not written yet, 1 registration-count assertion); the 13th is
+`test_us_heading_variants_end_to_end.py::TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline`,
+the core dispatch gap. **Zero unexplained failures.** Accounting from the
+pre-Planner 729/1: 729−1 passed (the amended registration test flipped RED
+deliberately), 1+11+1 = 13 failed.
 
 **Resume point (when the program manager wakes this panel):**
 
 1. Re-run the suite. The CT pipeline test should go green with **no change from
    this panel** once core wires heading-rule consumption — if it does not, that
    is the first thing to diagnose.
-2. Developer implements D-DF against the Planner's RED: split the `for`
-   alternation out of `_VERB_EXTENDED_RE` and register the `defined for` rule
-   separately carrying `body_confirms`, leaving `as`/`term`/punctuation forms
-   and R-SEC/R-MID/R-VERB-bare/R-TRUNC/R-MISSPELL unconditional. **Applying
-   `body_confirms` to the existing single union rule would body-gate all
-   ~20,307 recognized headings instead of the 110 `defined for` rows** — the
-   trap to avoid.
+2. **Developer implements D-DF against the Planner's already-committed RED**
+   (`7f6964d`), which locks the design precisely: register **TWO**
+   `HeadingRule`s — unconditional FIRST
+   (`matches_heading_variant_unconditional` = today's union minus the `for`
+   alternation, `body_confirms=None`), then the narrow gated one
+   (`matches_defined_for_heading`, `body_confirms=defines_in_body`). Three new
+   symbols required. `matches_heading_variant` **keeps its exact current
+   meaning** (27 tests depend on it; an equivalence test pins the
+   decomposition). **The trap:** attaching `body_confirms` to the existing
+   single union rule would body-gate all ~20,307 recognized headings instead
+   of the 110 `defined for` rows. Order and rule-2 narrowness are load-bearing,
+   not stylistic — see the D-DF test module docstring.
 3. QA cycle 3 (`qa_cycles` is 2 of 5): U1 live-path leg, U6 re-measurement,
    U4 + the P-R7 cross-reference against the preamble panel's consolidated
    body-driven inventory (request the pointer through the program manager —
    do NOT re-scan the corpus). Our 22,228-row miss pool is `defin`-substring-
-   derived and so cannot certify U4 alone.
+   derived and so cannot certify U4 alone. **Additionally:** re-confirm the
+   `body_confirms` dispatch semantics against core's ACTUAL implementation —
+   the design is proven safe under both plausible readings of
+   "first-positive-wins", but which one core shipped is unobservable until
+   then. Consider renaming
+   `test_module_self_registers_exactly_one_heading_rule_for_us_star`, whose
+   name is now stale (it asserts two registrations; kept deliberately for
+   git-blame traceability).
 
 **Corrections to earlier context, both recorded at program level:** the
 "defined for" rule is COMMITTED (`a0419a4`), so D-DF *changes shipped
