@@ -11,9 +11,9 @@ last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 7
+total_items: 8
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 3
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -106,15 +106,15 @@ silently resolved.
   low-value churn — I1/I2's live-path tests already fail today BECAUSE
   the seam doesn't exist; once I1/I2 land, this item's completion is
   verified by code review + the stale-pin sweep, not a new test).
-- [ ] **I4 — Rule registry: 6 kinds, auto-discovery, registration (C4).**
+- [x] **I4 (DEV COMPLETE — manager-verified, pending QA) — Rule registry: 6 kinds, auto-discovery, registration (C4).**
   `app/definition_links/rules/{__init__.py,registry.py}`.
   RED: `backend/tests/unit/test_definition_links_rules_registry.py` (10 tests, all `ImportError` today).
   Live call-site: `test_definition_links_pipeline_scope_seam.py::test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline`.
-- [ ] **I5 — M8(a): `sections.parse_articles` bare-`@` marker loses articles/definitions.**
+- [x] **I5 (DEV COMPLETE — manager-verified, pending QA) — M8(a): `sections.parse_articles` bare-`@` marker loses articles/definitions.**
   RED: `backend/tests/unit/test_definition_links_sections.py::test_parse_articles_does_not_silently_merge_a_bare_at_marker_section_into_its_neighbor`,
   `::test_parse_articles_does_not_return_zero_articles_for_a_document_using_only_bare_at_markers`.
   Live call-site: `test_definition_links_pipeline_scope_seam.py::test_run_definition_linking_does_not_lose_a_definition_behind_a_bare_at_marker`.
-- [ ] **I6 — M8(b): `us_profile.find_term_uses` case-insensitive word-boundary matching.**
+- [x] **I6 (DEV COMPLETE — manager-verified, pending QA) — M8(b): `us_profile.find_term_uses` case-insensitive word-boundary matching.**
   RED: `backend/tests/unit/test_definition_links_us_profile.py::test_us_profile_find_term_uses_matches_a_lowercase_mention_of_a_capitalized_defined_term`.
   Guard/proof (already green, must STAY green): `::test_us_profile_find_term_uses_case_insensitive_match_still_respects_word_boundaries`,
   `::test_il_hebrew_find_term_uses_is_unaffected_by_the_m8b_case_fold_fix`
@@ -182,7 +182,14 @@ proves the OLD literals are GONE.
 
 ## Dev Complete
 
-_None._
+- **I4 — Rule registry** (`4143487`). `app/definition_links/rules/{__init__.py,registry.py}`.
+- **I5 — M8(a) bare-`@` articles** (`feea0d1`). `sections.py` `_BARE_ARTICLE_MARKER_RE`.
+- **I6 — M8(b) case-folded term matching** (`9e5dc36`). `us_profile.py` — `re.IGNORECASE` added to the existing `\b`-anchored pattern only.
+
+Merged to sprint branch as `c641df3` (`--no-ff`, pre-checked clean).
+Manager verification: diff production-only + zero test edits; risk grep 0;
+combined-tree evaluator **656 passed / 26 failed / 0 errors** backend,
+**165 passed** frontend. Baseline 644 never dropped.
 
 ## Completed
 
