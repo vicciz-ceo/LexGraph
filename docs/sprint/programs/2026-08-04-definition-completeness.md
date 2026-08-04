@@ -195,6 +195,15 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   structural-reference pattern (unit word + numbering token: "division
   (ii)", "part (a)", "title 5"). Residual FP classes escalate with data.
   (From core QA's measured 14,501-extra-match / 47%-of-terms exposure.)
+  **Interpretation (core QA-manager, measured, program-endorsed): the guard
+  is CONTEXT-based, not case-based** — a structural reference like "Part
+  (a) shall…" is suppressed regardless of capitalization (exact-case
+  structural matches predate case-folding and are the same noise). Bound:
+  affects only rows whose defined term is itself a unit word (1,157/106,275
+  = 1.09% of definition-bearing rows, P-R7-compliant denominator); genuine
+  re-mentions protected by a green pin. Director may veto; treated as
+  faithful-intent refinement, commented in code as a deliberate departure
+  from the literal wording.
 
 ## Core QA cycle 1 verdict (2026-08-04)
 
