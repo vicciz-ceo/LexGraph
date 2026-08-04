@@ -2936,3 +2936,288 @@ live.py`) — zero modifications to any existing file, zero
    discipline for Group-B-style single-mechanism items).
 
 qa_cycles: 2 (unchanged — Phase C is Planner work; QA cycle 3 is next).
+
+---
+
+## Phase C round 2 — M16 law-wide scope under-claim (Sonnet/high, Planner)
+
+Relayed via inter-agent message from the sprint manager (a separate
+Claude session, `general-purpose` agent role). Treated as a lead per M4,
+not proof — every claim below was independently re-derived before any
+test was written, same discipline as round 1.
+
+### Independent verification of the core claim
+
+Read `matcher._in_scope` directly (backend/app/definition_links/
+matcher.py:136-163): `"local"` requires `article.number ==
+definition.source_article_number`; `"law-wide"` returns unconditional
+`True`. Confirmed `HebrewProfile.determine_scope` (profiles.py:192-199)
+already defaults a RECOGNIZED הגדרות section to `"law-wide"` unless its
+first line carries a chapter trigger — the exact parity precedent M16
+cites. Confirmed my own round-1 C4 fixture (`כללי אתיקה לדיינים` art.1,
+preamble `לעניין כללים אלה -`) is NOT in `il_colon_dash_nested_list_
+scope_triggers.py::_SCOPE_TRIGGER_WORDS`, so it would default to
+`"local"` under my own round-1 design — the defect is real and directly
+affects my own shipped fixture, not a hypothetical.
+
+### Population re-derivation (independent, not trusted)
+
+Own script (`il_phaseC_plan_m16_vocab.py`), corpus-wide, both `:-` and
+`::-`, ordinary (non-הגדרות) articles only, denominator = bare-`-`-
+ending preamble + `"term" - definition` entries (same structural,
+trigger-independent shape as round 1's C4 denominator — P-R7):
+**reproduced the manager's headline number exactly: 1,107 single-`:-`
+terms** (297 lists). Cross-check of the `::-` population: 5,573 terms
+(2,018 lists) — also matches.
+
+### Curated vocabulary — measured, hand-verified per phrase
+
+**Method:** extracted every distinct preamble "reference phrase" across
+both populations (297+2,018 = 2,315 lists), bucketed by frequency, then
+fetched >=2 real corpus instances per non-trivial candidate phrase
+(`il_phaseC_plan_m16_phrase_verify.py`) to visually confirm the
+referenced noun genuinely denotes the WHOLE instrument.
+
+**INCLUDED (law-wide), each verified against >=2 real instances:**
+`בחוק זה` (e.g. `חוק איסור הונאה בכשרות` art.2ד; `חוק ביטוח בריאות
+ממלכתי` art.7), `בחוק יסוד זה`, `בתקנות אלה` (`תקנות אוויר נקי (זיהום
+אוויר מכלי רכב בדרך)` art.1, heading `פרשנות`), `בתקנות אלו` (`תקנות בדבר סמכויות
+הקונסולים בישראל` art.2, heading `פירוש`), `בהסכם זה` (`הסכם בדבר מתן
+הטבה סוציאלית לאוכלוסיה נזקקת` art.4), `בכללים אלה` (`כללי הבזק (שירותי
+החברה)` art.1, heading `פרשנות`), `בפקודה זו` (`פקודת בזיון בית המשפט`
+art.2), `בצו זה` (`צו בדבר חוק תכנון ערים...` art.1, heading
+`פרשנות`), `באכרזה זו` (`אכרזת הפיקוח על מצרכים ושירותים...` art.1),
+`בנוהל זה` (`נוהל עבודת הוועדה הציבורית...` art.2) — each also with the
+`לענין`/`לעניין` preposition variant (verified for `חוק`/`פקודה` live;
+the rest follow the same word-substitution pattern, included by the
+same reasoning, not separately re-verified one-by-one — proportionate
+effort, noted honestly).
+
+**EXCLUDED, each with the reason live-verified — the manager's own
+"watch the boundary cases" instruction, taken seriously:**
+- `בתוספת זו` ("in this schedule", 72 single-`:-` terms) — the
+  manager's own named case, confirmed: a schedule is a sub-part.
+- **`בפוליסה זו`** ("in this policy", 21 terms) — **this Planner's OWN
+  additional catch, not named by the manager.** Fetched the real
+  instances (`הוראות הפיקוח על שירותים פיננסיים (ביטוח) (תנאי חוזה
+  לביטוח חובה של רכב מנועי)`): every one sits inside an article headed
+  `<עוגן * פרט N לטופס זה>` — the "policy" is an embedded FORM (a
+  schedule-equivalent sub-document within the regulation), not the
+  regulation itself. Would have been a genuine over-claim if included —
+  exactly the boundary-case risk the manager flagged generically.
+- `בפרק משנה זה` (sub-chapter, 110 terms) — narrower than the
+  instrument; same open-containment category as סימן/חלק (item 2b,
+  already capture-only this sprint).
+- `בנספח זה`/`בטבלה זו`/`בנוסחה זו` (appendix/table/formula) — same
+  sub-part reasoning as בתוספת זו.
+- `בתקנה זאת` (alt. spelling of בתקנה זו — LOCAL, not law-wide) — a
+  real, additional missing-spelling finding, flagged below, NOT folded
+  into this fix (a different, smaller gap).
+- `בתקנת שעת חירום זו` (emergency regulation) — article-level, same
+  granularity as בתקנה זו per D-Q1, not the whole instrument.
+- `לעניין כלל זה` (ONE specific rule, singular) — narrower than
+  `בכללים אלה` (plural, the whole rules instrument); different phrase.
+- `לעניין פרט חימוש זה` (a specific ammunition item), `באמת מידה זו`
+  (a specific standard within a larger standards document) — far
+  narrower than even one article.
+- `לענין הסעיפים X-Y` / `לעניין סעיפים N ו-M` (enumerated multi-article
+  ranges) — narrower than the whole law; a SEPARATE, smaller potential
+  under-scope this bundle does NOT address (the schema already supports
+  an enumerated `source_article_number` tuple per M9, but no rule
+  populates it this way — flagged, not silently folded in).
+- `לענין/לעניין סעיף (קטן) זה` — already correctly narrow via the
+  existing 3-word local/subsection triggers.
+
+### Zero collision with existing tests — verified, not assumed
+
+Grepped every fixture in `backend/tests/fixtures/wiki_laws/` for each
+INCLUDED law-wide phrase: 8 files hit (`חוק להגנת רכוש מופקד`, `חוק
+המחשבים_stub`, `חוק הבנקאות (רישוי)_stub`, `תקנות קרן
+גרמניה-ישראל_art1`, `צו איסור הלבנת הון (מפעיל מערכת
+לתיווך)_excerpt`, plus 3 more that turned out to be the UNRELATED
+ad-hoc-parenthetical grammar — `חוק איסור הלבנת הון_art3`, `חוק איסור
+מימון טרור_art31`, `חוק זכות מטפחים...`). **Every genuine preamble+list
+hit sits inside an article headed exactly `הגדרות`** (recognized —
+`is_definitions_heading` → `True`), meaning `pipeline.py` dispatches
+these via `extract_definitions_from_section` (which ALREADY defaults to
+`"law-wide"` via `determine_scope`), never via the `ScopeTriggerRule`
+path this change touches — this is actually POSITIVE supporting
+evidence for the vocabulary choice: these 5 real, recognized-heading
+`הגדרות` sections with `בחוק זה -`/`בתקנות אלה -`/`בצו זה -` preambles
+are ALREADY treated as law-wide today, confirming the corpus's own
+drafting convention matches the M16 fix's intent. Grepped every test
+file for `["scope"]`/`.scope` assertions: the only 3 hits are in
+`test_definition_links_pipeline_scope_seam.py` (core-owned, synthetic
+`"Term"`/`"Widget"` fixtures, unrelated to real IL content). **Nothing
+to escalate — no existing test asserts a scope value this change would
+alter.**
+
+### Containment machinery re-verified (static, live, this session)
+
+```python
+_in_scope(local_def(article="401"), article_401)  -> True   (own article)
+_in_scope(local_def(article="401"), article_158)  -> False  (different article — correct non-leakage)
+_in_scope(lawwide_def(), article_1)               -> True   (own article)
+_in_scope(lawwide_def(), article_2)               -> True   (DIFFERENT article, same instrument — correct)
+_in_scope(naive_local_def(article="1"), article_2) -> False  (M16's exact under-claim, reproduced)
+```
+Confirms: (1) the fix's target behavior is exactly what `"law-wide"`
+already does (no new containment code needed, only classification), (2)
+the negative/non-leakage direction is ALREADY proven by this unchanged
+branch — every other local-scoped rule this sprint ships already relies
+on it, extensively tested elsewhere (QA cycle 2's I3 gate). **A
+repo-committed pytest RED test for the negative direction would be
+vacuously green today** (nothing captured yet for the not-yet-shipped
+C4 rule, so "no assertion anywhere" trivially holds — writing it would
+violate the RED-provenance gate's own "fails today for the right
+reason" requirement, not satisfy it). Not written, for that reason —
+recommended as a QA cycle 3 live-verification item instead of a
+committed test.
+
+### RED tests (2, both live-confirmed failing for the right reason)
+
+**1. New C4 rule's law-wide classification** —
+`test_m16_lawwide_preamble_definition_links_a_mention_in_a_different_article`.
+Fixture: `כללי אתיקה לדיינים_art1_art2_excerpt.wiki` (NEW, 2-article,
+built by concatenating two INDEPENDENTLY byte-verified spans — see
+below). Article 1 (`פרשנות`, preamble `לעניין כללים אלה -`) defines
+`"דיין"`; article 2 (`מקור הכללים ותכליתם`) genuinely mentions `דיין`
+in prose. Actual failure tail:
+```
+AssertionError: expected article 2 to get a USES_DEFINITION assertion
+for the law-wide-scoped term "דיין" defined in article 1 ...; got
+USES_DEFINITION assertions: [] (created_definitions=[])
+```
+
+**2. ALREADY-SHIPPED `::-` rule's under-scoping** —
+`test_m16_already_shipped_double_colon_rule_under_scopes_a_lawwide_list`.
+Fixture: `חוק הרשות לחקירה בטיחותית בתעופה_art1_art2_excerpt.wiki` (NEW,
+2-article). Article 2 (`פרשנות`, preamble `בחוק זה -`) `::-`-defines
+`"חוק הטיס"`; article 1 (`מטרה`) genuinely mentions `[[חוק הטיס]]`. This
+is the CLEANER of the two REDs: capture already happens TODAY
+(`created_definitions` shows `{'terms': ['חוק הטיס'], 'scope':
+'local'}`) — only the scope (and therefore the cross-article assertion)
+is wrong. Actual failure tail:
+```
+AssertionError: expected article 1 to get a USES_DEFINITION assertion
+for the law-wide-scoped term "חוק הטיס" defined in article 2 (בחוק זה
+-); got USES_DEFINITION assertions: [{...'Article 2 uses the definition
+of "חוק שירות המדינה (מינויים)".'...}, {...'Article 2 uses the
+definition of "משרד התחבורה".'...}, {...'Article 2 uses the definition
+of "חוק הטיס".'...}] (created_definitions=[{'terms': ['חוק הטיס'],
+'scope': 'local'}, ...])
+```
+(Note: article 2 gets a self-referential `USES_DEFINITION` assertion
+for its own term — `"חוק הטיס"` is genuinely re-mentioned inside article
+2's own body too, per the SAME `::-` list's own cross-references — a
+real, correct edge, not a bug; the MISSING edge is specifically
+article 1's.)
+
+### Fixture byte-verification (2 new multi-article fixtures)
+
+Non-adjacent-article fixtures cannot be a single contiguous corpus
+slice by construction, so a small extension of round 1's builder
+(`il_phaseC_plan_m16_multi_fixture_builder.py`) extracts EACH article's
+own span independently (same marker-line-regex + `Article.body`
+reconstruction as round 1), proves EACH is a byte-identical substring
+of ITS OWN source file, then concatenates the verified spans (joined by
+a blank line — the same separator `sections.parse_articles` already
+tolerates between articles) and does a FINAL re-parse check confirming
+the whole fixture yields exactly N Articles with byte-identical bodies
+to the originals. Every byte in the fixture traces to a verified real
+corpus slice; only the concatenation itself (assembling two real
+articles into one synthetic document) is fixture-author-assembled — the
+same characteristic any multi-article, non-adjacent fixture must have.
+Both fixtures actually built this way happened to be numerically
+ADJACENT in their source (art.1+art.2 in both cases, no chapter break
+between), so each is independently also verifiable as part of one
+larger contiguous region, a stronger property than required:
+```
+[כללי אתיקה לדיינים_art1_art2_excerpt.wiki]
+  span [art 1]: 1024 bytes, verbatim substring of source: CONFIRMED
+  span [art 2]: 1028 bytes, verbatim substring of source: CONFIRMED
+  re-parses to 2 articles (expected 2): True
+
+[חוק הרשות לחקירה בטיחותית בתעופה_art1_art2_excerpt.wiki]
+  span [art 1]: 456 bytes, verbatim substring of source: CONFIRMED
+  span [art 2]: 1373 bytes, verbatim substring of source: CONFIRMED
+  re-parses to 2 articles (expected 2): True
+```
+
+### UNRECOGNIZED buckets — enumerated, denominator for QA cycle 3 reuse
+
+Own script (`il_phaseC_plan_m16_unrecognized.py`), same denominator as
+above, classified into KNOWN / LAW_WIDE / UNRECOGNIZED:
+
+| population | total terms | KNOWN | LAW_WIDE | UNRECOGNIZED |
+|---|---|---|---|---|
+| single `:-` | 1,107 | 615 | 260 | 232 |
+| double `::-` | 5,573 | 5,090 | 171 | 312 |
+
+Top UNRECOGNIZED phrases (single `:-`): `בפרק משנה זה` 110, `בתוספת זו`
+72, `בפוליסה זו` 21, `לעניין פרט חימוש זה` 6, enumerated section ranges
+(`לעניין סעיפים...`/`לענין הסעיפים...`) 6+4+4, `לעניין כלל זה` 3,
+`לעניין נוסחה זו` 2, `באמת מידה זו` 1. Top UNRECOGNIZED (double `::-`):
+`באמת מידה זו`-family 131+7+4+4=146, enumerated subsection/paragraph
+ranges ~30, `בתוספת זו`-family 12+1, `בתקנה זאת` 13, `בנספח זה`/`בטבלה
+זו` 15, `בתקנת שעת חירום זו` 8, `בפיסקה זו` 6 (alt spelling of בפסקה
+זו, another missing-spelling finding).
+
+**Verdict per group (all already excluded above, restated for QA reuse
+as a single denominator):** sub-part references (sub-chapter/schedule/
+appendix/table/policy-form/standard) default-`"local"` is SAFE-BUT-
+INCOMPLETE — same capture-only precedent as this sprint's existing
+סימן/חלק items (item 2b), not a NEW gap, not part of this bundle.
+Enumerated multi-article ranges default-`"local"` UNDER-claims for the
+additional named articles — a real, separate, smaller gap, explicitly
+NOT folded into this fix. Alternate spellings found but not yet
+covered by ANY existing trigger (`בתקנה זאת`, `בפיסקה זו`) are real
+additional findings, out of THIS bundle's scope, flagged for a future
+cycle. Everything else (ammunition items, single rules, formulas,
+standards) is genuinely narrow — default-`"local"` is CORRECT there.
+
+### Suite (reproduced)
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_phase_c_widening_live.py -v
+...
+15 failed, 1 passed in 0.29s
+```
+(13 round-1 REDs + 2 new M16 REDs = 15; the 1 pass is the non-overlap
+static proof.)
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+19 failed, 728 passed, 18 warnings in 12.41s
+```
+Exactly `4` (E6-held, unchanged) `+ 15` (this file's REDs) `= 19`
+failed; `727` (untouched baseline) `+ 1` (green proof) `= 728` passed.
+Reproduced twice, stable.
+
+### Honest gaps / assumptions (round 2, nothing hidden)
+
+1. The `לענין`/`לעניין` preposition-variant law-wide phrases were only
+   individually live-verified for `חוק`/`פקודה`; the rest (תקנות/הסכם/
+   כללים/צו/נוהל/אכרזה) are included by the same word-substitution
+   pattern, not separately fetched one-by-one — proportionate effort,
+   flagged rather than silently assumed.
+2. Two real additional missing-spelling findings surfaced during this
+   pass (`בתקנה זאת`, `בפיסקה זו` — alternate spellings of already-
+   KNOWN triggers, not law-wide, not currently captured by ANY rule) —
+   noted, not fixed, out of M16's own scope.
+3. The enumerated-multi-article-range under-scope (a smaller, separate
+   gap from M16's law-wide one) is flagged with counts but not
+   addressed — a real residual for a future cycle, not silently folded
+   into "law-wide" (would have been an over-claim to do so).
+4. Per this Planner's own reasoning above, no repo-committed pytest RED
+   exists for the negative/non-leakage direction — deliberate, per the
+   RED-provenance gate, not an oversight; the static `_in_scope` proof
+   above is the evidence offered instead.
+
+### Boundaries / git discipline (M14, round 2)
+
+Own worktree only (`/Users/nerya/LexGraph-wt/defs-il-plan3`); explicit
+`git add` paths (2 new fixtures under `backend/tests/fixtures/wiki_laws/`
++ the extended existing test file + this log + the contract); no
+`git add -A`, no `git stash`. Scratchpad files prefixed
+`il_phaseC_plan_` throughout.
