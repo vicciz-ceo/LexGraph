@@ -4783,3 +4783,94 @@ $ backend/.venv/bin/pytest backend/tests -q
 ### Pushed
 
 Commit follows this entry; branch `claude/defs-us-pr`.
+
+---
+
+## 2026-08-04 — Manager: QA cycle-5 VERIFIED (66c0845); cycle 6 opens on 2 live bugs
+
+### Handoff verification, materialized
+
+| Check | Result |
+|---|---|
+| Production untouched | `git diff --stat 43c20f5..HEAD -- backend/app/` → **empty** ✔ QA reported, did not fix |
+| 30 held REDs byte-untouched | explicit check over all 6 held files → **empty** ✔ |
+| Suite reproduced | `34 failed / 911 passed / 12 xfailed`; FAILED = 30 held + 4 new. **911 passed / 12 xfailed unchanged from the Developer handoff — zero regressions** ✔ |
+| New REDs are behavioral | 4 REDs in `test_pr_profile_qa_cycle5_live_bugs.py`, real assertions on real vendored rows ✔ |
+
+### Fixture byte-verification — done by ME, not taken from QA
+
+QA vendored 4 new rows (`pr_sample_rows_qa_cycle5.json`). QA cannot be the
+one to confirm its own fixtures, so I re-derived every field against the real
+`us_pr_statutes.parquet`:
+
+```
+OK STATE_PR_LEY_236_2015_ART12  text/section_title/section_number  (2546 == 2546)
+OK STATE_PR_LEY_83_1941_SEC28   text/section_title/section_number  ( 946 ==  946)
+OK STATE_PR_LEY_17_2017_ART3    text/section_title/section_number  (6087 == 6087)
+OK STATE_PR_LEY_74_1965_ART21   text/section_title/section_number  (6599 == 6599)
+ALL BYTE-EXACT: True
+```
+
+### Both bugs confirmed LIVE by me, through `get_profile("US-PR")`
+
+```
+STATE_PR_LEY_236_2015_ART12  term='revisar la cuenta'  def='incluye actividades relacionadas Rev.'   <- truncated at footer
+STATE_PR_LEY_83_1941_SEC28   term='ciudadano'          def='significa toda persona ... afectada, Rev.'
+STATE_PR_LEY_17_2017_ART3    term='“Plan Estratégico'  <- stray leading curly quote IN THE TERM
+STATE_PR_LEY_17_2017_ART3    term='“Secretario'
+STATE_PR_LEY_74_1965_ART21   term='“Junta'
+```
+
+Real corruption on the dispatched path today. QA's finding is solid.
+
+### A suspicion of mine that was WRONG, recorded
+
+The stray-quote rows' `definition_text` read like duty lists ("Preparar un
+plan estratégico…", "Preparar cada año un informe…"), so I suspected a bigger
+fabrication class — the ad-hoc extractor inventing definitions out of
+enumerated powers, which would make QA's "cosmetic stray quote" framing an
+undercount. **I was wrong.** Reading the source rows settled it:
+
+```
+"...(en adelante, el “Plan Estratégico”). El Plan Estratégico deberá..."
+"...por una Junta de Directores (en adelante, la “Junta”). El Gobernador..."
+```
+
+Both are genuine `en adelante` appositions. The extractor identifies them
+correctly, and capturing the ANTECEDENT as the definition text is right for
+this shape — the antecedent is what the short term abbreviates. The only
+defect is the leading `“` surviving after `_LEADING_SPANISH_ARTICLE_RE`
+strips `el `/`la ` (article first, quote second, so stripping the article
+exposes the quote). QA's characterization was accurate and mine was not.
+Third time this sprint that checking the source beat a surface reading —
+and the first time it exonerated the code rather than condemning it.
+
+### Ruling M-R14 — hyphen regex is a HARD entry criterion on the held work
+
+QA redid my whole-body hyphen measurement **per split entry block**, the
+denominator I flagged as wrong in my own verification entry. Result: **235
+changed outcomes at ~30-35% precision.** My measurement was not just
+imprecise, it was directionally uninformative; QA's is the real number.
+
+Currently harmless — `pr_profile.extract_definitions_from_section` still has
+zero production callers, so this regex is dead code. But it goes live the
+moment core's dispatch lands, which is exactly the moment everyone will be
+busy with the wake. So it is recorded as a **blocking entry criterion**, not
+a note: **when core's dispatch merges, `_UNQUOTED_TERM_DASH_RE` is fixed or
+narrowed BEFORE item 18c or any canonical-path item ships.** Written into the
+contract's held-items entry criteria so it cannot be lost in the wake.
+
+### Counter audit — my self-flagged item, CLOSED with caveat
+
+I flagged that the inherited `dev_complete_items: 10` was never audited by
+me. QA reconstructed it as items 1,2,4,10,11,12,13,14,15,16 —
+arithmetic-consistent, but **not directly recorded** (the contract's own
+`## Dev Complete` said `_None._` at the time the counter read 10). So: the
+number is defensible, its provenance is not recoverable from the record.
+Resolved-with-caveat; `14` stands. Not worth further archaeology.
+
+### Cycle 6
+
+Bounded Developer fix cycle on the 2 live bugs (RED provenance already
+committed by QA), then QA re-verify, then the gate table settles into its
+final pre-core-merge state and the panel parks clean for the dispatch wake.
