@@ -4395,3 +4395,58 @@ call rather than default to the safest-looking option.
 ### Pushed
 
 Commit follows this entry; branch `claude/defs-us-pr`.
+
+---
+
+## 2026-08-04 — Manager: re-partition VERIFIED (29ebb90); handing to independent QA
+
+### All four claims verified, materialized
+
+| Claim | Result |
+|---|---|
+| Production diff empty | `git diff --stat 7fd45b7..HEAD -- backend/app/` → **empty** ✔ |
+| Held files byte-untouched | explicit check over all 6 held test files → **empty** ✔ |
+| Fixtures untouched | `-- backend/tests/fixtures/` → **empty** ✔ |
+| No previously-green body edited | Read both diffs in full. `local_scope_definitions_cycle4.py`: markers + docstrings only, zero assertion edits. `scope_triggers_live_pipeline_cycle5.py`: module docstring + the residual test only — the two green tests in that file are untouched. ✔ |
+
+**Suite reconciles exactly.** `35 failed / 910 passed / 8 xfailed` →
+`30 failed / 911 passed / 12 xfailed`: 4 deferred-18c tests moved
+failed→xfail (8+4=12), and the inverted residual test moved failed→passed
+(910+1=911). 35−4−1 = 30. The FAILED list is now **precisely** the 30 held
+REDs — 14 ordinary-misses, 6 scope-cycle4, 6 bare-term, 2 derived-heading,
+1 footer, 1 marker-gate — with no cycle-5 file appearing at all.
+
+### I probed the xfail semantics myself rather than accept the claim
+
+The whole safety of `xfail(strict=True, raises=…)` rests on an unrelated
+regression still failing loudly. I did not take that on trust:
+
+```
+xfail(strict=True, raises=ImportError):
+  raises ImportError  -> XFAIL      (absorbed, intended)
+  raises ValueError   -> FAILED     ✔ unrelated regression surfaces hard
+  passes unexpectedly -> FAILED     ✔ XPASS(strict), forces the marker revisited
+```
+
+Confirmed. The deferral markers cannot hide a genuine future regression, and
+an XPASS (someone building 18c ahead of the ruling) also fails rather than
+silently going green. The Planner's judgement call is sound and it engineered
+around the exact hazard I flagged in its brief instead of just picking a side.
+
+### The inversion is better than what I asked for
+
+I offered delete-or-invert. It inverted, and then did something I had not
+specified: it turned the test into an **Option-D invariance proof**. The
+docstring pins the future condition — once core's dispatch lands AND 18c is
+rebuilt, this row must STILL be uncaptured; if the assertion ever starts
+failing then, that is a live signal the by-construction claim did not hold.
+It also labels itself vacuous today, names the two conditions that make it
+real, and explicitly states that it does NOT discharge M-R13's full
+re-verification duty (one row ≠ the 117/633 population). That is the standard
+this panel has been trying to hold all sprint.
+
+### Verdict and handoff
+
+Re-partition ACCEPTED. Cycle-5 implementation set (18a/26/27/28/29) is
+complete and stable. Handing to **independent QA** — which has not run since
+cycle 4, and has never run against implemented, registered, live-path PR code.
