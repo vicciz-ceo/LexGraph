@@ -124,7 +124,7 @@ def test_body_definitions_preamble_regex_does_not_recognize_georgias_real_as_use
 # --- Live-path RED: GA ------------------------------------------------------
 
 
-def test_real_pipeline_misses_a_real_georgia_body_preamble_definitions_section_end_to_end(
+def test_real_pipeline_captures_a_real_georgia_body_preamble_definitions_section_end_to_end(
     db_session, matter_with_users
 ):
     """Live-path confirmation: the real production pipeline creates ZERO
@@ -261,7 +261,7 @@ def test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_th
 # --- Live-path RED: MD ------------------------------------------------------
 
 
-def test_real_pipeline_misses_a_real_maryland_body_preamble_definitions_section_end_to_end(
+def test_real_pipeline_captures_a_real_maryland_body_preamble_definitions_section_end_to_end(
     db_session, matter_with_users
 ):
     """Live-path confirmation: the real production pipeline creates ZERO
@@ -325,7 +325,7 @@ def test_real_pipeline_misses_a_real_maryland_body_preamble_definitions_section_
 # --- Live-path RED: NE ------------------------------------------------------
 
 
-def test_real_pipeline_misses_a_real_nebraska_body_preamble_definitions_section_end_to_end(
+def test_real_pipeline_captures_a_real_nebraska_body_preamble_definitions_section_end_to_end(
     db_session, matter_with_users
 ):
     """Live-path confirmation: the real production pipeline creates ZERO

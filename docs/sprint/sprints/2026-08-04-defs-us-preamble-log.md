@@ -701,3 +701,45 @@ P-R2 decision. Per P-R6 QA is Sonnet high. **Haiku considered: no** — the
 judgment, not the scripting, is the load-bearing part. `model=inherit` not
 used. QA commits only test/contract/log files and never touches
 implementation.
+
+---
+
+## 2026-08-04 — QA: D3, the two logged defects fixed
+
+Both are docs/tests, not implementation, per this QA brief's D3.
+
+**(a) Inverted test names (M-R10(a)).** Three tests in
+`test_definition_links_us_preamble_family.py` (`test_real_pipeline_
+misses_a_real_georgia_body_preamble_definitions_section_end_to_end` and its
+MD/NE siblings) assert the FIXED behavior (`expected_terms <=
+created_terms`) while their names say "misses" — post-fix the suite would
+read "pipeline misses Georgia" while proving the opposite. Renamed to
+`test_real_pipeline_captures_a_real_georgia_body_preamble_definitions_
+section_end_to_end` (and the MD/NE equivalents,
+`..._captures_a_real_maryland_...`/`..._captures_a_real_nebraska_...`).
+Verified: `grep -rn` for the old names across `backend/` and `docs/` found
+no other reference (nothing else depended on the literal name); re-ran the
+file after renaming — still 4 failed / 1 passed, same failure reasons as
+before, confirming the rename touched nothing but the identifier. These
+tests were authored by a Planner instance that has since stood down, so
+renaming them is not a role violation (per the brief's own framing) — noted
+here per that same instruction.
+
+**(b) Fixture README factual error (M-R10(b)).**
+`backend/tests/fixtures/us_statutes/README.md` stated flatly that
+`huggingface_hub`/`pyarrow` are not installed in `backend/.venv`. That was
+true when written (an earlier sprint, 2026-08-02) but is stale: **`pyarrow`
+IS installed in THIS sprint's `backend/.venv` and IS a declared dependency**
+(`pyarrow>=17.0`, verified at `backend/pyproject.toml:15`). Only
+`huggingface_hub` remains absent, and no fixture-building script in this
+sprint needed it (all of QA's D1/D2 scripts read the on-disk vaquill/
+open-us-law snapshot directly via `pyarrow.parquet` against the HF cache
+path, never via the `huggingface_hub` API). Added a dated correction
+paragraph rather than rewriting the original (which remains accurate as a
+historical record of the 2026-08-02 sprint's own environment) — left
+uncorrected, the original paragraph would send a future agent to build a
+disposable scratch venv it does not need, exactly the drift M-R10(b)
+flagged.
+
+Both changes committed separately from D1/D2 per this sprint's
+incremental-commit requirement.

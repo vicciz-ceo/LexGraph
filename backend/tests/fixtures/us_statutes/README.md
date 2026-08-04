@@ -129,13 +129,24 @@ print(t.slice(0, 3).to_pylist())
 "
 ```
 
-`huggingface_hub`/`pyarrow` are NOT installed in `backend/.venv` as of this
-sprint (verified `ModuleNotFoundError` for both, plus `pandas`) — the
-Planner fetched these rows using a disposable venv outside the repo
-(`pip install huggingface_hub pyarrow` into a scratch venv), never touching
-`backend/.venv` or `backend/pyproject.toml`. Adding `huggingface_hub`/
-`pyarrow` as real dependencies (dev or production, per what the ingester
-needs) is the Developer's job for the G6 (dataset ingester) item.
+`huggingface_hub`/`pyarrow` were NOT installed in `backend/.venv` as of THIS
+sprint's Planner work (verified `ModuleNotFoundError` for both, plus
+`pandas`, at the time) — the Planner fetched these rows using a disposable
+venv outside the repo (`pip install huggingface_hub pyarrow` into a scratch
+venv), never touching `backend/.venv` or `backend/pyproject.toml`. Adding
+`huggingface_hub`/`pyarrow` as real dependencies (dev or production, per
+what the ingester needs) was the Developer's job for the G6 (dataset
+ingester) item.
+
+**Correction (QA, sprint 2026-08-04-defs-us-preamble, M-R10(b)):** as of
+that later sprint, `pyarrow` IS installed in `backend/.venv` and IS a
+declared dependency (`pyarrow>=17.0`, `backend/pyproject.toml:15`). Only
+`huggingface_hub` remains absent — the on-disk vaquill/open-us-law HF
+snapshot is fetched directly via `pyarrow.parquet` against the cache path
+(`~/.cache/huggingface/hub/datasets--vaquill--open-us-law`), never via the
+`huggingface_hub` API, so no test or fixture-building script in this
+sprint needed it. Left uncorrected, the paragraph above would send a future
+agent to build a scratch venv it does not need.
 
 ## Provenance
 
