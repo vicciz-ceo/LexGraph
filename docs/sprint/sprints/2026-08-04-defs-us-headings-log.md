@@ -1683,3 +1683,57 @@ neither counted as recognized nor as residual. What P-R7 now requires beyond
 that is the **explicit cross-reference** with the preamble panel's consolidated
 body-driven inventory proving the two families' coverage meets with no gap —
 coordinated through the program manager, not re-derived here.
+
+---
+
+## 2026-08-04 — Dev cycle 3 verified; D-Q1 escalated rather than shipped silently
+
+Dev cycle 3 at `a0419a4`. **Manager verification, all independently re-run:**
+
+- **All four named rows flip True** (KY `defined for`, NJ `defined,`, CT
+  `defined.`, FED `Defined term`), and **all nine guards hold**: `Terms as
+  defined in section 5`, `Repeal of definitions`, TX `APPLICABILITY OF
+  DEFINITIONS`, the ME false positive, `"Undue hardship"—Defined by rule.`,
+  morphology `undefined`, and all three pension-jargon shapes incl. the
+  hyphenated `Defined-benefit` form (ruling H-R8 property preserved).
+- **Suite 669 passed / 2 failed** — the core-blocked pair only. One production
+  file, **299 lines**, still under the style gate. Zero test edits.
+- **Manager's full-corpus re-measurement**: recall **20,864 → 21,054 /
+  22,228 = 94.7%** (was 93.9%); residual **1,364 → 1,174**. Matches the
+  Developer's figures exactly.
+- **Precision audit (corrected boundaries)**: `{'trunc': 117, 'misspell': 6,
+  'GENUINE_NOISE': 0, 'other': 0}` = **123, zero unexplained** — unchanged
+  from cycle 2. No new false positives at the audit level.
+
+**Credit where due:** the Developer found a defect *not in its brief* — three
+real false positives from grammatical negation (`plans NOT defined as pyramid
+promotional schemes`, `improvements NOT defined as contract rent`) — and added
+a negation lookbehind, verifying it touched no pre-existing match. It also
+chose a **closed word whitelist** (`for`/`as`/`term`) rather than "any word",
+which makes the `defined in` / `defined by` exclusions structural rather than
+guard-dependent: verified 0/25 and 0/23 fire.
+
+### D-Q1 — escalated, not decided here
+
+The program manager pre-designated `defined for` as a D-Q1 escalation if
+precision landed materially below ~90%. **Two independent human reads:**
+QA **37/43 ≈ 86%**, Developer **31/35 ≈ 88.6%** (its own decision: ship).
+The manager declines to treat this as settled, for three reasons:
+
+1. Both samples were drawn from the same 109/110-row population with the same
+   seed — they are **not independent draws**, so pooling them into a single
+   larger-n estimate would overstate confidence. Overlap is unknown.
+2. Both land **below** the ~90%+ every other shipped rule holds.
+3. The manager's own full-population mechanical scan (all 110 rows, not a
+   sample) finds only **72 (65.5%)** with a detectable self-definition body
+   marker, 7 cross-reference-only, 31 neither. This is a **lower bound, not a
+   refutation** — the regex is conservative and cannot see definitions phrased
+   outside its patterns — but it does not corroborate ~88% either, and the
+   honest position is that no measurement has confirmed this rule clears the
+   bar.
+
+**Quantified trade for the director:** `defined for` is 110 rows = **0.49%**
+of the miss pool. With it, recall is **94.7%**; without it, **94.2%**. The
+cost at the measured 86–89% precision is roughly **12–15 wrong captures**.
+The fix is one alternation in one regex — **cheap to revert either way**.
+Shipped in the working tree pending the ruling; **not** presented as settled.
