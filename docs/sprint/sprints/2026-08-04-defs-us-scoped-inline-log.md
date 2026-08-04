@@ -1915,3 +1915,23 @@ Reported to the program manager as a routing item so it is owned rather than
 orphaned.
 
 **Verdict: Developer handoff ACCEPTED.**
+
+### Finding A refined by me (half resolved, half now binding on QA)
+
+I chased my own duplicate-candidate finding rather than handing QA a vague
+worry. `pipeline.py:234-269`, read directly:
+
+- **(i) RESOLVED — no over-persistence.** Definition rows are deduped on
+  `(owning_article.id, tuple(sorted(candidate.terms)))`, and the map is
+  updated inside the loop, so two identical candidates produced from
+  duplicated corpus text collapse to ONE `Definition` row on the live path.
+  The GA duplication does NOT create duplicate definitions. Good news, and
+  it means the existing cross-rule dedup test's gap is narrower than I feared.
+- **(ii) STILL OPEN, and now a binding QA instruction.** The `+8,899`
+  before/after figure is a **candidate** count, and candidate counts are
+  exactly what corpus text duplication inflates — the dedup above happens
+  downstream of it. So part of that headline is plausibly the same definition
+  counted twice, not new capture. **QA cycle 2 must report the delta as
+  distinct `(row, sorted-terms)` pairs, not raw candidates**, and say how much
+  the two figures differ. Under this program's honesty standard we do not
+  ship an improvement number that silently double-counts.
