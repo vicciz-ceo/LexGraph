@@ -433,3 +433,51 @@ section, versioned, and PUSH IT AS THE FIRST ACT (four panels are parked on
 it), then continue into RED tests without a second stop. The manager
 reviews the pushed v2 while the Planner works and sends corrections
 mid-flight if needed.
+
+### Round 2 — Planner v2 authoring notes
+
+Confirmed the resume message against the actual repo before acting on it:
+`git fetch` showed `origin/claude/defs-core-scope` at `d421a57`, two commits
+ahead of the Planner's own last push (`5610fb1`) — `9272f6e` (manager review
++ rulings M1-M3, escalation E-1) and `d421a57` (director ruling on E-1 +
+manager rulings M4-M8). Read both in full before writing v2; not acting on
+the resume message's summary alone.
+
+**M4(c) non-comparable scopes — decided NOT to escalate**, despite the
+resume message listing it as an escalate-if-true trigger. Reasoning (also
+in the seam spec itself): "both survive, both get an assertion" is not a
+recall/precision trade because nothing is suppressed (recall-safe) and
+nothing fabricated is asserted (each surviving definition's scope claim is
+independently true for that mention). A trade would require a scenario
+where keeping both creates a FALSE claim or dropping one creates a MISS;
+neither holds. This is a mechanism choice within the "choose it, record it"
+authority the brief already grants, not a P-R2 conflict class. Recorded
+prominently (here + the seam doc + the Stage B report) specifically so the
+sub-manager can override if they read the tradeoff differently — the point
+of NOT escalating a call I'm confident about is to keep the critical path
+moving, not to hide the reasoning.
+
+**M8(b) measurement — genuinely could not produce it, said so.** Searched
+this worktree and every path this sprint is authorized to touch for a local
+copy of the US parquet corpus or the israeli-laws-wiki corpus (`find` for
+`*us_ga_statutes*`, `*state_ga*`, `*statutes*`, `*israeli-laws*` from `/`,
+maxdepth 3-5) — nothing found. The other panels' cited figures (29,033
+hits, MD 3,327, etc.) evidently came from sessions with corpus access this
+worktree does not have. Rather than fabricate an exposure number to satisfy
+the "measure and escalate with data" instruction, recorded the gap
+explicitly in the seam spec's M8(b) section and scoped the RED test to the
+exact fact pattern already handed down verbatim (term "Access area", act
+ids `STATE_GA_T7_C8_S7-8-1`/`S7-8-3`) rather than inventing corpus rows.
+This is a deliberate escalation-by-omission-avoidance: I would rather say
+"I can't measure this from here" than produce a number I can't stand
+behind. Not blocking Stage B — the fix itself (word-boundary literal-term
+case-fold, narrowly scoped) proceeds with the measurement gap flagged for
+the sub-manager to route to whichever panel has corpus access.
+
+**Rank-tie default for unregistered/uncertain nesting (M4b)**: chose
+"tie never costs recall, only a possible redundant-but-true assertion" as
+the safe default for a family panel unsure how its new unit kind nests
+against an existing one. This mirrors the M4(c) non-comparable-scopes
+reasoning exactly (same "both survive" resolution), so I did not treat it
+as a second separate decision needing its own escalation — it falls out of
+the same rule.

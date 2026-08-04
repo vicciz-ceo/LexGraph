@@ -378,3 +378,261 @@ That file alone (plus the panel's own tests) is the complete change —
 `split_into_subsections`, `derive_heading_from_body`,
 `extract_definitions_from_section`) and the 5 `register_*` functions in
 `rules/registry.py`. That is the entire surface a family panel needs.
+
+---
+
+## Seam spec v2 (published) — supersedes v1 where noted below
+
+v1 above is kept visible (panels that already read it need to see the
+diff) but is **superseded on the six points listed here**; everything in
+v1 NOT listed here (directory/auto-discovery mechanism, the 5
+`register_*` functions' existence, `HeadingRule`/`BodyPreambleRule`/
+`TermClauseRule`/`EntrySplitterRule` shapes, the attribution-fix
+direction, `split_into_subsections`, `derive_heading_from_body`'s legacy
+CA/IL/GA branch, `extract_definitions_from_section`'s fallback chain)
+is UNCHANGED and still governs. v2 is itself now STABLE — same rule as
+v1: any later change is an escalation through the sub-manager.
+
+**What changed, in one line each:** (1) scope is a generic `(kind,
+value)` pair with a registered specificity rank, not a closed 4-tier
+enum; (2) narrowest-scope-governs precedence is now specified, including
+the non-comparable case; (3) `ScopeTriggerRule.extract` takes a context
+object, not two positional args; (4) `EntrySplitterRule` moves to the
+union side (manager ruling M1, already in effect); (5) `BodyPreambleRule`
+dispatch is ungated from `_is_placeholder_heading`; (6) rule modules'
+authority is explicitly bounded — `find_term_uses`/`find_citations` are
+never overridable by a rule.
+
+### 1. Generic scope units (director E-1 ruling + manager ruling M4)
+
+**Director ruling, binding:** narrowest scope governs — subsection >
+article/local > chapter/part/subchapter/siman/etc. > law-wide. The
+broader definition still fires wherever no narrower one was detected in
+scope. Emit ONLY the governing definition's assertion(s). This also
+authorizes the Stage-3 attribution fix flagged in Round 1 (below).
+
+**Data shape** (new, in `extract.py` alongside `DefinitionCandidate`):
+
+```python
+@dataclass(frozen=True)
+class ScopeUnit:
+    kind: str           # e.g. "part", "subchapter", "siman", "chelek" —
+                         # any string a rule module registers a rank for
+    value: str | None    # concrete identifier (e.g. "II", "B"); never None
+```
+
+`Definition.scope` / `DefinitionCandidate.scope` **stays the kind
+string, unchanged column, byte-identical for `"chapter"`/`"local"`/
+`"law-wide"`** — this IS the `unit_kind`, nothing renamed. `"chapter"`
+keeps its existing dedicated field (`.source_chapter`); `"local"` keeps
+its existing dedicated field (`.source_article_number`); NEITHER of
+those two fields changes shape or meaning. Every OTHER kind (including
+v1's `"subsection"`, plus any new kind a family panel registers) uses
+ONE new generic field instead of a dedicated one per kind:
+
+- `DefinitionCandidate.scope_value: str | None = None` (transient,
+  replaces v1's subsection-only `source_subsection` name — same idea,
+  generalized).
+- `Definition.scope_value: Mapped[str | None] = mapped_column(String(64), nullable=True)`
+  (persisted; replaces v1's `source_subsection` column name — same
+  migration-module precedent, `add_definition_subsection_column.py`
+  renamed to `add_definition_scope_value_column.py`, same nullable/no-
+  backfill shape).
+
+**Specificity rank — the load-bearing piece** (`rules/registry.py`):
+
+```python
+def register_scope_unit_kind(kind: str, *, rank: int) -> None: ...
+# Lower rank == narrower == governs. Core pre-registers the 4 existing
+# kinds: subsection=0, local=10, chapter=20, law-wide=1000 (unreachable
+# by design — law-wide never "governs over" anything, it only fires
+# when NOTHING narrower matched). A family panel registering a NEW kind
+# (e.g. "part") MUST call this once (its own rule module, its own
+# import-time side effect — same zero-shared-edit mechanism as C4) and
+# picks the rank from ITS OWN measurement of how that kind nests for the
+# jurisdictions it targets. Uncertain nesting -> register at the SAME
+# rank as the nearest known kind (safe default, see below — a tie never
+# costs recall, only a possible duplicate-but-true assertion).
+
+def rank_for(kind: str) -> int: ...   # KeyError on an unregistered kind
+                                        # -- no fabricated guess (matches
+                                        # this codebase's existing
+                                        # resolve_law_title discipline).
+```
+
+**Containment (`_in_scope`, internal, generalized):** for kind
+`"chapter"`/`"local"`, unchanged legacy comparison. For `"subsection"`,
+v1's offset-based branch unchanged (now reading `.scope_value` instead
+of the old `.source_subsection` name). For any OTHER registered kind:
+does the owning article's `structural_units` tuple (see below) contain a
+`ScopeUnit` with a matching `kind` AND `value == definition.scope_value`?
+
+**`structural_units` — one new additive field, added ONCE by core, never
+again by a family panel:** `sections.Article` / `pipeline.py`'s
+`MatcherArticle` gains `structural_units: tuple[ScopeUnit, ...] = ()`
+(default — every existing `Article(...)` construction site, including
+every existing test, is unaffected). Core populates it for `"chapter"`
+only (mirrors the existing `.chapter` field — `parse_articles` already
+tracks chapter headings; this sprint additionally stamps
+`ScopeUnit("chapter", article.chapter)` into the same tuple for
+consistency with the generic path). **Populating it for a NEW kind
+(part/subchapter/siman/chelek/...) is that kind's OWN family panel's
+responsibility** — core provides the field and the generic comparison
+logic, not a parser for every future structural axis; how a panel
+detects "this article is inside Part II" from its own jurisdiction's raw
+ingest data is a question for that panel to raise with the sub-manager
+when it registers its kind, not something this seam can answer in
+general.
+
+**Precedence algorithm** (replaces v1's silent Stage-3 dict): for a
+given mention (term, article, char_offset), collect every candidate
+whose `_in_scope` check passes. If empty, no assertion. Otherwise, take
+the MINIMUM `rank_for(candidate.scope)` among them; keep only candidates
+at that minimum rank; emit ONE `USES_DEFINITION` assertion per
+DISTINCT surviving `Definition` row (their `object_entity_id`s differ,
+so `_create_assertion`'s existing dedup key needs no change).
+
+**Non-comparable scopes (M4(c)) — resolved, not a recall/FP trade, not
+escalated:** two candidates can tie at the SAME minimum rank with
+DIFFERENT kinds (e.g. one `"chapter"`-scoped, one `"part"`-scoped, both
+genuinely containing the mention, no registered order between them).
+Resolution: **both survive, both get an assertion.** This is NOT a
+recall-vs-precision trade — nothing is suppressed (recall) and nothing
+is fabricated (each surviving assertion's scope claim is independently,
+factually true: the mention genuinely sits inside both units). A trade
+would exist only if keeping both risked a FALSE claim or dropping one
+risked a miss; neither applies here, so this is a mechanism choice, not
+an escalation-worthy conflict. Flagged prominently in the log/report so
+the sub-manager can override if they read it differently.
+
+**AK multi-chapter ranges — explicitly deferred, with the required
+fallback (M4's closing instruction):** a scope trigger describing a
+RANGE across multiple chapters (e.g. "chapters 5 to 9") is not given a
+narrower unit this sprint — no rule this sprint parses a range into a
+`ScopeUnit` (a range needs an interval, not a single `value` string,
+which is a real extension but not this sprint's). Fallback: such a
+candidate's scope stays `"law-wide"` until a future rule module adds a
+dedicated range-aware kind. Zero-miss-safe (law-wide never narrows away
+a legitimate match); the accepted cost is no PRECISION narrowing for
+AK's ~10 known rows, recorded here, not silently dropped.
+
+### 2. `ScopeTriggerRule.extract` — context object (manager ruling M5)
+
+```python
+@dataclass(frozen=True)
+class RuleContext:
+    article_number: str
+    chapter: str | None
+    structural_units: tuple[ScopeUnit, ...]
+
+@dataclass(frozen=True)
+class ScopeTriggerRule:
+    jurisdiction_codes: tuple[str, ...]
+    extract: Callable[[str, RuleContext], list[DefinitionCandidate]]
+    # (article_body, context) -> candidates. The rule may stamp ANY scope
+    # kind on a returned candidate (not just "local") by reading
+    # context.chapter / context.structural_units -- e.g. a rule
+    # detecting "For purposes of this part" stamps
+    # scope="part", scope_value=<value from context.structural_units>.
+```
+
+**v2 worked example** (v1's is now stale — same rule, new signature):
+
+```python
+# backend/app/definition_links/rules/us_scoped_inline.py
+import re
+from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.registry import (
+    RuleContext, ScopeTriggerRule, register_scope_trigger_rule,
+)
+
+_TRIGGER_RE = re.compile(
+    r'As used in this section,\s*[“"]([^”"]+)[”"]\s*means\s+(.*?)(?=\.\s|$)',
+    re.IGNORECASE | re.DOTALL,
+)
+
+def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
+    return [
+        DefinitionCandidate(
+            terms=(m.group(1).strip(),), definition_text=m.group(2).strip(),
+            scope="local", source_article_number=ctx.article_number,
+        )
+        for m in _TRIGGER_RE.finditer(article_body)
+    ]
+
+register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract))
+```
+
+### 3. `EntrySplitterRule` moves to the union side (manager ruling M1)
+
+Corrects v1 §2's consumption contract, which grouped `EntrySplitterRule`
+with the first-wins detection kinds. It is now a union kind, same as
+`ScopeTriggerRule`/`TermClauseRule`: ALL matching registered splitters
+run, ALL their blocks are kept (a section body can legitimately mix two
+marker conventions at once — recon §2 families 3 and 5 overlap in real
+rows), deduped downstream by the existing `(article_id, sorted(terms))`
+key. `HeadingRule` (boolean, first-positive-wins is already OR/union —
+unchanged) and `BodyPreambleRule` (single-valued, first-non-None-wins,
+deterministic filename-sort order — unchanged in mechanism, ungated
+below) are the only remaining first-wins kinds.
+
+### 4. `BodyPreambleRule` dispatch is ungated (manager ruling M6)
+
+v1's `derive_heading_from_body` tried the legacy CA/IL/GA logic only
+when `_is_placeholder_heading(heading)` was true, then returned. v2:
+after the legacy branch (unchanged, still gated on
+`_is_placeholder_heading` — this is what keeps CA/IL/GA and the 7
+already-working states byte-identical), registered `BodyPreambleRule`s
+are ALWAYS tried next if nothing was found yet — regardless of what
+`_is_placeholder_heading` returned. Precision guard (stated so panels
+can measure against it, not asserted as proof): baseline-first ordering
+is unchanged, so no currently-working row's behavior can change; new
+exposure is confined to rows where baseline finds NOTHING today, so any
+new false-positive risk is additive-only, never a regression of a
+working state. A panel shipping a `BodyPreambleRule` measures its own
+corpus-wide FP exposure on that confined population and escalates with
+data if material (director's standing policy) — this seam does not
+pre-judge that measurement.
+
+### 5. Rule-module authority is bounded (manager ruling M7)
+
+Rule modules may ONLY affect the 5 registered kinds (heading,
+body_preamble, entry_splitter, scope_trigger, term_clause). They CANNOT
+override `find_term_uses` or `find_citations` — both stay fixed
+`JurisdictionProfile`-CLASS methods (`USProfile`'s own English
+word-boundary matcher / citation grammar), never a rule kind. A
+jurisdiction needing different term-matching or citation grammar (e.g. a
+future Spanish-language `PRProfile`) is a NEW PROFILE CLASS problem, not
+a rule-module problem — a rule module cannot solve it, and a panel that
+hits this wall should escalate for a new profile class rather than try
+to route around it via a rule. PR ships as `USProfile`-hosted rule
+modules for now (reversible: profiles resolve by code, rules register by
+code-match, so a later dedicated `PRProfile` can inherit the same
+registered rules unchanged) — this is the stated escape hatch.
+
+### 6. Two new core-sprint items (manager ruling M8) — not family-panel work
+
+- **M8(a):** `sections._ARTICLE_MARKER_RE` requires the literal `@ N.`
+  shape; a bare `@` (no number/period) parses to zero articles for that
+  whole document, silently dropping any definitions inside — 124/6,133
+  IL laws affected, 12 with unambiguous definitions (measured by the IL
+  panel on a named file). Core-sprint RED tests + fix, not a family item.
+- **M8(b):** `us_profile.find_term_uses` is case-sensitive; real rows
+  re-mention a capitalized defined term in lowercase later in the same
+  law (`STATE_GA_T7_C8_S7-8-1` defines "Access area",
+  `STATE_GA_T7_C8_S7-8-3` uses "access area", silently unlinked). Two
+  binding constraints on the fix: (i) proof that case-folding does not
+  disturb Hebrew is the FULL existing IL suite passing UNCHANGED — not
+  an argument that Hebrew is caseless; (ii) case-insensitive matching is
+  itself a recall/precision trade (a defined term that is also an
+  ordinary lowercase word over-links) — measure the exposure, escalate
+  with data. **Planner's measurement status, recorded honestly:** this
+  worktree has no local copy of the real US/IL corpus (checked — not
+  present under this worktree or any path this sprint is authorized to
+  touch), so a corpus-wide FP-exposure count cannot be produced from
+  here. The RED test below is built from the exact term/act-id facts
+  already given in this ruling (not fabricated), and the fix is scoped
+  narrowly (word-boundary literal-term case-fold only, no fuzzy
+  matching) to keep plausible exposure low — but the actual corpus-wide
+  measurement this ruling asks for needs a panel/session with corpus
+  access. Flagged, not silently skipped.
