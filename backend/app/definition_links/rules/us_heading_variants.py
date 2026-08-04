@@ -206,39 +206,73 @@ _VERB_FOR_RE = re.compile(r"(?<!not )(?<!never )(?<!longer )\bdefined\b\s+for\b"
 # --- D-DF's `defines_in_body` self-definition-marker predicate ----------
 #
 # A quoted TERM -- straight or curly DOUBLE quotes, or curly single quotes --
-# directly followed, or after a short intervening "as used in .../for (the)
-# purpose(s) of ...," lead-in clause (on either side of the quote) and/or a
-# comma, by the defining verb `means`/`mean` or the phrase `is defined as`.
-# A straight apostrophe (') is deliberately EXCLUDED from the quote-char
-# classes: it is indistinguishable from a contraction/possessive in running
-# prose ("individual's", "owner's"), and the RED test's own "Known limits"
+# directly followed, or after a short intervening gap (see `_AFTER_QUOTE_
+# GAP_RE` below) and/or a whitelisted "as used in .../for (the) purpose(s)
+# of ..." lead-in clause BEFORE the quote, by the defining verb
+# `means`/`mean`/`shall mean` or the phrase `is defined as`. A straight
+# apostrophe (') is deliberately EXCLUDED from the quote-char classes: it
+# is indistinguishable from a contraction/possessive in running prose
+# ("individual's", "owner's"), and the RED test's own "Known limits"
 # section confirms single-quote forms are untested by the pinned fixture --
 # so narrowing to double quotes (plus unambiguous curly single quotes) costs
 # no pinned behavior while avoiding a real false-positive source.
 #
-# The two "lead-in on either side" alternatives cover both real shapes seen
-# in the corpus: lead-in BEFORE the quote ("As used in KRS 214.290 to
-# 214.310, "mattress" means ...") and lead-in AFTER the quote, before the
-# verb ("Blasting agent," as used in this article, means ...").
+# The BEFORE-quote lead-in covers "As used in KRS 214.290 to 214.310,
+# "mattress" means ...". `shall mean` (cycle-4 bounce, gap 1) joins
+# `means`/`mean`/`is defined as` -- the same defining-idiom set already
+# established by `us_profile._MEANS_IDIOM_GAP_RE` (`\b(?:means|shall
+# mean|has the meaning)\b`); omitting it here was an inconsistency with
+# that convention, not a deliberate narrowing. `has the meaning` is
+# deliberately NOT copied from that idiom set -- it is precisely the
+# cross-reference shape D-DF exists to exclude ("has the meaning ascribed
+# to it in NRS 459.7024"), not a self-definition.
 #
 # Deliberately conservative (see module docstring / RED test's "Known,
-# honestly-stated limits"): only looks at what comes IMMEDIATELY (modulo the
-# whitelisted lead-in) after the quoted term's closing quote -- a
-# cross-reference verb ("has the meaning ascribed to...", "is defined IN
-# ...") sits right there instead of `means`/`is defined as` and so never
-# matches. Misses defining verbs other than `means`/`mean`/`is defined as`
-# (`includes`, `refers to`, `is a`, ...) by design -- not pinned either
+# honestly-stated limits"): a cross-reference verb ("has the meaning
+# ascribed to...", "is defined IN ...") never itself contains `means`/
+# `shall mean`/`is defined as` as a whole word, so it still never matches.
+# Misses defining verbs other than `means`/`mean`/`shall mean`/`is defined
+# as` (`includes`, `refers to`, `is a`, ...) by design -- not pinned either
 # direction, a real implementation may reasonably go either way.
 _QUOTE_OPEN_CHARS = "\"‘“"
 _QUOTE_CLOSE_CHARS = "\"’”"
 _LEAD_IN_CLAUSE_RE = (
     rf"(?:as used in|for (?:the )?purposes? of)\b[^{_QUOTE_OPEN_CHARS}{_QUOTE_CLOSE_CHARS},]{{0,60}}"
 )
-_DEFINING_VERB_RE = r"(?:means?|is\s+defined\s+as)\b"
+_DEFINING_VERB_RE = r"(?:means?|shall\s+mean|is\s+defined\s+as)\b"
+
+# Cycle-4 bounce (H-R7/H-R9-class gap fix, gap 2): the AFTER-quote gap
+# between the term's closing quote and the defining verb used to be a
+# whitelisted lead-in clause only. Real drafting puts arbitrary SHORT
+# qualifiers there instead ("... with a public utility means:", "... when
+# referring to an Oregon commercial bank, means ..."). Same shape as
+# `us_profile.py`'s proven `_MEANS_IDIOM_GAP_RE` (`^[^"...]{0,200}?
+# \b(?:means|shall mean|has the meaning)\b`, minus the `has the meaning`
+# branch -- see above): a bounded, NON-GREEDY run of any characters EXCEPT
+# quote characters. Forbidding intervening quote characters is
+# load-bearing, the same way it is there -- it stops a later quoted phrase
+# belonging to a DIFFERENT (usually the NEXT) entry's own term from ever
+# bridging a match across it. Bounded (not `*`/`+`) so it stays
+# unconditionally linear-time, same house style as every other regex in
+# this module.
+#
+# Bound is 80, NOT `_MEANS_IDIOM_GAP_RE`'s 200 -- a deliberate divergence,
+# not a copy-paste miss. That regex runs against a `gap` already sliced
+# from an individually-segmented definition entry; this one runs
+# `re.search` over a WHOLE section body, where a long `includes:` list can
+# sit between an unrelated quoted term and a later, unrelated `means`
+# defining a different nested sub-term. Measured over the real 110-row
+# `defined for` population (manager re-measurement, cycle-4 bounce): 80 is
+# the smallest bound that still clears both genuine intervening-qualifier
+# gaps this fix targets (28 chars, OR 757.015; 51 chars, OR 708A.290) while
+# excluding the one false-positive bridge 200 let through (103 chars,
+# WA 41.04.005, bridging "period of war" across an `includes:` list to a
+# `means` that actually defines "the Vietnam era", not "period of war").
+_AFTER_QUOTE_GAP_RE = rf"[^{_QUOTE_OPEN_CHARS}{_QUOTE_CLOSE_CHARS}]{{0,80}}?"
 _SELF_DEFINITION_RE = re.compile(
     rf"(?:{_LEAD_IN_CLAUSE_RE}\s*,?\s*)?"
     rf"[{_QUOTE_OPEN_CHARS}][^{_QUOTE_OPEN_CHARS}{_QUOTE_CLOSE_CHARS}]{{1,80}}[{_QUOTE_CLOSE_CHARS}]"
-    rf"\s*,?\s*(?:{_LEAD_IN_CLAUSE_RE}\s*,?\s*)?"
+    rf"{_AFTER_QUOTE_GAP_RE}"
     rf"{_DEFINING_VERB_RE}",
     re.IGNORECASE,
 )
