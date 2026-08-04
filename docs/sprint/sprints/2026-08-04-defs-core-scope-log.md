@@ -647,3 +647,81 @@ Moving to RED tests immediately after this push; v2.1's `StructuralUnitRule`
 US-side gap and M10's QA-time measurement obligation are both explicitly
 NOT blocking Stage B and are carried forward as open items in the Stage B
 report rather than chased further here.
+
+---
+
+## 2026-08-04 — Round 4: DIRECTOR requirement — recursive sub-article connection targets
+
+**Director, verbatim intent (relayed via program manager):**
+
+> "We want the connections to subsections, not necessarily to articles. In
+> some law systems the article is a small enough unit; in some, subsections
+> are the main unit, and every subsection may have its own subsections.
+> Research what is the main unit in each law system."
+
+**Design consequence.** Connection TARGETS — definition anchors,
+reference/pointer targets, AND `USES_DEFINITION` mention anchors — must be
+addressable at sub-article granularity, RECURSIVELY nested: an ordered unit
+path under an article (article 5 → (a) → (2)), not the `Article` row as a
+blanket anchor. Arbitrary depth; no two-level assumption. Each jurisdiction
+profile declares its system's main working unit; where that main unit is the
+subsection, connections resolve there.
+
+**Program manager's operative instruction, relayed verbatim in substance:**
+the SAME unit machinery must serve BOTH scope containment AND connection
+addressing — design it once. This is the important part. As of v2 the sprint
+had TWO half-machineries aimed at the same problem: `Subsection(label,
+start, end)` spans below the article, and `ScopeUnit`/`structural_units`
+above it. Shipping both would make six panels learn two unit systems.
+
+**Manager lean passed to the Planner (explicitly labeled a lean, rejectable
+with reasons).** One ordered UNIT PATH per addressable location, running top
+of law → down: `[part:II, chapter:3, article:5, subsec:a, subsec:2]`. Then
+(a) scope containment becomes PREFIX-MATCHING — a definition governs a
+mention iff the definition's path is a prefix of the mention's path — one
+predicate replacing `_in_scope`'s special-cased chapter/local/subsection
+branches, with `law-wide` falling out for free as the empty path; (b)
+"narrowest governs" becomes LONGEST-MATCHING-PREFIX, i.e. specificity rank
+becomes path DEPTH, which if it holds would largely dissolve M4(b)'s
+hand-registered rank registry and most of M10's equal-rank ties, because
+nesting order stops being a cross-jurisdiction judgment call and becomes an
+intrinsic property of the document's own structure; (c) M11's structural-unit
+rule kind collapses into the single "how does this jurisdiction derive an
+article's unit path" seam, above AND below the article, instead of two seams.
+Candidate break named for the Planner to test: M9's enumerated scopes are a
+SET of paths rather than one path — probably fine as "matches if ANY member
+path is a prefix", but the Planner must verify rather than assume.
+
+**Two binding cautions relayed:**
+1. Do NOT invent the per-system main-unit table. A 4-system research swarm
+   (IL, US states, US federal, PR) is measuring real unit hierarchies,
+   nesting depths and citation shapes from the corpora; dossier lands within
+   the hour. v2.1 leaves the per-system main unit as a DECLARED PROFILE
+   PARAMETER fed by that research — design the mechanism, parameterize the
+   data. Planner does not block on the dossier and does not guess it.
+2. Stop-and-escalate is sharpened, not softened. Sub-article addressing
+   plausibly forces persisted sub-article entities (new table/entity type)
+   and/or an assertion-schema change: today `_create_assertion` anchors
+   `USES_DEFINITION` with `subject_entity_type="Article"`,
+   `subject_entity_id=using_article.id`. If honoring this needs schema or
+   frontend-visible change beyond this sprint's backend-only gates C1-C5,
+   the Planner escalates WITH THE DESIGN rather than absorbing it, and is
+   explicitly forbidden from standing up a new persisted entity type on its
+   own authority.
+
+**Sequencing instruction given.** v2.1 = Round 3's four items + this
+unification, which SUPERSEDES any part of Round 3 that assumed
+article-granular anchoring. If the unification is a bigger rewrite than v2.1
+can carry, the Planner is told to push a v2.1 that fixes the overruled items
+and states the unified unit model as the DIRECTION with open questions named,
+then report — an honest in-progress spec beats a stale confident one for four
+parked panels. And if this changes what Stage B's RED tests should assert,
+say so BEFORE writing them.
+
+**Manager risk note (carried up to the program manager, not resolved here).**
+This is real scope growth on the critical path: gates C1-C5 as written cover
+scope containment, not connection addressing. Splitting it into a follow-on
+core sprint was considered and rejected — the panels would build against an
+addressing model that then changes under them, which is worse than waiting.
+Recorded so the delay to the six parked panels is attributed honestly to a
+director requirement change, not to panel slippage.
