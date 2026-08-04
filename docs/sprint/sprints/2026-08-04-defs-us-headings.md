@@ -1,19 +1,19 @@
 ---
 id: "2026-08-04-defs-us-headings"
-status: in-progress
+status: blocked
 current_role: manager
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
 locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04T00:00:00Z"
-last_agent: "claude-code:sprint-manager"
+last_agent: "claude-code:sprint-manager-phase2"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 9
 completed_items: 0
-dev_complete_items: 2
+dev_complete_items: 3
 qa_cycles: 2
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -303,11 +303,48 @@ false positives — 0 rows matched without a `defin` substring, and the 123
 non-canonical-token matches are exactly 117 R-TRUNC + 6 R-MISSPELL intended
 captures with 0 morphology noise and 0 unexplained. Details in `-log.md`.
 
+- **Item 4 — `HeadingRule` self-registration** (dev `f461371`, phase-2 manager).
+  The `register_heading_rule(HeadingRule(("US-*",), matches_heading_variant))`
+  call H-R5 deferred out of Phase A, added now that core is merged. CHECKS
+  PASSED: registry-integration unit suite **2/2**; auto-discovery live check
+  registers exactly **1** rule for `US-CT` and **0** for `IL`; full suite
+  **729 passed / 1 failed**; `git diff --stat -- backend/tests/` empty.
+  Manager proved all executable code byte-identical to the prior commit apart
+  from the import + registration line. File 304 lines (soft-300 convention
+  overage, entirely preserved rationale — recorded, not cut).
+
 ## Completed
 
 _None._
 
+## BLOCKED — two core-owned seam gaps (escalated to the program manager)
+
+Phase B items 3, 5, 6, dev cycle 4 (D-DF), and gates U1/U2/U4 are blocked.
+Full evidence in `-log.md` § "Manager phase 2 — takeover verification".
+
+- **Blocker A — `HeadingRule` is registered but never consumed.** 5 of the 7
+  rule kinds (heading, body_preamble, entry_splitter, term_clause,
+  structural_unit) have **zero production callers** on merged main; only
+  `ScopeTriggerRule` and `CitationRule` are wired. Proven live-path: an
+  everything-matching `HeadingRule` is returned by `heading_rules_for("US-CT")`
+  yet `profile.is_definitions_heading` still returns False. This sprint's
+  entire measured recall win (20,307 headings, 91.4%→94.7%) therefore has
+  **zero production effect** today. Gates **U1** (live-path recognition) and
+  **U3** (zero shared-module edits) cannot both be met by this panel: the fix
+  is an edit to core-owned `us_profile.py`. Also blocks the markers, multiterm,
+  and preamble panels.
+- **Blocker B — D-DF is not expressible in any rule kind.** `HeadingRule.matches`
+  receives the heading only; no kind in the seam receives **both** heading and
+  body, which is exactly what D-DF's body-confirmed capture requires. Note the
+  body (`matcher_article.body`) is already in scope at the detection call site
+  (`pipeline.py:198`), so this needs no new plumbing — only a seam decision.
+
 ## Context Dump
 
-New sprint. Planner: read program doc + dossier §2 family 4 + §6 addendum
-(finding #2 verb-form table), re-confirm examples live, author RED tests.
+Phase-2 manager took over after dev cycle 3, merged core (`1d17d81`), landed
+Phase B item 4 (`f461371`), and escalated both blockers above. **Resume point:**
+await the program manager's ruling on who wires detection-kind consumption and
+how D-DF gets heading+body access. Nothing further in this sprint is
+implementable until then — every remaining item depends on one of the two.
+Corrections to earlier context: the "defined for" rule is COMMITTED (`a0419a4`),
+not uncommitted; and QA cycle 2's "sixth gap" was already closed in dev cycle 3.

@@ -1850,3 +1850,41 @@ without.
 **Both blockers escalated to the program manager.** Work that is NOT blocked
 proceeds meanwhile (the `register_heading_rule` self-registration call, Phase B
 item 4's unit RED).
+
+### Work landed despite the blockers — Phase B item 4
+
+Dev cycle (Sonnet medium; Haiku considered and rejected — the change bumps the
+300-line convention and had to preserve ruling-bearing comments while avoiding
+three tempting-but-forbidden shared-module edits). RED already existed
+(Planner-authored, cycle 1), so no Planner spawn was needed: this was a pure
+Developer task against a standing RED.
+
+`f461371` adds the `register_heading_rule(HeadingRule(("US-*",),
+matches_heading_variant))` call that H-R5 deferred.
+
+**Manager verification (independent, materialized — not the agent's report):**
+- Full diff read. Docstring prose rewrapped + one import + one registration
+  line. **Proved all executable code byte-identical** to the prior commit apart
+  from those two lines (docstring-stripped source comparison), so zero
+  behavior change to R-SEC/R-MID/R-VERB-bare/R-VERB-extended/R-TRUNC/R-MISSPELL
+  and the D-DF-pending `for|as|term` whitelist is untouched.
+- Live auto-discovery check: `heading_rules_for("US-CT")` → exactly **1** rule,
+  `heading_rules_for("IL")` → **0** (Hebrew regression surface protected).
+- Manager-run full suite: **729 passed / 1 failed** (was 728/2).
+- `git diff --stat -- backend/tests/` **empty** — role separation held.
+- File now **304 lines**. The 4-line overage is entirely preserved rationale;
+  recorded rather than cut, per the manager's explicit instruction that the
+  line convention is soft and recorded rationale is not.
+
+The one remaining failure is the Blocker-A wiring gap, by construction.
+
+### Escalation raised to the program manager
+
+Both blockers sent up with options and a lean. The panel cannot settle either:
+both require edits to core-owned shared modules, which gate U3 forbids this
+panel from making and which P-R1 assigned to core precisely so that four
+concurrently-landing panels do not collide in the same dispatch code.
+
+Sprint `status: blocked` pending the ruling. Nothing else in the item list is
+implementable in the meantime — every remaining item depends on Blocker A
+(live-path recognition) or Blocker B (D-DF).
