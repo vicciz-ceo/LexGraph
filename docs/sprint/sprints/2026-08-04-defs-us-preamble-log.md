@@ -575,3 +575,129 @@ with every other US family), but real, verified, and worth the program
 manager routing to whichever sprint/QA cycle next runs a full-corpus
 mention-linking measurement, since it will otherwise silently under-link
 even a fully-fixed family-2 capture.
+
+---
+
+## 2026-08-04 — Manager: corrections, rulings absorbed, handoff verification
+
+### M-R8 — CORRECTION to M-R5: no Planner ever died. I was wrong.
+
+M-R5 above claimed Planner attempt #1 "died silently". **That diagnosis was
+incorrect and is retracted here** (the log is append-only, so M-R5 stands as
+written and this entry supersedes it).
+
+What actually happened: BOTH Planner instances ran to completion
+**concurrently in this one worktree**. Attempt #1 delivered independently and
+pushed `f77eec3`; attempt #2 delivered `0b97809..adf4b8d`. Attempt #1
+cross-validated attempt #2's numbers exactly (MD 3,327; NE 559; the SD
+splits), noticed attempt #2 had adopted its test file with credit, and stood
+down from competing writes rather than fighting over the tree.
+
+Where my reasoning failed, precisely:
+
+1. I read an empty final assistant record plus a missing `.meta.json` as
+   proof of death. **`.meta.json` is written at SPAWN, not completion** — I
+   proved this myself minutes later when my first watchdog reported "clean
+   completion" at poll 1, ~15s after spawn, which is impossible. I corrected
+   the watchdog but did not go back and re-examine the death conclusion that
+   the same false signal had produced.
+2. A transcript that stops growing is **not** evidence of death; an agent can
+   be quiet for a long stretch. Staleness watchdogs are unreliable for this.
+3. I treated "clean tree + no commit" as corroboration, when it was equally
+   consistent with an agent that had not yet reached its first commit.
+
+**Program rule now in force** (program manager): verify liveness positively
+before declaring death, and **NEVER let two writers share a worktree** — the
+absence of conflicts here was luck, not design. My respawn created exactly
+that hazard and I did not recognize it.
+
+Both Planners' output is reconciled as ONE deliverable of this sprint:
+`bd18411..f77eec3`.
+
+### M-R9 — Program manager rulings absorbed
+
+- **M-R7(a) is now with core**, to be ruled explicitly in seam spec v2, with
+  our MD/NE/MS/SD numbers and the SD-unreachable-under-the-gated-reading
+  nuance attached. **Items 3/4/6/8 are HELD pending that ruling.**
+- Seam v2 is also expected to add generic scope units, which addresses item
+  9's chapter-scope dependency.
+- **Boundary routings APPROVED as proposed**: item 7 (MS clause-shaped rows,
+  ~190–240/637) → `defs-us-scoped-inline`; item 5 (NE/SD unquoted shapes) →
+  `defs-us-markers`. Those panels are being informed. Neither is this
+  sprint's file to build; both stay listed so they are not silently dropped.
+- The `find_term_uses` case-sensitivity finding (no `re.IGNORECASE`; real GA
+  rows re-mention capitalized defined terms in lowercase,
+  `STATE_GA_T7_C8_S7-8-1` → `S7-8-3`) is **routed to core** as a new core
+  item, matcher being core-owned. Correctly out of our charter.
+- Director's standing policy for our expected false-positive conflicts:
+  escalate each class **with data**; the corpus-wide FP-exposure measurement
+  for the ungated branch is the right artifact. That is now this sprint's
+  active work (M-R11).
+
+### M-R10 — Manager verification of the combined Planner deliverable
+
+Verified by me directly, not accepted on report:
+
+- **Diff** `bd18411...f77eec3`: 13 files, +1,861/−12. Additions only —
+  6 fixture JSONs + a fixture README, 4 new test files, contract, log. **Zero
+  changes to `pipeline.py`, `matcher.py`, `profiles.py`, `extract.py`,
+  `us_profile.py`** → U3's "no shared-module edits" holds by construction.
+- **Suite**: `12 failed, 647 passed` vs. the 641-passing baseline (M-R4).
+  All 641 baseline tests still pass → **no regression (U5 intact)**; 6 new
+  green tests (guards) + 12 new RED.
+- **RED tests are genuinely live-path and fail for the right reason.**
+  Inspected `test_real_pipeline_misses_a_real_georgia_body_preamble_
+  definitions_section_end_to_end`: it drives real `ingest_us_statute_rows` +
+  real `run_definition_linking`, and fails with `expected 6 real GA terms,
+  got []`. Not a regex-echo test, not vacuous.
+- **Fixtures are genuine.** I re-read all 12 fixture rows back against the
+  real parquet by `act_id`: every one is **byte-exact** on `text` (7,640b /
+  1,913b / 6,339b / … all EXACT) with matching `section_title`. Nothing
+  fabricated.
+- **No test reads the snapshot.** The only `huggingface`/snapshot references
+  are the fixture README's provenance notes and one pre-existing docstring.
+
+Two defects found, neither blocking, both for the Planner/QA to fix (I do not
+edit tests):
+
+- **(a) Inverted test names.** `test_real_pipeline_MISSES_a_real_georgia_…`
+  asserts the *fixed* behavior, so when the fix lands the suite will read
+  "pipeline misses GA" while proving the opposite. Same shape for the MD and
+  NE siblings. Rename to the asserted behavior.
+- **(b) Factual error in `backend/tests/fixtures/us_statutes/README.md`**: it
+  states `huggingface_hub`/`pyarrow` are NOT installed in `backend/.venv`.
+  **`pyarrow` IS installed and IS a declared dependency** (`pyarrow>=17.0`,
+  `backend/pyproject.toml:15`); only `huggingface_hub` is absent. Left
+  uncorrected, this sends the next agent to build a scratch venv it does not
+  need.
+
+### M-R11 — Sprint status: every build item is blocked on core; FP measurement is the live work
+
+Verified: `git diff --stat origin/main...origin/claude/defs-core-scope` is
+**docs-only (2 files)**, and `backend/app/definition_links/` on core's branch
+contains **no `rules/` package**. So the registry does not exist yet.
+
+Consequence for item 2 (GA), which the program manager left to my judgment:
+GA is *not* blocked on the M-R7(a) answer, but it IS blocked on Seam 2
+existing. Implementing GA any other way means editing `pipeline.py`'s frozen
+`_BODY_DEFINITIONS_PREAMBLE_RE` — which the seam spec forbids and which would
+collide with core's in-flight deletion of that very symbol. **Manager ruling:
+do NOT force GA through the frozen shared modules.** GA waits for the
+registry; the RED test is already written and will drive it the moment
+`rules/` lands.
+
+There is therefore **no Developer work available in this sprint right now**;
+spawning one would produce either a forbidden edit or an idle agent. The
+useful, unblocked, program-manager-endorsed work is the **corpus-wide
+false-positive exposure measurement** for M-R7(a)'s ungated branch, plus
+independent QA of the Planner's test suite. Spawning QA for both (M-R12).
+
+### M-R12 — Model/effort for the QA spawn
+
+QA: **Sonnet / high** — the deliverable is a precision measurement whose
+crux is judging, row by row over real statutory prose, whether a candidate
+is genuinely a definition; a wrong call here mis-informs a director-level
+P-R2 decision. Per P-R6 QA is Sonnet high. **Haiku considered: no** — the
+judgment, not the scripting, is the load-bearing part. `model=inherit` not
+used. QA commits only test/contract/log files and never touches
+implementation.

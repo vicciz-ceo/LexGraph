@@ -217,6 +217,41 @@ core-dependency shape spelled out per item; item 1 is the escalation itself.
     sweep bar). This is QA's deliverable per the harness role split, not
     the Planner's — flagged here so it is not lost.
 
+## Manager status (2026-08-04, after both Planners)
+
+Both Planner instances ran to completion **concurrently in one worktree** and
+are reconciled as ONE deliverable: `bd18411..f77eec3`. (My earlier
+"Planner died" diagnosis was wrong — retracted in log M-R8.)
+
+**Verified by the manager directly** (log M-R10): diff is additions-only with
+**zero edits to `pipeline.py`/`matcher.py`/`profiles.py`/`extract.py`/
+`us_profile.py`** (U3 holds by construction); suite is **12 failed, 647
+passed** against a 641-passing baseline, so **U5 is intact**; the RED tests
+drive the real ingest + real `run_definition_linking` and fail for the right
+reason; **all 12 fixture rows are byte-exact real corpus rows**; no test
+reads the snapshot.
+
+**Routings approved by the program manager**: item 7 (MS clause rows) →
+`defs-us-scoped-inline`; item 5 (NE/SD unquoted shapes) → `defs-us-markers`.
+The `find_term_uses` case-sensitivity finding → core.
+
+**Items 3/4/6/8 are HELD** pending core's seam-v2 ruling on M-R7(a).
+
+**Items 2 and 9 are blocked on core's registry existing at all** — verified:
+core's branch is docs-only and has no `rules/` package. Manager ruling: do
+NOT force GA through the frozen shared modules (`_BODY_DEFINITIONS_PREAMBLE_RE`
+is slated for deletion by core). No Developer work is available in this
+sprint until `rules/` lands.
+
+**Open defects for Planner/QA** (manager does not edit tests): (a) three test
+names say "misses" while asserting the fixed behavior — rename; (b) the
+fixture README wrongly says `pyarrow` is not installed in `backend/.venv`
+(it is, and it is declared at `backend/pyproject.toml:15`).
+
+**Active work**: corpus-wide false-positive exposure measurement for
+M-R7(a)'s ungated branch (director-policy artifact for the P-R2 escalation),
+plus independent QA of the Planner's suite.
+
 ## Dev Complete
 
 _None._
