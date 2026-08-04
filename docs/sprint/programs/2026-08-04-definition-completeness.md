@@ -205,6 +205,22 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   faithful-intent refinement, commented in code as a deliberate departure
   from the literal wording.
 
+- **P-R8 (program manager, 2026-08-04): registry dispatch completion is
+  CORE's — option A.** The PR phase-2 manager proved with positive
+  controls that 5 of 7 registered rule kinds (HeadingRule,
+  BodyPreambleRule, EntrySplitterRule, TermClauseRule, StructuralUnitRule)
+  are DEAD on the live path — registered, looked up, never consumed;
+  only ScopeTriggerRule and CitationRule dispatch. Core's C4 PASS is
+  hereby amended: proven for 2 of 7 kinds. Core reopens for a focused
+  follow-on (2026-08-04-defs-core-dispatch): baseline-first consumption
+  per the seam spec's own contract for all five kinds + a determine_scope
+  rule seam, with PER-KIND live-path dispatch RED tests (the missing test
+  class — a wiring test asserting registration+lookup is NOT a dispatch
+  test). Option B (each panel wires us_profile.py) rejected per P-R1;
+  option C (mis-scope via ScopeTriggerRule) rejected per the director's
+  scoped-definitions constraint. Panels hold dead-kind items and work
+  reachable subsets meanwhile. Evidence: claude/defs-us-pr @ 5b177b7.
+
 ## Core QA cycle 1 verdict (2026-08-04)
 
 **Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on
