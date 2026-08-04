@@ -19,10 +19,12 @@ in this module's public surface assumes a single profile instance, so that
 split is additive whenever it is needed.
 
 Inputs to every function/method here are plain, NOT Stage-0-normalized in
-the Hebrew-engine sense (`normalize_for_parsing` is a passthrough -- see its
-docstring) -- English statute text needs no wikilink-bracket stripping or
-bidi handling. `is_definitions_heading` in particular is deliberately a
-CONTAINS/substring check, not an anchored-at-start check like Hebrew's
+the Hebrew-engine's full sense (`normalize_for_parsing` does NOT do NFC
+normalization, niqqud stripping, or dash-variant collapsing -- see its own
+docstring for the one thing it DOES do) -- English statute text needs no
+wikilink-bracket stripping or bidi handling. `is_definitions_heading` in
+particular is deliberately a CONTAINS/substring check, not an
+anchored-at-start check like Hebrew's
 `sections._DEFINITIONS_HEADING_RE`: real Delaware `section_title` values
 carry scrape-noise (mojibake `Â`, a raw CRLF, leading whitespace) BEFORE the
 actual heading text (see `backend/tests/fixtures/us_statutes/README.md`),
@@ -652,10 +654,32 @@ def find_term_uses(term: str, text: str) -> list[re.Match[str]]:
     return list(pattern.finditer(text))
 
 
+# Sprint 2026-08-04-defs-core-scope, item I9 (ruling M15, program-manager
+# option 1): real-Unicode curly-quote variants (U+201C LEFT / U+201D RIGHT
+# DOUBLE QUOTATION MARK) collapsed to a plain ASCII `"` -- deliberate US
+# normalization, not the Hebrew engine's full Stage 0 (no NFC, no niqqud
+# stripping, no dash-variant collapsing; see the module docstring). Restores,
+# through the profile layer instead of as a side effect of dead dispatch,
+# the sprint-2026-08-02-us-state-law QA cycle-4 fix for a real CA row whose
+# defined term uses the SAME left-curly-quote character on both sides
+# ("Adjustment factor" means ...) -- collapsing both to `"` makes the pair
+# consistent again for `_LEADING_QUOTE_RE`/`_QUOTE_TERM_RE` below. Matches
+# ONLY the two genuine Unicode codepoints, never a mojibake byte sequence
+# that merely LOOKS similar after a mis-decode (e.g. UTF-8 curly-quote bytes
+# read back as latin-1) -- that is a different defect family (recon dossier
+# family 3, AK's cp1252 mojibake), left for a jurisdiction-specific
+# `normalize_for_parsing` override to repair, exactly the dispatch seam I9
+# exists to make reachable.
+_CURLY_QUOTE_VARIANTS_RE = re.compile("[“”]")
+
+
 def normalize_for_parsing(text: str) -> str:
-    """No normalization needed for plain English statute text (no
-    wikilink-bracket stripping, no RTL-bidi handling) -- passthrough."""
-    return text
+    """Collapse real-Unicode curly-quote variants to a plain ASCII `"` --
+    see `_CURLY_QUOTE_VARIANTS_RE` above for exactly what this does and
+    does not touch. Otherwise a no-op: no wikilink-bracket stripping, no
+    RTL-bidi handling, no NFC normalization -- those stay Hebrew-engine-only
+    concerns this profile has no use for."""
+    return _CURLY_QUOTE_VARIANTS_RE.sub('"', text)
 
 
 # --- G4: US citation grammar -------------------------------------------------
