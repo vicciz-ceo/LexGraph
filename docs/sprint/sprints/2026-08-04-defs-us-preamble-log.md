@@ -1549,3 +1549,109 @@ built on the affected measurement, as directed:
   counts inside `n_extracted_today`/`extracted_terms` for any state's
   longer-tail rows should be treated with the same caution before being
   quoted as a clean per-row capture count in a U6 report.
+
+### P-D4 — Parameterized rule + test matrix (the main event)
+
+Six new test files, six new fixture files, all vendored from LIVE fetches
+against the real corpus (never from a scout's truncated `body_opening`
+summary field) and verified against real, unedited production code before
+being written. Every capture test confirmed RED for the live-path reason
+(pipeline creates zero `Definition` rows today); every negative-guard test
+confirmed to pass today (matching the family's established "green today,
+must stay green" convention).
+
+**B1 (colon-list, S3's own naming) — the single biggest simplification
+this sprint found.** `test_us_body_preamble_b1_colon_list_matrix_red.py`,
+parametrized over 9 real rows across DE/ID/KS/LA/OK/SC/VA/WV/IL (`fixtures/
+us_statutes/us_preamble_b1_rows.json`). One shared idiom + the EXISTING
+`(N)"Term"` splitter or its inline-quote fallback (both already shipped,
+neither edited) covers all 9 — no per-state bespoke extraction logic
+needed. Each expected-terms set is a verified-live SUBSET, not the row's
+full term list, with the specific, real, independently-confirmed reason
+for each omission named in the test's own comment (LA's own preamble
+sentence defines a term before the numbered list starts and is missed by
+the primary extractor; WV's own first entry is itself a forwarding
+reference, deliberately not asserted as a positive capture; KS's fourth
+term has a corpus-quirky casing). GA is not duplicated here (already has
+its own dedicated fixture/tests).
+
+**A new, real, live-confirmed corpus defect found while building this
+matrix, distinct from the already-documented DE-style `Â` mojibake**:
+`STATE_RI_T42_C42-28_S42-28-3.5` (S3's own named RI example) stores its
+quote characters as a mangled `\x80\x9c`/`\x80\x9d` byte sequence — NEITHER
+extractor recognizes any term in it (0 candidates, confirmed live). Left
+out of the capture matrix rather than asserting something the real data
+cannot support; flagged here, not silently dropped, for whoever owns
+corpus ingestion next.
+
+**B2 (words-have-meanings) — MD's own dominant shape, also DE/LA/WV.**
+`test_us_body_preamble_b2_words_have_meanings_matrix_red.py`, 3 real rows,
+all extract cleanly via the existing splitter, no fallback needed. Also
+pins WV's own near-miss (S3 §4): its B2 row's body opens with the LITERAL
+word "Definitions." as its own embedded sub-heading — a cheaper signal
+than the idiom this file tests, not built here (production-rule design is
+out of Planner scope), but confirmed present on the real, vendored row so
+a future rule author does not have to re-verify a scout's unverified
+claim.
+
+**MS's second convention** (S4 finding, ~845 real rows corpus-wide,
+distinct from MS's original D1-inventoried "As used in this article, the
+term:" shape already covered by `test_us_body_preamble_capture_red.py`).
+`test_us_body_preamble_ms_second_convention_red.py`, 2 real rows —
+reuses `STATE_MS_T45_C10_S34-1` (already vendored for D3's scope test,
+deliberately not duplicated into a second fixture file) plus one freshly
+fetched row (`STATE_MS_T49_C5_S11-1`), confirming the convention across
+more than a single example.
+
+**CA — 663 BLOCK rows, "not a minor bonus population" (S4's correction of
+M-R11's earlier phrase).** `test_us_body_preamble_ca_block_red.py`, one
+real row plus a unit-level pin. The pin proves something concrete and
+specific: this exact row's body already contains today's EXISTING (pre-
+sprint) Gate B trigger vocabulary ("definitions"..."apply") and misses
+ONLY because the real prefix before the word "definitions" is 84
+characters, one over Gate B's own 80-char cap — a different, narrower,
+already-almost-passing reason than GA/MD/NE/MS/SD's own misses, confirmed
+by calling `_derive_heading_from_body` directly and reading its `None`
+return, not asserted from a scout's report.
+
+**FEDERAL/DC/NY** (scout S2's slice). `test_us_body_preamble_fed_dc_ny_red
+.py`. FEDERAL's own capture test asserts only 2 of 4 real terms (the 2
+confirmed clean) — the answer to the contract's own open question ("say
+whether a preamble rule can produce clean text for FED"): **NO, not for
+every entry, using either existing extractor as-is** — proven on a real,
+vendored row, not asserted: a companion unit-level pin shows the row's own
+LAST entry ("wildlife") swallows 8,195 of 8,539 characters, including the
+entirely unrelated next subsection. This needs a new, properly-bounded
+extractor — production code out of this sprint's Planner-only file and out
+of bounds for this sprint's frozen modules (`us_profile.py`/`pipeline.py`)
+— named here as a real, confirmed, currently-open defect, not silently
+absorbed into a passing test. Two more real, independently-confirmed
+FEDERAL extractor gaps are named in the same file (a compound-quote entry
+that never extracts either of its two terms; an "includes"-verbed entry
+`_MEANS_IDIOM_GAP_RE` does not recognize). DC's own row extracts all 4
+terms cleanly (0% contamination, confirmed). NY's own row is captured via
+the newline-agnostic inline fallback (confirmed live to be unaffected by
+the corpus-wide literal-`\n` defect, already routed to core as I8, not
+re-routed here) — asserts only 3 of 11 real terms, deliberately not the
+whole set, to avoid coupling to whichever later entry might carry the same
+last-entry risk FEDERAL/DC both show.
+
+**Negative-guard hazard catalogue** (S3's H1/H3 + S1's AL cluster + S4's
+SD finding + S2's DC exclusion-only clause — 6 real rows across
+CO/MT/AL/IN/SD/DC, `test_us_body_preamble_hazard_catalogue_red.py`).
+Two of the six are SHARPER than "nothing captures today": calling the
+real, unedited extractors DIRECTLY on `STATE_CO_T15_A11_P7_S15-11-701`
+and `STATE_MT_T7_C14_P41_S7-14-4103` already produces a real, non-empty,
+WRONG candidate right now (a spurious "Governing instrument" ->
+"shall not include a deed..." exception-as-definition; a spurious "motor
+vehicles" -> pure forwarding-pointer) — confirmed live, pinned as its own
+test, not merely asserted in prose. This is the SAME hazard shape QA's own
+MS forwarding-reference finding modeled, now independently reproduced on
+two states never covered by that guard.
+
+**Suite state after D4**: every new capture test fails via the SAME
+live-path mechanism as every other test in this family (`created_
+definitions == []`), verified by running each file directly, not
+inferred. Every negative-guard test passes today. No test in any new file
+reads or downloads the parquet snapshot — every row was fetched once,
+during authoring, and vendored byte-for-byte.

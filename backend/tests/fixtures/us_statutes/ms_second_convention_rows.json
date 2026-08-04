@@ -1,0 +1,28 @@
+{
+  "STATE_MS_T49_C5_S11-1": {
+    "act_id": "STATE_MS_T49_C5_S11-1",
+    "citation": "Miss. Code Ann. § 49-11-1",
+    "citation_short": "Miss. Code Ann. § 49-11-1",
+    "state": "ms",
+    "jurisdiction": "US",
+    "document_type": "statute",
+    "title_number": "49",
+    "title_name": "MS Code",
+    "chapter": "5",
+    "chapter_name": null,
+    "section_number": "11-1",
+    "section_title": "Miss. Code Ann. § 49-11-1",
+    "breadcrumb": "[{\"type\": \"title\", \"num\": \"49\", \"label\": \"Title 49\", \"name\": \"\"}, {\"type\": \"chapter\", \"num\": \"5\", \"label\": \"Chapter 5\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"11-1\", \"label\": \"Section 11-1\", \"name\": \"\"}]",
+    "display_path": "MS Code / Title 49 / Chapter 5 / Section 11-1",
+    "act_status": "in_force",
+    "text": "For purposes of this chapter:\n\n(a) “Commission” means the Commission on Wildlife, Fisheries and Parks.\n\n(b) “Department” means the Department of Wildlife, Fisheries and Parks.\n\n(c) “Operator” means a person licensed to operate a shooting preserve or a commercial wildlife enclosure.",
+    "word_count": 41,
+    "source_url": null,
+    "last_amended_year": null,
+    "subsection_count": 3,
+    "cross_references_usc": "[]",
+    "cross_references_cfr": "[]",
+    "public_laws_referenced": "[]",
+    "year": 2026
+  }
+}
