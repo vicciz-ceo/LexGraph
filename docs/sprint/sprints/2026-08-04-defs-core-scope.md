@@ -7,14 +7,14 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-scope
 locked_by: "claude-code:qa-manager"
 locked_at: "2026-08-04T09:52:12Z"
 last_agent: "claude-code:qa-manager"
-last_updated: "2026-08-04T10:31:00Z"
+last_updated: "2026-08-04T11:05:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
 lint: PASS
 completed_items: 8
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -79,8 +79,31 @@ silently resolved.
 
 ## Next Steps
 
-- [ ] **I1 (QA-FAIL, cycle 1 — back to Developer) — subsection-granularity
-  scope containment is INERT on the live path (C1).**
+- [x] **I1 (DEV COMPLETE, cycle 2 — manager-verified, pending re-QA) —
+  subsection-granularity scope containment, now LIVE (C1).**
+  **FIXED** by `c76c2f6`, merged `86e0bbe`. `_subsection_contains_offset`
+  keeps the `article.subsections` stub branch first, and when that
+  attribute is absent (every real `MatcherArticle`) falls back to the
+  already-live `profile.resolve_unit_path(article, char_offset=...)`
+  retrieval seam, comparing `mention_path[0].value` against
+  `scope_value` — `.value` only, never `.kind`, per v2.2's
+  kind-is-display-only rule. `profile` threaded through
+  `definition_covers_mention` with a `None` default so every existing
+  call site is unaffected; `pipeline.py` Stage 3 passes the
+  per-document profile. **Reuses the D-ANCHOR seam rather than building
+  a parallel span mechanism** — one implementation of "which subsection
+  is this offset in", so the two cannot drift.
+  Manager-verified: 2 production files, ZERO test edits, full-hunk read
+  of both; merged-tree suite **693 passed / 0 failed** (was 692/1).
+  **Still owed before re-QA passes this (routed to Planner, cycle 2):**
+  (a) the EXCLUSION direction is proven only by a hand-run outside
+  pytest — the committed test still asserts the weaker "at least one
+  edge exists"; (b) **multi-level nesting is untested** — the fix reads
+  the OUTERMOST path step and `resolve_unit_path`'s replace-ancestor
+  semantics were traced by hand for ONE level only, so a definition
+  scoped to `(a)` containing a mention at `(a)(1)(A)` is unproven. Per
+  v2.4 §3 there is no depth cap; the federal 8-level ladder is real.
+  **Original bounce record (kept — this is the historical finding):**
   **[QA-FAIL: what failed]** A `scope="subsection"` definition links NOTHING
   live — not even the mention inside its own defining subsection.
   `matcher._subsection_contains_offset` reads
@@ -165,9 +188,9 @@ path traced to a production call site, and the pinning test **mutation-proven**
 
 ## Context Dump
 
-**State:** `qa-fail` after QA cycle 1. Backend at merge `34a413f`:
-**692 passed / 1 failed**; the 1 failure is I1's committed C1 RED and is the
-ONLY expected red. Frontend 165 passed, `tsc` clean.
+**State:** cycle 2 in progress. Backend at merge `86e0bbe`: **693 passed /
+0 failed** — I1's C1 RED is now GREEN. Planner still in flight (gap-3
+exclusion test, D-CF REDs, I11). Merge-to-main gate is re-QA cycle 2. Frontend 165 passed, `tsc` clean.
 
 **The bounce in one line:** subsection-scope CONTAINMENT never runs in
 production — no producer stamps `scope="subsection"`, and the live
