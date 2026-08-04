@@ -3792,3 +3792,118 @@ the handoff. Files touched: 1 edited test
 (`test_pr_profile_local_scope_definitions_cycle4.py`), 4 new integration
 test files, the contract, this log entry. Zero files under `backend/app/`
 touched (`git status --short` confirms role-boundary compliance).
+
+---
+
+## 2026-08-04 — Manager: cycle-5 Planner VERIFIED; inertness premise FALSIFIED; 18c residual escalated
+
+### Handoff verification (materialized, not trusted)
+
+| Check | Result |
+|---|---|
+| Commit / push | `1c9d931`, HEAD == `origin/claude/defs-us-pr`, tree clean |
+| Role boundary | `git diff --stat 55056e5..HEAD -- backend/app/` → **empty**. No production code touched. |
+| 30 held REDs byte-untouched | `git diff --stat` over all 6 held files → **empty** ✔ |
+| Suite reproduced | `45 failed, 900 passed, 8 xfailed` — matches the Planner's report exactly |
+| RED accounting | 30 held + 5 (`local_scope_definitions`) + 5 (`qa_cycle4_findings`) + 5 new = 45 ✔ |
+| New tests are live-path | 4 new files all in `backend/tests/integration/`, all driving `get_profile("US-PR")` / `run_definition_linking` ✔ |
+| Vacuous greens declared | **Yes** — all 6 labelled in the log with the condition that makes them meaningful. Good discipline; QA must re-verify them under mutation rigor once the Developer lands the rules. |
+| `PRProfile` retargeting | Read full hunks. Same behavioral assertions, entry point corrected to `get_profile("US-PR")`, rationale documented. Correct call — the old interface is unreachable BY CONSTRUCTION, not an assertion weakened to fit behavior. |
+
+Planner work is high quality. One substantive finding against it, below.
+
+### A wrong turn of my own, recorded before the finding it nearly produced
+
+My first inertness probe ran `find_term_uses` on the RAW body and reported
+that `_is_own_defining_entry` never fires for PR, because it tests for ASCII
+`"` while PR text uses curly quotes. I was one step from escalating "the
+own-entry exclusion is blind to curly quotes, and Delaware is affected too."
+
+**It was wrong.** `pipeline.py:187` applies `profile.normalize_for_parsing()`
+— which collapses curly quotes to ASCII — BEFORE building the
+`MatcherArticle`. The matcher never sees a curly quote. Delaware (18.8%
+curly-only, 41 ASCII quote characters in the whole corpus) works for exactly
+this reason. I caught it by asking why DE, a working-baseline state, was not
+already broken. Same class of error as my predecessor's swapped-argument
+near-miss, caught the same way: verify the probe before trusting its output.
+
+### The real finding — the inertness premise is FALSE for 29 of the 38
+
+The program manager endorsed the 38-row residual on ONE condition: that the
+inertness claim ("no other same-article mention to link, so no wrong
+assertion can result") holds. I reproduced the Planner's residual set exactly
+(canonical rows hit by `QUOTED_BARE_IDIOM_ANY` that fail the broadened
+preamble guard → **38**, confirming the measurement), then counted, on the
+NORMALIZED body the matcher actually sees, the same-article uses that survive
+`_is_own_defining_entry`:
+
+```
+RESIDUAL rows NOT inert (>=1 counted same-article use): 29 / 38
+Total wrongly-scoped USES_DEFINITION assertions created:   467
+
+STATE_PR_LEY_77_1957_ART6_020    terms=46 counted=116  'Puerto Rico'x27, 'OVV'x19
+STATE_PR_RENTAS_SEC1082_01       terms=10 counted= 86  'propiedad inmueble'x42
+STATE_PR_LEY_151_1968_SEC1_03    terms=28 counted= 77  'Puerto'x30
+STATE_PR_LEY_77_1957_ART61_020   terms=20 counted= 30  'Código'x16
+STATE_PR_LEY_60_1963_ART100      terms=19 counted= 27  'emisor'x11
+  ... 24 more
+```
+
+**Why the Planner got it wrong, precisely:** it named two shapes in the
+residual and verified inertness on the first. `STATE_PR_LEY_133_1979_ART1`
+(single bare sentence, one term) genuinely IS inert — I confirmed it. But the
+second shape, the marker-list body opening `(a) "AAFAF" significará…`, is a
+large multi-entry Definiciones article whose defined terms are re-used freely
+inside OTHER entries' definition texts. The property was generalized from
+shape (a) to shape (b) without being measured on shape (b). The Planner
+flagged the judgment for veto and named both shapes, so this is an honest
+miss, not a concealed one — but it is a miss, and it is load-bearing.
+
+### Options, measured on the real corpus (D-Q1 requires data, so here it is)
+
+Genuine population 18c ships for: **372** non-canonical hit rows.
+
+| Option | Residual suppressed | Genuine recall lost | Wrong assertions left |
+|---|---|---|---|
+| **A** accept residual (as endorsed) | 0/38 | 0 | **467** |
+| **B** bail when no preamble/scope-noun signal | 38/38 | **345/372 (92.7%)** | 0 |
+| **C** bail on definitions-list shape, ≥2 entries | 30/38 | 116/372 (31.2%) | 11 |
+| **C** ≥3 entries | 24/38 | 62/372 (16.7%) | 24 |
+| **C** ≥5 entries | 18/38 | 23/372 (6.2%) | 40 |
+
+Option B is what the Planner proposed as the strict-reading fallback and
+explicitly could not measure. Now measured: it destroys 92.7% of the genuine
+population. It is not a viable fallback.
+
+### Option D — the one the data actually points at
+
+Every residual row is a CANONICAL `Definiciones` row. The only reason any of
+them reaches `extract_local_scope_definitions` is that `HeadingRule` does not
+dispatch yet, so `pipeline.py`'s `is_definitions_section` is False for every
+Spanish heading and all 23,636 PR rows fall into the `else` branch.
+
+**Once core's dispatch sprint lands and our (HELD) Spanish `HeadingRule` is
+registered, canonical rows route to the `if` branch and 18c never sees them.
+The residual problem disappears by construction — no guard, no recall cost,
+no wrong assertions.** The entire M-R12 guard exercise is an artifact of the
+temporary dispatch gap it was written to survive.
+
+Cost: 18c ships with the held canonical work instead of now, shrinking
+cycle 5 to items 27/28/29 plus 18a. Benefit: correct by construction instead
+of approximated by a body-side heuristic that costs 6-31% recall or ships
+hundreds of wrong assertions.
+
+**Note that 18a is NOT affected** — it fires only on explicit article-scope
+trigger phrases (`A los fines de este Artículo`), which genuinely ARE local
+scope. Same for items 27 (citations), 28 (P3 article-scope), 29 (P5). The
+contested surface is exactly 18c's untriggered whole-body sweep.
+
+### Manager position
+
+Escalating rather than ruling. This is a recall-vs-precision conflict class,
+which D-Q1 sends to the director with data, and the program manager set the
+explicit trigger ("if ANY of the 38 gains a same-article mention link").
+29 did, producing 467 wrong assertions. **My lean is D**, with A rejected on
+its own falsified premise and B rejected on measurement. Developer NOT
+spawned for 18c pending the decision; recommending the Developer proceed on
+18a/27/28/29 meanwhile.
