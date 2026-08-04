@@ -1968,3 +1968,62 @@ Planning complete and verified. No Developer spawned, by design: items 1-2
 cannot be built until dispatch lands. Items 3-4 remain blocked on the markers
 panel's `EntrySplitterRule` obligation (TX/VT parent-redirect clause + its
 lettered children in ONE block). Resume conditions in the contract.
+
+---
+
+## 2026-08-04 — STEP 4: dispatch PROVEN live, and a trap it exposed (M-R11)
+
+Rebased onto main (dispatch merged). Per my own resume rule I probed the live
+path BEFORE authorizing any Developer work, instead of trusting the merge.
+
+**Probe 1 was inconclusive and I say so.** I first fed a marker-less body and
+got `False` on every path. That was my probe's fault, not the code's:
+`_split_into_numbered_blocks` returns NO blocks for marker-less text, and the
+dispatch loop is `for block in all_blocks: for rule in term_clause_rules_for(...)`
+— zero blocks means the rule is never consulted. Recorded because it is a
+real property: **TermClauseRule only ever sees blocks the splitter produced.**
+That independently CONFIRMS the items 3-4 boundary — VT/SD marker-less rows
+yield zero blocks, so no term-clause rule can rescue them; they genuinely
+need markers' `EntrySplitterRule` first.
+
+**Probe 2 — definitive** (`(1) "Alpha" means…/(2) "Beta" means…`, a rule
+registered for `US-TX` returning a sentinel term):
+
+```
+baseline blocks: ['"Alpha" means a thing.', '"Beta" means another thing.']
+METHOD   (USProfile.extract_definitions_from_section): True  | blocks passed to rule: 2
+FREE FN  (us_profile.extract_definitions_from_section): False
+NEG CONTROL US-NY (must be False):                      False
+```
+
+`TermClauseRule` dispatch is **LIVE on the METHOD**, with jurisdiction scoping
+working (negative control correctly False). P-R8 is genuinely closed for us.
+
+### M-R11 — our two UNIT modules call the WRONG entry point
+
+The free function does **not** dispatch; only the profile METHOD does. Both
+unit modules import the free function:
+
+- `test_definition_links_inline_parenthetical.py:42`
+- `test_definition_links_multiterm_shared_clause.py:44`, called at `:72`
+
+and the latter's docstring (`:18-19`) asserts it is "the same function
+`USProfile.extract_definitions_from_section` delegates to" — **true before
+dispatch landed, FALSE now**: the method does registry work the free function
+never performs.
+
+**Impact if unfixed:** the Developer ships a correct rule module, and the 5
+REDs in these two modules stay red regardless. That reads as an
+implementation bug, sends the Developer hunting a defect that does not exist,
+and burns QA cycles — the exact "red for the wrong reason" failure P-R8 was
+raised to prevent, reintroduced one layer down.
+
+**Ruling M-R11: the PLANNER (never the Developer, never me) repoints both
+modules to `get_profile(...).extract_definitions_from_section(...)` and
+corrects the stale docstring claim.** Expected values must not change; only
+the entry point. Developer spawn is GATED on this landing — a Developer
+working against a suite that cannot observe its own output has no valid
+signal.
+
+**Lesson, consistent with my M-R8 correction:** "dispatch merged" is not
+"dispatch reaches MY call site." Prove the specific surface the tests use.
