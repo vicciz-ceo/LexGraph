@@ -5424,3 +5424,328 @@ rather than reinterpreting my own gate silently.
 
 Planner (tests for the hyphen fix — red-before-green) → Developer (fix). Then
 P1 wiring, then the gate-2 measurement, then 18c and the rest.
+
+---
+
+### Archived from contract — cycle-4 item plan
+
+Moved verbatim from the contract by the cycle-7 Planner to free contract
+budget (`## Cycle-4 item plan` was ~94 lines, all items now either
+dev-complete, superseded, or tracked live in `## ESCALATION — RULED` and
+`## M-R13`/`## Dev Complete`). No content change.
+
+## Cycle-4 item plan (Planner, 2026-08-04 — numbering continues from item 17)
+
+**P-R7-compliant sweep method** (own scripts, scratchpad, never touching
+`backend/tests`): built ground truth independently of the extractor's own
+idiom list — (a) a comprehensive idiom census swept corpus-wide (not
+heading-gated) with per-idiom sample classification (n=11-25/idiom,
+manually read), and (b) STRUCTURAL sweeps independent of idiom vocabulary
+entirely (blank-title bodies, bare-term headings). Full tables, sample
+transcripts, and the false-positive-rate data behind every item below are
+in the panel log's cycle-4 Planner entry — this section is the dense
+summary. Items 18-20 are **core-gated** (target the not-yet-landed
+`extract_local_scope_definitions`/`derive_heading_from_body` seam
+methods, spec v2.4); items 21-24 are pre-core OK (pure `pr_profile.py`
+module additions); item 25 converts the P3 xfails to real RED tests.
+
+18. **LEAD — `extract_local_scope_definitions` for PR (gate P2, M-R11).**
+    New `PRProfile` method unioning three sources, scope="local": (a)
+    `extract_local_definitions` widened per QA's findings 1-2 (already
+    RED in `test_pr_profile_qa_cycle4_findings.py` — `se define` lead-in,
+    unquoted term, missing `A los efectos de este Artículo` trigger); (b)
+    `extract_adhoc_definitions` unchanged; (c) NEW — a bounded (word-
+    boundary, no-unbounded-search) whole-body `finditer` sweep reusing
+    the existing per-block QUOTED separator patterns, catching a quoted-
+    term+idiom definition ANYWHERE in a non-canonical article regardless
+    of scope-trigger phrase (measured: 889 corpus-wide hits, ~92-96%
+    genuine on two independent random samples — see ESCALATION below).
+    Proven by `test_pr_profile_local_scope_definitions_cycle4.py`.
+19. **Blank-title Definiciones sections (gates P2, P4).** 47 corpus-wide
+    rows whose `section_title` is a bare `"Artículo N."`/`"Sección N."`
+    (zero descriptive text) but whose body opens with a Definiciones-
+    block preamble (`"Los siguientes términos/vocablos/palabras/frases…
+    tendrá(n) el/los significado(s)…"`); +3 more where a Definiciones
+    sub-heading is embedded inside an amendment-instruction article.
+    Live-verified: `extract_definitions_from_section` ALREADY parses
+    these bodies correctly once called directly (e.g.
+    `STATE_PR_LEY_241_1950_ART2` → 6/6 correct terms) — this is a
+    heading-recognition-only gap, needs `derive_heading_from_body`, not
+    new extraction logic. `STATE_PR_LEY_36_1984_ART9` is a harder related
+    case (unmarked repeated "Term. — Definition." entries, no `(a)/(1)`
+    markers, plus mid-body footer text) flagged as an additional,
+    distinct entry-splitter gap. Proven by
+    `test_pr_profile_derived_heading_definitions_cycle4.py`.
+20. **Bare-term-heading definitions — the TRANSITO class (gates P2, P4).**
+    117 corpus-wide rows (116 from PR's Traffic Code, 1 elsewhere) whose
+    heading IS the term itself (no "definición" stem) and whose body
+    opens, after an optional `[citation bracket]`, with a quoted term +
+    recognized idiom. NEW function `extract_bare_term_heading_definition`
+    — narrow by construction (mirrors the bucket-D discipline: no general
+    prose matcher). A broader, unquoted heading-anchor generalization was
+    measured and REJECTED (1,702 corpus-wide hits, sampled overwhelmingly
+    false — `"Artículo 1150. Orden"` → body about payment order, not a
+    definition). Proven by `test_pr_profile_bare_term_heading_cycle4.py`.
+21. **17 real ordinary misses among the 33 canonical zero-yield rows
+    (QA root-cause groups A-N, gate P4).** 15 new fixture rows (2 of the
+    17 already QA-vendored: `quiere decir`/`STATE_PR_LEY_82_1964_ART3`,
+    ASCII-hyphen/`STATE_PR_LEY_209_2016_ART2`; 1 reused from cycle 2:
+    `STATE_PR_LEY_15_1931_SEC22`). Proven by
+    `test_pr_profile_ordinary_misses_cycle4.py`.
+22. **Marker-gate over-suppression (M-R9 fold-in, gate P4).** QA's lean
+    adopted as the Planner's own design: narrow
+    `extract_heading_anchored_definition`'s precondition from "body has
+    ANY marker" to "the CORROBORATING SENTENCE itself has no marker" —
+    the M-R7 guard rows (conditions/subsection-labels) stay at zero under
+    this narrower gate (independently re-verified); the new 4th
+    supporting row (`STATE_PR_RENTAS_SEC2041_03`) must now yield 1.
+23. **Residue table 8th row (documentation, gate P4).**
+    `STATE_PR_LEY_77_1957_ART36_010` — see the updated `## Bucket D final
+    split` table above. GREEN correct-zero guard (already yields `[]`).
+24. **Scrape-footer artifact in `extract_definitions_from_section`'s
+    shared scan path (gate P4/P5).** Live-CONFIRMED real bug, not
+    hypothetical: `STATE_PR_LEY_240_2002_ART3` (real, vendored, NOT
+    previously used in any test) currently produces a fabricated
+    candidate whose term is a prose fragment and whose `definition_text`
+    is literally the footer boilerplate (`"Rev. 15 de abril de 2024
+    www.ogp.pr.gov Página 2 de 5…"`) — the footer-stripping cycle 3 added
+    only inside `extract_heading_anchored_definition`, never in this
+    function's own per-block scan. Proven by
+    `test_pr_profile_footer_artifact_cycle4.py`.
+25. **P3 xfail → real RED tests (gate P3, core-gated).**
+    `test_pr_profile_scope.py`'s 6 xfails converted to genuine RED tests
+    against seam v2.4's real method name, `PRProfile.determine_scope`
+    (not the Planner's cycle-1 placeholder name
+    `determine_chapter_scope`) — RED via `AttributeError` against the
+    un-rebased tree (expected, per M-R11's sequencing note). Proven by
+    `test_pr_profile_scope_cycle4.py` (new file; the old
+    `test_pr_profile_scope.py` is left untouched, superseded not edited).
+
+### Item 18c escalation — RULED
+
+D-PR-18c ruled ship-it (Option A) with the re-mention guard; ruling
+M-R12 (below) added the canonical-population guard requirement.
+Superseded by the cycle-5 item plan's item 26. Ship-it-vs-narrower data
+archived in the log's cycle-4 Planner entry.
+
+---
+
+## 2026-08-04 — Planner: cycle-7, M-R14 gate 1 / M-R15 step 1 —
+`_UNQUOTED_TERM_DASH_RE` precision fix, RED tests only
+
+Read the contract's `## M-R14`/`## M-R15`, the QA cycle-5 entry's
+per-block hyphen measurement (`### (7) Adversarial sweep — 18a widening`,
+235 changed outcomes / ~30-35% precision), and the manager's WAKE entry
+before touching anything. Scope: ONE thing — how `_UNQUOTED_TERM_DASH_RE`
+must behave, and the RED tests pinning it. Not P1, not the Spanish
+`HeadingRule`, not items 18c/19-24. Zero `backend/app/**` edits (verified
+`git diff --stat -- backend/app/` empty throughout and again at the end).
+
+### (1) Independent re-measurement — CONFIRMS QA, does not contradict it
+
+Own script (`pr_hyphen_measure_perblock.py`, scratchpad, never reads from
+a test), reproducing `extract_definitions_from_section`'s own block split
+(`_ENTRY_MARKER_RE`) and per-block dispatch exactly (imported the real
+regex objects, not reimplemented), diffing OLD (typographic dash only) vs
+live NEW (cycle-5 ASCII-hyphen widened) per block across all 23,636 rows:
+
+```
+OLD total unquoted-branch rows: 4365
+NEW total unquoted-branch rows: 4421
+Total per-block changed outcomes: 235       <- exact match to QA's 235
+Brand-new captures (old=None): 224          <- QA measured 213/22 split
+```
+
+The 235 total reproduces EXACTLY; the 224/11 vs QA's 213/22 brand-new/
+reclassified split differs by 11 rows, immaterial to the gate (the
+headline number that matters, and the one M-R14 binds on, matches
+exactly). No escalation triggered — my measurement does not contradict
+QA's.
+
+### (2) Root-cause diagnosis, from two independent classified samples
+
+Manually classified real corpus text for two independent random samples
+(n=50 seed=42, n=60 seed=7 on the narrowed-candidate's retained set;
+n=40 seed=3 on the rejected set) drawn from the 235-row changed-outcome
+population — genuine-capture-check reasoning (does the term name a real
+concept, does the definition_text actually explain it) applied to real
+rows, not invented ones.
+
+**Dominant junk shape (confirmed via raw block-text inspection, not
+guessed from truncated samples):** the term-capture group `.{1,100}?` is
+not excluded from crossing a `.-` (period immediately followed by a
+hyphen, NO space) boundary — a real, common PR tax-code drafting
+convention marking a subsection/heading label:
+`"Definiciones.- Para fines de esta sección"`,
+`"Método de depreciación aplicable.- Para propósitos de esta sección"`.
+`_UNQUOTED_TERM_PERIOD_RE`, this file's OTHER unquoted pattern, ALREADY
+refuses to cross exactly this boundary — its own
+`(?:[^.]|\.(?!-))` term-group exclusion, whose own comment names the
+identical M-R7 "(a) En General.-" shape as the reason it exists.
+`_UNQUOTED_TERM_DASH_RE` never received the same discipline: instead of
+failing closed at the `.-`, its non-greedy search walks past it hunting
+for the next reachable, real space-preceded hyphen — commonly a
+structural "... - (1) ..." list-intro dozens of characters later,
+fabricating a bogus split (whole heading-plus-preamble as `term`, first
+list item as `definition_text`). Live-traced one real example character
+by character (`STATE_PR_RENTAS_ART3` block 695:
+`"Definiciones y Reglas Especiales.- Para propósitos de esta sección -
+(1) Ganancia neta implícita..."` — the source itself puts a literal
+" - (1)" before the numbered list, which is what the regex actually
+latches onto after skipping the real `.-` boundary) to confirm this
+mechanism, not just pattern-match the shape.
+
+**Confirmed this defect PREDATES cycle 5**, applying my narrowing
+against OLD (typographic-dash-only) too: 17 real rows where OLD's
+pattern ALREADY produced the identical class of garbage via a LATER
+typographic dash reached the same way (e.g. `STATE_PR_RENTAS_ART3` block
+2404, `STATE_PR_RENTAS_SEC1034_04` blocks 45/145/149/154/160). Cycle 5's
+ASCII-hyphen widening did not create this defect — it multiplied the
+opportunities for it to fire (many more candidate hyphens now qualify),
+which is exactly why the changed-outcome count is as large as it is.
+
+**A second, smaller junk class my proposed fix does NOT address:** an
+ASCII hyphen embedded in ordinary prose with no period involved at all
+— e.g. a hyphenated proper name
+(`STATE_PR_LEY_163_2005_ART2`: "...al Consejo Juanadino Pro - Festejos
+de Reyes, Inc...." — a budget-appropriation article, not a Definiciones
+section, and NOT fixed by the `.-` narrowing since no period is
+present). This shares no clean mechanical signature with the dominant
+class — pinned as an explicit `xfail`, not silently dropped from the
+report.
+
+I also tried a SECOND candidate narrowing (a negative lookahead
+rejecting a definition_text that opens with a marker-shaped token like
+"(1) "/"(A) ") to see if it could close more of the residual junk. First
+attempt had a backtracking loophole (the engine dodges the lookahead by
+backtracking the preceding `\s*` to consume zero whitespace instead);
+fixed the loophole, then measured it rejects 237 outcomes — MORE than
+the entire 235-row cycle-5 diff set, meaning it also reaches back into
+matches the ORIGINAL typographic-dash-only pattern was already producing
+before cycle 5, well outside this gate's declared scope
+(`_UNQUOTED_TERM_DASH_RE`'s ASCII-hyphen branch) and requiring
+verification against the shared typographic branch's own existing
+GREEN-test coverage that I did not have time to fully audit this cycle.
+Documented and NOT adopted — noted below as a possible follow-up, not
+shipped.
+
+### (3) Measured precision AND recall of the proposed narrowing
+
+Proposed fix (Developer's to apply — `backend/app/**` untouched by this
+Planner):
+
+```python
+_UNQUOTED_TERM_DASH_RE = re.compile(
+    r"^((?:[^.]|\.(?!-)){1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*"
+)
+```
+
+Only the term-capture group changes, mirroring
+`_UNQUOTED_TERM_PERIOD_RE`'s own established discipline exactly. No
+separator character acceptance changes.
+
+- **Rejects 61/235 (26%)** of the changed outcomes. n=40 sample
+  (seed=3), hand-classified: **40/40 (100%) confirmed junk** — measured
+  recall cost of the rejection: ~0 genuine rows lost.
+- **Retains 208/235 (88.5%)**, including BOTH explicitly-named genuine
+  anchor rows in full (`STATE_PR_LEY_209_2016_ART2` 2/2,
+  `STATE_PR_LEY_236_2015_ART2` 5/5 — verified end-to-end through the
+  REAL `extract_definitions_from_section`, monkeypatch-swapped regex,
+  not simulated). n=60 sample (seed=7, 58 non-degenerate), hand-
+  classified: **~31/58 (53%) genuine lenient / ~24/58 (41%) genuine
+  strict** (strict = every "rule heading vs. definition" borderline call
+  resolved against the candidate) → **measured precision ~41-53%**,
+  roughly 1.4-1.6x the pre-narrowing ~30-35%.
+- Bonus validation: applying the SAME narrowing against OLD instead of
+  NEW independently fixes the same 17 pre-existing typographic-dash
+  defects named in (2) above, with zero regression to the two genuine
+  anchor rows — same mechanism, same fix, generalizes correctly.
+
+### (4) Narrow vs. drop — decision, with reasoning
+
+**NARROW, not drop.** Dropping back to typographic-dash-only would cost
+roughly 90-110 real genuine captures corpus-wide (precision-weighted
+estimate over the 208-row retained population) — not "a handful," far
+more than the two explicitly-named anchor rows the brief itself flagged
+as the drop cost. A single, mechanistically-justified, already-
+precedented fix (reusing `_UNQUOTED_TERM_PERIOD_RE`'s own discipline)
+recovers the large majority of that recall (208/235 = 88.5% of the
+widening's changed outcomes retained) while rejecting the single
+largest, most systematic junk class at ~100% measured precision on its
+own rejected set (n=40, 40/40 junk). Precision on what remains (~41-53%)
+is a real, honestly-reported limitation — NOT claimed resolved — with
+one specific known-uncaught class (hyphenated-prose false positives)
+explicitly pinned via `xfail`, not hidden. Recorded as open for whoever
+wires P1's canonical extraction next; if the residual junk rate proves
+unacceptable once live, the marker-lookahead idea in (2) is a candidate
+follow-up, properly scoped and verified against the typographic
+branch's existing test coverage.
+
+### (5) RED tests added — role boundary held throughout
+
+`backend/tests/unit/test_pr_profile_hyphen_precision_cycle7.py` (new),
+`backend/tests/fixtures/us_statutes/pr_sample_rows_cycle7.json` (new, 3
+rows, byte-compared against a fresh parquet read immediately after
+writing — `3 rows checked, 0 problems`), README section appended.
+`git status --short` shows exactly these two new files; `git diff` (no
+`--stat`, full diff) against tracked files is empty — confirmed no
+existing test/fixture/production file touched.
+
+Five tests, run against TODAY's unmodified `backend/app/**`:
+
+| Test | Result today | What it pins |
+|---|---|---|
+| `test_heading_swallow_junk_term_is_not_captured` | RED (fails) | clause (c) of `STATE_PR_RENTAS_SEC1072_04` must not fabricate a term crossing "Capital.-" |
+| `test_heading_swallow_junk_with_footer_contamination_is_not_captured` | RED (fails) | clause (d), same defect + unstripped LexJuris footer artifact |
+| `test_heading_swallow_row_yields_no_candidates_at_all` | RED (fails) | whole-row pin — 0 candidates, not just "the two known-bad terms individually absent" |
+| `test_genuine_ascii_hyphen_entries_survive_the_narrowing` | GREEN (passes today) | regression guard — `STATE_PR_LEY_236_2015_ART2`'s 5 genuine entries, verified it already passes unmodified so the Developer's fix cannot silently cost this recall |
+| `test_hyphenated_proper_name_remains_a_known_false_positive` | xfail(strict=True, raises=AssertionError) | documents the un-fixed "Pro - Festejos" class honestly, independently re-verifiable |
+
+Full suite: `35 failed, 986 passed, 13 xfailed` = the 30 held REDs
+(byte-untouched, individually diffed — `git diff --stat -- backend/app/`
+and every test file under `backend/tests/` outside my 2 new files is
+empty) + my 3 new REDs; 986 passed = 985 + 1 new GREEN regression guard;
+13 xfailed = 12 + 1 new xfail. No existing GREEN weakened or retargeted.
+
+### Live-path status — stated explicitly, per this panel's own standing
+
+`pr_profile.extract_definitions_from_section` has ZERO production
+callers today (re-confirmed at the cycle-6 wake:
+`USProfile.extract_definitions_from_section` calls `us_profile`'s own
+version, never `pr_profile`'s). Every test above calls
+`extract_definitions_from_section` DIRECTLY — a direct-function test,
+NOT live-path proof. **Upgrade condition:** once P1 registers a PR
+`TermClauseRule`/`EntrySplitterRule` routing through `pr_profile`'s block
+parser, these assertions must be re-proven through `get_profile("US-PR")`
+/ `run_definition_linking`, not merely re-confirmed at this level.
+
+### Nothing to escalate
+
+My per-block measurement reproduces QA's 235/~30-35% exactly — no
+contradiction. No forbidden file touched. The precision/recall trade-off
+has a defensible, measured answer within the panel (narrow, ~41-53%
+precision, ~0% recall cost on the rejection); not escalating to D-Q1.
+
+### Contract
+
+Cycle-4 item plan (94 lines, all items already dev-complete/superseded/
+tracked live elsewhere) archived above to free budget; item 30 (this
+gate) added as a dense stub pointing here for full detail, per the
+`archive derivations into the log` convention already established by
+cycle-1/2/3.
+
+### Pushed
+
+Branch `claude/defs-us-pr`. Commit adds the two new test/fixture files,
+the contract edit, and this log entry. SHA recorded in the next commit
+message; `git log -1 --format=%H` after commit.
+
+### Next
+
+Developer applies the `.-`-exclusion fix to `_UNQUOTED_TERM_DASH_RE`
+(the one-line term-group change in (3) above) — turns the 3 RED tests
+GREEN, must not move the 30 held REDs, the 12 pre-existing xfails, or
+`test_genuine_ascii_hyphen_entries_survive_the_narrowing`. Then QA
+independently re-verifies (byte-fixture re-check, precision re-sample,
+regression sweep against the 30-held/12-xfail partition). Then P1
+(canonical wiring) proceeds per M-R15's order.

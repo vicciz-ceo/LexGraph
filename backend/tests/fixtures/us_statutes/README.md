@@ -779,3 +779,49 @@ fetched 2026-08-04 by QA via a disposable scratch script
 (`/private/tmp/.../scratchpad/pr_qa5_*.py`, outside `backend/.venv`, never
 committed), reading directly from the already-cached HF snapshot on disk
 — no network download performed.
+
+## `pr_sample_rows_cycle7.json` — Planner cycle-7 `_UNQUOTED_TERM_DASH_RE`
+precision-fix fixtures (sprint 2026-08-04-defs-us-pr, Planner, 2026-08-04,
+gate M-R14 gate 1 / M-R15 step 1)
+
+3 REAL rows (full original columns, values unmodified), same
+`us_pr_statutes.parquet` snapshot (`301000fc3465374ee0f23c3c6953a8a861e95cad`)
+as every PR fixture above, byte-compared against the live on-disk parquet
+immediately after writing (script output: `3 rows checked, 0 problems`). A
+SIBLING file — every prior cycle's fixtures/tests are untouched. Full
+diagnosis, measurement method, and precision/recall numbers in
+`test_pr_profile_hyphen_precision_cycle7.py`'s module docstring and the
+panel log's cycle-7 Planner entry; this is the provenance inventory only.
+
+1. `STATE_PR_RENTAS_SEC1072_04` — junk-rejection anchor. A small (2,745
+   char), self-contained, ordinary tax-code section (NOT a Definiciones
+   section) whose clauses (c) and (d) each independently demonstrate the
+   `.-`-boundary-crossing defect `_UNQUOTED_TERM_DASH_RE`'s term group has
+   today: clause (c) via an inconsistent source convention ("que -"
+   instead of the sibling clauses' "que:"), clause (d) via the SAME defect
+   additionally compounded by an unstripped LexJuris footer-watermark
+   artifact landing inside the fabricated `definition_text`.
+2. `STATE_PR_LEY_236_2015_ART2` — genuine-capture regression guard. 5 real
+   "Term - idiom" entries (`Consumidor`, `Informe de consumidor`, `Agencia
+   de informes de crédito`, `Identificación apropiada`, `Congelación por
+   seguridad`), none containing a period in their own term span — already
+   correctly captured today (cycle-5 widening), and the narrowing must not
+   regress them. (`STATE_PR_LEY_209_2016_ART2`, the fourth explicitly-
+   named genuine anchor row, is already vendored in
+   `pr_sample_rows_qa_cycle4.json` with its own passing regression test —
+   not re-vendored here.)
+3. `STATE_PR_LEY_163_2005_ART2` — documented residual limitation. A tiny
+   (282 char) budget-appropriation article (not a Definiciones section at
+   all) containing the real hyphenated organization name "Consejo
+   Juanadino Pro - Festejos de Reyes, Inc." — the ASCII-hyphen widening
+   still fabricates a bogus term from this row both before AND after the
+   cycle-7 narrowing (a distinct junk class with no period involved, so
+   the `.-`-exclusion fix does not reach it). Pinned `xfail(strict=True,
+   raises=AssertionError)`, not silently omitted from the precision
+   report.
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by the Planner via disposable scratch scripts
+(`/private/tmp/.../scratchpad/pr_hyphen_*.py`, outside `backend/.venv`,
+never committed), reading directly from the already-cached HF snapshot on
+disk — no network download performed.
