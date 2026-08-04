@@ -1341,8 +1341,47 @@ always. **Three independent mismatches in one comparison:**
 3. **Containment compares at the MATCHING level, not at `mention_path[0]`.**
    Find the step in `mention_path` whose `.kind` matches the declared
    `scope_unit_kind` and compare its `.value`. When `scope_unit_kind` is
-   absent, fall back to today's outermost-step comparison so every existing
-   stamp keeps its current meaning (backward compatible).
+   absent, fall back to today's outermost-step comparison.
+
+> ### ERRATUM to M-D3 §2 (manager, same day) — the word→kind table is
+> ### ILLUSTRATIVE FEDERAL ONLY. **Do not use it as a lookup.**
+>
+> M-D3 §2 above gives "subsection → outermost lettered/numbered unit,
+> paragraph → digit, subparagraph → upper-alpha". **That mapping is
+> JURISDICTION-DEPENDENT and is correct only for federal-style ladders**
+> (and states that follow them: TN, VT, TX among others). It is **WRONG**
+> for Oregon (where "paragraph" is lower_alpha) and wrong again for Ohio
+> (upper_alpha-outermost). The real US corpus shows a **three-way
+> outermost-kind divergence**: lower_alpha (federal style), digit (most
+> states), upper_alpha (OH).
+>
+> **What is actually binding:** the MECHANISM — search `mention_path` for
+> the step whose `.kind` equals the declared `scope_unit_kind`, compare
+> `.value` there. That mechanism is jurisdiction-AGNOSTIC and is proven on
+> both federal-style and digit-outermost shapes.
+>
+> **Binding instruction to family panels:** declare `scope_unit_kind` from
+> YOUR OWN jurisdiction's **observed marker convention**, verified against
+> real rows. **Never** from the table above. A panel that reads the table
+> as a lookup will mis-scope every definition in any jurisdiction whose
+> ladder differs from federal — silently, because the scope will simply
+> never match.
+>
+> **Scoped-inline panel specifically:** your rules stamp levels for 12+
+> states. Your QA must verify each state's `scope_unit_kind` declaration
+> against that state's real marker shapes, not against this table.
+>
+> **Backward-compat caveat, now empirically disproven as stated:** M-D3's
+> "absent kind falls back to outermost, preserving current meaning" is
+> FALSE on digit-outermost bodies while I11's mis-kinding stands — two live
+> REDs show zero `USES_DEFINITION` assertions where one must exist. The
+> fallback only preserves meaning once I11 lands. This is the empirical
+> basis for the land-together ruling.
+>
+> **Open, routed to program close (NOT this sprint):** a
+> jurisdiction-by-jurisdiction census of outermost marker kind. The
+> I10/I11 Planner's inspection used a first-6-markers heuristic, which is
+> a sample, not a census.
 
 ### Relationship to v2.2 §3 — read this before objecting
 
