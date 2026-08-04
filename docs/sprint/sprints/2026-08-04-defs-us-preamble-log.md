@@ -2453,3 +2453,519 @@ scripting one; and the guarded-cluster cross-check requires judging another
 panel's rows against our populations. Per P-R6 QA is Sonnet high. **Haiku
 considered: no.** `model=inherit` not used. QA commits only test/contract/log
 files and never touches implementation.
+
+---
+
+## 2026-08-04 — QA: U6 before/after, D1b false-positive sample, P-R7 independent
+denominator (D2), guarded-cluster cross-check (D3), suite + mutation-proof (D4)
+
+Sole writer for this dispatch. Worked in `/Users/nerya/LexGraph-wt/defs-us-preamble`
+at `a0d82cc`. All measurement is via a scratchpad harness that replicates
+`pipeline.py`'s Stage-1/Stage-2 logic (`normalize_for_parsing` → `strip_wikilinks`
+→ `is_definitions_heading` → `derive_heading_from_body` → `determine_scope` →
+`extract_definitions_from_section`) directly against the real parquet corpus,
+verified line-by-line against `pipeline.py:180-268` and `us_profile.py:1386-1406`
+before writing a single line — no test reads or downloads the corpus; no
+`backend/app/` file was touched.
+
+### Q-D1 — Methodology, stated once, used consistently
+
+**BEFORE** = `is_definitions_heading(heading)` [bare fn] OR (`derive_heading_from_
+body(heading, body)` [BARE fn, registry untouched] gives a heading AND
+`is_definitions_heading` on it is True). This is mathematically identical to
+`USProfile.derive_heading_from_body` with an empty `body_preamble_rules`
+registry (verified by reading `us_profile.py:1399-1406`: baseline is the bare
+call; the registry loop is a no-op on `[]`) — i.e. exactly "main's behavior with
+our rules module absent", with zero file-system trickery.
+
+**AFTER** = same, but `derive_heading_from_body` is the **profile method**
+(bare-first, then our 4 registered `BodyPreambleRule`s, first-non-None-wins) —
+today's real shipped behavior.
+
+**"captured"** (this report's one definition, used everywhere below):
+`is_definitions_section` resolves True for the row AND `extract_definitions_
+from_section` yields **≥1 `DefinitionCandidate` with a non-empty `.terms`
+tuple** — what production would actually persist as ≥1 `Definition` row.
+A weaker "heading recognized" count exists underneath this (see NE below) and
+is called out by name wherever it materially diverges from "captured".
+
+No other rule kind (`EntrySplitterRule`/`TermClauseRule`/`HeadingRule`) is
+registered anywhere in this codebase for any `US-*` code today (grep-verified
+against every file under `rules/`) — so `extract_definitions_from_section`
+(bare) and the `USProfile` method are behaviorally identical for this family,
+and using the bare function for BEFORE and the profile method for AFTER
+isolates exactly the delta our 4 rules cause, nothing else.
+
+Full corpus, all 53 jurisdictions, snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` — **2,038,247 rows scanned**,
+matching the contract's own cited worklist denominator exactly (cross-check).
+Scripts: `qa_d1_measure.py` (D1/D1b), `qa_d2_independent_denominator.py` (D2),
+`qa_d3_crosscheck.py` (D3) — all in the scratchpad, none committed.
+
+### Q-D1 — THE HEADLINE NUMBER: Georgia
+
+**Measured, not fabricated: GA before = 2/28,154; after = 2,794/28,154.**
+
+This is the honest number under my stated methodology. It does **not**
+reconcile with the "5/28,154" figure the director has been quoted since the
+first sprint, and I am disclosing that rather than silently substituting my
+number for theirs. I traced my own 2: both rows go through the LEGACY
+`_BODY_DEFINITIONS_PREAMBLE_RE` body-derivation path (unrelated to this
+sprint's rules — matches Gate B in the manager's original M-R1/M-R2 table),
+confirmed by direct inspection (`STATE_GA_T48_C8_S48-8-13`,
+`STATE_GA_T14_C7_S14-7-2`). The manager's own M-R1 table reported "Gate B: 1
+pass" — a narrower count restricted to the 1,224-row *preamble-signal*
+subset the scouts inventoried, not a full-corpus scan of all 28,154 rows
+against my stated "captured" definition. My 2 is a superset measurement
+(full corpus, both heading-match and body-derivation paths) using a
+consistently-applied definition; the "5" traces to an earlier, differently-
+scoped measurement I cannot reproduce from what's in this log. **Both
+numbers are small; the qualitative finding — GA baseline capture was
+negligible — holds either way.** I am reporting my own measured number, not
+overwriting the director's cited figure with false confidence.
+
+**GA after = 2,794/28,154 (9.9%).** Of the 2,792 *newly* captured rows
+(2,794 − 2 pre-existing): **1,926 (69%) via the PRIMARY numbered-block
+splitter (clean, NOT affected by the S1 fallback bug)**; **866 (31%) via
+the inline-quote fallback (the KNOWN-BUGGY extractor whose last entry runs
+to end-of-text)**. GA's own fixture row (`STATE_GA_T7_C8_S7-8-1`, the
+12-term row M-R31 independently verified) goes through the clean primary
+path, matching the manager's own finding that GA's real rows carry genuine
+`(N)"Term"` numbered structure.
+
+**GA moves from a baseline of essentially zero to capturing roughly 1 row
+in 10 — a real, substantial, honestly-measured improvement, with a third of
+the *new* rows still carrying the disclosed fallback-boundary risk (term
+identification is intact; the `definition_text` field on those rows may run
+long/contaminated on the last entry per S1's proven FL 540.11 finding — see
+Q-D1 fallback note below).**
+
+### Q-D1 — Per-state table, the 10 requested + full 53-jurisdiction appendix
+
+`captured` = my stated definition; `new` = after − before; `new_primary` /
+`new_fallback` = of the *new* captures, how many came via the clean
+numbered-block splitter vs. the S1-flagged inline fallback.
+
+| state | rows | before | after | new | new via primary (clean) | new via fallback (flagged) |
+|---|---:|---:|---:|---:|---:|---:|
+| GA | 28,154 | 2 | 2,794 | 2,792 | 1,926 | 866 |
+| MD | 39,552 | 0 | 3,185 | 3,185 | 3,150 | 35 |
+| NE | 25,997 | 0 | 7 | 7 | 2 | 5 |
+| MS | 158,688 | 0 | 6,113 | 6,113 | 4,969 | 1,144 |
+| SD | 39,589 | 712 | 801 | 89 | 18 | 71 |
+| CA | 161,429 | 1,296 | 5,871 | 4,575 | 3,690 | 885 |
+| FL | 24,866 | 684 | 2,685 | 2,001 | 36 | 1,965 |
+| FED | 54,853 | 320 | 2,268 | 1,948 | 343 | 1,605 |
+| DC | 23,694 | 884 | 1,593 | 709 | 342 | 367 |
+| NY | 40,102 | 0 | 1,077 | 1,077 | 0 | 1,077 |
+
+**MD note**: my 3,185-captured figure is higher than the Planner's own
+corrected inventory target ("~1,841–1,849/39,552", contract item 2) — because
+my count is the ACTUAL PIPELINE OUTPUT under ungated dispatch (any of the 4
+rules can fire on any MD row), not a hand-scoped count of B2's own trigger
+signal alone. I am not force-reconciling the two; both are honestly measured,
+against different questions ("how many rows carry the B2 signal" vs. "how
+many rows does the shipped pipeline actually capture").
+
+**NE note — disappointing, reported plainly**: only 7/25,997 captured, far
+below the sprint's own "quoted subset (46/559)" target (contract item 3).
+I checked why directly: 274 NE rows get a "Definitions" heading synthesized
+by `derive_heading_from_body` (i.e. SOME rule recognizes them as candidates),
+but only 7 of those 274 successfully extract a non-empty term. The other 267
+are recognition-without-extraction — the NE/B1 trigger fires (often on
+unrelated body content reached via `finditer` scanning the whole body, not
+just its start) but no parseable quoted-term-and-verb shape follows closely
+enough for either extractor to produce a candidate. **NE's real capture rate
+is small and the number should be reported as such, not rounded up.**
+
+**SD note**: 712/801 of SD's "captured" total is the PRE-EXISTING baseline
+(real `"Definitions"`-headed sections, e.g. `STATE_SD_T34_C51_S34-51-1`,
+unrelated to this sprint's family) — SD's own contribution is only 89 new
+rows, and of those, most (71/89) are fallback-affected.
+
+Full 53-jurisdiction table (same columns), sorted by postal code:
+
+```
+state    code      rows(scanned) before   after     new  new_primary  new_fallback
+ak       US-AK      17,935           1        1        0            0            0
+al       US-AL      45,984          50      200      150           24          126
+ar       US-AR      36,936       1,999    2,187      188          121           67
+az       US-AZ      22,674          30      129       99           21           78
+ca       US-CA     161,429       1,296    5,871    4,575        3,690          885
+co       US-CO      34,231       1,967    3,080    1,113          983          130
+ct       US-CT      16,082         704      856      152           77           75
+dc       US-DC      23,694         884    1,593      709          342          367
+de       US-DE      21,649         909    1,339      430          286          144
+federal  US-FED     54,853         320    2,268    1,948          343        1,605
+fl       US-FL      24,866         684    2,685    2,001           36        1,965
+ga       US-GA      28,154           2    2,794    2,792        1,926          866
+hi       US-HI      16,446          10      546      536           28          508
+ia       US-IA      28,223         950    1,556      606          517           89
+id       US-ID      22,754         718    1,138      420          272          148
+il       US-IL      72,456       1,537    2,544    1,007            2        1,005
+in       US-IN      83,148         283    3,420    3,137           75        3,062
+ks       US-KS      24,361         881    1,516      635          487          148
+ky       US-KY      20,894         965    1,429      464          345          119
+la       US-LA      43,474       1,171    2,407    1,236          801          435
+ma       US-MA      23,152           2        3        1            0            1
+md       US-MD      39,552           0    3,185    3,185        3,150           35
+me       US-ME      25,316           1      249      248            0          248
+mi       US-MI      40,658       1,763    2,931    1,168          315          853
+mn       US-MN      27,747          92      773      681           32          649
+mo       US-MO      29,296         936    1,730      794          519          275
+ms       US-MS     158,688           0    6,113    6,113        4,969        1,144
+mt       US-MT      30,514       1,221    1,592      371          282           89
+nc       US-NC      26,685         485    1,016      531          210          321
+nd       US-ND      29,042           3      276      273           12          261
+ne       US-NE      25,997           0        7        7            2            5
+nh       US-NH      25,375           0      180      180            0          180
+nj       US-NJ      55,897           7      755      748            0          748
+nm       US-NM      34,455          47      936      889          725          164
+nv       US-NV      48,190           0    1,823    1,823            1        1,822
+ny       US-NY      40,102           0    1,077    1,077            0        1,077
+oh       US-OH      33,161           1    1,703    1,702            0        1,702
+ok       US-OK      35,329          68      734      666           21          645
+or       US-OR      36,202       1,340    2,989    1,649        1,251          398
+pa       US-PA      14,547           9      246      237            5          232
+pr       US-PR      23,636           0        2        2            0            2
+ri       US-RI      21,107           0        0        0            0            0
+sc       US-SC      29,947          22      356      334            0          334
+sd       US-SD      39,589         712      801       89           18           71
+tn       US-TN      32,693       1,105    1,926      821          671          150
+tx       US-TX     122,535       3,942    4,144      202          106           96
+ut       US-UT      25,880          42    1,913    1,871            1        1,870
+va       US-VA      33,856          31      895      864           10          854
+vt       US-VT      23,521         766    1,253      487          392           95
+wa       US-WA      51,498          22      789      767            4          763
+wi       US-WI      18,158         479      617      138          102           36
+wv       US-WV      25,460         771    1,314      543          308          235
+wy       US-WY      10,219         439      606      167          135           32
+TOTAL              2,038,247      29,667  80,493  50,826       23,617       27,209
+```
+
+**Fallback caveat (S1's proven bug), handled explicitly per the binding
+directive**: 27,209/50,826 (54%) of the corpus-wide NEW captures went through
+`_extract_inline_quoted_definitions` (`heading_was_derived=True`, primary
+block splitter found nothing). I am NOT reporting the 80,493/50,826 headline
+figures as clean — the primary/fallback split above is reported alongside
+every number so the reader can subtract or discount the fallback-affected
+column. What the fallback bug does NOT do (verified, not assumed): it does
+not fabricate extra TERMS — `_extract_inline_quoted_definitions` only
+mis-bounds the LAST entry's `definition_text` per body (S1's FL 540.11
+finding was about definition-text byte-coverage, ~12% true vs ~100% claimed,
+not about phantom term counts). So the TERM-level capture counts above are a
+reasonable, honestly-labelled figure; the risk the fallback column names is
+data-quality on `definition_text`, not spurious extra rows or terms.
+
+**Not measured**: how many of the 27,209 fallback-affected `definition_text`
+fields are actually contaminated (vs. simply being the row's genuine last
+entry with nothing else trailing it, which is common on short single-term
+NV/DC/LA-style rows — see Q-D1b below for real examples of this). A
+byte-coverage measurement in S1's own style, per-state, was out of this
+QA cycle's time budget; flagging as explicitly not measured rather than
+guessing.
+
+### Q-D1b — False positives: 0/50 confirmed, methodology disclosed
+
+Our dispatch is ungated; the total corpus-wide NEW-claim population is
+**50,826** rows (the same figure as Q-D1's TOTAL row) — far larger than the
+sprint's own scoped/inventoried "7,383 rows" worklist (contract's
+D-PREAMBLE-ALL ruling). This is itself a material finding: the B1/CA/NE/B2
+rules generalize FAR beyond the ~50 states' worth of hand-inventoried
+population they were designed against — the shared "As used in this
+X"/"For purposes of this X" idiom is pervasive across nearly all 53
+jurisdictions, not just the ones scouted.
+
+**Random sample of 50** (seed `20260804`, pooled across all 53 states,
+proportional to each state's share of the 50,826-row population —
+`d1b_sample.json`/`d1b_sample_full.json` in the scratchpad hold the full
+list with real `act_id`s, headings, and body excerpts): 47 from the
+`primary`/`fallback` mix in natural proportion, spanning IL/FL/OR/PA/NV/
+MD/CA/DC/LA/DE/CT/NM/UT/WV/MI/MS/GA/NY/OH/OK/IN/KS.
+
+**Methodology correction, disclosed rather than hidden**: my first pass
+hand-judged 3 of the 50 as false positives using a crude `body.find()`
+string search (OR `STATE_OR_T22_C243_S243.706`, NV `STATE_NV_T57_C689B_
+S689B.0307`, MS `STATE_MS_T19_C23_S31-23`) — that search matched the WRONG
+(earlier, ordinary-usage, unquoted) occurrence of the extracted term text
+rather than the actual quoted defining clause, which in all 3 cases sat
+much later in the body. Re-verifying all 3 against the REAL pipeline
+output (`qa_verify_row.py`, printing the actual `derive_heading_from_body`
+result and every `DefinitionCandidate.definition_text`) showed all 3 are
+genuine: OR's row defines `"civilian or community oversight board, agency
+or review body"` at char ~3,900 of a 5,589-char body (`(9) As used in this
+section, "civilian or community oversight board, agency or review body"
+means a board, an agency or a body:...`); NV's `"Attending practitioner"`
+is defined with `"...the practitioner, as defined in NRS 639.0125, who has
+primary responsibility..."`; MS's `"developer"` is defined with `"...any
+entity or natural person which enters into an agreement with a district
+whereby the developer agrees to construct..."`. I am disclosing this
+correction because a first-pass judgment I initially got wrong is exactly
+the kind of unsupported claim the manager cannot use if uncaught.
+
+**Final: 0/50 confirmed false positives** (verified against the real
+`definition_text` output, not crude string search, for every ambiguous
+case — 8 rows needed this deeper check; all 8 confirmed genuine, including
+GA `STATE_GA_T16_C11_S16-11-130` where 2 of 4 extracted terms initially
+looked unsupported but are genuinely defined deeper in the 43,402-char
+body). **FP rate: 0/50 (0%), with the standard rule-of-three caveat that a
+0/50 sample is statistically consistent with a true corpus-wide rate
+anywhere up to roughly 6% at 95% confidence — I am not claiming a proven
+zero.**
+
+**Minor data-quality observations found along the way (not FPs, reported
+for completeness)**: (1) GA `STATE_GA_T16_C11_S16-11-130` and
+`STATE_GA_T48_C13_S48-13-50-2` both produce each real term TWICE
+(byte-identical duplicate `DefinitionCandidate`s) — looks like duplicated
+content in the GA corpus body text itself, not a recognition defect; not
+investigated further, flagged for whoever owns corpus ingestion. (2) MS/NM
+padded-term artifacts (`" 340B drug "`, `" Certification "`) are the SAME
+already-routed M-R32 defect (`_leading_quote_candidate` non-stripping),
+reconfirmed live, not new. (3) CA `STATE_CA_Cedc_T3_D5_P42_C1.7_A1_
+S69432.7` produces terms with a trailing comma (`"Expected family
+contribution,"`, `"Full time,"`) — an extraction-boundary nit, not a
+recognition FP.
+
+Per the sprint's own seam ruling, **this is reported, not re-gated**: a
+material FP number would not justify gating dispatch; a 0/50 sample gives
+no basis to act on precision at all, only to note the recall surface is
+much larger than scoped.
+
+### Q-D2 — P-R7 independent-denominator sweep
+
+**Denominator design, deliberately NOT built from our rules' own trigger
+regexes** (per P-R7 / the binding directive): two components, neither
+requiring any specific INTRO-CLAUSE phrase our 4 rules key on ("As used in
+this X" / "For purposes of this X" / "In this X" / "In the Named Code" /
+"the following words have the meaning(s) indicated"):
+
+- **(A) quoted term + broad defining verb** (`means`/`shall mean`/`has the
+  meaning`/`has the same meaning`/`is defined as`/`are defined as`/`shall
+  have the meaning`) within the first 600 chars of body, ANYWHERE, no intro
+  phrase required at all.
+- **(B) unquoted term + the same verb set** — SD's own comma-delimited
+  `"the term, X, means"` shape, plus a bare capitalized-phrase variant —
+  catching the disclosed MD/NE/SD unquoted convention too.
+
+Restricted to rows whose ORIGINAL heading already fails baseline
+`is_definitions_heading` (our rules' own candidate population). Full corpus,
+same 2,038,247-row scan: **91,878 denominator hits**; of these, **32,417
+(35%) are already captured by the CURRENT shipped rules**; **59,461 (65%)
+are NOT captured — the raw U4-miss candidate population** (97% of the raw
+misses come from component A alone; component B contributes 1,996).
+
+**A raw 59,461 is not a literal miss count** — component A is intentionally
+broad (matches ANY quoted-term-then-"means" in the window, including
+ordinary non-definitional prose). Following the SAME discipline as Q-D1b:
+**random sample of 50** (seed `20260804`, `d2_miss_sample.json`/
+`d2_miss_sample_full.json` in scratchpad), full body fetched and hand-judged
+against the real text.
+
+**Result: this is the opposite finding from Q-D1b. Roughly 47/50 (94%) of
+the sampled misses are GENUINE local definitions our 4 shipped rules
+structurally cannot recognize today** — every one individually confirmed by
+reading the actual defining clause in the real corpus text, not inferred.
+Only ~3/50 are ALREADY-DISCLOSED, already-routed dependencies (SD's own
+unquoted comma-term shape, `STATE_SD_T22_C3_S22-3-5` and `STATE_SD_T61_
+C6A_S61-6A-1` — the item-4 markers-sprint dependency, re-confirmed live, not
+new; and NY `STATE_NY_AGCT_A3_S27-A` — the already-accepted-by-core literal-
+`\n` corpus bug, confirmed here to ALSO break our B1 trigger's `\s+`
+requirement, not just the extractor, a nuance worth naming but not a new
+routing).
+
+**Named, distinct shapes, each confirmed by ≥2 independently-verified real
+rows (`act_id`s in `d2_miss_sample_full.json`), classified in-family
+(ours to route/consider) unless noted**:
+
+1. **Bare `"Term" means ...` with NO intro-trigger phrase at all** (no "As
+   used in"/"For purposes of" anywhere) — the single most common shape in
+   the sample. Real examples: IL `STATE_IL_C5_A100_S1-90` (`Sec. 1-90.
+   Rulemaking. (a) "Rulemaking" means...`), IL `STATE_IL_C225_A705_S1.15`,
+   CA `STATE_CA_Cfac_D5_P2_C3_A1_S10302`, CA `STATE_CA_Cprc_D21_C1_S31016`,
+   CA `STATE_CA_Cgov_T9_C2_S82048.7`, MD `STATE_MD_Agtr_T11_S1_S11-136`, MN
+   `STATE_MN_P59A_79A_C62Q_S62Q.53`. Also the dominant shape behind NV's
+   own `"<Term>" defined` heading convention (8 of my 50-row sample were
+   NV, all this shape) — NV alone shows `denominator_hits=8,569`,
+   `captured=246`, so the bulk of NV's ~8,323 raw misses are very likely
+   this exact single-term-per-section convention.
+2. **Trigger present, but the quote follows immediately with NO literal
+   "the term" wording and no colon** — `As used in this X, "TERM" means...`.
+   `_B1_QUOTE_MEANS_RE` specifically requires the LITERAL phrase "the term"
+   before the quote; this shape omits it. Real examples: NM
+   `STATE_NM_C59A_A5A_S59A-5A-5`, KS `STATE_KS_C75_A45_S75-4511`, CA
+   `STATE_CA_Cwic_D5_P4_C1_A11_S5878.2`, IN `STATE_IN_T36_A7_C26_
+   S36-7-26-4`, LA `STATE_LA_Crevised-statutes_T14_S40.5`, NH `STATE_NH_
+   TVII_C105_S19`.
+3. **`"In this <unit>"` as the trigger** (not "As used in"/"For purposes
+   of", the only two phrases `_B1_TRIGGER_RE` matches) — and this is
+   **FEDERAL USC's own dominant convention**: all 4 of my sample's FEDERAL
+   rows share the exact shape `"(a/b) Definitions\n\nIn this section:\n\n
+   (N) <label>\n\nThe term "X" means..."` (`USC_T7_C31_S936f`, `USC_T27_
+   C6_S122a`, `USC_T43_C35_S1742a`, `USC_T10_C147_S2496`) — none captured.
+   Also seen in TX `STATE_TX_Chs_C62_S62.106` and WI `STATE_WI_C281_
+   S281.625`. **This is a concrete, live-confirmed signal that the
+   contract's own item-14 "FEDERAL achievable subset (198/435, 45.5%)"
+   target may not be substantially reached by the shipped B1 rule** — B1's
+   trigger vocabulary does not include "In this" at all, and 4/4 of my
+   independently-sampled FEDERAL rows use exactly that phrasing. Not
+   independently re-measured at scale this cycle (see "not measured"
+   below); named here so it is not lost.
+4. **Trigger references specific external section numbers/ranges instead
+   of "this <unit>"** — `"For purposes of Sections 21-27-201 through
+   21-27-221..."` (MS `STATE_MS_T21_C21_S27-203`), `"For the purposes of
+   §§ 61-6A-1 to 61-6A-14..."` (SD `STATE_SD_T61_C6A_S61-6A-1`, also
+   folded into the already-disclosed SD bucket above since it's ALSO
+   unquoted).
+5. **Named-Act phrasing** (`"As used in the <Named Act>"`, not `"this
+   <unit>"`) — confirms Q-D3's NM finding (below) generalizes: NM
+   `STATE_NM_C3_A32_S3-32-3`.
+6. **Intervening qualifier clause between trigger and quoted term** —
+   `"As used in this section, unless the context otherwise requires,
+   "veteran" means..."` (TN `STATE_TN_T49_C4_S49-4-938`) — breaks both B1
+   branches (not "the term", and the qualifier clause pushes past the
+   colon-window in some cases).
+7. **CA's own `"Definitions...govern/apply"` wide-window idiom, appearing
+   in OTHER states** — the shipped rule is explicitly scoped to `US-CA`
+   only (its own docstring says so). MS `STATE_MS_T17_C3_S17-103`
+   (`"...the definitions which follow govern the construction and meaning
+   of the terms used in Sections 17-17-101 through 17-17-135:..."`) is the
+   SAME idiom, confirmed live, in a state the rule doesn't reach. Confirms
+   Q-D3's Indiana finding (below) is not an isolated case.
+8. **B2 phrasing variants not matching its exact wording** — B2 requires
+   the literal "the following words have the meaning(s) indicated"; MS
+   `STATE_MS_T27_C7_S19-3` uses `"...words and phrases...have the meanings
+   respectively ascribed to them in this section..."` — same intent,
+   different wording, not matched.
+
+**Not measured**: the true corpus-wide size of each named shape (I have a
+50-row hand-verified sample, not a full re-scan per shape); whether
+widening B1's trigger vocabulary to include "In this" would introduce new
+false positives (a real question, deliberately left to whoever designs the
+fix, per this sprint's role boundary — QA reports, does not design rules).
+Given the raw 59,461 and a 94% genuine rate on an unbiased random sample,
+my honest estimate is the TRUE U4 miss population is in the **tens of
+thousands of rows**, dominated by shapes 1 and 3 above — but this is an
+estimate from one sample, not a re-measured count, and I am labelling it as
+such.
+
+### Q-D3 — Guarded-cluster cross-check (headings panel's 245-row doc)
+
+Read `docs/sprint/sprints/2026-08-04-defs-us-headings-guarded-cluster.md`
+at `639268f` on `claude/defs-us-headings` (fetched read-only via `git show`,
+never checked out). Parsed its 245-row table, looked up every `act_id` in
+the real corpus (244/245 found — 1 NM entry appears twice in the doc under
+two different `act_id`s for the same underlying statute,
+`STATE_NM_C3_A32_S3-32-3` / `STATE_NM_STATUTES_C3_A32_S3-32-3`, both
+checked), ran each through the exact AFTER path.
+
+**0/244 are captured by our current rules.** All 244 fail `is_definitions_
+section` under the current shipped ruleset. Given the doc's own uncertainty
+("scout ~10–15% true positives, QA cycle 1 ~25%, QA cycle 2 zero genuine
+misses in 15"), I hand-reviewed every row with `body_len >= 250`
+(50 rows — the ones large enough to plausibly hold real local content,
+excluding 194 rows with a median 129-char stub body that cannot fit a real
+definition list) plus a random spot-check of 8 of the 194 small-bodied
+stubs (all 8 confirmed correctly-excluded pure cross-references, e.g. `Sec.
+1. The definitions in this chapter apply throughout this article.` with
+nothing else).
+
+**Genuine gaps found (real `act_id`s, classified)**:
+- **In-family, NEW (not previously disclosed)**: CO `STATE_CO_T10_A2_P1_
+  S10-2-105` and NV `STATE_NV_T34_C396_S396.826` / `STATE_NV_T34_C396_
+  S396.829` — real EXCLUSION-style local definitions (`"the term
+  'insurance producer' does not include..."` / `"'pledged revenues' does
+  not include..."`) that use "does not include" rather than any
+  means/shall-mean verb our extraction idiom recognizes. NM
+  `STATE_NM_C3_A32_S3-32-3` (and its duplicate `act_id`) — `"As used in
+  the Industrial Revenue Bond Act, 'project' also means:..."`, a genuine
+  quoted definition that slips past B1 for TWO independent reasons at
+  once (Named-Act phrasing, not "this X"; and "also means" breaks the
+  immediate-adjacency requirement of `_B1_QUOTE_MEANS_RE`) — this is the
+  SAME shape Q-D2 independently found via the unrelated denominator,
+  cross-confirming it. IN `STATE_IN_T21_A44_C7_S21-44-7-1` and its
+  versioned sibling `...-1-b` — real numbered definitions (`"(1) 'Board'
+  refers to..."`) reached via a `"The following definitions apply
+  throughout this chapter:"` intro, structurally the SAME wide-window
+  `"Definitions...apply"` idiom the CA rule targets — but that rule is
+  explicitly `US-CA`-scoped only, so it never reaches Indiana. This
+  directly matches the guarded-cluster doc's own prediction: *"The
+  Indiana rows... are dominated by [a] cross-reference whose BODY often
+  does carry a real definition list. That body shape is exactly what
+  D-HG routes to the preamble panel"* — confirmed, concretely, on 2 real
+  rows, though the other 182 IN rows in the cluster are genuinely empty
+  stubs (verified, not assumed).
+- **In-family, ALREADY DISCLOSED (not a new gap)**: SD `STATE_SD_T22_
+  C46_S22-46-1.1` (`"the term, neglect, does not include..."`) — SD's own
+  unquoted comma-delimited shape, the SAME disclosed markers-sprint
+  dependency (contract item 4), re-confirmed live via this cross-check.
+- **Borderline/soft (flagged, not counted as a hard miss)**: AZ
+  `STATE_AZ_T43_C10_A1_S1002` — supplementary rules refining an
+  externally-located definition ("married person" defined in a DIFFERENT
+  section, 43-1001); real content, but arguably not itself "a local
+  definitions block."
+- **Correctly excluded (checked, not assumed)**: all 7 WV `"PART N.
+  DEFINITIONS."` rows, all 5 TX `"APPLICABILITY OF DEFINITIONS"` rows, both
+  WA rows, AL's 2 "Meaning of Herein" rows, KS/MO/MI/ND/NJ/OR/SC/TN/VA/ID/
+  WY/AR's entries in the >=250-char set, and all 8 spot-checked small stubs
+  — every one of these points to definitions located ELSEWHERE (a
+  different section/chapter/"library of definitions" index) rather than
+  carrying real local content in THIS row's own body. Read directly, not
+  inferred from heading text alone.
+
+**Answer to D3's own question**: yes, there ARE genuine rows in the
+headings panel's cluster that neither our rules nor any documented routing
+account for — at minimum the 5 named above (CO, NV×2, NM×1 unique
+statute, IN×2 same statute) plus the AZ borderline case. This is a small
+absolute count against 245 rows, consistent with the doc's own "QA cycle 2:
+zero genuine misses in 15" finding being closer to the truth than the
+looser 10–25% early estimates — but it is not zero, and every one of these
+act_ids is real and independently re-derivable from the corpus.
+
+### Q-D4 — Suite tail + mutation-proof (not vacuous)
+
+Full `backend/.venv/bin/pytest -q` from `backend/`: **3 failed, 818
+passed** — the exact documented end state. All 3 reproduce for the
+documented reason (empty-set/membership assertions on NE/SD's unquoted-term
+shape, the disclosed `2026-08-04-defs-us-markers` dependency):
+`test_ne_unquoted_term_means_needs_markers_sprint_too`,
+`test_sd_unquoted_comma_term_needs_markers_sprint_too`,
+`test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_body_
+preamble_definitions_needs_markers_sprint_too`. Nothing regressed.
+
+**Mutation-proof, not merely assumed**: wrote a scratchpad pytest plugin
+(`qa_mutation_plugin.py`, loaded via `-p qa_mutation_plugin` on
+`PYTHONPATH`, never touching any repo file) that clears
+`registry._body_preamble_rules` at session start — functionally "the rules
+module never existed" for dispatch purposes, without editing
+`us_body_preamble.py` or anything else. Ran the full family test suite (12
+files, `test_us_body_preamble_*` + `test_definition_links_us_preamble_
+family.py`) under this mutation: **31 tests flip from PASS (normal run) to
+FAIL (mutated)** — concrete proof they depend on the shipped rules module,
+not vacuous passes. This includes the GA fabrication guard
+(`test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_
+section_...`, M-R31's own test) and every GA/MD/NE/MS/SD/B1/B2/CA/FED/DC/NY
+capture test. As expected and correct, the hazard-catalogue and
+negative-guard test files (`test_us_body_preamble_hazard_catalogue_red.py`,
+`test_us_body_preamble_negative_guard*.py`) do **NOT** appear in the
+mutated-failure list — these are designed to hold true with or without the
+rules (their whole point is "no spurious candidate, rule present or not"),
+which is correct behavior for a negative guard, not vacuity.
+
+### Q — What I did NOT measure (stated plainly, per the sprint's own rule)
+
+- Corpus-wide byte-coverage contamination rate of the 27,209 fallback-
+  affected `definition_text` fields (S1-style measurement) — flagged as a
+  real risk, not quantified this cycle.
+- Full-corpus re-scan of each of Q-D2's 8 named miss-shapes (I have a
+  50-row hand-verified sample; shape-by-shape corpus totals were out of
+  this cycle's budget).
+- Whether widening any trigger (e.g. B1 to include "In this") would
+  introduce new false positives — a rule-design question, not QA's to
+  answer or attempt.
+- The RI mangled-quote-byte defect's downstream scope (already routed,
+  item 19; not re-measured).
+- Reconciliation of the "5/28,154" figure against my measured "2/28,154" —
+  I traced my own number to source but could not locate the "5"'s origin
+  in this log to reconcile it; reporting both rather than guessing.
+
+Pushed as `<SHA recorded in final report to the manager>`.
