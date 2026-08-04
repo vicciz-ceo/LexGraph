@@ -756,3 +756,83 @@ built against the pre-unification two-mechanism model. Reworking them to
 the `UnitPath`/prefix-matching model next, before writing any further new
 scope-containment tests, rather than leaving stale-model tests in the
 suite alongside the new spec.
+
+---
+
+## 2026-08-04 — Round 5: `find_citations` defects land on the pointer item
+
+Relayed by the program manager from the multiterm panel, pinned as RED
+assertions on `claude/defs-us-multiterm` @ `f1011f0`:
+
+1. **Decimal section numbers TRUNCATE.** `Section 552.003` matches as
+   `Section 552` — a DIFFERENT real section. This is a **wrong-target**
+   defect, not a miss. Under the director's ruling that the reference EDGE
+   carries the semantics (Round 3), a wrong edge is strictly worse than an
+   absent one. Higher severity of the two.
+2. **State-code citation shapes return nothing.** `ORS 153.005` → no
+   citation at all.
+
+Both sit under v2.2's pointer plumbing: 7,610 pointer definitions across 32
+jurisdictions route through `find_citations`, so unfixed they emit wrong or
+empty reference edges AT SCALE. Ruled: fixed as part of the pointer-definition
+item, NOT deferred to a family panel.
+
+**Manager instruction — verify before pinning.** The Planner reproduces both
+itself against `us_profile.find_citations` (us_profile.py:409-437) with the
+worktree venv before writing anything. I am relaying a claim; core owns the
+fix, so core confirms the defect. A defect that will not reproduce comes back
+to me rather than getting a test written around it.
+
+**Manager instruction — do NOT duplicate the multiterm panel's pins.** Goal is
+that core's fix turns THEIR existing pins green, not that a second set of
+tests asserting the same behavior grows on this branch. Planner: fetch and
+READ their tests at `f1011f0` read-only (never check that branch out over the
+work, never edit their files, never cherry-pick); author core's RED tests in
+core-owned files with expected values IDENTICAL to theirs for shared
+behavior; cover what they do NOT pin (IL unaffected; pointer emission
+end-to-end; internal same-law target); and record in the contract which of
+their `file::test` ids core's fix should turn green, so integration QA checks
+it rather than rediscovering it. Divergent expectations across two branches
+that merge later is the failure mode being avoided.
+
+**MANAGER RULING M12 — `find_citations` becomes rule-extensible. This
+REVERSES part of my own M7.**
+
+M7 said `find_citations` is not a rule kind and that a jurisdiction needing
+different citation grammar is a profile-class problem. That was correct while
+the only consumer was PR/Spanish. It is wrong now: pointer definitions make
+citation parsing a **32-jurisdiction** concern, and `ORS 153.005` is merely
+Oregon's shape — every state code has its own. Under the seam as published,
+all 32 grammars land in `us_profile.py` — precisely the shared-file collision
+P-R1 exists to prevent, and the identical argument that produced M11.
+Ruling: add a citation rule kind, registered the same import-time way,
+consulted by `profile.find_citations` alongside its baseline. Constraints:
+baseline-first so nothing currently green moves (C5) and
+`HebrewProfile.find_citations` keeps returning `[]` unless an IL rule is
+registered; **core fixes BOTH defects in the BASELINE**, not in a rule module
+(decimal truncation is a shared-regex bug and must be fixed for everyone; the
+common `<CODE> <n>.<n>` state-code form should work out of the box, with the
+rule kind reserved for genuinely idiosyncratic grammars); union semantics on
+extraction, consistent with M1/M9. M12 also **resolves the M7 limitation for
+PR** — v2.2 must update M7's paragraph rather than leave two contradictory
+statements in the spec, since the PR panel was told the opposite.
+
+**Severity note carried into the design:** decimal truncation produces a
+SILENTLY WRONG edge, so at least one test must assert that `Section 552.003`
+does NOT resolve to `552`. A test that merely checks "a citation was found"
+passes on the bug — that trap is called out explicitly in the brief.
+
+**Sequencing given:** folds into v2.2 alongside the Round 4 unit-path
+unification, with permission to publish v2.2 with open questions NAMED rather
+than let it grow into a document that never ships — four panels are parked and
+one of them now holds RED tests waiting on core.
+
+### Sprint state at end of Round 5
+
+`planning`. Zero production code, zero RED tests on this branch (verified:
+`git diff --name-only 61f7168..0c0f14c` filtered for non-`docs/sprint/` paths
+returns nothing). v2.1 published at `0c0f14c` and verified by the manager
+against M9/M10/M11 + the pointer ruling — all four correctly addressed. v2.1
+does NOT contain Round 4's unit-path unification or Round 5's citation work;
+v2.2 carries both. Planner `a6f809d491c471d13` alive, four messages queued/
+delivered across Rounds 3-5.
