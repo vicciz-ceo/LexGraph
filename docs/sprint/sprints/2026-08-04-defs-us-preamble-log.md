@@ -2176,3 +2176,94 @@ over statutory shapes with an explicit false-positive hazard, and
 first-non-None-wins ordering has a silent-starvation failure mode; that is
 more than a bounded mechanical change. `model=inherit` not used. Sole writer;
 never touches tests.
+
+---
+
+## 2026-08-04 — Manager: Developer handoff verified; two escalations adjudicated
+
+### M-R30 — Developer handoff verified (f6778b3)
+
+- `git diff --name-only 977c8d9 HEAD` → **exactly one file**,
+  `backend/app/definition_links/rules/us_body_preamble.py`. **Zero test
+  edits**, zero other `backend/app/` edits. Role separation held.
+- Suite reproduces: **6 failed / 815 passed** (from 31/790). 25 REDs went
+  green; **no previously-passing test regressed**.
+- The Developer disclosed two deviations rather than hiding them: it built
+  ONE general B1 rule instead of the build target's two (having measured
+  that MS's "second convention" row is byte-identical in shape to B1), and
+  it committed once rather than per-cluster. Both are recorded, both are
+  defensible, and the disclosure is the behavior I want.
+- Registration order CA → NE → B2 → B1 (state-specific before `US-*`),
+  correct per M-R27, and it noted honestly that in this particular rule set
+  the outcome would be identical either way — it front-loaded on principle,
+  not on a measured conflict. That is the right instinct for a
+  first-non-None-wins registry.
+- `scope_unit_kind`: correctly concluded not applicable — `BodyPreambleRule`
+  has exactly two fields and `derive_heading` can only return a heading
+  string. Checked against `registry.py`, not guessed. M-D3 erratum
+  therefore does not bite this sprint.
+
+### M-R31 — RULING on escalation 1 (GA fabrication guard): the TEST is wrong
+
+**Verified independently by me** with a regex written from scratch against the
+vendored 7,640-char body of `STATE_GA_T7_C8_S7-8-1`, deliberately not using
+the Developer's rule: the row genuinely defines **Access area, Candlefoot
+power, Customer, Defined parking area, Financial institution, Hours of
+darkness, Operator, Owner of an automated teller machine, Public road,
+Remote service terminal** — plus `Access device` and `Control` via other
+idioms. The six "extra" terms are **real statutory definitions present in
+the row**, not fabrications.
+
+`test_real_pipeline_does_not_fabricate_a_definition_from_a_georgia_section_...`
+asserts `created_terms == {6 terms}`. Its factual premise is simply false.
+The Developer is right, and no `derive_heading`-only rule could ever satisfy
+it while also satisfying its passing sibling — a deterministic body cannot
+yield 6 terms for one test and 12 for another.
+
+**Ruling: amend to the FULL real term set, keeping `==`.**
+
+Explicitly NOT the Developer's alternative of relaxing to `<=`. This is a
+**fabrication guard** — its whole job is to fail if the pipeline invents a
+term. `<=` would let any fabricated extra term pass and would destroy the
+guard while appearing to fix it. `==` against the true full set preserves the
+guard at full strength and makes it *more* informative than before.
+
+This is the R18 precedent's shape (pin accepted, verified behavior), not the
+forbidden "edit a test to fit" — the edit follows an independent
+verification that the test's premise was factually wrong, which is exactly
+the case the escalate-don't-edit rule exists to route here.
+
+### M-R32 — RULING on escalation 2 (MS padded terms): amend our tests, and ROUTE the real defect
+
+**Verified independently**: `STATE_MS_T45_C10_S34-1`'s real body contains
+curly quotes with literal internal padding — `“ Conviction ”`, `“ Department ”`,
+`“ Offender ”`, `“ Registrable offense ”`, `“ Registrant ”`. The primary
+extractor's `_leading_quote_candidate` (`us_profile.py`) does
+`term = term_match.group(1)` with **no `.strip()`**, so terms are produced as
+`' Conviction '`. The inline fallback DOES strip — but MS's body has real
+numbered blocks, so the non-stripping primary always wins.
+
+**This is not test cosmetics.** A `Definition` whose term is `' Conviction '`
+carries padding into downstream term matching, which can silently
+under-link real mentions of "Conviction" — i.e. a **zero-miss risk in shared
+code**, not a formatting nit. It is invisible today only because no rule
+previously reached these MS rows.
+
+**Ruling, two parts:**
+1. **Amend this sprint's two MS tests to `.strip()`** — matching the
+   convention their own sibling test already uses — so the sprint is not
+   blocked by a defect it is forbidden to fix.
+2. **ROUTE the non-stripping defect to the program manager** with the
+   evidence above, for core or the markers panel. `us_profile.py` is frozen
+   to this panel; option (c) (widening `_leading_quote_candidate` here) is
+   correctly refused. Amending our tests must NOT be mistaken for the defect
+   being resolved — it is deliberately deferred, with a named owner sought.
+
+### M-R33 — Who makes the amendments, and model/effort
+
+**Not the Developer** — tests are out of its role, and it correctly refused
+to touch them. A **Planner** (tests are its property) makes both amendments.
+**Sonnet / high** — each amendment must preserve a guard's strength while
+changing its expectation, and the GA one is precisely where a careless
+`<=` would silently destroy a fabrication guard. **Haiku considered: no.**
+`model=inherit` not used.
