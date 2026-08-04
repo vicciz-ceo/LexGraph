@@ -1402,3 +1402,71 @@ Fixture: `backend/tests/fixtures/us_statutes/ny_m14_newline_defect_row.json`.
 Baseline confirmed unchanged before adding: 26 failed / 656 passed / 0
 errors. After adding: 27 failed / 656 passed / 0 errors (exactly +1, no
 drop).
+
+## I9 Planner report (RED tests authored, manager ruling M15)
+
+**Finding re-confirmed against current worktree, byte-for-byte.**
+`codegraph_explore` + direct `grep` against
+`/Users/nerya/LexGraph-wt/defs-core-scope` (post `git pull --ff-only`,
+still `4a8e498`) reproduces the manager's own read exactly:
+`pipeline.py:377` calls the bare `normalize.normalize_for_parsing(raw_body)`
+unconditionally; `pipeline.py:387`'s `_profile_for_document(art.document_id)`
+is the FIRST profile resolution, several lines later.
+`grep -rn "profile\.normalize_for_parsing" backend/app/` — zero hits.
+`HebrewProfile.normalize_for_parsing` (`profiles.py:91-92`) and
+`USProfile.normalize_for_parsing` (`us_profile.py:530-531`) both exist and
+are both unreached from `pipeline.py`. No collision with Developer #2: its
+27 pre-existing RED failures (I1/I2/I3's `resolve_unit_path`/
+`extract_local_scope_definitions`/`find_citations`/cross-law-derivation
+methods) are untouched by this call site; `pipeline.py`'s normalize call
+sits structurally upstream of everything Developer #2's brief targets.
+
+**Test design — "no mocking of an acceptance target" resolved two ways:**
+
+1. *Dispatch proof* (tests 1 and 3): a call-recording "spy" wraps the REAL
+   `HebrewProfile.normalize_for_parsing` / `USProfile.normalize_for_parsing`
+   (via `monkeypatch.setattr` on the class method) and delegates to (and
+   returns) the original implementation unchanged — records that dispatch
+   happened without altering any behavior. This is observation, not a
+   stub/mock of the seam's output.
+2. *End-to-end effect proof* (test 2): rather than monkeypatching
+   `normalize_for_parsing` itself, a REAL `USProfile` subclass
+   (`_MojibakeRepairingUSProfile`, overriding only `normalize_for_parsing`)
+   is registered under `"US-DE"` via `monkeypatch.setitem(profiles
+   ._REGISTRY, ...)` — the exact mechanism `profiles.py` itself uses to
+   register `USProfile` under every US code. This is a genuine alternate
+   registration, not a mock of the dispatch mechanics being proven.
+
+**Fixture: computed mojibake, not hand-typed bytes.** The motivating case
+per M15 is recon family 3 (AK's cp1252 mojibake curly quotes). Rather than
+hand-encode approximate cp1252 byte sequences, the test computes
+`"“".encode("utf-8").decode("latin-1")` (and the closing quote) at
+test time — a real, reproducible instance of the same defect FAMILY (UTF-8
+curly-quote bytes mis-decoded one byte at a time under a single-byte
+codepage), verified by hand-tracing `us_profile.py`'s
+`_LEADING_QUOTE_RE`/`_strip_marker_chain_before_quote`/
+`_split_into_numbered_blocks` against both the raw mojibake string (no
+match — `"Widget"` never extracted) and the repaired string (matches,
+`"Widget"` extracted) before running anything.
+
+**Verified NOT falsely RED.** Temporarily patched `pipeline.py` locally
+(one line: `_profile_for_document(art.document_id).normalize_for_parsing
+(raw_body)` in place of the bare call), confirmed all 3 new tests go GREEN,
+then reverted via the untouched backup copy (`git diff` on `pipeline.py`
+confirmed byte-identical to HEAD afterward — no production-code edit
+persisted).
+
+**Existing IL/dispatch coverage untouched and still green.**
+`test_definition_links_pipeline_profile_dispatch.py`,
+`test_definition_links_pipeline_live.py`,
+`test_definition_links_normalize.py` — 22/22 passed, unedited, unchanged
+(ruling R2's zero-Hebrew-test-edit constraint honored by construction: no
+existing file was opened for editing at all, only a new file added).
+
+RED tests (new file):
+`backend/tests/integration/test_definition_links_pipeline_normalize_dispatch.py::test_live_pipeline_dispatches_normalize_for_parsing_through_each_documents_own_profile`,
+`::test_overriding_us_profile_normalize_for_parsing_changes_what_the_live_pipeline_extracts`,
+`::test_live_pipeline_hebrew_normalization_stays_byte_identical_through_the_passthrough`.
+Baseline confirmed unchanged before adding: 27 failed / 656 passed / 0
+errors. After adding: 30 failed / 656 passed / 0 errors (exactly +3, no
+drop, no existing test edited).

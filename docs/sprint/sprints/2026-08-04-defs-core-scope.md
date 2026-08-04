@@ -155,6 +155,18 @@ silently resolved.
   ("US-NY").extract_definitions_from_section`):
   `backend/tests/integration/test_ingest_us_statutes_ny_newline_defect.py::test_real_ny_row_with_literal_backslash_n_yields_its_definitions_via_the_live_pipeline`.
   Fixture: `backend/tests/fixtures/us_statutes/ny_m14_newline_defect_row.json`.
+- [ ] **I9 — M15: `pipeline.py` calls the bare `normalize_for_parsing`, not
+  `profile.normalize_for_parsing` — dead dispatch (AK cp1252-mojibake family
+  needs it live).** Acceptance: `run_definition_linking` resolves each
+  article's document profile and calls THAT profile's `normalize_for_parsing`
+  before extraction; a `USProfile.normalize_for_parsing` override changes
+  live extraction; `HebrewProfile`'s passthrough stays byte-identical
+  (implementer: keep it a pure delegate to `normalize.normalize_for_parsing`).
+  RED + live call-site, all three in
+  `backend/tests/integration/test_definition_links_pipeline_normalize_dispatch.py`:
+  `::test_live_pipeline_dispatches_normalize_for_parsing_through_each_documents_own_profile`,
+  `::test_overriding_us_profile_normalize_for_parsing_changes_what_the_live_pipeline_extracts`,
+  `::test_live_pipeline_hebrew_normalization_stays_byte_identical_through_the_passthrough`.
 
 **Closed by Stage C, previously "Explicitly OPEN":** M9 enumerated-scope
 live-path proof — RED at
