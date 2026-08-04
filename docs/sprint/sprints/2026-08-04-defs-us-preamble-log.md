@@ -2413,3 +2413,43 @@ Diff for both amendments combined: `git diff --name-only 92c2b1f HEAD` →
 `backend/tests/integration/test_us_body_preamble_ms_second_convention_
 red.py`, plus this log file. Tests and docs only — no
 `backend/app/` edit, matching the role boundary.
+
+---
+
+## 2026-08-04 — Manager: amendments verified; QA dispatched for U6 / P-R7 / cross-check
+
+### M-R34 — Amendment handoff verified (bd4dde7)
+
+- `git diff --name-only 92c2b1f HEAD` → 3 test files + the log. **Zero
+  `backend/app/` edits.** Role separation held.
+- **The fabrication guard kept `==`** (`assert created_terms ==
+  expected_terms`), with the full 12-term set. I compared it against the term
+  list I derived independently in M-R31 from the raw body: Access area,
+  Access device, Candlefoot power, Control, Customer, Defined parking area,
+  Financial institution, Hours of darkness, Operator, Owner of an automated
+  teller machine, Public road, Remote service terminal — **exact match**. The
+  guard is now stronger than before, not weaker.
+- The `<=` still present at line 175 is the separate *capture* test, where a
+  subset assertion is correct — not the guard. Checked, not assumed.
+- The Planner derived the set from the body FIRST and used the pipeline run
+  only as confirmation, avoiding a tautological assertion. That was the
+  specific failure mode I warned about and it was handled correctly.
+- Suite: **3 failed / 818 passed** — the exact expected end state. The 3 are
+  the disclosed `defs-us-markers` unquoted-entry dependencies, failing with
+  empty results (right-reason REDs).
+- Honest note carried from the Planner: the MS padding doesn't break live
+  term-USE matching for this fixture only because `\b`-anchored regex happens
+  to land on naturally-occurring spaces — **fixture-specific luck, not a
+  general guarantee**. That is precisely the silent under-linking risk M-R32
+  named, and it strengthens the case for the routed core fix.
+
+### M-R35 — Model/effort for the QA spawn
+
+QA: **Sonnet / high** — the U6 measurement is the director's headline number
+(GA moving from 5/28,154, awaited since the first sprint) and must be
+measured cleanly under the corrected-fallback caveat; P-R7 requires
+constructing an INDEPENDENT denominator, which is a reasoning task, not a
+scripting one; and the guarded-cluster cross-check requires judging another
+panel's rows against our populations. Per P-R6 QA is Sonnet high. **Haiku
+considered: no.** `model=inherit` not used. QA commits only test/contract/log
+files and never touches implementation.
