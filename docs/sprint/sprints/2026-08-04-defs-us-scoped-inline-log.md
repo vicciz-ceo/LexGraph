@@ -2297,3 +2297,84 @@ if cheap, otherwise sample the high-degrade states' actual marker shapes to
 confirm the period-style diagnosis rather than assuming it explains all three.
 It then goes up as a routed core item at the same evidence standard as our
 S-R3/S-R10 escalations.
+
+---
+
+## 2026-08-04 — Manager: AL `(N) LABEL. "X"` class — premise DEFLATED
+(independently verified); S-R17 records it as a bounded, gated item
+
+The scout's census deflated the escalation I routed up. Program ruling: this
+proceeds as a **bounded additive item**, not an emergency and not a widening.
+I verified the load-bearing claims against the real corpus myself before
+accepting the deflation — a deflating number deserves the same scrutiny as an
+alarming one, since accepting it is what closes the escalation.
+
+### The motivating row was never our miss — confirmed
+
+`STATE_AL_T13A_C11_S13A-11-1`, the row this entire escalation was built on:
+`section_title` is **`'Section 13A-11-1 Definitions'`**, and the REAL
+`is_definitions_heading` returns **True**. It is F3-rescued today. My own
+earlier routing entry treated it as an uncaptured miss; it never was. Recorded
+as a correction to myself — the second time this cycle that a scary framing of
+mine did not survive measurement.
+
+### Ran all 8 of the scout's named reproduction rows through the real
+heading logic + the real rule
+
+| act_id | F3-rescued? | our rule |
+|---|---|---|
+| `STATE_AL_T13A_C11_S13A-11-1` (motivating) | **YES** | 0 |
+| `STATE_AL_T16_C25_S16-25-1` (divergence) | **YES** | 0 |
+| `STATE_NC_C135_S135-48-1` (divergence) | **YES** | 0 |
+| `STATE_AL_T1_C1_S1-1-1` (clean miss) | no | 0 |
+| `STATE_CA_Chsc_D5_P3_C6_A4_S5470` (clean miss) | no | 0 |
+| `USC_T23_C1_S139` ("In general" decoy) | no | 0 |
+| `STATE_AR_T1_C4_S1-4-134` (spurious) | no | 0 |
+| `STATE_FL_TXXIX_C381_S381.922` (spurious) | no | 0 |
+
+**3 of 8 are F3-rescued and were never ours.** Of the 5 genuinely un-rescued,
+only **2 are clean captures we would want** — the other 3 are one "In general"
+decoy and two spurious nicknames. That independently corroborates the scout's
+~30%-wrong-within-the-residue finding using its OWN exemplars, by a different
+method than its hand sample.
+
+The Florida row is the argument in one line:
+`381.922 William G. "Bill" Bankhead, Jr., and David Coley Cancer Research
+Program.` A naive capture takes **"Bill"** as a defined term — which then
+matches "bill" across its entire scope. That is not a small precision cost;
+it is the poisoning failure mode, from a legislative honorific.
+
+### S-R17 — recorded as a NAMED, GATED item; NOT worked this cycle
+
+Residue is **714 rows / 2,276 occurrences ≈ 0.03% of corpus** — hundreds, not
+tens of thousands. 9 jurisdictions have zero hits; federal alone is 62% of
+occurrences.
+
+Ownership split (program ruling, director may veto):
+
+- **Ours — the code**: a NEW, SEPARATE marker+label+quote adjacency pattern.
+  `_MARKER_QUOTE_RE` and `test_marker_quote_adjacency_gate_is_load_bearing_
+  alabama` stay **byte-untouched** — this is additive, so the gate we just
+  proved load-bearing is never reopened, and the PA construction-clause FP
+  cannot return through it. Plus the term-selection rule: **prefer the QUOTED
+  string over the label** whenever both exist (the quote was the more reliable
+  string in every genuine-divergent case measured).
+- **Markers panel — the classification**: is a `(N) LABEL.` token an
+  entry boundary or a generic structural sub-header, including the
+  boilerplate blocklist ("in general", "en general", "generally",
+  "definitions", …). The nested-boilerplate trap is real and systematic:
+  "in general"/"en general" is the captured label in 144/3,963 occurrences
+  across 94 rows.
+
+**Gated on the markers panel's classification piece. Planner pass 7 and QA
+cycle 2 are explicitly NOT blocked on it.**
+
+### Binding caveat for QA cycle 2
+
+The scout's numbers came from **single-pass hand judgment**, not the 7-reader
+cross-validated rigor of QA cycle 1's sample, and its census is heuristic and
+not proven complete. **Treat every percentage above as DIRECTIONAL.** QA
+re-derives independently anything it actually relies on — and in particular
+must not quote the 92.7%/30%/18%/12% splits as measured facts without
+re-deriving them. The residue COUNT (714 rows) is the figure most worth
+re-checking, since the ownership split is sized against it.
