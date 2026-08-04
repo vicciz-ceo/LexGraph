@@ -609,3 +609,49 @@ script (`/private/tmp/.../scratchpad/vendor_cycle3.py`, outside
 `backend/.venv`, never committed), reading directly from the already-cached
 HF snapshot on disk — no network download performed, the snapshot was
 already local from cycle 1.
+
+## `pr_sample_rows_qa_cycle4.json` — QA independent P4 sweep findings
+(sprint 2026-08-04-defs-us-pr, QA, 2026-08-04)
+
+6 REAL rows (full original columns, values unmodified), same
+`us_pr_statutes.parquet` snapshot (`301000fc3465374ee0f23c3c6953a8a861e95cad`)
+as every PR fixture above, byte-compared against the live on-disk parquet
+immediately after writing (script output: `6 rows checked, 0 problems`). A
+SIBLING file — cycles 1/2/3's fixtures and tests are untouched.
+
+QA's independent zero-miss sweep (gate P4, own ground truth, own signal
+sweep of bodies corpus-wide — not just the panel's 635 canonical-heading
+set) found these as NEW misses none of the panel's cycle-1/2/3 corpus
+self-checks had individually surfaced. Full diagnosis lives in each test's
+docstring (`test_pr_profile_qa_cycle4_findings.py`) and the sprint log's QA
+entry; this is the provenance inventory only.
+
+1. `STATE_PR_LEY_20_2017_ART4_14` — `extract_local_definitions` miss:
+   `"se define "X" como..."` lead-in shape (quoted term follows the idiom,
+   not the trigger phrase directly).
+2. `STATE_PR_LEY_1_1966_ART8` — `extract_local_definitions` miss: an
+   UNQUOTED local-scope term (`"el término mayoría significará..."`) — the
+   function has no unquoted-term pattern at all.
+3. `STATE_PR_LEY_77_1957_ART9_400` — `extract_local_definitions` miss:
+   `"A los efectos de este Artículo"`, a third synonymous trigger phrase
+   measured in the Planner's own cycle-1 survey (13 corpus-wide rows), is
+   entirely absent from `_LOCAL_TRIGGER_RE`.
+4. `STATE_PR_LEY_209_2016_ART2` — `extract_definitions_from_section` miss:
+   `_UNQUOTED_TERM_DASH_RE` never received cycle 2's ASCII-hyphen widening
+   (only the QUOTED dash pattern did); a plain `-` separator between an
+   unquoted term and its idiom is rejected.
+5. `STATE_PR_LEY_82_1964_ART3` — `extract_definitions_from_section` miss:
+   `quiere decir`, measured as a real idiom in the Planner's own cycle-1
+   survey (7 corpus-wide / 3 canonical rows), was never added to any idiom
+   alternation.
+6. `STATE_PR_CIVIL_ART1267` — `extract_heading_anchored_definition`
+   documentation of an M-R9-adjacent tension: the cycle-3 marker-
+   precondition gate suppresses a 4th real row (beyond ruling M-R9's 3)
+   that is NOT a condition/subsection-label shape, pinned `xfail` (QA
+   finding, not a prescribed fix — see the test's docstring).
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by QA via a disposable scratch script
+(`/private/tmp/.../scratchpad/qa_vendor_cycle4.py`, outside `backend/.venv`,
+never committed), reading directly from the already-cached HF snapshot on
+disk — no network download performed.

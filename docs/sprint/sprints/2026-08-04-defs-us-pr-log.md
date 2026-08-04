@@ -2471,3 +2471,260 @@ us, including me. Known open item for it: 33 sections still yield zero, and
 several look ordinary rather than accepted-gap (`a) Documento acreditativo -
 significará…`, `Productor. — Es la persona que…`, `Los siguientes términos y
 frases tendrán los significados…`) — I am NOT declaring those done.
+
+---
+
+## 2026-08-04 — QA: independent verification, P4 sweep, FAIL on P2/P4
+
+**Method.** Worktree venv, `codegraph`/direct Read of `pr_profile.py` (read
+only — never edited, `git status --short` before commit shows only test
+files, one new fixture, README, contract, log). Independent full-corpus
+scripts in the scratchpad (never touching `backend/tests`), reading the
+same on-disk `us_pr_statutes.parquet` snapshot
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`, 23,636 rows) via `pyarrow`
+directly. Re-derived every panel number from scratch rather than trusting
+it — including hitting the EXACT `\b`-boundary bug (`"Para los..."`
+bleeding into `"A los..."`) the manager already found and fixed once; my
+own first-pass regex had the same bug, caught and fixed before reporting
+any count from it.
+
+### Per-gate verdicts
+
+**P1 — PASS.** `backend/.venv/bin/pytest backend/tests -q` → `825 passed,
+7 xfailed`. My own heading sweep: GT (own regex, `[Dd]efinici[oó]n(es)?`
+case-insensitive) = 635; `is_definitions_heading` detects 633/635, 0 false
+positives; the 2 undetected are exactly the 2 correct TOC rejections
+(`STATE_PR_LEY_165_2020_ART1_2`, `STATE_PR_LEY_51_2020_ART1_2`). Exact
+match to the panel's numbers, independently reproduced.
+
+**P2 — FAIL.** The director's explicit mandate ("if a definition appears
+in another article… it should be captured as well") is not honestly met.
+Three independent lines of evidence:
+1. `extract_local_definitions`/`extract_adhoc_definitions` are NOT wired
+   into `pipeline.py` for any non-`"IL"` profile — confirmed by direct
+   read: `pipeline.py:30-34` imports `extract_local_definitions`/
+   `extract_adhoc_definitions` from `app.definition_links.extract` (the
+   Hebrew/English module), not from `pr_profile`, and calls them
+   unconditionally at `pipeline.py:437,440` for every non-canonical
+   article regardless of jurisdiction. Live path capture for PR ad-hoc/
+   local definitions today: **zero**, corpus-wide, regardless of what the
+   PR-owned unit functions can do standalone (already flagged as a known
+   deviation in the item-3 test file's own docstring — I confirm it
+   independently, not a new finding).
+2. Even as a standalone unit function, `extract_local_definitions` (the
+   PR-owned Spanish version) captures far less than its own measured
+   target signal. Full sweep of both implemented trigger phrases (`A los
+   fines de este Artículo` 16 rows + `Para propósitos de este Artículo`
+   26 rows = 42, after fixing the same boundary bug noted above): only
+   **8/42 (19%)** produce ≥1 candidate. A third, fully-measured synonymous
+   trigger phrase from the Planner's OWN cycle-1 survey table, `A los
+   efectos de este Artículo` (13 corpus-wide rows), is **entirely absent**
+   from `_LOCAL_TRIGGER_RE`'s alternation — **0/13** captured, not
+   attempted. Root cause of the 34/42+13=55-row miss pool: the function
+   only recognizes ONE narrow shape (a QUOTED term immediately after the
+   trigger phrase, optional comma) — unquoted terms (`"el término mayoría
+   significará…"`, 5 near-identical rows in the UPR law alone), marker-
+   list multi-term intros (`STATE_PR_MUNICIPAL_ART1_017`, `STATE_PR_
+   PENAL_ART300`), and lead-in idioms other than the bare comma-then-quote
+   shape (`"se define X como…"`) are all unhandled. Real, unambiguous
+   examples pinned as RED tests (see Deliverables below):
+   `STATE_PR_LEY_20_2017_ART4_14`, `STATE_PR_LEY_1_1966_ART8`, `STATE_PR_
+   LEY_77_1957_ART9_400`.
+3. **The single largest finding of this pass**: a corpus-wide signal sweep
+   of definition idioms OUTSIDE the 635 canonical rows (not just the
+   narrow `A los fines/efectos/propósitos de este Artículo` trigger set)
+   found hundreds of further real candidates. Random 20-row sample of the
+   274 non-canonical rows containing `significa`: **19/20 genuine
+   definitions** (article- or law-scoped, e.g. `"Municipio: Significa el
+   Gobierno Local…"`, `STATE_PR_LEY_81_2021_ART3`), only 1/20 ordinary
+   prose ("esto no significa que…"). A second, independent 15-row sample
+   of the 221 non-canonical `significará`/`significara` rows: **14/15
+   genuine**. I did not exhaustively classify the full non-canonical
+   idiom population (`significa` 274, `significará` 221, `se entenderá
+   por` 53, `tendrá el significado` 89, `se considera como` 273, etc. —
+   over 1,000 combined hits) — flagging that as unfinished, not claiming
+   zero-miss there — but two independent random samples at ~95%/93%
+   genuine-hit rates make the scale unambiguous: on the order of several
+   hundred real Spanish definitions live in ordinary (non-Definiciones)
+   PR articles today, corpus-wide, and none of them are captured by
+   anything in `pr_profile.py`.
+4. **A concrete, single-law-concentrated example at scale, verified not
+   estimated**: `STATE_PR_TRANSITO_ART1_*` (Puerto Rico's Vehicle & Traffic
+   Code, Article 1) has **128 rows**; only **1** is `is_definitions_
+   heading`-canonical (`STATE_PR_TRANSITO_ART1_02`, heading `"Artículo
+   1.02. Definiciones"`, body truncated to just the intro sentence — a
+   real data-truncation artifact, see below). The other up-to-127 rows
+   are each headed `"Artículo 1.NN. <Term>"` (the bare TERM itself as the
+   heading, no "definición" word anywhere) with a body starting `"Término"
+   Significará/Significa X` (after an optional `[9 L.P.R.A § 5001 Inciso
+   (N)]` citation-bracket prefix) — e.g. `STATE_PR_TRANSITO_ART1_75`
+   (`"Artículo 1.75. Paso de peatones"`), `STATE_PR_TRANSITO_ART1_96`
+   (`"Superintendente" Significará el Superintendente de la Policía…`). A
+   conservative, narrow signature match (quoted term ≤60 chars directly
+   followed by a recognized idiom word, citation-bracket-stripped) finds
+   **116 corpus-wide non-canonical rows matching this exact shape, 115 of
+   them from this ONE law**. This is a genuinely NEW class no existing
+   function even attempts: the heading names the term directly (no
+   "definición" stem at all, so `is_definitions_heading` is correctly
+   False and `extract_heading_anchored_definition`'s own first gate
+   excludes it too), and neither ad-hoc trigger phrase applies. Likely
+   explains why `STATE_PR_TRANSITO_ART1_02`'s own body is empty — the
+   source scrape appears to have split ONE long Definiciones article into
+   ~127 one-term rows. This single law alone is a larger miss population
+   than the entire 33-row within-canonical-section residue.
+
+**P3 — Correctly and honestly DEFERRED, not gradable pass/fail this
+sprint.** Read `test_pr_profile_scope.py` in full: 6 tests, all
+`xfail(strict=False)` with an explicit, accurate reason naming the exact
+core-seam blocker; `determine_chapter_scope` genuinely does not exist in
+`pr_profile.py` (confirmed by reading the whole 1,176-line file). Re-polled
+core live: `origin/claude/defs-core-scope` is now at seam spec **v2.4**
+(far more advanced than the v1 "baseline-first registry" this sprint's
+contract describes), but `origin/main` (`09aca8e`) still has NOT merged
+core — `profiles.py` on main still has no `PRProfile`/`"US-PR"`-specific
+registration. The deferral is still accurate as of this fetch; not hiding
+anything.
+
+**P4 — FAIL. This is my call.** Before = 0% (confirmed independently: 0/635
+canonical headings recognized by the pre-sprint registry). After, WITHIN
+the 633 detected canonical sections: combined capture (section extractor
+OR heading-anchor) = **600/633 = 94.8%**, terms 5,749, max term length
+104, 0 empty — I independently reproduced every one of these numbers
+exactly via my own script and regexes (not copy-pasted from any panel
+script). That is real, substantial, well-tested progress and I am not
+disputing it. But it is not zero-miss, on two levels:
+- **Within the 33 canonical zero-yield rows**, I classified all 33
+  individually (not just spot-checked), see table below: only 9/33 are
+  confirmed-correct accepted gaps; 17/33 (52%) are genuine ordinary misses
+  across at least 14 distinct, individually-verified root causes (not one
+  repeated defect); the remaining 7/33 are a marker-precondition-gate
+  tension (5 rows, see M-R9 ruling below) plus 2 more accepted-gap-shaped
+  rows the panel's documentation never named.
+- **Outside the 635 canonical rows**, P2's evidence above (55-row known
+  trigger-phrase pool at 15% capture, ~300+ likely real hits in the
+  broader idiom sweep by sampled rate, 115+ confirmed in one law alone)
+  is P4's territory too — a zero-miss sweep that only covers canonical
+  Definiciones headings is not a zero-miss sweep of the corpus.
+
+### Classification of the 33 canonical zero-yield rows (full, not spot-checked)
+
+| Bucket | Rows | Disposition |
+|---|---|---|
+| Documented residue (7) + correct-zero guards (2) | 9 | CONFIRMED correct, re-verified live |
+| Marker-precondition-gate suppression (M-R7's 3 + 1 new twin `STATE_PR_RENTAS_SEC2041_03` + 1 new `STATE_PR_CIVIL_ART1267`) | 5 | Recall-win lean, see M-R9 ruling |
+| Accepted-gap-shaped, undocumented (`STATE_PR_LEY_77_1957_ART36_010` singular/plural inflection mismatch; `STATE_PR_TRANSITO_ART1_02` data-truncation, same class as the already-documented 9/635 title-truncation artifacts) | 2 | Recommend adding to contract's gap table |
+| Genuine ordinary misses, cycle-4 workload | 17 | NOT accepted-gap — see root-cause groups below |
+
+Root-cause groups for the 17 (real rows named, full detail in
+`test_pr_profile_qa_cycle4_findings.py` and my scratchpad
+`qa_pr_classify33_out.txt`-equivalent transcripts):
+(A) unquoted term + bare/comma idiom **per-block inside a marker loop** —
+completely unhandled except as the ONE special-cased pre-marker lead-in
+check (`STATE_PR_LEY_137_1968_SEC1` 7 terms, `STATE_PR_LEY_1_1966_ART14`
+10 terms, `STATE_PR_LEY_97_1971_SEC1` 6 terms — 23+ individual terms in
+just these 3 rows); (B) same shape, single no-marker whole-body block, no
+quote anywhere (`STATE_PR_LEY_154_2004_ART2`, `STATE_PR_MUNICIPAL_
+ART7_100`); (C) `"se entiende por"`/unquoted `"se entenderá por"` not a
+recognized pre-quote cue (`STATE_PR_LEY_15_1931_SEC22` — a CYCLE-2 REUSED
+fixture that itself still yields zero — `STATE_PR_LEY_45_1935_ART36`,
+which also loses ~8 more terms to the single-match-only limitation of a
+7,781-char unmarked body); (D) alt-term joiner `"y"` not recognized, only
+`"o"` (`STATE_PR_LEY_77_1964_ART1`); (E) plural `"los términos"` not a
+recognized pre-quote cue, only singular `"el término"` (same row, stacks
+with D); (F) `"quiere decir"` idiom never implemented despite being in the
+Planner's own cycle-1 survey (`STATE_PR_LEY_82_1964_ART3`, 3 terms); (G)
+ASCII hyphen never added to `_UNQUOTED_TERM_DASH_RE` (only the quoted
+sibling got cycle 2's fix) (`STATE_PR_LEY_209_2016_ART2`, 2 terms); (H)
+quoted term + period + idiom, no comma/dash (`STATE_PR_LEY_77_1957_
+ART26_030`); (I) quoted term + comma + bare apposition, no idiom word at
+all (`STATE_PR_LEY_55_1996_ART2`, 9 terms); (J) 60-char lead-in bound too
+short when a citation bracket precedes the real cue (`STATE_PR_LEY_
+271_2004_ART2`, measured 71 chars); (K) multi-term list, no markers,
+lead-in bound too short for the full intro sentence (`STATE_PR_LEY_
+55_1963_SEC3`, already named by the manager); (L) dash-shaped single-entry
+lead-in not recognized by the dispatch check, only bare-copulative is
+(`STATE_PR_LEY_77_1957_ART9_020`, already named by the manager); (M)
+inverted idiom order `"Por X se entenderá Y"` (`STATE_PR_LEY_34_1966_
+ART10`); (N) deeply-nested subsection quoted-term shapes, lower
+confidence (`STATE_PR_RENTAS_SEC1115_09`).
+
+### Rulings on the four routed questions
+
+1. **M-R9 (marker-precondition gate).** My lean: **recall win**, agreeing
+   with the Developer's instinct and the Manager's own M-R9 framing — but
+   with NEW data neither had: `STATE_PR_RENTAS_SEC2041_03` is a 4th real
+   row sharing the EXACT shape of the two already-named Rentas rows
+   (`"(a) Definición General.- Donaciones tributables significa…"`) that
+   the panel never noticed as a twin, and `STATE_PR_CIVIL_ART1267` proves
+   the gate's blast radius extends beyond the M-R7 family entirely (a
+   clean, unconditioned defining sentence with an incidental examples
+   sub-list — the SAME shape `extract_definitions_from_section`'s own
+   cycle-2 dispatch fix already protects for `STATE_PR_LEY_77_1957_
+   ART9_040`, just never ported to the heading-anchor gate). This is NOT a
+   P-R2 zero-miss-vs-false-positive class needing director arbitration —
+   it resolves the same way the Planner's `se refiere a` question did
+   (narrow the gate with a more targeted condition, e.g. "is the
+   CORROBORATING SENTENCE itself marker-free" rather than "is the whole
+   body marker-free anywhere"), a precision refinement, not a genuine
+   recall/precision tradeoff. Recommend: cycle-4 Planner item. Pinned
+   `xfail(strict=True)` in `test_pr_profile_qa_cycle4_findings.py` (not
+   RED — the exact narrower condition is a Developer design choice, not
+   something QA prescribes).
+2. **The 33 remaining zero-yield sections.** Do NOT accept as done — see
+   the classification table above. 17/33 confirmed genuine ordinary
+   misses (52%), not accepted gap.
+3. **The 7 anchor-less residue rows.** Accurate as far as it goes — all 7
+   independently re-verified to produce `[]` from
+   `extract_heading_anchored_definition` with no corroborating heading
+   term. But "7, the FINAL documented gap" undercounts by at least 1:
+   `STATE_PR_LEY_77_1957_ART36_010` (heading `"Sociedades fraternales
+   benéficas—Definiciones"`) has the identical CHARACTER as the
+   documented nominalization-mismatch residue (`STATE_PR_CIVIL_ART1526`)
+   — a singular/plural inflection mismatch (heading's plural "Sociedades…
+   benéficas" vs. body's singular "una sociedad fraternal benéfica") — and
+   is not in the table. Recommend adding it as an 8th documented residue
+   row (documentation completeness, not a code change).
+4. **P2's "outside canonical sections" half.** Cannot honestly be called
+   met — see P2 verdict above. Not "partially met, needs polish": zero
+   live-path capture (not wired), 15-19% capture on the narrowly-
+   implemented standalone signal, a fully-unimplemented third trigger
+   phrase, and a ~300-700-real-definition-scale gap in the broader
+   non-canonical idiom population that nothing currently attempts.
+
+**P5 — PASS.** `backend/.venv/bin/pytest backend/tests -q
+--ignore=<all pr_profile test files>` → `641 passed`, exact pre-existing
+baseline, unchanged. `test_pr_profile_no_english_regression.py` (M-R4, the
+two-sided gate) re-run directly: `9 passed`. Role boundary: `git diff
+--name-only` against `origin/main`'s merge-base across the WHOLE sprint
+(`git diff --name-only $(git merge-base origin/main HEAD)...HEAD`) shows
+exactly ONE file under `backend/app/` touched in the entire sprint —
+`pr_profile.py` — confirmed myself, not inherited from the log.
+`get_profile("US-DE")` still resolves to plain `USProfile` (registry
+untouched, confirmed via direct read of `profiles.py`'s `_REGISTRY`).
+
+### Deliverables added (tests/fixtures only, role boundary held throughout)
+
+- `backend/tests/unit/test_pr_profile_qa_cycle4_findings.py` — 6 tests (5
+  RED, pinning findings 1-4 above with real vendored rows; 1
+  `xfail(strict=True)` pinning the M-R9-adjacent finding, see ruling 1
+  above), all independently re-run: `5 failed, 1 xfailed`.
+- `backend/tests/fixtures/us_statutes/pr_sample_rows_qa_cycle4.json` — 6
+  REAL rows, byte-compared against a fresh parquet read immediately before
+  commit (`6 rows checked, 0 problems`). README section appended
+  documenting provenance.
+- Full suite after my additions: `backend/.venv/bin/pytest backend/tests
+  -q` → `5 failed, 825 passed, 8 xfailed` — the 825/8(-1 new xfail=7 old)
+  baseline is exactly unmoved; the 5 new failures are the intended RED
+  signal for cycle 4, isolated to my own new file (confirmed by re-running
+  the rest of the suite with my file excluded: unchanged `825 passed, 7
+  xfailed`).
+
+### Not done, flagged not hidden
+
+I did not exhaustively hand-classify the full non-canonical idiom
+population (~1,000+ combined hits across `significa`/`significará`/`se
+entenderá por`/`tendrá el significado`/`se considera como`/etc.) — two
+independent ~95%/93%-genuine random samples make the SCALE unambiguous,
+but a row-by-row corpus-wide classification (and a similar sweep for
+other laws sharing TRANSITO's one-term-per-row convention) is real
+follow-up work I am handing to the Planner, not claiming to have finished.
