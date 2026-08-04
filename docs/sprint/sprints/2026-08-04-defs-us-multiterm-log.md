@@ -1145,3 +1145,104 @@ this contract specifies: splitting mechanics theirs, per-term fan-out ours.
 Agreed in writing by both panels; no disagreement to escalate. Same contract
 covers `STATE_SD_T3_C14_S3-14-5` (zero-yield CONFIRMED live this sprint —
 the dossier had it flagged UNCONFIRMED).
+
+### M-R8 — the "us_profile.py shared-edit" blocker DISSOLVES under the published seam
+
+The Planner's Next Steps items 1-3 propose editing `us_profile.py:373`
+(`_LEADING_QUOTE_RE`) directly, and flag that markers/headings may edit the
+same file concurrently. I read core's published Seam 2 and that concern is
+unfounded — it was written against pre-seam reality:
+
+- `TermClauseRule.parse: Callable[[str], list[DefinitionCandidate]]` — one
+  entry block to **candidate(s), plural**. That IS the F5 fan-out mechanism.
+- The seam pre-declares our two module names verbatim:
+  `rules/us_multiterm_shared_clause.py` and `rules/us_inline_parenthetical.py`.
+- Auto-discovery by directory listing: "a family panel's ONLY change to the
+  repo is ADDING its own new file here plus its own test file(s) — file
+  creation never conflicts in git."
+
+**Ruling: items 1 and 2 ship as `rules/us_multiterm_shared_clause.py`, a NEW
+FILE, with ZERO edits to `us_profile.py`.** U3 is satisfiable exactly as
+written; the concurrent-edit coordination flag is withdrawn. No escalation
+needed. Developer does NOT touch `us_profile.py`.
+
+**Item 3 (TX parent-clause redirect) has a real residual seam question,
+which I am ruling on rather than escalating.** After splitting, the TX
+parent line `(4) The following terms have the meanings assigned by Section
+2001.003:` and its children `(A) "contested case"; ...` are SEPARATE blocks.
+`TermClauseRule` sees one block at a time, so it cannot rejoin them. The fix
+belongs on the splitter side: markers' `EntrySplitterRule` for TX must emit
+a parent-redirect clause together with its lettered children as ONE block;
+our `TermClauseRule` then fans that block out into six candidates sharing
+the parent's redirect text. This is structurally IDENTICAL to the already-
+agreed VT boundary (splitting theirs, fan-out ours), so it needs no new
+principle — only relay. Routed to markers via the program manager.
+
+---
+
+## 2026-08-04 — ESCALATIONS to program manager / director
+
+Two questions the panel cannot settle. Both are P-R2 class (the director's
+standing Q-1). Data below is mine, measured on the real corpus.
+
+### E1 — Is a pointer-only cross-reference a "definition"? (director Q-1)
+
+Shape: the entry names a term but supplies NO definitional text of its own,
+only a redirect — `"Enforcement officer" has the meaning given that term in
+ORS 153.005` (OR `STATE_OR_T41_C496_S496.716`); `"Governmental body" has the
+meaning assigned by Section 552.003` (TX `STATE_TX_Cgv_C2009_S2009.003`);
+all six terms under TX `S2002.001(4)`.
+
+**Volume, measured by me across the full corpus (53 files, 2,038,247 rows):
+7,610 rows match the pointer shape, in 32 of 53 jurisdictions** — tx 2,333,
+federal 1,951, in 1,438, mn 806, il 368, co 218, wa 56, ks 51. This is NOT
+the "~1-2/300" curiosity the dossier implies for F6; it is program-scale and
+affects the scoped-inline, markers and headings panels too.
+
+Options: (a) CAPTURE as a definition whose `definition_text` is the redirect
+sentence — zero-miss honoured, term becomes linkable, but the stored "text"
+is a pointer, not a meaning; (b) FILTER as correctly-not-a-definition —
+protects precision, but is a deliberate miss under an absolute zero-miss
+bar; (c) capture AND mark it a distinct pointer kind — needs a new field,
+i.e. a shared-module/schema change nobody's contract currently owns.
+
+**My lean: (a) now, (c) later.** The term genuinely IS a defined term of
+that section's vocabulary and mentions of it SHOULD link; refusing to
+capture is a real miss at 7,610-row scale. (c) is the right end state but
+should be its own program-level item, not smuggled into a family sprint.
+
+### E2 — SD's scope fits none of core's four STABLE scope values
+
+`STATE_SD_T3_C14_S3-14-5` (verbatim, verified by me against the parquet):
+`The terms "office," "officer," "executive," and "administrative," when used
+in § 3-14-3 or 3-14-4 mean and apply to ...`
+
+The definition lives in § 3-14-5 but applies ONLY to two NAMED SIBLING
+sections. Core's published, declared-STABLE contract offers exactly
+`"chapter" | "local" | "subsection" | "law-wide"`, and every one is wrong:
+`local` = same article, which is precisely where this definition does NOT
+apply; `chapter` over-links the rest of chapter 14; `law-wide` over-links
+the entire title. Picking any of them silently trades a miss for a false
+positive — exactly what P-R2 forbids us to decide alone.
+
+This is a 5th scope kind (explicit enumerated cross-reference scope: "when
+used in § X or § Y", "as used in sections X through Y"). It is a gap in a
+seam core has declared stable, so only core + the program manager can
+resolve it. It also plainly affects the scoped-inline panel.
+
+Options: (a) core adds a 5th scope value with a target-section list (correct,
+but reopens a STABLE seam and needs a persisted column); (b) this sprint
+stamps `law-wide` and accepts the over-link as a recorded known limitation
+(violates zero-miss's spirit by trading it for false positives); (c) defer
+the row to a follow-up sprint and mark it explicitly out of scope for U1.
+
+**My lean: (a) if core has not yet frozen its implementation, else (c).**
+(b) is the one I would not take quietly — it buys a green gate with silent
+false positives, which is the failure mode this program exists to remove.
+
+### Not escalated (ruled, for the record)
+
+- PQ1 row shape → M-R4 (behavioural, not a migration).
+- PQ4 TX ownership → M-R5 (accepted program-wide; metric must be decomposed).
+- `us_profile.py` shared-edit collision → M-R8 (dissolved by the seam).
+- Markers boundary (VT/SD) → agreed in writing by both panels.
