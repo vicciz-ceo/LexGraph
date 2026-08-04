@@ -148,6 +148,18 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   reference edge connecting the definition to the law/section it mentions IS
   the typing; the connection itself carries the semantics. No schema field,
   no follow-up item for one.
+- **D-UNITS (2026-08-04): connections target the law system's MAIN UNIT —
+  subsections, not necessarily articles.** (Director, verbatim intent: "We
+  want the connections to subsections, not necessarily to articles. In some
+  law systems the article is a small enough unit; in some, subsections are
+  the main unit, and every subsection may have its own subsections. Research
+  what is the main unit in each law system.") Connection targets (definition
+  anchors, reference targets, mention anchors) must support recursive
+  sub-article unit paths; each jurisdiction profile declares its system's
+  main working unit, fed by the unit-structure research (workflow
+  `wf_db6cce4d-7eb`, 4 systems: IL / US states / US federal / PR). Core's
+  v2.1 unit machinery serves both scope containment AND connection
+  addressing.
 
 ## Program routing decisions (program manager)
 
