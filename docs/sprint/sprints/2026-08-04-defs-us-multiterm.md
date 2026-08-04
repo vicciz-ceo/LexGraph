@@ -82,6 +82,43 @@ Full text in `2026-08-04-defs-us-multiterm-log.md`. Summary:
   worktrees carry no `.codegraph/`; all edits/tests/commits stay in the
   worktree.
 
+## Registry registrations (audit — for a reader with no panel history)
+
+Everything this sprint adds to the live path, so the POST-MERGE ADDITIVE
+interaction with other panels is auditable. `entry_splitter` is ADDITIVE in
+core's dispatch (`us_profile.py`: `all_blocks = baseline_blocks +
+extra_blocks`), so every registered splitter's output is UNIONED with the
+baseline's — two panels can both contribute blocks for the same section.
+
+**`rules/us_multiterm_shared_clause.py`** (F5)
+| Kind | codes | Gated on | Contributes |
+|---|---|---|---|
+| `TermClauseRule` | `US-*` | per block: leading 2+ quoted terms before a `mean(s)` idiom; or a `the term(s)` phrase inside the block body; or a parent-redirect block | one candidate carrying N terms (M-R4: N terms may share a row) |
+| `EntrySplitterRule` | `US-*` | `_has_parent_redirect_with_children(text)` — the literal `The following terms have the meaning(s) assigned by …:` + lettered quoted list | **re-contributes the WHOLE section text as ONE extra block** (a per-block rule cannot otherwise see the parent line and its lettered children together) |
+
+**`rules/us_inline_parenthetical.py`** (F6)
+| Kind | codes | Gated on | Contributes |
+|---|---|---|---|
+| `ScopeTriggerRule` | `US-*` | ordinary (non-Definitions) article body | apposition + cross-reference candidates, `scope="local"` |
+| `TermClauseRule` | `US-*` | per block, apposition shape | apposition candidates, `scope="law-wide"` |
+| `EntrySplitterRule` | `US-*` | `_APPOSITION_RE.search(text)` — a parenthesised quoted term starting with a letter | **re-contributes the WHOLE section text as ONE extra block** |
+
+**Markers panel has DESIGN-TIME AUTHORITY over splitting** (program ruling on
+E4). Both `EntrySplitterRule`s above are kept as registered, but the markers
+panel may require changes when it designs its TX/VT splitters; the program
+manager arbitrates. Both are verified NOT to fire on VT `S3700` or SD
+`3-14-5`, which stay red as boundary cases.
+
+## Residual ledger
+
+Known-open defects this sprint has NAMED but does not own or has not closed.
+Nothing here is silently accepted.
+
+| # | Residual | Evidence | Owner | Closes when |
+|---|---|---|---|---|
+| R1 | **TX `2009.003` double-assertion hazard.** The section now yields 8 candidates: our correct combined N-term row, the 4 ORIGINAL degenerate 1-term rows (`;`, `""`), and 3 already-working entries. A real mention of e.g. "contested case" can draw **two** `USES_DEFINITION` assertions — one to the correct row, one to a degenerate row. | Developer verified live (`extract_definitions_from_section` → 8 candidates); persist-layer dedup key is `(article_id, sorted(terms))` so the rows do not collapse | **markers** (entry-boundary damage, per M-R5) | markers' entry-boundary work lands and the degenerate rows stop being produced |
+| R2 | **F5/F6 state inventory unverified beyond fixtures.** Rules are general regexes, not per-state; NH/ND/NY/OK (F5) and MI/MT/NY (F6) are covered by generalisation, not by a verified real row. | Developer's honest gap disclosure | this sprint (QA) | U4's 53-jurisdiction sweep confirms or finds misses |
+
 ## Next Steps
 
 > **BLOCKED (program ruling P-R8, verified by this manager).** Items 1-2 ship

@@ -2292,3 +2292,60 @@ of e.g. "contested case" could therefore draw TWO `USES_DEFINITION`
 assertions. The degenerate rows are entry-boundary damage — **markers' by
 M-R5** — and the Developer correctly refused to suppress them (that would
 need a shared-module edit). Carried to QA/U4 and to the markers relay.
+
+---
+
+## 2026-08-04 — E3/E4 RULED; narrowing target measured
+
+**E3 — RULED: option (i), narrow F6.** Program rationale, recorded so the
+census trail survives the change: (1) no recall is lost program-wide — the
+quoted-term+idiom mechanism IS family 1, which is `defs-us-scoped-inline`'s
+ACTIVE build covering exactly this corpus, and program-close integration QA
+re-checks everything with signal-agnostic denominators, so any gap between the
+two panels surfaces there; (2) scoped-inline's U6 before/after is a program
+asset the director's zero-miss verdict depends on, and overlapping rows
+corrupt it; (3) option (iii) would push cross-panel row-identity dedup into
+core — a far larger shared surface — when narrowing at the source suffices.
+
+**Census preserved (E3 requirement b).** Pre-narrowing measurement, mine, on
+the real corpus: `sampled rows=79,500  rows firing=7,055 (8.87%)
+candidates=35,337`; top fire-rates nv 21.67% / wi 16.93% / ut 15.87% /
+md 15.47% / mn 15.40%. Duplicate-term rows: 137/1,264 = **10.8%**.
+
+**Root cause located precisely — it is one regex, not the whole rule.**
+`_IDIOM_GAP_RE` (us_inline_parenthetical.py:119) reads
+`(?:means|shall mean|has the meaning given that term in|has the meaning
+assigned by)`. The `means|shall mean` alternatives are what make an ordinary
+body's quoted term + idiom match — **that is family 1's mechanism verbatim**.
+The two `has the meaning …` alternatives are the cross-reference shapes F6
+genuinely owns. The apposition path (`_APPOSITION_RE`) is separate and is NOT
+in scope for narrowing.
+
+**Projected result, measured before briefing the Developer:**
+```
+sampled=79,500
+CURRENT  fires on 7,012 (8.82%)
+NARROWED fires on   280 (0.35%)   [apposition-only share: 198]
+reduction: 6,732 rows (96.0% of current hits)
+```
+0.35% sits squarely inside F6's mandated "~1-2 per 300" (0.33-0.67%) — an
+independent check that the narrowing restores the intended family boundary
+rather than over- or under-correcting.
+
+**E4 — RULED: keep both `EntrySplitterRule`s**; they are narrowly gated and
+verified non-firing on VT/SD, and removing them buys nothing. The boundary
+stands: markers gets DESIGN-TIME AUTHORITY over splitting and may require
+changes to ours when it designs TX/VT; the program manager arbitrates and is
+relaying our registration inventory now. **Duty discharged:** the contract now
+carries a `## Registry registrations (audit)` table naming every kind, its
+jurisdiction codes, its gate, and what it contributes — explicitly including
+that BOTH splitters re-contribute WHOLE-SECTION text, and that
+`entry_splitter` is additive so panels union.
+
+**`## Residual ledger` added to the contract** (per the PR panel's pattern):
+R1 = the TX `2009.003` two-assertion hazard (ours by half, markers' to close
+per M-R5); R2 = F5/F6 state inventory unverified beyond fixtures (U4's job).
+
+**Sequence now:** narrow → prove the OR row live → re-measure dups on the
+narrowed rule → dispatch the dup fix only if duplicates persist → then QA +
+U4. QA must NOT certify the pre-narrowing rule.
