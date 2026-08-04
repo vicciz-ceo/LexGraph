@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: in-progress
-current_role: developer
+status: blocked
+current_role: planner
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "claude-code:planner"
