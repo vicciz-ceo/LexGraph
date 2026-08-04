@@ -80,16 +80,40 @@ class StructuralContext:
     heading_breadcrumbs: tuple[tuple[int, str], ...]
 
 
+@dataclass(frozen=True)
+class ScopeUnit:
+    """ABOVE-article container-unit label/value pair (sprint
+    2026-08-04-defs-core-dispatch, manager ruling M-D1 -- `StructuralUnitRule`
+    restated to its original M11 shape after v2.4 re-scoped `UnitPath` to
+    BELOW-article only). Distinct from `UnitStep`/`UnitPath` (the
+    below-article seam): a `ScopeUnit` is stamped onto an ARTICLE's own
+    `structural_units` tuple, e.g. `ScopeUnit(kind="part", value="II")`,
+    `ScopeUnit(kind="siman", value="ב")`. Compared by `matcher._in_scope`'s
+    generic-kind branch against a `Definition.scope`/`.scope_value` pair."""
+
+    kind: str
+    value: str
+
+
 # --- The seven rule kinds -------------------------------------------------
 
 
 @dataclass(frozen=True)
 class HeadingRule:
     """Detection kind, first-positive-wins (tried only after the profile's
-    own baseline heading detector returns false)."""
+    own baseline heading detector returns false). `body_confirms` (sprint
+    2026-08-04-defs-core-dispatch, item I6 -- additive, defaulted `None`):
+    when given, a heading match is only accepted once
+    `body_confirms(body)` also returns True -- consumed as
+    `matches(heading) and (body_confirms is None or body_confirms(body))`.
+    Every `HeadingRule` written before this sprint has no `body_confirms`
+    kwarg at all and keeps dispatching exactly as before (backward
+    compatible by construction: the default is `None`, which short-circuits
+    the check to "always confirmed")."""
 
     jurisdiction_codes: tuple[str, ...]
     matches: Callable[[str], bool]
+    body_confirms: Callable[[str], bool] | None = None
 
 
 @dataclass(frozen=True)
@@ -132,12 +156,37 @@ class ScopeTriggerRule:
 
 @dataclass(frozen=True)
 class StructuralUnitRule:
-    """Union kind (M11/v2.2) -- derives (part of) an article's `UnitPath`.
-    A document legitimately nests inside more than one structural axis at
-    once, so every matching rule's contribution is additive."""
+    """Union kind (M11, restated by M-D1 after v2.4 re-scoped `UnitPath` to
+    below-article only) -- derives ABOVE-article container units
+    (part/subchapter/siman/chelek/...) to be stamped onto the owning
+    ARTICLE's `structural_units` tuple. NOT a `UnitPath` producer and has
+    no relationship to `resolve_unit_path` (that seam stays below-article
+    only, v2.4 Section 1). A document legitimately nests inside more than
+    one structural axis at once, so every matching rule's contribution is
+    additive -- core keeps stamping `ScopeUnit("chapter", article.chapter)`
+    itself, unconditionally; registered rules ADD to that set, never
+    replace it."""
 
     jurisdiction_codes: tuple[str, ...]
-    derive: Callable[[StructuralContext], UnitPath]
+    derive: Callable[[StructuralContext], tuple[ScopeUnit, ...]]
+
+
+@dataclass(frozen=True)
+class ScopeKindRule:
+    """Detection kind behind `determine_scope` (sprint
+    2026-08-04-defs-core-dispatch, manager ruling M-D2). `determine_scope`
+    maps BODY TEXT to a scope-kind string (`"chapter"` / `"law-wide"`, or
+    any kind a panel registers) -- `detect` returns that string, or `None`
+    meaning "this rule has no opinion". Dispatch: baseline-first, then
+    FIRST-non-None-wins in filename-sort/registration order (the same
+    shape as `BodyPreambleRule`) -- deliberately NOT a union: a body has
+    exactly one scope kind, so merging two rules' answers would be
+    meaningless. Baseline still wins whenever it matches (never
+    overridden), protecting every jurisdiction's own already-working
+    trigger phrases."""
+
+    jurisdiction_codes: tuple[str, ...]
+    detect: Callable[[str], str | None]
 
 
 @dataclass(frozen=True)
@@ -169,6 +218,7 @@ _term_clause_rules: list[TermClauseRule] = []
 _scope_trigger_rules: list[ScopeTriggerRule] = []
 _structural_unit_rules: list[StructuralUnitRule] = []
 _citation_rules: list[CitationRule] = []
+_scope_kind_rules: list[ScopeKindRule] = []
 
 
 def register_heading_rule(rule: HeadingRule) -> None:
@@ -225,3 +275,11 @@ def register_citation_rule(rule: CitationRule) -> None:
 
 def citation_rules_for(code: str) -> list[CitationRule]:
     return [r for r in _citation_rules if _matches(r.jurisdiction_codes, code)]
+
+
+def register_scope_kind_rule(rule: ScopeKindRule) -> None:
+    _scope_kind_rules.append(rule)
+
+
+def scope_kind_rules_for(code: str) -> list[ScopeKindRule]:
+    return [r for r in _scope_kind_rules if _matches(r.jurisdiction_codes, code)]

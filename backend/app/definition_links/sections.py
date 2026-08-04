@@ -60,6 +60,16 @@ class Article:
     heading: str
     body: str
     chapter: str | None = None
+    # Sprint 2026-08-04-defs-core-dispatch, item I4 (manager ruling M-D1):
+    # additive, default `()` so every existing `Article(...)` construction
+    # site (including every existing test) is unaffected. Holds
+    # `rules.registry.ScopeUnit`-shaped (`.kind`/`.value`) container units
+    # ABOVE this article (part/subchapter/siman/chelek/...) -- deliberately
+    # typed loosely here (not imported from the rule registry) to keep this
+    # module's own Stage-1-parsing purity (no dependency on the rule
+    # registry layer). Populated by `pipeline.py`'s own pre-stage, not by
+    # this module -- see `run_definition_linking`'s own comment for why.
+    structural_units: tuple = ()
 
 
 def is_definitions_heading(heading: str) -> bool:
