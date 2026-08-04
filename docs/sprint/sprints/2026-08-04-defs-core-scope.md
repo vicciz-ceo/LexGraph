@@ -138,27 +138,47 @@ silently resolved.
   `::test_tx_parent_clause_2001_003_citation_is_truncated_to_a_wrong_target`
   (read-only fetch; core's fix is expected to turn all three green too — QA
   should check this at program-close integration, not rediscover it).
-  **Not yet authored**: `_TRIGGER_PHRASES` additions (3 idioms, same
-  fixture rows, noted in seam spec v2.3) and the internal-same-law pointer
-  emission path (v2.1 §4) end-to-end.
+  **Stage C closed the deferred set**: `_TRIGGER_PHRASES` additions now RED at
+  `test_definition_links_us_profile.py::test_us_profile_detect_cross_law_derivations_recognizes_the_has_the_meaning_given_that_term_in_idiom`,
+  `::test_us_profile_detect_cross_law_derivations_recognizes_the_has_the_meaning_assigned_by_idiom`,
+  `::test_us_profile_detect_cross_law_derivations_recognizes_the_have_the_meanings_assigned_by_idiom`;
+  the internal-same-law pointer emission path (v2.1 §4) end-to-end at
+  `test_definition_links_pipeline_scope_seam.py::test_a_whole_definition_pointer_to_an_internal_same_law_article_emits_a_derives_from_law_edge_to_that_article`.
 
-**Explicitly OPEN, not items yet:**
-pointer-definition end-to-end emission wiring; M9 enumerated-scope
-live-path proof; M10 tie-pinning live-path test (obligation (a) —
-attempted, then REMOVED rather than kept: the first version didn't
-construct a genuine tie (only one Definition row existed, so it passed
-today for the wrong reason) — shipping a misleading green-for-wrong-
-reasons test was judged worse than an honestly-open item; a real pin
-needs either the enumerated-scope production path or a second
-scope-kind live end-to-end, neither built yet); `StructuralUnitRule`
-US-side (parquet) data availability (unresolved, flagged twice, never
-verified); `_TRIGGER_PHRASES` idiom additions (3 phrases, M12's fixture
-rows, noted in v2.3 but not pinned). Sub-article `USES_DEFINITION`
-anchoring is NO LONGER open — D-ANCHOR (Option C) is now the director's
-FINAL ruling (not provisional) and IS pinned:
+**Closed by Stage C, previously "Explicitly OPEN":** M9 enumerated-scope
+live-path proof — RED at
+`test_definition_links_pipeline_scope_seam.py::test_an_enumerated_local_scope_links_every_member_article_and_excludes_a_non_member_live`.
+M10 tie-pinning live-path test (obligation (a)) — the previous attempt was
+honestly REMOVED (it constructed only one Definition row, so it passed for
+the wrong reason); this pass built a genuine tie using the spec's own named
+instance (v2.1 §1, "a local def and a set-valued local def covering the same
+article are rank-EQUAL"): two DISTINCT Definition rows (different owning
+articles) both scope-containing the same target article — RED at
+`test_definition_links_pipeline_scope_seam.py::test_two_same_rank_local_scoped_definitions_that_tie_both_get_a_uses_definition_assertion_live`.
+`StructuralUnitRule` US-side (parquet) data availability — **RESOLVED, not
+unresolved** (manager Round 9, verified against a real parquet file, not
+docs): `backend/tests/fixtures/us_statutes/de_sample_rows.parquet` carries
+`breadcrumb`, `display_path`, `chapter`, `chapter_name`, `title_number`,
+`section_number`, `subsection_count` — US-side structural unit data IS
+reachable; no ingest-contract escalation needed. Sub-article
+`USES_DEFINITION` anchoring is NO LONGER open — D-ANCHOR (Option C) is now
+the director's FINAL ruling (not provisional) and IS pinned:
 `test_definition_links_pipeline_scope_seam.py::test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live`,
 via a retrieval-seam helper (`pipeline.get_mention_unit_paths`) rather
 than any storage-shape assertion, per the binding test-shape constraint.
+Deep-nesting (no depth cap) and the no-bare-sub-unit-without-its-parent
+invariant are pinned at
+`test_definition_links_profiles.py::test_resolve_unit_path_supports_genuinely_deep_nesting_not_hard_coded_to_two_or_three_levels`,
+`::test_resolve_unit_path_never_represents_a_sub_unit_without_its_rooting_article`.
+
+**Deliberate gap, recorded for QA (I3, ruling M13):** the grep-shaped guard
+that pipeline.py retains no jurisdiction-specific literals is now pinned at
+`test_definition_links_pipeline_no_jurisdiction_literals.py::test_pipeline_module_defines_none_of_the_deleted_jurisdiction_specific_symbols`,
+`::test_pipeline_module_contains_no_hebrew_scope_trigger_literals`,
+`::test_pipeline_module_no_longer_references_the_hebrew_only_extraction_functions_directly`
+— a mechanical AST/source-substring check (no behavioral assertion), by
+design: I1/I2's own live-path tests prove the seam is REACHED, this file
+proves the OLD literals are GONE.
 
 ## Dev Complete
 
@@ -1244,6 +1264,17 @@ registry module, genuine RED), 18 warnings, ~15.9s.**
 merely argued. Frontend/typecheck not re-run this pass (no frontend file
 touched this sprint; `git diff --name-only` confirms zero `frontend/`
 paths in this sprint's changes).
+
+**Stage C update.** The collection error above is FIXED (deliverable 1: the
+module-level import in `test_definition_links_rules_registry.py` moved
+inside each test body) — the contract's own plain evaluator command
+(`pytest backend/tests -q`, no extra flags) now runs to completion with no
+`--continue-on-collection-errors` needed. After Stage C's 7 new RED tests
+(M9 live proof, M10 tie, pointer emission, 3 `_TRIGGER_PHRASES` idioms, I3
+guard ×3 — the collection-error fix and D-ANCHOR/deep-nesting/invariant
+tests were already in place at Stage C's start): `backend/.venv/bin/pytest
+backend/tests -q` → **644 passed, 38 failed, 0 errors, 18 warnings, ~13-17s**.
+644 unchanged throughout every Stage C commit (verified after each one).
 
 
 ---
