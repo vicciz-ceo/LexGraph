@@ -774,3 +774,300 @@ main: `backend/tests/fixtures/wiki_laws/רשימת הזכויות לפי חוק 
   tests). The 8 failures are the SAME 8 Phase-B REDs, and I verified they
   fail for **behavioral** reasons, not collection/import drift — every one
   is `AssertionError: ... got []`. Phase B is now genuinely unblocked.
+
+
+---
+
+## 2026-08-04 — Planner RESUMED (Sonnet/high): v2 -> v2.5 re-spec, sixth class, three new architecture escalations
+
+Per the manager's brief: core is merged (`0d57228`), the prior Planner
+instance's Phase-A recon (classes a-d, fifth class, escalations E1-E5, ruling
+M9(a)-of-this-sprint... actually M4/M6/M7/M9 above) is NOT redone here --
+read from this log as instructed. This entry covers what changed re-speccing
+against the AUTHORITATIVE seam v2.5 (`docs/sprint/sprints/
+2026-08-04-defs-core-scope-seam.md`), a live re-confirmation of `בפרט זה`
+(the sixth class, program manager ruling P-E3), and three architecture
+findings verified by direct source-reading of the SHIPPED code on `main`,
+not by trusting the seam document's prose alone -- the same discipline that
+caught the earlier E5 framing error.
+
+### What changed, v2 -> v2.5, and why it matters for our plan
+
+Read every delta (v2 -> v2.1 -> v2.2 -> v2.3 -> v2.4 -> v2.5) in
+`defs-core-scope-seam.md`, not just the final section, per the manager's
+instruction ("read v2.5 and every delta that leads to it"). The load-bearing
+changes since the prior Planner's v2-based plan:
+
+- **v2.2/v2.4: `UnitPath` replaces `ScopeUnit`+`Subsection`, and is
+  BELOW-article only** (v2.4 §1 corrects v2.2). Container levels ABOVE the
+  article (chapter/siman/chelek/part/subchapter) stay on the LEGACY
+  `"chapter"` field or the GENERIC `scope_value`+`structural_units` path
+  (v2 M4), never merged into `UnitPath`. This directly shapes item 9's
+  design (`בפרט זה` is a below-article/item-level concept, so it belongs to
+  the `UnitPath` conceptual family, not `structural_units` -- even though,
+  per the E7 finding below, no rule-registration seam actually lets us
+  extend `UnitPath` resolution for IL).
+- **v2.2 §3: "narrowest governs" = longest matching prefix, WITHDRAWING
+  v2's `register_scope_unit_kind`/`rank_for`.** Confirmed shipped exactly
+  this way: `matcher.scope_rank` uses a fixed `_LEGACY_KIND_RANK` dict
+  (`{"subsection": 0, "local": 1, "chapter": 2, "law-wide": 1000}`) and
+  defaults every OTHER kind (e.g. our new `"siman"`/`"chelek"`/`"item"`) to
+  rank 1 (same as `"local"`) -- there is no live per-kind rank registration
+  to call. Noted in the re-spec: a `"siman"`-scoped and a `"local"`-scoped
+  definition sharing the same mention would TIE (both survive, M10) rather
+  than the siman one "winning" as more specific -- moot in practice today
+  since `"siman"` never actually contains anything live (see E1 update).
+- **v2.5: `Definition.scope_value` is TRANSIENT-BY-DESIGN, no column, no
+  migration.** Verified: `app/models/definition.py` has no `scope_value`
+  column, confirming v2.5's own correction is accurate as shipped. Our new
+  rule modules (item 2b, item 9) must NOT expect `scope_value` to survive
+  a DB round-trip -- fine, since none of our new tests read it back from a
+  persisted row.
+- **The seam's SIX registered rule kinds (`HeadingRule`, `BodyPreambleRule`,
+  `EntrySplitterRule`, `TermClauseRule`, `ScopeTriggerRule`,
+  `StructuralUnitRule`) plus `CitationRule` (v2.3) are all real, unit-tested
+  dataclasses in `rules/registry.py`.** This is where the plan diverges
+  sharply from what the seam DOCUMENT claims vs. what is actually WIRED --
+  see "Three new architecture findings" below. This is the single biggest
+  difference from the prior (pre-merge) plan, which reasonably assumed the
+  seam document's own worked examples (`us_entry_marker_variants.py` etc.)
+  meant the corresponding dispatch was live everywhere it was described.
+
+### Three new architecture findings (verified by direct source-reading, not assumed)
+
+**(1) E1 status update -- schema question ANSWERED, but a SEPARATE wiring
+gap blocks סימן/חלק containment.** The manager's post-merge log entry says
+"E1 is ANSWERED... Gate I3 is achievable." The schema/mechanism HALF of
+that is true: `matcher._in_scope`'s generic branch (any kind other than
+chapter/local/subsection/law-wide) checks `article.structural_units`
+against `definition.scope_value`, and this is exercised correctly by a
+UNIT test (`test_definition_links_matcher.py::
+test_link_articles_to_definitions_respects_generic_scope_unit_containment`)
+using a hand-built `SimpleNamespace` stub that already carries
+`.structural_units`. But nothing in the LIVE pipeline ever builds such a
+stub for a real ingested article:
+
+```
+grep -rn "structural_unit_rules_for(\|heading_breadcrumbs=\|\.structural_units\s*=" backend/app --include="*.py"
+-> ONLY registry.py's own definition (structural_unit_rules_for's def line).
+   Zero call sites in profiles.py, us_profile.py, pipeline.py, sections.py.
+```
+
+`sections.py`'s `parse_articles` (still frozen, still core-owned) discards
+every 3+-equals heading's text exactly as it did before this whole sprint
+started (`if len(break_match.group(1)) == 2: current_chapter = ...` --
+`sections.py:128`, unchanged since v1). `pipeline.py`'s `MatcherArticle(...)`
+construction (`pipeline.py:190`) passes only `number/heading/body/chapter`
+-- no `structural_units` kwarg, and `sections.Article`'s dataclass has no
+such field to accept one anyway. **Consequence: a `"siman"`/`"chelek"`-
+scoped `Definition` can be CAPTURED (the row gets created -- capture never
+depends on containment, `pipeline.py`'s Stage-2/candidate-persistence loop
+runs before any containment check) but can NEVER produce a `USES_DEFINITION`
+edge on the live path**, because `getattr(article, "structural_units", ())`
+is always `()`. `StructuralUnitRule` (registered, unit-tested) has no
+production consumer. Fixing this needs `sections.py` to capture
+`heading_breadcrumbs` (exactly the "single, ONE-PLACE... made ONCE by
+core" change seam v2.1 §3 already specified) plus `pipeline.py` to call
+`structural_unit_rules_for` and populate `MatcherArticle.structural_units`
+-- both frozen/shared, off-limits to this sprint's family panel. I did NOT
+write a containment RED test for סימן/חלק for exactly the reason the
+original Planner gave for the original E1: there is nowhere for a
+live-path test to observe the expected behavior. Recommend the manager
+route this back to core (or the program manager) as a scoped, ONE-TIME
+wiring request -- the mechanism it would activate already exists and is
+already tested in isolation.
+
+**(2) NEW escalation E6 (severity: HIGH -- blocks the sprint's single
+largest item) -- `EntrySplitterRule`/`TermClauseRule`/`HeadingRule`/
+`BodyPreambleRule` have ZERO production consumers anywhere.**
+
+```
+grep -rn "entry_splitter_rules_for\|term_clause_rules_for\|heading_rules_for\|body_preamble_rules_for" backend/app --include="*.py"
+-> ONLY registry.py's own def lines for all four functions. No caller.
+```
+
+`HebrewProfile.extract_definitions_from_section` (`profiles.py:180-188`)
+calls `extract.extract_definitions_from_section(text, scope=scope)`
+DIRECTLY -- it never touches the registry (contrast with
+`HebrewProfile.find_citations`, which DOES consult
+`registry.citation_rules_for` in a baseline-first-then-union pattern, and
+`HebrewProfile.extract_local_scope_definitions`, which DOES consult
+`registry.scope_trigger_rules_for`). `pipeline.py`'s own dispatch
+(`pipeline.py:220-232`) is a strict `if is_definitions_section: ... else:
+...` -- a definitions-heading article NEVER falls through to
+`extract_local_scope_definitions`/`ScopeTriggerRule` either. Item 5 (I2(d),
+class (d), 592 files -- "the single largest and most severe finding of
+this sprint," per the prior Planner's own words) is EXACTLY the shape the
+seam's own worked-example file list (`us_entry_marker_variants.py`,
+`us_multiterm_shared_clause.py`) says `EntrySplitterRule`/`TermClauseRule`
+exist to solve. **No new file in `rules/`, however written, can ever be
+reached for this class under the current wiring.** I did not spec item 5
+as "ready" -- it is marked BLOCKED in the rewritten contract, with the
+exact fix location named (`HebrewProfile.extract_definitions_from_section`
+needs the same baseline-first-then-union treatment `find_citations`
+already got) so whoever picks this up next does not have to re-derive it.
+This is, in my assessment, the most consequential finding of this
+resumption -- it is not a corner case, it is the sprint's headline gap.
+
+**(3) NEW escalation E7 (smaller, same family as the original E1/E2) --
+no registered-rule seam extends `resolve_unit_path`'s marker vocabulary.**
+`HebrewProfile.resolve_unit_path` (`profiles.py:229-245`) is a concrete
+method with a HARDCODED regex, `_IL_SUBSECTION_MARKER_RE = re.compile(r"
+סעיף\s+קטן\s+\(([א-ת]+)\)")` -- literally the phrase "סעיף קטן (X)". It
+consults no registry. The fifth class (`בפסקה זו`, 522 files) and the new
+sixth class (`בפרט זה`, item 9 below) both use a COMPLETELY DIFFERENT
+below-article marker convention in the real corpus -- colon-indented
+numbered/lettered list items (e.g. `: (8)(א)`, `: (3)` then `::-`
+sub-entries), never the literal phrase "סעיף קטן". So `resolve_unit_path`
+can never recognize either class's real marker shape, meaning
+`_subsection_contains_offset` will always return `False` for a mention
+inside either class's own scope, even a mention in the SAME paragraph/item
+as its own definition. **This means the earlier log entry's "E2 withdrawn
+... class 5 ships as scope='subsection', resolved, no director decision
+needed" overstated the resolution**: CAPTURE is genuinely fine (verified,
+unchanged), CONTAINMENT is not -- I am correcting that framing here,
+append-only, per this file's own convention, not editing the earlier
+entry. Both the fifth-class test (already existing, unrevised) and item
+9's new test are deliberately CAPTURE-only for this reason, matching the
+discipline the original Planner already used before E2's premature
+"withdrawal."
+
+### Live re-confirmation: `בפרט זה` (the sixth class, P-E3)
+
+Ran three live corpus scans through the REAL, unmodified `sections.py`/
+`normalize.py`/`extract.py` (never a mock), against
+`/Users/nerya/AI for others/israeli-laws-wiki/data/laws` (read-only,
+verified untouched afterward):
+
+1. Raw substring `בפרט זה` anywhere: **68 files, 199 occurrences**
+   corpus-wide (broader than the exact shape below -- includes other
+   grammars, e.g. the ad-hoc `(להלן בפרט זה - X)` apposition variant found
+   in `תקנות התעבורה` article 8א, a THIRD grammar not covered by this
+   sprint's item 9 and flagged here for a future item, not silently
+   dropped).
+2. EXACT target shape (`בפרט זה -` line immediately followed, after
+   skipping blank lines, by a line starting `::-`): **7 real corpus
+   files** -- `חוק מימון מפלגות`, `רשימת הזכויות לפי חוק לקידום התחרות
+   ולצמצום הריכוזיות` (the already-vendored fixture), `תקנות התכנון
+   והבניה (בקשה להיתר, תנאיו ואגרות)`, `תקנות התכנון והבנייה (הקמת מכון
+   בקרה ודרכי עבודתו)`, `תקנות התעבורה`, `תקנות ניירות ערך (זירת סוחר
+   לחשבונו העצמי)`, `תקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות
+   לאתר)`. Reported as a freshly-measured, more precise number against the
+   brief's own "~8-12 files" ESTIMATE -- not a contradiction of it, a
+   refinement.
+3. Confirmed via the real `sections.parse_articles` (not raw-text grep)
+   that the vendored fixture's law parses to exactly ONE article, number
+   `@1` (core's bare-`@` fix, M8(a)), heading `""` (empty ->
+   `is_definitions_heading("") is False`, confirming this routes through
+   the WIRED ordinary-article path, `extract_local_scope_definitions`, not
+   item 5's BLOCKED definitions-section path) -- matching the brief's own
+   framing exactly ("REACHABILITY was core's -- delivered. CAPTURE is
+   MINE.").
+
+Also live-reconfirmed, per M4's discipline ("class does not reproduce as
+stated -- report the difference"): the original contract's class-(a)
+`לפרק זה` trigger word does **NOT reproduce** anywhere in the real corpus
+as a definitional grammar. Raw scan: 103 occurrences of the phrase, 100%
+cross-references (`סימן ג' לפרק זה`, `התוספת לפרק זה`, "the appendix TO
+this chapter" / "siman X OF this chapter" -- structurally the OPPOSITE of
+a scope trigger, a reference FROM inside the chapter to a sub-part of
+itself). Zero matched the `TRIGGER, "term" - definition` grammar even with
+a generous scan (checked all 103 for a nearby quote+dash, zero hits).
+**`לפרק זה` is dropped from item 2a's trigger-phrase spec** -- implementing
+it as originally worded would add a regex with zero true positives and a
+non-zero risk of a hasty pattern snagging cross-reference text instead.
+
+New real, verbatim fixtures added (COPIES from the read-only POC corpus,
+corpus itself re-verified untouched after this session):
+`backend/tests/fixtures/wiki_laws/חוק איסור מימון טרור_art31_excerpt.wiki`
+(`בסימן זה` quote-first, term "בית המשפט"),
+`backend/tests/fixtures/wiki_laws/חוק השיפוט הצבאי_art159א_excerpt.wiki`
+(ONE real article exhibiting BOTH `בחלק זה` quote-first, term "הוראת
+פרקליט", AND the ad-hoc-parenthetical `([[בחלק זה]] - חוות דעת)` shape --
+efficient corpus reuse, both classes' סימן/חלק sub-cases now have a real
+fixture).
+
+### New test file (additive only -- no existing test touched)
+
+`backend/tests/integration/test_definition_links_il_missed_classes_extended_live.py`
+-- 4 NEW tests, all RED today for behavioral reasons (verified by my own
+run, transcript below):
+
+- `test_class_a_besiman_zeh_scoped_quoted_definition_is_captured`
+- `test_class_a_bechelek_zeh_scoped_quoted_definition_is_captured`
+- `test_class_c_adhoc_parenthetical_bechelek_zeh_marker_is_captured`
+- `test_sixth_class_beprat_zeh_item_scoped_double_colon_entries_are_captured`
+
+### Deliverable 3 -- verification of the 8 existing RED tests under v2.5
+
+Read all 8 in full (`test_definition_links_il_missed_classes_live.py`'s 7
+tests + `test_definition_links_il_chapter_scope_live.py`'s 1 test).
+**None required revision. Zero existing tests edited.** Reasoning, per
+test:
+
+- The 7 capture-only tests (classes a/b/c/d-i/d-ii/d-iii/fifth) assert
+  ONLY on `result["created_definitions"]` term membership -- none pins a
+  `scope` value, a `scope_value`, or any containment/`USES_DEFINITION`
+  behavior. Nothing about v2->v2.5's scope-model changes (4-way enum ->
+  generic `(kind, value)` -> `UnitPath` prefix-matching -> transient-only
+  `scope_value`) touches what these tests actually assert. They remain
+  exactly as valid under v2.5 as under the v2 model they were originally
+  planned against.
+- The 1 containment test (`test_beperek_zeh_definition_links_within_
+  chapter_and_not_outside_it`, gate I3) exercises the `"chapter"` scope
+  kind specifically -- the ONE kind that was ALREADY fully wired before
+  this whole seam sprint even started (`Article.chapter` /
+  `definition.source_chapter` / `matcher._in_scope`'s dedicated chapter
+  branch are all pre-existing, unchanged by any seam version). v2.5
+  changes nothing about this kind's mechanism. Still valid, unrevised.
+
+### Suite proof (my own run, worktree venv)
+
+```
+backend/.venv/bin/pytest backend/tests -q
+-> 12 failed, 704 passed, 18 warnings in ~19s
+```
+
+704 = the exact pre-resumption baseline (confirmed identical to the
+manager's own post-rebase count -- zero regressions, zero existing tests
+touched, verified via `git status --short` / `git diff --stat` showing
+only new, untracked files before staging). 12 failed = the 8 pre-existing
+Phase-B REDs (unchanged, still failing for the same behavioral reasons as
+before this session) + the 4 new REDs above, all `AssertionError`
+("expected N, got [...]" / "got {'חוק ניירות ערך'}" for the sixth-class
+test, confirming the pipeline runs end-to-end and merely fails to capture
+the intended terms -- not an import/collection error).
+
+### Escalation table, updated (append-only -- prior rows kept verbatim)
+
+| # | Status | Owner of the answer |
+|---|---|---|
+| E1 (original, schema) | ANSWERED by the shipped seam (unchanged from the prior entry) | resolved |
+| **E1 (wiring, this session)** | **OPEN -- NEW finding: `StructuralUnitRule`/`heading_breadcrumbs` mechanism exists but has zero production wiring** | core / program manager |
+| E2 | superseded -- see E7 below (capture resolved, containment reopened) | resolved (capture) / see E7 |
+| E3 | settled, ruling M7 (unchanged, do not re-litigate) | manager |
+| E4 | settled, ruling M6 (unchanged) | manager |
+| E5 | corrected, ruling P-E3 (program manager) -- superseded by item 9 above | resolved (reframed) |
+| **E6 (NEW)** | **OPEN -- `EntrySplitterRule`/`TermClauseRule`/`HeadingRule`/`BodyPreambleRule` have zero production consumers; blocks item 5/I2(d), the sprint's largest finding (592 files)** | core / program manager |
+| **E7 (NEW)** | **OPEN -- no registered-rule seam extends `resolve_unit_path`'s marker vocabulary; blocks containment for the fifth class and item 9 (below-article granularity)** | core / program manager |
+
+### Open questions for the manager (escalating, not guessing)
+
+1. E1(wiring)/E6/E7 all point at the same root shape: the seam SPEC
+   describes dispatch that the seam IMPLEMENTATION does not yet wire for
+   four of seven registered rule kinds, plus the below-article marker
+   vocabulary. Is the right move to route these back to core as scoped,
+   named wiring requests (I named the exact one-line-of-reasoning fix for
+   each), or does the program manager want this sprint to escalate further
+   up before any Phase-B implementation resumes on items 2b/5/7/9's
+   containment halves?
+2. Item 5 (class (d), 592 files) is now the sprint's single most
+   consequential BLOCKED item. Given I4/I5 cannot close without it (it is
+   ~9.7% of the whole corpus), should the sprint's own gate status
+   (currently `blocked`) reflect this explicitly, or is this already
+   understood from the E6 entry above?
+3. Confirming scope, not asking permission: items 2a/3/4(chapter
+   sub-case)/7/9 are all genuinely Phase-B READY (capture, and for 2a also
+   containment) with no further architecture blocker found. If the
+   Developer is dispatched now, these five are safe to implement
+   immediately without waiting on E1(wiring)/E6/E7.
