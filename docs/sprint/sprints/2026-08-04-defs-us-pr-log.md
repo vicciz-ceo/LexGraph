@@ -4874,3 +4874,120 @@ Resolved-with-caveat; `14` stands. Not worth further archaeology.
 Bounded Developer fix cycle on the 2 live bugs (RED provenance already
 committed by QA), then QA re-verify, then the gate table settles into its
 final pre-core-merge state and the panel parks clean for the dispatch wake.
+
+---
+
+## 2026-08-04 — Developer: cycle-6 bug fixes (bug 1 footer truncation, bug 2 stray leading quote)
+
+Both of QA cycle-5's live bugs fixed in `backend/app/definition_links/
+pr_profile.py`. Nothing else touched (`git diff --stat -- backend/tests/`
+→ empty; `_UNQUOTED_TERM_DASH_RE` byte-unchanged, confirmed by direct diff
+inspection — still dead code per M-R14, held).
+
+### Bug 1 — `extract_local_definitions` footer truncation
+
+`_LOCAL_TRIGGER_RE`/`_LOCAL_TRIGGER_UNQUOTED_RE`'s `definition_text` group
+(`(.+?[.;])`) is non-greedy and stopped at the FIRST `.`/`;`, which the
+"Rev. \<date\> www.ogp.pr.gov Página N de M ... [Ley N-YYYY, según
+enmendada]" scrape-footer artifact supplies prematurely (its own "Rev."
+abbreviation-period). Fix: reused `_PAGE_BREAK_FOOTER_RE` — the SAME
+footer-stripping regex cycle 3 already added and tested for
+`extract_heading_anchored_definition` — rather than writing a second,
+divergent pattern. `extract_local_definitions` now strips the footer from
+a parsing-side copy of `article_body` (`_PAGE_BREAK_FOOTER_RE.sub(" ",
+article_body)`) before either trigger pattern scans it, so a footer
+landing mid-span is gone before the non-greedy group can stop on it.
+
+**Blast radius (full 23,636-row corpus, direct `pr_profile.
+extract_local_definitions` call, before/after diff):** candidate COUNT
+unchanged (18 → 18). Exactly 2 rows changed outcome —
+`STATE_PR_LEY_236_2015_ART12` and `STATE_PR_LEY_83_1941_SEC28`, the two
+target rows — `definition_text` now runs to its real sentence boundary
+with no "Rev." fragment; `term`/`scope` unchanged on both. No other row's
+candidates moved at all.
+
+### Bug 2 — `extract_adhoc_definitions` stray leading quote
+
+`_ADHOC_TRIGGER_RE`'s catch-all term group excludes `)`, straight `"`,
+and the CLOSING curly quote `”`, but not the OPENING curly quote `“`. When
+a Spanish article sits between "en adelante," and the opening quote
+("(en adelante, el "Plan Estratégico")"), the leading optional `["“]?`
+matches zero-width (next char is "e", not a quote) and the term group
+sweeps up "el " AND the opening `“` itself.
+`_LEADING_SPANISH_ARTICLE_RE.sub` then strips only "el ", leaving the
+stray `“` embedded at the front of the term. Fix: added
+`_STRAY_LEADING_QUOTE_RE = re.compile(r'^["“]+\s*')`, applied to `term`
+right after the existing article-strip. This is narrow by construction,
+not a general quote-stripping hack — the term group's exclusion set
+guarantees a leading `“` can only ever survive there as this exact leaked
+artifact; every other quote-delimited shape in the module consumes its
+opening quote outside the captured group. Did NOT touch the
+antecedent-capturing logic (`_ANTECEDENT_BOUNDARY_CHARS`,
+`definition_text` construction) — confirmed via the corpus diff below
+that `definition_text` is byte-identical before/after on every changed
+row; only `term` changes. This matches the brief's scoping note: these
+are genuine `en adelante` appositions and the antecedent-as-definition
+behavior is correct as-is.
+
+**Blast radius (full 23,636-row corpus, direct `pr_profile.
+extract_adhoc_definitions` call, before/after diff):** candidate COUNT
+unchanged (32 → 32). Exactly 6 rows / 9 candidates changed outcome —
+`STATE_PR_LEY_125_2008_ART7`, `STATE_PR_LEY_17_2017_ART2` (×3),
+`STATE_PR_LEY_17_2017_ART3` (×2), `STATE_PR_LEY_20_2014_ART5`,
+`STATE_PR_LEY_74_1965_ART21`, `STATE_PR_LEY_88_1966_ART11` — an exact
+match to QA's own named list of the 9 corrupted candidates. Every changed
+term lost only its leading `“`; `definition_text`/`scope` byte-identical
+before/after on every row. No other row's candidates moved at all.
+
+### On the "measure on raw text" trap
+
+Both RED tests call `get_profile("US-PR").extract_local_scope_definitions`
+directly on the fixture's raw `text` (curly quotes intact) — they do not
+go through `pipeline.py`'s `profile.normalize_for_parsing` step first
+(that only runs inside the full ingest pipeline, one layer up). I
+confirmed this before trusting my own corpus measurement: `get_profile
+("US-PR")` returns `USProfile(code="US-PR")` (not the `PRProfile`
+dataclass at the bottom of `pr_profile.py`, which is unregistered per
+M-R3), and `USProfile.normalize_for_parsing` DOES collapse curly quotes
+to ASCII — so if I had measured blast radius by running the full pipeline
+end to end, I would have been measuring different input than what these
+two functions actually see when called directly (as both the RED tests
+and QA's own live-bug reproduction do). Measured directly against
+`pr_profile.extract_local_definitions`/`extract_adhoc_definitions` on raw
+parquet text instead, matching the tested/reported path exactly — the
+baseline run reproduced QA's 2/12 and 9/32 counts and exact act_id list
+byte-for-byte before I changed anything, which is what gave me confidence
+the measurement methodology was right.
+
+### Full suite
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+30 failed, 915 passed, 12 xfailed, 18 warnings in 12.65s
+```
+
+4 target REDs green (`test_pr_profile_qa_cycle5_live_bugs.py`, all 4).
+30 held REDs across the 6 named files — byte-untouched, failure list
+re-checked test-by-test, matches the 14+6+6+2+1+1 partition exactly. 12
+xfails unchanged (`strict=True` — none flipped to XPASS or a different
+exception). Regression guards
+(`test_pr_profile_idiom_widening_cycle3.py`,
+`test_pr_profile_local_scope_definitions_cycle4.py::
+test_still_does_not_swallow_the_gender_disclaimer_row`) individually
+re-run green. Matches the brief's expected `30 failed, 915 passed, 12
+xfailed` exactly — no reconciliation needed.
+
+### Nothing escalated
+
+Both fixes are confined to my write-set file, do not interact with each
+other (disjoint functions, disjoint regex changes), and involve no
+recall/precision trade-off — both are pure precision fixes with a
+verified-zero side effect on candidate counts. No test looked wrong. Not
+guessed at: the exact regex mechanics of both bugs were traced by hand
+against the real fixture bytes before writing either fix, and the "worked
+example" in each diagnosis (§ above) was independently re-derived by me,
+not just copied from the brief.
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`.

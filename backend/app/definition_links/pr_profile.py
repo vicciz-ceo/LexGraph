@@ -843,15 +843,34 @@ def extract_local_definitions(article_body: str) -> list[DefinitionCandidate]:
     efectos/propósitos de este Artículo ..." family -- the base quoted-
     term shape, the "se define X como"/"la frase X <idiom>" quoted
     lead-ins, and the fully unquoted "el término X <idiom>" shape (QA
-    cycle-4 findings 1-3). Scope is always `"local"`."""
+    cycle-4 findings 1-3). Scope is always `"local"`.
+
+    Cycle-6 (QA cycle-5 bug 1): both trigger patterns' definition-text
+    group, `(.+?[.;])`, is non-greedy and stops at the FIRST period or
+    semicolon it reaches. The real page-break scrape-footer boilerplate
+    ("Rev. <date> www.ogp.pr.gov Página N de M ... [Ley N-YYYY, según
+    enmendada]") can land inside a captured span, and because it opens
+    with "Rev." -- itself a period-terminated abbreviation -- the group
+    stops there instead of at the definition's real end, truncating/
+    corrupting `definition_text`. Reuses `_PAGE_BREAK_FOOTER_RE`
+    (cycle 3's already-tested footer-stripping helper, also used by
+    `extract_heading_anchored_definition` below) rather than a second,
+    divergent pattern: the footer is stripped from a parsing-side copy of
+    `article_body` before either trigger pattern ever scans it, so a
+    footer landing mid-span is simply gone before the non-greedy group can
+    stop on it. Only `definition_text` (and, in principle, `term`) can be
+    affected -- candidate COUNT and match positions of the surrounding
+    prose are unchanged, since the footer is replaced with a single space
+    rather than deleted outright, preserving word boundaries either side."""
+    footer_stripped_body = _PAGE_BREAK_FOOTER_RE.sub(" ", article_body)
     candidates: list[DefinitionCandidate] = []
-    for match in _LOCAL_TRIGGER_RE.finditer(article_body):
+    for match in _LOCAL_TRIGGER_RE.finditer(footer_stripped_body):
         term = match.group(1).strip()
         definition_text = match.group(2).strip()
         candidates.append(
             DefinitionCandidate(terms=(term,), definition_text=definition_text, scope="local")
         )
-    for match in _LOCAL_TRIGGER_UNQUOTED_RE.finditer(article_body):
+    for match in _LOCAL_TRIGGER_UNQUOTED_RE.finditer(footer_stripped_body):
         term = match.group(1).strip()
         definition_text = match.group(2).strip()
         candidates.append(
@@ -875,6 +894,28 @@ _ADHOC_TRIGGER_RE = re.compile(r'\(en adelante,\s*["“]?([^)"”]+?)["”]?\)',
 # the article, e.g. "(en adelante, el Departamento)").
 _LEADING_SPANISH_ARTICLE_RE = re.compile(r"^(el|la|los|las)\s+", re.IGNORECASE)
 
+# Cycle-6 (QA cycle-5 bug 2): when a Spanish definite article sits between
+# "(en adelante," and an opening curly quote ("(en adelante, el
+# "Plan Estratégico")"), `_ADHOC_TRIGGER_RE`'s own optional leading
+# `["“]?` only strips a quote sitting DIRECTLY after "en adelante,\s*" --
+# it matches zero-width here, so the catch-all term group (which excludes
+# `)`, straight `"`, and the CLOSING curly quote `”`, but not the OPENING
+# curly quote `“`) sweeps up both the article and the opening curly quote
+# into the captured term. `_LEADING_SPANISH_ARTICLE_RE` above strips the
+# article but exposes the embedded opening quote rather than removing it,
+# leaving a corrupted term like `“Plan Estratégico`.
+#
+# This second, narrow strip removes a LEADING stray quote character left
+# over after the article strip. It is safe and precise, not a general
+# quote-stripping hack: the term group's own exclusion set guarantees a
+# `“` can only ever survive at the very front of a post-article-strip term
+# as this exact leaked artifact -- every OTHER quote-delimited shape in
+# this module (and `_ADHOC_TRIGGER_RE`'s own no-article, no-article-then-
+# quote-directly-after-comma shapes) consumes its opening quote OUTSIDE
+# the captured group, never inside it. The antecedent-capturing behavior
+# this function is otherwise correct about is untouched.
+_STRAY_LEADING_QUOTE_RE = re.compile(r'^["“]+\s*')
+
 _ANTECEDENT_BOUNDARY_CHARS = ".;:()"
 
 
@@ -885,6 +926,7 @@ def extract_adhoc_definitions(text: str) -> list[DefinitionCandidate]:
     for match in _ADHOC_TRIGGER_RE.finditer(text):
         term = match.group(1).strip()
         term = _LEADING_SPANISH_ARTICLE_RE.sub("", term).strip()
+        term = _STRAY_LEADING_QUOTE_RE.sub("", term).strip()
         if not term:
             continue
         prefix = text[: match.start()]
