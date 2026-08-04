@@ -1175,3 +1175,138 @@ def test_a_subsection_scoped_definition_covers_a_mention_nested_three_levels_dee
         "over-inclusive at depth (it let the (b)(1)(A) sibling mention "
         f"win instead of excluding it). Got resolved_path={resolved_path!r}"
     )
+
+
+# --- QA-fail cycle 2, independent QA verification (re-QA cycle 2, Area 1
+# --- close-out): the C1 fix threads `profile` through
+# --- `definition_covers_mention`/`link_articles_to_definitions`, bound at
+# --- `pipeline.py` Stage 3 via `profile = _profile_for_document(document_id)`
+# --- INSIDE the per-document loop. The manager's Round 18 log entry records
+# --- checking this by READING the source ("bound PER DOCUMENT... not a stale
+# --- binding leaking across documents") but no committed test exercises TWO
+# --- documents of DIFFERENT jurisdictions in the SAME `run_definition_linking`
+# --- call to prove it live. Mutation-tested by this QA cycle (temporarily
+# --- hoisting the Stage 3 `profile` lookup to always resolve the FIRST
+# --- document's profile via `git checkout --`-reverted edits) -- confirmed
+# --- this test goes RED under that specific leak shape. -----------------------
+
+
+def test_profile_binding_does_not_leak_across_documents_in_one_multi_jurisdiction_run_live(
+    db_session, matter_with_users
+):
+    """One matter, ONE `run_definition_linking` call, TWO documents of
+    DIFFERENT jurisdictions (a Hebrew IL law and a US-DE statute). If
+    `pipeline.py` Stage 3's per-document `profile` binding ever leaked
+    (e.g. a future edit hoists the `_profile_for_document(document_id)`
+    call outside the per-document loop, or an iteration-order bug reuses a
+    stale reference), the WRONG profile would be used for one of the two
+    documents:
+
+    - The IL document's mention uses a Hebrew prefix-letter surface form
+      ("ב" + term, construct-state) that ONLY `matcher.find_term_uses`
+      (Hebrew's own engine) recognizes -- `USProfile.find_term_uses`'s
+      plain `\\b`-word-boundary English matcher would not produce this
+      surface-form match at all.
+    - The US document's mention is `scope="subsection"`-scoped; a leaked
+      Hebrew profile would call `HebrewProfile.resolve_unit_path`, which
+      returns at most a single Hebrew-marker step (profiles.py's own
+      `_IL_SUBSECTION_MARKER_RE`) and would not recognize the US federal
+      lettered-marker ladder `USProfile.resolve_unit_path` uses -- so the
+      subsection containment check would silently fail differently.
+
+    Both directions are checked: the Hebrew mention must link at all (proves
+    Hebrew's own matcher ran for the IL document), and the US mention must
+    resolve to the correct subsection 'b' specifically (proves USProfile's
+    own `resolve_unit_path` ran for the US document, not Hebrew's, AND that
+    subsection containment still discriminates correctly when interleaved
+    with a second document in the same run)."""
+    import re
+
+    from app.definition_links.extract import DefinitionCandidate
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import get_mention_unit_paths, run_definition_linking
+    from app.definition_links.rules.registry import (
+        RuleContext,  # noqa: F401
+        ScopeTriggerRule,
+        register_scope_trigger_rule,
+    )
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+
+    il_term = "מונח עברי"
+    il_wiki_text = (
+        f'@ 1. נושא\n'
+        f'לענין זה, "{il_term}" - הגדרה מקומית.\n'
+        f"נעשה שימוש ב{il_term} כאן.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="חוק בדיקה עברי לבידוד פרופיל",
+        wiki_text=il_wiki_text,
+    )
+
+    us_term = "Isolation widget"
+
+    def _extract(article_body, ctx):
+        pattern = re.compile(
+            r'"([^"]+)" applies only within subsection \(b\) of this '
+            r"section, and means (.*?)(?=\.\s|$)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text=match.group(2).strip(),
+                scope="subsection",
+                source_article_number=ctx.article_number,
+                scope_value="b",
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract))
+
+    us_wiki_text = (
+        f'@ 12. Target section\n'
+        f'"{us_term}" applies only within subsection (b) of this section, '
+        f"and means a specially regulated item.\n"
+        f"(a) An {us_term} is mentioned here, in subsection (a), for contrast.\n"
+        f"(b) An {us_term} is mentioned here, in subsection (b), where it is "
+        f"actually defined.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test Isolation Statute",
+        wiki_text=us_wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    # ONE run_definition_linking call processes BOTH documents.
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+
+    il_edges = [e for e in uses_edges if il_term in e["proposition"]]
+    assert il_edges, (
+        "Hebrew document's mention did not link -- possible cross-document "
+        f"profile leak (US profile applied to the IL document). "
+        f"uses_edges={uses_edges!r}"
+    )
+
+    us_edges = [e for e in uses_edges if us_term in e["proposition"]]
+    assert len(us_edges) == 1, f"expected exactly one US edge, got {us_edges!r}"
+    assertion_row = db_session.get(Assertion, us_edges[0]["id"])
+    paths = get_mention_unit_paths(db_session, assertion_row.id)
+    assert paths and paths[0] and paths[0][0].value == "b", (
+        "US document's subsection containment mis-resolved in a "
+        f"multi-document run -- possible cross-document profile leak. "
+        f"paths={paths!r}"
+    )
