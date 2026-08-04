@@ -836,3 +836,47 @@ against M9/M10/M11 + the pointer ruling — all four correctly addressed. v2.1
 does NOT contain Round 4's unit-path unification or Round 5's citation work;
 v2.2 carries both. Planner `a6f809d491c471d13` alive, four messages queued/
 delivered across Rounds 3-5.
+
+---
+
+## 2026-08-04 — Round 6: v2.2 published; Planner escalation E-2 routed UP
+
+**v2.2 published at `ce8fd29`** — manager-verified doc-only
+(`git diff --name-only 5ee39b9..ce8fd29` filtered for non-`docs/sprint/`
+paths → nothing). The Planner ADOPTED the unit-path unification: one ordered
+`UnitPath`, scope containment becomes prefix-matching, narrowest-governs
+becomes longest-matching-prefix, and **M4(b)'s hand-registered rank registry
+is WITHDRAWN** as a consequence — the simplification I leaned toward in Round
+4 survived contact with the cases. Recorded as the Planner's call, taken on
+its own analysis, not merely accepted from me.
+
+**ESCALATION E-2 (Planner → manager → program manager → director).** Does a
+sub-article `USES_DEFINITION` mention anchor need a NEW PERSISTED ENTITY?
+Today `_create_assertion(subject_entity_type="Article",
+subject_entity_id=using_article.id)` — the assertion's SUBJECT is the whole
+`Article` row, but recursive sub-article addressing means a mention's true
+location is `(article_id, mention_unit_path)`, finer than the row.
+Option A = additive nullable column, no new entity, no frontend impact.
+Option B = new `Unit` table + `subject_entity_type="Unit"`, first-class and
+deep-linkable but a new write-path shape plus frontend work. Planner's lean:
+A. Planner behavior was correct: designed both, decided neither, and narrowed
+the hold to sub-article ANCHORING tests only — scope containment, M8(a),
+M8(b), rule-registry existence, C2/C3 profile methods and C4 auto-discovery
+all proceed meanwhile, so the sprint is not stalled.
+
+**Manager position carried up** (full text in the return report): route UP
+per the program manager's standing instruction that schema-or-frontend-
+visible change beyond gates C1-C5 escalates rather than gets absorbed. Two
+manager additions to the Planner's framing — (1) I rule AGAINST encoding the
+unit path into the assertion's `proposition` free text under either option:
+the proposition is user-visible prose and an unparseable carrier; if A is
+chosen it must be the structured nullable column, not the prose; (2) I name
+an **Option C** the Planner did not: take A's storage NOW but shape the value
+as structured data and keep the write path B-compatible, so materializing
+`Unit` rows later is additive rather than a rewrite — decided when the
+4-system research dossier lands, since real nesting DEPTHS are exactly what
+distinguishes "a column is fine" from "a column gets ugly". The substantive
+question for the director: "connections to subsections" — does that mean a
+traversable graph EDGE to the subsection (B), or the connection recorded AT
+subsection precision (A)? In a graph product that distinction is the whole
+question, and it is product judgment, not engineering preference.
