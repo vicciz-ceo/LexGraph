@@ -3995,3 +3995,161 @@ RED tests, no design latitude left after the split); Haiku considered and
 rejected: registration is mechanical but the 18a widening spans five distinct
 idiom/separator shapes in shared Spanish parsing machinery where a careless
 regex risks the cycle-3 collision class.
+
+---
+
+## 2026-08-04 — Developer: cycle-5, items 26/27 built (2 rules, per M-R13); 18a widening; a real self-caught regression, fixed before handoff
+
+Read the contract's M-R13 section, cycle-5 item plan, gates P1-P5, the FILES
+YOU MUST NOT EDIT list, and the panel log's last three entries (cycle-5
+Planner, inertness-premise-falsified verification, Option-D/M-R13 ruling)
+before writing anything. Built exactly the write-set the brief specified:
+`pr_profile.py` (widened, ours), two new `rules/us_pr_*.py` files, this log
+entry. Zero test files touched (`git diff --stat -- backend/tests/` empty,
+confirmed below). Did NOT build `extract_inline_local_definitions` or the
+M-R12 guard — deliberately, per M-R13.
+
+### (1) `rules/us_pr_scope_triggers.py` — NEW
+
+Two `ScopeTriggerRule(jurisdiction_codes=("US-PR",))` registrations, mirroring
+`il_scope_triggers.py`'s shape exactly: one wrapping `pr_profile.extract_
+local_definitions`, one wrapping `pr_profile.extract_adhoc_definitions`.
+Neither wrapper sets `ctx.article_number` on the returned candidates — left
+`None` per the brief, so `USProfile.extract_local_scope_definitions`
+(`us_profile.py:1162`, not touched) stamps the calling article's own number.
+Verified live: `registry.scope_trigger_rules_for("US-PR")` returns 3 (my 2 +
+core's pre-existing `"US-*"`-wildcard proof rule from `us_scope_trigger_
+proof.py` — expected, unrelated to this cycle, confirmed already present
+before any of my edits).
+
+### (2) `rules/us_pr_citations.py` — NEW
+
+Registration only: `register_citation_rule(CitationRule(jurisdiction_codes=
+("US-PR",), find=pr_profile.find_citations))`. No change to `find_citations`
+itself or to `us_profile.py`'s baseline-first ordering — the documented
+`§ N`-wins-over-`N L.P.R.A. § N` limitation is exactly as pinned, not
+touched.
+
+### (3) `pr_profile.py` widening — item 18a, QA cycle-4 findings 1-5
+
+Five findings, three code changes (findings 1/2/3-trigger share one change):
+
+- **Findings 1+2 (`se define X como` lead-in; `A los efectos de este
+  Artículo` trigger)**: `_LOCAL_TRIGGER_RE` widened — phrase alternation
+  gained the third trigger; an optional `(?:se\s+define\s+|la\s+frase\s+)?`
+  lead-in now sits between the trigger and the quoted term; an optional
+  `como\s+` is consumed right after the quote. `STATE_PR_LEY_77_1957_
+  ART9_400`'s `la frase "X" significa` shape (finding 2's own row) reuses
+  the same lead-in group, no separate pattern needed.
+- **Finding 3-unquoted (`el término mayoría significará...`, no quotes at
+  all)**: NEW `_LOCAL_TRIGGER_UNQUOTED_RE`, same trigger alternation +
+  `el\s+término\s+` + a bounded (<=80 char, quote/punctuation-excluded) term
+  group anchored by `_DEFINING_IDIOM_ALTERNATION` immediately after. `extract_
+  local_definitions` now unions both patterns' `finditer` results.
+- **Finding 3-dash (`Documento acreditativo - significará`, ASCII hyphen)**:
+  `_UNQUOTED_TERM_DASH_RE` widened to `(?:[–—]|(?<=\s)-)` — the typographic
+  dash keeps its old unconditional match; the ASCII hyphen is accepted ONLY
+  when whitespace directly precedes it. See the self-caught regression below
+  for why this is narrower than a blanket `[–—-]` class.
+- **Finding 4 (`quiere decir`)**: added to BOTH `_DEFINING_IDIOM_ALTERNATION`
+  and `_QUOTED_DEFINING_IDIOM_ALTERNATION`, as the finding names both by
+  name. Re-verified against every real row in every `pr_sample_rows*.json`
+  fixture (grep, not assumed): the phrase appears in exactly one row
+  (`STATE_PR_LEY_82_1964_ART3`, the target) — zero collision surface in the
+  measured population.
+- **Finding 5 (marker-gate over-suppression)**: NOT built. It is `xfail(strict=
+  True)` in the QA file, explicitly not a hard RED, and the contract's target
+  list does not include it. Left alone.
+
+`pr_profile.py`: 1175 → 1254 lines (+79, ~6.7%). Flagging per the brief's
+size-discipline instruction — proportionate to five distinct real shapes,
+each independently measured and documented inline (per house style), no
+padding.
+
+### A self-caught regression, found before handoff — not shipped
+
+First pass widened `_UNQUOTED_TERM_DASH_RE` to a blanket `[–—-]` class
+(mirroring `_QUOTED_TERM_DASH_RE`'s cycle-2 precedent exactly). The 10
+target tests went green; the full suite came back **38 failed / 907 passed**
+— 3 more failed and 3 fewer passed than the contract's `35/910` target. Did
+not treat "close enough" as done; diffed the failing set against the
+"30 held, untouched" list by name and found 3 tests OUTSIDE it:
+`test_pr_profile_corpus_floor_cycle3.py::test_known_correct_zero_row_stays_
+at_zero[STATE_PR_LEY_48_2018_ART3]`, `test_pr_profile_extraction_cycle3.py::
+test_conocida_como_law_title_deferral_correctly_yields_zero_candidates` (same
+underlying row, two guards), and `test_pr_profile_derived_heading_
+definitions_cycle4.py::TestExtractionAlreadyWorksFloor::test_embedded_
+amendment_definiciones_subheading_body_still_fails_today` — all three
+previously-PASSING regression guards my own widening had flipped to FAIL.
+
+Root cause, read from the actual failure diffs, not guessed: an unbounded
+non-greedy unquoted-term group has no quote character to anchor it, so a
+blanket ASCII-hyphen widening fabricates a "term" out of the FIRST reachable
+hyphen in the block regardless of what it actually is — a `Ley 38-2017`
+citation number's digit-hyphen-digit (`STATE_PR_LEY_48_2018_ART3`), and an
+unrelated, already-documented ellipsis-marker mis-split block (`STATE_PR_
+LEY_171_2018_SEC18`, item 19's own held gap) where a term sits directly
+against its own hyphen with no space (`"Departamento-"`). Exactly the
+"careless regex risks a known term-collision class" risk the brief named up
+front for this item.
+
+Fix: restrict the ASCII hyphen to `(?<=\s)-` — accepted only when whitespace
+directly precedes it, matching both real QA-target rows' actual shape
+(`"acreditativo - significará"`, `"comercial - cualquier"`) exactly, while
+naturally excluding both collision shapes (neither has a space before its
+hyphen). Re-ran all 4 affected tests individually (3 regressions + the QA
+target) — all 4 green. Re-ran the full suite: **35 failed / 910 passed / 8
+xfailed**, exact match. This is the version shipped; the blanket-class
+version was never committed.
+
+### Test partition, reconciled against the contract's row-by-row table
+
+**10/10 targets GREEN**, verified individually before the full-suite run:
+`qa_cycle4_findings.py` (5), `TestExtractLocalScopeDefinitionsSeam::
+test_unions_the_local_trigger_extractor` (1), `scope_triggers_live_pipeline_
+cycle5.py::test_run_definition_linking_captures_…` (1),
+`citation_rule_live_cycle5.py` (1), `article_scope_live_cycle5.py` (2).
+
+**5/5 deferred (18c) confirmed STILL RED, for the contract-specified reason**:
+`TestExtractInlineLocalDefinitions` (3, `ImportError` — function correctly
+not built), `test_unions_the_new_inline_scan` (1, `AssertionError` on empty),
+`test_documented_residual_…` (1, `AssertionError` on empty — the row is not
+captured, consistent with Option D; not my call to touch this test per the
+manager's note that it routes to the Planner).
+
+**30/30 held byte-untouched, all still RED for their original reasons**
+(individually cross-checked by name against the contract's held list, not
+just counted): `bare_term_heading_cycle4.py` (6), `_cycle4_marker_gate_and_
+residue.py` (1), `_derived_heading_definitions_cycle4.py` (2 — the 3rd,
+the floor test above, was a transient regression from my own first-pass
+widening, fixed before this count), `_footer_artifact_cycle4.py` (1),
+`_ordinary_misses_cycle4.py` (14), `_scope_cycle4.py` (6).
+
+Full suite: `35 failed, 910 passed, 8 xfailed, 18 warnings in ~14s` —
+matches the contract's stated target exactly, no reconciliation gap.
+
+### Role-boundary / write-set confirmation
+
+`git diff --stat -- backend/tests/` → **empty**. `git status --short` shows
+exactly: `M backend/app/definition_links/pr_profile.py`, `?? backend/app/
+definition_links/rules/us_pr_scope_triggers.py`, `?? backend/app/definition_
+links/rules/us_pr_citations.py`, plus this log entry — nothing under
+`backend/tests/`, `us_profile.py`, `pipeline.py`, `matcher.py`, `profiles.py`,
+`extract.py`, `rules/registry.py`, `rules/__init__.py`,
+`rules/il_scope_triggers.py`, or `rules/us_scope_trigger_proof.py`. No
+fixture files touched (zero new fixture rows needed, all target rows already
+vendored in prior cycles).
+
+### Nothing to escalate
+
+No target test required touching a forbidden file. No test appeared wrong or
+contradictory. The one real risk found (the dash-widening collision) was
+caught by running the full suite rather than only the targeted tests, and was
+resolved by narrowing the fix to exactly the measured shape — not a design
+trade-off requiring director input, an implementation bug I introduced and
+fixed within the same pass. Items 28/29 needed no new code, as the contract
+predicted, and both pass.
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`.

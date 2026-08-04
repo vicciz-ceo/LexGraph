@@ -394,7 +394,16 @@ _QUOTED_TERM_COLON_RE = re.compile(r'^["“]([^"”]+)["”]\s*:\s*')
 
 # A canonical Spanish defining-verb idiom, shared by the comma-idiom
 # pattern below and the dispatch-fallback bare-idiom pattern further down.
-_DEFINING_IDIOM_ALTERNATION = r"(?:significará|significa|será|es)\b"
+# Cycle-5 (QA cycle-4 finding 4): `quiere decir` added -- measured as a
+# real idiom (7 corpus-wide / 3 canonical rows) in the Planner's own
+# cycle-1 survey. Added here (the NARROW alternation), not just the wider
+# `_QUOTED_DEFINING_IDIOM_ALTERNATION` below, because the finding names
+# both alternations by name as never having received it -- unlike cycle
+# 3's `se refiere a` (kept OUT of this narrow alternation on purpose, see
+# below), `quiere decir` carries no ambiguous-preamble collision risk in
+# the measured corpus (re-verified against every fixture row this cycle;
+# no row other than the target contains the phrase at all).
+_DEFINING_IDIOM_ALTERNATION = r"(?:significará|significa|será|es|quiere\s+decir)\b"
 
 # Cycle-3 (item 15): `se refiere a`/`se referirá a` are real, safe defining
 # idioms -- but ONLY for the per-BLOCK quoted patterns below, which fire
@@ -410,7 +419,8 @@ _DEFINING_IDIOM_ALTERNATION = r"(?:significará|significa|será|es)\b"
 # pinned as a permanent regression guard in
 # `test_pr_profile_idiom_widening_cycle3.py`.
 _QUOTED_DEFINING_IDIOM_ALTERNATION = (
-    r"(?:significará|significa|será|es|se\s+refiere\s+a|se\s+referirá\s+a)\b"
+    r"(?:significará|significa|será|es|se\s+refiere\s+a|se\s+referirá\s+a"
+    r"|quiere\s+decir)\b"
 )
 
 _QUOTED_TERM_COMMA_IDIOM_RE = re.compile(
@@ -440,7 +450,27 @@ _UNQUOTED_TERM_COLON_RE = re.compile(r"^([^.:;\n]{1,100}?):\s*")
 # corpus-wide, e.g. `STATE_PR_CIVIL_ART326`'s `"Poder es la facultad por
 # la que..."` -- no colon or dash anywhere near the front -- previously
 # matched a full paragraph as one "term" via a dash many sentences later).
-_UNQUOTED_TERM_DASH_RE = re.compile(r"^(.{1,100}?)\s*\.?\s*[–—]\s*")
+# Cycle-5 (QA cycle-4 finding 3): the ASCII hyphen (U+002D) is added
+# alongside the typographic dash, mirroring `_QUOTED_TERM_DASH_RE`'s own
+# widening (cycle 2) -- the real corpus uses a plain ASCII hyphen here
+# just as often (`STATE_PR_LEY_209_2016_ART2`: `"Documento acreditativo -
+# significará..."`). UNLIKE the quoted sibling, this pattern has no quote
+# character to anchor it, so a blanket `[–—-]` class widening is unsafe: a
+# live corpus-wide check (this cycle) found it fabricating a "term" out of
+# an embedded `Ley N-YYYY` citation number (`STATE_PR_LEY_48_2018_ART3`:
+# "...la Ley 38-2017..." -- the digit-hyphen-digit shape of a citation, no
+# definition anywhere) and colliding with a KNOWN, documented, unrelated
+# gap (`STATE_PR_LEY_171_2018_SEC18`'s ellipsis-marker mis-split blocks,
+# `test_pr_profile_derived_heading_definitions_cycle4.py`'s own pinned
+# floor). The ASCII hyphen is therefore accepted ONLY when whitespace
+# directly precedes it (`(?<=\s)-`) -- exactly the shape both real QA
+# target rows use ("acreditativo -", "comercial -") -- never a hyphen
+# sitting directly against the preceding word/digit with no space, which
+# is what both collision shapes above have in common (a citation number's
+# digit-hyphen-digit, and a marker-adjacent "Término-" with no space at
+# all). The typographic dash keeps its original, unconditional match
+# (unchanged, already safe -- no collision found for it).
+_UNQUOTED_TERM_DASH_RE = re.compile(r"^(.{1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*")
 _UNQUOTED_TERM_PERIOD_RE = re.compile(
     r"^((?:[^.]|\.(?!-)){1,100}?)(?<!\.[A-Z])\.\s+(?=[A-ZÁÉÍÓÚÑÜ])"
 )
@@ -751,28 +781,77 @@ def extract_definitions_from_section(text: str, *, scope: str) -> list[Definitio
 # use "A los fines/efectos de este Artículo" as their OWN scope-setter --
 # article scope is exclusively this extractor's domain).
 
-# "A los fines de este Artículo"/"Para propósitos de este Artículo",
-# optionally followed by a comma, then a quoted defined term, then the
-# defining clause running up to the next sentence boundary (`.`/`;`) --
-# bounded so the captured definition does not run on into unrelated
-# prose later in the same (non-Definiciones) article (real example:
-# `STATE_PR_LEY_85_2018_ART9_04`'s "A los fines de este Artículo
-# “cualquier tipo de arma” incluye..." has no comma after
+# "A los fines de este Artículo"/"A los efectos de este Artículo"/"Para
+# propósitos de este Artículo", optionally followed by a comma, then a
+# quoted defined term, then the defining clause running up to the next
+# sentence boundary (`.`/`;`) -- bounded so the captured definition does
+# not run on into unrelated prose later in the same (non-Definiciones)
+# article (real example: `STATE_PR_LEY_85_2018_ART9_04`'s "A los fines de
+# este Artículo “cualquier tipo de arma” incluye..." has no comma after
 # "Artículo"; the synthetic contract examples do -- both variants
 # measured in the real corpus, 16 + 26 corpus-wide occurrences).
+#
+# Cycle-5 widening (QA cycle-4 findings 1-3, gate P2, item 18a):
+#
+#   Finding 2 -- "A los efectos de este Artículo" is a full THIRD trigger
+#   phrase (13 real corpus-wide rows, 0/13 previously captured), added
+#   directly to the alternation below.
+#   Finding 1 -- an OPTIONAL lead-in between the trigger and the quoted
+#   term: "se define " (`STATE_PR_LEY_20_2017_ART4_14`: "...se define
+#   "toque de queda" como una orden decretada...") or "la frase "
+#   (`STATE_PR_LEY_77_1957_ART9_400`: "...la frase "Comisión no
+#   devengada" significa..."). Both are short, fixed phrases -- bounded,
+#   no unbounded search, same discipline as every other lead-in in this
+#   module. An OPTIONAL "como " is consumed right after the quote too (the
+#   "se define X como Y" shape's own connector); when absent (the "la
+#   frase X <idiom>" shape, and the pre-existing no-lead-in shape), the
+#   definition clause is captured starting immediately after the quote,
+#   unchanged from before.
+_LOCAL_TRIGGER_PHRASE_ALTERNATION = (
+    r"(?:A los fines de este Artículo|A los efectos de este Artículo"
+    r"|Para propósitos de este Artículo)"
+)
+_LOCAL_TRIGGER_LEAD_IN_RE = r"(?:se\s+define\s+|la\s+frase\s+)?"
 _LOCAL_TRIGGER_RE = re.compile(
-    r"(?:A los fines de este Artículo|Para propósitos de este Artículo)"
-    r"\s*,?\s*[\"“]([^\"”]+)[\"”]\s*(.+?[.;])(?:\s|$)",
+    _LOCAL_TRIGGER_PHRASE_ALTERNATION
+    + r"\s*,?\s*"
+    + _LOCAL_TRIGGER_LEAD_IN_RE
+    + r'["“]([^"”]+)["”]\s*(?:como\s+)?(.+?[.;])(?:\s|$)',
+    re.IGNORECASE,
+)
+
+# Finding 2's SECOND, fully UNQUOTED shape: "A los fines de este Artículo,
+# el término mayoría significará..." (`STATE_PR_LEY_1_1966_ART8`) -- no
+# quote marks at all, so it needs its OWN pattern rather than folding into
+# the quoted one above (mirrors `extract_definitions_from_section`'s own
+# quoted/unquoted split). The term group is bounded (<=80 chars, excludes
+# quote/punctuation characters) and anchored by the SAME idiom word
+# immediately following it, same no-unbounded-search discipline as
+# `_UNQUOTED_BARE_IDIOM_TERM_RE` elsewhere in this module.
+_LOCAL_TRIGGER_UNQUOTED_RE = re.compile(
+    _LOCAL_TRIGGER_PHRASE_ALTERNATION
+    + r"\s*,?\s*el\s+t[eé]rmino\s+"
+    + r'([^"“”.,:;\n]{1,80}?)\s+'
+    + _DEFINING_IDIOM_ALTERNATION
+    + r"\s*(.+?[.;])(?:\s|$)",
     re.IGNORECASE,
 )
 
 
 def extract_local_definitions(article_body: str) -> list[DefinitionCandidate]:
-    """Scan a (non-Definiciones) article body for the
-    "A los fines/propósitos de este Artículo ..." family. Scope is
-    always `"local"`."""
+    """Scan a (non-Definiciones) article body for the "A los fines/
+    efectos/propósitos de este Artículo ..." family -- the base quoted-
+    term shape, the "se define X como"/"la frase X <idiom>" quoted
+    lead-ins, and the fully unquoted "el término X <idiom>" shape (QA
+    cycle-4 findings 1-3). Scope is always `"local"`."""
     candidates: list[DefinitionCandidate] = []
     for match in _LOCAL_TRIGGER_RE.finditer(article_body):
+        term = match.group(1).strip()
+        definition_text = match.group(2).strip()
+        candidates.append(
+            DefinitionCandidate(terms=(term,), definition_text=definition_text, scope="local")
+        )
+    for match in _LOCAL_TRIGGER_UNQUOTED_RE.finditer(article_body):
         term = match.group(1).strip()
         definition_text = match.group(2).strip()
         candidates.append(
