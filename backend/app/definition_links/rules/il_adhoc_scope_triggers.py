@@ -43,6 +43,21 @@ verb-shaped false positives; round 2's own 25-sample manual check found
 zero verb-shaped/citation-shaped false positives for `בסעיף זה`) -- same
 discipline as `extract_adhoc_definitions`, applied here independently
 since that function is frozen and not called by this new rule.
+
+QA cycle 1 precision fix: confirmed false positives (`(בסעיף זה - סעיף
+9)` / `(בסעיף זה – סעיף 149א)` / `(בסעיף זה - סעיף 51טו)`) are all the
+SAME citation-shorthand-naming idiom -- "hereinafter in this section,
+'section N'" -- a cross-reference convention riding the identical
+apposition grammar this rule trusts for substantive terms, not a
+substantive definition itself. `_CITATION_SHAPED_TERM_RE` rejects a
+captured term that is EXACTLY the literal word `סעיף` followed by a
+number (optionally with a trailing Hebrew-letter section suffix, e.g.
+`149א`/`51טו`) and nothing else -- narrow by construction so it can only
+ever match a bare section-number label, never a genuine multi-word
+substantive term like `"יום התחילה"`/`"מענק נוסף"`/`"תמורה"` (none start
+with `סעיף`). Applied uniformly across every trigger word, since a
+citation-shaped label is never a legitimate definition regardless of
+which trigger introduced it.
 """
 
 from __future__ import annotations
@@ -68,6 +83,13 @@ _SCOPE_BY_TRIGGER = {
     "בפסקה זו": "paragraph",
 }
 
+# QA cycle 1 precision fix: a captured term that is JUST a bare section
+# citation ("סעיף 9" / "סעיף 149א" / "סעיף 51טו") is a cross-reference
+# shorthand, never a substantive defined term -- narrow by construction
+# (literal "סעיף" + a number + an optional trailing Hebrew-letter
+# suffix, nothing else) so it can never reject a genuine multi-word term.
+_CITATION_SHAPED_TERM_RE = re.compile(r"^סעיף\s+\d+[א-ת]*$")
+
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
     results: list[DefinitionCandidate] = []
@@ -77,6 +99,8 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
         if term.startswith('"') and term.endswith('"') and len(term) >= 2:
             term = term[1:-1].strip()
         if not term or len(term.split()) > 4:
+            continue
+        if _CITATION_SHAPED_TERM_RE.match(term):
             continue
 
         scope = _SCOPE_BY_TRIGGER[trigger]

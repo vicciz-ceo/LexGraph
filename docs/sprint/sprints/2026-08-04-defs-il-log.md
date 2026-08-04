@@ -1994,3 +1994,54 @@ capture (this cycle's actual deliverable) does not depend on it being
 right. No new architecture gap found beyond what QA already surfaced;
 every family in this round used the SAME already-live `ScopeTriggerRule`
 mechanism (no new E6/E7-shaped surprise).
+
+---
+
+## 2026-08-04 — Manager verification of the Planner's RED-provenance set (91c70de)
+
+### Boundaries (mechanical)
+
+`git diff --name-only 8118ef6..91c70de -- backend/app` → **empty**; zero
+production files. `git diff --name-status ... -- backend/tests` → all `A`.
+Suite by my own run: **16 failed, 715 passed** — the 715 baseline is
+untouched and all 12 new tests are behaviorally RED. `contract_lint` →
+**PASS 399**.
+
+### The three flags the program manager asked me to close
+
+**1. Fixture fidelity after the Planner's self-caught deviation — CONFIRMED.**
+It reported hand-stripping wikilinks, then rewriting to verbatim. I
+byte-checked one regulation fixture against the read-only source:
+```
+fixture bytes:                                    1022
+verbatim substring of the corpus source:          True
+byte-identical to source segment (offset 3943):   True
+fixture contains raw [[wikilinks]]:               False
+corpus source contains [[wikilinks]] anywhere:    True
+```
+The last two lines together matter: the fixture has no wikilinks because
+that article genuinely has none, NOT because they were stripped — the source
+file does contain them elsewhere. **The rewrite took.** Self-caught and
+self-corrected before commit is exactly the behavior I want recorded.
+
+**2. `לעניין פסקה זו` → `scope="paragraph"` — CONFIRMED CORRECT, recorded.**
+Checked the test's own reasoning against the shipped rules: it is an
+alternate PHRASING of `בפסקה זו`, which item 7 already registers at
+`scope="paragraph"`. Same structural granularity, same kind, and paragraph
+is a `UnitPath`-modeled level. The Planner's independent judgment agrees
+with the program manager's read and with the shipped code. **Ratified.**
+
+**3. The takana evidence-check — LANDED, and run by ME, not the Planner.**
+This was the program manager's flagged gap. Answer: the check exists at this
+log's "D-Q1 regulation-scope verification" entry (committed `8118ef6`),
+executed by me as manager BEFORE the Planner authored any regulation-family
+RED: `sections.parse_articles` over three real regulation instruments →
+**65 / 60 / 8 Article rows**, all containing `בתקנה זו`. So the
+regulation-family REDs rest on verified evidence, not assumption. **Gap
+closed.**
+
+**Handoff ACCEPTED.** RED-provenance gate satisfied; Developer dispatched on
+the 12 with an explicit instruction NOT to touch the frozen
+`extract._LOCAL_TRIGGER_RE` — the tzere fix ships as an additive rule module,
+since the seam guarantees rule candidates are UNIONed and never suppress each
+other.

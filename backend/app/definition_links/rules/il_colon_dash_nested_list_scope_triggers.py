@@ -1,0 +1,149 @@
+"""Rule: the `::-` nested-list-under-preamble SHAPE, generalized beyond
+item 9's single hardcoded trigger word (sprint 2026-08-04-defs-il, QA
+cycle 1 fix, Group B; program manager's binding efficiency directive --
+build ONE mechanism serving ~2,288 occurrences, not eight per-trigger
+clones).
+
+`il_prat_zeh_item_scope_triggers.py` (item 9) already proved this SHAPE
+-- a preamble line ending in a bare, standalone `-` immediately followed
+by one or more `::-`-marked `"term" - definition` entry lines -- is
+reachable via the live, wired `ScopeTriggerRule` mechanism, but hardcoded
+its own detection to the single trigger word `בפרט זה`. QA cycle 1's
+trigger-independent sweep found 2,300 real corpus occurrences of the bare
+SHAPE (any preamble text ending `-`, followed immediately by `::-`
+entries); only 12 (0.5%, item 9's own) were captured before this rule --
+proof the miss is about the LIST SHAPE, not trigger-word coverage. Even
+an ALREADY fully-implemented inline trigger (`בסעיף זה`, items 4/10)
+still misses its own term when the quote sits on a separate `::-` line
+instead of inline on the trigger's own line.
+
+Detection is deliberately decoupled from any specific trigger word: ANY
+line ending in a standalone `-` (preceded by whitespace, so a trailing
+hyphenated token like `...-2012` never qualifies) opens a list; every
+immediately-following line that is blank or `::-`-marked is consumed
+(blank lines are skipped, not treated as the list's end); the first line
+that is neither ends it -- same tolerant algorithm item 9 already proved
+safe. This is intentionally broad at the DETECTION step because the
+SECOND gate is the real precision filter: an entry line only ever
+produces a candidate when it ALSO matches the unambiguous `"term" -
+definition` quote-dash shape (`_TERM_DASH_RE` below) -- identically to
+`_ADHOC_RE`/every other rule this sprint ships. A preamble ending in `-`
+for an unrelated reason (e.g. a table row) can never fabricate a
+definition on its own; it can only "activate" entries that already look
+exactly like every other definition this codebase already trusts.
+
+Scope is inferred from the preamble line's own text, reusing the SAME
+trigger-phrase-to-scope vocabulary already established by every sibling
+`ScopeTriggerRule` this sprint ships (longest/most-specific phrase
+checked first, so e.g. `בתקנת משנה זו` is never shadowed by a shorter
+phrase it happens to contain). A preamble whose text matches none of
+these known phrases defaults to `scope="local"` -- the narrowest, safest
+default (never overclaims chapter/law-wide reach), matching
+`HebrewProfile.main_unit_kind`. `"chapter"` is the only kind requiring a
+dedicated field (`source_chapter=ctx.chapter`, same requirement as every
+other chapter-scoped rule this sprint ships); every other non-`"local"`
+kind sets `scope_value=None` (capture only, same discipline as its own
+single-line sibling rule -- and, per `il_subsection_scope_triggers.py`'s
+own reasoning, safe-by-construction rather than merely incomplete).
+
+Deliberately does NOT import item 9's private helpers (keeps this module
+independently readable, avoids coupling two independently-shipped rule
+files) -- the algorithm is the same one item 9 already proved, written
+generically here.
+"""
+
+from __future__ import annotations
+
+import re
+
+from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.registry import (
+    RuleContext,
+    ScopeTriggerRule,
+    register_scope_trigger_rule,
+)
+
+_PREAMBLE_RE = re.compile(r"\S.*\s-\s*$")
+_ENTRY_LINE_RE = re.compile(r"^\s*::-\s*(.*)$")
+_TERM_DASH_RE = re.compile(r'^"([^"]+)"\s*-\s*(.*)$')
+
+# Longest/most-specific phrase first, so a phrase that CONTAINS a
+# shorter sibling as a substring (e.g. "בתקנת משנה זו" is not itself
+# contained by anything here, but this ordering discipline is kept
+# uniform and defensive against future additions) is never shadowed by
+# checking the shorter one first.
+_SCOPE_TRIGGER_WORDS: tuple[tuple[str, str], ...] = (
+    ("בסעיף קטן זה", "subsection"),
+    ("בתקנת משנה זו", "subsection"),
+    ("לענין תקנת משנה זו", "subsection"),
+    ("לעניין תקנת משנה זו", "subsection"),
+    ("בפסקת משנה זו", "subsection"),
+    ("בפרק זה", "chapter"),
+    ("בסימן זה", "siman"),
+    ("בחלק זה", "chelek"),
+    ("בתקנה זו", "local"),
+    ("לענין תקנה זו", "local"),
+    ("לעניין תקנה זו", "local"),
+    ("בסעיף זה", "local"),
+    ("לענין זה", "local"),
+    ("לעניין זה", "local"),
+    ("בפסקה זו", "paragraph"),
+    ("לענין פסקה זו", "paragraph"),
+    ("לעניין פסקה זו", "paragraph"),
+    ("בפרט זה", "item"),
+)
+
+
+def _infer_scope(preamble_line: str) -> str:
+    for phrase, scope in _SCOPE_TRIGGER_WORDS:
+        if phrase in preamble_line:
+            return scope
+    return "local"
+
+
+def _make_candidate(
+    term: str, definition_text: str, scope: str, ctx: RuleContext
+) -> DefinitionCandidate:
+    if scope == "chapter":
+        return DefinitionCandidate(
+            terms=(term,),
+            definition_text=definition_text,
+            scope=scope,
+            source_chapter=ctx.chapter,
+        )
+    if scope == "local":
+        return DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
+    return DefinitionCandidate(
+        terms=(term,), definition_text=definition_text, scope=scope, scope_value=None
+    )
+
+
+def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
+    lines = article_body.split("\n")
+    n = len(lines)
+    results: list[DefinitionCandidate] = []
+    i = 0
+    while i < n:
+        if not _PREAMBLE_RE.search(lines[i].rstrip()):
+            i += 1
+            continue
+        scope = _infer_scope(lines[i])
+        i += 1
+        while i < n:
+            line = lines[i]
+            if not line.strip():
+                i += 1
+                continue
+            entry_match = _ENTRY_LINE_RE.match(line)
+            if not entry_match:
+                break
+            term_match = _TERM_DASH_RE.match(entry_match.group(1).strip())
+            if term_match:
+                term = term_match.group(1).strip()
+                definition_text = term_match.group(2).strip().rstrip(";").strip()
+                results.append(_make_candidate(term, definition_text, scope, ctx))
+            i += 1
+    return results
+
+
+register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("IL",), extract=_extract))
