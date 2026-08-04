@@ -2196,3 +2196,99 @@ the baseline states (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK) and breaking U5.
 **The rule must return `[]` for any block the baseline already parses
 correctly, and claim only the shapes the baseline provably misses.** This is
 the single most likely way to pass the 11 REDs while regressing the 779.
+
+---
+
+## 2026-08-04 — Developer handoff VERIFIED (e2a3f36) + two cross-panel escalations
+
+### Manager verification — the build is good
+
+- `git diff --name-status 813bb23..e2a3f36` = **exactly two ADDED files**
+  (`rules/us_multiterm_shared_clause.py`, `rules/us_inline_parenthetical.py`).
+  Zero shared-module edits (U3 holds). Zero test edits (role separation holds).
+- Suite: **4 failed / 790 passed** — the 11 target REDs flipped green.
+- The 4 remaining failures are EXACTLY the boundary set (VT/SD x unit+integration).
+- E1 pointer pins: **7 passed**. IL/Hebrew: **169 passed** — no regression.
+- File sizes 218 / 175 lines (style gate holds).
+- Credit where due: the Developer self-caught a real regression during its own
+  verification (a 60-char idiom gap creating spurious duplicate rows in the
+  scope-seam tests) and a genuine Python subtlety (`^` does not anchor at a
+  non-zero `pos` in `.match(s, pos)`). It also declined to paper over the TX
+  residual by inventing a scope value. That is the standard I want.
+
+### I measured what the Developer could not
+
+It escalated honestly that it could not run a corpus-wide false-positive
+measurement (no parquet in the worktree). I have the HF snapshot, so I ran it
+against the REAL corpus — 53 files, up to 1,500 rows sampled per jurisdiction.
+
+```
+F6 ScopeTriggerRule (_extract_ordinary_body, jurisdiction_codes=("US-*",))
+sampled rows=79,500   rows firing=7,055 (8.87%)   candidates=35,337
+top fire-rates: nv 21.67%  wi 16.93%  ut 15.87%  md 15.47%  mn 15.40%
+                ct 13.87%  federal 13.67%  me 13.47%  az 13.47%  mi 13.00%
+```
+
+**Duplicate emission, measured separately** (AR/AZ/NV/WI/UT/MD/MN, 1,200
+rows each):
+```
+rows firing=1264   rows WITH DUPLICATE terms=137 (10.8%)
+  STATE_AR_T20_C8_S9_S20-8-902   25 terms, only 12 distinct
+  STATE_AR_T15_C72_S8_S15-72-802 21 terms, only 10 distinct
+  STATE_AR_T20_C14_S3_S20-14-304  2 terms, only  1 distinct
+```
+
+**Stated fairly:** this is a FIRE-RATE, not a false-positive rate. Spot-checking
+the hits, many are GENUINE definitions (e.g. `STATE_AR_T25_C15_S4_S25-15-401`
+→ `Agency`/`Rule`/`Rulemaking`, the Arkansas APA definitions). I am NOT
+claiming 8.87% of the corpus is junk. Two separate problems follow.
+
+### ESCALATION E3 — F6 has silently colonized FAMILY 1 (another panel's sprint)
+
+F6's mandate is inline parentheticals at "~1-2 per 300 rows". The registered
+`ScopeTriggerRule` scans EVERY ordinary US article body for quoted-term +
+defining idiom and fires on **8.87% of all US rows across all 53
+jurisdictions** — two orders of magnitude beyond mandate. That mechanism —
+quoted term + idiom inside an ordinary, non-Definitions section — **is family
+1 (scoped-inline), owned by `claude/defs-us-scoped-inline`**, the program's
+highest-leverage family.
+
+Consequences: (a) two panels will produce overlapping definition rows for the
+same corpus; (b) the scoped-inline panel's own before/after U6 measurement is
+corrupted if our rule already captured its rows; (c) union semantics mean
+double-emission across panels, not just within ours.
+
+Options: (i) narrow our `ScopeTriggerRule` to the apposition/cross-reference
+shapes F6 actually owns and let scoped-inline keep the general idiom scan;
+(ii) keep it and have scoped-inline narrow instead; (iii) both keep, and the
+program accepts cross-panel dedup as core's problem.
+**My lean: (i).** It restores the family boundary, and the OR row we needed is
+reachable via the narrow cross-reference shape alone. This is not mine to
+decide — it changes another sprint's scope.
+
+### ESCALATION E4 — two `EntrySplitterRule`s registered; boundary says markers
+
+The Developer registered two (TX parent-redirect; F6 apposition), reading my
+"do NOT register an EntrySplitterRule to grab [VT/SD]" as row-scoped. **That
+reading of my words is defensible — I wrote them scoped to VT/SD.** But the
+agreed panel boundary is broader: *splitting mechanics belong to markers,
+per-term fan-out belongs to us.* Any `EntrySplitterRule` is splitting
+mechanics.
+
+It is not breaking anything today (both are gated on narrow literal triggers
+and verified not to fire on VT/SD). The risk is collision when markers merges:
+`entry_splitter` is additive (`all_blocks = baseline + extra`), so two panels'
+splitters both contribute and can duplicate blocks. The TX one re-contributes
+the WHOLE section text as an extra block, which is broad.
+**My lean: keep them for now, but the markers panel must be told exactly what
+we registered before it designs its TX/VT splitters.** Needs program-manager
+relay; I will not settle another panel's interface alone.
+
+### Recorded residual (Developer's honest flag, confirmed)
+
+TX `2009.003` now yields 8 candidates: the 4 original DEGENERATE 1-term rows
+plus our correct combined row plus 3 already-working entries. A real mention
+of e.g. "contested case" could therefore draw TWO `USES_DEFINITION`
+assertions. The degenerate rows are entry-boundary damage — **markers' by
+M-R5** — and the Developer correctly refused to suppress them (that would
+need a shared-module edit). Carried to QA/U4 and to the markers relay.
