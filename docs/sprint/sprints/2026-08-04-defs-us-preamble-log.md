@@ -2105,3 +2105,74 @@ resumes.
 **The matrix, fixtures, and CLAUSE package are unaffected** — the inventory
 is real regardless of dispatch, exactly as the program manager notes. What
 is blocked is only the wiring that lets rules fire.
+
+---
+
+## 2026-08-04 — Manager: dispatch verified LIVE, Developer dispatched
+
+### M-R26 — P-R8 closed, proven by the same probe that caught it missing
+
+Rebased 27 commits onto main (`fbb6c9e`) cleanly; venv refreshed.
+
+Re-ran my M-R23 probe. Result needs care, because a naive read says nothing
+changed:
+
+- `us_profile.derive_heading_from_body` (the **module-level function**) is
+  **unchanged** — still `if not _is_placeholder_heading(heading): return None`,
+  still no registry call.
+- But `USProfile.derive_heading_from_body` (the **METHOD**) now does:
+
+```python
+baseline = derive_heading_from_body(heading, body)   # gated, unchanged
+if baseline is not None:
+    return baseline
+for rule in registry.body_preamble_rules_for(self.code):
+    derived = rule.derive_heading(body)
+    if derived is not None:
+        return derived
+return None
+```
+
+Live proof: a throwaway always-firing `BodyPreambleRule` registered for
+`("US-*",)` **was consulted and won** on a deliberately NON-placeholder
+heading (`derive_heading_from_body -> 'Definitions'`, rule fired `True`).
+
+So the module-level function staying gated is **correct by design** — it is
+the *baseline*, and keeping it gated is exactly what preserves the 7
+already-working states and CA/IL/GA byte-for-byte. My earlier probe was
+reading the baseline helper and would have produced a false "still broken"
+verdict if I had stopped there. **P-R8 is genuinely closed.**
+
+### M-R27 — CORRECTION to M-R21: ordering is REGISTRATION order, not filename-sort
+
+M-R21 recorded `BodyPreambleRule` as "first-non-None-wins in **filename-sort**
+order", taken from the earlier seam text. The **shipped** implementation's own
+docstring says **"first-non-None-wins in REGISTRATION order"**, and the code
+iterates `registry.body_preamble_rules_for(self.code)` directly.
+
+Practical consequence, and it is a good one: all our rules live in ONE module,
+so registration order is simply the order of our `register_body_preamble_rule`
+calls — entirely under the Developer's control, no filename games. The design
+rule stands unchanged in substance: **register precise shapes BEFORE broad
+ones**, because the first non-`None` wins and silently starves the rest.
+
+### M-R28 — REDs re-verified against the merged tree
+
+Suite: **31 failed / 790 passed** (+70 passes are the dispatch sprint's own
+tests). **Zero ImportErrors.** The 31 failures are the SAME 31 across the same
+9 files as the pre-dispatch run, all behavioral `AssertionError`s describing
+missing capture — now **reachable-behavioral** rather than dead-kind, since
+dispatch exists. **Nothing went green on arrival**, so no honest-green
+mutation treatment is owed. Verified, not assumed.
+
+### M-R29 — Model/effort for the Developer spawn
+
+Developer: **Sonnet / medium** — the design work is done (the Planner's D4
+build target names the shapes, order, jurisdiction codes, and the tests each
+rule satisfies); what remains is implementing one new file against a fixed
+contract with 31 tests as the oracle. Per P-R6 the Developer is Sonnet
+medium. **Haiku considered: no** — the rules are real regex/prose judgment
+over statutory shapes with an explicit false-positive hazard, and
+first-non-None-wins ordering has a silent-starvation failure mode; that is
+more than a bounded mechanical change. `model=inherit` not used. Sole writer;
+never touches tests.
