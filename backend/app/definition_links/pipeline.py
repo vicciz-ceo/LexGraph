@@ -35,7 +35,8 @@ from app.definition_links.matcher import (
 )
 from app.definition_links.normalize import strip_wikilinks
 from app.definition_links.profiles import get_profile
-from app.definition_links.rules.registry import UnitStep
+from app.definition_links.rules import registry
+from app.definition_links.rules.registry import ScopeUnit, StructuralContext, UnitStep
 from app.definition_links.sections import Article as MatcherArticle
 from app.models.article import Article
 from app.models.assertion import Assertion
@@ -186,8 +187,46 @@ def run_definition_linking(
         profile = _profile_for_document(art.document_id)
         normalized = profile.normalize_for_parsing(raw_body)
         stripped_body, _hints = strip_wikilinks(normalized)
+
+        # Sprint 2026-08-04-defs-core-dispatch, item I4 (manager ruling
+        # M-D1): article-metadata enrichment. This is THE population call
+        # site (a pipeline pre-stage, the Developer's own choice over
+        # parse-time enrichment in sections.py -- both jurisdictions'
+        # articles converge into a `MatcherArticle` right HERE regardless
+        # of whether they were wiki- or parquet-sourced, so this is the one
+        # place a per-document jurisdiction dispatch can reach both; a
+        # parse-time hook in sections.py could only ever serve the
+        # wiki-sourced side). Core stamps a container unit for this
+        # article's own chapter unconditionally (mirrors the existing
+        # dedicated `.chapter` field, for consistency with the generic
+        # containment path -- see matcher._in_scope's dedicated "chapter"
+        # branch, which never actually reads this generic tuple); every
+        # registered StructuralUnitRule for this document's jurisdiction
+        # code ADDS to that set, never replaces it (union). No above-
+        # article breadcrumb source is threaded through to this per-run
+        # pass yet (that would need a new persisted column on the ORM
+        # Article, a schema change outside this pass's authorized scope) --
+        # `heading_breadcrumbs` stays `()`; a family panel's own rule is
+        # free to derive purely from `article_number`, or escalate for a
+        # breadcrumb column when it actually needs one.
+        structural_ctx = StructuralContext(article_number=art.number, heading_breadcrumbs=())
+        structural_units = (ScopeUnit(kind="chapter", value=art.chapter),) + tuple(
+            unit
+            for rule in registry.structural_unit_rules_for(profile.code)
+            for unit in rule.derive(structural_ctx)
+        )
+
         live_articles.append(
-            (art, MatcherArticle(number=art.number, heading=art.heading, body=stripped_body, chapter=art.chapter))
+            (
+                art,
+                MatcherArticle(
+                    number=art.number,
+                    heading=art.heading,
+                    body=stripped_body,
+                    chapter=art.chapter,
+                    structural_units=structural_units,
+                ),
+            )
         )
 
     # Stage 2: extract every DefinitionCandidate, tagged with its owning
@@ -195,7 +234,7 @@ def run_definition_linking(
     all_candidates: list[tuple[DefinitionCandidate, Article]] = []
     for art, matcher_article in live_articles:
         profile = _profile_for_document(art.document_id)
-        is_definitions_section = profile.is_definitions_heading(art.heading)
+        is_definitions_section = profile.is_definitions_heading(art.heading, matcher_article.body)
 
         # Wave 6 (ruling R12): CA/IL/GA leave a bare placeholder in
         # `section_title` (`Article.heading`), so the check above always
@@ -213,7 +252,9 @@ def run_definition_linking(
         used_body_derived_heading = False
         if not is_definitions_section:
             derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
-            if derived_heading is not None and profile.is_definitions_heading(derived_heading):
+            if derived_heading is not None and profile.is_definitions_heading(
+                derived_heading, matcher_article.body
+            ):
                 is_definitions_section = True
                 used_body_derived_heading = True
 

@@ -18,6 +18,36 @@ Internal orchestration records. Not auto-loaded; not director-facing.
   manager clean-exit): a9efb2de1f275f494
 - 2026-08-04 headings phase-2 manager (opus, fresh context after
   predecessor context-limit exit): aa5eb2a338fe6b0ab
+- 2026-08-04 PR phase-2 manager (opus, fresh context after predecessor
+  rebased onto merged core and clean-exited): a79f6fed9fced34da
+- 2026-08-04 core dispatch phase-3 manager (opus, fresh context after
+  phase-2 manager clean-exited at its named context line, pre-final-batch):
+  adb9a8660bd062f7f
+- 2026-08-04 IL phase-2 manager (opus, fresh context after predecessor
+  clean-exited post QA cycle 2; runs Phase C): aebd052825067b722
+- 2026-08-04 scoped-inline phase-2 manager (opus, fresh context after
+  predecessor clean-exited post QA cycle-1 bounce): a1b29c30b33e45591
+
+## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
+
+Dispatch sprint: 26-RED map complete (count corrected from my 30 by the
+manager's real run); all 7 kinds implemented live on both profiles
+(733/0, dev branch, under verification); I9 Maine-annotation item added
+(RED-first, parallel Planner); seam v2.6 (M-D1 StructuralUnitRule =
+article-metadata enrichment; M-D2 ScopeKindRule first-non-None-wins).
+Implementations landed: PR items 18a/26/27/28/29 (35/910 exact, verified
+to bytecode level, hyphen-regression self-caught); scoped-inline family-1
+rule (33/38 green, 5 stale pre-S-R9 pins routed to Planner pass-3); IL
+buildable set (item 10 incl. the 2,335-occurrence בסעיף זה population).
+IL QA cycle 1: honest I4 FAIL — ~4,859 buildable misses via P-R7 sweep
+(canonical case: tzere-spelling לעניין זה, 1,702 occ dropped for one
+letter); ::- shape 0.5% captured; 3 FPs; I1 count corrected +331 exactly
+matching P-E3 (independent confirmation of core's bare-@ fix). Ruling:
+takana=local-if-parsed (evidence-conditional); full fix-cycle go.
+Infrastructure: 6 stream-stall deaths in one window, all recovered at
+zero loss (commit-before-spawn + verified-state discipline). Rulings
+added: P-R10 probe-sanity; PR 18c Option D (residual dissolves
+post-dispatch); D-DF two-rule decomposition pinned.
 
 ## Wake wave (post core merge, 2026-08-04)
 

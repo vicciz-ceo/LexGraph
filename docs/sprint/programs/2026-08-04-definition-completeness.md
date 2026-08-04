@@ -117,7 +117,8 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 | `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
 | `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
 | `2026-08-04-defs-us-pr` | `claude/defs-us-pr` | NEW: Puerto Rico Spanish-language rules — Definiciones headings, significa / A los fines de / se entenderá por idioms, Spanish scope phrases; ~529 sections 100% missed today | 2+ (after core) |
-| _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict | last |
+| `2026-08-04-defs-core-dispatch` | `claude/defs-core-dispatch` | **MERGED to main @ 8524067** (2026-08-04): 11 items, QA PASS (770/0/165/tsc, program-manager checklist run). P-R8 CLOSED — all 7 rule kinds live + mutation-proven on both profiles; level-aware containment (M-D3/v2.7 + erratum: panels declare scope_unit_kind from their OWN measured convention, never the illustrative table); 3-ladder resolver (federal/digit/upper-alpha outermost); Maine annotation + citation fixes | **DONE** |
+| _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict. **Carried-forward items (from dispatch QA, pre-existing, measured):** ladder selection keys on first parenthesized token (noise-first rows OH 6.51%/FED 1.60%/OR 0.20%); subsection-level ties (distinct from M10 — a principled narrowest answer exists, scope_rank never inspects kind); single-char roman sibling collapse; heading_breadcrumbs=() | last |
 
 Working-baseline regression-guard states for every US sprint:
 IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
@@ -205,6 +206,22 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   faithful-intent refinement, commented in code as a deliberate departure
   from the literal wording.
 
+- **P-R8 (program manager, 2026-08-04): registry dispatch completion is
+  CORE's — option A.** The PR phase-2 manager proved with positive
+  controls that 5 of 7 registered rule kinds (HeadingRule,
+  BodyPreambleRule, EntrySplitterRule, TermClauseRule, StructuralUnitRule)
+  are DEAD on the live path — registered, looked up, never consumed;
+  only ScopeTriggerRule and CitationRule dispatch. Core's C4 PASS is
+  hereby amended: proven for 2 of 7 kinds. Core reopens for a focused
+  follow-on (2026-08-04-defs-core-dispatch): baseline-first consumption
+  per the seam spec's own contract for all five kinds + a determine_scope
+  rule seam, with PER-KIND live-path dispatch RED tests (the missing test
+  class — a wiring test asserting registration+lookup is NOT a dispatch
+  test). Option B (each panel wires us_profile.py) rejected per P-R1;
+  option C (mis-scope via ScopeTriggerRule) rejected per the director's
+  scoped-definitions constraint. Panels hold dead-kind items and work
+  reachable subsets meanwhile. Evidence: claude/defs-us-pr @ 5b177b7.
+
 ## Core QA cycle 1 verdict (2026-08-04)
 
 **Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on
@@ -244,6 +261,20 @@ structure only.
   markers; CO truncated titles + repealed stubs → program data-quality list.
 - Process rules (after two incidents): ONE writer per worktree, always;
   verify agent liveness before respawning (staleness watchdogs unreliable).
+- **P-R10 probe-sanity rule (2026-08-04, from three independent near-miss
+  self-catches):** before escalating "X is broken," explain why everything
+  downstream of X is not already visibly broken; if you cannot, your probe
+  is suspect (swapped arguments, wrong layer, raw-vs-normalized input).
+  Three real instances: PR find_term_uses argument swap; PR curly-quote
+  raw-body probe; the technique's positive-control form in the dispatch
+  Planner's live/dead kind verification.
+- **P-R9 scratchpad discipline (2026-08-04, from the PR panel's finding of
+  cross-panel concurrent writers in the shared scratchpad):** every agent
+  prefixes its scratchpad files with its sprint/role slug; NEVER read a
+  scratchpad file you did not write unless the program manager handed you
+  the exact path; narrow corpus globs (us_*_statutes.parquet) to your own
+  jurisdiction set. A generically-named scratchpad file may be another
+  panel's data.
 - **P-E3 cross-panel factual correction (2026-08-04, program-manager-probed
   on the real corpus):** the IL panel's E5 "124 bare-@ laws / 12 with
   definitions" framing is corrected — real bare-@ occurrences are 331
