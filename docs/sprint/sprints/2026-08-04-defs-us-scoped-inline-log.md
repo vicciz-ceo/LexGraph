@@ -468,3 +468,278 @@ corrected for MS/SD. Per the program manager: verify a sample against the
 corpus before trusting the classifications. Also inbound under P-R2: MS's
 clause-embedded subset. P-R7 binds our U4 denominator — it must be
 signal-agnostic, and we must state and prove what it is.
+
+---
+
+## 2026-08-04 — Planner (pass 2)
+
+Resumed post-core-merge to amend pass 1's work to the shipped seam and
+execute D8-D14. CodeGraph checked first (`.codegraph/` at
+`/Users/nerya/LexGraph` tracks `main`, confirmed resolving `RuleContext` at
+`registry.py:63` per S-R8) but per the manager's binding process note, every
+file this branch actually differs on (`registry.py`, `us_scope_trigger_
+proof.py`, `il_scope_triggers.py`, `matcher.py`, `pipeline.py`, `us_profile.py`)
+was verified by direct read, not trusted from the index. No discrepancy
+found between CodeGraph's main-state view and the branch's own checkout for
+any of these files.
+
+### D8 — part/subchapter chapter-fallback measurement (S-R5's open question)
+
+Two scripts (scratchpad, not committed): `d8_part_subchapter_measure.py`
+(row-level `chapter` field presence) and `d8_breadcrumb_structural.py`
+(real breadcrumb JSON parsed structurally, not by regex-on-a-label). Same
+12 lead states, same "genuine" bar (quote+idiom-or-colon-list) as D1/D3, so
+the population is directly comparable to the existing 2,187/1,861 counts.
+
+**Headline the manager asked for**: row-level `chapter` field is non-null
+for **100% of genuine part hits (2,187/2,187) and 100% of genuine
+subchapter hits (1,861/1,861)**. Taken alone this looks like a green light
+for fallback (a). It is not the full picture — the row-level `chapter`
+FIELD being populated is not the same claim as "the part/subchapter
+genuinely nests inside that one chapter," which is what fallback (a)
+actually needs to be sound. Re-measured structurally, from real breadcrumb
+JSON (not the name alone, per the instruction):
+
+- **`part`**: only **32.0% (700/2,187)** of genuine hits have breadcrumb
+  confirming `chapter` as the IMMEDIATE parent of a `part` node (`title >
+  chapter > part > section` — genuinely a subdivision of that one chapter,
+  fallback (a)-safe). **67.9% (1,484/2,187)** have NO `part` node in
+  breadcrumb at all (mostly UT, whose breadcrumb schema folds part-like
+  grouping into a compound `chapter` field, e.g. `"81-8"`, instead of a
+  separate level) — fallback (a)'s soundness is UNVERIFIABLE from this
+  corpus's breadcrumb granularity for these rows, not confirmed either way.
+- **`subchapter`**: **0% (0/1,861)** have a `subchapter` breadcrumb node
+  ANYWHERE, in ANY of the 12 lead states — completely unverifiable
+  structurally in this population.
+- **The counter-example the manager asked me to watch for, found**: **3
+  Maine rows** (`STATE_ME_T12_P13_C913_S10803`, `STATE_ME_T25_P6_C315_
+  S2396-A`, `STATE_ME_T12_P11_C807_S9331`) have breadcrumb type sequence
+  `title > part > chapter > section` — Maine's real statutory hierarchy
+  nests `chapter` INSIDE `part`, the OPPOSITE direction fallback (a)
+  assumes. A `"for purposes of this part"` definition in Maine spans
+  MULTIPLE chapters; stamping `scope="chapter"`, `source_chapter=ctx.
+  chapter` would UNDER-link every mention in a sibling chapter under the
+  same part — a real zero-miss-bar violation for at least this state, not
+  a hypothetical one. (3/2,187 = 0.14% of this SAMPLE's part hits, but this
+  sample is only 12 of 51 US jurisdictions — Maine's own structure is a
+  real, known, page-documented convention, so this is not noise to
+  discount, only small in THIS measured population.)
+- A crude first pass (label-regex cross-tab, not breadcrumb-structural)
+  flagged 158 "(unit,title,label) -> multiple chapters" collisions before
+  I re-checked structurally; ALL of those turned out to be MT/other states'
+  own chapter-RELATIVE part numbering (e.g. MT's "Part 2" recurs under many
+  different chapters because part numbers reset per chapter — different
+  parts sharing a number, not one part spanning chapters). Flagging the
+  false lead so nobody re-discovers it: the label alone is never a safe
+  join key across chapters; only the full breadcrumb path is.
+
+**Not picking, per the instruction.** Fallback (a) chapter: sound for the
+32.0% of `part` hits breadcrumb can confirm, unverifiable for the rest,
+and actively wrong (under-links) for at least Maine. Fallback (b)
+law-wide: zero-miss-safe everywhere, unbounded over-link everywhere. This
+does NOT kill both fallbacks (law-wide always remains safe), so this is
+not an `ESCALATION:`-tagged hard stop per this sprint's own rule — it is
+exactly the "report and let the manager rule" case D8 asked for. My own
+read, offered as data context rather than a pick: the Maine counter-example
+plus subchapter's 0% structural verification rate makes a UNIFORM
+chapter-fallback hard to defend as sound across all 51 jurisdictions
+without a per-state carve-out (e.g. "chapter-fallback everywhere except
+ME's part-scoped rows, which get law-wide") — but that is the manager's
+call, not mine.
+
+### D9 — scope-string test amendments
+
+Amended to the shipped vocabulary (local/chapter/subsection enforced;
+law-wide unrestricted; any other literal string dead per S-R5):
+
+- `"act"` -> `"law-wide"` (D3's own mapping, no ambiguity).
+- `"article"`/`"title"` (residue kinds the manager already agreed to defer,
+  pre-rebase escalation entry) -> `"law-wide"`, applying core's OWN AK-range
+  fallback precedent rather than stamping a literal guaranteed to link
+  nothing — 6 tests amended across the trigger-axis and body-axis files
+  (renamed where the test name itself encoded the old scope string).
+- `"part"`/`"subchapter"` -> **left unamended, literal strings kept,
+  PENDING the manager's D8 ruling** — explicitly flagged in each affected
+  test's own docstring/comment (5 tests: 2 trigger-axis mapping tests, 1
+  bare-trigger test, 2 body-axis over-split tests) so nobody mistakes the
+  current literal as a final answer. This is the "legitimate stop" the
+  brief allowed for — D9 is NOT fully closed until D8 is ruled on.
+- S-R7 (`scope_value` transient) — checked, nothing to fix: `grep -rn
+  scope_value` across every test file this sprint owns returns zero hits.
+  No test ever asserted a persisted `.scope_value` in the first place.
+- Found and fixed a REAL bug in pass-1's own tests while re-running the
+  suite (see D13): two pipeline-live tests read `a["object_entity_id"]`/
+  `a["subject_entity_id"]` directly off `created_assertions` summary dicts,
+  which per `pipeline.py`'s own `_create_assertion` only ever carry `{id,
+  assertion_type, proposition, status, origin}` — a `KeyError` waiting to
+  happen the moment Phase A lands and real assertions start getting
+  created (currently masked because `created_assertions` is `[]` today, so
+  the list comprehension's filter body never executes). Fixed both to
+  fetch the persisted `Assertion` row by id instead, matching `test_
+  definition_links_pipeline_live.py`'s own documented contract.
+
+### D10 — core-overlap dedup: CONFIRMED, verified live, not deferred
+
+Rather than wait for Phase A/B to construct a real two-rule overlap (our
+own module doesn't exist yet), the new test (`test_us_scoped_inline_
+pipeline_core_overlap_dedup.py`) registers its OWN second, throwaway
+`ScopeTriggerRule` at test time — same `register_scope_trigger_rule`
+pattern core's own `test_definition_links_rules_registry.py` already uses
+directly in test bodies — gated on a nonce string embedded only in this
+test's own synthetic row body, so it cannot affect or be affected by any
+other test regardless of execution order (verified: full suite re-run
+before/after, identical pass/fail counts elsewhere).
+
+**Result: PASSES today**, live, on the real `run_definition_linking`
+path. Core's proof rule and the throwaway rule both match `'As used in
+this section, "Widget" means ...'`, both independently produce a
+`DefinitionCandidate`, and the pipeline's Stage-2 `(article_id, sorted(
+terms))` dedup key collapses them to exactly ONE `Definition` row, with
+exactly ONE `USES_DEFINITION` assertion for the single in-article reuse.
+**Verdict: the seam spec's dedup claim HOLDS**, proven, not assumed. This
+test is a live proof today, not a Phase-B tripwire — it does not depend on
+the Developer's own module existing at all.
+
+### D11 — routed CLAUSE package: verified, effectively ~99% accurate
+
+147-row stratified sample (min(3, available) per jurisdiction, seed
+`20260804`, all 51 jurisdictions, reproducible), pulled from the REAL
+parquet by `act_id` (0 not-found). First pass (`d11_verify_clause_
+package.py`, the SAME "genuine" heuristic D1/D3/D8 used) measured only
+**58.5% (86/147)** confirmed — misleadingly low. Manual review of the 61
+flagged rows found the heuristic itself was the problem, not the package:
+it required a QUOTED term immediately followed by one of 5 idiom words,
+missing an entire, very common convention — `the term X means/shall
+mean/does not include/refers to/shall be construed to mean/has the same
+meaning as`, UNQUOTED (AL/AZ/CO/CT/HI/IA/ID/KS/KY/LA/MA/MI/ND/NE/NH/NJ/NM/
+OK/OR/RI/TN/TX/VA/VT/WA/WI/WV/WY all hit this in the sample) — plus
+Missouri's own house style, `"Term" , definition`, comma, no idiom
+keyword at all. Broadened the heuristic (`d11_verify_clause_package_v2.py`,
+same seed -> same 147 rows) to cover both, plus fixed two mechanical gaps
+(only checking the FIRST trigger match per row, missing a genuine trigger
+sitting right after an earlier bait phrase; not unescaping the literal
+`\n` corpus artifact `ingest_us_statutes.py` itself already documents,
+M14/I8) -- **79.6% (117/147) automated, then manually read every one of
+the remaining 29** (curly-quote/mojibake quote variants, "shall be X as
+defined in", intervening qualifier phrases breaking idiom adjacency, etc.
+— every single one is a genuine definition on a plain read). **Net
+verdict: 146/147 = ~99% accurate.** The one exception (`STATE_SD_T7_C18A_
+S7-18A-38`, heading `"...Enforcement--Definition"`) is a legitimate F3
+boundary case (S-R3: heading recognized as Definitions -> not ours,
+regardless of trigger), not a wrong CLAUSE classification — arguably still
+a defensible inclusion, just not this family's to capture. This is well
+above any accuracy threshold that would warrant the "package untrustworthy"
+escalation trigger — not escalated.
+
+**Folded into the item list**: `STATE_MO_C44_S44.091` added to the fixture
+(real, unmodified, 3-term row) — the comma-appositive convention found
+during verification is a genuinely NEW body-shape D1's original 12-state
+inventory missed, and MO is the single largest package contributor (456
+rows) using it pervasively. New test:
+`test_quote_comma_appositive_no_idiom_keyword_missouri` (body-axis file).
+Did not fold in every other package row as a fixture — per the deliverable
+and the package's own doc, this is a verification pass, not a
+re-classification of all 2,659 rows.
+
+### D12 — U4 denominator: designed, written into the contract
+
+Full design + the signal-agnostic proof plan is in the sprint contract
+(`2026-08-04-defs-us-scoped-inline.md`)'s new `## D12` section, not
+duplicated here. Headline: sample BEFORE any trigger regex touches the
+text (the step that actually breaks circularity), judge with an
+INDEPENDENT semantic method (not a broader regex — D11's own experience
+this pass is the argument: even a carefully broadened regex still needed
+a manual pass to catch idiom variants a semantic reader would not miss),
+cross-validate with a second judge, and PROVE non-circularity by measuring
+divergence between the judge and this family's own trigger regex on the
+same sample (perfect agreement would be the red flag, not the goal). Not
+run — QA's job, design only, per the deliverable.
+
+### D13 — RED re-proven, contract updated
+
+`backend/.venv/bin/pytest backend/tests -q` (worktree root):
+
+```
+38 failed, 704 passed, 18 warnings in 18.52s
+```
+
+644 -> 704 passing confirms the PRE-EXISTING suite grew (core's own merge
+added tests) and stayed fully green — none of the growth is from this
+family. 38 failing, all from this family's own 5 test files (39 before
+the `object_entity_id` fix flipped the D10 dedup test to passing on its
+own merits): `ModuleNotFoundError: No module named 'app.definition_links.
+rules.us_scoped_inline'` for every unit test (33 across trigger-axis/
+body-axis/negative-controls), real `AssertionError`s against the
+unmodified, current `run_definition_linking` for the 4 integration tests
+in `pipeline_live.py` (a sample tail: `AssertionError: the real production
+pipeline recognized ZERO definitions in a real Utah 'For purposes of this
+section, "concurrence" means...' article -- got [] definitions from []
+assertions`). Baseline-regression file (`pipeline_baseline_regression.py`)
+stays green, unchanged, confirming U5's tripwire is intact.
+
+**Major finding for the manager, not a doc/code disagreement but a
+SEPARATE, real defect in core's shipped `resolve_unit_path`**: verified
+live (`us_profile.resolve_unit_path`, direct execution against the real,
+unmodified `STATE_ME_T38_C3_S464` fixture row's full text) that Maine's
+authentic statutory formatting embeds bracketed legislative-history
+annotations inline in the body — `[PL 1985, c. 698, §15 (NEW).]`,
+`(AMD)`, `(AFF)` — and `resolve_unit_path`'s marker regex
+(`\(([A-Za-z]+|\d+)\)`, no history-annotation awareness) mis-parses every
+one of these as a real nested sub-article marker, producing a ~30-deep
+garbage stack (`UnitStep(kind='sub', value='NEW')`, repeated) utterly
+unrelated to the statute's real `"2-A."` subsection structure. This means
+`"subsection"` scope — counted in S-R4's 82.0% shipped-and-enforced figure
+— is UNRELIABLE for at least Maine (and plausibly other states using a
+similar inline-annotation convention; not checked beyond the fixture's own
+12 lead states, where this pattern is otherwise absent — checked: only
+ME's two rows show it, 0/23 other fixture rows do). Out of this sprint's
+remit to fix (`us_profile.py` is core's shared module, S-R2 forbids
+editing it) — reported here, and the pre-existing pipeline-live subsection
+test's docstring was corrected (it previously, incorrectly, still claimed
+subsection is "not enforced today," stale post-merge) rather than silently
+upgraded into a full live-enforcement proof that would have conflated this
+separate core bug with this family's own correctness.
+
+**Contract updated** (`## Next Steps`): Phase A and B are now COLLAPSED
+into one step — verified live that `pipeline.py`'s `else:` branch already
+calls `profile.extract_local_scope_definitions`, which already unions
+every registered `ScopeTriggerRule` for the document's jurisdiction code,
+so a new rule module needs no separate "register" or "wire into
+pipeline.py" step at all, only to exist as a file in `rules/`. Also
+corrected: `extract_local_scope_definitions` auto-defaults ONLY
+`.source_article_number`, never `.source_chapter` — the module's own
+adapter function must stamp `source_chapter=ctx.chapter` itself for a
+`scope="chapter"` candidate, a requirement the pre-merge draft had located
+in the wrong place (a pipeline.py edit that no longer needs to happen at
+all). New `## D12` section added for the denominator design.
+
+### Files changed this pass
+
+- `backend/tests/fixtures/us_statutes/us_scoped_inline_rows.json` (+1 real
+  row, `STATE_MO_C44_S44.091`)
+- `backend/tests/fixtures/us_statutes/README.md` (+provenance section)
+- `backend/tests/unit/test_us_scoped_inline_rules_trigger_axis.py` (scope-
+  string amendments, docstring rewrite, still 298 lines)
+- `backend/tests/unit/test_us_scoped_inline_rules_body_axis.py` (scope-
+  string amendments, +1 new test, 289 lines)
+- `backend/tests/integration/test_us_scoped_inline_pipeline_live.py`
+  (`object_entity_id` bug fix x2, stale subsection docstring corrected,
+  298 lines)
+- `backend/tests/integration/test_us_scoped_inline_pipeline_core_overlap_dedup.py`
+  (NEW, D10, 127 lines)
+- `docs/sprint/sprints/2026-08-04-defs-us-scoped-inline.md` (Next Steps
+  rewritten, new D12 section)
+
+No production code touched (role boundary held — grep-verified: zero
+non-test, non-doc files in `git diff --stat` against this pass's own
+starting commit).
+
+### Open items for the manager
+
+1. **D8 ruling needed** to finish D9: chapter-fallback vs. law-wide-
+   fallback for `part`/`subchapter` (or a per-state split, given Maine).
+   5 tests currently pin the literal `"part"`/`"subchapter"` strings as a
+   flagged placeholder, not a final answer.
+2. **`resolve_unit_path`'s Maine defect** (D13) — a real, separate core
+   bug, not this family's to fix, affecting the 82.0% "shipped and
+   enforced" figure's real-world reliability for at least one state.

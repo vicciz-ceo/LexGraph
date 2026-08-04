@@ -9,8 +9,9 @@ Real corpus evidence (Planner's 2026-08-04 D1 inventory): `(N) "X" means`,
 `"X" shall mean`, `"X" has the meaning` (including the real cross-reference
 shape `"X" has the SAME meaning as in section N`), `"X" includes`,
 colon-then-numbered-list, colon-then-lettered-list (including Oregon's real
-capital-letter `(A)(B)` convention). Also pins the two "must NOT
-over-split" cases that make this the hardest part of the extraction: nested
+capital-letter `(A)(B)` convention), and (Planner pass 2, D11) `"X" ,
+definition` -- a bare comma, no idiom keyword at all, Missouri's own
+pervasive house style. Also pins the two "must NOT over-split" cases that make this the hardest part of the extraction: nested
 roman-numeral sub-clauses inside one lettered entry, and a single term's
 OWN numbered/lettered elaboration list (no new quoted term at each item) --
 both must stay part of ONE definition's `definition_text`, never spawn
@@ -205,6 +206,8 @@ def test_definitions_own_numbered_elaboration_list_is_not_split_into_new_entries
     candidates = extract_us_scoped_inline_definitions(row["text"])
     matches = [c for c in candidates if "fantasy sports league" in c.terms]
     assert len(matches) == 1
+    # PENDING D8/S-R5 ruling -- literal "part" is a placeholder, see
+    # trigger-axis file's test_for_purposes_of_this_part_maps_to_part_scope.
     assert matches[0].scope == "part"
     assert "entrance fee" in matches[0].definition_text
 
@@ -223,6 +226,7 @@ def test_shared_clause_own_numbered_list_not_split_tennessee():
     candidates = extract_us_scoped_inline_definitions(row["text"])
     assert "financial institution" in _terms(candidates)
     fi = _by_term(candidates, "financial institution")
+    # PENDING D8/S-R5 ruling -- see the trigger-axis file's part-scope test.
     assert fi.scope == "part"
 
 
@@ -253,6 +257,33 @@ def test_multiple_terms_in_one_body_each_keep_their_own_scope():
     row = _rows()["STATE_VT_T3_C45_S2291"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     by_scope = {c.terms[0]: c.scope for c in candidates if c.terms}
-    assert by_scope.get("life-cycle costs") == "title"
+    # "title" is a dead residue kind (S-R5), falls back to "law-wide" --
+    # was "title" pre-merge, amended Planner pass 2 (see the trigger-axis
+    # file's module docstring for the full mapping table).
+    assert by_scope.get("life-cycle costs") == "law-wide"
     assert by_scope.get("State facilities") == "chapter"
     assert by_scope.get("State fleet") == "chapter"
+
+
+# --- "X" , definition (comma, no idiom keyword -- MO's own convention) -----
+
+
+def test_quote_comma_appositive_no_idiom_keyword_missouri():
+    """`STATE_MO_C44_S44.091`: `'(1) "Law enforcement officer" , any
+    public servant having both the power and duty to make arrests...'`
+    -- a NEW body-shape variant D1's original 12-lead-state inventory
+    missed: quote, then a bare comma, then the definition directly, with
+    NO idiom keyword (`means`/`shall mean`/`includes`/etc.) anywhere in
+    the entry. Found verifying the `defs-us-preamble` panel's routed
+    CLAUSE package (Planner pass 2, D11) -- MO is this package's single
+    largest contributor (456 rows) and this is MO's own pervasive house
+    style, all 3 entries in this one row use it."""
+    from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
+
+    row = _rows()["STATE_MO_C44_S44.091"]
+    candidates = extract_us_scoped_inline_definitions(row["text"])
+    terms = _terms(candidates)
+    assert {"Law enforcement officer", "Requesting entity", "Sending agency"} <= terms
+    officer = _by_term(candidates, "Law enforcement officer")
+    assert officer.scope == "local"
+    assert "power and duty to make arrests" in officer.definition_text

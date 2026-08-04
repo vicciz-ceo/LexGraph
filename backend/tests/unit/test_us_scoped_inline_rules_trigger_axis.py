@@ -23,33 +23,51 @@ and what `.scope` string each names. Real corpus evidence (Planner's
 2026-08-04 corpus scan, 12 lead states, see the sprint log's D1/D3
 sections): the trigger vocabulary that actually occurs is `As used in this
 <unit>`, `For (the) purposes of this <unit>`, `For the purpose of this
-<unit>`, `When used in this <unit>`, and bare `In this <unit>` (the last
-ONLY under strict adjacency -- see
-`test_us_scoped_inline_rules_negative_controls.py` for why: a
-cross-tabulation of trigger phrase against body signal across all 12 lead
-states found bare `in this <unit>` is genuine only ~21% of the time (72.7%
-pure prose noise, e.g. "Nothing in this section may be construed..."),
-while `as used in this <unit>` is genuine ~77% of the time and `for
-purposes of this <unit>` ~35-50% -- STRICT adjacency (the very next
-non-whitespace content is a quote or a colon-then-list) is what makes the
-bare-`In` case usable at all without reintroducing that noise).
+<unit>`, `When used in this <unit>`, and bare `In this <unit>` under
+STRICT adjacency only (see `test_us_scoped_inline_rules_negative_
+controls.py`: bare `in this <unit>` is genuine only ~21% of the time,
+72.7% pure prose noise, vs. ~77% for `as used in`).
 
-Scope-unit -> `.scope` string mapping (ruling: pass the literal unit name
-through for every unit besides section/chapter, since those two are the
-ONLY units `matcher._in_scope` (matcher.py:104-110) enforces today via
-`Article.number`/`Article.chapter` -- see the sprint log's D3 section for
-the full frequency table and the coordination ask to core):
+Scope-unit -> `.scope` string mapping -- AMENDED, Planner pass 2 (sprint
+`2026-08-04-defs-us-scoped-inline`, post-core-merge), against the SHIPPED
+seam (`rules/registry.py`, `matcher.py:136` `_in_scope`), which is
+authoritative over the seam doc's prose per the sprint's own instruction.
+Shipped, live-enforced kinds (ruling S-R4, 82.0% of measured genuine
+volume): `"chapter"` (`article.chapter == definition.source_chapter`),
+`"local"` / `"subsection"` (`article.number == definition.
+source_article_number`, subsection additionally offset-checked). Any OTHER
+literal kind string falls into `_in_scope`'s generic branch, which reads
+`getattr(article, "structural_units", ())` -- a real `MatcherArticle` has
+no such attribute, so that branch returns `False` for every article,
+including the definition's own (ruling S-R5: a structurally GUARANTEED
+zero-miss violation for any mention of the term, anywhere, if a candidate
+were stamped with a dead kind literal).
 
-    "section"    -> "local"     (matches Hebrew's local-scope semantics;
-                                  enforced today via source_article_number)
-    "chapter"    -> "chapter"   (enforced today via source_chapter)
-    "subsection" -> "subsection"  (NOT enforced today -- stamped faithfully,
-    "part"       -> "part"         core coordination gap, see D3)
-    "subchapter" -> "subchapter"
-    "article"    -> "article"
-    "title"      -> "title"
-    "subdivision"-> "subdivision"
-    "act"        -> "act"
+    "section"     -> "local"      (enforced, source_article_number)
+    "chapter"     -> "chapter"    (enforced, source_chapter)
+    "subsection"  -> "subsection" (enforced, offset-checked)
+    "act"         -> "law-wide"   (D3: "this act" == the whole document ==
+                                    already-unenforced law-wide semantics,
+                                    no coordination gap, just a name map)
+    "article"     -> "law-wide"   (residue kind, ~4% combined volume;
+    "title"       -> "law-wide"    manager agreed to defer asking core for
+                                    dedicated enforcement -- rather than
+                                    stamp a GUARANTEED-dead literal, this
+                                    falls back to core's OWN established
+                                    precedent for an unrepresentable
+                                    narrowing, seam spec v2 S1's AK
+                                    multi-chapter-range fallback:
+                                    zero-miss-safe, precision cost recorded,
+                                    not silently dropped)
+    "part"        -> PENDING      (13.9% combined genuine volume -- ruling
+    "subchapter"  -> PENDING       S-R5 explicitly left this open for D8
+                                    measurement + a manager ruling; see
+                                    those tests below and the `-log.md`'s
+                                    D8 section for the measured numbers.
+                                    NOT resolved by this pass -- do not
+                                    treat the literal "part"/"subchapter"
+                                    strings these specific tests still
+                                    assert as a final answer)
 
 All fixture rows load from the vendored, real, un-modified corpus rows in
 `tests/fixtures/us_statutes/us_scoped_inline_rows.json` (ruling: no test
@@ -98,31 +116,39 @@ def test_as_used_in_this_section_maps_to_local_scope():
     assert concurrence.scope == "local"
 
 
-def test_as_used_in_this_article_maps_to_article_scope():
+def test_as_used_in_this_article_falls_back_to_law_wide_scope():
+    """`"article"` (ME/SC's sense: a chapter subdivision spanning several
+    of OUR `Article` rows -- not a synonym for `"local"`) is a dead residue
+    kind (S-R5); falls back to law-wide, core's own AK-range precedent.
+    Was `scope == "article"` pre-merge; amended Planner pass 2."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_ME_T30-A_P1_C3_S751"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     commissioners = _by_term(candidates, "county commissioners")
-    assert commissioners.scope == "article"
+    assert commissioners.scope == "law-wide"
 
 
-def test_as_used_in_this_title_maps_to_title_scope():
+def test_as_used_in_this_title_falls_back_to_law_wide_scope():
+    """Same residue-kind fallback as above. Was `scope == "title"`
+    pre-merge; amended Planner pass 2."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_ME_T24-A_C1_S14"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     aca = _by_term(candidates, "federal Affordable Care Act")
-    assert aca.scope == "title"
+    assert aca.scope == "law-wide"
 
 
-def test_as_used_in_this_article_scope_south_carolina():
+def test_as_used_in_this_article_south_carolina_falls_back_to_law_wide_scope():
+    """Same fallback, SC's `Title > Chapter > Article > Section` convention.
+    Was `scope == "article"` pre-merge; amended Planner pass 2."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_SC_T59_C111_A5_S59-111-310"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     tuition = _by_term(candidates, "tuition")
-    assert tuition.scope == "article"
+    assert tuition.scope == "law-wide"
 
 
 # --- "For (the) purpose(s) of this <unit>" ----------------------------------
@@ -140,6 +166,11 @@ def test_for_purposes_of_this_section_maps_to_local_scope():
 
 
 def test_for_the_purpose_of_this_subchapter_maps_to_subchapter_scope():
+    """PENDING D8/S-R5 ruling, NOT amended this pass: 100% non-null
+    row-level `chapter` field (12 lead states) but 0/1,861 genuine hits
+    have a breadcrumb "subchapter" node -- structurally UNVERIFIABLE, not
+    confirmed. See the `-log.md` D8 section; literal "subchapter" is a
+    placeholder pending the manager's fallback ruling."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_PA_T53_C81_S8129"]
@@ -149,6 +180,12 @@ def test_for_the_purpose_of_this_subchapter_maps_to_subchapter_scope():
 
 
 def test_for_purposes_of_this_part_maps_to_part_scope():
+    """PENDING D8/S-R5 ruling, NOT amended this pass -- see the `-log.md`
+    D8 section: 2,187 genuine `"part"` hits, 100% non-null `chapter`
+    field, but a real breadcrumb counter-example (Maine: `part` CONTAINS
+    multiple chapters, `title > part > chapter > section`) that would make
+    a naive chapter-fallback UNDER-link. Literal "part" is a placeholder
+    pending the manager's ruling."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_TN_T34_C6_S34-6-302"]
@@ -160,13 +197,16 @@ def test_for_purposes_of_this_part_maps_to_part_scope():
 # --- "When used in this <unit>" ---------------------------------------------
 
 
-def test_when_used_in_this_title_maps_to_title_scope():
+def test_when_used_in_this_title_falls_back_to_law_wide_scope():
+    """Residue-kind fallback, was `scope == "title"` pre-merge. This row's
+    OTHER two entries stay chapter-scoped -- see
+    `test_trigger_embedded_after_the_term_is_still_recognized` below."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_VT_T3_C45_S2291"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     life_cycle = _by_term(candidates, "life-cycle costs")
-    assert life_cycle.scope == "title"
+    assert life_cycle.scope == "law-wide"
 
 
 # --- bare "In this <unit>" under strict adjacency ---------------------------
@@ -184,7 +224,11 @@ def test_bare_in_this_article_with_immediate_quote_is_a_genuine_trigger():
     row = _rows()["STATE_VT_T11C_C7_S701"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     contract = _by_term(candidates, "marketing contract")
-    assert contract.scope == "article"
+    # residue-kind fallback (was scope == "article" pre-merge; see the
+    # module docstring's mapping table) -- this test's OWN purpose (bare
+    # `In` + strict-adjacency recognition) is orthogonal to the fallback
+    # question and is unaffected by it.
+    assert contract.scope == "law-wide"
 
 
 def test_bare_in_this_part_with_immediate_colon_list_is_a_genuine_trigger():
@@ -197,6 +241,8 @@ def test_bare_in_this_part_with_immediate_colon_list_is_a_genuine_trigger():
     candidates = extract_us_scoped_inline_definitions(row["text"])
     terms = _terms(candidates)
     assert {"Contested case", "License", "Licensing", "Party"} <= terms
+    # PENDING D8/S-R5 ruling -- see test_for_purposes_of_this_part_maps_to_
+    # part_scope's docstring above; not amended this pass.
     for term in ("Contested case", "License", "Licensing", "Party"):
         assert _by_term(candidates, term).scope == "part"
 
