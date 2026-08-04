@@ -3624,3 +3624,427 @@ lives here in the log per the contract's own instruction).
 
 Branch `claude/defs-il-dev3`, final SHA `572343c`. Pushed for the
 manager to merge.
+
+---
+
+## QA cycle 3 (Sonnet/high, independent)
+
+Own worktree `/Users/nerya/LexGraph-wt/defs-il-qa3`, branch
+`claude/defs-il-qa3`, reset to `origin/claude/defs-il` @ `4f95c4a`
+(verified: `git log --oneline -3` matches, `git status --short` clean at
+start). `import app` resolves to this worktree. Read the contract in
+full (gates, items 1-12, rulings M1-M17) and the WHOLE log, especially
+QA cycles 1+2, all three Phase C Planner rounds, and the Phase C
+Developer entry. **Never touched `backend/app/**`** — verified
+`git status --short` clean throughout except this log/contract and one
+throwaway pytest file (`backend/tests/integration/zzz_qa_cycle3_probe.py`,
+3 tests, all green, deleted before this commit — never pushed; same
+discipline as QA cycle 2's own throwaway probe).
+
+### Gate I5 (regressions) — PASS
+
+- `backend/.venv/bin/pytest backend/tests -q` → **`4 failed, 829 passed,
+  18 warnings in ~14-31s`**, reproduced 3x (including once AFTER deleting
+  the throwaway probe file, to confirm cleanup left the suite unchanged).
+  The 4 failures are exactly the E6-held set (3 class-(d) + 1 item-11),
+  matching the contract's claimed target state.
+- `bash scripts/contract_lint.sh 2026-08-04-defs-il` → **PASS 400**.
+- `git diff --name-status origin/main...HEAD -- backend/tests` → all 65
+  entries `A` (addition); **zero existing test edited.**
+- `git diff --name-status origin/main...HEAD -- backend/app/definition_
+  links/{pipeline,matcher,extract,sections,profiles}.py` → **empty**
+  (all 5 frozen modules untouched).
+- `git diff --name-status 237716c..4f95c4a -- backend/app` (Phase C
+  Developer's own commits, isolated from Phase A/B) → **exactly 5 `A` +
+  7 `M`, all under `backend/app/definition_links/rules/`**, matching the
+  Developer's own claimed boundary exactly; zero tests/fixtures touched
+  in this range either.
+
+### Gate I1 (full corpus loads) — PASS, confirms cycle 1/2's corrected figure, post core-dispatch merge
+
+Independent re-run (own script, own scratch sqlite DB, real
+`app.definition_links.ingest_wiki_corpus.run_bulk_ingest`, not a
+re-implementation): **files found 6133, files processed 6133, files
+failed 0, total_articles 128234** — exact match to QA cycles 1 and 2's
+figure, confirming the tree now including `main` @ `fbb6c9e` (core's
+dispatch sprint) introduced no change to IL parsing/reachability. Wall
+time 24.8s, peak RSS 65.6 MiB (same order of magnitude as prior runs).
+Corpus re-verified untouched after (`ls | wc -l` → 12266).
+
+### Gate I3 (scope enforcement, BOTH directions) — PASS, live end-to-end, on two fresh real corpus laws neither prior cycle used
+
+This cycle's mandatory, previously-un-run check (the Phase C Planner
+deliberately did not commit a RED for the non-leakage direction — see
+round 2's log entry — and asked QA to verify it live). Both directions
+proven through the REAL chain (`ingest_wiki_law` + `run_definition_
+linking` end-to-end, throwaway pytest probe, deleted before commit):
+
+**Direction (a) — law-wide DOES link across articles**, specifically
+exercising the NEW C4+M16 combination (a single-`:-` list under a
+`בחוק זה -` preamble in an ORDINARY, non-הגדרות-heading article — not
+the older, already-proven הגדרות-section law-wide default):
+`חוק להשבחת ייצור חקלאי (בעלי חיים), תשי"ב-1952` (6 real articles,
+unedited). Article 1 (heading `פירושים`, preamble `בחוק זה -`, single-
+`:-` list) defines `"בעל חיים"`. Live result: `created_definitions` =
+`[{'terms': ['בעל חיים'], 'scope': 'law-wide'}]`; article 4 (a
+DIFFERENT article, genuinely mentions `"בעל חיים"` twice in its own
+prose, e.g. `"לתפוס כל בעל חיים... למחזיק בעל החיים"`) gets
+`USES_DEFINITION` → `'Article 4 uses the definition of "בעל חיים".'`.
+
+**Direction (b) — local (`בסעיף זה`) does NOT link outside its own
+article**: `חוק אימות מסמכים (תביעות פיצויים מיוחדות), תש"י-1949` (6
+real articles, unedited). Article 2 (heading `תנאי לשימוש בסמכות`,
+preamble `בסעיף זה -`, `::-` list) defines `"מסמך"`, scope confirmed
+`local`. Ground truth: article 3's own raw body genuinely contains the
+standalone term `מסמך` (`"...לתרגם ולאשר את תרגומו של מסמך לשפה
+נכרית"`). Live result: article 2 gets its own (correct, same-article)
+`USES_DEFINITION` edge; **article 3 gets ZERO edges for `מסמך`** despite
+the genuine textual recurrence — proving this is a real missed-linking
+opportunity staying correctly unlinked, not an untested path.
+
+CHECK: throwaway `backend/tests/integration/zzz_qa_cycle3_probe.py`
+(2 I3 tests + 1 I4 test, all green — see below), deleted before this
+commit, never pushed; the transcripts above are the durable record.
+
+### Gate I4 (zero-miss sweep) — **FAIL. Confirmed, real, live-verified misses — three of them structurally NEW (not named by cycles 1 or 2 or Phase C), plus large residuals in the two headline populations the manager asked me to attack.**
+
+#### Methodology (P-R7, binding)
+
+Every measurement below runs through the REAL live chain
+(`sections.parse_articles` → `profile.normalize_for_parsing` →
+`profile.extract_local_scope_definitions`, the exact order
+`pipeline.py` uses for an ordinary article), on ordinary
+(non-הגדרות-heading) articles — the only articles the rules under test
+reach. Every denominator below is built from STRUCTURE or GRAMMAR
+(preamble-line shape, entry-marker shape, demonstrative-anchored
+trigger shape), **never from the shipped rule's own regex** — this is
+what makes each one signal-agnostic per P-R7. Every reported miss was
+independently confirmed live (direct `extract_local_scope_definitions`
+call showing the term absent, or — for the three new bugs — a direct
+call into the actual shared helper function showing exactly where/why
+the candidate is discarded).
+
+#### NEW BUG A — multi-term list-shape entries are silently dropped whole (structural sweep, found by looking at the ENTRY grammar itself, not any trigger word)
+
+**Root cause (proven, not inferred):** the shared `il_list_shape_scope.
+ENTRY_TERM_DASH_RE = re.compile(r'^"([^"]+)"\s*-\s*(.*)$')` (used by
+BOTH `il_colon_dash_nested_list_scope_triggers.py` and the new C4
+`il_single_colon_list_scope_triggers.py`) only matches a SINGLE quoted
+term at the start of an entry line. A real, common corpus shape —
+`::- "term1", "term2" ו"term3" - definition` (one entry line naming
+MULTIPLE terms, exactly the shape Developer's OWN C1 work added
+`_parse_terms_and_qualifier` to the quote-first grammar to handle) — is
+NOT handled by the list-shape grammar at all: `entry_match` still
+succeeds (the line starts with `:-`/`::-`), but `term_match` fails
+silently, and the loop just moves on to the next line without adding
+ANY candidate for that entry — dropping every term on that line, not
+just the extras.
+
+**Denominator (signal-agnostic):** every `:-`/`::-` entry line in an
+ordinary article whose header starts with a quoted term but is NOT
+single-term-dash-shaped, with ≥2 genuinely distinct quoted terms in the
+HEADER portion only (before the real split marker — fixed a v1 script
+bug that scanned quotes in the definition text too, which falsely
+flagged gershayim abbreviations like `ת"י`/`גפ"מ` as "extra terms";
+v2's fix mirrors `il_trigger_grammar._find_split_marker`'s own
+algorithm).
+
+**Result: 482 multi-term entry lines / 1,188 quoted terms found
+corpus-wide; 479 lines / 1,173 terms confirmed MISSING from live
+`extract_local_scope_definitions` output (98.7%); 239 unique files.**
+Zero false positives found in a full read of the qualifying sample
+(citations, wiki-links, and reference clauses inside the DEFINITION
+text are correctly excluded by the fixed split-marker logic). Named
+examples (file, article, terms, all confirmed live `[]`):
+- `חוק אזורים חופשיים לייצור בישראל` art.23א: `"החזקה"`, `"שליטה"`,
+  `"אמצעי שליטה"` (`::- "החזקה", "שליטה", ו"אמצעי שליטה" - כמשמעותם
+  [[בחוק ניירות ערך]];`). Confirmed via full live `ingest_wiki_law` +
+  `run_definition_linking` on the whole unedited law: `"החזקה"` is
+  absent from the WHOLE document's `created_definitions` (a clean,
+  unambiguous, standalone miss — no other article in this law defines
+  it). `"שליטה"`/`"אמצעי שליטה"` ALSO happen to be independently
+  (correctly) defined via unrelated single-term entries in three OTHER
+  articles of the same law (lines 217/304/337) — a genuine
+  self-caught P-R10 subtlety: their term-strings are NOT absent from
+  the whole-document term set, but article 23א's OWN local-scoped
+  definition of them is still genuinely dropped (any mention relying
+  on THAT specific local scope would fail to link).
+- `חוק ביטוח בריאות ממלכתי` art.21ד: `"בית מרקחת"`, `"תכשיר מרשם"`.
+- `חוק הביטוח הלאומי` art.295א: `"חבלת שירות"`, `"חייל בשירות קבע"`,
+  `"מחלה"`, `"מחלת שירות"`.
+- `חוק הבנקאות (שירות ללקוח)` art.7א: `"סולק"`, `"ספק"`, `"עסקה"`.
+- `הוראות הפיקוח על שירותים פיננסיים (ביטוח) (תנאי חוזה לביטוח חובה של
+  רכב מנועי)` art.1: `"נזק גוף"`, `"נפגע"`, `"שימוש ברכב מנועי"`,
+  `"תאונת דרכים"`.
+- `חוק איסור הלבנת הון` art.30: three separate multi-term entries —
+  `"ארגון טרור"`/`"ארגון טרור מוכרז"`/`"מעשה טרור"`/`"רכוש טרור"`;
+  `"גורם זר מסייע"`/`"פעילות כלכלית"`; `"גורם מוכרז"`/`"גורם קשור"`.
+- Full enumerated list (all 479 lines / 1,173 terms) in this session's
+  scratchpad `il_phaseC_qa3_i4_multiterm_listentry_sweep2.py` output —
+  available on request, not reproduced in full here for length.
+- Live end-to-end proof (not just the isolated-article function call):
+  `test_i4_multiterm_list_entry_is_dropped_live_end_to_end` in the now-
+  deleted throwaway probe, green, asserting `"החזקה"` absent from the
+  WHOLE document's `created_definitions` after a full `ingest_wiki_law`
+  + `run_definition_linking` run on the real, unedited law.
+
+#### NEW BUG B — quote-first candidates with NO split-marker after the quote are silently discarded whole (a second, independent structural sweep)
+
+**Root cause (proven, not inferred):** `il_trigger_grammar.
+extract_quote_first_candidates` requires `_find_split_marker` to find a
+standalone `-` (or `((-))`) SOMEWHERE after the quoted term(s); if it
+returns `-1`, the WHOLE candidate is discarded (`continue`), even
+though the trigger+quote matched correctly. Real corpus definitions
+routinely use `TRIGGER, "term" כהגדרתו/כמשמעותה [[citation]].` (a
+by-reference definition with NO second dash — the sentence just ends)
+or `TRIGGER, "term" <definition text ending in a period/semicolon, no
+dash at all>` — BOTH shapes are silently dropped, corpus-wide, for
+EVERY rule built on this shared helper (every C1-widened family, C2's
+yod sibling, C3, M17 groups 1+2 — i.e. most of Phase C's own output).
+Confirmed live for the ROOT case:
+```python
+>>> extract_quote_first_candidates('לענין זה - "מסירה" כמשמעותה בסעיף 8 לחוק המכר...', trig, scope="local")
+[]   # _find_split_marker returned -1
+```
+matching the real corpus text `חוק מס ערך מוסף` art.22: `לענין זה -
+"מסירה" כמשמעותה [[בסעיף 8 לחוק המכר, תשכ"ח-1968]].` →
+`extract_local_scope_definitions` → `[]` (confirmed live, term `"מסירה"`
+absent).
+
+**Denominator (signal-agnostic — reuses M17's own noun-agnostic
+demonstrative-shape scan, not this sprint's curated trigger list):**
+every `<1-3 Hebrew words><דמonstrative><connector>"term"` occurrence in
+an ordinary article (`(?:זה|זו|זאת|אלה|אלו)` + the shared C1
+connector), then checked for a split marker in the remainder of the
+clause. **Result: 6,364 generic quote-first candidates corpus-wide;
+132 (2.1%) have no split-marker and are silently dropped.** Hand-
+classified a sample of 60: ~20% (`~26/132` extrapolated) are the clean
+`כהגדרתו/כמשמעותו`-reference shape; ~80% (`~106/132`) are a plain
+"quoted term, definition continues without any dash at all" shape (a
+few of the 60-sample are a genuinely DIFFERENT, unrelated grammar —
+`"X נקרא/נקראת בחוק זה 'term'"`, term-naming without a preceding
+trigger-quote-dash structure at all — outside this bug's scope, noted
+not folded in). Named, live-confirmed examples: `חוק מס ערך מוסף`
+art.22 `"מסירה"`; `פקודת מס הכנסה` art.135 `"פקיד שומה"` (via `ולענין
+זה, "פקיד שומה" למעט עוזר פקיד שומה...` — the `ו`-conjunction-prefixed
+form); `חוק התקנים` art.13 `"מצרך"`; `חוק החמרים המסוכנים` art.16ג
+`"קצין משטרה"`; `חוק זכויות נפגעי עבירה` art.1 `"אחראי על קטין או חסר
+ישע"`. Full list in scratchpad `il_phaseC_qa3_i4_nodash_afterquote_
+sweep.py` output.
+
+#### NEW BUG C — the preamble sometimes lives in the ARTICLE'S OWN HEADING, not the body; no list-shape rule ever scans the heading
+
+**Root cause (proven):** both list-shape rules (`il_colon_dash_nested_
+list_scope_triggers.py`, `il_single_colon_list_scope_triggers.py`) call
+`PREAMBLE_RE.search(lines[i])` only over `article_body`'s own lines —
+`RuleContext`/the rule signature never receives `.heading` at all. A
+real, recurring corpus shape (mostly `== תוספת ==`/schedule
+sub-articles, and a few free-standing `הכרזה` documents) puts the
+scope-trigger preamble directly IN the heading line, e.g. heading
+`(תיקון: תש"ף) : [[בתוספת זו]] -` or `: לעניין הכרזה זו -`, with the
+`:-`/`::-` entries starting on the VERY FIRST line of the body — no
+preamble line anywhere in the body at all. **Result: 27 entry-runs / 24
+unique files / 117 terms, ALL confirmed missing (100% of this narrow,
+cleanly-isolated class).** Named examples: `אכרזת גנים לאומיים, שמורות
+טבע, ...` art.8 (heading ends `[[בתוספת זו]] -`): `"תמצית"`,
+`"כלי נגינה מוגמרים"`, `"אבזרים מוגמרים לכלי נגינה"`,
+`"חלקים מוגמרים לכלי נגינה"`, `"מוצרים מוגמרים וארוזים לצורך מכירה
+קמעונאית"`, `"אבקה"`, `"משלוח"`, `"עץ מעובד"` (8 terms, ZERO captured);
+`הכרזה מס' 3/4 ומס' 1+2 על שינויים בתחולת חוק כליאתם של לוחמים בלתי
+חוקיים` (3 files, same 5 terms each — `"הודעת ועדת השרים"`,
+`"החוק"`, `"החלטת ועדת השרים"`, `"ועדת השרים"`, `"תקנות מועדים
+לטיפול"`); `תקנות התקשורת (בזק ושידורים) (היתר כללי למתן שירותי בזק)`
+art.1 (heading `[[בתוספת זו]] -`): 31 technical-standards-body acronym
+terms (`3GPP`, `ATIS`, `IEEE`, `ITU-T`, ... — ALL 31 missing). Full
+list in scratchpad `il_phaseC_qa3_i4_heading_preamble_sweep.py` output.
+
+#### Population 1 re-derivation — the 8 single-line trigger families, post-C1/C2 fix
+
+Own fresh regex (widened connector, independently written, not
+imported from `il_trigger_grammar.py`), corpus-wide, ordinary articles
+only, every hit resolved to its owning article and checked against
+LIVE `extract_local_scope_definitions`: **5,497 occurrences, 5,414
+captured, 83 missed (98.5%)** — a real improvement over cycle 2's
+pre-fix 5,340/5,400 (98.9% of a SMALLER denominator; C1/C2 add real net
+new capture even though my own wider/independent scan surfaces a
+comparable-sized residual). Per-family breakdown and every miss (file +
+article + term) is in this session's transcript above (script
+`il_phaseC_qa3_i4_pop1_families.py`). Root-caused a representative
+sample: some are Bug B instances (already counted above, e.g. `מסירה`/
+`פקיד שומה`); some are measurement-only truncation from an embedded
+gershayim WITHIN the term itself (e.g. `"רכיב המע"` for the real term
+`"רכיב המע"מ"` — this is a pre-existing, ALREADY-DOCUMENTED limitation,
+explicitly named by the Phase C Planner round 1 as a reason it rejected
+one candidate fixture — not a new finding, corroborating it); one
+(`חוק המכר (דירות)...` art.3ג/3ג1) looks like it may be touching a
+FROZEN `sections.py` article-boundary parsing edge case (`3ג1`'s own
+`@` heading marker appearing to remain inside `3ג`'s parsed body) —
+flagged, NOT deep-dived (out of scope, frozen file, low materiality),
+recorded as something I could NOT fully verify (see closing section).
+
+#### Populations 2+3 — `::-`/`:-` list shapes, re-derived independently and ATTACKED per the manager's explicit request
+
+**`::-` (double-colon): 5,928 terms / 5,285 captured / 643 missed
+(89.2%).** **`:-` (single-colon): 1,671 terms / 1,021 captured / 650
+missed (61.1%).** Both diverge sharply from QA cycle 2's `4,972/4,972`
+and the manager's `1,107/1,107` — **I attacked the manager's number as
+asked, and it does not reproduce.** Root-caused, not just re-measured:
+- 23/73 single-`:-` miss-files and 66/161 `::-` miss-files overlap
+  exactly with NEW Bug A (multi-term entries) above.
+- A further chunk overlaps with NEW Bug C (heading-embedded preamble)
+  above.
+- The residual scope-split of what I DID capture is proportionally
+  consistent with the manager's own claimed split (mine: single-`:-`
+  captured scope = local 432/law-wide 234/siman 133/chelek 130/
+  chapter 80/item 9/subsection 3, vs. the manager's local 465/law-wide
+  260/siman 141/chelek 134/chapter 95/item 9/subsection 3 — same rank
+  order, `item`/`subsection` match EXACTLY, everything else within
+  ~15%) — strong evidence my sweep is measuring the SAME underlying
+  mechanism correctly, just over a LARGER, more inclusive denominator
+  (multi-term entries, heading-embedded preambles, and other structural
+  variants the manager's simpler sweep did not reach), not a scanning
+  bug inflating false "misses."
+- I could NOT fully reconcile 100% of the gap within available time —
+  honestly flagged, not hidden (see closing section). What I CAN state
+  with confidence: the claimed **100% capture for both shapes does not
+  hold** once the denominator is widened to structurally-identical
+  entries the manager's own sweep under-counted; every miss I am
+  reporting by name above (Bugs A/C) is independently, live,
+  hand-verified — the parts of the gap I have NOT individually
+  hand-verified are named as such, not asserted as confirmed misses.
+
+#### Population 4 — M17 spelling-variant "measured zeros," spot-checked
+
+Two independently spot-checked (own regex, not the shipped module's):
+**`בהסכם זה` quote-first: 0** and **`בנוהל זה` quote-first: 0**, both
+reproduce the round-3 table's claimed zeros exactly, corpus-wide.
+
+#### An independent, genuinely new sweep that found NOTHING (reported per the brief)
+
+Hunted for curly/typographic quote characters (U+201C/U+201D, `“”`)
+used as the term-delimiting quote instead of straight `"` — a REAL
+corpus characteristic (**636 raw occurrences** of a trigger+connector
+immediately followed by `”`, e.g. `חוק איסור אלימות בספורט` art.9:
+`בסעיף זה, ”תכנית היערכות” – מסמך...`). Traced this to `normalize.
+_QUOTE_VARIANTS_RE = re.compile("[""״]")`, which ALREADY collapses
+curly quotes (and gershayim) to `"` during `normalize_for_parsing` —
+confirmed live: `extract_local_scope_definitions` on the normalized
+body of the exact example above correctly captures `"תכנית היערכות"`.
+**Zero real misses from this angle** — a clean negative result,
+explaining why P-R10's "why isn't everything downstream already
+broken" check matters: I nearly reported this as a headline finding
+before checking normalization.
+
+### Precision / P-R2 / D-Q1 — no NEW conflict found; one self-declared gap resolved clean
+
+- **M16 exclusion list still holds, live.** Spot-checked `בתוספת זו`,
+  `בפוליסה זו`, `בכלל זה` (3 of the 11 excluded phrases, incl. the
+  false-friend) against real corpus preamble lines via
+  `il_list_shape_scope.infer_scope` — all three still classify
+  `"local"` (never wrongly promoted to `"law-wide"`).
+- **M17 Group-1 connector-widening FP risk (the self-declared gap) —
+  measured, ZERO risk.** For all 8 Group-1 phrases (`בתקנה זאת`,
+  `בפסקה זאת`, `לענין/לעניין פסקה זאת`, `בתקנת משנה זאת`, `בפסקה משנה
+  זו`, `לענין/לעניין פרט זה`), corpus-wide: the widened (space/colon/
+  dash) connector produces **0 NEW matches beyond the comma-only form**
+  for every single phrase — the widening is a complete no-op for this
+  specific vocabulary corpus-wide, so there is no FP exposure to
+  measure. Resolves the Developer's own honestly-flagged gap.
+- **Citation guard still holds.** Corpus-wide, ALL IL rules combined,
+  ordinary articles: 23,825 total captured terms, **0** citation-shaped
+  (`^סעיף\s+\d+[א-ת]*$`) survivors — reconfirms cycles 1/2's finding.
+- **C1 widening FP hunt** — relied on the Planner's own thorough
+  42-sample hand-check (0 FPs) rather than re-doing it from scratch
+  (proportionate effort given time spent on I4); corroborated
+  indirectly via the citation-guard and M16/M17 spot-checks above
+  finding nothing new.
+- **No zero-miss-vs-zero-false-positive conflict to arbitrate this
+  cycle** — every precision check above came back clean; the three new
+  I4 bugs are pure recall gaps (silently dropped candidates), not
+  precision trades, so nothing new for P-R2/D-Q1 to weigh.
+
+### What I could NOT verify (honest gaps)
+
+1. Did not hand-verify all 650/643 raw misses in Populations 2/3, nor
+   all 83 in Population 1 — verified representative samples and the
+   THREE new bugs' full populations (A/B/C, fully enumerated in
+   scratchpad scripts), but the residual, not-yet-individually-
+   root-caused portion of Populations 1-3's misses (roughly 83 - [Bug B
+   overlap], and the Pop 2/3 misses not explained by Bugs A/C) is
+   reported as a NUMBER with a methodology, not as an exhaustively
+   named list — flagging this explicitly rather than implying full
+   verification.
+2. The `חוק המכר (דירות)...` art. `3ג`/`3ג1` anomaly (heading marker for
+   `3ג1` appearing to remain inside `3ג`'s own parsed `.body`) was
+   noticed but not investigated — touches the FROZEN `sections.py`,
+   low materiality (one file), out of my mandate to fix, flagged for
+   whoever owns that module next.
+3. Did not re-verify Group A/B (cycle 1) or the punctuation-variant/
+   swallow-bug fixes (C1/C2) beyond what Population 1's re-derivation
+   already covers implicitly (they are the same 8 families).
+4. Did not attempt to measure the ~80/132 Bug-B "other" grammar
+   (`"X נקרא/נקראת בחוק זה 'term'"`, term-naming without a trigger-
+   quote-dash structure) — noted as a residual, not sized.
+
+### Suite numbers recap (all reproduced by me)
+
+Backend: `4 failed, 829 passed, 18 warnings` (reproduced 3x). No
+frontend/typecheck changes this cycle (Phase C touched
+`backend/app/definition_links/rules/**` only) — not re-run, since
+nothing in this cycle's diff touches frontend or non-IL backend code;
+`I5`'s own backend-diff check above is the load-bearing evidence.
+`contract_lint.sh 2026-08-04-defs-il`: `PASS 400`. I1 independent
+re-run: `6133/6133 files, 0 failed, 128234 articles`, wall 24.8s, peak
+65.6 MiB.
+
+### Escalations (P-R2/D-Q1 — reporting, not deciding)
+
+1. **I4 FAIL, absolute zero-miss bar, again.** Three structurally NEW
+   bugs (A: multi-term list entries, 479/1,173 confirmed; B: no-dash-
+   after-quote quote-first candidates, 132/6,364 generic population; C:
+   heading-embedded preambles, 27/117 confirmed) plus large,
+   independently-attacked residuals in the two headline list-shape
+   populations (643/5,928 for `::-`, 650/1,671 for single-`:-` — both
+   refuting the previously-claimed 100%). All three new bugs share the
+   SAME already-proven `ScopeTriggerRule` mechanism (Bugs A/B are
+   one-line fixes to already-shared helper functions — widen
+   `ENTRY_TERM_DASH_RE` to the same multi-term parser C1 already built,
+   and stop discarding a quote-first candidate when no split marker
+   exists, treating "rest of clause" as the definition text instead);
+   Bug C needs `RuleContext`/the rule signature to also receive the
+   owning article's `.heading` (a small, additive seam extension, not a
+   frozen-file edit). Recommending a Phase-D item bundling all three,
+   not deciding scope myself.
+2. **Pattern worth naming explicitly, not just the individual
+   numbers:** this is the THIRD consecutive QA cycle in which an
+   independent, trigger-word-agnostic structural sweep surfaces a
+   headline-sized new miss class the prior round's fix cycle did not
+   anticipate (cycle 1: Groups A/B; cycle 2: punctuation-variant +
+   swallow-bug + the whole single-`:-` class; cycle 3: multi-term
+   entries + no-dash-after-quote + heading-embedded preambles). Each
+   round's fix has been real and net-positive (I1/I3/I5 stay solid,
+   Population 1's capture rate improved), but the corpus's own grammar
+   diversity appears to keep out-pacing each round's fix scope. Not
+   deciding whether to keep iterating vs. accept a diminishing-returns
+   stopping point myself — surfacing the pattern with data per P-R2/
+   D-Q1 for the director/program manager to weigh.
+3. No precision/recall conflict to arbitrate this cycle (see Precision
+   section) — the self-declared M17 Group-1 gap resolved clean (0 FP
+   risk found).
+
+### Gate verdicts
+
+**I1: PASS** (confirms 128,234, no regression post core-dispatch
+merge). **I3: PASS**, both directions proven live end-to-end on two
+fresh corpus laws, one specifically exercising the NEW C4+M16 path.
+**I4: FAIL** — three new, structurally-independent, live-verified miss
+classes (Bugs A/B/C) plus large, independently-reproduced residuals in
+both list-shape populations that refute the previously-claimed 100%
+capture. **I5: PASS**, fully reproduced, mechanical diff checks confirm
+zero frozen-file/test edits. **Precision: PASS**, no new conflict, one
+self-declared gap (M17 Group-1 FP exposure) measured and resolved
+clean.
+
+qa_cycles: 3.
+
+---
