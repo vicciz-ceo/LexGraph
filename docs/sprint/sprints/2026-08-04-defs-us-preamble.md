@@ -1,11 +1,12 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planning
-current_role: planner
+status: parked-blocked
+blocked_on: "2026-08-04-defs-core-scope merging to main (rule registry)"
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "claude-code:planner"
-locked_at: "2026-08-04T00:00:00Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:sprint-manager"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
@@ -23,6 +24,27 @@ design_sections:
 ---
 
 # Sprint: US family 2 — body preambles without the word "Definitions"
+
+## P-R7 — BINDING CONSTRAINT ON QA's U4 SWEEP (program ruling, from the PR panel's QA)
+
+**Zero-miss ground truth must be independent of the capture mechanism's own
+signals.** When QA runs the U4 zero-miss sweep, it **MUST NOT use the rules'
+own trigger regexes as the denominator** — doing so measures "we caught what
+we looked for", which is circular and cannot detect a whole missed shape.
+
+This panel is better placed than most to satisfy it: our inventory is
+**body-driven**, derived from reading real statutory prose across all 53
+jurisdictions, not from the trigger list. But the constraint bites at sweep
+time, so QA must build its denominator from an **independent** signal —
+e.g. a broad definitional-language scan (`means`, `shall mean`, `has the
+meaning`, `defined as`, unquoted-term shapes), or structural cues — and then
+check our rules against it. Any hit the independent denominator finds that
+our rules miss is a U4 failure, not a rule to be added quietly.
+
+Related measurement hazard already recorded (M-R19): **S1 proved the inline
+fallback's last entry runs to end-of-text** (FL 540.11: ~100% claimed vs ~12%
+true coverage). Do NOT take U6 before/after numbers from that fallback
+uncorrected.
 
 ## Mandate
 
@@ -403,37 +425,15 @@ _None._
 
 ## Context Dump
 
-Manager setup complete: worktree + venv + identity verified. U5 baseline
-measured: **641 passed, 0 failed** at `bd18411`.
-
-**Core seam spec IS published** (log M-R7). This sprint's entire deliverable
-is one new file `backend/app/definition_links/rules/us_body_preamble.py`
-(rule kind `BodyPreambleRule`, `derive_heading: body -> synthesized heading |
-None`, registered via `register_body_preamble_rule`) plus our own tests.
-Detection kinds are baseline-first, registry-second, first-match-wins in
-filename-sort order. Zero edits to `pipeline.py`/`matcher.py`/`profiles.py`/
-`extract.py` — that satisfies U3.
-
-**Open question M-R7(a)**: `BodyPreambleRule.derive_heading` receives only the
-body, never the heading. If registry rules are tried whenever the baseline
-returns `None` (regardless of heading shape), MD/NE/MS/SD are unblocked with
-no core dependency — but gate A's false-positive guard is gone and all
-precision risk lands on our rule. Planner must settle this against core's
-real code before tests are finalized.
-
-**RESUME HERE.** Phase: all-state inventory per D-PREAMBLE-ALL (log M-R13).
-
-1. Four READ-ONLY scouts (S1 FL/NC/AL/MO · S2 FED/DC/NY · S3 the 39
-   low-volume states · S4 reclassify GA/MD/NE/MS/SD + CA/IL) are running,
-   writing to `<scratchpad>/scout_S{1,2,3,4}_findings.md`. They make zero
-   repo writes by design.
-2. When they finish: spawn ONE Planner (Sonnet/high) as **sole writer** to
-   consolidate all four files into contract + log, author RED tests from the
-   real rows they identified, add the **MS chapter-scope U2 test**, and
-   commit. Never two writers in this worktree (M-R8).
-3. Then package per-state CLAUSE row lists and send to the program manager
-   for scoped-inline routing.
-4. Implementation still waits on core's `rules/` registry (M-R17).
-
-M-R7(a) is ANSWERED (ungated, branch 1); items 3/4/6/8 un-held.
-Suite at `eb1f0d8`: 648 passed, 12 RED, 641 baseline intact.
+1. PARKED-BLOCKED on core (`defs-core-scope`) merging its rule registry to main.
+2. Resume with a DEVELOPER: create ONE file `backend/app/definition_links/rules/us_body_preamble.py`
+   registering `BodyPreambleRule`s (body -> synthesized heading | None). Zero shared-module edits.
+3. 31 RED tests across 9 files already specify the behavior; they go green as rules land.
+4. Dispatch is UNGATED (director-confirmed); precision comes from per-state rules + negative guards.
+5. Rule shapes: B1 colon-list (9 states, parameterized), B2 words-have-meanings, GA/MD/MS/SD/NE,
+   FED/DC/NY, MS 2nd convention ("shall have the meaning(s) ascribed herein"), CA 663 BLOCK rows.
+6. QA must honor P-R7 (independent U4 denominator) and not measure U6 off the buggy inline fallback.
+7. CLAUSE package (2,659 act_ids / 51 jurisdictions) handed to the program manager for scoped-inline.
+8. Counts are floor/ceiling where methodologies did not reconcile — do not collapse to one number.
+9. Suite: 661 passed / 31 RED-by-design; 641 pre-sprint baseline intact; diff is tests+fixtures+docs only.
+10. NEVER two writers in this worktree (M-R8). Manager verifies fixtures byte-against-parquet.
