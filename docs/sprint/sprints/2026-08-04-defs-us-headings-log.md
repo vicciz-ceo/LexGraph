@@ -2649,3 +2649,37 @@ QA bounce.
 Evidence handed to the Planner at an exact path (P-R9-compliant):
 `scratchpad/headings_mgr3_class5_evidence.json` — `candidate_captures` (15),
 `manager_judged_excluded` (4, with reasoning), `all_132_unassigned`.
+
+### ESCALATION drafted — ledger L7, the 78-row preposition-governed cluster
+
+Measured, not asserted (`scratchpad/headings_mgr3_prep_governed_defn_of.json`,
+independent body probe — defining idiom AND a quoted term in the body):
+
+| | rows |
+|---|---|
+| cluster size | **78** |
+| body has a defining idiom **and** a quoted term | **14** |
+| body has an idiom but no quoted term | 10 |
+| neither (first 400 chars) | 54 |
+
+Named examples of the 14:
+- `STATE_ME_T28-A_P3_C55_S1401-A` — `Limitation on definition of "certificate
+  of approval holder"`; body: `as used in this chapter, unless the context
+  otherwise indicates, "certificate of approval holder" means an in-state
+  manufacturer…`. This is a textbook `X means Y` definition.
+- `STATE_MT_T39_C51_P2_S39-51-204` — `Exclusions from definition of employment`;
+  body: `The term "employment" does not include: (a) domestic or household
+  service…`. Exclusionary definition.
+- `STATE_IN_T36_A7_C15.1_S36-7-15.1-55` — body: `As used in this section,
+  "depreciable personal property" refers to…` (also a scoped-inline shape).
+- `STATE_DE_T11_C2_S221` — `Principles of definitions`.
+
+Why this is escalated rather than decided: D-HG forbids relaxing the
+preposition guard, and rules that guarded rows are rescued by the preamble
+panel's body-content rules — **but this 78-row shape has never been enumerated
+in the handoff doc**, which covers the 245-row `Application/Applicability`
+shape (plus QA cycle 3's 29-row sibling). Whether the preamble panel's
+population reaches these 14 is exactly the P-R7 boundary question, and the
+panel is forbidden both from re-scanning the corpus for another panel's
+population and from certifying on that panel's pre-QA log. D-HG's own terms
+apply: rows NEITHER path reaches return to the director BY NAME.
