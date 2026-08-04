@@ -2044,3 +2044,99 @@ finished answer.
 why our rule must import `resolve_unit_path` directly. That works and stays
 inside our fence, but it is a rule→`us_profile` dependency the seam was
 presumably meant to remove. Routed up as a core seam observation.
+
+---
+
+## 2026-08-04 — Manager: Planner pass 6 verified + ACCEPTED; rebased onto main;
+ruling S-R15 (level-selection policy) + a NEW conflict class routed up
+
+### Planner pass 6 — verified by mutation, not by reading the claims
+
+Branch `claude/defs-us-scoped-inline-plan6` @ `e78a5eb`.
+
+- **Fence holds**: `git diff --name-only b8cf5e8..plan6` under `backend/app/`
+  is EMPTY. Tests and fixtures only. Both touched test files under the
+  300-line gate (209 / 252).
+- **Task 1 RED-provenance, proven on BOTH trees by me** (S-R13's whole point):
+  the 4 new pins FAIL against the pre-fix rule (`4 failed`, real
+  `AssertionError`s) and PASS against the shipped fix (`4 passed`). Authored
+  in a worktree that never saw the Developer's branch, so the independence is
+  structural, not promised.
+- **Task 2 is the part I refused to take on trust**, because "this test
+  protects mechanism X" is exactly the claim QA cycle 1 disproved twice. I
+  re-ran both mutations myself in a scratch tree:
+  - Removing the bare-`in` strict comma/colon adjacency gate →
+    **1 failed, 7 passed**, and the one failure is
+    `test_bare_in_strict_comma_or_colon_adjacency_gate_is_load_bearing`.
+    (Cycle 1: the same mutation left the negative controls 6/6 green.)
+  - Widening `_MARKER_QUOTE_RE`'s gap to ≤20 chars →
+    **1 failed, 7 passed**, the failure being
+    `test_marker_quote_adjacency_gate_is_load_bearing_alabama`.
+  Precise isolation in both directions: the right test fires, the others do
+  not. **The masking gap QA cycle 1 found is genuinely closed.**
+- Good judgment recorded: the Planner declined to pin `STATE_NY_ARPP_A8_S280-D`
+  after verifying the row contains ZERO quote characters — a NY pin would have
+  stayed red forever, since the row's convention is the deliberately-excluded
+  unquoted shape, not the connector gap. It chose OR over OH for the bonus pin
+  because OR's citation nests a parenthetical (a structurally different stress)
+  while OH duplicates DE's shape. Both calls are right.
+
+**Verdict: Planner pass 6 ACCEPTED.** Merged; sprint suite 754 passed / 2
+xfailed.
+
+### Rebased onto `origin/main` (core dispatch @ `8524067`)
+
+Probed the rebase on a throwaway branch first (clean, 24/24), then rebased for
+real: clean, `origin/main` is now an ancestor. Venv refreshed.
+**Suite: 824 passed, 2 xfailed, 0 failed** — our family rules and core's newly
+merged dispatch work coexist with nothing broken on either side. The two
+xfails remain correctly silent (our mapping is still the S-R11 interim; see
+S-R14 for why that is the expected state, not a missed alarm).
+
+### S-R15 — the level-selection policy is a NAMED OPEN QUESTION, not a
+Developer's judgment call
+
+S-R14 proved the MECHANISM (derive `scope_value` + `scope_unit_kind` from
+core's own resolver at the trigger offset). It does NOT settle WHICH step of
+the returned path to use. My probe took the innermost open step and both
+directions passed on the Oregon row — but a trigger sitting deep inside
+`(1)(a)(i)` that says "this subsection" may well mean `(1)`, and the M-D3
+erratum exists precisely because that mapping differs per state.
+
+This is a recall-vs-precision conflict class, so per D-Q1 it does not get
+decided quietly by whoever writes the code:
+
+- **Interim, binding**: innermost open step at the trigger offset — the only
+  option with live-path evidence behind it today.
+- **The Developer must factor level-selection into ONE swappable decision
+  point**, so changing the policy is a one-line change and never a redesign.
+- **The Planner measures it per state from real rows** and escalates with data
+  if the measurement contradicts the interim. Note the direction of risk:
+  choosing too NARROW a level under-links (a zero-miss violation), choosing
+  too BROAD over-links (a precision cost). Under the director's absolute
+  zero-miss bar those are not symmetric, and the measurement should say so.
+
+### NEW conflict class, routed UP (not resolved here) — the `(N) LABEL. "X"`
+convention
+
+While building the gate-(b) isolation test the Planner hit a real row,
+`STATE_AL_T13A_C11_S13A-11-1` — `(1) OBSTRUCT. To "obstruct" means…` — and a
+full-corpus scan found **tens of thousands** of hits for that shape: a marker,
+then a short unquoted label, THEN the quoted term. Our entry splitter requires
+the marker to be immediately followed by a quote, so every one of these is
+currently lost.
+
+This is important and I am explicitly NOT letting it be settled inside this
+panel, for two reasons:
+
+1. **It is in direct tension with the gate we just pinned as load-bearing.**
+   Widening `_MARKER_QUOTE_RE` to admit an intervening label is precisely the
+   mutation `test_marker_quote_adjacency_gate_is_load_bearing_alabama` now
+   fails on — by design. Recall and precision point opposite ways here, at
+   scale. That is a textbook D-Q1 escalation with data, not a regex tweak.
+2. **Ownership is genuinely unclear** between this family (it is our
+   entry-splitting mechanism) and the markers panel (entry-marker shape is
+   their remit, and their unquoted-term family is adjacent).
+
+Routed to the program manager with the act_id, the shape, and the measured
+scale. Not in this sprint's 8 root causes; not silently absorbed.
