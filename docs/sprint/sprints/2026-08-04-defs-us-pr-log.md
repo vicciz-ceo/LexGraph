@@ -4153,3 +4153,96 @@ predicted, and both pass.
 ### Pushed
 
 Commit follows this entry; branch `claude/defs-us-pr`.
+
+---
+
+## 2026-08-04 — Manager: cycle-5 Developer VERIFIED (0ed731e); items to Dev Complete
+
+### Handoff verification, materialized
+
+| Check | Result |
+|---|---|
+| Commit / push | `0ed731e`, HEAD == `origin/claude/defs-us-pr`, tree clean |
+| **Role boundary** | `git diff --stat 7bf0035..HEAD -- backend/tests/` → **empty**. Zero test/fixture edits. ✔ |
+| **Write-set fence (M-R13)** | Diff touches exactly `pr_profile.py`, `rules/us_pr_scope_triggers.py`, `rules/us_pr_citations.py`, the log. Explicit check over `us_profile.py`/`pipeline.py`/`matcher.py`/`profiles.py`/`extract.py`/`registry.py`/`rules/__init__.py` → **empty**. ✔ |
+| Suite reproduced | `35 failed, 910 passed, 8 xfailed` — exact match to the predicted target |
+| Rule modules | `us_pr_scope_triggers.py` registers **exactly two** `ScopeTriggerRule`s (`extract_local_definitions`, `extract_adhoc_definitions`); neither wrapper sets `source_article_number`, so the seam defaults it (per brief). 18c's absence is documented in the module docstring with the M-R13 reasoning. `us_pr_citations.py` is registration-only with the L.P.R.A. limitation documented. ✔ |
+| Live registration probe | `scope_trigger_rules_for("US-PR")` → 3 (our 2 + core's `US-*` proof rule), `citation_rules_for("US-PR")` → 1. ✔ |
+
+### The risk-class hunk — the ASCII-hyphen narrowing, verified independently
+
+```
+OLD      ^(.{1,100}?)\s*\.?\s*[–—]\s*
+NEW      ^(.{1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*
+BLANKET  ^(.{1,100}?)\s*\.?\s*[–—-]\s*      <- the self-caught first pass
+```
+
+**The lookbehind is correct.** `(?<=\s)` is evaluated against the source
+string at the hyphen's position, not against what the pattern consumed, so
+the preceding `\s*` cannot "fake" it: a hyphen sitting against a digit or
+letter (`Ley 38-2017`, `ex- officio`, `Término-`) can never satisfy it,
+because the intervening characters must be consumed by something and neither
+`\.?` nor `\s*` can eat them. At position 0 it simply fails rather than
+erroring. No off-by-one available.
+
+**Measured corpus-wide** (real `us_pr_statutes.parquet`): BLANKET matches
+2003, NEW matches 518, OLD 490. The narrowing **rejects 1485 matches**, and
+the rejected sample is overwhelmingly junk — `[Nota: La Ley 152-2013…]`,
+`ex- officio`, `Ley 82-1955`, bare citation numbers. The self-caught
+regression fix is sound and the narrowing is clearly the right call.
+
+**Honest caveat on my own measurement:** I measured on whole bodies, because
+the module exposes no block-splitter under the name I probed for. The real
+code applies this regex **per split entry block**. So these absolute numbers
+are the wrong denominator for a precision verdict — the same error class
+P-R7 exists to name — and I am NOT claiming from them that the 28 NEW-over-OLD
+gains are imprecise. What the numbers do support, robustly, is the
+narrowing-vs-blanket comparison, where the gap is far too large to be an
+artifact of the denominator.
+
+### What bounds this risk to zero today
+
+`_UNQUOTED_TERM_DASH_RE` is reached only through `_extract_term_and_definition`,
+which is called only from `extract_definitions_from_section`. Verified by
+bytecode inspection that neither registered rule's target reaches it:
+
+```
+extract_local_definitions  -> _LOCAL_TRIGGER_RE, _LOCAL_TRIGGER_UNQUOTED_RE
+extract_adhoc_definitions  -> _ADHOC_TRIGGER_RE, _LEADING_SPANISH_ARTICLE_RE
+extract_definitions_from_section -> _extract_term_and_definition  (no prod caller)
+```
+
+and that production code references exactly three `pr_profile` functions
+(`extract_local_definitions`, `extract_adhoc_definitions`, `find_citations`).
+`pr_profile.extract_definitions_from_section` has **zero production callers** —
+`USProfile.extract_definitions_from_section` calls `us_profile`'s own version.
+
+**So the hyphen change is dead on the live path today** and affects only
+direct-call tests. It becomes live post-dispatch, when canonical rows start
+routing through `extract_definitions_from_section`. The per-block precision
+question therefore lands on the **post-dispatch QA cycle**, alongside 18c's
+by-construction re-verification — not on this cycle as a shipping risk.
+
+### Verdict
+
+Developer work ACCEPTED. Items 18a, 26, 27, 28, 29 → Dev Complete. 18c and
+the 30 held items stay parked on core's dispatch merge, as ruled.
+
+### Next: Planner re-partition, then QA
+
+Sequencing the Planner's re-partition pass BEFORE QA (as routed earlier):
+`test_documented_residual_…` currently asserts overruled Option-A behavior and
+must be deleted or inverted, and the three 18c groups need explicit deferred
+markers naming their post-dispatch re-verification duty. Sending QA a suite
+containing a permanently-red test that asserts overruled behavior would waste
+a QA cycle re-deriving a decision already made.
+
+**Counter reconciliation (manager, same commit):** front matter carried
+`total_items: 12 / dev_complete_items: 10` — stale since cycle 2, while the
+item plans have run to 29 across five cycles. Adding cycle 5's four
+(26-29) to the recorded 10 gave the incoherent `15 > 12`. Reset to
+`total_items: 29` (highest planned item number across all five cycle plans)
+and `dev_complete_items: 14` (the previously-recorded 10 + this cycle's 4).
+Flagging honestly: the inherited 10 is not something I independently
+re-audited across cycles 1-3, so treat 14 as a reconciliation of the
+existing record, not a fresh count. Worth QA confirming.
