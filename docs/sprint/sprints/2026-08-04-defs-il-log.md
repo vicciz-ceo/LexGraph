@@ -1853,3 +1853,144 @@ REDs are committed and proven red. Scope:
 4. Regulation + subsection families per the verification above.
 The E6-blocked subset (~303 occ + items 5/11) stays parked on core's
 dispatch merge, now at final-items stage.
+
+
+---
+
+## 2026-08-04 — Planner: QA cycle 1 RED-provenance set (12 tests, program-directed fix cycle)
+
+Resumed at `8118ef6` (already in sync with `origin/claude/defs-il`, no pull
+needed). Read the contract in full (items 1-11) and the WHOLE log per the
+manager's instruction, especially `## QA cycle 1` and the two manager
+entries following it (ACCEPTED verdict + D-Q1 regulation-scope closure) --
+did not re-derive QA's sweep; built every RED test from QA's own findings,
+independently re-verified live (never trusted blind, per M4/M10).
+
+### Yod/tzere audit of the six shipped IL rule modules (manager-requested)
+
+Read all six shipped rule files (`il_chapter_scope_triggers.py`,
+`il_siman_chelek_scope_triggers.py`, `il_seif_zeh_three_word_scope_
+triggers.py`, `il_adhoc_scope_triggers.py`, `il_paragraph_scope_
+triggers.py`, `il_prat_zeh_item_scope_triggers.py`) plus the original
+`il_scope_triggers.py`. **Finding: the yod/tzere hole exists in exactly
+ONE place** -- `extract._LOCAL_TRIGGER_RE` (frozen, wrapped unchanged by
+`il_scope_triggers.py`), which matches only `לענין זה` (yod), never
+`לעניין זה` (tzere). Every other shipped rule's trigger words (`בפרק`/
+`בסימן`/`בחלק`/`בפסקה`/`בפרט`/`בסעיף`) do not use the `לענין`/`לעניין`
+word at all, so the spelling-pair ambiguity does not apply to them --
+confirmed by direct source read of each file's own `_TRIGGER_RE`, not
+assumed. **Reassuring finding, worth stating plainly: item 3's
+`il_seif_zeh_three_word_scope_triggers.py` ALREADY covers both spellings
+correctly** (`(?:לענין|לעניין) סעיף זה`) -- the ONE prior rule this Planner
+personally authored that had the opportunity to make this exact mistake,
+didn't. The bug is real but contained to the one place QA found it.
+
+### Live re-confirmation of every Group A/B/precision-RED fixture
+
+Built 12 real, verbatim fixtures (11 new + reused none from before) into
+`backend/tests/fixtures/wiki_laws/`. Every single one independently
+re-confirmed by THIS Planner through the real chain
+(`profile.normalize_for_parsing` -> `strip_wikilinks` -> `sections.
+parse_articles` -> `profile.extract_local_scope_definitions`) before
+writing the matching test -- not copied blind from QA's log:
+
+- `לעניין זה` (tzere): QA's own cited fixture, `הוראות הפיקוח על שירותים
+  פיננסיים (ביטוח) (ביטוח אובדן כושר עבודה קבוצתי)` art.3, term "ביטוח
+  מועדף" -- confirmed `[]`.
+- `בתקנה זו`: `צו הבטיחות בעבודה (אגרות בדיקה)` art.6, term "מדד" --
+  confirmed `[]`.
+- `בסעיף קטן זה`: `החלטת הרשויות המקומיות (גמלאות לראש רשות וסגניו)`
+  art.29ב, term "המדד" -- confirmed `[]` (this SAME article already
+  captures a DIFFERENT term, "יום העדכון", via the already-shipped item
+  10 `בפסקה זו` ad-hoc rule -- verified the two do not collide).
+- `לעניין תקנה זו` (tzere, 3-word): `תקנות בריאות העם (דיגום וביצוע בדיקות
+  קורונה)` art.14, term "ציוד רפואי" -- confirmed `[]`. (Also live-checked
+  the yod spelling, `לענין תקנה זו`, on a separate real file -- `תקנות
+  ביטוח בריאות ממלכתי`, art.4, term "חציון" -- to confirm the family
+  reproduces under BOTH spellings; used only the tzere fixture for the
+  committed test, matching QA's own combined-count convention for this
+  family.)
+- `בתקנת משנה זו`: `תקנות שירות הביטחון הכללי (סייגים בקרבת משפחה)` art.4,
+  term "קרוב משפחה" -- confirmed `[]`.
+- `תקנת משנה זו` (bare): `תקנות צער בעלי חיים...` art.26, term "משקל
+  כולל" -- confirmed `[]`.
+- `לעניין פסקה זו`: `הוראות הבחירות לכנסת (סדרי הצבעה...)` art.5, term
+  "מזוודת החומר הרגיש" -- confirmed `[]`. **Scope-kind inference, flagged
+  explicitly (D-Q1 did not name this family):** mapped to
+  `scope="paragraph"`, the same kind item 7's `בפסקה זו` already
+  registers, since this is plainly an alternate phrasing of the same
+  concept ("regarding this paragraph" vs "in this paragraph"). If the
+  manager disagrees with this inference, it is cheap to correct before
+  implementation -- flagging rather than silently deciding is the point.
+- `בפסקת משנה זו`: `פקודת מס הכנסה` art.87ה, term "קרוב" -- confirmed `[]`.
+- Group B mechanism: `החלטת מימון מפלגות (יחידות מימון ומועדי תשלום)`
+  art.2 -- QA's own exact cited law/article, verbatim. Confirmed
+  `profile.extract_local_scope_definitions` -> `[]` for BOTH `"מדד"` and
+  `"מדד יסודי"`, despite `בסעיף זה` being a trigger this sprint ALREADY
+  implements for two other grammars.
+- 3 precision REDs: confirmed via the LIVE registered `il_adhoc_scope_
+  triggers` rule (not a re-implementation) that `סעיף 9`/`סעיף 149א`/
+  `סעיף 51טו` are each captured as `terms=("סעיף N",)` today, exactly as
+  QA reported -- `חוק התוכנית הכלכלית...` art.33, `חוק ההתייעלות
+  הכלכלית...` art.34, `חוק המדיניות הכלכלית לשנים 2011 ו-2012...` art.39.
+
+**Verbatim-fixture discipline note (self-correction, caught before
+committing):** my first draft of several fixtures (the three precision-RED
+laws + the `לעניין פסקה זו` fixture) stripped the source `[[...]]`
+wikilink markup by hand instead of copying it verbatim -- functionally
+harmless (`strip_wikilinks` removes it before extraction either way, so no
+test behavior changed) but a real deviation from this sprint's own
+"REAL, verbatim excerpts" discipline. Caught and rewritten to match the
+exact raw corpus text (including the more unusual `[[+|...]]`/`[[-|...]]`
+link-annotation forms in the two longer economic-policy-law fixtures)
+before running any test. Recorded here rather than silently fixed, per
+the standing instruction to report process deviations, not just outcomes.
+
+### New test file (additive only -- no existing test touched)
+
+`backend/tests/integration/test_definition_links_il_qa_cycle1_fixups_
+live.py` -- 12 NEW tests (8 Group A + 1 Group B + 3 precision), all RED
+today for behavioral reasons (real `AssertionError`s with actual
+`created_definitions`/captured-term contents shown, never an import or
+collection error). All go through the full live pipeline
+(`ingest_wiki_law` + `run_definition_linking`), consistent with every
+prior test in this sprint (the manager's message offered the lighter
+`profile` seam as an alternative given the volume; kept the heavier,
+established DB-backed path for consistency and because it is what the
+sprint's own gates actually measure).
+
+### Suite proof (my own run, worktree venv)
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_qa_cycle1_fixups_live.py -v
+-> 12 failed (all AssertionError, real captured-term output shown, e.g.
+   "got {'id': ..., 'terms': ['סעיף 51טו'], 'scope': 'local'}" for the
+   precision REDs, "got []"/partial-term-set for the capture REDs)
+
+backend/.venv/bin/pytest backend/tests -q
+-> 16 failed, 715 passed, 18 warnings in ~14s
+```
+715 = the exact QA cycle 1 baseline, unchanged (zero regressions). 16 =
+4 pre-existing (item 11's E6-blocked test + items 5's 3 class-(d) tests,
+all unchanged) + 12 new REDs from this round.
+
+### Contract updated
+
+Added item 12 (READY, `ScopeTriggerRule` -- LIVE per M11/P-R8 -- covering
+all 12 new tests) to `## Next Steps`. To stay under the 400-line
+`contract_lint.sh` budget, compressed item 5's prose (removed restated
+detail already recorded in the log/ruling M7, kept the load-bearing facts:
+BLOCKED, the exact grep evidence, the exact fix location, gate/test
+references) -- no substantive claim was cut, only redundant phrasing.
+Final: **399/400 lines, `contract_lint.sh` PASS on all 7 checks**
+(including timestamps and status/total_items -- both already corrected by
+the manager's own prior edit, not touched by this Planner).
+
+### Nothing else to escalate this round
+
+The scope-kind inference for `לעניין פסקה זו` (above) is flagged, not an
+escalation requiring a stop -- it is cheap to correct if wrong, and
+capture (this cycle's actual deliverable) does not depend on it being
+right. No new architecture gap found beyond what QA already surfaced;
+every family in this round used the SAME already-live `ScopeTriggerRule`
+mechanism (no new E6/E7-shaped surprise).
