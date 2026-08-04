@@ -1246,3 +1246,72 @@ false positives, which is the failure mode this program exists to remove.
 - PQ4 TX ownership → M-R5 (accepted program-wide; metric must be decomposed).
 - `us_profile.py` shared-edit collision → M-R8 (dissolved by the seam).
 - Markers boundary (VT/SD) → agreed in writing by both panels.
+
+---
+
+## 2026-08-04 — ESCALATIONS RESOLVED (director + program manager)
+
+### E1 — DIRECTOR RULING: capture the definition AND capture the reference
+
+Pointer-only entries ARE definitions. Capture them now, with the redirect
+sentence as `definition_text` (my option (a)). The director added a
+requirement BEYOND what I proposed: **the cross-reference itself must also be
+captured** — every pointer definition emits TWO captures, (1) the definition
+row and (2) a reference/link to its target law/section. The architecture
+already has the seam (`find_citations` is profile-dispatched; Stage 4's
+derivation machinery emits cross-law reference assertions).
+
+**Scope discipline: do NOT build reference plumbing in this sprint.** Where
+the plumbing lives (family rule returns a pointer target → pipeline emits the
+reference) went to core for seam v2, because it hits 32 jurisdictions across
+at least four panels. We PIN THE BEHAVIOUR IN RED TESTS and let the seam
+carry it.
+
+### E1 groundwork — manager probes of the existing reference machinery
+
+I ran the real functions in this worktree before briefing the Planner, so the
+amendment targets facts rather than assumptions:
+
+```
+find_citations('"Enforcement officer" has the meaning given that term in ORS 153.005 (Definitions).')
+  -> []                     # OR
+find_citations('"Governmental body" has the meaning assigned by Section 552.003.')
+  -> ['Section 552']        # TX
+find_citations('The following terms have the meanings assigned by Section 2001.003:')
+  -> ['Section 2001']       # TX 2002.001(4)
+```
+
+Two DISTINCT defects, both must be pinned RED:
+1. **State-code citations are invisible.** `ORS 153.005` yields nothing —
+   `_CITATION_PATTERNS` (us_profile.py:409-419) only knows `N U.S.C. § N`,
+   `Section <digits>`, and `§ <digits>`. No state-code form (ORS/RCW/SDCL…).
+2. **Decimal section numbers are TRUNCATED.** `Section 552.003` becomes
+   `Section 552` because `_SECTION_WORD_RE = \bSection\s+\d+\b` stops at the
+   dot. This is worse than a miss: it emits a reference to a DIFFERENT,
+   existing section. A silently wrong link is exactly the failure class the
+   zero-miss bar exists to prevent, and it affects TX (2,333 pointer rows)
+   and every decimal-numbered jurisdiction.
+
+3. `USProfile.detect_cross_law_derivations` returned **0 edges for all three
+   real pointer idioms** (`has the meaning given that term in`, `has the
+   meaning assigned by`, `have the meanings assigned by`) — its
+   `_TRIGGER_PHRASES` (us_profile.py:443) are only `has the meaning specified
+   in` / `as defined in`. **Caveat, stated honestly:** my two CONTROL probes
+   built from those very phrases ALSO returned 0, so my control construction
+   is probably wrong (the law-name matching likely needs a shape I did not
+   supply). The Planner must determine the correct invocation FIRST and must
+   not write an assertion on top of my probe. The trigger-phrase gap is real;
+   the exact failure mode is not yet established.
+
+### E2 — routed to core for seam v2
+
+SD's enumerated-sibling-sections scope is the same class as AK's multi-chapter
+ranges, which core's M4 already commits to adopt-or-defer-with-recorded-
+fallback. **My rejection of option (b) stands PROGRAM-WIDE: no silent
+law-wide stamps.** If core defers the kind, the row defers WITH a recorded
+fallback — never quietly over-linked.
+
+### Accepted by the program manager
+
+M-R4, M-R5 (incl. the 17.33% metric decomposition), M-R8's parent-redirect
+corollary, and the M-R7 incident retraction (M-R6 matches the program rule).
