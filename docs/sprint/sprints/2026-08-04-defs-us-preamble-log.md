@@ -1713,3 +1713,59 @@ now-stale 190–240-row MS-only estimate).
 
 Every item's CHECK names a real, already-committed test file from this
 sprint's own D2–D4 work — none point at a test that does not yet exist.
+
+---
+
+## 2026-08-04 — Manager: UNBLOCKED, rebased onto main, seam v2.5 re-read
+
+### M-R21 — Core is on main; seam v2.5 re-read before any build
+
+Core merged (`origin/main` @ `0d57228`). Registry is LIVE production code:
+`rules/{__init__,registry,il_scope_triggers,us_scope_trigger_proof}.py`.
+
+Re-read the AUTHORITATIVE seam (`docs/sprint/sprints/2026-08-04-defs-core-scope-seam.md`,
+**v2.5**) rather than building on the v2.2–2.4 we planned against:
+
+- **v2.5 delta**: `Definition.scope_value` is **transient-by-design** — no
+  persisted column, no migration. Our rules produce `DefinitionCandidate`s
+  and scope is recomputed from source text every run, so this does **not**
+  change our rule design. Confirmed, not assumed.
+- **Our rule kind, verified live**: `BodyPreambleRule(jurisdiction_codes,
+  derive_heading: body -> str | None)`, registered via
+  `register_body_preamble_rule`. **Single-valued, FIRST-NON-None-WINS in
+  filename-sort order.** Design consequence for the Developer: one rule
+  returning a heading SUPPRESSES every later rule for that row, so the
+  shapes must be precise, not greedy — a broad catch-all registered early
+  would silently starve the specific ones.
+- **M6 ungated dispatch, director-confirmed.** Baseline runs first
+  (unchanged, still gated on `_is_placeholder_heading`), then registered
+  rules always run if nothing was found. New exposure is confined to rows
+  where baseline finds nothing today — **additive-only, never a regression
+  of a working state**. The seam states explicitly that escalating a
+  measured FP number is **NOT** a request to re-gate; the remedy is
+  narrower rules, never suppressed dispatch. Recorded so nobody later
+  misreads our U6/FP numbers as a gating argument.
+
+### M-R22 — Rebase verified; 7 tests are stale-import, not behavioral
+
+Rebased 22 commits onto main cleanly, no conflicts. Venv refreshed
+(`pip install -e '.[dev]'`); imports verified live: rules package loads,
+`BodyPreambleRule` fields correct, `USProfile.derive_heading_from_body` and
+`.resolve_unit_path` present, `mcp` imports.
+
+Suite: **37 failed / 714 passed** (was 31/661; +53 passes are core's own
+tests arriving on main). Triaged all 37 by failure type rather than assuming:
+
+- **30 behavioral REDs** — failing for the right reason, still specifying
+  unbuilt behavior.
+- **7 stale-import failures** — core deleted `_extract_inline_quoted_
+  definitions` (3), `_is_placeholder_heading` (2), `_derive_heading_from_
+  body` (1), `_BODY_DEFINITIONS_PREAMBLE_RE` (1) from `pipeline.py`, moving
+  them behind `USProfile`, exactly as the seam said it would.
+
+**An ImportError proves nothing about behavior.** Those 7 must be re-pointed
+at the new seam locations before they count as RED-for-the-right-reason —
+otherwise we would ship believing 7 guards are protecting us when they are
+merely erroring. One of them is a NEGATIVE guard (the Montana forwarding-
+reference hazard), so leaving it broken would hide a false-positive class.
+Test repair is Planner role; the Developer never touches tests.
