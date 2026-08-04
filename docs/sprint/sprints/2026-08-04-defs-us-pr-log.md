@@ -2405,3 +2405,69 @@ prior entry — but I want it read carefully rather than skimmed past.
 30609c9 dev: cycle-3 heading-anchored bucket-D rule, idiom widening, ordinary workload (48 RED tests -> green)
 ```
 Branch `claude/defs-us-pr`, pushed to origin.
+
+---
+
+## 2026-08-04 — Manager: cycle-3 verified, ruling M-R9, handing to QA
+
+**Boundaries held**: `pr_profile.py` + this log only. No test, no fixture, no
+shared module. Suite `825 passed, 7 xfailed` with `-rxX` confirming 7 XFAIL
+(6 scope + item 8) and zero XPASS.
+
+**My own full-corpus run** (independent script, exercising BOTH the section
+extractor and the new heading-anchored path):
+
+```
+ground truth 635 | detected 633 | false positives 0
+undetected = exactly the 2 Table-of-Contents rows (correct rejections)
+
+section extractor yield : 529/633 = 83.6%
+heading-anchored rescues:  71
+COMBINED                : 600/633 = 94.8%
+still zero              :  33
+
+terms 5,749 | median 16 | max 104 | >120 chars: 0 | empty: 0
+M-R7 rows: all 0 via BOTH functions — held
+```
+
+**Puerto Rico went from 0% to 94.8%** with zero heading false positives and
+no term fabrication. The director's heading-anchored ruling was the right
+call: it rescued 71 rows on its own, and the Planner's 70-row estimate was
+accurate to one.
+
+### Ruling M-R9 — M-R7 is REFINED, not overturned; the open part goes to QA
+
+The Developer flagged, honestly and unprompted, that his heading-anchored
+rule would have fired on all three M-R7 rows, and that he gated it on
+"no entry markers" to comply with my ruling — while noting that capturing
+e.g. `STATE_PR_RENTAS_SEC2022_01` as ONE clean candidate might be legitimate
+under the spirit of the director's ruling. He also found that this row and
+the required-positive `STATE_PR_RENTAS_SEC2030_03` share **identical heading
+text**, so no heading-shape signal separates them.
+
+He was right to raise it and right not to decide it. My ruling:
+
+- **M-R7 stands as to what it actually decided**: do not fabricate one term
+  per `(a)`/`(b)` item when those items are conditions or subsection labels
+  (`"En General"`). That reasoning is untouched.
+- **M-R7 did NOT decide** whether such a section defines its heading's term
+  once. I over-read my own ruling as "this section defines nothing" when
+  what I proved was "these markers are not terms". `SEC2022_01`'s heading is
+  `Definición de Caudal Relicto Bruto` and its body does define that term —
+  so a single heading-anchored candidate is plausibly a genuine recall win.
+- **Disposition**: the marker-structure gate SHIPS as-is for now (it is
+  principled — bucket D is by definition the no-marker class, and widening
+  the anchored rule to marker-bearing rows changes its risk profile). The
+  open question goes to **QA** to evaluate independently on the real corpus.
+  If QA agrees it is a recall win, it becomes a cycle-4 Planner item — with
+  the test change authored by the Planner, never by the Developer.
+
+### Handing to QA — which has never run
+
+Every verdict in this log so far is Planner + Developer + my own
+verification. That is **not** the independent QA role, and gate **P4**
+formally belongs to QA. QA runs next with a mandate to disagree with all of
+us, including me. Known open item for it: 33 sections still yield zero, and
+several look ordinary rather than accepted-gap (`a) Documento acreditativo -
+significará…`, `Productor. — Es la persona que…`, `Los siguientes términos y
+frases tendrán los significados…`) — I am NOT declaring those done.
