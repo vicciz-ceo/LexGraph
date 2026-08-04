@@ -2402,6 +2402,6 @@ prior entry — but I want it read carefully rather than skimmed past.
 ### Pushed
 
 ```
-<SHA to be filled after commit>
+30609c9 dev: cycle-3 heading-anchored bucket-D rule, idiom widening, ordinary workload (48 RED tests -> green)
 ```
 Branch `claude/defs-us-pr`, pushed to origin.
