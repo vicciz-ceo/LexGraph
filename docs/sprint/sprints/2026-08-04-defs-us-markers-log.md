@@ -1272,3 +1272,30 @@ before them. A future pass must do that before relying on them.
 8. On wake: verify core's dispatch is live on a REAL row (do not trust the
    spec — see U-R5's failure above), re-verify the 3 salvaged test files'
    fixtures byte-for-byte, then Developer, then QA.
+
+---
+
+## M8 — dispatch VERIFIED LIVE; Developer building (2026-08-04)
+
+Rebased onto `origin/main` @ `fbb6c9e` (dispatch sprint merged); all 13 sprint
+commits replayed clean, no conflicts; venv refreshed.
+
+**I did NOT trust the spec this time (the U-R5 lesson).** Two checks:
+1. Accessors now CALLED in production: `heading_`, `body_preamble_`,
+   `entry_splitter_`, `term_clause_`, `scope_trigger_`, `scope_kind_`,
+   `structural_unit_`, `citation_rules_for` — all of them. Was 2 of 7.
+2. **Live probe on a REAL row**: I registered a spy `EntrySplitterRule` for
+   `US-VA` and called `extract_definitions_from_section` on the real
+   `STATE_VA_T23.1_SI_C3_S23.1-300` body. **The spy was invoked — dispatch is
+   LIVE**, not merely wired in source. Baseline still yields 0 on that row, so
+   our RED tests remain behaviorally correct.
+
+**P-R8 closed. Ruling U-R6 (all waves blocked) is LIFTED.** Developer
+dispatched to build the family-3 rule modules.
+
+Routing accepted from the program manager: `STATE_NY_ARPP_A8_S280-D` (NY
+unquoted lettered-paragraph, `"(a) Reverse mortgage loan. A reverse mortgage
+loan as defined…"`) joins our unquoted-term family with DC/NC/AL. Binding
+caveat carried into the Developer brief: **`scope_unit_kind` declarations come
+from each state's OWN measured convention, never the illustrative table**
+(M-D3 erratum, seam v2.7).
