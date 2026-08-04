@@ -435,3 +435,107 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+
+## `d_df_defined_for_rows.json` — director ruling D-DF, `body_confirms` RED fixture (2026-08-04)
+
+7 REAL rows (all 24 original columns, values unmodified), pulled 2026-08-04
+from 5 real state files (`us_ky_statutes.parquet`, `us_ct_statutes.parquet`,
+`us_al_statutes.parquet`, `us_id_statutes.parquet`, `us_nj_statutes.parquet`)
+plus `us_federal_statutes.parquet`, via a disposable scratch venv outside
+`backend/.venv` (same retrieval method as `us_heading_variants_rows.json`
+above — `pyarrow` installed only in the scratch venv; never run by the
+committed test suite, ruling R6). Dataset commit
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (same snapshot as
+`us_heading_variants_rows.json`).
+
+**Director ruling D-DF**: a `defined for` heading (one alternation of the
+closed connector whitelist `for|as|term` inside `_VERB_EXTENDED_RE`,
+`us_heading_variants.py:169`, shipped `a0419a4`) must capture ONLY when the
+**body** also carries a self-definition marker — the bare rule measured
+86–89% precision (below the ~90% floor) across two independent human
+samples plus the manager's own full-population scan (72/110 = 65.5% with a
+detectable marker, 7 cross-reference-only, 31 neither). Program ruling P-R8
+accepted this panel's `body_confirms` design as an additive optional field
+on `HeadingRule`, consumed as `matches(heading) and (body_confirms is None
+or body_confirms(body))` — see
+`backend/tests/unit/test_definition_links_us_heading_variants_d_df.py`'s
+module docstring for the full design rationale (why the module must
+register TWO `HeadingRule`s, not one, and the ordering that makes it safe)
+and the `defines_in_body` predicate spec.
+
+**Confirmed independently**: a full 53-file corpus scan for
+`\bdefined\s+for\b` in `section_title` finds **exactly 110 rows** —
+reproducing the sprint contract's documented figure exactly, on
+independently written code (script not committed, throwaway, same pattern
+as prior evidence scripts).
+
+1. **`STATE_KY_TXVIII_C214_S214.280`** (`214.280 "Mattress" defined for KRS
+   214.290 to 214.310`) — D-DF POSITIVE. Body: `As used in KRS 214.290 to
+   214.310, "mattress" means any mattress, mattress pad or cushion...` — a
+   clean, local `"Term" means` self-definition marker. Must be captured.
+2. **`STATE_CT_T45a_C802c_S45a-502`** (`Sec. 45a-502. (Formerly Sec.
+   45-96a). "Majority" defined for trusts executed prior to October 1,
+   1972.`) — D-DF NEGATIVE (primary, the whole point of the ruling). Full
+   body is two lines: `Annotation to former section 45-96a:\n\nCited. 168
+   C. 144.` — zero defining content of any kind, not even a
+   cross-reference. Almost certainly the same already-documented CT "`text`
+   column omits subsection (a)" data-quality artifact noted elsewhere in
+   this sprint (the real definition of "Majority" likely lives in a
+   missing subsection (a) this corpus's `text` field never captured) — that
+   provenance note does not change the correctness of D-DF's behavior here:
+   whatever body text the production pipeline actually has access to
+   carries no marker, so it must not be captured. Verified live against the
+   shipped (pre-D-DF) module: this heading is captured SOLELY via
+   `_rule_verb_extended`'s `for` alternation — `_rule_sec`, `_rule_mid`,
+   `_rule_verb_bare`, `_rule_trunc`, `_rule_misspell`, and baseline
+   `is_definitions_heading` are all `False` — so gating this one alternation
+   cleanly isolates the fix with no interaction with any other rule.
+3. **`STATE_AL_T43_C8_S43-8-230`** (`Section 43-8-230 Construction of
+   Generic Terms to Accord with Relationships as Defined for Intestate
+   Succession; When Person Born Out of Wedlock Treated as Child of
+   Father`) — D-DF NEGATIVE (secondary). Body is a construction-of-terms
+   RULE about how half-bloods/adoptees/children-born-out-of-wedlock are
+   treated in class-gift terminology for intestate succession — it never
+   itself defines any single quoted term. Same isolation property verified
+   as row 2 (captured solely via the `for` alternation).
+4. **`STATE_ID_T18_C58_S18-5817`** (`18-5817 "ABANDON" DEFINED AS LEAVING TO
+   ATTRACT CHILDREN.`) — blast-radius guard: the sibling whitelist connector
+   `as` must stay UNCONDITIONAL (D-DF touches `for` only). Body:
+   `"Abandon" means leaving unattended and uninclosed such appliance...` —
+   also usable as an additional real positive for the `defines_in_body`
+   predicate itself (bonus, not required by D-DF).
+5. **`USC_T15_C122_S9801`** (`Defined term`) — blast-radius guard: the
+   sibling whitelist connector `term` must stay unconditional. Body:
+   `In this title, the term "COVID–19 public health emergency"— (1) means
+   the public health emergency first declared on January 31, 2020...` — the
+   marker sits past a dash-then-numbered-subclause, a shape deliberately
+   NOT pinned against `defines_in_body` either direction (see the test
+   module's "known limits" note) — this row is used only to prove the
+   `term` connector stays unconditional.
+6. **`STATE_NJ_T58_C16A_S16A-102`** (`"Emergency supplies" defined,
+   regional directory database.`) — blast-radius guard: the comma
+   punctuation form must stay unconditional. Body: `As used in this section
+   "emergency supplies" means, but is not limited to: ...`.
+7. **`STATE_CT_T31_C567_S31-232l`** (`Sec. 31-232l. Ineligibility for
+   extended benefits. Suitable work defined. Duties of State Employment
+   Service.`) — blast-radius guard: the period punctuation form must stay
+   unconditional. Body carries its `"suitable work" means ...` marker deep
+   past an unrelated `(b)` cross-reference to a different section — proves
+   `defines_in_body` must scan the full body text, not a short prefix.
+
+Rows 4–7 also directly answer "must remain unconditional... in both
+directions" for the connector words: `STATE_CO_T22_A33_P1_S22-33-106.3` and
+`STATE_NV_T58_C706_S706.074` (already vendored in
+`us_heading_variants_rows.json` above) supply the OTHER direction — real
+rows already known to be captured unconditionally (R-TRUNC, R-VERB-bare)
+whose bodies carry only a CROSS-REFERENCE marker (`has the same meaning as
+that term is defined in section 19-2.5-102`, `has the meaning ascribed to
+it in NRS 459.7024`) and no self-definition — proving the unconditional
+rule fires without ever consulting `defines_in_body` at all, in contrast to
+the gated `defined for` rule which would (correctly) refuse both.
+
+Colon and dash punctuation forms are not independently re-vendored here:
+D-DF touches only the `for` word alternation, not the punctuation/dash
+branches of `_VERB_EXTENDED_RE` at all, and both are already covered by
+pre-existing regression evidence (BUG2/cycle-2, see the module's own
+docstring) — mechanically unaffected by this change.
