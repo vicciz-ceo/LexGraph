@@ -1,0 +1,48 @@
+# Law System Unit Structures — Merged Dossier
+
+## §1 Per-system table
+
+| System | Hierarchy levels (above unit → sub-unit) | Label syntax | Main unit | Max/typical nesting depth (measured) | Citation shapes (verbatim, counts) |
+|---|---|---|---|---|---|
+| Israel | חלק(185)>פרק(12,449)>סימן(9,564, inconsistent `====` use)>**סעיף**(125,167, 98% files)>סעיף קטן>פסקה>פסקת משנה>... | `= =` wiki headings; `@ N.` article marker; `: (mark)` per colon-depth (mark type not fixed to depth) | **סעיף (article)** | depth-1 202,953 → depth-6 48 (max); typical ≤3 (89%+); >4 is long tail (<2%) | bare `סעיף 5` (70,930); `סעיף N(mark)` (28,451); `סעיף N(mark)(mark)` (8,063); in-scope `סעיף קטן (א)` (24,485) |
+| US states | code/title/division/part/chapter/article/subchapter/act (2–6 levels, varies by state) > **section** | breadcrumb JSON `{type,num,label,name}`; sub-unit markers `(1)/(a)/(A)/(i)` (order varies: OH inverts to alpha-upper/roman-upper primary) | **Section** (formally, every state); subsection de-facto primary in coarse-section states (GA/UT/OH/NC) | sc_max 62 (CA); marker co-occurrence up to 4 levels (GA §48-13-51 `(a)(1)(A)(i)` in first sentence); most sections flat (17–63% "0 levels" by state) | `Section X` bare (dominant); `Section X(a)`; `Section X(a)(2)`; prose "subsection (X) of this section"; PA `(a.1)`/NC `(1a)` insertion units |
+| US federal | title>chapter>(optional)subchapter>**section** (1 row/section) | breadcrumb JSON; parenthetical ladder `(a)>(1)>(A)>(i)>(I)>(aa)>(AA)` — 8 levels incl. section | **Section** nominally (48.6% need nothing finer); **subsection** de-facto main unit in long/coarse sections (word_count median 362, max 129,169; §1395x = 70,893 words, 26 subsections) | full 8-level ladder confirmed at scale down to `(AA)` (443 instances); citation depth: 62% land at 1 level, 27.4% at 2, 8.3% at 3, <2.5% at 4+ | `section N(a)` (82,289, 62.0% of sub-cites); `section N(a)(1)` (36,368, 27.4%); chained to 6 groups (23, rare); 35.4% of all "section N" cites go below section; `cross_references_usc` column loses sub-unit granularity (pipeline gap, not fact) |
+| Puerto Rico | none above row — **Artículo (84.1%) / Sección (15.9%)** is the row/citable unit itself; no separate container rows | inline-only markers `(a)/(1)/(A)/(i)`; label words vary by code family (apartado/inciso/párrafo/cláusula/letra/subinciso) — marker sequence is the only reliable ordinal, not the label word | **Artículo/Sección** (row grain); 55.6% flat, no finer structure stored | marker co-occurrence: flat 55.6%; 1 level ~29%; 2 levels 9.5%; all 4 classes only 196/23,636 (0.8%); sub-units are NOT separate rows — require text-span parsing | bare `Artículo N`/`Sección N` (9,986, ~93.6% of cross-refs); sub-unit form `inciso (X) del Artículo N` (225), `apartado (X) de la Sección N` (337), chained `(5)(d)` (rare, confirms 3rd-level reach) |
+
+## §2 Cross-system comparison — where the main unit differs, and why
+
+All four systems converge on a **numbered provision** (סעיף / Section / Section / Artículo-Sección) as the nominal, universally-present, always-addressable unit — it is what native citation practice targets by default and what each corpus's row/marker grain treats as atomic. But they diverge sharply on whether that unit is *actually* the finest working grain in practice:
+
+- **Israel**: the corpus already stores sub-units as separate wiki-markup lines (colon-depth), so sub-article structure is a first-class, already-parsed feature of the source — not an inference. Main unit (סעיף) is stable because Israeli statutes are drafted at fairly uniform granularity; deep nesting is rare and confined to enumerated definitions.
+- **US states**: the *container* hierarchy above the section varies enormously by state (2–6 levels, different type names) because each state legislature independently designed its code's organizing scheme — no federal template. Below the section, whether it's already atomic or needs subdivision correlates with legislative drafting style (short-section states like TX/CA vs. huge-omnibus-section states like GA/OH), and the extractor's `subsection_count` is unreliable for ~half the states, forcing raw-text parsing.
+- **US federal**: bifurcates cleanly and measurably — 48.6% of sections are terminal at section level, but the long tail (huge sections, e.g. definitions sections like §1395x) pushes the real working unit down to subsection, because USC drafting habitually piles a whole regulatory scheme under one section number and subdivides internally rather than adding new sections.
+- **Puerto Rico**: the row IS the citable unit by construction (no separate sub-unit rows exist at all in the corpus), and over half of PR articles are genuinely flat — but where they're not, sub-structure is invisible to the data model entirely (must be extracted from a single unbroken text blob), unlike Israel/US where at least partial pre-parsing exists.
+
+**Root cause of divergence**: the "unit that never fails to resolve" (article/section) is consistent across all four because it is what native drafters and citers treat as the addressable name. What differs is (a) how much container hierarchy sits above it (Israel's is sparse/optional; US states vary 2-6 levels; US federal is thin; PR has none) and (b) how much sub-structure exists below it and whether the corpus already exposes that sub-structure as parsed data (Israel: yes, extensively) or leaves it embedded in prose requiring parsing (US federal/states: partially; PR: entirely).
+
+## §3 Recommended connection-target model (all systems)
+
+**Model**: `article_row_id + ordered_unit_path[]`, where:
+- `article_row_id` = the corpus's atomic addressable unit (סעיף / Section / Section / Artículo-Sección) — always resolvable, matches every system's dominant bare-citation form.
+- `ordered_unit_path` = an ordered, **optional**, variable-length array of typed marker tokens (not label words), e.g. `["a","1","A","i"]`, capped generously (support ≥4–6 levels) but treated as an overflow/free-text tail beyond that.
+
+Evidence FOR (per system):
+- Israel: 89%+ of real citations resolve within 3 path levels; label marks are position-dependent, not depth-fixed — confirms "ordered array of raw marks," not typed-by-depth slots.
+- US states: cross-refs always anchor to section + path (`Section X(a)(2)`, "subsection (b) of this section"); letter-suffixed insertion units (`(a.1)`, `(1a)`) must be preserved as literal path segments, not coerced to pure alpha/digit typing.
+- US federal: 35.4% of citations already go below section, mostly (62%) exactly 1 level; `cross_references_usc` structured column already demonstrates the risk of NOT keeping the path (it silently drops it — a caution, not a counterargument).
+- PR: only 6.4% of cross-refs use a sub-unit, and marker sequence — not label word — is the only cross-code-family-reliable ordinal signal, directly supporting a raw-marker-token array design.
+
+Evidence AGAINST / caveats: container levels above the article (חלק/פרק/סימן, US state title/chapter/division, US federal title/chapter/subchapter) should NOT be part of the address path — they're sparse/inconsistent (Israel) or highly variable per jurisdiction (US) and are better stored as metadata on the article row, not schema-level path components. Also: for both US states and PR, sub-unit paths often cannot be resolved from pre-existing structured columns (`subsection_count` unreliable/absent) — target resolution requires text-marker parsing as a build step, not a guaranteed lookup.
+
+## §4 Contradictions between reports
+
+1. **"Is the section/article the main unit?" — answered two different ways.** Israel and PR reports both say yes, unambiguously (the row/article is main; sub-units are secondary detail). The US-states and US-federal reports both qualify this into a bifurcation ("formally yes, materially no" for coarse sections) — no report explicitly reconciles why Israel/PR don't need the same caveat despite also having some very long articles/sections. This is a difference in framing/emphasis rather than a hard data conflict, but the dossier should flag it: none of the reports test whether Israel's or PR's own long-article outliers (if any exist) behave like GA §48-13-51 or 42 U.S.C. §1395x — that comparison was never run.
+2. **Marker-order convention "letter then digit" is treated as near-universal in Report 2 (US states) and Report 3 (US federal)**, but Report 3 also notes federal marker order goes `(a)→(1)→(A)→(i)→(I)→(aa)→(AA)` (8 levels) while Report 2 flags Ohio as *inverting* to alpha-upper/roman-upper primary — the two reports don't cross-check whether federal citations ever show the same inversion Ohio shows, leaving it unclear whether "OH is an outlier" or "OH previews a broader federal-family pattern."
+3. **Reliability of pre-parsed subsection counts**: Report 2 (states) and Report 3 (federal) both independently flag `subsection_count` as unreliable/inconsistently populated, but for different reasons — states report it as literally zero for 6/13 states (extractor gap noted in a sprint log), federal report says it undercounts by only capturing top-level `(a)` and not deeper nesting. These are different failure modes bundled under the same column name; a reducer combining both must not treat them as the same defect.
+
+## §5 Escalations (verbatim)
+
+- Report 1 (Israel): "ESCALATION: none — full research completed successfully."
+- Report 2 (US states): no escalation section provided; report proceeds directly to findings.
+- Report 3 (US federal): no escalation section provided; report proceeds directly to findings.
+- Report 4 (Puerto Rico): no escalation section provided; report proceeds directly to findings.

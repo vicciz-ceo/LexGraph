@@ -74,8 +74,16 @@ class _DefinitionCandidate:
     scope: str
     qualifier: str | None = None
     parent_term: str | None = None
-    source_article_number: str | None = None
-    source_chapter: str | None = None
+    # `str | tuple[str, ...] | None`: sprint 2026-08-04-defs-core-scope
+    # (seam v2.1, M9) widens these two legacy fields to also accept an
+    # enumerated/ranged tuple of values, not just one scalar -- existing
+    # callers passing a bare string are completely unaffected.
+    source_article_number: str | tuple[str, ...] | None = None
+    source_chapter: str | tuple[str, ...] | None = None
+    # NEW (seam v2, M4): the generic value field every kind OTHER than
+    # the two legacy ones above (chapter/local) uses -- e.g. "subsection"
+    # (v1), or any new kind a family panel registers (part/siman/...).
+    scope_value: str | tuple[str, ...] | None = None
 
 
 def test_find_term_uses_matches_the_bare_defined_form():
@@ -352,3 +360,142 @@ def test_link_articles_to_definitions_does_not_cross_suppress_duplicate_numbered
     # linked, independently, via their own article_index.
     assert {e.article_index for e in edges} == {0, 1}
     assert len(edges) == 2
+
+
+# --- Sprint 2026-08-04-defs-core-scope (gate C1, seam spec, current as of
+# --- v2.3) -- subsection granularity + generic scope units (M4/M9) ------
+#
+# Behavioral-contract tests, matcher-internal-wiring level (this file's
+# own long-standing isolation convention: local stand-in dataclasses, not
+# the real modules -- see the file's header docstring). The PUBLIC
+# family-panel-facing seam is `profile.resolve_unit_path` (v2.2's unified
+# `UnitPath` retrieval seam, pinned separately in
+# `test_definition_links_profiles.py`); how `link_articles_to_definitions`
+# internally receives per-position structural info from whatever
+# pipeline.py precomputes (below, via `.subsections`/`.structural_units`
+# stub fields) is implementation wiring this file exercises at the
+# BEHAVIOR level, not a second copy of the public `UnitPath` vocabulary.
+# `_DefinitionCandidate.scope_value` is the generic value field (v2 M4);
+# `source_article_number`/`source_chapter` may now ALSO be assigned a
+# tuple of strings for an enumerated/ranged unit (v2.1/v2.2 M9) -- both
+# are exercised below.
+
+
+@dataclass(frozen=True)
+class _Subsection:
+    label: str
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class _ScopeUnit:
+    kind: str
+    value: str
+
+
+def _article_with_subsections(**kwargs):
+    """`_Article` doesn't declare `.subsections`/`.structural_units` in its
+    header dataclass (kept minimal for the pre-existing tests above) --
+    build an equivalent lightweight namespace object with those extra
+    attributes for the new tests below, so `_in_scope`'s generic/subsection
+    branches (reached only via `link_articles_to_definitions`) have
+    something real to read."""
+    from types import SimpleNamespace
+
+    base = dict(chapter=None, subsections=(), structural_units=())
+    base.update(kwargs)
+    return SimpleNamespace(**base)
+
+
+def test_link_articles_to_definitions_respects_subsection_scope_isolation():
+    """A `scope="subsection"` definition must only link a mention whose
+    CHAR OFFSET falls inside the matching labeled `Subsection` of its OWN
+    article -- a mention of the same term elsewhere in the SAME article
+    but a DIFFERENT subsection must not link, even though both subsections
+    belong to the same `.number` (the case v1's plain `"local"` scope
+    cannot express -- C1's genuinely-new-below-article-level granularity)."""
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    term = "מונח מקומי"
+    body = f'סעיף קטן (א): {term} ראשון. סעיף קטן (ב): {term} שני.'
+    subsection_a_end = body.index("סעיף קטן (ב):")
+    article = _article_with_subsections(
+        number="12",
+        heading="נושא",
+        body=body,
+        subsections=(
+            _Subsection(label="a", start=0, end=subsection_a_end),
+            _Subsection(label="b", start=subsection_a_end, end=len(body)),
+        ),
+    )
+    definition = _DefinitionCandidate(
+        terms=(term,),
+        definition_text="...",
+        scope="subsection",
+        source_article_number="12",
+        scope_value="a",
+    )
+
+    edges = link_articles_to_definitions([definition], [article])
+    # Only the occurrence physically inside subsection (a)'s char range may
+    # link -- the occurrence inside subsection (b) must not.
+    assert len(edges) == 1
+    assert edges[0].char_offset < subsection_a_end
+
+
+def test_link_articles_to_definitions_respects_generic_scope_unit_containment():
+    """A registered NON-legacy kind (e.g. `"part"`, M4) is enforced by
+    matching `definition.scope_value` against the owning article's
+    `.structural_units` -- the same mechanism `"chapter"`/`"local"` use
+    via their own dedicated fields, generalized rather than duplicated
+    per kind."""
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    term = "מונח חלקי"
+    in_part_article = _article_with_subsections(
+        number="40",
+        heading="נושא",
+        body=f"{term} מוזכר כאן.",
+        structural_units=(_ScopeUnit(kind="part", value="II"),),
+    )
+    other_part_article = _article_with_subsections(
+        number="41",
+        heading="נושא אחר",
+        body=f"{term} מוזכר גם כאן.",
+        structural_units=(_ScopeUnit(kind="part", value="III"),),
+    )
+    definition = _DefinitionCandidate(
+        terms=(term,), definition_text="...", scope="part", scope_value="II"
+    )
+
+    edges = link_articles_to_definitions([definition], [in_part_article, other_part_article])
+    linked = {e.article_number for e in edges}
+    assert "40" in linked
+    assert "41" not in linked
+
+
+def test_link_articles_to_definitions_respects_enumerated_local_scope():
+    """M9 -- SD 3-14-5-shaped scope: `source_article_number` may be a
+    TUPLE of article numbers (an enumeration, not a single scalar). A
+    mention in ANY enumerated member article links; a mention in a
+    non-member article, even one that shares the same body text, does
+    not."""
+    from app.definition_links.matcher import link_articles_to_definitions
+
+    term = "מונח משותף"
+    member_one = _article_with_subsections(number="3-14-3", heading="א", body=f"{term} כאן.")
+    member_two = _article_with_subsections(number="3-14-4", heading="ב", body=f"{term} גם כאן.")
+    non_member = _article_with_subsections(number="3-14-9", heading="ג", body=f"{term} ושם.")
+    definition = _DefinitionCandidate(
+        terms=(term,),
+        definition_text="...",
+        scope="local",
+        source_article_number=("3-14-3", "3-14-4"),
+    )
+
+    edges = link_articles_to_definitions(
+        [definition], [member_one, member_two, non_member]
+    )
+    linked = {e.article_number for e in edges}
+    assert linked == {"3-14-3", "3-14-4"}

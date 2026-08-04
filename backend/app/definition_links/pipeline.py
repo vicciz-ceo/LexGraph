@@ -18,7 +18,6 @@ an article "1").
 
 from __future__ import annotations
 
-import re
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -27,15 +26,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.definition_links.derivation import strip_year_suffix
-from app.definition_links.extract import (
-    DefinitionCandidate,
-    extract_adhoc_definitions,
-    extract_local_definitions,
-)
+from app.definition_links.extract import DefinitionCandidate
 from app.definition_links.guards import is_bidi_degraded
-from app.definition_links.matcher import link_articles_to_definitions
-from app.definition_links.normalize import normalize_for_parsing, strip_wikilinks
+from app.definition_links.matcher import (
+    definition_covers_mention,
+    link_articles_to_definitions,
+    scope_rank,
+)
+from app.definition_links.normalize import strip_wikilinks
 from app.definition_links.profiles import get_profile
+from app.definition_links.rules.registry import UnitStep
 from app.definition_links.sections import Article as MatcherArticle
 from app.models.article import Article
 from app.models.assertion import Assertion
@@ -55,238 +55,54 @@ _USES_DEFINITION_CONFIDENCE = 0.95
 _DERIVES_RESOLVED_CONFIDENCE = 0.85
 _DERIVES_UNRESOLVED_CONFIDENCE = 0.5
 
-# Stage 1.2's chapter-scoping triggers -- a הגדרות section is chapter-
-# scoped only when its own opening line explicitly restricts it (e.g.
-# "לענין עבירה -", "בסימן זה -"); otherwise it defaults to law-wide, even
-# when the section itself happens to sit under a `==` chapter heading.
-_CHAPTER_SCOPE_TRIGGERS = (
-    "לענין פרק זה",
-    "לענין סימן זה",
-    "לענין עבירה",
-    "בפרק זה",
-    "בסימן זה",
-)
+
+def _serialize_unit_path(path) -> str:
+    """`UnitPath` -> a compact string (`"kind:value>kind:value"`) for
+    `Assertion.subject_unit_path` -- the D-ANCHOR retrieval seam's
+    storage shape (v2.2 §6 Option A: additive text column, no new
+    entity)."""
+    return ">".join(f"{step.kind}:{step.value}" for step in path)
 
 
-# --- Wave 6 (sprint 2026-08-02-us-state-law, ruling R12): placeholder-
-# heading jurisdictions (California, Illinois, Georgia) -----------------
-#
-# For these three states `Article.heading` (sourced from the dataset's
-# `section_title` column) is a bare placeholder that carries NO real
-# heading text at all -- real examples:
-#
-#   Illinois:   "Section 15"
-#   California: "Section 22970.21"
-#   Georgia:    "Georgia Code Title 45. Public Officers and Employees
-#                 § 45-2-20"    (a reconstructed citation breadcrumb --
-#                 "Public Officers and Employees" is the TITLE's name,
-#                 repeated verbatim across every section under that
-#                 title, not this section's own heading)
-#
-# The genuine heading, when one exists, lives at the START of the
-# article's own body text instead -- real Illinois shape:
-#
-#   "(325 ILCS 7/15) (Section scheduled to be repealed on January 1,
-#    2027) Sec. 15. Definitions. As used in this Act: \"Bias-free\"
-#    means ..."
-#
-# `_is_placeholder_heading` recognizes ONLY the bare-placeholder shape
-# itself (never a genuine, even terse, heading like DE's "Employer Match
-# Plan" or FL's "941.34 Definition of “state.”" -- both carry
-# real words of their own and never match either pattern below), so the
-# body-derivation fallback below can NEVER fire for a heading that
-# already means something -- it is only ever attempted after the
-# ordinary `profile.is_definitions_heading(heading)` check has already
-# returned False AND the heading itself is proven to carry no
-# information. This is what keeps the 7 states already working off
-# `section_title` (DE/NY/TX/FL/OH/PA/WA, 0.5-10.3% miss, 0 false
-# positives) byte-for-byte unaffected -- their headings never match
-# either pattern (verified against all 4 real files' full section_title
-# columns, not merely asserted).
-_BARE_SECTION_LABEL_RE = re.compile(r"^Section\s+\d[\w.\-]*\.?$", re.IGNORECASE)
-_BARE_CITATION_LABEL_RE = re.compile(
-    r"^.+\bCode Title\s+\d+[A-Za-z]?\.\s+.+§\s*[\w.\-]+\.?$", re.IGNORECASE
-)
+def _deserialize_unit_path(serialized: str | None):
+    if not serialized:
+        return ()
+    steps = []
+    for chunk in serialized.split(">"):
+        kind, _, value = chunk.partition(":")
+        steps.append(UnitStep(kind=kind, value=value))
+    return tuple(steps)
 
 
-def _is_placeholder_heading(heading: str) -> bool:
-    """True when `heading` carries no real descriptive text of its own --
-    either a bare `"Section 15"` / `"Section 22970.21"` label (real
-    Illinois/California shape -- the token right after "Section" must
-    start with a digit, so a genuine heading that merely happens to start
-    with the word "Section", e.g. a real NY row's `"Section Captions"`,
-    is never mistaken for a placeholder), or a reconstructed
-    `"<Jurisdiction> Code Title <N>. <Title name> § <section>"` citation
-    breadcrumb (real Georgia shape). Both regexes are anchored/bounded
-    with no nested quantifier over an alternation, so this stays a single
-    linear-time scan of `heading` regardless of input shape.
+def get_mention_unit_paths(session: Session, assertion_id: str) -> list:
+    """Retrieval seam (director ruling D-ANCHOR, seam spec v2.2 §6 /
+    v2.4, Option A -- final): returns every sub-article `UnitPath`
+    recorded for a `USES_DEFINITION` assertion's own mention. Today, at
+    most one entry (the mention that first created this row -- Stage 3's
+    existing dedup key is unaffected by this sprint, so a later,
+    duplicate-keyed mention's own path is not separately retained).
+
+    This is the STABLE contract a consumer reads through -- whatever the
+    eventual storage shape (an additive column today; a possible `Unit`
+    entity later, per D-ANCHOR's own explicit "later-phase possibility"),
+    never a raw column name/type a consumer should depend on directly.
     """
-    if not heading:
-        return False
-    return bool(_BARE_SECTION_LABEL_RE.match(heading) or _BARE_CITATION_LABEL_RE.match(heading))
+    assertion = session.get(Assertion, assertion_id)
+    if assertion is None:
+        return []
+    return [_deserialize_unit_path(assertion.subject_unit_path)]
 
 
-# Bounds how far into the body `_derive_heading_from_body` looks -- a
-# fixed, small window keeps this a bounded-cost scan regardless of how
-# long the article's full body text is (the body of a real US statute
-# section can run to several KB).
-_BODY_HEADING_SEARCH_WINDOW = 400
-
-# Real Illinois/scrape-noise bodies open with one or more parenthetical
-# asides before the genuine "Sec. N. Heading." sentence -- e.g.
-# "(325 ILCS 7/15) (Section scheduled to be repealed on January 1, 2027)
-#  Sec. 15. Definitions. ...". A single quantifier over a fixed,
-# non-nested group (bounded to 4 repeats, each aside capped at 200 chars)
-# -- no alternation-in-nested-quantifier, so no backtracking blowup.
-_LEADING_PARENTHETICAL_RE = re.compile(r"^\s*(?:\([^()]{0,200}\)\s*){0,4}")
-
-# The genuine embedded heading convention (Illinois): "Sec[tion] <N>.
-# Definitions[.]" -- matched only immediately after the leading-
-# parenthetical noise at the very START of the body (via `.match(window,
-# pos)`, not `.search`), so a MID-body reference to some OTHER section's
-# definitions ("...as required by Sec. 10. Definitions...") is never
-# mistaken for this article's own heading.
-_BODY_EMBEDDED_HEADING_RE = re.compile(
-    r"Sec(?:tion)?\.?\s+[\w.\-]+\.\s*Definitions?\b\.?",
-    re.IGNORECASE,
-)
-
-# The definitions-PREAMBLE convention (California/Georgia real shape --
-# these two states have no embedded "Sec. N. Heading." sentence at all;
-# the body opens directly with the substantive preamble), e.g. real:
-#   "Unless the context otherwise requires, the definitions in this
-#    article govern the construction of this chapter."
-#   "For purposes of this chapter, the following definitions apply: ..."
-# Bounded, non-greedy quantifiers (`.{0,80}?`, `.{0,120}?`) cap the total
-# scan cost at a small constant regardless of body length -- no unbounded
-# `.*`, so no catastrophic-backtracking surface. The lookahead requires
-# "definition(s)" to be followed, within a short bounded gap, by a verb
-# that only shows up in a genuine "these ARE the definitions for this
-# text" preamble (appl(y/ies/ied), govern, shall apply) -- a passing
-# mention like "...meets the definition of a licensee..." (no such verb
-# nearby) correctly does NOT match. The captured span ends at
-# "definition(s)" itself (not the verb), so the returned string's own
-# LAST word is "Definitions" -- exactly what `is_definitions_heading`'s
-# last-word rule checks.
-_BODY_DEFINITIONS_PREAMBLE_RE = re.compile(
-    r"^.{0,80}?\bDefinitions?\b(?=.{0,120}?\b(?:appl(?:y|ies|ied)|govern|shall\s+apply)\b)",
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-def _derive_heading_from_body(body: str) -> str | None:
-    """Derive the article's real heading from the START of `body`, for a
-    jurisdiction whose `section_title` is a bare placeholder (wave 6,
-    ruling R12).
-
-    Tries, in order:
-
-    1. The Illinois embedded-heading convention -- real:
-       `"(325 ILCS 7/15) (Section scheduled to be repealed on January 1,
-        2027) Sec. 15. Definitions."` -> returns everything through
-       "Definitions." (this substring, fed to `is_definitions_heading`,
-       matches via its last-word rule regardless of the messy prefix,
-       since only the token immediately before "Definitions" is checked
-       against a small preposition list).
-    2. The California/Georgia definitions-preamble convention -- real:
-       `"Unless the context otherwise requires, the definitions"` (from
-       "...the definitions in this article govern the construction of
-       this chapter.") or `"For purposes of this chapter, the following
-       definitions"` (from "...the following definitions apply: ...").
-
-    Returns `None` when neither convention is found in the leading
-    `_BODY_HEADING_SEARCH_WINDOW` characters of `body` -- e.g. an ordinary
-    (non-definitions) placeholder-headed section never derives a
-    heading, so it falls through to the same Hebrew local/adhoc fallback
-    an ordinary non-definitions article always has.
-    """
-    window = body[:_BODY_HEADING_SEARCH_WINDOW]
-
-    noise_match = _LEADING_PARENTHETICAL_RE.match(window)
-    embedded_match = _BODY_EMBEDDED_HEADING_RE.match(window, noise_match.end())
-    if embedded_match is not None:
-        return window[: embedded_match.end()]
-
-    preamble_match = _BODY_DEFINITIONS_PREAMBLE_RE.match(window)
-    if preamble_match is not None:
-        return window[: preamble_match.end()]
-
+def _article_by_number(doc_articles, number: str) -> Article | None:
+    """First `Article` ORM row in `doc_articles` (a same-document
+    `[(Article, MatcherArticle), ...]` list) whose `.number == number` --
+    used ONLY for resolving a pointer definition's internal (same-law)
+    target (seam spec v2.1 §4), a generic same-document lookup, not a
+    jurisdiction-specific one."""
+    for art, _ in doc_articles:
+        if art.number == number:
+            return art
     return None
-
-
-# A quoted defined term (straight or curly double quotes), real US
-# statutory drafting shape for CA/IL/GA's placeholder-heading bodies --
-# these have NO "(N)"-numbered-paragraph structure at all (unlike DE's
-# fixture shape, which `USProfile.extract_definitions_from_section`
-# already handles), just an inline run of `"Term" means ...` sentences,
-# e.g. real Illinois:
-#   "... As used in this Act: \"Bias-free\" means to review a case file
-#    ... \"BIPOC\" means people who are members of ..."
-# Bounded to 200 chars per term so a single unterminated quote can't force
-# an unbounded scan.
-_QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
-
-# Whether a quoted span is a genuine defined-TERM marker (as opposed to a
-# quoted phrase appearing somewhere INSIDE another entry's own definition
-# text) -- checked by looking for a "means"/"shall mean"/"has the
-# meaning" idiom within a bounded gap after the closing quote, with NO
-# other quote character in between (so a later quoted phrase belonging to
-# the CURRENT entry's own definition text is never mistaken for the next
-# entry's term). Real Illinois shape has both the immediate case
-# (`"BIPOC" means ...`) and a delayed case with an intervening clause
-# (`"Immediate and urgent necessity", in accordance with Section 5 ...,
-#  means (i) ...`) -- the bounded, non-greedy `{0,200}?` gap covers both
-# without unbounded backtracking.
-_MEANS_IDIOM_GAP_RE = re.compile(
-    r'^[^"“”]{0,200}?\b(?:means|shall mean|has the meaning)\b:?\s*',
-    re.IGNORECASE,
-)
-
-
-def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[DefinitionCandidate]:
-    """Extract `(term, definition)` pairs from a placeholder-heading
-    jurisdiction's Definitions-section body composed of inline `"Term"
-    means ...` sentences with NO numbered-paragraph markers -- the real
-    Illinois/California/Georgia shape that
-    `USProfile.extract_definitions_from_section`'s `"(N)"`-block splitter
-    cannot parse (there are no `"(N)"` markers to split on at all).
-
-    Only used as a FALLBACK, after `profile.extract_definitions_from_
-    section` has already been tried and returned nothing for this body --
-    some real CA/GA sections DO use a numbered-paragraph structure the
-    profile's own extractor already handles; this only covers the
-    remaining inline-sentence shape, and only for articles reached via
-    `_derive_heading_from_body` (never for the 7 states already working
-    off their own `section_title`, so this is zero-risk for them).
-
-    A quoted span only starts a new entry when it is followed (within a
-    bounded gap, no intervening quote) by a defining idiom
-    (`_MEANS_IDIOM_GAP_RE`) -- a quoted phrase inside another entry's own
-    definition prose is correctly left alone. Each entry runs from its own
-    term through to the START of the next recognized entry (or end of
-    text).
-    """
-    entries: list[tuple[str, int, int]] = []
-    for term_match in _QUOTE_TERM_RE.finditer(text):
-        gap = text[term_match.end() : term_match.end() + 200]
-        means_match = _MEANS_IDIOM_GAP_RE.match(gap)
-        if means_match is None:
-            continue
-        term = term_match.group(1).strip()
-        if not term:
-            continue
-        entries.append((term, term_match.start(), term_match.end() + means_match.end()))
-
-    candidates: list[DefinitionCandidate] = []
-    for index, (term, start, definition_start) in enumerate(entries):
-        end = entries[index + 1][1] if index + 1 < len(entries) else len(text)
-        definition_text = text[definition_start:end].strip()
-        if not definition_text:
-            continue
-        candidates.append(
-            DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
-        )
-    return candidates
 
 
 class UnknownMatterError(ValueError):
@@ -299,13 +115,6 @@ class UnknownMatterError(ValueError):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _determine_scope(body_text: str) -> str:
-    first_line = next((ln for ln in body_text.splitlines() if ln.strip()), "")
-    if any(trigger in first_line for trigger in _CHAPTER_SCOPE_TRIGGERS):
-        return "chapter"
-    return "law-wide"
 
 
 def run_definition_linking(
@@ -374,7 +183,8 @@ def run_definition_linking(
         if is_bidi_degraded(raw_body):
             skipped_degraded_article_ids.append(art.id)
             continue
-        normalized = normalize_for_parsing(raw_body)
+        profile = _profile_for_document(art.document_id)
+        normalized = profile.normalize_for_parsing(raw_body)
         stripped_body, _hints = strip_wikilinks(normalized)
         live_articles.append(
             (art, MatcherArticle(number=art.number, heading=art.heading, body=stripped_body, chapter=art.chapter))
@@ -391,54 +201,34 @@ def run_definition_linking(
         # `section_title` (`Article.heading`), so the check above always
         # returns False for them even when the article genuinely IS a
         # Definitions section -- try deriving the real heading from the
-        # body instead, but ONLY when the heading is proven to carry no
-        # information of its own (`_is_placeholder_heading`) and never
-        # for Hebrew (`profile.code == "IL"`, the Israeli jurisdiction --
-        # unrelated to the US "US-IL" Illinois code). This ordering means
-        # the derivation attempt only ever runs for an article that was
-        # ALREADY going to fall through to the (always-empty-for-English)
-        # Hebrew local/adhoc path below -- a heading that already matched
-        # the ordinary check is completely untouched, so the 7 states
-        # already working off `section_title` are byte-for-byte
-        # unaffected (verified against DE/NY/TX/FL/OH/PA/WA's real
-        # `section_title` columns -- see the developer report).
+        # body instead (`profile.derive_heading_from_body`, C2/C3: moved
+        # behind the profile seam; `HebrewProfile`'s own implementation is
+        # always `None`, so this is naturally a no-op for Hebrew with no
+        # jurisdiction-code check needed here). This ordering means the
+        # derivation attempt only ever runs for an article that was
+        # ALREADY going to fall through to the ordinary-article path
+        # below -- a heading that already matched the ordinary check is
+        # completely untouched, so the 7 states already working off
+        # `section_title` are byte-for-byte unaffected.
         used_body_derived_heading = False
-        if (
-            not is_definitions_section
-            and profile.code != "IL"
-            and _is_placeholder_heading(art.heading)
-        ):
-            derived_heading = _derive_heading_from_body(matcher_article.body)
+        if not is_definitions_section:
+            derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
             if derived_heading is not None and profile.is_definitions_heading(derived_heading):
                 is_definitions_section = True
                 used_body_derived_heading = True
 
         if is_definitions_section:
-            scope = _determine_scope(matcher_article.body)
+            scope = profile.determine_scope(matcher_article.body)
             section_candidates = profile.extract_definitions_from_section(
-                matcher_article.body, scope=scope
+                matcher_article.body, scope=scope, heading_was_derived=used_body_derived_heading
             )
-            # The profile's own extractor expects a "(N)"-numbered-
-            # paragraph body (DE's real shape); CA/IL/GA's placeholder-
-            # heading bodies are often an inline `"Term" means ...` run
-            # with no numbering at all, which yields zero candidates from
-            # that extractor -- fall back to the inline-quote extractor
-            # ONLY for a body-derived article (never for the 7 already-
-            # working states, whose bodies keep using the profile's own
-            # extractor exclusively, unchanged).
-            if not section_candidates and used_body_derived_heading:
-                section_candidates = _extract_inline_quoted_definitions(
-                    matcher_article.body, scope=scope
-                )
             for candidate in section_candidates:
                 candidate.source_chapter = art.chapter if scope == "chapter" else None
                 all_candidates.append((candidate, art))
         else:
-            for candidate in extract_local_definitions(matcher_article.body):
-                candidate.source_article_number = art.number
-                all_candidates.append((candidate, art))
-            for candidate in extract_adhoc_definitions(matcher_article.body):
-                candidate.source_article_number = art.number
+            for candidate in profile.extract_local_scope_definitions(
+                matcher_article.body, article_number=art.number, chapter=art.chapter
+            ):
                 all_candidates.append((candidate, art))
 
     # Persist Definitions -- idempotent: reuse an existing Definition row
@@ -526,6 +316,7 @@ def run_definition_linking(
             subject_entity_id=fields["subject_entity_id"],
             object_entity_type=fields.get("object_entity_type"),
             object_entity_id=fields.get("object_entity_id"),
+            subject_unit_path=fields.get("subject_unit_path"),
             origin=_ORIGIN,
             status=_STATUS,
             author_user_id=triggered_by_user_id,
@@ -569,41 +360,95 @@ def run_definition_linking(
         doc_candidates = candidates_by_document.get(document_id, [])
         if not doc_candidates:
             continue
-        term_to_definition: dict[str, Definition] = {}
+        # Sprint 2026-08-04-defs-core-scope, seam spec's attribution fix
+        # (v2.1, generalized by v2.2 §3's "narrowest governs = longest
+        # matching prefix"): group by TERM, not a flat last-write-wins
+        # `{term: Definition}` dict -- today's dict collapses every
+        # Definition row sharing a bare term string into ONE entry per
+        # document, a latent bug for chapter-scoped Hebrew dupes made
+        # COMMON by subsection/enumerated scoping (the same term name
+        # routinely redefined per-article/per-subsection in real US
+        # statutes). Each edge below is re-resolved against EVERY
+        # candidate sharing its term, not just whichever was seen last.
+        candidates_by_term: dict[str, list[tuple[DefinitionCandidate, Definition]]] = defaultdict(
+            list
+        )
         for candidate, definition_row in doc_candidates:
             for term in candidate.terms:
-                term_to_definition[term] = definition_row
+                candidates_by_term[term].append((candidate, definition_row))
         matcher_arts = [matcher_article for _, matcher_article in doc_articles]
+        profile = _profile_for_document(document_id)
 
         edges = link_articles_to_definitions(
             [c for c, _ in doc_candidates],
             matcher_arts,
-            profile=_profile_for_document(document_id),
+            profile=profile,
         )
         for edge in edges:
-            definition_row = term_to_definition.get(edge.term)
             # DL11 (cycle 2, G5, ruling M9(a)): resolve by the edge's
             # POSITION within `doc_articles`, not by a `{number: article}`
             # dict -- a document can contain more than one `@ N.` marker
             # sharing the same `N` (poc-run.md §8 Issue 1), so a number-keyed
             # lookup can silently misattribute to the wrong duplicate.
-            using_article = (
-                doc_articles[edge.article_index][0]
+            using_article_pair = (
+                doc_articles[edge.article_index]
                 if 0 <= edge.article_index < len(doc_articles)
                 else None
             )
-            if definition_row is None or using_article is None:
+            if using_article_pair is None:
                 continue
-            _create_assertion(
-                assertion_type="USES_DEFINITION",
-                proposition=f'Article {using_article.number} uses the definition of "{edge.term}".',
-                subject_entity_type="Article",
-                subject_entity_id=using_article.id,
-                object_entity_type="Definition",
-                object_entity_id=definition_row.id,
-                confidence=_USES_DEFINITION_CONFIDENCE,
-                jurisdiction=document_jurisdictions.get(using_article.document_id),
+            using_article, using_matcher_article = using_article_pair
+
+            # Narrowest-governs precedence (director ruling, seam spec
+            # v2.2 §3): collect every candidate definition sharing this
+            # edge's term that genuinely covers THIS mention's own
+            # article+position; keep only those at the MINIMUM (narrowest)
+            # scope rank. Equal-rank ties ALL survive -- deliberate,
+            # zero-miss-safe (ruling M10), pinned live by
+            # `test_two_same_rank_local_scoped_definitions_that_tie_both_
+            # get_a_uses_definition_assertion_live`.
+            covering = [
+                (definition_row, scope_rank(candidate.scope))
+                for candidate, definition_row in candidates_by_term.get(edge.term, [])
+                if definition_covers_mention(
+                    candidate, using_matcher_article, edge.char_offset, profile=profile
+                )
+            ]
+            if not covering:
+                continue
+            min_rank = min(rank for _, rank in covering)
+            seen_definition_ids: set[str] = set()
+            governing_definitions: list[Definition] = []
+            for definition_row, rank in covering:
+                if rank != min_rank or definition_row.id in seen_definition_ids:
+                    continue
+                seen_definition_ids.add(definition_row.id)
+                governing_definitions.append(definition_row)
+
+            # D-ANCHOR (director ruling, final -- seam spec v2.2 §6/v2.4,
+            # Option A): the mention's own sub-article `UnitPath`, stored
+            # alongside the (unchanged-shape) whole-Article-subject
+            # assertion -- a retrieval seam (`get_mention_unit_paths`),
+            # never a storage-shape commitment a consumer should depend on.
+            mention_unit_path = profile.resolve_unit_path(
+                using_matcher_article, char_offset=edge.char_offset
             )
+            serialized_unit_path = _serialize_unit_path(mention_unit_path) or None
+
+            for definition_row in governing_definitions:
+                _create_assertion(
+                    assertion_type="USES_DEFINITION",
+                    proposition=(
+                        f'Article {using_article.number} uses the definition of "{edge.term}".'
+                    ),
+                    subject_entity_type="Article",
+                    subject_entity_id=using_article.id,
+                    object_entity_type="Definition",
+                    object_entity_id=definition_row.id,
+                    confidence=_USES_DEFINITION_CONFIDENCE,
+                    jurisdiction=document_jurisdictions.get(using_article.document_id),
+                    subject_unit_path=serialized_unit_path,
+                )
 
     # Stage 4: cross-law derivations. `known_law_titles` covers every
     # Document ingested into this matter, keyed by its year-stripped
@@ -620,15 +465,45 @@ def run_definition_linking(
                 candidate.definition_text, source_term=term, known_law_titles=known_law_titles
             )
             for derivation_edge in derivation_edges:
-                resolved_id = derivation_edge.target_law_id
-                if resolved_id is not None:
-                    object_entity_type: str | None = "Document"
-                    object_entity_id: str | None = resolved_id
-                    confidence = _DERIVES_RESOLVED_CONFIDENCE
+                # Pointer definitions, internal (same-law) targets (seam
+                # spec v2.1 §4, director ruling -- no persisted pointer
+                # field, ever; a consumer determines pointer-ness only by
+                # checking whether a DERIVES_FROM_LAW assertion exists
+                # with subject_entity_id equal to the Definition's own
+                # id). `internal_article_number` (set only for a
+                # whole-definition pointer whose trigger+citation match
+                # consumed the ENTIRE definition_text) redirects to an
+                # Article-targeted edge in the SAME document, resolved
+                # the same way Stage 3 already resolves same-document
+                # article numbers -- reusing DERIVES_FROM_LAW UNCHANGED
+                # as an assertion type (verified, not a new entity-type
+                # vocabulary concept).
+                internal_article_number = getattr(
+                    derivation_edge, "internal_article_number", None
+                )
+                if internal_article_number is not None:
+                    target_article = _article_by_number(
+                        articles_by_document.get(owning_art.document_id, []),
+                        internal_article_number,
+                    )
+                    if target_article is not None:
+                        object_entity_type: str | None = "Article"
+                        object_entity_id: str | None = target_article.id
+                        confidence = _DERIVES_RESOLVED_CONFIDENCE
+                    else:
+                        object_entity_type = None
+                        object_entity_id = None
+                        confidence = _DERIVES_UNRESOLVED_CONFIDENCE
                 else:
-                    object_entity_type = None
-                    object_entity_id = None
-                    confidence = _DERIVES_UNRESOLVED_CONFIDENCE
+                    resolved_id = derivation_edge.target_law_id
+                    if resolved_id is not None:
+                        object_entity_type = "Document"
+                        object_entity_id = resolved_id
+                        confidence = _DERIVES_RESOLVED_CONFIDENCE
+                    else:
+                        object_entity_type = None
+                        object_entity_id = None
+                        confidence = _DERIVES_UNRESOLVED_CONFIDENCE
                 proposition = (
                     f'"{derivation_edge.source_term}" {derivation_edge.trigger_phrase} '
                     f"{derivation_edge.matched_text}"

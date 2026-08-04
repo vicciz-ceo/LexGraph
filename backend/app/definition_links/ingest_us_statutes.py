@@ -76,11 +76,25 @@ document + the same `act_id` always produces the same `Article.id`, so:
     definition.source_chapter` cross-reference matching, or
     `is_definitions_heading`'s heading-text matching (both operate on the
     row's real values elsewhere in the pipeline and are not owned by this
-    module). `SourceSpan.quote_text` likewise stays byte-identical to the
-    row's real `text` -- nothing synthetic is appended to it either, since
-    it is downstream input to definitions extraction (`pipeline.py`) and to
-    evidence display; corrupting it to smuggle in a disambiguator would
-    have traded one silent-merge bug for a silent-corruption one.
+    module). `SourceSpan.quote_text` stays byte-identical to the row's real
+    `text` in every other respect -- nothing synthetic is appended to it,
+    since it is downstream input to definitions extraction (`pipeline.py`)
+    and to evidence display; corrupting it to smuggle in a disambiguator
+    would have traded one silent-merge bug for a silent-corruption one. The
+    ONE exception (sprint 2026-08-04-defs-core-scope, item I8/M14) is the
+    literal-`\n` line-break unescape applied below: some source files
+    (verified against the real `us_ny_statutes.parquet` snapshot, 40,102/
+    40,102 rows) store line breaks as the literal two-character sequence
+    backslash + "n" rather than a real newline byte, which makes
+    `us_profile.py`'s `_split_into_numbered_blocks` (`text.split("\n")`,
+    a REAL newline) see the whole body as one unsplittable line and yields
+    zero definition candidates corpus-wide. That normalization is applied
+    here, at ingest, rather than in the shared `normalize_for_parsing` --
+    this module has no IL/Hebrew call site, so the fix is off Hebrew's call
+    path by construction, not merely untouched by today's test suite. It is
+    a no-op for source files that already store real newlines (verified
+    against `de_sample_rows.parquet`: 0/3 rows contain the literal
+    sequence).
 
 A row missing (or with `None`/empty) `act_id` cannot be identified at all --
 `citation` came close to 100% but had 1 real duplicate pair in the one file
@@ -215,6 +229,12 @@ def ingest_us_statute_rows(
                 {"act_id": act_id, "reason": "missing required 'text' column"}
             )
             continue
+
+        # M14/I8: unescape the literal `\n` two-character sequence to a
+        # real newline byte before it becomes `SourceSpan.quote_text` --
+        # see the module docstring's "ONE exception" paragraph. A no-op
+        # when the row already stores real newlines.
+        text = text.replace("\\n", "\n")
 
         chapter = row.get("chapter") or ""
         number = str(row.get("section_number"))

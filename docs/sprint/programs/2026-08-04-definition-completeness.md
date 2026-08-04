@@ -109,7 +109,7 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 
 | Sprint | Branch | Scope | Merge order |
 |---|---|---|---|
-| `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | Scope-restricted linking at article/subsection/chapter granularity; profile-dispatched scope triggers; extraction moved behind the seam; per-jurisdiction rule registry | **1 — critical path; everyone builds behind its published seam spec** |
+| `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | **MERGED to main @ 06d67d8** (2026-08-04): 11/11 items, 2 QA cycles, evaluator 700/0/165/tsc-clean, program-manager merge checklist run (containment probe, risk-classed diff read incl. full persistence hunks, own evaluator run). Authoritative seam = v2.5 in `2026-08-04-defs-core-scope-seam.md` — family panels MUST re-read it (they planned against v2.2-2.4) | **DONE** |
 | `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
 | `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
 | `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | Family 2: body preamble without the literal word "Definitions" (GA/MD/NE/MS zero-signal states + SD-dominant + low-volume everywhere) | 2+ (after core) |
@@ -122,11 +122,138 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 Working-baseline regression-guard states for every US sprint:
 IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
 
-## Standing questions for the director
+## Director rulings during execution (AskUserQuestion — binding)
 
-- **Q-1 (open):** when zero-miss and zero-false-positive conflict on a
-  specific convention (e.g. Georgia's headingless preamble), which yields?
-  Panels escalate each conflict class with real statute examples.
+- **D-E1 (2026-08-04): narrowest scope governs.** A mention inside multiple
+  definitions' scopes links ONLY to the narrowest (subsection > article/local
+  > chapter/part > law-wide); the general definition still fires wherever no
+  narrower one was detected. Authorizes the core panel's attribution-bug fix
+  (edges must carry their authorizing definition).
+- **D-Q1 (2026-08-04): recall-vs-false-positive conflicts escalate per class
+  with data.** No standing winner; each conflict class comes to the director
+  with real examples and measured counts. (Q-1 closed.)
+- **D-PR-A (2026-08-04): PR prose definitions get a narrow heading-anchored
+  rule** (headings naming the term, e.g. "Bienes; definición"); anchor-less
+  residue is enumerated by act_id as a documented gap. PR sprint is NOT
+  blocked.
+- **D-MT-E1 (2026-08-04): pointer-only cross-references ARE definitions —
+  capture now, AND capture the reference.** (Director, verbatim intent: "the
+  architecture should be such that you can capture it, and the code should
+  already refer to the other law/section because it is mentioned. Then
+  capture now, and make sure the reference is captured too.") Every pointer
+  definition = the definition row + a captured reference/link to its target
+  law/section (incl. internal same-law section targets). Seam plumbing in
+  core v2; affects 7,610 rows / 32 jurisdictions across four panels.
+  **Clarified (director, 2026-08-04): NO typed "pointer" field — ever.** The
+  reference edge connecting the definition to the law/section it mentions IS
+  the typing; the connection itself carries the semantics. No schema field,
+  no follow-up item for one.
+- **D-ANCHOR (2026-08-04): path now, graph nodes later.** Assertions anchor
+  at the row-level unit (סעיף/Section/Artículo — the unit every system's
+  citations anchor at, per the unit research) plus a structured subsection
+  path of arbitrary depth. If sub-unit graph traversal becomes a product
+  need, referenced subsections get promoted to first-class nodes in a later
+  phase — additive, no rewrite. (Supersedes the provisional Option-C ruling;
+  now final.)
+- **D-PREAMBLE-ALL (2026-08-04): ALL states get researched AND coded.**
+  (Director, verbatim: "I explicitly asked researching and writing code for
+  all of the states.") No jurisdiction stays uninventoried: the preamble
+  QA's corpus-wide candidate population (7,383 rows: 1,468 gated + 5,915
+  ungated-only, per-state table in the preamble sprint log) is the
+  worklist. Every state's BLOCK-shaped preamble conventions get inventoried
+  and captured by the preamble panel; CLAUSE-shaped rows route to
+  scoped-inline with data; dispatch is ungated (core M6 confirmed at
+  director level); precision is protected by inventoried per-state rules +
+  negative guards, with conflicts escalated per D-Q1 — not by leaving
+  states dark.
+- **D-UNITS (2026-08-04): connections target the law system's MAIN UNIT —
+  subsections, not necessarily articles.** (Director, verbatim intent: "We
+  want the connections to subsections, not necessarily to articles. In some
+  law systems the article is a small enough unit; in some, subsections are
+  the main unit, and every subsection may have its own subsections. Research
+  what is the main unit in each law system.") Connection targets (definition
+  anchors, reference targets, mention anchors) must support recursive
+  sub-article unit paths; each jurisdiction profile declares its system's
+  main working unit, fed by the unit-structure research (workflow
+  `wf_db6cce4d-7eb`, 4 systems: IL / US states / US federal / PR). Core's
+  v2.1 unit machinery serves both scope containment AND connection
+  addressing.
+
+## Program rulings added during execution
+
+- **D-DF (director, 2026-08-04): the "defined for" heading rule ships
+  BODY-CONFIRMED** — capture only when the body also carries a defining
+  marker (72+ genuine of 110 rows kept, ~12-15 junk captures avoided; the
+  bare rule measured 86-89%, below the ~90% floor). Same trust-the-body
+  principle as D-HG. Headings panel implements in dev cycle 4 / QA cycle 3.
+- **D-PR-18c (director, 2026-08-04): PR's whole-body quoted-idiom scan
+  SHIPS with a targeted guard** against its one measured false-positive
+  shape (re-mentions of already-defined terms). 889 measured-genuine
+  definitions at 96-100% sampled precision on two independent samples.
+- **D-CF (director, 2026-08-04): case-folding stays, with a
+  structural-context guard** — suppress case-fold matches sitting in a
+  structural-reference pattern (unit word + numbering token: "division
+  (ii)", "part (a)", "title 5"). Residual FP classes escalate with data.
+  (From core QA's measured 14,501-extra-match / 47%-of-terms exposure.)
+  **Interpretation (core QA-manager, measured, program-endorsed): the guard
+  is CONTEXT-based, not case-based** — a structural reference like "Part
+  (a) shall…" is suppressed regardless of capitalization (exact-case
+  structural matches predate case-folding and are the same noise). Bound:
+  affects only rows whose defined term is itself a unit word (1,157/106,275
+  = 1.09% of definition-bearing rows, P-R7-compliant denominator); genuine
+  re-mentions protected by a green pin. Director may veto; treated as
+  faithful-intent refinement, commented in code as a deliberate departure
+  from the literal wording.
+
+## Core QA cycle 1 verdict (2026-08-04)
+
+**Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on
+subsection granularity.** Subsection containment was dead on the live path
+(no rule stamps subsection scope; MatcherArticle carries no subsections;
+containment returns False unconditionally — unit greens were stub-based).
+RED bounce test committed (qa branch 2f88060). Fix cycle running. Process
+note now binding: CodeGraph's index reflects main — agents on divergent
+branches verify source with direct reads, CodeGraph for main-state
+structure only.
+
+- **P-R7 — denominator rule (from the PR panel's QA, 2026-08-04, binding on
+  every panel):** a zero-miss sweep's ground truth must be constructed
+  INDEPENDENTLY of the capture mechanism's own signals. Measuring capture
+  against heading-signalled (or trigger-regex-derived) populations produced
+  a 94.8% score while 833 idiom-bearing rows sat outside every sweep. Each
+  panel's U4/I4/P4-class gate must state what its denominator is and prove
+  it is signal-agnostic; the program-close integration QA re-checks this
+  across panels.
+- **D-HG (director, 2026-08-04): keep the "Application of definitions"
+  heading guard; genuine rows rescue via body-content rules** (preamble
+  panel's all-states coverage under ungated dispatch). Guarded-cluster
+  act_ids get cross-checked against the preamble CLAUSE/BLOCK populations;
+  rows neither path reaches return to the director by name.
+
+## Program routing decisions (program manager)
+
+- Seam spec v2 requested from core, consolidating: generic (unit_kind,
+  unit_value) scopes; ScopeTriggerRule owning-article context; explicit
+  M-R7(a) dispatch-gating ruling; PR profile-vs-rules ruling.
+- Two NEW core items (measured zero-miss breaches in core-owned modules):
+  bare-`@` article markers (124 IL laws parse to zero articles) and
+  case-sensitive `find_term_uses` (GA lowercase re-mentions).
+- Headings U2 = option C (ship recall win; 10 act_ids recorded; scope model
+  to core v2). Boundary routings: MS clause rows → scoped-inline; NE/SD
+  unquoted → markers; VT S3700 fan-out → multiterm; verb-form bodies →
+  markers; CO truncated titles + repealed stubs → program data-quality list.
+- Process rules (after two incidents): ONE writer per worktree, always;
+  verify agent liveness before respawning (staleness watchdogs unreliable).
+- **P-E3 cross-panel factual correction (2026-08-04, program-manager-probed
+  on the real corpus):** the IL panel's E5 "124 bare-@ laws / 12 with
+  definitions" framing is corrected — real bare-@ occurrences are 331
+  across 42 files, ALL followed by table/list markup, never by a heading.
+  The definitions are REAL but live as `::-` nested-list entries with
+  ITEM-level scope (`בפרט זה -`, a previously-uninventoried Hebrew scope
+  trigger) inside article-less documents. Core owns reachability (bare-@
+  content parses into extractable sections); CAPTURE of the nested shape +
+  the `בפרט זה` trigger routes to the IL panel. Heading-derivation for
+  bare-@ was rejected as machinery for a phantom shape.
 
 ## Log
 
