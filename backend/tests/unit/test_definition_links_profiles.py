@@ -249,3 +249,46 @@ def test_il_profile_extract_definitions_from_section_accepts_the_new_heading_was
     without_kwarg = il_profile.extract_definitions_from_section(body, scope="law-wide")
     direct = extract.extract_definitions_from_section(body, scope="law-wide")
     assert with_kwarg == without_kwarg == direct
+
+
+# --- Sprint 2026-08-04-defs-core-scope, seam v2.4 (research-dossier-  --
+# --- validated: docs/sprint/programs/2026-08-04-law-system-units.md) ---
+
+
+def test_resolve_unit_path_supports_genuinely_deep_nesting_not_hard_coded_to_two_or_three_levels():
+    """Dossier finding: US federal citations run a real, at-scale 8-level
+    parenthetical ladder ((a)>(1)>(A)>(i)>(I)>(aa)>(AA)), confirmed down
+    to (AA) with 443 real instances. A `resolve_unit_path` implementation
+    that quietly assumes shallow (2-3 level) nesting would pass every
+    IL-shaped test above and silently fail here -- this test's body has
+    FOUR levels of nesting on purpose, not one or two."""
+    from app.definition_links.profiles import get_profile
+    from app.definition_links.sections import Article as MatcherArticle
+
+    us_profile = get_profile("US-FED")
+    body = (
+        "(a) General rule. (1) In general. (A) Application. (i) A deeply "
+        "nested provision lives here, four levels below the section itself."
+    )
+    article = MatcherArticle(number="1395x", heading="Definitions", body=body)
+    deep_offset = body.index("A deeply nested provision")
+    path = us_profile.resolve_unit_path(article, char_offset=deep_offset)
+    assert len(path) >= 4, (
+        f"expected a path at least 4 levels deep for a genuinely "
+        f"4-level-nested position; got {path!r} (length {len(path)}) -- "
+        f"the mechanism must not hard-code a depth cap of 2 or 3."
+    )
+
+
+def test_resolve_unit_path_never_represents_a_sub_unit_without_its_rooting_article():
+    """Dossier §2's convergent, cross-system finding: no law system (IL/
+    US-states/US-federal/PR) ever cites a bare sub-unit without its
+    parent article/section -- pinned here as the invariant it is, not
+    merely observed. A `UnitPath` is only ever meaningful together with
+    the article it was resolved against; calling `resolve_unit_path`
+    with no article is not a supported call shape at all."""
+    from app.definition_links.profiles import get_profile
+
+    il_profile = get_profile("IL")
+    with pytest.raises(TypeError):
+        il_profile.resolve_unit_path(char_offset=5)  # no article -- must be required, not optional

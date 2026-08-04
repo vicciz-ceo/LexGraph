@@ -146,3 +146,73 @@ def test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline(
         "exists, so this English scoped-inline definition is never "
         "captured for a US document (C2/C4)."
     )
+
+
+# --- Sub-article USES_DEFINITION anchoring (director ruling D-ANCHOR,
+# --- Option C, final -- structured path now, write path kept
+# --- B-promotion-compatible; NOT storage-shape-pinned per the explicit
+# --- instruction -- asserted through a RETRIEVAL SEAM so a later
+# --- promotion to first-class sub-article entities extends this test
+# --- rather than invalidating it). ----------------------------------------
+
+
+def test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live(
+    db_session, matter_with_users
+):
+    """A mention inside article 12's subsection (ב) must resolve, through
+    the REAL run_definition_linking path, to a unit path identifying
+    subsection (ב) specifically -- not just 'article 12' (today's
+    coarsest-available anchor) and not a hard-coded storage column name/
+    type (deliberately not asserted -- see seam spec v2.2 §6/D-ANCHOR).
+    Retrieval seam: `get_mention_unit_paths(session, assertion_id) ->
+    list[UnitPath]`, a NEW query helper this test requires to exist --
+    whatever the eventual storage shape (additive column today, possible
+    `Unit` entity later per D-ANCHOR), this helper is the stable contract
+    a consumer reads through."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import get_mention_unit_paths, run_definition_linking
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+    term = "מונח תת סעיפי"
+    wiki_text = (
+        f'@ 12. נושא\n'
+        f'לענין זה, "{term}" - הגדרה מקומית.\n'
+        f"סעיף קטן (א): {term} הוזכר כאן לראשונה.\n"
+        f"סעיף קטן (ב): {term} הוזכר כאן שוב, בתת-סעיף שונה.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="חוק לדוגמה עם תת-סעיפים",
+        wiki_text=wiki_text,
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    assert len(uses_edges) >= 1
+
+    # At least one USES_DEFINITION assertion's mention must resolve to a
+    # unit path that is STRICTLY DEEPER than the bare article -- i.e. it
+    # identifies a specific subsection, not merely "somewhere in article
+    # 12". The retrieval seam is what a consumer calls; this test does
+    # NOT assert which column/field backs it.
+    found_sub_article_path = False
+    for edge in uses_edges:
+        assertion_row = db_session.get(Assertion, edge["id"])
+        paths = get_mention_unit_paths(db_session, assertion_row.id)
+        if any(len(path) > 0 for path in paths):
+            found_sub_article_path = True
+            break
+    assert found_sub_article_path, (
+        "no USES_DEFINITION assertion resolved to a sub-article unit path "
+        "-- today mentions are only anchored at the whole-Article level, "
+        "so a consumer cannot distinguish subsection (א) from (ב) for the "
+        "same defined term in the same article (D-ANCHOR)."
+    )

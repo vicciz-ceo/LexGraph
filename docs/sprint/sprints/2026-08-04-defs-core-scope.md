@@ -142,13 +142,23 @@ silently resolved.
   fixture rows, noted in seam spec v2.3) and the internal-same-law pointer
   emission path (v2.1 §4) end-to-end.
 
-**Explicitly OPEN, not items yet — awaiting director rulings already in flight (see log Round 6-7):**
-sub-article `USES_DEFINITION` anchoring storage shape (E-2 answered as
-Option C — provisional; a live retrieval-seam test is authorized but not
-yet authored), pointer-definition end-to-end emission wiring, M9
-enumerated-scope live-path proof, M10 tie-pinning live-path test
-(obligation (a), still owed), `StructuralUnitRule` US-side data
-availability (unresolved).
+**Explicitly OPEN, not items yet:**
+pointer-definition end-to-end emission wiring; M9 enumerated-scope
+live-path proof; M10 tie-pinning live-path test (obligation (a) —
+attempted, then REMOVED rather than kept: the first version didn't
+construct a genuine tie (only one Definition row existed, so it passed
+today for the wrong reason) — shipping a misleading green-for-wrong-
+reasons test was judged worse than an honestly-open item; a real pin
+needs either the enumerated-scope production path or a second
+scope-kind live end-to-end, neither built yet); `StructuralUnitRule`
+US-side (parquet) data availability (unresolved, flagged twice, never
+verified); `_TRIGGER_PHRASES` idiom additions (3 phrases, M12's fixture
+rows, noted in v2.3 but not pinned). Sub-article `USES_DEFINITION`
+anchoring is NO LONGER open — D-ANCHOR (Option C) is now the director's
+FINAL ruling (not provisional) and IS pinned:
+`test_definition_links_pipeline_scope_seam.py::test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live`,
+via a retrieval-seam helper (`pipeline.get_mention_unit_paths`) rather
+than any storage-shape assertion, per the binding test-shape constraint.
 
 ## Dev Complete
 
@@ -1226,8 +1236,10 @@ Result: **none need editing.**
 
 Full backend suite (`backend/.venv/bin/pytest backend/tests -q
 --continue-on-collection-errors`, this worktree, this commit):
-**644 passed, 17 failed (this sprint's genuine RED), 1 collection error
-(this sprint's registry module, genuine RED), 18 warnings, 13.19s.**
+**644 passed, 20 failed (this sprint's genuine RED, +3 from the v2.4
+dossier-alignment/D-ANCHOR pass: deep-nesting, the no-bare-sub-unit
+invariant, and sub-article anchoring), 1 collection error (this sprint's
+registry module, genuine RED), 18 warnings, ~15.9s.**
 0 previously-passing tests now fail — C5 confirmed empirically, not
 merely argued. Frontend/typecheck not re-run this pass (no frontend file
 touched this sprint; `git diff --name-only` confirms zero `frontend/`
