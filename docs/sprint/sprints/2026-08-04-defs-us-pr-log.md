@@ -1293,3 +1293,289 @@ escalations plus a known 33-row cycle-3 workload. **QA has not yet run**:
 every verdict in this log is Planner + Developer + my own independent
 verification, which is NOT the same thing as the independent QA role, and
 gate P4 formally belongs to QA. Recorded honestly rather than claimed.
+
+---
+
+## 2026-08-04 — Planner: cycle 3 — both escalations resolved, heading-anchored
+bucket-D rule, idiom re-triage, ordinary-workload recount, item 8 authored
+
+Both escalations from cycle 2 are RESOLVED by the director: bucket D gets a
+NARROW heading-anchored rule (in scope THIS cycle, per the ruling — no
+general Spanish prose matcher); the seam question (B) is routed to core, and
+I keep `pr_profile.py`'s Spanish rule logic as plain module-level functions
+(seam-agnostic, survives either ruling on core's side). Read the full brief,
+CodeGraph-explored `pr_profile.py`/`profiles.py`/`matcher.py` before any Read
+(per the director's mandatory-tooling order), read every existing PR test
+file to match established conventions before writing new ones. Role
+boundary held throughout: I read `pr_profile.py` to diagnose, I did not edit
+it (`git status --short` confirms only fixtures/tests/contract/log touched).
+
+### Method — I did not trust the manager's crude bucket-D split or my own
+first pass
+
+The manager's own split script (`scratchpad/mgr_bucketD_split.py`) is a
+regex-substring heuristic run once and handed off as 65/19. I re-derived the
+split LIVE against `pr_profile.py` in three escalating passes (scripts in
+`scratchpad/planner_c3_survey.py`/`planner_c3_survey2.py`, never committed),
+each pass catching a real defect in the previous one:
+
+1. **First pass** reproduced the crude 65/19 almost exactly, then simulated
+   widening the idiom set to include `se refiere a`/`se referirá a` (by
+   monkey-patching copies of the module's regex objects in a scratch script
+   — never touching the real file) to see which residue rows the director's
+   framing predicted would move. Only 1 of the director's 4 named rows
+   (`STATE_PR_LEY_66_2011_ART3`) is actually solved by idiom-widening alone.
+2. **Second pass** found my own first classification heuristic (crude
+   "does the body contain ANY quote character" check) was ALSO wrong on two
+   fronts: (a) a REAL, previously-uncatalogued corpus artifact — a
+   page-break scrape footer (`"Rev. <date> www.ogp.pr.gov Página N de M
+   "<Law Title>" de <year> [Ley N-YYYY, según enmendada]"`, 370 corpus-wide
+   rows) — can inject an UNRELATED quoted law title anywhere mid-body,
+   wrongly reclassifying 5 genuinely copulative Civil-Code rows (e.g.
+   `STATE_PR_CIVIL_ART1223`, `"La retención es la facultad..."`) as
+   "quote-mechanical gaps" they are not; (b) a naive substring check on
+   the heading-anchor term missed the "Definición de X" single-clause shape
+   entirely (no `;`/`,`/em-dash delimiter at all).
+3. **Third pass** fixed both: stripped the footer boilerplate before any
+   quote-presence check (regex `Rev\.\s+\d{1,2}\s+de\s+\w+\s+de\s+\d{4}\s+
+   www\.ogp\.pr\.gov\s+Página\s+\d+\s+de\s+\d+\s+["“][^"”]+["”]\s+de\s+\d{4}
+   \s+\[Ley[^\]]*\]`), added a "Definición de X" single-clause anchor
+   extraction (the term is the prepositional object of "de" WITHIN the same
+   clause that also satisfies the stem match — reused `pr_profile.py`'s own
+   `_matches_definicion_stem`/`_CLAUSE_DELIM_RE` for this, imported for
+   analysis, never duplicated), and searched the FULL body (no artificial
+   window) since one real anchor (`STATE_PR_LEY_77_1957_ART36_020`'s
+   "Sistema de logias") sits at the very END of a 472-char single-sentence
+   body.
+
+### Bucket D final result: 70 anchored / 7 residue (down from crude 65/19)
+
+Full accounting (verified self-consistent): 120 zero-yield sections total
+(post-cycle-2, unchanged) = 3 M-R7 correct-zero (unchanged, not
+re-litigated) + 1 fully solved by idiom-widening + 1 NEW correct-zero found
++ 70 heading-anchored + 7 residue + 37 ordinary workload. 70+7+37+1+1+3=119
+... plus the 1 idiom-widening-solved row = 120. Every number reconciles.
+
+The manager's ORIGINAL anchored set (65) and my refined set (70) are NOT
+the same 65 rows plus 5 more — 5 of the manager's original 65 got
+reclassified OUT (the footer-artifact false positives, item 2 above) while
+5 DIFFERENT rows got reclassified IN (the "Definición de X" shape recovers
+4; the footer-strip fix recovers `STATE_PR_LEY_77_1957_ART36_020` itself,
+whose OWN footer sits early enough to have tripped my first-pass
+mis-classification too before I fixed it). Net: same count, materially
+different — and more correct — membership.
+
+**Final residue (7, by `act_id`, each independently diagnosed — full table
+in the contract's `## Bucket D final split (cycle 3)`)**:
+`STATE_PR_CIVIL_ART1526` (nominalization mismatch), `STATE_PR_LEY_
+77_1957_ART35_020` (bare heading, no term named), `STATE_PR_LEY_
+77_1957_ART42_010` (term never repeated verbatim), `STATE_PR_CIVIL_ART1293`
+(heading/body term MISMATCH — heading names "las normas de la compraventa",
+body actually defines "permuta"), `STATE_PR_LEY_77_1957_ART4_010`
+(meta-heading about definitions in general), `STATE_PR_PENAL_ART15` (second
+bare-heading example), `STATE_PR_LEY_77_1957_ART5_030` (non-contiguous
+term — "un activo es uno no admitido" vs. heading's "Activo no Admitido").
+
+**For the Developer**: the new function is `extract_heading_anchored_
+definition(heading, body, *, scope) -> list[DefinitionCandidate]`. I did
+NOT implement it (role boundary) — the tests pin the OUTCOME (which real
+rows must yield exactly 1 candidate with which term, which must yield []),
+not the mechanism. My own scratch-script prototype (never committed) used:
+strip section-number prefix (reuse `_SECTION_LABEL_RE`/
+`_SECTION_NUMBER_TOKEN_RE`), strip a fully-enclosing paren wrapper (reuse
+the existing gap-2 logic), clause-split on `_CLAUSE_DELIM_RE`, for each
+clause either (a) if it does NOT match `_matches_definicion_stem`, strip a
+leading Spanish article and treat it as a candidate term, or (b) if it DOES
+match the stem AND is shaped `"Definici(ón|ones) de X"`, capture `X` (article-
+stripped) as an ADDITIONAL candidate term. Then, for each candidate term
+(longest/most specific first, my prototype didn't need to disambiguate
+since no real row had 2 competing candidates), fold-normalize (NFD +
+strip combining marks) both term and a FOOTER-STRIPPED copy of the body,
+and require a `\b`-word-boundary literal match. If found, definition_text
+should be the SENTENCE containing the match (or the whole body if no
+sentence boundary is obvious) minus any footer boilerplate — my prototype
+used a plain sentence-boundary heuristic; the exact `definition_text`
+extraction is NOT pinned by any test beyond "contains the real prose,
+excludes footer noise" (see `test_page_break_footer_boilerplate_does_
+not_block_or_corrupt_the_real_anchor`).
+
+### Idiom re-triage: `se refiere a`/`se referirá a` — a real recall-vs-FP
+conflict, resolved in-panel (not escalated)
+
+Corpus survey (full 23,636 rows, live-derived): `se refiere a` 180
+corpus-wide/85 canonical/3 among current zero-yield; `se referirá(n) a` 22/
+9/2; `se entenderá(n)` (excl. already-handled `...por`) 646/52/4; `se
+considera(rá) como` 303/30/5 (a further sibling idiom, found via
+re-triaging `STATE_PR_LEY_155_1937_SEC1` — only 1 of its 5 zero-yield rows
+diagnosed this cycle, the other 4 flagged as follow-up, NOT built into this
+cycle's item plan).
+
+Simulated widening `_DEFINING_IDIOM_ALTERNATION` to include `se refiere
+a`/`se referirá a` (scratch monkey-patch, never touching the real file):
+safe when scoped to the per-block QUOTED patterns
+(`_QUOTED_TERM_COMMA_IDIOM_RE`/`_QUOTED_TERM_BARE_IDIOM_RE` — these only
+ever fire on a block that already starts with a quote character). UNSAFE
+when the SAME widened alternation reaches the DISPATCH-FALLBACK check
+(`_UNQUOTED_BARE_IDIOM_TERM_RE`): `STATE_PR_LEY_214_2004_ART2`'s real body
+opens `"Todo término utilizado en esta Ley para referirse a una persona o
+puesto se refiere a ambos géneros..."` (a gender-neutrality boilerplate
+disclaimer) — widened, this disclaimer ITSELF satisfies the dispatch
+fallback's bare-idiom shape and swallows the row's entire 26-real-term
+marked list into ONE fabricated "term" (verified live: 26 correct terms →
+1 fabricated term). Per the standing director policy this is exactly a
+recall-vs-false-positive conflict CLASS — but I did NOT escalate it,
+because it resolves the same way M-R4/P5's English-preamble collision
+already does in this exact codebase (widen, but pin a SCOPED regression
+guard proving the dangerous path stays closed) — a precedented, in-panel-
+resolvable pattern, not a genuinely undecidable tradeoff needing director
+arbitration. Pinned as a permanent regression guard
+(`test_widening_must_not_swallow_a_markers_lead_in_disclaimer_into_
+one_fabricated_term`, GREEN from day one since the unfixed code has no
+`se refiere a` recognition at all yet to regress).
+
+**Correction to the director's own framing** (recorded honestly, not
+buried): of the 4 rows the director named as "se refiere a"/idiom-shaped,
+only `STATE_PR_LEY_66_2011_ART3` is a PURE idiom gap. The other 3
+(`STATE_PR_LEY_26_1941_ART57`, `STATE_PR_LEY_141_2002_ART6`,
+`STATE_PR_LEY_420_2004_ART2`) are all the SAME "unquoted lead-in before a
+quoted term" family — the block does not START with a quote character, so
+`_extract_term_and_definition` never even tries the quoted patterns where
+a widened idiom would help (per its own documented, deliberate quoted-vs-
+unquoted pattern-group split). `STATE_PR_LEY_141_2002_ART6`/`_420_2004_
+ART2`'s own idiom word is `es` — ALREADY recognized; their defect is purely
+structural (lead-in), not idiom vocabulary. All 3 moved to the ordinary-
+workload bucket, not the residue and not the idiom file.
+
+### Ordinary workload recount: 37 (up from crude 33)
+
+Per the brief's explicit instruction to recount rather than trust the
+crude 33. Six independently-diagnosed shapes (full detail + real examples
+in `test_pr_profile_extraction_cycle3.py`'s module docstring): (1) `"El
+término 'X' <idiom>"` unquoted lead-in, no marker
+(`STATE_PR_LEY_133_1979_ART1`); (2) same family with an interjecting scope
+phrase (`STATE_PR_LEY_141_2002_ART6`); (3) a NEW idiom, `se considera
+como`, behind the same lead-in shape (`STATE_PR_LEY_155_1937_SEC1`); (4)
+unquoted term with a scope clause INTERJECTED between the term and its own
+idiom verb (`STATE_PR_LEY_9_2020_ART2`, `"Mujer trabajadora, a los fines de
+esta Ley, significará..."`); (5) the corrected `se referirá a` row
+(`STATE_PR_LEY_26_1941_ART57`, see above); (6) the highest-marker-count
+(37) remaining row, a `"Label.-El término 'X' se interpretará que
+significa"` shape (`STATE_PR_RENTAS_SEC1010_01`) — pinned at FLOOR
+granularity only (>=1 candidate), not exact terms, since the correct
+mechanism (label vs. re-quoted term) is a genuine Developer design choice.
+
+**A new correct-zero guard found via re-triage, not a gap**:
+`STATE_PR_LEY_48_2018_ART3` — `"...se adoptan las definiciones de la Ley
+38-2017, conocida como, "Ley de Procedimiento Administrativo Uniforme...""`
+— a WHOLESALE cross-law/TITLE deferral, the SAME shape as the already-
+pinned `STATE_PR_LEY_52_2019_ART3` guard. The quote is a LAW TITLE via
+`conocido como` (already flagged by the cycle-1 survey as overwhelmingly
+law-naming, not term-defining) — pinned as MUST-STAY-ZERO, guarding
+against a future `se considera como`/`conocido como` widening fabricating
+a "term" out of a law's own title.
+
+### Item 8 — authored, xfail, core-gated (per program manager instruction,
+not dropped a third time)
+
+`backend/tests/integration/test_pr_profile_definitions_section_
+end_to_end.py`, mirroring `test_us_profile_definitions_section_end_to_
+end.py`'s exact Stage-1-to-3 chain shape. Live-confirmed the CURRENT
+failure point before writing the xfail reason (not guessed):
+`get_profile("US-PR")` resolves to `USProfile(code="US-PR")` today
+(`is_definitions_heading('Artículo 3. Definiciones')` → `False` under that
+profile) since `PRProfile` is not yet registered (item 7, core-gated).
+Confirmed via `--runxfail` that the test fails EXACTLY at the Stage-1
+assertion, not at an unrelated import/collection error. Reuses the
+already-vendored `STATE_PR_LEY_249_2003_ART3` (cycle 1) — no new fixture
+needed.
+
+### Fixtures vendored
+
+25 REAL rows, `backend/tests/fixtures/us_statutes/pr_sample_rows_cycle3.
+json`, byte-compared against a fresh parquet read immediately after
+writing (`25 rows checked, 0 problems — ALL BYTE-IDENTICAL`). Full
+per-row provenance in the fixtures README's new `## pr_sample_rows_
+cycle3.json` section. `act_id`s: `STATE_PR_CIVIL_ART236`, `STATE_PR_LEY_
+77_1957_ART5_020`, `STATE_PR_CIVIL_ART1264`, `STATE_PR_CIVIL_ART1508`,
+`STATE_PR_CIVIL_ART326`, `STATE_PR_RENTAS_SEC2030_03`, `STATE_PR_LEY_
+77_1957_ART36_020`, `STATE_PR_CIVIL_ART1139`, `STATE_PR_CIVIL_ART1526`,
+`STATE_PR_LEY_77_1957_ART35_020`, `STATE_PR_LEY_77_1957_ART42_010`,
+`STATE_PR_CIVIL_ART1293`, `STATE_PR_LEY_77_1957_ART4_010`, `STATE_PR_
+PENAL_ART15`, `STATE_PR_LEY_77_1957_ART5_030`, `STATE_PR_LEY_66_2011_
+ART3`, `STATE_PR_LEY_214_2004_ART2`, `STATE_PR_LEY_26_1941_ART57`,
+`STATE_PR_LEY_133_1979_ART1`, `STATE_PR_LEY_141_2002_ART6`, `STATE_PR_LEY_
+155_1937_SEC1`, `STATE_PR_LEY_9_2020_ART2`, `STATE_PR_LEY_48_2018_ART3`,
+`STATE_PR_RENTAS_SEC1010_01`, `STATE_PR_CIVIL_ART263`. Plus 1 REUSED row
+from cycle 2 (`STATE_PR_LEY_15_1931_SEC22`, no duplicate vendoring).
+
+### Tests authored, RED proof
+
+5 new files: `test_pr_profile_bucket_d_heading_anchored.py` (18 tests, all
+RED via `ImportError` — `extract_heading_anchored_definition` does not
+exist yet), `test_pr_profile_idiom_widening_cycle3.py` (1 RED + 1
+GREEN-from-day-one regression guard), `test_pr_profile_extraction_
+cycle3.py` (6 RED + 1 GREEN correct-zero guard), `test_pr_profile_corpus_
+floor_cycle3.py` (extends the item-12 floor pattern with 5 new
+parametrized groups — 23 RED + 3 GREEN), `backend/tests/integration/
+test_pr_profile_definitions_section_end_to_end.py` (1 xfail, item 8). No
+existing test file edited (`git status --short` confirms).
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+48 failed, 777 passed, 7 xfailed, 18 warnings in 13.51s
+```
+
+777 = cycle-2's 772 baseline + 5 new GREEN regression/correct-zero guards
+(1 idiom-widening precision guard, 1 correct-zero guard in extraction_
+cycle3, 3 in corpus_floor_cycle3 — the correct-zero guard, the
+must-not-collapse guard, and the bookkeeping sanity test). 7 xfailed =
+6 baseline (`test_pr_profile_scope.py`) + 1 new (item 8). Re-run with the
+5 new files excluded to confirm the 772 baseline is unmoved:
+
+```
+$ backend/.venv/bin/pytest backend/tests -q --ignore=<5 new files>
+772 passed, 6 xfailed, 18 warnings in 13.22s
+```
+
+`--runxfail` confirms item 8's test fails exactly at Stage 1
+(`is_definitions_heading` assertion), not an unrelated error:
+
+```
+$ backend/.venv/bin/pytest backend/tests/integration/test_pr_profile_definitions_section_end_to_end.py --runxfail -v
+AssertionError: assert False is True
+ +  where False = is_definitions_heading('Artículo 3. Definiciones')
+ +    where is_definitions_heading = USProfile(code='US-PR').is_definitions_heading
+```
+
+### For the Developer (sequencing)
+
+Items 13-16 are pre-core OK (same module, `pr_profile.py`, no shared-
+module edit) — start there. Item 17 (item 8) stays `xfail` until items 6/7
+land (registry wiring is still core-gated per M-R3). Diagnoses to save you
+re-discovery time: (1) the page-break footer-boilerplate regex (module
+docstring of `test_pr_profile_bucket_d_heading_anchored.py`) — strip it
+BEFORE any quote-presence check anywhere you add one, not just for the
+heading-anchor rule; (2) the idiom-widening scope boundary (per-block
+quoted patterns only, never the dispatch-fallback check) — do not widen
+`_DEFINING_IDIOM_ALTERNATION` itself if it's shared by both; consider a
+SEPARATE, wider alternation used only by the two quoted-block patterns;
+(3) the "Definición de X" single-clause anchor extraction needs the SAME
+article-stripping as the existing multi-clause path — I found this by
+testing, not by inspection, so double-check your own implementation
+against `test_definicion_de_x_family_bare_string_cases` and
+`test_definicion_de_x_single_clause_anchor_real_row` directly, don't
+assume the shape is obvious from the docstring alone.
+
+### Escalations
+
+None. The `se refiere a` recall-vs-FP conflict (above) was real but
+resolved in-panel per precedent (M-R4/P5), not escalated, per the standing
+policy's own text ("escalates... rather than deciding it" — this was
+decided with data and a precedented resolution pattern already in the
+codebase, not a coin-flip).
+
+### Pushed
+
+Committed and pushed to `claude/defs-us-pr` — see commit hash in the
+manager's verification entry (this Planner does not merge/verify its own
+work, per role separation).

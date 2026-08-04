@@ -489,3 +489,123 @@ parquet`) — no network download performed this cycle, the snapshot was
 already local from cycle 1. Every row's fields were verified byte-identical
 against a fresh `pyarrow.parquet.read_table` of that same file immediately
 before committing.
+
+## `pr_sample_rows_cycle3.json` — cycle-3 bucket-D re-triage + idiom-gap +
+ordinary-workload fixtures (sprint 2026-08-04-defs-us-pr, Planner, cycle 3,
+2026-08-04)
+
+25 REAL rows (full original columns, values unmodified), all pulled from
+the SAME `us_pr_statutes.parquet` snapshot as the cycle-1/2 files above
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`), byte-compared against the
+live on-disk parquet immediately after writing (script output: `25 rows
+checked, 0 problems — ALL BYTE-IDENTICAL`). A SIBLING file to
+`pr_sample_rows.json`/`pr_sample_rows_cycle2.json`, not a merge — cycles
+1/2's fixture rows and tests are untouched. One already-vendored row
+(`STATE_PR_LEY_15_1931_SEC22`, cycle 2) is REUSED, not re-vendored, by
+`test_pr_profile_extraction_cycle3.py`.
+
+**Why these rows exist.** The director ordered a NARROW heading-anchored
+rule for bucket D (the 84 copulative/prose Definiciones-section bodies
+escalated in cycle 2, M-R6/P-R2) and a re-triage of the manager's crude
+19-row "anchor-less residue" split before accepting it as a documented
+gap. Full root-cause diagnosis lives in each test file's module docstring
+(`test_pr_profile_bucket_d_heading_anchored.py`,
+`test_pr_profile_idiom_widening_cycle3.py`,
+`test_pr_profile_extraction_cycle3.py`) and in the sprint contract's
+`## Bucket D final split (cycle 3)` section; this is the provenance
+inventory, not the diagnosis.
+
+**Heading-anchored rows** (director-ordered new capability,
+`extract_heading_anchored_definition`) — diverse anchor shapes:
+
+1. `STATE_PR_CIVIL_ART236` — semicolon clause (`"Bienes; definición"`),
+   the director's own confirmed example.
+2. `STATE_PR_LEY_77_1957_ART5_020` — comma clause (`"Pasivos,
+   definición"`), chapter scope, director's own confirmed example.
+3. `STATE_PR_CIVIL_ART1264` — `"Hay X cuando"` copulative shape
+   (`"Evicción; definición"`), director's own confirmed example.
+4. `STATE_PR_CIVIL_ART1508` — leading-article-stripped multi-word term
+   (`"El contrato de seguro; definición"`), director's own confirmed
+   example.
+5. `STATE_PR_CIVIL_ART326` — `"X es la facultad..."` shape (`"Poder;
+   definición"`), the same real row already referenced in
+   `pr_profile.py`'s own module comments as having no safe
+   separator-based extraction.
+6. `STATE_PR_RENTAS_SEC2030_03` — `"Definición de X"` SINGLE-clause
+   shape (no `;`/`,`/em-dash), a genuinely new anchor-extraction
+   capability this cycle's diagnosis found.
+7. `STATE_PR_LEY_77_1957_ART36_020` — em-dash compound heading
+   (`"Sistema de logias—Definiciones"`), anchor term at the very END of
+   the body, proving no artificial window-truncation.
+8. `STATE_PR_CIVIL_ART1139` — already a cycle-2 HEADING-recognition
+   fixture (`"Subrogación; definición y alcance"`); this cycle also pins
+   its body's extraction.
+9. `STATE_PR_CIVIL_ART263` — precision regression guard: a REAL,
+   previously-uncatalogued page-break scrape-footer artifact (`"Rev.
+   <date> www.ogp.pr.gov Página N de M "<Law Title>" de <year> [Ley
+   N-YYYY, según enmendada]"`, 370 corpus-wide rows) sits BEFORE the real
+   definitional sentence in this row's body, carrying its own unrelated
+   quoted law title — proves the anchor rule finds the real term despite
+   the footer, without corrupting `definition_text` with footer noise.
+
+**Final documented residue** (the anchor-less gap, director-reviewable —
+7 rows, down from the manager's crude 19):
+
+10. `STATE_PR_CIVIL_ART1526` — nominalization mismatch (heading names
+    "Enriquecimiento sin causa", body only ever uses the verb form "se
+    enriquece").
+11. `STATE_PR_LEY_77_1957_ART35_020` — bare heading (`"Definición"`),
+    names no term at all.
+12. `STATE_PR_LEY_77_1957_ART42_010` — term never repeated verbatim in
+    an 897-char qualifying-description body.
+13. `STATE_PR_CIVIL_ART1293` — heading/body term MISMATCH (heading names
+    "las normas de la compraventa"; body actually defines "permuta").
+14. `STATE_PR_LEY_77_1957_ART4_010` — meta-heading about definitions in
+    general (`"Definiciones que no se excluyen"`), names no specific
+    term.
+15. `STATE_PR_PENAL_ART15` — second real bare-heading example, different
+    law.
+16. `STATE_PR_LEY_77_1957_ART5_030` — non-contiguous term (`"un activo
+    es uno no admitido"` vs. heading's `"Activo no Admitido"`).
+
+**Idiom-gap re-triage rows** (`se refiere a`/`se referirá a`):
+
+17. `STATE_PR_LEY_66_2011_ART3` — positive capture: marked list, quoted
+    term directly followed by `se refiere a`, fully solved by widening
+    the per-block QUOTED idiom alternation alone.
+18. `STATE_PR_LEY_214_2004_ART2` — precision regression guard: a real
+    26+-term marked list whose gender-neutrality-disclaimer LEAD-IN would
+    be wrongly swallowed into one fabricated "term" if the idiom
+    widening reached the DISPATCH-FALLBACK check instead of being scoped
+    to the per-block quoted patterns only.
+
+**Ordinary-workload rows** (real quoted term / real idiom, zero-yield,
+NOT bucket D — recount: 37, up from the manager's crude 33):
+
+19. `STATE_PR_LEY_133_1979_ART1` — `"El término 'X' significa"`
+    unquoted-lead-in shape, no marker.
+20. `STATE_PR_LEY_141_2002_ART6` — scope-phrase-lead-in variant of the
+    same family.
+21. `STATE_PR_LEY_155_1937_SEC1` — a genuinely NEW idiom, `se considera
+    como` (303 corpus-wide / 30 canonical rows measured this cycle),
+    behind the same lead-in shape.
+22. `STATE_PR_LEY_9_2020_ART2` — unquoted term + an INTERJECTED scope
+    clause between the term and its own idiom verb.
+23. `STATE_PR_LEY_26_1941_ART57` — correction to this cycle's initial
+    idiom-gap framing: uses `se referirá a`, but idiom-widening ALONE
+    does not fix it — it is the SAME unquoted-lead-in family as #19-22,
+    not a pure idiom gap.
+24. `STATE_PR_LEY_48_2018_ART3` — a NEW correct-zero guard: wholesale
+    cross-law/TITLE deferral via `conocida como` (a LAW title, not a
+    term), the same shape as the already-pinned cycle-2
+    `STATE_PR_LEY_52_2019_ART3` guard.
+25. `STATE_PR_RENTAS_SEC1010_01` — the highest-marker-count (37)
+    remaining zero-yield row: a `"Label.-El término 'X' se interpretará
+    que significa"` shape, pinned at floor granularity only.
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by the Planner (cycle 3) via a disposable scratch
+script (`/private/tmp/.../scratchpad/vendor_cycle3.py`, outside
+`backend/.venv`, never committed), reading directly from the already-cached
+HF snapshot on disk — no network download performed, the snapshot was
+already local from cycle 1.
