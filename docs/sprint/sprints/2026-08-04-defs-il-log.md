@@ -1230,3 +1230,127 @@ item-4 rule follows the established convention. **Not a defect.**
 `registry.scope_trigger_rules_for("IL")` → **8** rules (core's 2 + our 6);
 `scope_trigger_rules_for("US-CA")` → **1** (core's proof rule only). Our
 Hebrew rules do not leak into any US profile.
+
+
+---
+
+## 2026-08-04 — Planner: manager-requested miss, "ad-hoc trigger widening round 2"
+
+Resumed at `c50fd32` (already in sync with `origin/claude/defs-il`, no
+pull/rebase needed -- verified via `git rev-parse HEAD` == `git rev-parse
+origin/claude/defs-il`). Confirmed the Developer's six shipped
+`ScopeTriggerRule` modules independently: `backend/.venv/bin/pytest
+backend/tests -q` -> `3 failed, 713 passed` (matches the manager's report
+exactly) -- the 3 REDs are precisely items 5's class-(d) tests, all others
+green.
+
+### Live re-confirmation of the manager-flagged miss (ruling M4 -- leads aren't proof)
+
+Ran the REAL live pipeline (`ingest_wiki_law` + `run_definition_linking`,
+not a mock) against the manager's own cited fixture
+(`חוק הבנקאות (שירות ללקוח)_excerpt.wiki`, already vendored by the
+Developer). Confirmed: `גוף פיננסי` (an ordinary `:-`-entry term in the
+SAME section) IS captured today (19 total definitions from this fixture),
+`חוק הדואר` (the ad-hoc `(בפסקה זו - חוק הדואر)` marker embedded inside
+`גוף פיננסי`'s own body text) is NOT -- genuine, confirmed miss.
+
+**But the mechanism is different from the manager's framing, and I am
+correcting it rather than silently building around it (M4: report the
+difference).** Article 1's heading is `הגדרות (תיקון: ...)` --
+`is_definitions_heading(...) is True`. `pipeline.py`'s dispatch (lines
+220-232, re-verified this session, unchanged) means a definitions-heading
+article's body NEVER reaches `extract_local_scope_definitions`/
+`ScopeTriggerRule` at all -- only `profile.extract_definitions_from_
+section` runs, and that function (per this session's earlier E6 finding)
+has zero registry consumption and never re-scans an already-extracted
+entry's OWN body text for an embedded ad-hoc marker. So widening item
+4/10's `il_adhoc_scope_triggers.py` trigger list would do NOTHING for
+this SPECIFIC occurrence -- it is a new, real instance of item 5's E6
+blocker, not a trigger-list gap. Written up as its own contract item
+(11, BLOCKED) rather than folded into item 10's "ready" framing.
+
+### Corpus frequency table (the manager's explicit ask -- "size the gap honestly")
+
+Live-scanned every candidate trigger word for the `(TRIGGER - term)`
+ad-hoc apposition grammar, through the real `sections.parse_articles` +
+`is_definitions_heading` (not raw-text grep), split by ordinary-article
+(immediately fixable) vs definitions-heading (E6-blocked, same as item 5):
+
+| Trigger | Total | Files | In ordinary article | In definitions-heading section |
+|---|---|---|---|---|
+| `בסעיף זה` | **2,335** | **572** | 2,328 | 7 |
+| `בפסקה זו` | 221 | 117 | 213 | 8 |
+| `בפרט זה` | 13 | 5 | 13 | 0 |
+| `לענין זה` | 2 | 2 | 2 | 0 |
+| `לענין סעיף זה` | 2 | 2 | 2 | 0 |
+| `לעניין זה` / `לעניין סעיף זה` | 0 | 0 | 0 | 0 |
+
+**`בסעיף זה` is the standout finding: 2,335 occurrences / 572 files is
+larger than class (d)'s own 592-file finding, previously this sprint's
+largest.** 25 random samples manually inspected for quality (seed 42, not
+cherry-picked) -- all genuine short defined-term appositions (`המועד
+החוזי`, `התקרה`, `יום התחילה`, `ועדת הבדיקה`, ...), zero verb-shaped or
+citation-shaped false positives observed, same low-risk profile the
+original Planner found for classes (a)/(b)/(c)'s other trigger words.
+
+**No P-R2 conflict found** -- every sampled occurrence across every
+trigger word reads as a genuine definitional apposition, same grammar and
+same 4-token-cap discipline already trusted for `להלן`/`בפרק זה` etc. Not
+escalating a zero-miss-vs-zero-false-positive trade because none was
+observed; reporting the real numbers as asked rather than picking a side
+that isn't actually in tension here.
+
+### New fixtures + tests (additive to my own file, per the manager's "it's yours")
+
+Two new real, verbatim fixtures: `חוק ההתנתקות והפיצויים לנפגעיה_
+art45_excerpt.wiki` (`בסעיף זה` ad-hoc, term "מענק נוסף", ordinary
+article), `תקנות הרופאים (פרסומת אסורה)_art3_excerpt.wiki` (`בפסקה זו`
+ad-hoc, term "תמורה", ordinary article). Reused the Developer's already-
+vendored `חוק הבנקאות (שירות ללקוח)_excerpt.wiki` for the E6-blocked
+sub-case (no new fixture needed).
+
+Three new tests appended to `test_definition_links_il_missed_classes_
+extended_live.py` (my own file):
+- `test_class_c_adhoc_parenthetical_beseif_zeh_marker_is_captured`
+- `test_class_c_adhoc_parenthetical_beparagraph_zo_marker_in_ordinary_article_is_captured`
+- `test_class_c_adhoc_parenthetical_beparagraph_zo_inside_definitions_section_is_captured`
+  (BLOCKED by E6, correctly RED, kept anyway -- same precedent as item 5's
+  three tests, which this sprint already established as legitimate: a
+  RED test proving a real, confirmed miss is authored even when the fix
+  needs a shared-file wiring change outside this sprint's reach).
+
+### Suite proof (my own run)
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_missed_classes_extended_live.py -v
+-> 3 failed (the three new tests, all AssertionError -- e.g. "expected
+   a Definition row for ... 'מענק נוסף' ...; got [...]" with real
+   created_definitions lists, not import errors), 4 passed (the
+   already-green tests from this file's earlier round)
+
+backend/.venv/bin/pytest backend/tests -q
+-> 6 failed, 713 passed, 18 warnings in ~15s
+```
+713 = unchanged (matches the Developer/manager's post-implementation
+baseline exactly). 6 = item 5's 3 pre-existing REDs (unchanged) + this
+round's 3 new REDs. Zero existing tests touched (verified `git diff
+--name-status` shows only additions to files this Planner already owns,
+plus the contract/log).
+
+### Contract updated
+
+Added items 10 (ready, `ScopeTriggerRule`, LIVE per M11/P-R8 -- `בסעיף
+זה`/`בפסקה זו` ordinary-article ad-hoc widening) and 11 (BLOCKED, same
+E6 as item 5 -- the manager's originally-cited definitions-heading
+instance). Contract now exactly 400 lines (`scripts/contract_lint.sh`
+budget, still PASS). Pre-existing lint FAIL (`last_updated` not full
+ISO-8601) predates this session's edits -- frontmatter is left untouched
+per this Planner's own scoping (Next Steps section only), flagging rather
+than silently fixing governance fields outside the brief.
+
+### Nothing to escalate as a P-R2 conflict this round
+
+Explicitly checked per the manager's closing instruction: no real corpus
+example was found where widening the ad-hoc trigger set risks a
+false-positive against a genuine zero-miss need. Reporting real numbers,
+not picking a side, because no side needed picking this time.

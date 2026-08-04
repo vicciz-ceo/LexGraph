@@ -35,6 +35,32 @@ cross-references like `סימן ג' לפרק זה` / `התוספת לפרק זה
 "TRIGGER, \"term\" - definition" definitional grammar) -- `לפרק זה` is
 therefore DROPPED from this sprint's trigger-phrase spec, not carried
 forward from the original contract wording.
+
+ADDENDUM (same day, manager-requested "ad-hoc trigger widening, round 2"):
+the Developer's shipped `il_adhoc_scope_triggers.py` (item 4) only widened
+the ad-hoc `(TRIGGER - term)` grammar to `בפרק זה`/`בסימן זה`/`בחלק זה`.
+Live corpus re-confirmation (this session) found the SAME `(TRIGGER - term)`
+grammar recurs, uncaptured, with several MORE trigger words -- most
+strikingly `בסעיף זה`, **2,335 real occurrences across 572 files**, a
+larger population than class (d)'s own 592-file finding. Full frequency
+table (per trigger word, split by whether the occurrence sits inside an
+ORDINARY article -- immediately fixable by widening the already-LIVE
+`ScopeTriggerRule` mechanism per P-R8 -- or inside a definitions-HEADING
+article body, where it is unreachable for the SAME reason as item 5/E6,
+not a new blocker) is in the sprint log. The three tests below prove: (1)
+the dominant `בסעיף זה` population (ordinary-article, scope="local"); (2)
+`בפסקה זו`'s ordinary-article population (213/221, scope="paragraph",
+same kind item 7 already uses); (3) `בפסקה זו`'s SMALLER
+definitions-heading population (8/221) using the manager's own originally-
+cited fixture (`חוק הבנקאות (שירות ללקוח)`) -- correcting the manager's
+framing of that ONE instance: it is not fixable by widening item 4's
+trigger list (that rule is never reached for a definitions-heading
+article's body, per pipeline.py's dispatch), it is a NEW real occurrence
+of the SAME E6 blocker that already holds item 5. `בפרט זה` ad-hoc (13
+occurrences / 5 files, all ordinary) and `לענין זה`/`לענין סעיף זה` ad-hoc
+(2 each) are real but small; left as a residual note for whoever
+implements the widening, not given dedicated tests here (proportionate
+effort -- the two dominant populations are covered).
 """
 
 from __future__ import annotations
@@ -254,4 +280,160 @@ def test_sixth_class_beprat_zeh_item_scoped_double_colon_entries_are_captured(
         f"expected all four בפרט זה-scoped terms {expected_terms!r} to be "
         f"captured; got {captured_terms!r} (created_definitions="
         f"{result['created_definitions']!r})"
+    )
+
+
+def test_class_c_adhoc_parenthetical_beseif_zeh_marker_is_captured(db_session, matter_with_users):
+    """Class (c), "ad-hoc trigger widening round 2" (manager-requested,
+    same day as items 2a-9 shipped) -- `(בסעיף זה - term)`, the SAME
+    unquoted-apposition grammar item 4's `il_adhoc_scope_triggers.py`
+    already implements for `בפרק זה`/`בסימן זה`/`בחלק זה`, but with trigger
+    word `בסעיף זה` ("in this section"), which that rule's trigger
+    alternation does not include.
+
+    Live re-confirmation (this session, through the real `sections.
+    parse_articles`, not raw-text grep): **2,335 real occurrences across
+    572 files corpus-wide** -- the single LARGEST population found across
+    this entire sprint's re-spec work, bigger than class (d)'s own 592
+    files. 2,328 of the 2,335 sit inside ORDINARY (non-הגדרות-headed)
+    article bodies -- immediately fixable by widening the already-LIVE
+    `ScopeTriggerRule` mechanism (P-R8), same as item 4's other trigger
+    words. 25 random samples manually inspected (logged) -- all genuine
+    short defined-term appositions (e.g. "המועד החוזי", "התקרה", "יום
+    התחילה"), zero verb-shaped or citation-shaped false positives observed.
+
+    Fixture: `חוק ההתנתקות והפיצויים לנפגעיה` article 45 (real, verbatim),
+    subsection (ב): `... יורה המנהל על תשלום מענק נוסף אחד בלבד (בסעיף זה
+    - מענק נוסף), ...` -- heading `מענק לדמי שכירות`, not a הגדרות heading
+    (ordinary-article path, confirmed live). Neither `_ADHOC_RE` (`להלן`
+    only) nor `il_adhoc_scope_triggers.py` (בפרק/בסימן/בחלק only)
+    recognizes this trigger word; `extract_local_definitions`'s quote-first
+    grammar does not apply either (no quotes around the term here).
+
+    Scope should be `"local"` (`בסעיף זה` = "in THIS article" -- the same
+    granularity as the already-trusted quote-first `בסעיף זה`/`לענין זה`
+    triggers, just in the unquoted apposition FORM) -- this test asserts
+    capture only, per this sprint's established discipline of not pinning
+    a scope value in a Planner-authored RED test.
+    """
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="חוק ההתנתקות והפיצויים לנפגעיה, התשס\"ה-2005",
+        wiki_text=_read("חוק ההתנתקות והפיצויים לנפגעיה_art45_excerpt.wiki"),
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    grant_defs = [d for d in result["created_definitions"] if "מענק נוסף" in d["terms"]]
+    assert len(grant_defs) == 1, (
+        f'expected a Definition row for the ad-hoc בסעיף זה-scoped term '
+        f'"מענק נוסף" (article 45); got {result["created_definitions"]!r}'
+    )
+
+
+def test_class_c_adhoc_parenthetical_beparagraph_zo_marker_in_ordinary_article_is_captured(
+    db_session, matter_with_users
+):
+    """Class (c), round 2 -- `(בפסקה זו - term)`, the DOMINANT population
+    of the manager-flagged gap (221 real occurrences / 117 files
+    corpus-wide; 213/221 sit inside ORDINARY articles like this fixture,
+    immediately fixable via `ScopeTriggerRule`; the remaining 8/221 sit
+    inside definitions-heading sections -- see the neighbor test below for
+    that smaller, E6-blocked sub-population, which is NOT the same gap as
+    this one).
+
+    Fixture: `תקנות הרופאים (פרסומת אסורה)` article 3 (real, verbatim,
+    heading `פגיעה בציבור` -- not a הגדרות heading): `... מתן כל טובת הנאה
+    (בפסקה זו - תמורה) בקשר עם מתן או קבלת טיפול רפואי, ...`. Same
+    unquoted-apposition grammar as the `בסעיף זה` test above; scope should
+    be `"paragraph"` (the same generic kind `il_paragraph_scope_triggers.py`
+    already registers for the quote-first `בפסקה זו` grammar, item 7) --
+    capture only, same discipline.
+    """
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title='תקנות הרופאים (פרסומת אסורה), התשל"ז-1976',
+        wiki_text=_read("תקנות הרופאים (פרסומת אסורה)_art3_excerpt.wiki"),
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    consideration_defs = [d for d in result["created_definitions"] if "תמורה" in d["terms"]]
+    assert len(consideration_defs) == 1, (
+        f'expected a Definition row for the ad-hoc בפסקה זו-scoped term '
+        f'"תמורה" (article 3); got {result["created_definitions"]!r}'
+    )
+
+
+def test_class_c_adhoc_parenthetical_beparagraph_zo_inside_definitions_section_is_captured(
+    db_session, matter_with_users
+):
+    """Class (c), round 2 -- the manager's ORIGINALLY-CITED confirmed miss
+    (`חוק הבנקאות (שירות ללקוח)` article 1, `(בפסקה זו - חוק הדואר)`),
+    kept as its OWN test because it is a DIFFERENT gap from the ordinary-
+    article test above, not a duplicate.
+
+    Live re-confirmation (this Planner, before writing this test, per
+    ruling M4 -- "leads aren't proof"): article 1's heading is `הגדרות
+    (תיקון: ...)` -- `is_definitions_heading(...) is True`. Per
+    `pipeline.py`'s strict `if is_definitions_section: ... else: ...`
+    dispatch (lines 220-232, verified unchanged), a definitions-heading
+    article's body is handled ONLY by `profile.extract_definitions_from_
+    section` -- `extract_local_scope_definitions`/`ScopeTriggerRule` (item
+    4's live, wired mechanism) is NEVER invoked for it. **Correcting the
+    manager's framing of this one instance**: widening item 4's trigger
+    list does NOT fix this specific occurrence -- it is a NEW, real
+    instance of the SAME E6 blocker that already holds item 5 (`registry.
+    entry_splitter_rules_for`/`term_clause_rules_for` have zero production
+    consumers; `HebrewProfile.extract_definitions_from_section` never
+    scans an entry's own body text for an embedded ad-hoc marker either).
+    Live-run confirmed (this session): the fixture's other 20 ordinary
+    `:-`-entries (e.g. "גוף פיננסי", the entry `חוק הדואר` sits INSIDE)
+    already capture correctly today (unaffected, pre-existing `:-` grammar
+    -- NOT one of class (d)'s broken sub-shapes); only the embedded
+    ad-hoc `(בפסקה זו - חוק הדואר)` inside "גוף פיננסי"'s own multi-line
+    body is missed.
+
+    This test is therefore BLOCKED by E6, same as item 5's three tests --
+    kept RED and correctly expressing the right intent, not fixable by any
+    rule-module-only file (see the contract's item 5 and this session's
+    log entry for the exact fix location).
+    """
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+
+    m = matter_with_users
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title='חוק הבנקאות (שירות ללקוח), התשמ"א-1981',
+        wiki_text=_read("חוק הבנקאות (שירות ללקוח)_excerpt.wiki"),
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    post_law_defs = [d for d in result["created_definitions"] if "חוק הדואר" in d["terms"]]
+    assert len(post_law_defs) == 1, (
+        f'expected a Definition row for the ad-hoc בפסקה זו-scoped term '
+        f'"חוק הדואר", embedded inside the "גוף פיננסי" entry of the '
+        f'definitions-heading article 1; got {result["created_definitions"]!r}'
     )
