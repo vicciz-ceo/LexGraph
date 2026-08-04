@@ -57,6 +57,30 @@ list (no new quoted term per item, e.g. Montana's fantasy-sports-league
 row) from being spuriously split, and keeps PA's `References to "X"
 shall include Y` construction-clause (a marker NOT immediately followed
 by a quote) from ever being recognized.
+
+Fix cycle 2 (QA cycle-1, 8 root causes -- full detail and real-corpus
+before/after evidence in this sprint's report): the body-shape regex
+vocabulary and entry-splitting helpers (`_STRONG_CONNECTOR_RE`,
+`_IDIOM_RE`, `_MARKER_RE`/`_MARKER_QUOTE_RE`, `_single_entry`,
+`_multi_entries`, and the new `_unmarked_multi_entries` fallback) now
+live in the sanctioned overflow module `us_scoped_inline_shapes.py`
+(style gate -- this file was already at the 300-line ceiling). Added:
+period-style list markers (`1.` `2.`), a colon-then-quoted-list with NO
+per-entry marker (the single most severe QA cycle-1 miss -- the entire
+block was silently dropped, not merely under-split), one tolerated
+intervening "and [in] <citation>" clause between the trigger's unit word
+and the definiendum, `the term`/`the terms` without requiring trailing
+whitespace before a colon, `shall have (the following) meaning(s) (as
+follows)`, plural `have the same meaning as`, an "X" or "Y" alias chain
+sharing one idiom, and a bare copula `is` (measured against the real
+corpus for false-positive surface per program ruling D-Q1 before
+shipping -- see the report). The two precision gates flagged as
+load-bearing-but-under-pinned by QA cycle-1 mutation testing are
+UNCHANGED by this cycle: the bare-`in` trigger's strict comma/colon
+adjacency gate (`_BARE_CONNECTOR_RE`, this file), and
+`_MARKER_QUOTE_RE`'s marker-immediately-followed-by-quote rule (only the
+marker SYNTAX vocabulary widened to include period-style numbers, never
+the immediate-adjacency requirement itself).
 """
 
 from __future__ import annotations
@@ -69,6 +93,15 @@ from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
     register_scope_trigger_rule,
+)
+from app.definition_links.rules.us_scoped_inline_shapes import (
+    _BARE_CONNECTOR_RE,
+    _IDIOM_RE,
+    _STRONG_CONNECTOR_RE,
+    _find_entry_end,
+    _multi_entries,
+    _single_entry,
+    _unmarked_multi_entries,
 )
 
 _SCOPE_BY_UNIT: dict[str, str] = {
@@ -87,8 +120,12 @@ _SCOPE_BY_UNIT: dict[str, str] = {
 }
 
 _UNIT_ALT = "|".join(sorted(_SCOPE_BY_UNIT, key=len, reverse=True))
-# unit word + optional parenthetical qualifier, e.g. "this Subsection (2),"
-_UNIT_TAIL = rf"(?P<unit>{_UNIT_ALT})\b(?:\s*\([^)\n]{{1,12}}\))?"
+# unit word + a CHAIN of zero or more parenthetical qualifiers, e.g. "this
+# Subsection (2)," or (root cause 3, Colorado) "this subsection
+# (1)(a)(I)(A),". Was a single optional group (`?`); a chain of qualifiers
+# immediately after the unit word left the later ones unconsumed, breaking
+# both the connector match and the quote-adjacency check that follows.
+_UNIT_TAIL = rf"(?P<unit>{_UNIT_ALT})\b(?:\s*\([^)\n]{{1,12}}\))*"
 
 _STRONG_TRIGGER_RE = re.compile(
     rf"(?:as used in|for (?:the )?purposes? of|when used in)\s+this\s+{_UNIT_TAIL}", re.IGNORECASE
@@ -97,35 +134,6 @@ _STRONG_TRIGGER_RE = re.compile(
 # Bare "In this <unit>" -- genuine ~21% of the time (vs. ~77% for "as used
 # in"); precision rests on the connector check below, never this regex alone.
 _BARE_IN_TRIGGER_RE = re.compile(rf"\bin\s+this\s+{_UNIT_TAIL}", re.IGNORECASE)
-
-_STRONG_CONNECTOR_RE = re.compile(
-    r"\s*(?:,\s*)?"
-    r"(?:the following terms?\s+(?:mean|means)\s*)?"
-    r"(?:the term\s+|an?\s+)?"
-    r"(?P<colon>:)?\s*",
-    re.IGNORECASE,
-)
-
-# Strict: only a comma or a colon, no filler words -- the adjacency gate.
-_BARE_CONNECTOR_RE = re.compile(r"\s*(?:(?P<colon>:)|(?P<comma>,))?\s*")
-
-_QUOTE_TERM_RE = re.compile(r'["“](?P<term>[^"”]+?),?["”]')
-
-_MARKER_RE = r"\((?:[0-9]{1,3}|[A-Za-z]{1,3})\)"
-# A new entry starts ONLY at a marker immediately (whitespace-only) followed
-# by a quote -- keeps a roman-numeral sub-clause or a construction clause's
-# "(1) References to ..." from being mistaken for a new definition entry.
-_MARKER_QUOTE_RE = re.compile(rf'{_MARKER_RE}\s*["“]')
-
-_IDIOM_RE = re.compile(
-    r"\s*(?:has the same meaning as|has the meaning|shall be construed to mean"
-    r"|shall mean|does not include|is defined as|includes?|means)\b,?\s*",
-    re.IGNORECASE,
-)
-
-_COMMA_SEP_RE = re.compile(r"\s*,\s*")
-_SENTENCE_BOUNDARY_RE = re.compile(r"\.\s")
-_LEADING_WS_RE = re.compile(r"\s*")
 
 # Trigger AFTER its own quoted term, mid-sentence, not a leading preamble
 # (VT: `"State facilities," when used in this chapter, shall mean ...`).
@@ -136,57 +144,6 @@ _EMBEDDED_TRIGGER_RE = re.compile(
 )
 
 _SUBSECTION_LABEL_RE = re.compile(r"(?:^|\n)\s*([0-9]+(?:-[A-Za-z])?\.|\([0-9A-Za-z]{1,3}\))\s")
-
-
-def _find_entry_end(body: str, def_start: int, boundary: int) -> int:
-    """Nearer of the next marker-adjacent quote (a new entry) or the next
-    sentence boundary, bounded by `boundary` (region end or next entry)."""
-    marker_match = _MARKER_QUOTE_RE.search(body, def_start, boundary)
-    period_match = _SENTENCE_BOUNDARY_RE.search(body, def_start, boundary)
-    ends = [m.start() for m in (marker_match, period_match) if m]
-    return min(ends) if ends else boundary
-
-
-def _split_idiom(body: str, quote_match: re.Match, boundary: int) -> tuple[str, str] | None:
-    term = quote_match.group("term").strip()
-    if not term:
-        return None
-    after_quote = quote_match.end()
-    idiom_match = _IDIOM_RE.match(body, after_quote, boundary)
-    if idiom_match:
-        def_start = idiom_match.end()
-    else:
-        comma_match = _COMMA_SEP_RE.match(body, after_quote, boundary)
-        if not comma_match:
-            return None
-        def_start = comma_match.end()
-    entry_end = _find_entry_end(body, def_start, boundary)
-    definition_text = body[def_start:entry_end].strip()
-    return (term, definition_text) if definition_text else None
-
-
-def _single_entry(body: str, region_start: int, region_end: int) -> list[tuple[str, str]]:
-    ws = _LEADING_WS_RE.match(body, region_start, region_end)
-    pos = ws.end() if ws else region_start
-    quote_match = _QUOTE_TERM_RE.match(body, pos, region_end)
-    if not quote_match:
-        return []
-    entry = _split_idiom(body, quote_match, region_end)
-    return [entry] if entry else []
-
-
-def _multi_entries(body: str, region_start: int, region_end: int) -> list[tuple[str, str]]:
-    markers = list(_MARKER_QUOTE_RE.finditer(body, region_start, region_end))
-    entries: list[tuple[str, str]] = []
-    for i, marker_match in enumerate(markers):
-        quote_match = _QUOTE_TERM_RE.match(body, marker_match.end() - 1, region_end)
-        if not quote_match:
-            continue
-        boundary = markers[i + 1].start() if i + 1 < len(markers) else region_end
-        entry = _split_idiom(body, quote_match, boundary)
-        if entry:
-            entries.append(entry)
-    return entries
 
 
 def _subsection_label(body: str, trigger_start: int) -> str:
@@ -271,11 +228,19 @@ def extract_us_scoped_inline_definitions(body: str) -> list[DefinitionCandidate]
     events = _leading_events(body)
     for i, event in enumerate(events):
         region_end = events[i + 1].start if i + 1 < len(events) else len(body)
-        finder = _multi_entries if event.saw_colon else _single_entry
-        for term, definition_text in finder(body, event.region_start, region_end):
+        if event.saw_colon:
+            entries = _multi_entries(body, event.region_start, region_end)
+            if not entries:
+                # Root cause 1 (QA cycle-1's most severe miss): a colon-then
+                # -quoted-list with NO per-entry marker. Only tried once the
+                # marker-based split finds nothing.
+                entries = _unmarked_multi_entries(body, event.region_start, region_end)
+        else:
+            entries = _single_entry(body, event.region_start, region_end)
+        for terms, definition_text in entries:
             candidates.append(
                 DefinitionCandidate(
-                    terms=(term,),
+                    terms=terms,
                     definition_text=definition_text,
                     scope=event.scope,
                     scope_value=event.scope_value,
