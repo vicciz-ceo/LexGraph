@@ -1166,3 +1166,67 @@ behavior**, and it is a confirmed miss under the absolute zero-miss bar.
 `ScopeTriggerRule` is LIVE, so this is buildable now — I have sent the
 Planner back to size the gap across ALL ad-hoc trigger words (not just this
 one instance) and author the RED test.
+
+---
+
+## 2026-08-04 — Manager: corpus-wide capture measurement (I2 evidence)
+
+Explicitly-invoked probe (NOT part of `pytest`), running the REGISTERED
+rules through the real `HebrewProfile.extract_local_scope_definitions` seam
+over all 6,133 laws / 128,234 parsed articles:
+
+```
+files with >=1 ordinary-article scoped definition: 3294
+
+captured candidates by scope kind:
+  local        11095
+  chapter        878
+  siman          404
+  paragraph      364
+  chelek          38
+  item            26
+  TOTAL        12805
+```
+`chapter`/`siman`/`chelek`/`paragraph`/`item` did **not exist as scope kinds
+before this sprint** — so **1,710 scoped definitions across the real corpus
+are newly captured** by items 2a/2b/4/7/9. `local` (11,095) mixes core's
+baseline triggers with item 3's 3-word widening and is not separable
+without a before/after run; I am NOT claiming it.
+
+One real example per kind was captured and logged (e.g. `[siman]`
+חוק אוויר נקי art.18 `"בקשה"`; `[item]` חוק מימון מפלגות art.3 `"ישיבה"`).
+
+### **I made the wrong-layer measurement error a SECOND time — recording it**
+
+My first pass of this probe returned **chapter=0, siman=0, chelek=0** and I
+nearly reported the new rules as non-functional on real data. They were
+fine; **my probe was wrong.** I called `extract_local_scope_definitions` on
+raw `parse_articles` output, but the live path (`pipeline.py:188`) applies
+`normalize_for_parsing` **and `strip_wikilinks`** first. The real corpus
+writes the trigger as `[[בפרק זה]],` — a wikilink — so the rule's
+`בפרק זה,` regex could never match un-stripped text. With the correct
+chain the number is 878, not 0.
+
+This is the **same failure shape as my E5 error**: measuring at a layer the
+production path does not use. Twice in one sprint. Naming it because it is
+the single most useful thing this log can teach the next panel — and because
+it is exactly the trap **P-R7** exists to prevent, which makes it doubly
+binding on QA's I4 sweep (ruling M10): **any sweep denominator or capture
+count MUST be produced through the real pipeline preprocessing chain
+(`normalize_for_parsing` → `strip_wikilinks` → profile seam), never by
+regexing raw corpus text.** I have now demonstrated both directions of this
+error — false alarm (this) and false attribution (E5).
+
+### Quality check on a suspicious shape — resolved, not a defect
+
+Several captures have `definition_text == term` (e.g. חוק אומנה לילדים
+art.23: `(בפרק זה - המבקש)` → `terms=('המבקש',) def='המבקש'`). I checked
+core's baseline `extract.extract_adhoc_definitions` before flagging it: it
+sets `definition_text=term` for the ad-hoc apposition form by design. Our
+item-4 rule follows the established convention. **Not a defect.**
+
+### Jurisdiction isolation verified
+
+`registry.scope_trigger_rules_for("IL")` → **8** rules (core's 2 + our 6);
+`scope_trigger_rules_for("US-CA")` → **1** (core's proof rule only). Our
+Hebrew rules do not leak into any US profile.
