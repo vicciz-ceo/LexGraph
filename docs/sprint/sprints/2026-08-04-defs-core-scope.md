@@ -1003,3 +1003,96 @@ proceeds under §§1-3 above) until this is answered — proceeding with
 every other Stage B item in the meantime (M8(a)/M8(b), rule registry
 existence, C2/C3 profile methods, C4 auto-discovery, scope-containment
 prefix-matching tests) since none of those depend on the answer.
+
+
+---
+
+## Seam spec v2.3 (published) — find_citations rule kind (M12), both defects verified
+
+Verified myself before writing anything (per instruction), `backend/.venv/bin/python`:
+
+```
+find_citations("as provided in Section 552.003 of this code") == ["Section 552"]   # wrong-target truncation, reproduced
+find_citations("has the meaning given that term in ORS 153.005") == []             # state-code shape invisible, reproduced
+```
+
+Read (read-only, never checked out over this work) the multiterm panel's
+existing pins at `claude/defs-us-multiterm@f1011f0`,
+`backend/tests/unit/test_definition_links_e1_pointer_reference_capture.py`.
+Matching their EXACT expected values below rather than growing a second,
+possibly-divergent set — one fix should turn both green:
+
+- `find_citations('“Enforcement officer”...ORS 153.005 (Definitions) .')
+  == ["ORS 153.005"]` — their
+  `test_or_enforcement_officer_state_code_citation_is_invisible_today`.
+- `find_citations('"Governmental body"...Section 552.003.')
+  == ["Section 552.003"]` (untruncated) — their
+  `test_tx_governmental_body_section_citation_is_truncated_to_a_wrong_target`.
+- Same shape for `Section 2001.003` (six-term TX parent clause) — their
+  `test_tx_parent_clause_2001_003_citation_is_truncated_to_a_wrong_target`.
+- **Third defect their file ALSO pins, not previously in this spec**:
+  `_TRIGGER_PHRASES` (us_profile.py:443) is missing the three real idioms
+  `"has the meaning given that term in"` / `"has the meaning assigned by"`
+  / `"have the meanings assigned by"` — needed for
+  `detect_cross_law_derivations` to fire at all on these rows (their
+  `test_*_reference_edge_needs_both_*_and_iii_fixed`). This is a literal
+  phrase-list addition to the EXISTING `_TRIGGER_PHRASES` tuple, not a new
+  rule kind (M12 below is scoped to `find_citations`/`_CITATION_PATTERNS`
+  specifically, per the instruction) — core fixes this alongside the other
+  two as one baseline change; noted here so QA checks all three, not two.
+
+### `find_citations` becomes rule-extensible (manager ruling M12 — reverses part of M7)
+
+**M7's PR-profile paragraph is corrected, not left contradictory:**
+~~"rule modules cannot override `find_term_uses`/`find_citations`... a
+jurisdiction needing different citation grammar is a profile-class
+problem, not a rule problem"~~ — **superseded for `find_citations` only**
+(`find_term_uses` is UNCHANGED, still profile-class-only — no citation-
+grammar-shaped defect has been found in it). `find_citations` is now a
+32-jurisdiction concern (7,610 pointer definitions route through it) and
+belongs behind the SAME shared-edit-avoidance mechanism as every other
+per-jurisdiction convention, not hardcoded per-state inside `us_profile.py`
+(the exact P-R1/M11 argument). **This also resolves the M7 limitation
+raised for PR** — a Spanish citation grammar is now an ordinary registered
+rule, not a wall requiring a new profile class. PR panel: the wall named
+in M7 moved; a `CitationRule` (below) is your path now.
+
+```python
+@dataclass(frozen=True)
+class CitationRule:
+    jurisdiction_codes: tuple[str, ...]
+    find: Callable[[str], list[str]]   # text -> matched citation substrings
+
+def register_citation_rule(rule: CitationRule) -> None: ...
+def citation_rules_for(code: str) -> list[CitationRule]: ...
+```
+
+**Consumption — baseline-first, then union (consistent with M1/M9's
+union-side kinds):** `profile.find_citations(text)` runs its OWN baseline
+`_CITATION_PATTERNS` first (fixed, see below), THEN unions in every
+matching registered `CitationRule`'s output, same overlap-claiming
+discipline `find_citations` already applies internally (a rule's match
+overlapping an already-claimed span is discarded, not double-counted).
+`HebrewProfile.find_citations` stays `[]` unless an IL rule is registered
+— unchanged, C5-safe.
+
+**Core fixes both verified baseline defects directly in
+`_CITATION_PATTERNS`/`_SECTION_WORD_RE`, not via a rule module** (per the
+instruction — these are bugs in the shared regex, not missing
+jurisdiction-specific grammar): (1) decimal section numbers must not
+truncate — `Section 552.003` must resolve to `Section 552.003`, whole,
+verified via an EQUALITY assertion (not `in`) so a silent wrong-target
+regression is caught, not just a miss; (2) a generic `<CODE> <n>.<n>`
+state-code shape (covering `ORS 153.005` and similarly-shaped codes
+out of the box) is added to baseline, WITH the rule kind above still
+available for genuinely idiosyncratic grammars baseline can't
+generalize to. Both are additive to `_CITATION_PATTERNS`'s existing
+three patterns — no existing pattern's behavior changes (C5).
+
+**RED tests:** authored in core-owned files only (`test_definition_links_
+us_profile.py`, this sprint's own — see `## Stale-pin sweep` below for the
+exact list), matching the multiterm panel's expected values verbatim so
+one fix turns both sets green. Core's tests additionally cover what
+theirs do not: `HebrewProfile.find_citations` stays `[]` (IL unaffected),
+the `CitationRule`/registry mechanism itself, and the internal
+same-law-target pointer-emission path (v2.1 §4).

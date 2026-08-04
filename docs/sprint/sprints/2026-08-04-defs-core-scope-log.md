@@ -880,3 +880,28 @@ question for the director: "connections to subsections" — does that mean a
 traversable graph EDGE to the subsection (B), or the connection recorded AT
 subsection precision (A)? In a graph product that distinction is the whole
 question, and it is product judgment, not engineering preference.
+
+### Round 6/7 — Planner v2.3: find_citations rule kind (M12), defects verified
+
+Reproduced both `find_citations` defects myself before writing anything,
+per the explicit instruction (`backend/.venv/bin/python`, output pasted
+into the seam doc verbatim: decimal truncation confirmed --
+`find_citations("...Section 552.003...")` returns `["Section 552"]`;
+state-code shape confirmed invisible -- `find_citations("...ORS
+153.005")` returns `[]`).
+
+Fetched (read-only, via `refs/remotes/origin/defs-us-multiterm-snapshot`,
+never checked out over this worktree's own files)
+`claude/defs-us-multiterm@f1011f0`'s
+`backend/tests/unit/test_definition_links_e1_pointer_reference_capture.py`
+and copied its exact expected values into v2.3 rather than inventing a
+second set: `["ORS 153.005"]`, `["Section 552.003"]`, `["Section
+2001.003"]`. Also found (not previously in this spec) that their file
+pins a THIRD defect in the same idiom-recognition path -- `_TRIGGER_
+PHRASES` missing 3 real idioms -- noted in v2.3 as part of the same
+baseline fix set even though M12 itself only names `find_citations`.
+
+M7's PR paragraph corrected in place (marked with strikethrough +
+superseding text) rather than left contradicting M12 elsewhere in the
+document -- a panel reading the whole spec top-to-bottom should not hit
+two different answers to "can PR use a rule for citation grammar."
