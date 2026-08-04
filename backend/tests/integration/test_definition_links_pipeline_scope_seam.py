@@ -892,3 +892,102 @@ def test_narrowest_scope_governs_a_local_definition_suppresses_a_same_term_chapt
         f"fire there. Got target ids: {article_20_targets!r} "
         f"(chapter={chapter_def['id']!r})"
     )
+
+
+# --- QA-fail cycle 2, deliverable 1 (gap 3): C1 demands scope containment
+# --- proven live-path in BOTH directions. QA cycle 1 found IN-scope US
+# --- chapter containment live-tested (`test_a_registered_scope_trigger_
+# --- rule_is_reached_by_the_real_pipeline` and the D-E1 test just above
+# --- both prove a chapter definition FIRES inside its own chapter), but no
+# --- live test anywhere proves the negative direction: that a chapter-
+# --- scoped definition does NOT link an identical-term mention sitting in
+# --- a DIFFERENT chapter of the same document. This test adds exactly that
+# --- missing exclusion direction -- it deliberately does not re-prove the
+# --- positive direction the D-E1 test above already covers.
+def test_a_chapter_scoped_definition_links_a_mention_inside_its_own_chapter_but_not_an_identical_term_mention_in_a_different_chapter_live(
+    db_session, matter_with_users
+):
+    """C1: 'proven live-path in BOTH directions (in-scope mention links;
+    out-of-scope mention does not)', for US chapter scope specifically.
+
+    One document, two chapters:
+    - Chapter 9: article 1 is a real Definitions section, heading
+      'Definitions', body opening with 'For purposes of this chapter, ...'
+      (`us_profile.determine_scope`'s own recognized trigger phrase) --
+      stamps a scope='chapter' Definition for 'Widget', chapter '9'.
+      Article 5, ALSO in chapter 9, contains a genuine mention of
+      'Widget'.
+    - Chapter 10: article 6 contains an IDENTICAL-surface-form mention of
+      'Widget', but sits in a different chapter -- outside the chapter-9
+      definition's scope, and no other definition of 'Widget' exists
+      anywhere in the document.
+
+    Expected: article 5's mention links to the chapter-9 'Widget'
+    Definition; article 6's mention produces NO USES_DEFINITION assertion
+    at all (there is no in-scope definition of 'Widget' covering it)."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+    wiki_text = (
+        "==9==\n"
+        '@ 1. Definitions\n'
+        "For purposes of this chapter, the following definitions apply:\n"
+        '(1) "Widget" means a specially regulated device.\n'
+        "@ 5. In-chapter article\n"
+        "A Widget is mentioned here, inside chapter 9, where the "
+        "chapter-scoped definition applies.\n"
+        "==10==\n"
+        "@ 6. Different-chapter article\n"
+        "A Widget is mentioned here too, but this article sits in "
+        "chapter 10 -- a different chapter from the one the definition "
+        "above was scoped to.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test Chapter Scope Exclusion Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    chapter_defs = [
+        d for d in result["created_definitions"] if d["terms"] == ["Widget"] and d["scope"] == "chapter"
+    ]
+    assert len(chapter_defs) == 1, (
+        f"expected exactly one chapter-scoped 'Widget' Definition, got {chapter_defs!r}"
+    )
+    chapter_def = chapter_defs[0]
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    article_5_edges = [e for e in uses_edges if "Article 5 " in e["proposition"]]
+    article_6_edges = [e for e in uses_edges if "Article 6 " in e["proposition"]]
+
+    assert article_5_edges, (
+        "expected article 5's in-chapter mention of 'Widget' to link to "
+        f"the chapter-9 definition; created_assertions={result['created_assertions']!r}"
+    )
+    article_5_targets = {
+        db_session.get(Assertion, e["id"]).object_entity_id for e in article_5_edges
+    }
+    assert article_5_targets == {chapter_def["id"]}, (
+        "article 5's in-chapter mention must link to the chapter-9 "
+        f"'Widget' definition. Got target ids: {article_5_targets!r} "
+        f"(chapter={chapter_def['id']!r})"
+    )
+
+    assert not article_6_edges, (
+        "C1 out-of-scope direction: article 6 sits in chapter 10, outside "
+        "the chapter-9-scoped 'Widget' definition's scope, and no other "
+        "'Widget' definition exists in this document -- article 6's "
+        "mention must NOT produce a USES_DEFINITION assertion. Got "
+        f"{article_6_edges!r}"
+    )
