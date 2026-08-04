@@ -179,6 +179,22 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   v2.1 unit machinery serves both scope containment AND connection
   addressing.
 
+## Program rulings added during execution
+
+- **P-R7 — denominator rule (from the PR panel's QA, 2026-08-04, binding on
+  every panel):** a zero-miss sweep's ground truth must be constructed
+  INDEPENDENTLY of the capture mechanism's own signals. Measuring capture
+  against heading-signalled (or trigger-regex-derived) populations produced
+  a 94.8% score while 833 idiom-bearing rows sat outside every sweep. Each
+  panel's U4/I4/P4-class gate must state what its denominator is and prove
+  it is signal-agnostic; the program-close integration QA re-checks this
+  across panels.
+- **D-HG (director, 2026-08-04): keep the "Application of definitions"
+  heading guard; genuine rows rescue via body-content rules** (preamble
+  panel's all-states coverage under ungated dispatch). Guarded-cluster
+  act_ids get cross-checked against the preamble CLAUSE/BLOCK populations;
+  rows neither path reaches return to the director by name.
+
 ## Program routing decisions (program manager)
 
 - Seam spec v2 requested from core, consolidating: generic (unit_kind,
