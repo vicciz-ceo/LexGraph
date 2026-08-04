@@ -190,6 +190,22 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   SHIPS with a targeted guard** against its one measured false-positive
   shape (re-mentions of already-defined terms). 889 measured-genuine
   definitions at 96-100% sampled precision on two independent samples.
+- **D-CF (director, 2026-08-04): case-folding stays, with a
+  structural-context guard** — suppress case-fold matches sitting in a
+  structural-reference pattern (unit word + numbering token: "division
+  (ii)", "part (a)", "title 5"). Residual FP classes escalate with data.
+  (From core QA's measured 14,501-extra-match / 47%-of-terms exposure.)
+
+## Core QA cycle 1 verdict (2026-08-04)
+
+**Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on
+subsection granularity.** Subsection containment was dead on the live path
+(no rule stamps subsection scope; MatcherArticle carries no subsections;
+containment returns False unconditionally — unit greens were stub-based).
+RED bounce test committed (qa branch 2f88060). Fix cycle running. Process
+note now binding: CodeGraph's index reflects main — agents on divergent
+branches verify source with direct reads, CodeGraph for main-state
+structure only.
 
 - **P-R7 — denominator rule (from the PR panel's QA, 2026-08-04, binding on
   every panel):** a zero-miss sweep's ground truth must be constructed
