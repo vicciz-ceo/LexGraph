@@ -65,6 +65,26 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-04 (multiterm E3/E4 rulings): multiterm build verified by its
+  manager (2 added files, U3 holds, 11 REDs green, 4 VT/SD stay red; dev
+  self-caught a `.match(s, pos)` `^`-anchoring subtlety) but escalated two
+  cross-panel boundaries. E3 RULED option (i): F6's ScopeTriggerRule was
+  firing on 8.87% of rows (35,337 candidates) — that mechanism IS family 1
+  (scoped-inline's active build), so F6 narrows to its apposition/
+  cross-reference shapes; zero recall lost (family 1 actively owned +
+  program-close signal-agnostic re-check); protects scoped-inline's U6
+  measurement; no core dedup machinery. OR row must be re-proven live via
+  the narrow shape; dup-terms fix (10.8% of firing rows) held until
+  post-narrow re-measure. E4 RULED: both multiterm EntrySplitterRules stay
+  (narrowly gated, non-firing on VT/SD) but markers holds design-time
+  authority — inventory relayed to markers manager; multiterm must document
+  gating/contribution per splitter; TX 2009.003 two-assertion hazard goes
+  on multiterm's residual ledger (markers' fix per M-R5 closes it).
+  Merge-order note: with (i) the overlap is removed at source, so no
+  U6-corruption constraint on multiterm-vs-scoped-inline merge order
+  remains; scoped-inline NOT resumed for this (token economy) — they learn
+  at merge review.
+
 - 2026-08-04 (AL-class + PR gate-1 routing): AL LABEL-class scout
   (aa02b1af67484dda8) reported — 714 genuine un-rescued rows (premise
   deflated from "tens of thousands"), "In general"/"en general" decoy is the
