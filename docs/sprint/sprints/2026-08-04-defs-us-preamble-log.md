@@ -1430,3 +1430,122 @@ MS's will too.
 `assert 0 == 1` on `registrant_defs` (zero `Definition` rows created today,
 same underlying miss as every other capture test in this family), not a
 fixture-loading error or an import error.
+
+### P-D1 — Count reconciliation: methodologies found and diffed, not guessed
+
+Neither S1 nor S4 had the ORIGINAL scripts behind the numbers they were
+comparing against — I do, because this scratchpad is shared across the
+whole sprint. I located and read the actual source scripts for every cited
+figure below (not re-derived from prose) before writing this section.
+
+**FL/NC/AL/MO (S1's floor-vs-cited gap): genuinely reconciled, not a
+mystery, and not the same story for every state.**
+
+I confirmed `qa_d1_corpus_scan.py` (QA's D1 corpus-wide false-positive
+exposure scan — the SAME script that produced the 7,383-row worklist
+M-R13/14 cite) is the exact, reproducible source of the M-R15 slice
+numbers: re-reading its own output file (`qa_d1_summary.json`) gives FL
+`claimed_total=1031`, NC `142`, AL `claimed_ungated_only=129`
+(`claimed_total=134`, 5 gated), MO `103` — an EXACT match to M-R15's
+citation, not an approximation. So the "cited" number is real, reproducible
+code output, not folklore.
+
+The gap to S1's own count (FL 330/646, NC 102/276, AL 135/216, MO 476/744)
+is explained by two independent, provable regex differences between QA's
+`_TERM_PREAMBLE_RE` and S1's `PREAMBLE_RE`, not by one script being "wrong":
+
+1. **QA's regex requires the literal singular phrase `"the term"` (word-
+   bounded — I verified live: `re.search(r"\bthe term\b", "the following
+   terms mean")` is `None`, since `\b` fails between "term" and the "s")
+   and does NOT require any defining verb to follow it.** S1's regex
+   ADDITIONALLY matches the plural `"the following terms mean"` shape (MO's
+   OWN dominant convention, confirmed 434/476 of MO's own candidates use
+   "this section" as the unit — plural "terms", not singular) but DOES
+   require a defining verb (`means`/`shall mean`/etc.) within a bounded gap
+   after the trigger. Net effect, verified against each state's own
+   dominant idiom (scout §1 tables): MO's gap (476 vs 103, 4.6x) is almost
+   entirely the plural-vs-singular anchor — QA's regex structurally cannot
+   match MO's dominant shape at all. AL's smaller, same-direction gap (135
+   vs 129, roughly even) is because AL's real population splits between a
+   plural multi-term convention (QA misses it) and a singular single-term
+   convention (QA catches it), so the two roughly offset.
+2. **For FL, the gap runs the OTHER way** (S1 330-646 vs QA 1,031, QA
+   HIGHER) because QA's regex, unlike S1's, never requires a defining verb
+   after "the term" — it fires on ANY body containing "the term" within 80
+   non-period-crossing chars of "As used in this X"/"For purposes of this
+   X", including non-defining mentions (forwarding references, "shall be
+   deemed" attribution clauses, and other HAZARD shapes S1's §7-equivalent
+   catalogue and QA's own D1 45-row hand-check already document as real).
+   This is not a defect in QA's script — its own docstring says its PURPOSE
+   is false-positive EXPOSURE measurement (a deliberately loose net to
+   stress-test the ungated branch), not a precise convention census. NC's
+   smaller reverse gap (S1 full-body 276 > QA's 142) is consistent with the
+   same story at smaller scale.
+
+**Recommendation, not a single fabricated number**: report BOTH numbers for
+what they actually measure, not as competing claims about the same thing.
+QA's D1 total (1,031/142/129/103, and the 7,383/5,915 worklist totals built
+from it) is the right number for **exposure/risk sizing** — it is already
+the sprint's official worklist and should NOT change. S1's own count
+(330-646/102-276/135-216/476-744, a genuine defining-verb required) is the
+right number for **building actual capture rules** — it is a truer
+per-state estimate of what a real `BodyPreambleRule` would need to parse.
+Neither is "the" candidate count; they answer different questions.
+
+**MD: genuinely reconciled, and the correction changes the contract's own
+target number.** The contract's item 3 target ("3,327/39,552") and S4's own
+comparison baseline ("D1") are NOT QA's D1 script — I confirmed
+`qa_d1_summary.json` gives MD `claimed_ungated_only=1841`, essentially
+matching S4's own independent re-measurement (1,849, off by 8 — a near-exact
+convergence between two INDEPENDENT methodologies, QA's regex-based scan
+and S4's own trigger+structural-entry scan). I traced "3,327" to its real
+source: `planner_md_ne_classify.py` (an earlier Planner-attempt-1 script,
+found on disk in this same scratchpad, output preserved in
+`planner_md_ne_classify.out`). Its "multi-entry BLOCK" bucket — the exact
+source of "3,327" (`grep` confirms the literal number in its own stdout) —
+counts **any MD row with >=2 occurrences of a quoted-term-then-"means"/
+"shall mean"/"has the meaning" pattern ANYWHERE IN THE FULL BODY TEXT**,
+with NO requirement that an "In this &lt;unit&gt;... the following words have
+the meanings indicated" preamble trigger be present at all, let alone near
+the body's start. This is a structurally different, much LOOSER population
+than "rows whose body opens with MD's real preamble convention" (what QA's
+D1 and S4's re-scan both measure) — it is a superset that also counts any
+MD row that happens to gloss two unrelated quoted terms anywhere in a long
+body for reasons having nothing to do with this sprint's family.
+
+**Correction for the record**: MD's reconciled, reproducible population for
+THIS sprint's rule-building purposes is **~1,841–1,849/39,552** (two
+independent methodologies converging), not 3,327. I am NOT silently
+patching the contract's old item-3 language — the corrected number and this
+reasoning carry into D6's item-list rewrite below, with the "3,327" figure
+explicitly retired and its real source documented so no future reader
+re-cites it as if it measured the same thing.
+
+**Fallback-inflation caveat (S1's proven bug, D-PREAMBLE-ALL M-R19)** —
+stating plainly which numbers in this sprint's own findings ARE and ARE NOT
+built on the affected measurement, as directed:
+
+- **NOT affected**: every count in this section above (QA's D1, S1's own
+  330-646/102-276/135-216/476-744, S4's 1,849/558/1,423/171/1,316/9 BLOCK
+  counts) — all are regex/trigger-match counts or bounded-paragraph-run
+  heuristics, none call `_extract_inline_quoted_definitions`/
+  `extract_definitions_from_section` and treat "produced >=1 candidate" as
+  the classification signal. S1 explicitly abandoned that approach after
+  finding the bug (see S1 §2's own methodology note).
+- **AFFECTED, do not reuse uncorrected for U6**: S2's FEDERAL/DC/NY
+  extraction-rate figures ("386/435 FEDERAL rows yield >=1 candidate",
+  "145/300 DC rows extract... 91.7% leak", "94/136 NY rows extract... 79.8%
+  of last entries >1,000 chars") are raw, uncorrected
+  `_extract_inline_quoted_definitions` output counts — S2 already
+  self-flagged the specific contamination/leak rates for each, so these are
+  disclosed, not silently wrong, but whoever builds U6's before/after
+  capture-rate report must not treat "row produced >=1 candidate" as "row
+  correctly captured" for these three jurisdictions without applying the
+  same correction. **S4's `n_extracted_today` field is the SAME
+  raw-extractor count** (S4's own method note: "run the REAL extractors to
+  get `n_extracted_today` — empirical ground truth") — safe for
+  BLOCK/CLAUSE/HAZARD classification (S4's discriminator uses `trig_start`,
+  not extractor output, after its own self-correction) but the EXACT term
+  counts inside `n_extracted_today`/`extracted_terms` for any state's
+  longer-tail rows should be treated with the same caution before being
+  quoted as a clean per-row capture count in a U6 report.
