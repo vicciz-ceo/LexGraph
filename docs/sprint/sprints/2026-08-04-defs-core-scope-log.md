@@ -905,3 +905,55 @@ M7's PR paragraph corrected in place (marked with strikethrough +
 superseding text) rather than left contradicting M12 elsewhere in the
 document -- a panel reading the whole spec top-to-bottom should not hit
 two different answers to "can PR use a rule for citation grammar."
+
+---
+
+## 2026-08-04 — Round 7: E-2 ANSWERED — Option C authorized (provisional)
+
+**Ruling (program manager, on the manager's escalation E-2):** **Option C**
+— the sequencing option the manager named, not the Planner's A or B.
+
+- A's storage NOW, unit path as **STRUCTURED data**. The manager's
+  no-prose-encoding sub-ruling is **endorsed and BINDING**: the unit path
+  never goes into the assertion's `proposition` text under any option.
+- Write path kept **B-compatible** so materializing `Unit` entities later is
+  additive, not a rewrite. Design as though B is coming; do not build B.
+- **The A-vs-B decision itself — whether subsections become first-class graph
+  citizens — is PRODUCT JUDGMENT and goes to the DIRECTOR together with the
+  4-system research dossier** (nesting depths, main units, citation shapes).
+  The program manager will not put it to the director data-blind. Deliberate
+  sequencing, recorded as such.
+
+**Test-shape constraint (the operative part, and the easiest to get wrong).**
+Sub-article anchoring MAY now be pinned against C's shape, but **phrased so a
+later B-promotion EXTENDS rather than INVALIDATES the pins**; anything that
+only makes sense under one of A/B stays **UNPINNED** until the director rules.
+Manager translation sent to the Planner: **assert through a RETRIEVAL seam,
+not the storage shape.** "The mention's unit path is `5(a)(2)`, retrievable
+through the live path" survives a B-promotion; "the `subject_unit_path` column
+equals that string" does not — and the Developer cannot edit a broken test, so
+pinning storage shape would be a red-before-green violation waiting to happen
+(prior R2). Explicitly DO pin: correct unit path via the live production path;
+`5(a)`-scoped definition governs a mention in `5(a)(2)` and not one in `5(b)`.
+Explicitly DO NOT pin: column name, type, serialization format, or
+`subject_entity_type` staying `"Article"`. If proving C's shape needs a
+storage-level assertion, LEAVE IT OUT and note the deliberate gap in the
+contract so QA reads it as intentional rather than an oversight.
+
+**Also confirmed upward:** the M12 coordination approach (reproduce the
+`find_citations` defects independently; expected values identical to the
+multiterm panel's pins at `claude/defs-us-multiterm` @ `f1011f0`) was endorsed
+as correct. And v2.2's rank-registry withdrawal was noted upward as the best
+available signal this design is CONVERGING rather than accreting — spec
+getting smaller under pressure. Instruction passed to the Planner: keep that
+instinct; where a remaining item can be expressed by the unit-path model
+instead of its own mechanism, prefer that.
+
+**Sprint state:** every Stage B item is now UNBLOCKED; nothing is held. The
+Planner proceeds through the full RED set — C1-C5, M8(a) bare-`@` articles,
+M8(b) case-folding with the Hebrew-unchanged proof and the FP measurement, the
+rule registry, the two citation defects, pointer emission. The manager's
+structural wiring gate was restated in the same message: **no Developer will
+be spawned for any item introducing a new module, function, or dispatcher
+branch without a named live call-site test as `file::test`** — a unit test on
+the new module in isolation does not satisfy it.
