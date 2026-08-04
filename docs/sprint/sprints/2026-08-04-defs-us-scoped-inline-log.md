@@ -1769,3 +1769,25 @@ S-R9 law-wide fallback; S-R11 subsection interim; the PA construction-clause
 pin. Queued for post-U4 re-escalation to the program manager. Two items
 already routed upstream (core's resolver defects; GA/MD/NE/MS reverse-boundary
 re-verification with the preamble panel) are not this panel's.
+
+### Manager check: the 6 UNPINNED miss rows are real too (not taken on prose)
+
+My predecessor byte-verified QA's 6 PINNED fixture rows. The other 6 confirmed
+misses live only in QA's prose, and the Developer is being asked to fix them,
+so I verified them myself before the cycle ran — pulled each from the live
+parquet and ran the real, unmodified `extract_us_scoped_inline_definitions`
+over the full untruncated text (`si_cycle2_mgr_verify_unpinned.py`,
+scratchpad):
+
+| act_id | text len | candidates today |
+|---|---|---|
+| `STATE_FL_TXVIII_C253_S253.04` | 5547 | **0** |
+| `STATE_DC_T47_C20_S47-2002.01` | 4598 | **0** |
+| `STATE_NY_ARPP_A8_S280-D` | 3181 | **0** |
+| `STATE_MS_T27_C29_S51-5` | 1418 | **0** |
+| `STATE_OH_T17_C1707_S1707.47` | 3343 | **0** |
+| `STATE_OR_T62_C835_S835.200` | 1406 | **0** |
+
+All 6 rows exist, all 6 yield nothing. Combined with the predecessor's 6/6
+byte-verification of the pinned rows, **all 12 confirmed misses are real** —
+the Developer is not chasing a phantom on any of the 8 root causes.
