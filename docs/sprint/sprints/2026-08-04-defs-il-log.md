@@ -1354,3 +1354,61 @@ Explicitly checked per the manager's closing instruction: no real corpus
 example was found where widening the ad-hoc trigger set risks a
 false-positive against a genuine zero-miss need. Reporting real numbers,
 not picking a side, because no side needed picking this time.
+
+---
+
+## 2026-08-04 — Manager verification: Planner round 2 + Developer item 10
+
+### Planner round 2 (`e544a8c`) — ACCEPTED, and it corrected ME
+
+It re-confirmed the miss I flagged, then **corrected my framing with live
+evidence**, which is exactly the standard I hold the panel to: the
+`(בפסקה זו - חוק הדואר)` occurrence I cited sits inside an article whose
+heading IS a הגדרות heading, so `pipeline.py`'s dispatch never routes that
+body to `extract_local_scope_definitions` at all. Widening a trigger list
+could not have reached it. It is a new instance of the **E6** blocker, not a
+trigger-list gap — filed as item 11, BLOCKED, instead of being folded into a
+"ready" item. **Correction accepted.** That is now three times this sprint a
+framing was corrected by evidence (my E5, my wrong-layer probe, and this).
+
+Its corpus sizing found the **largest population of the whole sprint**:
+ad-hoc `(TRIGGER - term)` with `בסעיף זה` = 2,335 occurrences / 572 files
+(2,328 in ordinary articles), bigger than class (d)'s 592 files. 25 random
+samples (seed 42, not cherry-picked) hand-verified genuine, zero verb-shaped
+false positives.
+
+### Developer item 10 (`a3505b6`) — ACCEPTED
+
+Verified by me: **one** production file modified
+(`rules/il_adhoc_scope_triggers.py`, 110 lines — under 300); **zero** test or
+fixture edits; **zero** frozen-module edits. Suite reproduced by my own run:
+**`4 failed, 715 passed`** (net +2). The 4 = 3 held class-(d) + 1 E6-blocked
+definitions-section variant — all expected. The Developer verified the E6
+blockage itself rather than trusting my framing. The ≤4-token cap that keeps
+this class's false-positive rate at zero is preserved.
+
+### Corpus-wide capture, re-measured through the real seam after item 10
+
+```
+files with >=1 ordinary-article scoped definition: 3375   (was 3294)
+
+  local        13355   (was 11095  -> +2260 from בסעיף זה)
+  chapter        878
+  paragraph      578   (was   364  ->  +214 from בפסקה זו)
+  siman          404
+  chelek          38
+  item            26
+  TOTAL        15279   (was 12805  -> +2474 from item 10)
+```
+**Sprint total newly-captured scoped definitions: ~4,184** — 1,924 in scope
+kinds that did not exist before this sprint (chapter/siman/chelek/paragraph/
+item) plus ~2,260 `בסעיף זה` ad-hoc appositions now landing as `local`.
+
+### Contract hygiene
+
+`scripts/contract_lint.sh 2026-08-04-defs-il` → **PASS 400** (all 7 checks).
+I fixed two lint FAILs that were mine: `last_updated` was a bare date (now
+ISO-8601 UTC) and the item counters were stale (now `total_items: 12`,
+`completed_items: 8`, `dev_complete_items: 8`). The contract is at exactly
+**400/400 lines — at the cap**, so all further detail goes here, per the
+size-budget rule.
