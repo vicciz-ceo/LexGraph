@@ -260,6 +260,13 @@ structure only.
   markers; CO truncated titles + repealed stubs → program data-quality list.
 - Process rules (after two incidents): ONE writer per worktree, always;
   verify agent liveness before respawning (staleness watchdogs unreliable).
+- **P-R9 scratchpad discipline (2026-08-04, from the PR panel's finding of
+  cross-panel concurrent writers in the shared scratchpad):** every agent
+  prefixes its scratchpad files with its sprint/role slug; NEVER read a
+  scratchpad file you did not write unless the program manager handed you
+  the exact path; narrow corpus globs (us_*_statutes.parquet) to your own
+  jurisdiction set. A generically-named scratchpad file may be another
+  panel's data.
 - **P-E3 cross-panel factual correction (2026-08-04, program-manager-probed
   on the real corpus):** the IL panel's E5 "124 bare-@ laws / 12 with
   definitions" framing is corrected — real bare-@ occurrences are 331
