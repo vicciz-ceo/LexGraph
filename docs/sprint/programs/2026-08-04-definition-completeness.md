@@ -181,6 +181,16 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
 
 ## Program rulings added during execution
 
+- **D-DF (director, 2026-08-04): the "defined for" heading rule ships
+  BODY-CONFIRMED** — capture only when the body also carries a defining
+  marker (72+ genuine of 110 rows kept, ~12-15 junk captures avoided; the
+  bare rule measured 86-89%, below the ~90% floor). Same trust-the-body
+  principle as D-HG. Headings panel implements in dev cycle 4 / QA cycle 3.
+- **D-PR-18c (director, 2026-08-04): PR's whole-body quoted-idiom scan
+  SHIPS with a targeted guard** against its one measured false-positive
+  shape (re-mentions of already-defined terms). 889 measured-genuine
+  definitions at 96-100% sampled precision on two independent samples.
+
 - **P-R7 — denominator rule (from the PR panel's QA, 2026-08-04, binding on
   every panel):** a zero-miss sweep's ground truth must be constructed
   INDEPENDENTLY of the capture mechanism's own signals. Measuring capture
