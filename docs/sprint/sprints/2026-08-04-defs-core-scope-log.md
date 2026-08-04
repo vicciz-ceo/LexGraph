@@ -1148,3 +1148,74 @@ sets — Developer writes only `backend/app/**`, Planner writes only
   context a resume would preserve is exactly the context that is already on
   disk. A resume of that 9-round transcript costs multiples of a bounded
   fresh spawn.
+
+---
+
+## 2026-08-04 — Round 10: verification of the late Stage-B Planner delta (`4681823..37e928a`)
+
+The original Stage B Planner pushed one more commit AFTER my Round-9
+verification snapshot, then stood down cleanly. Verified as a DIFF, not
+accepted as prose.
+
+**Containment:** one commit, three files —
+`test_definition_links_pipeline_scope_seam.py` (+70),
+`test_definition_links_profiles.py` (+43), contract (+21/-9). Filter for
+anything outside `backend/tests/` + `docs/sprint/` → **NONE. Zero production
+code.**
+
+**The "M10 test REMOVAL" — verified as honest cleanup, NOT gaming.** This was
+the check that mattered most, since a removed test is exactly the shape the
+anti-gaming rule exists for. Finding: **no test lines were deleted anywhere in
+the delta** (`--numstat` shows 70/0, 43/0 on the two test files). The only
+deletions are 9 lines of CONTRACT PROSE. The M10 tie test was attempted and
+discarded BEFORE it was ever committed, so the suite never contained it and
+nothing was removed from anyone's coverage. The Planner's recorded reason:
+its version "didn't construct a genuine tie (only one Definition row existed,
+so it passed today for the wrong reason)", and it judged "shipping a
+misleading green-for-wrong-reasons test worse than an honestly-open item."
+**That judgment is correct and I endorse it** — refusing a vacuous green is
+the opposite of gaming, and the item is now honestly carried as open with the
+real blocker named (a genuine tie needs the enumerated-scope production path
+or a second scope-kind live end-to-end; neither is built).
+
+**The new D-ANCHOR anchoring test — verified COMPLIANT with my binding
+retrieval-seam constraint.** `test_a_mention_inside_a_specific_subsection_
+resolves_to_the_correct_unit_path_live` asserts through a retrieval seam
+(`get_mention_unit_paths(session, assertion_id)`), imports inside the test
+body (so it fails as a test FAILURE, not a collection error — the pattern
+fix I ordered, applied preemptively), and its own comments record that
+column name/type and `subject_entity_type` are **deliberately not asserted**.
+That is exactly the shape I specified: it survives a future promotion to
+first-class `Unit` entities. Accepted.
+
+**Suite state moved 17 → 20 failures**, +3 being deep-nesting, the
+"no bare sub-unit without its parent" invariant, and sub-article anchoring —
+all genuine RED belonging to I1/I2. 644 passing unchanged.
+
+**Manager correction issued to the contract.** The delta still lists
+`StructuralUnitRule` US-side parquet availability as "unresolved, flagged
+twice, never verified". **It is resolved** — I closed it in Round 9 with a
+real-file probe (`de_sample_rows.parquet` carries `breadcrumb`,
+`display_path`, `chapter`, `chapter_name`, `title_number`, `section_number`,
+`subsection_count`). The late Planner was working from a snapshot predating
+my probe. Stage C Planner instructed to fix the line so nobody
+re-investigates a closed question.
+
+**Both running agents amended mid-flight (the reason this mattered urgently):**
+- **Stage C Planner** — deliverable 4 (sub-article anchoring) is ALREADY DONE
+  at `37e928a`; told to pull, NOT author it, NOT rewrite it, and escalate
+  rather than edit if it disagrees. A second differently-shaped anchoring test
+  would be worse than none. Also told: attempt M10 ONLY if a GENUINE tie is
+  constructible through the live path; mocking is banned (acceptance target);
+  if not constructible, leave it open and say so — an honestly-open item is a
+  correct outcome. This preserves the previous Planner's good judgment rather
+  than pressuring a fresh agent into manufacturing the green it refused.
+- **Developer** — told to rebase onto `origin/claude/defs-core-scope`, stop and
+  report rather than hand-resolve any conflict, and given the new baseline
+  (644/20/1, was 644/17/1). Verified and told explicitly that **none of its
+  three target test files were touched** by the delta, so its items, RED tests
+  and expected values are unchanged; and that the 3 new failures belong to
+  I1/I2 and are neither its problem nor its to fix.
+
+**Original Stage B Planner: DONE, not to be re-engaged** (program manager's
+instruction; everything it knows is on disk).
