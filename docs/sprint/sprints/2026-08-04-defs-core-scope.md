@@ -4,10 +4,10 @@ status: dev-complete
 current_role: qa
 branch: claude/defs-core-scope
 worktree: /Users/nerya/LexGraph-wt/defs-core-scope
-locked_by: null
-locked_at: null
-last_agent: "claude-code:sprint-manager"
-last_updated: "2026-08-04T09:48:54Z"
+locked_by: "claude-code:qa-manager"
+locked_at: "2026-08-04T09:52:12Z"
+last_agent: "claude-code:qa-manager"
+last_updated: "2026-08-04T09:52:12Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
