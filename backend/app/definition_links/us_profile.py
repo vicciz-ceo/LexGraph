@@ -1034,13 +1034,48 @@ def determine_scope(body_text: str) -> str:
 # (a) > (1) > (A) > (i) > (I) > (aa) > (AA) -- 7 sub-article levels, no
 # hard-coded cap at 2 or 3. A marker matching an ALREADY-open ancestor
 # level's shape pops back to (and replaces) that level (a sibling, not a
-# deeper nesting); a marker matching neither the next expected rung nor
-# any open ancestor still pushes (as a generic "sub" step) rather than
-# being silently dropped -- genuinely unbounded depth, never a cap. -----
+# deeper nesting).
+#
+# Sprint 2026-08-04-defs-core-dispatch, items I9/I11, manager ruling M-D3,
+# seam v2.7 -- two fixes to the classifier surface, both explained in full
+# in `resolve_unit_path`'s own docstring below:
+#
+#   I11: the ladder above is the FEDERAL convention only. A large share of
+#   real US STATE drafting reverses the first two rungs (subsections
+#   numbered `(1)(2)(3)...`, DIGIT-outermost, with lettered paragraphs one
+#   level below -- real Oregon row `STATE_OR_T22_C238_S238.300`). The
+#   ladder is now chosen PER CALL from the shape of the first genuine
+#   marker actually seen, between exactly the two variants below (this is
+#   a deliberately narrow "adaptive head" fix, not a fully re-orderable
+#   ladder -- see the docstring's honesty note on jurisdictions whose
+#   outermost convention is neither digit- nor lower-alpha-shaped, e.g.
+#   Ohio's real `(A)(1)(a)(i)`).
+#
+#   I9: a marker matching neither the next expected rung nor any open
+#   ancestor is now SKIPPED, never pushed as a generic `"sub"` step. The
+#   unconditional push was the root cause of Maine's inline revisor
+#   annotations (`(NEW)`, `(AMD)`, `(AFF)`, `(RP)`, `(RPR)`, `(REV)`,
+#   `(COR)`) polluting every below-article path they appear in. A CLOSED,
+#   exact-string set of those 7 codes is additionally excluded up front
+#   (`_KNOWN_NON_MARKER_ANNOTATION_TOKENS`) -- 6 of the 7 could never
+#   shape-match any ladder kind anyway (they are 2-3 letter, non-roman
+#   strings), so the "skip unclassifiable" fix alone already handles them;
+#   the 7th, `(RP)`, is the one genuine shape collision (two uppercase
+#   letters is also `double_upper_alpha`'s own shape) and is why this is a
+#   closed WORD list, not a shape rule -- a shape-based exclusion (e.g.
+#   "reject any short uppercase parenthetical") would also reject genuine
+#   federal `upper_alpha`/`double_upper_alpha` markers, which is exactly
+#   the over-broad failure mode this item was scoped to avoid.
 
 _US_UNIT_MARKER_RE = re.compile(r"\(([A-Za-z]+|\d+)\)")
 _LOWER_ROMAN_CHARS_RE = re.compile(r"^[ivxlcdm]+$")
 _UPPER_ROMAN_CHARS_RE = re.compile(r"^[IVXLCDM]+$")
+
+# The federal-convention ladder (dossier-confirmed, v2.4 §3), used
+# whenever the first genuine marker seen is NOT digit-shaped -- this is
+# also the ladder used when the first marker matches neither `"digit"`
+# nor `"lower_alpha"` (see `resolve_unit_path`'s docstring "Honesty note"
+# for exactly what that means for a convention like Ohio's).
 _UNIT_PATH_LADDER = (
     "lower_alpha",
     "digit",
@@ -1049,6 +1084,34 @@ _UNIT_PATH_LADDER = (
     "upper_roman",
     "double_lower_alpha",
     "double_upper_alpha",
+)
+# I11: the digit-outermost variant -- swaps ONLY the first two rungs
+# relative to `_UNIT_PATH_LADDER` (real US STATE convention, e.g. Oregon's
+# `(1)(2)(3)` subsections with `(a)(b)(c)` paragraphs one level below).
+# Every rung from position 2 onward is unchanged/shared with the federal
+# ladder -- the manager's own "commonly reverses the first two rungs"
+# framing, taken literally rather than generalized further (see the
+# Developer report's GENERALIZATION STATEMENT for what this deliberately
+# does NOT attempt to handle).
+_DIGIT_OUTERMOST_UNIT_PATH_LADDER = (
+    "digit",
+    "lower_alpha",
+    "upper_alpha",
+    "lower_roman",
+    "upper_roman",
+    "double_lower_alpha",
+    "double_upper_alpha",
+)
+
+# I9: Maine's inline legislative-history revisor annotation codes -- the
+# real, measured, closed vocabulary (see `test_definition_links_cd_i9_
+# unit_path_annotations.py`'s module docstring for the corpus measurement).
+# Exact-string, case-sensitive (the real corpus convention is always
+# upper-case): checked BEFORE any shape/ladder classification, so these
+# are unconditional no-ops on the path regardless of stack depth or which
+# ladder variant is in effect.
+_KNOWN_NON_MARKER_ANNOTATION_TOKENS = frozenset(
+    {"NEW", "AMD", "AFF", "RP", "RPR", "REV", "COR"}
 )
 
 
@@ -1075,18 +1138,40 @@ def resolve_unit_path(article, char_offset: int | None = None):
     comment above. `char_offset=None` returns `()` (the article's own
     base path -- v2.4 correction: `UnitPath` is BELOW-article only, never
     chapter/part information, which callers read off the article's own
-    metadata fields instead)."""
+    metadata fields instead).
+
+    Ladder selection (I11): chosen ONCE per call, from the shape of the
+    first genuine (non-annotation) marker encountered -- `_DIGIT_
+    OUTERMOST_UNIT_PATH_LADDER` if it is digit-shaped, else the standard
+    federal `_UNIT_PATH_LADDER`. Honesty note (no test pins this): a
+    document whose OWN outermost convention is neither digit- nor
+    lower-alpha-shaped (e.g. Ohio's real `(A)(1)(a)(i)`) still gets the
+    federal ladder by this same fallback, under which its own genuine
+    `(A)` marker fails to match position 0 (`lower_alpha`) and has no open
+    ancestor to match either -- it is SKIPPED (see below), not corrupted
+    into a wrong kind, but also not captured as a step. See the Developer
+    report's GENERALIZATION STATEMENT for the full enumeration.
+    """
     from app.definition_links.rules.registry import UnitStep
 
     if char_offset is None:
         return ()
 
     stack: list = []
+    ladder: tuple[str, ...] | None = None
     for match in _US_UNIT_MARKER_RE.finditer(article.body):
         if match.end() > char_offset:
             break
         token = match.group(1)
-        expected_kind = _UNIT_PATH_LADDER[len(stack)] if len(stack) < len(_UNIT_PATH_LADDER) else None
+        if token in _KNOWN_NON_MARKER_ANNOTATION_TOKENS:
+            continue
+        if ladder is None:
+            ladder = (
+                _DIGIT_OUTERMOST_UNIT_PATH_LADDER
+                if _marker_matches_kind(token, "digit")
+                else _UNIT_PATH_LADDER
+            )
+        expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
         if expected_kind is not None and _marker_matches_kind(token, expected_kind):
             stack.append(UnitStep(kind=expected_kind, value=token))
             continue
@@ -1098,7 +1183,13 @@ def resolve_unit_path(article, char_offset: int | None = None):
                 replaced = True
                 break
         if not replaced:
-            stack.append(UnitStep(kind="sub", value=token))
+            # I9: unclassifiable at this position -- SKIPPED, never pushed
+            # as a garbage "sub" step (the cascade source this item
+            # exists to close). Includes citation/aside noise the module
+            # docstring names as a separate, pre-existing, out-of-scope
+            # gap -- unaffected in kind by this fix, just no longer
+            # corrupting every step that follows it.
+            continue
     return tuple(stack)
 
 
