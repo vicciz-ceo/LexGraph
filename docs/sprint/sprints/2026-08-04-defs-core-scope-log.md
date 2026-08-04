@@ -481,3 +481,115 @@ against an existing one. This mirrors the M4(c) non-comparable-scopes
 reasoning exactly (same "both survive" resolution), so I did not treat it
 as a second separate decision needing its own escalation — it falls out of
 the same rule.
+
+---
+
+## 2026-08-04 — Round 3: manager review of seam v2 (pushed `6c449fc`)
+
+Reviewed the pushed v2 myself against rulings M4–M8. `git diff --name-only
+d421a57..6c449fc` → two paths, both under `docs/sprint/` — Planner still at
+zero production code, role separation intact.
+
+**Accepted as written:** M4(a) `ScopeUnit(kind, value)`; M4(b)
+`register_scope_unit_kind(kind, *, rank)` with `rank_for` raising `KeyError`
+instead of fabricating a guess (correct, and consistent with the codebase's
+existing `resolve_law_title` discipline); M4(d) keeping `"chapter"`/`"local"`
+on their existing dedicated fields so IL comparisons are literally untouched
+— that is the design choice that makes C5 cheap. M5/M6/M7/M1 all render
+correctly. The Planner flagged its own M4(c) call for override rather than
+burying it, which is what surfaced the M11 hole below.
+
+**Three corrections issued (M9 already sent separately, M10/M11 new):**
+
+**Overruled — AK multi-chapter-range deferral.** v2 §1 defers with the
+fallback "scope stays `law-wide`". A program ruling landed mid-write:
+the fallback may NOT be a silent law-wide stamp; the multiterm panel's
+manager refused exactly this. The Planner's justification ("zero-miss-safe —
+law-wide never narrows away a legitimate match") is true for recall and wrong
+overall: stamping law-wide on a definition governing chapters 5-9 doesn't
+lose a match, it manufactures assertions across every other chapter. M9
+(sets + set-membership `_in_scope`) supersedes it and covers SD's enumerated
+sections with the same mechanism.
+
+**MANAGER RULING M10 — equal-rank ties: behavior stands, reasoning
+corrected, class stays OPEN.** The Planner resolved M4(c) as "both survive,
+both get an assertion" and argued it is not a recall/precision trade because
+"each surviving assertion's scope claim is independently, factually true —
+the mention genuinely sits inside both units". That reasoning is wrong. The
+emitted assertion is not "the mention sits inside unit U"; it is
+`USES_DEFINITION` pointing at ONE specific `Definition` row. A term at one
+mention has one meaning, so when two different definitions of the same term
+both get an assertion, one of them is factually FALSE — we just don't know
+which. That is a false positive with a knowable rate. Same correction applies
+to the spec's "register at the same rank as the nearest known kind — a tie
+never costs recall, only a possible duplicate-but-true assertion": there is no
+duplicate-but-true here. Ruling: KEEP the behavior (it is the zero-miss-safe
+side and the director's bar is absolute), but record it as a NAMED OPEN
+conflict class under the director's escalate-with-data policy, with (a) a test
+pinning the tie behavior so it is deliberate not emergent, and (b) a QA-time
+full-corpus measurement of equal-rank/different-kind tie frequency, escalated
+with the number if material. Planner does not spend Stage B time measuring.
+
+**MANAGER RULING M11 — the seam needs a `StructuralUnitRule` (load-bearing;
+this is a C4 breach as v2 stands).** v2 §1 says core populates
+`structural_units` for `"chapter"` only and that populating it for any new
+kind is "that kind's OWN family panel's responsibility". But the generic
+containment check compares `definition.scope_value` against the owning
+article's `structural_units` — so a `part`/`siman`-scoped definition can
+NEVER match unless something stamps a `ScopeUnit("part", …)` onto the
+article. v2 gives panels a way to register a kind + rank, and a way to stamp
+a scope onto a DEFINITION, but no way to put the unit onto the ARTICLE. A
+panel needing `part`/`subchapter`/`siman`/`chelek` must therefore edit
+`parse_articles`/`pipeline.py` directly — six panels colliding on one file,
+exactly what P-R1 exists to prevent. Not a corner case: `part` 2,187 +
+`subchapter` 1,861 (13.9% of the scoped-inline family) plus the IL panel's
+סימן 200 / חלק 68 — the MAJORITY of Ask 1's measured demand routes through
+the one path the seam doesn't provide. Ruling: add a structural-unit rule
+kind, registered the same import-time way, unioned across matching rules
+(genuinely additive here — an article legitimately nests in a part AND a
+chapter at once, unlike the `USES_DEFINITION` case). If the raw structural
+context a panel needs (IL's `==`/`===` heading stack, US title/part
+breadcrumbs) is not reachable from the article at that pipeline point, that
+is an INGEST-CONTRACT question → Planner tells me and I route it, rather than
+six panels each discovering it independently.
+
+### Round 3 — Program manager → Manager → Planner: two more v2 items
+
+**Enumerated-section scope kind** (multiterm E2): SD 3-14-5 defines terms
+"when used in § 3-14-3 or 3-14-4" — two named sibling sections; local/
+chapter/law-wide all misfire. Ruled M9 (adopt as sets, don't defer); lean
+recorded: model an enumerated scope as expanding to a SET of same-rank unit
+scopes, so it inherits its members' rank and M4(b)'s total order survives
+untouched. Consequence to state: a `local` def and a `section_enum` def over
+the same article become rank-EQUAL, i.e. an M10 tie.
+
+**Pointer definitions — DIRECTOR RULING** (7,610 rows, 32 jurisdictions):
+entries like `"Enforcement officer" has the meaning given that term in ORS
+153.005` ARE definitions, must be captured now, AND the reference must be
+captured too — definition row + reference assertion to the target, internal
+same-law section targets included. Manager notes passed to the Planner:
+`find_citations` is the right parsing plug-in (keep family panels out of the
+citation-parsing business); Stage 4 `derivation.py` is the natural emitter
+BUT `_BESAIF_RE` (:39) deliberately excludes `בסעיף N` as "Stage 3
+territory", so internal targets sit outside Stage 4's current contract and
+may force a new edge type → escalate to me if so (this sprint's gates are
+backend-only; a new assertion type plausibly reaches the frontend's
+assertion-type rendering, which is out of my scope to absorb silently).
+**Reconciliation ruled:** pointer extraction runs INDEPENDENTLY of the
+markers panel's "correctly-empty" cross-reference classifier, and a non-empty
+pointer result OVERRIDES "correctly empty" — a section cannot be both, and
+under an absolute zero-miss bar that is the only safe ordering.
+
+**DIRECTOR CLARIFICATION (relayed same round):** **no typed "pointer" field,
+now or ever.** The reference EDGE is the typing. No `is_pointer` flag, no
+pointer column on `Definition`, no new assertion field, no follow-up item
+proposing one. Consumers read pointer-ness off the presence of the reference
+edge. A transient carrier on `DefinitionCandidate` is still fine (in-memory
+plumbing, not schema); if the target is recoverable by running
+`find_citations` over the definition text alone, prefer that — fewer moving
+parts. Superseded my own earlier note that could have been read as
+authorizing a persisted pointer-target column.
+
+All of Round 3 was delivered to Planner `a6f809d491c471d13` as three queued
+messages while it was mid-write on v2.1. Sprint remains `planning`; no
+production code and no RED tests exist yet.
