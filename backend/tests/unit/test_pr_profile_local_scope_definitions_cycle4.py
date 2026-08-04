@@ -195,22 +195,60 @@ class TestExtractInlineLocalDefinitions:
         )
 
 
-# --- item 18: PRProfile.extract_local_scope_definitions (core-gated seam) ---
+# --- item 18/26: USProfile.extract_local_scope_definitions, the REAL seam
+# --- (cycle-5 realignment) ---------------------------------------------
+#
+# CYCLE-5 REALIGNMENT (Planner, ruling P-R8/cycle-5 orders: "the Planner
+# realigns ONLY the tests for [18c, citation grammar, P3 article-scope]").
+# This class originally targeted `PRProfile.extract_local_scope_
+# definitions` -- the M-R5 seam PROPOSAL ("PRProfile as a distinct class,
+# the Spanish sibling of HebrewProfile"). That proposal was never adopted:
+# the phase-2 blocker probe confirmed, live, that `get_profile("US-PR")`
+# resolves to `USProfile(code="US-PR")` (`profiles.py:256`), and the real,
+# merged seam is core's per-jurisdiction RULE REGISTRY -- `USProfile.
+# extract_local_scope_definitions` (`us_profile.py:1162`) unions every
+# registered `ScopeTriggerRule` for `"US-PR"` via `registry.scope_trigger_
+# rules_for(self.code)`. `PRProfile` is NOT registered anywhere and is
+# UNREACHABLE from `get_profile` -- exactly the M-R5-flagged residual risk
+# materializing. Retargeting these 3 tests (not superseding-by-new-file,
+# unlike `test_pr_profile_scope.py` -> `test_pr_profile_scope_cycle4.py`)
+# is deliberate: the old interface is unreachable BY CONSTRUCTION, not a
+# case of weakening an assertion to fit current behavior -- leaving them
+# RED via `AttributeError` against a class that will never be wired would
+# be a permanently un-closeable trap, the same "wiring test, not a
+# dispatch test" anti-pattern P-R8 itself exists to name. Same behavioral
+# assertions, corrected entry point.
+#
+# Reachable via a NEW rule module the Developer creates, `backend/app/
+# definition_links/rules/us_pr_scope_triggers.py` (item 26), registering
+# THREE `ScopeTriggerRule`s for `jurisdiction_codes=("US-PR",)` -- one
+# wrapping `extract_local_definitions` (widened per items 18a/QA
+# findings), one wrapping `extract_adhoc_definitions` (unchanged), one
+# wrapping the NEW `extract_inline_local_definitions` (item 18c) --
+# mirroring `rules/il_scope_triggers.py`'s exact registration shape
+# (`ScopeTriggerRule` is a union kind: every matching rule's candidates
+# survive). Today NONE of the three are registered, so `USProfile.
+# extract_local_scope_definitions` (which DOES already exist, merged)
+# returns `[]` for everything -- RED via a real behavioral assertion
+# failure (`len(matching) == 1` on an empty list), not an AttributeError/
+# ImportError, per this cycle's own "meaningful failure" standard.
 
 
 class TestExtractLocalScopeDefinitionsSeam:
-    """RED via `AttributeError` -- `PRProfile.extract_local_scope_
-    definitions` does not exist yet (core seam v2.4 not merged/rebased).
-    Expected per ruling M-R11's sequencing note."""
+    """RED via a behavioral assertion failure (empty result) -- `USProfile.
+    extract_local_scope_definitions` exists (merged core seam) but no
+    `ScopeTriggerRule` is registered for `"US-PR"` yet. See the module
+    comment above for the cycle-5 realignment from the dead `PRProfile`
+    interface onto the real, live `get_profile("US-PR")` path."""
 
     def test_unions_the_local_trigger_extractor(self, qa_rows):
         """QA finding 1's `se define "X" como` lead-in
         (`STATE_PR_LEY_20_2017_ART4_14`) must be reachable through the
         SEAM method, not just the bare module function."""
-        from app.definition_links.pr_profile import PRProfile
+        from app.definition_links.profiles import get_profile
 
         row = qa_rows["STATE_PR_LEY_20_2017_ART4_14"]
-        profile = PRProfile(code="US-PR")
+        profile = get_profile("US-PR")
         candidates = profile.extract_local_scope_definitions(
             row["text"], article_number=row["section_number"]
         )
@@ -222,10 +260,10 @@ class TestExtractLocalScopeDefinitionsSeam:
         """The item-18c inline scan's own real row must also be reachable
         through the seam method, proving the union covers all three
         sources, not just `extract_local_definitions`."""
-        from app.definition_links.pr_profile import PRProfile
+        from app.definition_links.profiles import get_profile
 
         row = pr_rows["STATE_PR_RENTAS_SEC1071_07"]
-        profile = PRProfile(code="US-PR")
+        profile = get_profile("US-PR")
         candidates = profile.extract_local_scope_definitions(
             row["text"], article_number=row["section_number"]
         )
@@ -238,10 +276,10 @@ class TestExtractLocalScopeDefinitionsSeam:
         marked terms into one fabricated candidate via the seam path
         either -- the same collision `test_pr_profile_idiom_widening_
         cycle3.py` already guards for the bare module function."""
-        from app.definition_links.pr_profile import PRProfile
+        from app.definition_links.profiles import get_profile
 
         row = cycle3_rows["STATE_PR_LEY_214_2004_ART2"]
-        profile = PRProfile(code="US-PR")
+        profile = get_profile("US-PR")
         candidates = profile.extract_local_scope_definitions(
             row["text"], article_number=row["section_number"]
         )

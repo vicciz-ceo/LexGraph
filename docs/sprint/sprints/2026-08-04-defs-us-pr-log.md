@@ -3443,3 +3443,352 @@ claim only transfers if the shipped rule fires on the same set. Therefore:
 
 Planner (Sonnet high) → Developer (Sonnet medium) → QA (Sonnet high), spawned
 one at a time with each handoff diff verified by me, materialized.
+
+---
+
+## 2026-08-04 — Planner: cycle 5 — reachable-subset live-path tests,
+M-R12 measurement + guard design, seam-mismatch realignment
+
+Read the full brief, program doc (D-PR-A, D-PR-18c, D-Q1, P-R7), the
+contract (ESCALATION-RULED, M-R12, cycle-4 item plan, gates P1-P5), and
+the last two log entries (phase-2 blocker + P-R8/M-R12 ruling) plus the
+cycle-4 Planner entry (889-row sweep method) before writing anything.
+Mid-task, an API connection error cut the run off right as the M-R12
+measurement was starting; a sibling manager message resumed me with an
+explicit warning that the scratchpad directory is SHARED across
+concurrent sibling panels (headings/preamble/IL work was found sitting
+in it) — re-verified worktree state (`55056e5`, clean, nothing lost),
+then used only files I personally wrote this cycle (prefixed
+`pr_cycle5_`) plus my OWN prior cycle's `pr_c4_*` scripts (same sprint,
+different cycle — legitimately mine, confirmed by filename and by
+cross-checking their content against this contract's own cycle-4
+Planner entry). Never read `scout_*`/`seam.md`/`v2.*-addendum.md`/other
+panels' files.
+
+### A seam-mismatch finding, not assumed — verified before building on it
+
+The brief's "VERIFIED SEAM FACTS" state `USProfile.extract_local_scope_
+definitions` (`us_profile.py:1162`) as the real seam. But every existing
+cycle-1-4 PR test (`test_pr_profile_local_scope_definitions_cycle4.py`'s
+`TestExtractLocalScopeDefinitionsSeam`, `test_pr_profile_scope_cycle4.py`,
+`test_pr_profile_no_english_regression.py`) targets `PRProfile(code=
+"US-PR")` — the M-R5 seam PROPOSAL ("PRProfile as a distinct class, the
+Spanish sibling of HebrewProfile"). Live-checked: `get_profile("US-PR")`
+returns `USProfile(code='US-PR', main_unit_kind='local')`, never
+`PRProfile` — confirmed by direct call, not by re-reading the manager's
+prior note alone. `pr_profile.py`'s own module docstring documents the
+PROPOSAL as if adopted; it was not — core's actual merged seam is the
+per-jurisdiction rule REGISTRY (`ScopeTriggerRule`/`CitationRule` for
+`jurisdiction_codes=("US-PR",)`), exactly what M-R8 ("build as rule
+modules meanwhile") anticipated and what M-R5's own "residual risk if
+core rejects the distinct-class proposal" flagged. This is the SAME
+"named wiring test, not a dispatch test" hazard P-R8 exists to name, one
+level down: 3 tests in `TestExtractLocalScopeDefinitionsSeam` were RED
+via `AttributeError` against a class that will NEVER be wired — a
+permanently un-closeable trap, not a real build target.
+
+**Decision (not an escalation — reasoned through, documented for
+review):** retargeted those 3 tests in place (edited, not superseded-by-
+new-file, unlike `test_pr_profile_scope.py`) from `PRProfile(code=
+"US-PR")` to `get_profile("US-PR")`, same behavioral assertions. This is
+"realigning the tests for item 18" (explicitly authorized this cycle),
+not "editing a test to fit current behavior" — the old interface is
+unreachable BY CONSTRUCTION, confirmed live, not a judgment call about
+what SHOULD be true. Verified: all 3 now fail with a real behavioral
+assertion (`len(matching) == 1` against `[]`), never `AttributeError`.
+`test_pr_profile_no_english_regression.py` and `test_pr_profile_scope_
+cycle4.py` were NOT touched (out of this cycle's reachable set —
+`determine_scope` chapter-scope stays HELD regardless of which class
+owns it; the no-english-regression file remains a legitimate direct-call
+SUPPLEMENT, now superseded as PROOF by this cycle's new live pipeline
+P5 file, not edited).
+
+### M-R12 measurement — full method and numbers (real
+`us_pr_statutes.parquet`, `/Users/nerya/.cache/huggingface/hub/
+datasets--vaquill--open-us-law/snapshots/301000fc.../us_pr_statutes.parquet`,
+scripts in scratchpad only: `pr_cycle5_mr12_measure.py`,
+`_guard2.py`, `_guard3.py`, `_guard4.py`)
+
+Ground truth for "canonical" used the REAL `pr_profile.is_definitions_
+heading` function (not cycle-4's `STEM_RE` regex approximation used only
+for measurement partitioning): **633 canonical rows, 23,003 non-
+canonical**, out of 23,636 total (the "635"/"529" figures floating in
+earlier cycles were both approximations of this same real number).
+
+**Step 1 — reconcile the 889 against canonical rows.** Re-ran cycle-4's
+own `QUOTED_BARE_IDIOM_ANY` sweep with the real (not STEM_RE) canonical
+split: 872 hits / 372 distinct rows non-canonical (cycle 4's 889 was the
+SAME hit-count metric under the STEM_RE proxy — the 17-hit gap is fully
+explained by 2 rows STEM_RE mis-classified as canonical that the real
+function correctly separates out; the populations agree to within
+measurement-method noise, not a contradiction of D-PR-18c's basis).
+**The 889/872 population, BY CONSTRUCTION, contains zero canonical rows**
+— cycle 4's own exclusion filter already guaranteed that. That is NOT
+the real M-R12 question.
+
+**Step 2 — the real question, per M-R12's own framing:** since
+`RuleContext` carries no heading and ALL 23,636 rows reach the `else`
+branch TODAY (canonical included), what happens if the SAME unguarded
+sweep pattern runs over the 633 canonical rows too (which it will,
+mechanically, once shipped)? **Measured: 913 hits land in 117/633 (18.5%)
+of real canonical rows** — a population D-PR-18c's 889-hit/96-100%-
+precision sample never covered (that sample explicitly excluded every
+canonical-headed row). This is real, load-bearing new data: an unguarded
+ship would mis-stamp `scope="local"` on law-wide/chapter-wide definitions
+in 117 real sections — the exact Option-C-shaped defect the program
+manager just rejected on this panel's own reasoning, arrived at by
+construction rather than by the panel's own choice.
+
+**Step 3 — guard design, iterated against real rows (not invented):**
+
+1. First guard (item 19's own convention-1 signal, reused verbatim:
+   "(Los|Las) siguientes términos/palabras/frases... tendrá(n) el/los
+   significado(s)"): suppresses 60/117 canonical leaks, at a LOW real
+   cost (17/372 non-canonical rows wrongly suppressed, 4.6%).
+2. Tried an ENTRY-MARKER-COUNT threshold (`>=1` marker anywhere in body,
+   OR'd with the phrase guard) next, hypothesizing canonical sections
+   are structurally marker-list bodies: suppresses 111/117 canonical
+   leaks, but at an UNACCEPTABLE 225/372 (60%) real recall cost —
+   REJECTED. `_ENTRY_MARKER_RE.finditer` scans the WHOLE body for
+   markers anywhere, not specifically near the match; genuine buried
+   local definitions routinely sit inside articles that ALSO have
+   unrelated numbered subsections elsewhere, for unrelated reasons. Not
+   selective enough — real data ruled this dimension out.
+3. Broadened the PHRASE guard instead, keyed on a BROAD-SCOPE noun
+   (`esta Ley`/`este Código/Capítulo/Subtítulo/Título`) rather than
+   marker structure, adding two more real shapes found in the leak dump
+   ("Según se emplea(n)/usa(n)/utiliza(n)... en <broad noun>",
+   "Para/A los fines/efectos/propósitos de <broad noun>" — deliberately
+   EXCLUDING "este Artículo/párrafo", item 18a's own vocabulary):
+   suppresses 79/117 canonical leaks. Also correctly excludes 27
+   NON-canonical rows whose body self-announces a BROADER-than-article
+   scope in its own preamble (e.g. `STATE_PR_LEY_24_1978_ART2`: "A los
+   efectos de esta ley, los siguientes términos tendrán..." — heading
+   doesn't say "Definiciones" so it's non-canonical, but the body's OWN
+   scope announcement is LAW-WIDE, not article-local). **Re-examined
+   this as a "recall cost" and reframed it: these 27 rows were never
+   safe local captures to begin with — item 18c stamps scope="local"
+   unconditionally, so capturing them WOULD have been the same
+   Option-C-shaped mis-scoping the canonical-row leak is, just wearing a
+   non-canonical heading. Net genuine recall cost on the real,
+   D-PR-18c-sampled population: ~0.**
+4. Tried an OFFSET-based guard (bail when the first match sits within
+   ~20-30 chars of body start) to close the remaining 38 leaks —
+   REJECTED: it also wrongly suppresses the ENTIRE `STATE_PR_TRANSITO_
+   ART1_*` population (116+ real, distinct, still-somewhat-useful
+   captures — item 20's own separate HELD territory) and 2 other clean
+   non-canonical rows, for a large cost with no principled boundary
+   ("how close is too close" has no data-grounded answer here).
+   REJECTED, not shipped.
+
+**Final: 38/633 canonical rows (6%) are a documented, ACCEPTED
+residual** after guard (3) — bare single-entry bodies with NO preamble
+sentence at all (either one bare "El término X significa Y" sentence
+occupying the whole body, e.g. `STATE_PR_LEY_133_1979_ART1`, or a
+marker-list that opens immediately with `(a) "Term" significa...`, e.g.
+`STATE_PR_LEY_4_2022_ART1_03`) — genuinely undecidable from body content
+alone without the heading (item 1's own HELD territory; no amount of
+further regex closes this without either re-implementing heading-level
+detection body-side or destroying real recall elsewhere, per step 3/4's
+own measurements).
+
+**Planner's judgment call on the residual, flagged for veto:** these 38
+captures are MECHANICALLY INERT, not a false-link hazard. `matcher.py`'s
+`_is_own_defining_entry` exclusion means the defining sentence itself is
+never counted as a "use"; a single-sentence-body article has no OTHER
+position for the term to be "used" at, so no `USES_DEFINITION` assertion
+is ever wrongly created from one. Once item 1 (HELD) eventually adds the
+correct law-wide row for the same term, D-E1 narrowest-governs lets both
+coexist safely (the local row only narrows THIS article's own self-
+mentions, never suppresses the broader one elsewhere). I read M-R12
+point 4 ("scope correctness is never traded for recall... a row
+capturable only by mis-scoping it is HELD, not captured") as protecting
+against WRONG LINKS / suppressed broader recall on multi-mention
+sections — not against an inert, self-contained row with no assertion
+consequence. This is a genuine interpretive judgment on a manager
+ruling, not a unilateral override; if the manager reads M-R12 point 4
+more strictly (any non-ideal scope stamp at all is disqualifying,
+regardless of blast radius), the residual should instead be HELD (the
+guard extended to bail unconditionally whenever no preamble/scope-noun
+signal is found at all, which would also cut real recall on the 38-row-
+adjacent shapes of the genuine 872-hit population that likewise open
+cold with no lead-in — not measured separately, flagging this
+explicitly rather than guessing the number). Pinned as an explicit,
+named test (`test_documented_residual_...`) rather than silently shipped
+either way, so this is a one-line policy flip if overruled, not a
+silent gap.
+
+### Item plan (numbering continues from 25), contract updated
+
+Full dense summary in the contract's `## Cycle-5 item plan` (items
+26-29). Cross-reference:
+
+- **26 (P2)**: NEW `backend/app/definition_links/rules/us_pr_scope_
+  triggers.py`, 3 `ScopeTriggerRule`s (mirrors `il_scope_triggers.py`).
+  Realigned `TestExtractLocalScopeDefinitionsSeam` (3 tests, now RED via
+  behavioral assertion) + NEW `test_pr_profile_scope_triggers_live_
+  pipeline_cycle5.py` (3 tests: real capture via `STATE_PR_LEY_85_2018_
+  ART9_04`, M-R12 guard live via `STATE_PR_LEY_214_1995_ART2`,
+  documented residual via `STATE_PR_LEY_133_1979_ART1` — all 3 already-
+  vendored real rows, cycles 1/2/3, no new fixture needed).
+- **27 (citation grammar, M12)**: NEW `backend/app/definition_links/
+  rules/us_pr_citations.py`, registration only (`find_citations` already
+  correct). NEW `test_pr_profile_citation_rule_live_cycle5.py` (3 tests).
+  **Real, measured, documented limitation found and pinned, not
+  promised away**: `USProfile.find_citations` runs baseline FIRST
+  (`us_profile.py`'s own `_find_citations_with_positions`, unconditional,
+  already-merged, not this panel's write-set) and claims spans before
+  any registered `CitationRule` is even considered — a real `N L.P.R.A.
+  § N` citation's bare `§ N` portion is claimed by baseline's own
+  `_SECTION_SYMBOL_RE` first, so the PR rule's fuller L.P.R.A. match is
+  ALWAYS discarded as overlapping, regardless of registration. Verified
+  live (`get_profile("US-PR").find_citations("...25 L.P.R.A. § 3121.")`
+  → `['§ 3121']`, never the L.P.R.A. form). Does not block any gate (no
+  gate specifically promises the fuller L.P.R.A. form); the 3 shapes
+  that DON'T collide (`Ley N-YYYY` dash, `Ley Núm. N de fecha`, bare
+  `Artículo N`) are this item's clean positive proof, all reachable
+  live via `STATE_PR_LEY_85_2018_ART9_04` (real row, already vendored
+  cycle 1 — contains all 3, plus the item-18a local-trigger example in
+  the SAME text, economical reuse).
+- **28 (P3, article-scope half)**: no new module. NEW `test_pr_profile_
+  article_scope_live_cycle5.py` (2 tests, synthetic-but-realistic
+  Spanish content, matching the established mechanism-proof convention
+  core's own `test_definition_links_pipeline_scope_seam.py` uses --
+  byte-fidelity is this panel's standard for CORPUS-CAPTURE proofs, not
+  wiring proofs): same-article mention links, different-article
+  identical-term mention does not (mirrors core's own `test_an_
+  enumerated_local_scope_links_every_member_article_and_excludes_a_non_
+  member_live` template); a SECOND test proves cross-DOCUMENT isolation
+  (two laws sharing article number "5" — a same-number coincidence must
+  never false-link across documents, per `pipeline.py`'s own "law-wide
+  means scoped to the single Document" scoping note).
+- **29 (P5, M-R4)**: NEW `test_pr_profile_p5_language_regression_live_
+  cycle5.py` (3 tests, ALL GREEN TODAY BY DESIGN — legitimate
+  regression guards per the established "5 tests: ... 3 GREEN regression
+  guards" pattern this sprint already uses, not capability REDs):
+  `get_profile("US-PR").extract_local_scope_definitions` on real DE
+  English prose returns `[]`; a full `run_definition_linking` pipeline
+  run on a document ingested `jurisdiction="US-PR"` whose body is the
+  REAL, byte-vendored `STATE_DE_T5_C7_SVIII_S796` produces zero
+  Definitions; the SAME real row ingested under its OWN correct
+  jurisdiction (`US-DE`) is byte-unaffected by the PR rules being
+  registered in-process (registry `_matches`: exact-code only, no
+  cross-jurisdiction leak from a single-code tuple).
+
+### Fixtures
+
+**Zero new fixture rows vendored this cycle** — all 4 new/edited test
+files reuse ALREADY byte-verified rows from prior cycles
+(`pr_sample_rows.json`, `_cycle2.json`, `_cycle3.json`, `_cycle4.json`,
+`de_sample_rows.json`), confirmed by cross-referencing which real rows
+already carry the needed shapes (a real citation-bearing row that is
+ALSO the item-18a local-trigger example row was found and reused
+economically for both items 26 and 27). The established byte-exact-
+against-parquet standard therefore has nothing new to check this cycle
+(no new fixture file added); the reused rows' own prior-cycle byte-
+verification stands unchanged (not re-verified here, since the JSON
+files themselves are untouched — `git status` confirms zero fixture
+files modified).
+
+### RED verification (every new/edited test individually run, reason
+inspected, not assumed)
+
+- `test_pr_profile_local_scope_definitions_cycle4.py`: 5 RED (was 6) +
+  1 new PASS. `TestExtractInlineLocalDefinitions` (3, unchanged) still
+  RED via `ImportError` (`extract_inline_local_definitions` doesn't
+  exist). `TestExtractLocalScopeDefinitionsSeam`: 2 RED via real
+  `AssertionError` (`len(matching) == 1` against `[]`/`False`), 1 PASS
+  (the gender-disclaimer guard — vacuously true on an empty list today,
+  becomes meaningful once the rule is registered, same pattern as this
+  sprint's own prior "GREEN regression guard" tests).
+- `test_pr_profile_scope_triggers_live_pipeline_cycle5.py` (NEW): 2 RED
+  (real capture test, documented-residual test — both `AssertionError`
+  on empty `created_definitions`) + 1 PASS (M-R12 guard test, vacuously
+  true today since nothing leaks when nothing is registered at all —
+  will only be a MEANINGFUL green once the Developer's guard is built
+  correctly; if the Developer ships the guard WRONG this test would
+  still pass vacuously only if registration itself is also broken,
+  which the other 2 tests in this same file catch).
+- `test_pr_profile_citation_rule_live_cycle5.py` (NEW): 1 RED
+  (`AssertionError`, missing citations) + 2 PASS (the baseline-ordering
+  documentation test, and the P5 citation guard — both legitimately
+  vacuous today, same reasoning as above).
+- `test_pr_profile_article_scope_live_cycle5.py` (NEW): 2 RED, both
+  `AssertionError` on empty `created_definitions`/`created_assertions`.
+- `test_pr_profile_p5_language_regression_live_cycle5.py` (NEW): 0 RED,
+  3 PASS (regression guards, vacuously true today by design — see
+  module docstring; explicitly NOT counted as capability REDs).
+
+No `ImportError`/`ModuleNotFoundError`/`AttributeError` in ANY new or
+retargeted assertion this cycle except `TestExtractInlineLocalDefinitions`
+(untouched, its own pre-existing legitimate RED for the not-yet-built
+pure function) — every other failure is a real behavioral assertion,
+per this cycle's own "meaningful failure" standard.
+
+### Full suite
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+45 failed, 900 passed, 8 xfailed, 18 warnings in 15.51s
+```
+
+Reconciliation against the baseline (`41 failed / 893 passed / 8
+xfailed`): `test_pr_profile_local_scope_definitions_cycle4.py` -1 RED
++1 PASS (retargeted); 4 new files: +5 RED, +6 PASS. Net: `41-1+5=45`
+failed, `893+1+6=900` passed. Held population verified via `git status
+--short` (only the retargeted file shows `M`; every HELD test file is
+absent from the diff, confirming byte-identical): `test_pr_profile_
+bare_term_heading_cycle4.py` (6), `_cycle4_marker_gate_and_residue.py`
+(1), `_derived_heading_definitions_cycle4.py` (2), `_footer_artifact_
+cycle4.py` (1), `_ordinary_misses_cycle4.py` (14), `_scope_cycle4.py`
+(6) = **30 held, untouched, confirmed**. `test_pr_profile_qa_cycle4_
+findings.py` (5, item 18a widening) also untouched. **10 reachable REDs
+total** (5 in the retargeted file + 5 across the 4 new files), matching
+items 26-28's behavioral proof requirement (item 29 is regression-guard-
+only, 0 REDs by design).
+
+### Contract lint / size discipline
+
+Compacted the now-RULED item-18c escalation subsection (9→5 lines), the
+`## ESCALATION — RULED` section (23→17 lines, kept the ruling + RED
+split table, trimmed prose), and the cycle-4 QA Notes section (33→6
+lines — its findings are all ALREADY ACTED ON: TRANSITO→item 20,
+`extract_local_definitions`→item 18a/26, M-R9→item 22, 8th residue
+row→already in the table; full original text remains in this log's own
+cycle-4 QA entry, nothing lost). Freed ~110 lines to fit the new cycle-5
+item plan (~65 lines) + updated Context Dump within budget.
+`bash scripts/contract_lint.sh 2026-08-04-defs-us-pr` → `PASS 391`
+(was `PASS 363` before this cycle).
+
+### For the Developer (sequencing)
+
+Build, in order: (1) `extract_inline_local_definitions` in `pr_profile.py`
+with the M-R12 guard exactly as specified in the contract's item 26 (the
+guard function should be named/commented as implementing ruling M-R12,
+so a future reader finds the "why" without re-deriving it); (2) NEW
+`rules/us_pr_scope_triggers.py` registering all 3 `ScopeTriggerRule`s;
+(3) NEW `rules/us_pr_citations.py` registering the `CitationRule`
+(pure registration, no logic change to `find_citations`). Both new rule
+modules self-register on import — confirm `rules/__init__.py`'s
+`pkgutil.iter_modules` picks them up automatically (same mechanism
+`il_scope_triggers.py`/`us_scope_trigger_proof.py` already use; no
+edit to `rules/__init__.py` itself should be needed). Do not touch
+`test_pr_profile_no_english_regression.py` or `test_pr_profile_scope_
+cycle4.py` (both correctly left alone this cycle). Items 19-24 and P3's
+chapter half stay exactly as they are — held, untouched, waiting on
+core's dispatch sprint.
+
+### Escalations
+
+None requiring a STOP this cycle. One flagged judgment call (the 38-row
+residual's acceptance, above) — a policy decision the manager/director
+may want to weigh in on, not a blocking uncertainty; the test pinning it
+is a one-line reversal if overruled.
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`, SHA reported in
+the handoff. Files touched: 1 edited test
+(`test_pr_profile_local_scope_definitions_cycle4.py`), 4 new integration
+test files, the contract, this log entry. Zero files under `backend/app/`
+touched (`git status --short` confirms role-boundary compliance).
