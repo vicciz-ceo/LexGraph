@@ -3214,3 +3214,151 @@ green-lit, 18c WITH the re-mention guard), P3 xfails converted to real tests
 now that scope enforcement is live, the corruption bug
 (`STATE_PR_LEY_240_2002_ART3` footer boilerplate) fixed — and then the
 independent QA cycle, whose P4 sweep must use P-R7 denominators.
+
+---
+
+## 2026-08-04 — Manager (phase 2): inherited state verified; BLOCKER found — 5 of 7 registry rule kinds never dispatch; ESCALATED
+
+### Inherited state — verified, not trusted
+
+| Claim inherited | Verified | How |
+|---|---|---|
+| branch `claude/defs-us-pr` @ `a40c52a`, matches origin | YES | `git rev-parse origin/claude/defs-us-pr` = `a40c52a…` = worktree HEAD |
+| tree clean | YES | `git status --short` empty |
+| rebased onto main | YES | `git diff --stat origin/main...HEAD -- backend/app` = **1 file** |
+| suite 41 failed / 893 passed / 8 xfailed | YES, exactly | `backend/.venv/bin/pytest backend/tests -q` → `41 failed, 893 passed, 8 xfailed, 18 warnings in 12.73s` |
+| git identity | YES | `user.email` = `256402398+vicciz-ceo@users.noreply.github.com` |
+| `US-PR` is a live jurisdiction code | YES | `profiles.py:256` maps every non-IL `JURISDICTION_CODES` entry to `USProfile(code=code)`; probe confirms `get_profile("US-PR")` → `USProfile` |
+
+**One correction to the inherited picture, found by the divergence check:**
+`backend/app/definition_links/pr_profile.py` is the ONLY file on this branch
+that differs from `origin/main` in `backend/app`. Nothing registers it,
+nothing imports it from production code. **All PR Spanish behavior built in
+cycles 1-4 is currently unreachable on the live path** — it is exercised only
+by direct-call unit tests. That was always the plan (M-R5 built the rule
+FUNCTIONS ahead of the seam ruling), but it means every green PR test to date
+is a direct-call green, never a live-path green. This is the exact hazard the
+program's own verification lesson names, so I probed the seam before
+spawning anyone.
+
+### THE BLOCKER — `HeadingRule`, `BodyPreambleRule`, `EntrySplitterRule`, `TermClauseRule`, `StructuralUnitRule` have NO consumer
+
+`rules/registry.py` defines seven rule kinds with `register_*` / `*_rules_for`
+pairs. Grepping every consumption site in production code:
+
+```
+backend/app/definition_links/us_profile.py:1125:  registry.citation_rules_for(self.code)
+backend/app/definition_links/us_profile.py:1177:  registry.scope_trigger_rules_for(self.code)
+backend/app/definition_links/profiles.py:167:    registry.citation_rules_for(self.code)
+backend/app/definition_links/profiles.py:216:    registry.scope_trigger_rules_for(self.code)
+```
+
+`heading_rules_for`, `body_preamble_rules_for`, `entry_splitter_rules_for`,
+`term_clause_rules_for`, `structural_unit_rules_for` are **called from nowhere
+in `backend/app/`** — only from `rules/registry.py` where they are defined.
+
+**Proved on the live path with positive controls** (scratchpad probe, not a
+committed test — Planner owns tests). Registered one rule of each kind for
+`US-PR`, confirmed each is *found* by its `*_rules_for` lookup, then called
+the profile methods `pipeline.py` actually calls:
+
+```
+--- lookups confirm registration ---
+  heading_rules_for('US-PR')        -> 1
+  body_preamble_rules_for('US-PR')  -> 1
+  entry_splitter_rules_for('US-PR') -> 1
+  term_clause_rules_for('US-PR')    -> 1
+  scope_trigger_rules_for('US-PR')  -> 2
+  citation_rules_for('US-PR')       -> 1
+
+--- does the PROFILE change its answer? ---
+HeadingRule       -> is_definitions_heading("Artículo 3. Definiciones") = False   DEAD
+BodyPreambleRule  -> derive_heading_from_body                           = None    DEAD
+Entry/TermClause  -> extract_definitions_from_section = 0 cands                   DEAD
+ScopeTriggerRule  -> extract_local_scope_definitions  = 1 cands                   LIVE
+CitationRule      -> find_citations = ['PROBE_CITE']                              LIVE
+```
+
+The two positive controls firing is what makes this a finding and not a
+harness error on my side.
+
+**Core's own test does not catch it.** `test_definition_links_rules_registry.py::
+test_heading_body_preamble_entry_splitter_term_clause_rules_register_and_lookup`
+asserts only `rule in registry.heading_rules_for("US-MO")` — registration and
+lookup. No test anywhere asserts that a registered rule of these kinds changes
+a profile's answer. A named wiring test, not a live-path test.
+
+**The seam spec specifies the dispatch that does not exist.** v1 §"Consumption
+contract — baseline-first, registry-second, per kind" describes detection-kind
+fallback in detail, and v2 §4 (M6) goes further for `BodyPreambleRule`:
+"after the legacy branch …, registered `BodyPreambleRule`s are ALWAYS tried
+next if nothing was found yet." That behavior is absent from the merged code.
+Core declared C4 "the rule registry itself, working end-to-end for both
+jurisdictions" — true for the two kinds core itself needed (IL scope triggers,
+citations), not for the five the family panels were told to build against.
+
+### Why this is not a PR-local problem
+
+- **It is program-wide.** The rehoming map every US panel got points at these
+  kinds: headings → `HeadingRule`, preamble → `BodyPreambleRule`, markers →
+  `EntrySplitterRule`, multiterm → `TermClauseRule`. `origin/claude/defs-us-headings`
+  has already written a 299-line `rules/us_heading_variants.py` whose docstring
+  says registration "lands separately, once `…rules.registry` exists (H-R5)".
+  The registry now exists; the consumption does not. That panel has not yet
+  discovered this — its module is still the pure function, unregistered.
+- **The fix is core mechanism, not a rule module.** It means editing
+  `us_profile.py`'s `is_definitions_heading` / `derive_heading_from_body` /
+  `extract_definitions_from_section` (and `profiles.py`'s Protocol surface).
+  The seam spec's own division of labour says family panels build "new rule
+  MODULES … not new mechanism."
+- **Six panels editing the same shared module concurrently is precisely what
+  P-R1's write-set isolation exists to prevent.** If each panel patches
+  `us_profile.py` itself we get six conflicting implementations of one seam.
+
+### Impact on this sprint's gates, item by item
+
+| Item | Rehomed kind | Live path today |
+|---|---|---|
+| P1 / ~529 canonical `Definiciones` headings | `HeadingRule` | **BLOCKED** |
+| 19 — 47 blank-title rows | `BodyPreambleRule` | **BLOCKED** |
+| 20 — 117 bare-term (TRANSITO) headings | `HeadingRule` | **BLOCKED** |
+| 21 — 33 canonical zero-yield / 17 real misses | `TermClauseRule` | **BLOCKED** |
+| 22 — marker-gate narrowing | `TermClauseRule` | **BLOCKED** |
+| 24 — `STATE_PR_LEY_240_2002_ART3` footer corruption | inside `extract_definitions_from_section`, only reached once the section is recognized | **BLOCKED** |
+| 18c — 889-row whole-body quoted-idiom sweep (D-PR-18c) | `ScopeTriggerRule` | **LIVE** ✔ |
+| Spanish citation grammar | `CitationRule` (M12) | **LIVE** ✔ |
+| 25 / P3 — article-scope direction | `ScopeTriggerRule` | **LIVE** ✔ |
+| 25 / P3 — chapter-scope direction | `determine_scope` — hardcoded `_US_CHAPTER_SCOPE_TRIGGERS`, **no rule seam of any kind** | **BLOCKED** |
+
+A second, related gap worth naming: `determine_scope` is not rule-extensible
+at all — there is no `ScopeKindRule`. Section-level Spanish chapter scope
+(`A los fines de este Capítulo` → `"chapter"`) has no seam to register into.
+It is moot while `HeadingRule` is dead (the call sits inside the
+`if is_definitions_section:` branch PR never enters), but it must be part of
+whatever core builds, or P3's chapter half stays unreachable afterwards.
+
+### The tempting wrong answer, rejected
+
+`pipeline.py:229` calls `extract_local_scope_definitions` in the **`else`**
+branch — i.e. it runs on exactly those articles NOT recognized as Definitions
+sections. Since PR's `Definiciones` sections are never recognized, they all
+fall into that branch, so a `ScopeTriggerRule` *would* reach them and could be
+made to capture their terms. I am not doing that: it stamps `local`/article
+scope on definitions that are genuinely law-wide or chapter-wide, converting a
+recall gap into a scope-CORRECTNESS violation — against the director's
+standing scoped-definitions constraint and against our own gate P3, which
+requires correct scope proven in both directions. Recall bought by knowingly
+wrong scope is not a recall win.
+
+### Action
+
+Escalated to the program manager, options and lean below (see the sprint's
+`## Escalations`). No Planner/Developer/QA spawned this phase: spawning a
+Planner to realign 41 tests onto rule kinds that cannot dispatch would burn a
+full cycle producing tests that can only ever be direct-call greens — the
+precise failure this panel's own P-R7 ruling was written to stop.
+
+**Not blocked meanwhile:** items 18c, the citation grammar, and P3's
+article-scope half are genuinely reachable today. If the program manager wants
+motion while core decides, that is the honest subset — but it is roughly a
+third of the sprint, and it cannot close P1, P2 or P4.
