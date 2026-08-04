@@ -94,18 +94,40 @@ def _ingest_and_link(db_session, matter_with_users, *, title, row, jurisdiction)
 def test_or_cross_reference_style_definitions_resolve(db_session, matter_with_users):
     """Real row `STATE_OR_T41_C496_S496.716`. Today: 0 candidates -- the
     section is never even recognized as definitions-bearing (heading is an
-    ordinary substantive caption, not a placeholder). The 5 cross-reference
-    terms ("Enforcement officer", "Food establishment", "Taken", "Vehicle",
-    "Wildlife") are real and each has real (if redirect-style) definition
-    text; the idiom-gap check itself is confirmed NOT the obstacle (see
-    module docstring)."""
+    ordinary substantive caption, not a placeholder). Of the row's 5 defined
+    terms, 4 use the CROSS-REFERENCE idiom this sprint's F6 owns
+    ("Enforcement officer", "Food establishment", "Vehicle", "Wildlife" --
+    each `"Term" has the meaning given that term in ORS ...`); the idiom-gap
+    check itself is confirmed NOT the obstacle for these (see module
+    docstring).
+
+    Program ruling E3 (sprint log, `## Residual ledger` entry R3):
+    the row's 5th term, `"Taken"`, is defined with a PLAIN `means` ("Taken"
+    means killed or captured ...) -- an ordinary quoted-term-plus-`means`
+    definition inside an ordinary article body. That shape is family 1's
+    mechanism (owned by the sibling sprint `claude/defs-us-scoped-inline`),
+    not a cross-reference this sprint's F6 idiom-gap regex should be
+    matching at all -- F6's own `_IDIOM_GAP_RE` (`rules/us_inline_
+    parenthetical.py`) was measured firing on 8.87% of ALL US rows
+    specifically because it also matched bare `means`/`shall mean`, which
+    is family 1's territory, not a cross-reference. E3 narrows F6 to the
+    two `has the meaning ...` cross-reference forms only (projected fire
+    rate 8.82% -> 0.35%, inside F6's mandated ~1-2 per 300). Under that
+    narrowing "Taken" is correctly NOT captured by F6 -- it is NOT
+    abandoned, it is a deliberate cross-panel handoff, tracked as R3 on
+    this sprint's Residual ledger until `claude/defs-us-scoped-inline`'s
+    live path provably captures this exact row. This test therefore
+    expects EXACTLY the 4 cross-reference terms, not 5 -- "Taken" is
+    intentionally absent from the assertion below, not silently dropped:
+    its fate is recorded here and on the ledger, not left vague.
+    """
     row = _load_rows()["STATE_OR_T41_C496_S496.716"]
     result = _ingest_and_link(
         db_session, matter_with_users, title="OR Wildlife inspection stations (F6 cross-reference)", row=row, jurisdiction="US-OR"
     )
 
     all_terms = {t for d in result["created_definitions"] for t in d["terms"]}
-    for term in ("Enforcement officer", "Food establishment", "Taken", "Vehicle", "Wildlife"):
+    for term in ("Enforcement officer", "Food establishment", "Vehicle", "Wildlife"):
         assert term in all_terms, (
             f'"{term}" was never captured -- this section is never reached by any extractor today '
             f"(blocked on core-scope C3 + scoped-inline, see module docstring). "
@@ -113,7 +135,6 @@ def test_or_cross_reference_style_definitions_resolve(db_session, matter_with_us
         )
     defs_by_term = {t: d for d in result["created_definitions"] for t in d["terms"]}
     assert "ORS 153.005" in _definition_text(db_session, defs_by_term["Enforcement officer"]["id"])
-    assert "killed or captured" in _definition_text(db_session, defs_by_term["Taken"]["id"])
 
 
 def test_nh_plain_apposition_with_no_means_idiom_resolves(db_session, matter_with_users):
