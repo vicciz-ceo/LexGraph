@@ -414,3 +414,27 @@ one deliberately-added second confirmation of an already-pinned cause
    C1707_S1707.47`, QA's other named confirmation row, was NOT
    additionally pinned: its citation shape is plain prose, already fully
    covered by DE's pin.)
+
+## `planner_pass6_gate_isolation_rows.json` — Planner pass 6, Task 2 gate-isolation fixture (2026-08-04)
+
+1 REAL row (full original columns, values unmodified), pulled from
+`us_al_statutes.parquet`, independently byte-verified across 2 separate
+fetches, used by `test_marker_quote_adjacency_gate_is_load_bearing_alabama`
+in `test_us_scoped_inline_rules_negative_controls.py`:
+
+- **`STATE_AL_T13A_C11_S13A-11-1`** — "Definitions" section, Alabama Title
+  13A, Chapter 11: `"The following definitions apply in this article:
+  (1) OBSTRUCT. To "obstruct" means to render impassable... (2) PUBLIC
+  PLACE. A place to which... (3) TRANSPORTATION FACILITY. Any
+  conveyance..."`. Used to mutation-isolate `_MARKER_QUOTE_RE`'s
+  marker-immediately-followed-by-quote rule from the idiom-vocabulary gate
+  that redundantly (and misleadingly) protects the suite's existing PA
+  construction-clause test — see that test's corrected docstring. Marker
+  `(1)` here is followed by `OBSTRUCT. To ` (14 non-whitespace chars, well
+  inside a QA-cycle-1-style <=20-char widened gap) before its quoted term,
+  so today's whitespace-only adjacency rule correctly does NOT treat it as
+  a fresh entry — the entire list (a real, pervasive "(N) LABEL. To/The
+  term "X" means" corpus convention, out of this Planner pass's Task 1
+  scope) is silently dropped today, which is exactly why it works as an
+  isolation vehicle: unlike the PA row, this row's idiom ("means") IS
+  recognized, so nothing downstream masks a marker-adjacency regression.
