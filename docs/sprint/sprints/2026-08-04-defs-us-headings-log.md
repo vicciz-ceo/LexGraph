@@ -2113,3 +2113,45 @@ mean`, arguably the shape D-DF suppresses; it is currently CONFIRMED, so it is
 a possible residual false positive worth QA's attention.
 
 Module is **479 lines** vs the soft 300 convention — recorded, not cut.
+
+---
+
+## 2026-08-04 — Program ruling: the `shall mean` pointer row is D-MT-E1, not an FP
+
+**Ruling received:** `STATE_WA_T50_C29_S030` (`"wages" shall mean "wages" as
+defined for purpose of payment of benefits in RCW 50.04.320`) — **TRUE is
+CORRECT**. It is a **POINTER definition under D-MT-E1**: the statute genuinely
+defines the term by incorporation, so capture is REQUIRED, and the reference
+edge to RCW 50.04.320 is what core's live citation plumbing emits.
+`defines_in_body` accepting it is **not** a false positive.
+
+Recorded here so QA cycle 3 does not re-litigate it. **The manager's earlier
+framing of this row as a "possible residual false positive" is withdrawn.**
+
+**New QA cycle 3 obligation from this ruling:** verify the reference edge
+actually EMITS for that row. D-MT-E1 is a **two-capture** shape — a pointer
+definition without its reference edge is a D-MT-E1 violation, not a partial
+success. This is now on the QA checklist below.
+
+Note this also slightly re-frames the residual: of the 50 suppressed rows, any
+that are pointer-shaped (`shall mean`/`means` + incorporation by reference)
+should be captured under D-MT-E1 rather than suppressed. QA should count that
+class explicitly instead of folding it into the `includes` question.
+
+## Phase B — COMPLETE
+
+All four items now verified on the live path against merged core:
+
+- **Item 3 — merge onto merged core.** Done (`fbb6c9e` merged, no conflicts).
+  `import app.definition_links.rules.registry` succeeds; suite re-run.
+- **Item 4 — registry-integration tests green.** 2/2, amended to the D-DF
+  two-registration contract.
+- **Item 5 — real production pipeline end-to-end green.** The CT UCC row test
+  passes through the actual unmodified `pipeline.run_definition_linking`, with
+  this panel's production file **provably untouched** at the moment it flipped.
+  This is gate **U1's live-path leg**.
+- **Item 6 — full regression, zero failures.** **811 passed / 0 failed.**
+
+Gates **U1, U3, U5** stand met on the live path; **U6** re-measured (94.5%);
+**U2** remains the accepted 10-row Option-C limitation (recheck against the
+now-merged seam is a QA item); **U4** is QA cycle 3's certification.
