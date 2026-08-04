@@ -1070,3 +1070,112 @@ stub-branch QA-shape lesson.
 Format alignment is ours: `_subsection_label` must emit BARE labels (`c`, not
 `(c)`) to match `UnitStep.value`'s convention, so the post-core flip is
 format-clean rather than needing a second fix.
+
+---
+
+## 2026-08-04 — Planner (pass 4)
+
+Verified S-R11 against the actual commits before implementing (`git show
+79ee374`/`34b576f` in full, not just the chat summary) -- both the escalation
+and the ruling are recorded exactly as described, root-caused independently
+by the manager on the same real Oregon row, extending my own pass-3 finding
+with a third precise cause (innermost-vs-outermost level mismatch, not just
+paren-format + the digit-`'sub'` bug). S-R11 itself looks sound: same
+zero-miss-safe-narrowest-representable-unit logic as S-R9, self-alarming
+revert designed in from the start. Nothing to escalate; implemented as ruled.
+
+### Task 1 — pin the interim
+
+Amended every test asserting `scope == "subsection"` outside the kept-as-is
+S-R10 file (grep-verified, zero missed) to `"local"`, each with a comment
+citing S-R11 and the revert condition:
+
+- `test_us_scoped_inline_rules_body_axis.py`, 3 assertions --
+  `test_bare_quote_means_subsection_scope_maine`,
+  `test_bare_quote_means_subsection_scope_oregon`,
+  `test_colon_then_lettered_list_oregon_capital_letters`. Names left
+  unchanged (not asked for this pass); only the asserted value + a comment
+  changed. No other assertion in these tests touched.
+- `test_us_scoped_inline_pipeline_live.py`'s
+  `test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully`
+  -- docstring rewritten (the old "SHIPPED and live-enforced, S-R4" claim is
+  now stale post-S-R10), assertion changed to `"local"`.
+- `test_us_scoped_inline_rules_trigger_axis.py`'s module docstring mapping
+  table updated for consistency (no test assertion in that file itself
+  referenced `"subsection"`, only the docs).
+
+Two of these files (`trigger_axis.py`, `body_axis.py`) went briefly over the
+300-line gate while drafting the S-R11 prose; tightened back under (299/299)
+without cutting any of the reasoning, re-verified after trimming.
+
+### Task 2 — the revert, made self-alarming
+
+`test_us_scoped_inline_pipeline_subsection_live.py` (pass 3's S-R10 file) is
+KEPT UNCHANGED in its assertions -- still pins TRUE subsection behavior, not
+the interim -- with `@pytest.mark.xfail(strict=True, reason=...)` added to
+`test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection`
+(direction 1). `reason=` names S-R11, the two remaining core-owned causes
+(innermost-vs-outermost level mismatch; `resolve_unit_path`'s digit-outermost
+`'sub'` mislabeling), and the exact revert condition (core's level-contract
+fix + the Developer flipping `_SCOPE_BY_UNIT["subsection"]` back).
+
+**Direction 2 deliberately NOT marked xfail this pass**, and I want this
+decision visible rather than silently made: `test_subsection_scoped_
+definition_does_not_link_a_mention_in_a_different_subsection` PASSES today
+(nothing links at all, for the wrong reason -- the same bug direction 1
+exposes). `pytest.mark.xfail(strict=True)` on an already-passing test
+registers as XPASS, which strict mode turns into an immediate FAILURE -- so
+marking it now, before the Developer's production-side S-R11 change lands,
+would break the suite today for a reason unrelated to S-R11 itself. The real
+risk is forward-looking, and I'm flagging it explicitly (also in the test
+file's own docstring) so it doesn't quietly slip through: once `_SCOPE_BY_
+UNIT["subsection"]` actually becomes `"local"` in production, a `"local"`-
+scoped definition legitimately over-links across its WHOLE owning article
+(S-R11's own accepted tradeoff), so direction 2's "does not link a different
+subsection" claim stops holding and this test needs ITS OWN `xfail(strict=
+True)` at that point -- a follow-up for whoever lands that change, not
+something I could safely do today.
+
+### Task 3 — noted, not acted on
+
+`scope_value` continues being stamped by the pure rule function regardless
+of the interim mapping (verified: `_subsection_label` is still called
+unconditionally when `scope == "subsection"` inside `_leading_events`/
+`_embedded_entries`, upstream of the `_SCOPE_BY_UNIT` lookup that will decide
+the FINAL `.scope` string) -- no test written asserting it goes unused,
+per the instruction.
+
+### Real suite tail -- does NOT match the DoD's "0 failures" expectation
+
+`backend/.venv/bin/pytest backend/tests -q`, reproduced twice, stable:
+
+```
+FAILED backend/tests/integration/test_us_scoped_inline_pipeline_live.py::test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully
+FAILED backend/tests/unit/test_us_scoped_inline_rules_body_axis.py::test_bare_quote_means_subsection_scope_maine
+FAILED backend/tests/unit/test_us_scoped_inline_rules_body_axis.py::test_bare_quote_means_subsection_scope_oregon
+FAILED backend/tests/unit/test_us_scoped_inline_rules_body_axis.py::test_colon_then_lettered_list_oregon_capital_letters
+4 failed, 739 passed, 1 xfailed, 18 warnings in 12.48s
+```
+
+**Why, precisely**: `backend/app/definition_links/rules/us_scoped_inline.py`
+(verified: `git diff 34b576f -- ...us_scoped_inline.py` is empty) still maps
+`"subsection": "subsection"` in its own `_SCOPE_BY_UNIT` dict -- I amended
+the TESTS to expect the ruled interim target (`"local"`) exactly as
+instruction 1 asked, but the PRODUCTION mapping itself is the Developer's
+change (point 3's preview: "the Developer will also normalize
+`_subsection_label`..."), not mine to make (reiterated twice as a hard
+constraint in the manager's message). These 4 failures are the identical
+RED-pins-ahead-of-implementation shape this sprint has used throughout
+(pass 1's 37 RED tests before the rule module existed at all) -- not a
+mistake, and not something I can resolve without touching production code.
+**Next step for the suite to reach 0 failures**: a Developer pass that maps
+`_SCOPE_BY_UNIT["subsection"] -> "local"` and normalizes `_subsection_label`
+to bare-label format (point 3), after which these 4 go green and the xfail
+stays exactly as designed until core's fix lands.
+
+### Verification
+
+`git diff --name-only origin/main...HEAD` shows no file beyond this sprint's
+own test/doc set; `git diff 34b576f -- .../us_scoped_inline.py` is empty
+(zero production changes this pass). All 4 touched test files are
+<=299 lines.

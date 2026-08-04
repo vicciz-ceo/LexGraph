@@ -68,7 +68,9 @@ def test_bare_quote_means_subsection_scope_maine():
     row = _rows()["STATE_ME_T38_C3_S464"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     du = _by_term(candidates, "designated use")
-    assert du.scope == "subsection"
+    # S-R11 interim (S-R10: subsection unenforceable live): narrowest
+    # REPRESENTABLE unit is "local"; reverts once core's resolver fix lands.
+    assert du.scope == "local"
 
 
 def test_bare_quote_means_subsection_scope_oregon():
@@ -77,7 +79,8 @@ def test_bare_quote_means_subsection_scope_oregon():
     row = _rows()["STATE_OR_T22_C238_S238.300"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     nym = _by_term(candidates, "number of years of membership")
-    assert nym.scope == "subsection"
+    # S-R11 interim -- see the maine test above. Was scope == "subsection".
+    assert nym.scope == "local"
 
 
 # --- "X" shall mean ----------------------------------------------------------
@@ -155,7 +158,8 @@ def test_colon_then_lettered_list_oregon_capital_letters():
     row = _rows()["STATE_OR_T59_C825_S825.224"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     overcharges = _by_term(candidates, "Overcharges")
-    assert overcharges.scope == "subsection"
+    # S-R11 interim -- see the maine test's comment above. Was "subsection".
+    assert overcharges.scope == "local"
 
 
 # --- MUST NOT over-split: nested roman-numeral sub-clauses -----------------

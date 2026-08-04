@@ -1,4 +1,34 @@
-"""Sprint 2026-08-04-defs-us-scoped-inline (Planner pass 3, ruling S-R10).
+"""Sprint 2026-08-04-defs-us-scoped-inline (Planner pass 3, ruling S-R10;
+xfail marker added pass 4, ruling S-R11).
+
+Pass 4 addendum: this file's finding (subsection scope dead on the live
+path) was escalated and ruled on. S-R11: `"subsection"` maps to `"local"`
+for the interim (narrowest REPRESENTABLE enclosing unit, zero-miss-safe,
+over-link bounded by one article) until core fixes `resolve_unit_path`.
+This file is KEPT UNCHANGED as the post-core-flip target -- it still
+asserts true subsection behavior, not the interim mapping -- and direction
+1 below is now marked `xfail(strict=True)` so the revert is self-alarming:
+the day core's fix lands, this test XPASSes, which FAILS the suite under
+`strict=True` and forces `_SCOPE_BY_UNIT["subsection"]` back to
+`"subsection"`. Direction 2 is deliberately left UNMARKED -- it happens to
+pass today (nothing links at all, for the wrong reason), but once the
+Developer's S-R11 interim mapping lands in `us_scoped_inline.py`, a
+`"local"`-scoped definition legitimately over-links across its whole
+article, so this direction's own `scope == "subsection"` assertion will
+start failing too and will need its OWN `xfail(strict=True)` at that
+point -- flagged here, not fixed now, since marking it today (while
+`us_scoped_inline.py` still stamps `"subsection"`) would XPASS-fail the
+suite immediately for the wrong reason.
+
+Of the 3 compounding causes below, ONE is ours (`_subsection_label`'s
+paren-included format vs. `UnitStep.value`'s bare format) -- the Developer
+normalizes this as part of landing S-R11's interim mapping, so it stops
+being a blocker on its own. The other TWO remain core's: the innermost-
+vs-outermost level mismatch (`_subsection_label` takes the NEAREST marker,
+`_subsection_contains_offset` compares the OUTERMOST path step) and
+`resolve_unit_path`'s digit-outermost `'sub'` mislabeling. Either one
+alone still fails this test after the paren-format fix, which is exactly
+why the marker stays even once the Developer's half lands.
 
 `test_us_scoped_inline_pipeline_live.py`'s U2 both-directions proofs cover
 `scope="local"` and `scope="chapter"` only. `scope="subsection"` was never
@@ -56,6 +86,8 @@ import json
 import pathlib
 import re
 
+import pytest
+
 FIXTURE = (
     pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "us_scoped_inline_rows.json"
 )
@@ -86,6 +118,23 @@ def _uses_edges(result, db_session, definition_id):
     ]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "S-R11 interim: us_scoped_inline._subsection_label and core's "
+        "profile.resolve_unit_path derive a subsection label two "
+        "independent ways that never agree (paren-format + innermost-vs-"
+        "outermost level mismatch, plus a resolve_unit_path bug mislabeling "
+        "a digit-outermost marker as kind 'sub'), so a scope='subsection' "
+        "definition links nothing on the live path -- 'subsection' is "
+        "mapped to 'local' for now (see _SCOPE_BY_UNIT). Flip back: once "
+        "core lands its resolve_unit_path level-contract fix (trigger word "
+        "names the containment level, not always path[0]) AND the "
+        "Developer reverts _SCOPE_BY_UNIT['subsection'] to 'subsection', "
+        "this test XPASSes -- which strict=True turns into a suite FAILURE "
+        "by design, forcing the revert to happen rather than ossifying."
+    ),
+)
 def test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection(
     db_session, matter_with_users
 ):

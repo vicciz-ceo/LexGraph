@@ -28,24 +28,29 @@ STRICT adjacency only (see `test_us_scoped_inline_rules_negative_
 controls.py`: bare `in this <unit>` is genuine only ~21% of the time,
 72.7% pure prose noise, vs. ~77% for `as used in`).
 
-Scope-unit -> `.scope` string mapping -- AMENDED, Planner pass 2 (sprint
-`2026-08-04-defs-us-scoped-inline`, post-core-merge), against the SHIPPED
-seam (`rules/registry.py`, `matcher.py:136` `_in_scope`), which is
-authoritative over the seam doc's prose per the sprint's own instruction.
-Shipped, live-enforced kinds (ruling S-R4, 82.0% of measured genuine
-volume): `"chapter"` (`article.chapter == definition.source_chapter`),
-`"local"` / `"subsection"` (`article.number == definition.
-source_article_number`, subsection additionally offset-checked). Any OTHER
-literal kind string falls into `_in_scope`'s generic branch, which reads
-`getattr(article, "structural_units", ())` -- a real `MatcherArticle` has
-no such attribute, so that branch returns `False` for every article,
-including the definition's own (ruling S-R5: a structurally GUARANTEED
-zero-miss violation for any mention of the term, anywhere, if a candidate
-were stamped with a dead kind literal).
+Scope-unit -> `.scope` string mapping -- AMENDED, Planner pass 4 (ruling
+S-R11), against the SHIPPED seam (`rules/registry.py`, `matcher.py:136`
+`_in_scope`). Live-enforced: `"chapter"` (`article.chapter == definition.
+source_chapter`), `"local"` (`article.number == definition.
+source_article_number`). `"subsection"` was believed live-enforced (S-R4)
+but pass 3's S-R10 live-path test proved it dead: `_subsection_label` and
+`profile.resolve_unit_path` are independent derivations that never agree
+(format + level-semantics mismatch, plus a core resolver bug), so
+`_subsection_contains_offset` always returns False. S-R11 (interim, self-
+alarmed via `test_us_scoped_inline_pipeline_subsection_live.py`'s
+`xfail(strict=True)`): maps to `"local"`, the narrowest REPRESENTABLE
+enclosing unit -- zero-miss-safe, over-link bounded by one article,
+reverts once core's fix lands. Any OTHER literal kind falls into
+`_in_scope`'s generic branch (`getattr(article, "structural_units", ())`
+-- absent on a real `MatcherArticle`), returning `False` for every
+article including the definition's own (ruling S-R5).
 
     "section"     -> "local"      (enforced, source_article_number)
     "chapter"     -> "chapter"    (enforced, source_chapter)
-    "subsection"  -> "subsection" (enforced, offset-checked)
+    "subsection"  -> "local"      (RESOLVED, S-R11, pass 4, interim --
+                                    narrowest REPRESENTABLE enclosing unit;
+                                    reverts once core's resolve_unit_path
+                                    fix lands. Was "subsection".)
     "act"         -> "law-wide"   (D3: "this act" == the whole document ==
                                     already-unenforced law-wide semantics,
                                     no coordination gap, just a name map)
@@ -54,14 +59,11 @@ were stamped with a dead kind literal).
                                     falls back to core's OWN AK-range
                                     unrepresentable-narrowing precedent:
                                     zero-miss-safe, precision cost recorded)
-    "part"        -> "law-wide"   (RESOLVED, ruling S-R9, pass 3, 13.9%
-    "subchapter"  -> "law-wide"    combined volume, same residue-kind
-                                    treatment. D8: a single Maine Part spans
-                                    106 chapters, so a chapter-fallback would
-                                    silently MISS 105 of them; subchapter has
-                                    0/1,861 genuine hits with even a
-                                    breadcrumb node to fall back on. Was
-                                    `scope == "part"`/`"subchapter"`.)
+    "part"        -> "law-wide"   (RESOLVED, S-R9, pass 3, 13.9% combined
+    "subchapter"  -> "law-wide"    volume, same residue-kind treatment: a
+                                    single Maine Part spans 106 chapters, so
+                                    a chapter-fallback would silently MISS
+                                    105 of them. Was "part"/"subchapter".)
 
 All fixture rows load from the vendored, real, un-modified corpus rows in
 `tests/fixtures/us_statutes/us_scoped_inline_rows.json` (ruling: no test
