@@ -209,6 +209,16 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   markers; CO truncated titles + repealed stubs → program data-quality list.
 - Process rules (after two incidents): ONE writer per worktree, always;
   verify agent liveness before respawning (staleness watchdogs unreliable).
+- **P-E3 cross-panel factual correction (2026-08-04, program-manager-probed
+  on the real corpus):** the IL panel's E5 "124 bare-@ laws / 12 with
+  definitions" framing is corrected — real bare-@ occurrences are 331
+  across 42 files, ALL followed by table/list markup, never by a heading.
+  The definitions are REAL but live as `::-` nested-list entries with
+  ITEM-level scope (`בפרט זה -`, a previously-uninventoried Hebrew scope
+  trigger) inside article-less documents. Core owns reachability (bare-@
+  content parses into extractable sections); CAPTURE of the nested shape +
+  the `בפרט זה` trigger routes to the IL panel. Heading-derivation for
+  bare-@ was rejected as machinery for a phantom shape.
 
 ## Log
 
