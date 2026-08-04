@@ -65,6 +65,26 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-04 (headings cycle-3 escalation + succession): headings @ b79f588,
+  811/0, U1 live-path leg proven (CT test flipped green with panel file
+  untouched — 20,307-heading recall win live); dispatch semantics (A)
+  OR-across-all verified adversarially; D-DF live at 94.5% after one bounce
+  (bound 200→80: 60 clean > 61-with-known-FP); decomposition equivalence
+  zero violations over all 83,956 headings; denominator convention pinned
+  (52 files, PR excluded, `defin` case-insensitive). QA cycle 3 BOUNCE
+  accepted: 69 newly-evidenced misses (45 `defined and` connector-gap rows
+  + RI mojibake em-dash + pointer tables + `defined (qualifier)`).
+  RULINGS: (1) D-MT-E1 WA zero-yield row (STATE_WA_T50_C29_S030: heading
+  True, citation found, 0 candidates) ROUTED TO MARKERS per H-R1 — headings
+  puts the reference-edge verification on a residual ledger as cross-panel
+  dependency; (2) `includes` class (15 rows) is D-Q1 → sent to director
+  with data; (3) P-R7 matrix cross-check sequenced AFTER preamble QA lands
+  (certified inventory doesn't exist yet — QA in flight); pre-QA log
+  correctly refused. Incumbent phase-2 manager context-exhausted, clean
+  exit (all pushed); phase-3 manager to be spawned for dev cycle 5
+  (`and` gap + 3 classes + U2's now-expressible 10-row item) then QA
+  cycle 4. qa_cycles 3/5 — valve risk named.
+
 - 2026-08-04 (multiterm E3/E4 rulings): multiterm build verified by its
   manager (2 added files, U3 holds, 11 REDs green, 4 VT/SD stay red; dev
   self-caught a `.match(s, pos)` `^`-anchoring subtlety) but escalated two
