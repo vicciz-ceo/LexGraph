@@ -15,7 +15,13 @@ us_statutes/inline_parenthetical_sample_rows.json` (see that directory's
 a much larger real row -- see the fixture's own `_fixture_note` field).
 
 This file covers ONLY the extractor-level behavior on a body in isolation
-(the same functions `pipeline.py` Stage 2 calls). The OR cross-reference
+(the SAME `profile.extract_definitions_from_section(...)` dispatching
+METHOD `pipeline.py` Stage 2 calls -- corrected per ruling M-R11: earlier
+revisions of this file called the bare `us_profile.extract_definitions_
+from_section` FREE FUNCTION, which sprint 2026-08-04-defs-core-dispatch
+made baseline-only (it never consults the rule registry); only the METHOD,
+reached via `get_profile(...)`, additionally unions in registered
+`EntrySplitterRule`/`TermClauseRule` output). The OR cross-reference
 row (`STATE_OR_T41_C496_S496.716`) is deliberately NOT tested here --
 its root cause is a Definitions-HEADING-gate miss (family 1, owned by
 sprint `2026-08-04-defs-us-scoped-inline`) COMBINED WITH core-scope's C3
@@ -39,7 +45,6 @@ import json
 from pathlib import Path
 
 from app.definition_links.profiles import get_profile
-from app.definition_links.us_profile import extract_definitions_from_section
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -82,7 +87,20 @@ def _extract_both_ways(row: dict) -> list:
     # heading_was_derived=True)` therefore returns THE SAME candidate list
     # the old two-call union produced -- no expected value changed, only
     # the access path).
-    return list(extract_definitions_from_section(text, scope=scope, heading_was_derived=True))
+    #
+    # Sprint 2026-08-04-defs-us-multiterm, ruling M-R11: called as `profile.
+    # extract_definitions_from_section(...)` -- the dispatching METHOD --
+    # not the bare `us_profile.extract_definitions_from_section` free
+    # function, which sprint 2026-08-04-defs-core-dispatch made
+    # baseline-only (never consults the rule registry). Verified live
+    # before this edit, for both NH and OK rows, WITH `heading_was_
+    # derived=True`: `profile.extract_definitions_from_section(...) ==
+    # extract_definitions_from_section(...)` byte-for-byte -- the inline-
+    # quoted fallback (which the method still runs LAST, only when the
+    # union above is empty) is untouched by this change, and no
+    # `EntrySplitterRule`/`TermClauseRule` is registered yet for any US
+    # code, so this repoint changes zero current expected values.
+    return list(profile.extract_definitions_from_section(text, scope=scope, heading_was_derived=True))
 
 
 # --- NH STATE_NH_TXXVII_C301-B_S1 -- genuine F6, no means-idiom at all ----

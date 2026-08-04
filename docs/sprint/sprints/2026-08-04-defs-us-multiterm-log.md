@@ -2027,3 +2027,126 @@ signal.
 
 **Lesson, consistent with my M-R8 correction:** "dispatch merged" is not
 "dispatch reaches MY call site." Prove the specific surface the tests use.
+
+---
+
+## 2026-08-04 — Planner: M-R11 fix, both modules repointed to the dispatching method (Sonnet/high, bounded resume)
+
+Applied M-R11. Touched only the two named unit modules (plus this log
+entry) — no production code, no other test file.
+
+### Independent live verification before editing
+
+Did not take the manager's probe on faith — re-derived it independently,
+then extended it:
+
+```
+$ backend/.venv/bin/python -c "... profile.extract_definitions_from_section vs us_profile.extract_definitions_from_section on the manager's Alpha/Beta text, plus term_clause_rules_for('US-VT')/entry_splitter_rules_for('US-VT') ..."
+term_clause_rules_for(US-VT): []
+entry_splitter_rules_for(US-VT): []
+```
+No `TermClauseRule`/`EntrySplitterRule` is registered for ANY US code yet
+(the Developer hasn't shipped `rules/us_multiterm_shared_clause.py`). Then,
+critically, checked BOTH files' OWN real fixture rows (not just the
+manager's synthetic Alpha/Beta text) — method vs. free function, with
+`heading_was_derived` both `False` and `True`:
+
+```
+STATE_VT_T23_C35_S3700    US-VT  no-derive-match: True  derive=True-match: True
+STATE_SD_T3_C14_S3-14-5   US-SD  no-derive-match: True  derive=True-match: True
+STATE_MT_T16_C11_P4_S16-11-402 US-MT no-derive-match: True derive=True-match: True
+STATE_MI_...              US-MI  no-derive-match: True  derive=True-match: True
+STATE_TX_Cgv_C2009_S2009.003   US-TX no-derive-match: True derive=True-match: True
+STATE_TX_Cgv_C2002_S2002.001   US-TX no-derive-match: True derive=True-match: True
+STATE_NH_TXXVII_C301-B_S1 US-NH  no-derive-match: True  derive=True-match: True
+STATE_OK_T74_S74-6106     US-OK  no-derive-match: True  derive=True-match: True
+```
+Byte-for-byte identical (`(terms, definition_text)` tuples compared) for
+every row either file uses, in both `heading_was_derived` modes. This is
+the actual guarantee behind "expected values won't change" — not an
+inference from the manager's docstring claim, a direct comparison against
+this sprint's own fixtures.
+
+### Integration-module dispatch — verified live, not by reading
+
+Read `pipeline.py:263` first (`profile.extract_definitions_from_section(...)`,
+the method) — but per the manager's instruction, did not stop there. Wrote
+a throwaway scratch probe (`tests/integration/test_zzz_scratch_dispatch_probe.py`,
+deleted immediately after, never committed): monkeypatched
+`registry._term_clause_rules` to a fake rule injecting a
+`"ZZZ_PROBE_FAKE_TERM"` candidate, ran the REAL `STATE_MT_T16_C11_P4_
+S16-11-402` row through the REAL production path
+(`ingest_us_statute_rows` -> `run_definition_linking`, the same helper all
+three named integration modules use — confirmed by grepping their own
+`_ingest_and_link` bodies), and asserted the fake term surfaced in
+`result["created_definitions"]`:
+
+```
+PROBE all_terms: ['Affiliate', 'Allocable share', 'Cigarette', 'Master Settlement Agreement', 'Qualified escrow fund', 'Released claims', 'Releasing parties', 'Tobacco Product Manufacturer', 'Units sold', 'ZZZ_PROBE_FAKE_TERM']
+PASSED
+```
+(Used MT, not VT, deliberately: VT's body is marker-less — zero baseline
+`(N)` blocks — so `all_blocks` would be empty and no `TermClauseRule.parse`
+would ever run regardless of dispatch correctness; that would test the
+wrong thing. MT already has 9 baseline blocks, so the union loop actually
+iterates.)
+
+**Confirmed: all three named integration modules (`test_multiterm_f5_
+shared_clause.py`, `test_multiterm_f5_blocked_on_markers.py`,
+`test_multiterm_f6_blocked_on_core_seam.py`) reach the dispatching method
+through the real pipeline. None of them bypasses dispatch. No fix needed
+for any of them under this ruling.**
+
+### What changed in each unit module
+
+`test_definition_links_multiterm_shared_clause.py`:
+- Removed `from app.definition_links.us_profile import
+  extract_definitions_from_section` (the free function import).
+- `_extract(row)`'s last line: `extract_definitions_from_section(row["text"],
+  scope=scope)` -> `profile.extract_definitions_from_section(row["text"],
+  scope=scope)` (the already-constructed `profile` from `get_profile(...)`,
+  used for `determine_scope` in the same function since M-R9).
+- Corrected the module docstring's stale claim (previously: "the same
+  function `USProfile.extract_definitions_from_section` delegates to") to
+  state the method/free-function split explicitly and why only the method
+  is the correct entry point for this file's purpose.
+
+`test_definition_links_inline_parenthetical.py`:
+- Same free-function import removed.
+- `_extract_both_ways(row)`'s last line: `extract_definitions_from_section(
+  text, scope=scope, heading_was_derived=True)` ->
+  `profile.extract_definitions_from_section(text, scope=scope,
+  heading_was_derived=True)` (reusing the `profile` already built by
+  `_profile_for(row)` for `determine_scope`, added M-R9). The
+  `heading_was_derived=True` kwarg is unchanged and confirmed still honored
+  identically by the method (same live comparison above, `heading_was_
+  derived=True` column).
+- Corrected the module docstring's "same functions `pipeline.py` Stage 2
+  calls" claim to name the method explicitly and explain the M-R11
+  correction inline.
+
+### Re-verification
+
+```
+$ backend/.venv/bin/pytest tests/unit/test_definition_links_multiterm_shared_clause.py \
+    tests/unit/test_definition_links_inline_parenthetical.py -v
+5 failed, 2 passed in 0.04s
+```
+Same 5 RED / 2 GREEN test names as immediately before this edit — no
+test's colour flipped, confirming the HARD CONSTRAINT held.
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+15 failed, 779 passed, 18 warnings in 12.87s
+```
+**Re-baselined myself rather than aiming at the manager's stated `15/709`**
+(stale — core's separately-merged dispatch sprint added more passing tests
+along the way, 709 -> 779). Confirmed this is genuinely the SAME 15 RED
+test names as the pre-repair baseline on this rebased tree — re-ran
+pre-edit and post-edit and diffed the `short test summary info` blocks
+byte-for-byte, zero difference. `pytest --collect-only -q` -> `794
+collected` (up from 725 at the M-R9/M-R10 point, consistent with core's
+merge). E1 pointer file re-confirmed: `pytest tests/unit/test_
+definition_links_e1_pointer_reference_capture.py -q` -> `7 passed`.
+
+**No expected value changed. Nothing further to escalate.**

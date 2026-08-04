@@ -15,18 +15,28 @@ directory's `README.md` for provenance) -- no test here downloads the
 corpus.
 
 Live-path discipline: every test calls the REAL, current
-`app.definition_links.us_profile.extract_definitions_from_section` (the
-same function `USProfile.extract_definitions_from_section` delegates to,
-and the same one `pipeline.py` calls at Stage 2) directly on the real row
-body -- not a mock, not a hand-shortened string. Assertions target the
-SET of terms found across all returned candidates (`{t for c in
-candidates for term in c.terms}`), the same "stable behavioral surface"
-idiom `test_definition_links_us_profile.py`'s existing DE test already
-uses -- robust to whichever internal shape (one N-term candidate vs. N
-one-term candidates) the eventual fix picks, since `matcher.
-link_articles_to_definitions` already resolves `definition.terms`
-individually either way (matcher.py:132-134) -- see this sprint's log
-entry for the live-code trace proving that.
+`USProfile.extract_definitions_from_section` -- the dispatching profile
+METHOD, reached via `get_profile(...)`, the same one `pipeline.py` calls at
+Stage 2 (`profile.extract_definitions_from_section(...)`, verified live
+against the real production pipeline this sprint, ruling M-R11) -- directly
+on the real row body, not a mock, not a hand-shortened string. **Corrected
+claim (M-R11): this is NOT the same as the bare module-level
+`us_profile.extract_definitions_from_section` free function.** That was
+true when this file was first written; sprint 2026-08-04-defs-core-dispatch
+made it false -- the free function is now baseline-ONLY and never consults
+the rule registry (`EntrySplitterRule`/`TermClauseRule`), while the METHOD
+additionally unions in every registered rule for the profile's code. Only
+the method is the correct entry point for a test meant to observe the
+Developer's upcoming `TermClauseRule`; calling the free function would
+leave every RED test below red regardless of how correct that rule is.
+Assertions target the SET of terms found across all returned candidates
+(`{t for c in candidates for term in c.terms}`), the same "stable
+behavioral surface" idiom `test_definition_links_us_profile.py`'s existing
+DE test already uses -- robust to whichever internal shape (one N-term
+candidate vs. N one-term candidates) the eventual fix picks, since
+`matcher.link_articles_to_definitions` already resolves `definition.terms`
+individually either way (matcher.py:132-134) -- see this sprint's log entry
+for the live-code trace proving that.
 
 RED signal for every test below: a real assertion failure (a term the
 current code silently drops, or a definition_text the current code
@@ -41,7 +51,6 @@ import json
 from pathlib import Path
 
 from app.definition_links.profiles import get_profile
-from app.definition_links.us_profile import extract_definitions_from_section
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -67,9 +76,25 @@ def _extract(row: dict) -> list:
     # ignores `self.code` entirely, so which US code is resolved here
     # cannot change the returned value; the row's own state code is used
     # anyway for documentation fidelity.
+    #
+    # Sprint 2026-08-04-defs-us-multiterm, ruling M-R11: `extract_
+    # definitions_from_section` is now called as `profile.extract_
+    # definitions_from_section(...)` -- the dispatching METHOD -- not the
+    # bare `us_profile.extract_definitions_from_section` free function.
+    # Sprint 2026-08-04-defs-core-dispatch made the free function
+    # baseline-only (never consults the rule registry); only the method
+    # unions in registered `EntrySplitterRule`/`TermClauseRule` output, so
+    # only the method will observe the Developer's upcoming
+    # `TermClauseRule`. Verified live before this edit: with NO
+    # `TermClauseRule`/`EntrySplitterRule` registered yet for any US code
+    # (today's state), `profile.extract_definitions_from_section(...) ==
+    # extract_definitions_from_section(...)` byte-for-byte for every row
+    # this file uses -- so this repoint changes zero current expected
+    # values; it only makes the eventual rule's output observable once
+    # registered.
     profile = get_profile("US-" + row["act_id"].split("_")[1])
     scope = profile.determine_scope(row["text"])
-    return extract_definitions_from_section(row["text"], scope=scope)
+    return profile.extract_definitions_from_section(row["text"], scope=scope)
 
 
 # --- VT STATE_VT_T23_C35_S3700 -- simultaneously F3 (zero-yield) + F5 ------
