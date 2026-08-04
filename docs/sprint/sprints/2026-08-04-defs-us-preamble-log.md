@@ -1687,3 +1687,29 @@ already-verified lists, it does not re-run a single unified discriminator
 over all 2,659 rows); only 3 rows got a fresh verbatim cross-check for the
 summary's own examples, the remaining 2,656 are exactly as each scout's
 own script produced them.
+
+### P-D6 — Item matrix rewritten in the contract
+
+Rewrote the contract's `## Next Steps` entirely: 20 items, grouped by
+**shape-cluster** (one parameterized rule/test file per idiom, covering
+many states) rather than per-state, each naming its gate(s), its CHECK,
+and its exact blocking status. Superseded the old items 1 (M-R7(a)
+escalation — answered), 7 (MS CLAUSE routing — folded into the new item 20's
+full 2,659-row/51-jurisdiction package), and corrected the old item 3's
+stale "3,327" MD target to the reconciled ~1,841–1,849 figure from P-D1,
+with the correction's reasoning cross-referenced rather than silently
+overwritten.
+
+New items added for this pass's own deliverables: 11 (B1 matrix), 12 (B2
+matrix), 13 (CA), 14+15 (FEDERAL achievable-subset capture + the named,
+NOT-this-sprint's-file bounded-extractor defect, kept as two separate
+items so the achievable part isn't held hostage to the unbuilt part), 16
+(DC), 17 (NY — explicitly stating it is NOT blocked on core's I8, only on
+core's registry, to prevent a future reader over-generalizing NY's other
+known defect onto this item), 18 (hazard catalogue, already-passing
+regression gate), 19 (RI's newly-found mangled-quote-byte defect,
+routing only), 20 (the full CLAUSE package, superseding the old item 7's
+now-stale 190–240-row MS-only estimate).
+
+Every item's CHECK names a real, already-committed test file from this
+sprint's own D2–D4 work — none point at a test that does not yet exist.
