@@ -24,45 +24,124 @@ def _read(name: str) -> str:
     return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-# --- M8(a): a bare-`@`-marked section must not lose its definitions on the
-# --- REAL `run_definition_linking` path (unit-level RED already pins the
-# --- `parse_articles` gap directly; this proves it is not silently masked
-# --- or recovered somewhere downstream in the full pipeline). -------------
+# --- M8(a) RETARGET (sprint 2026-08-04-defs-core-scope, ruling R19): the
+# --- test this replaced (`test_run_definition_linking_does_not_lose_a_
+# --- definition_behind_a_bare_at_marker`) asserted CAPTURE of a definition
+# --- from a synthetic fixture shaped like `@` / heading / `:- "term" -
+# --- ...`. Measuring the real 6,133-law israeli-laws-wiki corpus found
+# --- that shape does not exist: of 331 real bare-`@` occurrences, 100% are
+# --- followed by wiki table/markup and ZERO are followed by a definitions
+# --- heading. The fixture below is a real (byte-for-byte vendored) excerpt
+# --- of "רשימת הזכויות לפי חוק לקידום התחרות ולצמצום הריכוזיות.wiki"
+# --- (source: israeli-laws-wiki/data/laws/, lines 9-13 + 102-119) --
+# --- CONFIRMING that shape: line 9 is a bare `@` immediately followed by
+# --- table markup (no heading at all), and this specific real document has
+# --- NO other `@ N.` marker anywhere -- its entire remaining body (lines
+# --- 10-119+, including the `::- "..." - ...` nested entries at lines
+# --- 116-119, introduced by "בפרט זה -" at line 115, themselves nested
+# --- inside numbered item (3) of item 43's own sub-list) collapses into
+# --- ONE bare-`@` section. Before M8(a)'s merged fix, THIS real document's
+# --- own failure mode is total-document loss: `current_number` never
+# --- becomes non-`None`, so `parse_articles` returns an empty list and
+# --- every one of these real rows vanishes from the pipeline entirely --
+# --- not "merged into a neighbouring article" (this file has none), the
+# --- OTHER failure mode named in `sections.py`'s own bare-marker comment,
+# --- which applies to a bare-`@` section that follows an already-open
+# --- numbered article -- a shape this particular file's real rows do not
+# --- contain, so it is not independently re-demonstrated here.
+# ---
+# --- What this test pins: REACHABILITY, not capture. The bare-`@`
+# --- section's real body (both regions) must survive ingestion as a
+# --- genuine `Article` row and must reach Stage 2's extraction call
+# --- (`profile.extract_local_scope_definitions`, via the real
+# --- `run_definition_linking` path) rather than being silently dropped.
+# --- What this test deliberately does NOT assert: capture of the four
+# --- `::-` / "בפרט זה" nested definitions ("סיווג", "צד קשור", "קטגוריה",
+# --- "שליטה") as `Definition` rows. That double-colon-nested,
+# --- "בפרט זה"-triggered idiom is a previously-uninventoried Hebrew
+# --- scope-trigger variant -- core's `extract_local_scope_definitions`
+# --- only recognizes "לענין זה,"/"בסעיף זה," (see `_LOCAL_TRIGGER_RE` in
+# --- extract.py), not "בפרט זה". Whether/how to capture it is the IL
+# --- panel's contractual territory, not core's; core's obligation ends at
+# --- reachability (director ruling, this sprint).
 
 
-def test_run_definition_linking_does_not_lose_a_definition_behind_a_bare_at_marker(
+def test_run_definition_linking_reaches_a_bare_at_markers_section_body_without_dropping_it_live(
     db_session, matter_with_users
 ):
     from app.definition_links.ingest import ingest_wiki_law
     from app.definition_links.pipeline import run_definition_linking
+    from app.models.article import Article
+    from app.models.source_span import SourceSpan
 
     m = matter_with_users
-    wiki_text = (
-        "@\n"
-        "פרשנות\n"
-        ':- "מונח יסודי" - הגדרה שאף פעם לא נקלטת בעולם האמיתי.\n'
-        "@ 2. הוראה נוספת\n"
-        "התוכן מזכיר מונח יסודי כאן.\n"
+    wiki_text = _read(
+        "רשימת הזכויות לפי חוק לקידום התחרות ולצמצום הריכוזיות_excerpt.wiki"
     )
-    ingest_wiki_law(
+    ingest_result = ingest_wiki_law(
         db_session,
         repository_id=m["repository_id"],
         matter_id=m["matter_id"],
-        title="חוק לדוגמה עם סימון @ חסר",
+        title="רשימת הזכויות לפי חוק לקידום התחרות ולצמצום הריכוזיות",
         wiki_text=wiki_text,
     )
 
+    # 1. NOT SILENTLY DROPPED: this real document is built ONLY of a bare
+    # `@` marker -- before M8(a)'s fix, `current_number` never became
+    # non-`None`, so `parse_articles` returned an empty list and
+    # `ingest_wiki_law` persisted ZERO `Article` rows for it.
+    assert len(ingest_result["article_ids"]) == 1, (
+        "the bare-`@`-only real document must still parse into its own "
+        "section -- got "
+        f"{len(ingest_result['article_ids'])} Article row(s), expected "
+        "exactly 1 (M8(a))."
+    )
+    article = db_session.get(Article, ingest_result["article_ids"][0])
+    assert article.heading == "", (
+        "this section came from a BARE `@` marker (no heading text) -- "
+        f"got heading={article.heading!r}."
+    )
+
+    # 2. BOTH real regions of the section's body survived persistence --
+    # the line-9 bare-`@` region (table markup, no heading) and the
+    # line-116-119 nested-definitions region (the `::- "..." - ...`
+    # entries under "בפרט זה -").
+    span = db_session.get(SourceSpan, article.source_span_id)
+    assert "שירותי בזק פנים-ארציים נייחים" in span.quote_text, (
+        "the line-9 bare-`@` region's own real content (item 1 of the "
+        "wiki table) must survive into the section's persisted body."
+    )
+    for term in ("סיווג", "צד קשור", "קטגוריה", "שליטה"):
+        assert f'::- "{term}"' in span.quote_text, (
+            f"the line-116-119 nested-definitions region's real "
+            f"'::- \"{term}\"' entry must survive into the section's "
+            "persisted body (content preservation, NOT a claim that it "
+            "gets captured as a Definition -- see module-level comment)."
+        )
+
+    # 3. REACHES THE REAL EXTRACTION PATH: `run_definition_linking` must
+    # process this Article like any other non-definitions-heading
+    # article -- i.e. NOT skip it as bidi-degraded (which would mean it
+    # never reaches `profile.extract_local_scope_definitions` at all) --
+    # and must complete without raising.
     result = run_definition_linking(
         db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
     )
-
-    created_terms = {tuple(d["terms"]) for d in result["created_definitions"]}
-    assert ("מונח יסודי",) in created_terms, (
-        "the bare-`@`-marked section's own definition ('מונח יסודי') must "
-        "be captured by the real run_definition_linking path -- today it "
-        "is silently unreachable because sections.parse_articles never "
-        "attaches it to any Article at all (M8(a))."
+    assert article.id not in result["skipped_degraded_article_ids"], (
+        "the bare-`@` section's Article must not be skipped as "
+        "bidi-degraded -- if it were, it would never reach Stage 2's "
+        "extraction call at all, and reachability would not hold."
     )
+    assert "created_assertions" in result and "created_definitions" in result, (
+        "run_definition_linking must complete and return its normal "
+        f"result shape for a matter containing this document -- got {result!r}."
+    )
+
+    # Deliberately NOT asserted (out of core's scope for this sprint --
+    # see module-level comment): whether "סיווג"/"צד קשור"/"קטגוריה"/
+    # "שליטה" appear (or don't) in `result["created_definitions"]`. That
+    # is a capture question for the IL panel's "בפרט זה" scope-trigger
+    # work, not a reachability question for core.
 
 
 # --- C4: a rule module registered into `app.definition_links.rules` must

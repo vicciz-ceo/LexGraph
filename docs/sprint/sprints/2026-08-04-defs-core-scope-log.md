@@ -1711,3 +1711,79 @@ captured FROM bare-@ sections" claim is contested.
 actually exists (a table-footnote inline definition reaching the local/adhoc
 path, which needs NO heading), or drop the claim as unsupported. Do NOT build
 heading-derivation for bare-`@`.
+
+---
+
+## 2026-08-04 — Round 16: Planner implements E-3's resolution — I5 live test retargeted to reachability
+
+Director's ruling on E-3 (relayed via the Planner brief): keep the merged
+parse-level fix (still correct — a bare `@` starting its own section stops
+331 real table bodies from polluting a preceding article); retarget I5's
+live test off CAPTURE and onto REACHABILITY; capture of the `::-`/"בפרט זה"
+nested-definitions shape (discovered by the program manager probing the IL
+panel's own named proof file, `רשימת הזכויות לפי חוק לקידום התחרות
+ולצמצום הריכוזיות.wiki`) is out of core's scope — routed to the IL panel as
+a previously-uninventoried scope-trigger variant.
+
+**What I actually found in that named file** (read directly, not just
+trusted from the brief): line 9 is a bare `@` immediately followed by wiki
+table markup — no heading, confirming the corpus-wide measurement (331/331
+table-followed, 0 heading-followed). This file has **no other `@ N.` marker
+anywhere** — the ENTIRE rest of the document (the table, its 51 numbered
+rows, and everything after) is one single bare-`@` section. Lines 116-119
+hold four real `::- "term" - ...` entries, but they are nested TWO levels
+deep: inside numbered item (3) of item 43's own sub-list, introduced by
+"בפרט זה -" (line 115) — not a headed הגדרות section, and not reachable by
+core's `_LOCAL_TRIGGER_RE` (which only recognizes "לענין זה,"/"בסעיף זה,").
+Confirms the manager's read exactly.
+
+**Consequence for the fixture:** because this file has no preceding article,
+its own concrete pre-fix failure mode is TOTAL DOCUMENT LOSS (zero `Article`
+rows — `current_number` never leaves `None`), not "merged into a neighbouring
+article" (the OTHER failure mode named in `sections.py`'s own bare-marker
+comment, which needs a document that has an article open before the bare
+`@` — a shape this specific file's real rows don't contain). I scoped the
+retargeted test's claims to what THIS fixture actually demonstrates rather
+than asserting a merge-into-neighbour property this file can't prove.
+
+**Fixture built:** vendored, byte-for-byte real excerpt —
+`backend/tests/fixtures/wiki_laws/רשימת הזכויות לפי חוק לקידום התחרות
+ולצמצום הריכוזיות_excerpt.wiki` — source lines 9-13 (bare `@` + table open +
+item 1) and 102-119 (item 43's full sub-list, including the "בפרט זה -"
+lead-in and all four `::-` entries), copied verbatim. Verified with a
+line-by-line diff script against the real corpus file before writing the
+test — zero mismatches.
+
+**Test written:**
+`backend/tests/integration/test_definition_links_pipeline_scope_seam.py::test_run_definition_linking_reaches_a_bare_at_markers_section_body_without_dropping_it_live`
+(replaces `test_run_definition_linking_does_not_lose_a_definition_behind_a_bare_at_marker`).
+Runs the real `ingest_wiki_law` + `run_definition_linking` path. Asserts:
+(1) exactly 1 `Article` row for the document (not 0 — the historic bug);
+(2) that Article's `heading == ""` (came through the bare-marker branch, not
+an ordinary numbered one); (3) the persisted `SourceSpan.quote_text`
+contains BOTH the line-9 region's real content and all four line-116-119
+`::-` entries verbatim (content survives, is not dropped); (4) the Article
+is not in `skipped_degraded_article_ids` (proves it actually reaches Stage
+2's `extract_local_scope_definitions` call, not just persistence);
+(5) `run_definition_linking` completes and returns its normal result shape.
+Deliberately does NOT assert presence or absence of "סיווג"/"צד קשור"/
+"קטגוריה"/"שליטה" in `created_definitions` either way — asserting absence
+would itself wrongly pin "IL must never capture this," which isn't core's
+call to make.
+
+**Outcome: GREEN immediately**, no test-contortion needed.
+`backend/tests/integration/test_definition_links_pipeline_scope_seam.py -q`
+→ `6 passed`. Full suite: `backend/tests -q` → **`3 failed, 683 passed`**
+(the 3 failures are the pre-existing I9/M15 Developer's — unchanged, see
+`test_definition_links_pipeline_normalize_dispatch.py`). Baseline was
+`4 failed, 682 passed, 0 errors`; the old I5 RED test is gone and replaced
+by a passing one: 682 → 683 passed, 4 → 3 failed. **682 did not drop; it
+rose to 683. This is a legitimate reachability pin, not a manufactured
+green — I5 needs no further Developer work.**
+
+Contract updated: I5's entry in `2026-08-04-defs-core-scope.md` (Open Items)
+now states the retarget, the corrected corpus facts, and what's deliberately
+NOT pinned; a short correction note was also added under the original M8(a)
+ruling text (not rewritten — the original text stays, a correction is
+appended below it, matching this sprint's own R18 precedent for handling a
+later-corrected finding).

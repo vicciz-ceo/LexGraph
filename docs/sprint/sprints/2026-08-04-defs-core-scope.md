@@ -110,10 +110,40 @@ silently resolved.
   `app/definition_links/rules/{__init__.py,registry.py}`.
   RED: `backend/tests/unit/test_definition_links_rules_registry.py` (10 tests, all `ImportError` today).
   Live call-site: `test_definition_links_pipeline_scope_seam.py::test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline`.
-- [x] **I5 (DEV COMPLETE — manager-verified, pending QA) — M8(a): `sections.parse_articles` bare-`@` marker loses articles/definitions.**
+- [x] **I5 (DEV COMPLETE — manager-verified, QA verified GREEN, no further
+  Developer work needed) — M8(a): `sections.parse_articles` bare-`@` marker
+  loses articles/definitions.**
   RED: `backend/tests/unit/test_definition_links_sections.py::test_parse_articles_does_not_silently_merge_a_bare_at_marker_section_into_its_neighbor`,
   `::test_parse_articles_does_not_return_zero_articles_for_a_document_using_only_bare_at_markers`.
-  Live call-site: `test_definition_links_pipeline_scope_seam.py::test_run_definition_linking_does_not_lose_a_definition_behind_a_bare_at_marker`.
+  **RETARGETED (resolves ESCALATION E-3 in -log.md, Round 15):** the corpus
+  measurement behind M8(a) ("124/6,133 IL laws affected, 12 with unambiguous
+  definitions") does not hold up — re-measured against the real 6,133-law
+  corpus, all 331 real bare-`@` occurrences are followed by wiki table/markup
+  and **zero** are followed by a definitions heading, so the original live
+  test's fixture (`@` / heading line / `:-` entry) pinned a shape that does
+  not exist. The already-merged fix itself (a bare `@` starts its OWN
+  section, preventing 331 real table bodies from being silently concatenated
+  into a preceding article) is unaffected and still correct — only the
+  "definitions get CAPTURED from a bare-`@` section" claim was wrong.
+  Live call-site RETARGETED from capture to **reachability**:
+  `test_definition_links_pipeline_scope_seam.py::test_run_definition_linking_reaches_a_bare_at_markers_section_body_without_dropping_it_live`
+  — a vendored, byte-for-byte real excerpt of
+  `רשימת הזכויות לפי חוק לקידום התחרות ולצמצום הריכוזיות.wiki`
+  (`backend/tests/fixtures/wiki_laws/רשימת הזכויות לפי חוק לקידום התחרות ולצמצום הריכוזיות_excerpt.wiki`,
+  source lines 9-13 + 102-119) pins that this real bare-`@` document's body
+  (including the line 116-119 `::-`/"בפרט זה" nested entries) survives
+  ingestion as a genuine `Article` and reaches the real
+  `run_definition_linking` -> Stage 2 extraction call, rather than being
+  silently dropped (this real document's own failure mode pre-fix: TOTAL
+  document loss, since it contains no other `@ N.` marker at all).
+  **Deliberately NOT pinned:** capture of the four `::-` nested definitions
+  ("סיווג"/"צד קשור"/"קטגוריה"/"שליטה") as `Definition` rows — that
+  double-colon-nested, "בפרט זה"-triggered idiom is a previously-
+  uninventoried Hebrew scope-trigger variant outside core's
+  `_LOCAL_TRIGGER_RE` ("לענין זה,"/"בסעיף זה," only); whether/how to capture
+  it is the IL panel's contractual territory. **Ran GREEN immediately** —
+  the merged I5 half already delivers reachability; no Developer work
+  required for this retarget.
 - [x] **I6 (DEV COMPLETE — manager-verified, pending QA) — M8(b): `us_profile.find_term_uses` case-insensitive word-boundary matching.**
   RED: `backend/tests/unit/test_definition_links_us_profile.py::test_us_profile_find_term_uses_matches_a_lowercase_mention_of_a_capitalized_defined_term`.
   Guard/proof (already green, must STAY green): `::test_us_profile_find_term_uses_case_insensitive_match_still_respects_word_boundaries`,
@@ -760,6 +790,14 @@ registered rules unchanged) — this is the stated escape hatch.
   whole document, silently dropping any definitions inside — 124/6,133
   IL laws affected, 12 with unambiguous definitions (measured by the IL
   panel on a named file). Core-sprint RED tests + fix, not a family item.
+  **CORRECTED (ESCALATION E-3, -log.md Round 15; retarget implemented in
+  I5's contract entry above):** re-measured against the real 6,133-law
+  corpus, this "12 with unambiguous definitions" premise does not hold —
+  all 331 real bare-`@` occurrences are followed by wiki table/markup,
+  zero by a definitions heading. The parse-level fix (bare `@` starts its
+  own section) is still correct and stays; the "definitions get captured
+  FROM bare-`@` sections" claim was unsupported and is now pinned as
+  reachability only, not capture.
 - **M8(b):** `us_profile.find_term_uses` is case-sensitive; real rows
   re-mention a capitalized defined term in lowercase later in the same
   law (`STATE_GA_T7_C8_S7-8-1` defines "Access area",
