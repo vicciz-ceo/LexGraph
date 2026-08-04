@@ -1969,3 +1969,62 @@ are unobservable until core ships. The design is proven safe under both, but
 the resume checklist.
 
 Pushed at `7f6964d`. Sprint remains `blocked` awaiting core's dispatch sprint.
+
+---
+
+## 2026-08-04 — Core dispatch merged; the Context Dump's prediction verified
+
+Merged `origin/main` (`fbb6c9e`, past the `8524067` cited in the wake) — **no
+conflicts**. Venv refreshed. Merge again rather than rebase: this branch
+already carries a merge commit, so rebasing would rewrite it and force-push;
+the deviation was accepted previously and is unchanged here.
+
+**`HeadingRule` fields are now `('jurisdiction_codes', 'matches',
+'body_confirms')`** — this panel's design shipped as specced.
+
+### The prediction from the Context Dump — CONFIRMED
+
+The parked Context Dump committed to a falsifiable claim: *the CT pipeline test
+goes green with **no change from this panel**.* Verified exactly:
+
+- `git diff dbd55d7..HEAD -- backend/app/definition_links/rules/us_heading_variants.py`
+  → **empty**. This panel's production file is provably untouched.
+- `TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline`
+  → **1 passed**.
+
+**Gate U1's live-path leg is now real**: this panel's heading rule is consulted
+by the actual production pipeline, and the recall win it measured is no longer
+inert. Suite **799 passed / 12 failed** (core contributed +71 tests; the CT
+failure cleared; the 12 remaining are exactly the Planner's D-DF REDs).
+
+### Which dispatch semantics shipped — (A) OR-across-all
+
+The Planner engineered for both readings without knowing which would land.
+**Answer: (A).** Live source (`us_profile.py:1275-1289`, `profiles.py:149-152`):
+
+```python
+if is_definitions_heading(heading):
+    return True                      # baseline positive is NEVER overridden
+for rule in registry.heading_rules_for(self.code):
+    if rule.matches(heading) and (rule.body_confirms is None or rule.body_confirms(body)):
+        return True
+return False
+```
+
+Proven empirically, not just read — manager probe registering rules in the
+**adversarial** order (gated first, unconditional second):
+
+| Probe | Result |
+|---|---|
+| gated-rule-first (matches, `body_confirms`→False) + unconditional second | **True** — (A) confirmed; (B) would have returned False |
+| lone gated rule, body WITHOUT marker | **False** |
+| lone gated rule, body WITH marker | **True** |
+
+**Consequence for the design:** under (A), a gated rule that fails
+`body_confirms` never suppresses another rule, so registration order and
+rule-2 narrowness are **not load-bearing** — they are belt-and-braces. They
+cost nothing, correctly guard against a future switch to (B), and are kept.
+Recorded so QA cycle 3 does not mistake them for semantics the shipped code
+actually depends on. Also confirmed: **a baseline positive is never
+overridden**, so no registered rule can flip a currently-True heading False —
+ruling H-R3's zero-false-positive baseline is structurally protected.
