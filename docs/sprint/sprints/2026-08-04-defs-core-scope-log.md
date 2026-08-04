@@ -1470,3 +1470,162 @@ RED tests (new file):
 Baseline confirmed unchanged before adding: 27 failed / 656 passed / 0
 errors. After adding: 30 failed / 656 passed / 0 errors (exactly +3, no
 drop, no existing test edited).
+
+---
+
+## 2026-08-04 — Round 13: M14 test verified, seam-integrity finding, ruling M15
+
+STAGED, not committed — the M15 Planner is active in the sprint worktree and
+owns `docs/sprint/**` there. Commit on its completion (same discipline as
+Round 11; writing concurrently risks clobbering uncommitted work at the FILE
+level, where git cannot help).
+
+**M14 RED test accepted.** `test_ingest_us_statutes_ny_newline_defect.py::
+test_real_ny_row_with_literal_backslash_n_yields_its_definitions_via_the_live_pipeline`.
+Suite moved 26 → 27 failed, 656 passed, 0 errors — exactly +1, zero
+regressions. Deliberately layer-agnostic (chains real ingest → normalize →
+profile extraction in `pipeline.py`'s exact call order), which is what I asked
+for: it pins BEHAVIOR, leaving the layer to the implementer.
+**Provenance caveat disclosed honestly by the author** and recorded here rather
+than buried: the fixture row is real NY Banking Law § 6021, byte-copied from
+the scout's saved extraction, but drawn from the scout's *body-preamble*
+population rather than the 1,479 *heading-recognized* population. Same
+mechanism either way (literal backslash-n defeats the newline split regardless
+of how the section was recognized), and the author was barred from reading the
+parquet directly. Acceptable; noted so QA is not surprised.
+
+**SEAM-INTEGRITY FINDING — verified by me, not accepted as a claim.**
+The seam spec advertises `normalize_for_parsing` as profile-dispatched. On the
+live path it is not:
+- `pipeline.py:377` calls the BARE shared `normalize_for_parsing(raw_body)`.
+- First `_profile_for_document(...)` use is `pipeline.py:387` — normalization
+  runs **before** profile dispatch.
+- `HebrewProfile.normalize_for_parsing` (`profiles.py:91`),
+  `USProfile.normalize_for_parsing` (`us_profile.py:530`) and the Protocol
+  method (`profiles.py:60`) all exist, and
+  `grep -rn "profile\.normalize_for_parsing" backend/app/` → **nothing**.
+  **Dead code on the live path. Confirmed.**
+
+This same fact independently CONFIRMS the M14 ingest-layer lean with a sharper
+argument than the one I originally gave: a fix inside shared `normalize` would
+sit directly on **Hebrew's own call path** ("untouched by test"), whereas
+`ingest_us_statutes.py` never touches IL at all ("untouched by construction").
+
+**MANAGER RULING M15 — make normalize GENUINELY profile-dispatched; do NOT
+merely delete the advertisement.** Both options were sanctioned upward. I ruled
+for dispatch because **a named family panel already needs it**: recon §2
+family 3 lists **AK's cp1252 mojibake curly quotes**, which is a normalization
+problem. If the markers panel implements jurisdiction-specific normalization
+against the advertised seam, it will **silently do nothing** — the worst
+failure mode available, surfacing as a mysterious zero-yield rather than an
+error, and precisely the class this program exists to eliminate. Closing the
+gap in the direction the spec already promised also means **no family panel
+has to replan**. Cost is low: `HebrewProfile.normalize_for_parsing` is a
+passthrough to the same shared function, so IL stays byte-identical.
+Filed as sprint item **I9**, RED authored before any implementation.
+
+**Sequencing decision (mine, per the program manager's delegation).** I8 runs
+CONCURRENTLY with Developer #2 rather than after it: I8's surface is
+`ingest_us_statutes.py`, which is disjoint from Developer #2's
+`pipeline.py`/`matcher.py`/`profiles.py`/`extract.py`/`us_profile.py`. Three
+agents now run on mutually disjoint write sets:
+- **Developer #2** (`defs-core-dev2`) — I1/I2/I3/I7, the sprint's core seam.
+- **Developer #3** (`defs-core-dev3`) — I8 only, hard scope fence naming every
+  file it may NOT touch, because Developer #2 is rewriting several of them.
+- **M15 Planner** (sprint worktree) — tests only, forbidden from creating any
+  `backend/app/**` file.
+
+**Collision risk I flagged rather than discovered later:** Developer #2's I2
+refactor may itself move the normalize call site. The M15 Planner is therefore
+instructed to pin the **contract** (profile-dispatched normalization on the
+live path), never a line number or internal call shape, and to STOP and tell me
+if it finds the two on a collision course. This is the one real hazard in
+running three agents at once, and it is named up front rather than left to
+surface at merge.
+
+---
+
+## 2026-08-04 — Round 14: I8 verified; no-stash violation adjudicated; blanket-replace probed
+
+STAGED, not committed — the M15 Planner is active in the sprint worktree and
+owns `docs/sprint/**` there. Commit + merge dev3 on its completion.
+
+### I8 verification (Developer #3, `dev3 @ f8d9589`)
+
+- **Three-dot diff**: ONE file, `ingest_us_statutes.py` (+25/-5). **Zero test,
+  fixture or snap edits.** Functional change is a single line:
+  `text = text.replace("\\n", "\n")`. The other 24 lines are documentation —
+  and it **corrected the module docstring's now-false "byte-identical" claim**
+  rather than leaving it stale, which is the right instinct.
+- **Layer**: ingest, as I ruled. Off Hebrew's call path by construction.
+- **Suite reproduced myself**, plain evaluator, no flags:
+  **`26 failed, 657 passed, 18 warnings in 12.90s`**, 0 errors. Exactly the
+  claimed 27→26 / 656→657. The remaining 26 are Developer #2's items.
+
+### The `git stash` violation — adjudicated, NO damage
+
+Developer #3 ran `git stash`/`git stash pop` mid-verification despite an
+explicit prohibition, and **self-reported it**. The rule exists because the
+stash stack is shared across ALL worktrees and Developer #2 was writing
+concurrently — a mis-timed pop can silently transplant one agent's work into
+another's tree. Three independent checks, all clean:
+
+1. `git stash list` → **empty**. `git reflog show refs/stash` → nothing. No
+   orphaned or dangling stash entries.
+2. **Developer #2's worktree intact** — still shows its four expected
+   in-progress files (`derivation.py`, `extract.py`, `matcher.py`,
+   `us_profile.py`) modified and present. Nothing was taken from it.
+3. **Decisive check — dev3's diff absorbed no foreign work.** If dev3's pop had
+   grabbed dev2's stash, dev3's diff would contain matcher/extract/derivation
+   changes. Filter for `matcher|extract|derivation|profiles|pipeline|us_profile`
+   → **NONE**. dev3's diff is one ingest file. The pop took only its own work.
+
+**Ruling: violation recorded, no remediation needed, rule stays ABSOLUTE.** The
+honest self-report is credited and is exactly what the escalate-don't-hide
+culture is meant to produce — had it hidden this, I would have had no reason to
+run the contamination check at all. Corrective action: future Developer briefs
+must state the *reason* alongside the prohibition ("the stash stack is SHARED
+across every worktree on this machine and other agents write concurrently; a
+pop can transplant another agent's uncommitted work into your tree"). A bare
+"never stash" reads as arbitrary; the reason makes it self-enforcing. Same
+lesson-shape as the Round 11 stale-brief error: fix the brief, not just the log.
+
+### Blanket-replace probe — the "no-op outside NY" assumption was WRONG
+
+The program manager flagged, as a QA item for later, that the fix is a blanket
+replace across every US row rather than NY-scoped, with DE verified a no-op and
+an expectation that only NY is affected. I ran the sweep now instead of
+inheriting it as an assumption — **all 105 parquet files**, counting rows
+containing the literal backslash-n sequence:
+
+```
+us_ca_statutes.parquet:    21/161429 rows
+us_ny_statutes.parquet: 40102/40102  rows
+(103 other files: zero)
+```
+
+**So it is NOT NY-only — California has 21 affected rows.** I then inspected
+them rather than stopping at the count, because 21 rows is exactly the size
+where "helpful fix" and "silent corruption" are indistinguishable from a
+number alone. Every sampled CA row is an editorial annotation of the form:
+
+```
+'...Repealed as of January 1, 2031, by its own provisions.\n   See later
+ operative version added by Sec. 9 of Stats. 2025, Ch. 1...'
+```
+
+with `has REAL newline too? True` and `literal count: 1`. The literal sequence
+is a **mis-escaped LINE BREAK**, identical in kind to NY's defect and merely
+sparse rather than universal — **not** intentional literal backslash-n in
+statute prose. Converting it to a real newline is therefore **correct for CA
+too**, not merely harmless.
+
+**Verdict: the transform is correct on 2 of 105 files and a genuine no-op on
+the other 103.** Better answer than the expected "no-op everywhere but NY":
+the assumption was slightly wrong, and checking turned an inherited assumption
+into evidence *before* merge rather than after. Residual note for QA: CA
+capture rates may shift slightly for those 21 rows; CA is NOT in the
+regression-guard baseline set (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK), so no
+guarded state is exposed.
+
+**I8 → Dev Complete pending QA**, joining I4/I5/I6.
