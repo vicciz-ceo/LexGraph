@@ -65,6 +65,19 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-04 (AL-class + PR gate-1 routing): AL LABEL-class scout
+  (aa02b1af67484dda8) reported — 714 genuine un-rescued rows (premise
+  deflated from "tens of thousands"), "In general"/"en general" decoy is the
+  systematic hazard (144 occ/94 rows). Program ruling under D-CF precedent:
+  bounded additive item, joint ownership (scoped-inline: code + prefer-quote;
+  markers: boilerplate classification); recorded in program doc roster row,
+  both managers briefed (scoped-inline resumed; markers queued mid-build).
+  PR gate-1 hyphen Planner (a8a942cf256b44b48) reported: 235 exact-match to
+  QA, root cause ".-" boundary crossing in _UNQUOTED_TERM_DASH_RE, decision
+  NARROW (61 junk rejected / 208 retained, ~41-53% precision), 3 RED +
+  1 guard + 1 xfail direct-function tests with P1 upgrade condition; PR
+  manager resumed to run Developer fix → QA re-verify per M-R15.
+
 - 2026-08-04 (wave 2, checkpoint): director rulings D-MT-E1 (+no-typed-field
   clarification), D-ANCHOR, D-PREAMBLE-ALL, D-UNITS recorded; unit research
   dossier persisted (2026-08-04-law-system-units.md). CORE: seam spec
