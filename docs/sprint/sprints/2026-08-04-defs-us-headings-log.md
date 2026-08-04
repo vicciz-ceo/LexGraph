@@ -1888,3 +1888,37 @@ concurrently-landing panels do not collide in the same dispatch code.
 Sprint `status: blocked` pending the ruling. Nothing else in the item list is
 implementable in the meantime — every remaining item depends on Blocker A
 (live-path recognition) or Blocker B (D-DF).
+
+---
+
+## 2026-08-04 — Program ruling P-R8 received: escalation resolved
+
+**Option 1 confirmed as program ruling P-R8** (main `0f4e8fc`). Core reopens
+for a focused dispatch-completion sprint:
+
+- all five dead rule kinds get consumption wiring;
+- the ungated `derive_heading_from_body` (this panel's D-PREAMBLE-ALL
+  non-implementation finding) is item 2 of core's scope;
+- **this panel's `body_confirms` design is accepted as-is** — additive optional
+  field on `HeadingRule`, consumed as
+  `matches(heading) and (body_confirms is None or body_confirms(body))` — core
+  scope item 4, credited to this panel.
+
+The PR panel independently converged on the same dead-dispatch finding within
+the hour; the two evidence sets together made the ruling immediate.
+
+Both of this panel's corrections are recorded at program level: `defined for`
+is committed (so D-DF *changes shipped behavior*, and the `body_confirms`
+conjunction becomes the fix, landing as a rule-field update once core ships),
+and the sixth gap was already closed in dev cycle 3. The merge-not-rebase
+deviation is **accepted**, including the union-resolved README with Planner
+verification to follow.
+
+**HOLD (program manager):** U1's live-path leg, U4/P-R7 cross-reference, U6
+re-measurement, and QA cycle 3 all wait for core's dispatch merge. The program
+manager wakes this panel.
+
+**Authorized meanwhile:** Planner pre-authors the D-DF `body_confirms` RED
+against the agreed consumption semantics (genuine RED — stays red until core
+lands AND this module adds the field; correct red-before-green order), and
+verifies the README union.
