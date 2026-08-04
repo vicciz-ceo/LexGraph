@@ -5340,3 +5340,87 @@ disappears by construction, and that claim is unverified until it is measured
 against the dispatched pipeline. Shipping 18c on the strength of the argument
 rather than the measurement would repeat exactly the mistake that produced
 the inertness escalation: a premise that read true and measured false.
+
+---
+
+## 2026-08-04 — Manager: WAKE. Rebased onto dispatch; P-R8 closure verified; M-R15 fixes an ordering flaw in my own M-R14
+
+### Rebase
+
+`claude/defs-us-pr` rebased onto `origin/main` (`fbb6c9e`); dispatch merge
+`8524067` confirmed an ancestor before rebasing. 40 commits replayed, **zero
+conflicts**, no stray conflict markers in `backend/` or `docs/`. Venv
+refreshed (`pip install -e '.[dev]'`, exit 0).
+
+**Suite: `30 failed / 985 passed / 12 xfailed`.** Passing grew 915 → 985 as
+core's dispatch tests arrived. The 30 held REDs are unchanged and still the
+same partition — the rebase neither fixed nor broke them, exactly as it
+should be, since they need OUR rules, not core's mechanism.
+
+### P-R8 closed — verified by the same probe that found it
+
+I re-ran the phase-2 probe verbatim in method (register one rule per kind for
+`US-PR`, then ask the profile) with the same positive controls:
+
+```
+                    PHASE 2      NOW
+HeadingRule         DEAD    ->   LIVE   is_definitions_heading("Artículo 3. Definiciones") = True
+BodyPreambleRule    DEAD    ->   LIVE   derive_heading_from_body = 'Definiciones'
+Entry/TermClause    DEAD    ->   LIVE   probe candidate present
+ScopeKindRule        --     ->   LIVE   determine_scope = 'chapter'   (new kind, our Capítulo need)
+ScopeTriggerRule    LIVE    ->   LIVE   (control)
+CitationRule        LIVE    ->   LIVE   (control)
+```
+
+The defect this panel escalated is fixed and closed against its own original
+evidence. All 8 kinds now have real consumption sites in `us_profile.py` /
+`profiles.py` / `pipeline.py`.
+
+### A correction to the program manager's framing of M-R14 gate 1
+
+The wake message says the hyphen regex "goes live with dispatch, so it's now
+a real shipping risk". **Not quite** — verified: `USProfile.extract_definitions
+_from_section` calls the `us_profile` module function plus registry rules. It
+does NOT call `pr_profile.extract_definitions_from_section`, so
+`_UNQUOTED_TERM_DASH_RE` is STILL dead code right now, post-dispatch.
+
+It goes live the moment **we** register a PR `TermClauseRule`/
+`EntrySplitterRule` that routes through `pr_profile`'s block parser — which is
+precisely the next held item (canonical extraction, P1). So the conclusion is
+unchanged and the gate still comes first; what changes is *why*: not "dispatch
+made it live" but "our very next commit would". Recorded because a panel that
+believes the wrong mechanism will fix it in the wrong place.
+
+### Ruling M-R15 — M-R14 gate 2 cannot precede P1; it binds 18c, not P1
+
+Writing M-R14 I said both gates must be satisfied "before item 18c or ANY
+canonical-path held item (19-24) ships". Gate 2 is: re-measure 18c's
+by-construction claim — that with a Spanish `HeadingRule` registered,
+canonical rows route to `pipeline.py`'s `if` branch and never reach
+`extract_local_scope_definitions`.
+
+**That measurement requires the Spanish `HeadingRule` to be registered**, and
+registering it IS the canonical-path P1 item. As written, my own gate blocks
+the very work it needs. That is an ordering flaw in my ruling, not in the
+work.
+
+**M-R15 (refines M-R14, does not weaken it):**
+
+1. **Gate 1 (hyphen) stays strictly first** — and must land BEFORE any PR
+   `TermClauseRule`/`EntrySplitterRule` wiring, since that wiring is what
+   makes the regex live.
+2. **P1 canonical wiring** (Spanish `HeadingRule` + extraction) proceeds next.
+3. **Gate 2 measurement runs THEN**, on the real registered rule, against the
+   dispatched pipeline, full 117/633 population.
+4. **18c ships only after gate 2 passes.** Items 19-24 sequence behind P1 on
+   their own merits.
+
+Gate 2's substance is untouched: 18c still may not ship on the strength of
+the by-construction argument, only on its measurement. What moves is only
+*when* the measurement is possible. Surfacing this to the program manager
+rather than reinterpreting my own gate silently.
+
+### Next
+
+Planner (tests for the hyphen fix — red-before-green) → Developer (fix). Then
+P1 wiring, then the gate-2 measurement, then 18c and the rest.
