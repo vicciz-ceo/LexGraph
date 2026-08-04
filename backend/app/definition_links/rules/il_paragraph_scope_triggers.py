@@ -26,34 +26,36 @@ only recognized IL below-article marker is the literal phrase `סעיף קטן
 (X)`, which does not occur in this shape at all. Same open architecture
 question as item 9's item-scoped class -- not a Planner/Developer
 decision, escalated rather than guessed at.
+
+Sprint 2026-08-04-defs-il Phase C (item C1): the trigger-to-quote
+connector was hardcoded to a literal comma; the real corpus also uses a
+bare space, colon, or dash. Widened via the shared `il_trigger_grammar`
+connector/parser (program efficiency directive) -- which also correctly
+handles the multi-term-before-dash shape a real fixture exercises
+(`בפסקה זו - "מועצה אזורית" ו"תחום מועצה אזורית" - ...`).
 """
 
 from __future__ import annotations
 
-import re
-
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_trigger_grammar import (
+    extract_quote_first_candidates,
+    quote_first_re,
+)
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
     register_scope_trigger_rule,
 )
 
-_TRIGGER_RE = re.compile(
-    r'(?:בפסקה זו|לענין פסקה זו|לעניין פסקה זו),\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE
-)
+_TRIGGER_RE = quote_first_re(r"(?:בפסקה זו|לענין פסקה זו|לעניין פסקה זו)")
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
-    return [
-        DefinitionCandidate(
-            terms=(match.group(1).strip(),),
-            definition_text=match.group(2).strip(),
-            scope="paragraph",
-            scope_value=None,
-        )
-        for match in _TRIGGER_RE.finditer(article_body)
-    ]
+    results = extract_quote_first_candidates(article_body, _TRIGGER_RE, scope="paragraph")
+    for candidate in results:
+        candidate.scope_value = None
+    return results
 
 
 register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("IL",), extract=_extract))

@@ -27,31 +27,32 @@ cycle 1's trigger-independent sweep). Stamps `scope="local"`;
 `source_article_number` is left unset and auto-defaulted to the current
 article by `HebrewProfile.extract_local_scope_definitions`, same as the
 frozen yod rule.
+
+Sprint 2026-08-04-defs-il Phase C (item C1): the trigger-to-quote
+connector was hardcoded to a literal comma; the real corpus also uses a
+bare space, colon, or dash. Widened via the shared `il_trigger_grammar`
+connector/parser (program efficiency directive -- ONE mechanism, reused
+across every quote-first rule this sprint touches).
 """
 
 from __future__ import annotations
 
-import re
-
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_trigger_grammar import (
+    extract_quote_first_candidates,
+    quote_first_re,
+)
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
     register_scope_trigger_rule,
 )
 
-_TRIGGER_RE = re.compile(r'לעניין זה,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE)
+_TRIGGER_RE = quote_first_re(r"לעניין זה")
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
-    return [
-        DefinitionCandidate(
-            terms=(match.group(1).strip(),),
-            definition_text=match.group(2).strip(),
-            scope="local",
-        )
-        for match in _TRIGGER_RE.finditer(article_body)
-    ]
+    return extract_quote_first_candidates(article_body, _TRIGGER_RE, scope="local")
 
 
 register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("IL",), extract=_extract))

@@ -3431,3 +3431,196 @@ touched); no `git add -A`, no `git stash`. Scratchpad prefixed
 
 qa_cycles: 2 (unchanged — Phase C is Planner work through all three
 rounds; QA cycle 3 is next).
+
+---
+
+## Phase C — Developer (Sonnet, medium effort), worktree defs-il-dev3
+
+Own worktree `/Users/nerya/LexGraph-wt/defs-il-dev3`, branch
+`claude/defs-il-dev3`, reset to `origin/claude/defs-il` @ `237716c`
+(includes `main` @ `fbb6c9e`). `import app` verified to resolve to this
+worktree. Verified baseline before touching anything: `35 failed, 798
+passed` — exactly the Planner's own reported figure (31 new REDs + the
+4 manager-designated out-of-scope class-(d)/E6 tests). Read the
+contract, all three Phase C log entries above, the RED test file's full
+docstrings/comments, the seam v2.5 doc, and every existing `rules/il_*.py`
+module directly (CodeGraph's index predates this branch's rule files).
+
+### Design decisions, per item
+
+**C1 (punctuation widening).** New shared module
+`il_trigger_grammar.py`: `CONNECTOR = (?:[ \t]*[,:\-][ \t]*|[ \t]+)` —
+intra-line whitespace only (never `\n`, a precision safeguard beyond the
+contract's literal snippet — real fixtures need a LEADING optional space
+before the punctuation mark too, e.g. `בתקנה זו - "..."`, which the
+contract's bare `(?:[,:\-]\s*|\s+)"` cannot match; verified against every
+C1 fixture before committing to this shape). `quote_first_re()` builds a
+SHORT trigger+connector-only regex (never a greedy to-EOL capture — see
+C2). `extract_quote_first_candidates()` is the shared parsing algorithm:
+finds the split marker via `_find_split_marker` (a standalone `-`, OR the
+corpus's own `((-))` double-paren-escaped-dash idiom — evidence-required
+by the real `צו בדבר העסקת עובדים...` art.6 fixture, `"שוהה לא חוקי"
+((-)) כהגדרתו ...`, not invented), then parses 1+ quoted terms + an
+optional qualifier via a local copy of `extract._parse_terms_and_qualifier`'s
+algorithm (a copy, not an import — this sprint's change set is
+rule-modules-only, `extract.py` stays untouched even as an import
+source) — needed because a single `"([^"]+)"\s*-\s*` capture group
+cannot parse the real `"term1" ו"term2" qualifier - definition` shape
+(`חוק שירות הציבור...` art.7, `תקנות תכנון משק החלב...` art.6). Applied
+by editing 5 existing modules (lenyan_zeh_tzere, takana, subsection,
+paragraph, seif_zeh_three_word) to call the shared helper instead of
+their own inline `"([^"]+)"\s*-\s*(.*)$` pattern. Did NOT widen
+chapter/siman/chelek's connector — not in the contract's named 7
+families, no FP measurement exists for it, would be an unverified
+over-claim.
+
+**C2 (same-line-swallow).** New additive sibling
+`il_local_trigger_widened_scope_triggers.py` for the yod-family `לענין
+זה`/`בסעיף זה` (never edits frozen `_LOCAL_TRIGGER_RE`). Design decision
+left open by the Planner: rather than a "re-scan for what the frozen
+rule swallowed," this sibling's own trigger regex only matches
+trigger+connector (not a greedy-to-EOL capture), so `finditer`'s scan
+position is never affected by how far the wrapper reads ahead for its
+own definition text — a second same-line trigger is found independently
+by construction, without needing to know what the frozen rule did. This
+ALSO fixes C1's yod-family punctuation gap for free, so ONE module
+serves both items. **Regression found and fixed**: this sibling's own
+candidates for a COMMA-connector, single-occurrence body duplicate what
+`extract_local_definitions` already produces — harmless under
+`pipeline.py`'s dedup (same scope, first-candidate-wins), but broke a
+committed unit test asserting the IL profile's raw candidate COUNT
+matches calling the two frozen functions directly
+(`test_il_profile_extract_local_scope_definitions_matches_todays_extract_local_and_adhoc`).
+Fixed by explicit term-level de-dup against `extract_local_definitions`'s
+own baseline output for the same body — caught via the mandatory
+full-suite run after implementing C1+C2, not assumed safe from the
+"harmless duplicate" reasoning alone.
+
+**C3 (inline בפרט זה).** Extended `il_prat_zeh_item_scope_triggers.py`
+with a SECOND registered `ScopeTriggerRule` (`_extract_inline`, using
+the shared quote-first helper) rather than a new file — same trigger
+word, same `scope="item"`, just a different grammar, kept together with
+its sibling. Structurally disjoint from the existing `::-` list rule
+(preamble-ends-in-bare-dash vs. quote-on-the-trigger's-own-line); even
+if it weren't, same scope, harmless.
+
+**C4 (single-`:-` list generalization).** New
+`il_single_colon_list_scope_triggers.py`. Extracted the existing `::-`
+rule's own preamble->scope vocabulary table, `_infer_scope`, and
+candidate-building logic into a new shared module `il_list_shape_scope.py`
+(byte-for-byte verified via a diff script against the original table
+before editing anything downstream), then had BOTH the new single-`:-`
+rule and the edited existing `::-` rule import from it — the "shared
+trigger→scope vocabulary table, reused across rules" directive, applied
+literally. Non-overlap with the existing `::-` rule is structural (this
+rule's own `_ENTRY_LINE_RE = ^\s*:-\s*` cannot match a `::-` line, same
+argument `test_c4_entry_start_re_cannot_match_double_colon_marker` pins
+for the frozen `_ENTRY_START_RE`) — kept as two sibling files rather
+than merging into one marker-agnostic regex, matching the contract's own
+"two rules... structural non-overlap" framing rather than a
+reinterpretation.
+
+**M16 (law-wide scope).** Added `LAW_WIDE_WORDS`/`law_wide_preamble_phrases()`
+to `il_trigger_grammar.py` (extracted programmatically from the log's
+own INCLUDE list, cross-checked byte-for-byte via script rather than
+hand-typed, given the Hebrew-transcription risk) — 10 instrument words ×
+{bare, `לענין`, `לעניין`} = 30 phrases, all mapped to `scope="law-wide"`
+in the shared `il_list_shape_scope.SCOPE_TRIGGER_WORDS` table. Both the
+new single-`:-` rule and the edited existing `::-` rule consume this
+table, so BOTH classify an instrument-naming preamble correctly from day
+one. Verified no substring collision between the new law-wide phrases
+and the existing local/subsection/paragraph/item vocabulary (distinct
+base nouns throughout — e.g. `תקנה` singular vs. `תקנות` plural never
+collide).
+
+**M17 (spelling variants).** New
+`il_m17_spelling_variant_scope_triggers.py`. Group 1: 5 trigger
+alternations covering the local/paragraph/subsection/item spelling
+variants (`בתקנה זאת`, `בפסקה זאת`/`לענין/לעניין פסקה זאת`,
+`בתקנת משנה זאת`, `בפסקה משנה זו`, `לענין/לעניין פרט זה`) — each
+verified disjoint in TEXT from every other trigger this sprint
+registers (no substring containment either direction), so no
+double-capture-with-differing-scope risk. Group 2: reuses
+`law_wide_preamble_phrases()` verbatim as ONE alternation for the
+quote-first law-wide grammar M16 never touched — same vocabulary, same
+scope, a different grammar shape only.
+
+### Verification methodology (avoiding Hebrew-transcription risk)
+
+Every trigger phrase used across all new/edited modules was extracted
+PROGRAMMATICALLY from either the already-vendored fixture files (via a
+boundary-scan script locating the exact text immediately preceding each
+test's expected quoted term) or the log's own INCLUDE list (via regex
+extraction + `repr()` dump), never hand-retyped from a visual reading of
+Hebrew text — the existing `il_colon_dash_nested_list_scope_triggers.py`
+vocabulary table was additionally diffed programmatically
+(tuple-for-tuple equality check) against its extracted copy in
+`il_list_shape_scope.py` before any downstream file was written against
+it.
+
+### Full suite (reproduced 3x, stable)
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+4 failed, 829 passed, 18 warnings in ~217-620s (wall time varied with
+concurrent sibling-worktree load; failure/pass counts identical every
+run)
+```
+The 4 failures are exactly the manager-designated out-of-scope set
+(`test_class_c_adhoc_parenthetical_beparagraph_zo_inside_definitions_
+section_is_captured`, `test_class_d_prose_body_definitions_section_
+yields_zero_today`, `test_class_d_variant_double_colon_entry_list_
+under_a_trigger_preamble_is_captured`, `test_class_d_minimal_single_
+sentence_variant_is_captured`), untouched. All 31 Phase C REDs
+(`test_definition_links_il_phase_c_widening_live.py`) pass; the 1
+already-green static proof (`test_c4_entry_start_re_cannot_match_
+double_colon_marker`) still passes.
+
+Only ONE test changed state, and it changed AND WAS FIXED within this
+same session (not a residual gap): `test_il_profile_extract_local_
+scope_definitions_matches_todays_extract_local_and_adhoc` (unit,
+`test_definition_links_profiles.py`) — see C2's write-up above. Verified
+green again in every subsequent full-suite run.
+
+### Git discipline (M14)
+
+`git add` with explicit paths only (12 files: 5 new, 7 edited, all under
+`backend/app/definition_links/rules/`), never `git add -A`/`git add .`;
+no `git stash`. `git diff --name-status origin/claude/defs-il..HEAD`
+confirms the entire change set is exactly this boundary — zero test or
+fixture files touched. `contract_lint.sh 2026-08-04-defs-il`: PASS (400
+lines, at the cap — this entry kept to a summary, full design reasoning
+lives here in the log per the contract's own instruction).
+
+### Honest gaps / assumptions (nothing hidden)
+
+1. The CONNECTOR shape deviates from the contract's literal regex
+   snippet (`(?:[,:\-]\s*|\s+)"`) by adding a LEADING `\s*` before the
+   punctuation branch — required by every C1 dash-variant fixture
+   (`TRIGGER - "term"`, a space THEN a dash), which the literal snippet
+   cannot match. Documented as a deliberate, evidence-driven correction
+   in `il_trigger_grammar.py`'s own docstring, not a silent deviation.
+2. The `((-))` escaped-dash marker and the multi-term-before-dash
+   parsing were both NECESSARY additions beyond the contract's explicit
+   C1 description (which only names the trigger-to-quote connector) —
+   both are directly required by real, already-vendored Planner
+   fixtures, not speculative widening; documented in
+   `il_trigger_grammar.py`.
+3. Did not attempt to fix the definition_text-truncation-at-multi-line-
+   continuation characteristic the Planner already flagged as
+   pre-existing and out of this bundle's scope (C1/C4 log entries) —
+   unaffected by this Developer's changes, term-identity correctness
+   only, not touched.
+4. `il_m17_spelling_variant_scope_triggers.py`'s Group 1 patterns are
+   individually widened via the SAME shared connector as every other
+   quote-first rule (so a bare-space/colon/dash variant of e.g. `בתקנה
+   זאת` would also be caught) — this was not separately FP-measured by
+   the Planner for these specific spelling-variant phrases (only for the
+   original 7 C1 families), but the invariant (never a zero-length gap)
+   is the same evidence-based one throughout; flagging as a minor
+   implementation-reuse choice, not a claimed, separately-measured
+   population.
+
+Branch `claude/defs-il-dev3`, final SHA `572343c`. Pushed for the
+manager to merge.

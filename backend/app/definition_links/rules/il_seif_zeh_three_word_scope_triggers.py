@@ -12,31 +12,31 @@ Both spelling variants (`לענין`/`לעניין`) are covered. Stamps
 `scope="local"` -- same granularity as today's 2-word trigger,
 `source_article_number` auto-defaulted to the current article by
 `HebrewProfile.extract_local_scope_definitions`.
+
+Sprint 2026-08-04-defs-il Phase C (item C1): the trigger-to-quote
+connector was hardcoded to a literal comma; the real corpus also uses a
+bare space, colon, or dash. Widened via the shared `il_trigger_grammar`
+connector/parser (program efficiency directive).
 """
 
 from __future__ import annotations
 
-import re
-
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_trigger_grammar import (
+    extract_quote_first_candidates,
+    quote_first_re,
+)
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
     register_scope_trigger_rule,
 )
 
-_TRIGGER_RE = re.compile(r'(?:לענין|לעניין) סעיף זה,\s*"([^"]+)"\s*-\s*(.*)$', re.MULTILINE)
+_TRIGGER_RE = quote_first_re(r"(?:לענין|לעניין) סעיף זה")
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
-    return [
-        DefinitionCandidate(
-            terms=(match.group(1).strip(),),
-            definition_text=match.group(2).strip(),
-            scope="local",
-        )
-        for match in _TRIGGER_RE.finditer(article_body)
-    ]
+    return extract_quote_first_candidates(article_body, _TRIGGER_RE, scope="local")
 
 
 register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("IL",), extract=_extract))
