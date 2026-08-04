@@ -293,3 +293,143 @@ Raised: multi-scope precedence (which definition governs a mention that is
 in scope of two). Full text in the sub-manager's return report. Sprint
 status held at `planning`, Planner agent `a6f809d491c471d13` left resumable
 for Stage B the moment an answer lands.
+
+---
+
+## 2026-08-04 — Round 2: E-1 ANSWERED + seam spec v2 mandate
+
+### DIRECTOR RULING on E-1 (relayed via program manager) — BINDING
+
+**Option A — narrowest scope governs**: subsection > article/local >
+chapter/part > law-wide. The general definition still fires wherever no
+narrower one was detected in scope; emit ONLY the governing definition's
+assertion. This also AUTHORIZES the attribution fix: each matcher edge must
+carry or resolve to its authorizing definition so that `_in_scope`'s
+filtering survives attribution (pipeline.py:572-584's flat
+`term_to_definition` dict is the thing being replaced).
+
+**Standing director policy (new, applies to every panel):** every
+recall-vs-false-positive conflict class escalates WITH DATA. No silent
+trades. Measure, then escalate; never pick a side quietly.
+
+**Manager ruling M1 (union entry-splitters): ACCEPTED by the program
+manager.** It stands as written in Round 1.
+
+### Cross-panel asks against seam v1 (five, all with measured demand)
+
+Relayed by the program manager. Manager rulings follow each, so the Planner
+enters Stage B with no unresolved architectural fork.
+
+**Ask 1 — generic scope units.** The fixed 4-tier vocabulary cannot express
+real scopes. Measured: US `chapter` = 23.7% of the scoped-inline family's
+29,033 hits (already enforceable by `matcher._in_scope`'s existing chapter
+branch); `part` 2,187 + `subchapter` 1,861 (13.9%); IL סימן 200 files, חלק
+68 (the IL panel's E1); KY "Definitions for section" and AK multi-chapter-
+range headings (headings panel enumerated all 10 such rows). Two panels
+independently recommend a generic `(unit_kind, unit_value)` pair.
+
+> **MANAGER RULING M4 — adopt generic scope units, with a mandatory total
+> order.** The Planner owns the concrete shape (columns, dataclass), but the
+> design MUST satisfy all four constraints below, because the director's
+> Option A ruling is unimplementable without them:
+> (a) Scope is expressed as a generic `(unit_kind, unit_value)` pair, not a
+>     closed tier enum — a NEW unit kind must be shippable from a rule
+>     module with zero shared-module edits (same bar as C4).
+> (b) There MUST be a total specificity ORDER over unit kinds, and a rule
+>     module registering a new kind MUST supply its rank. "Narrowest scope
+>     governs" is meaningless over an unordered vocabulary — this is the
+>     load-bearing coupling between M4 and the director's E-1 ruling, and
+>     the single thing most likely to be missed.
+> (c) Two definitions whose scopes are NOT comparable under that order
+>     (neither contains the other) is a real state and the spec must say
+>     what happens. Per the director's standing policy this is a
+>     conflict class: if the answer trades recall against precision,
+>     escalate with data rather than choosing.
+> (d) Existing `"chapter"` / `"local"` / `"law-wide"` behavior stays
+>     byte-identical for IL (C5, prior R2). Migration is additive.
+> Multi-chapter RANGES (AK) may be explicitly deferred with a recorded
+> fallback — Planner's call, but v2 must state which and what the fallback
+> is. Silence is not acceptable; ten enumerated real rows are waiting.
+
+**Ask 2 — `ScopeTriggerRule.extract` signature.** Today a rule receives only
+`(article_body, article_number)` and therefore can never stamp an
+enforceable chapter/part scope (scoped-inline panel's S-R3, measured 23.7%
+of its volume). The Definitions-section path already stamps the source unit
+from the owning article.
+
+> **MANAGER RULING M5 — pass a context OBJECT, not more positional args.**
+> The rule receives the owning article's context (number, chapter, and
+> whatever unit fields M4 introduces) as a single frozen context dataclass.
+> Rationale: six panels are about to write `extract(...)` implementations
+> against this signature; every future context addition would otherwise be
+> a breaking change across all six. A context object makes context growth
+> additive. The caller may still stamp defaults, but the rule must be ABLE
+> to stamp a non-local unit itself.
+
+**Ask 3 — M-R7(a), is registry dispatch gated by the placeholder-heading
+gate?** Preamble panel needs UNGATED: MD 3,327 real preamble rows (recon's
+"1" was wrong), NE 559, MS 637, SD 218. Under the gated reading SD is
+permanently unreachable — its headings are genuinely descriptive, not
+placeholders.
+
+> **MANAGER RULING M6 — UNGATED.** Registry rules are tried whenever
+> baseline detection yields nothing, NOT only behind
+> `_is_placeholder_heading`. The data is decisive and matches the
+> director's escalate-with-data policy: gating makes 4,741 measured real
+> rows unreachable and SD structurally unreachable forever, which is a
+> zero-miss breach by construction. Precision-guard expectation, stated
+> here so the preamble panel can measure against it: baseline-first
+> ordering is unchanged, so no currently-working row can change behavior;
+> the new exposure is confined to rows where baseline finds NOTHING today
+> (i.e. rows currently contributing zero definitions), so the FP risk is
+> additive-only and cannot regress a working state. The preamble panel
+> measures corpus-wide FP exposure on that population and escalates with
+> data if it is material.
+
+**Ask 4 — PR seam form: rule modules under `USProfile`, or a distinct
+`PRProfile`?** PR panel verified `USProfile`'s baseline returns nothing on
+Spanish, so registry rules always get their turn. They proceed as rule
+modules meanwhile.
+
+> **MANAGER RULING M7 — rule modules under `USProfile` for now, and v2 must
+> state the escape hatch.** Cheapest reversible choice, consistent with
+> v1's "modules not mechanism", and reversible later without invalidating
+> the PR panel's rule modules (profiles resolve by code; rules register by
+> code-match — a later `PRProfile` can inherit the same registered rules).
+> BUT v2 MUST name what rule modules CANNOT override — on my reading of
+> the seam that is at least `find_term_uses` (term matching) and
+> `find_citations` (citation grammar), neither of which is a rule kind. If
+> Spanish needs different term-matching or citation grammar, that is a
+> profile-class problem, not a rule problem. Say so explicitly in v2 so the
+> PR panel escalates early instead of discovering the wall late.
+
+**Ask 5 — two NEW core items** (measured zero-miss breaches in modules THIS
+sprint owns; both have RED evidence ready from other panels):
+- (a) `sections.parse_articles` requires `@ N.`; **124 of 6,133** Israeli
+  laws use a bare `@` and parse to ZERO articles. 12 contain unambiguous
+  definitions. IL panel proved this end-to-end on a named file.
+- (b) `find_term_uses` is case-sensitive; real GA rows re-mention
+  capitalized defined terms in lowercase (`STATE_GA_T7_C8_S7-8-1` defines
+  "Access area", `S7-8-3` uses "access area") — silent under-linking for
+  every English family.
+
+> **MANAGER RULING M8 — both accepted as core sprint items with
+> Planner-authored RED tests.** Item (b) carries two explicit
+> constraints: case-folding must be proven not to disturb Hebrew (Hebrew is
+> caseless, so a naive `re.IGNORECASE` is *probably* inert — but "probably"
+> is not evidence; the full IL suite passing UNCHANGED is the evidence, and
+> editing an IL test to fit is a planning bug → escalate to me, prior R2);
+> and case-insensitive matching is itself a recall/precision trade (a
+> defined term that is also a common lowercase word will over-link), so per
+> the director's standing policy the Planner MEASURES the exposure and
+> escalates with data rather than choosing silently.
+
+### Round 2 — Manager → Planner (resume into Stage B)
+
+Planner agent `a6f809d491c471d13` resumed in-session (its Stage A
+exploration context is exactly what Stage B needs — a fresh spawn would
+re-pay for it). Instruction: publish seam spec **v2** in the same contract
+section, versioned, and PUSH IT AS THE FIRST ACT (four panels are parked on
+it), then continue into RED tests without a second stop. The manager
+reviews the pushed v2 while the Planner works and sends corrections
+mid-flight if needed.
