@@ -1722,3 +1722,86 @@ absolute zero-miss bar, so this fails the gate as specified. **I5: PASS**,
 fully reproduced.
 
 qa_cycles: 1.
+
+---
+
+## 2026-08-04 — Manager verdict on QA cycle 1: ACCEPTED, sprint goes qa-fail
+
+### QA's boundaries, verified mechanically by me
+
+`git diff --name-status 39c3b7a..05f42e7` → exactly two files, both docs.
+`git diff --name-only 39c3b7a..05f42e7 -- backend/app` → **empty**. QA
+touched zero implementation. Role boundary respected. Suite unchanged by its
+commit (`4 failed, 715 passed`), contract lint still `PASS 400`.
+
+### I verified QA's headline misses MYSELF — all confirmed
+
+Through the real chain (`normalize_for_parsing` → `strip_wikilinks` →
+`HebrewProfile.extract_local_scope_definitions`), my own probe:
+
+```
+yod   לענין זה  : 1 candidates -> [(('ביטוח מועדף',), 'local')]
+tzere לעניין זה : 0 candidates -> []
+בתקנה זו       : 0 candidates -> []
+בסעיף קטן זה   : 0 candidates -> []
+::- list shape : 0 candidates -> []
+```
+
+**The `לעניין זה` finding is the one that stings.** It is not an exotic
+convention — it is the *tzere* spelling of a trigger the baseline has
+supported in its *yod* spelling since before this sprint. 1,702 occurrences
+across 714 files, silently dropped, and nobody on this panel — Planner,
+Developer, or me — caught it, because every one of us checked coverage using
+the spelling the code already had. That is the P-R7 trap in its purest form,
+and only a trigger-INDEPENDENT denominator could have surfaced it. QA's
+methodology is vindicated.
+
+### Classification of the confirmed misses (per program instruction)
+
+**(1) BUILDABLE NOW — live `ScopeTriggerRule` kind, ordinary articles.**
+Group A single-line families, ordinary-article occurrences only:
+`לעניין זה` 1,563 · `בתקנה זו` 427 · `בסעיף קטן זה` 313 · `לעניין/לענין
+תקנה זו` 104 · `בתקנת משנה זו` 83 · `לעניין/לענין פסקה זו` 121 ·
+`בפסקת משנה זו` 59 · `תקנת משנה זו` 42 = **2,712 occurrences**.
+Group B `::-`-nested-list shape, ordinary articles = **2,147 occurrences**
+(item 9 already proves this shape is reachable via `ScopeTriggerRule`, so
+the mechanism exists; it is wired for exactly one trigger word today).
+Plus the 3 confirmed false positives (citation-shaped `סעיף N`, 0.08% of
+3,605 candidates) — a tightening of the live ad-hoc rule.
+**Total buildable now: ~4,859 occurrences.**
+
+**(2) BLOCKED-ON-CORE-DISPATCH.** Group A in-הגדרות 150 · Group B
+in-הגדרות 153 · existing held items 5 and 11 (class (d), 592 files).
+Same E6 root cause: `EntrySplitterRule`/`TermClauseRule` have no production
+consumer, so a definitions-heading body is unreachable by any rule module.
+
+**(3) NEW CONVENTION CLASSES — for the program manager under D-Q1.**
+`בתקנה זו` / `בתקנת משנה זו` / `לעניין תקנה זו` (~656 occurrences) are
+**regulation-level** scope — a structural axis this program has not modelled
+at all (the corpus is laws AND regulations; `תקנה` is a regulation's
+article-equivalent). `בסעיף קטן זה` / `בפסקת משנה זו` (~372) are
+subsection/sub-paragraph, which the seam's `UnitPath` does model.
+
+### M12 — sprint status and the RED-provenance gate
+
+**Status → `qa-fail`, `qa_cycles: 1`** (safety valve is 5; we are at 1).
+I4 FAILS on the director's absolute zero-miss bar and I am not softening
+that: ~4,859 buildable-now occurrences are confirmed missed.
+
+**RED-provenance gate: QA committed NO test files, so no bounced item has a
+committed RED test yet.** Per the program's rule, a Developer may NOT be
+respawned on these findings until each bounced item has a committed RED test
+reproducing the miss (or an explicit impossibility line). Role separation
+holds: **the Planner authors those tests, not QA and not me.** Next cycle is
+therefore Planner → Developer → QA cycle 2, and I am NOT dispatching a
+Developer before the REDs exist.
+
+### Corrections QA made to MY records
+
+- I1's article count `127,903` is **stale** → correct is **128,234**. My
+  original run predated the rebase onto core's merged bare-`@` fix; the
+  delta is **+331, exactly P-E3's bare-`@` figure**. Independent
+  confirmation that core's reachability fix is live. Gate verdict unchanged
+  (6,133/6,133, 0 failures, both runs); the number is corrected here.
+- Wall time/memory differ by machine (48.5s / 87.7 MiB on QA's scratch DB vs
+  my 37.4s / 76.3 MiB) — same order, not a finding.
