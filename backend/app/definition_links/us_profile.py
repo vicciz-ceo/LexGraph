@@ -1037,45 +1037,50 @@ def determine_scope(body_text: str) -> str:
 # deeper nesting).
 #
 # Sprint 2026-08-04-defs-core-dispatch, items I9/I11, manager ruling M-D3,
-# seam v2.7 -- two fixes to the classifier surface, both explained in full
-# in `resolve_unit_path`'s own docstring below:
+# seam v2.7 (+ follow-on batch, seam v2.7 erratum) -- two fixes to the
+# classifier surface, both explained in full in `resolve_unit_path`'s own
+# docstring below:
 #
-#   I11: the ladder above is the FEDERAL convention only. A large share of
-#   real US STATE drafting reverses the first two rungs (subsections
-#   numbered `(1)(2)(3)...`, DIGIT-outermost, with lettered paragraphs one
-#   level below -- real Oregon row `STATE_OR_T22_C238_S238.300`). The
-#   ladder is now chosen PER CALL from the shape of the first genuine
-#   marker actually seen, between exactly the two variants below (this is
-#   a deliberately narrow "adaptive head" fix, not a fully re-orderable
-#   ladder -- see the docstring's honesty note on jurisdictions whose
-#   outermost convention is neither digit- nor lower-alpha-shaped, e.g.
-#   Ohio's real `(A)(1)(a)(i)`).
+#   I11: the ladder above is the FEDERAL convention only. Real US STATE
+#   drafting diverges from it in more than one way -- digit-outermost
+#   (Oregon's `(1)(2)(3)` subsections, lettered paragraphs one level
+#   below) and, measured directly against the real corpus in the follow-on
+#   batch (33,161-row `us_oh_statutes.parquet`, signal-agnostic
+#   denominator, independent same-kind-incrementing-run classifier),
+#   Ohio's own dominant convention -- upper_alpha-OUTERMOST,
+#   `(A)(1)(a)(i)`, 99.4% of the 17,951 real OH rows with any genuine
+#   marker structure at all. The ladder is now chosen PER CALL from the
+#   shape of the first genuine marker actually seen, among the THREE named
+#   variants below. This is still an ENUMERATED, closed set of ladders,
+#   not a fully general per-depth-learned mechanism -- see
+#   `resolve_unit_path`'s own docstring for why that trade was made
+#   deliberately, not by default, and its honesty note on what a document
+#   whose outermost convention is none of these three still gets.
 #
 #   I9: a marker matching neither the next expected rung nor any open
-#   ancestor is now SKIPPED, never pushed as a generic `"sub"` step. The
+#   ancestor is SKIPPED, never pushed as a generic `"sub"` step. The
 #   unconditional push was the root cause of Maine's inline revisor
 #   annotations (`(NEW)`, `(AMD)`, `(AFF)`, `(RP)`, `(RPR)`, `(REV)`,
-#   `(COR)`) polluting every below-article path they appear in. A CLOSED,
-#   exact-string set of those 7 codes is additionally excluded up front
-#   (`_KNOWN_NON_MARKER_ANNOTATION_TOKENS`) -- 6 of the 7 could never
-#   shape-match any ladder kind anyway (they are 2-3 letter, non-roman
-#   strings), so the "skip unclassifiable" fix alone already handles them;
-#   the 7th, `(RP)`, is the one genuine shape collision (two uppercase
-#   letters is also `double_upper_alpha`'s own shape) and is why this is a
-#   closed WORD list, not a shape rule -- a shape-based exclusion (e.g.
-#   "reject any short uppercase parenthetical") would also reject genuine
-#   federal `upper_alpha`/`double_upper_alpha` markers, which is exactly
-#   the over-broad failure mode this item was scoped to avoid.
+#   `(COR)`) polluting every below-article path they appear in. The
+#   follow-on batch REMOVED an earlier, additional closed-word-list
+#   exclusion for those 7 codes (program precedent P-E3, "machinery for a
+#   phantom shape"): mutation-tested (emptied the list, reran the full
+#   suite, all 10 I9 annotation tests -- including the `(RP)` case, the
+#   one genuine shape collision with `double_upper_alpha` -- stayed green)
+#   and independently reproduced here before removal. The word list was
+#   unproven: this "skip unclassifiable" rule alone already accounts for
+#   why none of the 7 codes ever survives as a path step -- see
+#   `resolve_unit_path`'s own docstring for the per-code reasoning.
 
 _US_UNIT_MARKER_RE = re.compile(r"\(([A-Za-z]+|\d+)\)")
 _LOWER_ROMAN_CHARS_RE = re.compile(r"^[ivxlcdm]+$")
 _UPPER_ROMAN_CHARS_RE = re.compile(r"^[IVXLCDM]+$")
 
 # The federal-convention ladder (dossier-confirmed, v2.4 §3), used
-# whenever the first genuine marker seen is NOT digit-shaped -- this is
-# also the ladder used when the first marker matches neither `"digit"`
-# nor `"lower_alpha"` (see `resolve_unit_path`'s docstring "Honesty note"
-# for exactly what that means for a convention like Ohio's).
+# whenever the first genuine marker seen is neither digit- nor
+# upper_alpha-shaped -- see `resolve_unit_path`'s docstring "Honesty note"
+# for exactly what that residual default means for a fourth, unnamed
+# convention.
 _UNIT_PATH_LADDER = (
     "lower_alpha",
     "digit",
@@ -1089,10 +1094,7 @@ _UNIT_PATH_LADDER = (
 # relative to `_UNIT_PATH_LADDER` (real US STATE convention, e.g. Oregon's
 # `(1)(2)(3)` subsections with `(a)(b)(c)` paragraphs one level below).
 # Every rung from position 2 onward is unchanged/shared with the federal
-# ladder -- the manager's own "commonly reverses the first two rungs"
-# framing, taken literally rather than generalized further (see the
-# Developer report's GENERALIZATION STATEMENT for what this deliberately
-# does NOT attempt to handle).
+# ladder.
 _DIGIT_OUTERMOST_UNIT_PATH_LADDER = (
     "digit",
     "lower_alpha",
@@ -1102,16 +1104,23 @@ _DIGIT_OUTERMOST_UNIT_PATH_LADDER = (
     "double_lower_alpha",
     "double_upper_alpha",
 )
-
-# I9: Maine's inline legislative-history revisor annotation codes -- the
-# real, measured, closed vocabulary (see `test_definition_links_cd_i9_
-# unit_path_annotations.py`'s module docstring for the corpus measurement).
-# Exact-string, case-sensitive (the real corpus convention is always
-# upper-case): checked BEFORE any shape/ladder classification, so these
-# are unconditional no-ops on the path regardless of stack depth or which
-# ladder variant is in effect.
-_KNOWN_NON_MARKER_ANNOTATION_TOKENS = frozenset(
-    {"NEW", "AMD", "AFF", "RP", "RPR", "REV", "COR"}
+# I11 follow-on: the upper_alpha-outermost variant -- Ohio's real,
+# corpus-measured dominant order (`test_definition_links_cd_i11_oh_upper_
+# alpha_ladder.py`'s module docstring carries the full measurement:
+# `(upper_alpha, digit, lower_alpha, lower_roman, upper_roman)` measured
+# directly over 17,849 real rows; the trailing `(double_lower_alpha,
+# double_upper_alpha)` pair is NOT independently corpus-verified this deep
+# for Ohio -- appended by ANALOGY to the other two ladders' own shared
+# tail, since no real measured OH row reaches that depth). Every rung
+# from position 3 onward is shared with both other ladders.
+_OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER = (
+    "upper_alpha",
+    "digit",
+    "lower_alpha",
+    "lower_roman",
+    "upper_roman",
+    "double_lower_alpha",
+    "double_upper_alpha",
 )
 
 
@@ -1140,17 +1149,33 @@ def resolve_unit_path(article, char_offset: int | None = None):
     chapter/part information, which callers read off the article's own
     metadata fields instead).
 
-    Ladder selection (I11): chosen ONCE per call, from the shape of the
-    first genuine (non-annotation) marker encountered -- `_DIGIT_
-    OUTERMOST_UNIT_PATH_LADDER` if it is digit-shaped, else the standard
-    federal `_UNIT_PATH_LADDER`. Honesty note (no test pins this): a
-    document whose OWN outermost convention is neither digit- nor
-    lower-alpha-shaped (e.g. Ohio's real `(A)(1)(a)(i)`) still gets the
-    federal ladder by this same fallback, under which its own genuine
-    `(A)` marker fails to match position 0 (`lower_alpha`) and has no open
-    ancestor to match either -- it is SKIPPED (see below), not corrupted
-    into a wrong kind, but also not captured as a step. See the Developer
-    report's GENERALIZATION STATEMENT for the full enumeration.
+    Ladder selection (I11 + follow-on): chosen ONCE per call, from the
+    shape of the first genuine marker encountered -- among THREE named
+    variants: `_DIGIT_OUTERMOST_UNIT_PATH_LADDER` if it is digit-shaped,
+    `_OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER` if it is upper_alpha-
+    shaped (a single uppercase letter -- see the module comment above for
+    why this is an enumerated set of three, not a general per-depth-
+    learned mechanism), else the federal `_UNIT_PATH_LADDER`.
+
+    Honesty notes (see the Developer report's GENERALIZATION STATEMENT for
+    the full enumeration; no test pins any of these):
+
+    - A document whose OWN outermost convention is none of the three named
+      shapes (e.g. an upper_roman- or double-alpha-outermost convention,
+      if one exists anywhere in the 53-jurisdiction corpus) still falls
+      through to the federal ladder by the same residual `else`, under
+      which its own genuine outermost marker fails to match position 0
+      and has no open ancestor to match either -- it is SKIPPED, not
+      captured as a step, and every marker after it is classified as
+      though the document were federal-shaped until a marker eventually
+      DOES match that assumption (which may never happen).
+    - Ladder selection reads only the FIRST parenthesized token's shape.
+      If that token is noise rather than a genuine marker (a citation
+      fragment, an aside), the ladder for the ENTIRE rest of the call is
+      chosen from the noise token's shape, not the document's real
+      convention -- a pre-existing risk (this mechanism has always relied
+      on the first marker being genuine), now shared across three ladder
+      choices instead of two.
     """
     from app.definition_links.rules.registry import UnitStep
 
@@ -1163,14 +1188,13 @@ def resolve_unit_path(article, char_offset: int | None = None):
         if match.end() > char_offset:
             break
         token = match.group(1)
-        if token in _KNOWN_NON_MARKER_ANNOTATION_TOKENS:
-            continue
         if ladder is None:
-            ladder = (
-                _DIGIT_OUTERMOST_UNIT_PATH_LADDER
-                if _marker_matches_kind(token, "digit")
-                else _UNIT_PATH_LADDER
-            )
+            if _marker_matches_kind(token, "digit"):
+                ladder = _DIGIT_OUTERMOST_UNIT_PATH_LADDER
+            elif _marker_matches_kind(token, "upper_alpha"):
+                ladder = _OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER
+            else:
+                ladder = _UNIT_PATH_LADDER
         expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
         if expected_kind is not None and _marker_matches_kind(token, expected_kind):
             stack.append(UnitStep(kind=expected_kind, value=token))
@@ -1185,7 +1209,18 @@ def resolve_unit_path(article, char_offset: int | None = None):
         if not replaced:
             # I9: unclassifiable at this position -- SKIPPED, never pushed
             # as a garbage "sub" step (the cascade source this item
-            # exists to close). Includes citation/aside noise the module
+            # exists to close). This is the ONLY mechanism that keeps
+            # Maine's inline revisor annotations (NEW/AMD/AFF/RP/RPR/REV/
+            # COR) out of the path -- an earlier, additional closed-word
+            # exclusion list was removed (follow-on batch, program
+            # precedent P-E3) once mutation-testing proved it unproven: 6
+            # of the 7 codes never shape-match any ladder kind at any
+            # position (2-3 letter, non-roman strings), and the 7th,
+            # `(RP)`, only shape-matches `double_upper_alpha`, a rung
+            # real Maine annotation text never actually reaches (6 open
+            # ancestor levels; measured real max nesting is 4) -- so it
+            # falls through to here too, in practice, on every real row
+            # measured. Also includes citation/aside noise the module
             # docstring names as a separate, pre-existing, out-of-scope
             # gap -- unaffected in kind by this fix, just no longer
             # corrupting every step that follows it.
