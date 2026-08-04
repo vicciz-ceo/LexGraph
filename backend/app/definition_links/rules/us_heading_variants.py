@@ -23,57 +23,67 @@ This module is the pure-function implementation of that spec:
   - R-VERB-bare: the heading's last tail token is exactly `defined` --
     the "`X` defined" drafting convention baseline has no notion of at
     all (no "Definitions" token anywhere).
-  - R-VERB-extended: `defined` immediately followed by `;`/`:`, or a dash,
-    and more clause text -- same convention, mid-heading.
+  - R-VERB-extended: `defined` immediately followed by `;`/`:`/`,`/`.`, a
+    dash, or connector word `for`/`as`/`term` (cycle 3, H-R9) -- same rule.
   - R-TRUNC: the source data itself is truncated mid-word (a real corpus
     defect, Colorado-specific) -- the last tail token is a verified
     non-English strict prefix of "definitions".
   - R-MISSPELL: the last tail token is a known scrape-corpus misspelling
     of "definitions".
 
-Cycle 2 (QA bounce, ruling H-R7 -- tokenizer/guard gaps in the above rules,
-not new rules): the tail-tokenizer's separator class now also splits on an
-interior `.`, `/`, `(`, `)`, recovering an interior clause-ending
-"Definitions." token (BUG1, CT), a `/`-joined token (BUG4, NC), and a
-parenthetical `(Definitions)` (BUG5, WI) -- the last two via R-MID's new
-first/last-word fallback, since exposing the word this way makes it a
-first/last token, not an interior one. The preposition guard
-(`_preposition_governs`) is now boundary-aware: a dash immediately before
-the candidate always defeats it (BUG3, MO's "clause — clause — clause"
-convention: a preposition ending the PREVIOUS clause cannot govern a new
-one right after a dash), and a single intervening article is transparent
-to it (the ME false-positive fix: "in the definition of ..." -- the old
-guard only ever looked at the immediately-preceding token, so "the" hid
-the real governing preposition "in"). R-VERB-extended now also accepts a
-dash (BUG2, "TERM defined — more clauses" / "defined--more"), still
-excluding a bare hyphenated compound like "defined-benefit plan" (pension
-jargon) by requiring either an en/em-dash, a doubled hyphen, or a single
-hyphen preceded by whitespace.
+Cycle 2 (QA bounce, ruling H-R7 -- tokenizer/guard gaps in the above rules, not new
+rules): the tail-tokenizer's separator class now also splits on an interior `.`,
+`/`, `(`, `)`, recovering an interior clause-ending "Definitions." token (BUG1, CT),
+a `/`-joined token (BUG4, NC), and a parenthetical `(Definitions)` (BUG5, WI) -- the
+last two via R-MID's new first/last-word fallback, since exposing the word this way
+makes it a first/last token, not an interior one. The preposition guard
+(`_preposition_governs`) is now boundary-aware: a dash immediately before the
+candidate always defeats it (BUG3, MO's "clause — clause — clause" convention: a
+preposition ending the PREVIOUS clause cannot govern a new one right after a dash),
+and a single intervening article is transparent to it (the ME false-positive fix:
+"in the definition of ..." -- the old guard only ever looked at the immediately-
+preceding token, so "the" hid the real governing preposition "in"). R-VERB-extended
+now also accepts a dash (BUG2, "TERM defined — more clauses" / "defined--more"),
+still excluding a bare hyphenated compound like "defined-benefit plan" (pension
+jargon) by requiring either an en/em-dash, a doubled hyphen, or a single hyphen
+preceded by whitespace.
 
-Per the seam published by `claude/defs-core-scope` (`## Seam spec
-(published)`, "Seam 2 -- per-jurisdiction rule registry"), a registered
-`HeadingRule.matches` callable is consulted ONLY after baseline's own
-`is_definitions_heading` has already returned False for the same heading.
-Every rule can therefore only ever flip a currently-False verdict to True
--- except through the guard, which is how the ME fix flips one currently-
-True verdict to False (H-R7: the guard is existing negative-evidence
-logic, not a narrowing of positive evidence).
+Cycle 3 (QA bounce, ruling H-R9 -- sixth gap, same class): R-VERB-extended
+still missed `"Mattress" defined for KRS 214.290...`, `"X" defined, more`,
+`Suitable work defined. Duties of...`, and leading `Defined term`
+(USC_T15_C122_S9801). Fix widens one regex: `,`/`.` join `;`/`:`, and
+`for`/`as`/`term` join the dash as WORD connectors -- a closed whitelist,
+not "any word", so `defined in`/`by` (cross-reference/delegation, H-R9
+bars chasing these) and pension nouns (`benefit`/`contribution`/`cost`/
+`area`) stay unmatched for free -- none are in the whitelist, same
+mechanism that already excluded "defined-benefit". A dev-cycle-3 precision
+read surfaced a real "NOT/never/no longer defined" negation false-positive
+(3/25 of `defined as`, e.g. "plans not defined as pyramid promotional
+schemes") -- the leading lookbehinds on `_VERB_EXTENDED_RE` fix it. `for`
+independently measures ~89% precision (P-R2 trade, dev cycle-3 report,
+consistent with QA's own ~86%) -- shipped, not materially below H-R9's bar.
 
-Self-contained (ruling H-R4): this module owns its own leading-noise
-strip, section-label strip, number-token strip, trailing-bracket strip,
-tail tokenizer, and preposition-exclusion set -- independent copies of
-`us_profile.py`'s private regexes/sets, not shared objects, per H-R4.
+Per the seam published by `claude/defs-core-scope` (`## Seam spec (published)`,
+"Seam 2 -- per-jurisdiction rule registry"), a registered `HeadingRule.matches`
+callable is consulted ONLY after baseline's own `is_definitions_heading` has
+already returned False for the same heading. Every rule can therefore only ever
+flip a currently-False verdict to True -- except through the guard, which is how
+the ME fix flips one currently-True verdict to False (H-R7: the guard is
+existing negative-evidence logic, not a narrowing of positive evidence).
 
-Every regex below is a fixed alternation of literal words/characters, or a
-single quantifier over a fixed character class -- no quantifier is ever
-nested inside an alternation -- so each is unconditionally linear-time,
-matching `us_profile.py`'s house style; `_tail_tokens_core`'s single pass
-over `_TAIL_TOKEN_CAPTURE_RE.split(...)` is likewise linear.
+Self-contained (ruling H-R4): this module owns its own leading-noise strip, section-
+label strip, number-token strip, trailing-bracket strip, tail tokenizer, and
+preposition-exclusion set -- independent copies of `us_profile.py`'s private regexes/sets.
 
-Phase B note (not this module's concern yet): the `register_heading_rule`
-self-registration call lands separately, once
-`app.definition_links.rules.registry` exists (ruling H-R5) -- this file
-intentionally contains ONLY the pure function.
+Every regex below is a fixed alternation of literal words/characters, or a single
+quantifier over a fixed character class (lookbehinds included -- each is a fixed-
+width literal) -- no quantifier is ever nested inside an alternation -- so each is
+unconditionally linear-time, matching `us_profile.py`'s house style;
+`_tail_tokens_core`'s single pass over `_TAIL_TOKEN_CAPTURE_RE.split(...)` is likewise linear.
+
+Phase B note (not this module's concern yet): the `register_heading_rule` self-
+registration call lands separately, once `app.definition_links.rules.registry`
+exists (ruling H-R5) -- this file intentionally contains ONLY the pure function.
 """
 
 from __future__ import annotations
@@ -91,20 +101,15 @@ _LEADING_NOISE_RE = re.compile(r"^[^A-Za-z0-9]+")
 # A section number is a chain of digit-run(-plus-letters) "segments"
 # joined by "." or "-" -- same shape as `us_profile._SEGMENT_RE` /
 # `_SECTION_NUMBER_TOKEN_RE`. Deliberately NOT widened to accept `:` as a
-# separator (redundant with R-MID -- baseline's own tail tokenizer
-# already splits on `:`, which is what R-MID relies on instead).
+# separator (redundant with R-MID, whose own tail tokenizer already splits on `:`).
 _SEGMENT_RE = r"\d+[A-Za-z]*"
 _NUMBER_CHAIN_RE = rf"{_SEGMENT_RE}(?:[.-]{_SEGMENT_RE})*\.?"
 
-# R-SEC's own label: the ABBREVIATED forms baseline's `_SECTION_LABEL_RE`
-# does not accept (only the spelled-out word "Section"). Four fixed
-# literal alternatives, no repetition inside the alternation -- bounded,
-# linear scan; the required `\s+` after the optional `.` also means a
-# longer unrelated word merely starting with "Sec"/"Art" (e.g. "Section",
-# "Secondary") cannot accidentally match.
-_SEC_LABEL_RE = re.compile(
-    rf"(?:Sec|Secs|Art|Article)\.?\s+{_NUMBER_CHAIN_RE}", re.IGNORECASE
-)
+# R-SEC's own label: the ABBREVIATED forms baseline's `_SECTION_LABEL_RE` does not
+# accept (only the spelled-out word "Section"). Four fixed literal alternatives, no
+# repetition inside the alternation -- bounded, linear; the required `\s+` after the
+# optional `.` also means a longer word merely starting "Sec"/"Art" can't match.
+_SEC_LABEL_RE = re.compile(rf"(?:Sec|Secs|Art|Article)\.?\s+{_NUMBER_CHAIN_RE}", re.IGNORECASE)
 
 # Same rule baseline uses for "is 'Definition(s)' the whole word here".
 _FIRST_WORD_DEFINITIONS_RE = re.compile(r"Definitions?\b", re.IGNORECASE)
@@ -115,11 +120,11 @@ _LAST_WORD_DEFINITIONS_RE = re.compile(r"^Definitions?$", re.IGNORECASE)
 _TRAILING_BRACKET_RE = re.compile(r"\s*\[[^\]]*\]\.?\s*$")
 
 # Same separator set as `us_profile._TAIL_TOKEN_SPLIT_RE`, PLUS (cycle 2,
-# BUG1/BUG4/BUG5) an interior `.`, `/`, `(`, `)` -- an interior
-# clause-ending period, a `/`-joined pair, and a parenthetical each now
-# expose their inner word as an ordinary token. `_TAIL_TOKEN_CAPTURE_RE`
-# is the same class with a capturing group, used by `_tail_tokens_core`
-# to recover which separator run (dash or not) precedes each token.
+# BUG1/BUG4/BUG5) an interior `.`, `/`, `(`, `)` -- an interior clause-ending
+# period, a `/`-joined pair, and a parenthetical each now expose their inner word
+# as an ordinary token. `_TAIL_TOKEN_CAPTURE_RE` is the same class with a
+# capturing group, used by `_tail_tokens_core` to recover which separator run
+# (dash or not) precedes each token.
 _TAIL_SPLIT_CHARS = r"\s\-–—:;,./()"
 _TAIL_TOKEN_SPLIT_RE = re.compile(rf"[{_TAIL_SPLIT_CHARS}]+")
 _TAIL_TOKEN_CAPTURE_RE = re.compile(rf"([{_TAIL_SPLIT_CHARS}]+)")
@@ -129,11 +134,9 @@ _DASH_CHARS = "-–—"
 # preposition immediately before "Definitions" makes it a grammatical
 # OBJECT, e.g. "Repeal of Definitions", not this heading's own subject).
 _PRECEDING_EXCLUSION_WORDS = frozenset(
-    {
-        "of", "to", "for", "under", "in", "by", "from", "with", "on", "as",
-        "than", "regarding", "concerning", "including", "except", "about",
-        "into", "upon", "within", "without", "between", "among", "through",
-    }
+    {"of", "to", "for", "under", "in", "by", "from", "with", "on", "as", "than",
+     "regarding", "concerning", "including", "except", "about", "into", "upon",
+     "within", "without", "between", "among", "through"}
 )
 
 # Cycle 2, the ME false-positive fix: a single article is transparent to
@@ -142,29 +145,26 @@ _PRECEDING_EXCLUSION_WORDS = frozenset(
 # between it and the candidate token.
 _ARTICLES = frozenset({"the", "a", "an"})
 
-# R-TRUNC's target set: verified strict prefixes of "definitions" (length
-# >= 5) that are NOT themselves real English words (checked against
-# `/usr/share/dict/words` per the RED test's module docstring) -- so
-# matching one of these as a heading's very last token is confident
-# evidence of source-data truncation, not an unrelated short word.
+# R-TRUNC's target set: verified strict prefixes of "definitions" (length >= 5)
+# that are NOT themselves real English words (checked against `/usr/share/dict/words`
+# per the RED test's module docstring) -- so matching one as a heading's very last
+# token is confident evidence of source-data truncation, not an unrelated word.
 _TRUNC_PREFIXES = frozenset({"defin", "defini", "definit", "definiti", "definitio"})
 
-# R-MISSPELL's target set: the exact scrape-corpus misspellings measured
-# against the full 52-file token-frequency census (see the RED test's
-# module docstring) -- a missing second "i" ("Defintions"/"Defintion") or
-# a missing "i" before the final syllable ("Definitons"/"Definiton").
+# R-MISSPELL's target set: the exact scrape-corpus misspellings measured against the
+# full 52-file token-frequency census (see the RED test's module docstring) -- a
+# missing second "i" ("Defintions"/"Defintion") or missing "i" before the final
+# syllable ("Definitons"/"Definiton").
 _MISSPELL_RE = re.compile(r"^(?:defintions?|definitons?|defintion)$", re.IGNORECASE)
 
-# R-VERB-extended: "defined" immediately followed (after optional
-# whitespace) by `;`/`:`, OR (cycle 2, BUG2) a dash. An en/em-dash or a
-# DOUBLED ASCII hyphen ("--") is unambiguous clause-separator punctuation
-# regardless of surrounding whitespace (MO/SD/NV/KY/TN/ND/OK/UT); no real
-# compound adjective is typeset that way. A SINGLE ASCII hyphen is
-# ambiguous (also how "defined-benefit" pension jargon is written), so
-# that branch requires a preceding whitespace char to distinguish "TERM
-# defined - more" from "defined-benefit" (zero whitespace, excluded).
+# R-VERB-extended: "defined" immediately followed by `;`/`:`/`,`/`.`, a dash
+# (cycle 2, BUG2), or (cycle 3, H-R9) the literal connector word `for`/`as`/`term`
+# -- a closed whitelist, not "any word" (see module docstring's "Cycle 3"
+# paragraph). The leading negative lookbehinds guard against "NOT/never/no longer
+# defined" (a grammatical negation, found live in the `defined as` sub-shape --
+# see dev cycle-3 report).
 _VERB_EXTENDED_RE = re.compile(
-    r"\bdefined\b(?:\s*[;:]|\s*(?:[–—]|-{2,})|\s+-(?!-))", re.IGNORECASE
+    r"(?<!not )(?<!never )(?<!longer )\bdefined\b(?:\s*[;:,.]|\s*(?:[–—]|-{2,})|\s+-(?!-)|\s+(?:for|as|term)\b)", re.IGNORECASE
 )
 
 
@@ -263,8 +263,8 @@ def _rule_verb_bare(heading: str) -> bool:
 
 
 def _rule_verb_extended(heading: str) -> bool:
-    """R-VERB-extended: `defined` immediately followed by `;`/`:`, or by
-    whitespace then a dash, and more clause text."""
+    """R-VERB-extended: `defined` immediately followed by punctuation, a
+    dash, or a whitelisted connector word -- see `_VERB_EXTENDED_RE`."""
     return bool(_VERB_EXTENDED_RE.search(heading))
 
 
