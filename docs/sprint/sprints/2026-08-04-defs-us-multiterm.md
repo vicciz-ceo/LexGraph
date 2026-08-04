@@ -1,12 +1,13 @@
 ---
 id: "2026-08-04-defs-us-multiterm"
 status: planning
-current_role: planner
+current_role: manager
 branch: claude/defs-us-multiterm
 worktree: /Users/nerya/LexGraph-wt/defs-us-multiterm
-locked_by: "claude-code:planner"
+locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04T00:00:00Z"
 last_agent: "claude-code:sprint-manager"
+escalations_open: ["E1-pointer-only-definitions", "E2-sd-enumerated-scope"]
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
@@ -300,20 +301,45 @@ _None._
 
 ## Context Dump
 
-Manager setup done 2026-08-04: worktree `/Users/nerya/LexGraph-wt/defs-us-multiterm`
-on `claude/defs-us-multiterm` from `origin/main` 83532fe; own backend venv
-built and verified importing worktree code.
+Planner pass COMPLETE and manager-verified. Branch `claude/defs-us-multiterm`.
+Manager-run verification (not agent claims): full suite **15 failed / 644
+passed** (= 641 pre-sprint baseline + 3 new green guards); diff `83532fe...HEAD`
+touches ZERO production files, ZERO pre-existing tests, ZERO deletions under
+`backend/`; all 11 vendored fixture rows re-verified BYTE-EXACT against the
+real parquet by an independent manager script (`ok=11 bad=0`). Note for QA:
+the parquet body column is `text` — `section_text` does not exist and a wrong
+guess yields a silent empty-string false negative.
 
-**Planner pass complete 2026-08-04.** Core seam spec (`claude/defs-core-
-scope`) was NOT published at manager setup, WAS published mid-Planner-run
-(re-checked live, confirmed real, names this sprint's two target rule
-module files verbatim — log §3). All 10 Next Steps items above are
-independently RED-test-verified; markers-boundary proposal written (log
-§4, not yet agreed in writing by markers' Planner, who had not started as
-of this pass); 3 PANEL QUESTIONs + 1 out-of-family finding (item 8b)
-recorded for the manager. Full suite: `backend/.venv/bin/pytest
-backend/tests -q` → **15 failed (new RED), 644 passed (641 baseline +
-3 new guards), 0 error**. Next: manager reviews, relays markers-boundary
-proposal + PANEL QUESTIONs, then spawns Developer (Sonnet/medium) once
-core's Developer track (not just its Planner's seam-spec doc) has landed
-runnable code to rebase onto for items 5/6.
+PROCESS INCIDENT (owned, see log M-R7): two Planners edited this worktree
+concurrently because the manager re-spawned on a false liveness signal and
+then logged a false "attempt 1 FAILED SILENTLY" entry, which contaminated the
+panel's evidence base and caused a Planner to misdiagnose concurrency as
+fabrication. Retracted in the log. Rule M-R6 now: one writer per worktree,
+liveness proven via artifacts, never assumed. No injection/tampering — two
+concurrent writers explains every disputed observation.
+
+Rulings: **M-R4** per-term resolution is behavioural, N terms may share a row
+(matcher.py:132-134 already resolves each term independently) — no schema
+migration. **M-R5** TX 2002.001: entry (4) shared-clause = ours, entry (3)
+(A)-(E) boundary = markers (accepted program-wide); the 13/75 "17.33%" metric
+aggregates BOTH mechanisms and must be decomposed — neither sprint claims it
+whole. **M-R8** the seam's `TermClauseRule` (block -> candidates, plural) plus
+directory auto-discovery means items 1-2 ship as the NEW file
+`rules/us_multiterm_shared_clause.py` with ZERO `us_profile.py` edits; the
+Planner's shared-edit collision flag is withdrawn. Item 3 needs markers'
+`EntrySplitterRule` for TX to keep a parent-redirect clause and its lettered
+children in ONE block (same shape as the agreed VT boundary) — relayed, not
+escalated.
+
+BLOCKED on two escalations (log §ESCALATIONS): **E1** pointer-only cross-
+reference definitions — capture vs filter; manager-measured at **7,610 rows
+across 32 of 53 jurisdictions** (tx 2,333, federal 1,951, in 1,438, mn 806),
+i.e. program-scale, not F6-scale; lean = capture now, typed pointer field
+later. **E2** SD `3-14-5` is scoped to two NAMED SIBLING sections, fitting
+none of core's four STABLE scope values; lean = core adds a 5th kind if not
+yet frozen, else defer the row.
+
+NEXT on resume: apply the E1/E2 answers to the affected RED tests (Planner
+edits tests, never the Developer), then spawn Developer (Sonnet/medium) for
+items 1-2 as a new registry module once core merges to main and this branch
+rebases. Items 3-4 stay blocked on markers' splitter.
