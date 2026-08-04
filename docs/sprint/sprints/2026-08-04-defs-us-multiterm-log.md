@@ -1031,3 +1031,117 @@ proves the future rule must tolerate without misfiring).
 **No other files touched.** Per the manager's explicit instruction to fix
 only this defect and change nothing else, no test logic, no `Next Steps`
 item, and no other fixture row was edited this pass.
+
+---
+
+## 2026-08-04 — MANAGER RECONCILIATION + rulings M-R4..M-R7 (Opus/high)
+
+Append-only. This entry is the authoritative reconciliation of the disputed
+entries above. I verified every claim below MYSELF with commands in this
+worktree; nothing here rests on an agent's say-so.
+
+### M-R7 — I retract my own "attempt 1 FAILED SILENTLY" entry (root cause)
+
+My Panel-dialogue entry above states attempt 1 "never ran to completion and
+produced no work" and that there were "zero live children." **That was
+false, and it was mine.** Ground truth from git:
+
+```
+$ git log --oneline --diff-filter=A -1 -- backend/tests/integration/test_multiterm_f5_shared_clause.py
+bae9e41 plan(us-multiterm): RED tests for F5 multi-term shared clauses + F6 ...
+```
+
+All SIX test files entered history in the single commit `bae9e41`. Attempt 1
+was alive and working the whole time; it authored the three
+`test_multiterm_f5_*`/`test_multiterm_f6_*` integration files. Two Planners
+were editing ONE worktree concurrently because I re-spawned on a false
+liveness signal.
+
+Consequences I own:
+1. Each Planner saw the other's files appear and reasonably read it as
+   content it did not author. Attempt 2 escalated it as a possible fabricated
+   narrative — **the correct instinct, wrong diagnosis**, and it explicitly
+   cited MY false entry as corroboration. My error propagated into the
+   panel's evidence base. That is the worst kind of manager error: it
+   contaminated the record the panel reasons from.
+2. Authorship is now unrecoverable from git (one agent committed the other's
+   uncommitted working files with its own). It does not matter — the
+   ARTIFACT is verified correct below. No further forensics.
+3. There is no evidence of prompt injection or external tampering. The
+   simplest sufficient explanation — two concurrent writers — accounts for
+   every disputed observation.
+
+### M-R6 — One writer per worktree; liveness is proven, never assumed
+
+A spawn acknowledgement is NOT evidence of a live agent, and absence of
+evidence is NOT evidence of death. Never re-spawn a role on a suspicion that
+the previous one died; confirm via artifacts (commits, file mtimes, tree
+state) first. At most one writing agent per worktree at any time. Adopted
+program-wide by the program manager.
+
+### Verified state of the deliverable (manager-run, this worktree)
+
+- Fixture provenance, ALL 11 rows, re-verified byte-exact against the real
+  parquet by my own independent script (not the Planner's): `ok=11 bad=0
+  skipped=0`. The `text` column is the body column (`section_text` does not
+  exist in this schema) — a wrong guess here yields a silent empty-string
+  false negative, so this is recorded for QA.
+- The OK `STATE_OK_T74_S74-6106` defect I caught (a hand-typed excerpt
+  silently dropping a `TM` token present in the corpus, while the README
+  claimed byte-verbatim) is FIXED at `6891cda` and re-verified by me.
+- `backend/.venv/bin/pytest backend/tests -q` → **15 failed, 644 passed**
+  (= my 641 pre-sprint baseline + 3 new green guards). Reproduced by me
+  three times.
+- Diff `83532fe...HEAD`: **zero production-code files touched, zero
+  pre-existing tests modified, zero deletions under `backend/`.** The U5
+  "editing an existing test to fit is a planning bug" check PASSES.
+- Spot-checked RED reasons: real `AssertionError`s about missing behavior
+  (e.g. SD `Got candidates=[]`), not import/collection errors.
+
+### M-R4 — PQ1 (row shape): behavioural requirement, NOT a schema migration
+
+The contract says each term must become "its OWN definition row." I checked
+the shipped design myself rather than take either account:
+
+- `DefinitionCandidate.terms: tuple[str, ...]` (extract.py:62) and
+  `Definition.terms: Mapped[list[str]]` (JSON, definition.py:34) are ALREADY
+  plural by design.
+- `matcher.py:132-134`: `pairs = [(definition, term) for definition in
+  definitions for term in definition.terms]` — every term is matched
+  INDEPENDENTLY, each under its own `_in_scope(definition, article)` check.
+
+So per-term resolution with correct scope — the contract's actual intent,
+stated in its own next sentence — is already achievable with N terms on one
+row. Forcing one-row-per-term would require editing `models/definition.py`
+plus a migration: a shared-module edit that violates U3 and core's explicit
+"no family panel edits shared modules." **Ruling: one row MAY carry N terms;
+the gate is per-term resolution + correct scope, proven live-path.** Non-
+blocking (the Planner confirms tests pass under either reading). Flagged to
+the program manager for notice — overrule if the wording was meant literally.
+
+### M-R5 — PQ4 (TX residual): ownership split, and the metric must be decomposed
+
+I read `STATE_TX_Cgv_C2002_S2002.001` myself. One row, two mechanisms:
+
+- `(4) The following terms have the meanings assigned by Section 2001.003:`
+  + `(A) "contested case"; ... (F) "rule."` — six terms sharing ONE
+  definition. Unambiguously F5. **OURS.**
+- `(3) "State agency" means ... other than: (A) an agency wholly financed by
+  federal money; ...` — the `(A)-(E)` exclusions are the BODY of definition
+  (3), wrongly split into fake entries. Entry-boundary. **MARKERS'.**
+
+Program manager has accepted this split program-wide. Additional ruling I am
+adding: the prior sprint's headline figure ("13/75 = 17.33% degenerate
+recovered terms") **aggregates both mechanisms**, and both contracts
+currently claim it whole. Neither sprint may report the 17.33% as its own
+U6 result. Each decomposes and reports only its share, and the two shares
+must reconcile to the original 13 rows. Routed to the program manager so the
+markers contract gets the same constraint.
+
+### Boundary with markers — ACCEPTED
+
+The markers panel routed us `STATE_VT_T23_C35_S3700` on exactly the split
+this contract specifies: splitting mechanics theirs, per-term fan-out ours.
+Agreed in writing by both panels; no disagreement to escalate. Same contract
+covers `STATE_SD_T3_C14_S3-14-5` (zero-yield CONFIRMED live this sprint —
+the dossier had it flagged UNCONFIRMED).
