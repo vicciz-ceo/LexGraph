@@ -2562,3 +2562,90 @@ the known 15 genuine rows it retains; P-R10 control — the pattern must find th
 15 known definitional rows (handed over at an exact path as
 `headings_mgr3_includes_control.json`) or explain each miss, before any other
 number is trusted.
+
+---
+
+## 2026-08-04 — Manager convergence scan: the COMPLETE residual, and a FIFTH class
+
+**Why this was done.** `qa_cycles` is 3 of 5 and U4 has failed three times with
+an identical signature: QA hand-reads the residual, finds a mechanical gap class
+nobody predicted, bounces. Cycle 2 found `for`/comma/period; cycle 3 found `and`
+plus three more. Shipping a fix for the four named classes and hoping was, on
+that evidence, a fourth bounce waiting to happen and would have burned the
+panel's second-to-last QA cycle. So the manager classified the **entire**
+1,224-row residual rather than sampling it.
+
+`scratchpad/headings_mgr3_residual_v2.py`. Buckets sum EXACTLY to 1,224
+(arithmetic control), and `X_dDF_suppressed` lands at exactly **50**,
+reproducing the pinned D-DF figure — probe control passed before any new number
+was used.
+
+| Bucket | Rows | Status |
+|---|---|---|
+| `X_application_of_defs` | 242 | ruled excluded (D-HG) |
+| `X_morphology` | 226 | ruled excluded |
+| `X_tx_municipal` | 151 | ruled excluded |
+| `X_pension_jargon` | 149 | ruled excluded |
+| **UNASSIGNED** | **132** | **manager read ALL 132, not a sample** |
+| `X_prep_governed_defn_of` | 78 | **see escalation below** |
+| `X_active_voice` | 71 | ruled excluded |
+| `X_authority_to_define` | 54 | ruled excluded |
+| `X_dDF_suppressed` | 50 | ledger L2 + correctly-suppressed |
+| `C5_defined_and` / `C5_mojibake` / `C5_pointer_table` / `C5_defined_qualifier` | 45 / 10 / 9 / 7 | cycle-5 capture items |
+
+**A manager-side bug, recorded not buried.** v1 of this classifier bucketed only
+432→UNASSIGNED because its morphology regex was `\bin?definit…`, which requires
+a literal `i` — plain `definite` never matched, parking 114 correctly-excluded
+rows as unknown. Caught by READING rows instead of trusting bucket counts. v2
+classifies morphology by CANONICAL FORM (every `defin`-bearing token is a
+non-canonical form), which cannot have that failure mode.
+
+### FIFTH CAPTURABLE CLASS — 15 rows, hand-verified against real bodies
+
+Item 15. Three defeat mechanisms, **none** fixed by adding `and` to the
+whitelist:
+
+1. **Connector punctuation STRIPPED by the corpus** — `Peace officer defined
+   reserved peace officer included.` (`STATE_IA_TXVI_C724_S724.2A`) is
+   `Peace officer defined — reserved peace officer included.` with the dash
+   gone. Body: `As used in sections…, "peace officer" includes a reserve peace
+   officer…`. There is no connector token to whitelist at all.
+2. **Connector is an unwhitelisted WORD** — `FELONY DEFINED FURTHER.` /
+   `MISDEMEANOR DEFINED FURTHER.` (ID), `''Misbranding'' term defined when
+   applied to…` (MA), `"Dwelling house" defined in case of burglary…` (SC).
+3. **Trailing numeric/bracket artifacts** — `"Public agency" defined 1]` (NM),
+   `"disposition" and "fiduciary" defined 1` (NY) defeat the bare-verb
+   end-of-heading rule. `_TRAILING_BRACKET_RE` expects a matched `[…]`; `1]`
+   has no opener.
+
+Also genuine: `Terms defined in act; meanings` (MI), `Meanings of words and
+phrases defined in MCL 324.63502 and 324.63503` (MI, D-MT-E1 pointer shape),
+`Addition to definitions` (NM, body `…"project" also means:`), and 4 IA rows.
+
+**Correctly EXCLUDED, now named so they can be pinned as negative guards:**
+adjectival `defined <noun>` jargon (`defined cost sharing`, `defined hardship
+area`, `defined need`, `defined practices`, `defined violations`, `defined
+concepts`, TX `DEFINED AREAS`, …); `all offenses defined by statute`
+provisions; `as defined in [other section]` cross-references; and **`defined by
+rule` DELEGATION** — `RCW 43.41.109: "Undue hardship"—Defined by rule`, body
+`The director … shall by rule establish a definition of "undue hardship"`. The
+statute delegates defining rather than defining. Keep excluded.
+
+### Architectural finding sent to the Planner as a course correction
+
+R-VERB-extended is a **connector whitelist** (`for|as|term`, + `and` proposed).
+That architecture has now leaked in three consecutive cycles. **A whitelist
+cannot close an absolute zero-miss gate** — the tail is unbounded and each
+cycle discovers the next token. The Planner has been asked to MEASURE, not
+prefer, two designs: the whitelist extension vs. inverting to a
+`[TERM] + defined` anchor with bounded NEGATIVE guards drawn from the ruled
+exclusion classes above — reporting recall on the 22,228 miss pool AND
+precision (currently-False headings flipped True, hand-checked against real
+bodies), because H-R3's zero-false-positive baseline is a hard gate and the
+inversion carries the higher FP risk. Whichever ships, rows that remain
+uncaptured go on the residual ledger BY NAME rather than surfacing as a fourth
+QA bounce.
+
+Evidence handed to the Planner at an exact path (P-R9-compliant):
+`scratchpad/headings_mgr3_class5_evidence.json` — `candidate_captures` (15),
+`manager_judged_excluded` (4, with reasoning), `all_132_unassigned`.
