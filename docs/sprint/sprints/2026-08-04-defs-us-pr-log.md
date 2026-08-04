@@ -3907,3 +3907,91 @@ explicit trigger ("if ANY of the 38 gains a same-article mention link").
 its own falsified premise and B rejected on measurement. Developer NOT
 spawned for 18c pending the decision; recommending the Developer proceed on
 18a/27/28/29 meanwhile.
+
+---
+
+## 2026-08-04 — Manager: Option D ruled; M-R13 splits item 26; Developer spawned on the unaffected subset
+
+### Ruling received (program manager)
+
+**Option D.** Item 18c defers until core's dispatch lands. A rejected on its
+falsified premise, B on the 92.7% measurement, C tiers because they trade
+genuine captures for residual wrong assertions when waiting costs only
+sequencing. The M-R12 guard work is NOT discarded: it becomes the standing
+proof of what 18c must re-verify post-dispatch — **QA re-runs the
+canonical-leak measurement against the dispatched pipeline to confirm the
+by-construction claim empirically. Never assume it.**
+
+Also added at program level, credited to this panel's two near-misses —
+**the ask-why-the-world-still-works check**: before escalating "X is broken,"
+explain why everything downstream of X is not visibly broken; if you cannot,
+your probe is suspect. (Third instance program-wide of this catching a false
+escalation; mine was "why isn't Delaware already broken?".)
+
+### Ruling M-R13 — item 26 splits; 18c's rules do not ship this cycle
+
+Item 26 as planned registers THREE `ScopeTriggerRule`s. Under Option D only
+TWO ship:
+
+| Rule | Item | Cycle 5 |
+|---|---|---|
+| `extract_local_definitions` (widened per QA findings) | 18a | **SHIPS** — fires only on explicit `A los fines/efectos de este Artículo` triggers, which genuinely ARE local scope |
+| `extract_adhoc_definitions` (unchanged) | 18a-class | **SHIPS** — `conocida como` ad-hoc appositions, article-local by nature |
+| `extract_inline_local_definitions` + M-R12 guard | 18c | **DEFERRED** — do not build |
+
+The Developer must NOT create `extract_inline_local_definitions`. The M-R12
+guard is not built this cycle either; it is guard machinery for a sweep that
+is not shipping.
+
+### Test partition, verified row-by-row against the fixtures (so the target is unambiguous)
+
+**MUST go GREEN** (the Developer's target, 10 REDs):
+- `test_pr_profile_qa_cycle4_findings.py` — 5 (18a widening: `se define`
+  lead-in, unquoted term, `A los efectos de este Artículo` trigger, ASCII
+  hyphen, `quiere decir`)
+- `test_pr_profile_local_scope_definitions_cycle4.py::
+  TestExtractLocalScopeDefinitionsSeam::test_unions_the_local_trigger_
+  extractor` — 1 (18a, row `STATE_PR_LEY_20_2017_ART4_14`)
+- `test_pr_profile_scope_triggers_live_pipeline_cycle5.py::test_run_
+  definition_linking_captures_a_real_local_scope_definition…` — 1. Verified
+  the row: `STATE_PR_LEY_85_2018_ART9_04` is an ordinary article carrying
+  `conocida como "Ley de Sustancias Controladas de Puerto Rico"` — an
+  **ad-hoc** capture, not an 18c sweep hit. Ships.
+- `test_pr_profile_citation_rule_live_cycle5.py` — 1 (item 27)
+- `test_pr_profile_article_scope_live_cycle5.py` — 2 (item 28). Verified the
+  test builds its fixture around `A los fines de este Artículo` — **18a's
+  trigger**, not 18c. Ships.
+
+**MUST STAY RED** (18c, deferred — the Developer leaves them failing):
+- `…local_scope_definitions_cycle4.py::TestExtractInlineLocalDefinitions` — 3
+  (`ImportError` on the deliberately-unbuilt `extract_inline_local_
+  definitions`)
+- `…::TestExtractLocalScopeDefinitionsSeam::test_unions_the_new_inline_scan` — 1
+- `…scope_triggers_live_pipeline_cycle5.py::test_documented_residual_…` — 1
+
+Expected suite after the Developer: **35 failed** (30 held + 5 deferred-18c),
+910 passed.
+
+### A test that now pins REJECTED behavior — flagged for the Planner, not the Developer
+
+`test_documented_residual_a_single_bare_canonical_definition_is_captured_as_
+local_scope_not_law_wide_live` asserts that a canonical row IS captured with
+local scope — i.e. it encodes Option A, the behavior just overruled. It stays
+RED under Option D (nothing captures it), so it blocks nothing and pins
+nothing green. But it must not survive as-is into QA: a permanently-red test
+asserting overruled behavior is exactly the misleading-artifact class P-R8
+taught us to distrust.
+
+**Routing it to the Planner, not the Developer** (tests are Planner-owned; the
+Developer must never edit a test to make its own work look done). Re-partition
+pass after the Developer lands, before QA: convert the three 18c groups to
+explicit deferred markers naming the post-dispatch re-verification duty, and
+either delete or invert the residual test.
+
+### Spawn
+
+Developer — Sonnet medium per P-R6 (bounded implementation against existing
+RED tests, no design latitude left after the split); Haiku considered and
+rejected: registration is mechanical but the 18a widening spans five distinct
+idiom/separator shapes in shared Spanish parsing machinery where a careless
+regex risks the cycle-3 collision class.
