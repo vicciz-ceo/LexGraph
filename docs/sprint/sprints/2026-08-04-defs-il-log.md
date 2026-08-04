@@ -2045,3 +2045,87 @@ the 12 with an explicit instruction NOT to touch the frozen
 `extract._LOCAL_TRIGGER_RE` — the tzere fix ships as an additive rule module,
 since the seam guarantees rule candidates are UNIONed and never suppress each
 other.
+
+---
+
+## 2026-08-04 — **PROCESS INCIDENT (manager-caused): authorship contamination in commit `806c86a`**
+
+### What happened
+
+I ran `git add -A && git commit` in `/Users/nerya/LexGraph-wt/defs-il` to
+record my verification of the Planner's RED set. **The Developer was working
+in that SAME worktree at that moment.** My `-A` swept its six uncommitted
+production files into MY commit, under MY authorship, with a commit message
+that describes only my doc work and does not mention the code at all. The
+Developer then found its work already committed before it could commit.
+
+`git show --stat 806c86a` — the truthful contents:
+```
+ rules/il_adhoc_scope_triggers.py                 |  24 ++
+ rules/il_colon_dash_nested_list_scope_triggers.py| 149 +++
+ rules/il_lenyan_zeh_tzere_scope_triggers.py      |  57 ++
+ rules/il_paragraph_scope_triggers.py             |  11 +-
+ rules/il_subsection_scope_triggers.py            |  64 ++
+ rules/il_takana_scope_triggers.py                |  57 ++
+ docs/sprint/sprints/2026-08-04-defs-il-log.md    |  51 ++
+ 7 files changed, 412 insertions(+), 1 deletion(-)
+```
+
+### **AUTHORSHIP CORRECTION (the record, since history is not being rewritten)**
+
+**Every one of the six `backend/app/definition_links/rules/*.py` files in
+commit `806c86a` is DEVELOPER work, not manager work.** Only the
+`...-il-log.md` hunk in that commit is mine. The Developer independently
+verified the committed content is byte-identical to what it wrote. No
+history rewrite — the commit stands, and this paragraph is the correction.
+
+### Why it matters even though the content is fine
+
+This is the one-writer-per-worktree rule violated in **exactly the shape
+that caused the M-R7 evidence-contamination incident in another panel**. The
+danger is not corrupted bytes; it is that authorship provenance is the thing
+my whole verification method rests on. I verify handoffs by reading the diff
+attributable to a role. If a manager commit can silently contain developer
+code, then "I verified the Developer's diff" stops being a meaningful
+sentence. I had also been telling every agent "your entire change is X" and
+then verifying that claim with `git diff --name-status <role-commit>` — a
+check this incident would have quietly defeated.
+
+Contributing cause, named plainly: I used `git add -A` instead of explicit
+paths, in a directory I did not exclusively own. Both halves were mine.
+
+### **M14 — binding, effective immediately**
+
+1. **Every role agent gets its OWN worktree.** No exceptions, no
+   cohabitation, for the remainder of this sprint and any resumption of it.
+   Role branches off `claude/defs-il`; I merge their commits in.
+2. **I verify via diffs, never via cohabitation.** My own commits use
+   EXPLICIT PATHS — `git add <path> ...` — never `git add -A`, never `.`.
+3. This entry is the standing warning for whoever resumes this sprint.
+
+### Handoff verification of the Developer's work (done despite the incident)
+
+- Suite, my own run: **`4 failed, 727 passed`** — exactly the target end
+  state. All 12 fix-cycle REDs green; the 4 remaining are the 3 held
+  class-(d) + 1 E6-blocked item 11.
+- Frozen check: no `pipeline.py`/`matcher.py`/`extract.py`/`sections.py`/
+  `profiles.py` edit. The tzere fix shipped as an ADDITIVE module
+  (`il_lenyan_zeh_tzere_scope_triggers.py`) rather than touching the frozen
+  `extract._LOCAL_TRIGGER_RE`, as instructed; double-capture is structurally
+  impossible since `לענין` is never a substring of `לעניין`.
+- The `::-` generalization is **ONE** mechanism file
+  (`il_colon_dash_nested_list_scope_triggers.py`, 149 lines) with a shared
+  trigger→scope table — the single-mechanism shape the program directed,
+  not eight cloned rules.
+- **Citation guard spot-checked live by me** against the 3 confirmed FPs and
+  3 genuine multi-word terms:
+```
+FP סעיף 149א   -> []            GENUINE ועדת הבדיקה -> [('ועדת הבדיקה',)]
+FP סעיף 51טו   -> []            GENUINE יום התחילה  -> [('יום התחילה',)]
+FP סעיף 9      -> []            GENUINE המועד החוזי -> [('המועד החוזי',)]
+```
+  `_CITATION_SHAPED_TERM_RE = ^סעיף\s+\d+[א-ת]*$` is fully anchored, so it
+  cannot over-reject a multi-word term. Precise, not blunt.
+
+**Developer work ACCEPTED** on content; the authorship defect is mine and is
+recorded above rather than hidden.
