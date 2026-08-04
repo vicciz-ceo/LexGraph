@@ -1032,3 +1032,41 @@ gate failure on that slice.
 Escalated to the program manager. Not fixed here: `us_profile.py`/`matcher.py`
 are shared modules gate U3 forbids this sprint from touching, and the level-
 semantics question is core's contract to state, not ours to pick.
+
+---
+
+## 2026-08-04 — Manager: ruling S-R11 (subsection interim), approved by the program manager
+
+**S-R11 — `subsection` maps to `"local"` for the interim.** Approved exactly as
+escalated: option (b) now, (a) — core's level-contract fix — in parallel.
+
+Rationale, same shape as S-R9: an unrepresentable narrowing falls back to the
+NARROWEST REPRESENTABLE enclosing unit. For part/subchapter that was
+`law-wide`; for subsection the narrowest representable enclosing unit is
+`local`, the owning article. Zero-miss-safe by construction (a subsection is
+always inside its article), and the over-link is bounded by a single article —
+far tighter than `law-wide`.
+
+**Named conflict class #3**, re-escalated with volume numbers after the U4
+sweep alongside S-R9's law-wide fallback and the PA construction-clause pin.
+**Revert condition, explicit:** true subsection scope resumes the moment core's
+level-contract fix lands.
+
+**Revert must be self-alarming, not a calendar reminder.** S-R10's live-path
+test is kept as the post-core flip target and marked
+`pytest.mark.xfail(strict=True)`: it stays an expected-fail today, and the
+moment core fixes the resolver it XPASSes — which under `strict=True` FAILS the
+suite and forces us to flip the mapping back. A plain skip or a deleted test
+would let the interim ossify silently, which is the failure mode this whole
+escalation was about.
+
+Core-owned halves routed out with our evidence: the level-semantics contract
+(program manager's guidance to core: the trigger word names the level — US
+drafting's "subsection" = outermost lettered unit, "paragraph" = digit level —
+so containment compares at the trigger-named level, not always `path[0]`), the
+digit-outermost `'sub'` mislabeling (RED from our Oregon row), and the
+stub-branch QA-shape lesson.
+
+Format alignment is ours: `_subsection_label` must emit BARE labels (`c`, not
+`(c)`) to match `UnitStep.value`'s convention, so the post-core flip is
+format-clean rather than needing a second fix.
