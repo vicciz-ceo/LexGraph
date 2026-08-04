@@ -1629,3 +1629,85 @@ regression-guard baseline set (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK), so no
 guarded state is exposed.
 
 **I8 → Dev Complete pending QA**, joining I4/I5/I6.
+
+---
+
+## 2026-08-04 — Round 15: dev2 + dev3 merged; I5 premise CONTRADICTED by corpus
+
+**Verified before merging (manager, non-delegable):**
+- **dev2 diff**: 10 files, all production. **Zero test/fixture/snap edits.**
+  Risk grep 12 hits — all `CI` inside `_CITATION_*` identifiers, no
+  network/auth/env code.
+- **FULL HUNK READ (mandatory risk class — persistence + migration):**
+  `assertion.py` adds `subject_unit_path: Mapped[str | None] = mapped_column(Text, nullable=True)`
+  — additive, nullable, defaults `None`, every existing construction site
+  unaffected. Migration `add_assertion_subject_unit_path_column.py` is raw
+  DDL with a real `downgrade()`, no backfill, `NULL` documented as the honest
+  value for rows predating sub-article anchoring. Mirrors the named
+  `add_raw_text_columns.py` precedent. **Accepted.**
+- **Suite reproduced myself**: dev2 → `1 failed, 681 passed`. M15 tests → +3
+  exactly. Both match the relayed claims.
+- **Commit-granularity deviation accepted**: one commit for I1/I2/I3/I7. The
+  surfaces genuinely interlock (a single `_in_scope` + Stage-3 rewrite), the
+  contract already treats I3 as verified by I1/I2 landing, and it was
+  self-declared rather than hidden. Not worth a rewrite.
+
+**Merged** `--no-ff`: dev3 (I8), then dev2 (I1/I2/I3/I7). Both pre-checked
+CLEAN via `git merge-tree`. **Combined-tree evaluator: backend
+`4 failed, 682 passed, 0 errors`; frontend `25 files / 165 passed`;
+`tsc --noEmit` clean.** 656 → 682 passing (+26). Remaining 4 = 3 M15/I9 (no
+Developer spawned yet) + 1 I5 (below).
+
+### ESCALATION E-3 — I5's live test pins a shape that DOES NOT EXIST in the corpus
+
+I was asked to rule on the last red and spawn a bounded fix. I did the
+diagnosis first and the fix would have been **machinery for a phantom shape**.
+
+The failing test's fixture is:
+```
+@
+פרשנות
+:- "מונח יסודי" - הגדרה ...
+```
+i.e. bare `@`, then a heading line, then a `:-` definitions entry.
+
+**Measured against the real 6,133-law corpus:**
+```
+total bare-@ occurrences: 331
+next-line shape: {'table/markup': 331}
+bare-@ followed by a DEFINITIONS-heading line: 0
+```
+**All 331 real bare-`@` occurrences are followed by wiki table/markup
+(`: {|`, `{{טורים שווים`, `<div ...`). ZERO are followed by a heading line.
+Zero are followed by plain text at all.** Real bare-`@` sections are
+appendices/tables (תוספת), not headed articles.
+
+Inspecting the 8 files whose bare-`@` body contains definition-shaped text:
+the matches are **table footnotes** (e.g. `<sup>3</sup> {{מוקטן|"נכס דל
+סחירות" - נכס שאינו נכס חריג...}}`), not Definitions sections.
+
+**Consequence:** the proposed fix (bare-`@` section takes its first body line
+as a heading candidate) would (a) help **zero** real corpus rows, (b) make a
+synthetic test green, and (c) consume `: {|` table markup as a "heading" in
+331 real places. That is the opposite of the zero-miss mandate — effort and
+risk spent on a shape that does not occur.
+
+This also **contradicts M8(a)'s accepted premise** ("124 of 6,133 laws use
+bare `@`... 12 contain unambiguous definitions", IL panel, "proved end-to-end
+on a named file"). My measurement: **42 files / 331 occurrences**, all
+table-followed. The "definitions" are footnote strings inside tables.
+
+**NOT ruled unilaterally** — this is a cross-panel factual dispute plus a
+zero-miss/precision question, exactly the class the director's
+escalate-with-data policy reserves. Escalated with the measurements above.
+
+**Note:** the ALREADY-MERGED part of I5 is still a genuine fix and is NOT in
+question — making a bare `@` start its own section stops 331 table bodies
+being silently concatenated into the preceding article, which previously
+polluted that article's body for term matching. Only the "definitions must be
+captured FROM bare-@ sections" claim is contested.
+
+**My lean:** keep the merged split; retarget the live test at the shape that
+actually exists (a table-footnote inline definition reaching the local/adhoc
+path, which needs NO heading), or drop the claim as unsupported. Do NOT build
+heading-derivation for bare-`@`.
