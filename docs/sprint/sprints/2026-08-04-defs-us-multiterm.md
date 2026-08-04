@@ -370,12 +370,35 @@ escalated.
 BLOCKED on two escalations (log §ESCALATIONS): **E1** pointer-only cross-
 reference definitions — capture vs filter; manager-measured at **7,610 rows
 across 32 of 53 jurisdictions** (tx 2,333, federal 1,951, in 1,438, mn 806),
-i.e. program-scale, not F6-scale; lean = capture now, typed pointer field
-later. **E2** SD `3-14-5` is scoped to two NAMED SIBLING sections, fitting
-none of core's four STABLE scope values; lean = core adds a 5th kind if not
-yet frozen, else defer the row.
+i.e. program-scale, not F6-scale. **E2** SD `3-14-5` is scoped to two NAMED
+SIBLING sections, fitting none of core's four STABLE scope values.
 
-NEXT on resume: apply the E1/E2 answers to the affected RED tests (Planner
-edits tests, never the Developer), then spawn Developer (Sonnet/medium) for
-items 1-2 as a new registry module once core merges to main and this branch
-rebases. Items 3-4 stay blocked on markers' splitter.
+BOTH ESCALATIONS RESOLVED. **E1 — director:** pointer-only entries ARE
+definitions; capture is TWO captures — the definition row (redirect sentence
+as text) AND a reference assertion to the target law/section. **NO typed
+"pointer" field, now or ever — the reference edge IS the typing** (my earlier
+option (c) is RETRACTED; do not revive it). Reference plumbing belongs to
+core seam v2, NOT built here — behaviour pinned in RED tests only. **E2 —**
+routed to core seam v2 (same class as AK multi-chapter ranges, core's M4
+adopt-or-defer-with-recorded-fallback). Silently stamping `law-wide` is
+FORBIDDEN program-wide; if core defers the kind, the row defers with a
+recorded fallback.
+
+Manager-verified after the Planner amendment (13c5529): suite **21 failed /
+645 passed** (15+6 RED, 644+1 green; my 641 pre-sprint greens intact); ONE
+new test file; zero production files and zero pre-existing tests touched;
+`grep -rniE "pointer_kind|is_pointer|definition_type|type_marker"
+backend/tests/` returns NO matches, so the no-typed-field ruling holds.
+Planner also corrected my probe error on (iii): the derivation invocation was
+right; the citation match is anchored immediately after the trigger phrase,
+so intervening words kill it.
+
+STATUS: **PARKED** — planning complete, no Developer spawned by design.
+RESUME WHEN core merges to main AND seam v2 publishes. Then, in order:
+(1) rebase this branch on main; (2) spawn Developer (Sonnet/medium) for items
+1-2 ONLY — ship `rules/us_multiterm_shared_clause.py` as a NEW FILE, zero
+`us_profile.py` edits (M-R8); (3) items 3-4 stay blocked on markers'
+EntrySplitterRule keeping TX/VT parent-redirect clauses and their lettered
+children in ONE block; (4) item 11's reference half waits on seam v2.
+Developer must never touch tests; QA (Sonnet/high) never touches
+implementation. qa_cycles=5 → status blocked, report to program manager.

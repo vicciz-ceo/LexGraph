@@ -1453,3 +1453,67 @@ empty (zero existing files touched).
 - Did not re-run the U4/U6 sweep or touch Developer-track items 1-10 in any
   way beyond the two `us_profile.py`-coordination-flag re-expressions M-R8
   already ruled on.
+
+---
+
+## 2026-08-04 — DIRECTOR CLARIFICATION on E1; manager retracts option (c)
+
+**Ruling:** there is to be **NO typed "pointer" field — not now, not in any
+follow-up.** The reference edge connecting a pointer definition to its target
+law/section IS the typing; the connection carries the semantics. Each pointer
+entry pins EXACTLY two things:
+1. the definition row exists, with the redirect sentence as its text; and
+2. a reference assertion connects it to the named target law/section.
+
+Nothing else — no schema assertions, no type markers.
+
+**I retract my option (c).** My E1 escalation entry above offered "(c) capture
+AND mark it a distinct pointer kind — needs a new field" and leaned "(a) now,
+(c) later." Per this file's append-only rule the entry stands, but **(c) is
+withdrawn and must not be revived**; the contract's Context Dump has been
+corrected in the same commit. My instinct to reach for a schema field was
+wrong: it would have added a shared-module change no panel owns, to express
+something the graph already expresses structurally. The edge is the type.
+
+**Compliance verified by me, not asserted:** the Planner's amendment (13c5529)
+already conforms — it needed no change.
+
+```
+$ grep -rniE "pointer_kind|is_pointer|definition_type|type_marker" backend/tests/
+(no matches)
+```
+
+The new `test_definition_links_e1_pointer_reference_capture.py` asserts only
+reference targets (`citations == ["ORS 153.005"]`,
+`edges[0].matched_text == "Section 552.003"`) plus one green control on
+`trigger_phrase`. Half (1) is pinned separately and pre-existing
+(`test_multiterm_f6_blocked_on_core_seam.py::test_or_cross_reference_style_
+definitions_resolve`, `test_multiterm_f5_shared_clause.py::test_tx_parent_
+clause_redirect_list_*`). Both halves covered; zero typed-field assertions.
+
+### Manager verification of the Planner amendment (13c5529)
+
+- Suite: **21 failed, 645 passed** (was 15/644) = 6 new RED + 1 new green
+  control. My 641 pre-sprint greens remain inside the 645.
+- `git show --stat 13c5529`: ONE new test file + the two sprint docs. **Zero
+  production files, zero pre-existing tests modified.**
+- The Planner resolved my open item (iii) and corrected me: the invocation
+  `detect_cross_law_derivations(text, source_term=...)` IS correct; controls
+  built from the real `_TRIGGER_PHRASES` and followed IMMEDIATELY by a
+  citation do produce edges. My control probes returned `[]` because the
+  citation match is anchored (`.match()`, not `.search()`) directly after the
+  trigger, so intervening words kill it. **My probe was mis-constructed and I
+  had flagged it as such; the Planner was right to re-derive rather than
+  build on it.** That is the escalation path working correctly.
+- Defect (ii) is pinned as an explicit WRONG-target equality assertion
+  (`citations == ["Section 552.003"]` against today's `['Section 552']`), not
+  a mere missing-target one — correct, since a truncated citation points at a
+  different real section.
+
+## SPRINT PARKED — awaiting core seam v2 + core merge
+
+Planning phase COMPLETE and manager-verified. No Developer spawned: every
+remaining item is either a new registry module that needs core's registry on
+main, or blocked on markers' splitter, or on seam v2 (E1 reference plumbing,
+E2 enumerated scope). Resume conditions and next actions are in the
+contract's Context Dump.
