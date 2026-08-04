@@ -84,6 +84,41 @@ this precision profile raises.
 today -- every test in `TestExtractInlineLocalDefinitions` is RED via
 `ImportError` (the same legitimate RED signal cycle 1's very first pass
 used, per CodeGraph-verified precedent).
+
+## CYCLE-5 STATUS -- 18c DEFERRED (ruling M-R13 / program Option D,
+## Planner re-partition pass)
+
+Everything above describes item 18c's DESIGN -- it is still the standing
+spec the function must satisfy whenever it is eventually built. But the
+program manager ruled Option D on the cycle-5 inertness-premise escalation
+(panel log): `extract_inline_local_definitions` is **not built this
+cycle at all**. It waits for core's dispatch sprint to land, at which
+point canonical `Definiciones` rows route through `pipeline.py`'s `if`
+branch and never reach this seam -- the 38-row canonical-leak residual
+this function's guard was designed to bound disappears by construction,
+at zero recall cost, instead of being approximated now by a body-based
+heuristic that measured out at 6-31% recall lost or hundreds of wrongly-
+scoped assertions (full options table in the panel log's cycle-5
+escalation entry).
+
+`TestExtractInlineLocalDefinitions` (all 3 tests, this file) and
+`TestExtractLocalScopeDefinitionsSeam::test_unions_the_new_inline_scan`
+(below) are marked `xfail(strict=True, raises=...)`, pinned to the EXACT
+exception each currently raises (`ImportError` for the former,
+`AssertionError` for the latter) -- not a bare catch-all -- so that if
+either ever fails for a DIFFERENT reason (a real, unrelated regression),
+pytest reports a hard FAILURE, not a silently-absorbed XFAIL. `strict=
+True` additionally means an unexpected XPASS (e.g. someone builds the
+function ahead of the ruling) is reported as a failure too, forcing this
+marker to be revisited rather than silently going green.
+
+**STANDING DUTY, not discharged by these markers:** once core's dispatch
+lands and a future cycle builds and registers `extract_inline_local_
+definitions`, QA must empirically RE-RUN the canonical-leak measurement
+(the 117/633 canonical-row leak this module's guard design measured)
+against the DISPATCHED pipeline to confirm the by-construction claim
+holds -- never assume it. See ruling M-R13 in the sprint contract and the
+panel log's Option-D ruling entry for the full reasoning.
 """
 
 from __future__ import annotations
@@ -129,9 +164,32 @@ def cycle3_rows():
 # --- item 18c: extract_inline_local_definitions (pure function, no core dep) -
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Item 18c (extract_inline_local_definitions, the untriggered "
+        "whole-body Spanish idiom sweep) is DEFERRED by ruling M-R13 / "
+        "program Option D: it waits for core's dispatch sprint to land, "
+        "at which point canonical Definiciones rows route through "
+        "pipeline.py's `if` branch and never reach this seam, so the "
+        "38-row canonical-leak residual this function was designed to "
+        "guard against disappears by construction, at zero recall cost "
+        "-- not a bug, extract_inline_local_definitions is deliberately "
+        "not built this cycle. STANDING DUTY once core's dispatch lands "
+        "and this function is built and registered: QA must empirically "
+        "RE-RUN the canonical-leak measurement against the dispatched "
+        "pipeline to confirm the by-construction claim -- never assume "
+        "it holds."
+    ),
+    strict=True,
+    raises=ImportError,
+)
 class TestExtractInlineLocalDefinitions:
-    """RED via `ImportError` -- `extract_inline_local_definitions` does not
-    exist in `pr_profile.py` yet."""
+    """DEFERRED (18c, ruling M-R13 / program Option D) -- RED via
+    `ImportError` because `extract_inline_local_definitions` does not
+    exist in `pr_profile.py` and is deliberately not being built this
+    cycle. Marked `xfail(strict=True, raises=ImportError)`; see the
+    module docstring's `## CYCLE-5 STATUS` section for the full reasoning
+    and the post-dispatch re-verification duty."""
 
     def test_captures_a_buried_definition_with_no_scope_trigger_lead_in(self, pr_rows):
         """`STATE_PR_RENTAS_SEC1071_07`: no `A los fines/efectos de este
@@ -256,10 +314,30 @@ class TestExtractLocalScopeDefinitionsSeam:
         assert len(matching) == 1
         assert matching[0].scope == "local"
 
+    @pytest.mark.xfail(
+        reason=(
+            "Item 18c (extract_inline_local_definitions) is DEFERRED by "
+            "ruling M-R13 / program Option D -- see the module docstring's "
+            "`## CYCLE-5 STATUS` section. `USProfile.extract_local_scope_"
+            "definitions` already unions every registered ScopeTriggerRule "
+            "for 'US-PR' (that seam is live), but no rule wraps "
+            "extract_inline_local_definitions yet because the function "
+            "itself is deliberately not built this cycle, so the union "
+            "returns no candidate for this row. STANDING DUTY once core's "
+            "dispatch lands and this function is built and registered: QA "
+            "must empirically RE-RUN the canonical-leak measurement "
+            "against the dispatched pipeline to confirm the by-"
+            "construction claim -- never assume it holds."
+        ),
+        strict=True,
+        raises=AssertionError,
+    )
     def test_unions_the_new_inline_scan(self, pr_rows):
-        """The item-18c inline scan's own real row must also be reachable
-        through the seam method, proving the union covers all three
-        sources, not just `extract_local_definitions`."""
+        """DEFERRED (18c, ruling M-R13 / program Option D) -- the item-18c
+        inline scan's own real row must eventually be reachable through the
+        seam method too, proving the union covers all three sources, not
+        just `extract_local_definitions`. Marked `xfail(strict=True,
+        raises=AssertionError)`; not built this cycle by design."""
         from app.definition_links.profiles import get_profile
 
         row = pr_rows["STATE_PR_RENTAS_SEC1071_07"]

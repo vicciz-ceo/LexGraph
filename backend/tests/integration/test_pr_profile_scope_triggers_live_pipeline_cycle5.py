@@ -71,8 +71,29 @@ single-sentence-body article has no OTHER position for the term to be
 one; once item 1 (HELD) eventually adds the correct law-wide row for the
 SAME term, D-E1 narrowest-governs lets both coexist safely (the local row
 just narrows THIS article's own self-mentions, never suppresses the
-broader one elsewhere). See `test_documented_residual_...` below, which
-pins this as intentional, not silently swallowed.
+broader one elsewhere).
+
+**AMENDED, cycle-5 Planner re-partition pass (ruling M-R13 / program
+Option D overrules the paragraph above):** the acceptance described above
+was Option A ("ship the 38-row residual as an accepted inert capture").
+The program manager overruled Option A once the inertness premise was
+found FALSE for 29/38 of these rows (467 wrongly-scoped `USES_DEFINITION`
+assertions, see the panel log's cycle-5 verification entry) and ruled
+Option D instead: item 18c (`extract_inline_local_definitions`, the
+function that would have produced this capture) is **not built this
+cycle at all**, and ships only once core's dispatch sprint lands and
+canonical rows route to `pipeline.py`'s `if` branch, never reaching this
+seam again -- at which point the residual problem (for ALL 38 rows, not
+just the 9 that stayed genuinely inert) disappears by construction. The
+paragraph above is kept as the historical record of what the guard was
+originally built to bound, not as the current shipped behavior.
+`test_documented_residual_...` below was INVERTED (not deleted) by that
+same re-partition pass: it now asserts the row is NOT captured, which is
+vacuously true today (nothing registered can capture it) and becomes a
+real regression guard once 18c is eventually built and registered --
+proving the by-construction claim holds even then. A permanently-red test
+asserting the overruled Option-A behavior is exactly the misleading-
+artifact class ruling P-R8 taught this panel to distrust.
 
 ## Invariance requirement (M-R12 point 3)
 
@@ -221,21 +242,54 @@ def test_the_inline_sweep_bails_on_a_real_canonical_definiciones_body_even_thoug
     )
 
 
-def test_documented_residual_a_single_bare_canonical_definition_is_captured_as_local_scope_not_law_wide_live(
+def test_documented_residual_a_single_bare_canonical_definition_is_not_captured_as_local_scope_live(
     db_session, matter_with_users, pr_rows_cycle3
 ):
-    """Documented, measured, ACCEPTED residual (Planner judgment call,
-    flagged for veto -- see module docstring): `STATE_PR_LEY_133_1979_
-    ART1` (real, already vendored cycle 3) is canonical (heading
-    'Artículo 1. Definiciones') but its body is a single bare 'El término
-    "equipo solar" significa...' sentence with NO preamble at all -- the
-    M-R12 guard cannot distinguish this from a genuine local/ad-hoc
-    definition using body content alone (item 1's HELD territory). This
-    pins the CURRENT, INTENDED behavior explicitly (mechanically inert,
-    not a false-link hazard -- see module docstring's reasoning) rather
-    than leaving it an unexamined surprise. If a future cycle finds a
-    real discriminating signal, this test should be tightened, not
-    silently deleted."""
+    """INVERTED by the Planner's cycle-5 re-partition pass (ruling M-R13 /
+    program Option D). This test used to assert the OPPOSITE -- that
+    `STATE_PR_LEY_133_1979_ART1`'s bare 'El término "equipo solar"
+    significa...' body (real, already vendored cycle 3; canonical heading
+    'Artículo 1. Definiciones', no preamble sentence at all) IS captured
+    as `scope="local"` (Option A: ship the 38-row residual as an accepted
+    inert capture). The program manager overruled Option A once the
+    inertness premise was measured FALSE for 29/38 of the residual rows
+    (467 wrongly-scoped `USES_DEFINITION` assertions -- see the panel
+    log's cycle-5 verification entry) and ruled Option D: item 18c
+    (`extract_inline_local_definitions`, the sweep that produced this
+    capture) is NOT built this cycle at all. A permanently-red test
+    asserting the overruled Option-A behavior is exactly the misleading-
+    artifact class ruling P-R8 taught this panel to distrust, so it is
+    inverted here to the honest assertion rather than left red or quietly
+    deleted (deleting would erase the record of why this specific row
+    matters and what it must keep proving later).
+
+    ## Status: VACUOUS TODAY -- states the condition that makes it real
+
+    Nothing currently registered for `"US-PR"` can capture 'equipo solar'
+    as local scope at all (no rule reaches this shape), so `not matching`
+    holds trivially -- this assertion is not yet proving anything live.
+    It becomes a REAL regression guard once BOTH land: (1) core's
+    dispatch sprint merges, and (2) a future cycle builds and registers
+    `extract_inline_local_definitions` (18c). Per Option D's own
+    reasoning, by then canonical `Definiciones` rows route through
+    `pipeline.py`'s `if` branch (via the Spanish `HeadingRule`, currently
+    HELD) and never reach `extract_local_scope_definitions` at all -- so
+    this row must STILL not be captured as local scope, even once the
+    machinery that used to produce that capture exists again. If this
+    assertion ever starts failing after 18c is rebuilt, that is a live
+    signal the by-construction claim did NOT hold.
+
+    ## Standing duty (ruling M-R13, not discharged by this test)
+
+    This test alone does not satisfy M-R13's re-verification requirement
+    -- it only proves ONE row stays uncaptured. Once core's dispatch
+    lands and 18c is rebuilt and registered, QA must empirically RE-RUN
+    the full canonical-leak measurement (all 117/633 canonical rows the
+    naive sweep hit, per the M-R12 measurement archived in the panel log)
+    against the DISPATCHED pipeline to confirm the by-construction claim
+    holds for the whole population -- never assume it from this test
+    alone.
+    """
     from app.definition_links.ingest import ingest_wiki_law
     from app.definition_links.pipeline import run_definition_linking
 
@@ -246,7 +300,7 @@ def test_documented_residual_a_single_bare_canonical_definition_is_captured_as_l
         db_session,
         repository_id=m["repository_id"],
         matter_id=m["matter_id"],
-        title="Test PR Statute (M-R12 documented residual)",
+        title="Test PR Statute (M-R13 inverted residual guard)",
         wiki_text=wiki_text,
         jurisdiction="US-PR",
     )
@@ -256,19 +310,12 @@ def test_documented_residual_a_single_bare_canonical_definition_is_captured_as_l
     )
 
     matching = [d for d in result["created_definitions"] if "equipo solar" in d["terms"]]
-    assert len(matching) == 1, (
-        "documented residual: 'equipo solar' should still be captured "
-        f"(inertly local-scoped) -- got {result['created_definitions']!r}"
-    )
-    assert matching[0]["scope"] == "local"
-    # No USES_DEFINITION assertion should exist for it in THIS matter --
-    # the mechanical-inertness claim the residual's acceptance rests on.
-    uses_edges = [
-        a
-        for a in result["created_assertions"]
-        if a["assertion_type"] == "USES_DEFINITION" and "equipo solar" in a["proposition"]
-    ]
-    assert uses_edges == [], (
-        "the residual capture must be inert (no mention elsewhere in this "
-        f"single-sentence article to link to) -- got {uses_edges!r}"
+    assert not matching, (
+        "Option A (shipping this residual as an accepted local-scope "
+        "capture) was overruled by ruling M-R13 / program Option D -- "
+        "'equipo solar' must NOT be captured as scope=local by the "
+        "currently-registered PR rules. This assertion is vacuous today "
+        "(nothing registered can capture it at all) and becomes a real "
+        "guard once item 18c is rebuilt post-dispatch -- see this test's "
+        f"own docstring. Got created_definitions={result['created_definitions']!r}"
     )

@@ -4246,3 +4246,152 @@ and `dev_complete_items: 14` (the previously-recorded 10 + this cycle's 4).
 Flagging honestly: the inherited 10 is not something I independently
 re-audited across cycles 1-3, so treat 14 as a reconciliation of the
 existing record, not a fresh count. Worth QA confirming.
+
+---
+
+## 2026-08-04 — Planner: cycle-5 test re-partition pass (bounded, pre-QA) —
+residual test inverted, 4 deferred REDs marked xfail, 30 held REDs verified untouched
+
+Read the contract's `## M-R13` and `## Dev Complete`, plus the log's last
+three entries (Option-D/M-R13 ruling, cycle-5 Developer-verification entry,
+and the cycle-5 inertness-premise-falsified escalation) before touching
+anything. Two things only, both tests, zero `backend/app/**` edits
+(`git diff --stat -- backend/app/` empty, confirmed below).
+
+### Baseline reproduced before touching anything
+
+`backend/.venv/bin/pytest backend/tests -q` → **35 failed, 910 passed, 8
+xfailed** — matches the contract and the manager's verification exactly.
+Individually re-ran the 5 targets to confirm their exact failure mode
+before deciding how to mark each (not assumed from the contract's prose):
+`TestExtractInlineLocalDefinitions` (3) — `ImportError`;
+`test_unions_the_new_inline_scan` (1) — `AssertionError` (`assert False`,
+empty candidate set); `test_documented_residual_...` (1) — `AssertionError`
+(`len(matching) == 1` against `matching == []`).
+
+### (1) `test_documented_residual_...` — INVERTED, not deleted
+
+`backend/tests/integration/test_pr_profile_scope_triggers_live_pipeline_
+cycle5.py::test_documented_residual_a_single_bare_canonical_definition_is_
+captured_as_local_scope_not_law_wide_live` asserted `STATE_PR_LEY_133_1979_
+ART1` ('equipo solar') IS captured `scope="local"` — Option A, overruled.
+Renamed to `..._is_not_captured_as_local_scope_live`, inverted to
+`assert not matching`, and rewrote the docstring to (a) name the M-R13/
+Option-D reversal explicitly, (b) label it VACUOUS TODAY (nothing
+registered for `"US-PR"` can capture this row at all, so `not matching`
+holds trivially — verified: live run shows `matching == []`, not a
+contrived pass), and (c) state the condition that makes it real: once
+core's dispatch lands AND a future cycle builds/registers `extract_
+inline_local_definitions` (18c), Option D's own reasoning says this
+specific row must STILL come back empty (canonical rows will route
+through `pipeline.py`'s `if` branch by then and never reach this seam) —
+so the assertion becomes a genuine invariance guard at that point, not
+just a placeholder. Also amended the module docstring's "Documented
+residual, NOT eliminated... accepted" paragraph (Option A's framing) with
+a dated AMENDED note pointing at the reversal, rather than leaving a
+module-level narrative that contradicts the test directly below it.
+
+**Chose invert over delete** because deleting would erase the only record
+of why this specific row (`STATE_PR_LEY_133_1979_ART1`) matters and what
+it must keep proving later — the same reasoning M-R13's own ruling gave
+for retaining the M-R12 guard measurement instead of discarding it.
+
+### (2) Three deferred-18c groups — marked `xfail(strict=True, raises=...)`
+
+**Judgment call (explicitly mine to make, per the brief):** chose strict
+xfail with `raises=` PINNED to each test's exact currently-observed
+exception type, over a plain RED with a loud comment. Reasoning:
+
+- The suite already has two live xfail conventions here — QA's finding-5
+  (`xfail(strict=True)`, "Developer/Planner design choice, not
+  prescribed") and the core-gated P1 end-to-end test
+  (`xfail(strict=False, raises=AssertionError)`, "re-run once core
+  lands"). Neither matches exactly (18c isn't just "waiting for core to
+  land" — even post-dispatch it still needs a Developer to actually BUILD
+  `extract_inline_local_definitions`), so I used `strict=True` (an early
+  XPASS — someone building it ahead of the ruling — should be loud, same
+  as the finding-5 precedent) combined with `raises=` (the core-gated
+  precedent's own device) pinned to the specific exception each test
+  raises today.
+- **Directly tested the "xfail can hide a genuine regression" risk the
+  brief named**, rather than asserting it away: wrote a throwaway probe
+  test (`xfail(strict=True, raises=ImportError)` around a body that
+  raises `ValueError` instead) in the scratchpad, ran it, confirmed
+  pytest reports a hard **FAILED**, not a silently-absorbed XFAIL, when
+  the exception type doesn't match. Deleted the probe after confirming.
+  This is why `raises=` is load-bearing here, not decorative: an
+  unrelated future regression (e.g., a fixture rename breaking these
+  tests via `FileNotFoundError`) still surfaces as a hard failure, only
+  the SPECIFIC currently-diagnosed failure mode is absorbed.
+- Net effect on suite shape: the 30 held REDs (core-dispatch-gated) and
+  the 4 newly-xfailed 18c REDs are now visually distinct in one run —
+  `pytest -q`'s FAILED list becomes exactly the 30 held items, nothing
+  else. I read this as a feature for QA (the brief's own stated goal —
+  "QA must not spend a cycle rediscovering this"), not just a cosmetic
+  win; the `strict=True`+`raises=` combination is what keeps it honest
+  rather than a suite dressed up to look greener than it is.
+
+Applied class-level `@pytest.mark.xfail(strict=True, raises=ImportError,
+reason=...)` to `TestExtractInlineLocalDefinitions` (all 3 methods share
+the same import-time failure) and a method-level
+`@pytest.mark.xfail(strict=True, raises=AssertionError, reason=...)` to
+`test_unions_the_new_inline_scan`. Every reason string names both required
+facts verbatim: item 18c deferred by ruling M-R13/program Option D, and
+the STANDING DUTY — QA must empirically re-run the canonical-leak
+measurement against the dispatched pipeline once 18c is rebuilt, never
+assume the by-construction claim. Added a `## CYCLE-5 STATUS` section to
+the module docstring making the same point once, so the per-test reason
+strings can stay reasonably short without losing the full argument.
+
+### Suite before/after, every delta reconciled
+
+| | failed | passed | xfailed | total |
+|---|---|---|---|---|
+| Before | 35 | 910 | 8 | 953 |
+| After | 30 | 911 | 12 | 953 |
+
+Deltas: `test_documented_residual_...` FAILED→PASSED (inverted, now
+trivially true): −1 failed, +1 passed. `TestExtractInlineLocalDefinitions`
+(3) FAILED→XFAILED: −3 failed, +3 xfailed. `test_unions_the_new_inline_
+scan` (1) FAILED→XFAILED: −1 failed, +1 xfailed. `35 − 1 − 3 − 1 = 30`;
+`910 + 1 = 911`; `8 + 3 + 1 = 12`. Total collected (953) unchanged —
+no test added, removed, or skipped-from-collection. Reproduced live
+(`backend/.venv/bin/pytest backend/tests -q` → `30 failed, 911 passed,
+12 xfailed`), not just arithmetic.
+
+### Constraints verified, not assumed
+
+- **30 held REDs byte-untouched**: `git diff --stat` individually against
+  all 6 held files (`bare_term_heading_cycle4.py`,
+  `cycle4_marker_gate_and_residue.py`,
+  `derived_heading_definitions_cycle4.py`, `footer_artifact_cycle4.py`,
+  `ordinary_misses_cycle4.py`, `scope_cycle4.py`) → **empty, all six**.
+  They still fail for their original core-dispatch-gated reasons (visible
+  in the full-suite FAILED list above, unchanged names).
+- **No GREEN test weakened**: `git diff` on both touched files shows only
+  (a) docstring/comment additions, (b) new `xfail` decorators on tests
+  that were already RED, and (c) the one deliberate inversion in (1).
+  Zero edits inside any test body that was passing before this pass —
+  confirmed by reading both full diffs, not just the stat summary.
+  `TestExtractLocalScopeDefinitionsSeam::test_unions_the_local_trigger_
+  extractor` and `test_still_does_not_swallow_the_gender_disclaimer_row`
+  (both GREEN before, both untouched) still PASSED in the file-level run.
+- **`backend/app/**` untouched**: `git diff --stat -- backend/app/` empty.
+- **No fixtures touched**: `git diff --stat -- backend/tests/fixtures/`
+  empty. No new fixture rows needed for a re-partition pass.
+- **No corpus download**: neither edit touches I/O; both tests still read
+  only the already-vendored JSON fixtures via existing fixtures.
+
+### Nothing to escalate
+
+Both tasks were mechanical once the failure modes were verified live —
+no test turned out to require touching a forbidden file, no test looked
+wrong or contradictory to the ruling, and the "why isn't the world already
+broken" check had nothing to bite on here (nothing downstream was claimed
+broken). The one open judgment call (xfail vs. plain RED) is recorded
+above with reasoning, per the brief's explicit invitation to make that
+call rather than default to the safest-looking option.
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`.
