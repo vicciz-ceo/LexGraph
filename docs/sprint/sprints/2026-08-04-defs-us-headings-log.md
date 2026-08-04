@@ -1146,3 +1146,62 @@ All commits on `claude/defs-us-headings`. This report is doc-only
 role separation held throughout (I read and analyzed, but wrote no
 test/fixture files, since every finding above is reported for the Planner to
 turn into RED tests, not something QA authors itself).
+
+---
+
+## 2026-08-04 — Manager verdict on QA cycle 1: BOUNCE. U4 fails.
+
+QA (Sonnet/high — adversarial verification + per-row legal-text judgement;
+Haiku considered, rejected) delivered at `6a50349`, doc-only. **Role
+separation held**: `git diff --stat 1ce38e7...HEAD -- backend/app/` is empty;
+QA touched no implementation.
+
+**The manager re-ran QA's six load-bearing claims directly against the shipped
+module. All six reproduced exactly** — "QA said so" is not evidence, so this
+was checked, not accepted:
+
+| Claim | baseline | new rule | expected | result |
+|---|---|---|---|---|
+| BUG1 CT interior period | False | False | False | CONFIRMED |
+| BUG2 MO dash after `defined` | False | False | False | CONFIRMED |
+| BUG3 MO preposition across dash | False | False | False | CONFIRMED |
+| BUG4 NC `/`-joined | False | False | False | CONFIRMED |
+| BUG5 WI `(Definitions)` | False | False | False | CONFIRMED |
+| **FP** ME "definition of" + article | False | **True** | True | **CONFIRMED** |
+
+### Manager ruling H-R7 — this is a defect bounce, not scope creep
+
+BUG1–BUG5 are **not** new rules, new families, or new precision trade-offs.
+Each is a place where a rule the sprint **already committed to shipping**
+silently fails to fire on a real, common drafting shape squarely inside its
+own stated intent — a tokenizer/guard implementation gap. With **0 NO verdicts
+across all 556 bug-pattern rows** and 139+ confirmed YES read from real
+bodies, these are genuine misses under the director's absolute zero-miss bar.
+They go back to the Developer as a normal QA cycle. The ME false positive is
+a precision defect in the same module and is fixed in the same cycle.
+
+Gates U3, U5 (regression), U6 stand CONFIRMED by QA's independent
+re-measurement. **U4 FAILS.** `qa_cycles: 1`; items 1–2 return to in-progress.
+
+### What QA got right that matters beyond this sprint
+
+- It **reproduced 22,228 / 20,307 / 91.4% and the WA/FL/NY figures on
+  independently written code** — that is now three agents agreeing to the row.
+- It **verified the scout arithmetic instead of assuming it**: shipped union
+  20,307 − conservative bundle 19,452 = 855 = R-VERB-extended(732 of 765) +
+  R-TRUNC(117) + R-MISSPELL(6), overlap 33, **zero unexplained**.
+- It confirmed the module's *restraint* is correct where it matters: 10/10 NO
+  on morphology noise, 15/15 NO on "authority to define" delegation clauses,
+  and it correctly does NOT chase pension-law jargon (`"defined benefit
+  plan"`), which dominates the raw `defined`-containing bucket and would have
+  been a precision disaster.
+
+### Routed onward (not this sprint's work)
+
+- **~36 Connecticut rows whose `text` column appears to omit subsection (a)**
+  entirely (bodies starting at `(b)`, cross-referencing an absent `(a)`) —
+  a corpus data-quality gap, not a matcher gap. → program data-quality list.
+- **35 newly-recognized rows whose body is exactly `"Repealed."`** plus ~62
+  more sub-40-character stubs — the same textually-correct/zero-value
+  phenomenon already documented for baseline (341 rows). Not a defect;
+  recorded so it is not later mistaken for one.

@@ -13,8 +13,8 @@ evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 9
 completed_items: 0
-dev_complete_items: 2
-qa_cycles: 0
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
