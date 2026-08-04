@@ -62,6 +62,25 @@ schemes") -- the leading lookbehinds on `_VERB_EXTENDED_RE` fix it. `for`
 independently measures ~89% precision (P-R2 trade, dev cycle-3 report,
 consistent with QA's own ~86%) -- shipped, not materially below H-R9's bar.
 
+Cycle 4 (director ruling D-DF, program ruling P-R8): `defined for` -- one
+alternation of R-VERB-extended's `for|as|term` connector whitelist -- is
+capture-worthy only when the BODY also carries a self-definition marker
+(two independent human reads plus the manager's own full-population scan
+all landed the bare `for` shape below every other shipped rule's ~90%+
+precision floor). `matches_heading_variant_unconditional` is today's
+family-4 union with the `for` alternation removed; `matches_defined_for_
+heading` is that alternation alone (same leading negation lookbehinds);
+`defines_in_body` is the new gate, consumed via the now-shipped
+`HeadingRule.body_confirms` field. `matches_heading_variant` keeps its
+full historical meaning unchanged (`_VERB_EXTENDED_RE` still includes
+`for`) -- it is no longer what gets registered directly, but stays a
+correct "is this heading a family-4 shape at all" predicate, pinned equal
+to `matches_heading_variant_unconditional(h) or matches_defined_for_heading(h)`
+for every heading. See `test_definition_links_us_heading_variants_d_df.py`'s
+module docstring for the full design rationale (why two rules not one, why
+registration order/narrowness matters under either "first-positive-wins"
+dispatch reading).
+
 Per the seam published by `claude/defs-core-scope` (`## Seam spec (published)`,
 "Seam 2 -- per-jurisdiction rule registry"), a registered `HeadingRule.matches`
 callable is consulted ONLY after baseline's own `is_definitions_heading` has
@@ -169,6 +188,61 @@ _VERB_EXTENDED_RE = re.compile(
     r"(?<!not )(?<!never )(?<!longer )\bdefined\b(?:\s*[;:,.]|\s*(?:[–—]|-{2,})|\s+-(?!-)|\s+(?:for|as|term)\b)", re.IGNORECASE
 )
 
+# Cycle 4, D-DF: the SAME alternation as `_VERB_EXTENDED_RE` with the `for`
+# branch removed -- `as`/`term`/punctuation/dash forms are untouched. This is
+# what `matches_heading_variant_unconditional` uses in place of the full
+# `_VERB_EXTENDED_RE` (see module docstring's "Cycle 4" paragraph).
+_VERB_EXTENDED_UNCONDITIONAL_RE = re.compile(
+    r"(?<!not )(?<!never )(?<!longer )\bdefined\b(?:\s*[;:,.]|\s*(?:[–—]|-{2,})|\s+-(?!-)|\s+(?:as|term)\b)",
+    re.IGNORECASE,
+)
+
+# Cycle 4, D-DF: exactly the alternation split OUT of R-VERB-extended above
+# -- `defined` immediately followed by the literal connector word `for`.
+# Same leading negation lookbehinds as `_VERB_EXTENDED_RE` (H-R9 -- they
+# fixed three real false positives and must keep applying to this shape).
+_VERB_FOR_RE = re.compile(r"(?<!not )(?<!never )(?<!longer )\bdefined\b\s+for\b", re.IGNORECASE)
+
+# --- D-DF's `defines_in_body` self-definition-marker predicate ----------
+#
+# A quoted TERM -- straight or curly DOUBLE quotes, or curly single quotes --
+# directly followed, or after a short intervening "as used in .../for (the)
+# purpose(s) of ...," lead-in clause (on either side of the quote) and/or a
+# comma, by the defining verb `means`/`mean` or the phrase `is defined as`.
+# A straight apostrophe (') is deliberately EXCLUDED from the quote-char
+# classes: it is indistinguishable from a contraction/possessive in running
+# prose ("individual's", "owner's"), and the RED test's own "Known limits"
+# section confirms single-quote forms are untested by the pinned fixture --
+# so narrowing to double quotes (plus unambiguous curly single quotes) costs
+# no pinned behavior while avoiding a real false-positive source.
+#
+# The two "lead-in on either side" alternatives cover both real shapes seen
+# in the corpus: lead-in BEFORE the quote ("As used in KRS 214.290 to
+# 214.310, "mattress" means ...") and lead-in AFTER the quote, before the
+# verb ("Blasting agent," as used in this article, means ...").
+#
+# Deliberately conservative (see module docstring / RED test's "Known,
+# honestly-stated limits"): only looks at what comes IMMEDIATELY (modulo the
+# whitelisted lead-in) after the quoted term's closing quote -- a
+# cross-reference verb ("has the meaning ascribed to...", "is defined IN
+# ...") sits right there instead of `means`/`is defined as` and so never
+# matches. Misses defining verbs other than `means`/`mean`/`is defined as`
+# (`includes`, `refers to`, `is a`, ...) by design -- not pinned either
+# direction, a real implementation may reasonably go either way.
+_QUOTE_OPEN_CHARS = "\"‘“"
+_QUOTE_CLOSE_CHARS = "\"’”"
+_LEAD_IN_CLAUSE_RE = (
+    rf"(?:as used in|for (?:the )?purposes? of)\b[^{_QUOTE_OPEN_CHARS}{_QUOTE_CLOSE_CHARS},]{{0,60}}"
+)
+_DEFINING_VERB_RE = r"(?:means?|is\s+defined\s+as)\b"
+_SELF_DEFINITION_RE = re.compile(
+    rf"(?:{_LEAD_IN_CLAUSE_RE}\s*,?\s*)?"
+    rf"[{_QUOTE_OPEN_CHARS}][^{_QUOTE_OPEN_CHARS}{_QUOTE_CLOSE_CHARS}]{{1,80}}[{_QUOTE_CLOSE_CHARS}]"
+    rf"\s*,?\s*(?:{_LEAD_IN_CLAUSE_RE}\s*,?\s*)?"
+    rf"{_DEFINING_VERB_RE}",
+    re.IGNORECASE,
+)
+
 
 def _strip_leading_noise(heading: str) -> str:
     m = _LEADING_NOISE_RE.match(heading)
@@ -270,6 +344,14 @@ def _rule_verb_extended(heading: str) -> bool:
     return bool(_VERB_EXTENDED_RE.search(heading))
 
 
+def _rule_verb_extended_unconditional(heading: str) -> bool:
+    """Cycle 4, D-DF: same as `_rule_verb_extended` but via
+    `_VERB_EXTENDED_UNCONDITIONAL_RE` -- every R-VERB-extended shape except
+    the `for` connector, which is gated separately (`matches_defined_for_
+    heading` below)."""
+    return bool(_VERB_EXTENDED_UNCONDITIONAL_RE.search(heading))
+
+
 def _rule_trunc(heading: str) -> bool:
     """R-TRUNC: the last tail token is a verified non-English strict
     prefix of "definitions" (source-data truncation, not a drafting
@@ -286,11 +368,18 @@ def _rule_misspell(heading: str) -> bool:
 
 
 def matches_heading_variant(heading: str) -> bool:
-    """True when `heading` matches any of the six family-4 rules above.
-    Callers are expected (per the seam's baseline-first/registry-second
-    contract) to consult this only after `us_profile.is_definitions_heading`
-    has already returned False for the same heading -- see module
-    docstring."""
+    """True when `heading` matches any of the six family-4 rules above,
+    UNCHANGED historical meaning (cycle 4, D-DF): the full union, still
+    INCLUDING the `for` connector alternation via `_rule_verb_extended`. No
+    longer what gets registered directly (see `matches_heading_variant_
+    unconditional` / `matches_defined_for_heading` below and module
+    docstring's "Cycle 4" paragraph) but kept as a correct, useful "is this
+    heading a family-4 shape at all" predicate -- pinned equal to
+    `matches_heading_variant_unconditional(h) or matches_defined_for_heading(h)`
+    for every heading. Callers are expected (per the seam's baseline-first/
+    registry-second contract) to consult this only after `us_profile.
+    is_definitions_heading` has already returned False for the same
+    heading -- see module docstring."""
     return (
         _rule_sec(heading)
         or _rule_mid(heading)
@@ -301,4 +390,56 @@ def matches_heading_variant(heading: str) -> bool:
     )
 
 
-register_heading_rule(HeadingRule(jurisdiction_codes=("US-*",), matches=matches_heading_variant))
+def matches_heading_variant_unconditional(heading: str) -> bool:
+    """Cycle 4, D-DF: the union of R-SEC, R-MID, R-VERB-bare,
+    R-VERB-extended-minus-`for`, R-TRUNC, R-MISSPELL -- every family-4 shape
+    EXCEPT the `defined for` connector, which is gated on `defines_in_body`
+    instead (see `matches_defined_for_heading`, registered separately
+    below). This is the rule actually registered with `body_confirms=None`."""
+    return (
+        _rule_sec(heading)
+        or _rule_mid(heading)
+        or _rule_verb_bare(heading)
+        or _rule_verb_extended_unconditional(heading)
+        or _rule_trunc(heading)
+        or _rule_misspell(heading)
+    )
+
+
+def matches_defined_for_heading(heading: str) -> bool:
+    """Cycle 4, D-DF: NARROW predicate, true iff `defined` is immediately
+    followed by the literal connector word `for` -- exactly the alternation
+    split out of `matches_heading_variant_unconditional`. Registered with
+    `body_confirms=defines_in_body`, so a match here only counts once the
+    body also carries a self-definition marker."""
+    return bool(_VERB_FOR_RE.search(heading))
+
+
+def defines_in_body(body: str) -> bool:
+    """Cycle 4, D-DF's self-definition-marker predicate -- see the
+    `_SELF_DEFINITION_RE` block above and the RED test file's module
+    docstring for the full behavioral spec this reproduces. Scans the FULL
+    body via `re.search` (not anchored or prefix-limited): a real pinned
+    marker can sit ~1500 chars in (the CT `31-232l` "suitable work" row)."""
+    return bool(_SELF_DEFINITION_RE.search(body))
+
+
+# Cycle 4, D-DF: TWO registrations, in this exact order -- unconditional
+# first (every family-4 shape except `defined for`, body_confirms left at
+# its default None), then gated second (the `defined for` shape alone,
+# body_confirms=defines_in_body). Order and rule-2 narrowness both matter
+# for dispatch safety under either plausible "first-positive-wins" reading
+# -- see module docstring's "Cycle 4" paragraph and the RED test files'
+# module docstrings for the full rationale. Replaces the single
+# `register_heading_rule(HeadingRule(..., matches=matches_heading_variant))`
+# call this module shipped before D-DF.
+register_heading_rule(
+    HeadingRule(jurisdiction_codes=("US-*",), matches=matches_heading_variant_unconditional)
+)
+register_heading_rule(
+    HeadingRule(
+        jurisdiction_codes=("US-*",),
+        matches=matches_defined_for_heading,
+        body_confirms=defines_in_body,
+    )
+)
