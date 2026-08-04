@@ -210,10 +210,35 @@ branch rebasing onto it)
    known heading-miss rates (recorded in the mandate) must move; report
    the new rate per state, not just the aggregate.
 
+### RESOLVED by program-manager ruling — U2 known limitation (Option C)
+
+**Program manager ruling, 2026-08-04: Option C accepted.** Ship the verified
+recall win; record the 10 enumerated rows as a NAMED KNOWN LIMITATION; the
+scope-model gap is routed to the core panel. **Seam v2 will carry a generic
+`(unit_kind, unit_value)` scope mechanism**, which may make these 10
+expressible — **recheck once core pushes seam v2; if expressible, capturing
+their true scope becomes a normal sprint item, not a limitation.**
+
+**U2 KNOWN LIMITATION — the complete affected set (10 rows, 0.05% of the
+20,308 newly recognized; not a sample):**
+
+`STATE_AK_T13_C13.06_S13.06.050` (multi-chapter range `AS 13.06 — AS 13.36`),
+`STATE_CT_T12_C202_S12-35b`, `STATE_KY_TIII_C17_S17.185`,
+`STATE_KY_TXIII_C156_S156.106`, `STATE_KY_TXXI_C246_S246.420`,
+`STATE_KY_TXI_C139_S139.486`, `STATE_NJ_T17_C35_S35-23`,
+`STATE_TN_T6_C51_S6-51-101`, `STATE_UT_T78A_S78A_5_201`,
+`STATE_VA_T8.01_C1_S8.01-2`.
+
+These headings are correctly RECOGNIZED (U1); their declared scope is not
+expressible in the seam's current 2-value model (`chapter`/`law-wide`), so
+they take whatever `determine_scope` computes — recorded here rather than
+passed off as correct. Not new exposure: the same shapes occur in headings
+the baseline already recognized before this sprint.
+
 ### Not a dev/QA item — program-level escalation, tracked here so it isn't
 lost
 
-9. **U2 scope-seam gap for scope-unit-naming headings** (e.g. AK's real
+9. **[RESOLVED — see the ruling above] U2 scope-seam gap for scope-unit-naming headings** (e.g. AK's real
    `"General definitions for AS 13.06 — AS 13.36."`, `STATE_AK_T13_C13.06_S13.06.050`
    — a genuine family-4 R-MID capture). The published core seam's
    `determine_scope` returns only `"chapter" | "law-wide"` for the

@@ -688,3 +688,35 @@ Manager's lean recorded here and forwarded: ship Phase A, record these 10
 `act_id`s as a named known limitation, and route the scope-model question to
 core — do NOT hold a 20,307-row correctness win for a 10-row modelling gap,
 and do NOT let a silently-wrong "law-wide" stamp pass unrecorded.
+
+---
+
+## 2026-08-04 — Program-manager ruling on U2 + scout Round 2 received
+
+**Ruling: Option C accepted.** Ship the verified recall win; the 10 enumerated
+`act_id`s are recorded in the contract as a named known limitation; the
+scope-model gap is routed to the core panel. **Seam v2 will carry a generic
+`(unit_kind, unit_value)` scope mechanism** — this panel must **recheck the 10
+rows once core pushes v2**; if they become expressible, stamping their true
+scope is a normal item, not a limitation. Routings accepted at program level
+(verb-form bodies → markers; heading-absence populations → preamble; CO
+truncated titles + repealed stubs → data-quality list).
+
+**Scout Round 2 did return** (to the program manager, not to this panel).
+Its results are an INDEPENDENT cross-check of the shipped rule set:
+
+| Scout Round-2 result | Bearing on what we shipped |
+|---|---|
+| `True→False` flips = **0** across all rules | Confirms ruling H-R4's structural claim on real data |
+| R-SEC 81 flips, R-COLON 31 — clean and **disjoint** | Matches the Planner's per-rule recall exactly |
+| R-MID precision **16/20 YES** (1 NO = a repealed stub; 3 unverifiable at 400 chars) | R-MID is a good trade — shipped |
+| R-VERB-EXT delta **16/20 YES** | R-VERB-extended is a good trade — shipped |
+| **R-MID-NOPREP and the preposition cluster ≈10–15% precision**; the `of`-exclusion protects ~90% | **Independent confirmation that keeping the preposition exclusion was correct.** The shipped module keeps it. Had we "fixed" the preposition rule to chase 287 rows, we would have bought ~30 real captures for ~257 false ones |
+| Conservative bundle union 19,452 / 22,228 | Our shipped 6-rule union is **20,307** — the difference is R-VERB-extended (765), R-TRUNC (117) and R-MISSPELL (6) minus overlap, all three of which the scout's conservative bundle excluded by construction. **QA must reconcile this arithmetic rather than assume it.** |
+
+Scout artifacts handed to QA to RE-RUN (not re-derive): `round2_rules.py`,
+`round2b_sample.py`, `round2_results.json`, `round2b_samples.json` in the
+session scratchpad.
+
+Main-checkout cleanliness independently confirmed by the program manager.
+One-writer-per-worktree remains absolute.
