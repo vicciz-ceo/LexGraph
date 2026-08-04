@@ -85,7 +85,22 @@ def test_ms_shall_have_the_meaning_ascribed_herein_is_captured(
         db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
     )
 
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
+    # `.strip()` here is a TEST-SIDE WORKAROUND for a routed production
+    # defect, not a resolution of it (manager ruling M-R32, `-log.md`):
+    # `STATE_MS_T45_C10_S34-1`'s real body uses curly quotes with literal
+    # internal padding ("“ Conviction ”", "“ Registrant ”"), and
+    # `us_profile._leading_quote_candidate` (the primary extractor MS's
+    # numbered blocks route through) does `term = term_match.group(1)`
+    # with NO `.strip()`, so terms arrive padded (`' Conviction '`). The
+    # inline fallback DOES strip, but never runs here because the primary
+    # extractor already produced candidates. This is frozen production
+    # code for this sprint's panel (`us_profile.py` is out of scope) --
+    # the missing `.strip()` is on the program's core-follow-on-2 list for
+    # a consolidated core micro-sprint. Stripping only on the TEST side
+    # (matching the convention `test_us_body_preamble_capture_red.py`'s
+    # sibling MS test already uses) keeps this test asserting real
+    # capture without silently treating the padding defect as fixed.
+    created_terms = {t.strip() for d in result["created_definitions"] for t in d["terms"]}
     assert expected_terms <= created_terms, (
         f"the real production pipeline recognized ZERO of {act_id}'s real "
         "'For purposes of this chapter... the following terms shall have "

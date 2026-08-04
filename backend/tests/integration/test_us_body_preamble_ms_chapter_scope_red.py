@@ -131,7 +131,21 @@ def test_chapter_scoped_ms_definition_links_a_same_chapter_use_but_not_a_differe
     # empty -- see this sprint's capture tests -- so this whole test is RED
     # for the same underlying reason before it can even reach its
     # scope-specific assertions).
-    registrant_defs = [d for d in link_result["created_definitions"] if "Registrant" in d["terms"]]
+    #
+    # `.strip()` here is a TEST-SIDE WORKAROUND for a routed production
+    # defect, not a resolution of it (manager ruling M-R32, `-log.md`):
+    # `STATE_MS_T45_C10_S34-1`'s real body uses curly quotes with literal
+    # internal padding ("“ Registrant ”"), and `us_profile._leading_quote_
+    # candidate` (the primary extractor MS's numbered blocks route
+    # through) does `term = term_match.group(1)` with NO `.strip()`, so
+    # `d["terms"]` arrives as `[' Conviction ', ' Registrant ', ...]`, not
+    # `'Registrant'`. `us_profile.py` is frozen for this sprint's panel --
+    # the missing `.strip()` is on the program's core-follow-on-2 list.
+    # Matching the convention `test_us_body_preamble_capture_red.py`'s
+    # sibling MS test already uses.
+    registrant_defs = [
+        d for d in link_result["created_definitions"] if "Registrant" in {t.strip() for t in d["terms"]}
+    ]
     assert len(registrant_defs) == 1
     assert registrant_defs[0]["scope"] == "chapter"
 

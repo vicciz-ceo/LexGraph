@@ -2319,3 +2319,97 @@ I only confirmed the whole test now passes.
 Diff so far: `backend/tests/integration/test_definition_links_us_preamble_
 family.py` only. Committing and pushing this amendment now, before
 starting amendment 2, per the sole-writer instruction (no batching).
+
+Pushed as `8fa70d6`.
+
+## 2026-08-04 — Planner: amendment 2 (MS padded terms, M-R32)
+
+### P-D2 — `.strip()` added to both MS tests, both scope directions intact
+
+Ran both failing MS tests first to capture the live failure shape, not
+guessed: `test_ms_shall_have_the_meaning_ascribed_herein_is_captured
+[ms-sex-offender-registration]` failed with `got [' Conviction ',
+' Department ', ' Offender ', ' Registrable offense ', ' Registrant ']`
+against a clean `expected_terms` set — exactly the padding M-R32 names.
+`test_chapter_scoped_ms_definition_links_a_same_chapter_use_but_not_a_
+different_chapter_use` failed earlier, at `assert len(registrant_defs)
+== 1` (`0 == 1`), because `"Registrant" in d["terms"]` is an exact-match
+list membership check against a padded-term list — it never reaches its
+own scope-direction assertions.
+
+Amended both, matching the sibling convention already in
+`test_us_body_preamble_capture_red.py::test_ms_as_used_in_this_article_
+the_term_is_captured` (`all_terms = {t.strip() for d in ... for t in
+d["terms"]}`):
+- `test_us_body_preamble_ms_second_convention_red.py`: `created_terms`
+  now built with `{t.strip() for d in ... for t in d["terms"]}`.
+- `test_us_body_preamble_ms_chapter_scope_red.py`: `registrant_defs` now
+  filters on `"Registrant" in {t.strip() for t in d["terms"]}`. Nothing
+  else in this test changed — both scope-direction assertions
+  (`in_chapter_article_id in subject_article_ids` and
+  `out_of_chapter_article_id not in subject_article_ids`) are byte-
+  identical to before my edit and both independently re-verified passing
+  below.
+
+Both amendments carry an explicit in-test comment (not just this log)
+that `.strip()` is a **workaround for a routed production defect, not a
+resolution of it**: `us_profile._leading_quote_candidate`'s primary
+extractor does `term = term_match.group(1)` with no `.strip()`, so MS's
+real curly-quote-padded terms (`"“ Conviction ”"`) arrive padded; the
+inline fallback strips but never runs here because the primary already
+produced candidates. `us_profile.py` stays untouched (frozen to this
+sprint's panel) — the fix is on the program's core-follow-on-2 list, named
+in the comment so a future reader does not mistake the test-side
+`.strip()` for the defect being closed.
+
+Investigated (did not just assume) whether `.strip()` was the ONLY thing
+needed, i.e. whether the padded term also breaks live term-USE matching
+(`find_term_uses`, `\b`-anchored regex) — it does not for this fixture:
+`re.escape(" Registrant ")` keeps the literal leading/trailing spaces in
+the pattern, and because the hand-written "using" row's own prose has
+ordinary single-space word separation ("...A Registrant who fails..."),
+the `\b` boundaries land on the naturally-occurring spaces either side of
+the word, so the match still succeeds today. This is fixture-specific
+luck (a mention directly abutting non-space punctuation would not match),
+not a guarantee — flagged here, not assumed silently, in case a future
+reader treats the passing match as proof the padding is harmless in
+general; it is exactly the "silent under-linking risk" M-R32 already
+named for the general case.
+
+Verified green, both tests, all 3 parametrized cases:
+```
+tests/integration/test_us_body_preamble_ms_chapter_scope_red.py::test_chapter_scoped_ms_definition_links_a_same_chapter_use_but_not_a_different_chapter_use PASSED
+tests/integration/test_us_body_preamble_ms_second_convention_red.py::test_ms_shall_have_the_meaning_ascribed_herein_is_captured[ms-sex-offender-registration] PASSED
+tests/integration/test_us_body_preamble_ms_second_convention_red.py::test_ms_shall_have_the_meaning_ascribed_herein_is_captured[ms-wildlife-fisheries-parks] PASSED
+```
+
+### P-D3 — Full suite: 3 failed / 818 passed, all 3 the documented markers-sprint REDs
+
+Full `pytest -q` from `backend/`: **3 failed, 818 passed** (was 815
+passed / 6 failed before either amendment; 821 total both times — no test
+added, removed, or newly regressed). All three failures are the exact
+three named in this sprint's expected end state, each confirmed failing
+for the right reason (`got []` / membership-in-empty-set, i.e. the rule
+correctly does not fire for an unquoted entry, not a wrong-reason
+failure):
+- `test_ne_unquoted_term_means_needs_markers_sprint_too` —
+  `AssertionError: assert 'Health insurance plan' in set()`.
+- `test_sd_unquoted_comma_term_needs_markers_sprint_too` —
+  `AssertionError: assert 'loan processor or underwriter' in set()`.
+- `test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_
+  body_preamble_definitions_needs_markers_sprint_too` —
+  `assert {'Account', 'Authorized attorney', 'Child support',
+  'Department'} <= set()`.
+
+No 4th red, and none of the 3 fails on a different assertion than the
+one its own docstring/name already discloses (all three are "the pipeline
+produced nothing for this unquoted row" — a right-reason RED on the
+already-flagged `2026-08-04-defs-us-markers` cross-sprint dependency, not
+a defect in this sprint's rule).
+
+Diff for both amendments combined: `git diff --name-only 92c2b1f HEAD` →
+`backend/tests/integration/test_definition_links_us_preamble_family.py`,
+`backend/tests/integration/test_us_body_preamble_ms_chapter_scope_red.py`,
+`backend/tests/integration/test_us_body_preamble_ms_second_convention_
+red.py`, plus this log file. Tests and docs only — no
+`backend/app/` edit, matching the role boundary.
