@@ -1787,3 +1787,163 @@ NOT pinned; a short correction note was also added under the original M8(a)
 ruling text (not rewritten — the original text stays, a correction is
 appended below it, matching this sprint's own R18 precedent for handling a
 later-corrected finding).
+
+---
+
+## 2026-08-04 — Round 17: QA CYCLE 1 (fresh QA manager). 8/9 PASS, C1 BOUNCED
+
+New QA manager took over from the predecessor's clean exit. Lock acquired
+(`b757cb8`) and pushed BEFORE spawning QA, per harness Phase 4.
+
+### Manager's own inherited-state verification (verify, never trust)
+
+Re-ran the full evaluator myself at `b757cb8` in a fresh QA worktree
+(`/Users/nerya/LexGraph-wt/defs-core-qa`, own venv, verified importing that
+worktree's own code): backend **686 passed / 0 failed**, frontend **25 files /
+165 passed**, `tsc --noEmit` clean. Matches the predecessor's claim exactly.
+
+### QA agent (Sonnet/high; Haiku considered: no — QA is never Haiku)
+
+Branch `claude/defs-core-scope-qa` @ `010e9c1`, merged here as `34a413f`.
+
+**Manager verification of QA's work (mechanical, non-delegable):**
+- `git diff --name-only b757cb8 010e9c1` → 6 files, **all under `backend/tests/`**.
+  Zero production files. Filter for non-test paths returns empty.
+- **Headline run reproduced by me**, plain evaluator, no flags:
+  **`1 failed, 692 passed, 18 warnings in 13.65s`**. The single failure IS
+  QA's own committed C1 RED. Matches QA's claim.
+- **Vacuity spot-read** of the two load-bearing additions (C1 and D-E1),
+  both confirmed non-vacuous — see below.
+
+### VERDICT: 8 of 9 items PASS. C1 FAILS. Sprint bounces to `qa-fail`.
+
+**I1 — BOUNCED (QA-FAIL).** C1 says "Subsection granularity is new design
+work: mentions must be scope-checked below article level," proven live-path
+in BOTH directions. It is **inert on the live path**:
+
+- `matcher._subsection_contains_offset` reads
+  `getattr(article, "subsections", ())`. The real object
+  `run_definition_linking` constructs and passes
+  (`sections.Article`, aliased `MatcherArticle`) is a frozen dataclass with
+  exactly four fields — `number`, `heading`, `body`, `chapter`. It never
+  carries `.subsections` on any code path, so the check returns `any(...)`
+  over an empty sequence → **`False` unconditionally**, for a
+  `scope="subsection"` definition's OWN in-scope mention too, not merely for
+  out-of-scope ones.
+- **No live PRODUCER either**: no rule shipped by this sprint stamps
+  `scope="subsection"` on any candidate.
+- The unit tests that appeared to cover this
+  (`test_definition_links_matcher.py::test_link_articles_to_definitions_respects_subsection_scope_isolation`
+  et al.) pass only via a `SimpleNamespace` stub carrying `.subsections`
+  that the real dataclass does not declare — the same "green test proving
+  the wrong thing" failure class this sprint already hit once at the M10 tie
+  level.
+- **Anchoring is NOT containment.** The one live test touching "subsection"
+  (`test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live`)
+  is a D-ANCHOR *anchoring* test whose definition is `scope="local"`; it only
+  checks which `UnitPath` each mention resolves to. D-ANCHOR is explicitly a
+  retrieval-seam ruling and does not stand in for C1's containment claim.
+
+**RED provenance satisfied** (`2f88060`):
+`test_definition_links_pipeline_scope_seam.py::test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsection_live`
+— registers a throwaway `ScopeTriggerRule` through the real C4 seam, runs
+the real `ingest_wiki_law` + `run_definition_linking`, and fails at the
+WEAKER "at least one USES_DEFINITION exists" assertion, proving total
+inertness rather than mere mis-scoping. Manager-read: non-vacuous; it can
+only go green if live subsection containment actually works.
+
+This is the director's headline requirement (program §Standing constraints,
+"proven live-path in BOTH directions"). It cannot ship as a documented
+limitation.
+
+**I2, I3, I4, I5, I6, I7, I8, I9 — PASS**, each under mutation-test rigor
+(QA temporarily broke the production behavior, confirmed the pinning test
+went RED, restored with `git checkout --`, never `git stash`).
+
+### QA's added tests (all merged, all mutation-proven)
+
+| commit | test | pins |
+|---|---|---|
+| `2f88060` | `..._scope_seam.py::test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsection_live` | C1 subsection containment, live — **the bounce** |
+| `3d896f0` | `test_ingest_us_statutes_i8_ca_content_verification.py` | I8 residual: CA's 21 rows verified by CONTENT, not row count |
+| `bdb20de` | `test_definition_links_pipeline_normalize_dispatch_ak_real_bytes.py` | I9 residual: dispatch against AK's REAL byte family |
+| `8db4a99` | `..._scope_seam.py::test_narrowest_scope_governs_a_local_definition_suppresses_a_same_term_chapter_definition_but_the_chapter_definition_still_fires_where_no_local_one_applies_live` | D-E1 strict (non-tied) case, live, BOTH directions |
+| `010e9c1` | `test_definition_links_pipeline_no_jurisdiction_literals.py` (extended) | C3 guard widened to English literals, not only Hebrew |
+
+Manager vacuity read of `8db4a99` (D-E1): constructs two genuinely
+DIFFERENT-rank definitions (chapter + local) over one chapter; asserts
+article 10's mention links to the local definition ONLY (chapter suppressed)
+AND article 20's mention links to the chapter definition (broader still
+fires where nothing narrower applies). Mutation-proven by QA: removing
+`pipeline.py`'s `min_rank` filter turns it RED. Both directions genuinely
+covered. Confirmed non-vacuous.
+
+### Manager's own independent corpus cross-check (ran in parallel with QA)
+
+The contract's "no local corpus access this worktree" note is **STALE** —
+both corpora are on this machine and were used:
+IL `/Users/nerya/AI for others/israeli-laws-wiki` (6,133 `.wiki` files);
+US `~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad`.
+
+**Corpus shape clarified:** 105 parquet files = **52 constitutions + 53
+statutes** (not 105 statute files). Statute rows total 2,038,247.
+
+**Residual (a) — CA and AK pins ARE different byte families. CONFIRMED with
+data, and the AK family was previously mis-stated program-wide:**
+
+| file | rows | literal `\n` | `â€`-style mojibake | real curly quotes |
+|---|---|---|---|---|
+| us_ny_statutes | 40,102 | 40,102 | 0 | 0 |
+| us_ca_statutes | 161,429 | 21 | 0 | **54,988** |
+| us_ky_statutes | 20,894 | 0 | 2 | 122 |
+| all other statute files | — | 0 | 0 | — |
+
+AK scored ZERO on all three probes, so I inventoried its actual non-ASCII:
+```
+AK rows: 17935
+  U+0093  11804   (cp1252 0x93, left curly double quote, raw control-range)
+  U+0094  11803   (cp1252 0x94, right curly double quote)
+  U+0097   8248   (cp1252 0x97, em dash)
+AK rows w/ curly quotes: 0    w/ literal backslash-n: 0    w/ 'â': 0
+```
+**Program-level fact worth carrying forward: AK's mojibake family is raw
+cp1252 U+0093/U+0094/U+0097, NOT `â€`-style sequences.** A markers-panel
+rule written against `â€` would match 2 rows corpus-wide (both KY) and miss
+all ~32K AK occurrences. `us_profile.py:667-672` already draws this
+distinction correctly and defers the AK family to a jurisdiction-specific
+`normalize_for_parsing` override — exactly the seam I9 exists to expose.
+
+**D-MT-E1 negative check (manager):** `git grep -nE
+"pointer_kind|is_pointer|pointer_type|definition_kind|POINTER|Pointer"` over
+`backend/app` on this branch returns exactly ONE hit — a prose comment at
+`pipeline.py:466`. No schema field, no column, no enum. **Complies.**
+
+### QA gaps QA itself disclosed (now sprint items)
+
+- **Gap 3** — no live US chapter-scope OUT-of-scope EXCLUSION test exists.
+  Folded into I1's proof obligation so the Developer proves both directions.
+- **Gap 5** — seam v2 M4 specified `Definition.scope_value` as a PERSISTED
+  column with a migration; **neither exists**. Currently harmless (nothing
+  reads a persisted `scope_value`), but spec and code disagree. New item I11.
+
+### Process notes recorded
+
+- **CodeGraph's index reflects `main`, not worktree branches.** QA hit this
+  and correctly fell back to direct Read/Grep for branch-divergent files.
+  All future briefs in this program must say: CodeGraph for `main`-state
+  structure and call paths; Read/Grep for branch-divergent source.
+- **QA's I6 corpus measurement was exemplary** — it built an independent,
+  signal-agnostic denominator per P-R7 and *self-caught a grouping error* in
+  its own first pass rather than reporting the convenient number. That
+  methodological honesty is why this bounce is trustworthy; recorded as a
+  credit to the QA record.
+
+### DIRECTOR RULING D-CF (landed during this cycle, recorded here)
+
+**Case-folding stays** (I6's `re.IGNORECASE` fix is NOT reverted) **but
+gains a structural-context guard:** suppress a case-fold match where the hit
+sits inside a structural-reference pattern — a unit word followed by a
+numbering token ("division (ii)", "part (a)", "title 5"). Residual
+false-positive classes escalate with data per D-Q1. Needs a Planner RED test
+first (QA's corpus examples supply the fixture material — the
+"Division"/"division (ii)" case), then Developer implementation. New item I10.
