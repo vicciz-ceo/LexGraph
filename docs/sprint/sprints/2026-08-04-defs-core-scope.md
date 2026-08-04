@@ -830,3 +830,176 @@ the earlier message that implied a stored pointer flag/column:**
   section — under the absolute zero-miss bar this is the only safe
   ordering. The markers panel's classifier must be written to check for
   a pointer-idiom match FIRST (or treat one as a veto), not the reverse.
+
+
+---
+
+## Seam spec v2.2 (published) — unified unit-path model; ONE item escalated, not decided
+
+Director requirement (relayed): connections must be addressable at
+sub-article granularity, recursively nested, and the SAME unit machinery
+must serve scope containment and connection addressing. This section
+unifies v2/v2.1's two half-machineries (`Subsection(label,start,end)` and
+`ScopeUnit`/`structural_units`) into one. Per-jurisdiction "main unit"
+VALUES are explicitly NOT guessed here — the mechanism is designed, the
+data is left for the incoming 4-system research dossier.
+
+### 1. `UnitPath` — one ordered path replaces `ScopeUnit` + `Subsection`
+
+```python
+@dataclass(frozen=True)
+class UnitStep:
+    kind: str    # "part" | "chapter" | "article" | "subsection" | "siman" | ...
+                 # -- a LABEL for provenance/display only, see §3: kind no
+                 # longer drives ranking.
+    value: str   # concrete identifier at that step, e.g. "II", "5", "a"
+
+UnitPath = tuple[UnitStep, ...]   # root-to-leaf, ordered. () means "law-wide".
+```
+
+Replaces `ScopeUnit` (v2 M4) and `Subsection` (v1) as separate types —
+neither is a distinct concept anymore, both were "one step (or a
+contiguous span, for the leaf) in a path from the law's root down to a
+position." `Article.structural_units`/`.subsections` (v1/v2.1 fields) are
+replaced by ONE field: `Article.unit_path: UnitPath` — the path from the
+law's root down to (and including) this article's own step; a mention
+found INSIDE the article additionally extends that path with however
+many further steps (subsection, sub-subsection, ... — arbitrary depth,
+not capped at one level) the position falls under, computed the same
+"fresh every call, never persisted as raw offsets" way `Subsection` was
+in v1 (only step `.value` LABELS are ever persisted, never char offsets).
+
+### 2. Scope containment = prefix matching (replaces `_in_scope`'s branches)
+
+**One predicate, not four special-cased branches:** a definition scoped
+to `definition_path: UnitPath` governs a mention at `mention_path:
+UnitPath` iff `mention_path[: len(definition_path)] == definition_path`
+— `definition_path` is a PREFIX of `mention_path`. `law-wide` (`()`) is
+the empty path — a prefix of everything, for free, no special case.
+`"chapter"`/`"local"`/`"subsection"` (v1/v2) all become ordinary paths of
+length 1/2/3+ under this one rule; nothing about today's IL behavior
+changes VALUE-wise (a `"local"`-equivalent definition's path is still
+exactly `[article:N]`), only the COMPARISON mechanism is now generic.
+
+**M9 (enumerated/ranged scopes) under this model:** a definition's scope
+is a SET of `UnitPath`s, not one — governs a mention iff ANY member path
+is a prefix of `mention_path`. SD's `{3-14-3, 3-14-4}` is
+`{(article:3-14-3,), (article:3-14-4,)}`; AK's chapter range is
+`{(chapter:5,), (chapter:6,), ..., (chapter:9,)}`. Same mechanism as v2.1,
+now expressed as paths instead of tuple-valued legacy fields.
+
+### 3. "Narrowest governs" = longest matching prefix (mostly replaces M4(b)'s rank registry)
+
+**Rank is now path DEPTH** (`len(matched_path)`), compared only ever
+WITHIN one document's own hierarchy (this predicate is never evaluated
+across two different laws, so no cross-jurisdiction rank calibration
+question exists — a real simplification the message's lean predicted,
+verified against how `_in_scope`/`link_articles_to_definitions` are
+actually called: always per-document, per M9/M10's existing design).
+`register_scope_unit_kind(kind, *, rank=...)` (v2 M4(b)) is WITHDRAWN —
+`kind` strings are now provenance/display labels only, never inputs to a
+ranking decision. `rank_for(kind)` is replaced by `len(path)` — no
+registration call needed for a new kind's ranking at all (a strictly
+larger simplification than "register a rank"; a family panel introducing
+a new structural level just emits a longer path, and it is automatically
+narrower).
+
+**M10's tie class survives, now precisely stated as EQUAL-LENGTH,
+DIFFERENT-CONTENT matching prefixes** (e.g. two length-1 paths,
+`(part:II,)` and `(chapter:3,)`, both matching the same mention, from two
+DIFFERENT definitions) — still resolved as "both survive, both get an
+assertion," still the SAME named open conflict class under the director's
+escalate-with-data policy (M10's obligations (a)/(b) are UNCHANGED by
+this unification — the mechanism producing the tie changed, the
+resolution and its recorded status did not).
+
+### 4. `StructuralUnitRule` becomes the one "derive this article's `unit_path`" seam (replaces M11's split machinery)
+
+```python
+@dataclass(frozen=True)
+class StructuralUnitRule:
+    jurisdiction_codes: tuple[str, ...]
+    derive: Callable[[StructuralContext], UnitPath]
+    # Returns the FULL path down to (and including) this article's own
+    # step -- e.g. IL: (chapter:"פרק ו", siman:"ב", article:"34"). Below-
+    # article steps (subsection and deeper) are derived the SAME way, by
+    # the SAME rule kind, called again with the article's OWN body text
+    # to extend the path further per position -- one mechanism, both
+    # above and below the article, exactly as required.
+```
+
+IL input-availability finding from v2.1 §3 stands UNCHANGED (verified:
+`sections.py` already scans `===`-depth headings, just discards anything
+past 2 equals-signs today — one core-owned, additive capture of ALL
+depths makes the full path derivable). US input-availability: still
+UNVERIFIED this session, still explicitly flagged, not guessed.
+
+### 5. Per-jurisdiction "main unit" — mechanism only, values intentionally NOT set here
+
+```python
+class JurisdictionProfile(Protocol):
+    ...
+    main_unit_kind: str   # e.g. "article" -- the level at which an
+                           # ordinary, otherwise-unscoped mention is
+                           # addressed by default. A DECLARED PARAMETER,
+                           # not derived from data in this sprint.
+```
+
+**Deliberately NOT populated with a researched value here.** Today's
+byte-identical-for-IL guarantee (C5) is satisfied by setting
+`HebrewProfile.main_unit_kind = "article"` (matches TODAY's `"local"`
+granularity exactly, zero behavior change) — this is the ALREADY-PROVEN
+value, not a guess about IL's "true" main unit; if the incoming research
+dossier says otherwise for some other purpose, that is a data update to
+this one field, not a mechanism change. `USProfile.main_unit_kind` is
+LEFT UNSET/TBD pending the dossier — explicitly not guessed, per the
+instruction.
+
+### 6. ESCALATION — held, not decided: does a sub-article `USES_DEFINITION` mention anchor need a new persisted entity?
+
+**This is the one fork this Planner will NOT decide unilaterally**, per
+the message's own explicit instruction ("Do NOT build a new persisted
+entity type on your own authority... escalate with the design in hand").
+
+Today: `_create_assertion(assertion_type="USES_DEFINITION",
+subject_entity_type="Article", subject_entity_id=using_article.id, ...)`
+(`pipeline.py`) — the assertion's SUBJECT is the whole `Article` row.
+Recursive sub-article addressing means a mention's TRUE location is
+`(using_article.id, mention_unit_path)` — finer than the row itself.
+Two options, both fully designed, neither built:
+
+- **Option A — text/metadata carry, no schema change.** Keep
+  `subject_entity_type="Article"` / `subject_entity_id=using_article.id`
+  exactly as today (zero schema change, zero frontend impact — proven
+  safe the same way the pointer-definition reuse was verified in v2.1
+  §4). Encode the mention's unit path into the assertion's `proposition`
+  text (already free-text) and/or a new but ADDITIVE, nullable text
+  column on `Assertion` (e.g. `subject_unit_path: str | None`, a
+  serialized path -- same migration precedent as every other additive
+  column this sprint uses). A consumer that cares about sub-article
+  precision reads that column; one that doesn't is completely
+  unaffected. **My lean: this option**, because it is the ONLY one that
+  provably stays inside "backend-only, gates C1-C5" without a new
+  entity/table, and every other addition this sprint has made has held
+  to exactly that additive-column discipline.
+- **Option B — a new persisted sub-article entity** (e.g. a `Unit`/
+  `Subsection` table, FK'd to `Article`, one row per addressable
+  sub-article node), with `subject_entity_type="Unit"` /
+  `subject_entity_id=<that row's id>`. Strictly more queryable/
+  first-class (a UI could deep-link to "article 5(a)(2)" directly), but:
+  a NEW table is a bigger schema commitment than this sprint's other
+  additive columns; it very plausibly needs frontend work to be useful
+  at all (an entity type the UI has never rendered); and it requires
+  MATERIALIZING every mention's sub-article position as its OWN row at
+  pipeline-run time, a new write-path shape, not merely a new column on
+  an existing write.
+
+**Escalating rather than choosing.** Both are internally consistent;
+Option A is cheaper and provably in-scope, Option B is more capable and
+plausibly out-of-scope for a backend-only sprint gated C1-C5. Holding
+Stage B's live-path RED tests for sub-article `USES_DEFINITION`
+ANCHORING specifically (not scope containment, which is unblocked and
+proceeds under §§1-3 above) until this is answered — proceeding with
+every other Stage B item in the meantime (M8(a)/M8(b), rule registry
+existence, C2/C3 profile methods, C4 auto-discovery, scope-containment
+prefix-matching tests) since none of those depend on the answer.

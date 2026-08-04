@@ -725,3 +725,34 @@ core sprint was considered and rejected — the panels would build against an
 addressing model that then changes under them, which is worse than waiting.
 Recorded so the delay to the six parked panels is attributed honestly to a
 director requirement change, not to panel slippage.
+
+### Round 4 — Planner v2.2: unit-path unification + one held escalation
+
+Unified `ScopeUnit`/`structural_units` (v2) and `Subsection` (v1) into one
+`UnitPath` (ordered `UnitStep` tuple) per the director's recursive
+sub-article requirement, relayed mid-flight. Scope containment becomes
+prefix-matching; narrowest-governs becomes longest-matching-prefix (path
+depth), which withdraws M4(b)'s hand-registered rank mechanism as no
+longer needed (kind strings are now labels only) -- a real simplification,
+verified against the actual call pattern (`_in_scope` only ever compares
+paths within one document, so no cross-jurisdiction rank calibration
+question was ever real). M10's tie class survives unchanged in behavior
+and obligations, just restated as equal-length matching prefixes.
+
+**Escalated, not decided:** whether a sub-article `USES_DEFINITION` mention
+anchor needs a new persisted entity (Option B) or can carry its unit path
+as an additive nullable column on the existing `Article`-anchored assertion
+(Option A). My lean is Option A (provably stays backend-only/gates-C1-C5,
+matches every other additive-column decision this sprint has made) but I
+am not building either without an answer, per the explicit instruction not
+to create a new persisted entity type on my own authority. Every OTHER
+Stage B item is unblocked and proceeding in parallel -- only sub-article
+`USES_DEFINITION` anchoring specifically is held.
+
+**Rework of already-written tests:** the 3 matcher tests + 1 profile test
+written just before this message landed (subsection isolation, generic
+`ScopeUnit`/`structural_units` containment, `split_into_subsections`) were
+built against the pre-unification two-mechanism model. Reworking them to
+the `UnitPath`/prefix-matching model next, before writing any further new
+scope-containment tests, rather than leaving stale-model tests in the
+suite alongside the new spec.
