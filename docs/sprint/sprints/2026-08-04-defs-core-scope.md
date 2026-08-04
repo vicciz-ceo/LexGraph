@@ -636,3 +636,197 @@ registered rules unchanged) — this is the stated escape hatch.
   matching) to keep plausible exposure low — but the actual corpus-wide
   measurement this ruling asks for needs a panel/session with corpus
   access. Flagged, not silently skipped.
+
+
+---
+
+## Seam spec v2.1 (published) — folds in M9, M10, M11, pointer definitions
+
+Supersedes v2 §1's AK-range handling; adds three new pieces. Everything
+else in v1/v2 not mentioned here is unchanged.
+
+### 1. Enumerated / ranged scope units (manager ruling M9) — REVERSES v2's AK deferral
+
+**v2's "AK ranges default to `law-wide`" is withdrawn — that was wrong,
+not just conservative.** A law-wide stamp on a chapter-5-9-scoped
+definition doesn't protect recall, it manufactures false
+`USES_DEFINITION` assertions across every OTHER chapter of the law. A
+silent broadening fallback is a false-positive generator, never an
+acceptable default.
+
+**Mechanism (M9, adopted as designed): `scope_value` (and the two legacy
+dedicated fields `source_chapter`/`source_article_number`) may hold
+EITHER a single string OR a tuple of strings, same kind, no new kind
+needed.** SD's `"when used in § 3-14-3 or 3-14-4"` is
+`scope="local", source_article_number=("3-14-3", "3-14-4")`. AK's
+chapter range is `scope="chapter", source_chapter=("5","6","7","8","9")`
+(a rule expands the range to its member values — a range is a compact
+INPUT notation, not a new stored shape). `_in_scope`'s comparison
+becomes: `expected in (actual if isinstance(actual, tuple) else (actual,))`
+— for the ordinary scalar case this is exactly today's `==` check,
+unchanged; the tuple case is purely additive. No new `register_scope_unit_kind`
+call is needed for enumeration itself — "an enumerated scope inherits
+the rank of its members" is automatic, because it's the SAME kind
+string, just a wider value.
+
+**Consequence for M4(c) (a `local` def and a set-valued `local` def
+covering the same article are rank-EQUAL):** this is not a new case —
+it is the ALREADY-PUBLISHED same-rank-tie resolution (§2 below), not a
+second mechanism. No new escalation needed for this specific
+consequence; it falls out of the M10 resolution automatically.
+
+### 2. M4(c) ties — kept as behavior, reclassified as a named open conflict class (manager ruling M10)
+
+**Correction accepted, recorded verbatim so the reasoning going forward
+is right:** v2 justified "both survive" as "not a recall/precision
+trade" because each surviving scope claim is independently true. That
+framing was wrong. The assertion is `USES_DEFINITION` pointing at ONE
+`Definition` row; a mention has exactly one meaning. When two
+same-rank, different-kind (or, per M9, two same-rank enumerated)
+definitions both survive, **one of the resulting assertions is factually
+wrong — we just don't know which.** That is a real false-positive rate,
+not a neutral duplicate.
+
+**Behavior is UNCHANGED — both still survive, both still get an
+assertion** — this is still the correct zero-miss-safe default under the
+director's absolute bar (dropping either risks the real miss; keeping
+both risks a bounded, known-shape false positive). What changes is how
+it's recorded:
+
+- This is now a **named, open conflict class** under the director's
+  standing escalate-with-data policy, not a settled design decision.
+- **Obligation (a), Planner/Stage B:** a RED→pinned test asserting the
+  tie behavior explicitly (both `Definition` rows get a
+  `USES_DEFINITION` assertion when scopes tie at the minimum rank) — so
+  the behavior is deliberate and regression-guarded, not emergent. See
+  `## Stale-pin sweep` / test list below.
+- **Obligation (b), QA-time, NOT this Planner's Stage B work:** measure
+  how often an equal-rank, different-kind (or enumerated-overlap) tie
+  actually occurs on the full corpus once family panels' rules exist,
+  and escalate with that number if material. Recorded here as a named
+  gate for program-close integration QA (alongside M2's `BodyPreambleRule`
+  shadowing gate) — not measured by this Planner, per the instruction not
+  to spend Stage B time on it.
+
+### 3. `StructuralUnitRule` — the missing rule kind that populates `structural_units` (manager ruling M11)
+
+**Gap conceded exactly as raised:** v2 gave family panels a way to
+register a NEW scope-unit KIND (`register_scope_unit_kind`) and a way to
+STAMP a scope onto a definition (`RuleContext`/`ScopeTriggerRule`), but
+no way to PUT the corresponding unit onto the owning ARTICLE — so
+`part`/`subchapter`/`siman`/`chelek` enforcement had no data to compare
+against. Fixed with a 6th rule kind:
+
+```python
+@dataclass(frozen=True)
+class StructuralUnitRule:
+    jurisdiction_codes: tuple[str, ...]
+    derive: Callable[[StructuralContext], tuple[ScopeUnit, ...]]
+
+@dataclass(frozen=True)
+class StructuralContext:
+    article_number: str
+    heading_breadcrumbs: tuple[tuple[int, str], ...]
+    # (depth, heading_text) pairs -- see input-availability note below.
+```
+
+`register_structural_unit_rule(rule: StructuralUnitRule) -> None` in
+`rules/registry.py`, same import-time registration mechanism as the
+other 5 kinds. Consumption: UNION across all matching rules (additive,
+unlike `USES_DEFINITION` attribution — a document legitimately nests
+inside a part AND a chapter simultaneously, both belong in the same
+article's `structural_units` tuple). Core still owns stamping
+`ScopeUnit("chapter", article.chapter)` itself, unconditionally, as
+today; registered rules ADD to that set, never replace it.
+
+**Input availability — verified for IL, NOT verified for US, said so
+rather than guessed (per the explicit instruction):**
+
+- **IL/wiki-sourced:** VERIFIED reachable. `sections.py`'s
+  `_HEADING_BREAK_RE` already matches BOTH `==...==` (2-equals, chapter
+  — currently captured into `.chapter`) AND `===...===` (3-equals,
+  siman — currently matched, then DISCARDED: `parse_articles`'s
+  `break_match.group(2)` is only stored when
+  `len(break_match.group(1)) == 2`). Core's own, one-time,
+  ONE-PLACE change: `sections.parse_articles` additionally accumulates
+  EVERY heading-break line it already scans (any `=` depth, not just 2)
+  into a generic `heading_breadcrumbs: tuple[tuple[int,str],...]` field
+  on `Article`/`MatcherArticle` (default `()`, so every existing
+  `Article(...)` construction site is unaffected — same additive-field
+  safety as `structural_units`). This is a SINGLE shared-module edit,
+  made ONCE by core, not per-kind — after it lands, an IL `siman`/`chelek`
+  `StructuralUnitRule` reads `heading_breadcrumbs` for depth-3/whatever
+  entries and never needs to touch `sections.py` again.
+- **US/parquet-sourced: NOT verified this session.** Whether
+  `ingest_us_statutes.py`'s parquet columns carry a usable part/
+  subchapter/title breadcrumb per row was not inspected — flagging this
+  explicitly rather than assuming it works, per the instruction. If the
+  raw signal isn't in the ingested columns at all, `StructuralUnitRule`
+  for `part`/`subchapter` cannot be satisfied from `run_definition_linking`
+  alone and becomes an ingest-contract question for the sub-manager to
+  route (a schema question for `ingest_us_statutes.py`, outside this
+  sprint's module set) — **not resolved here, explicitly surfaced in the
+  Stage B report instead of guessed at.**
+
+### 4. Pointer definitions (director ruling, narrowed) — no persisted pointer field, ever
+
+**Final design per the director's clarification — supersedes anything in
+the earlier message that implied a stored pointer flag/column:**
+
+- **No schema change.** No `is_pointer` column, no pointer-target column
+  on `Definition`, no new `Assertion` field. A transient
+  in-memory-only carrier on `DefinitionCandidate` is fine if the
+  emission step needs one, but the preferred path needs none: Stage 4
+  (`pipeline.py`'s existing loop, unconditionally re-running
+  `profile.detect_cross_law_derivations`/`find_citations`-family logic
+  over every candidate's OWN `definition_text`) already re-derives the
+  target from the definition's stored text — a pointer-idiom candidate
+  (`"has the meaning given [to] that term in <citation>"`) is captured
+  as an ORDINARY `DefinitionCandidate` by whatever extraction rule
+  recognizes the idiom (already-registered `_TRIGGER_PHRASES`
+  machinery — `"has the meaning specified in"`/`"as defined in"` are
+  already recognized; a family panel adds phrase variants the same way
+  any other rule adds coverage), and Stage 4 finds the target itself,
+  same as it already does for ordinary cross-law derivations. No new
+  field is needed to carry a target from rule to pipeline.
+- **Internal (same-law) targets — resolved through EXISTING machinery,
+  no new assertion type, verified before deciding (per the explicit
+  instruction to check first):** `Assertion.object_entity_type` is a
+  free-text `String(255)` column (`backend/app/models/assertion.py:42`),
+  already varying by assertion type across this codebase (`"Article"`
+  for `USES_DEFINITION`'s subject, `"Document"` for `DERIVES_FROM_LAW`'s
+  object today) — NOT a closed enum. The frontend renders
+  `object_entity`/`subject_entity` generically via `EntityChip` with no
+  assertion-type-specific branching found (`AssertionDetailPage.tsx:328`,
+  `SuggestAssertionPage.tsx`'s type list is explicitly "guidance only —
+  the backend remains the enforcement point"). Therefore: an internal
+  pointer target reuses `DERIVES_FROM_LAW` UNCHANGED as an assertion
+  type, with `object_entity_type="Article"` / `object_entity_id=<the
+  target Article's row id, resolved the same way Stage 3 already
+  resolves same-document article numbers>` instead of `"Document"` /
+  a law id. **Not a new assertion type, not a new entity-type
+  vocabulary concept, no frontend work required** — verified, not
+  assumed, so this does not need the escalation the instruction offered
+  as an out.
+- **`_BESAIF_RE` (Hebrew, derivation.py:39) / `_SAME_LAW_RE` (US,
+  us_profile.py:452) stay EXACTLY as they are for ordinary substantive
+  definitions** that merely mention a same-law section in passing — that
+  is correctly Stage-3/mention territory, unaffected by this. The NEW
+  behavior applies ONLY when the trigger phrase's match consumes the
+  candidate's ENTIRE definition_text (a whole-definition pointer, not an
+  incidental same-law aside inside a longer substantive definition) —
+  redirect to an Article-targeted `DERIVES_FROM_LAW` edge in that case
+  instead of excluding it.
+- **Pointer-ness has no flag anywhere. Consumers determine it by
+  checking whether a `DERIVES_FROM_LAW` assertion exists with
+  `subject_entity_id` equal to the `Definition`'s own id.** State this
+  explicitly to the 4 panels consuming it so none of them invent their
+  own marker field.
+- **Correctly-empty reconciliation (markers panel):** pointer-idiom
+  candidate extraction is ordinary candidate extraction, run
+  independently of any "this section has no defining content, correctly
+  empty" classifier a family panel builds. A non-empty pointer-idiom
+  extraction result OVERRIDES a "correctly empty" verdict for that
+  section — under the absolute zero-miss bar this is the only safe
+  ordering. The markers panel's classifier must be written to check for
+  a pointer-idiom match FIRST (or treat one as a veto), not the reverse.

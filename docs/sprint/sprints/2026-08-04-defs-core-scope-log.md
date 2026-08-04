@@ -593,3 +593,57 @@ authorizing a persisted pointer-target column.
 All of Round 3 was delivered to Planner `a6f809d491c471d13` as three queued
 messages while it was mid-write on v2.1. Sprint remains `planning`; no
 production code and no RED tests exist yet.
+
+
+### Round 3 — Planner v2.1 authoring notes
+
+Three messages arrived in quick succession while v2 was already pushed
+(`6c449fc`): (1) M9 + pointer definitions, (2) manager review of v2 with
+the AK-deferral overrule + M10 + M11, (3) director's narrowing of the
+pointer-definition design (no persisted field, ever). Read all three fully
+before writing v2.1 rather than reacting to the first one alone — the third
+message specifically superseded part of the first.
+
+**Where I pushed back vs. accepted outright:**
+
+- AK deferral overrule (M9): accepted without argument — the correction is
+  right. "Zero-miss-safe" was true in isolation but I hadn't priced in that
+  a broadening fallback (law-wide) is itself a false-positive generator
+  across every OTHER unit of the law. Should have caught this myself before
+  publishing v2; recorded as a genuine miss on my part, not just a
+  difference of opinion.
+- M10 (ties reclassified): accepted the correction to my OWN reasoning, not
+  just the outcome. My v2 argument ("not a trade because each claim is
+  independently true") conflated "the scope containment fact is true" with
+  "the resulting USES_DEFINITION assertion is true" — those are different
+  claims, and only the first one is guaranteed true. Fixed the log entry
+  above (Round 2 notes) is now superseded by this one on that specific
+  point; not editing the old entry (append-only), just noting the
+  supersession here.
+- M11 (StructuralUnitRule): did not have this in v2 at all — a genuine gap
+  the review caught, not a disagreement. Designed the fix (§3 of v2.1) and,
+  per the explicit instruction, did NOT guess at US parquet-column
+  availability — said plainly that it's unverified this session rather than
+  assert it works. This is the one open item in v2.1 I'd flag as most
+  likely to need a follow-up round.
+- Pointer definitions: the FIRST message's design (transient pointer-target
+  field + "check before deciding on a new assertion type") was already
+  heading toward "reuse DERIVES_FROM_LAW, no new type" before the director's
+  narrowing landed — verified `Assertion.object_entity_type` is a free-text
+  `String(255)` (backend/app/models/assertion.py:42) and that the frontend
+  renders entity refs generically (`AssertionDetailPage.tsx:328`'s
+  `EntityChip`, `SuggestAssertionPage.tsx`'s type list is explicitly
+  "guidance only") before concluding no new type/frontend work is needed —
+  did not skip the "check the frontend first" instruction just because the
+  narrowing arrived mid-check. The narrowing itself (no persisted field at
+  all) is a pure simplification of what I was already converging on; folded
+  in directly, no disagreement.
+
+**Time-pressure note, recorded honestly:** four rounds of spec revision
+(v1 -> v2 -> v2.1) before a single RED test exists is exactly the kind of
+back-and-forth Stage A/B split was meant to front-load and absorb — better
+here than after 6 family panels had already coded against a wrong v1/v2.
+Moving to RED tests immediately after this push; v2.1's `StructuralUnitRule`
+US-side gap and M10's QA-time measurement obligation are both explicitly
+NOT blocking Stage B and are carried forward as open items in the Stage B
+report rather than chased further here.
