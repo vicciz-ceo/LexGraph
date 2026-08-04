@@ -2424,3 +2424,70 @@ articles`.
    over-rejection), so nothing to arbitrate.
 
 qa_cycles: 2.
+
+---
+
+## 2026-08-04 — Manager verdict on QA cycle 2: ACCEPTED; sprint stays qa-fail (cycle 2 of 5)
+
+### Boundaries (mechanical, from its isolated worktree — M14 working as intended)
+
+`git diff --name-only 8a91a55..29e7e42 -- backend/app` → **empty**.
+`... -- backend/tests` → **empty** (its throwaway I3 probe was run and
+deleted before committing, as reported). Only log + contract. Merged into
+`claude/defs-il` via `--no-ff`. Post-merge, my own run: **`4 failed, 727
+passed`**, `contract_lint` **PASS 399**. **M14 worked** — this handoff had
+zero authorship ambiguity, in direct contrast to the incident above.
+
+### I verified its three headline claims MYSELF
+
+```
+--- punctuation variant (comma hardcoded) ---
+comma  בתקנה זו,   -> [('מדד',)]        space בתקנה זו -> []      dash בתקנה זו - -> []
+--- single-colon list under a bare preamble ---
+double ::- (fixed) -> [('מדד',)]        single :-      -> []
+--- single-line בפרט זה ---
+inline בפרט זה,    -> []
+```
+All three real. The comma IS hardcoded across the rule family; single-`:-`
+is genuinely uncovered while `::-` now works; item 9 built only the
+list-shape and never the plain inline form.
+
+### Scoreboard — the fix cycle worked, and the bar moved
+
+| Population | Cycle 1 | Cycle 2 measured | Verdict |
+|---|---|---|---|
+| Group A (8 families) | 5,400 missed | **5,340 captured (98.9%)**, 60 residual | large win |
+| Group B (`::-` shape) | 2,288 missed | **4,972/4,972 (100%)** | **clean fix** |
+| 3 citation FPs | present | rejected, **0 over-rejection**, 3,556 live candidates | **fixed** |
+| NEW single-`:-` class | not known | **799/800 missed** (130 files) | **new finding** |
+
+**I4 still FAILS**, but for a far smaller and much more precisely
+characterized reason than cycle 1 — which is what a working fix cycle looks
+like. The residual 60 decompose into three named bugs (38 punctuation
+variants, 3 same-line-swallow from a greedy regex in the FROZEN rule, 19
+inline `בפרט זה`), not a vague shortfall.
+
+### The new class is NOT E6-blocked — that is the important part
+
+Single-`:-` definitions lists under a bare preamble inside articles whose
+heading is not a definitions heading: **800 terms / 130 files**, 21/21
+hand-verified genuine across two independent random samples. Includes an
+unrecognized heading synonym **`פרשנות`** ("interpretation", 116 terms /
+23 files) and genuine embedded definitions inside substantive articles
+(e.g. `חוק בית העצמאות` art.16 defining `"עניין אישי"`/`"קרוב"`).
+Reachable by one more `ScopeTriggerRule` mirroring Group B's own precedent
+— so it is **buildable now**, not parked on core.
+
+### M15 — Phase C scope (for the next cycle), and the frozen-file caveat
+
+Recommended bundle, all additive rule modules: (a) punctuation-variant
+widening across the family; (b) an additive fix for the same-line-swallow
+bug — **note it lives in the FROZEN `extract` trigger regex, so it must be
+worked around additively, never edited**; (c) an inline `בפרט זה` sibling
+rule; (d) a `ScopeTriggerRule` generalizing the single-`:-` shape, including
+the `פרשנות` heading synonym. Per the RED-provenance gate, the **Planner
+authors REDs for all four before any Developer runs.**
+
+Status stays **`qa-fail`, `qa_cycles: 2`** (valve at 5). E6-held subset
+(3 class-(d) + 1 item-11 test, ~303 in-הגדרות occurrences) still parked on
+core's dispatch sprint.
