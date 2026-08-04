@@ -4048,3 +4048,108 @@ clean.
 qa_cycles: 3.
 
 ---
+
+---
+
+## 2026-08-04 — Manager verdict on QA cycle 3: ACCEPTED; sprint stays qa-fail (cycle 3 of 5)
+
+### Boundaries (mechanical, from its own worktree — M14 holding)
+
+`git diff --name-only 4f95c4a..55ca5b5 -- backend/app` → **empty**;
+`... -- backend/tests` → **empty**. Docs only. Merged `--no-ff`.
+Post-merge, my own run: **`4 failed, 829 passed`**, `contract_lint` PASS.
+Every Phase C handoff was verified the same way: the Planner's three
+rounds (zero `backend/app`, zero pre-existing tests modified) and the
+Developer's (zero frozen files, zero test/fixture files — its entire
+change set is 12 files under `rules/**` plus the log).
+
+### M18 — I was wrong, and the error is exactly the one P-R7 names
+
+I measured the single-`:-` population post-fix at **1,107/1,107 captured
+(100%)** and handed QA that number with an explicit instruction to attack
+it rather than echo it. **QA refuted it: 61.1% on its own, larger
+denominator.** QA is right and I am recording the root cause against
+myself, because it is instructive.
+
+My denominator enumerated entries with the regex `^"([^"]+)"\s*-\s*(.*)$`
+— **the same single-term entry grammar the rule itself uses.** So a
+multi-term entry line (`:- "t1", "t2" - def`) was invisible to my sweep
+in precisely the way it is invisible to the rule: my probe and the code
+under test shared a blind spot, so the probe could only ever return 100%.
+That is P-R7's rule violated by the person quoting P-R7 in the brief.
+Confirmed live with my own minimal probe after reading QA's finding:
+
+```
+:- "מונח א", "מונח ב" - הגדרה משותפת;   -> []      (multi-term, dropped whole)
+:- "מונח ג" ו"מונח ד" - הגדרה משותפת;   -> []      (ו-joined, dropped whole)
+:- "מונח ה" - הגדרה;                     -> [('מונח ה', 'law-wide')]  (control)
+בסעיף זה, "מונח ו" כהגדרתו בחוק אחר.     -> []      (no dash after quote)
+בסעיף זה, "מונח ז" - הגדרה.              -> [('מונח ז', 'local')]     (control)
+```
+
+**Binding for every future cycle of this sprint: a capture denominator
+must be built from the ENTRY LINE (any `:-`/`::-` line, any
+quote-bearing line), classified AFTER matching — never from the entry
+GRAMMAR.** QA cycle 3's denominator is the reusable one; use it.
+
+### What Phase C did deliver (measured, not claimed)
+
+31 REDs green across C1 (punctuation widening, 7 families), C2 (additive
+same-line-swallow workaround, frozen regex untouched), C3 (inline
+`בפרט זה`), C4 (single-`:-` generalization incl. `פרשנות`-headed articles
+without editing `sections.py`), M16 (law-wide scope vocabulary, applied
+to the new rule AND the already-shipped `::-` rule), M17 (16 spelling
+variants from a corpus-derived demonstrative audit). I3 now passes in
+BOTH directions live — the under-reach direction is new this cycle and
+is the director's scoped-assertion mandate actually proven, not assumed.
+
+My own both-directions spot-check on the merged tree:
+
+```
+בחוק זה -    :- entries  -> law-wide      בתוספת זו - (excluded) -> local
+בתקנות אלה - ::- entries -> law-wide      בכלל זה -   (false friend) -> local
+בסעיף זה -   :- entries  -> local         בפרק זה -   -> chapter
+two `לענין זה` triggers on ONE line       -> BOTH terms captured, both local
+```
+
+### M19 — Phase D scope (next cycle)
+
+1. **Bugs A/B/C** from QA cycle 3, REDs first per the RED-provenance gate
+   (none exists yet): (A) multi-term entry lines dropped whole — the
+   largest, and it also invalidates part of the `::-` rule's own prior
+   100% claim; (B) quote-first candidates with no dash after the quote;
+   (C) preambles in the article's own heading.
+2. **The E6 batch, now unblocked** by core's dispatch merge (all 7 rule
+   kinds live): the 3 class-(d) prose-body tests + item 11. REDs for
+   these already exist and are red. Note M-D3: declare any
+   `scope_unit_kind` from measured Hebrew convention.
+3. Named residuals carried, NOT silently folded: sub-part scope
+   references defaulting to `"local"` (`בפרק משנה זה` ~110, `בתוספת זו`
+   ~72, appendix/table/policy/formula families); enumerated multi-article
+   ranges (`לענין הסעיפים X-Y`); multi-line `::`-continuation
+   `definition_text` truncation (term identity unaffected).
+
+### Escalation to the program manager — the pattern QA named, with my read
+
+Three consecutive QA cycles, each finding a headline-sized NEW class, and
+in every case the class was found by **widening the denominator**, not by
+finding a defect in what was already measured. Cycle 1 found trigger
+families; cycle 2 found the single-`:-` shape; cycle 3 found multi-term
+entries, no-dash candidates, and heading preambles. Each new class is
+smaller than the last, but "smaller" is not "none", and the director's
+bar is absolute.
+
+My read, offered as a concrete proposal rather than a complaint:
+**iterating sweeps cannot terminate at zero, because each sweep's own
+shape defines its blind spot** — that is the same failure my own M18
+error demonstrates in miniature. The only construction that can support
+the word "zero" is to invert the method: take the MAXIMAL
+signal-agnostic denominator — every quoted-term occurrence in the corpus,
+irrespective of trigger, marker, or entry shape — and classify every one
+of them as captured or proven-not-a-definition. That is a far larger
+population (order 10^5) and would be its own sprint, but it is the only
+method whose completeness argument does not depend on having guessed the
+right grammar. The director should decide between that and an
+enumerated-residual acceptance; the panel should not pick for them.
+
+Status stays **`qa-fail`, `qa_cycles: 3`** (valve at 5).
