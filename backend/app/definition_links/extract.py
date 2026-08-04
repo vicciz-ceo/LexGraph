@@ -76,6 +76,16 @@ class DefinitionCandidate:
     # "subsection" (v1), or any new kind a family panel registers
     # (part/siman/...). May also be a tuple for an enumerated value.
     scope_value: str | tuple[str, ...] | None = None
+    # NEW (sprint 2026-08-04-defs-core-dispatch, items I9/I10/I11, manager
+    # ruling M-D3, seam v2.7): additive, optional LEVEL narrowing for a
+    # `scope="subsection"` definition -- names which `UnitStep.kind` (e.g.
+    # `"digit"`, `"lower_alpha"`, `"upper_alpha"`) `scope_value` is meant
+    # to be compared against, so `matcher._subsection_contains_offset` can
+    # find that step in a mention's `UnitPath` instead of always comparing
+    # the OUTERMOST step regardless of what level the rule actually meant.
+    # `None` (the default) preserves today's outermost-step-comparison
+    # fallback unchanged -- every existing caller/candidate is unaffected.
+    scope_unit_kind: str | None = None
 
 
 def _parse_terms_and_qualifier(header_prefix: str) -> tuple[list[str], str | None]:
