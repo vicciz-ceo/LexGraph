@@ -1,10 +1,10 @@
 ---
 id: "2026-08-04-defs-core-scope"
-status: planned
+status: in-progress
 current_role: developer
 branch: claude/defs-core-scope
 worktree: /Users/nerya/LexGraph-wt/defs-core-scope
-locked_by: "claude-code:planner"
+locked_by: "claude-code:developer"
 locked_at: "2026-08-04T00:00:00Z"
 last_agent: "claude-code:planner"
 last_updated: "2026-08-04"
@@ -664,6 +664,19 @@ corpus-wide FP exposure on that confined population and escalates with
 data if material (director's standing policy) — this seam does not
 pre-judge that measurement.
 
+**Director-confirmed at program level (D-PREAMBLE-ALL): ungating stands,
+with a scope mandate — ALL states researched AND coded (owned by the
+preamble panel, not core).** Stated explicitly so this precision-guard
+paragraph is never mistakable for a gating condition later: escalating a
+measured FP number is NOT a request to re-gate `BodyPreambleRule`
+dispatch behind `_is_placeholder_heading` — gating is off the table.
+The resolution to a material exposure number is narrower/more precise
+`BodyPreambleRule`s (or additional `HeadingRule`/`EntrySplitterRule`
+coverage) achieving full per-state inventory, never suppressing dispatch
+for states baseline already fails on. If a future reader is tempted to
+read "escalate if material" as "gate if material" — it does not say
+that and must not be implemented that way.
+
 ### 5. Rule-module authority is bounded (manager ruling M7)
 
 Rule modules may ONLY affect the 5 registered kinds (heading,
@@ -1219,3 +1232,75 @@ Full backend suite (`backend/.venv/bin/pytest backend/tests -q
 merely argued. Frontend/typecheck not re-run this pass (no frontend file
 touched this sprint; `git diff --name-only` confirms zero `frontend/`
 paths in this sprint's changes).
+
+
+---
+
+## Seam spec v2.4 (published) — dossier-validated, D-ANCHOR final, model tightened
+
+Research dossier read (`git show origin/main:docs/sprint/programs/2026-08-04-law-system-units.md`
+@ `e3e7633`, read-only — main NOT merged into this branch, per instruction;
+the program manager owns that merge). D-ANCHOR is now the director's FINAL
+ruling (not provisional): row-level anchor + a structured sub-article
+path, arbitrary depth; promoting sub-article units to first-class graph
+entities is an explicit LATER-phase possibility, not this program.
+
+### 1. One correction FROM the dossier: `UnitPath` is BELOW-article only
+
+The dossier's own recommended model (§3): `article_row_id + ordered_unit_path[]`,
+where the path is **only** the marker sequence BELOW the article
+(`["a","1","A","i"]`-shaped) — container levels ABOVE the article
+(חלק/פרק/סימן; US state title/division/chapter/part; US federal
+title/chapter/subchapter) are **metadata on the article row, not schema-
+level path components**, because they're sparse/inconsistent (Israel),
+or vary 2-6 levels per state with no common template (US), and mixing
+them into the same ordered array as sub-article marks would conflate two
+structurally different things.
+
+**Correction to v2.2 §1/§4**: `UnitPath`/`resolve_unit_path` is
+re-scoped to the sub-article marker sequence ONLY. Chapter/part/siman-
+level scoping keeps using v2's existing mechanism unchanged (the
+`"chapter"` kind's dedicated `source_chapter` field; any other above-
+article kind's generic `scope_value` field) — these were NEVER meant to
+merge into the sub-article path, and the dossier's real, measured data
+confirms keeping them separate is the right call, not merely convenient.
+`resolve_unit_path(article, char_offset=None)` returns `()` (the article
+itself, no sub-article marks) when called with no offset; given a
+`char_offset`, it returns the marker path AT that position (e.g. `("a",)`,
+`("a","1")`) — never chapter/part information, which callers read off
+the article's own metadata fields instead.
+
+### 2. Invariant, dossier-confirmed and pinned as a test: no bare sub-unit without its parent
+
+**Convergent finding across all 4 systems (dossier §2): no system ever
+cites a bare sub-unit without its parent article/section.** This
+directly validates the row-anchor + path model — stated here as the
+empirical basis for the design, not a preference. Pinned as an explicit
+invariant test (see report): a `UnitPath` is only ever meaningful
+relative to the article row it is resolved against; nothing in this
+seam ever represents a sub-unit path without its rooting article.
+
+### 3. Depth is NOT capped at 2-3 — the federal 8-level ladder is real
+
+US federal citations run a real, at-scale, 8-level parenthetical ladder
+(`(a)>(1)>(A)>(i)>(I)>(aa)>(AA)`, confirmed down to `(AA)`, 443 real
+instances; 35.4% of all federal section citations go below section at
+all). **Nothing in `UnitPath`/`resolve_unit_path`/the matcher's prefix-
+matching comparison may hard-code a depth limit of 2 or 3** — a model
+that quietly assumes shallow nesting passes every IL/PR-shaped test and
+silently breaks on federal. Pinned as an explicit deep-nesting test (see
+report) exercising genuinely 4+ level nesting, not just 1-2.
+
+### 4. `main_unit_kind` populated from the dossier — not invented
+
+Per-system main unit, taken verbatim from dossier §1 (not extrapolated
+beyond what it states):
+
+| Profile | `main_unit_kind` | Dossier basis |
+|---|---|---|
+| `HebrewProfile` (IL) | `"local"` (סעיף/article) | "Main unit: סעיף (article)" — matches TODAY's `"local"` granularity exactly, C5-safe, zero behavior change |
+| `USProfile` (US-* incl. `US-FED`) | `"local"` (Section) | "Main unit: Section (formally, every state)" / federal "Section nominally" — the FORMAL main unit is Section for every US code including federal; the dossier's own de-facto-subsection nuance for coarse states/sections (GA/UT/OH/NC, huge federal definitions sections) is a DISTRIBUTION fact about where real citations land, not a different declared main unit — `main_unit_kind` stays `"local"`/Section for all US codes; deep sub-article paths are still fully addressable via `resolve_unit_path`, they just aren't the DECLARED default |
+| PR (hosted under `USProfile` per M7, pending a dedicated `PRProfile`) | `"local"` (Artículo/Sección — the row itself) | "Artículo/Sección is the row/citable unit itself; no separate container rows" — PR's main unit IS the row, matching `"local"`'s existing meaning (the owning article/row) precisely |
+
+No value was invented for a system the dossier doesn't cover; nothing
+beyond §1's table was used.

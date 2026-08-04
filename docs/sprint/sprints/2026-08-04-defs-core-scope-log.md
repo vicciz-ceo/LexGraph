@@ -1054,3 +1054,97 @@ The two-stage Planner structure plus stop-before-tests is what made the churn
 cheap; had tests been authored in Round 2 against article-granular anchoring
 and a 4-tier scope enum, essentially all of them would have been discarded.
 Recorded as a process datum for future programs on a moving spec.
+
+---
+
+## 2026-08-04 — Round 9: manager handoff verification of the RED suite
+
+**Non-delegable checks I ran MYSELF (not accepted from the Planner's report):**
+
+1. **Three-dot diff, materialized to file** (`git diff origin/main...HEAD` →
+   scratchpad, then read). 8 files: 6 under `backend/tests/`, 2 under
+   `docs/sprint/`. Filter for anything outside those two roots →
+   **NONE. Zero production code.** Role separation intact after 9 rounds.
+2. **Risk grep on the materialized diff** (`fetch|axios|/api/|Authorization|
+   Bearer|localStorage|process.env|NODE_ENV|import.meta.env|
+   navigator.webdriver|CI`) → 10 hits, ALL benign: prose uses of "fetch"
+   in the log, and `CI` matching inside the word "PRECISION". No flagged
+   hunk. Checked rather than assumed.
+3. **Pre-existing test edits.** `--numstat` across all four pre-existing test
+   files: only `test_definition_links_matcher.py` has ANY removed lines (2).
+   Read them: they are the `source_article_number`/`source_chapter` field
+   **type annotations** on a test-helper dataclass, widened to
+   `str | tuple[str, ...] | None` for M9, with defaults unchanged. No
+   assertion, no input, no expected value touched; Python does not enforce
+   dataclass annotations at runtime, so this cannot change any outcome.
+   **Not an R2 violation** — ruled acceptable.
+4. **RED tail reproduced independently.** `backend/.venv/bin/pytest
+   backend/tests -q --continue-on-collection-errors` →
+   **`17 failed, 644 passed, 18 warnings, 1 error in 13.76s`** — byte-identical
+   to the Planner's reported numbers. Claim verified.
+5. **New "greens" are not vacuous.** The three added guards are named
+   discriminating assertions, not tautologies: word-boundary preservation
+   under case-folding, IL `find_term_uses` unaffected by M8(b), IL
+   `find_citations` unaffected by M12 — each would FAIL if the corresponding
+   fix over-reached into Hebrew. That is the correct shape for a guard.
+
+**DEFECT I FOUND — the evaluator command aborts the suite.** My FIRST run used
+the contract's actual evaluator (`pytest backend/tests`, no extra flags) and
+got **`Interrupted: 1 error during collection` — 0 tests executed**, not
+644 passed. `test_definition_links_rules_registry.py:35` imports
+`app.definition_links.rules.registry` at MODULE level; the module does not
+exist yet (correctly — the Developer builds it), so collection dies and takes
+the whole suite with it. The Planner's numbers are real but only reachable
+with `--continue-on-collection-errors`, which is NOT the contract's evaluator.
+Harness rule is explicit that a test must fail "for the right reason, not a
+collection error". Ruling: **do not paper over this by adding the flag to the
+evaluator** — that would mask every future genuine collection error (typos,
+syntax breaks) across the whole suite. Fix the test pattern (import inside the
+test body so it fails as a test FAILURE) so the suite stays runnable. Mitigating
+fact: I4 is first in the Developer's scope and creating `rules/registry.py`
+self-resolves this within minutes; the Developer is told the workaround for its
+baseline run only.
+
+**OPEN QUESTION CLOSED BY MANAGER PROBE — `StructuralUnitRule` US-side data
+reachability.** Flagged twice in the spec as unresolved. Answered against a
+REAL parquet file, not the docs, per the program manager's instruction:
+`backend/tests/fixtures/us_statutes/de_sample_rows.parquet` schema is
+`['act_id','citation','citation_short','state','jurisdiction','document_type',
+'title_number','title_name','chapter','chapter_name','section_number',
+'section_title','breadcrumb','display_path','act_status','text','word_count',
+'source_url','last_amended_year','subsection_count','cross_references_usc',
+'cross_references_cfr','public_laws_referenced','year']`. **`breadcrumb`,
+`display_path`, `chapter`, `chapter_name`, `title_number`, `section_number`
+and `subsection_count` are all present — US-side structural unit data IS
+reachable.** The question is closed; no ingest-contract escalation needed.
+
+**I3 — manager ruling M13: TAKE the grep-shaped guard test.** The Planner
+rejected a structural absence-of-symbol test as "low-value churn" and proposed
+closing I3 by code review. The program manager's second opinion favors the
+guard; I agree and rule for it. C3's entire content is "pipeline.py retains no
+jurisdiction-specific literals" — a property that regresses silently and that
+no other test covers, since I1/I2's tests prove the seam EXISTS, not that the
+old literals are GONE. A cheap mechanical assertion converts a code-review
+promise into a regression-proof check. Authored by the Planner (it is a test).
+
+**Sequencing decision (manager).** Two spawns, concurrent, on disjoint write
+sets — Developer writes only `backend/app/**`, Planner writes only
+`backend/tests/**` + the contract:
+- **Developer scope LIMITED to I4 (registry), I5 (bare-`@`), I6 (case-fold)**
+  — the three items with complete RED coverage that do not touch the
+  unit-path seam, in three distinct files (`rules/`, `sections.py`,
+  `us_profile.py`).
+- **Planner Stage C (FRESH spawn, not a resume)** authors the missing RED:
+  M10 tie-pinning live test, M9 enumerated-scope live proof, sub-article
+  anchoring retrieval-seam live test (now authorized FINAL by D-ANCHOR),
+  pointer-emission end-to-end, the 3 `_TRIGGER_PHRASES` idioms, the I3 grep
+  guard, and the collection-error pattern fix.
+- I1/I2/I3/I7 are **explicitly EXCLUDED from this Developer's brief** — nobody
+  builds sub-article anchoring, tie behavior, enumerated-scope enforcement or
+  pointer emission ahead of its tests. A second Developer takes them once
+  Stage C lands.
+- **Fresh Planner rather than resume**, per harness resume-vs-respawn
+  economics: the seam spec is now stable and fully written down, so the
+  context a resume would preserve is exactly the context that is already on
+  disk. A resume of that 9-round transcript costs multiples of a bounded
+  fresh spawn.
