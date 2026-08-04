@@ -371,3 +371,100 @@ NOT spawned, because the answer changes the Planner's test expectations
 amending tests is the Planner's job, never the Developer's.
 
 Phase A is NOT started. Everything committed and pushed before returning.
+
+---
+
+## 2026-08-04 — Manager: core merged, escalation answered, branch rebased
+
+Rebased `claude/defs-us-scoped-inline` onto `origin/main` (`0d57228`, core
+merged at `06d67d8`). One conflict, in the SHARED
+`backend/tests/fixtures/us_statutes/README.md` — another panel appended a
+section (NY's literal-`\n` defect) while we appended ours. Resolved by keeping
+BOTH sections; no content dropped from either side. Venv refreshed
+(`pip install -e '.[dev]'`).
+
+### S-R4 — escalation ANSWERED; verified against shipped CODE, not the spec doc
+
+The seam doc is 1,220 lines and self-superseding (v1 → v2.5), and core's own
+QA found one place where spec and code disagreed (I11). So I verified the
+contract by reading the merged source, not the prose. Shipped facts:
+
+- `RuleContext` (`rules/registry.py:63`) = `(article_number, chapter: str|None,
+  unit_path: UnitPath)`. The owning article's chapter IS available to a rule.
+- `ScopeTriggerRule.extract: Callable[[str, RuleContext], list[DefinitionCandidate]]`,
+  a UNION kind — every matching rule runs, nothing suppresses anything.
+- `_in_scope` (`matcher.py:135`) shipped branches: `"chapter"` →
+  `article.chapter == definition.source_chapter`; `"local"` /
+  `"subsection"` → `article.number == definition.source_article_number`
+  (subsection additionally offset-checked by `_subsection_contains_offset` via
+  `profile.resolve_unit_path`); `"law-wide"` → True.
+
+**My escalation is fully resolved for the bulk of the family.** A rule can now
+stamp `scope="chapter"`, `source_chapter=ctx.chapter` and it is genuinely
+enforced. Coverage of this family's measured genuine volume that is now BOTH
+expressible and enforceable: section→`local` 53.8% + chapter→`chapter` 23.7% +
+subsection→`subsection` 4.5% = **82.0%**.
+
+### S-R5 — NEW finding: the generic above-article kind branch is dead on the live path
+
+`_in_scope`'s final branch resolves any OTHER kind (e.g. `"part"`,
+`"subchapter"`) against `getattr(article, "structural_units", ())`. Core's own
+comment states a production `MatcherArticle` has no such attribute, so the
+generic branch returns False **for every article, including the definition's
+own**. Compounding it, v2.2 replaced `structural_units` with `unit_path`, and
+v2.4 re-scoped `UnitPath` to BELOW-article only — so `StructuralUnitRule`
+feeds `resolve_unit_path` (sub-article), NOT this branch. There is no seam a
+family panel can use to populate it, and `MatcherArticle` is built in
+`pipeline.py`, which U3 forbids us to touch.
+
+Consequence: stamping `scope="part"` would capture the definition but link
+**zero** mentions — a silent under-link, the worst outcome under a zero-miss
+bar. This affects `part` (2,187) + `subchapter` (1,861) = **13.9%** of genuine
+volume, plus the ~4.0% residue.
+
+Core already set a precedent for exactly this shape (v2 §1, AK multi-chapter
+ranges): an unrepresentable narrowing falls back to `"law-wide"` — zero-miss-safe,
+with the precision cost recorded rather than silently dropped. A possibly
+better fallback exists: in US codes a part/subchapter is a subdivision OF a
+chapter, so `scope="chapter"` with `source_chapter=ctx.chapter` would be a
+strictly tighter over-approximation that still never under-links. It is only
+sound if those rows reliably carry a non-null chapter. **I am not guessing:
+the Planner must MEASURE it (D8 below), and I rule afterwards.** Recorded as a
+named open conflict class; re-escalated with volume numbers after the U4 sweep,
+same treatment as the PA construction-clause pin.
+
+### S-R6 — core's proof rule OVERLAPS our dominant pattern
+
+`rules/us_scope_trigger_proof.py` already registers, for `US-*`,
+`As used in this section, "Term" means ...` → `scope="local"`. That is this
+family's single most common shape. `ScopeTriggerRule` is a union kind, so
+core's rule and ours will both fire on the same text and emit duplicate
+candidates. The seam says duplicates dedupe downstream on
+`(article_id, sorted(terms))`. That is a claim to TEST, not to assume — a
+duplicate-`Definition` pin is now a required deliverable.
+
+### S-R7 — `Definition.scope_value` is TRANSIENT (v2.5)
+
+No persisted column, no migration; `scope_value` /`source_chapter` /
+`source_article_number` live only on the in-memory `DefinitionCandidate`.
+`Definition.scope` IS persisted. Tests may assert persisted `.scope`; they must
+NOT assert a persisted `.scope_value`.
+
+### S-R8 — CodeGraph freshness
+
+The `.codegraph/` index at `/Users/nerya/LexGraph` now tracks `main` and does
+resolve core's new symbols (verified: `RuleContext` at `registry.py:63`). Per
+core QA's binding process note, agents on this divergent branch still verify
+BRANCH-LOCAL files by direct read; CodeGraph is authoritative for main-state
+structure.
+
+### New input routed in: preamble panel's CLAUSE package
+
+2,659 real `act_id`s across 51 jurisdictions, ours by routing, at
+`docs/sprint/sprints/2026-08-04-defs-us-preamble-clause-package.{json,md}` on
+`claude/defs-us-preamble` (`8a8837a`). Their honest caveat: ~148 rows are
+sample-verified only, and the package documents a discriminator bias found and
+corrected for MS/SD. Per the program manager: verify a sample against the
+corpus before trusting the classifications. Also inbound under P-R2: MS's
+clause-embedded subset. P-R7 binds our U4 denominator — it must be
+signal-agnostic, and we must state and prove what it is.
