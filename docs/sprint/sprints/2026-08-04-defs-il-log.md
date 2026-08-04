@@ -1118,3 +1118,51 @@ claimed coverage — the honest direction.
 
 I4's adversarial sweep still waits for full implementation, and remains
 bound by M10 (corrected E5 facts + P-R7 independent denominators).
+
+---
+
+## 2026-08-04 — Manager verification of the Developer handoff (items 2a/2b/3/4/7/9)
+
+### Verified MYSELF
+
+- `git diff --name-status d97324c..HEAD` → six entries, all `A`, all under
+  `backend/app/definition_links/rules/`. **Nothing else.**
+- Frozen check against all five modules → **none touched**.
+- Test/fixture check on the dev commit → **none touched**.
+- Style gate: 42-84 lines each (390 total incl. core's own 36-line example)
+  — all well under 300.
+- Manager-run suite: **`3 failed, 713 passed, 18 warnings in 14.16s`**
+  (was `12 failed, 704 passed`). 713 = 704 baseline + 9 newly green. The 3
+  remaining failures are exactly the class-(d)/item-5 tests, which are
+  correctly held on core's dispatch-completion sprint per P-R8 — the
+  Developer did NOT attempt them, which is the correct behavior.
+
+**Handoff ACCEPTED.**
+
+Notable: item 2a's rule correctly sets `source_chapter=ctx.chapter` itself
+(the gotcha the Planner surfaced), and the containment test passes in BOTH
+directions — same-chapter articles 13/16/17 link, different-chapter article
+20 does not, despite carrying the same surface form. **Gate I3's chapter
+half is now PROVEN on real corpus text**, not just specced.
+
+Items 2b/7/9 are capture-only *by construction*: their scope kinds
+(`siman`/`chelek`/`paragraph`/`item`) fall to `matcher._in_scope`'s generic
+branch, which is always False in production because nothing populates
+`article.structural_units`. No guard code was needed to achieve that, and
+no false containment can leak. Clean.
+
+Naming call the Developer flagged as unpinned by any test: item 7 uses
+`scope="paragraph"`. Reasonable and consistent with item 9's `"item"`;
+**recorded here so core's dispatch sprint can align kind names** if it
+standardizes a vocabulary. Not worth an escalation.
+
+### New zero-miss gap found by the Developer during its P-R2 sweep
+
+`חוק הבנקאות (שירות ללקוח)_excerpt.wiki:16` contains
+`(בפסקה זו - חוק הדואר)` — item 4's ad-hoc `(TRIGGER - term)` shape, but
+with a trigger word outside item 4's list. The Developer left it alone
+rather than scope-creeping, and reported it. **That is exactly the right
+behavior**, and it is a confirmed miss under the absolute zero-miss bar.
+`ScopeTriggerRule` is LIVE, so this is buildable now — I have sent the
+Planner back to size the gap across ALL ad-hoc trigger words (not just this
+one instance) and author the RED test.
