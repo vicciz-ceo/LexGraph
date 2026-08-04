@@ -317,10 +317,19 @@ captures with 0 morphology noise and 0 unexplained. Details in `-log.md`.
 
 _None._
 
-## BLOCKED — two core-owned seam gaps (escalated to the program manager)
+## BLOCKED — two core-owned seam gaps (RESOLVED by ruling P-R8; awaiting core)
 
-Phase B items 3, 5, 6, dev cycle 4 (D-DF), and gates U1/U2/U4 are blocked.
-Full evidence in `-log.md` § "Manager phase 2 — takeover verification".
+**Both blockers are ruled, not open questions.** Program ruling **P-R8**
+(main `0f4e8fc`): core reopens for a dispatch-completion sprint covering all
+five dead rule kinds, the ungated `derive_heading_from_body` (this panel's
+D-PREAMBLE-ALL non-implementation finding = core's scope item 2), and **this
+panel's `body_confirms` design accepted as-is** (core's scope item 4, credited
+to this panel). The PR panel independently found the same dead dispatch.
+
+**This sprint stays `blocked` until core's dispatch merges — the program
+manager wakes this panel.** Phase B items 3, 5, 6, dev cycle 4 (D-DF), and
+gates U1 (live-path leg) / U2 / U4 / U6 remain gated on that merge. Full
+evidence in `-log.md` § "Manager phase 2 — takeover verification".
 
 - **Blocker A — `HeadingRule` is registered but never consumed.** 5 of the 7
   rule kinds (heading, body_preamble, entry_splitter, term_clause,
@@ -341,10 +350,42 @@ Full evidence in `-log.md` § "Manager phase 2 — takeover verification".
 
 ## Context Dump
 
-Phase-2 manager took over after dev cycle 3, merged core (`1d17d81`), landed
-Phase B item 4 (`f461371`), and escalated both blockers above. **Resume point:**
-await the program manager's ruling on who wires detection-kind consumption and
-how D-DF gets heading+body access. Nothing further in this sprint is
-implementable until then — every remaining item depends on one of the two.
-Corrections to earlier context: the "defined for" rule is COMMITTED (`a0419a4`),
-not uncommitted; and QA cycle 2's "sixth gap" was already closed in dev cycle 3.
+**Parked cleanly, waiting on core's dispatch sprint (ruling P-R8).**
+
+What the phase-2 manager did: verified the inherited state, merged core into
+this branch (`1d17d81`, merge not rebase — accepted deviation, see log), landed
+Phase B item 4 (`f461371`), escalated both seam gaps, and got them ruled.
+
+**Suite state: 729 passed / 1 failed.** The single failure is
+`test_us_heading_variants_end_to_end.py::TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline`
+— the core dispatch gap, red **by construction**, not a defect of this panel.
+This is the cleanest possible waiting position: everything this panel can
+prove is green, and the one red is precisely the thing core is now fixing.
+
+**Resume point (when the program manager wakes this panel):**
+
+1. Re-run the suite. The CT pipeline test should go green with **no change from
+   this panel** once core wires heading-rule consumption — if it does not, that
+   is the first thing to diagnose.
+2. Developer implements D-DF against the Planner's RED: split the `for`
+   alternation out of `_VERB_EXTENDED_RE` and register the `defined for` rule
+   separately carrying `body_confirms`, leaving `as`/`term`/punctuation forms
+   and R-SEC/R-MID/R-VERB-bare/R-TRUNC/R-MISSPELL unconditional. **Applying
+   `body_confirms` to the existing single union rule would body-gate all
+   ~20,307 recognized headings instead of the 110 `defined for` rows** — the
+   trap to avoid.
+3. QA cycle 3 (`qa_cycles` is 2 of 5): U1 live-path leg, U6 re-measurement,
+   U4 + the P-R7 cross-reference against the preamble panel's consolidated
+   body-driven inventory (request the pointer through the program manager —
+   do NOT re-scan the corpus). Our 22,228-row miss pool is `defin`-substring-
+   derived and so cannot certify U4 alone.
+
+**Corrections to earlier context, both recorded at program level:** the
+"defined for" rule is COMMITTED (`a0419a4`), so D-DF *changes shipped
+behavior*; and QA cycle 2's "sixth gap" was already closed in dev cycle 3.
+
+**Standing items, unchanged:** the U2 10-row known limitation (recheck against
+seam v2 now that core is reopening); the 245-row D-HG guarded cluster handed
+off in `-guarded-cluster.md`; the ~19 UNCLEAR Connecticut rows and
+`STATE_CT_T38a_C704_S38a-818` ("not so defined" defeats the negation guard via
+an intervening "so") on the program data-quality list.
