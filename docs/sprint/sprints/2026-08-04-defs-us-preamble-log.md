@@ -1769,3 +1769,263 @@ otherwise we would ship believing 7 guards are protecting us when they are
 merely erroring. One of them is a NEGATIVE guard (the Montana forwarding-
 reference hazard), so leaving it broken would hide a false-positive class.
 Test repair is Planner role; the Developer never touches tests.
+
+---
+
+## 2026-08-04 — Planner: D1–D4, stale-import repair, and a load-bearing dispatch-gap finding
+
+### P-D1 — 7 stale-import tests repaired: mechanical relocation, zero weakened assertions
+
+All 4 missing symbols (`_is_placeholder_heading`, `_derive_heading_from_body`,
+`_BODY_DEFINITIONS_PREAMBLE_RE`, `_extract_inline_quoted_definitions`) turned
+out to be **verbatim-moved, still-private, module-level symbols inside
+`app.definition_links.us_profile`** — same names, same call signatures (single-
+arg `_derive_heading_from_body(body)`, same for the others) — not deleted, not
+renamed, not made genuinely inaccessible. Confirmed by reading the actual
+on-disk source (`us_profile.py:405-595`), not inferred from the seam doc's
+"moved verbatim" claim. Repair was a pure import re-point,
+`app.definition_links.pipeline` → `app.definition_links.us_profile`, in 5
+files (7 test functions): `test_us_body_preamble_b1_colon_list_matrix_red.py`,
+`test_us_body_preamble_ca_block_red.py`,
+`test_us_body_preamble_hazard_catalogue_red.py` (Montana negative guard),
+`test_us_body_preamble_fed_dc_ny_red.py`, and 3 in
+`test_definition_links_us_preamble_family.py` (GA gate-pin, MD live-path, NE
+unit-pin). No assertion text changed, no fixture changed, no test weakened.
+
+**Montana negative guard, specifically verified, not assumed**: re-ran
+`test_montana_row_already_produces_a_real_spurious_forwarding_candidate_from_
+the_unedited_live_extractor` after the re-point — it still calls the REAL
+`_extract_inline_quoted_definitions` (now correctly imported) against the real
+MT fixture body and asserts `("motor vehicles",) in terms`, a specific,
+non-trivial fact about the raw extractor's output — not a vacuous pass. This
+guard genuinely still proves the hazard it was built to prove.
+
+Result: 6 of the 7 are unit-level pins/negative guards **designed to be
+green** (matches this family's own documented convention — see
+`test_us_body_preamble_hazard_catalogue_red.py`'s module docstring, "every
+test here is GREEN TODAY... and must STAY GREEN once a `BodyPreambleRule`
+ships"). The 7th (MD's live-path capture test,
+`test_real_pipeline_captures_a_real_maryland_body_preamble_definitions_
+section_end_to_end`) now correctly fails as a behavioral RED (0 definitions
+captured) instead of erroring. Suite: 37 failed → 31 failed / 720 passed.
+
+### P-D2 — Honest-green sweep: verified empirically, nothing went green from core's merge
+
+Rather than reason from the summary counts alone, checked out the exact
+pre-rebase tip (`8a8837a`, reachable via `git reflog`, the commit the rebase
+replayed 22 commits on top of) into an isolated worktree
+(`git worktree add --detach`, outside both `/Users/nerya/LexGraph` and this
+worktree — read-only, removed after use), built a throwaway venv, and ran
+**this sprint's own 12 test files** there.
+
+Result: **31 failed / 20 passed, and the exact set of 31 failing test node
+IDs is byte-identical** to the post-repair run in this worktree (`diff`,
+exit 0) — same names, same parametrize ids, same counts. Confirms
+`app/services/jurisdiction.py` and every other file these tests touch outside
+`definition_links/` is untouched by the rebase in a way that matters here.
+**Conclusion: zero tests in this sprint's family flipped RED→GREEN due to
+core's merge.** Nothing to mutation-prove — the honest finding is that there
+is nothing to report here, verified rather than assumed. `git status` clean
+of `backend/app/` throughout; temp worktree removed.
+
+### P-D3 — 30 behavioral REDs re-verified; one pre-existing (non-rebase) defect found and fixed
+
+Sampled every failure's exception type across the 9 capture/scope files
+(`--tb=line`, one line per failure): all 31 current failures are
+`AssertionError`s describing genuinely missing production behavior (0 or too
+few `created_definitions`, or an exact-set mismatch) — none show a changed
+API signature, a new `TypeError`/`AttributeError`, or any other "wrong
+reason" shape, **except one**:
+`test_federal_conservation_easements_definitions_first_two_clean_terms_are_
+captured` (`test_us_body_preamble_fed_dc_ny_red.py`) was raising
+`app.services.validation.ValidationError: jurisdiction 'US-FEDERAL' is not in
+the controlled vocabulary` — it never reached the pipeline at all. The
+controlled vocabulary (`app/services/jurisdiction.py`) uses `"US-FED"`, not
+`"US-FEDERAL"` (confirmed against `JURISDICTION_CODES` and `profiles.py`'s
+per-code `USProfile` registration, both keyed on `"US-FED"`). Verified this
+predates the rebase — `git diff --exit-code 8a8837a -- backend/app/services/
+jurisdiction.py` is clean — so this is a latent test-authoring defect, not
+something core's merge changed. Fixed the literal string; the test now fails
+with the intended `AssertionError` (0 FEDERAL definitions captured, matching
+its own docstring). No other wrong-reason failures found in the sample.
+
+### P-D4 — Developer build target, and the finding that changes its shape
+
+**Headline finding, verified live, not inferred from the seam doc:**
+**the M6 "ungated dispatch" mechanism the seam spec describes for
+`BodyPreambleRule` does not exist in the shipped code.**
+`registry.body_preamble_rules_for(code)` (registration/lookup) works
+correctly — proved by registering a throwaway rule and confirming the lookup
+returns it — but `USProfile.derive_heading_from_body`
+(`us_profile.py:510-519`) never calls it:
+
+```python
+def derive_heading_from_body(heading: str, body: str) -> str | None:
+    if not _is_placeholder_heading(heading):
+        return None
+    return _derive_heading_from_body(body)
+```
+
+This is v1's GATED shape (legacy-only, return `None` immediately if the
+heading isn't a placeholder) — not v2's M6 shape ("after the legacy branch,
+registered `BodyPreambleRule`s are ALWAYS tried next if nothing was found
+yet — regardless of what `_is_placeholder_heading` returned"). Confirmed by
+a live probe: registered a trivial always-non-None `BodyPreambleRule` for
+`"US-*"`, called `USProfile("US-GA").derive_heading_from_body("Section 15",
+<body with no legacy-recognized shape>)` → returned `None`. `pipeline.py`
+calls `profile.derive_heading_from_body(...)` exactly once per non-heading
+article (`pipeline.py:215`) and nowhere else touches the registry for this
+kind, so there is no alternate call site making this moot. Cross-checked
+against `registry.py`'s own module docstring ("consuming a kind's registered
+rules... is `profiles.py`'s job, not this module's") and against which of
+the 7 rule kinds actually ARE consumed: only `scope_trigger_rules_for` (in
+`extract_local_scope_definitions`) and `citation_rules_for` (in
+`find_citations`) are ever called anywhere in `pipeline.py`/`profiles.py`/
+`us_profile.py`. `heading_rules_for`, `body_preamble_rules_for`,
+`entry_splitter_rules_for`, `term_clause_rules_for`, and
+`structural_unit_rules_for` are registered/lookup-only, never consumed.
+
+**This is not a hypothetical edge case for this family — it is the dominant
+case.** Sampled the placeholder-heading status of every state's real fixture
+row live: only **GA and CA** have placeholder-shaped headings (satisfying
+the LEGACY gate at all); **MD, NE, MS, SD (both rows), FED, DC, NY, DE, ID,
+IL, and MS's second-convention row are all NOT placeholders** — for these,
+today's gated `derive_heading_from_body` returns `None` immediately, before
+ever trying either the legacy body-scan or a registered rule. And even for
+GA/CA (placeholder headings), the LEGACY body-scan alone already fails them
+today (confirmed by this sprint's own pinned tests: GA's "As used in this
+chapter" has no literal "Definitions"; CA's real preamble is 84 chars before
+"definitions", 4 over the legacy regex's 80-char cap) — so GA/CA ALSO need
+the registry consulted, just via the gate's OTHER branch. **Every single one
+of the 31 remaining REDs in this family depends on this dispatch wire.** A
+perfect `rules/us_body_preamble.py` registered today would still leave every
+test in this file RED, because nothing ever calls
+`registry.body_preamble_rules_for(...)`.
+
+`us_profile.py` is out of bounds for both this Planner (explicit rule) and,
+per the seam's own text, for a family panel ("C4... working end-to-end for
+both jurisdictions... **Done here (assume it, do not rebuild it)**" — a claim
+this session's live verification shows is NOT true for the `BodyPreambleRule`
+kind specifically, though it IS true for `ScopeTriggerRule`/`CitationRule`,
+which are genuinely wired). **This needs either core to wire the 4-line
+dispatch call (mirroring the `scope_trigger`/`citation` pattern already
+shipped) or an explicit, scoped exception letting the Developer add exactly
+that call to `us_profile.py`** — my lean is the former (matches the existing
+division of labor and the seam's own "core-authored, stable forever" framing
+of Seam 1 methods), but this is the sub-manager's/program manager's call, not
+mine to make unilaterally. Flagged prominently rather than silently worked
+around.
+
+**One stale test-authored claim, superseded by core's actual merge (good
+news, not a gap):** `test_us_body_preamble_ms_chapter_scope_red.py`'s own
+docstring states `_CHAPTER_SCOPE_TRIGGERS` is "5 Hebrew phrases only, zero
+English triggers exist in the shipped code today" and treats English
+chapter-scope recognition as an open dependency. Verified live: core's merge
+already added `_US_CHAPTER_SCOPE_TRIGGERS = ("for purposes of this chapter",
+"in this chapter", "for purposes of this part", "in this part")` to
+`USProfile.determine_scope`, and it already correctly stamps BOTH GA's "As
+used in this chapter" (via the "in this chapter" substring) and MS's "For
+purposes of this chapter" as `"chapter"` scope
+(`determine_scope(...) == "chapter"` for both, confirmed live). **Scope
+stamping is NOT a blocker** for this sprint's 2 chapter-scope tests once the
+dispatch gap above is resolved — the docstring is simply stale relative to
+what landed on main; noted here rather than silently corrected in test prose
+(no assertion depends on the stale claim, so left as-is per the append-only/
+no-drive-by-edits discipline, but a future reader should trust this log
+entry over that docstring).
+
+**Concrete build target for `rules/us_body_preamble.py`** (assuming the
+dispatch gap above is resolved first — otherwise none of this fires):
+
+Idiom shapes, in the order they should be registered (first-non-None-wins;
+since no other file registers a `BodyPreambleRule` today, declaration order
+within this ONE file is the entire precedence order — narrower/hazard-aware
+patterns should still precede any broad catch-all so a future second file
+sorting earlier by filename can't silently starve them, and so the negative
+guards below are structurally satisfied, not just coincidentally):
+
+1. **B1 — `"(As used in)|(For (the) purposes of) this <unit>, the term:"`**
+   immediately followed by a colon and ≥2 quoted-or-derivable terms.
+   `jurisdiction_codes=("US-*",)`. Satisfies: all 9 params in
+   `test_us_body_preamble_b1_colon_list_matrix_red.py`
+   (`test_b1_colon_list_preamble_is_captured`, DE/ID/KS/LA/OK/SC/VA/WV/IL),
+   GA/MS-first-convention/SD-quoted in `test_us_body_preamble_capture_red.py`
+   (`test_ga_as_used_in_this_chapter_the_term_is_captured`,
+   `test_ms_as_used_in_this_article_the_term_is_captured`,
+   `test_sd_the_term_quoted_means_is_captured`), FED/DC in
+   `test_us_body_preamble_fed_dc_ny_red.py`
+   (`test_federal_conservation_easements_definitions_first_two_clean_terms_are_
+   captured`, `test_dc_trust_for_beneficiary_with_disability_all_four_terms_
+   are_captured`), the GA/MS chapter-scope definitions in
+   `test_us_body_preamble_scope_red.py` and
+   `test_us_body_preamble_ms_chapter_scope_red.py`, and GA's capture in
+   `test_definition_links_us_preamble_family.py`. **Must NOT fire** (or must
+   be paired with a same-clause exclusion) on: the 6 `HAZARD_CASES` in
+   `test_us_body_preamble_hazard_catalogue_red.py` (CO/MT/AL/IN/SD/DC
+   forwarding-references and exception lists — same trigger vocabulary,
+   defines nothing locally), the 5 negative-guard rows in
+   `test_us_body_preamble_negative_guard.py` (GA/MD/NE/MS/SD administrative
+   sentences), and the MS forwarding row in
+   `test_us_body_preamble_negative_guard_qa_forwarding_reference.py`
+   (`"For purposes of this section, the term \"political subdivision\" shall
+   have the same meaning as provided under Section 11-46-1"` — matches B1's
+   own "the term" anchor but is pointer-only). A defensive check along the
+   lines of "does the clause immediately following the anchor contain a
+   forwarding phrase (`has/shall have/shall be as defined in`, `shall have
+   the same meaning as`) with no quoted term of its own before it" is what
+   the hazard/negative-guard rows need; do not build B1 without it.
+
+2. **B2 — `"In this <unit>[,] the following word(s) have the meaning(s)
+   indicated:"`**, colon + numbered list of quoted terms.
+   `jurisdiction_codes=("US-*",)`. Satisfies: all 3 params in
+   `test_us_body_preamble_b2_words_have_meanings_matrix_red.py` (DE/LA/WV),
+   MD in `test_definition_links_us_preamble_family.py`
+   (`test_real_pipeline_captures_a_real_maryland_body_preamble_definitions_
+   section_end_to_end`).
+
+3. **MS second convention — `"For purposes of this <unit>[, unless the
+   context requires otherwise,] the following terms shall have the
+   meaning(s) ascribed herein:"`**. Only measured on MS this sprint (845
+   rows corpus-wide, MS-only) — recommend `jurisdiction_codes=("US-MS",)`,
+   narrower than B1/B2, unless the Developer independently confirms the
+   phrasing recurs elsewhere (escalate with data per this sprint's standing
+   policy if widening). Satisfies both params in
+   `test_us_body_preamble_ms_second_convention_red.py` and the chapter-scope
+   definition in `test_us_body_preamble_ms_chapter_scope_red.py`.
+
+4. **CA definitions-preamble, wide-window variant — same idiom the
+   EXISTING legacy `_BODY_DEFINITIONS_PREAMBLE_RE` already targets
+   ("...Definitions...appl(y/ies/ied)/govern/shall apply"), just without
+   the legacy regex's 80-char prefix cap** (CA's real prefix is 84 chars).
+   `jurisdiction_codes=("US-CA",)` (only measured on CA this sprint; S4's
+   1,401-row CA population was never attributed to other states).
+   Satisfies `test_us_body_preamble_ca_block_red.py`'s
+   `test_california_for_purposes_of_this_division_the_following_definitions_
+   apply_is_captured`.
+
+5. **NY newline-agnostic path** — no new idiom needed (NY's row is a B1
+   shape); NY works automatically once rule 1 fires, because
+   `extract_definitions_from_section`'s numbered-block splitter fails on
+   NY's literal-`\n` corpus defect (core's I8, not this sprint's) but
+   `_extract_inline_quoted_definitions` (the existing quote-anchored
+   fallback, already reachable via `heading_was_derived=True`) is
+   newline-agnostic and already confirmed live to extract NY's terms
+   cleanly. Satisfies
+   `test_ny_literal_backslash_n_body_still_yields_clean_terms_via_the_
+   inline_fallback`.
+
+**Explicitly NOT achievable by this sprint's file alone (disclosed by the
+tests' own names, not a gap in this brief):** the two
+`*_needs_markers_sprint_too` tests (NE unquoted, SD unquoted-comma) in
+`test_us_body_preamble_capture_red.py`, and
+`test_real_pipeline_still_cannot_capture_the_real_nebraska_unquoted_body_
+preamble_definitions_needs_markers_sprint_too` in
+`test_definition_links_us_preamble_family.py` — all three need a NEW
+unquoted-term entry splitter, `2026-08-04-defs-us-markers` territory, a
+cross-sprint dependency, not a defect in the Developer's rule.
+`test_federal_last_entry_extraction_swallows_the_next_unrelated_subsection_
+confirmed_live` is a unit-level pin on a pre-existing, out-of-bounds
+extractor defect (last-entry-unbounded), already GREEN, not a capture test.
+
+**Pushed**: `0ebafcd` (D1), `cf10cd7` (D3 jurisdiction-typo fix), branch
+`claude/defs-us-preamble`, `git status` clean of `backend/app/`.
