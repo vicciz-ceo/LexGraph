@@ -23,6 +23,8 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04 core dispatch phase-3 manager (opus, fresh context after
   phase-2 manager clean-exited at its named context line, pre-final-batch):
   adb9a8660bd062f7f
+- 2026-08-04 IL phase-2 manager (opus, fresh context after predecessor
+  clean-exited post QA cycle 2; runs Phase C): aebd052825067b722
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
