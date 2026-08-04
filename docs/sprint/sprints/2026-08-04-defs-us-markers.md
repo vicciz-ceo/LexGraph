@@ -181,15 +181,36 @@ planner pass 1`.
 
 ## Next Steps
 
+**UPDATE (pass 3, post-rebase) -- re-scoped against the REAL registry, and
+BLOCKED again, differently than before.** `backend/app/definition_links/
+rules/registry.py` is real code (confirmed: `HeadingRule`, `BodyPreambleRule`,
+`EntrySplitterRule`, `TermClauseRule`, `ScopeTriggerRule`,
+`StructuralUnitRule`, `CitationRule` all exist, with `register_*`/`*_for`
+pairs for each). **But `entry_splitter_rules_for`/`term_clause_rules_for` --
+the two kinds every wave below is planned to ship as -- are consulted by NO
+production code path anywhere in the backend** (verified: `grep -rn` across
+all of `backend/app` for both names, outside `registry.py` itself and its
+own registration/lookup unit test, returns zero hits; same for
+`heading_rules_for`/`body_preamble_rules_for`/`structural_unit_rules_for`).
+Only `ScopeTriggerRule` (via `USProfile.extract_local_scope_definitions`)
+and `CitationRule` (via `USProfile.find_citations`) are wired end-to-end.
+`us_profile.extract_definitions_from_section` -- the Definitions-HEADED-
+section call site every wave below needs -- calls only its own baseline
+`(N)`-block splitter plus the (still `heading_was_derived`-gated)
+`_extract_inline_quoted_definitions` fallback; it never asks the registry
+for anything. **ESCALATED to the program manager this pass** (see log
+`## P3`) -- ruling U-R5's resolved boundary ("wave 1 ships as an
+EntrySplitterRule+TermClauseRule... under baseline-first/registry-second
+consumption... no shared-module edit, no escalation needed") assumed this
+consumption wiring existed; it does not, and building it is a `us_profile.py`
+edit (shared file, core's territory, gate U3-forbidden for this panel).
+Every wave below is therefore READY (fixture + RED test authored, real rows,
+verified live) but NOT unblockable by this panel alone until core adds the
+missing wiring or the program manager rules otherwise.
+
 Ordered by corpus impact; full rationale and measured rates in the log's
-`## P1`/`## P2` sections. Each item independently testable, each names
-its gate(s). **Core's seam spec is now PUBLISHED** (`## Seam spec
-(published)`, `origin/claude/defs-core-scope`, polled this pass) -- items
-below note whether they land as a registry-rule module (`EntrySplitterRule`/
-`TermClauseRule`, seam `rules/us_entry_marker_variants.py`) once core's
-Developer ships C1-C4, superseding the earlier "possibly blocked" framing.
-Not re-planned this pass (out of pass-2's assigned priorities); flagged for
-the next planner pass or the sub-manager.
+`## P1`/`## P2`/`## P3` sections. Each item independently testable, each
+names its gate(s).
 
 1. **Wave 1 [U1, U6] -- RED tests authored pass 1, still the correct
    contract.** No-marker inline-quote (VA/WA/FED) + boundary-precision
@@ -238,23 +259,40 @@ the next planner pass or the sub-manager.
 8. **VT overlap -- flagged to the program manager, not claimed.**
    Unchanged from pass 1.
 9. _Retired as a separate item -- folded into item 5 above._
-10. **Correctly-empty classifier, committed for real [U4, U-R3] -- RED
-    tests authored THIS pass**, `test_definition_links_correctly_empty.py`,
-    defining the required contract for a new
-    `app/definition_links/correctly_empty.py` module (not yet
-    implemented -- every test in this file currently fails with
-    `ModuleNotFoundError`, deferred to test-run time so it doesn't abort
-    collection of the rest of the suite). **Material correction to pass
-    1's own classifier measurement, found this pass**: the cross-reference
-    rule as pass 1 described it ("matched at the START of the stripped
-    body") is dangerously over-broad -- it misclassifies wave 1's OWN
-    flagship WA test row (2 real terms) and two real VA rows (46 and 7
-    real terms) as "correctly empty". Corrected rule requires the ENTIRE
-    body (minus an optional trailing `History:` annotation) to be nothing
-    but the cross-reference sentence. Recomputed full-corpus rate: **WA
-    4/1,778 (0.2%)**, not pass 1's reported 734/1,778 (41.3%); VA 0/1,065
-    (0.0%), not 2/1,065. DC/WI/WY unaffected. Full detail: log `## P2`,
-    fixtures README.
+10. **Correctly-empty classifier -- SHIPPED, bounce-cycle-fixed, and
+    RE-VERIFIED this pass.** `app/definition_links/correctly_empty.py` is
+    implemented and green. Re-run corpus-wide this pass (all 53 files,
+    post-rebase): 224 provably correctly-empty (184 DC terminal + 40
+    cross-reference: WY19/MN6/UT5/WA4/TX2/WI2/AL1/NC1), an EXACT match to
+    the pre-rebase M5 figure and its per-jurisdiction breakdown -- the
+    classifier's behavior is confirmed unaffected by the rebase. Full
+    detail: log `## P3`.
+11. **Wave 8 [U1] -- unbounded-last-entry boundary defect, RED tests
+    authored pass 3.** `test_us_markers_unbounded_last_entry.py`. FED
+    direction confirmed live (a real, ALREADY-baseline-successful FED
+    section, `USC_T5_C34_S3401`, swallows its own trailing amendment-notes
+    tail into its last entry -- NOT merely the rescue population wave 1
+    covers, and the defect lives in the SHARED baseline splitter, out of
+    reach for any family-3 rule regardless of the registry-wiring gap
+    described in the update note above). DC
+    (91.7%)/NY (79.8%) as specifically relayed do NOT reproduce under any
+    measure tried this pass -- CORRECTION, see log `## P3`. FL `540.11`
+    pinned per the brief but flagged as a family-boundary question
+    (`defs-us-scoped-inline` territory, not Definitions-headed) -- VT-style
+    flag, not a unilateral claim.
+12. **Wave 9 [U1] -- NC unquoted `TermName.--definition`, RED test
+    authored pass 3.** `test_us_markers_nc_unquoted_term.py`,
+    `STATE_NC_C41_S41-70`. NC full-corpus: 522/1,007 (51.8%) zero-candidate
+    (re-measured this pass). AL's own rate re-confirmed live: 1,603/1,653
+    (97.0%), exact match, no new AL test needed (already covered pass 2).
+13. **Mojibake definition-links-to-mention, RED test authored pass 3
+    (ruling U-R8).** `test_us_markers_mojibake_definition_links_to_
+    mention.py`, real AK rows. Could not be evaluated against a candidate
+    implementation -- blocked upstream by the registry-wiring gap described
+    in the update note above, not
+    (yet) by U-R8's own named Stage-3-matching risk, which remains
+    genuinely untested. See log `## P3` for the scratch-experiment
+    methodology that found this.
 
 ## Dev Complete
 

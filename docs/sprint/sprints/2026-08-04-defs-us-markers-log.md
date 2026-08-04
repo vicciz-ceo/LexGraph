@@ -1175,3 +1175,100 @@ are re-confirmed live by the Planner before any rule is written against them:
 VT `S3700` boundary stands as agreed: splitting mechanics ours, per-term
 fan-out multiterm's; a parent-redirect clause and its lettered children stay
 in ONE block (their M-R8 corollary).
+
+---
+
+## M7 — P-R8 verified; ruling U-R5 SUPERSEDED; sprint PARKED (2026-08-04)
+
+### P-R8 confirmed by my own inspection (not accepted on relay)
+
+The program manager reported that 5 of 7 registry rule kinds are dead on the
+live path. I verified it directly against the merged tree:
+
+- **Accessors DEFINED** in `rules/registry.py`: `heading_rules_for`,
+  `body_preamble_rules_for`, `entry_splitter_rules_for`,
+  `term_clause_rules_for`, `scope_trigger_rules_for`,
+  `structural_unit_rules_for`, `citation_rules_for` — all 7.
+- **Accessors CALLED anywhere in production**: only `citation_rules_for` and
+  `scope_trigger_rules_for` (in `profiles.py` and `us_profile.py`).
+- **Therefore DEAD: `heading`, `body_preamble`, `entry_splitter`,
+  `term_clause`, `structural_unit`** — 5 of 7, exactly as P-R8 states, and the
+  two this sprint depends on most (`entry_splitter`, `term_clause`) are among
+  them. `extract_definitions_from_section` never consults the registry.
+
+**Developer spawn for rule modules is HELD.** Any rule module written today
+would be inert — it would register successfully and never be called, and a
+test that only asserted "the rule is registered" would pass while capturing
+nothing.
+
+### Ruling U-R5 is SUPERSEDED — and I record why I got it wrong
+
+In §M3 I ruled the core boundary "RESOLVED", reasoning that wave 1 could ship
+as an `EntrySplitterRule` consumed baseline-first. That reasoning was sound
+against core's PUBLISHED SPEC and wrong against the SHIPPED CODE: the spec
+described a consumption contract the implementation never wired. I verified
+the document, not the live path.
+
+That is precisely this repo's recorded lesson — *a named wiring test is not a
+live-path test* — and I repeated it at the manager level. The corrective
+standard for this sprint going forward: **before any rule module is written,
+a test must prove the registry kind we depend on is actually REACHED by
+`extract_definitions_from_section` on a real row.** Core's reopened
+dispatch-completion sprint is expected to deliver exactly that; we verify it
+ourselves on merge rather than assuming it.
+
+### U6 baselines re-measured post-rebase — plus a methodology correction
+
+My first re-measurement read the parquet directly and reported the population
+UNCHANGED at 34,241 / 224 correctly-empty. That was a **methodology error on
+my part**: core's NY fix (I8) lives at the INGEST layer
+(`ingest_us_statutes.py:237`, `text.replace("\\n", "\n")`), so reading parquet
+directly bypasses it. Re-measured on the post-ingest path for NY:
+
+| NY Definitions-headed sections | zero-yield | rate |
+|---|---|---|
+| reading parquet raw (wrong path) | 1,479 | 100.0% |
+| after the ingest `\n` repair (real path) | **1,262** | **85.3%** |
+
+So the fix recovers **217 NY sections (14.7%)** — real, but far from solving
+NY. Corrected corpus figures: zero-yield **34,024** (was 34,241), provably
+correctly-empty **224**, **real remaining misses ≈ 33,800**.
+
+Post-rebase per-jurisdiction zero-yield rates (measured by me, all 53 files):
+AK 766/767 (99.9%), RI 555/555 (100%), UT 1,667/1,709 (97.5%), AL 1,603/1,653
+(97.0%), VA 1,065/1,096 (97.2%), WA 1,778/1,800 (98.8%), FED 1,600/1,920
+(83.3%), NC 522/1,007 (51.8%), DC 332/1,216 (27.3%), NY 1,262/1,479 (85.3%).
+**NC at 51.8% confirms the program manager's fact 4 is worth its own sub-case.**
+
+### Planner pass 3 — INCOMPLETE (API failure), partial work salvaged
+
+The Planner was terminated mid-pass by an API error, before writing its `## P3`
+log entry, so its measurements are lost. Its uncommitted artifacts run and are
+genuinely RED, so I have committed them rather than discard them:
+`test_us_markers_unbounded_last_entry.py` (incl. the FL `540.11` case),
+`test_us_markers_nc_unquoted_term.py`,
+`test_us_markers_mojibake_definition_links_to_mention.py` (the U-R8 linking
+probe), plus 2 fixture files. **These are UNVERIFIED by me** — I have not
+byte-checked their vendored rows against the parquet, unlike the 39 rows
+before them. A future pass must do that before relying on them.
+
+## Context Dump
+
+1. Branch `claude/defs-us-markers` @ pushed head; rebased on main `0d57228`;
+   own worktree + venv. Suite `19 failed, 724 passed` after salvage.
+2. **BLOCKED on core's reopened dispatch-completion sprint** (P-R8): the
+   `entry_splitter` + `term_clause` registry kinds this sprint needs are
+   defined but never called by `extract_definitions_from_section`.
+3. Shipped production code (on OUR branch, unmerged): `correctly_empty.py`,
+   gate-U4's classifier — verified corpus-wide by me (false correctly-empty
+   4→0, genuine verdicts preserved 228→224).
+4. ~34 RED live-path tests covering wave 1 (VA/WA/FED), auto-rescue
+   (UT/TX/AZ), not-yet-rescued (AL/DC/RI/AK/TN/SC), NC, unbounded-last-entry,
+   and the mojibake-linking probe.
+5. Honest miss population: **~33,800 real remaining misses** corpus-wide.
+6. U-R8 stands: mojibake has no registry seam; repair inside our own rules and
+   escalate if the linking test cannot go green.
+7. QA has NEVER run on this sprint — the main outstanding role.
+8. On wake: verify core's dispatch is live on a REAL row (do not trust the
+   spec — see U-R5's failure above), re-verify the 3 salvaged test files'
+   fixtures byte-for-byte, then Developer, then QA.
