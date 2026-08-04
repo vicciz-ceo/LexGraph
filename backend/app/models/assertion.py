@@ -62,3 +62,13 @@ class Assertion(Base):
         String(36), ForeignKey("assertions.id"), nullable=True
     )
     current_revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Sprint 2026-08-04-defs-core-scope, seam spec v2.2 §6 / v2.4
+    # (director ruling D-ANCHOR, final -- Option A: row-level anchor + a
+    # structured sub-article path, no new entity). Additive, nullable --
+    # a serialized `UnitPath` (see `pipeline.py`'s `get_mention_unit_
+    # paths` retrieval seam), set only for a `USES_DEFINITION` assertion
+    # whose mention resolved to sub-article granularity. Every existing
+    # `Assertion(...)` construction site is unaffected (defaults to
+    # `None` when omitted).
+    subject_unit_path: Mapped[str | None] = mapped_column(Text, nullable=True)

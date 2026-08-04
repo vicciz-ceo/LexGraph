@@ -101,13 +101,92 @@ def _is_own_defining_entry(text: str, start: int, end: int) -> bool:
     return before_is_quote and after_is_quote
 
 
+# Sprint 2026-08-04-defs-core-scope (gate C1, seam spec v2/v2.1/v2.2):
+# `source_chapter`/`source_article_number`/`scope_value` may each be a
+# single scalar OR (M9, enumerated/ranged scopes) a tuple of allowed
+# values -- "expected in (actual if isinstance(actual, tuple) else
+# (actual,))" collapses to today's plain `==` check for the ordinary
+# scalar case, so this is purely additive.
+_LEGACY_KIND_RANK = {"subsection": 0, "local": 1, "chapter": 2, "law-wide": 1000}
+# A registered kind this module has never heard of (e.g. a family panel's
+# "part") is treated as the same narrowness tier as "local" -- a safe,
+# conservative default absent a real UnitPath-depth signal on this
+# legacy-field containment path (v2.2's "rank = path length" governs the
+# PUBLIC `profile.resolve_unit_path` seam; this is matcher.py's own
+# internal approximation for the SAME "narrowest governs" precedence,
+# expressed over the legacy per-kind fields these tests pin).
+_DEFAULT_KIND_RANK = _LEGACY_KIND_RANK["local"]
+
+
+def scope_rank(scope: str) -> int:
+    """How narrow `scope` is, lower is narrower/more specific -- used by
+    `pipeline.py`'s Stage-3 attribution rewrite to implement "narrowest
+    governs" precedence (director ruling, seam spec v2.2 §3) across every
+    candidate definition sharing one mention's term, not just a single
+    in/out-of-scope boolean."""
+    return _LEGACY_KIND_RANK.get(scope, _DEFAULT_KIND_RANK)
+
+
+def _value_matches(actual, expected) -> bool:
+    if isinstance(expected, tuple):
+        return actual in expected
+    return actual == expected
+
+
 def _in_scope(definition, article) -> bool:
+    """Coarse, article-level (position-independent) containment check --
+    the ONLY check for "chapter"/"local"/"law-wide"; a necessary (but for
+    "subsection", not sufficient -- see `_subsection_contains_offset`)
+    check for every other kind."""
     scope = definition.scope
     if scope == "chapter":
-        return article.chapter == definition.source_chapter
+        return _value_matches(article.chapter, definition.source_chapter)
     if scope == "local":
-        return article.number == definition.source_article_number
-    return True  # law-wide (or any other/unspecified scope)
+        return _value_matches(article.number, definition.source_article_number)
+    if scope == "subsection":
+        # A subsection always belongs to exactly one owning article --
+        # narrower than "local", never broader.
+        return _value_matches(article.number, definition.source_article_number)
+    if scope == "law-wide":
+        return True
+    # Any OTHER (generic, e.g. "part") registered kind: matched against
+    # the owning article's `.structural_units` tuple -- the SAME
+    # mechanism "chapter"/"local" use via their own dedicated fields,
+    # generalized rather than duplicated per kind (v2 M4). A real
+    # production `MatcherArticle` has no `.structural_units` attribute at
+    # all today (no rule in this sprint stamps a generic kind), so this
+    # defaults to "not contained" rather than raising.
+    units = getattr(article, "structural_units", ())
+    return any(
+        unit.kind == scope and _value_matches(unit.value, definition.scope_value)
+        for unit in units
+    )
+
+
+def _subsection_contains_offset(definition, article, char_offset: int) -> bool:
+    """Fine, position-dependent check: for a `scope="subsection"`
+    definition, does `char_offset` fall inside the matching labeled
+    `Subsection` of `article`? A no-op (always True) for every other
+    scope -- `_in_scope` above is already sufficient for those."""
+    if definition.scope != "subsection":
+        return True
+    subsections = getattr(article, "subsections", ())
+    expected = definition.scope_value
+    allowed = expected if isinstance(expected, tuple) else (expected,)
+    return any(
+        sub.label in allowed and sub.start <= char_offset < sub.end for sub in subsections
+    )
+
+
+def definition_covers_mention(definition, article, char_offset: int) -> bool:
+    """Whether `definition`'s scope governs a mention at `char_offset`
+    within `article` -- the SAME containment `link_articles_to_
+    definitions` applies internally, exposed for `pipeline.py`'s Stage 3
+    re-resolution (each edge re-checked against every candidate
+    definition sharing its term, not a flat last-write-wins dict)."""
+    return _in_scope(definition, article) and _subsection_contains_offset(
+        definition, article, char_offset
+    )
 
 
 def link_articles_to_definitions(
@@ -145,6 +224,8 @@ def link_articles_to_definitions(
             for match in term_uses(term, article.body):
                 start, end = match.start(), match.end()
                 if _is_own_defining_entry(article.body, start, end):
+                    continue
+                if not _subsection_contains_offset(definition, article, start):
                     continue
                 if any(not (end <= s or e <= start) for s, e in spans):
                     continue
