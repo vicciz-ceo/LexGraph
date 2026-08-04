@@ -257,21 +257,20 @@ def test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_dif
 def test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully(
     db_session, matter_with_users
 ):
-    """D3 (scope-unit gap) -- AMENDED, Planner pass 2: `"subsection"` is
-    now SHIPPED and live-enforced (ruling S-R4, `matcher.py:136`
-    `_in_scope`, offset-checked via `profile.resolve_unit_path`) -- the
-    docstring's original "NOT enforced today" claim is stale post-merge.
-    `STATE_ME_T38_C3_S464` defines "designated use" via `"For the purposes
-    of this subsection..."`; this test proves only the STAMPING half
-    (`.scope == "subsection"`), deliberately NOT upgraded to a full
-    both-directions live-enforcement proof like local/chapter above:
-    verified live that real Maine text embeds bracketed legislative-
-    history annotations (`(NEW)`/`(AMD)`/`(AFF)`) inline in the body,
-    which `resolve_unit_path`'s marker regex mis-parses as nested
-    sub-article markers, producing a garbage path unrelated to the
-    statute's real "2-A." structure -- a genuine, separate CORE defect
-    (`us_profile.py` is shared, S-R2 forbids editing it), reported to the
-    manager in the `-log.md` rather than silently worked around."""
+    """D3 (scope-unit gap) -- AMENDED, Planner pass 4 (ruling S-R11):
+    pass 2 believed `"subsection"` was SHIPPED and live-enforced (S-R4),
+    but pass 3's S-R10 live-path test proved it dead on the live path --
+    `us_scoped_inline._subsection_label` and `profile.resolve_unit_path`
+    are two independent derivations that never agree (format + level-
+    semantics mismatch, plus a `resolve_unit_path` bug mislabeling a
+    digit-outermost marker), so `_subsection_contains_offset` always
+    returns False, even for a mention truly inside the defining subsection.
+    S-R11 (interim, revert self-alarmed via `test_us_scoped_inline_
+    pipeline_subsection_live.py`'s `xfail(strict=True)`): `"subsection"`
+    maps to `"local"`, the narrowest REPRESENTABLE enclosing unit --
+    zero-miss-safe, over-link bounded by one article. `STATE_ME_T38_C3_
+    S464` defines "designated use" via `"For the purposes of this
+    subsection..."`; this test proves only the STAMPING half."""
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
     from app.models.definition import Definition
@@ -295,4 +294,6 @@ def test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully(
     du_defs = [d for d in result["created_definitions"] if "designated use" in d["terms"]]
     assert du_defs, "the real Maine subsection-scoped definition was never captured"
     definition_row = db_session.get(Definition, du_defs[0]["id"])
-    assert definition_row.scope == "subsection"
+    # S-R11 interim: was "subsection" pre-ruling; reverts the moment core's
+    # resolve_unit_path level-contract fix lands (see the xfail'd test).
+    assert definition_row.scope == "local"
