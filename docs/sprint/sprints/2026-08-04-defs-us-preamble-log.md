@@ -892,3 +892,271 @@ this exact real row when run through the unmodified extraction chain in a
 scratch script — proving this new test would catch that specific,
 plausible future regression, which the existing NE guard would not (its
 own fixture row never reaches a trigger-anchored regex at all).
+
+---
+
+## 2026-08-04 — QA: D1, corpus-wide false-positive exposure for M-R7(a)'s ungated branch
+
+**Verdict up front (plain language): the fully-ungated reading of M-R7(a)
+is NOT safe to ship as specified.** Not because it fabricates wrong data —
+in a 45-row hand-judged sample, it did not fabricate a single false
+term/definition pair — but because of scale and section-type
+misclassification: a realistic candidate rule claims **4x more rows
+outside the placeholder-gated population than inside it (5,915 vs 1,468)**,
+spread across **50 of 53 scanned US jurisdictions**, not just the 5 states
+(GA/MD/NE/MS/SD) this sprint inventoried and tested. Most of that
+ungated-only population turns out to be genuine, accurate single-clause
+definitions embedded inside ordinary, substantively-different statutes
+(criminal law, tax code, licensing, environmental rules) — the SAME
+BLOCK-vs-CLAUSE boundary problem the Planner already found and routed for
+Mississippi specifically (D2, MS→`defs-us-scoped-inline`), but the ungated
+reading opens that exact problem to every jurisdiction in the corpus with
+no inventory, no test, and no routing decision for any of the other 44.
+Full reasoning, numbers, and the hand-judged sample below.
+
+### Method
+
+Script: scratchpad `qa_d1_corpus_scan.py` (not committed — measurement
+tooling, not a test; reads the snapshot, per the brief's own carve-out).
+Mirrors the manager's `mgr_probe.py` methodology: live import of the
+CURRENT pre-seam `pipeline.py`/`us_profile.py` from this worktree, run
+against the on-disk vaquill/open-us-law snapshot (never downloaded),
+column-projected to `act_id`/`section_title`/`text` for memory efficiency.
+Scanned **all 53 `us_*_statutes.parquet` files** in the canonical snapshot
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`) — every US state plus DC,
+Puerto Rico, and the federal code — **2,038,247 rows total**. Run time
+~93s.
+
+**Candidate rule** (a realistic `BodyPreambleRule.derive_heading`, built
+independently from the sprint log's own D1 inventory, NOT copied from any
+hidden implementation — none exists; core's `rules/` package is still
+absent, verified again today): three regexes, searched within the leading
+500 chars of the normalized body —
+
+1. GA/MS/SD shape: `\b(?:As used in this|For (?:the )?purposes of this)\s+
+   (?:chapter|article|part|title|subchapter|section|act)\b[^.]{0,80}?\bthe
+   term\b` — covers GA's and MS's dominant "the term:" preamble AND SD's
+   unquoted comma variant ("the term, X, means"), since "the term" appears
+   shortly after the trigger in both.
+2. MD shape: `\bIn this\s+(?:chapter|article|part|title|subchapter|
+   section|act)\b[,]?\s*the following words? have the meanings?\s+
+   indicated\b`.
+3. MS alternate shape (real D2 example, `STATE_MS_T75_C12_S55-5`): `\bThe
+   words,?\s+terms and phrases as used in this\s+(?:...)\b[^.]{0,40}?
+   \bshall have the following meanings?\b`.
+
+For every row where one of these matched: **excluded** (not counted as
+exposure) if `profile.is_definitions_heading(heading)` was already True
+(baseline captures it via heading alone — registry is never consulted
+either way), or if the CURRENT two-gate combo (Gate A
+`_is_placeholder_heading` AND Gate B `_BODY_DEFINITIONS_PREAMBLE_RE`)
+already succeeded (already captured today, not new exposure). Everything
+else is "claimed" under the ungated reading and split:
+
+- **GATED** — heading passes Gate A (`_is_placeholder_heading`): exposure
+  identical under EITHER M-R7(a) branch, already a known/bounded/reviewed
+  risk (this is GA's own population).
+- **UNGATED-ONLY** — heading does NOT pass Gate A, i.e. is a real,
+  descriptive, non-placeholder heading: claimed ONLY if M-R7(a) resolves
+  to the fully-ungated branch. This is the NEW incremental exposure.
+
+### Corpus totals
+
+| | rows |
+|---|---|
+| Total rows scanned (53 files) | 2,038,247 |
+| **Total claimed by the candidate rule** | **7,383** |
+| — of which GATED (same risk either branch) | 1,468 |
+| — of which UNGATED-ONLY (new risk, ungated branch only) | **5,915** |
+| States/territories with any ungated-only exposure | 50 of 53 |
+
+Gated population (1,468) is concentrated almost entirely in GA (1,224 —
+this sprint's own target), plus CA (174) and IL (65), both pre-existing
+placeholder-heading jurisdictions unrelated to this sprint, plus AL (5).
+
+Ungated-only population (5,915) is **diffuse, not concentrated** — the top
+6 states account for 4,102 (69%) but the remaining 31% (1,813 rows) is
+spread across 44 more jurisdictions in amounts from 1 to 142:
+
+| State | rows in corpus | claimed (ungated-only) |
+|---|---:|---:|
+| MD | 39,552 | 1,841 |
+| FL | 24,866 | 1,031 |
+| MS | 158,688 | 769 |
+| FEDERAL | 54,853 | 435 |
+| DC | 23,694 | 300 |
+| SD | 39,589 | 226 |
+| NC | 26,685 | 142 |
+| NY | 40,102 | 136 |
+| AL | 45,984 | 129 |
+| MO | 29,296 | 103 |
+| LA / MA / IN / WV / PA / DE / VA / KS / MN / ME / OK / RI / NV / WA / NJ / SC / ID / MT / VT / AR / NH / ND / HI / IA / OR / CO / CT / KY / MI / TN / NM / UT / AZ / TX / GA / NE / WI / IL / OH / WY | (various) | 1–84 each, 39 states, 673 rows combined |
+
+Of the 5 states THIS sprint inventoried and tested (GA/MD/NE/MS/SD): only
+MD (1,841), MS (769), and SD (226) show ungated-only exposure — matching
+items 3/6/8's own targets almost exactly (this is the GOOD news: the
+candidate rule's MD/MS/SD hits land where the Planner's D1 inventory says
+they should). GA is almost entirely in the GATED population already (only
+2 ungated-only, noise). **The other ~3,079 ungated-only rows are in 41
+states this sprint never inventoried, never wrote a test for, and never
+proposed a routing decision for** — that is the core of the exposure this
+measurement exists to surface.
+
+### Hand-judged sample: 45 rows, uniform random, seed 42
+
+Sampled uniformly at random (not stratified — the resulting per-state mix,
+MD 10 / FL 9 / FEDERAL 7 / MS 6 / DC 4 / SD 2 / NJ 1 / ID 1 / SC 1 / MN 1 /
+WA 1 / NY 1 / AL 1, roughly tracks the population's own concentration).
+For every sampled row, re-fetched the FULL (untruncated) real body text
+from the snapshot, then ran it through the **actual, unmodified,
+currently-shipping extraction chain** (`USProfile.extract_definitions_
+from_section` then, if empty, `pipeline._extract_inline_quoted_
+definitions` — exactly the same two calls pipeline.py already makes at
+lines 418-429 for GA today) to see EMPIRICALLY what `Definition` rows
+would be created, rather than eyeballing the prose and guessing. Scripts:
+scratchpad `qa_d1_fetch_sample_fulltext.py`, `qa_d1_simulate_extraction.py`.
+
+**Result: 0 of 45 rows produced a fabricated or nonsensical term/
+definition pair.**
+
+- **9/45 (20%) produced zero candidates.** Read every one of these 9 by
+  hand: all 9 are GENUINE definitions the current idiom-anchored extractor
+  simply can't parse yet (verbs it doesn't recognize — `"X" includes
+  Y` appears in 6 of the 9: `STATE_DC_T47_C44_S47-4405`, `STATE_SC_
+  T34_C5_S34-5-10`, `STATE_DC_T19_C17_S19-1705.01`, `STATE_FL_TX_C112_
+  PIII_S112.3125`, `STATE_MS_T63_C16_S17-217`, plus SD's already-documented
+  unquoted-comma shape twice and one new data point:
+  `STATE_AL_T2_C40_S11-40-25`, "For purposes of this section, the term
+  elected municipal official means any mayor, council member..." —
+  **Alabama also has an unquoted-term convention**, previously undocumented
+  in the D1 inventory (only NE/SD were flagged) — a new, small,
+  cross-sprint (`defs-us-markers`) data point, not a false positive since
+  it produces zero output either way). None of these 9 are "trigger fired,
+  nothing is actually defined" false positives — every one has a real
+  definitional relationship in its text; today's code just can't extract
+  it. Harmless (no bad data), but also not the safety net it might look
+  like — it's an accident of today's narrow idiom list, not a designed
+  guard (see the forwarding-reference finding below).
+- **36/45 (80%) produced ≥1 candidate. Every term I checked against the
+  row's own real text was accurate** — a real term genuinely given its
+  real statutory meaning (examples: MD `STATE_MD_Agbo_T3_S1_S3-101`, 14
+  clean architect-licensing terms; FL `STATE_FL_TXIV_C215_S215.4725`, 9
+  terms from Florida's Israel-boycott-divestment statute; USC
+  `STATE...USC_T43_C44_S2607`, 4 clean federal land-grant terms). The
+  closest things to "noise" found were data-QUALITY issues, not
+  false-DATA issues: definition text sometimes bleeds into trailing
+  legislative-history/citation boilerplate when a federal section has no
+  later quoted term to bound the entry (`USC_T26_C1_S804`, "life insurance
+  deductions" definition text runs on into "(Added Pub. L. 98-369...)
+  Editorial Notes... Prior Provisions..."), and a handful of dual-alias
+  `"X" or "Y" means` definitions capture only one of the two aliases
+  (`STATE_FL_TXLVIII_C1004_PI_S1004.0971`'s "Administer"/"administration"
+  — a pre-existing extractor limitation, not something this rule
+  introduces).
+
+**But roughly half of the 36 are CLAUSE-shaped, not BLOCK-shaped** — a
+single (or 2-3) defined term(s) embedded inside a section whose real
+subject is something else entirely, not a definitions-focused block. Real
+examples, quoted verbatim: `STATE_NJ_T2C_C35_S35-10.4` ("Toxic
+Chemicals") — "As used in this section the term \"toxic chemical\" means
+any chemical or substance having the property of releasing toxic fumes"
+— followed by 3 subsections of drug-paraphernalia criminal-offense
+provisions with nothing else definitional in them. `STATE_MS_T41_C25_
+S41-45` — "As used in this section, the term \" abortion \" means the use
+or prescription of any instrument, medicine, drug..." inside Mississippi's
+abortion-restriction statute, whose remaining subsections are penalties,
+not definitions. `STATE_DC_T8_C1_S8-108.03` (dry-cleaning solvent
+regulation) — one clause defining "child-occupied facility", the rest of
+the section is unrelated equipment/permitting rules. `STATE_FL_TX_C112_
+PIII_S112.3125` (dual public employment) — one clause defining "public
+officer", the rest is conflict-of-interest procedure. Each of these
+produces an individually-accurate `Definition` row, but the SECTION gets
+reclassified as a "Definitions section" when it plainly is not one — the
+exact MS BLOCK-vs-CLAUSE conflict the Planner already found and routed
+(D2), now confirmed live in NJ, MS (again, a different row), DC, and FL,
+none of which were part of that routing decision.
+
+**A sharper finding, confirmed live, cross-referenced in D2 above:**
+`STATE_MS_T17_C2_S25-34` — "(2) For purposes of this section, the term
+\"political subdivision\" shall have the same meaning as provided under
+Section 11-46-1." — reproduces the exact forwarding-reference
+false-positive shape the Planner's own NE negative-guard test exists to
+prevent, EXCEPT this row's trigger phrase ("For purposes of this section,
+the term") DOES match a realistic candidate rule's anchor, unlike NE's own
+fixture row. It produced 0 candidates today only because the current idiom
+list doesn't recognize "shall have the same meaning as provided under" —
+proven live (scratchpad snippet) that widening the idiom list by one
+plausible phrase (`shall have the same meaning as`, a natural next step to
+also rescue NE's own convention) DOES turn this into a spurious
+pointer-only `"political subdivision" -> "...Section 11-46-1"`
+`Definition`. This is not hypothetical: it is a real corpus row sitting in
+the ungated-only population today, one idiom-list widening away from
+becoming a live false positive. Added a dedicated test for it (D2 above).
+
+### Is the ungated branch safe? What would make it safe? Costs in each direction.
+
+**Not safe as a blanket "any US-\* rule fires whenever baseline returns
+None" mechanism.** The risk is not "wrong facts get created" (empirically
+low in this sample) — it is (1) **scale**: 5,915 rows, 4x the gated
+population; (2) **breadth**: 50 of 53 jurisdictions touched, only 5 ever
+inventoried; (3) **section-type misclassification**: roughly half the
+rows that DO extract cleanly are CLAUSE-shaped, reclassifying an ordinary
+criminal/tax/licensing/environmental statute as a "Definitions section"
+for the sake of one embedded clause — a real precision cost even though
+the specific `Definition` row is accurate; and (4) a **confirmed,
+reproducible hazard class** (forwarding-reference-as-definition) that
+recurs outside the one state it was originally tested for, and is
+currently masked only by an accident of today's narrow idiom list, not by
+any designed guard.
+
+Three options, with actual row counts (not a recommendation to pick one —
+per the brief, recall/precision trade-offs escalate to the director):
+
+- **(A) Keep the placeholder-heading gate (M-R7(a) branch 2).** Captures
+  the 1,468 gated rows (GA's 1,224, already fully inventoried and tested,
+  plus CA/IL/AL as a bonus nobody asked for). **Loses all 5,915
+  ungated-only rows — including this sprint's own targeted MD (1,841),
+  MS (769), and SD (226) conventions.** Per the Planner's own D4 finding,
+  this does not just "block pending a future core fix" for MD/MS — it
+  makes them unreachable by a `BodyPreambleRule` UNLESS core separately
+  widens the placeholder-recognizer's pattern list for MD's `"§N–NNN."`
+  and MS's `"Miss. Code Ann. § N-N-N"` heading shapes specifically (a
+  bounded, reviewable, already-flagged-as-available core change,
+  independent of M-R7(a)'s general answer). SD stays unreachable either
+  way — its headings are genuinely real, not placeholders (D4).
+- **(B) Full ungate (M-R7(a) branch 1), as specified.** Captures all 7,383
+  rows, including the targeted MD/MS/SD conventions. **Cost: 5,915 rows of
+  brand-new exposure across 44 states this sprint never inventoried**,
+  a large minority to roughly half of the extractable ones (my sample's own
+  count: 15/36 ≈ 42% clearly CLAUSE-shaped, a few more borderline) being
+  CLAUSE-shaped section misclassifications, plus the confirmed,
+  reproducible forwarding-reference hazard recurring outside NE, plus a
+  confirmed data-quality risk (definition-text pollution from trailing
+  legislative-history boilerplate, worse for FEDERAL sections, which
+  showed 435 ungated-only rows on their own).
+- **(C) A narrower middle path** (offered as an option for the director,
+  not a QA recommendation): keep the placeholder gate for the GENERAL
+  "any US-\* rule, any heading" case — this alone protects all 41
+  non-targeted states from ANY exposure — and have core do the bounded
+  MD/MS placeholder-widening from (A) to unlock 2,610 of this sprint's
+  own targeted rows (1,841 + 769) with the SAME precision profile GA
+  already has (bounded by "is this heading really information-free", a
+  narrower and better-understood risk surface than "does any US section's
+  body happen to contain this trigger phrase"). SD (226 rows) would need
+  its own separate, `US-SD`-scoped mechanism (e.g. an entry-count/
+  block-shape requirement, matching the Planner's own D2 MS discriminator
+  idea, but scoped to one jurisdiction, not opened to the other 52) rather
+  than a blanket ungate. Cost: this sprint does not get the ~3,079
+  ungated-only rows in the other 41 states — but those were never part of
+  this sprint's mandate to begin with, so that is not a loss relative to
+  the contract, only relative to option (B)'s larger scope.
+
+Not verified (explicit gap, not asserted): I did not re-run the D1
+extraction-chain simulation across the FULL 5,915-row ungated-only
+population, only the 45-row sample — the per-state totals above are exact
+(full-corpus regex counts), but the "0/45 fabricated, ~50% CLAUSE-shaped"
+rates are sample-based estimates with the honest uncertainty of n=45, not
+a full census. I also did not attempt to quantify how many of the 5,915
+would trip the SPECIFIC forwarding-reference hazard if the idiom list were
+widened — I found and confirmed one live instance, not a corpus-wide count
+of that specific sub-shape.
