@@ -1,17 +1,17 @@
 ---
 id: "2026-08-04-defs-us-headings"
 status: in-progress
-current_role: developer
+current_role: planner
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
 locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04T00:00:00Z"
-last_agent: "claude-code:sprint-manager-phase2"
+last_agent: "claude-code:sprint-manager-phase3"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 9
+total_items: 14
 completed_items: 0
 dev_complete_items: 6
 qa_cycles: 3
@@ -277,6 +277,81 @@ lost
    recognition, U1) with this gap explicitly flagged as a known limitation
    in the Completed entry, not silently papered over with a guessed scope
    value.
+
+## Residual ledger
+
+Program-wide pattern (established by the PR panel). Every row this panel does
+NOT capture, by name and with its disposition. A residual is honest only if it
+is either (a) ruled correctly-excluded, (b) owned by a named other panel with a
+closing condition, or (c) open at director level. Nothing sits here unlabelled.
+
+| # | Class | Rows | Disposition | Closes when |
+|---|---|---|---|---|
+| L1 | D-MT-E1 zero-yield reference edge — `STATE_WA_T50_C29_S030` | 1 | **Cross-panel dependency → MARKERS** (program ruling, H-R1). Heading IS recognized (live-verified True) and `find_citations` returns `['RCW 50.04.320']`, but `extract_definitions_from_section` yields 0 candidates, so no Definition row exists for the reference edge to attach to. Fix lives in core-owned `us_profile.extract_definitions_from_section` — forbidden to this panel by U3. | markers' entry-boundary / zero-yield work lands and the row emits a Definition row + its DERIVES_FROM_LAW edge |
+| L2 | `includes`-verb defining bodies in the D-DF suppressed set | 15 | **OPEN at DIRECTOR level (D-Q1).** Director did NOT rule capture: ruling is **"measure FP exposure first."** Panel commissions a read-only FP-exposure scout; class is **not built and not closed** until the director rules on the measurement. | director rules capture (→ becomes a capture item) or residual (→ stays here, ruled) |
+| L3 | D-HG guarded cluster — `Application/Applicability of definitions …` | 245 + 29 sibling | **Ruled correctly-excluded** (D-HG, director). Guard STAYS. Genuine minority rescues via the preamble panel's body-content rules under ungated dispatch. The 29-row sibling cluster QA cycle 3 found is the same mechanism, never enumerated by name — recommend appending to `-guarded-cluster.md`. | preamble panel's coverage confirmed; any row NEITHER path reaches goes back to the director BY NAME |
+| L4 | Louisiana templated `"pollution defined and prohibited"` bodies | 14 | **Heading-correct / body-empty → MARKERS family (H-R1).** Cycle 5 captures the HEADING (correct, U1); the body genuinely never mentions the term, so zero yield is expected, same accepted category as the pinned CO/NV/AK hand-offs. | markers' zero-yield work lands, or ruled permanently body-empty |
+| L5 | U2 scope rows not expressible even against merged seam v2.7 | ≤7 of 10 | Cycle 5 item 14 takes the **expressible** subset (AK multi-chapter range + ≥2 KY rows) as a normal Developer item. Whatever remains unexpressible after that measurement stays here, enumerated by act_id. | cycle 5 item 14 measures each of the 10 individually; remainder re-escalates |
+| L6 | Morphology / jargon / active-voice exclusions | 155+169+161+91+38 | **Ruled correctly-excluded**, re-confirmed by QA cycle 3 against the full 1,224-row residual (not a sample). Includes `definite`/`indefinite` morphology — note `STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to "trustee"`) must STAY excluded after cycle 5's mojibake normalization; it is a negative-guard test, not a capture. | n/a — closed, held by negative-guard tests |
+
+## Next Steps — cycle 5 (manager-defined, phase 3)
+
+Manager re-verification of the inherited state is complete and recorded in
+`-log.md` § "Phase-3 manager takeover". All numbers below were reproduced by
+the manager on independently written code
+(`scratchpad/headings_mgr3_census.py`, `headings_mgr3_reconcile.py`) and pass
+P-R10 probe sanity against the pinned figures before any new number is used.
+
+**Evidence file for the Planner (manager-authored, exact path):**
+`…/scratchpad/headings_mgr3_gap_rows.json` — every gap row with `act_id`,
+`state`, `section_title`, `body_head`, `body_len`.
+
+10. **R-VERB-extended `and` connector gap.** `and` is missing from the
+    connector whitelist — the same H-R7/H-R9 defect class as `for`/comma/
+    period in cycle 2. **45 rows, 19 states** (manager count, exactly
+    reproducing QA's). Serves **U4**. NOTE: 14 of the 45 are the Louisiana
+    body-empty rows (ledger L4) — capturing the HEADING is still correct and
+    required under H-R1; do not gate them on body yield.
+11. **RI mojibake em-dash normalization.** `\x80\x94` / `\x80\x9c` / `\x80\x9d`
+    byte sequences stand in for a real dash/curly quotes and defeat the
+    dash-connector check. **10 genuine rows, all Rhode Island.** Same class as
+    R-TRUNC's existing corpus-defect handling. Serves **U4**. **Negative guard
+    required:** `STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to
+    "trustee"`) carries the same mojibake but is a `defin`-morphology row —
+    it must remain **False** after normalization (ledger L6).
+12. **D-MT-E1 pointer-table headings.** `Other defined terms` / `Other
+    definitions [appearing in …]` / `Index of definitions in [code/act/
+    chapter/title]` — a real repeated drafting convention whose body is a
+    cross-reference TABLE mapping each term to its defining section.
+    **Manager count: 9 rows / 7 states (CO, CT, IA, ME, OK, SC×3, WY)** —
+    QA reported 7 rows / 6 states; the manager's independently authored
+    pattern additionally finds `STATE_OK_T14A_S14A-1-303` and
+    `STATE_WY_T40_C14_S40-14-142`, both hand-read and both genuine pointer
+    tables. Use the manager's 9. Serves **U4**; D-MT-E1 territory.
+13. **`defined (qualifier)` / `defined to [verb]`.** A parenthetical or `to`
+    immediately after `defined` is not in the whitelist. **7 rows: KY(1),
+    MO(4), PA(1 repealed, harmless), VA(1).** Serves **U4**. **Planner
+    judgment call, escalate rather than guess:** the VA row
+    (`STATE_VA_T8.01_C14_A4_S8.01-397.1`, `Evidence of habit or routine
+    practice; defined (Supreme Court Rule 2:406 derived from this section)`)
+    has an evidence-rule body, not a definitions body — it is a precision
+    risk, and a negative guard may be the right answer.
+14. **U2 — the 10-row scope item, now expressible.** QA cycle 3 confirmed the
+    merged seam's generic `(unit_kind, unit_value)` model is **live**:
+    `matcher._in_scope` supports M9 tuple-valued `source_chapter` /
+    `source_article_number` / `scope_value` on the existing `chapter`/`local`
+    kinds, plus a generic non-standard-kind path against
+    `article.structural_units`. AK's multi-chapter range and ≥2 KY rows are
+    expressible TODAY with no new scope-kind registration. Normal Developer
+    item. Serves **U2**, live-path BOTH directions (in-scope mention links;
+    out-of-scope mention does NOT — program standing constraint). Measure each
+    of the 10 individually; whatever stays unexpressible goes to ledger L5 by
+    act_id.
+
+**Style gate:** `us_heading_variants.py` is **479 lines** vs the repo's
+300-line convention — carried as a preserved-rationale exception. If cycle 5
+grows it materially, **split it** and update the PRD agent inventory per repo
+style gates. This is a Planner design input, not an afterthought.
 
 ## Dev Complete
 

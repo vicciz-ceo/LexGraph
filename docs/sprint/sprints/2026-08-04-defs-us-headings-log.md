@@ -2443,3 +2443,100 @@ manager, but the manager was mid-run and unreachable, so QA fell back to
 reading that panel's committed log directly — whose own inventory is pre-QA
 and admits non-reconciled counts. **U4 cannot certify on this.** The manager
 must obtain the matrix pointer from the program manager before QA cycle 4.
+
+---
+
+## 2026-08-04 — Phase-3 manager takeover: inherited state RE-VERIFIED with positive controls
+
+Predecessor context-exhausted and clean-exited. Per program rule the inherited
+claims are re-verified, not trusted — both prior dead-dispatch discoveries came
+from fresh-context managers doing exactly this. **Every check below was run by
+the phase-3 manager on code written from scratch; nothing is carried over on an
+agent's word.**
+
+### Repo/branch state
+
+| Check | Result |
+|---|---|
+| `HEAD` == `origin/claude/defs-us-headings` | **b79f588 == b79f588** — pushed, in sync |
+| Worktree clean | yes (`git status --porcelain` empty) |
+| `git user.email` in worktree | `256402398+vicciz-ceo@users.noreply.github.com` — noreply, GH007-safe |
+| `origin/main` moved? | **+5 commits, ALL docs-only** (`git diff --name-only HEAD...origin/main | grep -v ^docs/` → 0 files). No code merge needed; dispatch semantics cannot have shifted underneath us. |
+| Full suite (manager-run) | **811 passed, 0 failed** in 264s — inherited count reproduced exactly |
+
+### Live-path positive controls — is our rule LOAD-BEARING, or dead?
+
+`scratchpad/headings_mgr3_livepath_control.py`. Designed so every claim has a
+control that FAILS if the mechanism is dead:
+
+| Control | Result |
+|---|---|
+| C0 registration shape | `US-CT` → **2** rules: `[matches_heading_variant_unconditional, body_confirms=None]`, `[matches_defined_for_heading, body_confirms=defines_in_body]`; `IL` → **0** (Hebrew surface protected) |
+| C1 positive — 3 real family-4 headings (MO R-MID compound, WA R-VERB-bare, VA multiword) | bare baseline `is_definitions_heading` → **False** for all 3; live `profile.is_definitions_heading` → **True** for all 3 |
+| **C1 control — registry lookup emptied** | all 3 flip back to **False**. This is the anti-dead-dispatch proof: the recall win is genuinely produced by THIS panel's rule, not shadowed by baseline. |
+| C2 dispatch semantics, **adversarial order** (gated-rule-first with `body_confirms`→False, unconditional second) | **True** ⇒ **(A) OR-across-all** confirmed independently. (B) first-match-wins would have returned False. |
+| C2b hostile-rule probe against a baseline-positive heading | **True** — a baseline positive is never overridden; **H-R3's zero-false-positive baseline is structurally protected**, not merely untested. |
+
+**Standing note carried forward and re-affirmed:** because (A) shipped, the
+Planner's rule ORDERING and rule-2 narrowness are **belt-and-braces, NOT
+load-bearing**. QA cycle 4 must not treat them as semantics the shipped code
+depends on.
+
+### P-R10 probe sanity — the manager's corpus probe reproduces the pinned numbers
+
+`scratchpad/headings_mgr3_census.py` over all 52 in-scope
+`us_*_statutes.parquet` (PR excluded, `defin` case-insensitive — the pinned
+denominator convention):
+
+| Quantity | Manager-measured | Pinned | |
+|---|---|---|---|
+| total rows | 2,014,611 | 2,014,611 | OK |
+| `defin`-titled | 83,303 | 83,303 | OK |
+| miss pool | 22,228 | 22,228 | OK |
+| unconditional | 20,945 | 20,945 | OK |
+| `defined for` population | 110 | 110 | OK |
+| body-confirmed | 60 | 60 | OK |
+| decomposition equivalence violations | **0** | 0 | OK |
+| union (distinct rows) | **21,004 = 94.4979%** | 21,004 / 94.49% | OK |
+
+**One honest self-catch, recorded rather than buried.** The census's first pass
+printed union 21,00**5** and flagged itself FAIL. Cause was the manager's own
+probe bug — summing `unconditional + confirmed` instead of counting distinct
+rows. Reconciliation (`headings_mgr3_reconcile.py`) found the overlap is
+**exactly 1 row**, and it is the row the log already names:
+`STATE_MI_C450_AAct-284-of-1972_S450.1569`. Deduplicated union = **21,004**,
+matching. The pinned figure was right; the new probe was wrong; P-R10 did its
+job. No inherited number is revised.
+
+### Gap-class evidence for cycle 5 — manager counts vs QA's
+
+Independently authored patterns (not imported from the panel's rule code):
+
+| Class | Manager | QA cycle 3 | Delta |
+|---|---|---|---|
+| `defined and` connector gap | **45 rows / 19 states** | 45 | exact match |
+| RI mojibake em-dash | **10 genuine** (+1 morphology row) | 10 | match, plus a *negative-guard* find |
+| D-MT-E1 pointer tables | **9 rows / 7 states** | 7 rows / 6 states | **manager finds 2 MORE**: `STATE_OK_T14A_S14A-1-303`, `STATE_WY_T40_C14_S40-14-142` — both hand-read, both genuine pointer tables |
+| `defined (qualifier)` / `defined to` | **7 rows** | 7 | exact match |
+
+Two findings the QA cycle did not surface:
+1. `STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to "trustee"`)
+   carries the same mojibake bytes but gets its `defin` substring from
+   **"Indefinite"** — the documented morphology exclusion class. After cycle
+   5 normalizes the mojibake it becomes newly *visible* to the rules and
+   **must stay False**. Recorded as a required negative guard (ledger L6),
+   not a capture.
+2. The pointer-table class is **9, not 7**. Cycle 5 uses 9.
+
+`includes`-class control set materialized at **exactly 15 rows**, corroborating
+the sprint's cited figure and giving the FP-exposure scout its P-R10 control.
+
+### Program rulings absorbed into the contract this round
+
+- D-MT-E1 `STATE_WA_T50_C29_S030` → **ledger L1**, cross-panel dependency on
+  markers with an explicit closing condition. Panel touches no extraction code.
+- `includes` D-Q1 → **ledger L2, OPEN**. Director did **not** rule capture; the
+  ruling is **"measure FP exposure first."** Not built, not closed.
+- P-R7 preamble matrix → certified inventory does not exist yet; QA cycle 4
+  sequences the cross-check AFTER the program manager forwards the pointer.
+  Certifying on the preamble panel's pre-QA log stays **refused**.
