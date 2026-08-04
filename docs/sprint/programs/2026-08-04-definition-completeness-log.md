@@ -18,6 +18,8 @@ Internal orchestration records. Not auto-loaded; not director-facing.
   manager clean-exit): a9efb2de1f275f494
 - 2026-08-04 headings phase-2 manager (opus, fresh context after
   predecessor context-limit exit): aa5eb2a338fe6b0ab
+- 2026-08-04 PR phase-2 manager (opus, fresh context after predecessor
+  rebased onto merged core and clean-exited): a79f6fed9fced34da
 
 ## Wake wave (post core merge, 2026-08-04)
 
