@@ -2150,3 +2150,258 @@ items 10-12 targets a bucket-D row; if implementing items 10-12 causes any
 rule to incidentally start capturing bucket-D-shaped prose, that is a
 precision regression to report to the manager, not a feature to keep.
 
+---
+
+## 2026-08-04 — Developer: cycle-3 implementation, 48 RED tests -> green
+
+Read the cycle-3 Planner entry, the contract's `## Bucket D final split
+(cycle 3)` and item-13-through-17 plan, and every named test file's module
+docstring as the literal spec before touching anything. Worked only in
+`backend/app/definition_links/pr_profile.py`; touched no test, no fixture,
+no shared module (`git diff --name-only` against the prior commit shows
+exactly `pr_profile.py` + this log entry).
+
+### What changed (items 13-16; item 17/8 stays xfail, untouched, core-gated)
+
+- **`extract_heading_anchored_definition(heading, body, *, scope)`** (item
+  13, NEW function). Two-condition rule per the director's ruling: (1) the
+  heading's own non-"definición(es)" clause names a term — reused
+  `is_definitions_heading`'s own machinery by factoring its label-strip +
+  paren-unwrap preprocessing into a shared `_heading_tail` helper (pure
+  refactor, no behavior change — confirmed by the full suite staying at
+  the pre-existing 772/6 baseline before I added a single new test
+  assertion), then clause-split on the existing `_CLAUSE_DELIM_RE`; a
+  clause that does NOT match the stem is a candidate (leading Spanish
+  article stripped); a clause that DOES match the stem and is shaped
+  "Definici(ón|ones) de X" (new `_DEFINICION_DE_X_RE`) yields X as an
+  additional candidate. (2) that exact term is corroborated verbatim,
+  word-boundary, case-insensitive, ACCENT-FOLDED somewhere in the body.
+  Folding is char-by-char NFD-decompose-and-drop-combining-marks with a
+  same-character fallback when a decomposition isn't exactly one base
+  character (`_fold_char`/`_fold`) — this guarantees the folded string is
+  the exact same LENGTH as the original, so a match found in the folded
+  copy can be sliced directly out of the real body with no separate
+  offset-mapping step. `definition_text` is the SENTENCE containing the
+  match (`_sentence_containing`, split on `.!?`+whitespace, falls back to
+  the whole body when no boundary is found), computed against a
+  footer-stripped copy of the body (`_PAGE_BREAK_FOOTER_RE`, matching all
+  3 real footer shapes I found in the fixtures: quoted-title-with-year,
+  quoted-title-no-year, and unquoted-title — a non-greedy `.*?` between
+  the fixed "Página N de M" prefix and the closing "[Ley...]" bracket
+  handles all three without three separate patterns).
+- **Idiom widening, scoped correctly (item 15)**: added a SEPARATE, WIDER
+  alternation (`_QUOTED_DEFINING_IDIOM_ALTERNATION`, adds `se refiere a`/
+  `se referirá a`) used ONLY by the two per-block QUOTED patterns
+  (`_QUOTED_TERM_COMMA_IDIOM_RE`, `_QUOTED_TERM_BARE_IDIOM_RE`).
+  `_DEFINING_IDIOM_ALTERNATION` itself — used by the dispatch-fallback
+  check — is UNCHANGED, exactly per the Planner's diagnosis and the
+  pinned regression guard.
+- **New unquoted pattern, shape 4 (item 16)**:
+  `_UNQUOTED_TERM_INTERJECTED_SCOPE_IDIOM_RE` — term, comma, a bounded
+  Spanish scope-phrase clause (`a/para los fines/efectos de...`, `para
+  propósitos de...`), comma, idiom lookahead. Term group excludes
+  `.,:;` like every other unquoted pattern, so it fails closed (matches
+  nothing) on any block opening with the M-R7 "(a) En General.-" shape —
+  confirmed live, not assumed.
+- **New lead-in fallback, `_extract_lead_in_then_quoted_term` (item 16,
+  shapes 1/2/3/5)**: tried only when a block does NOT start with a quote
+  AND every existing unquoted pattern already failed (tried first,
+  unchanged, so nothing already working can regress). Finds the first
+  quote in the block; if it's within 60 chars, crosses no REAL sentence
+  boundary (a semicolon, or a period NOT immediately followed by a hyphen
+  — reusing the exact `\.(?!-)` discipline that already protects the
+  M-R7 rows, which is what makes `STATE_PR_RENTAS_SEC1010_01`'s "(2)
+  Corporación.-El término..." block reachable), and does not contain the
+  `conocido/a como`/`denominado/a` law-title-naming idiom (belt-and-
+  suspenders on top of the length bound, checked directly against the
+  85-char `STATE_PR_LEY_48_2018_ART3` correct-zero guard), it (a) re-tries
+  the ordinary QUOTED patterns at the quote, else (b) if the lead-in ends
+  with a recognized cue ("el término", "se considera(rá)(n) como"), takes
+  the quoted term with `definition_text` bounded to the SENTENCE
+  immediately following it (not "everything after" — avoids fabricating
+  one bloated definition out of several distinct entries when a block
+  wasn't fully split by the marker scanner).
+- I did **NOT** touch `_ENTRY_MARKER_RE` at all. I originally thought
+  shape 6 (`STATE_PR_RENTAS_SEC1010_01`, 37 markers) needed a marker-
+  boundary change (adding `-` to the boundary lookbehind) to split its
+  "(1) Persona.-..." sub-entry out from the "(a)" preamble it's fused
+  into. Checking the LIVE marker output first (before writing any fix)
+  showed the ALREADY-unmodified regex finds 37 markers total — "(1)" is
+  the only one absorbed into "(a)"'s block (hyphen-preceded, not in the
+  boundary set), but "(2)" onward are already correctly split (period-
+  preceded). "(2)"'s own block ("Corporación.-El término
+  "corporación"...") is short enough to reach my new lead-in fallback and
+  yields a real candidate on its own — floor granularity (`>=1`) is
+  satisfied without touching a shared, heavily-relied-upon regex at all.
+  Recording this because it's a real "checked before assuming" catch: I
+  nearly made a broader, riskier change than the row actually needed.
+
+### A real finding, caught by my own corpus self-check, not by any test —
+### and fixed, not silently absorbed
+
+Running `extract_heading_anchored_definition` over the FULL corpus (not
+just the 53 pinned assertions) surfaced that it ALSO fired on ruling
+M-R7's three correct-zero rows (`STATE_PR_LEY_77_1957_ART36_030`,
+`STATE_PR_RENTAS_SEC2022_01`, `STATE_PR_RENTAS_SEC2042_01`) — each has a
+heading that genuinely names a term (`"Definiciones—Forma representativa
+de gobierno"` -> "Forma representativa de gobierno";
+`"Definición de Caudal Relicto Bruto"` -> "Caudal Relicto Bruto";
+`"Definición de Donaciones"` -> "Donaciones") AND that term genuinely
+appears verbatim in the body, so my two-condition rule alone was not
+sufficient to keep these at zero. This is a real tension worth recording
+plainly: `STATE_PR_RENTAS_SEC2022_01` ("Definición de Caudal Relicto
+Bruto") and the REQUIRED positive `STATE_PR_RENTAS_SEC2030_03` (same
+exact heading text) are structurally near-identical from a pure
+heading-anchor perspective — I could find no heading-shape signal that
+distinguishes them. What DOES distinguish them: all three M-R7 rows have
+`_ENTRY_MARKER_RE` marker structure (`(a)`, `(b)`, `(1)`... — confirmed
+live), while every one of the 9 required-positive and 7 required-residue
+bucket-D rows has ZERO markers (also confirmed live, all 16). This
+matches bucket D's OWN definition, stated in the test file's own module
+docstring: "no entry marker and no canonical defining idiom." I added
+this as a third precondition gate (`if _ENTRY_MARKER_RE.search(body):
+return []`, right after the `is_definitions_heading` gate) rather than
+inventing an ad-hoc per-row exclusion list. This is a PRINCIPLED fix (it
+uses bucket D's own stated definition as the guard, not a hardcoded
+`act_id` blocklist) but I'm flagging it explicitly rather than treating it
+as obviously correct: the sprint brief's "must keep returning exactly 0
+candidates" for these 3 rows is unqualified (doesn't scope itself to
+`extract_definitions_from_section` alone), and I read it as a hard,
+director-level constraint I have no authority to relax even though a
+heading-anchored capture of `STATE_PR_LEY_77_1957_ART36_030` (whose own
+body literally defines "forma representativa de gobierno" via its (a)-(h)
+conditions, as ONE candidate, not fragmented) is arguably a legitimate,
+narrow capture in the spirit of the director's ruling. I fixed it to
+comply with the explicit instruction rather than deciding unilaterally
+that the instruction was stale now that item 13 exists. Flagging for the
+manager/director: is capturing these 3 via heading-anchor (not via
+marker-fragmentation, which is what M-R7 actually objected to) something
+that should be revisited, or does M-R7 stand as originally ruled,
+mechanism-independent? I implemented the conservative, brief-literal
+choice and did not silently pick the other one.
+
+### Full suite
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+825 passed, 7 xfailed, 18 warnings in 13-25s (re-run several times, stable)
+```
+
+825 = the 777-passed cycle-3 baseline + 48 newly-green RED tests, exactly.
+7 xfailed = the 6 pre-existing `test_pr_profile_scope.py` tests (P3,
+core-gated) + item 8's end-to-end test — confirmed via `-rxX` that all 7
+report `XFAIL`, zero `XPASS`. Re-run with the 5 new cycle-3 test files
+targeted directly first (53 passed in isolation, matching the 48-RED +
+5-already-green accounting from the Planner's handoff) before the full
+suite, so the 825 total is provably not hiding a collection error.
+
+Role boundary: `git status --short` shows exactly one file touched,
+`backend/app/definition_links/pr_profile.py`. No `profiles.py`,
+`pipeline.py`, `extract.py`, `matcher.py`, `us_profile.py`, `sections.py`,
+`normalize.py`, model, or migration edited. No test or fixture edited.
+
+### Corpus self-check (full `us_pr_statutes.parquet`, 23,636 rows, read
+once via a disposable scratchpad script — never committed, never read by
+any test)
+
+```
+headings detected: 633/635, false positives: 0
+  the only 2 not detected are the 2 Table-of-Contents rows -- CORRECT rejections
+  (unchanged from cycle 2 -- item 13/15/16 touch extraction, not heading detection)
+
+detected sections: 633
+  yielding >=1 candidate (extract_definitions_from_section): 529  (83.6%, up from cycle 2's 80.9%)
+  zero-yield: 104
+
+heading-anchored fired on 71 of those 104 zero-yield sections
+  (contract's own Planner survey estimated 70 -- 71 live is a very close,
+  expected small delta, same order as the 0.9% idiom-count delta noted in
+  cycle 1; all 9 contract-named positive rows + all 7 contract-named
+  residue rows verified individually correct via the pinned tests, and a
+  spot-check of every 6th of the 71 live captures -- printed in full in my
+  own verification, not just counted -- shows clean, correct single-term
+  Civil-Code-shape captures, no fabrication smell)
+  33 still zero after the heading-anchor attempt (unrelated follow-up
+  idiom gaps explicitly flagged as out of THIS cycle's scope by the
+  Planner -- se considera como's other 4 rows, se entenderá family, etc.
+  -- not silently re-labeled as "fixed")
+
+COMBINED (either function fires): 600/633 = 94.8%
+
+total terms extracted (both functions combined): 5749
+  min=2 max=104 median=16 p95=45
+  terms >120 chars: 0
+  empty terms: 0
+
+M-R7 rows (after the marker-precondition fix above):
+  STATE_PR_LEY_77_1957_ART36_030: extract_definitions=0 heading_anchored=0  OK
+  STATE_PR_RENTAS_SEC2022_01:     extract_definitions=0 heading_anchored=0  OK
+  STATE_PR_RENTAS_SEC2042_01:     extract_definitions=0 heading_anchored=0  OK
+
+Other pinned correct-zero guards re-verified directly against the live corpus:
+  STATE_PR_LEY_52_2019_ART3 (cycle 2): 0 candidates  OK
+  STATE_PR_LEY_48_2018_ART3 (cycle 3): 0 candidates  OK
+```
+
+### Design choices / residual risk on the record
+
+- **The M-R7-vs-heading-anchor tension above** is the main thing I want
+  the manager/director to see, not just the numbers. I resolved it
+  conservatively (comply with the explicit "must stay 0" instruction) but
+  it is a real, principled alternative reading, not a bug I stumbled past.
+- **Footer-stripping was applied inside `extract_heading_anchored_
+  definition` only**, not inside `extract_definitions_from_section`'s main
+  body/entry-marker scan. I checked: every cycle-3 ordinary-workload test
+  row's FIRST relevant quote occurs before any footer text in its own
+  body, so footer-stripping was not load-bearing for those tests either
+  way — but `extract_definitions_from_section` already has many cycle-1/2
+  pinned exact-assertion tests over rows that themselves contain
+  footer-shaped text (`STATE_PR_LEY_249_2003_ART3`,
+  `STATE_PR_LEY_77_1957_ART30_020`, and 6 more), so I judged the
+  regression risk of touching that function's shared text-scanning path
+  higher than the benefit, and scoped footer-stripping to the brand-new
+  function that actually needed it and is proven by a dedicated test
+  (`test_page_break_footer_boilerplate_does_not_block_or_corrupt_the_
+  real_anchor`). Flagging as a deliberate, not accidental, scope choice.
+- **`_MAX_LEAD_IN_LEN = 60`** was checked directly against the real
+  correct-zero guard's exact length (85 chars for `STATE_PR_LEY_
+  48_2018_ART3`'s lead-in), not picked arbitrarily, and backed by a
+  SECOND, independent guard (the explicit `conocido/a como`/`denominado`
+  exclusion) so the bound isn't the only thing standing between recall and
+  a fabricated law-title capture.
+- **Multiple candidate terms per heading** (`_find_corroborated_term`
+  tries longest-first): no real row in this cycle's fixtures actually
+  produces more than one candidate term per heading, so this ordering is
+  unverified against a real multi-candidate row — flagged for a future
+  cycle/QA if the corpus turns one up.
+
+### For QA
+
+- Please independently re-run a full-corpus sweep, not just the 53 pinned
+  assertions — that discipline is what caught the M-R7 collision above
+  before it shipped.
+- The "23 already-nonzero sections where heading-anchored ALSO fires"
+  (informational in my self-check) is not wired into any pipeline output
+  this cycle (item 13 is a standalone function, not registered anywhere) —
+  it only matters once core's registry wiring lands and something decides
+  how to combine the two functions' outputs, which is out of this cycle's
+  scope.
+- `test_pr_profile_scope.py` (6) and item 8's end-to-end test (1) stay
+  xfail, core-gated, unchanged, confirmed via `-rxX` (zero XPASS).
+
+### Escalations
+
+None in the "stop and ask before proceeding" sense — no test looked
+wrong, no shared module needed editing, and the one real recall-vs-
+precision-shaped question I found (the M-R7 tension above) I resolved
+in-panel by deferring to the more conservative, explicitly-stated
+instruction, the same "decide with data, flag it plainly" discipline the
+Planner used for the `se refiere a` dispatch-fallback question in the
+prior entry — but I want it read carefully rather than skimmed past.
+
+### Pushed
+
+```
+<SHA to be filled after commit>
+```
+Branch `claude/defs-us-pr`, pushed to origin.

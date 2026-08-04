@@ -45,6 +45,7 @@ constructed directly in the meantime: `PRProfile(code="US-PR")`.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from app.definition_links.derivation import LawDerivesDefinitionEdge
@@ -193,10 +194,13 @@ def _matches_definicion_stem(text: str) -> bool:
     return True
 
 
-def is_definitions_heading(heading: str) -> bool:
-    """True when `heading`'s own operative subject is the Spanish stem
-    "Definici(ón|ones)" -- see the module-level comments above for the
-    exact rule (base single-clause rule plus the two cycle-2 gap fixes)."""
+def _heading_tail(heading: str) -> str:
+    """Strip a leading `Artículo N.`/`Sección N.` label and, if present, a
+    single fully-enclosing paren wrapper -- the shared tail-extraction logic
+    behind BOTH `is_definitions_heading` (cycle 2) and
+    `extract_heading_anchored_definition` (cycle 3, item 13). Pure
+    extraction of the existing cycle-2 gap-1/gap-2 preprocessing, factored
+    out so both consumers reuse the SAME code instead of a second copy."""
     rest = heading
 
     label_match = _SECTION_LABEL_RE.match(rest)
@@ -222,12 +226,20 @@ def is_definitions_heading(heading: str) -> bool:
         inner = paren_candidate[1:-1].strip()
         if inner:
             rest = inner
+    return rest
 
-    # Gap 1: check the stem against the WHOLE tail as well as every inner
-    # semicolon/comma/em-dash-delimited clause (a flat split of `rest`
-    # returns `[rest]` unchanged when no delimiter is present, so this is a
-    # strict generalization of the original whole-tail-only rule, not a
-    # replacement for it).
+
+def is_definitions_heading(heading: str) -> bool:
+    """True when `heading`'s own operative subject is the Spanish stem
+    "Definici(ón|ones)" -- see the module-level comments above for the
+    exact rule (base single-clause rule plus the two cycle-2 gap fixes).
+
+    Gap 1: check the stem against the WHOLE tail as well as every inner
+    semicolon/comma/em-dash-delimited clause (a flat split of `rest`
+    returns `[rest]` unchanged when no delimiter is present, so this is a
+    strict generalization of the original whole-tail-only rule, not a
+    replacement for it)."""
+    rest = _heading_tail(heading)
     return any(_matches_definicion_stem(clause) for clause in _CLAUSE_DELIM_RE.split(rest))
 
 
@@ -384,9 +396,26 @@ _QUOTED_TERM_COLON_RE = re.compile(r'^["“]([^"”]+)["”]\s*:\s*')
 # pattern below and the dispatch-fallback bare-idiom pattern further down.
 _DEFINING_IDIOM_ALTERNATION = r"(?:significará|significa|será|es)\b"
 
+# Cycle-3 (item 15): `se refiere a`/`se referirá a` are real, safe defining
+# idioms -- but ONLY for the per-BLOCK quoted patterns below, which fire
+# exclusively on a block that already/now starts with a quote character
+# (see `_extract_term_and_definition` and `_extract_lead_in_then_quoted_
+# term`). Deliberately a SEPARATE, wider alternation from
+# `_DEFINING_IDIOM_ALTERNATION` above -- the DISPATCH-FALLBACK check
+# (`_UNQUOTED_BARE_IDIOM_TERM_RE` further below) keeps using the narrow
+# one. Live-verified: widening the SAME alternation the dispatch fallback
+# uses wrongly treats `STATE_PR_LEY_214_2004_ART2`'s gender-neutrality
+# preamble ("...se refiere a ambos géneros...") as a single fabricated
+# bare-copulative definition, collapsing 26 real marked terms into 1 --
+# pinned as a permanent regression guard in
+# `test_pr_profile_idiom_widening_cycle3.py`.
+_QUOTED_DEFINING_IDIOM_ALTERNATION = (
+    r"(?:significará|significa|será|es|se\s+refiere\s+a|se\s+referirá\s+a)\b"
+)
+
 _QUOTED_TERM_COMMA_IDIOM_RE = re.compile(
     r'^["“]([^"”]+)["”](?:\s+o\s+["“][^"”]+["”])?\s*,\s*(?='
-    + _DEFINING_IDIOM_ALTERNATION
+    + _QUOTED_DEFINING_IDIOM_ALTERNATION
     + r")",
     re.IGNORECASE,
 )
@@ -394,7 +423,7 @@ _QUOTED_TERM_DASH_RE = re.compile(
     r'^["“]([^"”]+)["”](?:\s+o\s+["“][^"”]+["”])?\s*\.?\s*[–—-]\s*'
 )
 _QUOTED_TERM_BARE_IDIOM_RE = re.compile(
-    r'^["“]([^"”]+)["”]\s+(?=' + _DEFINING_IDIOM_ALTERNATION + r")",
+    r'^["“]([^"”]+)["”]\s+(?=' + _QUOTED_DEFINING_IDIOM_ALTERNATION + r")",
     re.IGNORECASE,
 )
 _QUOTED_TERM_BARE_CAPITALIZED_RE = re.compile(r'^["“]([^"”]+)["”]\s+(?=[A-ZÁÉÍÓÚÑÜ])')
@@ -414,6 +443,26 @@ _UNQUOTED_TERM_COLON_RE = re.compile(r"^([^.:;\n]{1,100}?):\s*")
 _UNQUOTED_TERM_DASH_RE = re.compile(r"^(.{1,100}?)\s*\.?\s*[–—]\s*")
 _UNQUOTED_TERM_PERIOD_RE = re.compile(
     r"^((?:[^.]|\.(?!-)){1,100}?)(?<!\.[A-Z])\.\s+(?=[A-ZÁÉÍÓÚÑÜ])"
+)
+
+# Cycle-3 (item 16, shape 4): an unquoted term with a Spanish SCOPE clause
+# ("a los fines de esta Ley", "para los efectos de este Capítulo", "para
+# propósitos de...") INTERJECTED by commas between the term and its own
+# idiom verb (`STATE_PR_LEY_9_2020_ART2`: `"Mujer trabajadora, a los fines
+# de esta Ley, significará..."`) -- none of `_UNQUOTED_TERM_SEPARATOR_
+# PATTERNS` above expect a second clause between the term and its
+# separator. Term group excludes `.,:;` (mirrors every other unquoted
+# pattern's discipline) so a block opening with a label-period-hyphen
+# shape (the M-R7 "(a) En General.-" family) can never match here either --
+# the period is never reachable by the term group, so the match fails
+# closed at position 0, same protection as the other unquoted patterns.
+_SCOPE_PHRASE_LEAD_ALTERNATION = (
+    r"(?:a|para)\s+los\s+(?:fines|efectos)\s+de|para\s+prop[oó]sitos\s+de"
+)
+_UNQUOTED_TERM_INTERJECTED_SCOPE_IDIOM_RE = re.compile(
+    r"^([^.,:;\n]{1,80}?),\s*(?:" + _SCOPE_PHRASE_LEAD_ALTERNATION + r")[^,]{0,60},\s*"
+    r"(?=" + _DEFINING_IDIOM_ALTERNATION + r")",
+    re.IGNORECASE,
 )
 
 # Split into a QUOTED group and an UNQUOTED group, tried separately (see
@@ -442,6 +491,7 @@ _QUOTED_TERM_SEPARATOR_PATTERNS = (
     _QUOTED_TERM_BARE_CAPITALIZED_RE,
 )
 _UNQUOTED_TERM_SEPARATOR_PATTERNS = (
+    _UNQUOTED_TERM_INTERJECTED_SCOPE_IDIOM_RE,
     _UNQUOTED_TERM_COLON_RE,
     _UNQUOTED_TERM_DASH_RE,
     _UNQUOTED_TERM_PERIOD_RE,
@@ -457,6 +507,106 @@ _QUOTE_CHARS = '"“'
 _LEADING_DECORATIVE_DASH_RE = re.compile(r"^[–—]\s*")
 
 
+# Cycle-3 (item 16, shapes 1/2/3/5): a block that does NOT start with a
+# quote character can still contain one a short distance in, preceded by an
+# unquoted lead-in ("El término "X" <idiom>", a scope-phrase lead-in before
+# a comma-idiom quoted term, or a lead-in IDIOM CUE like "se considera
+# como" with no separator at all after the quote). Bounded and disciplined,
+# same "no unbounded forward search" precision philosophy as every other
+# pattern in this module:
+#   - the lead-in must be SHORT (<=60 chars) -- long enough for every real
+#     shape measured this cycle (11-44 chars), short enough to reject the
+#     one real correct-zero guard this bound was checked against,
+#     `STATE_PR_LEY_48_2018_ART3`'s 85-char "conocida como" lead-in (a
+#     cross-law/title deferral, NOT a term definition -- see
+#     `test_pr_profile_extraction_cycle3.py`);
+#   - AND the lead-in must cross no REAL sentence boundary of its own (a
+#     semicolon, or a period NOT immediately followed by a hyphen -- the
+#     same `\.(?!-)` exclusion `_UNQUOTED_TERM_PERIOD_RE` already uses to
+#     protect the M-R7 "(a) En General.-" subsection-label shape, reused
+#     here so a genuine "Label.-El término..." prefix does not itself
+#     disqualify a lead-in the way an ordinary sentence-ending period
+#     should -- this is what makes `STATE_PR_RENTAS_SEC1010_01`'s "(2)
+#     Corporación.-El término "corporación" ..." block reachable);
+#   - AND (belt-and-suspenders on top of the length bound) the lead-in must
+#     not contain the `conocido/a como`/`denominado/a` law-title-naming
+#     idiom the cycle-1 survey already flagged as unsafe to treat as a
+#     term-defining trigger -- confirmed live against
+#     `STATE_PR_LEY_48_2018_ART3`/`STATE_PR_LEY_52_2019_ART3`.
+# Two independent techniques are tried, in order:
+#   (a) re-try the ordinary QUOTED separator patterns starting AT the
+#       quote (handles "El término "X" significa..." and a scope-phrase
+#       lead-in before a comma-idiom quoted term -- both already-existing
+#       patterns, no new vocabulary needed);
+#   (b) if (a) finds nothing, check whether the lead-in itself ENDS with a
+#       recognized cue idiom ("el término", "se considera(rá)(n) como") --
+#       if so, the quoted term is definitional regardless of what
+#       (if anything) follows the closing quote (`STATE_PR_LEY_155_1937_
+#       SEC1`'s "se considera como "amplificador o altoparlante" todo
+#       artefacto..." -- "todo" is not a recognized idiom word, so (a)
+#       alone cannot capture this row). `definition_text` is bounded to the
+#       SENTENCE immediately following the quoted term (not "everything
+#       after") -- guards against a block whose entry-marker split left
+#       more than one entry's worth of prose in it from fabricating one
+#       bloated "definition" out of several distinct entries.
+_MAX_LEAD_IN_LEN = 60
+_LEAD_IN_REAL_SENTENCE_BREAK_RE = re.compile(r";|\.(?!-)")
+_LAW_TITLE_NAMING_CUE_RE = re.compile(r"conocid[oa]s?\s+como|denominad[oa]s?\b", re.IGNORECASE)
+_PRE_QUOTE_IDIOM_CUE_RE = re.compile(
+    r"(?:el\s+t[eé]rmino|se\s+considera(?:r[aá]n?)?\s+como)\s*$", re.IGNORECASE
+)
+_BARE_QUOTED_TERM_HEAD_RE = re.compile(r'^["“]([^"”]+)["”]\s*')
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _sentence_containing(body: str, pos: int) -> str:
+    """The sentence in `body` containing character index `pos` -- split on
+    `.`/`!`/`?` followed by whitespace. Falls back to the whole body when
+    no such boundary is found (a genuinely single-sentence body, or a match
+    in the LAST sentence with no trailing punctuation+whitespace after
+    it). Shared by the lead-in fallback below and
+    `extract_heading_anchored_definition` (item 13)."""
+    start = 0
+    for boundary in _SENTENCE_END_RE.finditer(body):
+        if boundary.start() >= pos:
+            return body[start : boundary.start()].strip()
+        start = boundary.end()
+    return body[start:].strip()
+
+
+def _extract_lead_in_then_quoted_term(block: str) -> tuple[str, str] | None:
+    """See the module comment block above -- a bounded, disciplined
+    fallback for a block that does not start with a quote character but
+    contains one a short, sentence-boundary-free distance in."""
+    quote_pos = next((i for i, ch in enumerate(block) if ch in _QUOTE_CHARS), -1)
+    if quote_pos <= 0 or quote_pos > _MAX_LEAD_IN_LEN:
+        return None
+    lead_in = block[:quote_pos]
+    if _LEAD_IN_REAL_SENTENCE_BREAK_RE.search(lead_in):
+        return None
+    if _LAW_TITLE_NAMING_CUE_RE.search(lead_in):
+        return None
+    rest = block[quote_pos:]
+
+    for pattern in _QUOTED_TERM_SEPARATOR_PATTERNS:
+        match = pattern.match(rest)
+        if match:
+            term = match.group(1).strip()
+            definition_text = rest[match.end() :].strip()
+            if term and definition_text:
+                return term, definition_text
+
+    if _PRE_QUOTE_IDIOM_CUE_RE.search(lead_in):
+        head_match = _BARE_QUOTED_TERM_HEAD_RE.match(rest)
+        if head_match:
+            term = head_match.group(1).strip()
+            after = rest[head_match.end() :]
+            definition_text = _sentence_containing(after, 0) if after else ""
+            if term and definition_text:
+                return term, definition_text
+    return None
+
+
 def _extract_term_and_definition(block: str) -> tuple[str, str] | None:
     """Split a single entry's raw text into (term, definition_text) using
     the first separator pattern that matches. Returns `None` for a block
@@ -467,21 +617,30 @@ def _extract_term_and_definition(block: str) -> tuple[str, str] | None:
     A block that STARTS with a quote character only ever tries the QUOTED
     patterns, never the unquoted ones -- see the comment above
     `_QUOTED_TERM_SEPARATOR_PATTERNS` for why falling through to an
-    unquoted pattern on quoted content is unsafe."""
+    unquoted pattern on quoted content is unsafe. A block that does NOT
+    start with a quote character tries the UNQUOTED patterns first
+    (unchanged cycle-1/2 behavior, tried first so nothing already working
+    can regress), and only falls back to `_extract_lead_in_then_quoted_
+    term` (cycle 3, item 16) when every unquoted pattern fails."""
     block = _LEADING_DECORATIVE_DASH_RE.sub("", block, count=1)
-    patterns = (
-        _QUOTED_TERM_SEPARATOR_PATTERNS
-        if block[:1] in _QUOTE_CHARS
-        else _UNQUOTED_TERM_SEPARATOR_PATTERNS
-    )
-    for pattern in patterns:
+    if block[:1] in _QUOTE_CHARS:
+        for pattern in _QUOTED_TERM_SEPARATOR_PATTERNS:
+            match = pattern.match(block)
+            if match:
+                term = match.group(1).strip()
+                definition_text = block[match.end() :].strip()
+                if term and definition_text:
+                    return term, definition_text
+        return None
+
+    for pattern in _UNQUOTED_TERM_SEPARATOR_PATTERNS:
         match = pattern.match(block)
         if match:
             term = match.group(1).strip()
             definition_text = block[match.end() :].strip()
             if term and definition_text:
                 return term, definition_text
-    return None
+    return _extract_lead_in_then_quoted_term(block)
 
 
 # A no-marker, single-entry article whose body ALSO contains an incidental
@@ -657,6 +816,172 @@ def extract_adhoc_definitions(text: str) -> list[DefinitionCandidate]:
             DefinitionCandidate(terms=(term,), definition_text=definition_text, scope="local")
         )
     return candidates
+
+
+# --- Item 13 (P1/P4, director-ordered): heading-anchored bucket-D rule ------
+#
+# Director ruling (cycle 3): capture the subset of copulative/prose
+# Definiciones-section bodies (bucket D -- no entry marker, no canonical
+# defining idiom) whose HEADING NAMES THE DEFINED TERM, using the heading
+# as the anchor -- e.g. `"Artículo 236. Bienes; definición"` -> body `"Son
+# bienes las cosas o derechos..."`. NO general Spanish prose matcher: this
+# function never inspects body prose for copulative SHAPE on its own. It
+# only fires when TWO independent conditions both hold:
+#
+#   1. `heading` is already a genuine Definiciones heading (reuses
+#      `is_definitions_heading` itself as the FIRST gate -- a heading not
+#      recognized as Definiciones at all names no term to anchor from), and
+#      its own non-"definición(es)" clause names a specific term -- either
+#      a clause that does NOT itself match the stem (the semicolon/comma/
+#      em-dash-compound-heading shape, `_candidate_terms_from_heading`
+#      below), or a single clause shaped "Definici(ón|ones) de X" (the term
+#      is the prepositional object of "de" within the SAME clause that also
+#      satisfies the stem match).
+#   2. That EXACT term (word-boundary, accent-folded, case-insensitive,
+#      leading-Spanish-article-stripped) is independently corroborated by
+#      appearing, VERBATIM and CONTIGUOUSLY, somewhere in the section's own
+#      body -- a literal presence check, not a fuzzy/grammatical one. A
+#      nominalization ("se enriquece" for a heading naming "Enriquecimiento
+#      sin causa"), a non-contiguous paraphrase ("un activo es uno no
+#      admitido" for "Activo no Admitido"), or a genuine heading/body term
+#      mismatch (heading names "las normas de la compraventa", body defines
+#      "permuta") all correctly yield NOTHING -- see
+#      `test_pr_profile_bucket_d_heading_anchored.py`'s residue tests.
+#
+# Searches the FULL body (never window-truncated -- one real anchor,
+# `STATE_PR_LEY_77_1957_ART36_020`'s "Sistema de logias", sits at the very
+# END of its body), but EXCLUDES a real, previously-uncatalogued page-break
+# scrape-footer artifact (`"Rev. <date> www.ogp.pr.gov Página N de M
+# "<Law Title>"[ de <year>] [Ley N-YYYY, según enmendada]"`, 370
+# corpus-wide rows, quote style and trailing "de <year>" both optional --
+# confirmed via 3 real corpus shapes) that can inject its OWN, UNRELATED
+# quoted law title anywhere mid-body and would otherwise be indistinguishable
+# from a real corroborating quote.
+
+_PAGE_BREAK_FOOTER_RE = re.compile(
+    r"Rev\.\s+\d{1,2}\s+de\s+\w+\s+de\s+\d{4}\s+www\.ogp\.pr\.gov\s+"
+    r"Página\s+\d+\s+de\s+\d+\s+.*?\[Ley[^\]]*\]\s*",
+    re.IGNORECASE,
+)
+
+# "Definici(ón|ones) de X" -- a SINGLE clause (no `;`/`,`/em-dash) where the
+# whole clause satisfies the stem match AND the anchor term is the
+# prepositional object of "de" within that SAME clause (cycle 2's crude
+# split only extracted a term from a clause that does NOT itself match the
+# stem -- this is the genuinely new shape cycle 3 found).
+_DEFINICION_DE_X_RE = re.compile(r"^[Dd]efinici[oó]n(?:es)?\s+de\s+(.+)$", re.IGNORECASE)
+
+
+def _candidate_terms_from_heading(heading: str) -> list[str]:
+    """Every candidate defined term named by `heading`'s own clauses. A
+    clause that does NOT itself match the Definici(ón|ones) stem is a
+    candidate verbatim (leading Spanish article stripped); a clause that
+    DOES match the stem, shaped "Definici(ón|ones) de X", also yields X
+    (leading article stripped) as an ADDITIONAL candidate. Reuses
+    `_heading_tail`/`_CLAUSE_DELIM_RE`/`_matches_definicion_stem` -- the
+    SAME clause-splitting/stem-matching machinery `is_definitions_heading`
+    itself uses, not a duplicate."""
+    rest = _heading_tail(heading)
+    candidates: list[str] = []
+    for raw_clause in _CLAUSE_DELIM_RE.split(rest):
+        clause = raw_clause.strip().rstrip(" \t\r\n.")
+        if not clause:
+            continue
+        if not _matches_definicion_stem(clause):
+            term = _LEADING_SPANISH_ARTICLE_RE.sub("", clause).strip()
+            if term:
+                candidates.append(term)
+            continue
+        de_x_match = _DEFINICION_DE_X_RE.match(clause)
+        if de_x_match:
+            term = de_x_match.group(1).strip().rstrip(" \t\r\n.")
+            term = _LEADING_SPANISH_ARTICLE_RE.sub("", term).strip()
+            if term:
+                candidates.append(term)
+    return candidates
+
+
+def _fold_char(ch: str) -> str:
+    """Strip a single character down to its base Latin letter (accent
+    removed) via NFD decomposition -- always returns exactly ONE character
+    (falls back to `ch` unchanged if decomposition yields anything other
+    than a single base character), so folding a whole string char-by-char
+    preserves its length and every original character INDEX -- letting a
+    match found in the folded copy be sliced directly out of the ORIGINAL
+    string with no separate offset-mapping step."""
+    decomposed = unicodedata.normalize("NFD", ch)
+    base = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return base if len(base) == 1 else ch
+
+
+def _fold(text: str) -> str:
+    return "".join(_fold_char(ch) for ch in text)
+
+
+def _find_corroborated_term(candidate_terms: list[str], body: str) -> tuple[str, int, int] | None:
+    """The first candidate term (longest first, in case more than one
+    heading clause names a candidate) that is independently corroborated --
+    appears, verbatim, word-boundary, accent-folded, case-insensitive --
+    somewhere in `body`. Returns `(term, match_start, match_end)` in
+    `body`'s OWN index space (via `_fold`'s length-preserving property) so
+    the caller can locate the real surrounding prose; `None` if no
+    candidate corroborates."""
+    folded_body = _fold(body)
+    for term in sorted(set(candidate_terms), key=len, reverse=True):
+        folded_term = _fold(term).strip()
+        if not folded_term:
+            continue
+        pattern = re.compile(r"\b" + re.escape(folded_term) + r"\b", re.IGNORECASE)
+        match = pattern.search(folded_body)
+        if match:
+            return term, match.start(), match.end()
+    return None
+
+
+def extract_heading_anchored_definition(
+    heading: str, body: str, *, scope: str
+) -> list[DefinitionCandidate]:
+    """The director-ordered, narrow bucket-D capture (cycle 3, item 13) --
+    see the module comment block above for the full two-condition rule.
+    Returns exactly one candidate when both conditions hold, else `[]`.
+
+    A THIRD, precondition gate, found via this cycle's own corpus
+    self-check (not named by any test, but required by the sprint
+    contract's own bucket-D definition): bucket D is, BY DEFINITION, "no
+    entry marker and no canonical defining idiom" -- a body that DOES have
+    `_ENTRY_MARKER_RE` marker structure is not bucket D at all, it is
+    `extract_definitions_from_section`'s domain (markers path or the
+    M-R7-protected subsection-label shape), and this rule must defer to
+    that verdict rather than layering a second, competing capture on top.
+    Confirmed live: WITHOUT this guard, the heading-anchor rule also fires
+    on ruling M-R7's three correct-zero rows (`STATE_PR_LEY_77_1957_
+    ART36_030`, `STATE_PR_RENTAS_SEC2022_01`, `STATE_PR_RENTAS_SEC2042_
+    01`) -- each has a heading that genuinely names a term AND that term
+    genuinely appears verbatim in the body, so the two-condition rule alone
+    is not sufficient; each body ALSO has multiple `(a)`/`(b)`/`(1)`...
+    markers (unlike every one of the 70 real anchored rows and 7 residue
+    rows, independently confirmed to have ZERO markers). This guard keeps
+    those two populations disjoint by the same signal the corpus itself
+    uses to distinguish them."""
+    if not is_definitions_heading(heading):
+        return []
+    if _ENTRY_MARKER_RE.search(body):
+        return []
+
+    candidate_terms = _candidate_terms_from_heading(heading)
+    if not candidate_terms:
+        return []
+
+    footer_stripped_body = _PAGE_BREAK_FOOTER_RE.sub(" ", body)
+    corroboration = _find_corroborated_term(candidate_terms, footer_stripped_body)
+    if corroboration is None:
+        return []
+
+    term, match_start, _match_end = corroboration
+    definition_text = _sentence_containing(footer_stripped_body, match_start)
+    if not definition_text:
+        return []
+    return [DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)]
 
 
 # --- G3 analog: Spanish word-boundary term matching --------------------------
