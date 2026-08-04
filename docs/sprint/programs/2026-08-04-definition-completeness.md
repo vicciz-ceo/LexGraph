@@ -260,6 +260,13 @@ structure only.
   markers; CO truncated titles + repealed stubs → program data-quality list.
 - Process rules (after two incidents): ONE writer per worktree, always;
   verify agent liveness before respawning (staleness watchdogs unreliable).
+- **P-R10 probe-sanity rule (2026-08-04, from three independent near-miss
+  self-catches):** before escalating "X is broken," explain why everything
+  downstream of X is not already visibly broken; if you cannot, your probe
+  is suspect (swapped arguments, wrong layer, raw-vs-normalized input).
+  Three real instances: PR find_term_uses argument swap; PR curly-quote
+  raw-body probe; the technique's positive-control form in the dispatch
+  Planner's live/dead kind verification.
 - **P-R9 scratchpad discipline (2026-08-04, from the PR panel's finding of
   cross-panel concurrent writers in the shared scratchpad):** every agent
   prefixes its scratchpad files with its sprint/role slug; NEVER read a
