@@ -1805,3 +1805,51 @@ Developer before the REDs exist.
   (6,133/6,133, 0 failures, both runs); the number is corrected here.
 - Wall time/memory differ by machine (48.5s / 87.7 MiB on QA's scratch DB vs
   my 37.4s / 76.3 MiB) — same order, not a finding.
+
+---
+
+## 2026-08-04 — D-Q1 regulation-scope verification (program-manager-conditioned) + full go on the fix cycle
+
+### The evidence test the program manager set — **CONDITION MET**
+
+"IF regulation documents' תקנה units parse as Article rows today, THEN
+`בתקנה זו` = LOCAL scope." I ran the real `sections.parse_articles` over
+three real regulation instruments from the read-only corpus:
+
+```
+תקנות אגרות בריאות.wiki               -> 65 articles   (art.'1' heading='אגרות')       בתקנה זו present: True
+תקנות אגרות חקלאיות (הצמדה למדד).wiki -> 60 articles   (art.'1' heading='הצמדה למדד')  בתקנה זו present: True
+תקנות אוויר נקי (אגרות).wiki          ->  8 articles   (art.'1' heading='הגדרה')       בתקנה זו present: True
+```
+
+**תקנה units DO parse as `Article` rows.** So, per the ruling and without a
+director cycle:
+- `בתקנה זו` / `לעניין תקנה זו` (~531 occ) → **`scope="local"`**, enforceable
+  by existing machinery. Ship as ordinary trigger rules NOW.
+- `בתקנת משנה זו` / `תקנת משנה זו` / `בפסקת משנה זו` / `בסעיף קטן זה`
+  (~497 occ) → **subsection-level**, which `UnitPath` already models. Ship
+  NOW.
+- **No subset is held for modelling.** The D-Q1 escalation is CLOSED by
+  evidence.
+
+Incidental observation (not acted on, not a gate): `תקנות אגרות חקלאיות`
+parses TWO articles numbered `'1'` — a duplicate article number within one
+document, probably a תוספת/schedule restarting numbering. Flagged for a
+future panel; it does not affect this sprint's classes.
+
+### M13 — the fix cycle, dispatched
+
+Program manager gave **full go**. Per the RED-provenance gate I held, the
+Planner authors the complete RED set FIRST; no Developer runs before those
+REDs are committed and proven red. Scope:
+1. The 8 single-line trigger families incl. **both spellings** (tzere AND
+   yod) everywhere — the canonical P-R7 lesson of this program.
+2. The `::-` nested-list generalization. **Program efficiency directive,
+   binding: ONE mechanism item serving ~2,288 occurrences, NOT per-trigger
+   items.** The shape is already proven reachable by item 9's rule; what is
+   wrong is that it is wired to a single hardcoded trigger word.
+3. The 3 citation-shaped false positives as **precision REDs** (a test that
+   fails while `סעיף 149א` is captured as a term).
+4. Regulation + subsection families per the verification above.
+The E6-blocked subset (~303 occ + items 5/11) stays parked on core's
+dispatch merge, now at final-items stage.
