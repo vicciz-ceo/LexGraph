@@ -366,3 +366,51 @@ Analysis/fetch scripts (scratchpad, not committed):
 `/private/tmp/claude-501/-Users-nerya-LexGraph/87b55b0a-5a38-44b6-887d-1e093b526197/scratchpad/f1_inventory.py`,
 `f1_precision.py`, `fetch_fixture_rows.py` (pass 1); `d8_part_subchapter_measure.py`,
 `d8_breadcrumb_structural.py`, `d11_verify_clause_package_v2.py` (pass 2).
+
+## `planner_pass6_missed_conventions_rows.json` — Planner pass 6, 3 of QA cycle 1's unpinned root causes (2026-08-04)
+
+4 REAL rows (full original columns, values unmodified), pulled from 4
+different real state files (`us_fl_statutes.parquet`, `us_dc_statutes.
+parquet`, `us_ms_statutes.parquet`, `us_or_statutes.parquet`) — this
+worktree's own independent fetch from the same local HF snapshot, run
+TWICE and diffed (`section_title` + `text`, 4/4 byte-identical both times)
+before either row was written into this fixture.
+
+QA cycle 1 confirmed 8 distinct in-vocabulary root causes but committed RED
+tests for only 6 (`qa_cycle1_missed_conventions_rows.json`, above) to stay
+under the style gate. This fixture pins the remaining 2 root causes plus
+one deliberately-added second confirmation of an already-pinned cause
+(`test_us_scoped_inline_planner_pass6_missed_conventions.py`):
+
+1. **`STATE_FL_TXVIII_C253_S253.04`** — period-style list markers (`1.`
+   `2.` instead of `(1)` `(2)`) inside an `As used in this subsection, the
+   term:` colon-list. `_MARKER_RE` requires a literal parenthesized
+   marker, so `_multi_entries` finds zero markers and the whole two-term
+   block (`Seagrass`, `Seagrass scarring`) is lost.
+2. **`STATE_DC_T47_C20_S47-2002.01`** — `the term:` with NO space before
+   the colon. `_STRONG_CONNECTOR_RE`'s `the term\s+` alternative requires
+   trailing whitespace before it can even attempt to match, so it never
+   consumes "the term:" at all; the trailing colon-detection group is then
+   tried at the wrong position and also fails. All 4 marker-prefixed
+   entries lost.
+3. **`STATE_MS_T27_C29_S51-5`** — `shall have meanings as follows:`
+   connector phrase, entirely outside the recognized connector vocabulary
+   (`(the following terms) mean(s)` / `the term` / `a`/`an`). Chosen over
+   `STATE_NY_ARPP_A8_S280-D` (the row QA cycle 1 also names for this same
+   connector gap) because NY's "definitions" are entirely UNQUOTED labeled
+   paragraphs (verified: zero quote characters anywhere in its `text`) —
+   a separate, deliberately-excluded convention (the unquoted-term
+   precision tradeoff) that would keep a NY-based test RED even after the
+   connector gap is fixed. MS's row uses quoted terms throughout, so it
+   cleanly isolates just the connector-vocabulary gap.
+4. **`STATE_OR_T62_C835_S835.200`** — a SECOND, independent confirmation
+   of QA's already-pinned "intervening secondary citation clause" root
+   cause (its own pin: `STATE_DE_T6_C15_SIX_S15-901`). Added because OR's
+   citation shape (`"and ORS 835.210 (Application by political
+   subdivision for special regulation) , "seaplane" means..."`) nests a
+   parenthetical INSIDE the citation itself, structurally distinct from
+   DE's/OH's plain-prose citation shape — real regression value for a
+   future citation-tolerance fix, not redundant bulk. (`STATE_OH_T17_
+   C1707_S1707.47`, QA's other named confirmation row, was NOT
+   additionally pinned: its citation shape is plain prose, already fully
+   covered by DE's pin.)
