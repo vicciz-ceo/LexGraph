@@ -6,19 +6,18 @@ full public-API contract this sprint pins.
 This file: the BODY axis -- the shape that follows a recognized trigger.
 Real corpus evidence (Planner's 2026-08-04 D1 inventory): `(N) "X" means`,
 `(letter) "X" means`, bare `"X" means`, `the term "X" includes/means`,
-`"X" shall mean`, `"X" has the meaning` (including the real cross-reference
+`"X" shall mean`, `"X" has the meaning` (incl. the real cross-reference
 shape `"X" has the SAME meaning as in section N`), `"X" includes`,
-colon-then-numbered-list, colon-then-lettered-list (including Oregon's real
+colon-then-numbered-list, colon-then-lettered-list (incl. Oregon's real
 capital-letter `(A)(B)` convention), and (Planner pass 2, D11) `"X" ,
-definition` -- a bare comma, no idiom keyword at all, Missouri's own
-pervasive house style. Also pins the two "must NOT over-split" cases that make this the hardest part of the extraction: nested
-roman-numeral sub-clauses inside one lettered entry, and a single term's
-OWN numbered/lettered elaboration list (no new quoted term at each item) --
-both must stay part of ONE definition's `definition_text`, never spawn
-spurious extra (unnamed) entries. And the one body shape proven NOT to
-belong here at all: a bare, unquoted cross-reference ("...is the same as
-defined in Section N") carries no quoted term and no recognized defining
-idiom, so it must yield nothing (covered in
+definition` -- a bare comma, no idiom keyword, Missouri's house style.
+Also pins the two "must NOT over-split" cases: nested roman-numeral
+sub-clauses inside one lettered entry, and a single term's OWN
+numbered/lettered elaboration list (no new quoted term per item) -- both
+must stay part of ONE definition's `definition_text`, never spawn
+spurious extra (unnamed) entries. And the one shape proven NOT to belong
+here: a bare, unquoted cross-reference carries no quoted term and no
+recognized defining idiom, so it yields nothing (covered in
 `test_us_scoped_inline_rules_negative_controls.py`, not here).
 """
 
@@ -63,14 +62,18 @@ def test_bare_quote_means_single_entry():
 
 
 def test_bare_quote_means_subsection_scope_maine():
+    """S-R14/S-R15 revert restores `scope == "subsection"`. Pins ONLY the
+    scope string: this row's real numbering is period-style (`"2-A."`,
+    invisible to core's paren-only marker regex, S-R16); its
+    `resolve_unit_path` is non-empty but built from unrelated CITATION
+    pin-cites, not Maine's real unit -- linking is an accident of citation
+    placement, not honestly pinnable here (Planner pass 7 Task A)."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_ME_T38_C3_S464"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     du = _by_term(candidates, "designated use")
-    # S-R11 interim (S-R10: subsection unenforceable live): narrowest
-    # REPRESENTABLE unit is "local"; reverts once core's resolver fix lands.
-    assert du.scope == "local"
+    assert du.scope == "subsection"
 
 
 def test_bare_quote_means_subsection_scope_oregon():
@@ -79,8 +82,9 @@ def test_bare_quote_means_subsection_scope_oregon():
     row = _rows()["STATE_OR_T22_C238_S238.300"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     nym = _by_term(candidates, "number of years of membership")
-    # S-R11 interim -- see the maine test above. Was scope == "subsection".
-    assert nym.scope == "local"
+    # S-R14/S-R15 revert (was "local"); containment proven both directions
+    # in test_us_scoped_inline_pipeline_subsection_live.py.
+    assert nym.scope == "subsection"
 
 
 # --- "X" shall mean ----------------------------------------------------------
@@ -158,8 +162,8 @@ def test_colon_then_lettered_list_oregon_capital_letters():
     row = _rows()["STATE_OR_T59_C825_S825.224"]
     candidates = extract_us_scoped_inline_definitions(row["text"])
     overcharges = _by_term(candidates, "Overcharges")
-    # S-R11 interim -- see the maine test's comment above. Was "subsection".
-    assert overcharges.scope == "local"
+    # S-R14/S-R15 revert: restored (was "local" under the S-R11 interim).
+    assert overcharges.scope == "subsection"
 
 
 # --- MUST NOT over-split: nested roman-numeral sub-clauses -----------------
@@ -210,11 +214,8 @@ def test_definitions_own_numbered_elaboration_list_is_not_split_into_new_entries
     candidates = extract_us_scoped_inline_definitions(row["text"])
     matches = [c for c in candidates if "fantasy sports league" in c.terms]
     assert len(matches) == 1
-    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" -- see
-    # the trigger-axis file's
-    # test_for_purposes_of_this_part_falls_back_to_law_wide_scope docstring
-    # for the full reasoning (unrepresentable narrowing -> law-wide,
-    # zero-miss-safe, precision cost recorded). Was scope == "part".
+    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" (see
+    # trigger-axis's ..._falls_back_to_law_wide_scope docstring). Was "part".
     assert matches[0].scope == "law-wide"
     assert "entrance fee" in matches[0].definition_text
 
@@ -233,10 +234,7 @@ def test_shared_clause_own_numbered_list_not_split_tennessee():
     candidates = extract_us_scoped_inline_definitions(row["text"])
     assert "financial institution" in _terms(candidates)
     fi = _by_term(candidates, "financial institution")
-    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide" -- see
-    # the trigger-axis file's
-    # test_for_purposes_of_this_part_falls_back_to_law_wide_scope docstring.
-    # Was scope == "part".
+    # Ruling S-R9: "part" is a residue kind, falls back to "law-wide". Was "part".
     assert fi.scope == "law-wide"
 
 

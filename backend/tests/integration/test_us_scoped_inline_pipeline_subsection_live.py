@@ -1,33 +1,26 @@
 """Sprint 2026-08-04-defs-us-scoped-inline (Planner pass 3, ruling S-R10;
-xfail markers added passes 4-5, ruling S-R11).
+xfail markers added passes 4-5 ruling S-R11; markers REMOVED pass 7 rulings
+S-R14/S-R15 -- their job is done, this is now an ordinary live-path file).
 
-This file's finding (subsection scope dead on the live path) was escalated
-and ruled on. S-R11: `"subsection"` maps to `"local"` for the interim
-(narrowest REPRESENTABLE enclosing unit, zero-miss-safe, over-link bounded
-by one article) until core fixes `resolve_unit_path`. This file is KEPT
-UNCHANGED as the post-core-flip target -- it still asserts true subsection
-behavior, not the interim mapping -- and BOTH directions are marked
-`xfail(strict=True)` so the revert is self-alarming: the day core's fix
-lands and `_SCOPE_BY_UNIT["subsection"]` is restored, both tests XPASS,
-which FAILS the suite under `strict=True` and forces the revert.
+This file's finding (subsection scope dead on the live path, S-R10) drove
+the S-R11 interim (`"subsection"` -> `"local"`) and, once core's dispatch
+sprint merged a `scope_unit_kind` field + 3-ladder `resolve_unit_path`
+(S-R14), the Developer's revert of that interim. The manager's own probe
+(sprint log, S-R14 section) validated the new mechanism end-to-end on THIS
+exact Oregon row: both tripwires below XPASS once the rule derives
+`scope_value`/`scope_unit_kind` from ONE call to core's resolver at the
+trigger offset, instead of the two never-agreeing derivations S-R10 found.
+Both `xfail(strict=True)` markers are REMOVED here -- the self-alarm did
+its job (forced the revert to happen, not ossify) and continuing to mark
+now-genuinely-passing assertions `xfail` would hide a real regression if
+either direction ever broke again.
 
-The two markers exist for DIFFERENT reasons (see each `reason=` for the
-full text): direction 1 (pass 4) fails because core's `resolve_unit_path`
-is broken -- a genuine live-path defect. Direction 2 (pass 5, once the
-Developer's interim mapping actually landed in `us_scoped_inline.py`)
-fails because `"local"` legitimately over-links across the whole owning
-article -- S-R11's own accepted, RULED tradeoff, not a bug. Both revert
-together when core's fix lands and the mapping flips back.
-
-Of the 3 compounding causes below, ONE is ours (`_subsection_label`'s
-paren-included format vs. `UnitStep.value`'s bare format) -- the Developer
-normalizes this as part of landing S-R11's interim mapping, so it stops
-being a blocker on its own. The other TWO remain core's: the innermost-
-vs-outermost level mismatch (`_subsection_label` takes the NEAREST marker,
-`_subsection_contains_offset` compares the OUTERMOST path step) and
-`resolve_unit_path`'s digit-outermost `'sub'` mislabeling. Either one
-alone still fails this test after the paren-format fix, which is exactly
-why the marker stays even once the Developer's half lands.
+S-R15 (OPEN, not resolved by this file): WHICH step of the resolved path
+to stamp as `scope_unit_kind` is a named policy question. This row's own
+defining clause happens to be `(2)(a)(A)(c)`, 4 levels deep with the SAME
+level reused for both directions below, so it does not by itself prove the
+innermost-step interim generalizes -- see Planner pass 7's Task A report
+for real corpus rows (South Carolina) where it does not.
 
 `test_us_scoped_inline_pipeline_live.py`'s U2 both-directions proofs cover
 `scope="local"` and `scope="chapter"` only. `scope="subsection"` was never
@@ -85,8 +78,6 @@ import json
 import pathlib
 import re
 
-import pytest
-
 FIXTURE = (
     pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "us_scoped_inline_rows.json"
 )
@@ -117,23 +108,6 @@ def _uses_edges(result, db_session, definition_id):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "S-R11 interim: us_scoped_inline._subsection_label and core's "
-        "profile.resolve_unit_path derive a subsection label two "
-        "independent ways that never agree (paren-format + innermost-vs-"
-        "outermost level mismatch, plus a resolve_unit_path bug mislabeling "
-        "a digit-outermost marker as kind 'sub'), so a scope='subsection' "
-        "definition links nothing on the live path -- 'subsection' is "
-        "mapped to 'local' for now (see _SCOPE_BY_UNIT). Flip back: once "
-        "core lands its resolve_unit_path level-contract fix (trigger word "
-        "names the containment level, not always path[0]) AND the "
-        "Developer reverts _SCOPE_BY_UNIT['subsection'] to 'subsection', "
-        "this test XPASSes -- which strict=True turns into a suite FAILURE "
-        "by design, forcing the revert to happen rather than ossifying."
-    ),
-)
 def test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection(
     db_session, matter_with_users
 ):
@@ -184,36 +158,14 @@ def test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection(
     uses_edges = _uses_edges(result, db_session, definition_id)
     assert uses_edges, (
         "a mention of 'number of years of membership' inside its OWN defining subsection "
-        "got no USES_DEFINITION edge at all. This means "
-        "us_scoped_inline._subsection_label's derivation and "
-        "matcher._subsection_contains_offset's profile.resolve_unit_path derivation "
-        "DISAGREE even for a mention truly inside the defining subsection -- exactly the "
-        "silent under-link ruling S-R10 exists to catch. Report this to the manager; do "
-        "not patch us_scoped_inline.py to route around a core (us_profile.py) defect."
+        "got no USES_DEFINITION edge at all. Per S-R14, scope_value/scope_unit_kind are "
+        "now both derived from ONE call to profile.resolve_unit_path at the trigger offset "
+        "-- if this fails, that mechanism itself (or matcher._subsection_contains_offset's "
+        "consumption of it) has regressed. Report to the manager; do not patch "
+        "us_scoped_inline.py to route around a core (us_profile.py) defect."
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "S-R11 interim: _SCOPE_BY_UNIT['subsection'] now maps to 'local' "
-        "(the narrowest REPRESENTABLE enclosing unit), so this definition is "
-        "scoped to its whole owning article, not to the subsection alone -- "
-        "a mention in a DIFFERENT subsection of the SAME article legitimately "
-        "DOES link now. That is correct interim behavior (S-R11's accepted "
-        "over-link tradeoff), not a defect, which is why THIS marker's cause "
-        "differs from direction 1's above: direction 1 is xfailed because "
-        "core's resolve_unit_path is still broken (a core-owned defect); "
-        "direction 2 is xfailed because the interim mapping itself makes "
-        "true subsection semantics temporarily false (an accepted, ruled "
-        "tradeoff, not a bug). Same revert either way: when core lands its "
-        "resolve_unit_path level-contract fix and _SCOPE_BY_UNIT['subsection'] "
-        "is restored to 'subsection', both this marker and direction 1's come "
-        "off together and both tests XPASS -- which strict=True turns into a "
-        "suite FAILURE by design, forcing the revert rather than letting the "
-        "interim ossify."
-    ),
-)
 def test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_subsection(
     db_session, matter_with_users
 ):
