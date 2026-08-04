@@ -957,3 +957,33 @@ structural wiring gate was restated in the same message: **no Developer will
 be spawned for any item introducing a new module, function, or dispatcher
 branch without a named live call-site test as `file::test`** — a unit test on
 the new module in isolation does not satisfy it.
+
+### Round 7 — Planner Stage B complete: RED suite committed and pushed
+
+17 new tests (unit + live-path integration) genuinely RED across gates
+C1, C2, C3, C4, M8(a), M8(b), M12; 3 new guard/proof tests pass today
+(word-boundary discipline under case-folding, IL-unaffected for both
+`find_term_uses` and `find_citations`) and must stay green through
+Stage C. Full suite: 644 passed / 17 failed / 1 collection error
+(`app.definition_links.rules` doesn't exist yet), 0 regressions --
+`backend/.venv/bin/pytest backend/tests -q --continue-on-collection-errors`
+run twice for stability, identical result both times.
+
+Deliberately NOT authored this pass, named explicitly in the contract's
+"Next Steps" closing note rather than left silent: M10's obligation (a)
+tie-pinning live-path test; M9 enumerated-scope live-path proof; the
+sub-article `USES_DEFINITION` anchoring retrieval-seam test (E-2/Option C
+now unblocks it, but it arrived very late in this session); the pointer-
+definition end-to-end emission path; `_TRIGGER_PHRASES` idiom-addition
+tests (same fixture rows as M12, noted but not pinned). Frontend/
+typecheck not re-run -- zero frontend files touched this sprint.
+
+Frontmatter updated: `status: planned`, `current_role: developer`,
+`total_items: 7`, `completed_items: 0`, `dev_complete_items: 0`,
+`qa_cycles: 0`. Stale-pin sweep section added -- result: none of the 9
+swept symbols need any existing test edited (5 have zero references
+outside `pipeline.py`; the other 4's existing assertions are subset-safe
+under this sprint's additive fixes, confirmed empirically via the full
+suite run, not merely reasoned).
+
+Planner `a6f809d491c471d13` returning its Stage B report now.
