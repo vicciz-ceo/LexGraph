@@ -311,6 +311,19 @@ no core dependency — but gate A's false-positive guard is gone and all
 precision risk lands on our rule. Planner must settle this against core's
 real code before tests are finalized.
 
-Planner attempt #1 died mid-exploration with no work product and no partial
-state (log M-R5); attempt #2 runs the same brief with an incremental
-commit-per-deliverable requirement.
+**RESUME HERE.** Phase: all-state inventory per D-PREAMBLE-ALL (log M-R13).
+
+1. Four READ-ONLY scouts (S1 FL/NC/AL/MO · S2 FED/DC/NY · S3 the 39
+   low-volume states · S4 reclassify GA/MD/NE/MS/SD + CA/IL) are running,
+   writing to `<scratchpad>/scout_S{1,2,3,4}_findings.md`. They make zero
+   repo writes by design.
+2. When they finish: spawn ONE Planner (Sonnet/high) as **sole writer** to
+   consolidate all four files into contract + log, author RED tests from the
+   real rows they identified, add the **MS chapter-scope U2 test**, and
+   commit. Never two writers in this worktree (M-R8).
+3. Then package per-state CLAUSE row lists and send to the program manager
+   for scoped-inline routing.
+4. Implementation still waits on core's `rules/` registry (M-R17).
+
+M-R7(a) is ANSWERED (ungated, branch 1); items 3/4/6/8 un-held.
+Suite at `eb1f0d8`: 648 passed, 12 RED, 641 baseline intact.
