@@ -1,15 +1,14 @@
 """Family-4 "heading variants" rule (sprint 2026-08-04-defs-us-headings,
 gates U1/U3).
 
-`us_profile.is_definitions_heading` (see that module's own header comment)
-recognizes a Definitions heading only when "Definition(s)" is literally the
-heading's own FIRST word, or its LAST substantive word (with a
-preposition-exclusion guard). Real corpus rows defeat both of those in six
-distinct, evidenced shapes -- see the sprint contract's Mandate and the
-companion RED unit test's module docstring
+`us_profile.is_definitions_heading` (see that module's header comment)
+recognizes a Definitions heading only when "Definition(s)" is literally its
+own FIRST word, or its LAST substantive word (preposition-exclusion guard).
+Real corpus rows defeat both in six distinct, evidenced shapes -- see the
+sprint contract's Mandate and the companion RED unit test's module docstring
 (`backend/tests/unit/test_definition_links_us_heading_variants.py`) for the
-full rule spec, per-rule recall/precision numbers, and fixture provenance.
-This module is the pure-function implementation of that spec:
+full rule spec, recall/precision numbers, and fixture provenance. This
+module is the pure-function implementation of that spec:
 
   - R-SEC: an abbreviated `Sec.`/`Secs.`/`Art.`/`Article` section-label
     (baseline only recognizes the spelled-out word `Section`) -- strip it,
@@ -71,24 +70,27 @@ flip a currently-False verdict to True -- except through the guard, which is how
 the ME fix flips one currently-True verdict to False (H-R7: the guard is
 existing negative-evidence logic, not a narrowing of positive evidence).
 
-Self-contained (ruling H-R4): this module owns its own leading-noise strip, section-
-label strip, number-token strip, trailing-bracket strip, tail tokenizer, and
-preposition-exclusion set -- independent copies of `us_profile.py`'s private regexes/sets.
+Self-contained (ruling H-R4): this module owns its own leading-noise strip,
+section-label strip, number-token strip, trailing-bracket strip, tail
+tokenizer, and preposition-exclusion set -- independent copies of `us_profile.py`'s
+private regexes/sets.
 
 Every regex below is a fixed alternation of literal words/characters, or a single
-quantifier over a fixed character class (lookbehinds included -- each is a fixed-
-width literal) -- no quantifier is ever nested inside an alternation -- so each is
-unconditionally linear-time, matching `us_profile.py`'s house style;
-`_tail_tokens_core`'s single pass over `_TAIL_TOKEN_CAPTURE_RE.split(...)` is likewise linear.
+quantifier over a fixed character class (lookbehinds included -- each a fixed-width
+literal) -- never nested inside an alternation -- so each is unconditionally linear-
+time, matching `us_profile.py`'s house style; `_tail_tokens_core`'s single pass over
+`_TAIL_TOKEN_CAPTURE_RE.split(...)` is likewise linear.
 
-Phase B note (not this module's concern yet): the `register_heading_rule` self-
-registration call lands separately, once `app.definition_links.rules.registry`
-exists (ruling H-R5) -- this file intentionally contains ONLY the pure function.
+Phase B (ruling H-R5): `register_heading_rule` self-registers at the bottom of
+this file, now that `app.definition_links.rules.registry` exists -- Phase A
+deliberately deferred that call until then.
 """
 
 from __future__ import annotations
 
 import re
+
+from app.definition_links.rules.registry import HeadingRule, register_heading_rule
 
 # --- Shared primitives (own copies -- see module docstring, ruling H-R4) ---
 
@@ -297,3 +299,6 @@ def matches_heading_variant(heading: str) -> bool:
         or _rule_trunc(heading)
         or _rule_misspell(heading)
     )
+
+
+register_heading_rule(HeadingRule(jurisdiction_codes=("US-*",), matches=matches_heading_variant))
