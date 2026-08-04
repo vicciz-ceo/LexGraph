@@ -2728,3 +2728,68 @@ independent ~95%/93%-genuine random samples make the SCALE unambiguous,
 but a row-by-row corpus-wide classification (and a similar sweep for
 other laws sharing TRANSITO's one-term-per-row convention) is real
 follow-up work I am handing to the Planner, not claiming to have finished.
+
+---
+
+## 2026-08-04 — Manager: QA verified and UPHELD; gates P2 and P4 FAIL
+
+**QA boundaries held**: `git diff --name-only 27d9217...HEAD | grep '^backend/app/'`
+→ NOTHING. QA committed only tests, one fixture, the fixtures README, the
+contract and this log — exactly its remit. Its 6 vendored rows are **6/6
+byte-exact** against the parquet. Contract lint still `PASS 365`.
+
+**I re-derived QA's central claim independently and it holds — and it is
+BIGGER than QA stated.** My own sweep of the 23,001 NON-canonical rows:
+
+```
+NON-canonical rows carrying a Spanish definition idiom:  833
+  captured by extract_local_definitions/extract_adhoc:     7
+  UNCAPTURED:                                            826
+  capture rate OUTSIDE canonical Definiciones sections:  0.8%
+```
+
+Not every one of those 833 is a definition — some idiom hits are incidental
+prose, and a proper triage is cycle-4 work. But **0.8%** against a director
+mandate whose exact words are "if a definition appears in another article
+(not in the usual place for definitions), it should be captured as well" is
+not a rounding error. QA is right and I am upholding its FAIL.
+
+**How the whole panel, including me, missed this.** Every measurement in
+this log before QA — mine included — used "the `Definici(ón|ones)` stem
+appears in `section_title`" as ground truth. That is the *canonical-section*
+population, 635 rows. We drove it from 0% to 94.8% and the number felt like
+progress against a zero-miss bar. It was progress against the wrong
+denominator. The other 23,001 rows were never in any of our sweeps. QA was
+the first to design its own ground truth instead of inheriting ours, which
+is precisely why an independent QA role exists and why my own verification
+was never a substitute for it. Recorded plainly because the program should
+learn it: **the family panels measuring capture inside heading-signalled
+sections are all at risk of the same blind spot.**
+
+### Gate verdicts (manager, upholding QA)
+
+| Gate | Verdict | Proving check |
+|---|---|---|
+| P1 | **PASS** | 635 ground truth / 633 detected / **0 false positives**; the 2 undetected are the Table-of-Contents rows, correct rejections. Combined extraction 600/633 = **94.8%**. Reproduced independently by me and by QA. |
+| P2 | **FAIL** | 0.8% capture outside canonical sections (7 of 833 idiom-bearing rows), and the local/adhoc extractors are not wired into `pipeline.py` for PR at all, so even those 7 do not fire on a live ingest. |
+| P3 | **Deferred, honestly** | 6 xfail tests; `determine_chapter_scope` genuinely absent; core not yet merged to main. QA read the tests and confirmed the deferral hides nothing. |
+| P4 | **FAIL** | Zero-miss not met. Within canonical sections 17 of 33 zero-yield rows are ordinary misses (QA's row-by-row classification), and the outside-canonical gap above dwarfs it. |
+| P5 | **PASS** | Baseline `641 passed` exact; English-regression suite `9 passed`; 0 heading false positives corpus-wide; only `pr_profile.py` touched under `backend/app/` across the entire sprint. |
+
+### Ruling M-R10 — sprint continues into cycle 4; P2 is the priority, not the 33
+
+QA's four routed answers are accepted: M-R9's marker gate over-suppresses
+(2 new supporting rows found — cycle-4 Planner item, not P-R2 class); the 33
+are 17 real misses + 9 accepted gaps + 5 marker-gate + 2 other; the residue
+table is missing an 8th row (`STATE_PR_LEY_77_1957_ART36_010`); and P2
+cannot honestly be called met.
+
+**Priority ruling for cycle 4**: the outside-canonical gap (P2, the
+director's own mandate) outranks the remaining 33 canonical rows. The panel
+has been polishing the last 5% of the small population while 96% of the
+other population was untouched. Cycle 4 leads with `extract_local_definitions`
+breadth and the one-term-per-row conventions QA found (PR's Traffic Code
+class, ~127 rows in one law), and only then returns to the 33.
+
+Current suite: `5 failed, 825 passed, 8 xfailed` — the 5 failures are QA's
+own cycle-4 RED tests, correctly left red for the next Developer pass.
