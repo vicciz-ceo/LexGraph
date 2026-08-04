@@ -1590,3 +1590,63 @@ All work this cycle is doc-only (this log entry). No `backend/app/**` or
 `backend/tests/**` files touched — role separation held. Pushed SHA and
 `git log --oneline -1` recorded by the manager/committer at push time below
 this entry.
+
+---
+
+## 2026-08-04 — Manager verdict on QA cycle 2: SECOND BOUNCE. U4 still fails.
+
+QA cycle 2 at `7de5f7e`, doc-only (`git diff --stat d37387f...HEAD --
+backend/app/` empty — role separation held again).
+
+**Manager re-probed the sixth gap directly. Every claim reproduced:** the
+`defined for` / `defined,` / `defined.` / `Defined <noun>` rows all return
+False today, and the two shapes QA deliberately ruled OUT (`defined in`,
+`defined by`) also return False — i.e. QA's proposed boundary is exactly where
+the current code sits, so the fix is well-targeted rather than a blanket
+widening.
+
+QA independently reproduced recall **20,864/22,228 (93.9%)**, residual
+**1,364**, the corrected precision figure **123** (not the stale 128), the
+single ME True→False flip by exhaustive scan, and U6's WA/FL/NY movement.
+**U3, U5, U6 stand CONFIRMED. U4 fails a second time.** `qa_cycles: 2`.
+
+### H-R9 — the sixth gap is another H-R7-class defect; fix it, but bounded
+
+`R-VERB-extended` fires only on `;`/`:`/dash after `defined`. Real drafting
+also uses a **word, comma or period**: `"Mattress" defined for KRS 214.290 to
+214.310` (`STATE_KY_TXVIII_C214_S214.280`, body `"mattress" means…`),
+`"Emergency supplies" defined, regional directory database.`
+(`STATE_NJ_T58_C16A_S16A-102`), `… Suitable work defined. Duties of …`
+(`STATE_CT_T31_C567_S31-232l`), `"Defined term"` (`USC_T15_C122_S9801`, body
+defines "COVID-19 public health emergency"). ~192 candidate rows.
+
+**Ruling: same class as BUG1–BUG5 — a rule already committed to shipping
+failing to fire inside its own intent. Fix in dev cycle 3.** Two bounds the
+next Developer must respect, both established by QA's own reading:
+
+1. **Do NOT chase `defined in` (25 rows) or `defined by` (23 rows).** Both are
+   dominated by cross-reference and delegation-to-rule shapes — the same class
+   as the already-fixed ME false positive and the accepted TX true negative.
+   Widening into them would re-introduce the precision defect cycle 2 just
+   removed.
+2. **`defined for` carries a real precision cost: QA's 43-row sample was 37
+   YES / 3 NO / 2 UNCLEAR / 1 stub (~86%)** — below the ~90%+ the other rules
+   hold. This is a genuine **P-R2 recall-vs-precision trade**, not a clean
+   defect. The Developer must measure it per-sub-shape and **escalate rather
+   than ship** if the measured precision lands materially below ~90%.
+
+### P-R2 class escalated to the program manager (data attached)
+
+Distinct from the above, and NOT a defect: the **preposition-guarded cluster**
+(245 residual rows) is a deliberate exclusion. Independent estimates of how
+much real content it costs: scout ~10–15% true positives, QA cycle 1 ~25% on a
+20-row read, QA cycle 2 0 genuine misses in 15 (dominated by an Indiana
+"definitions in this chapter apply throughout this article" cross-reference
+convention). Real examples of what is being traded away:
+`STATE_IN_T32_A31_C10_S32-31-10-2` and `STATE_IN_T21_A44_C7_S21-44-7-1`.
+Under an ABSOLUTE zero-miss bar this is a director-level call, not a panel one:
+relaxing the guard costs ~75–90% precision on that cluster; keeping it
+knowingly leaves a minority of real definitions sections uncaptured. **The
+panel's standing recommendation is to KEEP the guard** (three independent
+measurements agree the trade is bad), recorded here so the choice is explicit
+rather than silent.
