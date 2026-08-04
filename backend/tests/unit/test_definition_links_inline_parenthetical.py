@@ -1,9 +1,13 @@
 """RED tests for sprint 2026-08-04-defs-us-multiterm, family 6 (dossier §2 +
 §6 addendum): `("Term")` apposition abbreviations with NO means-idiom
 following -- rejected even by the inline fallback's idiom-gap check
-(`pipeline._MEANS_IDIOM_GAP_RE` requires literal "means"/"shall mean"/"has
-the meaning"; a bare naming apposition like `(the "Act")` has none of
-those).
+(`us_profile._MEANS_IDIOM_GAP_RE`, moved out of `pipeline.py` and made
+PRIVATE to `us_profile.py` by core's C3 gate -- reached here only through
+the public `extract_definitions_from_section(..., heading_was_derived=
+True)` seam, per sprint `2026-08-04-defs-us-multiterm` ruling M-R9, never
+by importing the relocated private symbol -- requires literal
+"means"/"shall mean"/"has the meaning"; a bare naming apposition like
+`(the "Act")` has none of those).
 
 Fixtures: REAL rows vendored verbatim at `backend/tests/fixtures/
 us_statutes/inline_parenthetical_sample_rows.json` (see that directory's
@@ -17,7 +21,7 @@ its root cause is a Definitions-HEADING-gate miss (family 1, owned by
 sprint `2026-08-04-defs-us-scoped-inline`) COMBINED WITH core-scope's C3
 gate (pipeline.py's non-Definitions-section branch is not yet profile-
 dispatched), not an idiom-gap rejection -- confirmed live: the idiom-gap
-regex (`_MEANS_IDIOM_GAP_RE`) already matches "has the meaning" and
+regex (`us_profile._MEANS_IDIOM_GAP_RE`) already matches "has the meaning" and
 correctly extracts all 5 of this row's cross-reference terms when run
 directly against its body; the section is simply never reached by any
 extractor in the real pipeline today. See
@@ -34,12 +38,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.definition_links.pipeline import (
-    _MEANS_IDIOM_GAP_RE,
-    _QUOTE_TERM_RE,
-    _determine_scope,
-    _extract_inline_quoted_definitions,
-)
+from app.definition_links.profiles import get_profile
 from app.definition_links.us_profile import extract_definitions_from_section
 
 FIXTURE_PATH = (
@@ -55,11 +54,35 @@ def _load_rows() -> dict[str, dict]:
     return {r["act_id"]: r for r in rows}
 
 
-def _extract_both_ways(text: str) -> list:
-    scope = _determine_scope(text)
-    candidates = list(extract_definitions_from_section(text, scope=scope))
-    candidates += _extract_inline_quoted_definitions(text, scope=scope)
-    return candidates
+def _profile_for(row: dict):
+    # Sprint 2026-08-04-defs-us-multiterm, ruling M-R9: repoint to the
+    # PUBLIC seam (`get_profile(...).determine_scope(...)`), the same
+    # call shape `pipeline.py` itself now uses -- not a new private
+    # import of whatever internal free function replaced
+    # `pipeline._determine_scope`. `USProfile.determine_scope` ignores
+    # `self.code` entirely, so this cannot change the returned value; the
+    # row's own state code is used anyway for documentation fidelity.
+    return get_profile("US-" + row["act_id"].split("_")[1])
+
+
+def _extract_both_ways(row: dict) -> list:
+    text = row["text"]
+    profile = _profile_for(row)
+    scope = profile.determine_scope(text)
+    # Sprint 2026-08-04-defs-us-multiterm, ruling M-R9: the old code called
+    # `pipeline._extract_inline_quoted_definitions` directly (now private
+    # to `us_profile.py`, moved there by core's C3 gate). Repointed to the
+    # PUBLIC `extract_definitions_from_section(..., heading_was_derived=
+    # True)` seam instead of importing the relocated private symbol --
+    # `heading_was_derived=True` is the documented, public way to force
+    # the exact same inline-quoted fallback path (verified live for both
+    # fixture rows this sprint: neither has any "(N)"-block marker, so the
+    # block splitter always yields nothing and the fallback always fires;
+    # `extract_definitions_from_section(text, scope=scope,
+    # heading_was_derived=True)` therefore returns THE SAME candidate list
+    # the old two-call union produced -- no expected value changed, only
+    # the access path).
+    return list(extract_definitions_from_section(text, scope=scope, heading_was_derived=True))
 
 
 # --- NH STATE_NH_TXXVII_C301-B_S1 -- genuine F6, no means-idiom at all ----
@@ -67,28 +90,37 @@ def _extract_both_ways(text: str) -> list:
 # Organization Act" (the "Act").' -- a short-title apposition: "Act" is
 # unambiguously being defined as shorthand for the long name, but there is
 # no "means"/"shall mean"/"has the meaning" anywhere in the sentence for
-# `_MEANS_IDIOM_GAP_RE` to anchor on.
+# `us_profile._MEANS_IDIOM_GAP_RE` to anchor on.
 
 
 def test_nh_s1_short_title_apposition_has_no_means_idiom_to_anchor_on():
-    """Characterizes WHY this is rejected today (not just THAT it is): the
-    quoted term "Act" is never followed by a recognized defining idiom
-    within the bounded gap."""
+    """Characterizes WHY this is rejected today (not just THAT it is).
+
+    Sprint 2026-08-04-defs-us-multiterm, ruling M-R9: originally asserted
+    directly against `_QUOTE_TERM_RE`/`_MEANS_IDIOM_GAP_RE` (then in
+    `pipeline.py`); both are now PRIVATE to `us_profile.py` (core's C3
+    gate), so this is repointed to the PUBLIC surface those regexes back
+    -- `extract_definitions_from_section(..., heading_was_derived=True)`,
+    the documented way to force the exact inline-quoted-fallback code path
+    that runs both regexes internally. The observable claim is unchanged:
+    because no quoted term in this apposition-only sentence is followed by
+    a recognized defining idiom, the fallback extractor recognizes NO
+    definition at all -- same fact the old regex-level test pinned, now
+    pinned as the extractor's own output rather than by inspecting its
+    internals directly."""
     row = _load_rows()["STATE_NH_TXXVII_C301-B_S1"]
-    text = row["text"]
-    quote_matches = list(_QUOTE_TERM_RE.finditer(text))
-    assert len(quote_matches) >= 1
-    for m in quote_matches:
-        gap = text[m.end() : m.end() + 200]
-        assert _MEANS_IDIOM_GAP_RE.match(gap) is None, (
-            f"expected NO means-idiom to follow quoted term {m.group(1)!r} in "
-            f"this apposition-only sentence; regex unexpectedly matched"
-        )
+    candidates = _extract_both_ways(row)
+    all_terms = {t for c in candidates for t in c.terms}
+    assert not all_terms, (
+        f"expected NO means-idiom to follow any quoted term in this "
+        f"apposition-only sentence, so the fallback extractor should "
+        f"recognize NO definition at all; got candidates={candidates!r}"
+    )
 
 
 def test_nh_s1_act_apposition_is_extracted_as_a_definition():
     row = _load_rows()["STATE_NH_TXXVII_C301-B_S1"]
-    candidates = _extract_both_ways(row["text"])
+    candidates = _extract_both_ways(row)
     all_terms = {t for c in candidates for t in c.terms}
     assert "Act" in all_terms, (
         f"the short-title apposition '(the \"Act\")' -- a genuine, reusable "
@@ -117,7 +149,7 @@ def test_nh_s1_act_apposition_is_extracted_as_a_definition():
 
 def test_ok_boundary_marker_apposition_is_not_treated_as_a_definition():
     row = _load_rows()["STATE_OK_T74_S74-6106"]
-    candidates = _extract_both_ways(row["text"])
+    candidates = _extract_both_ways(row)
     all_terms = {t for c in candidates for t in c.terms}
     assert "-..-" not in all_terms
     assert "Reference Map" not in all_terms

@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.definition_links.pipeline import _determine_scope
+from app.definition_links.profiles import get_profile
 from app.definition_links.us_profile import extract_definitions_from_section
 
 FIXTURE_PATH = (
@@ -57,7 +57,18 @@ def _load_rows() -> dict[str, dict]:
 
 
 def _extract(row: dict) -> list:
-    scope = _determine_scope(row["text"])
+    # Sprint 2026-08-04-defs-us-multiterm, ruling M-R9: `pipeline.
+    # _determine_scope` was moved behind the core-scope seam (now private
+    # to `us_profile.py`). Repointed to the PUBLIC seam -- the profile's
+    # own `determine_scope` Protocol method, reached via `get_profile`,
+    # the same call shape `pipeline.py` itself uses -- rather than a new
+    # private import. Behavior verified byte-identical to the old direct
+    # call (see this sprint's log entry): `USProfile.determine_scope`
+    # ignores `self.code` entirely, so which US code is resolved here
+    # cannot change the returned value; the row's own state code is used
+    # anyway for documentation fidelity.
+    profile = get_profile("US-" + row["act_id"].split("_")[1])
+    scope = profile.determine_scope(row["text"])
     return extract_definitions_from_section(row["text"], scope=scope)
 
 

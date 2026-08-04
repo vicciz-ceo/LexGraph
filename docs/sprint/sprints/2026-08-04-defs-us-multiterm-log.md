@@ -1588,3 +1588,182 @@ the public seam** — `profile.determine_scope(...)`, and the idiom-gap
 behaviour asserted through `USProfile` rather than a raw private regex.
 Expected VALUES must not change; only the access path. If repointing forces
 an expected value to change, that is a finding to escalate, not to absorb.
+
+---
+
+## 2026-08-04 — Planner: M-R9 repair, both modules repointed to the public seam (Sonnet/high, bounded resume)
+
+Bounded repair per M-R9. Touched ONLY the two named test modules; no
+production code, no other test file.
+
+### `test_definition_links_multiterm_shared_clause.py`
+
+Before:
+
+```python
+from app.definition_links.pipeline import _determine_scope
+...
+def _extract(row: dict) -> list:
+    scope = _determine_scope(row["text"])
+    return extract_definitions_from_section(row["text"], scope=scope)
+```
+
+After:
+
+```python
+from app.definition_links.profiles import get_profile
+...
+def _extract(row: dict) -> list:
+    profile = get_profile("US-" + row["act_id"].split("_")[1])
+    scope = profile.determine_scope(row["text"])
+    return extract_definitions_from_section(row["text"], scope=scope)
+```
+
+Repointed to the public seam named in M-R9: `get_profile(code).
+determine_scope(...)`, the same call shape `pipeline.py` itself now uses
+(`profile.determine_scope(matcher_article.body)`), not a new private import
+of `us_profile.py`'s relocated `determine_scope`/`_determine_scope`. Verified
+live (`backend/.venv/bin/python`) that `USProfile.determine_scope` ignores
+`self.code` entirely, so `get_profile(...).determine_scope(text) ==
+us_profile.determine_scope(text)` for all 6 rows in the F5 fixture
+(VT/SD/MT/MI/TX×2) — confirmed byte-identical before touching the test file.
+The `extract_definitions_from_section` import (from `us_profile`, unchanged)
+was never broken — it is a public, non-underscored free function, same
+precedent as the already-GREEN E1 file's `find_citations`/
+`detect_cross_law_derivations` imports — so it was left as-is.
+
+### `test_definition_links_inline_parenthetical.py`
+
+Before:
+
+```python
+from app.definition_links.pipeline import (
+    _MEANS_IDIOM_GAP_RE,
+    _QUOTE_TERM_RE,
+    _determine_scope,
+    _extract_inline_quoted_definitions,
+)
+...
+def _extract_both_ways(text: str) -> list:
+    scope = _determine_scope(text)
+    candidates = list(extract_definitions_from_section(text, scope=scope))
+    candidates += _extract_inline_quoted_definitions(text, scope=scope)
+    return candidates
+```
+
+After:
+
+```python
+from app.definition_links.profiles import get_profile
+...
+def _profile_for(row: dict):
+    return get_profile("US-" + row["act_id"].split("_")[1])
+
+def _extract_both_ways(row: dict) -> list:
+    text = row["text"]
+    profile = _profile_for(row)
+    scope = profile.determine_scope(text)
+    return list(extract_definitions_from_section(text, scope=scope, heading_was_derived=True))
+```
+
+`_determine_scope` repointed the same way as above. `_MEANS_IDIOM_GAP_RE`/
+`_QUOTE_TERM_RE`/`_extract_inline_quoted_definitions` (now private inside
+`us_profile.py`, moved there verbatim by core's C3 gate) were NOT
+re-imported from their new location — that would be exactly the "swap one
+private import for another" trap M-R9 warned against. Instead, repointed to
+the PUBLIC `extract_definitions_from_section(text, scope=scope,
+heading_was_derived=True)` seam — the documented, public way to force the
+same inline-quoted-fallback code path (which runs both regexes internally).
+Verified live for both fixture rows (NH, OK) that `_split_into_numbered_
+blocks` always returns 0 blocks, so the fallback always fires and
+`extract_definitions_from_section(text, scope=scope,
+heading_was_derived=True)` returns EXACTLY the same candidate list the old
+two-call union (`extract_definitions_from_section(text, scope=scope)` +
+`_extract_inline_quoted_definitions(text, scope=scope)`, the second call
+unconditional) produced — checked by direct comparison
+(`old_way == full`) before editing, not assumed.
+
+`test_nh_s1_short_title_apposition_has_no_means_idiom_to_anchor_on`
+(a white-box characterization asserting `_MEANS_IDIOM_GAP_RE.match(gap) is
+None` for every quoted term) was repointed to a black-box equivalent: call
+the same public `_extract_both_ways` and assert the resulting term set is
+empty. The underlying fact pinned is identical (no defining idiom follows
+any quoted term in this row, so nothing is extracted) — verified live that
+this still passes today (`all_terms == set()`), i.e. the observable outcome
+did not change, only how it is observed. The other two call sites
+(`test_nh_s1_act_apposition_is_extracted_as_a_definition`,
+`test_ok_boundary_marker_apposition_is_not_treated_as_a_definition`) only
+needed the `_extract_both_ways(row["text"])` → `_extract_both_ways(row)`
+signature update; their assertions are byte-for-byte unchanged.
+
+### Confirmation: no expected value changed
+
+Every numeric/string/set literal asserted against in both files (state
+codes, term sets, definition-text length threshold, `"Act"`, `"-..-"`,
+`"Reference Map"`) is unchanged from the versions committed at `f8c518a`.
+Only import statements, the two scope/extraction helper bodies, and one
+test's assertion mechanism (regex-internals → public-surface outcome, same
+underlying fact, verified live) changed. No production file touched.
+
+### Verification — both modules collect and run
+
+```
+$ backend/.venv/bin/pytest tests/unit/test_definition_links_multiterm_shared_clause.py \
+    tests/unit/test_definition_links_inline_parenthetical.py -v
+...
+5 failed, 3 passed in 0.05s
+```
+
+5 RED (VT, SD, TX, MT-nested from the shared-clause file; NH-apposition from
+the parenthetical file) + 3 GREEN (MT top-level regression anchor, NH
+idiom-gap characterization, OK false-positive guard) — no ImportError, no
+collection error.
+
+### Full-suite collection + numbers
+
+```
+$ backend/.venv/bin/pytest -q
+...
+15 failed, 710 passed, 18 warnings in 13.56s
+```
+
+725 collected total (`pytest --collect-only -q` confirms). This is exactly
+the prior "10 failed, 707 passed" baseline (both modules excluded) PLUS the
+5 new RED / 3 new GREEN this repair's two modules legitimately contribute:
+`10 + 5 = 15` failed, `707 + 3 = 710` passed. The 10 pre-existing REDs are
+unchanged (same test names, same file, same reason):
+
+```
+test_definition_links_multiterm_pipeline_e2e.py::test_mt_nested_shared_clause_terms_each_link_to_a_later_use_individually
+test_multiterm_f5_blocked_on_markers.py::test_vt_marker_less_multi_term_sentence_resolves_all_four_terms
+test_multiterm_f5_blocked_on_markers.py::test_sd_marker_less_multi_term_sentence_resolves_all_four_terms
+test_multiterm_f5_shared_clause.py::test_mt_nested_multi_term_clause_resolves_all_three_terms
+test_multiterm_f5_shared_clause.py::test_mi_top_level_multi_term_clause_resolves_all_three_terms
+test_multiterm_f5_shared_clause.py::test_tx_parent_clause_redirect_list_2009_003
+test_multiterm_f5_shared_clause.py::test_tx_parent_clause_redirect_list_2002_001
+test_multiterm_f6_blocked_on_core_seam.py::test_or_cross_reference_style_definitions_resolve
+test_multiterm_f6_blocked_on_core_seam.py::test_nh_plain_apposition_with_no_means_idiom_resolves
+test_multiterm_f6_blocked_on_core_seam.py::test_nd_plain_apposition_with_no_means_idiom_resolves
+```
+
+New RED contributed by the two repaired unit modules (same behavioral gap,
+observed one layer below the integration tests above — VT/SD/TX/MT/NH,
+consistent naming):
+
+```
+test_definition_links_inline_parenthetical.py::test_nh_s1_act_apposition_is_extracted_as_a_definition
+test_definition_links_multiterm_shared_clause.py::test_vt_s3700_all_four_shared_terms_are_extracted
+test_definition_links_multiterm_shared_clause.py::test_sd_s3_14_5_all_four_shared_terms_are_extracted
+test_definition_links_multiterm_shared_clause.py::test_tx_s2009_003_parent_clause_terms_get_the_real_shared_definition_text
+test_definition_links_multiterm_shared_clause.py::test_mt_s16_11_402_nested_shared_clause_terms_are_extracted
+```
+
+E1 pointer file re-checked, untouched, still green:
+`backend/.venv/bin/pytest tests/unit/test_definition_links_e1_pointer_reference_capture.py -q` → `7 passed in 0.02s`.
+
+No ruff/lint tool is configured in this worktree's venv (checked:
+`.venv/bin/ruff` absent, no lint target in a Makefile, no `[tool.ruff]` in
+`pyproject.toml`/`setup.cfg`) — nothing to run there. Both files stay under
+the 300-line style gate (216 and 155 lines respectively).
+
+**No expected value had to change. Nothing to escalate.**
