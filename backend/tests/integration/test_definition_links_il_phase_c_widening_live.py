@@ -757,3 +757,398 @@ def test_m16_already_shipped_double_colon_rule_under_scopes_a_lawwide_list(
         f"-); got USES_DEFINITION assertions: {uses_definition!r} "
         f"(created_definitions={result['created_definitions']!r})"
     )
+
+
+# =====================================================================
+# M17 (round 3, manager ruling, LAST increment before Developer) --
+# systematic spelling-variant audit
+# =====================================================================
+#
+# **Enumeration method (corpus-derived, not invented from grammar
+# rules alone).** Two full-corpus sweeps, ordinary (non-הגדרות-heading)
+# articles only: (1) every `<word(s)> <demonstrative><punct>"` occurrence
+# (quote-first grammar) and (2) every `<word(s)> <demonstrative> -` at a
+# preamble-line tail (list grammar), for `<demonstrative>` in `{זה, זו,
+# זאת, אלה, אלו}` -- the closed set of Hebrew "this/these" forms. This
+# produced 54 distinct quote-first phrases (4,421 occurrences) and 52
+# distinct list-shape phrases (901 occurrences) -- the FULL universe of
+# "concept-noun + demonstrative" constructions the corpus actually
+# contains, not a guessed list. Every phrase not already a known/planned
+# trigger (every shipped `rules/il_*.py` module's trigger table, the
+# FROZEN `extract._LOCAL_TRIGGER_RE`/`_ADHOC_RE`, and the M16 law-wide
+# table) was individually classified: (a) an orthographic/phrasing
+# variant of an EXISTING trigger -- measured precisely (via the REAL
+# downstream grammar, not the loose enumeration scan) and, if nonzero,
+# fixed here; (b) a genuinely different concept -- logged as a residual,
+# per the "no new classes" boundary, and NOT built.
+#
+# **Completeness argument (the sentence this Planner expects QA cycle 3
+# to read hardest).** The enumeration is complete FOR THE DEMONSTRATIVE-
+# ADJACENT SHAPE this sprint's own trigger grammar universally uses --
+# every one of the ~30 trigger phrases across every shipped/planned rule
+# module has the form `<noun phrase> <demonstrative>`, so scanning for
+# THAT exact shape corpus-wide, unfiltered by any assumption about which
+# nouns or demonstratives are "expected," cannot miss a variant that
+# shares the shape (a variant using a DIFFERENT demonstrative than the
+# 5 canonical Hebrew "this/these" forms does not exist in the language).
+# What this enumeration CANNOT catch, stated honestly: (1) a variant
+# that drops the demonstrative entirely (e.g. a bare noun used
+# elliptically) -- no evidence any shipped trigger works this way, so
+# this is not a live risk, but it is not provably absent either; (2) a
+# variant using a preposition OTHER than `ב`/`ל` (the sweep's own regex
+# only captures those two prefixes plus "no prefix") -- the sweep DID
+# surface `לצורך X זה` ("for the purpose of this X") 5 times using a
+# THIRD preposition; logged as a residual below rather than silently
+# folded in, since `לצורך` is a different word, not an orthographic
+# variant of `ל`/`לענין`; (3) a genuine spelling variant of a
+# CONCEPT-NOUN this Planner did not think to include in the ~30-trigger
+# base set at all (as opposed to a variant of a demonstrative/
+# preposition attached to an ALREADY-known noun) -- mitigated, not
+# eliminated, by the fact the enumeration scan itself is noun-agnostic
+# (it does not presuppose which nouns matter), so an unknown noun's
+# EXISTING spelling would still surface in the frequency table and be
+# manually reviewed; a variant of a noun that appears ZERO times under
+# any demonstrative in the whole corpus is, by construction, undetectable
+# by any corpus-derived method and is not claimed to be covered.
+#
+# **Verified findings, per variant (real corpus occurrence count, both
+# grammars, through the live chain):**
+#
+# BUILT (nonzero, genuinely uncaptured today -- one RED test each below):
+#   בתקנה זאת (quote-first, 6); בפסקה זאת (quote-first, 1); לענין/
+#   לעניין פסקה זאת (quote-first, 1); בתקנת משנה זאת (quote-first, 4);
+#   בפסקה משנה זו -- ה-spelling of the known construct-state בפסקת
+#   משנה זו (quote-first, 4); לענין/לעניין פרט זה -- the missing 3-word
+#   sibling of the already-known 2-word בפרט זה, matching the SAME
+#   2-word-to-3-word pattern every OTHER trigger in this sprint already
+#   has (quote-first, 15); בחוק זה (quote-first, 45 -- the M16 word was
+#   only added to the list-shape/law-wide table, never to the
+#   quote-first grammar); לענין/לעניין חוק זה (quote-first, 8); בתקנות
+#   אלה (quote-first, 23); בתקנות אלו (quote-first, 1; ALSO a genuine
+#   single-`:-` list-shape miss, 1 -- see below); לענין/לעניין תקנות
+#   אלה (quote-first, 2); בכללים אלה (quote-first, 1); בפקודה זו
+#   (quote-first, 1); בצו זה (quote-first, 2); לענין/לעניין צו זה
+#   (quote-first, 1).
+#
+# MEASURED ZERO (verified, not merely unsampled -- reported per the
+# binding instruction that a measured zero is itself a finding):
+#   לענין/לעניין תקנה זאת (3-word, both grammars: 0); לענין/לעניין
+#   פסקה זאת (list-shape: 0, quote-first already listed above as
+#   nonzero); בפסקה משנה זאת (both grammars: 0); בחוק יסוד זה
+#   (quote-first: 0 -- already correctly captured via M16's list-shape
+#   vocabulary, list-shape: 3); לענין/לעניין הסכם זה (both: 0); בכללים
+#   אלו (both: 0); לענין/לעניין כללים אלה (quote-first: 0 -- list-shape
+#   already M16-covered, 13); לענין/לעניין פקודה זו (both: 0); באכרזה
+#   זו (quote-first: 0 -- list-shape already M16-covered, 2); לענין/
+#   לעניין אכרזה זו (both: 0); בנוהל זה (quote-first: 0 -- list-shape
+#   already M16-covered, 20); לענין/לעניין נוהל זה (both: 0).
+#
+# CORRECTED FINDING, not a gap (initial scan false-positive, caught
+# before writing a test): `בתקנה זאת` list-shape showed as a
+# 15-occurrence miss under a naive "trigger phrase anywhere in the
+# preamble line" scan -- re-verified with a TAIL-anchored check (the
+# phrase must be the line's own GOVERNING preamble, immediately before
+# the trailing dash, not merely present earlier in a long sentence, e.g.
+# inside an unrelated ad-hoc parenthetical `(בתקנה זאת - X)` mid-line)
+# and found: all 15 are `::-`-marked, ALREADY captured today (the
+# shipped `::-` rule's detection is trigger-word-independent), and
+# ALREADY correctly scoped `"local"` (a `תקנה`-family word is
+# article-level per D-Q1, so the existing unrecognized-trigger default
+# happens to be correct here -- unlike the M16 law-wide words, where the
+# SAME default was wrong). Zero genuine single-`:-` misses (0/0). No
+# test needed; recorded here so the false lead is not silently dropped.
+#
+# RESIDUALS (genuinely NOT a spelling variant of an existing trigger --
+# per the "no new classes" boundary, logged with counts, not built):
+#   לענין הגדרה זו / לעניין הגדרה זו ("regarding this DEFINITION", 11+13
+#   quote-first/list-shape) -- a NESTED-definition cross-reference,
+#   matching the FROZEN `extract._NESTED_MARKER_RE` concept
+#   (`לעניין הגדרה זו,`), structurally different from a scope-container
+#   trigger; not reachable by the ordinary-article path at all today.
+#   לענין קו זה (6, "regarding this bus/train LINE") -- unrelated
+#   transportation concept. פרט משנה זה (4, "sub-item") -- a genuinely
+#   NEW granularity word (not a spelling variant of בפרט זה), following
+#   the "X משנה" sub-unit PATTERN but with a different base noun.
+#   לצורך X זה (~5, "for the purpose of this X") -- a THIRD preposition
+#   family (`לצורך`), not an orthographic variant of `ל`/`לענין`.
+#   בכלל זה (2, idiom "including this") -- a false friend, NOT a
+#   respelling of `בכללים אלה`; excluded explicitly, same caution as
+#   round 2's own false-friend catch. במנשר זה (2, "in this manifesto")
+#   -- a rare, distinct historical-instrument word, thematically
+#   parallel to the M16 law-wide family but not a respelling of any word
+#   already in it. ביום זה (6, temporal, unrelated). Already-excluded
+#   sub-part family restated (unchanged from round 2, re-confirmed
+#   present in this sweep too, not a new finding): באמת מידה זו (~146
+#   combined), בתוספת זו, בנספח זה, בטבלה זו, בפוליסה זו, בנוסחה(ות)
+#   זו/אלה, בפרק משנה זה.
+
+
+def test_m17_takana_zot_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בתקנה זאת, "term" - definition` -- זאת (archaic register) variant
+    of the already-known `בתקנה זו`. Fixture: `תקנות הגנת הצומח (מניעת
+    חדירה של נגעים לאזור הערבה)` art.2א, term `"אזור הערבה"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות הגנת הצומח (מניעת חדירה של נגעים לאזור הערבה)",
+        fixture="תקנות הגנת הצומח (מניעת חדירה של נגעים לאזור הערבה)_art2א_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "אזור הערבה" in d["terms"]]
+    assert defs, f'expected "אזור הערבה" captured (art.2א); got {result["created_definitions"]!r}'
+
+
+def test_m17_peska_zot_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בפסקה זאת, "term" - definition` -- זאת variant of `בפסקה זו`.
+    Fixture: `תקנות הנזיקים האזרחיים (אחריות המדינה)` art.3, term
+    `"תאגיד"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות הנזיקים האזרחיים (אחריות המדינה)",
+        fixture="תקנות הנזיקים האזרחיים (אחריות המדינה)_art3_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "תאגיד" in d["terms"]]
+    assert defs, f'expected "תאגיד" captured (art.3); got {result["created_definitions"]!r}'
+
+
+def test_m17_lenyan_peska_zot_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`לעניין פסקה זאת, "term" - definition` -- the 3-word זאת sibling
+    of `לעניין פסקה זו`. Fixture: `תקנות סמכויות מיוחדות להתמודדות עם
+    נגיף הקורונה החדש` art.5ב, term `"קשיים מיוחדים"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות סמכויות מיוחדות להתמודדות עם נגיף הקורונה החדש",
+        fixture="תקנות סמכויות מיוחדות להתמודדות עם נגיף הקורונה החדש_art5ב_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "קשיים מיוחדים" in d["terms"]]
+    assert defs, f'expected "קשיים מיוחדים" captured (art.5ב); got {result["created_definitions"]!r}'
+
+
+def test_m17_takanat_mishne_zot_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בתקנת משנה זאת, "term" - definition` -- זאת variant of `בתקנת
+    משנה זו`. Fixture: `תקנות לימוד חובה (ייעוד כספי תשלומים)` art.7,
+    term `"סכום חריג"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות לימוד חובה (ייעוד כספי תשלומים)",
+        fixture="תקנות לימוד חובה (ייעוד כספי תשלומים)_art7_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "סכום חריג" in d["terms"]]
+    assert defs, f'expected "סכום חריג" captured (art.7); got {result["created_definitions"]!r}'
+
+
+def test_m17_peska_mishne_zo_he_spelling_quote_first_is_currently_missed(
+    db_session, matter_with_users
+):
+    """`בפסקה משנה זו, "term" - definition` -- the ה-spelling variant of
+    the known construct-state `בפסקת משנה זו` (Hebrew smichut normally
+    drops the ה for ת before a following noun; this corpus instance
+    keeps it). Fixture: `צו לימוד חובה (שיעור ההשתתפות)` art.2, term
+    `"הוצאות תפעוליות שאינן שכר"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="צו לימוד חובה (שיעור ההשתתפות)",
+        fixture="צו לימוד חובה (שיעור ההשתתפות)_art2_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "הוצאות תפעוליות שאינן שכר" in d["terms"]]
+    assert defs, (
+        f'expected "הוצאות תפעוליות שאינן שכר" captured (art.2); '
+        f'got {result["created_definitions"]!r}'
+    )
+
+
+def test_m17_lenyan_prat_zeh_three_word_quote_first_is_currently_missed(
+    db_session, matter_with_users
+):
+    """`לעניין פרט זה, "term" - definition` -- the missing 3-word
+    sibling of the already-known 2-word `בפרט זה`, matching the SAME
+    2-word-to-3-word `לענין/לעניין` extension pattern every OTHER
+    trigger in this sprint already has (`סעיף זה`, `תקנה זו`, `פסקה
+    זו`, `תקנת משנה זו` all do). 15 real occurrences corpus-wide.
+    Fixture: `תקנות הביטוח הלאומי (קביעת דרגת נכות לנפגעי עבודה)`
+    art.92, term `"פגימות נלוות לתסמונת"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title='תקנות הביטוח הלאומי (קביעת דרגת נכות לנפגעי עבודה), תשט"ז-1956',
+        fixture="תקנות הביטוח הלאומי (קביעת דרגת נכות לנפגעי עבודה)_art92_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "פגימות נלוות לתסמונת" in d["terms"]]
+    assert defs, (
+        f'expected "פגימות נלוות לתסמונת" captured (art.92); '
+        f'got {result["created_definitions"]!r}'
+    )
+
+
+def test_m17_bachok_zeh_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בחוק זה, "term" - definition` -- the M16 law-wide word `חוק` was
+    only added to the list-shape/preamble+list vocabulary; the
+    QUOTE-FIRST grammar (`TRIGGER, "term" - definition` on one line) was
+    never extended to include it at all. 45 real corpus occurrences.
+    Fixture: `חוק-יסוד: השפיטה` art.1, term `"שופט"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="חוק-יסוד: השפיטה",
+        fixture="חוק-יסוד_ השפיטה_art1_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "שופט" in d["terms"]]
+    assert defs, f'expected "שופט" captured (art.1); got {result["created_definitions"]!r}'
+
+
+def test_m17_lenyan_chok_zeh_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`לעניין חוק זה, "term" - definition` -- the 3-word sibling of the
+    above, same missing-quote-first-grammar gap. Fixture: `חוק משק הדלק
+    (איסור מכירת דלק לתחנות תדלוק מסוימות)` art.6, term `"נושא משרה
+    בתאגיד"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="חוק משק הדלק (איסור מכירת דלק לתחנות תדלוק מסוימות)",
+        fixture="חוק משק הדלק (איסור מכירת דלק לתחנות תדלוק מסוימות)_art6_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "נושא משרה בתאגיד" in d["terms"]]
+    assert defs, (
+        f'expected "נושא משרה בתאגיד" captured (art.6); got {result["created_definitions"]!r}'
+    )
+
+
+def test_m17_takanot_ele_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בתקנות אלה, "term" - definition` -- same M16-word/quote-first-
+    grammar gap as `בחוק זה` above. 23 real corpus occurrences. Fixture:
+    `תקנות סדר הדין הפלילי (היוועדות חזותית)` art.7, term `"ועדת
+    שחרורים"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות סדר הדין הפלילי (היוועדות חזותית)",
+        fixture="תקנות סדר הדין הפלילי (היוועדות חזותית)_art7_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "ועדת שחרורים" in d["terms"]]
+    assert defs, f'expected "ועדת שחרורים" captured (art.7); got {result["created_definitions"]!r}'
+
+
+def test_m17_takanot_elu_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בתקנות אלו, "term" - definition` -- אלו/אלה plural-"these"
+    register variant of `בתקנות אלה`. Fixture: `תקנות בתי הדין הדתיים
+    הדרוזיים (אגרות)` art.2א, term `"מדד"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות בתי הדין הדתיים הדרוזיים (אגרות)",
+        fixture="תקנות בתי הדין הדתיים הדרוזיים (אגרות)_art2א_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "מדד" in d["terms"]]
+    assert defs, f'expected "מדד" captured (art.2א); got {result["created_definitions"]!r}'
+
+
+def test_m17_takanot_elu_single_colon_list_shape_is_currently_missed(
+    db_session, matter_with_users
+):
+    """`בתקנות אלו -` followed by a SINGLE-`:-` list -- the SAME אלו/אלה
+    register variant, but this time the list-shape gap (not yet reached
+    by ANY rule, single-`:-` marker, same as C4's own core finding).
+    Confirmed via marker-split re-measurement: 0 `::-` occurrences, 1
+    genuine `:-` occurrence -- not the false-positive shape `בתקנה זאת`
+    (list-shape) turned out to be (see the module-level note above).
+    Fixture: `תקנות בדבר סמכויות הקונסולים בישראל` art.2, term
+    `"קונסול"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות בדבר סמכויות הקונסולים בישראל",
+        fixture="תקנות בדבר סמכויות הקונסולים בישראל_art2_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "קונסול" in d["terms"]]
+    assert defs, f'expected "קונסול" captured (art.2); got {result["created_definitions"]!r}'
+
+
+def test_m17_lenyan_takanot_ele_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`לעניין תקנות אלה, "term" - definition` -- the 3-word sibling,
+    same quote-first-grammar gap. Fixture: `תקנות איסור הלבנת הון
+    (דרכים ומועדים)` art.5, term `"מען"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="תקנות איסור הלבנת הון (דרכים ומועדים)",
+        fixture="תקנות איסור הלבנת הון (דרכים ומועדים)_art5_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "מען" in d["terms"]]
+    assert defs, f'expected "מען" captured (art.5); got {result["created_definitions"]!r}'
+
+
+def test_m17_klalim_ele_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בכללים אלה, "term" - definition` -- same M16-word/quote-first
+    gap. Fixture: `כללי מס הכנסה (השוואת הון על פי דוח שהגיש יהלומן)`
+    art.1, term `"הצהרת הון"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="כללי מס הכנסה (השוואת הון על פי דוח שהגיש יהלומן)",
+        fixture="כללי מס הכנסה (השוואת הון על פי דוח שהגיש יהלומן)_art1_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "הצהרת הון" in d["terms"]]
+    assert defs, f'expected "הצהרת הון" captured (art.1); got {result["created_definitions"]!r}'
+
+
+def test_m17_bapkuda_zo_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בפקודה זו, "term" - definition` -- same M16-word/quote-first
+    gap. Fixture: `פקודת המועצות המקומיות` art.21א, term `"ערבות
+    בנקאית"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="פקודת המועצות המקומיות",
+        fixture="פקודת המועצות המקומיות_art21א_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "ערבות בנקאית" in d["terms"]]
+    assert defs, f'expected "ערבות בנקאית" captured (art.21א); got {result["created_definitions"]!r}'
+
+
+def test_m17_batzav_zeh_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`בצו זה, "term" - definition` -- same M16-word/quote-first gap.
+    Fixture: `צו נכי רדיפות הנאצים (הגבלת שכר טרחה)` art.1, term
+    `"תביעה"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="צו נכי רדיפות הנאצים (הגבלת שכר טרחה)",
+        fixture="צו נכי רדיפות הנאצים (הגבלת שכר טרחה)_art1_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "תביעה" in d["terms"]]
+    assert defs, f'expected "תביעה" captured (art.1); got {result["created_definitions"]!r}'
+
+
+def test_m17_lenyan_tzav_zeh_quote_first_is_currently_missed(db_session, matter_with_users):
+    """`לעניין צו זה, "term" - definition` -- the 3-word sibling, same
+    quote-first-grammar gap. Fixture: `צו הכניסה לישראל (פטור תושבי
+    רצועת עזה)` art.1, term `"תושב רצועת עזה"`.
+    """
+    result = _ingest_and_link(
+        db_session,
+        matter_with_users,
+        title="צו הכניסה לישראל (פטור תושבי רצועת עזה)",
+        fixture="צו הכניסה לישראל (פטור תושבי רצועת עזה)_art1_excerpt.wiki",
+    )
+    defs = [d for d in result["created_definitions"] if "תושב רצועת עזה" in d["terms"]]
+    assert defs, (
+        f'expected "תושב רצועת עזה" captured (art.1); got {result["created_definitions"]!r}'
+    )

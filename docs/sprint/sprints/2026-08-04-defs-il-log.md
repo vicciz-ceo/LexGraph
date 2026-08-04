@@ -3221,3 +3221,213 @@ Own worktree only (`/Users/nerya/LexGraph-wt/defs-il-plan3`); explicit
 + the extended existing test file + this log + the contract); no
 `git add -A`, no `git stash`. Scratchpad files prefixed
 `il_phaseC_plan_` throughout.
+
+---
+
+## Phase C round 3 — M17 spelling-variant audit (Sonnet/high, Planner, LAST increment)
+
+Synced first: `git fetch origin` + `git merge origin/claude/defs-il
+--ff-only` → fast-forwarded `715afd8..ae9d29f` cleanly (manager's merge
+of rounds 1-2). Re-ran the full suite post-merge: `19 failed, 728
+passed` — unchanged, confirms a clean base before starting.
+
+### Enumeration method — corpus-derived, not invented
+
+Wrote a shape-based, noun-agnostic sweep
+(`il_phaseC_plan_m17_full_scan.py`): every occurrence of `<word(s)>
+<demonstrative>` immediately before a quote (quote-first grammar) or at
+a preamble-line tail before a bare `-` (list grammar), for
+`<demonstrative> ∈ {זה, זו, זאת, אלה, אלו}` — the closed set of Hebrew
+"this/these" forms every trigger in this sprint already uses. Ordinary
+(non-הגדרות-heading) articles only, live chain. Result: **54 distinct
+quote-first phrases (4,421 occurrences), 52 distinct list-shape phrases
+(901 occurrences)** — the full observed universe, not a guessed list.
+Every phrase was individually read and classified against the complete
+existing/planned trigger inventory (every `rules/il_*.py` module's own
+trigger regex, read directly; the frozen `_LOCAL_TRIGGER_RE`/
+`_ADHOC_RE`; the M16 law-wide table).
+
+### A methodology bug caught and fixed before it produced a false test
+
+Initial list-shape measurement flagged `בתקנה זאת` as a 15-occurrence
+`:-`-marker miss. Investigating the SMALLEST candidate
+(`תקнות שעת חירום (מסירת מידע...)` art.2) before building a fixture
+showed the "hit" was a **coincidental substring match**: the article's
+own text contains an AD-HOC parenthetical `(בתקנה זאת - זיהוי)` earlier
+in a long sentence, and the REAL preamble governing the following
+`:-`-list, at the actual end of that same physical line, is `בתקנה
+זו` — already a KNOWN, correctly-scoped trigger. My first-pass scan
+matched "trigger anywhere in the line," not "trigger is the line's own
+GOVERNING phrase." Fixed the scanner to require the match within 6
+characters of the trailing dash (i.e. actually adjacent to it,
+matching what "the phrase that introduces this list" has to mean) and
+re-ran: **`בתקנה זאת` list-shape is 15 `::-` occurrences (all ALREADY
+captured today, all ALREADY correctly scoped `"local"` — a `תקנה`-
+family word is article-level per D-Q1, so the existing unrecognized-
+trigger default happens to be right here, unlike M16's law-wide words)
+and 0 genuine `:-` misses.** Recorded as a corrected finding, not
+silently dropped — the module-level comment in the test file documents
+this explicitly so a later reader does not rediscover the same false
+lead. (Quote-first measurements are NOT vulnerable to this bug: the
+downstream regex requires the trigger to be immediately followed by a
+quote via a tight connector, which cannot be satisfied by a
+coincidental earlier mention.)
+
+### Full variant-by-variant table (corpus counts, both grammars)
+
+| Phrase | Quote-first | List-shape (`::-`/already captured) | List-shape (`:-`/genuine miss) | Verdict |
+|---|---|---|---|---|
+| בתקנה זאת | 6 | 15 (correct, local) | 0 | BUILD (qf only) |
+| לענין/לעניין תקנה זאת | 0 | 0 | 0 | measured zero |
+| בפסקה זאת | 1 | — | 0 | BUILD (qf) |
+| לענין/לעניין פסקה זאת | 1 | — | 0 | BUILD (qf) |
+| בתקנת משנה זאת | 4 | — | 0 | BUILD (qf) |
+| בפסקה משנה זו (ה-spelling) | 4 | 0 | 0 | BUILD (qf) |
+| בפסקה משנה זאת | 0 | 0 | 0 | measured zero |
+| לענין/לעניין פרט זה (3-word) | 15 | 0 | 0 | BUILD (qf) |
+| בחוק זה | 45 | 135 (M16-covered) | — | BUILD (qf) |
+| לענין/לעניין חוק זה | 8 | 7 (M16-covered) | — | BUILD (qf) |
+| בחוק יסוד זה | 0 | 3 (M16-covered) | — | measured zero (qf) |
+| בתקנות אלה | 23 | 149 (M16-covered) | — | BUILD (qf) |
+| בתקנות אלו | 1 | 0 | 1 | BUILD (both) |
+| לענין/לעניין תקנות אלה | 2 | 4 (M16-covered) | — | BUILD (qf) |
+| בהסכם זה | 0 | 36 (M16-covered) | — | measured zero (qf) |
+| לענין/לעניין הסכם זה | 0 | 0 | 0 | measured zero |
+| בכללים אלה | 1 | 23 (M16-covered) | — | BUILD (qf) |
+| בכללים אלו | 0 | 0 | 0 | measured zero |
+| לענין/לעניין כללים אלה | 0 | 13 (M16-covered) | — | measured zero (qf) |
+| בפקודה זו | 1 | 72 (M16-covered) | — | BUILD (qf) |
+| לענין/לעניין פקודה זו | 0 | 0 | 0 | measured zero |
+| בצו זה | 2 | 25 (M16-covered) | — | BUILD (qf) |
+| לענין/לעניין צו זה | 1 | 0 | 0 | BUILD (qf) |
+| באכרזה זו | 0 | 2 (M16-covered) | — | measured zero (qf) |
+| לענין/לעניין אכרזה זו | 0 | 0 | 0 | measured zero |
+| בנוהל זה | 0 | 20 (M16-covered) | — | measured zero (qf) |
+| לענין/לעניין נוהל זה | 0 | 0 | 0 | measured zero |
+
+"M16-covered" = already captured today with `scope="local"`, already
+identified as a defect and given a dedicated RED in round 2 (M16's
+vocabulary fix, once shipped, fixes the SCOPE for every phrase in that
+table at once — no per-phrase M17 test needed for the list-shape side
+of an M16-table word; M17's own contribution is specifically the
+QUOTE-FIRST grammar, which M16 never touched).
+
+### Residuals — genuinely NOT spelling variants, logged not built
+
+- **לענין/לעניין הגדרה זו** (11 qf + 13 ls = 24) — "regarding this
+  DEFINITION": a nested-definition cross-reference matching the FROZEN
+  `extract._NESTED_MARKER_RE` (`לעניין הגדרה זו,`) concept, structurally
+  different from a scope-container trigger; not reachable by the
+  ordinary-article path today. Not a spelling variant of anything.
+- **לענין קו זה** (6) — "regarding this bus/train LINE," an unrelated
+  transportation concept.
+- **פרט משנה זה** (4) — "sub-item": follows the SAME "X משנה" sub-unit
+  morphological PATTERN as `תקנת משנה`/`פסקת משנה`, but is a different
+  base noun combination, not an orthographic respelling of `בפרט זה` —
+  a new (if pattern-consistent) granularity concept, out of scope.
+- **לצורך X זה** (~5: `לצורך סעיף זה` 3, `לצורך תקנה זו` 1, `לצורך הגדרה
+  זו` 1) — a THIRD preposition family (`לצורך`, "for the purpose of"),
+  not an orthographic variant of `ל`/`לענין`.
+- **בכלל זה** (2) — Hebrew idiom "including this," a FALSE FRIEND, not
+  a respelling of `בכללים אלה` (different word entirely) — explicitly
+  excluded, same caution as round 2's own false-friend catch (`בפוליסה
+  זו`).
+- **במנשר זה** (2) — "in this manifesto," a rare Mandate-era instrument
+  word, thematically parallel to the M16 law-wide family but not a
+  respelling of any word already in it.
+- **ביום זה** (6) — temporal ("on this day"), unrelated.
+- Already-excluded sub-part family, re-confirmed present (not new):
+  `באמת מידה זו`-family (~146), `בתוספת זו`, `בנספח זה`, `בטבלה זו`,
+  `בפוליסה זו`, `בנוסחה(ות) זו/אלה`, `בפרק משנה זה`.
+
+### Completeness argument (verbatim, also in the test file's module
+docstring — this is the sentence the manager asked to be read hardest)
+
+The enumeration is complete FOR THE DEMONSTRATIVE-ADJACENT SHAPE this
+sprint's own trigger grammar universally uses: every trigger phrase
+across every shipped/planned rule module has the form `<noun phrase>
+<demonstrative>`, and the sweep scanned for exactly that shape,
+corpus-wide, unfiltered by any assumption about which nouns or
+demonstratives to expect — a variant sharing the shape cannot escape it
+(there is no sixth Hebrew "this/these" form). What it honestly does
+NOT prove: (1) a trigger that drops the demonstrative entirely (no
+evidence any shipped trigger works this way — not a live risk, but not
+provably absent); (2) a variant using a preposition other than `ב`/`ל`
+— the sweep's own regex only anchors those two (plus no-prefix); it DID
+surface a third, `לצורך`, logged as a residual rather than silently
+folded in or silently missed; (3) a spelling variant of a concept-noun
+never yet added to the ~30-trigger base set at all — mitigated (the
+scan is noun-agnostic, so an unknown noun's OWN spelling would still
+surface in the frequency table for review) but not eliminated: a noun
+variant that occurs literally ZERO times under any demonstrative
+anywhere in the corpus is undetectable by any corpus-derived method,
+and no claim is made to have found it.
+
+### Fixtures (16 new, all byte-verified per the established methodology)
+
+All confirmed via the same `il_phaseC_plan_fixture_builder.py` triple
+check (verbatim substring / re-parse identity / live-equivalence)
+before writing; one filename-length caveat: the corpus's own file for
+`תקנות הנזיקים האזרחיים (אחריות המדינה) (הוועדה...)` is itself
+truncated at the filesystem level (ends `...סדרי עבודה ו.wiki` — a
+read-only corpus characteristic, not something this Planner touched or
+could touch). One article-number pitfall caught before building: a
+`בתקנות אלה` candidate in `תקנות שעת חירום (הסדרים לשעת חירום במשק
+המדינה)` resolved to an AMBIGUOUS article number (2 distinct articles
+numbered `'3'` in that file — a real, if unusual, corpus characteristic
+some files exhibit); the fixture builder's own single-match assertion
+caught it before a wrong fixture could be built, and a different,
+unambiguous candidate was used instead.
+
+### RED proof (this file, M17 tests only)
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_phase_c_widening_live.py -k m17 -v
+...
+16 failed, 16 deselected in 0.48s
+```
+All 16 fail with `AssertionError: expected "<term>" captured (art.N);
+got []` — RED for the right reason (term genuinely absent), not a
+fixture-loading error.
+
+### Full suite
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+35 failed, 728 passed, 18 warnings in 13.46s
+```
+Exactly `4` (E6-held, unchanged) `+ 13` (round 1) `+ 2` (round 2/M16)
+`+ 16` (round 3/M17) `= 35` failed; `727` (untouched baseline) `+ 1`
+(round 1's green non-overlap proof) `= 728` passed. Reproduced, stable.
+
+### Boundaries / git discipline (M14, round 3)
+
+Own worktree only; explicit `git add backend/tests/fixtures/wiki_laws
+backend/tests/integration/test_definition_links_il_phase_c_widening_live.py`
+(the fixtures directory add picks up only the 16 new untracked files —
+verified via `git status --short` before and after, nothing pre-existing
+touched); no `git add -A`, no `git stash`. Scratchpad prefixed
+`il_phaseC_plan_` throughout.
+
+### Honest gaps (round 3, nothing hidden)
+
+1. This is a Planner-level audit against the CURRENT trigger inventory;
+   it does not (and per M17's own scope, should not) re-audit C1's
+   punctuation-variant findings for THEIR OWN spelling-variant exposure
+   (e.g. does `בפסקה זאת` also need the comma/space/colon/dash widening
+   C1 already found for `בפסקה זו`?) — flagging this as a plausible
+   compounding dimension neither round has fully crossed, for QA cycle
+   3 or a future cycle to weigh.
+2. The `לצורך` residual (~5 occurrences) was found opportunistically by
+   this audit's own regex (which permits an optional `ל`/`ב` prefix,
+   and `לצורך` happened to still satisfy the trailing noun+demonstrative
+   shape) — not from a deliberate third-preposition sweep. A dedicated
+   sweep for `לצורך`/other prepositions was NOT run; this residual's
+   own count (~5) should be treated as a lower bound, not a ceiling.
+3. Per M17's explicit instruction, no attempt was made to fix or build
+   for any residual — all are named with counts and left for director/
+   program-manager review.
+
+qa_cycles: 2 (unchanged — Phase C is Planner work through all three
+rounds; QA cycle 3 is next).
