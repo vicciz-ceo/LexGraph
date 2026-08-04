@@ -1580,3 +1580,573 @@ codebase, not a coin-flip).
 06032fd planner: cycle-3 heading-anchored bucket-D rule, idiom re-triage, item 8
 ```
 Branch `claude/defs-us-pr`, pushed to origin.
+
+---
+
+## Archived from contract (manager, 2026-08-04) — contract_lint size budget
+
+Moved verbatim out of `2026-08-04-defs-us-pr.md` so the contract fits its
+400-line budget. Nothing is edited; this is relocation, not revision.
+
+
+### Archived from contract — Spanish idiom survey
+
+## Spanish idiom survey (measured)
+
+Planner survey, run against the FULL `us_pr_statutes.parquet` (23,636 rows,
+never downloaded — read once from the on-disk HF snapshot via a scratchpad
+script, no test reads it). Supersedes the recon's 4,000-row translation-guess
+lead per M-R2. Full per-shape tables, real `act_id` examples, and the raw
+survey scripts' output are in the panel log
+(`2026-08-04-defs-us-pr-log.md`, "Planner survey detail" entry); this section
+is the dense summary the item plan below is built on.
+
+**Headings.** 652 rows contain the `defini` substring; only 635 are genuine
+(12 are "Aportaciones **Definidas**" — Defined Contributions, a pension term
+of art; 2 are "sentencia **definitiva**" — final judgment; 3 are unrelated
+verb forms in amendment-text headings). Of the 635 genuine rows: **475 are a
+bare `Definiciones`/`Definición` heading** (after stripping the
+`Artículo N.`/`Sección N.` prefix — 463 plural, 10 singular, 2
+parenthesized), **160 are compound** (`"Definiciones Generales"`,
+`"Bienes; definición"` (single-term Civil-Code-style), `"Definiciones
+aplicables a las Zonas de Oportunidad"`, etc.). **9/635 (1.4%) have a REAL,
+not-injected data-quality artifact**: `section_title`/`text` are split at a
+fixed ~200-char boundary that lands mid-word (verified: `STATE_PR_LEY_
+135_1979_ART1`'s heading ends `"...Estado Libre Asoc"`, `text` resumes
+`"iado de Puerto Rico..."` — one word torn across both columns), the PR
+analog of the DE mojibake / PA-collision findings in this same fixtures
+directory. **Verdict**: a first-word-OR-last-word-with-Spanish-preposition-
+exclusion rule (mirroring `USProfile.is_definitions_heading`'s shape, but
+matching the stem `[Dd]efinici[oó]n(es)?`, never the bare substring `defin`)
+handles all measured cases, including the truncated-artifact rows (first-
+word-anchored) and correctly rejects a Table-of-Contents listing that merely
+names a "Definiciones" article as one line-item (neither first nor last
+word of ITS OWN heading).
+
+**Definition idioms in bodies** (rows containing ≥1 match, corpus-wide /
+within the 635 canonical rows): `significa` 596/322, `significará` 340/119,
+**`tendrán el significado` 309/238 and `tendrá(n) los significados` 71/60 —
+combined ~305/635, i.e. comparable in frequency to `significa` itself and
+MISSING from the recon's lead entirely**, `incluye` 2350/233
+(mostly substantive prose, not a defining idiom on its own — high false-
+positive risk as a standalone signal), `se define`/`se define como` 398+23/
+85+13, `según se define` 265/54, `comprende` 145/24, `se entenderá por`
+62/9 (the recon's #3 lead — real, but far rarer than `tendrá(n) el/los
+significado(s)`), `se entiende por` 15/2, `quiere decir` 7/3, `denota` 1/1
+(negligible). **Verdict**: `significa(rá/n)` and `tendrá(n) el/los
+significado(s)` are CO-DOMINANT, not one dominant idiom — an idiom list
+built only from the recon's lead would silently miss ~40% of canonical
+sections' own idiom vocabulary.
+
+**Entry markers** (within the 635 canonical rows, ≥2 occurrences =
+genuine list, not a coincidental single hit): letter-full-paren `(a)` 272,
+digit-full-paren `(1)` 109, letter-close-paren-only `a)` (no opening paren —
+a distinct, newer-law convention) 82, digit-period `1.` 44, letter-period
+`a.` 34, digit-close-paren-only `1)` 13 — **461/635 (72.6%) have a genuine
+multi-entry marker of one of these 6 shapes**. **174/635 (27.4%) have NO
+list marker at all** — mostly single-term Civil-Code-style articles (one
+definition, sometimes the term repeated inline with an em-dash: `"Secretario.
+— Significa el Secretario de Hacienda."`, sometimes not repeated at all:
+`"Son bienes las cosas o derechos que pueden ser apropiables..."` for heading
+`"Bienes; definición"`). **Critical structural finding: PR body text has
+ZERO newlines within a Definiciones section (0/635 verified)** — unlike the
+DE/CA English fixtures, every marker sits inline in one continuous string,
+so `USProfile._split_into_numbered_blocks`'s `text.split("\n")`-based
+approach cannot be reused as-is; a Spanish extractor must scan the
+continuous string directly (closer in shape to `pipeline.py`'s
+`_extract_inline_quoted_definitions`). Term/definition separator: quote+colon
+26 rows, quote/unquoted+em-dash 220 rows combined, or no punctuation at all —
+the verb idiom itself is the separator (`Significa`/`Es`/`Será` directly
+after the term). Quote style: curly `""`  437/635, straight `"` 76/635, ZERO
+mojibake byte-corruption anywhere in the 23,636-row corpus (unlike RI's
+`us_statutes.parquet`) — not a PR data-quality issue.
+
+**Scope phrases** (corrected for a `\b`-boundary bug in an earlier pass that
+inflated the "A los..." counts by bleeding in "Para los..." — see log for
+detail). Within the 635 canonical rows: LAW-WIDE phrasing dominates —
+`Para propósitos de (general)` 98, `A los efectos de (general)` 48, `Para
+propósitos de esta Ley` 65, `A los fines de esta Ley` 51, `A los efectos de
+esta Ley` 30. CHAPTER scope is rare but real — `A los efectos de este
+Capítulo` 5, `A los fines de este Capítulo` 2 (real example:
+`STATE_PR_LEY_77_1957_ART30_020` opens `"A los fines de este Capítulo,
+..."`). **ARTICLE scope (`"local"`) NEVER sets a canonical section's own
+scope — 0/635 for `A los fines/efectos/propósitos de este Artículo` inside a
+canonical section**; corpus-wide (i.e. OUTSIDE canonical sections) the same
+phrase occurs 16 times (`A los fines de este Artículo`) + 26 times (`Para
+propósitos de este Artículo`), always as an AD-HOC definition embedded in an
+ordinary substantive article (real example: `STATE_PR_LEY_85_2018_ART9_04`,
+`'A los fines de este Artículo "cualquier tipo de arma" incluye...'`) — a
+clean, corpus-confirmed, mutually-exclusive split mirroring Hebrew's
+section-heading-scope vs. `extract_local_definitions` split exactly.
+
+**Citation grammar** (corpus-wide row counts): `Ley N-YYYY` dash form
+(e.g. `"Ley 404-2000"`) 7,052 — the dominant PR citation shape, no English
+analog; `Ley Núm. N de <date>` 2,194; `Artículo N de esta Ley` 1,123; bare
+`§ N` 2,249 (the symbol itself is language-neutral); `L.P.R.A.` 2,498
+(PR's own citation-reporter abbreviation, PR's analog of `U.S.C.`).
+
+**Definitions OUTSIDE canonical Definiciones sections** (director mandate,
+gate P2): `(en adelante, "X")` 49 corpus-wide (genuine short-name
+apposition, no idiom verb, no quotes — `"...Comité de Acción... (en
+adelante, Comité)..."`); `(en lo sucesivo, "X")` 1; `denominado/a` 182 (MIXED
+— some are genuine appositions, many are fund/program naming, e.g. `"fondo
+especial denominado 'Fondo de los Títulos V y VI'"` — a false-positive risk
+if treated as a blanket signal); `conocido/a como` 2,191 (OVERWHELMINGLY a
+law-title-naming idiom — `"conocida como 'Ley de...'"` — NOT a term
+definition in the vast majority of instances; a high-precision-risk signal,
+flagged for the zero-false-positive discipline, not recommended as a P2
+extraction trigger without much narrower gating). **Verdict**: `A los fines/
+propósitos de este Artículo` (ad-hoc local, 42 corpus-wide) and `en
+adelante` (inline apposition, 49 corpus-wide) are the two SAFE, high-
+precision non-canonical signals; `conocido como`/`denominado` are real but
+need much narrower gating than a bare substring match before they could be
+added without a false-positive blowup — flagged as a documented follow-up,
+not built into this pass's item plan.
+
+**Out-of-contract observation** (per the manager's note): `us_pr_
+constitutions.parquet` was NOT surveyed (out of contract scope) — flagging
+to the manager per instruction, not absorbing into this sprint's scope.
+
+### Cycle-2 corrections (Planner, cycle 2, 2026-08-04)
+
+Cycle 1's survey above stands; nothing in it was wrong. What follows are
+CORRECTIONS/ADDITIONS the manager's full-corpus sweep forced (694 passed / 6
+xfailed on the fixture suite, but only 56.4% real extraction coverage and
+15/635 real heading misses when run over the full 23,636 rows — see the
+log's "Manager: Developer verification + GENERALIZATION GAP" entry and
+ruling M-R6). Full diagnosis with live-verified transcripts is in this
+cycle's panel log entry and in `test_pr_profile_extraction_cycle2.py` /
+`test_pr_profile_headings_cycle2.py`'s module docstrings; this is the dense
+summary.
+
+**Entry-marker inventory: two genuine new gaps found, one false lead ruled
+out.** M-R6 characterized 22 zero-yield rows as bucket C, "marker-inventory
+gap." Live-diagnosing both of M-R6's own named examples
+(`STATE_PR_LEY_430_2000_ART3`'s `A.`/`B.`/`C.`... markers,
+`STATE_PR_LEY_190_1995_ART2`'s `a. —`/`b. —`... markers) against the live
+code shows `_ENTRY_MARKER_RE` **already matches both** — the period-marker
+alternative's `[a-zA-Z]` class is case-insensitive by construction, and the
+regex has no trouble with a marker immediately followed by a decorative
+dash. Neither is a marker-recognition gap. But the re-survey mandate DID
+turn up two real, previously-uncatalogued gaps while diagnosing bucket A/B
+rows directly:
+  - **A genuine new marker shape**: traditional Spanish alphabetical
+    enumeration treats **"ch" as its own letter**, producing a real
+    TWO-CHARACTER letter marker `ch)` (`STATE_PR_LEY_46_2008_ART3`:
+    `"...c) expresiones...; ch) normas de seguridad..."`).
+    `_ENTRY_MARKER_RE`'s letter alternatives are all single-character
+    (`[a-zA-Z]`) — `ch)` matches none of them (confirmed live: this row's
+    marker scan finds only 6 markers, `a) b) c) d) e) f)`, never `ch)`).
+  - **A genuine block-prefix gap** (not a marker gap): a marker can be
+    followed by a DECORATIVE em-dash before the actual term
+    (`STATE_PR_LEY_190_1995_ART2`: `a. — "Nueva programación"
+    significa...`) — the marker itself matches, but no separator pattern
+    expects the block to start with a bare dash before the term.
+  - **An entry-marker FALSE-POSITIVE, found via bucket B, not bucket C**:
+    `_ENTRY_MARKER_RE` misfires on spaced abbreviations. `STATE_PR_LEY_
+    51_2003_ART2`'s body contains `"U. S. Geological Survey"` three times
+    inside entry prose; `S.` alone (single letter, preceded by `U. ` which
+    ends in a period+space) is indistinguishable from a genuine
+    letter-period marker today, fragmenting `definition_text` mid-sentence.
+    This is a PRECISION defect (over-splitting), the mirror image of the
+    zero-miss recall gaps — flagged distinctly because it is not caught by
+    any zero-miss sweep, only by reading a row's actual extracted text.
+
+**Real root cause of the 153-row bucket A (all zero-yield despite real
+markers + real idioms — corrected from suspicion to live-verified fact):**
+`_extract_term_and_definition`'s 3 separator patterns
+(quoted+colon, quoted+typographic-dash, unquoted+typographic-dash) do not
+cover the shapes that actually dominate the corpus. Six independently
+confirmed failure shapes (see extraction test file docstring for the exact
+live-diagnosed examples and mechanism for each): quoted term + idiom verb
+with NO separator character at all (curly or straight quotes — the
+majority shape, ~133/153 rows); quoted term + comma + idiom; quoted term +
+ASCII hyphen-minus (not a typographic em/en dash) + idiom; quoted term, no
+separator, no idiom verb (bare capitalized definition); unquoted term +
+colon (no `_UNQUOTED_TERM_COLON_RE` exists at all); unquoted term + its OWN
+trailing period (not colon, not dash) + bare definition. None of these are
+quote-character bugs — the quote character was never the issue.
+
+**A dispatch-logic gap, found via bucket B, not named in M-R6 at all**:
+`extract_definitions_from_section`'s dispatch is all-or-nothing — `if not
+markers: <single-entry path> else: <markers path>`. When a genuinely
+single-entry, no-top-level-marker article (`STATE_PR_LEY_77_1957_ART9_040`:
+`"Agente General es la persona nombrada..."`) happens to contain an
+INCIDENTAL enumerated sub-list of that one term's own duties
+(`(1)`..`(11)`), the presence of ANY marker anywhere sends the whole body
+down the markers path, which has no "entry −1" for text before the first
+marker — the term and its lead-in definition are silently discarded and 11
+bogus fragment entries are produced instead.
+
+**Heading misses: re-diagnosed as one clause-scoping gap plus one
+orthogonal parenthesis-stripping gap, not 5 unrelated shapes.**
+`is_definitions_heading` only checks the first-or-last substantive token of
+the WHOLE heading tail. Live-checking each of the 13 real misses shows 11
+of them share ONE root cause: real PR headings frequently place
+"definición(es)" as the first (or trailing-preposition-suffixed) word of an
+INNER semicolon-, comma-, or em-dash-delimited CLAUSE, not of the whole
+tail (`"Parentesco; definición y alcance"`, `"Microseguros, definición y
+clases autorizadas"`, `"Obrero o empleado, definición de"`, `"...
+—Definición de Términos"`, and — needing clause-splitting at BOTH a comma
+AND a semicolon level — `"Agregado, Definición de; Limitado a Un Solo
+Predio; ..."`). The remaining 2 (`"(Definiciones)"`, both fully
+parenthesized) need an orthogonal, independent fix: strip an enclosing
+`(...)` wrapper before the existing rule runs — parentheses are not in
+`_TAIL_TOKEN_SPLIT_RE`'s split class today, so `"(Definiciones)"` tokenizes
+as one un-matchable token. Both TOC rejections
+(`STATE_PR_LEY_165_2020_ART1_2`, `STATE_PR_LEY_51_2020_ART1_2`) stay
+correctly rejected under this diagnosis: neither has "Definiciones"
+adjacent to a semicolon/comma/em-dash boundary of ITS OWN heading tail — it
+is buried inside a whitespace-joined TOC run-on instead.
+
+**Correct-zero guard**: `STATE_PR_LEY_52_2019_ART3` (a real bucket-A-
+workload row) is a Definiciones section whose entire body defers wholesale
+to another law's definitions and defines zero local terms. This is a
+correct rejection, not a miss — flagged so the fix is not over-widened to
+fabricate terms out of a cross-reference sentence.
+
+**Bucket D unchanged**: still 86 rows, still escalated, still out of
+scope for this Planner pass — see M-R6.
+
+### Cycle-3 corrections (Planner, cycle 3, 2026-08-04)
+
+Both escalations are resolved (director rulings, see the sprint's cycle-3
+brief): bucket D gets a NARROW heading-anchored rule, not a general
+prose matcher; the seam question is routed to core, and the Developer
+proceeds building `pr_profile.py`'s Spanish rule logic as plain module-
+level functions (seam-agnostic, survives either ruling). What follows are
+CORRECTIONS/ADDITIONS to the cycle-1/2 survey this cycle's re-triage
+forced — cycle 1/2 stand, nothing in them was wrong.
+
+**`se refiere a` / `se referirá a` / sibling idiom survey** (full corpus,
+23,636 rows, re-derived live against the current `pr_profile.py`, not the
+manager's crude categorizer):
+
+| Idiom | Corpus-wide rows | Canonical-section rows | Among CURRENT zero-yield rows |
+|---|---|---|---|
+| `se refiere a` | 180 | 85 | 3 |
+| `se referirá(n) a` | 22 | 9 | 2 |
+| `se entenderá(n)` (excl. already-handled `...por`) | 646 | 52 | 4 |
+| `se considera(rá) como` | 303 | 30 | 5 |
+
+**Verdict, with the recall-vs-false-positive data the standing policy
+requires**: `se refiere a`/`se referirá a` are safe to add to the
+per-block QUOTED idiom alternation (`_QUOTED_TERM_COMMA_IDIOM_RE`,
+`_QUOTED_TERM_BARE_IDIOM_RE`) — those patterns only ever fire on a block
+that already starts with a quote character, so a wider idiom vocabulary
+cannot suddenly start matching unrelated unquoted prose. Simulated live
+(scratchpad `planner_c3_survey.py`/`planner_c3_survey2.py`, never
+committed): this alone fully captures `STATE_PR_LEY_66_2011_ART3` (1 row)
+with zero fabricated long terms across all 635 canonical rows re-run
+under the widening.
+
+**But the SAME widening is UNSAFE if it also reaches the DISPATCH-
+FALLBACK check** (`_UNQUOTED_BARE_IDIOM_TERM_RE`, which decides whether a
+MARKED body's own lead-in text before its first marker is itself a bare
+single-entry definition). Confirmed live: `STATE_PR_LEY_214_2004_ART2`'s
+real body OPENS with a gender-neutrality disclaimer, `"Todo término
+utilizado en esta Ley para referirse a una persona o puesto se refiere a
+ambos géneros..."` — widened to recognize `se refiere a`, this disclaimer
+itself satisfies the dispatch-fallback shape and swallows the entire
+26-real-term marked list into ONE fabricated "term" (26 correct terms →
+1 fabricated term, verified live). This is the SAME structural collision
+class the Developer's own cycle-2 dispatch fix already guards against for
+an English preamble (`"As used in this subchapter:"`) — a different real
+trigger phrase, same mechanism. Pinned as a permanent regression guard in
+`test_pr_profile_idiom_widening_cycle3.py` /
+`test_pr_profile_corpus_floor_cycle3.py`. **This did not need a director
+escalation** — it resolves the same way M-R4/P5's English-preamble
+collision already does (widen, but pin a scoped regression guard), not a
+genuinely undecidable recall-vs-precision tradeoff.
+
+`se considera como` is a real sibling idiom (303/30/5) found via
+re-triaging `STATE_PR_LEY_155_1937_SEC1` — only that ONE of its 5
+zero-yield rows is diagnosed and pinned this cycle
+(`test_pr_profile_extraction_cycle3.py`); the other 4 need their own
+individual diagnosis before a blanket widening, per the same discipline
+above. Flagged as a further follow-up, not built into this cycle's item
+plan.
+
+**Idiom-gap re-triage of the 19 "residue" rows — corrected framing.** The
+director named 4 rows suspected to be idiom gaps. Individually
+re-diagnosed against the real text:
+- `STATE_PR_LEY_66_2011_ART3` — genuinely a pure idiom gap, fully solved
+  by the safe widening above (a MARKED, quoted-term row).
+- `STATE_PR_LEY_26_1941_ART57` — **correction**: uses `se referirá a`,
+  but is NOT a pure idiom gap. The block does not start with a quote
+  character (`"Para los fines de esta Ley el término "persona
+  jurídica"..."`), so `_extract_term_and_definition` never even reaches
+  the quoted patterns where a widened idiom would help — it needs the
+  SAME unquoted-lead-in-strip fix as `STATE_PR_LEY_133_1979_ART1` (see
+  below), not idiom widening. Moved to the ordinary-workload bucket, not
+  the residue.
+- `STATE_PR_LEY_141_2002_ART6` / `STATE_PR_LEY_420_2004_ART2` — the
+  director's own framing named these "idiom" gaps, but the actual idiom
+  word here is `es` — ALREADY in the recognized alternation. The real,
+  distinct defect is the same unquoted-lead-in shape (`"A los fines de la
+  aplicación de esta Ley, "Sistema de Clasificación de Películas", es
+  aquel..."` — unquoted scope-phrase lead-in before the quoted term).
+  Moved to the ordinary-workload bucket.
+
+
+### Archived from contract — Seam proposal
+
+## Seam proposal (Planner recommendation, D2/M-R3 — cross-sprint, core Planner to review)
+
+**Recommendation: PR becomes a distinct profile class, `PRProfile`,
+registered under `"US-PR"` only — the Spanish-language sibling of
+`HebrewProfile`, NOT a rule-set layered onto `USProfile`.**
+
+Reuse audit (the deciding evidence — how much of `USProfile` a PR rule-set
+could actually share):
+
+- `is_definitions_heading`: **0% reusable.** English-literal (`Definitions?`
+  stem) vs. Spanish-literal (`[Dd]efinici[oó]n(es)?` stem) — different
+  regex vocabulary top to bottom, even though the SHAPE (prefix-strip,
+  first-word-or-last-word-with-preposition-exclusion) is a pattern worth
+  copying, not code worth sharing.
+- `extract_definitions_from_section`: **~0% directly reusable, and
+  structurally incompatible as-is.** `USProfile._split_into_numbered_
+  blocks` is LINE-based (`text.split("\n")`) because the DE/CA fixtures'
+  bodies have real newlines between entries; the real PR corpus has **zero
+  newlines within any of the 635 canonical Definiciones bodies measured** —
+  every marker sits inline in one continuous string. A Spanish extractor
+  needs a `finditer`-based continuous-string scan (closer to `pipeline.py`'s
+  `_extract_inline_quoted_definitions`), not the line-splitter. PR also has
+  3 marker shapes `USProfile` has no analog for at all (letter-period `a.`,
+  letter-close-paren-only `a)`, unquoted-term+em-dash with no idiom verb).
+- `find_citations`: **~0% reusable.** PR's dominant citation shapes (`Ley
+  N-YYYY` dash form, 7,052 rows; `Ley Núm. N de <fecha>`, 2,194 rows;
+  `Artículo N`) have no English analog at all; only the bare `§ N` symbol
+  coincidentally overlaps (language-neutral punctuation, not grammar).
+  `L.P.R.A.` (PR's own reporter abbreviation) is PR's analog of `U.S.C.`,
+  not a shared pattern.
+- `detect_cross_law_derivations`: **0% reusable** — English trigger phrases
+  (`"has the meaning specified in"`, `"as defined in"`) have no Spanish
+  overlap; PR's idiom set (`según se define en`, `tiene el significado que
+  se le asigna en`) is entirely separate vocabulary.
+- `normalize_for_parsing`: 100% "reusable" only because it is a no-op
+  passthrough for BOTH — not meaningful code reuse, just a coincidence that
+  neither language's corpus needs wikilink/bidi handling here.
+
+Given near-zero exploitable overlap at every layer except a no-op, forcing
+PR's Spanish logic to live INSIDE `USProfile`'s shared dataclass methods
+(branching on `self.code == "US-PR"`) buys nothing structurally and costs
+real safety:
+
+- **P5 consequence, by construction vs. by discipline.** A distinct
+  `PRProfile`, registered ONLY under `"US-PR"` in `profiles.py`'s
+  `_REGISTRY`, makes "PR rules never fire on English text" a TYPE-LEVEL
+  guarantee — no `Document.jurisdiction` other than `"US-PR"` ever resolves
+  to a `PRProfile` instance, the exact same registry-keying argument that
+  already isolates `HebrewProfile` from every US code today. Under the
+  rule-set-under-`USProfile` option, Spanish logic would have to live behind
+  an `if self.code == "US-PR":` branch inside shared, ALREADY-multi-tenant
+  methods every other US code's calls also pass through — a single
+  misplaced or wrongly-scoped branch is a live cross-language-firing risk
+  that only a test (M-R4's own test, which this sprint already authored)
+  would catch, with no structural backstop underneath it. `PRProfile` needs
+  that same test too (and this sprint has it,
+  `test_pr_profile_no_english_regression.py`) — but it ALSO has the
+  registry-level guarantee behind it, not relying on the test alone.
+- **Recon's own framing.** The dossier explicitly calls PR "distinct from
+  Hebrew (which has its own profile)" while diagnosing PR's problem as
+  "registered under the generic `USProfile`, which assumes English" — i.e.
+  the recon already frames Hebrew's solution as the template PR is missing,
+  not USProfile's.
+- **The line this proposal draws**: "different natural language" (PR) is a
+  materially different problem from "different drafting CONVENTION within
+  the same language" (VA/WA/WV's `"X" defined` verb-form heading, SC's
+  bare-digit markers, DC's unquoted-term shape — all correctly handled by
+  sibling family sprints as USProfile-owned rule variants). Only PR crosses
+  the language line among all 53 non-IL codes; a `PRProfile` is not the
+  first domino toward a 53-way profile explosion.
+
+**Cost / what this asks of core's C4 registry**: `profiles.py`'s current
+`_REGISTRY` construction (`{"IL": HebrewProfile()} .update({code:
+USProfile(code=code) for code in JURISDICTION_CODES if code != "IL"})`)
+needs a THIRD carve-out (`if code not in ("IL", "US-PR")`) plus one explicit
+`"US-PR": PRProfile()` line — a small, shared-module edit, sequenced after
+core per M-R3, not before. This sprint asks core's C4 registry design to key
+on `{code: JurisdictionProfile}` (which is already `_REGISTRY`'s declared
+type) rather than narrow to `{code: RuleSet-under-fixed-USProfile}` —
+otherwise PR (and any future non-English US-family jurisdiction) has no
+clean way to register at all.
+
+
+### Archived from contract — Core seam coordination status
+
+## Core seam coordination status (D3)
+
+Polled per the sprint contract's Coordination clause:
+`git fetch origin && git show origin/claude/defs-core-scope:docs/sprint/
+sprints/2026-08-04-defs-core-scope.md`. As of this planning pass, core is at
+`5b93ef8` ("acquire planner lock, open panel log, record C5 baseline") and
+its contract's `## Seam spec (published)` heading exists as a TODO marker
+only — no seam spec body is published yet. Confirmed via direct read of the
+core contract (not just a grep for the heading text). This sprint plans and
+authors RED tests against the Planner's own proposed interfaces per the
+Coordination clause; `test_pr_profile_scope.py` (P3) is explicitly
+`xfail`-marked pending core's C2 publication, with the exact poll command
+and reasoning in its module docstring, so the deferral is visible to anyone
+running the suite, not just documented in prose.
+
+
+### Archived from contract — Next Steps
+
+## Next Steps
+
+Every item's test file(s) live under `backend/tests/unit/`. "Core-dependent"
+= must not merge/land before `2026-08-04-defs-core-scope` publishes its seam
+spec and this sprint aligns to it (M-R3); "pre-core OK" = safe to implement
+now, touches no shared module.
+
+1. **Spanish heading detection.** New module `backend/app/definition_links/
+   pr_profile.py`, function `is_definitions_heading(heading) -> bool` (stem
+   `[Dd]efinici[oó]n(es)?`, first-word-or-last-word-with-Spanish-
+   preposition-exclusion shape, `Artículo N.`/`Sección N.` prefix-strip).
+   Serves **P1**. Proven by `test_pr_profile_headings.py` (14 tests: 8
+   positive incl. the real truncated-title artifact, 6 negative incl. the
+   `Aportaciones Definidas` and TOC-listing false-positive guards).
+   **Pre-core OK** (new module only).
+2. **Spanish entry extraction.** Same module, `extract_definitions_from_
+   section(text, *, scope) -> list[DefinitionCandidate]` — a continuous-
+   string `finditer` scan (NOT line-based; see survey's "zero newlines"
+   finding) recognizing all 6 measured marker shapes and both quoted/
+   unquoted + colon/em-dash/idiom-verb separator families, plus the
+   174/635-row no-marker single-entry shape. Serves **P1, P2**. Proven by
+   `test_pr_profile_extraction.py` (7 tests across 5 real fixture rows,
+   incl. a same-entry-re-quotes-its-own-term regression guard). **Pre-core
+   OK.**
+3. **Ad-hoc/local + apposition definitions outside canonical sections.**
+   Same module, `extract_local_definitions(article_body)` (the `"A los
+   fines/propósitos de este Artículo ..."` family, scope="local" — Spanish
+   analog of Hebrew's `extract_local_definitions`) and
+   `extract_adhoc_definitions(text)` (the `"(en adelante, X)"` apposition
+   family, scope="local" — analog of `extract_adhoc_definitions`). Serves
+   **P2** (director's "definitions outside the usual place" mandate) and
+   half of **P3** (the in-scope/article-scope proof direction — the
+   out-of-scope direction is matcher-level, already jurisdiction-agnostic
+   per recon §1). Proven by `test_pr_profile_ad_hoc_definitions.py` (7
+   tests, 2 real fixture rows). **Split dependency**: the two functions
+   themselves are pre-core OK (standalone, no shared-module edits); WIRING
+   them into `pipeline.py`'s Stage-2 dispatch is core-dependent — recon §1
+   confirms `pipeline.py`'s current non-definitions-section branch calls
+   the bare Hebrew-only `extract.extract_local_definitions`/`extract_adhoc_
+   definitions` unconditionally for every article regardless of profile
+   (the "Deviation" finding); moving that dispatch behind the profile seam
+   is core sprint C3's job. Until C3 lands, PR's local/adhoc functions are
+   implemented and unit-tested but not yet reachable from a real ingest run.
+4. **Spanish citation grammar.** Same module, `find_citations(text) ->
+   list[str]` (`Ley N-YYYY`, `Ley Núm. N de <fecha>`, `Artículo N`, bare
+   `§ N`, `L.P.R.A.` — priority-ordered, non-overlapping, mirroring
+   `USProfile.find_citations`'s claimed-span shape). Supports **P1/P2**
+   (recon §1: the one Protocol method already "cleanly abstracted" per
+   profile). Proven by `test_pr_profile_citations.py` (7 tests). **Pre-core
+   OK.**
+5. **Chapter-scope determination for Spanish scope phrases.** Interface
+   TBD by core's C2 (Planner's placeholder proposal:
+   `determine_chapter_scope(body_text) -> str`, recognizing `A los fines/
+   efectos de este Capítulo`, `En este Capítulo` → `"chapter"`, else
+   `"law-wide"` — never `"local"`, since article-scope is item 3's domain,
+   corpus-confirmed mutually exclusive). Serves **P3** (scope-granularity
+   determination for canonical sections). Proven by `test_pr_profile_
+   scope.py`, 6 tests, all `xfail(strict=False)` with an explicit reason
+   naming the core seam. **Core-dependent** — do not implement against this
+   sprint's placeholder signature until core publishes; re-align once it
+   does.
+6. **`PRProfile` assembly + Protocol conformance.** Same module, `@dataclass
+   PRProfile` wrapping items 1/2/4 (and a Spanish `detect_cross_law_
+   derivations`, idiom set `según se define en`/`tiene el significado que
+   se le asigna en` — lower priority, not gated by name in P1-P5, minimal
+   test coverage only) — mirrors `HebrewProfile`/`USProfile`'s exact shape.
+   Serves **P5** (constructed directly, `PRProfile(code="US-PR")`, no
+   registry dependency). Proven by `test_pr_profile_no_english_
+   regression.py` (6 tests against the real, already-vendored DE
+   baseline-state fixture — 5 run for real now, 1 registry-level check
+   `importorskip`'d pending item 7). **Pre-core OK** for the class itself.
+7. **Registry wiring.** Edit `profiles.py`'s `_REGISTRY` construction to
+   carve out `"US-PR"` → `PRProfile()` (see Seam proposal's "Cost" note for
+   the exact change). Closes the loop so `get_profile("US-PR")` returns
+   `PRProfile` for real. Serves **P1** (end-to-end) and the registry-level
+   half of **P5**. No new test file — activates the existing `xfail`
+   sub-test in `test_pr_profile_no_english_regression.py`. **Core-
+   dependent** (shared module, M-R3 — do not edit before core's seam spec
+   is published and this sprint's item 6 has landed).
+8. **Live-path pipeline integration test** (not yet authored this pass —
+   flagged, not silently dropped). Once items 3/6/7 land, an end-to-end
+   `run_definition_linking` test over a real PR document (mirroring
+   `test_us_profile_definitions_section_end_to_end.py`'s shape) is the
+   natural closing proof for **P1**'s "real PR statutes parse" on the full
+   pipeline, not just the profile layer. Sequenced after core; the manager
+   should schedule this as this sprint's next planning increment once core
+   lands, not treat its absence now as complete.
+9. **QA zero-miss full-corpus sweep** (gate **P4**) — QA's task, not the
+   Planner's (role separation). This survey's measured signal list (idioms,
+   markers, scope phrases, non-canonical signals above) is the grounded
+   basis QA should sweep the full 23,636-row file against — every hit
+   captured or proven not-a-definition, before/after capture rate reported
+   (before = 0, per gate text).
+
+
+### Archived from contract — Cycle-2 item plan
+
+## Cycle-2 item plan (Planner, 2026-08-04 — numbering continues from item 9)
+
+Cycle 1's items 1-9 are unchanged above. The manager's full-corpus sweep
+(56.4% real extraction coverage, 15/635 real heading misses) showed items 1
+and 2 as SPECIFIED were under-determined by cycle 1's 5 hand-picked
+fixtures (M-R6). These 3 new items extend items 1/2's test coverage against
+the real workload; they do not change items 1/2's public signatures.
+
+10. **Bucket A/B/C extraction fixes — separator-pattern + marker-inventory
+    + dispatch-logic gaps.** Extends item 2's `extract_definitions_from_
+    section`. Six independently-diagnosed `_extract_term_and_definition`
+    separator shapes (quoted+idiom-no-separator in both quote styles,
+    quoted+comma+idiom, quoted+ASCII-hyphen+idiom, quoted-no-separator-no-
+    idiom, unquoted+colon, unquoted+trailing-period); one new marker shape
+    (two-character Spanish "ch)" letter marker); one new block-prefix case
+    (marker + decorative dash + term); one marker false-positive fix
+    (spaced-abbreviation misfire, e.g. "U. S."); one dispatch-logic fix
+    (a no-top-level-marker single entry must not be discarded when its
+    body contains an incidental, non-entry sub-list). Serves **P1, P4**.
+    Proven by `test_pr_profile_extraction_cycle2.py` (20 RED tests across
+    17 real fixture rows) and re-asserted at floor granularity by item 12.
+    **Pre-core OK** (same module as item 2, no shared-module edit).
+11. **Heading-widening fixes — clause-scoped matching + parenthesis
+    stripping.** Extends item 1's `is_definitions_heading`. Two
+    independently-diagnosed structural gaps: (a) the existing first-word/
+    last-word rule needs to run per semicolon/comma/em-dash-delimited
+    CLAUSE of the heading tail, not just once over the whole tail
+    (covers 11 of the 13 real misses); (b) an orthogonal fix strips a
+    fully-enclosing `(...)` wrapper before the existing rule runs (covers
+    the 2 parenthesized-whole-heading misses). Both TOC false-positive
+    rejections (cycle 1's `STATE_PR_LEY_165_2020_ART1_2` and this cycle's
+    `STATE_PR_LEY_51_2020_ART1_2`) must stay rejected — heading precision
+    stays at 0 false positives. Serves **P1, P4, P5** (precision
+    preserved). Proven by `test_pr_profile_headings_cycle2.py` (13 RED
+    tests: 6 real fixture rows + 7 real-string parametrize cases covering
+    the remaining named family members + both TOC guards + 3 clause-
+    splitting false-positive regression guards). **Pre-core OK.**
+12. **Corpus-shaped regression floor.** A NEW test shape, not a fixed
+    interface — deliverable 4 of the cycle-2 brief, direct response to the
+    cycle-1 lesson ("a test suite built from N hand-picked rows cannot
+    prove a zero-miss gate"). Vendors 33 real rows (10 cycle-1 + 23 of
+    cycle 2's 24) spanning every independently-diagnosed family and
+    asserts an AGGREGATE floor — every row known (by direct human reading,
+    not by re-deriving from the extractor) to be genuinely capturable
+    yields >=1 candidate; every known-correct-rejection row yields 0 — so
+    a future regression of this CLASS (not just of these exact rows) shows
+    up here even if every narrower family-specific test still passes.
+    Serves **P4** directly (a standing, re-runnable proxy for the manager's
+    own full-corpus sweep, cheap enough to run in the fixture suite).
+    Proven by `test_pr_profile_corpus_floor_cycle2.py` (4 parametrized
+    assertion groups + 1 bookkeeping sanity test). **Pre-core OK.**
+
+Bucket D (86 rows, copulative/prose definitions with no marker and no
+canonical idiom) remains OUT OF SCOPE for items 10-12 per M-R6 — ESCALATED
+to the director, program ruling P-R2 / standing question Q-1. No test in
+items 10-12 targets a bucket-D row; if implementing items 10-12 causes any
+rule to incidentally start capturing bucket-D-shaped prose, that is a
+precision regression to report to the manager, not a feature to keep.
+
