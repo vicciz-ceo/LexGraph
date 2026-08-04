@@ -1179,3 +1179,54 @@ stays exactly as designed until core's fix lands.
 own test/doc set; `git diff 34b576f -- .../us_scoped_inline.py` is empty
 (zero production changes this pass). All 4 touched test files are
 <=299 lines.
+
+---
+
+## 2026-08-04 — Planner (pass 5)
+
+Confirmed the Developer's `23cbbdc` landed exactly as described before
+touching anything: `_SCOPE_BY_UNIT["subsection"] -> "local"`,
+`_subsection_label` now `.strip("().")` (bare labels), the 3 `scope_value`
+stamping sites re-gated on the trigger's unit word. Re-ran the suite myself
+rather than trusting the report: **1 failed, 742 passed, 1 xfailed**,
+matching exactly -- the sole failure is direction 2
+(`test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_
+subsection`), confirming pass 4's own flagged forward risk landed precisely
+as predicted.
+
+Skipped the suggested `git fetch && git reset --hard` -- checked first and
+it was unnecessary: local `HEAD` already equalled `origin/claude/defs-us-
+scoped-inline` at `23cbbdc` with a clean working tree, so a hard reset would
+have been a no-op at best; ran a plain `git fetch` to confirm instead of the
+destructive form.
+
+### The marker
+
+Added `@pytest.mark.xfail(strict=True, reason=...)` to direction 2 in
+`test_us_scoped_inline_pipeline_subsection_live.py`, test body and
+assertions byte-for-byte unchanged. `reason=` names: S-R11's interim
+mapping as the cause (not a defect -- `"local"` legitimately over-links
+across the whole owning article, the ruled tradeoff); that this differs
+from direction 1's cause (core's still-broken `resolve_unit_path`, a real
+defect) even though both share one revert; and the shared revert condition
+(core's level-contract fix + `_SCOPE_BY_UNIT["subsection"]` restored ->
+both markers come off together). Also updated the module docstring's
+pass-4-era "direction 2 deliberately left unmarked" paragraph, since it was
+now stale and would have misled the next reader -- replaced with a short
+two-cause summary. File: 280 lines.
+
+No production file touched (`git diff 23cbbdc -- .../us_scoped_inline.py`
+empty).
+
+### Suite tail
+
+```
+742 passed, 2 xfailed, 18 warnings in 13.04s
+```
+
+0 failed / 742 passed / 2 xfailed -- an internally consistent, correct
+result (742 + 2 = 744, matching the pre-marker "1 failed, 742 passed, 1
+xfailed" baseline with the 1 failure moved into the xfailed bucket). The
+DoD's stated "743 passed" appears to be a minor arithmetic slip against the
+manager's own reported starting tally; reporting the real, reproduced
+number rather than the target figure.

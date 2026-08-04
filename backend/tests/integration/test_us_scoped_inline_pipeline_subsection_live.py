@@ -1,24 +1,23 @@
 """Sprint 2026-08-04-defs-us-scoped-inline (Planner pass 3, ruling S-R10;
-xfail marker added pass 4, ruling S-R11).
+xfail markers added passes 4-5, ruling S-R11).
 
-Pass 4 addendum: this file's finding (subsection scope dead on the live
-path) was escalated and ruled on. S-R11: `"subsection"` maps to `"local"`
-for the interim (narrowest REPRESENTABLE enclosing unit, zero-miss-safe,
-over-link bounded by one article) until core fixes `resolve_unit_path`.
-This file is KEPT UNCHANGED as the post-core-flip target -- it still
-asserts true subsection behavior, not the interim mapping -- and direction
-1 below is now marked `xfail(strict=True)` so the revert is self-alarming:
-the day core's fix lands, this test XPASSes, which FAILS the suite under
-`strict=True` and forces `_SCOPE_BY_UNIT["subsection"]` back to
-`"subsection"`. Direction 2 is deliberately left UNMARKED -- it happens to
-pass today (nothing links at all, for the wrong reason), but once the
-Developer's S-R11 interim mapping lands in `us_scoped_inline.py`, a
-`"local"`-scoped definition legitimately over-links across its whole
-article, so this direction's own `scope == "subsection"` assertion will
-start failing too and will need its OWN `xfail(strict=True)` at that
-point -- flagged here, not fixed now, since marking it today (while
-`us_scoped_inline.py` still stamps `"subsection"`) would XPASS-fail the
-suite immediately for the wrong reason.
+This file's finding (subsection scope dead on the live path) was escalated
+and ruled on. S-R11: `"subsection"` maps to `"local"` for the interim
+(narrowest REPRESENTABLE enclosing unit, zero-miss-safe, over-link bounded
+by one article) until core fixes `resolve_unit_path`. This file is KEPT
+UNCHANGED as the post-core-flip target -- it still asserts true subsection
+behavior, not the interim mapping -- and BOTH directions are marked
+`xfail(strict=True)` so the revert is self-alarming: the day core's fix
+lands and `_SCOPE_BY_UNIT["subsection"]` is restored, both tests XPASS,
+which FAILS the suite under `strict=True` and forces the revert.
+
+The two markers exist for DIFFERENT reasons (see each `reason=` for the
+full text): direction 1 (pass 4) fails because core's `resolve_unit_path`
+is broken -- a genuine live-path defect. Direction 2 (pass 5, once the
+Developer's interim mapping actually landed in `us_scoped_inline.py`)
+fails because `"local"` legitimately over-links across the whole owning
+article -- S-R11's own accepted, RULED tradeoff, not a bug. Both revert
+together when core's fix lands and the mapping flips back.
 
 Of the 3 compounding causes below, ONE is ours (`_subsection_label`'s
 paren-included format vs. `UnitStep.value`'s bare format) -- the Developer
@@ -194,6 +193,27 @@ def test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "S-R11 interim: _SCOPE_BY_UNIT['subsection'] now maps to 'local' "
+        "(the narrowest REPRESENTABLE enclosing unit), so this definition is "
+        "scoped to its whole owning article, not to the subsection alone -- "
+        "a mention in a DIFFERENT subsection of the SAME article legitimately "
+        "DOES link now. That is correct interim behavior (S-R11's accepted "
+        "over-link tradeoff), not a defect, which is why THIS marker's cause "
+        "differs from direction 1's above: direction 1 is xfailed because "
+        "core's resolve_unit_path is still broken (a core-owned defect); "
+        "direction 2 is xfailed because the interim mapping itself makes "
+        "true subsection semantics temporarily false (an accepted, ruled "
+        "tradeoff, not a bug). Same revert either way: when core lands its "
+        "resolve_unit_path level-contract fix and _SCOPE_BY_UNIT['subsection'] "
+        "is restored to 'subsection', both this marker and direction 1's come "
+        "off together and both tests XPASS -- which strict=True turns into a "
+        "suite FAILURE by design, forcing the revert rather than letting the "
+        "interim ossify."
+    ),
+)
 def test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_subsection(
     db_session, matter_with_users
 ):
