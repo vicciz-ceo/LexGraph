@@ -808,3 +808,74 @@ mis-parses Maine's inline legislative-history annotations (`(NEW)`, `(AMD)`,
 subsection-scope enforcement — part of the "82% enforced" figure — for every
 panel, not just ours. Per the sprint's boundary rule this is REPORTED, never
 fixed here.
+
+---
+
+## 2026-08-04 — Manager: Developer handoff verified; ruling S-R10
+
+### Verification (manager-run)
+
+- `git diff --name-only origin/main...HEAD` → exactly ONE production file,
+  `backend/app/definition_links/rules/us_scoped_inline.py`, **299 lines** (under
+  the gate). Everything else in the diff is the Planner's own earlier commits.
+  Zero test files touched by the Developer. Role separation held.
+- Suite re-run by me: **5 failed, 737 passed** — matches the report.
+- I did NOT accept the "all 5 are placeholder scope-string tests"
+  characterization on trust: two of the five are named
+  `..._numbered_elaboration_list_is_not_split...` and
+  `..._shared_clause_own_numbered_list_not_split_tennessee`, which sound like
+  splitting-behavior failures, not scope-string ones. Checked the actual
+  assertions: both fail on `assert ... .scope == "part"` → `'law-wide' == 'part'`.
+  Same class after all; the substantive splitting assertions above those lines
+  PASS, so the rule's entry-splitting behavior is correct.
+- Confirmed the 5 are legitimate amendments, not test-fitting: each carries an
+  explicit `PENDING D8/S-R5 ruling ... placeholder` comment written BEFORE
+  S-R9 landed. Amending them implements the ruling; it does not bend a test to
+  match code. Planner-role work, correctly routed away from the Developer.
+- Read the production file. `_SCOPE_BY_UNIT` implements S-R9 exactly. The
+  precision gate is real: bare `In this <unit>` requires strict comma/colon
+  adjacency, matching the measured ~21%-genuine rate, rather than being widened
+  until negative controls happened to pass. `_extract` stamps
+  `source_chapter=ctx.chapter` for chapter scope with a comment naming the exact
+  trap I identified in S-R4 — a `"chapter"` candidate with `source_chapter=None`
+  would silently match only articles whose chapter is also `None`.
+
+Verdict: Developer handoff ACCEPTED.
+
+Process credit, recorded per the program manager: a cross-session check-in
+caught the Developer's `_MARKER`/`_MARKER_RE` typo — which broke pytest
+COLLECTION for the entire suite, since `rules/__init__.py` auto-imports every
+module — and the 309-line overage, mid-task after an API stall. Both were
+verified independently and fixed before the handoff.
+
+### S-R10 — subsection `scope_value` gets a REAL test, not a deferral
+
+The program manager's lean was to record the unpinned `scope_value` derivation
+as a named deferral until core's Maine annotation fix lands. **I am overruling
+that**, because the risk is not cosmetic:
+
+`us_scoped_inline._subsection_label` derives a label with its OWN regex
+(`_SUBSECTION_LABEL_RE`), while `matcher._subsection_contains_offset` compares
+that label against `profile.resolve_unit_path(article, char_offset)[0].value` —
+a SECOND, INDEPENDENT derivation living in core. Nothing currently proves the
+two agree. If they disagree, a subsection-scoped definition links NOTHING —
+a silent under-link, which is precisely the failure mode the absolute zero-miss
+bar exists to prevent, and precisely the failure mode that unit-green-but-
+live-dead testing hides (the same shape as core's own C1 QA bounce).
+
+Note the coverage gap this exposes: this sprint's U2 both-directions proofs
+cover `local` and `chapter` only. Subsection enforcement is NOT proven on our
+live path. Core proved the MECHANISM both directions; what is unproven is that
+OUR rule's label matches what core's resolver returns.
+
+The deferral argument — that the Maine fix will change nearest-marker edge
+cases — argues against pinning an exact literal string, and I accept that. It
+does not argue against pinning AGREEMENT. Planner pass 3 therefore writes a
+live-path test asserting that a subsection-scoped definition links an in-
+subsection mention and does NOT link an out-of-subsection one, without
+hard-coding the label's literal value. That test should survive core's Maine
+fix unchanged; if it fails now, we have found a real defect rather than
+deferred one.
+
+Model note: pass 3 is Sonnet/high, not Haiku — the 5 amendments are mechanical,
+but S-R10's test is genuine live-path test design.
