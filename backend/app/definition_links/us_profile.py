@@ -1158,17 +1158,45 @@ def resolve_unit_path(article, char_offset: int | None = None):
     learned mechanism), else the federal `_UNIT_PATH_LADDER`.
 
     Honesty notes (see the Developer report's GENERALIZATION STATEMENT for
-    the full enumeration; no test pins any of these):
+    the full enumeration; no test pins any of these). QA cycle 1's
+    full-census scan (all 53 `us_*_statutes.parquet`, 2,038,247 rows,
+    signal-agnostic denominator) measured this precisely rather than
+    leaving it asserted -- corrected here to match what was actually
+    found, not what an earlier draft of this note assumed:
 
-    - A document whose OWN outermost convention is none of the three named
-      shapes (e.g. an upper_roman- or double-alpha-outermost convention,
-      if one exists anywhere in the 53-jurisdiction corpus) still falls
-      through to the federal ladder by the same residual `else`, under
-      which its own genuine outermost marker fails to match position 0
-      and has no open ancestor to match either -- it is SKIPPED, not
-      captured as a step, and every marker after it is classified as
-      though the document were federal-shaped until a marker eventually
-      DOES match that assumption (which may never happen).
+    - Genuinely double-alpha-outermost: measured ZERO real rows (the one
+      raw shape-candidate found was a citation fragment, not a genuine
+      enumeration) -- for THAT shape, a document's outermost marker really
+      is SKIPPED by this function (fails position 0 of every one of the
+      three ladders above, no open ancestor to match either), and every
+      marker after it is classified as though the document were
+      federal-shaped until one eventually DOES match that assumption
+      (which, per the measurement, appears not to happen in the real
+      corpus at all).
+    - Upper_roman-outermost is DIFFERENT, and NOT a skip: measured 5 real
+      rows (0.00025% of the corpus) -- `STATE_IL_C820_A405_S1506.6`,
+      `STATE_IL_C820_A405_S2101.1`, `STATE_IL_C820_A405_S403`,
+      `STATE_NH_TXXI_C266-A_S19`, `STATE_PR_LEY_2_2017_ART2` -- all
+      in-sentence PROSE enumerations ("...actuar: (I) recuperando... (II)
+      abordando...", "...order: (I) A new charge; or (II) A new rule..."),
+      spread across three unrelated jurisdictions, not a drafting
+      convention any of them uses structurally. `(I)`/`(V)`/`(X)` are a
+      single uppercase letter, so they satisfy the upper_alpha shape check
+      above (this shape is inherently ambiguous between upper_alpha and
+      upper_roman at length 1, same ambiguity as `i`/`v`/`x`/`l`/`c`/`d`/`m`
+      at lower_alpha/lower_roman -- see `_marker_matches_kind`) and route
+      the call to the Ohio ladder, where `(I)` IS captured -- as
+      `UnitStep(kind='upper_alpha', value='I')` -- not skipped. Its
+      genuine roman siblings (`(II)`, `(III)`, ...) are what get skipped
+      afterward: they match neither the Ohio ladder's rung 1 (`digit`) nor
+      the one open ancestor (`upper_alpha`, which needs length 1). Net
+      effect on a real row: exactly ONE spurious `upper_alpha` step,
+      frozen for the rest of the call -- bounded and non-cascading, but a
+      wrong kind captured, not an absence. Left as a named limitation, not
+      fixed here: the shape is vanishingly rare and prose-incidental
+      rather than a jurisdiction convention, and reclassifying it would
+      touch the marker-classification path a QA cycle has already signed
+      off on.
     - Ladder selection reads only the FIRST parenthesized token's shape.
       If that token is noise rather than a genuine marker (a citation
       fragment, an aside), the ladder for the ENTIRE rest of the call is
