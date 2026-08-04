@@ -1737,3 +1737,116 @@ of the miss pool. With it, recall is **94.7%**; without it, **94.2%**. The
 cost at the measured 86–89% precision is roughly **12–15 wrong captures**.
 The fix is one alternation in one regex — **cheap to revert either way**.
 Shipped in the working tree pending the ruling; **not** presented as settled.
+
+---
+
+## 2026-08-04 — Manager phase 2 (fresh context) — takeover verification
+
+Predecessor clean-exited after dev cycle 3. Inherited state **verified, not
+trusted**:
+
+- Branch `claude/defs-us-headings` @ `639268f`, worktree clean, git
+  `user.email` = `256402398+vicciz-ceo@users.noreply.github.com`. ✅
+- **Correction to the resume brief:** the "defined for" rule is **not**
+  uncommitted. It shipped in dev cycle 3 (`a0419a4`) as one alternation of the
+  closed connector whitelist `for|as|term` in `_VERB_EXTENDED_RE`
+  (`us_heading_variants.py:166`). D-DF therefore *changes shipped behavior*
+  rather than deciding whether to add it.
+- **Correction to the resume brief:** the "sixth gap" (post-`defined`
+  word/comma/period continuations) was **already closed in dev cycle 3** and
+  manager-verified there (all four named rows flip True: KY `defined for`, NJ
+  `defined,`, CT `defined.`, FED `Defined term`). It is not outstanding work.
+  Dev cycle 4's only content is D-DF.
+
+### Merge onto merged core (not a rebase — recorded deviation)
+
+`git merge origin/main` (main `0d57228`, which is core `06d67d8` + one docs
+commit) instead of the briefed rebase. Reason: rebase replays 18 commits and
+requires a force-push of a branch the program manager may already have
+fetched; merge resolves the one conflict once and preserves every dev/QA cycle
+commit for the audit trail. Merge commit `1d17d81`.
+
+**Sole conflict:** `backend/tests/fixtures/us_statutes/README.md` — both sides
+appended documentation for *different* fixture files (ours
+`us_heading_variants_rows.json`; main's `ny_m14_newline_defect_row.json` and
+`d_cf_structural_reference_rows.json`). Resolved as a **strict union**, nothing
+dropped or reworded. Manager-performed mechanical merge; flagged for Planner
+(fixture owner) verification, since the manager must not author test content.
+
+Venv refreshed (`backend/.venv/bin/pip install -e '.[dev]'`, exit 0).
+**Suite post-merge: 728 passed / 2 failed** (was 669/2 — main contributed ~59
+tests). Zero regressions from the merge.
+
+### BLOCKER — the merged core registers `HeadingRule` but never consumes it
+
+The brief's expectation that the 2 core-blocked REDs "become unblockable" is
+**half true**. One is a normal Developer item; the other is blocked by a
+core-owned gap.
+
+**Finding A — 5 of the 7 rule kinds are registered-but-dead on main.**
+Only `ScopeTriggerRule` and `CitationRule` have consumption call sites.
+`heading_rules_for` / `body_preamble_rules_for` / `entry_splitter_rules_for` /
+`term_clause_rules_for` / `structural_unit_rules_for` are referenced **only**
+by `backend/tests/unit/test_definition_links_rules_registry.py` — zero
+production callers (`grep -rn '_rules_for(' backend/app/` → 4 hits, all
+citation/scope_trigger).
+
+Proven on the **live path**, not by reading code (manager probe, throwaway,
+uncommitted): register a `HeadingRule(jurisdiction_codes=("US-*",),
+matches=lambda h: True)`; `heading_rules_for("US-CT")` returns it; yet
+`get_profile("US-CT").is_definitions_heading("Bananas and other fruit")`
+still returns **False**. `USProfile.is_definitions_heading` (us_profile.py:1106)
+is `return is_definitions_heading(heading)` — the module-level baseline, no
+registry consultation. `pipeline.py:198/216` calls that profile method, so the
+gap is on the only path that matters.
+
+This contradicts the authoritative seam v2.5's published consumption contract
+("Detection kinds … the profile's EXISTING baseline logic runs first …; only if
+baseline returns false/empty does the profile try registered rules for its
+code, IN FILENAME-SORT ORDER"). Core's I4 shipped the 7 **kinds** plus
+auto-discovery and proved C4 with a throwaway `ScopeTriggerRule` — the one kind
+that *is* wired — so the detection-kind consumption gap went unnoticed.
+
+**Consequence for this sprint:** gates **U1** (heading RECOGNIZED on the live
+path, ruling H-R1) and **U3** (rules ship as registry modules, zero shared-module
+edits) are currently unsatisfiable together. Wiring `heading_rules_for` into
+`us_profile.is_definitions_heading` is an edit to a shared, core-owned module —
+exactly what U3 forbids and what H-R5 already ruled the Developer must not do
+(concurrent panels editing the same shared dispatch collide).
+
+**Blast radius beyond this panel** (reported, not owned): markers needs
+`EntrySplitterRule`+`TermClauseRule`; multiterm needs `TermClauseRule`;
+preamble needs `BodyPreambleRule`. Additionally `derive_heading_from_body`
+(us_profile.py) still early-`return None`s on `not _is_placeholder_heading(heading)`
+with no registered-rule step after it — i.e. seam v2 §4 / manager ruling M6 /
+director **D-PREAMBLE-ALL** ("gating is off the table") is **not** implemented
+in the merged code. Four panels are affected by the same root cause.
+
+### BLOCKER — D-DF is not expressible in ANY current rule kind
+
+`HeadingRule.matches: Callable[[str], bool]` receives the **heading only**.
+D-DF requires capture only when **the body** also carries a defining marker —
+a conjunction of heading and body. Checked every kind in `rules/registry.py`:
+
+| Kind | Receives | Sees heading? | Sees body? |
+|---|---|---|---|
+| `HeadingRule.matches` | `(heading)` | yes | **no** |
+| `BodyPreambleRule.derive_heading` | `(body)` | **no** | yes |
+| `ScopeTriggerRule.extract` | `(article_body, RuleContext)` | **no** (`RuleContext` = article_number/chapter/unit_path) | yes |
+| `EntrySplitterRule.split` / `TermClauseRule.parse` | `(text)` / `(block)` | **no** | yes |
+| `StructuralUnitRule.derive` | `(StructuralContext)` | breadcrumbs only | no |
+
+**No rule kind in the seam receives both the heading and the body.** D-DF
+cannot be implemented as written without a core-owned seam change. Routing the
+`defined for` shape to a body-side kind does not rescue it: those kinds cannot
+see the heading, so they cannot tell `defined for` apart from any other row.
+
+Scope of the change if authorized: `defined for` is **one alternation** in
+`_VERB_EXTENDED_RE`'s closed whitelist `for|as|term` (`us_heading_variants.py:166`).
+D-DF touches `for` only — `as`, `term`, and the punctuation forms are unaffected
+and stay bare. 110 rows / 0.49% of the miss pool; recall 94.7% with, 94.2%
+without.
+
+**Both blockers escalated to the program manager.** Work that is NOT blocked
+proceeds meanwhile (the `register_heading_rule` self-registration call, Phase B
+item 4's unit RED).
