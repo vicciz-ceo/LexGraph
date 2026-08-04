@@ -743,3 +743,68 @@ starting commit).
 2. **`resolve_unit_path`'s Maine defect** (D13) — a real, separate core
    bug, not this family's to fix, affecting the 82.0% "shipped and
    enforced" figure's real-world reliability for at least one state.
+
+---
+
+## 2026-08-04 — Manager: Planner pass 2 verified; ruling S-R9 (part/subchapter fallback)
+
+### Handoff verification
+
+`git diff --name-only origin/main...HEAD` → tests + docs only, **zero
+production files**. Role separation held across both Planner passes.
+Independently re-ran the suite: **38 failed, 704 passed** (pre-existing suite
+green at 704, up from 644 pre-merge — core's own tests came in with the
+rebase), so RED remains fully attributable to our tests. D10's dedup test
+passes live (`1 passed`) — correct, it is a green pin on core's existing
+behavior, not a RED item.
+
+Credit where due: the Planner caught a latent bug in its OWN pass-1 tests —
+two live-path tests read `a["object_entity_id"]` off `created_assertions`
+summary dicts, which `pipeline.py` only populates with
+`{id, assertion_type, proposition, status, origin}`. That would have thrown
+`KeyError` the moment assertions started being created, i.e. it would have
+masked a real green. Exactly the kind of thing the "prove it, don't assert it"
+discipline is for.
+
+### S-R9 — part/subchapter/residue fall back to `"law-wide"`, NOT to `"chapter"`
+
+The Planner reported 3 Maine rows nesting `title > part > chapter > section`.
+I verified this myself against `us_me_statutes.parquet` and it is far stronger
+than reported: **12,543 Maine rows** have a `part` node ABOVE a `chapter` node
+in their real breadcrumb, and a single Maine Part spans up to **106 distinct
+chapters** (Part 2 → 106; Part 4 → 84; Part 9 → 61; Part 1 → 44).
+
+That is decisive. Mapping a `part`-scoped definition to `scope="chapter"`
+would link only the defining article's own chapter and silently MISS the other
+105 chapters inside the same Part. Under-linking is disqualifying under the
+director's absolute zero-miss bar (program decision 3). The 100% non-null
+`chapter` field was a red herring — the field being present says nothing about
+whether the chapter CONTAINS the part; here it is the other way round.
+
+**Ruling: `part`, `subchapter`, and the residue kinds (`article`, `title`,
+`paragraph`, `division`, `subdivision`, `subpart`, `act`) stamp
+`scope="law-wide"`.** This follows core's own published precedent for exactly
+this shape (seam v2 §1, AK multi-chapter ranges): an unrepresentable narrowing
+falls back to law-wide — zero-miss-safe, with the precision cost recorded
+rather than silently taken. Rejected alternative (a) `scope="chapter"`: proven
+to under-link at scale. Rejected alternative (c) stamping the literal kind
+(`"part"`): ruling S-R5 showed `_in_scope`'s generic branch is dead on the live
+path, so it would link nothing at all — the worst outcome available.
+
+**This stays a NAMED OPEN CONFLICT CLASS under P-R2**, not a settled question:
+law-wide over-links beyond the declared scope, which is in real tension with
+the director's "assertions only to mentions within the section they are
+specified for." It affects `part` (2,187) + `subchapter` (1,861) = 13.9% of
+genuine volume plus ~4.0% residue. Re-escalated with measured volume numbers
+after QA's U4 sweep, together with the PA construction-clause pin. The
+principled fix is core gaining a live above-article generic-unit path; that is
+core's to build, not ours.
+
+### Routed OUT to the program manager (not ours to fix)
+
+The Planner found a genuine defect in core's SHIPPED `resolve_unit_path`: it
+mis-parses Maine's inline legislative-history annotations (`(NEW)`, `(AMD)`,
+`(AFF)`) as sub-article markers, producing garbage nesting. This degrades
+subsection-scope enforcement — part of the "82% enforced" figure — for every
+panel, not just ours. Per the sprint's boundary rule this is REPORTED, never
+fixed here.
