@@ -122,11 +122,35 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 Working-baseline regression-guard states for every US sprint:
 IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
 
-## Standing questions for the director
+## Director rulings during execution (AskUserQuestion — binding)
 
-- **Q-1 (open):** when zero-miss and zero-false-positive conflict on a
-  specific convention (e.g. Georgia's headingless preamble), which yields?
-  Panels escalate each conflict class with real statute examples.
+- **D-E1 (2026-08-04): narrowest scope governs.** A mention inside multiple
+  definitions' scopes links ONLY to the narrowest (subsection > article/local
+  > chapter/part > law-wide); the general definition still fires wherever no
+  narrower one was detected. Authorizes the core panel's attribution-bug fix
+  (edges must carry their authorizing definition).
+- **D-Q1 (2026-08-04): recall-vs-false-positive conflicts escalate per class
+  with data.** No standing winner; each conflict class comes to the director
+  with real examples and measured counts. (Q-1 closed.)
+- **D-PR-A (2026-08-04): PR prose definitions get a narrow heading-anchored
+  rule** (headings naming the term, e.g. "Bienes; definición"); anchor-less
+  residue is enumerated by act_id as a documented gap. PR sprint is NOT
+  blocked.
+
+## Program routing decisions (program manager)
+
+- Seam spec v2 requested from core, consolidating: generic (unit_kind,
+  unit_value) scopes; ScopeTriggerRule owning-article context; explicit
+  M-R7(a) dispatch-gating ruling; PR profile-vs-rules ruling.
+- Two NEW core items (measured zero-miss breaches in core-owned modules):
+  bare-`@` article markers (124 IL laws parse to zero articles) and
+  case-sensitive `find_term_uses` (GA lowercase re-mentions).
+- Headings U2 = option C (ship recall win; 10 act_ids recorded; scope model
+  to core v2). Boundary routings: MS clause rows → scoped-inline; NE/SD
+  unquoted → markers; VT S3700 fan-out → multiterm; verb-form bodies →
+  markers; CO truncated titles + repealed stubs → program data-quality list.
+- Process rules (after two incidents): ONE writer per worktree, always;
+  verify agent liveness before respawning (staleness watchdogs unreliable).
 
 ## Log
 

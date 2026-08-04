@@ -20,3 +20,15 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04: prior sprint closed (300f464); program doc (ad3dfd9); roster +
   core/IL contracts + dossier persisted (ba1b398); core + IL panels spawned.
   US family panels pending B3 re-recon.
+- 2026-08-04 (wave 1 reports): all 8 panels reported. Escalations E-1
+  (core), S-R3 (scoped-inline), U2 (headings), E1+E5 (IL), M-R7(a)
+  (preamble), A+B (PR) — director ruled D-E1/D-Q1/D-PR-A; core briefed for
+  seam v2 + 2 new items; headings/preamble/multiterm/PR resumed with
+  rulings. Parked pending core v2/merge: scoped-inline, IL, markers.
+  Incidents: 2 phantom-wait stalls (caught, resumed); preamble double-
+  Planner (benign, cross-validated); multiterm log corruption from
+  concurrent writer (corrected with evidence). Main checkout verified clean
+  after headings Planner leak report. Measured highlights: IL corpus
+  6,133/6,133 ingested (37s); PR 0%→80.9% (5,594 terms, 0 FPs); headings
+  91.4% of miss-pool recognized, 0 FPs corpus-wide; markers quantified
+  ~34,017 real zero-yield misses corpus-wide.
