@@ -2491,3 +2491,448 @@ authors REDs for all four before any Developer runs.**
 Status stays **`qa-fail`, `qa_cycles: 2`** (valve at 5). E6-held subset
 (3 class-(d) + 1 item-11 test, ~303 in-הגדרות occurrences) still parked on
 core's dispatch sprint.
+
+---
+
+## Phase C — Planner RED set (Sonnet/high, M15 bundle)
+
+Own worktree `/Users/nerya/LexGraph-wt/defs-il-plan3`, branch
+`claude/defs-il-plan3`, HEAD at resume `71cbeb4` (== `origin/claude/defs-il`,
+verified clean via `git status`/`git log`). `import app` resolves to this
+worktree (`backend/.venv/bin/python -c "import app; print(app.__file__)"`
+→ `.../defs-il-plan3/backend/app/__init__.py`). Read the program doc, the
+full sprint contract, the WHOLE log (QA cycle 1 + 2, the M14 process
+incident, M15), and the seam v2.5 doc before touching anything. Read
+`extract.py`, every `rules/il_*.py` module, `registry.py`, the relevant
+slices of `profiles.py`/`sections.py`/`pipeline.py` directly (worktree is
+divergent from `main`, so CodeGraph's index is stale for these files —
+used direct `Read` per M1/the program's CodeGraph caveat).
+
+**Methodology (P-R7, binding on every population claim below):** every
+denominator is built from GRAMMAR (trigger-word text scans, or — for
+C4 — a bare-preamble-line-then-`:-`-entries STRUCTURAL shape scan),
+never from our own shipped rule's own regex, then cross-checked against
+the LIVE chain `sections.parse_articles` (raw `.wiki`) →
+`profile.normalize_for_parsing` → `strip_wikilinks` →
+`profile.extract_local_scope_definitions` — the exact order
+`pipeline.py:187-236` uses for an ORDINARY (non-הגדרות-heading) article.
+Every fixture was extracted PROGRAMMATICALLY, never hand-retyped: a
+reusable script (`il_phaseC_plan_fixture_builder.py`, scratchpad) finds
+the article's own verbatim `@ N. heading` marker line via regex on the
+RAW corpus file, concatenates it with `Article.body` (itself a
+`"\n".join(original_lines)` reconstruction — never retyped), and before
+writing proves (1) the fixture bytes are a literal substring of the
+corpus source file (`fixture_text in raw`, logging the offset), (2)
+re-parsing the fixture alone reproduces the identical single `Article`,
+and (3) the LIVE captured-terms set is IDENTICAL between the original,
+untrimmed corpus article body and the trimmed fixture body (proves
+trimming context didn't change behavior). All three checks passed for
+every fixture below — full per-fixture transcripts are in this session's
+scratchpad scripts (`il_phaseC_plan_c1_*.py`, `il_phaseC_plan_c4_*.py`);
+representative output reproduced below.
+
+### C1 — punctuation-variant widening: PLANNED, RED committed
+
+Corpus-wide sweep (`il_phaseC_plan_c1_punct_sweep.py`): for each of the 7
+confirmed-miss families, scanned all 6,133 files (post
+`normalize_for_parsing`) for `TRIGGER<0-3 chars>"term"`, classified the
+punctuation. Real counts (comma vs. everything else):
+
+| family | comma | non-comma (bare-space/colon/dash) |
+|---|---|---|
+| `לעניין זה` (tzere) | 2010 | 26 |
+| `לענין זה` (yod) | 883 | 21 |
+| `בסעיף זה` | 1288 | 50 (incl. 4 colon) |
+| `בתקנה זו` | 475 | 16 |
+| `בסעיף קטן זה` | 370 | 6 |
+| `בפסקה זו` | 408 | 10 |
+| `לענין/לעניין סעיף זה` | 232+145 | 8+1 |
+
+(Non-comma raw counts here include some junk/duplicate/long-tail matches
+the ANCHORED per-owning-article resolution below discards — the
+FP-measurement table further down is the trustworthy per-article count.)
+
+Picked the SHORTEST clean, live-reconfirmed, currently-uncaptured real
+instance per family (via `il_phaseC_plan_c1_shortest_candidates.py`,
+which resolves each hit's owning `Article` and sorts by body length) —
+except for `בסעיף קטן זה`, where the shortest candidate (`חוק הגנת
+הצרכן` art.22ט, term `"מדד"`) turned out to be a FALSE LEAD: its live
+capture set was `{'מדד'}`, not empty — the term is ALREADY captured via
+an unrelated definition of the same common term elsewhere in the same
+article, which would have made a misleading RED test (green for the
+wrong reason once "fixed"). Caught this before writing the test (ruling
+M4) and substituted the next-shortest clean candidate. Also rejected
+`צו בדבר ההתגוננות האזרחית` (colon variant of the same family) because
+its captured term itself contains an embedded gershayim-quote
+(`"תקציב הג"א מקומי"`), an unrelated edge case that would confound the
+test's own intent.
+
+Live re-confirmation (actual output, this session):
+```
+תקנות הביטוח הלאומי (קביעת דרגת נכות...)  art22א  לעניין זה "איברים סולידיים"  -> set()
+חוק שירות הציבור (הגבלות לאחר פרישה)      art7    לענין זה "חבר הנהלה"        -> set()
+חוק השיפוט הצבאי                          art415א בסעיף זה "החלטה"           -> set()
+צו בדבר שטחים סגורים (...)                art1ג   בסעיף זה: "ישראלי"         -> set()
+תקנות הביטוח הלאומי (ביטוח מפני פגיעה...) art38   בתקנה זו - "רופא מוסמך"     -> set()
+צו בדבר העסקת עובדים (...)                art6    בסעיף קטן זה - "שוהה לא חוקי" -> set()
+תקנות תכנון משק החלב (...)                art6    בפסקה זו - "מועצה אזורית"   -> set()
+צו בדבר שיקים ללא כיסוי (...)             art17   לענין סעיף זה - "בנק הדואר" -> set()
+```
+Fixtures (8, all byte-verified substring + re-parse + live-equivalence,
+per methodology above): `תקנות הביטוח הלאומי (קביעת דרגת נכות לנפגעי
+עבודה)_art22א_excerpt.wiki`, `חוק שירות הציבור (הגבלות לאחר
+פרישה)_art7_excerpt.wiki`, `חוק השיפוט הצבאי_art415א_excerpt.wiki`, `צו
+בדבר שטחים סגורים (אזור הגדה המערבית)_art1ג_excerpt.wiki`, `תקנות
+הביטוח הלאומי (ביטוח מפני פגיעה בעבודה)_art38_excerpt.wiki`, `צו בדבר
+העסקת עובדים במקומות מסוימים (יהודה והשומרון)_art6_excerpt.wiki`,
+`תקנות תכנון משק החלב (העברת מכסות של יצרנים שיתופיים בענף
+הבקר)_art6_excerpt.wiki`, `צו בדבר שיקים ללא כיסוי (יהודה
+והשומרון)_art17_excerpt.wiki`.
+
+**FP measurement (P-R2/D-Q1, `il_phaseC_plan_c1_fp_measure.py`).**
+Proposed widening (design guidance for the Developer, not implemented by
+this Planner): replace the hardcoded `,\s*"` with
+`(?:[,:\-]\s*|\s+)"` — comma/colon/dash (each with optional surrounding
+whitespace) OR one-or-more bare whitespace, but NEVER a zero-length gap
+(this excludes the one pathological "immediate adjacency" hazard found
+during recon: a trigger phrase sitting immediately before an unrelated
+quote character elsewhere, e.g. a gershayim-marked year abbreviation
+like `תשע"א` — both branches require ≥1 separator character, so a
+zero-gap coincidence can never match). Measured on the FULL corpus,
+ordinary (non-הגדרות-heading) articles only, using the EXACT downstream
+grammar (`"term" - definition-to-EOL`), not just trigger+quote adjacency:
+
+| family | current (comma) | widened | NEW |
+|---|---|---|---|
+| tzere 2-word | 1563 | 1573 | 10 |
+| yod 2-word | 731 | 738 | 7 |
+| בסעיף זה | 1106 | 1117 | 11 |
+| בתקנה זו | 427 | 433 | 6 |
+| בסעיף קטן זה | 313 | 314 | 1 |
+| בפסקה זו | 353 | 355 | 2 |
+| לענין/לעניין סעיף זה | 204 | 207 | 3 |
+| **TOTAL new** | | | **40** |
+
+40 new corpus-wide matches (in the same ballpark as QA cycle 2's own "38
+confirmed misses" estimate — the small gap is expected: QA's number was
+a hand count of confirmed leads, this is an exhaustive regex sweep).
+Hand-verified EVERY family's full "new" sample (42 rows dumped, not just
+a subset): 100% genuine real definitions — real trigger, real quoted
+term, real definition clause. Two borderline cases specifically chased
+down: (1) `נוהל לתמיכות מתקציב המדינה` term `"להעביר"` ("to transfer") —
+a VERB being defined looked suspicious, but the raw text confirms a
+genuine inclusive definition (`לעניין זה, "להעביר" - לרבות למכור,
+לשעבד, ...`), a normal Israeli-legislative-drafting pattern for verbs;
+(2) `חוק הגבלת הפרסומת...` term `"מערכת הביטחון"` and `צו הפיקוח על
+מצרכים...` term `"שאינם ראויים למאכל אדם"` both have a
+DEFINITION-TEXT-TRUNCATED-AT-A-COLON artifact (`"... - כל אחד מאלה:"`)
+because the real definition continues on subsequent `::`-indented
+sub-items the single-line grammar doesn't reach — the TERM capture is
+still correct and genuine, this is a pre-existing definition_text-
+completeness characteristic already shared by every comma-triggered
+instance of this same grammar (not a new defect introduced by the
+punctuation widening). **Zero false positives found.**
+
+Tests (NEW, `test_definition_links_il_phase_c_widening_live.py`, all
+proven RED — see suite tail below):
+`test_c1_tzere_lenyan_zeh_bare_space_variant_is_currently_missed`,
+`test_c1_yod_lenyan_zeh_bare_space_variant_is_currently_missed`,
+`test_c1_beseif_zeh_bare_space_variant_is_currently_missed`,
+`test_c1_beseif_zeh_colon_variant_is_currently_missed`,
+`test_c1_betakana_zo_dash_variant_is_currently_missed`,
+`test_c1_beseif_katan_zeh_dash_variant_is_currently_missed`,
+`test_c1_beparagraph_zo_dash_variant_is_currently_missed`,
+`test_c1_lenyan_seif_zeh_dash_variant_is_currently_missed`.
+
+### C2 — same-line-swallow: PLANNED, RED committed
+
+Synthetic repro re-verified (this session, direct call, NOT a pytest
+test — the pytest test below is the live-path RED):
+```python
+>>> _LOCAL_TRIGGER_RE.finditer('foo; לענין זה, "א" - defA; לענין זה, "ב" - defB.')
+# 1 match only: group(1)='א', group(2)='defA; לענין זה, "ב" - defB.'
+```
+matches the log's own citation exactly. All three real corpus instances
+QA cycle 2 named were independently re-confirmed live by this Planner:
+```
+היתר לעשיית עסקה בניירות ערך (עובדי הרשות) art1  -> captured {'החזקה כדין של ניירות ערך','תקנון הבורסה','תאגיד מפוקח'}, "חברה מוחזקת" ABSENT
+חוק הסדרת מקומות רחצה                      art5א -> captured {'מקום מרפא'}, "בית מלון" ABSENT
+חוק מס ערך מוסף                            art106ב -> captured {'בעל תפקיד'}, "בעל שליטה" ABSENT
+```
+Vendored only the smallest as the fixture (`חוק הסדרת מקומות
+רחצה_art5א_excerpt.wiki`, byte-verified per methodology) — the other two
+are recorded here as corroborating live evidence, not built as separate
+fixtures (proportionate effort; one clean RED test suffices for
+RED-provenance, all three share the identical root cause).
+
+**Design guidance for the Developer (non-overlap / dedup-hazard
+reasoning, per the manager's explicit ask):** the fix must be an
+ADDITIVE sibling rule (never edit `_LOCAL_TRIGGER_RE`). Whatever shape
+that sibling takes, it should stamp `scope="local"` for this trigger
+vocabulary — IDENTICAL to what the frozen rule already stamps. This
+matters because `pipeline.py`'s dedup key is `(article_id,
+sorted(terms))` with first-candidate-wins: if the additive sibling's own
+scan also happens to re-capture the FIRST (already-captured) term on a
+swallow-affected line, that's a harmless duplicate PROVIDED the two
+candidates agree on scope (which they do, by design) — order cannot
+silently swap in a wrong scope. Confirmed this reasoning is not merely
+asserted: checked that no OTHER newly-shipped rule (takana/subsection/
+paragraph/tzere) is vulnerable to the same swallow bug, since each is
+its own independent regex object scanning the untouched body
+independently — only the FROZEN `לענין זה|בסעיף זה` alternation shares
+one capture group across two trigger words, which is the actual root
+cause (re-confirms QA cycle 2's own finding, not merely repeated).
+
+Test (NEW): `test_c2_second_same_line_trigger_match_is_currently_swallowed`.
+
+### C3 — inline בפרט זה single-line form: PLANNED, RED committed
+
+Live re-confirmation (this session, the log's own named example):
+```
+חוק בתי משפט לענינים מינהליים art40, "בפרט זה, \"גוף אחר\" - כהגדרתו..." -> extract_local_scope_definitions == set()
+```
+Fixture: `חוק בתי משפט לענינים מינהליים_art40_excerpt.wiki` (846 bytes,
+byte-verified).
+
+**FP measurement (`il_phaseC_plan_c3_fp_measure.py`).** Proposed rule:
+same single-line quote-dash grammar as every other trigger this sprint
+ships, punctuation-widened per C1's own finding (`בפרט זה(?:[,:\-]\s*|
+\s+)"term"\s*-\s*def`). Measured on the full corpus, ordinary articles
+only: **19 occurrences / 6 files** — an EXACT match to QA cycle 2's own
+"19/19 missed, 6 files" claim (`חוק בתי משפט לענינים מינהליים` (1),
+`חוק המידע הפלילי ותקנת השבים` (1), `חוק זכויות נפגעי עבירה` (1),
+`תקנות הביטוח הלאומי (קביעת דרגת נכות לנפגעי עבודה)` (2), `תקנות
+התכנון והבניה (בקשה להיתר, תנאיו ואגרות)` (9), `תקנות שוויון זכויות
+לאנשים עם מוגבלות (...)` (2)). Hand-verified all 19: every one is a
+real trigger + real quoted term + real definition (one has the same
+colon-continuation-truncation characteristic noted under C1, term
+capture itself still correct). **Overlap check with the already-shipped
+`::-` list-shape rule: 0** — structurally disjoint grammars (the list
+rule's own matched line ends in a bare `-` with nothing after it; this
+shape's matched line has the term+definition on the SAME line as the
+trigger) — verified by scanning every line in the corpus for BOTH
+regexes matching simultaneously: zero hits. **Zero false positives, zero
+double-capture risk.**
+
+Test (NEW): `test_c3_inline_beprat_zeh_single_line_form_is_currently_missed`.
+
+### C4 — single-`:-` list generalization incl. `פרשנות` synonym: PLANNED, RED committed
+
+**Non-overlap static proof (manager-verified fact #1, explicit assertion
+per the brief):**
+```python
+>>> _ENTRY_START_RE.pattern
+'^\\s*:-\\s?'
+>>> _ENTRY_START_RE.match(':- "term" - definition')      # -> matches
+>>> _ENTRY_START_RE.match('::- "term" - definition')     # -> None
+>>> _ENTRY_START_RE.match('::-"term" - definition')      # -> None
+```
+Confirmed structurally: leading `\s*` cannot consume the first `:` of
+`::-`, so the pattern always needs the character right after any leading
+whitespace to be `:` immediately followed by `-`; a `::-` line's SECOND
+character is `:`, not `-`. A new single-`:-` rule anchored the same way
+cannot double-fire alongside `il_colon_dash_nested_list_scope_
+triggers.py` on the same line — mutually exclusive by construction.
+Test (NEW, plain assertion, not live-path — the load-bearing invariant
+this whole item depends on): `test_c4_entry_start_re_cannot_match_double_colon_marker`.
+
+**`פרשנות` heading synonym (sub-shape i).** `is_definitions_heading`
+confirmed `False` for `"פרשנות"` and `"פרשנות (תיקון: ...)"` this
+session. Full corpus enumeration (`il_phaseC_plan_c4_population.py`,
+structural denominator: bare `-`-ending preamble line immediately
+followed by `:-`-marked `"term" - definition` entries, NOT gated by any
+trigger word — signal-agnostic per P-R7): **23 (file, article) pairs, 93
+terms**, every heading exactly `פרשנות` optionally with a `(תיקון: ...)`
+suffix (full per-file table logged in this session's scratchpad output,
+reproduced below):
+```
+חוק העיטורים במשטרת ישראל ובשירות בתי הסוהר  art1    5 terms
+חוק הצהרות מוות                              art1    3 terms
+חוק התגמולים לנפגעי פעולות איבה              art1    1 term
+חוק מס מקביל                                 art1    7 terms
+חוק מס עזבון                                 art13א  4 terms
+חוק רשות השידור                              art1    6 terms
+חוק תכנית החירום הכלכלית (...)               art26   2 terms
+כללי אתיקה לדיינים                           art1    6 terms
+כללי אתיקה לשופטים                           art1    7 terms
+פקודת המשטרה                                 art49א  2 terms
+פקודת מס הכנסה                               art235א 4 terms
+צו התגמולים לנפגעי פעולות איבה (...)         art1    2 terms
+תקנות הבטיחות במקומות ציבוריים (סדרנים...)   art1    5 terms
+תקנות הביטוח הלאומי (ביטוח נכות)(...)        art1    4 terms
+תקנות הכשרות המשפטית והאפוטרופסות (...)      art1    11 terms
+תקנות המשקלות והמידות                        art44   3 terms
+תקנות העיצובים (יישום הסכם האג)              art1    5 terms
+תקנות התגמולים לנפגעי פעולות איבה (...)      art1    1 term
+תקנות מוסדות חינוך תרבותיים ייחודיים (...)   art1    4 terms
+תקנות מס הכנסה (קביעת שיעור ריבית...)        art1    3 terms
+תקנות סדרי הדין בעניני בוררות                art1    2 terms
+תקנות סימני מסחר (יישום פרוטוקול מדריד)      art1    4 terms
+תקנות שירות עבודה בשעת-חירום (מתנדבים)       art1    2 terms
+```
+**Honest reconciliation note:** this Planner's own count (93/23) differs
+from QA cycle 2's cited "116 terms/23 files" for the SAME sub-case. Same
+23 files/articles in both — the file/article population agrees exactly.
+The term-count gap is explained, not hand-waved: this Planner's
+structural scanner (deliberately modeled AFTER the exact algorithm the
+real fix will use, mirroring `il_colon_dash_nested_list_scope_
+triggers.py::_extract`'s own single-pass "consume `:-` lines until a
+non-matching line, then STOP" loop) stops collecting entries at the
+first `::`-indented CONTINUATION line inside a multi-line entry (e.g.
+`חוק התגמולים לנפגעי פעולות איבה` art.1's `"פגיעת איבה"` entry
+continues via three `:: (1)/(2)/(3)` sub-items) — any FURTHER `:-`
+entries appearing after such a continuation break in the SAME list are
+therefore undercounted by this Planner's (and, predictably, the real
+rule's) simple algorithm, exactly the SAME known limitation the
+already-shipped `::-` rule has for its own captures (not a new defect).
+QA cycle 2's "116" was very likely counted with a more lenient
+whole-body `"term" -` scan (their own methodology note: "a generic
+quote-first scan classified AFTER matching"), which does not stop at
+continuation breaks. **Net: the real fix will capture at least 93/93
+terms across these 23 files with certainty (this Planner's own
+conservative, algorithm-faithful count); the residual ~23-term gap
+implied by QA's broader count is a genuine, separate completeness nuance
+(multi-line entries after a continuation break) shared with the ALREADY
+-shipped `::-` rule — flagging for QA cycle 3 to re-measure once the
+Developer's actual implementation lands, not deciding it myself.**
+
+Live re-confirmation of the fixture example:
+```
+כללי אתיקה לדיינים art1 (heading='פרשנות'): is_definitions_heading -> False
+extract_local_scope_definitions -> set()  (all 6 terms: בן משפחה, דיין,
+דיין בדימוס, נושא משרה, נשיא בית הדין הרבני הגדול, עד מרכזי)
+```
+Fixture: `כללי אתיקה לדיינים_art1_excerpt.wiki` (byte-verified).
+
+**Genuine embedded lists (sub-shape ii).** Same structural denominator,
+EXCLUDING `פרשנות`/standard-heading articles: **1,014 terms / 170
+files** (superset of QA's "~107 files" estimate for the same sub-case —
+this Planner's sweep additionally catches several near-miss headings QA
+did not separately break out, e.g. numbered-prefixed `"N. הגדרות"`
+headings recurring throughout `קובץ החלטות מועצת מקרקעי ישראל`, which
+fall through `is_definitions_heading` for the identical "not exactly at
+the START of the heading text" reason `פרשנות` does, and are reached by
+the SAME fix for free — a bonus recall win, not a methodology error;
+flagged here rather than silently folded in). Trigger-word breakdown of
+the combined (i)+(ii) population (1,107 terms total): `(none)` 405,
+`בסימן זה` 141, `בחלק זה` 134, `בפרק זה` 95, `בתקנות אלה` 104, `בסעיף
+זה` 109, `לעניין זה` 42, `לענין זה` 24, `בתקנה זו` 25, `בפרט זה` 9,
+`בסעיף קטן זה` 3, `לענין/לעניין תקנה זו` 12, `לענין הסעיפים` 4 — the
+"trigger-less" 405 bucket is dominated by very common generic preambles
+(`בחוק זה -`, `בתקנות אלה -`, `בהסכם זה -`, `[[בפרק זה]] -` via
+wikilink) not in the sprint's existing trigger-word table at all;
+`_infer_scope`'s existing default-to-`"local"` fallback (same as the
+`::-` rule) handles these safely without overclaiming a wider scope.
+
+Two fixtures vendored for sub-shape (ii), both live-reconfirmed:
+```
+חוק העונשין art401 (heading='גניבת כלי שיט...'): preamble 'בסעיף זה -' -> set()  ("כלי שיט"/"כלי טיס")
+חוק הדיור המוגן art55 (heading='תחולה על בתים משותפים'): preamble 'לעניין זה -' -> set()  ("בית משותף"/"חוק המקרקעין")
+```
+(`חוק גיל פרישה` art.13א, the log's OWN cited "no trigger at all"
+example, was independently re-checked and found to actually contain the
+recognized phrase `לעניין זה -` directly before the dash — a correction
+to the prior framing, recorded per this file's append-only convention,
+not silently substituted. A genuinely trigger-less real instance DOES
+exist in the corpus — e.g. `פקודת האגודות השיתופיות` art.2's `"...
+הפירושים דלקמן, מלבד אם ענין הכתוב יחייב פירוש אחר -"` — but this
+Planner did not build a dedicated fixture/test for the trigger-less
+default-to-`"local"` fallback specifically; the two vendored fixtures
+above already prove sub-shape (ii) is reachable, and `_infer_scope`'s
+default behavior is unit-testable by the Developer/QA without a new
+corpus fixture if desired.)
+
+**Adversarial FP hunt (P-R2/D-Q1).** Automated proxy scan across all
+1,107 candidates for `len(term) <= 1` or empty `definition_text`: 13
+flagged. Hand-checked every one: ALL are genuine terms whose definition
+content is a MULTI-LINE `::`-continuation (same completeness nuance
+noted above, term identity still correct — e.g. `חוק התגמולים לנפגעי
+פעולות איבה` art.1's `"פגיעת איבה"`, definition continues via `:: (1)/
+(2)/(3)` sub-items) — zero of the 13 are a spuriously-captured non-term.
+No candidate anywhere violates the strict `"term" - definition`
+entry-line grammar (the SAME precision guard the shipped `::-` rule
+already relies on: a preamble ending in `-` for an unrelated reason,
+e.g. a table row, can never fabricate a candidate — it can only
+"activate" entries that already look exactly like a definition).
+**Zero structural false positives found across the full corpus.**
+
+Tests (NEW):
+`test_c4_entry_start_re_cannot_match_double_colon_marker` (static proof,
+passes today, correctly — not a RED),
+`test_c4_parshanut_heading_synonym_single_colon_list_is_currently_missed`,
+`test_c4_embedded_single_colon_list_with_trigger_is_currently_missed`,
+`test_c4_embedded_single_colon_list_second_trigger_word_is_currently_missed`.
+
+### Fixture byte-verification (all 13, summarized — full per-fixture
+transcript in this session's `il_phaseC_plan_fixture_builder.py` output)
+
+Every fixture: (1) `fixture_text in raw_corpus_source` → `True` (with
+logged byte offset), (2) re-parsing the fixture alone reproduces the
+identical single `Article` (number/body byte-equal), (3) LIVE captured-
+terms set identical between the original untrimmed article body and the
+fixture body. All 13/13 PASS on all three checks; zero fixtures written
+that failed any check (the builder script refuses to write on failure).
+
+### RED proof — full new-file run
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_phase_c_widening_live.py -v
+...
+13 failed, 1 passed in 0.33s
+```
+The 1 pass is `test_c4_entry_start_re_cannot_match_double_colon_marker`
+(a structural invariant that correctly holds TODAY, not a miss). All 13
+capture-behavior tests fail with `AssertionError` showing the expected
+term(s) absent from `created_definitions` — RED for the right reason,
+not an error/fixture-loading failure.
+
+### Full suite
+
+```
+backend/.venv/bin/pytest backend/tests -q
+...
+17 failed, 728 passed, 18 warnings in 16.67s
+```
+Exactly `4` (the E6-held set: 3 class-(d) tests +1 item-11 test,
+unchanged, untouched) `+ 13` (this Planner's new REDs) `= 17` failed;
+`727` (untouched baseline) `+ 1` (the new green non-overlap proof) `=
+728` passed. Reproduced twice, stable.
+
+### Boundaries / git discipline (M14)
+
+`git status --short`: 14 untracked files (13 fixtures under
+`backend/tests/fixtures/wiki_laws/` + 1 new test file
+`backend/tests/integration/test_definition_links_il_phase_c_widening_
+live.py`) — zero modifications to any existing file, zero
+`backend/app/**` touched. Staged/committed with EXPLICIT paths only
+(never `git add -A`/`git add .`, per M14). No `git stash` used.
+
+### Honest gaps / assumptions (nothing hidden)
+
+1. C2's fix design (additive sibling rule) is this Planner's
+   recommendation for the Developer, not implemented or independently
+   proven beyond the reasoning above — the RED test proves the MISS, not
+   any particular fix shape.
+2. C4's term-count reconciliation (93 vs QA's 116 for the `פרשנות`
+   sub-case) is flagged, not resolved — see the honest note above;
+   recommend QA cycle 3 re-measure against the Developer's actual
+   implementation rather than trusting either sweep's number as final.
+3. This Planner did NOT build a dedicated fixture/test for C4's
+   genuinely-trigger-less default-to-`"local"` fallback path (found one
+   real instance, `פקודת האגודות השיתופיות` art.2, but judged the two
+   triggered-embedded fixtures already sufficient for RED-provenance;
+   proportionate-effort call, not an oversight).
+4. Did not attempt to measure or fix the definition_text-truncation-at-
+   multi-line-continuation characteristic noted under both C1 and C4 —
+   it is pre-existing (shared by every comma-triggered/`::-`-triggered
+   instance already shipped), out of this bundle's scope, and does not
+   affect term-identity correctness (only definition_text completeness)
+   — noted for awareness, not escalated as a conflict (no recall-vs-
+   precision tension here, just an existing completeness limit).
+5. Did not vendor fixtures for the 2 additional real C2 instances
+   (`היתר לעשיית עסקה בניירות ערך`, `חוק מס ערך מוסף`) beyond the one
+   used for the RED test — live-reconfirmed but not built as separate
+   fixtures (proportionate effort per the sprint's own established
+   discipline for Group-B-style single-mechanism items).
+
+qa_cycles: 2 (unchanged — Phase C is Planner work; QA cycle 3 is next).
