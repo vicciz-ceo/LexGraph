@@ -2349,3 +2349,66 @@ per M-R5); R2 = F5/F6 state inventory unverified beyond fixtures (U4's job).
 **Sequence now:** narrow → prove the OR row live → re-measure dups on the
 narrowed rule → dispatch the dup fix only if duplicates persist → then QA +
 U4. QA must NOT certify the pre-narrowing rule.
+
+---
+
+## 2026-08-04 — F6 narrowing: Developer tripwire fired; E3 clarified
+
+### The Developer did this exactly right — on the record
+
+Applying my specified narrowing broke
+`test_or_cross_reference_style_definitions_resolve`. The Developer:
+proved the cause LIVE (4 of 5 OR terms captured post-narrow; suite
+`5 failed / 789 passed`, exactly ONE new failure); **did not touch the test**;
+**did not compensate** by loosening the regex or special-casing the row;
+reverted; verified the repo clean at `e2a3f36` twice; and reported with
+OPTIONS instead of deciding. Manager-verified just now: rule files
+byte-identical to `e2a3f36`, tree clean, `4 failed / 790 passed`, regex still
+un-narrowed. That is the standard this workflow exists to produce — a
+Developer that stops at a boundary it cannot see past, rather than making the
+red go away.
+
+### What it found (my brief was incomplete, not wrong)
+
+The OR row has FIVE defined terms. Four use cross-reference idioms
+(`has the meaning given that term in ORS …`). The fifth, **`"Taken"`**, is
+defined with PLAIN `means`. My narrowing brief and my own root-cause analysis
+both treated the OR row as wholly cross-reference — it is not. My projected
+0.35% figure stands, but "the OR row must remain captured" was ambiguous
+between "the row" and "every term in it".
+
+### E3 CLARIFIED (program manager, whose requirement it was): option 1
+
+"The OR row must remain captured" is satisfied by the **4 cross-reference
+terms** — that is F6's capture. `"Taken"` is a plain-`means` quoted-term
+definition in an ordinary body, which is **family 1's mechanism by my own
+root-cause analysis**; under E3 it was never F6's to keep. The test currently
+pinning it to F6 encodes PRE-E3 scope. **The PLANNER amends it** (test changes
+are Planner-owned) to expect exactly the 4 cross-reference terms, with a
+comment naming where `"Taken"` went and why.
+
+**Option 2 (proximity-scoped `means`) REJECTED** by the program manager:
+re-opens the dual-ownership ambiguity E3 closed, is untested, and trades a
+clean boundary for a heuristic. Recorded so nobody re-proposes it.
+
+### BINDING zero-miss condition (program manager)
+
+`"Taken"` @ `STATE_OR_T41_C496_S496.716` is now **R3 on the Residual ledger**
+as a cross-panel handoff. It closes **ONLY** when scoped-inline's family-1
+live path PROVABLY captures that exact row — a live run or a named-row test on
+their side, confirmed by their manager. **A general "our family covers that
+shape" claim does NOT close it**; the program has been burned by exactly that
+inference twice. I must coordinate directly with the scoped-inline manager and
+queue it for their cycle-2 planning (they are mid-verification on a separate
+escalation). If they veto ownership, escalate back to the program manager.
+**The term must not fall between panels** — that is precisely the failure mode
+the director's absolute zero-miss bar exists to prevent.
+
+### Sequence
+
+Planner amends the OR test (run it against the NARROWED regex so the
+amendment is proven to match the narrowing, not merely asserted) → Developer
+re-applies the identical narrowing → **I** re-measure fire-rate (~0.35%
+projected; if far off, stop) and dup rate on the narrowed population with my
+own corpus tooling (the Developer has no parquet — known limitation, do not
+ask it to) → QA + U4.
