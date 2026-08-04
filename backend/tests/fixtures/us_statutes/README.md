@@ -539,3 +539,108 @@ D-DF touches only the `for` word alternation, not the punctuation/dash
 branches of `_VERB_EXTENDED_RE` at all, and both are already covered by
 pre-existing regression evidence (BUG2/cycle-2, see the module's own
 docstring) — mechanically unaffected by this change.
+
+## Cycle-5 fixtures (sprint 2026-08-04-defs-us-headings, dev cycle 5)
+
+Six new files, 42 REAL rows total (all 24 original parquet columns, values
+unmodified), pulled 2026-08-04 from the same locally-cached corpus snapshot
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`) via a disposable script outside
+`backend/.venv` reading directly from
+`~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc.../`
+(never downloaded by a committed test, ruling R6). Every row's provenance is
+the manager's own measured gap-class evidence
+(`.../scratchpad/headings_mgr3_gap_rows.json`,
+`.../scratchpad/headings_mgr3_class5_evidence.json`, both handed to this
+Planner by exact path, P-R9), not re-discovered independently. **Byte-identity
+verified for all 42 rows across all 24 columns** by an INDEPENDENT re-read
+(`scratchpad/plan5_verify_byte_identity.py`, a fresh `pyarrow.read_table` call
+per row, never reusing the builder script's in-memory state) — zero mismatches.
+
+### `cycle5_defined_and_rows.json` — item 10, R-VERB-extended `and` connector (6 rows)
+
+Manager-measured population: 45 rows / 19 states. Six representative rows,
+one per state, chosen from the manager's own "hand-verified genuine" list:
+`STATE_MI_C440_AAct-174-of-1962_S440.4952` (`"Creditor process" defined and
+explained.`, body literally `As used in this section, "creditor process"
+means levy, attachment, garnishment...`), `STATE_IA_TXVI_C701_S701.7`
+(`Felony defined and classified.`), `STATE_KS_C79_A11_S79-1130`, `STATE_ND_
+T29_C29-17_S29-17-33`, `STATE_NV_Tpreliminary-chapter_C0_S0.040` (`
+"Physician" defined and limited`, body `"physician" means a person who
+engages in the practice of medicine...`), and `STATE_LA_Crevised-statutes_
+T38_S3009` — the Louisiana templated `"pollution defined and prohibited"`
+shape (ledger L4) whose body genuinely never mentions "pollution" (verified:
+0 occurrences in the 3,598-char body), vendored specifically to prove H-R1's
+"capture the heading regardless of body yield" requirement with a real,
+body-empty row, not a synthetic one.
+
+### `cycle5_mojibake_rows.json` — item 11, RI mojibake dash/quote normalization (4 rows)
+
+Manager-measured population: 10 genuine rows, all Rhode Island. Three
+positive rows (`STATE_RI_T24_C24-8_S24-8-27`, `STATE_RI_T44_C44-18_
+S44-18-15.2`, `STATE_RI_T5_C5-11_S5-11-1.1` — the last one also exercising
+the mojibake `and`-joined multi-term-list shape, `"Hawkers," "peddlers,"
+and "door-to-door salespersons" defined`) plus the REQUIRED negative guard
+`STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to "trustee".`,
+same mojibake bytes, `defin` substring from "Indefinite" — ledger L6). All
+four carry the real `\x80\x94`/`\x80\x9c`/`\x80\x9d` CP1252-artifact byte
+sequences verbatim (confirmed via `repr()` on the loaded JSON string, not
+just visual inspection — JSON round-trips these bytes as literal ``-
+range codepoints, preserved exactly).
+
+### `cycle5_pointer_table_rows.json` — item 12, D-MT-E1 pointer-table headings (9 rows)
+
+The manager's full population (9 rows / 7 states — CO, CT, IA, ME, OK, SC
+x3, WY — exceeding QA cycle 3's own 7-row/6-state count by finding
+`STATE_OK_T14A_S14A-1-303` and `STATE_WY_T40_C14_S40-14-142`, both
+independently confirmed genuine pointer tables by this Planner from their
+real body text). Vendored in full (not a sample) because the class is small
+and every member is directly asserted in
+`test_definition_links_us_heading_variants_cycle5.py`.
+
+### `cycle5_defined_qualifier_rows.json` — item 13, `defined (qualifier)` / `defined to [verb]` (7 rows)
+
+The manager's full population (KY 1, MO 4, PA 1 repealed, VA 1 — the
+judgment-call row). Vendored in full; every row is directly asserted. The
+VA row's FULL 758-char body (`STATE_VA_T8.01_C14_A4_S8.01-397.1`) is what
+the judgment call in the test module's own docstring is based on — fetched
+independently of, and materially different from, the manager's 400-char
+`body_head` evidence snippet, which cuts off exactly before subsection B's
+decisive "Habit and routine practice defined. A "habit" is a person's
+regular response..." sentence.
+
+### `cycle5_class5_connector_rows.json` — item 15, manager course-correction (11 rows)
+
+Delivered mid-cycle after the manager independently classified the FULL
+1,224-row U4 residual (not a sample) and found a fifth capture class the
+original four items didn't cover. Six positive rows (the `further`/`when`/
+`in case of` word-connector shapes and the trailing-digit/bracket scrape-
+artifact shape, one per manager-cited candidate act_id that this Planner's
+measured, corpus-wide-precision-checked design actually captures — see the
+test module's own docstring for the full recall/precision numbers and why
+a broader "inversion" design was measured and rejected) plus five negative
+guards, one per named excluded shape (`STATE_IN_T27_A1_C50_S27-1-50-2`
+adjectival jargon, `STATE_AK_T11_C11.81_S11.81.220` all-offenses-by-statute,
+`STATE_FL_TXLVI_C800_S800.05` as-defined-in-elsewhere cross-reference,
+`STATE_WA_T43_C41_S109` + `STATE_ND_T1_C1-01_S1-01-09` defined-by-rule/
+by-statute delegation).
+
+### `cycle5_u2_scope_rows.json` — item 14, U2 scope-expressibility (5 rows)
+
+`STATE_AK_T13_C13.06_S13.06.050` (the chapter-range worked example, already
+vendored for heading-recognition purposes in `us_heading_variants_rows.json`
+row 5 — re-vendored here as its own standalone file so the scope-focused
+test files don't need to reach into a differently-themed fixture) plus all
+4 of the U2 ledger's KY rows (`STATE_KY_TIII_C17_S17.185`, `STATE_KY_TXIII_
+C156_S156.106`, `STATE_KY_TXI_C139_S139.486`, `STATE_KY_TXXI_C246_
+S246.420`) — only one of the four (156.106) declares an ENUMERATED scope
+("...for this section and KRS 161.605..."); the other three declare a
+plain single-article local scope ("...Definitions for section."), vendored
+together so `test_definition_links_us_heading_variants_cycle5_scope_parse.py`
+can assert the DISTINCTION between "no additional scope member" (empty
+tuple) and "not this heading shape at all" (`None`) using real, contrasting
+rows rather than a single cherry-picked example. The other 5 of the 10 U2
+act_ids (CT, NJ, TN, UT, VA) are NOT vendored here — no test in this cycle
+references them; their real body text (fetched and read by this Planner
+for the per-row U2 verdict in the report to the manager) lives in
+`scratchpad/plan5_item14_u2_rows_full.json`, not as a committed fixture,
+since nothing in this codebase's test suite exercises it.
