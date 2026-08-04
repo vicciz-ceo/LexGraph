@@ -20,6 +20,9 @@ Internal orchestration records. Not auto-loaded; not director-facing.
   predecessor context-limit exit): aa5eb2a338fe6b0ab
 - 2026-08-04 PR phase-2 manager (opus, fresh context after predecessor
   rebased onto merged core and clean-exited): a79f6fed9fced34da
+- 2026-08-04 core dispatch phase-3 manager (opus, fresh context after
+  phase-2 manager clean-exited at its named context line, pre-final-batch):
+  adb9a8660bd062f7f
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
