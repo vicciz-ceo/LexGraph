@@ -1935,3 +1935,112 @@ worry. `pipeline.py:234-269`, read directly:
   distinct `(row, sorted-terms)` pairs, not raw candidates**, and say how much
   the two figures differ. Under this program's honesty standard we do not
   ship an improvement number that silently double-counts.
+
+---
+
+## 2026-08-04 — Manager: core dispatch merged; ruling S-R14 (the revert needs
+MORE than the mapping flip — proven, not argued)
+
+Program manager's sequencing note: dispatch merged to main @ `8524067`; run the
+revert cycle; step (1) is "rebase and CONFIRM the tripwires fire — if they
+don't, that's a finding, investigate before anything else."
+
+**They did not fire. I investigated before doing anything else, and the
+investigation changed the shape of the revert.**
+
+### Why the tripwires were silent (benign, and the design is fine)
+
+Merged `origin/main` into a scratch worktree I control, refreshed the venv,
+ran the two tripwires: **`2 xfailed`** — no alarm.
+
+Applying P-R10 (before claiming X is broken, explain why everything
+downstream of X is not already visibly broken): both tests assert
+`definition_row.scope == "subsection"` BEFORE they assert any linking
+behavior. While `_SCOPE_BY_UNIT["subsection"]` is still `"local"`, that first
+assertion fails, so the test fails for the interim's own reason and the xfail
+holds. The tripwire is gated on **our** revert, not on core's merge — which is
+exactly what both `reason=` strings already say ("once core lands its fix
+**AND** the Developer reverts `_SCOPE_BY_UNIT['subsection']`"). So: **not a
+defect, and not a broken alarm** — the expectation that a rebase alone would
+fire it was simply mis-stated. Recorded rather than quietly corrected, because
+had I taken it at face value I would have gone hunting for a phantom defect in
+core's freshly-merged fix.
+
+### The real finding: flipping the mapping ALONE ships a SILENT UNDER-LINK
+
+I flipped `_SCOPE_BY_UNIT["subsection"] → "subsection"` in the scratch tree
+(probe only, never the real branch) and re-ran:
+
+- **Direction 2 XPASSED → suite FAILURE.** The alarm fires, and core's
+  level-contract fix is confirmed **live and reachable from our path**: an
+  out-of-subsection mention is correctly NOT linked.
+- **Direction 1 STILL xfailed.** A mention truly INSIDE the defining
+  subsection got no edge at all.
+
+Direction 1 is the under-link direction. Under the director's absolute
+zero-miss bar that is disqualifying — and it is strictly worse than the
+interim, which over-links (a precision cost) rather than under-linking (a
+miss). **So the ordered step "restore the mapping" is, on its own, not a
+revert but a regression.**
+
+### Root cause, measured on the real Oregon row (not inferred)
+
+`STATE_OR_T22_C238_S238.300`, real offsets, core's own resolver:
+
+| offset | what | core's `resolve_unit_path` |
+|---|---|---|
+| 3405 | the trigger | `[digit 1, lower_alpha b, upper_alpha B, lower_roman c]` |
+| 4466 | in-subsection mention | `[digit 1, lower_alpha b, upper_alpha B, lower_roman c]` |
+| 2046 / 2344 | out-of-subsection mentions | `[digit 1]` |
+
+Our `_subsection_label` returns `'c'`. Core's outermost step is `'1'`, so
+outermost-comparison can never match — the innermost-vs-outermost mismatch
+S-R10 identified, still live.
+
+**And the obvious fix is a trap.** Deriving a kind from our label's SHAPE
+(`'c'` → `lower_alpha`) DISAGREES with core, which classifies that very marker
+as **`lower_roman`** — because kind follows LADDER DEPTH, not glyph shape
+(`c` is a roman-numeral character, and at depth 3 the rung is `lower_roman`).
+A shape-derived declaration would silently mis-scope. This is M-D3's erratum
+biting exactly where S-R12 predicted, and it is why "never table-copied" is
+not enough: a per-state table would ALSO have been wrong here, because the
+divergence is per-DEPTH within a single row.
+
+### S-R14 — the revert derives from CORE's resolver, not from a second
+derivation of our own. Validated end-to-end.
+
+The whole S-R10/S-R11 family of defects exists because two independent
+derivations of a subsection label were compared against each other. The fix is
+to stop having two. Our rule already has the body and the trigger offset, and
+`resolve_unit_path` needs nothing else — so the rule asks CORE for the unit
+step open at the trigger and stamps **both** `scope_value` and
+`scope_unit_kind` from it.
+
+I probed this in the scratch tree (one derivation, innermost open step):
+
+**Both tripwires XPASS → suite FAILURE — the alarm firing correctly, with
+direction 1 now genuinely linking and direction 2 genuinely not.**
+
+This also answers S-R12 more strongly than a per-state table ever could: we
+consult no English-word→kind table at all, and core's 3-ladder resolver
+already selects its ladder from each state's OWN first marker. Per-state
+correctness is inherited from core's measured ladders instead of re-asserted
+by us.
+
+**Honest limit of what I proved.** My probe validates the MECHANISM on one
+real row. It takes the INNERMOST open step (`path[-1]`), and whether
+"innermost" is the right level for every state and every trigger phrasing is
+NOT proven — a trigger deep inside `(1)(a)(i)` saying "this subsection" may
+well mean `(1)`. That level-selection policy is exactly the per-state
+measurement S-R12 demands, and it stays the Planner's job. I am handing the
+panel a validated mechanism and an open, named policy question — not a
+finished answer.
+
+### Seam gap, recorded for the program manager (not ours to fix)
+
+`us_profile.extract_local_scope_definitions` still builds
+`RuleContext(..., unit_path=())` — hardcoded empty on `origin/main`. A
+`ScopeTriggerRule` therefore gets NO unit-path context from the seam, which is
+why our rule must import `resolve_unit_path` directly. That works and stays
+inside our fence, but it is a rule→`us_profile` dependency the seam was
+presumably meant to remove. Routed up as a core seam observation.
