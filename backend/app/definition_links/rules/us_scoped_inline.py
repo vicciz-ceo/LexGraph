@@ -8,11 +8,13 @@ Self-registers at import time by existing as a file in this package
 (`rules/__init__.py`'s auto-discovery, core-authored) -- no other file
 needs to change (ruling S-R2/U3).
 
-Scope-unit -> `.scope` mapping (rulings S-R9/S-R11, binding -- full
-reasoning in the sprint log's S-R4/S-R5/S-R9/S-R10/S-R11 sections):
+Scope-unit -> `.scope` mapping (rulings S-R9/S-R14/S-R15, binding -- full
+reasoning in the sprint log's S-R4/S-R5/S-R9/S-R10/S-R11/S-R14 sections):
 
     "section" -> "local"; "chapter" -> "chapter";
-    "subsection" -> "local" (S-R11 interim);
+    "subsection" -> "subsection", derived from CORE's resolver (S-R14,
+    see `_resolve_subsection_scope`), degrading to "local" when core
+    cannot resolve a step at the trigger offset (same fn, zero-miss);
     "part"/"subchapter"/"article"/"title"/"paragraph"/"division"/
     "subdivision"/"subpart"/"act" (residue kinds) -> "law-wide"
 
@@ -20,19 +22,36 @@ reasoning in the sprint log's S-R4/S-R5/S-R9/S-R10/S-R11 sections):
 `_in_scope` (S-R4); every OTHER literal kind falls into its generic
 branch, reading a `MatcherArticle` attribute that does not exist in
 production -- `False` for every article, including the definition's own
-(S-R5): a guaranteed zero-miss violation. Both `"part"`/`"subchapter"`
-(D8: UNSOUND under a chapter-fallback -- a single Maine Part spans up to
-106 chapters) and `"subsection"` (S-R10: core's `resolve_unit_path` and
-this module's own `_subsection_label` derive a subsection label two
-independent ways that never agree -- a level-contract defect in core's
-shared `us_profile.py` -- so true `scope="subsection"` links nothing
-live) therefore fall back to the narrowest REPRESENTABLE enclosing unit
-rather than a kind guaranteed dead -- `"law-wide"`, `"local"` -- core's
-own precedent for an unrepresentable narrowing (seam v2 S1, AK ranges):
+(S-R5): a guaranteed zero-miss violation. `"part"`/`"subchapter"` (D8:
+UNSOUND under a chapter-fallback -- a single Maine Part spans up to 106
+chapters) therefore fall back to the narrowest REPRESENTABLE enclosing
+unit rather than a kind guaranteed dead -- `"law-wide"` -- core's own
+precedent for an unrepresentable narrowing (seam v2 S1, AK ranges):
 zero-miss-safe, precision cost recorded not silently dropped (NAMED OPEN
-CONFLICT CLASSES, P-R2). Revert `"subsection"` once core's resolver fix
-lands (self-alarming `xfail(strict=True)`,
-`test_us_scoped_inline_pipeline_subsection_live.py`).
+CONFLICT CLASSES, P-R2).
+
+`"subsection"`'s own history (S-R9 diagnosis -> S-R10 live-path proof ->
+S-R11 interim -> S-R14 fix): the old design compared this module's OWN
+`_subsection_label` regex guess against core's `resolve_unit_path` -- two
+independent derivations of the same label that never agreed (a level
+mismatch, nearest-marker vs. outermost step, plus a format mismatch),
+producing a silent, total under-link on the live path (S-R10). S-R14
+replaces the two derivations with ONE: `_resolve_subsection_scope` calls
+core's `resolve_unit_path` at the trigger's OWN char offset and stamps
+BOTH `.scope_value` and `.scope_unit_kind` from the SAME step core
+returns -- never from this module's own label's glyph shape (kind follows
+core's ladder DEPTH, not shape; a shape guess silently disagrees with
+core on the real `STATE_OR_T22_C238_S238.300` row, S-R14). WHICH step of
+the returned path to use is the S-R15 policy question, factored into the
+one function `_subsection_scope_level` (interim, binding: the innermost
+open step, `path[-1]` -- the only option with live-path evidence today).
+When core's resolver returns no usable step at all (e.g. Maine/Florida
+period-style `1.`/`2-A.` subsections -- core's marker regex matches only
+PARENTHESIZED markers), a true `"subsection"` scope would be guaranteed
+to link nothing; `_resolve_subsection_scope` degrades that one candidate
+to `"local"` instead -- the same narrowest-REPRESENTABLE-unit fallback
+precedent as S-R9/S-R11, zero-miss-safe, precision cost measured not
+silently dropped.
 
 The pure function leaves `.source_article_number`/`.source_chapter` `None`
 (matching `extract_local_definitions`'s convention): `us_profile.py`'s
@@ -40,10 +59,11 @@ The pure function leaves `.source_article_number`/`.source_chapter` `None`
 from the owning article whenever `None`, but NOT `.source_chapter`, so the
 adapter below stamps `source_chapter=ctx.chapter` itself for every
 `scope="chapter"` candidate (mirrors core's `pipeline.py` Definitions-
-path). `.scope_value` (the subsection label, transient per S-R7) is
-stamped for every `subsection`-TRIGGERED candidate regardless of the
-S-R11 interim mapping (provenance, ready for the post-core revert); no
-test pins its exact value -- best-effort, not a contract.
+path). `.scope_value`/`.scope_unit_kind` are stamped for every
+`subsection`-TRIGGERED candidate by `_resolve_subsection_scope`; the
+VALUE stays transient (S-R7, no test pins it literally), but whether an
+in-subsection mention links and an out-of-subsection one does not is now
+genuinely live-path test-pinned.
 
 Body-shape (idiom) vocabulary, real corpus evidence (Planner D1/D11):
 `means`/`shall mean`/`has the meaning`/`has the same meaning as in
@@ -100,6 +120,7 @@ from app.definition_links.rules.us_scoped_inline_shapes import (
     _STRONG_CONNECTOR_RE,
     _find_entry_end,
     _multi_entries,
+    _resolve_subsection_scope,
     _single_entry,
     _unmarked_multi_entries,
 )
@@ -107,7 +128,7 @@ from app.definition_links.rules.us_scoped_inline_shapes import (
 _SCOPE_BY_UNIT: dict[str, str] = {
     "section": "local",
     "chapter": "chapter",
-    "subsection": "local",  # S-R11 interim, not "subsection" -- see module docstring
+    "subsection": "subsection",  # S-R14 revert -- restored; see module docstring
     "part": "law-wide",
     "subchapter": "law-wide",
     "article": "law-wide",
@@ -143,18 +164,6 @@ _EMBEDDED_TRIGGER_RE = re.compile(
     re.IGNORECASE,
 )
 
-_SUBSECTION_LABEL_RE = re.compile(r"(?:^|\n)\s*([0-9]+(?:-[A-Za-z])?\.|\([0-9A-Za-z]{1,3}\))\s")
-
-
-def _subsection_label(body: str, trigger_start: int) -> str:
-    """Best-effort nearest preceding paragraph marker (Maine's "2-A.", a
-    lettered "(F)") -- transient (S-R7), no test pins its exact value.
-    Emitted BARE ("c"/"2-A", not "(c)"/"2-A.") to match `UnitStep.value`'s
-    convention (S-R11 format alignment -- ours, unlike S-R10's level
-    mismatch, which is core's)."""
-    matches = list(_SUBSECTION_LABEL_RE.finditer(body, 0, trigger_start))
-    return matches[-1].group(1).strip("().") if matches else "subsection"
-
 
 @dataclass
 class _TriggerEvent:
@@ -163,6 +172,13 @@ class _TriggerEvent:
     saw_colon: bool
     scope: str
     scope_value: str | None
+    scope_unit_kind: str | None
+
+
+def _event_scope(body: str, unit: str, trigger_start: int) -> tuple[str, str | None, str | None]:
+    if unit == "subsection":
+        return _resolve_subsection_scope(body, trigger_start)
+    return _SCOPE_BY_UNIT[unit], None, None
 
 
 def _leading_events(body: str) -> list[_TriggerEvent]:
@@ -172,10 +188,16 @@ def _leading_events(body: str) -> list[_TriggerEvent]:
         conn = _STRONG_CONNECTOR_RE.match(body, match.end())
         region_start = conn.end() if conn else match.end()
         unit = match.group("unit").lower()  # gate on the unit word, not `scope` (S-R11: dead)
-        scope = _SCOPE_BY_UNIT[unit]
-        scope_value = _subsection_label(body, match.start()) if unit == "subsection" else None
+        scope, scope_value, scope_unit_kind = _event_scope(body, unit, match.start())
         events.append(
-            _TriggerEvent(match.start(), region_start, bool(conn and conn.group("colon")), scope, scope_value)
+            _TriggerEvent(
+                match.start(),
+                region_start,
+                bool(conn and conn.group("colon")),
+                scope,
+                scope_value,
+                scope_unit_kind,
+            )
         )
 
     strong_spans = [(m.start(), m.end()) for m in strong_matches]
@@ -186,9 +208,12 @@ def _leading_events(body: str) -> list[_TriggerEvent]:
         if not conn or not (conn.group("colon") or conn.group("comma")):
             continue  # strict adjacency failed -- ordinary prose, not a trigger
         unit = match.group("unit").lower()
-        scope = _SCOPE_BY_UNIT[unit]
-        scope_value = _subsection_label(body, match.start()) if unit == "subsection" else None
-        events.append(_TriggerEvent(match.start(), conn.end(), bool(conn.group("colon")), scope, scope_value))
+        scope, scope_value, scope_unit_kind = _event_scope(body, unit, match.start())
+        events.append(
+            _TriggerEvent(
+                match.start(), conn.end(), bool(conn.group("colon")), scope, scope_value, scope_unit_kind
+            )
+        )
 
     events.sort(key=lambda e: e.start)
     return events
@@ -209,11 +234,14 @@ def _embedded_entries(body: str) -> list[DefinitionCandidate]:
         if not definition_text:
             continue
         unit = match.group("unit").lower()
-        scope = _SCOPE_BY_UNIT[unit]
-        scope_value = _subsection_label(body, match.start()) if unit == "subsection" else None
+        scope, scope_value, scope_unit_kind = _event_scope(body, unit, match.start())
         candidates.append(
             DefinitionCandidate(
-                terms=(term,), definition_text=definition_text, scope=scope, scope_value=scope_value
+                terms=(term,),
+                definition_text=definition_text,
+                scope=scope,
+                scope_value=scope_value,
+                scope_unit_kind=scope_unit_kind,
             )
         )
     return candidates
@@ -244,6 +272,7 @@ def extract_us_scoped_inline_definitions(body: str) -> list[DefinitionCandidate]
                     definition_text=definition_text,
                     scope=event.scope,
                     scope_value=event.scope_value,
+                    scope_unit_kind=event.scope_unit_kind,
                 )
             )
     candidates.extend(_embedded_entries(body))

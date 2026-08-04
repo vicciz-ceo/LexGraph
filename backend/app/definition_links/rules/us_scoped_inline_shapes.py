@@ -1,15 +1,18 @@
-"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycle 2 (Developer). Sanctioned
-style-gate overflow from `us_scoped_inline.py` (that module's docstring,
-"Sanctioned overflow" -- `us_scoped_inline.py` was already at the 300-line
-style-gate ceiling before this cycle's fixes). Holds the BODY-SHAPE regex
-vocabulary and the entry-splitting helpers: everything that operates on an
-already-located trigger region and does not need `_SCOPE_BY_UNIT` or
-`DefinitionCandidate`. Deliberately NOT a `ScopeTriggerRule` -- it calls no
-`register_*` function and has no import-time side effects, so
-`rules/__init__.py`'s auto-discovery (every sibling module in this package
-gets imported at package-import time) can safely import this file without
-adding new dispatch surface. Does not import `us_scoped_inline` (would be
-circular); `us_scoped_inline.py` imports FROM here.
+"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycles 2-3 (Developer).
+Sanctioned style-gate overflow from `us_scoped_inline.py` (that module's
+docstring, "Sanctioned overflow" -- `us_scoped_inline.py` was already at
+the 300-line style-gate ceiling before cycle 2's fixes, and again before
+cycle 3's). Holds the BODY-SHAPE regex vocabulary, the entry-splitting
+helpers, and (cycle 3) the subsection-scope derivation: everything that
+operates on an already-located trigger region/offset and does not need
+`_SCOPE_BY_UNIT` or `DefinitionCandidate` directly (`_resolve_subsection_
+scope` returns a bare tuple, not a `DefinitionCandidate` -- the caller in
+`us_scoped_inline.py` builds that). Deliberately NOT a `ScopeTriggerRule`
+-- it calls no `register_*` function and has no import-time side effects,
+so `rules/__init__.py`'s auto-discovery (every sibling module in this
+package gets imported at package-import time) can safely import this file
+without adding new dispatch surface. Does not import `us_scoped_inline`
+(would be circular); `us_scoped_inline.py` imports FROM here.
 
 QA cycle-1 root causes fixed in this module (full detail in
 `us_scoped_inline.py`'s docstring and this sprint's report):
@@ -29,11 +32,20 @@ QA cycle-1 root causes fixed in this module (full detail in
   (Also: a "X" or "Y" alias chain -- `_match_quote_chain` -- needed to even
   REACH the Tennessee row's plural `have` idiom, since its two terms share
   one idiom via "or".)
+
+Fix cycle 3 (ruling S-R14, the subsection revert): `_resolve_subsection_
+scope`/`_subsection_scope_level` moved here (not left in `us_scoped_
+inline.py`) purely for the 300-line style gate -- see that module's
+docstring for the full S-R9/S-R10/S-R11/S-R14/S-R15 design reasoning,
+repeated here only where load-bearing for these two functions themselves.
 """
 
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
+
+from app.definition_links.us_profile import resolve_unit_path
 
 # Connector between a STRONG trigger's unit word and the definiendum.
 # Root cause 4 (intervening secondary citation clause, e.g. Delaware's "As
@@ -215,3 +227,44 @@ def _unmarked_multi_entries(body: str, region_start: int, region_end: int) -> li
             break  # guard against a zero-width loop on malformed input
         pos = next_pos
     return entries
+
+
+def _subsection_scope_level(path):
+    """S-R15 (binding interim, ONE swappable decision point -- cite this
+    ruling when changing it): WHICH step of core's `resolve_unit_path`
+    result a subsection trigger's `scope_value`/`scope_unit_kind` are drawn
+    from. The innermost open step (`path[-1]`) is the only option with
+    live-path evidence today (S-R14's Oregon-row probe); whether a
+    different level is right for some state/phrasing is an OPEN,
+    per-state measurement question, not decided here -- kept behind this
+    one function so answering it later is a one-line change, never a
+    redesign scattered across call sites."""
+    return path[-1]
+
+
+def _resolve_subsection_scope(body: str, trigger_start: int) -> tuple[str, str | None, str | None]:
+    """S-R14: the single derivation, replacing the old two-derivation
+    defect family (S-R10/S-R11) -- this module no longer guesses its own
+    subsection label from glyph shape; it asks CORE's own
+    `resolve_unit_path` for the unit step open at the TRIGGER's own char
+    offset and stamps `scope_value`/`scope_unit_kind` from that SAME step.
+    `resolve_unit_path` only reads `.body` (below-article `UnitPath`,
+    v2.4), so a bare `SimpleNamespace(body=body)` stands in for a full
+    `MatcherArticle` -- the caller already has the body and the trigger
+    offset, nothing else is needed.
+
+    Zero-miss fallback (S-R9/S-R11/S-R14 precedent): some states number
+    subsections in a style core's `_US_UNIT_MARKER_RE` cannot see at all
+    (PARENTHESIZED markers only -- Maine's "2-A.", Florida's "1." are
+    invisible to it), so `resolve_unit_path` returns an EMPTY path at the
+    trigger offset. A `scope="subsection"` candidate stamped anyway would
+    be guaranteed to link NOTHING. Degrade to `"local"` instead -- the
+    narrowest REPRESENTABLE enclosing unit -- rather than ship a scope
+    that can never match; precision cost measured (sprint report), not
+    silently dropped.
+    """
+    path = resolve_unit_path(SimpleNamespace(body=body), char_offset=trigger_start)
+    if not path:
+        return "local", None, None
+    step = _subsection_scope_level(path)
+    return "subsection", step.value, step.kind
