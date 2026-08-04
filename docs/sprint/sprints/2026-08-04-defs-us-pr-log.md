@@ -5064,3 +5064,223 @@ Routing: the bounded QA re-verify confirms my measurement independently, then
 a one-line Developer correction lands before the panel parks. Added to M-R14's
 entry criteria as a backstop so it cannot survive into the dispatch wake
 unnoticed even if the close-out is interrupted.
+
+---
+
+## 2026-08-04 — QA: cycle-6 bounded re-verify (5 items) — both fixes CONFIRMED,
+docstring finding AGREE, harmless conclusion AGREE, zero regressions
+
+Bounded re-verify per the manager's brief, at `c0da523` — did not redo the
+cycle-5 sweep. Own scripts throughout, prefixed `pr_qa6_` per P-R9; nothing
+another panel wrote was read. `git status --short` clean before and after
+every check; all mutation edits reverted via `git checkout --` before the
+next step, verified empty each time.
+
+### (1) Mutation evidence for the 4 flipped tests
+
+`backend/tests/integration/test_pr_profile_qa_cycle5_live_bugs.py`, all 4
+green at HEAD. Reverted each fix in place (own working tree, not a copy —
+`git checkout -- backend/app/definition_links/pr_profile.py` after each):
+
+- **Bug-1 mutation** (`footer_stripped_body = article_body`, i.e. scan the
+  unstripped body again): both `TestFooterTruncationInLocalDefinitions`
+  tests FAIL, for the exact right reason —
+  `'Rev.' in matching[0].definition_text` (e.g. `'...afectada, Rev.'`
+  reappears). The 2 Bug-2 tests stay green under this mutation — no
+  cross-contamination.
+- **Bug-2 mutation** (comment out the `_STRAY_LEADING_QUOTE_RE.sub` line):
+  both `TestStrayQuoteCorruptionInAdhocDefinitions` tests FAIL, for the
+  exact right reason — term is `'“Junta'`/quote-corrupted, not `'Junta'`.
+  The 2 Bug-1 tests stay green under this mutation.
+
+Each mutation kills exactly its own pair and only its own pair. `git diff
+--stat -- backend/app/` empty after every revert; tree confirmed clean
+before moving to the next check.
+
+### (2) Independently re-derived blast radius — CONFIRMS the Developer's
+
+Own script (`pr_qa6_blast_radius.py`), not the Developer's: loaded the
+pre-fix `pr_profile.py` (`git show 3d5d3d9:...`, i.e. immediately before
+`f41cd9d`) and the current HEAD version as two independent modules, ran
+BOTH `extract_local_definitions` and `extract_adhoc_definitions` over
+every row's raw `text` in the real 23,636-row `us_pr_statutes.parquet`
+(snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`, same hash the panel
+has used all sprint; measurement only), diffing the full candidate list
+(terms, definition_text, scope) per row — not just a row-changed/
+unchanged flag, so a footer sitting inside an already-correct capture and
+silently altering it would show up as a diff even without a count change.
+
+```
+extract_local_definitions:  total candidates before=18 after=18
+  rows changed: 2 -- STATE_PR_LEY_236_2015_ART12, STATE_PR_LEY_83_1941_SEC28
+  (exact match to Developer's claim; definition_text lengths 37->151 and
+  58->215 chars, independently reproducing the Manager's own numbers)
+
+extract_adhoc_definitions:  total candidates before=32 after=32
+  rows changed: 6 (9 candidates) -- STATE_PR_LEY_17_2017_ART3 (x2),
+  STATE_PR_LEY_20_2014_ART5, STATE_PR_LEY_88_1966_ART11,
+  STATE_PR_LEY_74_1965_ART21, STATE_PR_LEY_125_2008_ART7,
+  STATE_PR_LEY_17_2017_ART2 (x3) -- exact match to Developer's list. Only
+  `term` changes (leading curly quote stripped); definition_text/scope
+  byte-identical on every changed row.
+```
+
+No row outside these 8 changed at all, for either function -- the specific
+risk named in the brief (a footer sitting inside an otherwise-correct
+capture, silently changing a previously-good result elsewhere) does not
+occur anywhere in the 23,636-row corpus. Developer's "exactly 2+6 rows,
+zero others" is independently CONFIRMED, not accepted on report.
+
+### (3) Docstring finding: AGREE. Harmless conclusion: AGREE.
+
+**Docstring finding** — reproduced independently, exact same numbers:
+`STATE_PR_LEY_236_2015_ART12` len 2546->2404 (Δ142, first footer at byte
+offset 886); `STATE_PR_LEY_83_1941_SEC28` len 946->786 (Δ160, first footer
+at offset 444). The count claim ("candidate COUNT... unchanged") is true
+(18->18, 32->32, confirmed in §2); the position claim ("match positions of
+the surrounding prose... unchanged") is false. Agree with the finding as
+recorded (and already reflected in M-R14 entry criterion 3 and the
+contract).
+
+**Harmless conclusion** — checked every hop named in the brief, independent
+of the Manager's own inspection:
+
+- `extract_local_definitions`'s body (read in full): only `match.group(1)`/
+  `match.group(2)` are called on the footer-stripped-body matches -- no
+  `.start()`/`.end()`/`.span()`/`.pos` anywhere in the function.
+- `DefinitionCandidate` (`backend/app/definition_links/extract.py:53-73`):
+  fields are `terms, definition_text, scope, qualifier, parent_term,
+  source_article_number, source_chapter, scope_value` -- every one a
+  string/tuple VALUE, none positional.
+- `extract_adhoc_definitions` DOES call `match.start()` (for the antecedent
+  boundary scan) but on the ORIGINAL `text` parameter passed to IT --
+  `footer_stripped_body` is a local variable scoped entirely inside
+  `extract_local_definitions`; `extract_adhoc_definitions` never sees it.
+  Confirmed the two functions never chain: `us_pr_scope_triggers.py:36-41`
+  registers them as two independent `ScopeTriggerRule`s, both called with
+  the SAME raw `article_body` by `USProfile.extract_local_scope_
+  definitions` (`us_profile.py:1162-1182`) -- no handoff between them.
+- Downstream: the only `char_offset` that reaches persistence/scope
+  resolution is a MENTION offset -- `matcher.py`'s `link_articles_to_
+  definitions` sets `edge.char_offset = match.start()` from `term_uses
+  (term, article.body)` (matcher.py ~L259), and `pipeline.py:433` passes
+  that same `edge.char_offset` into `profile.resolve_unit_path`. Both
+  operate on `article.body` (`MatcherArticle`'s own wikilink-stripped
+  body from `pipeline.py`'s Stage-1 loop), never on either extractor's
+  internal footer-stripped copy. No candidate-side offset exists to leak,
+  and the mechanism that computes offsets never touches the candidate at
+  all.
+- One more check beyond the Manager's own note: PR's local/adhoc
+  definitions always stamp `scope="local"`, never `"subsection"` --
+  `_subsection_contains_offset`, the ONE function in the whole path that
+  branches on `char_offset` in a scope-sensitive way, short-circuits to
+  `True` immediately for every PR candidate today (`if definition.scope !=
+  "subsection": return True`, matcher.py ~L196) -- a second, independent
+  reason the shift is inert now, on top of "no candidate carries an
+  offset" already being sufficient on its own.
+
+No escalation -- both halves of the Manager's own finding verified
+correct via the paths named in the brief.
+
+### (4) Regression spot-check
+
+Full suite: `30 failed, 915 passed, 12 xfailed, 18 warnings` -- exact
+target match.
+
+- **30 held REDs**: itemized -- 14 (`test_pr_profile_ordinary_misses_
+  cycle4.py`) + 6 (`test_pr_profile_bare_term_heading_cycle4.py`) + 6
+  (`test_pr_profile_scope_cycle4.py`) + 2 (`test_pr_profile_derived_
+  heading_definitions_cycle4.py`) + 1 (`test_pr_profile_cycle4_marker_
+  gate_and_residue.py`) + 1 (`test_pr_profile_footer_artifact_cycle4.py`)
+  = 30, exact partition match. All 6 files byte-untouched since `66c0845`
+  (`git diff 66c0845..HEAD -- <file>` empty for each). Failure reasons
+  re-confirmed unchanged by grepping every traceback line: `AttributeError`
+  (unregistered `PRProfile.determine_scope`/`.derive_heading_from_body`),
+  `ImportError` (`extract_bare_term_heading_definition` still doesn't
+  exist), `assert False` (18c-dependent misses). One is worth naming
+  explicitly since it sounds adjacent to Bug 1: `test_pr_profile_footer_
+  artifact_cycle4.py`'s failure carries `scope='law-wide'` -- that is
+  `extract_definitions_from_section`'s dead-code territory (canonical-
+  section/heading-anchored path), NOT `extract_local_definitions`/
+  `extract_adhoc_definitions` (which only ever emit `scope="local"`) --
+  unrelated to cycle-6's fix, confirmed by the file's empty diff and by
+  `pr_profile.py`'s own diff never touching that function.
+- **12 xfails**: all present, `-rx` output shows all 12 with their expected
+  reasons, none flipped to XPASS or a different exception (would surface
+  as a hard failure under `strict=True`, and the tail shows nothing beyond
+  the 30 held REDs).
+- **Collision guards**: `test_pr_profile_idiom_widening_cycle3.py` (2/2
+  green); `test_pr_profile_local_scope_definitions_cycle4.py::test_still_
+  does_not_swallow_the_gender_disclaimer_row` green.
+- **Broader regression sweep** (IL/Hebrew, English-state, cross-
+  jurisdiction isolation, pipeline/matcher/registry/normalize/derivation/
+  sections/guards, hostile input, ingest, validation -- 21 files located
+  by grepping for `HebrewProfile`/`"IL"`/`hebrew` across `backend/tests/`,
+  not just the files named in the brief): **387 passed, 1 xfailed
+  (the already-counted P1 xfail), 0 failed.**
+
+### (5) Final gate table
+
+| Gate | Cycle-5 | Cycle-6 | Delta |
+|---|---|---|---|
+| **P1** | PARTIAL/HELD | **PARTIAL/HELD, unchanged** | None -- both fixes are entirely inside `extract_local_definitions`/`extract_adhoc_definitions` (the non-canonical local-scope path); `is_definitions_heading`/`PRProfile` registration (P1's blocker) untouched. |
+| **P2** | PARTIAL -- capture 15/766 (1.96%); "of what IS captured, 9/32 (28%) stray-quote corrupted" | **PARTIAL -- capture number UNCHANGED at 15/766 (1.96%)**; precision caveat RESOLVED (0/32 stray-quote, was 9/32; 0/12 footer-truncated, was 2/12, both by exhaustive re-sweep) | Capture rate does NOT move: §2's full-corpus sweep shows neither fix adds or removes a row from either function's non-empty-candidate set anywhere in 23,636 rows (candidate COUNT identical on every row except the 8 target rows, which were already non-empty pre-fix) -- so no row can cross into or out of the 766-row P-R7 denominator's "captured" set. `STATE_PR_LEY_83_1941_SEC28` (one of the 15 already-captured rows) is a direct witness: it had a non-empty (corrupted) candidate before, a non-empty (clean) candidate after -- same captured/not-captured status, better content. Recall (18c deferred) is now the ONLY thing keeping P2 at PARTIAL -- the precision caveat that also qualified it is gone. |
+| **P3** | PARTIAL | **PARTIAL, unchanged** | None -- article/chapter scope machinery (`determine_scope`, `resolve_unit_path`'s subsection ladder) untouched by these fixes; confirmed by §3's downstream trace. |
+| **P4** | HELD | **HELD, unchanged** | None -- full-corpus zero-miss bar still gated on P1 (canonical dispatch) + 18c (deferred); these are precision-only fixes to an already-small captured slice, no recall movement per §2/P2 above. |
+| **P5** | PASS | **PASS, unchanged, re-confirmed** | 915 passed (up from 911, exactly the 4 flipped tests) includes the full English-regression file and the broader 387-test sweep in §4; neither fix touches trigger vocabulary or adds any new match surface -- both operate purely on Spanish text already matched pre-fix, so no new false-fire risk on English text was introduced. |
+
+No gate moved on the strength of these fixes except P2's stated PRECISION
+caveat, which is now resolved -- the verdict letters themselves (PARTIAL/
+HELD/PASS) are byte-identical to cycle 5. This is the correct outcome for
+2 targeted precision fixes with a verified-zero recall/count delta: they
+should not, and did not, move a recall-gated verdict.
+
+### What I could NOT verify
+
+- **P2's 15/766 number** is confirmed unchanged by inference from the
+  full-corpus captured/not-captured invariant (§2), not by re-running
+  cycle-5's exact denominator-construction script from scratch -- the
+  brief explicitly scoped this as a bounded cycle ("do not redo the
+  cycle-5 sweep"), and the invariant is corpus-exhaustive (all 23,636
+  rows, both functions) so it is sound, but it is inference, not a fresh
+  re-derivation of the 766 itself.
+- **All 30 held-RED failure MESSAGES** were re-confirmed by grep across
+  the current run's tracebacks (same exception classes/text, same file:line
+  set) plus byte-identical file diffs, not by a line-by-line reproduction
+  of cycle-5's own recorded failure text for all 30 individually.
+- **Whether a Hebrew-named test file exists that my grep (`HebrewProfile`/
+  `"IL"`/`hebrew`, case-insensitive) missed** -- no file matched a bare
+  "hebrew" filename pattern in this repo; the 21 files the grep found are
+  the load-bearing cross-jurisdiction/pipeline/matcher files and all
+  passed, but this is a keyword search, not an exhaustive directory
+  audit.
+
+### Nothing escalated
+
+No recall/precision conflict of the P-R2/D-Q1 class; no blast radius
+beyond the target rows (independently confirmed, §2); the Manager's
+"harmless" conclusion holds under independent re-derivation (§3); no gate
+un-assessable. `_UNQUOTED_TERM_DASH_RE` (M-R14) not touched by anything in
+this cycle -- confirmed absent from every diff inspected.
+
+### Suite tail
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+30 failed, 915 passed, 12 xfailed, 18 warnings in 11.98s
+```
+
+### Diffs for the manager to read
+
+- `f41cd9d` (Developer's fix) -- already read and mutation-verified, §1/§2.
+- `docs/sprint/sprints/2026-08-04-defs-us-pr.md`'s M-R14 entry criterion 3
+  -- already correctly records the docstring finding; no change needed
+  from this cycle.
+- This log entry itself -- the gate-table delta (§5) is the one new
+  program-state fact this cycle adds.
+
+### Pushed
+
+Commit follows this entry; branch `claude/defs-us-pr`.
+
+---
