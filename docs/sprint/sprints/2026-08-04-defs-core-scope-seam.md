@@ -1,9 +1,10 @@
 # Seam spec — sprint 2026-08-04-defs-core-scope (published)
 
-**AUTHORITATIVE VERSION: v2.4.** Read v2.4 first; it is final (all director
-rulings are in). Earlier versions below are retained VERBATIM as history
-because family panels planned against them and need to see what changed —
-but where any earlier version disagrees with v2.4, **v2.4 wins**.
+**AUTHORITATIVE VERSION: v2.5.** Read v2.5 first; it is final (all director
+rulings are in, plus one QA-fail cycle 2 correction). Earlier versions below
+are retained VERBATIM as history because family panels planned against them
+and need to see what changed — but where any earlier version disagrees with
+v2.5, **v2.5 wins**.
 
 Notable supersessions: v2.2 WITHDREW v2's `register_scope_unit_kind`/`rank_for`
 rank registry (a pinned test asserts their absence); v2.1 withdrew v2's
@@ -1120,3 +1121,100 @@ beyond what it states):
 
 No value was invented for a system the dossier doesn't cover; nothing
 beyond §1's table was used.
+
+---
+
+---
+
+## Seam spec v2.5 (published) — `Definition.scope_value` is TRANSIENT-BY-DESIGN (QA-fail cycle 2 correction, I11)
+
+**Correction to v2 §1 (M4)**, recorded per this sprint's append-only
+convention (same shape as the M8(a) correction above) — the original text
+is left in place, not rewritten, so family panels that already read it can
+see exactly what changed and why.
+
+**What v2 §1 M4 said:** `Definition.scope_value` is a NEW PERSISTED column
+(`Mapped[str | None] = mapped_column(String(64), nullable=True)`) with a
+migration (`add_definition_scope_value_column.py`, mirroring
+`add_raw_text_columns.py`'s shape), justified as "provenance/display
+parity with `.scope`."
+
+**QA cycle 1 finding (gap 5, item I11):** neither the column nor the
+migration was ever built. `scope_value` lives only on the in-memory
+`DefinitionCandidate` (`extract.py`). Harmless today because nothing reads
+a persisted `scope_value` — but spec and code disagreed, and six family
+panels are about to build against the spec's persisted-column claim.
+
+**QA-fail cycle 2 investigation (this Planner) — verified against real
+source, not guessed:**
+
+- `Definition` (`app/models/definition.py`) has **zero** scope-detail
+  columns beyond `.scope` itself (the kind string) — not `scope_value`,
+  not even the two LEGACY fields (`source_chapter`/`source_article_number`)
+  M4's own text cited as the reason `scope_value` needed to be different
+  ("chapter/article identity is only recoverable via `Definition.
+  article_id`'s FK"). All three transient fields live ONLY on
+  `DefinitionCandidate`.
+- `pipeline.py`'s Stage 2 re-extracts every `DefinitionCandidate` FRESH
+  from the article's own current source text on **every single call** to
+  `run_definition_linking` — it never reads a previously-persisted scope
+  value back for matching purposes. `existing_definitions`/
+  `definitions_by_key` are consulted only to REUSE a `Definition` row's
+  identity (its `id`, for FK purposes) when the same `(article_id, sorted
+  terms)` key recurs — never to recover `.scope_value` for containment.
+- Stage 3's `definition_covers_mention`/`_subsection_contains_offset`
+  (`matcher.py`) are called with the **in-memory `DefinitionCandidate`**
+  (`candidates_by_term`), never with the persisted `Definition` ORM row —
+  confirmed by direct read of the Stage-3 call site
+  (`pipeline.py`, the `covering = [...]` comprehension).
+  the persisted row's IDENTITY (`.id`) is used only to build the
+  `USES_DEFINITION` assertion's `object_entity_id`.
+- The merged C1 fix (`86e0bbe`, `c76c2f6`) resolves subsection containment
+  via `profile.resolve_unit_path(article, char_offset=...)` — recomputed
+  fresh from the article's own body text on every call, by design (the
+  same "never an offset comparison, offsets never leave
+  `split_into_subsections`" principle v1 stated for `Subsection`,
+  generalized by v2.2/v2.4's `UnitPath`/`resolve_unit_path`). Nothing
+  about the actual, shipped containment mechanism reads a persisted
+  `scope_value` at any point, for any scope kind.
+- `Definition` has **no API route, no serializer, no frontend consumer of
+  any kind** today (verified: `grep -rn "models.definition\|models\.
+  Definition" backend/app --include="*.py"` outside `definition_links`
+  itself returns only `models/__init__.py`'s registration). This is a
+  materially different starting point from `Assertion.subject_unit_path`
+  (v2.2 §6/v2.4, Option A) — `Assertion` already has real API/frontend
+  consumers (`AssertionDetailPage.tsx` et al.), so persisting sub-article
+  detail there serves an EXISTING display surface. `Definition` has no
+  such surface to serve; persisting `scope_value` today would be
+  provisioning for a consumer that does not exist and is not currently
+  planned by any family panel's own contract.
+
+**Decision: `scope_value` (and `source_chapter`/`source_article_number`)
+stay exactly as they are today — transient, `DefinitionCandidate`-only
+fields. No new column, no migration, in this sprint.** The deciding test:
+would any future re-run, retrieval-from-DB, or incremental-update path
+need the scope value to survive a round trip through the database?
+Verified NO — every containment decision is always recomputed from source
+text within a single `run_definition_linking` pass; nothing anywhere reads
+a persisted value. Per this sprint's own standard (recompute from source,
+minimize persisted state unless something concrete consumes it), transient
+is the honest, correct default, not a shortcut.
+
+**What would have to be true for the other option (build the column) to
+be right:** a concrete consumer — an API endpoint, a frontend view, an
+audit/reporting feature, or an incremental/partial re-run path that reads
+persisted `Definition` rows WITHOUT re-running full extraction — needing
+to answer "what scope_value did this Definition capture" without
+re-deriving it from source text. None exists today and none is named in
+any family panel's contract. **When one arrives**, the `Assertion.
+subject_unit_path`/`add_assertion_subject_unit_path_column.py` precedent
+this correction confirms is exactly the right shape to reach for at that
+time (additive, nullable `String(64)`, real `downgrade()`, no backfill).
+
+**Stray reference, noted so nobody chases a phantom module:**
+`add_assertion_subject_unit_path_column.py`'s own docstring names
+`add_definition_scope_value_column.py` as a "sibling precedent" — that
+text predates this correction and was aspirational, not evidence the
+module exists or must be built now. Left unedited (production code is
+outside this Planner's remit); read it as "the shape to use if/when
+`scope_value` is ever persisted," not as a live cross-reference.

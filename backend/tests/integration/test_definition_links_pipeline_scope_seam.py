@@ -624,15 +624,41 @@ def test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsectio
     Expected once fixed: the subsection-(b) mention links, the
     subsection-(a) mention does not. This test currently fails already at
     the weaker "AT LEAST ONE assertion exists" assertion -- proving total
-    inertness, a stronger and clearer failure than a mere mis-scoping."""
+    inertness, a stronger and clearer failure than a mere mis-scoping.
+
+    QA-fail cycle 2, follow-up 1a (post-C1-fix strengthening, `86e0bbe`):
+    the fix landed and this file's weaker "at least one edge" assertion
+    now passes -- but that alone does not prove containment picked the
+    RIGHT mention. `_create_assertion`'s dedup key is
+    `(article_id, term, definition_id, ...)` -- it does NOT include
+    `char_offset` -- so a definition with exactly one owning article and
+    one term can never produce more than ONE USES_DEFINITION assertion
+    regardless of how many mentions (in-scope or not) match inside that
+    article. An over-inclusive bug (subsection (a) wrongly treated as
+    in-scope too) would therefore be INVISIBLE to an "at least one
+    assertion" or even a "count of assertions" check -- both mentions
+    collapsing to the same one row either way. The genuine discriminator
+    (per the QA manager's own suggestion) is `get_mention_unit_paths`:
+    Stage 3 processes edges in the TEXT order `term_uses` finds them, and
+    `_create_assertion`'s dedup means only the FIRST edge to reach it
+    actually creates the row and gets its position recorded as
+    `subject_unit_path` -- every subsequent edge sharing the same key is
+    silently skipped. Since subsection (a)'s mention appears BEFORE
+    subsection (b)'s in this fixture's own text, an over-inclusive bug
+    would let (a) win that race and the assertion would resolve to
+    subsection (a), not (b) -- so asserting the surviving assertion's own
+    recorded path is anchored at (b) is airtight in the direction that
+    matters (it would go RED under the specific bug this mechanism most
+    plausibly has, not just under total inertness)."""
     from app.definition_links.ingest import ingest_wiki_law
-    from app.definition_links.pipeline import run_definition_linking
+    from app.definition_links.pipeline import get_mention_unit_paths, run_definition_linking
     from app.definition_links.rules.registry import (
         RuleContext,  # noqa: F401
         ScopeTriggerRule,
         register_scope_trigger_rule,
     )
     from app.definition_links.extract import DefinitionCandidate
+    from app.models.assertion import Assertion
 
     def _extract(article_body, ctx):
         import re
@@ -693,14 +719,32 @@ def test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsectio
         "unconditionally, making every scope='subsection' definition "
         f"inert on the live path. created_assertions={result['created_assertions']!r}"
     )
-    # Once the mechanism is wired, the STRONGER, directional assertion is:
-    #   the subsection-(b) mention's own article/position links, and the
-    #   subsection-(a) mention -- same article, same term, wrong
-    #   subsection -- does not produce a SECOND, indistinguishable
-    #   USES_DEFINITION assertion beyond the one the (b) mention earns.
-    # Not expressible today (proposition text carries no sub-article
-    # detail); left as a follow-up once containment is live and
-    # `get_mention_unit_paths` can be cross-checked per edge.
+    assert len(uses_edges) == 1, (
+        "expected exactly ONE USES_DEFINITION assertion (the dedup key has "
+        "no char_offset component, so this alone does not prove correct "
+        f"scoping -- see the directional check below). Got {uses_edges!r}"
+    )
+
+    # The STRONGER, directional check (follow-up 1a): the ONE surviving
+    # assertion's own recorded mention position must be anchored inside
+    # subsection (b) -- the mention that is ACTUALLY in scope -- not (a),
+    # which appears earlier in the fixture's text and would win the
+    # dedup race first if containment wrongly let it through.
+    assertion_row = db_session.get(Assertion, uses_edges[0]["id"])
+    paths = get_mention_unit_paths(db_session, assertion_row.id)
+    assert len(paths) == 1 and paths[0], (
+        f"expected a single, non-empty sub-article unit path for the "
+        f"surviving assertion; got {paths!r}"
+    )
+    resolved_path = paths[0]
+    assert resolved_path[0].value == "b", (
+        "C1 directional proof: the surviving USES_DEFINITION assertion's "
+        "own recorded mention position must resolve to subsection (b) -- "
+        "the ONLY in-scope mention -- not (a). If this resolves to 'a', "
+        "containment is over-inclusive (it let the out-of-scope "
+        "subsection-(a) mention win instead of excluding it). Got "
+        f"resolved_path={resolved_path!r}"
+    )
 
 
 def test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live(
@@ -891,4 +935,243 @@ def test_narrowest_scope_governs_a_local_definition_suppresses_a_same_term_chapt
         "covering it, so the broader chapter-scoped definition must still "
         f"fire there. Got target ids: {article_20_targets!r} "
         f"(chapter={chapter_def['id']!r})"
+    )
+
+
+# --- QA-fail cycle 2, deliverable 1 (gap 3): C1 demands scope containment
+# --- proven live-path in BOTH directions. QA cycle 1 found IN-scope US
+# --- chapter containment live-tested (`test_a_registered_scope_trigger_
+# --- rule_is_reached_by_the_real_pipeline` and the D-E1 test just above
+# --- both prove a chapter definition FIRES inside its own chapter), but no
+# --- live test anywhere proves the negative direction: that a chapter-
+# --- scoped definition does NOT link an identical-term mention sitting in
+# --- a DIFFERENT chapter of the same document. This test adds exactly that
+# --- missing exclusion direction -- it deliberately does not re-prove the
+# --- positive direction the D-E1 test above already covers.
+def test_a_chapter_scoped_definition_links_a_mention_inside_its_own_chapter_but_not_an_identical_term_mention_in_a_different_chapter_live(
+    db_session, matter_with_users
+):
+    """C1: 'proven live-path in BOTH directions (in-scope mention links;
+    out-of-scope mention does not)', for US chapter scope specifically.
+
+    One document, two chapters:
+    - Chapter 9: article 1 is a real Definitions section, heading
+      'Definitions', body opening with 'For purposes of this chapter, ...'
+      (`us_profile.determine_scope`'s own recognized trigger phrase) --
+      stamps a scope='chapter' Definition for 'Widget', chapter '9'.
+      Article 5, ALSO in chapter 9, contains a genuine mention of
+      'Widget'.
+    - Chapter 10: article 6 contains an IDENTICAL-surface-form mention of
+      'Widget', but sits in a different chapter -- outside the chapter-9
+      definition's scope, and no other definition of 'Widget' exists
+      anywhere in the document.
+
+    Expected: article 5's mention links to the chapter-9 'Widget'
+    Definition; article 6's mention produces NO USES_DEFINITION assertion
+    at all (there is no in-scope definition of 'Widget' covering it)."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+    wiki_text = (
+        "==9==\n"
+        '@ 1. Definitions\n'
+        "For purposes of this chapter, the following definitions apply:\n"
+        '(1) "Widget" means a specially regulated device.\n'
+        "@ 5. In-chapter article\n"
+        "A Widget is mentioned here, inside chapter 9, where the "
+        "chapter-scoped definition applies.\n"
+        "==10==\n"
+        "@ 6. Different-chapter article\n"
+        "A Widget is mentioned here too, but this article sits in "
+        "chapter 10 -- a different chapter from the one the definition "
+        "above was scoped to.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test Chapter Scope Exclusion Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    chapter_defs = [
+        d for d in result["created_definitions"] if d["terms"] == ["Widget"] and d["scope"] == "chapter"
+    ]
+    assert len(chapter_defs) == 1, (
+        f"expected exactly one chapter-scoped 'Widget' Definition, got {chapter_defs!r}"
+    )
+    chapter_def = chapter_defs[0]
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    article_5_edges = [e for e in uses_edges if "Article 5 " in e["proposition"]]
+    article_6_edges = [e for e in uses_edges if "Article 6 " in e["proposition"]]
+
+    assert article_5_edges, (
+        "expected article 5's in-chapter mention of 'Widget' to link to "
+        f"the chapter-9 definition; created_assertions={result['created_assertions']!r}"
+    )
+    article_5_targets = {
+        db_session.get(Assertion, e["id"]).object_entity_id for e in article_5_edges
+    }
+    assert article_5_targets == {chapter_def["id"]}, (
+        "article 5's in-chapter mention must link to the chapter-9 "
+        f"'Widget' definition. Got target ids: {article_5_targets!r} "
+        f"(chapter={chapter_def['id']!r})"
+    )
+
+    assert not article_6_edges, (
+        "C1 out-of-scope direction: article 6 sits in chapter 10, outside "
+        "the chapter-9-scoped 'Widget' definition's scope, and no other "
+        "'Widget' definition exists in this document -- article 6's "
+        "mention must NOT produce a USES_DEFINITION assertion. Got "
+        f"{article_6_edges!r}"
+    )
+
+
+# --- QA-fail cycle 2, follow-up 1b: genuinely multi-level subsection
+# --- nesting. The C1 fix's `_subsection_contains_offset` live-path branch
+# --- compares ONLY `mention_path[0].value` -- the OUTERMOST sub-article
+# --- step -- against a subsection-scoped definition's `scope_value`. The
+# --- Developer traced `resolve_unit_path`'s replace-ancestor/push-new-
+# --- rung stack semantics by hand for ONE level ("(a)" vs "(b)") only.
+# --- Per seam v2.4 §3 there is explicitly NO depth cap (the real US
+# --- federal 8-level ladder is measured, at scale). This test exercises
+# --- genuine 3-level nesting -- (a)>(1)>(A) -- both directions: a
+# --- definition scoped to outermost subsection "a" must cover a mention
+# --- buried 2 levels deeper inside it ((a)(1)(A)), and must NOT cover an
+# --- identical-term mention buried the SAME depth under a DIFFERENT
+# --- outermost sibling ((b)(1)(A)).
+def test_a_subsection_scoped_definition_covers_a_mention_nested_three_levels_deep_under_it_but_not_an_identical_sibling_mention_at_the_same_depth_live(
+    db_session, matter_with_users
+):
+    """C1 + D-ANCHOR no-depth-cap (seam v2.4 §3): a definition scoped to
+    outermost subsection "a" of an article must govern a mention nested
+    (a)>(1)>(A) deep inside it (three real marker levels: lower_alpha,
+    digit, upper_alpha), and must NOT govern an identical-term mention
+    nested (b)>(1)>(A) -- same depth, different outermost sibling.
+
+    Discriminator (same reasoning as the strengthened test above, needed
+    for the same dedup-key-has-no-char_offset reason): the out-of-scope
+    (b)(1)(A) mention is placed BEFORE the in-scope (a)(1)(A) mention in
+    the fixture's own text, so an over-inclusive bug would let (b) win
+    the single-assertion dedup race and the surviving assertion would
+    resolve to subsection 'b', not 'a' -- `get_mention_unit_paths` catches
+    that directly.
+
+    Fixture-construction note: the definition-trigger sentence and every
+    mention's surrounding prose are written with ZERO parenthesized
+    letter/digit tokens of their own (no "(b)(1)(A)"-style inline
+    notation) -- `resolve_unit_path` scans the WHOLE article body's
+    `_US_UNIT_MARKER_RE` matches unconditionally, so any incidental
+    `(x)`-shaped text in descriptive prose is indistinguishable from a
+    real structural marker and corrupts the stack for every mention
+    positioned after it. Verified directly against the real regex before
+    settling on this wording (an earlier draft that spelled out
+    "(b)(1)(A)" in an explanatory clause produced a corrupted, truncated
+    path from that self-inflicted pollution, not from a real defect)."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import get_mention_unit_paths, run_definition_linking
+    from app.definition_links.rules.registry import (
+        RuleContext,  # noqa: F401
+        ScopeTriggerRule,
+        register_scope_trigger_rule,
+    )
+    from app.definition_links.extract import DefinitionCandidate
+    from app.models.assertion import Assertion
+
+    def _extract(article_body, ctx):
+        import re
+
+        pattern = re.compile(
+            r'"([^"]+)" governs only within subsection a of this section, '
+            r"three marker levels deep and below, and means "
+            r"(.*?)(?=\.\s|$)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text=match.group(2).strip(),
+                scope="subsection",
+                source_article_number=ctx.article_number,
+                scope_value="a",
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    register_scope_trigger_rule(
+        ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract)
+    )
+
+    m = matter_with_users
+    term = "Nested widget"
+    wiki_text = (
+        f'@ 30. Deeply nested subsection article\n'
+        f'"{term}" governs only within subsection a of this section, '
+        f"three marker levels deep and below, and means an item "
+        f"regulated only at that specific depth.\n"
+        f"(b) Sibling subsection, out of scope entirely.\n"
+        f"(1) A nested numbered clause under the sibling subsection.\n"
+        f"(A) A {term} is mentioned here, deep under the sibling "
+        f"subsection -- a sibling at the SAME depth as the in-scope "
+        f"mention below, but under a DIFFERENT outermost subsection.\n"
+        f"(a) The actually-scoped subsection.\n"
+        f"(1) A nested numbered clause under the scoped subsection.\n"
+        f"(A) A {term} is mentioned here too, deep under the scoped "
+        f"subsection -- genuinely three marker levels below the "
+        f"outermost scoped subsection.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test Deep Subsection Nesting Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    assert uses_edges, (
+        "a scope='subsection' definition scoped to outermost subsection "
+        "'a' must link the mention nested (a)(1)(A) deep inside it -- got "
+        f"ZERO USES_DEFINITION assertions. created_assertions="
+        f"{result['created_assertions']!r}"
+    )
+    assert len(uses_edges) == 1, (
+        "expected exactly ONE USES_DEFINITION assertion (dedup key has no "
+        f"char_offset component). Got {uses_edges!r}"
+    )
+
+    assertion_row = db_session.get(Assertion, uses_edges[0]["id"])
+    paths = get_mention_unit_paths(db_session, assertion_row.id)
+    assert len(paths) == 1 and paths[0], (
+        f"expected a single, non-empty sub-article unit path; got {paths!r}"
+    )
+    resolved_path = paths[0]
+    assert len(resolved_path) >= 3, (
+        "expected genuine 3-level nesting (lower_alpha > digit > "
+        f"upper_alpha) to be resolved, not a shallow/capped path. Got "
+        f"resolved_path={resolved_path!r}"
+    )
+    assert resolved_path[0].value == "a", (
+        "the surviving assertion's own recorded mention position must be "
+        "anchored under outermost subsection 'a' -- the ONLY in-scope "
+        "sibling, 3 levels deep. If this resolves to 'b', containment is "
+        "over-inclusive at depth (it let the (b)(1)(A) sibling mention "
+        f"win instead of excluding it). Got resolved_path={resolved_path!r}"
     )

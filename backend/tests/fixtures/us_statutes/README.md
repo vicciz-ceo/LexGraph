@@ -221,3 +221,47 @@ fixture (`test_ingest_us_statutes_ny_newline_defect.py`) deliberately calls
 `get_profile("US-NY").extract_definitions_from_section` directly rather
 than relying on `pipeline.py`'s heading-dispatch gate, so its assertion is
 discriminated purely by the newline defect.
+
+## `d_cf_structural_reference_rows.json` — D-CF case-fold structural-context guard fixture (QA-fail cycle 2, item I10, 2026-08-04)
+
+4 REAL rows (full original columns, values unmodified), pulled from 4
+different real state files (`us_al_statutes.parquet`,
+`us_il_statutes.parquet`, `us_ak_statutes.parquet`,
+`us_ar_statutes.parquet`) by this Planner, measured directly against the
+real `vaquill/open-us-law` corpus before writing any test assertion —
+director ruling D-CF (program doc, panel log Round 17): case-folding
+(I6/M8(b)) stays, but a case-fold match sitting inside a structural-
+reference pattern (a unit word immediately followed by a numbering token
+— "division (ii)", "part (a)", "title 5") must be suppressed; a genuine
+lowercase re-mention in ordinary prose must NOT be suppressed.
+
+1. **`STATE_AL_T41_C10_S41-10-592`** (Alabama) — "All bonds issued
+   pursuant to this division (i) shall be issued and sold...". Verified:
+   the row's ONLY "division"/"Division" occurrence, and it DOES match
+   under plain `re.IGNORECASE` case-folding today (pre-guard) — the
+   negative-direction case for the word "Division".
+2. **`STATE_IL_C35_A505_S13a`** (Illinois) — "...comprised of 2 parts.
+   Part (a) shall be at the rate established by Section 2... Part (b)
+   shall be at the rate established by subsection (2)...". Verified: the
+   row's ONLY two "Part"/"part" occurrences, both structural, both match
+   today — the negative-direction case for "Part".
+3. **`STATE_AK_T6_C06.45_S06.45.160`** (Alaska) — "...insurance obtained
+   under Title 1 of the National Housing Act is adequate security."
+   Verified: the row's ONLY "Title"/"title" occurrence, a bare-number
+   structural reference (D-CF's own named "title 5" shape) — the
+   negative-direction case for "Title".
+4. **`STATE_AR_T20_C48_S6_S20-48-603`** (Arkansas) — genuinely DEFINES
+   "Division" ("(3) \"Division\" means the Division of Developmental
+   Disabilities Services..."), then re-mentions it lowercase in ordinary
+   prose with no numbering token nearby ("...staff of the division where
+   the context...", "...home licensed by the division..." x2) — the
+   POSITIVE-direction case proving D-CF must not undo I6/M8(b). This
+   row's own `text` field contains its content duplicated verbatim (a
+   real corpus artifact, not injected) — 6 genuine lowercase matches
+   total (3 per copy × 2 copies), verified by running `find_term_uses`
+   against the real text before writing the test's expected count.
+
+Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
+`d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
+worktree's scratchpad (never `backend/.venv`), never read by the committed
+test suite itself (program rule prior-R6 — suites run offline).
