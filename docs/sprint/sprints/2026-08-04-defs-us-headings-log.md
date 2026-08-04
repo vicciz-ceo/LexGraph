@@ -2540,3 +2540,25 @@ the sprint's cited figure and giving the FP-exposure scout its P-R10 control.
 - P-R7 preamble matrix → certified inventory does not exist yet; QA cycle 4
   sequences the cross-check AFTER the program manager forwards the pointer.
   Certifying on the preamble panel's pre-QA log stays **refused**.
+
+### Cycle-5 wave spawned (phase-3 manager)
+
+| Role | Model/effort | Justification (Haiku considered?) | agentId | Worktree/branch |
+|---|---|---|---|---|
+| Planner — cycle-5 REDs (items 10-14) | Sonnet/high | P-R6 mandates Sonnet high for Planner always; work needs legal-text judgment on capture-vs-guard. **Haiku considered: no** — forbidden for this role by P-R6. | `a5c7d61141eb76eeb` | `/Users/nerya/LexGraph-wt/defs-us-headings-plan5`, branch `claude/defs-us-headings-plan5`, own venv (verified: resolves to its OWN module, venv trap avoided) |
+| Scout — `includes` FP-exposure measurement (D-Q1) | Sonnet/high | Output feeds a DIRECTOR ruling and needs hand-judgment of definitional vs non-definitional prose. **Haiku considered: yes, rejected** — misclassification here directly misinforms a director decision. | `a12698a8ab5e3e024` | none — READ-ONLY, commits nothing, writes only `headings_scout1_*` in the shared scratchpad (P-R9) |
+
+The two run in PARALLEL by design: the program manager's instruction is that
+cycle 5 on the ruled classes must not serialize behind the scout, whose result
+is a director input rather than a panel dependency.
+
+**Scout mandate (program-manager-specified, recorded verbatim in substance):**
+signal-agnostic denominator over the pinned 52-file/PR-excluded convention with
+an INDEPENDENTLY AUTHORED pattern (not imported from panel rule code); ≥40
+uniformly drawn occurrences hand-judged with a stated seed; both rates plus the
+projected corpus-wide FP count under the naive anchor; a second, tightened
+guard strength measured if the naive FP rate is material, including how many of
+the known 15 genuine rows it retains; P-R10 control — the pattern must find the
+15 known definitional rows (handed over at an exact path as
+`headings_mgr3_includes_control.json`) or explain each miss, before any other
+number is trusted.
