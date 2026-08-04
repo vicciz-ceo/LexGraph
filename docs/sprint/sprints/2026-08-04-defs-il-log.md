@@ -708,3 +708,69 @@ module can be written until core merges.
 | E3 — class (d) false-positive trap | settled by me, ruling **M7** | manager |
 | E4 — bulk-CLI resumability | settled by me, ruling **M6** | manager |
 | E5 — class (f): 124 laws parse to zero articles, 12 with real definitions wholly lost | **OPEN — escalating** | director / core boundary |
+
+---
+
+## 2026-08-04 — UNBLOCKED: core merged; E1/E5 answered; my E5 framing CORRECTED
+
+Core is on `main` (`06d67d8`; my rebase target `0d57228`). Program manager
+answered both escalations and issued binding ruling **P-E3**.
+
+### E1 — ANSWERED by the shipped seam
+
+Generic `(unit_kind, unit_value)` scope units with narrowest-governs-as-
+longest-prefix are live (independent QA, 2 cycles, 700/0). סימן/חלק/פרק are
+expressible as unit kinds. **Gate I3 is achievable after all** — my earlier
+"unachievable as written" verdict is superseded. The AUTHORITATIVE seam is
+**v2.5** in `docs/sprint/sprints/2026-08-04-defs-core-scope-seam.md` on
+main; my panel had planned against v2, so the Planner re-reads v2.5 first.
+
+### **E5 — MY FRAMING WAS WRONG. Corrected facts are binding (P-E3).**
+
+I recorded this honestly and prominently because I got it wrong, and the
+correction changes who owns the fix:
+
+| | My claim (2026-08-04, ruling M9) | Corrected fact (P-E3, program-manager-probed) |
+|---|---|---|
+| bare-`@` scale | 101 zero-article FILES | **331 occurrences across 42 files** |
+| what follows a bare `@` | implied: lost article content | **ALWAYS table/list markup; NEVER a definitions heading** |
+| the lost definitions | "12 laws, definitions wholly lost to the parser" | definitions ARE real, but live as **`::-` double-colon nested-list entries** with **ITEM-level scope**, introduced by **`בפרט זה -`** ("for this item"); population **~8-12 files** |
+| owner | "structural, frozen `sections.py`, core's" | **REACHABILITY was core's — delivered.** **CAPTURE is MINE.** |
+
+**Where I went wrong, precisely:** my probe measured at the wrong layer. I
+counted zero-article files and then regex-matched definition signals across
+each WHOLE FILE, which let me attribute the loss to the bare-`@` parser gap
+without ever characterizing what actually followed those `@` markers. The
+zero-article count (124) and the observation that real definitions were
+unreachable were both correct; the *mechanism* and therefore the *owner*
+were not. A signal-anywhere-in-file regex is not evidence about a specific
+structural position — that is the same class of error P-R7 warns about.
+
+**Consequence for this sprint: `בפרט זה` is a SIXTH trigger-content class
+and it is OURS**, not core's. It was in nobody's inventory before now. It
+becomes a new item with a RED test on the exact vendored fixture already on
+main: `backend/tests/fixtures/wiki_laws/רשימת הזכויות לפי חוק לקידום
+התחרות ולצמצום הריכוזיות_excerpt.wiki`.
+
+### **M10 — binding instruction for I4's adversarial sweep (supersedes M9's class-(f) check)**
+
+1. Use the **corrected** facts above, never my original class-(f) framing.
+2. **P-R7 denominators: ground truth must be independent of our own
+   triggers' signals.** A sweep that finds definitions by grepping for the
+   very phrases we implemented will always report ~100% and prove nothing.
+   The PR panel's QA caught exactly this trap. QA must build its denominator
+   from a signal source that does not reuse our trigger list — and state in
+   the log how it did so.
+3. My own E5 error is the worked example of why (1) and (2) are mandatory.
+
+### Post-rebase state (verified by me)
+
+- Rebase onto `0d57228`: 6 commits replayed, no conflicts.
+- venv refreshed (`pip install -e '.[dev]'`); `import app` still resolves to
+  the worktree.
+- `rules/` package present on main: `registry.py`, `il_scope_triggers.py`
+  (the IL rule-module example to copy), `us_scope_trigger_proof.py`.
+- Suite: **8 failed, 704 passed** (was 645 passed pre-rebase; core added
+  tests). The 8 failures are the SAME 8 Phase-B REDs, and I verified they
+  fail for **behavioral** reasons, not collection/import drift — every one
+  is `AssertionError: ... got []`. Phase B is now genuinely unblocked.
