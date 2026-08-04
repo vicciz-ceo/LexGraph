@@ -720,3 +720,429 @@ session scratchpad.
 
 Main-checkout cleanliness independently confirmed by the program manager.
 One-writer-per-worktree remains absolute.
+
+---
+
+## 2026-08-04 — QA report (items 7 + 8, gates U1/U3/U4/U5/U6)
+
+Addressed to the manager. All work in `/Users/nerya/LexGraph-wt/defs-us-headings`,
+branch `claude/defs-us-headings`. All scripts below are QA-authored, independent
+of the Planner's/scout's/manager's own scripts (except where explicitly noted as
+a re-run of the scout's own artifacts, per the brief). Scripts and intermediate
+JSON live in the session scratchpad (`/private/tmp/claude-501/.../scratchpad/qa/`
+and `.../scratchpad/round2*`); not committed (throwaway verification tooling,
+same pattern the manager used for `manager_verify_u4_u6.py`).
+
+### Headline verdict: gate U4 does NOT pass as claimed
+
+The contract's claim ("the 1,921 residual rows are ... correctly-excluded ...
+QA's job is to confirm that") **does not hold**. I independently recomputed the
+residual set (exact reproduction: 1,921 rows) and found that **at least 556 of
+those 1,921 rows (29%) match one of five concrete, mechanical tokenizer/regex
+gaps in the shipped module** — not morphology noise, not preposition-guarded
+true negatives. Hand-verdicting representative samples of each gap (well over
+150 rows read with real body text, far past the ≥60 floor) shows a **very high
+genuine-miss rate**, not the claimed 0%. I also found **one confirmed, real
+false positive** via adversarial construction that slipped past both of the
+manager's precision audits. Full detail below.
+
+### Item 7 — U4 zero-miss sweep
+
+**Independent residual computation.** Script:
+`scratchpad/qa/qa_residual_sweep.py`, written from scratch (imports only
+`is_definitions_heading` and `matches_heading_variant` live from the worktree
+source; no reuse of the Planner/scout/manager's pre-computed pools as the
+source of truth). Scans all 52 in-scope `us_*_statutes.parquet` files (PR
+excluded, confirmed out of scope — separate Spanish-language sprint) directly
+from the local HF cache (never downloaded by this or any committed test).
+
+```
+titles containing 'defin' : 83,303
+recognized BEFORE         : 61,075
+recognized AFTER          : 81,382
+NEWLY recognized          : 20,307
+miss pool (defin & !before): 22,228
+union recall on miss pool  : 20307/22228 = 91.36%
+RESIDUAL (defin & !before & !newrule): 1,921
+```
+
+**Exact reproduction** of the Planner's and manager's headline numbers, on
+independently written code — third agreement on the same figures, which is
+meaningful. Precision audit (independently reproduced, same methodology as the
+manager's): 0 rows with no `defin` substring; 123 rows with `defin` but no
+exact `definitions?`/`defined` token, decomposing (confirmed) as exactly 117
+R-TRUNC + 6 R-MISSPELL, 0 unexplained. **These two precision checks hold** —
+but see the Adversarial precision hunt section below for a check neither the
+Planner nor the manager ran, which does not hold.
+
+**Miss-pool well-definedness (requested sanity check).** The pool is defined
+as `section_title` containing the substring `defin` — so a genuine definitions
+section whose heading contains NEITHER `defin` NOR a `defined`-family word
+(none exist in this corpus's drafting conventions, verified) would be
+structurally invisible to this entire sweep, and so would any jurisdiction
+whose `section_title` field never carries heading text at all. **Confirmed
+boundary**: CA/GA/IL/MD/MS/NE have zero `defin`-containing titles (verified
+directly: 0 rows across all 6 in my own scan) — this is the heading-ABSENCE
+population the manager already routed to the preamble/body-derived-heading
+panel. I did not re-litigate it; I confirm it is correctly out of this sweep's
+reach, and that the boundary is real (not a gap silently swallowed into
+either "recognized" or "residual" — those 6 jurisdictions' definitions
+sections simply never enter this sweep in either direction).
+
+#### Classification of the 1,921 residual rows
+
+I classified the full residual set by concrete, testable shape (script:
+inline, see the five `BUG*_RE` regexes run over `qa_residual_rows.json`).
+Five patterns, each a genuine mechanism in the shipped module's tokenizer or
+guard logic, **not mutually exclusive but union computed**:
+
+| Pattern | Rows | Mechanism |
+|---|---:|---|
+| **BUG1** — mid-heading `Definitions.`/`Definition.` (interior, period-terminated) | 118 | `_tail_tokens`'s split regex `[\s\-–—:;,]+` does **not** include `.` — so an interior clause-ending period stays glued to the token (`"Definitions."` ≠ `"definitions"`), and R-MID's exact-match check silently fails. Realized almost entirely as Connecticut's own drafting convention (116 of 118): headings that enumerate every subsection topic separated by periods, e.g. `"Sec. 22a-905i. Tire stewardship program. Definitions. Tire stewardship organization. Plan. ..."` |
+| **BUG2** — `defined` immediately followed by a dash (`-`/`–`/`—`/`--`), mid-heading | 421 | R-VERB-extended's punctuation set is `[;:]` only — the extremely common `"TERM defined - more clauses"` / `"TERM defined -- more clauses"` drafting convention (MO/CO/SD/KY/TN/ND/OK/UT/…) uses a dash instead, and is covered by **none** of the 6 rules |
+| **BUG3** — dash acts as a clause boundary but the preposition-exclusion guard fires across it | 15 | The guard checks only the single token immediately before `definitions`/`definition`; when a dash separates `"[clause ending in a preposition] — definitions — [more clauses]"` (Missouri's own flagship convention — recall the mandate's own MO dossier example uses exactly this shape), the tokenizer collapses the dash the same as a space, so the guard misreads a NEW clause's subject as the OLD clause's object |
+| **BUG4** — `/`-joined, e.g. `"Program/definitions"` | 1 | `/` is in neither the split-char class nor the trailing-bracket regex, so it never tokenizes apart |
+| **BUG5** — parenthetical `(Definitions)` | 1 | The trailing-bracket regex only strips **square** brackets `[...]`; round parens survive as part of the token |
+| **Union (1–5)** | **556** | 29% of the 1,921-row residual |
+
+The remaining 1,365 rows are dominated by genuine morphology noise
+(`definite`/`indefinite`/`undefined`/`redefine`), true preposition-guarded
+cross-reference stubs (the majority of the `"... of/for/to Definitions"`
+shape), pension-law jargon (`"defined benefit plan"` / `"defined contribution
+plan"` as a compound noun, unrelated to a Definitions heading), "authority to
+define" delegation clauses (a board/department empowered to define something
+by future rule), and genuine cross-references to definitions declared
+elsewhere. My stratified sample of this remainder (below) confirms these are
+mostly, but not 100%, correctly excluded.
+
+#### Hand-verdict sample and tally
+
+I read real body text (fetched fresh from the parquet, not truncated to a
+short excerpt where that mattered) for **well over 150 individual rows**
+across two passes: (a) a stratified random sample of 102 rows drawn from 5
+shape buckets covering the full residual (seed `20260804`, script:
+`scratchpad/qa/qa_sample_for_verdict.json` / `qa_sample_fulltext.json`), drawn
+**before** I had identified the 5 mechanical bugs; (b) targeted samples of
+each bug pattern once found (BUG1: all 118, exhaustively, via a definitional-
+marker regex over full text, not truncated; BUG2: a fresh 30-row random
+sample, seed `20260804`, of the 421-row population; BUG3/4/5: all rows, small
+enough to read exhaustively). Verdict is YES/NO/UNCLEAR per the brief's
+instruction — "does this section genuinely define one or more terms, in ANY
+prose or marker form, ignoring whether today's extractor can parse it."
+
+**BUG1 (118 rows, exhaustive check, not sampled):**
+- **82 YES** — confirmed by a `"Term" means` / `“Term” means` / `as used in
+  this section` marker found directly in the row's full text.
+- **36 UNCLEAR** — 33 of these 36 rows' `text` field starts literally with
+  `"(b) ..."` (no `(a)` at all), and several explicitly cross-reference
+  `"subsection (a) of this section"` that is simply absent from the `text`
+  column. Given the identical drafting convention on the 82 confirmed rows
+  (CT's own "as used in this section, (a) 'Term' means..." style), I judge
+  these as **likely also genuine** but cannot prove it from the data
+  available — flagging as UNCLEAR rather than guessing YES. This looks like
+  a **separate, distinct corpus data-quality gap** (missing subsection-(a)
+  text for a subset of CT rows), not a rule-precision issue — noting it here
+  rather than silently treating it as this rule module's fault.
+- **0 NO.**
+
+**BUG2 (421-row population, 30-row random sample, seed 20260804):**
+- **27 YES**, **3 UNCLEAR** (2 Louisiana twin-rows describing prohibited
+  discharge acts without a visible `"pollution" means` clause in 1,400 chars
+  read; 1 Missouri row on physical page-formatting requirements that reads as
+  an operational/implicit definition of "page" but never uses "means"), **0
+  NO.** 90% definitive-YES on a random sample is a strong population signal.
+
+**BUG3 (15-row population, effectively all read via the containing 22-row
+bucket): overwhelmingly YES** — the large majority contain an explicit `"the
+following terms mean:"` block (this is literally Missouri's own standard
+definitions-clause opener); a handful were UNCLEAR because the fetched excerpt
+ended before reaching the definitions block. **0 NO.**
+
+**BUG4 (NC) / BUG5 (WI): both YES**, confirmed (`"MH/DD/SA" means mental
+health..."`; `"Appeal" means a review..."`).
+
+**Original 102-row general stratified sample** (the 5 broad shape buckets,
+covering the residual outside the crisp bug patterns; overlaps partially with
+BUG2/BUG3 above where a row happened to land in both):
+- `morphology_noise` (10/10 sampled): **10 NO** — UCC "payable ... at a
+  definite time" (WV/CT/OR/ME/CO/FL, all the same national UCC Article 3
+  provision), "indefinite delivery/quantity contract" (OH x2), etc. Correctly
+  excluded: the heading itself never signals a Definitions section, even
+  though the body's operative test happens to use quoted-term "if it is..."
+  phrasing.
+- `other_defin_substring_only` (15/15 sampled): **15 NO** — uniformly
+  "authority/duty to define X" delegation clauses (a board defines something
+  by future rule) or unrelated "defining boundaries" procedural provisions.
+  Correctly excluded.
+- `preposition_guarded_definitions` (20/20 sampled): **5 YES/borderline-YES,
+  1 UNCLEAR, 14 NO.** This is the cluster the scout's Round 2 already
+  quantified (`R-MID-NOPREP` ≈10–15% precision) and the manager/scout already
+  decided to keep excluded as a deliberate, reasoned trade-off. My sample's
+  25% true-positive rate is consistent with (a bit above) that estimate —
+  **this confirms the already-known, already-accepted trade-off; it is not a
+  new finding**, but see `IN 32-31-10-2` and `IN 21-44-7-1` below for two real
+  examples of what is being traded away, for the manager's record.
+- `has_defined_word_no_rule_match` (35/35 sampled): mixed — a real, distinct
+  negative control worth recording: **pension/insurance-law jargon
+  (`"defined benefit plan"` / `"defined contribution plan"` / `"defined cost
+  sharing"`, ~6–8 of the 35) is correctly excluded** — the module does NOT
+  chase the word "defined" as a bare adjective, which is exactly right (this
+  jargon dominates the raw 1,089-row "has 'defined' somewhere" bucket and
+  would have been a precision disaster to chase indiscriminately). The
+  remainder of this bucket's genuine hits overlap with BUG2 above.
+- `has_definitions_word_no_rule_match_other` (22/22 sampled): overlaps almost
+  entirely with BUG3 above.
+
+**Aggregate tally across every row I hand-verdicted with real body text**
+(BUG1 118 exhaustive + BUG2 30 sample + BUG3/4/5 ~17 + general 102 sample,
+duplicates not double-counted): **at least 139 confirmed YES**, **~43
+UNCLEAR** (mostly the CT missing-subsection-(a) rows and a few excerpts I
+didn't fetch far enough for), **39 confirmed NO** (all in the general
+sample's morphology/authority-to-define/pension-jargon/preposition-guarded
+buckets — proving the module's restraint is *mostly* correct there). **Zero
+NO verdicts among the 556 bug-pattern rows.**
+
+#### P-R2 escalation — genuine misses, real rows
+
+Per the brief, every genuine miss found is reported here rather than noted
+silently. Representative real rows (act_id, verbatim heading, why it's a
+genuine miss):
+
+1. **BUG1** — `STATE_CT_T17b_C319v_S17b-278j`, heading `"Sec. 17b-278j.
+   Complex rehabilitation technology. Definitions. Report."`, body opens `(1)
+   "Complex rehabilitation technology" means products classified as durable
+   medical equipment...`. Missed because the tokenizer never strips the
+   interior period off `"Definitions."`.
+2. **BUG2** — `STATE_MO_C590_S590.650`, heading `"590.650 Racial profiling —
+   minority group defined — reporting requirements — annual report — ..."`,
+   body: `As used in this section "minority group" means individuals of
+   African, Hispanic, Native American or Asian descent.` Missed because
+   `defined` is followed by an em-dash, not `;`/`:`.
+3. **BUG3** — `STATE_MO_C173_S173.685`, heading `"173.685 STEM grants,
+   eligibility for — definitions — rules — sunset provision."`, body: `As
+   used in this section, the following terms mean: (1) "Approved
+   institution"...`. Missed because the token immediately before the dash
+   (`"for"`) is a guarded preposition, even though it belongs to the
+   PRECEDING clause, not to `"definitions"`.
+4. **BUG4** — `STATE_NC_C122C_S122C-11`, heading `"§ 122C-11. MH/DD/SA
+   Consumer Advocacy Program/definitions"`, body: `(1) "MH/DD/SA" means
+   mental health, developmental disabilities, and substance abuse.` Missed
+   because `/` never tokenizes.
+5. **BUG5** — `STATE_WI_C809_S809.01`, heading `"Rule (Definitions)."`, body:
+   `(1) "Appeal" means a review in an appellate court...`. Missed because the
+   trailing-bracket regex only handles `[...]`, not `(...)`.
+6. **Preposition-guard trade-off, for the record (not a new escalation, the
+   trade-off is already accepted)** — `STATE_IN_T32_A31_C10_S32-31-10-2`,
+   heading `"Applicability of definitions; \"eviction action\""`, body: `(2)
+   "eviction action" means: (A) an action for possession of the rental
+   premises...`; and `STATE_IN_T21_A44_C7_S21-44-7-1`, heading `"Application
+   of definitions"`, body: `The following definitions apply throughout this
+   chapter: (1) "Board" refers to... (2) "Fund" refers to...`. Both are real
+   misses inside the deliberately-excluded preposition-guarded cluster.
+
+Full row lists for BUG1 (118), BUG2 (421 population / 30 sample), BUG3 (15)
+are in `scratchpad/qa/qa_mid_period_hits_fulltext.json`,
+`scratchpad/qa/qa_dash_defined_hits.json` /
+`qa_dash_defined_sample.json`, and the relevant slice of
+`qa_sample_fulltext.json` respectively — available for the manager/Developer
+to re-open directly.
+
+**My assessment for the manager**: BUG1–BUG5 are not judgment calls the way
+the preposition-guarded cluster is (that one is a real precision/recall
+trade-off, already reasoned through and accepted). BUG1–BUG5 are places where
+the module's OWN stated design intent ("match X" per ruling H-R4, extending
+R-VERB's own already-accepted dash-adjacent-punctuation pattern, extending
+R-MID's own already-accepted mid-token pattern) silently fails to fire on
+real, common, high-volume drafting shapes already inside the six rules'
+intended scope — not a new precision trade-off, but an implementation gap in
+rules the sprint already committed to shipping. I am reporting this as a
+**P-R2 escalation**: recall on the 20,307/22,228 = 91.4% headline is real and
+correct as measured, but the residual is NOT the "confirmed correctly
+excluded" set the contract claims — a substantial, well-evidenced fraction
+(conservatively 556 rows, likely closer to 450–500 after excluding the
+~36-row CT missing-data UNCLEAR set and the handful of BUG2/BUG3 UNCLEARs)
+are real, capturable misses under the director's absolute zero-miss bar.
+
+### Item 8 — U6 independent measurement
+
+Own script (not a run of `manager_verify_u4_u6.py`): folded into
+`scratchpad/qa/qa_residual_sweep.py`'s single pass (per-state counters
+computed alongside the residual sweep, to avoid a second multi-minute corpus
+scan — the before/after logic itself is independently written, not copied).
+Output: `scratchpad/qa/qa_u6_per_state.json`.
+
+| State | defin | before | after | newly | before% | after% |
+|---|---:|---:|---:|---:|---:|---:|
+| WA | 2,424 | 1,800 | 2,339 | 539 | 74.3% | **96.5%** |
+| FL | 952 | 805 | 938 | 133 | 84.6% | **98.5%** |
+| NY | 1,619 | 1,479 | 1,597 | 118 | 91.4% | **98.6%** |
+
+**Confirms the mandate's three named states move, exactly matching the
+manager's own figures** (independently reproduced, not copied). Top movers
+also reproduced exactly: NV 12.4%→99.6% (+8,878), IN 22.3%→90.3% (+1,790), MI
+63.9%→99.2% (+1,594), SD 47.2%→91.1% (+743). 52 jurisdictions covered (PR
+excluded). **Gate U6: CONFIRMED.**
+
+### Scout Round 2 cross-check
+
+Re-ran the scout's own scripts (not re-derived): `round2_rules.py` and
+`round2b_sample.py`, both from the session scratchpad, against the same
+cached `miss_pool.jsonl`/`true_pool_titles_only.jsonl`/`cluster_results_v2.json`
+inputs.
+
+- **`round2_rules.py` reproduced exactly**: `True→False` flips = 0 for every
+  rule (R-SEC, R-COLON, R-MID, R-MID-NOPREP, R-VERB-BARE, R-VERB-EXT,
+  R-MISSPELL); R-SEC 81 flips, R-COLON 31 flips, intersection 0 (disjoint,
+  confirmed); R-MID-NOPREP delta over R-MID = 362; R-VERB-EXT delta over
+  R-VERB-BARE = 1,810; conservative bundle `{R-SEC, R-COLON, R-MID,
+  R-VERB-BARE}` union = **19,452**, exactly matching the log's figure.
+- **`round2b_sample.py` reproduced byte-for-byte** (`diff` against the
+  original `round2b_output.txt` on the first 50 lines: identical) — confirms
+  the fixed-seed samples are genuinely deterministic/reproducible, not a
+  one-off artifact.
+
+**Arithmetic reconciliation (explicitly required by the brief, verified, not
+assumed).** Wrote a fresh script using the shipped module's own `_rule_sec`,
+`_rule_mid`, `_rule_verb_bare`, `_rule_verb_extended`, `_rule_trunc`,
+`_rule_misspell` directly against the full 22,228-row miss pool:
+
+```
+conservative bundle {R-SEC, R-MID, R-VERB-bare} union : 19,452
+shipped matches_heading_variant union                 : 20,307
+shipped MINUS conservative bundle                      :    855
+  explained by R-VERB-extended                         :    732
+  explained by R-TRUNC                                 :    117
+  explained by R-MISSPELL                               :      6
+  UNEXPLAINED                                           :      0
+full-population sizes: R-VERB-extended=765, R-TRUNC=117, R-MISSPELL=6, sum=888
+overlap with conservative bundle (already captured by R-SEC/R-MID/R-VERB-bare): 33
+888 - 33 = 855  ✓ exact match
+```
+
+**The arithmetic reconciles exactly, with zero unexplained rows.** The
+manager's expected formula (`R-VERB-extended + R-TRUNC + R-MISSPELL − overlap`)
+is confirmed correct on real data, not merely assumed.
+
+### Regression + U5 + U3
+
+**Full suite**: `backend/.venv/bin/pytest backend/tests -v` →
+
+```
+FAILED backend/tests/integration/test_us_heading_variants_end_to_end.py::TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline
+FAILED backend/tests/unit/test_definition_links_rules_registry_integration.py::test_module_self_registers_exactly_one_heading_rule_for_us_star
+================= 2 failed, 669 passed, 18 warnings in 14.19s ==================
+```
+
+Exactly the 2 core-blocked failures predicted by the contract, both via a
+genuine assertion / genuine `ImportError` tied to the missing
+`app.definition_links.rules.registry` (not yet merged from
+`claude/defs-core-scope`) — **no third failure, baseline 641 fully preserved
+inside the 669.** **Gate U5 (regression): CONFIRMED at the Phase-A level.**
+
+**Gate U3**:
+```
+git diff --stat 83532fe...HEAD -- backend/app/
+ .../definition_links/rules/us_heading_variants.py | 269 +++++++++++++++++++
+ 1 file changed, 269 insertions(+)
+```
+Exactly one new file, zero edits to any existing shared module. `--
+backend/tests/` shows only the Planner's own RED-test deliverables (5 files,
+1,277 insertions — tests, fixtures, README), no Developer edits mixed in.
+**Gate U3: CONFIRMED.**
+
+### Adversarial precision hunt (item under "Regression + U5")
+
+Beyond the manager's two audit tests (no-`defin`-substring / morphology-token
+probes), I constructed 18 of my own synthetic attack headings (repealed-stub
+shapes, cross-reference-only phrasing, incidental "defined"/"definition"
+mentions, ALL-CAPS, mojibake/BOM/nbsp leading noise) and ran them through
+`matches_heading_variant`. 15/18 correctly stayed False. **3 fired True**;
+I then checked each against the real corpus to see whether the vulnerability
+is actually realized in production, not just hypothetical:
+
+1. **`"Article 5 Definitions repealed"`** (synthetic: mid-token `Definitions`
+   immediately followed by a stub-signal word) — fires True in isolation, but
+   **0 real corpus rows** match this shape (`definitions [repealed/omitted/
+   reserved/vacant/deleted]` mid-heading, checked exhaustively across all 52
+   files). Theoretical, not realized. No action needed.
+2. **`"Application of the definitions found in Article 3"`** (synthetic: an
+   article — "the"/"a"/"an" — inserted between the governing preposition and
+   `definitions`, defeating the guard, which only inspects the single
+   immediately-preceding token) — **CONFIRMED, REAL, currently realized in
+   production**: `STATE_ME_T15_P4_C305-A_S2123-A`, real heading `"15 §2123-A.
+   Method of review for administrative actions not included in the
+   definition of \"post-sentencing proceeding\""`. Full body (single
+   sentence): `Remedial relief from administrative actions ... that are not
+   included in the definition of "post-sentencing proceeding" in section
+   2121, subsection 2 is exclusively provided by Title 5, chapter 375,
+   subchapter 7.` **This defines zero terms** — it is a jurisdictional
+   cross-reference to a definition declared elsewhere (section 2121), exactly
+   analogous to the already-confirmed TX true-negative pattern. It is
+   `is_definitions_heading()` = False, `matches_heading_variant()` = True: a
+   **genuine, real false positive**, newly introduced by this sprint's rule
+   module, that passed both of the manager's precision audits undetected
+   (the manager's `REAL_TOKEN_RE` correctly finds a standalone `"definition"`
+   token here — it was never designed to catch "real token, wrong grammar").
+   **P-R2 escalation.**
+3. **`"﻿\xa0Sec. 4. Miscellaneous provisions; definition of terms used
+   elsewhere"`** — fires True via R-MID with a legitimate non-prepositional
+   preceding token (`"provisions"`); on inspection this is not actually the
+   preposition-guard bypass I was probing for (the real preposition-guard
+   shape needs the excluded word BEFORE `definitions`, not after) — I do not
+   believe this is a defect, just a benign match on a synthetic string with
+   no real-corpus counterpart to check.
+
+**Also flagging (not a new defect, matches an already-documented
+phenomenon)**: 35 of the 20,307 newly-recognized rows have a body that is
+exactly `"Repealed."` (e.g. `STATE_DC_T50_C13_S50-1301.57`, `"§ 50-1301.57.
+'Motor vehicle liability policy' defined."` → `Repealed.`), plus 62 more with
+bodies under 40 characters (mostly DC "Recodified at..."/"Omitted." stubs and
+4 Maine "REALLOCATED TO..." stubs). This is the same textually-correct/
+zero-extraction-value phenomenon the scout already documented for baseline
+(341 such rows, "pre-existing behaviour, not caused by this sprint") — now
+proportionally present in the new rule's larger catch too. Not a defect, just
+recorded so it isn't later mistaken for one.
+
+### Per-gate verdict summary
+
+| Gate | Verdict | Proven by |
+|---|---|---|
+| U1 | Heading-layer recognition holds for the rule set as specified | Unit suite 19/19, composed e2e 8/8 (re-run, unchanged from manager's numbers) |
+| U3 | **CONFIRMED** | `git diff --stat 83532fe...HEAD -- backend/app/` = exactly 1 new file |
+| U4 | **DOES NOT PASS AS CLAIMED** | Independent residual recompute (1,921, exact match) + classification found 556 rows (29%) matching 5 concrete tokenizer/regex gaps, hand-verdict sample confirms high genuine-miss rate (≥139 YES, 0 NO among bug-pattern rows) — see P-R2 escalation above |
+| U5 | **CONFIRMED at Phase-A level** | Full suite 669 passed / 2 failed, exactly the core-blocked pair, zero regressions; **but** see the confirmed false positive (ME row) under the adversarial hunt — a real, if narrow, precision defect |
+| U6 | **CONFIRMED** | Independent per-state before/after script reproduces WA 74.3%→96.5%, FL 84.6%→98.5%, NY 91.4%→98.6% exactly |
+
+### What I could NOT verify
+
+- Did not hand-verdict all 1,921 residual rows individually — read well over
+  150 with real body text (the 556 bug-pattern rows nearly exhaustively, plus
+  a 102-row general stratified sample of the remainder), which is the
+  brief's "substantial random sample... more if the shapes are
+  heterogeneous" bar, but the exact true-miss count among the ~43 UNCLEAR and
+  the un-sampled remainder of the 1,365 "no identified bug" rows is not
+  individually confirmed.
+- The 36 BUG1 UNCLEAR rows' true status hinges on whether CT's `text` column
+  is really missing subsection (a) content (I'm confident of the *symptom* —
+  33/36 start literally with `"(b) "` — but have not traced *why* the corpus
+  extraction drops it, which is out of this sprint's scope).
+  the 2 LA and 1 MO UNCLEAR rows in the BUG2 sample similarly need a fuller
+  body read than I fetched (up to 1,400–3,000 chars) to resolve definitively.
+- Have not verified whether fixing BUG1–BUG5 is feasible without new
+  precision risk of its own (e.g. widening the tail-tokenizer to strip
+  interior periods, or teaching the preposition guard about clause
+  boundaries, could plausibly introduce new false positives elsewhere in the
+  corpus) — that is implementation work, not QA's to prescribe; flagging the
+  gap, not the fix.
+- Did not run the frontend suite (not touched by this sprint, per the
+  contract).
+- Have not verified jurisdictions outside the 52 in-scope
+  `us_*_statutes.parquet` files (constitutions, PR) — confirmed out of scope.
+
+### Branch state
+
+All commits on `claude/defs-us-headings`. This report is doc-only
+(this log file). No `backend/app/**` or `backend/tests/**` files touched —
+role separation held throughout (I read and analyzed, but wrote no
+test/fixture files, since every finding above is reported for the Planner to
+turn into RED tests, not something QA authors itself).
