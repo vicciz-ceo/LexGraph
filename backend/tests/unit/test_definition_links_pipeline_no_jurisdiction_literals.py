@@ -50,6 +50,23 @@ BANNED_LITERAL_SUBSTRINGS = (
     "בסימן זה",
 )
 
+# QA addition: the existing guard above only checks Hebrew literals --
+# C3 says "no jurisdiction-specific literals", and an English-only
+# literal is just as much a violation as a Hebrew one (the QA brief's
+# own instruction: "check for English-language literals too, not just
+# Hebrew"). These are `us_profile.py`'s own `_US_CHAPTER_SCOPE_TRIGGERS`
+# and `us_scope_trigger_proof.py`'s own trigger phrase -- if either were
+# ever inlined back into pipeline.py (the same "rename dodges the symbol
+# check" failure mode the Hebrew guard above already defends against),
+# this catches it too.
+BANNED_ENGLISH_LITERAL_SUBSTRINGS = (
+    "for purposes of this chapter",
+    "in this chapter",
+    "for purposes of this part",
+    "in this part",
+    "As used in this section",
+)
+
 # pipeline.py's direct calls to these two Hebrew-only extraction functions
 # are deleted by the seam spec, replaced by
 # `profile.extract_local_scope_definitions(...)` -- the functions
@@ -97,6 +114,22 @@ def test_pipeline_module_contains_no_hebrew_scope_trigger_literals():
         f"string(s) {hits} -- C3's entire content is that pipeline.py retains "
         f"NO jurisdiction-specific literals, whether or not they are still "
         f"reachable under one of the named symbols checked above."
+    )
+
+
+def test_pipeline_module_contains_no_english_scope_trigger_literals():
+    """QA addition (C3 also forbids English-only literals, not just
+    Hebrew -- see BANNED_ENGLISH_LITERAL_SUBSTRINGS above). Case-sensitive
+    substring check mirrors the Hebrew guard's own discipline; the exact
+    literals checked are byte-identical to `us_profile.py`'s own
+    `_US_CHAPTER_SCOPE_TRIGGERS` tuple and `us_scope_trigger_proof.py`'s
+    trigger phrase prefix."""
+    source = _pipeline_source()
+    hits = [s for s in BANNED_ENGLISH_LITERAL_SUBSTRINGS if s in source]
+    assert not hits, (
+        f"pipeline.py's source still contains jurisdiction-specific ENGLISH "
+        f"literal string(s) {hits} -- C3 forbids jurisdiction-specific "
+        f"literals of any language, not Hebrew only."
     )
 
 
