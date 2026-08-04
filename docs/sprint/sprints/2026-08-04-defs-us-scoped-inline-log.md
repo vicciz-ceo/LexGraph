@@ -980,3 +980,55 @@ remit -- reported, not patched, per the brief).
 **Per the brief: STOPPING here. Test written, run, failure verified and
 root-caused; `us_scoped_inline.py` NOT touched.** `git diff HEAD --
 backend/app/definition_links/rules/us_scoped_inline.py` is empty.
+
+---
+
+## 2026-08-04 — Manager: S-R10's test found a real defect; ESCALATED
+
+Ruling S-R10 (pinning AGREEMENT rather than deferring) was the right call: the
+test it mandated fails, and I reproduced the root cause myself rather than
+taking the Planner's diagnosis on trust.
+
+**Reproduced live** on the real vendored Oregon row `STATE_OR_T22_C238_S238.300`
+(deliberately non-Maine, so the known annotation defect cannot confound it):
+
+- our rule stamps `scope_value = '(c)'`
+- `profile.resolve_unit_path(article, char_offset=...)` returns
+  `[('sub', '1'), ('digit', '1'), ('upper_alpha', 'A')]` at the first mention
+  and `[('sub','1'), ('digit','1'), ('upper_alpha','B')]` at the second
+- `_subsection_contains_offset` compares `mention_path[0].value in allowed`
+  → `'1' in ('(c)',)` → **False, always**
+
+So a `scope="subsection"` definition links NOTHING on the US live path. Three
+independent problems compound:
+
+1. **Format**: our rule emits `'(c)'` with parens; `UnitStep.value` is bare
+   (`'c'`). `matcher._value_matches` is a plain `==` with no normalization.
+   Arguably ours to fix (the seam does say a rule stamps a bare label).
+2. **Level semantics — the real one**: `_subsection_label` takes
+   `matches[-1]`, the NEAREST-preceding (innermost) marker;
+   `_subsection_contains_offset` compares `mention_path[0]`, the OUTERMOST step
+   of a root-to-leaf path. These are different levels by construction, so they
+   disagree for ANY nesting deeper than one level — fixing the parens alone
+   would not help.
+3. **Resolver bug (core's)**: `resolve_unit_path`'s outermost slot comes back
+   as the unrecognized kind `'sub'` with value `'1'` when a document's real
+   outermost marker is a digit — the near-universal US convention. Distinct
+   from, and broader than, the already-routed Maine `(NEW)`/`(AMD)` defect.
+
+Note how this got missed upstream: `_subsection_contains_offset` has an earlier
+branch reading `getattr(article, "subsections", None)`, which core's own code
+comments describe as existing only for `SimpleNamespace` test stubs — "a real
+`MatcherArticle` never has it". Tests taking that branch go green while
+production takes the `resolve_unit_path` branch. That is the same
+unit-green-but-live-dead shape as core's own C1 QA bounce, recurring one level
+down, and it is why S-R10 refused the deferral.
+
+**Scope of impact**: `subsection` is 1,297 genuine hits = 4.5% of this family's
+volume, and the mechanism is shared, so every panel stamping subsection scope
+is affected. Under the absolute zero-miss bar a silent under-link is a U2/U4
+gate failure on that slice.
+
+Escalated to the program manager. Not fixed here: `us_profile.py`/`matcher.py`
+are shared modules gate U3 forbids this sprint from touching, and the level-
+semantics question is core's contract to state, not ours to pick.
