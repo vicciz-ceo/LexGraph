@@ -2029,3 +2029,79 @@ extractor defect (last-entry-unbounded), already GREEN, not a capture test.
 
 **Pushed**: `0ebafcd` (D1), `cf10cd7` (D3 jurisdiction-typo fix), branch
 `claude/defs-us-preamble`, `git status` clean of `backend/app/`.
+
+---
+
+## 2026-08-04 — Manager: P-R8 confirmed independently; Developer held; sprint re-parked
+
+### M-R23 — I verified the dispatch gap myself. Both halves of P-R8 hold.
+
+The Planner reported it and P-R8 rules it, but this is the claim that decides
+whether we build, so I proved it directly rather than accepting two reports.
+
+Live probe: registered a throwaway always-firing `BodyPreambleRule` for
+`("US-*",)`, then called `USProfile(code="US-GA").derive_heading_from_body`
+on a real GA preamble body.
+
+```
+derive_heading_from_body -> None
+throwaway rule consulted? -> False
+```
+
+Source of the merged implementation (`us_profile.derive_heading_from_body`):
+
+```python
+def derive_heading_from_body(heading: str, body: str) -> str | None:
+    if not _is_placeholder_heading(heading):
+        return None
+    return _derive_heading_from_body(body)
+```
+
+Both defects confirmed from the code itself, not inferred:
+
+1. **Registry consumption is absent** — no `body_preamble_rules_for` call
+   anywhere in the path; registered rules are never consulted.
+2. **The `_is_placeholder_heading` gate is still in the merged code** — so
+   the ungated dispatch that M6 and D-PREAMBLE-ALL require was never
+   implemented. Its own docstring says so plainly: *"this behavior moved
+   here verbatim, nothing about it changed."*
+
+**A `rules/us_body_preamble.py` built today would be inert.** Holding the
+Developer spawn is correct. Note the irony worth recording: the seam spec's
+own §4 describes ungated dispatch at length, and the code moved the v1
+gated shape across verbatim — the spec was written, agreed, director-
+confirmed, and then not implemented. Two panels found it independently only
+because both probed the live path instead of trusting the spec.
+
+### M-R24 — Handoff verification of the Planner's repair (ba9eb53)
+
+Verified by me, not accepted on report:
+
+- **Diff `79978ed...ba9eb53` is tests + docs ONLY**; `git diff --name-only
+  -- backend/app/` is **empty**. No production code touched.
+- **Suite reproduces exactly: 31 failed / 720 passed** (was 37/714).
+- **Zero remaining ImportError/ModuleNotFoundError failures** — all 7 stale
+  imports repaired; every one of the 31 failures is now behavioral.
+- The Planner's honest-green method was rigorous and worth recording: it
+  checked out the pre-rebase tip (`8a8837a`) into an ISOLATED worktree with
+  its own throwaway venv, re-ran this sprint's 12 files there, and compared
+  failing-test-ID sets — byte-identical, `diff` exit 0. So **nothing flipped
+  RED→GREEN on core's merge**, proven rather than assumed, and no mutation
+  proof was needed because there was nothing to prove.
+- It also found and fixed a pre-existing test bug (`US-FEDERAL` instead of
+  `US-FED`, outside the controlled vocabulary) that was masking a behavioral
+  RED behind a `ValidationError`, and confirmed via `git diff 8a8837a` that
+  it predated the rebase. Good catch — that test was failing for the wrong
+  reason and would have read as legitimate RED.
+
+### M-R25 — Status: re-parked, blocked on core's dispatch-completion sprint
+
+Item (1) of the program manager's non-blocked list is **DONE** (the 31 REDs
+are verified behavioral against the merged tree). Items (2) the guarded-
+cluster cross-check and (3) U6 baselines under the corrected inline-fallback
+caveat remain available and are named in the Context Dump for whoever
+resumes.
+
+**The matrix, fixtures, and CLAUSE package are unaffected** — the inventory
+is real regardless of dispatch, exactly as the program manager notes. What
+is blocked is only the wiring that lets rules fire.

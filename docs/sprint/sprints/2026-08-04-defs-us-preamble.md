@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: parked-blocked
-blocked_on: "2026-08-04-defs-core-scope merging to main (rule registry)"
+blocked_on: "core dispatch-completion sprint (P-R8): BodyPreambleRule registry consumption + _is_placeholder_heading gate removal"
 current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
@@ -425,15 +425,18 @@ _None._
 
 ## Context Dump
 
-1. PARKED-BLOCKED on core (`defs-core-scope`) merging its rule registry to main.
-2. Resume with a DEVELOPER: create ONE file `backend/app/definition_links/rules/us_body_preamble.py`
-   registering `BodyPreambleRule`s (body -> synthesized heading | None). Zero shared-module edits.
-3. 31 RED tests across 9 files already specify the behavior; they go green as rules land.
-4. Dispatch is UNGATED (director-confirmed); precision comes from per-state rules + negative guards.
-5. Rule shapes: B1 colon-list (9 states, parameterized), B2 words-have-meanings, GA/MD/MS/SD/NE,
-   FED/DC/NY, MS 2nd convention ("shall have the meaning(s) ascribed herein"), CA 663 BLOCK rows.
-6. QA must honor P-R7 (independent U4 denominator) and not measure U6 off the buggy inline fallback.
-7. CLAUSE package (2,659 act_ids / 51 jurisdictions) handed to the program manager for scoped-inline.
-8. Counts are floor/ceiling where methodologies did not reconcile — do not collapse to one number.
-9. Suite: 661 passed / 31 RED-by-design; 641 pre-sprint baseline intact; diff is tests+fixtures+docs only.
+1. RE-PARKED. Blocked on core's dispatch-completion sprint (P-R8), NOT on the registry —
+   the registry exists; `BodyPreambleRule` is simply never consulted and the gate is still live.
+2. Manager-verified in code (M-R23): `us_profile.derive_heading_from_body` is
+   `if not _is_placeholder_heading(heading): return None` — no registry call. A rule file built now is INERT.
+3. Branch rebased onto main and pushed; venv refreshed against main; imports verified.
+4. Suite: 31 failed / 720 passed. All 31 are BEHAVIORAL REDs — zero import errors (M-R24).
+5. Resume with a DEVELOPER once core lands dispatch: create ONE file
+   `backend/app/definition_links/rules/us_body_preamble.py`. Zero shared-module edits.
+6. `BodyPreambleRule` is single-valued, FIRST-NON-None-WINS in filename-sort order —
+   rules must be precise, not greedy, or an early broad rule starves the specific ones.
+7. Build target (shapes, order, jurisdiction_codes, tests each satisfies) is written in `-log.md` by the Planner.
+8. Non-blocked work still available: guarded-cluster cross-check vs headings' 245-row doc; U6 baselines
+   under the S1 inline-fallback caveat (no uncorrected fallback numbers).
+9. QA must honor P-R7: U4 denominator must be independent of the rules' own trigger regexes.
 10. NEVER two writers in this worktree (M-R8). Manager verifies fixtures byte-against-parquet.
