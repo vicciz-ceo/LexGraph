@@ -1576,6 +1576,7 @@ codebase, not a coin-flip).
 
 ### Pushed
 
-Committed and pushed to `claude/defs-us-pr` — see commit hash in the
-manager's verification entry (this Planner does not merge/verify its own
-work, per role separation).
+```
+06032fd planner: cycle-3 heading-anchored bucket-D rule, idiom re-triage, item 8
+```
+Branch `claude/defs-us-pr`, pushed to origin.
