@@ -2846,3 +2846,208 @@ population is exactly what that method exists to serve.
 AFTER core merges to main and this branch rebases. Tests referencing the new
 profile methods will be RED against the un-rebased tree, which is expected
 and correct — not a planning bug.
+
+---
+
+## 2026-08-04 — Planner: cycle 4 — P-R7-compliant outside-canonical sweep,
+7 new RED test files, 3 conventions, escalation
+
+Read the full brief, ruling P-R7, ruling M-R11, and core's seam spec v2.4
+in full (`git show origin/claude/defs-core-scope:docs/sprint/sprints/
+2026-08-04-defs-core-scope.md`, read-only, never checked out over this
+branch) before writing anything. CodeGraph-explored `pr_profile.py` /
+`profiles.py` / `extract.py` (one call, per the mandatory-tooling order)
+before any Read. Read `pr_profile.py`'s full 1,176 lines directly to
+diagnose; did not edit it (`git status --short` confirms: only tests, one
+fixture, the fixtures README, contract, and this log touched — zero files
+under `backend/app/`).
+
+### Method — P-R7-compliant sweep, independent of the extractor's own signals
+
+Every prior measurement (including QA's own 833-row idiom count) used the
+extractor's OWN recognized idiom vocabulary as its search signal. I built
+TWO independent lines of ground truth instead:
+
+1. **A wider idiom census** (21 idioms, not the ~8 the extractor
+   recognizes), corpus-wide vs. non-canonical, with per-idiom SAMPLE
+   CLASSIFICATION (n=11-25/idiom, hand-read against printed context
+   windows — script: `scratchpad/pr_c4_sweep.py`/`pr_c4_sample.py`).
+   `significa(rá)` family, `se entenderá por`, `quiere decir` sampled
+   ~90-100% genuine. `incluye` (608 corpus-wide), `comprende` (105), `se
+   considera como` (302 — 0/14 genuine STANDALONE-term shape in my
+   sample, almost all legal-classification prose), and bare `se
+   define`/`según se define` (398+257 — ~95% POINTER/cross-reference
+   usage to an ALREADY-defined term, not new definitions, and belong to
+   pointer/`detect_cross_law_derivations` machinery per core's v2.1 §4,
+   not this file) are all LOW-PRECISION and excluded from item 18's
+   population — recorded so QA does not have to re-discover this.
+2. **Two structural sweeps, INDEPENDENT of idiom vocabulary entirely**
+   (script: `scratchpad/pr_c4_conventions.py`/`_conventions2.py`):
+   blank/generic-titled articles (`"Artículo N. "`, zero descriptive
+   text) whose body opens with a Definiciones-block preamble (47 rows);
+   bare-term headings (heading IS the defined term, no stem) whose body
+   opens with a quoted-term-then-idiom shape (117 rows: 116 TRANSITO, 1
+   elsewhere). A THIRD, broader generalization (bare-term heading + term
+   anywhere in the body's first sentence, no quote/idiom gate) was also
+   measured and explicitly REJECTED: 1,702 corpus-wide hits, sampled
+   overwhelmingly false (`"Artículo 1150. Orden"` -> body about payment
+   order; `"Artículo 12. Reglamentación"` -> body about who may issue
+   regulations) — real data behind not building the broader version.
+
+I also live-verified (not assumed) that `extract_definitions_from_
+section`, called DIRECTLY on real bodies from both structural
+conventions, ALREADY returns correct terms once routed there
+(`STATE_PR_LEY_241_1950_ART2` -> 6/6; `STATE_PR_TRANSITO_ART1_25`/
+`STATE_PR_LEY_77_1957_ART16_330` -> 1/1 once a leading citation bracket
+is stripped) — this isolates items 19/20 to RECOGNITION/dispatch gaps,
+not fresh extraction-mechanism gaps, and is the reason both items include
+a "floor already works" test alongside the core-gated seam test.
+
+**A real, live, previously-unknown bug found via this same discipline**
+(not hypothesized): `STATE_PR_LEY_240_2002_ART3` (never used in any prior
+test) is corrupted TODAY by the page-break footer artifact inside
+`extract_definitions_from_section`'s own shared scan path (cycle 3 only
+stripped it inside `extract_heading_anchored_definition`) — one candidate
+is a mangled prose fragment whose `definition_text` is literally the
+footer boilerplate. A P-R7-compliant structural sweep (canonical rows
+with a marker on BOTH SIDES of a mid-body footer, 208 corpus-wide) is
+what surfaced this, not a hand-picked example.
+
+### Whole-body quoted-idiom scan (item 18c) — precision-checked, not assumed
+
+A bounded (word-boundary, no-unbounded-search) `finditer` sweep of the
+existing quoted-term-then-idiom patterns over EVERY non-canonical article
+body (not gated behind any specific scope-trigger phrase) found 889
+corpus-wide hits. Two independent random samples (20 + 25 rows,
+`scratchpad/pr_c4_fp_check.py`) were 100% and 96% genuine; the one false
+positive (`STATE_PR_LEY_146_2011_ART3`) was a RE-MENTION of an
+already-defined term ("Dicho 'Fondo Especial' será administrado..."), not
+a fabrication of new prose.
+
+### Item plan (numbering continues from 17), contract updated
+
+Full item descriptions are in the contract's `## Cycle-4 item plan`
+(items 18-25). Dense cross-reference here:
+
+- **18 (LEAD, P2)**: `PRProfile.extract_local_scope_definitions` seam
+  method + NEW pure function `extract_inline_local_definitions` (item
+  18c). `test_pr_profile_local_scope_definitions_cycle4.py` — 6 tests, 3
+  RED via `ImportError` (18c function doesn't exist), 3 RED via
+  `AttributeError` (core-gated seam method).
+- **19 (P2/P4)**: blank-title convention + embedded-amendment sub-case.
+  `test_pr_profile_derived_heading_definitions_cycle4.py` — 5 tests: 2
+  GREEN floor-proofs (extraction already works), 1 GREEN documentation
+  of the SEC18 ellipsis-boundary sub-gap (still correctly zero today), 1
+  RED for the harder ART9 unmarked-repeated-entry sub-gap (documents,
+  does not yet fix), 2 RED core-gated seam tests.
+- **20 (P2/P4)**: NEW function `extract_bare_term_heading_definition`
+  (the TRANSITO class). `test_pr_profile_bare_term_heading_cycle4.py` —
+  6 tests, all RED via `ImportError` (3 positive shapes incl. the
+  non-TRANSITO confirming row, 3 precision guards grounded in the
+  rejected-broader-generalization data).
+- **21 (P4)**: the 17 real misses, QA's root-cause groups A-N.
+  `test_pr_profile_ordinary_misses_cycle4.py` — 15 tests, 14 RED (one
+  per new fixture row) + 1 GREEN (the cycle-2-reused row's still-zero
+  confirmation).
+- **22-23 (P4, M-R9 fold-in + residue)**:
+  `test_pr_profile_cycle4_marker_gate_and_residue.py` — 5 tests: 1 RED
+  (the new 4th marker-gate row), 3 GREEN regression guards (M-R7 rows,
+  now vendored as real fixture data for the FIRST time — previously only
+  quoted narratively in this log), 1 GREEN (residue 8th row).
+- **24 (P4/P5)**: `test_pr_profile_footer_artifact_cycle4.py` — 2 tests,
+  1 RED (the live bug), 1 GREEN (the 5 correctly-captured terms must
+  survive whatever fix lands).
+- **25 (P3)**: `test_pr_profile_scope_cycle4.py` — 6 tests, all RED via
+  `AttributeError`, targeting the REAL seam method name
+  (`determine_scope`, not cycle-1's placeholder
+  `determine_chapter_scope`). `test_pr_profile_scope.py` left untouched
+  (superseded, not edited, per role separation).
+
+### Fixtures
+
+28 REAL rows, `pr_sample_rows_cycle4.json` (sibling file, all prior
+cycles' fixtures untouched), byte-compared against a fresh parquet read
+immediately before committing: `28 rows checked, 0 problems`. Full
+per-row provenance in the fixtures README's new `## pr_sample_rows_
+cycle4.json` section. Notably includes the FIRST-EVER byte-verified
+vendoring of ruling M-R7's 3 correct-zero rows (`STATE_PR_LEY_
+77_1957_ART36_030`, `STATE_PR_RENTAS_SEC2022_01`,
+`STATE_PR_RENTAS_SEC2042_01`) — every prior reference to them in this log
+was narrative prose, never a committed fixture, which I needed to fix
+before I could write a real regression guard against them.
+
+### Contract lint / size discipline
+
+Freed ~140 lines of budget (77 from compacting the settled `## Bucket D
+final split` section per the DO NOT REOPEN instruction — full detail
+already duplicated in this log's cycle-3 Planner entry, only the
+residue table + headline kept; ~95 from archiving the fully dev-
+complete/QA'd cycle-3 item plan, same pattern as cycle-1/2's own
+archival) to fit the new cycle-4 item plan + escalation within budget.
+`bash scripts/contract_lint.sh -f docs/sprint/sprints/2026-08-04-defs-us-pr.md`
+→ `PASS 321` (was `PASS 365` before this cycle, `PASS 320` immediately
+after archival, then +1 for the Next Steps pointer edit).
+
+### Full suite
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+41 failed, 834 passed, 8 xfailed, 18 warnings in 12.58s
+```
+
+41 failed = 6 pre-existing (QA's cycle-4 RED, untouched, correctly still
+red) + 35 new (6+2+6+14+1+1+6+... — see per-file counts above; every
+number reconciles against the item list). 834 passed = 825 baseline + 9
+new GREEN guards/floor-proofs (3 in derived-heading, 4 in marker-gate-
+and-residue, 1 in ordinary-misses, 1 in footer-artifact). 8 xfailed
+unchanged. Role boundary: `git status --short` shows exactly 7 new test
+files, 1 new fixture, the fixtures README, the contract, and this log —
+no existing test edited, no production file touched.
+
+### ESCALATION: whole-body quoted-idiom scan (item 18c) — ship-it vs.
+gate-it-narrower
+
+Real data: 889 corpus-wide hits, 96-100% genuine on two independent
+random samples, the one measured false positive being a re-mention (not
+a fabrication) of an already-defined term. My lean: **ship it as
+designed** (option A) — the false-positive shape found is structurally
+narrow (a quoted term that was ALREADY defined earlier in the SAME body,
+re-mentioned later) and cheaper to guard against directly (e.g., require
+the match be the term's FIRST occurrence in the body) than to gate the
+whole mechanism behind a coarser precondition that would also suppress
+real recall. Option B (only run the scan when no scope-trigger phrase
+fired elsewhere in the article) is more conservative but I could not
+measure its recall cost from here without also re-running the full
+sweep under that gate, which I did not do — flagging the gap honestly
+rather than asserting a number I don't have. Real examples for both
+sides are above and in the contract's cycle-4 item plan.
+
+### For the Developer (sequencing)
+
+Items 21-24 are pre-core OK today (pure `pr_profile.py` additions/fixes,
+same module, no shared-module edit) — start there; item 22's exact gate
+condition ("corroborating sentence marker-free", not "whole body
+marker-free") is specified in the test file's own docstring, re-verified
+against all 3 M-R7 rows already. Items 18-20 and 25 need core's seam
+merged and this branch rebased first (`PRProfile.extract_local_scope_
+definitions`/`derive_heading_from_body`/`determine_scope` all currently
+raise `AttributeError` — confirmed, not guessed, via the RED runs above)
+— item 18c's pure function (`extract_inline_local_definitions`) and
+item 20's pure function (`extract_bare_term_heading_definition`) can and
+should be built BEFORE the rebase (same module, no seam dependency), then
+wired into the seam method once it lands.
+
+### Escalations
+
+One (above), per the standing policy's expectation that the
+outside-canonical population is where a recall-vs-false-positive
+conflict is most likely to surface. No other panel-level conflict hit
+this pass — the low-precision idioms (`comprende`/`incluye`/`se
+considera como`/bare `se define`) were excluded from this cycle's
+population by measurement, the same in-panel-resolvable pattern the
+Planner used for `conocido como`/`denominado` in cycle 1, not a
+genuinely undecidable tradeoff needing separate director arbitration.
+
+### Pushed
+
+Commit SHA and `git log --oneline -1` in my final report to the manager.

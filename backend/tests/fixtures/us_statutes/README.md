@@ -655,3 +655,93 @@ fetched 2026-08-04 by QA via a disposable scratch script
 (`/private/tmp/.../scratchpad/qa_vendor_cycle4.py`, outside `backend/.venv`,
 never committed), reading directly from the already-cached HF snapshot on
 disk — no network download performed.
+
+## `pr_sample_rows_cycle4.json` — Planner cycle-4 outside-canonical sweep +
+ordinary-miss fixtures (sprint 2026-08-04-defs-us-pr, Planner, 2026-08-04)
+
+28 REAL rows (full original columns, values unmodified), same
+`us_pr_statutes.parquet` snapshot (`301000fc3465374ee0f23c3c6953a8a861e95cad`)
+as every PR fixture above, byte-compared against the live on-disk parquet
+immediately after writing (script output: `28 rows checked, 0 problems`). A
+SIBLING file — every prior cycle's fixtures/tests are untouched.
+
+Per program ruling P-R7 (ground truth independent of the extractor's own
+signal list), a corpus-wide idiom census plus sample-classification and
+two idiom-independent STRUCTURAL sweeps (blank-title bodies; bare-term
+headings) found the conventions below. Full method, tables, and
+false-positive-rate data are in the panel log's cycle-4 Planner entry;
+this is the provenance inventory only.
+
+**Outside-canonical conventions (item 18 LEAD, items 19-20):**
+
+1. `STATE_PR_LEY_36_1984_ART9` — blank title (`"Artículo 9. "`) +
+   Definiciones-block preamble body; ALSO an unmarked repeated
+   "Término. — Definición." shape and real mid-body footer text (2
+   stacked findings, see item 19's test docstring).
+2. `STATE_PR_LEY_241_1950_ART2` — same blank-title convention, clean
+   `(a)-(f)` marked body — proves extraction already works once routed.
+3. `STATE_PR_LEY_171_2018_SEC18` — a Definiciones sub-heading embedded
+   inside an amendment-instruction article; real body uses a literal
+   `"…"` ellipsis between quoted illustrative entries (a second, distinct
+   gap from the blank-title convention).
+4. `STATE_PR_TRANSITO_ART1_25`, `STATE_PR_TRANSITO_ART1_76` — the
+   TRANSITO bare-term-heading class (item 20): heading IS the term, body
+   opens `[citation bracket]` + quoted term + idiom.
+5. `STATE_PR_LEY_77_1957_ART16_330` — the SAME bare-term-heading shape,
+   confirmed outside TRANSITO (PR's Insurance Code).
+6. `STATE_PR_RENTAS_SEC1071_07`, `STATE_PR_LEY_55_1933_SEC12` — a
+   genuine local-scope definition buried mid-body with NO scope-trigger
+   lead-in phrase at all (item 18c, `extract_inline_local_definitions`).
+
+**17-real-misses fixtures (item 21, QA root-cause groups A-N — 2 of the
+17 already QA-vendored above, 1 more reused unmodified from
+`pr_sample_rows_cycle2.json`):**
+
+7. `STATE_PR_LEY_137_1968_SEC1`, `STATE_PR_LEY_1_1966_ART14`,
+   `STATE_PR_LEY_97_1971_SEC1` — group A (unquoted term + bare/comma
+   idiom inside a marker loop).
+8. `STATE_PR_LEY_154_2004_ART2`, `STATE_PR_MUNICIPAL_ART7_100` — group B
+   (no-marker, no-quote single whole-body block).
+9. `STATE_PR_LEY_45_1935_ART36` — group C (`se entenderá por "X"`, idiom
+   BEFORE the quoted term).
+10. `STATE_PR_LEY_77_1964_ART1` — groups D+E (`" y "` alt-term joiner;
+    plural `"los términos"` lead-in).
+11. `STATE_PR_LEY_77_1957_ART26_030` — group H (quoted term + period,
+    not comma/dash, then idiom).
+12. `STATE_PR_LEY_55_1996_ART2` — group I (quoted term + comma + bare
+    apposition, no idiom word at all).
+13. `STATE_PR_LEY_271_2004_ART2` — group J (citation-bracket prefix
+    pushes the real lead-in past the 60-char bound).
+14. `STATE_PR_LEY_55_1963_SEC3` — group K (multi-term list, no markers,
+    intro sentence longer than any lead-in bound).
+15. `STATE_PR_LEY_77_1957_ART9_020` — group L (dash-shaped single-entry
+    lead-in the dispatch check doesn't recognize).
+16. `STATE_PR_LEY_34_1966_ART10` — group M (inverted `"Por X se
+    entenderá Y"` idiom order).
+17. `STATE_PR_RENTAS_SEC1115_09` — group N (deeply-nested subsection
+    quoted-term shape, QA's own "lower confidence" row).
+
+**Marker-gate + residue fixtures (items 22-23):**
+
+18. `STATE_PR_RENTAS_SEC2041_03` — 4th real marker-gate-over-suppression
+    row (M-R9 fold-in), found by this cycle's own sweep.
+19. `STATE_PR_LEY_77_1957_ART36_010` — residue table's 8th row
+    (singular/plural inflection mismatch), correct-zero.
+20. `STATE_PR_LEY_77_1957_ART36_030`, `STATE_PR_RENTAS_SEC2022_01`,
+    `STATE_PR_RENTAS_SEC2042_01` — ruling M-R7's 3 correct-zero rows,
+    vendored for the FIRST time this cycle (previously only quoted
+    narratively in the panel log, never as byte-verified fixture data) —
+    needed as regression guards for item 22's narrower marker gate.
+
+**Footer-artifact fixture (item 24):**
+
+21. `STATE_PR_LEY_240_2002_ART3` — live-confirmed real bug: a footer
+    between two markers produces a fabricated candidate whose
+    `definition_text` is the footer boilerplate itself. Never used in any
+    prior test.
+
+Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
+fetched 2026-08-04 by the Planner via disposable scratch scripts
+(`/private/tmp/.../scratchpad/pr_c4_*.py`, outside `backend/.venv`, never
+committed), reading directly from the already-cached HF snapshot on disk
+— no network download performed.
