@@ -1160,3 +1160,110 @@ a full census. I also did not attempt to quantify how many of the 5,915
 would trip the SPECIFIC forwarding-reference hazard if the idiom list were
 widened — I found and confirmed one live instance, not a corpus-wide count
 of that specific sub-shape.
+
+---
+
+## 2026-08-04 — Manager: D-PREAMBLE-ALL absorbed, sprint scaled to all states
+
+### M-R13 — Director ruling D-PREAMBLE-ALL supersedes QA's options A/B/C
+
+Director (main @ `321ddab`), verbatim intent: *"I explicitly asked
+researching and writing code for all of the states."*
+
+The ruling supersedes all three of QA's options. Binding consequences:
+
+- **No targeted-widening compromise, no gate, no state left dark.** Every
+  jurisdiction's preamble-family shapes get INVENTORIED and then CODED.
+- **Dispatch stays UNGATED** — core's M6, now director-confirmed. M-R7(a) is
+  therefore ANSWERED: branch 1. Items 3/4/6/8 are **un-held**; the
+  placeholder gate is not coming back.
+- **Precision comes from inventoried per-state rules + negative guards**
+  (QA's forwarding-reference guard is the model), **not** from gating. This
+  is the key design instruction: our defence against the 5,915-row exposure
+  QA measured is *knowing each state's real shapes*, not refusing to look.
+- Per-state precision conflicts still escalate with data, per D-Q1 — as QA
+  modelled.
+
+Verified before acting (not taken on report): QA's three commits are on the
+branch (`e4a030f`, `29391e7`, `eb1f0d8`), remote in sync, and the corpus
+totals I quote below are read from the committed log, not relayed.
+
+### M-R14 — The worklist, and why it is bigger than "44 more states"
+
+QA's D1 candidate population is the worklist: **7,383 rows over 2,038,247
+scanned across 53 files** — 1,468 gated + **5,915 ungated-only**, touching
+**50 of 53 jurisdictions**.
+
+Two properties make this a different shape of job from the original 5-state
+sprint, and they drive the plan:
+
+1. **It is diffuse, not concentrated.** The top 6 states hold 4,102 (69%);
+   the remaining 1,813 are spread over 44 jurisdictions in amounts from 1 to
+   142. There is no small set of big wins that finishes this — a long tail of
+   1-to-84-row states has to be inventoried individually or it stays dark,
+   which is exactly what the ruling forbids.
+2. **Only 5 states have ever been inventoried.** ~3,079 ungated-only rows sit
+   in 41 states with no inventory, no test, and no routing decision. Reused
+   sample-level guesses are explicitly not acceptable per the ruling ("the
+   inventory must cover every state's shapes, not a sample-level guess per
+   state").
+
+Per state the inventory must classify: **BLOCK-shaped** (ours → capture
+rules), **CLAUSE-shaped** (scoped-inline's → hand off WITH data, never thrown
+over the wall), and **hazard rows** (→ negative guards).
+
+### M-R15 — Scale-out design: parallel READ-ONLY scouts, then ONE writer
+
+The obvious move — several Planners inventorying concurrently — is exactly
+the hazard that bit this sprint already (M-R8: two writers in one worktree,
+conflict-free only by luck). The program rule now forbids it.
+
+**Design: separate reading from writing.**
+
+- **N inventory scouts run in parallel, strictly READ-ONLY to the repo.**
+  Each owns a disjoint slice of jurisdictions, reads the parquet snapshot and
+  the live code, and writes its findings ONLY to its own uniquely-named
+  scratchpad file. No repo writes, no `git` commands, no commits. Disjoint
+  scratchpad paths mean zero write contention by construction.
+- **Then ONE Planner** (sole writer in the worktree) consolidates every
+  scout file into the contract + log, authors the RED tests from the real
+  rows the scouts identified, and commits. Single writer, so the M-R8 hazard
+  cannot recur.
+
+Slices are balanced by judgment load rather than row count, because the
+long-tail states cost per-state overhead regardless of volume:
+
+- **S1** — FL (1,031), NC (142), AL (129), MO (103): 4 states, 1,405 rows.
+- **S2** — FEDERAL (435), DC (300), NY (136): 3 states, 871 rows; FED is the
+  most structurally complex (lettered/numbered outline paragraphs, and QA
+  flagged legislative-history boilerplate polluting definition text there).
+- **S3** — the 39 low-volume jurisdictions (673 rows combined, 1–84 each):
+  many states, low volume, high per-state overhead.
+- **S4** — re-classify the 5 already-inventoried states (GA/MD/NE/MS/SD) into
+  the new BLOCK/CLAUSE/hazard scheme so the whole corpus is described in ONE
+  vocabulary, plus the gated CA (174) / IL (65) population that this sprint
+  inherits but never chose.
+
+**Model/effort — all four scouts: Sonnet/high.** Justification: the load-
+bearing act is judging, on real statutory prose, whether a row is a
+definitions-bearing BLOCK, an embedded CLAUSE, or a hazard — the same
+judgment QA did by hand, now at 50-state scale, and a wrong call propagates
+into a RED test and then into shipped behavior. **Haiku considered: no** —
+scripting is the easy half; the classification is not mechanical.
+`model=inherit` not used. Scouts are read-only, so they carry no commit
+rights and cannot violate role separation.
+
+### M-R16 — Two ruling items folded into the same pass
+
+- **MS chapter-scope U2 gap** (QA-flagged): the MS scope RED test is added in
+  the consolidating Planner's pass, not deferred.
+- **CLAUSE-shaped populations**: each scout produces a per-state row list +
+  verbatim examples, packaged for the scoped-inline panel and sent to the
+  program manager for routing. Data first, never bare rows.
+
+### M-R17 — Implementation remains blocked; this is inventory + RED authoring
+
+Unchanged from M-R11 and re-verified: core's branch is docs-only, no `rules/`
+package. Nothing here is implementable yet. The ruling explicitly endorses
+running inventory + RED authoring NOW so the panel is not idle, with
+implementation following core's merge.

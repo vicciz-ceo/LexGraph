@@ -248,9 +248,40 @@ names say "misses" while asserting the fixed behavior — rename; (b) the
 fixture README wrongly says `pyarrow` is not installed in `backend/.venv`
 (it is, and it is declared at `backend/pyproject.toml:15`).
 
-**Active work**: corpus-wide false-positive exposure measurement for
-M-R7(a)'s ungated branch (director-policy artifact for the P-R2 escalation),
-plus independent QA of the Planner's suite.
+**Active work**: all-state inventory per director ruling D-PREAMBLE-ALL.
+
+## Director ruling D-PREAMBLE-ALL (main @ 321ddab) — sprint scope is now all states
+
+*"I explicitly asked researching and writing code for all of the states."*
+Supersedes QA's options A/B/C. **Dispatch stays UNGATED** (core's M6,
+director-confirmed) — so **M-R7(a) is ANSWERED (branch 1) and items 3/4/6/8
+are UN-HELD**. Precision now comes from **inventoried per-state rules +
+negative guards**, not from gating.
+
+**Worklist** = QA's measured candidate population: **7,383 rows / 2,038,247
+scanned**, 1,468 gated + **5,915 ungated-only**, touching **50 of 53
+jurisdictions**. Diffuse, not concentrated: top 6 states hold 69%; the
+remaining 1,813 rows spread over 44 jurisdictions at 1–142 each. Only 5
+states have ever been inventoried — ~3,079 ungated-only rows sit in 41
+states with no inventory, no test, no routing.
+
+Per state, classify: **BLOCK-shaped** (ours → capture rules), **CLAUSE-shaped**
+(scoped-inline's → hand off with data), **hazard** (→ negative guards).
+
+**Scale-out design (M-R15)**: 4 parallel **read-only** inventory scouts
+(disjoint jurisdiction slices, findings to disjoint scratchpad files, no repo
+writes, no git) → then **ONE** consolidating Planner as sole writer. This
+avoids the two-writers-in-one-worktree hazard from M-R8 by construction.
+Slices: S1 FL/NC/AL/MO · S2 FED/DC/NY · S3 the 39 low-volume states ·
+S4 re-classify GA/MD/NE/MS/SD + gated CA/IL.
+
+Also folded in: the MS chapter-scope U2 RED test (QA-flagged gap), and
+per-state CLAUSE row lists packaged for scoped-inline routing.
+
+**Still blocked**: implementation. Core is docs-only with no `rules/`
+package. Inventory + RED authoring proceed now; code follows core's merge.
+
+Suite at `eb1f0d8`: **648 passed, 12 RED** (641 baseline intact).
 
 ## Dev Complete
 
