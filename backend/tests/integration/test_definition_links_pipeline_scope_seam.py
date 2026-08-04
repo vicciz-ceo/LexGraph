@@ -254,6 +254,143 @@ def test_an_enumerated_local_scope_links_every_member_article_and_excludes_a_non
     )
 
 
+# --- M10 tie-pinning, live path (manager ruling M10, obligation (a)).
+# --- The previous Planner attempted this and deliberately REMOVED it
+# --- after discovering its first version didn't construct a genuine tie
+# --- (only one Definition row existed, so it passed today for the wrong
+# --- reason) -- an honestly-open item was judged better than a
+# --- misleading green. This version constructs the tie the spec itself
+# --- already names as a concrete, unambiguous instance (seam v2.1 §1,
+# --- "Consequence for M4(c)"): "a local def and a set-valued local def
+# --- covering the same article are rank-EQUAL ... it falls out of the
+# --- M10 resolution automatically" -- no cross-kind ("chapter" vs.
+# --- "part") comparison is needed, only two "local"-scope candidates
+# --- (one scalar, one enumerated) from TWO DIFFERENT owning articles
+# --- (so they persist as two DISTINCT Definition rows -- the pipeline's
+# --- existing dedup key is (owning_article_id, sorted(terms)), and these
+# --- two owning articles differ) that both scope-contain the SAME target
+# --- article. -----------------------------------------------------------
+
+
+def test_two_same_rank_local_scoped_definitions_that_tie_both_get_a_uses_definition_assertion_live(
+    db_session, matter_with_users
+):
+    """Genuine tie, constructed live: Definition X (housed in article 5,
+    scope="local", source_article_number="12", scalar) and Definition Y
+    (housed in article 6, scope="local", source_article_number=("12",
+    "13"), enumerated) are two DISTINCT Definition rows -- different
+    owning articles -- that both scope-contain article 12 at the SAME
+    rank ("local"). A single mention of "Tied term" in article 12 must
+    receive TWO USES_DEFINITION assertions, one per surviving Definition
+    row (M10: "one of the resulting assertions is factually wrong -- we
+    just don't know which" -- zero-miss-safe default is BOTH survive,
+    deliberately, not emergently)."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.models.assertion import Assertion
+    from app.models.definition import Definition
+
+    # This import is expected to fail today (module doesn't exist) -- the
+    # RED signal for this test (same pattern as the C4 proof test above).
+    from app.definition_links.rules.registry import (  # noqa: F401
+        RuleContext,
+        ScopeTriggerRule,
+        register_scope_trigger_rule,
+    )
+    from app.definition_links.extract import DefinitionCandidate
+
+    def _extract_scalar(article_body, ctx):
+        import re
+
+        pattern = re.compile(
+            r'"([^"]+)" applies specially in Section (\d+) per rule one\.',
+            re.IGNORECASE,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text="First rule's own definition text.",
+                scope="local",
+                source_article_number=match.group(2),
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    def _extract_enumerated(article_body, ctx):
+        import re
+
+        pattern = re.compile(
+            r'"([^"]+)" applies specially in Section (\d+) and Section (\d+) '
+            r"per rule two\.",
+            re.IGNORECASE,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text="Second rule's own definition text.",
+                scope="local",
+                source_article_number=(match.group(2), match.group(3)),
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    register_scope_trigger_rule(
+        ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract_scalar)
+    )
+    register_scope_trigger_rule(
+        ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract_enumerated)
+    )
+
+    m = matter_with_users
+    wiki_text = (
+        '@ 5. Term scope note one\n'
+        '"Tied term" applies specially in Section 12 per rule one.\n'
+        '@ 6. Term scope note two\n'
+        '"Tied term" applies specially in Section 12 and Section 13 per '
+        "rule two.\n"
+        "@ 12. Target section\n"
+        "A Tied term is mentioned here for use-checking purposes.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test M10 Tie Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-MT",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    tied_definitions = [d for d in result["created_definitions"] if "Tied term" in d["terms"]]
+    assert len(tied_definitions) == 2, (
+        "expected TWO distinct Definition rows for 'Tied term' (one per "
+        "owning article, 5 and 6) -- got "
+        f"{tied_definitions!r}"
+    )
+    tied_definition_ids = {d["id"] for d in tied_definitions}
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    matching_object_ids = {
+        db_session.get(Assertion, e["id"]).object_entity_id
+        for e in uses_edges
+        if db_session.get(Assertion, e["id"]).object_entity_id in tied_definition_ids
+    }
+    assert matching_object_ids == tied_definition_ids, (
+        "expected a USES_DEFINITION assertion pointing at EACH of the two "
+        "tied Definition rows for the article-12 mention of 'Tied term' -- "
+        "today's flat term_to_definition dict (pipeline.py Stage 3) keeps "
+        "only whichever candidate was processed last, so at most ONE "
+        "assertion is created regardless of how many same-rank "
+        f"Definitions genuinely tie (M10). Got object ids: "
+        f"{matching_object_ids!r}, expected: {tied_definition_ids!r}"
+    )
+
+
 # --- Pointer definitions, internal (same-law) targets (director ruling,
 # --- seam spec v2.1 §4). No typed pointer field exists or may be added --
 # --- a consumer determines pointer-ness ONLY by checking whether a
