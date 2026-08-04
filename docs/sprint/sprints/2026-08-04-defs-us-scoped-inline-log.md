@@ -1691,3 +1691,81 @@ evidence-based, never table-copied.
 ### Sprint state at manager clean-exit
 
 Phase: Developer fix cycle 2 (not started). Nothing is blocked on a decision.
+
+---
+
+## 2026-08-04 — Manager (phase 2, fresh context): fix cycle 2 launched; ruling S-R13
+
+### Inherited state VERIFIED, not assumed
+
+- `origin/claude/defs-us-scoped-inline` == local `b8cf5e8`; worktree clean.
+- Suite re-run by me in the sprint worktree: **6 failed, 742 passed, 2 xfailed**
+  — the 6 are exactly QA cycle 1's `test_us_scoped_inline_qa_cycle1_missed_
+  conventions.py` tests. RED-provenance for the Developer respawn confirmed
+  live, not taken from the handoff note.
+- `us_scoped_inline.py` read in full: 298 lines, at the style-gate ceiling.
+
+### S-R13 — RED-provenance is INCOMPLETE for 3 of the 8 root causes; a
+Planner pass closes it, running concurrently with the Developer
+
+QA cycle 1 proved 8 root causes but pinned only 6 (one row per class, the
+other 6 rows documented in prose). Three whole root causes therefore have NO
+committed test: period-style markers (`1.`, FL), `the term:` with no space
+(DC), and `shall have the following meaning(s)` (NY/MS). Under the director's
+absolute zero-miss bar, "the Developer says it works and QA will re-derive it
+next cycle" is weaker than a pin — and this sprint has already been bitten
+twice by greens that held for the wrong reason. A fix with no committed pin
+can regress silently after this sprint closes.
+
+The predecessor's "zero test edits" instruction fences the DEVELOPER, not the
+panel. So: **Planner pass 6 (Sonnet/high) authors the 3 missing RED pins**
+from real, byte-verified corpus rows, plus Task 2 below.
+
+**Concurrency design (deliberate, and why it still satisfies red-before-green):**
+Planner and Developer run at the SAME time in SEPARATE worktrees with
+disjoint write sets (Planner `backend/tests/**` only; Developer
+`backend/app/definition_links/rules/**` only — no file can conflict). The
+Planner authors against the UNMODIFIED rule and cannot see the fix, so the
+tests are independent of the implementation in the way red-before-green
+actually cares about. Provenance is preserved by ME, not by ordering: I run
+the Planner's new tests against the pre-fix tree (`b8cf5e8`) and confirm RED
+before merging either branch. If a "RED" pin passes pre-fix, it pins nothing
+and goes back.
+
+**Task 2 (same Planner pass): tighten the two gates QA proved are green for
+the wrong reason.** QA's mutation testing showed (a) the bare-`in` strict
+comma/colon adjacency gate can be REMOVED entirely with negative controls
+still 6/6 green, and (b) `_MARKER_QUOTE_RE`'s marker→quote adjacency can be
+widened to ≤20 chars with 42/42 green — in both cases a redundant downstream
+check (the quote-match requirement; the idiom-vocabulary gate) masks the
+mechanism the test's own docstring credits. My predecessor's carry-forward
+routed this to QA cycle 2; I am routing it to the Planner instead, because
+"tighten a pin" is test authorship, and because a committed isolating test is
+worth more than a QA note that expires with the cycle. QA cycle 2 still
+verifies the result independently.
+
+### Developer fence (unchanged from S-R2/U3, restated for the cycle)
+
+Write set: `rules/us_scoped_inline.py` + AT MOST ONE new **non-registering**
+helper module in `rules/` (the sanctioned 300-line overflow — no
+`register_*` call means zero new dispatch surface; `rules/__init__.py`
+auto-imports every sibling, so the helper must be import-safe and must not
+import `us_scoped_inline`). Zero test edits. `_SCOPE_BY_UNIT["subsection"]`
+stays `"local"` (S-R11) — flipping it XPASSes a strict xfail and fails the
+suite; that revert is core's.
+
+**D-Q1 made blocking on root cause 8.** The bare-copula `is` widening is the
+most FP-prone change in the list (`"X" is` is everywhere in ordinary
+statutory prose). The Developer must measure its false-positive surface on
+the real corpus — candidate delta with the idiom on vs. off across ≥8 states,
+plus a hand-classified random sample of ≥30 NEW candidates — and narrow with
+data if the FP class is material. A recall-vs-precision conflict it cannot
+settle from evidence escalates with numbers rather than being decided
+silently (P-R2/D-Q1).
+
+### Named conflict classes carried, NOT resolved this cycle
+
+S-R9 law-wide fallback; S-R11 subsection interim; the PA construction-clause
+pin. Queued for post-U4 re-escalation to the program manager. Two items
+already routed upstream (core's resolver defects; GA/MD/NE/MS reverse-boundary
+re-verification with the preamble panel) are not this panel's.
