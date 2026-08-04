@@ -84,6 +84,18 @@ Full text in `2026-08-04-defs-us-multiterm-log.md`. Summary:
 
 ## Next Steps
 
+> **BLOCKED (program ruling P-R8, verified by this manager).** Items 1-2 ship
+> as `rules/us_multiterm_shared_clause.py` / `rules/us_inline_parenthetical.py`
+> via `TermClauseRule` — but `TermClauseRule` is **DEAD on the live path**:
+> `rules/registry.py:202` defines `term_clause_rules_for`, and NOTHING in
+> `us_profile.py` / `extract.py` / `pipeline.py` ever calls it. A rule module
+> written today would be inert and these REDs would stay red for the wrong
+> reason. **Wait for sprint `2026-08-04-defs-core-dispatch`** (dispatch
+> completion + per-kind live-path dispatch tests), then rebase, then build.
+> My earlier M-R8 ("unblocked once core merges") is CORRECTED in the log:
+> the merge shipped storage and lookup, not dispatch.
+> Items 3-4 remain blocked on the markers panel's `EntrySplitterRule`.
+
 Numbered, independently verifiable. Every item's proving test already
 exists and is committed RED (see the log's Planner entry for full output).
 Two items are explicitly blocked on other sprints; do not spend Developer
@@ -337,68 +349,48 @@ _None._
 
 ## Context Dump
 
-Planner pass COMPLETE and manager-verified. Branch `claude/defs-us-multiterm`.
-Manager-run verification (not agent claims): full suite **15 failed / 644
-passed** (= 641 pre-sprint baseline + 3 new green guards); diff `83532fe...HEAD`
-touches ZERO production files, ZERO pre-existing tests, ZERO deletions under
-`backend/`; all 11 vendored fixture rows re-verified BYTE-EXACT against the
-real parquet by an independent manager script (`ok=11 bad=0`). Note for QA:
-the parquet body column is `text` — `section_text` does not exist and a wrong
-guess yields a silent empty-string false negative.
+**PARKED** — planning complete and manager-verified; no Developer spawned by
+design. Branch `claude/defs-us-multiterm`, rebased onto core (main `0d57228`).
 
-PROCESS INCIDENT (owned, see log M-R7): two Planners edited this worktree
-concurrently because the manager re-spawned on a false liveness signal and
-then logged a false "attempt 1 FAILED SILENTLY" entry, which contaminated the
-panel's evidence base and caused a Planner to misdiagnose concurrency as
-fabrication. Retracted in the log. Rule M-R6 now: one writer per worktree,
-liveness proven via artifacts, never assumed. No injection/tampering — two
-concurrent writers explains every disputed observation.
+Manager-run verification (never accepted on an agent's report): full suite
+**15 failed / 709 passed**; all 15 are F5/F6 behavioural capture REDs and
+nothing else; zero production files touched across the whole sprint
+(`git diff --name-only <base>...HEAD` minus docs/tests is EMPTY); all 11
+vendored fixture rows byte-exact against the real parquet by an independent
+manager script (`ok=11 bad=0`).
 
-Rulings: **M-R4** per-term resolution is behavioural, N terms may share a row
-(matcher.py:132-134 already resolves each term independently) — no schema
-migration. **M-R5** TX 2002.001: entry (4) shared-clause = ours, entry (3)
-(A)-(E) boundary = markers (accepted program-wide); the 13/75 "17.33%" metric
-aggregates BOTH mechanisms and must be decomposed — neither sprint claims it
-whole. **M-R8** the seam's `TermClauseRule` (block -> candidates, plural) plus
-directory auto-discovery means items 1-2 ship as the NEW file
-`rules/us_multiterm_shared_clause.py` with ZERO `us_profile.py` edits; the
-Planner's shared-edit collision flag is withdrawn. Item 3 needs markers'
-`EntrySplitterRule` for TX to keep a parent-redirect clause and its lettered
-children in ONE block (same shape as the agreed VT boundary) — relayed, not
-escalated.
+**E1 pointer work is DONE and GREEN (7 passed).** Core's I7 shipped the
+decimal-truncation fix (`Section 552.003` no longer truncates to
+`Section 552`), state-code citations (`ORS 153.005`), and pointer emission in
+the two-capture shape. Our expected values matched core's implementation
+exactly with no adjustment on either side. `CitationRule` is one of the two
+LIVE rule kinds, so these are genuine live-path passes.
 
-BLOCKED on two escalations (log §ESCALATIONS): **E1** pointer-only cross-
-reference definitions — capture vs filter; manager-measured at **7,610 rows
-across 32 of 53 jurisdictions** (tx 2,333, federal 1,951, in 1,438, mn 806),
-i.e. program-scale, not F6-scale. **E2** SD `3-14-5` is scoped to two NAMED
-SIBLING sections, fitting none of core's four STABLE scope values.
+**BLOCKED on `2026-08-04-defs-core-dispatch`.** P-R8: `TermClauseRule` (ours)
+is one of 5 of 7 kinds DEAD on the live path — registered and looked up, never
+consulted by the extractor. Verified myself: `registry.py:202` defines
+`term_clause_rules_for`; no caller exists in `us_profile.py`/`extract.py`/
+`pipeline.py`. Building now would produce an inert module and REDs red for the
+wrong reason.
 
-BOTH ESCALATIONS RESOLVED. **E1 — director:** pointer-only entries ARE
-definitions; capture is TWO captures — the definition row (redirect sentence
-as text) AND a reference assertion to the target law/section. **NO typed
-"pointer" field, now or ever — the reference edge IS the typing** (my earlier
-option (c) is RETRACTED; do not revive it). Reference plumbing belongs to
-core seam v2, NOT built here — behaviour pinned in RED tests only. **E2 —**
-routed to core seam v2 (same class as AK multi-chapter ranges, core's M4
-adopt-or-defer-with-recorded-fallback). Silently stamping `law-wide` is
-FORBIDDEN program-wide; if core defers the kind, the row defers with a
-recorded fallback.
+Rulings: **M-R4** per-term resolution is behavioural, N terms may share a row.
+**M-R5** TX 2002.001 entry (4) ours / entry (3) markers'; the 13/75 "17.33%"
+metric aggregates both mechanisms and must be decomposed. **M-R6** one writer
+per worktree, liveness proven via artifacts. **M-R7** I retracted a false
+"attempt 1 FAILED SILENTLY" entry that had contaminated the panel's evidence
+base. **M-R8 CORRECTED** — a published interface is a promise, not evidence;
+prove one call reaches the implementation before building on a seam.
+**M-R9/M-R10** tests must target the public seam, and a repoint must preserve
+the assertion's SEMANTIC LEVEL, not just its literals. **E1** no typed pointer
+field ever — the reference edge is the typing. **E2** SD's enumerated-sibling
+scope is in core seam v2; silently stamping `law-wide` is FORBIDDEN.
 
-Manager-verified after the Planner amendment (13c5529): suite **21 failed /
-645 passed** (15+6 RED, 644+1 green; my 641 pre-sprint greens intact); ONE
-new test file; zero production files and zero pre-existing tests touched;
-`grep -rniE "pointer_kind|is_pointer|definition_type|type_marker"
-backend/tests/` returns NO matches, so the no-typed-field ruling holds.
-Planner also corrected my probe error on (iii): the derivation invocation was
-right; the citation match is anchored immediately after the trigger phrase,
-so intervening words kill it.
-
-STATUS: **PARKED** — planning complete, no Developer spawned by design.
-RESUME WHEN core merges to main AND seam v2 publishes. Then, in order:
-(1) rebase this branch on main; (2) spawn Developer (Sonnet/medium) for items
-1-2 ONLY — ship `rules/us_multiterm_shared_clause.py` as a NEW FILE, zero
-`us_profile.py` edits (M-R8); (3) items 3-4 stay blocked on markers'
-EntrySplitterRule keeping TX/VT parent-redirect clauses and their lettered
-children in ONE block; (4) item 11's reference half waits on seam v2.
-Developer must never touch tests; QA (Sonnet/high) never touches
-implementation. qa_cycles=5 → status blocked, report to program manager.
+RESUME ORDER when core dispatch merges: (1) rebase; (2) refresh venv
+(`pip install -e '.[dev]'`); (3) re-run suite and report the honest split;
+(4) PROVE `TermClauseRule` dispatch is live before building — one call
+reaching the implementation, not a registration test; (5) spawn Developer
+(Sonnet/medium) for items 1-2 as NEW files only, zero `us_profile.py` edits;
+(6) items 3-4 stay blocked on markers' `EntrySplitterRule`; (7) QA
+(Sonnet/high) with P-R7 denominators + the U4 53-jurisdiction sweep against
+post-core reality (NY's ingest fix moved baselines). Developer never touches
+tests; QA never touches implementation; qa_cycles=5 -> blocked, report up.

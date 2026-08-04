@@ -1904,3 +1904,67 @@ info` block, no change). E1 pointer file re-checked, still untouched:
 → `7 passed in 0.02s`.
 
 **Nothing further to escalate.**
+
+---
+
+## 2026-08-04 — M-R10 fix VERIFIED; M-R8 CORRECTED; sprint parked on P-R8
+
+### M-R10 fix verified (969ef08) — manager-run, not accepted on report
+
+- Diff `3995143..969ef08` = ONE test file + this log. No production code.
+- `grep -n "^def test_nh_s1_short_title"` → **NONE (deleted)**. The name
+  survives only at line 97, inside an explanatory comment preserving the
+  reasoning. That file now holds exactly two tests: the RED
+  `test_nh_s1_act_apposition_is_extracted_as_a_definition` and the OK
+  false-positive guard `test_ok_boundary_marker_apposition_is_not_treated_as_a_definition`.
+- Suite: **15 failed / 709 passed** — precisely one fewer passing than the
+  710 before, i.e. the deleted green test and nothing else.
+- E1 pointer pins re-run: **7 passed**. The protected RED is untouched.
+- The Planner chose DELETE over reformulation with the right argument: for
+  that NH row, any assertion true at the public level today necessarily
+  asserts "yields nothing", which is exactly the claim the adjacent RED
+  exists to falsify — so no surviving formulation exists. Its sweep for the
+  same bug class found none: the multiterm tests assert specific-terms-
+  PRESENT, and the OK guard asserts two specific terms ABSENT (a permanent
+  precision guard, structurally different — correct to keep).
+
+### M-R8 — I CORRECT MY OWN RULING (program ruling P-R8)
+
+M-R8 said items 1-2 were unblocked "once core merges to main." **That was
+wrong.** Core's merge shipped the registry's STORAGE and LOOKUP, not its
+DISPATCH. Program ruling P-R8 (main @ `0f4e8fc`): two panels proved with
+positive controls that 5 of 7 rule kinds are DEAD on the live path —
+**including `TermClauseRule`, ours**.
+
+I verified this myself rather than accept it:
+
+```
+$ grep -n "term_clause" backend/app/definition_links/rules/registry.py
+202:def term_clause_rules_for(code: str) -> list[TermClauseRule]:     # exists
+
+$ grep -rn "term_clause" us_profile.py extract.py pipeline.py
+(no matches)                                                        # never called
+```
+
+A `rules/us_multiterm_shared_clause.py` written today would be INERT, and our
+F5/F6 REDs would stay red for the WRONG reason — which would have read as a
+Developer failure and burned a QA cycle.
+
+**How I got it wrong:** I read the seam spec's declared interface and inferred
+the live path from it, instead of proving the path end-to-end. That is exactly
+the trap this repo already recorded — "a named wiring test ≠ a live-path
+test." I applied that standard rigorously to the Planner's work (I rejected a
+registration-only test in the original brief) and then failed to apply it to a
+seam document. **Standing correction for this panel: a published interface is
+a promise, not evidence. Before building on any seam, prove one call reaches
+the implementation on the live path.**
+
+What survives P-R8: the E1 pointer work is REAL. `CitationRule` is one of the
+two LIVE kinds, so those 7 green pins are genuine live-path passes.
+
+### PARKED — awaiting sprint `2026-08-04-defs-core-dispatch`
+
+Planning complete and verified. No Developer spawned, by design: items 1-2
+cannot be built until dispatch lands. Items 3-4 remain blocked on the markers
+panel's `EntrySplitterRule` obligation (TX/VT parent-redirect clause + its
+lettered children in ONE block). Resume conditions in the contract.
