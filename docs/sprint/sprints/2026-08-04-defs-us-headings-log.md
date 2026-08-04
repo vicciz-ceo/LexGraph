@@ -1922,3 +1922,50 @@ manager wakes this panel.
 against the agreed consumption semantics (genuine RED — stays red until core
 lands AND this module adds the field; correct red-before-green order), and
 verifies the README union.
+
+---
+
+## 2026-08-04 — Planner pre-authored the D-DF RED; manager verification
+
+Planner (Sonnet high, P-R6) delivered both authorized items across `bc554e5`
+(fixture) and `7f6964d` (tests + README + amendment). **Manager verification —
+every claim re-run independently, none taken from the agent's report:**
+
+| Check | Result |
+|---|---|
+| `git diff f4be09e..HEAD -- backend/app/` | **empty** — role separation held |
+| Files touched | exactly 4, all tests/fixtures/docs |
+| RED count + reasons | **12 RED: 11 `ImportError`** on genuinely-absent symbols (`matches_defined_for_heading` ×6, `defines_in_body` ×5) **+ 1 `assert 1 == 2`** call-count. All feature-absent, none broken-test |
+| Fixture fidelity | **all 7 rows byte-identical to the real parquet, 24/24 columns** (manager script, written from scratch; exceeded the program manager's CT+KY spot-check ask — verified all 7) |
+| Negatives isolated to `for` | **independently confirmed by simulating the split**: removing `for` from `_VERB_EXTENDED_RE`'s whitelist flips KY/CT/AL to False while ID(`as`)/FED(`term`)/NJ(comma)/CT(period) stay True |
+| `defined for` population | **exactly 110 rows across 53 files**, reproducing the contract's figure on independently written code |
+| Suite | **728 passed / 13 failed**, accounting exact: 729−1 passed (the amended test flipped RED by design), 1+11+1 failed |
+| README union | still intact — **0 non-blank lines missing from either merge parent** after the Planner's append |
+
+**On Task 1 (README union):** the Planner byte-verified it against both merge
+parents and cleared it. Combined with the manager's independent mechanical
+check (zero lines lost, zero duplication), the manager's merge resolution is
+now cleared both mechanically and semantically, by a party that did not
+perform it.
+
+**Design accepted.** The Planner improved on the manager's sketch in two ways
+worth recording: (1) `matches_heading_variant` **keeps its exact current
+meaning** (verified zero existing tests exercise the `for` shape), so the
+94.7% heading-only recall metric stays comparable across the change and 27
+dependent tests are untouched — the two registered predicates are a
+decomposition, pinned by an equivalence test; (2) the ordering and rule-2
+narrowness are justified as safe under **both** plausible readings of
+"first-positive-wins" dispatch, rather than assuming the one core happens to
+implement.
+
+**Minor nit, not a bounce:** `test_module_self_registers_exactly_one_heading_rule_for_us_star`
+now asserts TWO registrations, so its name is stale. The Planner kept it
+deliberately for git-blame traceability across the amendment and documented
+that choice. Worth renaming at QA cycle 3 if the panel prefers.
+
+**Carried-forward gap (Planner's own, honest):** the actual dispatch semantics
+are unobservable until core ships. The design is proven safe under both, but
+**QA cycle 3 must re-confirm against core's ACTUAL implementation** — added to
+the resume checklist.
+
+Pushed at `7f6964d`. Sprint remains `blocked` awaiting core's dispatch sprint.
