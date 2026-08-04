@@ -1,17 +1,17 @@
 ---
 id: "2026-08-04-defs-core-scope"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/defs-core-scope
 worktree: /Users/nerya/LexGraph-wt/defs-core-scope
 locked_by: "claude-code:planner"
 locked_at: "2026-08-04T00:00:00Z"
-last_agent: "claude-code:sprint-manager"
+last_agent: "claude-code:planner"
 last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 7
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -78,7 +78,77 @@ silently resolved.
 
 ## Next Steps
 
-_Planner defines items._
+- [ ] **I1 — `UnitPath` model + `_in_scope` prefix-matching + narrowest-governs precedence (C1).**
+  `UnitStep`/`UnitPath` in `extract.py`; `Article.unit_path`; `profile.resolve_unit_path(article, char_offset=None)`.
+  RED: `backend/tests/unit/test_definition_links_matcher.py::test_link_articles_to_definitions_respects_subsection_scope_isolation`,
+  `::test_link_articles_to_definitions_respects_generic_scope_unit_containment`,
+  `::test_link_articles_to_definitions_respects_enumerated_local_scope`;
+  `backend/tests/unit/test_definition_links_profiles.py::test_il_profile_resolve_unit_path_returns_the_articles_own_base_path`,
+  `::test_il_profile_resolve_unit_path_extends_to_sub_article_granularity_given_a_char_offset`.
+  Live call-site: `backend/tests/integration/test_definition_links_pipeline_scope_seam.py::test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline`
+  (exercises scope production end-to-end; a dedicated live-path test for
+  precedence/tie-pinning per M10 obligation (a) is NOT YET authored --
+  open item, see report).
+- [ ] **I2 — Profile-dispatched scope determination + extraction seam (C2, C3).**
+  `profile.determine_scope`, `profile.extract_local_scope_definitions`,
+  `profile.derive_heading_from_body`, `profile.extract_definitions_from_section(..., heading_was_derived=)`.
+  RED: `test_definition_links_profiles.py::test_il_profile_determine_scope_matches_todays_chapter_scope_triggers`,
+  `::test_il_profile_extract_local_scope_definitions_matches_todays_extract_local_and_adhoc`,
+  `::test_il_profile_derive_heading_from_body_is_trivially_none`,
+  `::test_il_profile_extract_definitions_from_section_accepts_the_new_heading_was_derived_kwarg`.
+  Live call-site: `test_definition_links_pipeline_scope_seam.py::test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline`.
+- [ ] **I3 — `pipeline.py` retains no jurisdiction-specific literals (C3).**
+  Delete `_CHAPTER_SCOPE_TRIGGERS`/`_determine_scope`/`_is_placeholder_heading`/
+  `_derive_heading_from_body`/`_extract_inline_quoted_definitions` (+regexes)
+  from `pipeline.py`; delete its direct calls to `extract_local_definitions`/
+  `extract_adhoc_definitions`. **No dedicated RED test authored** (a
+  structural absence-of-symbol test was considered and rejected as
+  low-value churn — I1/I2's live-path tests already fail today BECAUSE
+  the seam doesn't exist; once I1/I2 land, this item's completion is
+  verified by code review + the stale-pin sweep, not a new test).
+- [ ] **I4 — Rule registry: 6 kinds, auto-discovery, registration (C4).**
+  `app/definition_links/rules/{__init__.py,registry.py}`.
+  RED: `backend/tests/unit/test_definition_links_rules_registry.py` (10 tests, all `ImportError` today).
+  Live call-site: `test_definition_links_pipeline_scope_seam.py::test_a_registered_scope_trigger_rule_is_reached_by_the_real_pipeline`.
+- [ ] **I5 — M8(a): `sections.parse_articles` bare-`@` marker loses articles/definitions.**
+  RED: `backend/tests/unit/test_definition_links_sections.py::test_parse_articles_does_not_silently_merge_a_bare_at_marker_section_into_its_neighbor`,
+  `::test_parse_articles_does_not_return_zero_articles_for_a_document_using_only_bare_at_markers`.
+  Live call-site: `test_definition_links_pipeline_scope_seam.py::test_run_definition_linking_does_not_lose_a_definition_behind_a_bare_at_marker`.
+- [ ] **I6 — M8(b): `us_profile.find_term_uses` case-insensitive word-boundary matching.**
+  RED: `backend/tests/unit/test_definition_links_us_profile.py::test_us_profile_find_term_uses_matches_a_lowercase_mention_of_a_capitalized_defined_term`.
+  Guard/proof (already green, must STAY green): `::test_us_profile_find_term_uses_case_insensitive_match_still_respects_word_boundaries`,
+  `::test_il_hebrew_find_term_uses_is_unaffected_by_the_m8b_case_fold_fix`
+  (full IL suite passing unchanged is the binding proof per the ruling —
+  see report's RED run tail: 644 passed / 0 IL regressions).
+  **Corpus-wide FP-exposure measurement not produced** (no local corpus
+  access this worktree — see seam spec M8(b) section); flagged for
+  whichever panel/session has corpus access.
+  No live DB-backed call-site test authored for I6 specifically (M8(b) is
+  a pure-function fix with no new dispatcher branch) — the unit-level RED
+  above is the wiring gate's minimum for a non-dispatcher bug fix.
+- [ ] **I7 — M12: `find_citations` decimal-truncation + state-code baseline fix, `CitationRule` kind.**
+  RED: `backend/tests/unit/test_definition_links_us_profile.py::test_us_profile_find_citations_does_not_truncate_a_decimal_section_number`,
+  `::test_us_profile_find_citations_recognizes_a_state_code_citation_shape`,
+  `::test_us_profile_find_citations_still_detects_the_six_term_parent_clause_citation`;
+  `backend/tests/unit/test_definition_links_rules_registry.py::test_citation_rule_registers_and_looks_up`.
+  Guard (already green): `::test_il_hebrew_find_citations_is_unaffected_by_the_m12_baseline_fix`.
+  Expected values verified identical to `claude/defs-us-multiterm@f1011f0`'s
+  `test_definition_links_e1_pointer_reference_capture.py::test_or_enforcement_officer_state_code_citation_is_invisible_today`,
+  `::test_tx_governmental_body_section_citation_is_truncated_to_a_wrong_target`,
+  `::test_tx_parent_clause_2001_003_citation_is_truncated_to_a_wrong_target`
+  (read-only fetch; core's fix is expected to turn all three green too — QA
+  should check this at program-close integration, not rediscover it).
+  **Not yet authored**: `_TRIGGER_PHRASES` additions (3 idioms, same
+  fixture rows, noted in seam spec v2.3) and the internal-same-law pointer
+  emission path (v2.1 §4) end-to-end.
+
+**Explicitly OPEN, not items yet — awaiting director rulings already in flight (see log Round 6-7):**
+sub-article `USES_DEFINITION` anchoring storage shape (E-2 answered as
+Option C — provisional; a live retrieval-seam test is authorized but not
+yet authored), pointer-definition end-to-end emission wiring, M9
+enumerated-scope live-path proof, M10 tie-pinning live-path test
+(obligation (a), still owed), `StructuralUnitRule` US-side data
+availability (unresolved).
 
 ## Dev Complete
 
@@ -1096,3 +1166,56 @@ one fix turns both sets green. Core's tests additionally cover what
 theirs do not: `HebrewProfile.find_citations` stays `[]` (IL unaffected),
 the `CitationRule`/registry mechanism itself, and the internal
 same-law-target pointer-emission path (v2.1 §4).
+
+---
+
+## Stale-pin sweep
+
+Swept `backend/tests/unit/`, `backend/tests/integration/`, `backend/tests/e2e/`
+for every symbol this sprint deletes/renames/changes the signature of:
+`_determine_scope`, `_CHAPTER_SCOPE_TRIGGERS`, `_is_placeholder_heading`,
+`_derive_heading_from_body`, `_extract_inline_quoted_definitions`,
+`link_articles_to_definitions`, `find_term_uses`, `find_citations`,
+`extract_local_definitions`/`extract_adhoc_definitions`.
+
+Result: **none need editing.**
+
+- `_determine_scope` / `_CHAPTER_SCOPE_TRIGGERS` / `_is_placeholder_heading`
+  / `_derive_heading_from_body` / `_extract_inline_quoted_definitions` —
+  0 references anywhere under `backend/tests/`; all 5 live ONLY in
+  `pipeline.py` today (confirmed via `grep -rln` across `backend/tests`
+  and `backend/app`). Deleting them from `pipeline.py` breaks no test.
+- `link_articles_to_definitions` — every caller (`test_definition_links_
+  matcher.py`, `test_us_profile_definitions_section_end_to_end.py`,
+  `pipeline.py`) calls it with its EXISTING signature
+  (`(definitions, articles[, profile=...])`); this sprint's new behavior
+  is reached by reading additional attributes off the SAME positional
+  arguments (`.unit_path` etc.), not by adding/renaming parameters — no
+  call site needs updating.
+- `find_term_uses` (`us_profile.py`'s, the one M8(b) modifies) — every
+  existing caller asserts either membership (`any(... in ...)`) or an
+  exact-case match that a case-INSENSITIVE superset still satisfies
+  (case-folding only ADDS matches, never removes one that matched
+  before). Empirically confirmed, not just reasoned: the full suite run
+  below shows 644 passed = 641 baseline + exactly 3 new PASSING guard
+  tests this sprint added, 0 previously-passing tests newly failing.
+- `find_citations` — existing assertions use substring membership
+  (`expected_substring in c`) against patterns the decimal-truncation/
+  state-code fixes don't touch (no existing test's expected substring
+  contains a decimal section number or a state-code citation). Same
+  empirical confirmation as above.
+- `extract_local_definitions` / `extract_adhoc_definitions` — NOT
+  deleted or changed (seam spec: they become IL's own registered
+  `ScopeTriggerRule` bodies, called the same way internally); their own
+  direct unit tests (`test_definition_links_extract.py`) are untouched,
+  confirmed via the full run below (that file's tests are among the 644
+  passing, unmodified).
+
+Full backend suite (`backend/.venv/bin/pytest backend/tests -q
+--continue-on-collection-errors`, this worktree, this commit):
+**644 passed, 17 failed (this sprint's genuine RED), 1 collection error
+(this sprint's registry module, genuine RED), 18 warnings, 13.19s.**
+0 previously-passing tests now fail — C5 confirmed empirically, not
+merely argued. Frontend/typecheck not re-run this pass (no frontend file
+touched this sprint; `git diff --name-only` confirms zero `frontend/`
+paths in this sprint's changes).

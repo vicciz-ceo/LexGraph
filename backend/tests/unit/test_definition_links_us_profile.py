@@ -234,3 +234,130 @@ def test_us_profile_extracts_every_defined_term_from_the_real_definitions_sectio
     assert "Branch office" in all_terms
     assert "Insured depository institution" in all_terms
     assert len(candidates) == 3
+
+
+# --- Sprint 2026-08-04-defs-core-scope, manager ruling M8(b) ------------
+#
+# `find_term_uses` uses `\b`-word-boundary matching but is case-SENSITIVE
+# (`re.compile(r"\b" + re.escape(term) + r"\b")`, no `re.IGNORECASE`).
+# Real rows re-mention a capitalized defined term in lowercase later in
+# the same law (`STATE_GA_T7_C8_S7-8-1` defines "Access area",
+# `STATE_GA_T7_C8_S7-8-3` uses "access area" -- exact fact pattern from
+# the ruling; this Planner has no local corpus copy to pull the byte-
+# real rows from, see the panel log). Fix must be scoped narrowly
+# (case-fold the literal term only, still word-boundary-anchored -- never
+# a fuzzy/substring match) per the seam spec's stated exposure-limiting
+# rationale.
+
+
+def test_us_profile_find_term_uses_matches_a_lowercase_mention_of_a_capitalized_defined_term():
+    """M8(b): 'Access area' (as defined) must also match its later
+    lowercase mention 'access area' in running text -- today's exact-case
+    `\\b`-boundary regex misses it entirely."""
+    from app.definition_links.us_profile import find_term_uses
+
+    text = 'The "Access area" shall be maintained. Later, the access area must be inspected annually.'
+    matches = find_term_uses("Access area", text)
+    matched_texts = {text[m.start() : m.end()] for m in matches}
+    assert "access area" in matched_texts, (
+        f"expected a case-insensitive word-boundary match on the lowercase "
+        f"mention; got only {matched_texts!r}"
+    )
+
+
+def test_us_profile_find_term_uses_case_insensitive_match_still_respects_word_boundaries():
+    """The M8(b) fix must stay word-boundary-anchored even case-folded --
+    'Access area' must NOT match as a substring inside a longer word run
+    (guards against widening the fix into a fuzzy/substring matcher,
+    which the seam spec explicitly rules out as the false-positive risk
+    to avoid)."""
+    from app.definition_links.us_profile import find_term_uses
+
+    text = "Subaccess areatransition zones are unrelated to the defined term."
+    matches = find_term_uses("Access area", text)
+    assert matches == []
+
+
+def test_il_hebrew_find_term_uses_is_unaffected_by_the_m8b_case_fold_fix():
+    """Explicit proof requirement (M8(b), binding): case-folding
+    `us_profile.find_term_uses` must not disturb Hebrew's OWN, separate
+    `matcher.find_term_uses` -- different function, different module,
+    verified directly rather than merely assumed 'probably inert because
+    Hebrew is caseless'. This test alone is not the full proof (the FULL
+    IL suite passing unchanged is -- see the Stage B report's run tail);
+    it pins the specific claim that the two functions remain independent."""
+    from app.definition_links import matcher as hebrew_matcher
+    from app.definition_links import us_profile
+
+    assert hebrew_matcher.find_term_uses is not us_profile.find_term_uses
+    text = "מאגר מידע נוצר בהתאם לחוק זה."
+    before = [(m.start(), m.end()) for m in hebrew_matcher.find_term_uses("מאגר מידע", text)]
+    # Calling the US profile's function (which M8(b) modifies) must have
+    # no observable effect on the Hebrew function's own behavior.
+    us_profile.find_term_uses("Access area", "irrelevant english text")
+    after = [(m.start(), m.end()) for m in hebrew_matcher.find_term_uses("מאגר מידע", text)]
+    assert before == after
+
+
+# --- Sprint 2026-08-04-defs-core-scope, manager ruling M12 --------------
+#
+# `find_citations` (`_CITATION_PATTERNS`/`_SECTION_WORD_RE`) has two
+# verified defects (reproduced directly by this Planner,
+# `backend/.venv/bin/python`, before writing these tests -- see the panel
+# log): decimal section numbers truncate to a WRONG, real, existing
+# section (worse than a miss); state-code citation shapes (`ORS 153.005`)
+# are invisible. Expected values below are copied VERBATIM from
+# `claude/defs-us-multiterm@f1011f0`'s
+# `test_definition_links_e1_pointer_reference_capture.py` (read-only
+# fetch, not checked out) so one core fix turns both test sets green.
+
+
+def test_us_profile_find_citations_does_not_truncate_a_decimal_section_number():
+    """Defect (ii), pinned as an explicit WRONG-target equality assertion
+    (not membership) -- the failure mode is a citation to a DIFFERENT,
+    real section, not merely an absent one."""
+    from app.definition_links.us_profile import find_citations
+
+    citations = find_citations('"Governmental body" has the meaning assigned by Section 552.003.')
+    assert citations == ["Section 552.003"], (
+        f"expected the WHOLE decimal section number; got {citations!r} -- "
+        f"`_SECTION_WORD_RE` stops at the decimal point, silently "
+        f"truncating to a citation for a DIFFERENT real section."
+    )
+
+
+def test_us_profile_find_citations_recognizes_a_state_code_citation_shape():
+    """Defect (i): a generic `<CODE> <n>.<n>` state-code shape (covering
+    Oregon's ORS and similarly-shaped codes) must be recognized by
+    baseline, not silently invisible."""
+    from app.definition_links.us_profile import find_citations
+
+    citations = find_citations(
+        '“Enforcement officer” has the meaning given that term in ORS 153.005 (Definitions) .'
+    )
+    assert citations == ["ORS 153.005"]
+
+
+def test_us_profile_find_citations_still_detects_the_six_term_parent_clause_citation():
+    """Same wrong-target shape, on the six-term TX shared parent clause
+    (`claude/defs-us-multiterm`'s
+    `test_tx_parent_clause_2001_003_citation_is_truncated_to_a_wrong_target`)
+    -- pinned here too so core's fix is verified against both real rows,
+    not just one."""
+    from app.definition_links.us_profile import find_citations
+
+    citations = find_citations(
+        "The following terms have the meanings assigned by Section 2001.003:"
+    )
+    assert citations == ["Section 2001.003"]
+
+
+def test_il_hebrew_find_citations_is_unaffected_by_the_m12_baseline_fix():
+    """C5/IL-unaffected proof for the citation-grammar fix, mirroring the
+    same discipline as the M8(b) proof above -- `HebrewProfile.
+    find_citations` stays trivially `[]` (v1's documented behavior)
+    regardless of what baseline gains for US."""
+    from app.definition_links.profiles import HebrewProfile
+
+    profile = HebrewProfile()
+    assert profile.find_citations("כל טקסט לדוגמה עם Section 552.003 בתוכו") == []

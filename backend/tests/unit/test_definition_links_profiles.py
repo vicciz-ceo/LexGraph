@@ -143,3 +143,109 @@ def test_il_profile_detect_cross_law_derivations_matches_the_existing_derivation
     )
     assert profile_edges == direct_edges
     assert len(profile_edges) >= 1  # sanity: the trigger phrase actually matched
+
+
+# --- Sprint 2026-08-04-defs-core-scope (gates C1-C3, seam spec v1/v2) --
+# --- 5 new/changed JurisdictionProfile methods -------------------------
+#
+# `il_profile` (the fixture above) already resolves via `get_profile`, so
+# these are AttributeError RED today (the methods don't exist yet), not
+# ImportError -- a distinct, still-legitimate "this feature does not
+# exist yet" signal per this file's own header convention.
+
+
+def test_il_profile_determine_scope_matches_todays_chapter_scope_triggers(il_profile):
+    """v1 Seam 1: `determine_scope` replaces the free function
+    `pipeline._determine_scope` -- same 2-way contract (`"chapter"` /
+    `"law-wide"`), now reached through the profile instead of a bare
+    module-level tuple. IL's own trigger phrases must be byte-identical
+    (C5 -- Hebrew is a regression surface)."""
+    assert il_profile.determine_scope("בפרק זה, הוראה זו חלה.") == "chapter"
+    assert il_profile.determine_scope("הוראה רגילה שאינה מוגבלת.") == "law-wide"
+
+
+def test_il_profile_extract_local_scope_definitions_matches_todays_extract_local_and_adhoc(
+    il_profile,
+):
+    """v1 Seam 1: replaces pipeline.py's direct, unconditional calls to
+    `extract.extract_local_definitions`/`extract_adhoc_definitions` (the
+    C2/C3 violation -- those are Hebrew-only functions reachable
+    regardless of jurisdiction). Through the IL profile, behavior must be
+    IDENTICAL to calling both existing functions directly and combining
+    their output."""
+    from app.definition_links import extract
+
+    body = 'לענין זה, "נכס משועבד" - נכס שהוטל עליו שעבוד. (להלן - "הנכס")'
+    profile_candidates = il_profile.extract_local_scope_definitions(
+        body, article_number="9"
+    )
+    direct = list(extract.extract_local_definitions(body)) + list(
+        extract.extract_adhoc_definitions(body)
+    )
+    assert len(profile_candidates) == len(direct)
+    assert {c.terms for c in profile_candidates} == {c.terms for c in direct}
+
+
+def test_il_profile_resolve_unit_path_returns_the_articles_own_base_path(il_profile):
+    """v2.2 -- replaces v2.1's `split_into_subsections` (withdrawn, folded
+    into the unified `UnitPath` model). With no `char_offset`,
+    `resolve_unit_path` returns the article's OWN base path (this
+    sprint's own retrieval seam for C1's scope containment AND, per
+    director ruling E-2/Option C, sub-article `USES_DEFINITION`
+    anchoring -- ONE mechanism serves both, as required). Exact step
+    content for chapter/siman is Stage B/dev work; the METHOD's shape
+    (returns a tuple of `UnitStep`-like objects, each with `.kind`/
+    `.value`) is what this test pins."""
+    from app.definition_links.sections import Article as MatcherArticle
+
+    article = MatcherArticle(number="12", heading="נושא", body="גוף הסעיף.", chapter="פרק ב")
+    path = il_profile.resolve_unit_path(article)
+    assert isinstance(path, tuple)
+    for step in path:
+        assert hasattr(step, "kind")
+        assert hasattr(step, "value")
+
+
+def test_il_profile_resolve_unit_path_extends_to_sub_article_granularity_given_a_char_offset(
+    il_profile,
+):
+    """The retrieval-seam contract (director E-2/Option C): given a
+    `char_offset` inside the article's body, `resolve_unit_path` returns
+    a LONGER path than the bare article-level call above -- the sub-
+    article extension C1/E-2 both depend on. Asserted through the
+    method's own return shape, never through a storage column name/type
+    (E-2's explicit "do not pin the storage shape" instruction)."""
+    from app.definition_links.sections import Article as MatcherArticle
+
+    body = "סעיף קטן (א) קובע דבר אחד. סעיף קטן (ב) קובע דבר אחר."
+    article = MatcherArticle(number="12", heading="נושא", body=body, chapter=None)
+    base_path = il_profile.resolve_unit_path(article)
+    mention_offset = body.index("קטן (ב)")
+    mention_path = il_profile.resolve_unit_path(article, char_offset=mention_offset)
+    assert len(mention_path) > len(base_path)
+    assert mention_path[: len(base_path)] == base_path
+
+
+def test_il_profile_derive_heading_from_body_is_trivially_none(il_profile):
+    """v1 Seam 1: IL has no placeholder-heading concept (that is a US CA/
+    IL[state]/GA-only wave-6 shape) -- must always return `None`, never
+    invent a heading from Hebrew body text."""
+    assert il_profile.derive_heading_from_body("כותרת", "גוף הסעיף.") is None
+
+
+def test_il_profile_extract_definitions_from_section_accepts_the_new_heading_was_derived_kwarg(
+    il_profile,
+):
+    """v1 Seam 1: `extract_definitions_from_section` gains a defaulted
+    `heading_was_derived` kwarg (US-only fallback-chain gate); IL's own
+    behavior must be UNCHANGED whether or not the kwarg is passed
+    explicitly."""
+    from app.definition_links import extract
+
+    body = ':- "נכס" - מקרקעין ומיטלטלין.'
+    with_kwarg = il_profile.extract_definitions_from_section(
+        body, scope="law-wide", heading_was_derived=False
+    )
+    without_kwarg = il_profile.extract_definitions_from_section(body, scope="law-wide")
+    direct = extract.extract_definitions_from_section(body, scope="law-wide")
+    assert with_kwarg == without_kwarg == direct
