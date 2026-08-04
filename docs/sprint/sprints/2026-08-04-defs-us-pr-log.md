@@ -2793,3 +2793,56 @@ class, ~127 rows in one law), and only then returns to the 33.
 
 Current suite: `5 failed, 825 passed, 8 xfailed` — the 5 failures are QA's
 own cycle-4 RED tests, correctly left red for the next Developer pass.
+
+---
+
+## 2026-08-04 — Manager: P-R7 is program law; cycle 4 planned against seam v2.4
+
+**Program ruling P-R7 (new, program-wide):** every panel's zero-miss sweep
+must build ground truth INDEPENDENT of the capture mechanism's own signals.
+This came out of this panel's QA finding and is being broadcast to all
+panels with our QA credited. It is now binding here too.
+
+**Core timing turned in our favour.** Core's Developer has completed the seam
+refactor (`origin/claude/defs-core-scope` @ `6de6d6e`, spec v2.4). The
+methods that matter to us are now PROFILE-DISPATCHED, and rule modules
+registry-load:
+
+- `determine_scope(self, body_text) -> str`
+- `extract_local_scope_definitions(...)` — each candidate carries its own scope
+- `derive_heading_from_body(self, heading, body) -> str | None`
+- `split_into_subsections(self, article_body) -> list[Subsection]`
+- `extract_definitions_from_section(..., heading_was_derived=)`
+- `register_{heading,body_preamble,entry_splitter,term_clause,scope_trigger}_rule`
+
+Spec v2.4 lines 318-322 are the decisive bit for us: the Definitions-SECTION
+path goes through `profile.determine_scope`, while the NON-section path goes
+through `profile.extract_local_scope_definitions` and never touches
+`determine_scope` — "the two paths never mix."
+
+### Ruling M-R11 — our P2 gap is a seam-implementation task, not a pipeline edit
+
+QA's P2 finding was "the local/adhoc extractors are not wired into
+`pipeline.py` for PR". Under seam v2.4 that gap closes by **implementing
+`extract_local_scope_definitions` for PR** (plus rule-module registrations),
+NOT by editing `pipeline.py` — which stays forbidden to this panel and is now
+free of jurisdiction literals by core's own C3. The 833-row outside-canonical
+population is exactly what that method exists to serve.
+
+### Cycle-4 shape (program manager's guidance, adopted)
+
+1. **LEAD: the 23,001-row outside-canonical population** (M-R10 ordering
+   stands). RED tests authored from real rows NOW, against the seam's
+   `extract_local_scope_definitions` shape.
+2. Then the **17 real misses** among the 33 canonical zero-yield rows.
+3. **P3 xfails convert to real tests** once core's scope machinery is on main.
+4. Fold in normally: marker-gate over-suppression (M-R9 + QA's 2 new
+   supporting rows), the residue table's missing 8th row
+   (`STATE_PR_LEY_77_1957_ART36_010`), the scrape-footer artifact scope.
+5. The 84-row heading-anchored ruling and the residue enumeration **stay as
+   shipped** — not reopened.
+
+**Sequencing:** Planner authors tests now; the Developer implements only
+AFTER core merges to main and this branch rebases. Tests referencing the new
+profile methods will be RED against the un-rebased tree, which is expected
+and correct — not a planning bug.
