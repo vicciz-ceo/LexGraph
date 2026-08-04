@@ -4991,3 +4991,76 @@ not just copied from the brief.
 ### Pushed
 
 Commit follows this entry; branch `claude/defs-us-pr`.
+
+---
+
+## 2026-08-04 — Manager: cycle-6 fixes VERIFIED (f41cd9d); one docstring defect found
+
+### Handoff verification, materialized
+
+| Check | Result |
+|---|---|
+| Fences | Only `pr_profile.py` (+48/−3) and the log. Zero `backend/tests/` diff ✔ |
+| M-R14 entanglement guard | `_UNQUOTED_TERM_DASH_RE` appears **0 times** in the diff — untouched as ordered ✔ |
+| Suite | `30 failed / 915 passed / 12 xfailed` — exact target. FAILED = precisely the 30 held (14+6+6+2+1+1). 911→915 passed = the 4 flipped tests, nothing else ✔ |
+| Live result | All 5 previously-corrupt captures now clean: `revisar la cuenta` 37→151 chars, `ciudadano` 58→215, and `“Plan Estratégico`/`“Secretario`/`“Junta` → `Plan Estratégico`/`Secretario`/`Junta` ✔ |
+
+Both fixes reuse existing machinery as asked — `_PAGE_BREAK_FOOTER_RE` (cycle
+3's already-tested helper) rather than a divergent second pattern, and a
+narrow leading-quote strip after the article strip with the antecedent logic
+untouched per the fence.
+
+### Offset bookkeeping — the program manager's specific concern, PROVEN SAFE
+
+The worry: bug 1's fix scans `_PAGE_BREAK_FOOTER_RE.sub(" ", article_body)`,
+a shorter copy, so any escaping match offset would be in a shifted coordinate
+space from the body downstream scope/unit-path logic uses. Verified by
+inspection of the live objects, not by reading:
+
+```
+extract_local_definitions body contains: start() False | end() False
+                                         span( False | pos False | offset False
+DefinitionCandidate fields: terms, definition_text, scope, qualifier,
+                            parent_term, source_article_number,
+                            source_chapter, scope_value      <- nothing positional
+extract_adhoc_definitions uses match.start(): True
+                          scans a stripped copy: False       <- scans the ORIGINAL
+```
+
+So: the one function that derives offsets scans the unmodified text, and the
+function that scans the stripped copy derives none. **Offset-safe by
+construction, not by luck.** Nothing shifted can escape.
+
+### A real defect I did find — the docstring states a FALSE invariant
+
+The new docstring claims:
+
+> "candidate COUNT and match positions of the surrounding prose are
+> unchanged, since the footer is replaced with a single space rather than
+> deleted outright, preserving word boundaries either side"
+
+The count claim is true. **The match-positions claim is false**, measured:
+
+```
+STATE_PR_LEY_236_2015_ART12: len 2546 -> 2404  (shrunk 142)  first footer at 886
+STATE_PR_LEY_83_1941_SEC28 : len  946 ->  786  (shrunk 160)  first footer at 444
+```
+
+Everything after the first footer moves left by ~141/159 characters. Replacing
+a 143-char footer with one space preserves *word boundaries*, not *positions* —
+the two were conflated.
+
+Harmless **today**, and only because of the very property verified above: no
+offset escapes this function. But it is a documented invariant a future
+maintainer would reasonably rely on — and the moment someone adds
+offset-dependent logic here (stamping a subsection `unit_path` from a match
+offset is exactly the sort of thing the post-dispatch canonical work invites),
+the comment would actively mislead them into a silent coordinate bug. This
+panel has been burned twice by claims that read true and measured false; I am
+not leaving a third one in production comments.
+
+**Not fixing it myself** (production code is the Developer's write-set).
+Routing: the bounded QA re-verify confirms my measurement independently, then
+a one-line Developer correction lands before the panel parks. Added to M-R14's
+entry criteria as a backstop so it cannot survive into the dispatch wake
+unnoticed even if the close-out is interrupted.
