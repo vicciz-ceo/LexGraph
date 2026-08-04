@@ -1412,3 +1412,313 @@ ISO-8601 UTC) and the item counters were stale (now `total_items: 12`,
 `completed_items: 8`, `dev_complete_items: 8`). The contract is at exactly
 **400/400 lines — at the cap**, so all further detail goes here, per the
 size-budget rule.
+
+---
+
+## QA cycle 1 (Sonnet/high, independent)
+
+Read the contract in full (gates I1-I5, items 1-11, rulings M1-M11) and the
+whole log (all entries, not just the last four -- including the "wrong-layer
+measurement error a SECOND time" and the Planner-corrects-the-manager entry
+named in the brief as the sprint's own worked examples of what to distrust).
+Worktree `/Users/nerya/LexGraph-wt/defs-il`, branch `claude/defs-il`, HEAD
+`39c3b7a` (verified clean, in sync with `origin/claude/defs-il`). All
+verification below is MY OWN run, in the worktree venv, never trusting a
+prior role's report. **I never touched `backend/app/**` -- verified after
+every probe via `git status --short` (clean except this log + the contract
+frontmatter timestamp/`qa_cycles` bump below).**
+
+### Gate I5 (regressions) -- PASS
+
+- `backend/.venv/bin/pytest backend/tests -q` -> **`4 failed, 715 passed,
+  18 warnings in ~14s`**, reproduced twice, byte-identical both times. The 4
+  failures are exactly `test_class_c_adhoc_parenthetical_beparagraph_zo_
+  inside_definitions_section_is_captured` (E6-blocked, item 11) +
+  `test_class_d_prose_body_definitions_section_yields_zero_today` /
+  `test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_
+  is_captured` / `test_class_d_minimal_single_sentence_variant_is_captured`
+  (held class d) -- matches the contract's claimed baseline exactly.
+- `npm --prefix frontend run test -- --run` -> **`165 passed (165)`,
+  `25 passed (25)` files**.
+- `npm --prefix frontend run typecheck` -> clean (`tsc --noEmit`, no output).
+- `bash scripts/contract_lint.sh 2026-08-04-defs-il` -> **PASS 400** (all 7
+  checks), reproduced.
+- `git diff --name-status origin/main...HEAD -- backend/tests` -> every
+  entry `A` (addition). **No existing test edited.**
+- `git diff --stat origin/main...HEAD -- backend/app` -> exactly 8 files,
+  all under `rules/` or the two new `ingest_wiki_corpus*.py` modules. No
+  frozen module (`pipeline.py`/`matcher.py`/`extract.py`/`sections.py`/
+  `profiles.py`) touched.
+
+### Gate I1 (full corpus loads) -- PASS on its literal terms, with a stale-number finding
+
+Independently re-ran the bulk ingest myself: own scratch sqlite DB, own
+script calling the real `app.definition_links.ingest_wiki_corpus.
+run_bulk_ingest` (not a re-implementation) against the real, read-only
+`/Users/nerya/AI for others/israeli-laws-wiki/data/laws`. Result: **files
+found 6133, files processed 6133, files failed 0** -- confirms the literal
+gate. Corpus re-verified untouched afterward (`ls | wc -l` -> 12266,
+unchanged).
+
+**Finding: the contract's recorded `127,903 articles` is stale.** My run
+measured **128,234 articles** (+331). Root cause, verified: the manager's
+original I1 run (which produced 127,903) executed BEFORE `claude/defs-il`
+was rebased onto core's merged `main` -- i.e. before core's bare-`@` parser
+fix (M8(a)) landed. My run is on HEAD `39c3b7a`, post-merge. **+331 matches
+EXACTLY the corrected P-E3 bare-`@` figure ("331 occurrences across 42
+files")** -- strong independent confirmation that core's reachability fix
+is live and doing exactly what it claims, but the contract's own I1 numbers
+should be corrected to 128,234 (not a gate failure -- 6,133/6,133, 0
+failures both times -- a documentation-accuracy note). Wall
+time/memory (48.5s / 87.7 MiB RSS on my run vs. the recorded 37.4s / 76.3
+MiB) differ by machine/disk conditions (my scratch DB sits under
+`/private/tmp`), same order of magnitude, not itself a finding.
+
+### Gate I3 (scope containment) -- PASS, attacked on TWO independent real corpus laws not used by any existing test
+
+**Attack 1 -- chapter scope, both directions, on a law the sprint's own
+fixture never touches.** Ingested the FULL, unedited
+`חוק הבוררות המסחרית הבין-לאומית.wiki` (48 real articles, not an excerpt)
+through the live pipeline (`ingest_wiki_law` + `run_definition_linking`).
+Article 18 (chapter `פרק ה': סעד זמני`) defines `"סעד זמני"` via `בפרק
+זה`, scope=chapter. Ground truth (`find_term_uses` over every article's raw
+body): the term appears in articles 10, 18, 19, 20, 22, 23, 24, 25, 26.
+Live result: **linked to 18/19/20/22/23/24/25/26 (all same chapter, `פרק
+ה'`) and correctly NOT linked to article 10** (different chapter, `פרק ב':
+הסכם בוררות`), despite article 10's body genuinely containing the surface
+form. Both directions match ground truth exactly.
+
+**Attack 2 -- siman/chelek/paragraph/item containment is genuinely inert
+(the safe-failure direction), not merely untested.** Ingested the FULL,
+unedited `חוק אוויר נקי.wiki` (136 articles) live. 6 real
+siman/paragraph-scoped `Definition` rows were captured (scope=siman:
+`בקשה`/`מפר`/`הודעה על כוונת חיוב`; scope=paragraph: `מזהם`/`מסמך`;
++1 siman `דרישת תשלום`). **All 6 produced ZERO `USES_DEFINITION` edges** --
+including `בקשה` (siman-scoped, article 18), which genuinely appears
+(`find_term_uses`) in **23 other articles** of the same law, several in the
+SAME siman -- proving this is a real missed-linking opportunity that stayed
+correctly unlinked, not an untested code path that happens not to fire.
+CHECK: my own probe scripts (not any existing test), transcripts above.
+
+### Gate I4 (zero-miss sweep) -- **FAIL. Confirmed, real, live-verified misses. This is the headline finding.**
+
+#### Methodology and the independence argument (ruling M10 / P-R7)
+
+Built **two structural, trigger-independent ground truths**, both scanned
+through the REAL live preprocessing chain (`sections.parse_articles` on raw
+`.wiki` text -> `HebrewProfile.normalize_for_parsing` ->
+`strip_wikilinks`, the exact order `pipeline.py:187-188` uses) -- never raw
+grep, per the manager's own "wrong-layer" lesson (M10) which this cycle
+treats as binding, not merely advisory:
+
+1. **Generic quote-first grammar**: any `"term" -` (quote, close-quote,
+   dash) anywhere in a normalized article body, regardless of what -- if
+   anything -- precedes it. This is NOT built from our trigger list; it is
+   the bare grammar every one of this sprint's OWN rules eventually keys
+   on, generalized to any preceding context. **60,114 raw hits / 4,500
+   files** corpus-wide.
+2. **Generic `::-`-nested-entry-list-under-a-bare-preamble grammar**: any
+   line ending in `-` immediately followed (blank lines skipped) by a
+   `::-`-marked line -- the exact structural shape item 9's own rule
+   already trusts for the ONE trigger word `בפרט זה`, generalized here to
+   ANY preceding text, not that one hardcoded phrase. **2,300 occurrences**
+   corpus-wide.
+
+Neither denominator was built by grepping our own implemented trigger
+phrases -- that is precisely what let them surface trigger words nobody on
+this sprint had ever catalogued. Every finding below was then independently
+confirmed LIVE (not assumed from the denominator alone) by calling the
+real, unmodified `extract.extract_local_definitions` /
+`HebrewProfile.extract_local_scope_definitions` functions directly on real
+corpus excerpts and observing `[]`.
+
+#### CONFIRMED MISS GROUP A -- new/unimplemented single-line quote-first triggers
+
+| Family | Occ. | Files | Ordinary | In הגדרות-heading (E6-blocked) |
+|---|---|---|---|---|
+| `לעניין זה` (tzere spelling; baseline only covers `לענין זה`) | 1,702 | 714 | 1,563 | 139 |
+| `בסעיף קטן זה` (subsection scope -- entirely new) | 313 | 213 | 313 | 0 |
+| `בתקנה זו` (regulation-local -- entirely new) | 427 | 289 | 427 | 0 |
+| `לעניין/לענין תקנה זו` (regulation-local, 3-word) | 104 | 90 | 104 | 0 |
+| `בתקנת משנה זו` (sub-regulation) | 83 | 68 | 83 | 0 |
+| `תקנת משנה זו` (bare) | 42 | 39 | 42 | 0 |
+| `לעניין/לענין פסקה זו` (paragraph, alt phrasing) | 132 | 98 | 121 | 11 |
+| `בפסקת משנה זו` (sub-paragraph) | 59 | 46 | 59 | 0 |
+
+Live-verified `[]` on real excerpts (function called directly, no mock):
+- `הוראות הפיקוח על שירותים פיננסיים (ביטוח)...` art.3: `לעניין זה,
+  "ביטוח מועדף" - כהגדרתו בסעיף 32(14) לפקודת מס הכנסה.` ->
+  `extract_local_definitions` = `[]`.
+- `צו הבטיחות בעבודה (אגרות בדיקה)` art.6: `בתקנה זו, "מדד" - מדד המחירים
+  לצרכן שמפרסמת הלשכה המרכזית לסטטיסטיקה.` -> `[]`.
+- `החלטת הרשויות המקומיות (גמלאות לראש רשות וסגניו)` art.29ב:
+  `בסעיף קטן זה, "המדד" - מדד המחירים לצרכן...` -> `[]`.
+- Confirmed absent from the implementation: `grep -rn "תקנה\|תקנת משנה\|סעיף
+  קטן\|פסקת משנה" backend/app/definition_links/rules/*.py
+  backend/app/definition_links/extract.py` -> zero regex hits (only two
+  docstring mentions of `סעיף קטן` describing an unrelated escalation).
+
+#### CONFIRMED MISS GROUP B -- the `::-`-nested-list-under-preamble grammar is wired for exactly ONE trigger word
+
+Aggregate, full corpus, by core trigger phrase (through the live chain):
+
+```
+GRAND TOTAL: 2,300 occurrences (2,147 in ordinary articles, 153 in
+             הגדרות-heading sections)
+  'בסעיף זה'            1,067 occ / 448 files  -- NOT implemented (this shape)
+  OTHER/UNRECOGNIZED       825 occ / 579 files  -- NOT implemented
+  'לעניין זה'              120 occ / 107 files  -- NOT implemented
+  'לענין זה'                72 occ /  62 files  -- NOT implemented
+  'לענין סעיף זה'           61 occ /  41 files  -- NOT implemented
+  'בפרק זה'                 49 occ /  42 files  -- NOT implemented
+  'בסימן זה'                39 occ /  27 files  -- NOT implemented
+  'בפסקה זו'                31 occ /  24 files  -- NOT implemented
+  'לעניין סעיף זה'          22 occ /  15 files  -- NOT implemented
+  'בפרט זה'                 12 occ /   7 files  -- item 9 ALREADY implements this
+  'בחלק זה'                  2 occ /   2 files  -- NOT implemented
+```
+Only 12/2,300 (0.5%) are captured. **The other 2,288 (99.5%) are a
+confirmed, real, live-verified miss.** Even trigger words this sprint
+ALREADY implemented for the single-line form (`בסעיף זה`, `בפרק זה`,
+`בסימן זה`, `בפסקה זו`, `לענין/לעניין סעיף זה`) are missed here because
+they never occur inline with their own quote in this shape -- the quote
+sits on a SEPARATE `::-` line, which none of the quote-first regexes can
+reach.
+
+Live-verified on a real, whole, unedited law
+(`החלטת מימון מפלגות (יחידות מימון ומועדי תשלום).wiki`, art.2):
+```
+: (א) בסעיף זה -
+::- "מדד" - מדד המחירים לצרכן המתפרסם מדי פעם מטעם הלשכה המרכזית לסטטיסטיקה;
+::- "מדד יסודי" - המדד לחודש מאי 1991.
+```
+`profile.extract_local_scope_definitions(...)` on this real, normalized,
+wikilink-stripped body -> **`[]`** -- two genuine, unambiguous, real
+definitions ("מדד"/"מדד יסודי") silently dropped despite using an
+ALREADY-implemented trigger word, purely because of the `::-` list shape.
+A 25-sample of the "OTHER/UNRECOGNIZED" tail (seed 42) found zero
+verb-shaped/wrong matches -- every one was a genuine additional
+definitional preamble (`בתקנה זו -`, `בסעיף זה ובסעיף X -` compound scope,
+`בחוק זה -`/`בתקנות אלה -` law-wide, `לענין תקנת משנה (X) -`, `באמת מידה
+זו -`), reinforcing that this is a real coverage gap, not noise.
+
+#### CONFIRMED FALSE POSITIVE -- citation-shaped captures in the widened ad-hoc rule (adversarial check 3)
+
+Ran the LIVE, registered `il_adhoc_scope_triggers` rule (not a
+re-implementation) over the whole corpus: **3,605 real candidates**,
+token-length histogram `{1: 942, 2: 1745, 3: 624, 4: 294}` confirms the
+<=4-token cap holds structurally (zero over cap). A targeted sweep for
+verb-/citation-shaped terms found **3 confirmed false positives** (0.08%):
+`סעיף 149א` / `סעיף 51טו` / `סעיף 9`, all captured as
+`terms=("סעיף N",), definition_text="סעיף N"`. Verified live in the raw
+corpus text, e.g. `חוק המדיניות הכלכלית לשנים 2011 ו-2012 (תיקוני חקיקה)`
+art.39: `... כנוסחו בסעיף 37(32) לחוק זה (בסעיף זה - סעיף 51טו), יחולו`.
+This is a citation-shorthand-naming convention ("hereinafter in this
+section: 'section 51טו'"), not a substantive term definition -- the same
+apposition GRAMMAR our rule trusts, aimed at a cross-reference instead of a
+concept.
+
+#### Adversarial checks 1 & 2 (M7's two named class-(d) failure modes) -- both investigated with real evidence
+
+**Check 1 (residual multi-term-list trap) is REAL, and slightly worse than
+M7's own proposed two-pass guard anticipated.** `חוק הגנת הדייר` art.41,
+heading `הגדרות`:
+```
+: לענין פרק זה -
+: (1) חדרי כניסה ששטחם פחות משמונה מטרים מרובעים... אינה בכלל "חדר";
+: (2) חדר ששטחו אינו פחות מששה ואינו יותר משמונה מטרים מרובעים... הוא "חצי חדר".
+```
+Two genuine, distinct terms (`חדר`/`חצי חדר`) defined via a numbered list
+with **quote-LAST grammar** (the quote closes the sentence, not opens it)
+and **no preceding quoted anchor entry at all** -- the preamble line itself
+(`לענין פרק זה -`) carries no quote either. M7's proposed fix ("fold an
+all-unquoted numbered run into the single PRECEDING quoted-term entry")
+has nothing to fold into here. HELD (class d is not this sprint's to
+implement), but this is the concrete corpus evidence M7 asked QA to find
+if the failure mode is real -- it is, feeding back per M7's own
+instruction rather than opening a new escalation.
+
+**Check 2 (citation-only/incorporation-by-reference sections) resolves
+safely today.** Found 4 real definitions-heading sections whose body
+contains NO quote character at all, e.g. `חוק מפעלי ים המלח (ריבית על
+מניות)` art.1: `בחוק זה תהיה משמעותו של כל מונח כמשמעותו בפקודת מס הכנסה
+(להלן - הפקודה).` -- `extract_definitions_from_section` correctly yields
+`[]`, not a fabricated definition. Side note, not a new escalation: the
+`(להלן - הפקודה)` ad-hoc marker embedded in this body IS a genuine,
+capturable ad-hoc definition by grammar, but sits inside a
+definitions-heading section, so it hits the SAME already-escalated E6/item-
+11 blocker (ad-hoc markers inside a definitions-section body are never
+scanned) -- one more real instance of a known gap, not a new one.
+
+#### Adversarial check 4 (IL/US leakage) -- PASS, extended beyond the manager's original spot check
+
+`registry.scope_trigger_rules_for("IL")` = **8**. Checked SIX US codes
+(not just `US-CA`): `US-CA`/`US-NY`/`US-TX`/`US-FED`/`US-DC`/`US-PR`, each
+= **1** (core's baseline proof rule only, module
+`us_scope_trigger_proof`). Every one of the 8 IL rules' `extract`
+functions resolves to an `il_*` module. Zero leakage across every code
+checked.
+
+#### What I tried that found nothing (evidence, not just a clean bill)
+
+- Full-corpus false-positive hunt on the LIVE `il_adhoc_scope_triggers`
+  rule (3,605 real candidates) for verb-shaped matches
+  (`יהיה|יחול|רואים|כאילו|לרבות ` etc.) -- zero found (only the 3
+  citation-shaped ones above, a different signature).
+- 25-sample (seed 42) of unrecognized `::-`-preamble tails -- zero
+  verb-shaped or clearly-wrong matches; every one was a genuine additional
+  definitional preamble.
+- Hunted specifically for a literal "ראו הגדרות בחוק ..." citation-only
+  clause (the manager's own example phrasing) -- zero files contain that
+  exact phrase anywhere in the corpus; the real-world shape turned out to
+  be free-form incorporation-by-reference prose instead (Check 2 above),
+  which I found and verified by a broader no-quote-in-body scan.
+- IL/US rule leakage -- none, across six US codes (not just one).
+
+### Escalations (P-R2 -- reporting, not deciding)
+
+1. **I4 FAIL, absolute-zero-miss bar.** Miss Group A (8 new/unimplemented
+   trigger phrase families, ~2,862 occurrences / ~1,300+ files aggregate)
+   and Miss Group B (the `::-`-nested-list shape wired for 1 of >=11
+   trigger phrasings, 2,288 uncaptured occurrences) are both confirmed
+   real and live-verified. Both use the SAME already-proven
+   `ScopeTriggerRule` mechanism (no new architecture/wiring gap, unlike
+   E6/E7/item-5/item-6) -- Group A is additional sibling quote-first rules;
+   Group B is generalizing item 9's own preamble detector to loop over the
+   known trigger set (or become trigger-word-agnostic) instead of
+   hardcoding `בפרט זה`. Recommending a Phase-C item, not deciding scope
+   myself.
+2. **P-R2, small but real conflict.** 3/3,605 (0.08%) of the widened
+   ad-hoc rule's own live captures are citation-shorthand labels (`סעיף
+   N`/`תקנה N`), not genuine terms. Suggest excluding candidates matching
+   `^(סעיף|תקנה)\s+\d` from `il_adhoc_scope_triggers.py`; reporting per
+   policy rather than choosing between zero-miss and zero-false-positive
+   myself.
+3. Feeding back real corpus evidence for M7's named residual class-(d)
+   risk (real, worse than anticipated -- no anchor entry, quote-last
+   grammar) per M7's own binding instruction. Not a new escalation.
+4. I1's contract-recorded article count (127,903) is stale post-rebase;
+   confirmed current figure is 128,234 (+331, exactly matching P-E3's
+   corrected bare-`@` count). Documentation fix, not a gate failure.
+
+### Suite numbers recap (all reproduced by me)
+
+Backend: `4 failed, 715 passed, 18 warnings in ~14s`. Frontend: `165
+passed (165)`, `25 passed (25)` files. `tsc --noEmit`: clean.
+`contract_lint.sh 2026-08-04-defs-il`: `PASS 400`. `git diff --name-status
+origin/main...HEAD -- backend/tests`: all `A`. I1 independent re-run:
+`6133/6133 files, 0 failed, 128234 articles`.
+
+### Gate verdicts
+
+**I1: PASS** (with a stale-number documentation finding, not a gate
+failure). **I2: not re-litigated this cycle** (Phase-B implementation
+status unchanged; the 8 shipped rules pass their own RED-turned-GREEN
+tests, confirmed by the I5 suite run above). **I3: PASS**, both directions
+attacked on two independent real corpus laws. **I4: FAIL** -- confirmed,
+live-verified misses (Groups A and B) and one confirmed false-positive
+class, all with real corpus examples above; this is the director's
+absolute zero-miss bar, so this fails the gate as specified. **I5: PASS**,
+fully reproduced.
+
+qa_cycles: 1.
