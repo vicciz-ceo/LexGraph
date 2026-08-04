@@ -562,6 +562,147 @@ def test_a_whole_definition_pointer_to_an_internal_same_law_article_emits_a_deri
 # --- rather than invalidating it). ----------------------------------------
 
 
+def test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsection_live(
+    db_session, matter_with_users
+):
+    """QA finding (independent re-verification, sprint QA phase): C1
+    states 'Subsection granularity is new design work: mentions must be
+    scope-checked below article level' and the seam doc lists C1
+    ('subsection-granularity enforcement') under 'Done here (assume it,
+    do not rebuild it)'. This test proves that claim does NOT hold on the
+    live `run_definition_linking` path.
+
+    A throwaway `ScopeTriggerRule` (same registration pattern as this
+    sprint's own C4 proof test above) stamps a `scope="subsection"`
+    `DefinitionCandidate` for a term defined specifically for subsection
+    (b) of an article that ALSO has a mention of the identical surface
+    form in subsection (a). Per C1, the subsection (b) mention should
+    link and the subsection (a) mention should not.
+
+    Today NEITHER links -- not because containment picks the wrong
+    subsection, but because the mechanism is entirely inert on the live
+    path. Root cause, verified by direct source read (not inferred):
+
+    - `matcher._subsection_contains_offset` reads
+      `getattr(article, "subsections", ())`. The REAL object
+      `run_definition_linking` constructs and passes through
+      (`app.definition_links.sections.Article`, aliased `MatcherArticle`
+      in `pipeline.py`) is a frozen dataclass with exactly four fields --
+      `number`, `heading`, `body`, `chapter` (see `sections.py`) -- it
+      never carries a `.subsections` attribute, on any code path. So
+      `_subsection_contains_offset` returns `()` -> `any(...)` over an
+      empty sequence -> `False`, UNCONDITIONALLY, for every
+      `scope="subsection"` definition on the live path -- not merely for
+      out-of-scope mentions, for its OWN in-scope mention too.
+    - No rule shipped by this sprint (`rules/il_scope_triggers.py`,
+      `rules/us_scope_trigger_proof.py`) stamps `scope="subsection"` on
+      any candidate either (grep across `backend/app/` confirms the only
+      non-comment occurrence of `scope="subsection"` in production code
+      is the docstring in `matcher.py` describing the branch, not a call
+      site) -- there is no live PRODUCER either.
+    - The one test that touches "subsection" on the live path,
+      `test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live`
+      below, is a D-ANCHOR *anchoring* test (its definition is
+      `scope="local"`, i.e. whole-article -- BOTH subsections' mentions
+      link; it only checks which `UnitPath` each resolves to via
+      `get_mention_unit_paths`). Anchoring (recording WHERE a mention
+      is) and containment (RESTRICTING WHICH mentions a definition
+      covers) are two different claims -- D-ANCHOR is explicitly a
+      "retrieval seam only" ruling; it does not stand in for C1's
+      containment requirement, and no other live test covers containment.
+    - The unit-level tests in `test_definition_links_matcher.py`
+      (`test_link_articles_to_definitions_respects_subsection_scope_isolation`
+      et al.) pass today, but only via a `SimpleNamespace` stub
+      (`_article_with_subsections`) that the test file's own docstring
+      concedes real `_Article` "doesn't declare" -- confirming the
+      mechanism is unit-tested-only, never wired to a live producer or a
+      live-shaped consumer object. This is the same failure class the QA
+      brief names explicitly (a green test proving the wrong thing) --
+      here at the C1/subsection-containment level rather than the M10
+      tie level.
+
+    Expected once fixed: the subsection-(b) mention links, the
+    subsection-(a) mention does not. This test currently fails already at
+    the weaker "AT LEAST ONE assertion exists" assertion -- proving total
+    inertness, a stronger and clearer failure than a mere mis-scoping."""
+    from app.definition_links.ingest import ingest_wiki_law
+    from app.definition_links.pipeline import run_definition_linking
+    from app.definition_links.rules.registry import (
+        RuleContext,  # noqa: F401
+        ScopeTriggerRule,
+        register_scope_trigger_rule,
+    )
+    from app.definition_links.extract import DefinitionCandidate
+
+    def _extract(article_body, ctx):
+        import re
+
+        pattern = re.compile(
+            r'"([^"]+)" applies only within subsection \(b\) of this '
+            r"section, and means (.*?)(?=\.\s|$)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        return [
+            DefinitionCandidate(
+                terms=(match.group(1).strip(),),
+                definition_text=match.group(2).strip(),
+                scope="subsection",
+                source_article_number=ctx.article_number,
+                scope_value="b",
+            )
+            for match in pattern.finditer(article_body)
+        ]
+
+    register_scope_trigger_rule(
+        ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract)
+    )
+
+    m = matter_with_users
+    term = "Subsection widget"
+    wiki_text = (
+        f'@ 12. Target section\n'
+        f'"{term}" applies only within subsection (b) of this section, '
+        f"and means a specially regulated item.\n"
+        f"(a) A {term} is mentioned here, in subsection (a), for contrast.\n"
+        f"(b) A {term} is mentioned here, in subsection (b), where it is "
+        f"actually defined.\n"
+    )
+    ingest_wiki_law(
+        db_session,
+        repository_id=m["repository_id"],
+        matter_id=m["matter_id"],
+        title="Test Subsection Scope Containment Statute",
+        wiki_text=wiki_text,
+        jurisdiction="US-DE",
+    )
+
+    result = run_definition_linking(
+        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
+    )
+
+    uses_edges = [
+        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    ]
+    assert uses_edges, (
+        "a scope='subsection' definition must link AT LEAST the mention "
+        "inside its own defining subsection (b) -- C1's 'mentions must be "
+        "scope-checked below article level' -- got ZERO USES_DEFINITION "
+        "assertions. Root cause (see docstring above): the live "
+        "MatcherArticle carries no `.subsections` attribute, so "
+        "matcher.py's `_subsection_contains_offset` returns False "
+        "unconditionally, making every scope='subsection' definition "
+        f"inert on the live path. created_assertions={result['created_assertions']!r}"
+    )
+    # Once the mechanism is wired, the STRONGER, directional assertion is:
+    #   the subsection-(b) mention's own article/position links, and the
+    #   subsection-(a) mention -- same article, same term, wrong
+    #   subsection -- does not produce a SECOND, indistinguishable
+    #   USES_DEFINITION assertion beyond the one the (b) mention earns.
+    # Not expressible today (proposition text carries no sub-article
+    # detail); left as a follow-up once containment is live and
+    # `get_mention_unit_paths` can be cross-checked per edge.
+
+
 def test_a_mention_inside_a_specific_subsection_resolves_to_the_correct_unit_path_live(
     db_session, matter_with_users
 ):
