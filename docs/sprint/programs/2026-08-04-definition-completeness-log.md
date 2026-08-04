@@ -17,6 +17,22 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 
 ## Events
 
+- 2026-08-04 (wave 2, checkpoint): director rulings D-MT-E1 (+no-typed-field
+  clarification), D-ANCHOR, D-PREAMBLE-ALL, D-UNITS recorded; unit research
+  dossier persisted (2026-08-04-law-system-units.md). CORE: seam spec
+  v1→v2.4 stable; Stage B+C RED sets complete (38 RED); dev1 (I4 registry /
+  I5 bare-@ / I6 case-fold) merged to sprint branch, combined tree 656
+  green / 26 RED / frontend 165; NY literal-\n ingest bug accepted as I8
+  (manager-verified 40,102/40,102 rows); Developer #2 building I1/I2/I3/I7.
+  PREAMBLE: all-states inventory — scouts S1/S2/S3 done (S4 pending);
+  findings: tail is ~96% CLAUSE-shaped (routes to scoped-inline), 2 shared
+  BLOCK idioms cover the tail, NY blackout found by S2, unbounded-last-entry
+  extractor defect confirmed FED 86%/DC 91.7%/NY 79.8% (routes to markers).
+  Parked: scoped-inline, IL, markers, multiterm (awaiting core merge); PR
+  cycle 3 + headings QA in flight. Escalation-relay pattern established:
+  role-agent completions bubble to program manager, who relays to panel
+  managers by agentId.
+
 - 2026-08-04: prior sprint closed (300f464); program doc (ad3dfd9); roster +
   core/IL contracts + dossier persisted (ba1b398); core + IL panels spawned.
   US family panels pending B3 re-recon.
