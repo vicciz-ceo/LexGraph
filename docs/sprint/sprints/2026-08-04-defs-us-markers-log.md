@@ -1096,3 +1096,82 @@ Sprint blocked on the core sprint, not on this panel.
    implements the rule modules against the real registry, then QA.
 6. QA has NOT run on this sprint yet — that is the main outstanding role.
 7. All 25+14 vendored fixture rows verified byte-identical to the real parquet.
+
+---
+
+## M6 — REBASED onto core; sprint unblocked (2026-08-04)
+
+Program manager relayed that core is on main. Rebased
+`claude/defs-us-markers` onto `origin/main` (now `0d57228`).
+
+**Rebase was NOT clean — one conflict, resolved.**
+`backend/tests/fixtures/us_statutes/README.md`: core appended their own
+fixture sections (`ny_m14_newline_defect_row.json`,
+`d_cf_structural_reference_rows.json`, the AK cp1252 row) while this sprint
+appended three of its own. Both sides were purely additive documentation, so I
+kept BOTH — no content dropped from either side. All 10 of this sprint's
+commits replayed; branch head is now `1e14d15`.
+
+**Post-rebase verification (mine):**
+- Venv refreshed (`pip install -e '.[dev]'`).
+- `backend/app/definition_links/rules/` now EXISTS on our tree
+  (`registry.py`, `__init__.py`, `il_scope_triggers.py`,
+  `us_scope_trigger_proof.py`) — the registry is real code, not spec.
+- Suite: **`15 failed, 724 passed`** (was 665 passed pre-rebase; core added
+  ~59 tests, all green). Our 15 RED are unchanged and still fail for the
+  right reason: no family-3 rules are registered yet, not a rebase breakage.
+
+**Shipped registry rule kinds (read from `rules/registry.py`, the source of
+truth, not the doc):** `HeadingRule`, `BodyPreambleRule`, `EntrySplitterRule`,
+`TermClauseRule`, `ScopeTriggerRule`, `StructuralUnitRule`, `CitationRule`.
+Note `ScopeTriggerRule.extract` now takes `(article_body, RuleContext)` — v2.5
+changed it from the two-positional-args shape I planned against in v2.
+
+### Ruling U-R8 — mojibake normalization has NO registry seam; use rule-internal repair first
+
+Core's `us_profile.py:770-786` explicitly leaves cp1252 mojibake "for a
+jurisdiction-specific `normalize_for_parsing` override … exactly the dispatch
+seam I9 exists to make reachable." But I checked `rules/registry.py`: **there
+is no normalization rule kind.** `USProfile.normalize_for_parsing` is a single
+method shared by every US code, so a genuine "jurisdiction-specific override"
+would require editing a shared module — which gate U3 forbids.
+
+Options: (a) ask core to add a `NormalizationRule` kind (seam change →
+escalation); (b) edit `us_profile.normalize_for_parsing` (U3 violation);
+(c) repair mojibake INSIDE our own `EntrySplitterRule`/`TermClauseRule`, which
+receive the section body and can repair it before splitting — no shared-module
+edit, no seam change, available today.
+
+**Ruling: take (c) first.** Its one known weakness is that repair would not
+reach Stage 3 term-matching (`find_term_uses` against article bodies that
+still carry mojibake), so an extracted term might fail to match its own
+mentions. That is a REAL risk and it is testable: the Planner must author a
+live-path test asserting a mojibake-body definition also LINKS to a mention.
+**If that test cannot be made green under (c), escalate to the program manager
+for (a)** — do not quietly ship extraction-without-linking and call it
+captured.
+
+### Corpus facts from the program manager — to be VERIFIED, not assumed
+
+Relayed as verified by core's managers; per this sprint's own standard they
+are re-confirmed live by the Planner before any rule is written against them:
+1. **AK mojibake is raw cp1252 control bytes U+0093/U+0094/U+0097** (~32K
+   occurrences / 17,935 rows), NOT `â€`-style sequences (only 2 rows
+   corpus-wide, both KY). A rule written against `â€` matches nothing.
+   **This contradicts the recon dossier**, which described AK/RI as
+   `\x80\x9c`/`\x9d`. Our own pass-2 finding (RI and AK use two DIFFERENT
+   byte sequences) already pointed this way; now it must be pinned exactly.
+2. **NY's literal-`\n` blackout is FIXED at ingest (core I8)** — NY was 1,479
+   of our 34,241 zero-yield population, so **every U6 baseline in this
+   sprint's log is now stale** and must be re-measured post-rebase.
+3. **Unbounded-last-entry contamination reproduces corpus-wide** (FED 86% of
+   last entries, DC 91.7%, NY 79.8%; FL 540.11 ~100% claimed vs ~12% true) —
+   squarely this sprint's U1 boundary-precision mandate, and much larger than
+   the prior sprint's residual implied.
+4. **NC and AL use unquoted-term conventions** (NC `TermName.--definition`,
+   AL `ALLCAPS TERM. definition`) invisible to quote-anchored extractors —
+   added to the sub-case inventory alongside DC's.
+
+VT `S3700` boundary stands as agreed: splitting mechanics ours, per-term
+fan-out multiterm's; a parent-redirect clause and its lettered children stay
+in ONE block (their M-R8 corollary).
