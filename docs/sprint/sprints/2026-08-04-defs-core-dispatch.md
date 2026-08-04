@@ -7,12 +7,12 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-dispatch
 locked_by: "claude-code:dispatch-manager"
 locked_at: "2026-08-04T12:26:23Z"
 last_agent: "claude-code:dispatch-manager"
-last_updated: "2026-08-04T12:56:21Z"
+last_updated: "2026-08-04T13:32:23Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 8
-lint: "PASS 148 2026-08-04T12:56:21Z"
+total_items: 9
+lint: "PASS 167 2026-08-04T13:32:23Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -131,6 +131,25 @@ The two panel managers' positive-control probes are the Planner's blueprints.
   CHANGES**. Includes the two already-live kinds — the point is a permanent
   guard, not a patch. This is the class whose absence let the gap survive two
   QA cycles.
+
+- [ ] **I9 (NEW, scoped-inline panel finding) — `resolve_unit_path`
+  mis-parses inline legislative-history annotations as sub-article markers.**
+  Maine carries `(NEW)` / `(AMD)` / `(AFF)` editorial parentheticals inline
+  and pervasively. **Manager reproduced on the live seam** — for a real-shaped
+  ME body, offsets after an `(AMD)` annotation resolve to
+  `(UnitStep('lower_alpha','b'), UnitStep(kind='sub', value='AMD'))`: a garbage
+  step appended to the true path, degrading subsection-scope enforcement.
+  Under zero-miss this is **wrong-path data, not missing data** — the same
+  severity class as the M12 citation truncation.
+  **Sequencing:** NOT folded into the in-flight Developer batch (its RED does
+  not exist yet, and red-before-green is not negotiable). Planner authors the
+  RED from REAL Maine rows first; a Developer fixes after the current batch
+  merges. Fixture material: `claude/defs-us-scoped-inline` @ `4909afb`.
+  **Also required:** determine whether other states carry similar editorial
+  parentheticals, with a P-R7-compliant (signal-agnostic) denominator — a
+  Maine-only fix would be a guess, not a finding.
+  Fix shape is the Developer's choice against the RED (exclusion set vs
+  uppercase-alpha-token guard), not specified here.
 
 ## Completed
 
