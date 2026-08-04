@@ -1254,3 +1254,339 @@ which QA cycle 1 identified as the dominant shape in the raw `defined`
 bucket and a precision disaster to chase. **Manager accepts**: one row traded
 to protect a large jargon class is the right side of that trade, and it is
 recorded here rather than left silent.
+
+---
+
+## 2026-08-04 — QA cycle 2 report (gate U4 certification)
+
+Addressed to the manager. All work in `/Users/nerya/LexGraph-wt/defs-us-headings`,
+branch `claude/defs-us-headings`, HEAD `d37387f` at start of this cycle. All
+scripts below are QA-authored from scratch this cycle (independent of the
+Planner's/scout's/manager's/my-own-cycle-1 scripts), against the real live
+`is_definitions_heading` / `matches_heading_variant` imported from the
+worktree source. Scripts and intermediate JSON live in the session
+scratchpad (`.../scratchpad/qa2/`); not committed (throwaway verification
+tooling, same pattern as cycle 1 and the manager's own scripts). Every
+number below was independently computed, not taken from the log.
+
+### Headline verdict: gate U4 still does NOT pass — a SIXTH mechanical gap found
+
+Cycle 2 fixed all six of cycle 1's findings cleanly (verified below) and the
+1,921→1,364 residual shrink is real. But hunting the new residual the same
+way I hunted the old one (classify, don't just spot-sample) turns up a
+**sixth mechanical gap in the same module, same class of defect as
+BUG1–BUG5**: `R-VERB-extended`'s punctuation/connector set after `defined`
+(`;`, `:`, dash) is still too narrow. Real corpus drafting commonly follows
+`defined` with the word **`for`**, a **comma**, a **period**, or the word
+**`as`** — none of which fire the rule, even though R-MID (the noun-form
+rule) already treats period/`/`/`(`/`)` as boundaries. Full detail in item 1.
+
+### Item 1 — U4 residual recompute, classification, sixth-gap hunt
+
+**Independent residual computation.** Script: `scratchpad/qa2/residual_sweep.py`,
+written from scratch (imports only `is_definitions_heading` and
+`matches_heading_variant` live). Scans all 52 in-scope `us_*_statutes.parquet`
+files from the local HF cache (never downloaded by this or any committed test).
+
+```
+titles containing 'defin'  : 83,303
+recognized BEFORE          : 61,075
+recognized AFTER           : 81,939
+newly recognized           : 20,864
+miss pool (defin & !before): 22,228
+union recall on miss pool  : 20864/22228 = 93.86%
+RESIDUAL (defin & !before & !newrule): 1,364
+```
+
+**Confirms the manager's claimed 20,864/22,228 (93.9%) and residual 1,364
+exactly**, on independently written code.
+
+**Precision audit, corrected-boundary methodology (per the brief).** Script:
+`scratchpad/qa2/precision_audit.py`, word-boundary regex treating `/`, `.`,
+`(`, `)` as boundaries (the manager's corrected methodology, re-derived
+independently, not copied):
+
+```
+fires with NO 'defin' substring at all              : 0
+fires with 'defin' substring but no canonical token : 123
+  trunc    : 117
+  misspell : 6
+  other (UNEXPLAINED) : 0
+```
+
+**Confirms the corrected 123 exactly** (not the stale 128). Both precision
+checks hold.
+
+**Classification of the 1,364 residual.** Script: `scratchpad/qa2/classify_residual.py`
+(regex buckets in priority order — morphology noise, pension jargon,
+preposition-guarded tail, authority-to-define delegation, everything else):
+
+| Bucket | Rows | Disposition (hand-verdicted sample) |
+|---|---:|---|
+| morphology noise (`definite`/`indefinite`/`undefined`/`redefin*`/`defining`) | 252 | 15 sampled, **0 genuine misses** — 13/15 clear NO (UCC "payable at a definite time", park-boundary redefinition, authority-to-define-by-rule delegation phrased with "defining"), 2 borderline (a bare-quoted-term heading and the UCC clause) already reasoned through in cycle 1 as correctly outside these rules' design scope, not a new miss |
+| pension jargon (`defined benefit/contribution/cost`) | 157 | 15 sampled, **0 genuine misses** — all are procedural sections *about* such plans, not sections defining the term itself; matches cycle-1's finding |
+| preposition-guarded tail (`... of/for/to/... Definitions`) | 245 | 15 sampled, **0 genuine misses** — dominated by an Indiana "the definitions in this chapter apply throughout this article" cross-reference convention (definitions declared elsewhere); consistent with the already-accepted trade-off |
+| authority-to-define delegation | 15 | 12 sampled (of 15), **0 genuine misses** — "board/AG/department may define X [by future rule]" |
+| everything else | 695 | **see sixth-gap finding below — this is where it lives** |
+
+**The sixth mechanical gap.** Reading the "everything else" bucket's random
+sample (not spot-checking — classifying, per the brief's explicit
+instruction to repeat the method that found BUG1–5) surfaced a repeating
+shape: `"Term" defined for X`, `Term defined, X`, `"Term" defined. X`, and
+`Term defined as X` — `defined` followed by a **word or comma or period**
+instead of `;`/`:`/dash. None of these fire `_rule_verb_extended` (which
+requires punctuation immediately after `defined`) or `_rule_verb_bare`
+(which requires `defined` to be the very last tail token — it isn't, there's
+more clause text after it in every one of these). Full-corpus census, script
+`scratchpad/qa2/full_defined_census.py` + `hunt_gap_b_c.py` +
+`hunt_sixth_gap.py` (baseline False, new-rule False only):
+
+| Sub-shape | Rows | Sample read | Verdict |
+|---|---:|---|---|
+| `defined for <clause>` | 109 | 43 (stratified by state) | **37 YES, 3 NO, 2 UNCLEAR, 1 REPEALED-STUB** |
+| `defined, <clause>` | 31 | all 31 | **~29 YES (23 fully confirmed + 6 pattern-consistent but not fully read), 0 NO, 2 UNCLEAR** (1 CT missing-(a), 1 federal needs deeper read) |
+| `defined. <clause>` (interior period) | 23–26 | all 23 candidates + deep full-text search on the 26 | **4 confirmed YES** via an explicit `"Term" means` marker found deep in the full `text` field (not the truncated excerpt) — `STATE_CT_T15_C268_S15-140q`, `STATE_CT_T19a_C368a_S19a-77`, `STATE_CT_T20_C384_S20-197`, `STATE_CT_T31_C567_S31-232l`; remaining ~19 UNCLEAR (same pre-existing, already-routed CT "text column omits subsection (a)" data-quality issue cycle 1 already flagged — **not a new finding**), 0 confirmed NO (1 row, `STATE_CT_T38a_C704_S38a-818` "Hearing on unfair practice **not so defined**", is a plausible true-negative on grammar alone but body is an unreadable citation-annotation stub — flagged as a precision caveat for whoever fixes this, not counted either way) |
+| `defined as <clause>` | 25 | 5 spot-checked | **5/5 YES** (`"Abandon" DEFINED AS LEAVING TO ATTRACT CHILDREN`, `Egg -- when defined as unfit for human food`, `Systems defined as utilities`, `Fiduciary defined as used in ss. 518.11-518.14`, `Ritual slaughter defined as humane`) — not exhaustively read, but the pattern is as consistent as the other three sub-shapes |
+| leading-adjective `Defined <noun>` (e.g. `Defined term`) | 17 | all 17 | 16 are the already-known pension-jargon class (`Defined contribution fund`, etc. — correctly excluded), **1 genuine miss**: `USC_T15_C122_S9801`, `"Defined term"`, body `In this title, the term "COVID–19 public health emergency"— (1) means the public health emergency first declared...` |
+| **Total candidate rows** | **~192** | | **overwhelming majority genuine YES where readable; the UNCLEAR rows are the same pre-existing CT data gap already routed, not new noise** |
+
+I explicitly checked and ruled OUT three superficially similar shapes as
+**not** part of this gap (already-correctly-excluded, consistent with
+established precedent, sampled and read):
+- `defined in <clause>` (25 rows) — dominated by cross-reference (`"X" as
+  defined in [federal law / another section]` — the definition lives
+  elsewhere), same class as the already-fixed ME false positive and the TX
+  true negative. Sampled 2 in depth (`STATE_MI_..._S289.1113`,
+  `STATE_MI_..._S324.63501`), both genuine cross-references, correctly
+  excluded.
+- `defined by <clause>` (23 rows) — dominated by delegation-to-rule/ordinance
+  (`"Undue hardship"—Defined by rule.`) or general "crimes are creatures of
+  statute" meta-statements (`All offenses defined by statute.`), not this
+  section's own definition. Sampled 3 in depth, all correctly excluded.
+- `defined AREA(S)` / `defined BENEFIT/CONTRIBUTION/COST` (~314 rows within
+  the 674 total `defined`-containing residual rows) — the pension/municipal-
+  taxing-district jargon class, confirmed correctly excluded (see item 2's
+  pension-jargon guard check, which is the same mechanism).
+
+**P-R2 escalation — representative real rows, one per confirmed sub-shape:**
+
+1. **`defined for`** — `STATE_KY_TXVIII_C214_S214.280`, heading `"Mattress"
+   defined for KRS 214.290 to 214.310`, body: `As used in KRS 214.290 to
+   214.310, "mattress" means any mattress, mattress pad or cushion...`.
+2. **`defined,`** — `STATE_NJ_T58_C16A_S16A-102`, heading `"Emergency
+   supplies" defined, regional directory database.`, body: `As used in this
+   section "emergency supplies" means, but is not limited to: equipment such
+   as vehicles...`.
+3. **`defined.`** — `STATE_CT_T31_C567_S31-232l`, heading `Sec. 31-232l.
+   Ineligibility for extended benefits. Suitable work defined. Duties of
+   State Employment Service.`, body (found via full-text search past the
+   visible `(b)`-only excerpt): `(c)(1) For purposes of this section,
+   "suitable work" means any work which is within an individual's...`.
+4. **`defined as`** — `STATE_ID_T18_C58_S18-5817`, heading `"ABANDON"
+   DEFINED AS LEAVING TO ATTRACT CHILDREN.`, body: `"Abandon" means leaving
+   unattended and uninclosed such appliance, in such manner and for such
+   time that playing children may be attracted thereto...`.
+5. **Leading-adjective** — `USC_T15_C122_S9801`, heading `Defined term`,
+   body: `In this title, the term "COVID–19 public health emergency"— (1)
+   means the public health emergency first declared on January 31, 2020...`.
+
+**My assessment for the manager**: same framework as cycle 1's H-R7 finding
+— this is not a new precision trade-off (unlike the preposition-guarded
+cluster or the pension-jargon class, which are reasoned, accepted, and
+correctly still excluded). It is a place where a rule the sprint already
+committed to shipping (`R-VERB-extended`'s own stated purpose: `defined` +
+punctuation + more clause text) silently fails to fire on real, common,
+high-volume drafting shapes squarely inside its own intent, for the same
+underlying reason BUG1 existed (a separator class that's narrower than the
+rule's own design). Roughly 192 residual rows carry this shape, with a
+strong, sample-confirmed genuine-miss rate in three of five sub-shapes and
+a smaller but real confirmed rate in the fourth (period, CT-blocked by a
+pre-existing, already-routed data issue for most of its rows, but not all —
+4 confirmed YES survive that noise). **P-R2 escalation.**
+
+### Item 2 — verification of the 558 newly-captured rows
+
+**Independent reproduction of "exactly 558".** Script: `scratchpad/qa2/flip_check.py`,
+loads the cycle-1 module (`git show c986001:...`) via `importlib` alongside
+the live cycle-2 module and diffs their verdicts across all 22,228 miss-pool
+rows (not a sample): **exactly 558** False(cycle1)→True(cycle2) flips,
+tagged by which rule newly fires (`scratchpad/qa2/classify_558.py`):
+**419 via `_rule_verb_extended` (BUG2), 139 via `_rule_mid`** (covers
+BUG1=118 + BUG3=15 + BUG4=1 + BUG5=1 + 4 duplicated-number SD rows = 139) —
+**exact match to the Developer's own breakdown.**
+
+**Own random sample, ≥40 as required, weighted toward BUG2 (the largest,
+riskiest change).** Script: `scratchpad/qa2/sample_558.py`, seed `20260804`:
+**32 rows from the 419-row `_rule_verb_extended` (BUG2) population + 18 rows
+from the 139-row `_rule_mid` population = 50 total.** Read real body text
+(`scratchpad/qa2/qc2_sample_558.json`).
+
+**Tally:**
+- BUG2 dash-widening (32 rows): **31 YES, 1 REPEALED-STUB, 0 NO, 0 UNCLEAR.**
+  All 31 YES rows show explicit `"Term" means`/`is`/`includes`-style
+  definitional content matching the heading's named term (e.g.
+  `STATE_MO_C542_S542.266` "Search warrant defined": `A search warrant is a
+  written order of a court...`). The 1 REPEALED-STUB
+  (`STATE_ND_T40_C40-57.1_S40-57.1-04.2`, body `Repealed by S.L. 1991, ch.
+  447, § 10.`) matches the already-documented, already-accepted
+  textually-correct/zero-extraction-value phenomenon from cycle 1 (35+62
+  such rows already recorded) — not a defect.
+- `_rule_mid` (18 rows, mostly Connecticut BUG1 rows): **11 YES, 7 UNCLEAR,
+  0 NO.** All 7 UNCLEAR are the same pre-existing, already-routed CT
+  "`text` column starts at `(b)`, subsection (a) is missing" data-quality
+  gap cycle 1 already flagged — not a new finding. One UNCLEAR row
+  (`STATE_CT_T4a_C58a_S4a-101`) turned out, on reading the FULL text (not
+  just the visible `(b)` excerpt), to have its definitions in subsection
+  (c) — confirmed **YES** on closer read (moved from UNCLEAR to YES in the
+  final tally above).
+
+**Combined: 42 YES, 7 UNCLEAR, 1 REPEALED-STUB, 0 NO** across the 50-row
+sample — **zero false positives found**, exceeding the ≥40 floor.
+
+**Pension-jargon guard re-confirmed under the BUG2 dash-widening
+specifically** (the brief's explicit ask). Script:
+`scratchpad/qa2/pension_jargon_check.py`, full 52-file scan for headings
+matching `defined[\s-]{1,3}(benefit|contribution|cost|value)`: **165 total
+matching headings corpus-wide, exactly 1 newly fires True**
+(`STATE_NJ_T43_C15C_S15C-1`, `"Defined Contribution Retirement Program;
+rules, regulations; terms defined."`) — and that one fires via
+`_rule_verb_bare` on the heading's OWN trailing `"...terms defined."`
+clause (unrelated to the "Defined Contribution" program name at the
+heading's start), on a row whose body genuinely defines `"Base salary"` and
+other terms — a correct, legitimate match, not a defeat of the guard. Also
+directly tested 4 synthetic `"defined-benefit plan"` / zero-whitespace
+hyphen variants: all 4 stay `False`. **The pension-jargon exclusion holds
+exactly as designed, including against the BUG2 dash-widening.**
+
+### Item 3 — True→False flip verification
+
+Same `flip_check.py` run (full 22,228-row scan, not a sample): **exactly 1**
+True(cycle1)→False(cycle2) flip, and it is `STATE_ME_T15_P4_C305-A_S2123-A`
+(the ME row) — **confirmed, no extras.**
+
+### Item 4 — Adversarial precision hunt, round 2
+
+Targeted the new attack surface cycle 2 opened: `.`/`/`/`(`/`)` as token
+boundaries, the dash-boundary-aware preposition guard, and the
+article-skipping guard (checking the True→False direction too, not just
+False→True). Constructed 8 synthetic headings
+(`scratchpad/qa2/adversarial_hunt2.py` + inline probes); 4 fired
+unexpectedly `True` in isolation. Checked each against the real corpus
+(same "theoretical vs. realized" methodology that found the ME false
+positive in cycle 1):
+
+1. **Parenthetical cross-reference exploit** — `"Program requirements (see
+   also definitions in section 5)."` fires `True` (the word `also`, not a
+   preposition, sits immediately before the paren-exposed `definitions`
+   token, so the guard never engages). Full-corpus check: **0 real rows**
+   match this shape (`(see also definitions`/`(also definitions` anywhere
+   in a residual or captured heading). **Theoretical, not realized** — same
+   disposition as cycle 1's `"Article 5 Definitions repealed"` finding. No
+   escalation.
+2. **Dash-defeats-guard exploit** — `"Repeal of — Definitions"` /
+   `"Repeal of--Definitions"` fire `True` (BUG3's dash-boundary rule treats
+   ANY dash right before the candidate as a fresh clause, even when the
+   dash sits directly after the very preposition that should govern it).
+   Full-corpus check for `<preposition> <dash> definitions?`: **realized 15
+   times**, but on reading real body text, **all 15 are genuine correct
+   matches** — every one is the Missouri "clause — clause — clause" list
+   convention BUG3 was explicitly built to fix (`"STEM grants, eligibility
+   for — definitions — rules — sunset provision."`, body: `the following
+   terms mean: (1) "Approved institution"...`), not a case where the dash is
+   spuriously interposed between a preposition and its real object. 13/15
+   confirmed via explicit `"Term" means`/`"official" means` markers in
+   body text; the remaining 2 (`STATE_MO_C393_S393.1655`,
+   `STATE_WA_T31_C12_S267`) are consistent with the same pattern but not
+   fully confirmed from the available excerpt. **Not a vulnerability — this
+   is BUG3 generalizing correctly, not a new defect.** No escalation.
+
+No False→True precision defect found this round (matching item 3's
+exhaustive corpus-wide confirmation of exactly one flip, which was in the
+True→False direction). **No new false positive found in round 2** — a
+different, cleaner result than cycle 1's round 1, which did find one (the
+ME row, now fixed).
+
+### Item 5 — Regression + gates
+
+**Full suite**, `backend/.venv/bin/pytest backend/tests -v`:
+
+```
+FAILED backend/tests/integration/test_us_heading_variants_end_to_end.py::TestRealProductionPipeline::test_connecticut_ucc_row_produces_real_definitions_via_the_real_pipeline
+FAILED backend/tests/unit/test_definition_links_rules_registry_integration.py::test_module_self_registers_exactly_one_heading_rule_for_us_star
+2 failed, 669 passed, 18 warnings in 13.24s
+```
+
+Exactly the 2 core-blocked failures, same pair as every prior run, baseline
+641 fully preserved inside the 669. **No third failure.**
+
+**Gate U3**:
+```
+git diff --stat 83532fe...HEAD -- backend/app/
+ .../definition_links/rules/us_heading_variants.py | 299 +++++++++++++++++++++
+ 1 file changed, 299 insertions(+)
+```
+Exactly one file. `git show --stat 965880a -- backend/tests/` is **empty** —
+the Developer's cycle-2 commit touched zero test files. **U3 CONFIRMED.**
+
+**Gate U6, own script** (`scratchpad/qa2/residual_sweep.py`, per-state
+counters computed in the same pass as the residual sweep):
+
+| State | defin | before | after | newly | before% | after% |
+|---|---:|---:|---:|---:|---:|---:|
+| WA | 2,424 | 1,800 | 2,385 | 585 | 74.3% | **98.4%** |
+| FL | 952 | 805 | 938 | 133 | 84.6% | **98.5%** |
+| NY | 1,619 | 1,479 | 1,597 | 118 | 91.4% | **98.6%** |
+
+All three named states move, hard, independently reproduced. **U6 CONFIRMED.**
+
+### Per-gate verdict summary
+
+| Gate | Verdict | Proven by |
+|---|---|---|
+| U1 | Heading-layer recognition holds for the rule set as specified | Unaffected by this cycle's findings; unit/e2e suite unchanged and still green (28/30, 2 core-blocked) |
+| U3 | **CONFIRMED** | `git diff --stat 83532fe...HEAD -- backend/app/` = exactly 1 file; `git show --stat 965880a -- backend/tests/` = empty |
+| U4 | **DOES NOT PASS** | Independent residual recompute (1,364, exact match) + classification found a SIXTH mechanical gap (~192 candidate rows: `defined for`/`,`/`.`/`as`/leading-adjective), hand-verdict samples show a strong genuine-miss rate in 4 of 5 sub-shapes (37/43, ~29/31, 4 confirmed + ~19 pre-existing-data-gap-blocked/23, 5/5) — see P-R2 escalation above |
+| U5 | **CONFIRMED at Phase-A level, precision holds** | Full suite 669/2, exactly core-blocked pair; 558-row-population sample (50 rows) = 0 NO; True→False flips = exactly 1 (already known, ME row); adversarial round 2 found 0 new false positives (one theoretical construction not realized, one realized-but-correct) |
+| U6 | **CONFIRMED** | Independent per-state script: WA 74.3%→98.4%, FL 84.6%→98.5%, NY 91.4%→98.6% |
+
+### What I could NOT verify
+
+- Did not exhaustively hand-verdict all 1,364 residual rows — read/verdicted
+  well over 250 individual rows across every major shape (82-row stratified
+  sample of the non-sixth-gap buckets, 43+31+23+5+17 = 119 rows across the
+  five sixth-gap sub-shapes, plus targeted spot-checks), far past the ≥60
+  floor, but the exact true-miss count among the un-sampled remainder of
+  the ~695-row "everything else" bucket outside the shapes I identified is
+  not individually confirmed.
+- The `defined for` sample's 2 UNCLEAR and the `defined,` sample's 2 UNCLEAR
+  rows need a fuller body read than I fetched (2,500–3,000 chars) to
+  resolve definitively.
+- The `defined.` (interior period) sub-shape's ~19 UNCLEAR rows hinge on the
+  same pre-existing CT "`text` column omits subsection (a)" data-quality
+  gap already routed to the program manager by cycle 1 — I did not trace
+  *why* the corpus extraction drops it (out of this sprint's scope), only
+  confirmed the symptom recurs identically here.
+- Did not exhaustively read all 25 `defined as` rows (5 spot-checked, all
+  YES) or fully resolve `STATE_MO_C393_S393.1655` / `STATE_WA_T31_C12_S267`
+  from the adversarial-hunt dash-defeats-guard check (both consistent with
+  the pattern but the visible excerpt didn't reach an explicit `"Term"
+  means` clause).
+- Have not verified whether fixing the sixth gap (widening
+  `_rule_verb_extended`'s connector class to `for`/comma/period/`as`) is
+  feasible without new precision risk of its own — that is implementation
+  work, not QA's to prescribe; flagging the gap, not the fix. Worth noting
+  for whoever picks this up: the `defined by` (23) and `defined in` (25)
+  near-miss shapes must stay OUT of any such widening (both are dominated
+  by correctly-excluded cross-reference/delegation patterns, confirmed
+  above), so a naive "any word after defined" widening would be a real
+  precision regression, not a clean win the way BUG1–5 were.
+- Did not run the frontend suite (not touched by this sprint, per contract).
+- Have not verified jurisdictions outside the 52 in-scope
+  `us_*_statutes.parquet` files (constitutions, PR) — confirmed out of scope.
+
+### Branch state
+
+All work this cycle is doc-only (this log entry). No `backend/app/**` or
+`backend/tests/**` files touched — role separation held. Pushed SHA and
+`git log --oneline -1` recorded by the manager/committer at push time below
+this entry.
