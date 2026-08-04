@@ -1393,3 +1393,40 @@ pre-existing GA gate-level pin), `4 failed` (GA capture, GA false-positive
 guard, MD capture, the renamed NE test) — exactly the expected shape before
 `us_body_preamble.py`/core's registry exist. No test outside the NE block
 was touched.
+
+### P-D3 — MS chapter-scope U2 test (QA-flagged gap, M-R16)
+
+New file `test_us_body_preamble_ms_chapter_scope_red.py` +
+`fixtures/us_statutes/ms_scope_preamble_rows.json`, mirroring
+`test_us_body_preamble_scope_red.py`'s GA convention exactly (one real
+vendored definitions row + two hand-constructed, unvendored "using" rows,
+never a fabricated corpus row).
+
+Real base row `STATE_MS_T45_C10_S34-1` (chapter `"10"`, terms Conviction/
+Department/Offender/Registrable offense/Registrant) fetched **live, myself,
+directly from the real `us_ms_statutes.parquet`** in this worktree's venv —
+not copied from the scout's truncated `body_opening` summary field — and
+vendored byte-for-byte into the new fixture, diffed against my own live
+fetch to confirm exactness before committing.
+
+**Followed S4's warning, verified independently before writing the test**:
+re-fetched `us_ms_statutes.parquet` and confirmed `S34-1`'s body text is
+byte-identical across the 11 chapter values S4 named
+(`C1,C2,C3,C4,C5,C6,C7,C9,C10,C11,C33`) — so, exactly as recommended, the
+out-of-chapter negative case is a hand-constructed scaffolding row (chapter
+`"99"`), never a second real corpus row, which would very likely be the
+SAME duplicated text rather than a distinct statute.
+
+Also flagged, in the test's own module docstring, an MS-specific
+sharpening of the GA scope test's already-named core dependency: MS's
+chapter trigger wording ("For purposes of this chapter, unless the context
+requires otherwise...") differs from GA's ("As used in this chapter"), so
+core recognizing GA's phrasing for `_determine_scope` does not
+automatically cover MS's — a per-phrasing, not per-state, dependency worth
+a future reader knowing before assuming GA's scope test going green implies
+MS's will too.
+
+**Verified RED for the right reason**: ran the test directly —
+`assert 0 == 1` on `registrant_defs` (zero `Definition` rows created today,
+same underlying miss as every other capture test in this family), not a
+fixture-loading error or an import error.
