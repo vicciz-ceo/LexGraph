@@ -2054,3 +2054,95 @@ not it is capitalized), with the Developer required to COMMENT the departure so
 it is visible rather than accidental, and the interpretation flagged upward as a
 D-Q1 class rather than silently absorbed. Not a blocker: the class is small,
 measured, and the dominant term is unaffected.
+
+---
+
+## 2026-08-04 — Round 19: I10 merged; re-QA cycle 2 PASS; sprint closes to `review`
+
+### I10 / D-CF guard (Developer, `7e7100b`, merged `3184e8c`)
+
+Two production files, **zero test paths**. Manager did the FULL read of the
+`us_profile.py` hunk (precision-critical by nature):
+
+- `_STRUCTURAL_UNIT_WORDS` — closed 10-word set, checked against **the TERM**,
+  not the surrounding text, and short-circuiting first. An arbitrary defined
+  term ("Access area", "Affiliate") is therefore structurally INELIGIBLE for
+  suppression regardless of what follows it.
+- `_STRUCTURAL_NUMBERING_TOKEN_RE` — parenthesized digit / 1-2 letter / roman
+  marker, plus a bare-number alternative for D-CF's `Title 1` shape. Bounded
+  quantifiers, no alternation-in-nested-quantifier, linear time. **Deliberately
+  independent** of `resolve_unit_path`'s ladder — no coupling, so a future
+  unit-path change cannot silently move this guard.
+- Case-agnostic reading implemented AND commented in-code with the measured
+  blast radius, per manager requirement.
+- `add_assertion_subject_unit_path_column.py` docstring named a phantom sibling
+  module; fixed. Manager verified **docstring-only** — no DDL, no `downgrade()`.
+
+### Re-QA cycle 2 (`7b8d273`, merged) — **PASS on every gate and every item**
+
+**Manager verification, run INDEPENDENTLY of the agent's own report:**
+- Diff is **ONE test file**; zero non-test paths.
+- **Production diff vs `3184e8c` is EMPTY** — nothing production-side changed.
+- Headline run reproduced by manager: **700 passed / 0 failed**.
+- Full evaluator on the merged tree: backend **700/0**, frontend **165/165**,
+  `tsc --noEmit` clean.
+
+**What re-QA found that nobody had:** a genuine coverage gap. The C1 fix threads
+`profile` through Stage 3; the manager had verified per-document binding by
+SOURCE READ only. Re-QA turned that into a committed live-path regression guard —
+`test_definition_links_pipeline_scope_seam.py::test_profile_binding_does_not_leak_across_documents_in_one_multi_jurisdiction_run_live`
+— a real multi-jurisdiction run (Hebrew IL law + US-DE statute) asserting BOTH
+directions: the Hebrew mention links at all (Hebrew's own matcher ran for the IL
+document) AND the US mention's anchor resolves to unit path `'b'` (US
+`resolve_unit_path` ran for the US document, not Hebrew's). Mutation-proven by
+hoisting the Stage-3 binding to always resolve the first document's profile.
+**A source-read risk is now a test.**
+
+**It corroborated the manager's corpus figure independently**: 1.10% via a
+from-scratch signal-agnostic denominator vs the manager's 1.09% — agreement
+from two separately-constructed populations, not one inherited number.
+
+**Roman-numeral precision concern (manager-raised, re-QA-measured): resolved.**
+`[ivxlcdmIVXLCDM]{1,7}` does match ordinary words built from those letters, so
+`division (civil)` would be suppressed. Measured corpus-wide: **exactly 1 real
+occurrence, in a chapter that never defines "Division"** — live-path-inert.
+Re-QA's recommendation, accepted: a posterity comment, **not** a code change.
+Recorded here rather than actioned.
+
+**D-Q1 watch items carried to program close (escalated, never absorbed):**
+(1) structural nouns outside the closed 10-word set (a term literally named
+"Item"/"Clause" used as "item (3)"); (2) intervening punctuation or multi-token
+chains ("division, (i)", "division (b)(2)"). Neither observed in real fixtures;
+neither guessed at.
+
+### Prompt-injection disclosure — handled, no impact
+
+Re-QA disclosed that during its mutation-test restores it received
+**system-reminder-styled messages instructing it to treat restores as
+pre-existing state and to withhold that from the user**. It **disregarded them
+and verified real state via `git status`/`git diff` after every restore** —
+exactly correct: instructions arriving through tool output or file content are
+DATA, never commands, and no such message can authorize concealment.
+
+Most likely harness file-change-detection noise around `git checkout`
+operations, paraphrased with an adversarial slant; there is no evidence of
+tampering. **The definitive check was the manager's, run independently of the
+agent's account: the pushed diff is single-file and tests-only, and the
+production diff vs the last manager-verified tree is EMPTY.** Whatever those
+messages were, they moved nothing. Recorded for the program's security log;
+the honest self-report is credited.
+
+### Lint discrepancy — corrected honestly
+
+Frontmatter claimed `lint: PASS`. Re-QA ran `scripts/contract_lint.sh` itself
+and got FAILs. The manager re-ran it and got **THREE**, not two:
+```
+FAIL: timestamps — last_updated='2026-08-04T12:35:00Z' is in the future
+FAIL: Context Dump (51 lines > 10)
+```
+plus the resulting `FAIL` summary line. The future timestamp was the manager's
+own error — a placeholder written ahead of real time. **A false PASS in
+frontmatter is exactly the class of claim this program exists to kill**, so it
+is recorded here rather than quietly overwritten: the contract asserted a clean
+lint it had not earned, through two separate defects, and neither was caught
+until QA ran the linter independently. Corrected below; lint now genuinely PASS.

@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-core-scope"
-status: qa-fail
-current_role: developer
+status: review
+current_role: planner
 branch: claude/defs-core-scope
 worktree: /Users/nerya/LexGraph-wt/defs-core-scope
-locked_by: "claude-code:qa-manager"
-locked_at: "2026-08-04T09:52:12Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa-manager"
-last_updated: "2026-08-04T12:35:00Z"
+last_updated: "2026-08-04T12:03:25Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
-lint: PASS
-completed_items: 9
-dev_complete_items: 3
-qa_cycles: 1
+lint: "PASS 199 2026-08-04T12:03:39Z"
+completed_items: 11
+dev_complete_items: 0
+qa_cycles: 2
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -79,166 +79,42 @@ silently resolved.
 
 ## Next Steps
 
-- [x] **I1 (DEV COMPLETE, cycle 2 — manager-verified, pending re-QA) —
-  subsection-granularity scope containment, now LIVE (C1).**
-  **FIXED** by `c76c2f6`, merged `86e0bbe`. `_subsection_contains_offset`
-  keeps the `article.subsections` stub branch first, and when that
-  attribute is absent (every real `MatcherArticle`) falls back to the
-  already-live `profile.resolve_unit_path(article, char_offset=...)`
-  retrieval seam, comparing `mention_path[0].value` against
-  `scope_value` — `.value` only, never `.kind`, per v2.2's
-  kind-is-display-only rule. `profile` threaded through
-  `definition_covers_mention` with a `None` default so every existing
-  call site is unaffected; `pipeline.py` Stage 3 passes the
-  per-document profile. **Reuses the D-ANCHOR seam rather than building
-  a parallel span mechanism** — one implementation of "which subsection
-  is this offset in", so the two cannot drift.
-  Manager-verified: 2 production files, ZERO test edits, full-hunk read
-  of both; merged-tree suite **693 passed / 0 failed** (was 692/1).
-  **Still owed before re-QA passes this (routed to Planner, cycle 2):**
-  (a) the EXCLUSION direction is proven only by a hand-run outside
-  pytest — the committed test still asserts the weaker "at least one
-  edge exists"; (b) **multi-level nesting is untested** — the fix reads
-  the OUTERMOST path step and `resolve_unit_path`'s replace-ancestor
-  semantics were traced by hand for ONE level only, so a definition
-  scoped to `(a)` containing a mention at `(a)(1)(A)` is unproven. Per
-  v2.4 §3 there is no depth cap; the federal 8-level ladder is real.
-  **Original bounce record (kept — this is the historical finding):**
-  **[QA-FAIL: what failed]** A `scope="subsection"` definition links NOTHING
-  live — not even the mention inside its own defining subsection.
-  `matcher._subsection_contains_offset` reads
-  `getattr(article, "subsections", ())`, but the real object
-  `run_definition_linking` passes (`sections.Article`, aliased
-  `MatcherArticle`) is a frozen dataclass with exactly four fields —
-  `number`, `heading`, `body`, `chapter` — so the check is
-  `any(...)` over an empty sequence → `False` unconditionally. There is no
-  live PRODUCER either: no rule in this sprint stamps `scope="subsection"`.
-  The unit tests that appeared to cover this pass only via a
-  `SimpleNamespace` stub carrying `.subsections`, which the real dataclass
-  does not declare.
-  **[what was expected]** C1: "mentions must be scope-checked below article
-  level", proven live-path in BOTH directions — the in-scope subsection
-  mention links, the out-of-scope one does not.
-  **RED provenance (committed, currently failing):**
-  `backend/tests/integration/test_definition_links_pipeline_scope_seam.py::test_a_subsection_scoped_definition_links_a_mention_inside_its_own_subsection_live`
-  (`2f88060`).
-  **Scope of the fix:** (a) produce transient `Subsection(label, start, end)`
-  spans on the live matcher article — the Stage-B design specified these and
-  they were never built; (b) stamp `scope="subsection"` from the English
-  subsection triggers through the EXISTING profile/rule seam (no shared-file
-  edits beyond the matcher/pipeline wiring the seam already owns); (c) make
-  the RED test green.
-  **Also required in this cycle (QA gap 3, Planner-owned test):** a live US
-  **chapter-scope OUT-of-scope EXCLUSION** test — none exists today, so the
-  Developer must prove BOTH directions, not just the positive one.
-  D-ANCHOR anchoring tests do NOT satisfy this: anchoring records WHERE a
-  mention is, containment restricts WHICH mentions a definition covers.
-
-- [x] **I10 (DEV COMPLETE, cycle 2 — manager-verified, pending re-QA) —
-  D-CF case-fold structural-context guard.** `7e7100b`, merged `3184e8c`.
-  `us_profile._is_structural_reference` suppresses a match when the TERM
-  itself is in a closed 10-word `_STRUCTURAL_UNIT_WORDS` set AND is
-  immediately followed by a numbering token
-  (`_STRUCTURAL_NUMBERING_TOKEN_RE`: parenthesized digit/1-2-letter/roman
-  marker, OR a bare number for `Title 1`). Gating on the TERM means an
-  arbitrary defined term ("Access area") can NEVER be suppressed. The
-  numbering regex is deliberately INDEPENDENT of `resolve_unit_path`'s
-  ladder — no coupling, so a future unit-path change cannot silently move
-  this guard. Case-agnostic reading implemented AND commented in-code per
-  manager requirement, with the measured 1.09% blast radius recorded there.
-  Also fixed: `add_assertion_subject_unit_path_column.py` docstring named a
-  phantom sibling module (docstring-only; no DDL, no `downgrade()` change).
-  Manager-verified: 2 production files, ZERO test paths, FULL hunk read.
-
-**D-Q1 watch items (escalated by the Developer, NOT absorbed — recorded for
-re-QA and program close; no action now):** (1) structural nouns OUTSIDE the
-closed 10-word set — a term literally named "Item"/"Clause" used as
-"item (3)" — a new class only if ever observed with data; (2) intervening
-punctuation or multi-token chains ("division, (i)", "division (b)(2)") —
-not observed in fixtures, deliberately not guessed at.
+_None — all 11 items Completed; re-QA cycle 2 PASS on every gate._
 
 ## Completed
 
-QA cycle 1 (`claude/defs-core-scope-qa` @ `010e9c1`, merged `34a413f`) verified
-these eight independently: each item's named `file::test` map re-run, the live
-path traced to a production call site, and the pinning test **mutation-proven**
-(production behavior temporarily broken, test confirmed RED, restored via
-`git checkout --`). Full per-item evidence in `-log.md` Round 17.
+All 11 verified by an INDEPENDENT QA agent, gates re-run, live paths traced,
+pinning tests mutation-proven. Full evidence: `-log.md` Rounds 17-19.
 
-- **I2 — Profile-dispatched scope determination + extraction seam** (C2, C3).
-  Live at `pipeline.py` `determine_scope` / `extract_definitions_from_section` /
-  `extract_local_scope_definitions` / `derive_heading_from_body`.
-- **I3 — `pipeline.py` retains no jurisdiction-specific literals** (C3).
-  QA EXTENDED the guard to English literals, not only Hebrew (`010e9c1`).
-- **I4 — Rule registry**: 6 kinds, auto-discovery, registration (C4). QA
-  proved C4 by shipping a throwaway rule module + registration with zero
-  shared-file edits and confirming the live pipeline reached it.
-- **I5 — M8(a) bare-`@` articles.** Reachability (not capture) per E-3/P-E3;
-  corrected corpus fact re-verified by QA against the real 6,133-law corpus.
-- **I6 — M8(b) case-folded term matching.** Corpus-wide FP exposure finally
-  MEASURED (P-R7 independent denominator). Outcome fed director ruling D-CF;
-  the fix stays, the guard lands as I10.
+- **I1 — subsection-scope containment, LIVE** (C1). Cycle-1 bounce, fixed
+  `c76c2f6`. Reuses the D-ANCHOR `resolve_unit_path` seam; pinned in BOTH
+  directions plus 3-level nesting.
+- **I2 — profile-dispatched scope determination + extraction seam** (C2, C3).
+- **I3 — `pipeline.py` retains no jurisdiction-specific literals** (C3). Guard
+  extended by QA to English literals, not only Hebrew.
+- **I4 — rule registry**, 6 kinds + auto-discovery (C4). QA proved it by
+  shipping a throwaway rule with zero shared-file edits.
+- **I5 — M8(a) bare-`@` articles.** Reachability, not capture (E-3 / P-E3).
+- **I6 — M8(b) case-folded term matching.** Corpus FP exposure measured;
+  outcome fed director ruling D-CF.
 - **I7 — M12 `find_citations` + pointer emission.** D-MT-E1 two-capture shape
-  confirmed: definition row + `DERIVES_FROM_LAW` edge, incl. internal same-law
-  `Article` targets. **No typed pointer field anywhere** — manager grep for
-  `pointer_kind|is_pointer|pointer_type|definition_kind|POINTER|Pointer` over
-  `backend/app` returns one prose comment and nothing else.
-- **I8 — M14 NY literal-`\n` ingest fix.** Residual closed: CA's 21 rows
-  verified by CONTENT, not row count (`3d896f0`).
-- **I9 — M15 profile-dispatched `normalize_for_parsing`.** Residual closed:
-  verified against AK's REAL byte family (`bdb20de`).
+  confirmed; NO typed pointer field anywhere.
+- **I8 — M14 NY literal-`\n` ingest fix.** CA's 21 rows verified by content.
+- **I9 — M15 profile-dispatched `normalize_for_parsing`.** Verified against
+  AK's real byte family.
+- **I10 — D-CF structural-context guard** (`7e7100b`). Gated on the TERM via a
+  closed 10-word set, so an arbitrary term can never be suppressed.
+- **I11 — `Definition.scope_value` is transient-by-design.** Seam doc amended
+  as v2.5, append-only; spec and code now agree.
 
 ## Context Dump
 
-**State:** cycle 2 dev work COMPLETE, awaiting re-QA. Full evaluator green
-at `3184e8c`: backend **699 passed / 0 failed**, frontend **165 passed**,
-`tsc --noEmit` clean. I1's C1 fix is live and pinned in BOTH directions plus
-3-level nesting; I10's guard is in; I11 decided (seam v2.5).
-**Merge-to-main gate is re-QA cycle 2's verdict.**
-
-**Fixture hazard (cost a rewrite once):** prose containing `(b)(1)(A)`-style
-notation POLLUTES the real marker stream — `resolve_unit_path` scans the whole
-article body, so citation-shaped text in prose is indistinguishable from real
-markers. Check any marker-based fixture for this. Frontend 165 passed, `tsc` clean.
-
-**The bounce in one line:** subsection-scope CONTAINMENT never runs in
-production — no producer stamps `scope="subsection"`, and the live
-`MatcherArticle` (4 fields) carries no `.subsections` for the consumer to
-read. Unit greens came from `SimpleNamespace` stubs.
-
-**Do not confuse anchoring with containment.** D-ANCHOR (`get_mention_unit_paths`)
-records WHERE a mention sits and is live and correct. C1 containment restricts
-WHICH mentions a definition covers and is dead. Fixing one does not fix the other.
-
-**D-ANCHOR storage shape stays deliberately unpinned** (column name, type,
-`subject_entity_type`) — a recorded intentional gap, not an oversight. Do not
-"fix" it and do not pin it.
-
-**CodeGraph's index reflects `main`, not worktree branches.** Use CodeGraph for
-`main`-state structure and call paths; use Read/Grep for branch-divergent
-source. Every brief in this program must carry this.
-
-**Corpora ARE available** (the earlier "no corpus access" note was stale):
-IL `/Users/nerya/AI for others/israeli-laws-wiki` (6,133 `.wiki`);
-US `~/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad`
-— **105 parquet = 52 constitutions + 53 statutes**, 2,038,247 statute rows.
-Measurement only: **no test may read the corpus** (prior R6); vendor real rows
-as fixtures.
-
-**Byte families are distinct — program-level correction:** AK mojibake is raw
-cp1252 **U+0093/U+0094/U+0097** (~32K occurrences in 17,935 rows), NOT
-`â€`-style sequences (which appear in 2 rows corpus-wide, both KY). CA is real
-Unicode curly quotes (54,988 rows). A markers-panel rule written against `â€`
-would miss all of AK.
-
-**Process:** never `git stash` (stack SHARED across worktrees, concurrent
-writers — use `git checkout --`); ONE writer per worktree; QA commits touch
-ONLY `backend/tests/**`; merges manager-owned; never push `main`; no PR.
-Worktrees under `/Users/nerya/LexGraph-wt/`, each needs its OWN backend venv
-(the main checkout's venv imports the wrong code).
-
-**Full panel history:** `-log.md`, 17 rounds, rulings M1-M15, D-CF, E-1..E-3.
-Do not auto-load.
+**COMPLETE, awaiting merge.** Evaluator at HEAD: backend 700/0, frontend 165/165, `tsc` clean; lint genuinely PASS (an earlier `lint: PASS` was FALSE — Round 19).
+**Authoritative seam = v2.5** (`-seam.md`) — family panels read that, not this contract. The `register_scope_unit_kind`/`rank_for` rank registry is WITHDRAWN.
+**Deliberately unpinned (not oversights):** D-ANCHOR storage shape; `scope_value` persistence (transient by design, flip condition named in v2.5).
+**Open D-Q1 watch items for program close:** structural nouns outside D-CF's closed 10-word set; intervening-punctuation / multi-token chains ("division, (i)").
+**Traps that cost time:** CodeGraph indexes `main`, not branches — Read/Grep branch-divergent files. `(b)(1)(A)`-style prose pollutes the marker stream in fixtures. Never `git stash` (stack is shared across worktrees). Each worktree needs its OWN backend venv.
+**History:** `-log.md`, 19 rounds — do not auto-load.
 
 ## Seam spec (published)
 
