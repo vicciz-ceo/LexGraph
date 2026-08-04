@@ -64,8 +64,18 @@ class DefinitionCandidate:
     scope: str
     qualifier: str | None = None
     parent_term: str | None = None
-    source_article_number: str | None = None
-    source_chapter: str | None = None
+    # `str | tuple[str, ...] | None`: sprint 2026-08-04-defs-core-scope
+    # (seam v2.1, M9) widens these two legacy fields to also accept an
+    # enumerated/ranged tuple of values (a definition scoped to more than
+    # one article/chapter), not just one scalar -- existing callers
+    # passing a bare string are completely unaffected.
+    source_article_number: str | tuple[str, ...] | None = None
+    source_chapter: str | tuple[str, ...] | None = None
+    # NEW (seam v2, M4): the generic value field every scope kind OTHER
+    # than the two legacy ones above (chapter/local) uses -- e.g.
+    # "subsection" (v1), or any new kind a family panel registers
+    # (part/siman/...). May also be a tuple for an enumerated value.
+    scope_value: str | tuple[str, ...] | None = None
 
 
 def _parse_terms_and_qualifier(header_prefix: str) -> tuple[list[str], str | None]:

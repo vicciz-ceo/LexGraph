@@ -88,6 +88,18 @@ class LawDerivesDefinitionEdge:
     matched_text: str
     target_law_name: str | None
     target_law_id: str | None
+    # NEW (sprint 2026-08-04-defs-core-scope, seam spec v2.1 §4 -- pointer
+    # definitions, internal same-law targets): set ONLY when this edge is
+    # a "whole-definition pointer" whose trigger+citation match consumed
+    # the candidate's ENTIRE definition_text and points at a section of
+    # THIS SAME document (today's `_SAME_LAW_RE`/`_BESAIF_RE` same-law
+    # exclusion, redirected rather than dropped). Additive, defaulted --
+    # every existing construction site (both engines' ordinary cross-law
+    # edges) leaves this `None`, unaffected. `pipeline.py`'s Stage 4
+    # resolves this article NUMBER (not yet an id) into the same
+    # document's real Article row, the same way Stage 3 already resolves
+    # same-document article numbers.
+    internal_article_number: str | None = None
 
 
 def detect_cross_law_derivations(

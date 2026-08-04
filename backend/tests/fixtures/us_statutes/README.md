@@ -183,3 +183,85 @@ candidate, rather than sampling a handful of rows up front:
    recognize the entry boundary after "Dispose"'s own lettered sub-clauses
    and swallows all 3 remaining terms into one 26,715-character
    `definition_text`. Genuine, live-path-confirmed defect (item 3 bounce).
+
+## `ny_m14_newline_defect_row.json` — M14 newline-defect RED test fixture (2026-08-04)
+
+1 REAL row, `STATE_NY_ABNK_A15_T6_S6021` ("Preemptive rights", N.Y. Banking
+Law § 6021, 7,019-char body, 6 real defined terms across 14
+lettered/numbered entries), copied byte-for-byte from the real
+`us_ny_statutes.parquet` snapshot — extracted by this sprint's Scout S2
+pass (`scout_S2_findings.md`/`scout_S2_full_rows.json`, never downloaded or
+read directly by this Planner or by any test, ruling R6).
+
+**What it proves**: `us_ny_statutes.parquet`'s `text` column stores every
+line break as the LITERAL two-character sequence `\n` (backslash + letter
+"n"), never a real newline byte — verified corpus-wide by the Scout,
+40,102/40,102 real NY rows. `USProfile.extract_definitions_from_section`'s
+`_split_into_numbered_blocks` does `text.split("\n")` (a REAL newline) to
+find each entry's own line; against NY's literal-`\n` bodies this always
+returns the WHOLE body as one unsplittable line, so zero entries are ever
+recognized — corpus-wide, every one of NY's 1,479 already-heading-
+recognized "Definitions" sections yields zero candidates from this
+extractor. This is the single largest known contributor to the sprint's
+34,017 zero-yield count.
+
+Fields present are exactly what the Scout's extraction preserved (`act_id,
+citation, citation_short, section_title, breadcrumb, display_path, chapter,
+chapter_name, title_number, title_name, text, word_count`) — a subset of
+the full 24-column schema (unlike `de_sample_rows.json`'s complete-column
+convention), since the Scout's saved artifact does not carry every original
+column. `chapter`, `section_title`, and `text` (the columns
+`ingest_us_statute_rows`/extraction actually read) are all real,
+unmodified values.
+
+This row's own `section_title` ("Preemptive rights") is NOT itself
+heading-recognized as "Definitions" — that is a separate, already-known NY
+defect (heading detection), out of scope for M14. The RED test using this
+fixture (`test_ingest_us_statutes_ny_newline_defect.py`) deliberately calls
+`get_profile("US-NY").extract_definitions_from_section` directly rather
+than relying on `pipeline.py`'s heading-dispatch gate, so its assertion is
+discriminated purely by the newline defect.
+
+## `d_cf_structural_reference_rows.json` — D-CF case-fold structural-context guard fixture (QA-fail cycle 2, item I10, 2026-08-04)
+
+4 REAL rows (full original columns, values unmodified), pulled from 4
+different real state files (`us_al_statutes.parquet`,
+`us_il_statutes.parquet`, `us_ak_statutes.parquet`,
+`us_ar_statutes.parquet`) by this Planner, measured directly against the
+real `vaquill/open-us-law` corpus before writing any test assertion —
+director ruling D-CF (program doc, panel log Round 17): case-folding
+(I6/M8(b)) stays, but a case-fold match sitting inside a structural-
+reference pattern (a unit word immediately followed by a numbering token
+— "division (ii)", "part (a)", "title 5") must be suppressed; a genuine
+lowercase re-mention in ordinary prose must NOT be suppressed.
+
+1. **`STATE_AL_T41_C10_S41-10-592`** (Alabama) — "All bonds issued
+   pursuant to this division (i) shall be issued and sold...". Verified:
+   the row's ONLY "division"/"Division" occurrence, and it DOES match
+   under plain `re.IGNORECASE` case-folding today (pre-guard) — the
+   negative-direction case for the word "Division".
+2. **`STATE_IL_C35_A505_S13a`** (Illinois) — "...comprised of 2 parts.
+   Part (a) shall be at the rate established by Section 2... Part (b)
+   shall be at the rate established by subsection (2)...". Verified: the
+   row's ONLY two "Part"/"part" occurrences, both structural, both match
+   today — the negative-direction case for "Part".
+3. **`STATE_AK_T6_C06.45_S06.45.160`** (Alaska) — "...insurance obtained
+   under Title 1 of the National Housing Act is adequate security."
+   Verified: the row's ONLY "Title"/"title" occurrence, a bare-number
+   structural reference (D-CF's own named "title 5" shape) — the
+   negative-direction case for "Title".
+4. **`STATE_AR_T20_C48_S6_S20-48-603`** (Arkansas) — genuinely DEFINES
+   "Division" ("(3) \"Division\" means the Division of Developmental
+   Disabilities Services..."), then re-mentions it lowercase in ordinary
+   prose with no numbering token nearby ("...staff of the division where
+   the context...", "...home licensed by the division..." x2) — the
+   POSITIVE-direction case proving D-CF must not undo I6/M8(b). This
+   row's own `text` field contains its content duplicated verbatim (a
+   real corpus artifact, not injected) — 6 genuine lowercase matches
+   total (3 per copy × 2 copies), verified by running `find_term_uses`
+   against the real text before writing the test's expected count.
+
+Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
+`d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
+worktree's scratchpad (never `backend/.venv`), never read by the committed
+test suite itself (program rule prior-R6 — suites run offline).
