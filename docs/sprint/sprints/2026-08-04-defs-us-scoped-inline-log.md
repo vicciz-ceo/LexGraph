@@ -2215,3 +2215,85 @@ which is *precisely* the mutation `test_marker_quote_adjacency_gate_is_load_
 bearing_alabama` now fails on by design, and precisely the gate QA cycle-1
 mutation testing proved was doing real work. Nobody should widen that regex
 without the measurement in hand.
+
+---
+
+## 2026-08-04 — Manager: Developer cycle 3 (the subsection revert) verified +
+ACCEPTED; S-R16 (period-style degrade routed to core with evidence)
+
+Branch `claude/defs-us-scoped-inline-dev3` @ `ef93457`, clean tree. Merged.
+
+### Fence — and a false alarm I chased down rather than reported
+
+`git diff --name-only claude/defs-us-scoped-inline..HEAD` listed the sprint
+LOG alongside the two rule files, which would have been a fence breach. It is
+not: that is a two-dot artifact. The three-dot diff against the real
+merge-base (`493ef78`) shows **docs/ untouched, zero lines** — the worktree was
+simply branched before my last two log commits. **Fence held exactly: two
+rule files, nothing else.** Recorded because "the Developer edited the log"
+would have been a false accusation, and the two-dot/three-dot distinction is
+the kind of thing that produces one.
+
+Line counts 292 / 270 — both under the 300 gate, but with little headroom left.
+
+### The risk hunk, read in full (not skimmed)
+
+- `_event_scope` short-circuits `unit == "subsection"` to
+  `_resolve_subsection_scope`; every other unit returns
+  `(_SCOPE_BY_UNIT[unit], None, None)`.
+- `_resolve_subsection_scope` returns `("local", None, None)` on an empty path
+  and `("subsection", step.value, step.kind)` otherwise. **The degrade path
+  cannot stamp a kind without a value** — the specific failure the program
+  manager asked me to confirm. Value and kind are drawn from the SAME step or
+  are both `None`; there is no code path that pairs one with the other's
+  absence.
+- `_subsection_scope_level(path) -> path[-1]` is the single S-R15 decision
+  point, docstring citing the ruling. Genuinely one line to change.
+- The old `_subsection_label` and its regex are gone — the second derivation
+  that caused this whole defect family no longer exists in the tree.
+
+### Closed the Developer's own open gap: the failure set IS complete
+
+The Developer flagged that it could not verify the 4-failure set. I enumerated
+it: exactly **2 tripwire XPASSes + 4 stale S-R11 pins**, and the 4 are
+precisely the ones named in Planner pass 7's Task B
+(`body_axis` ×3 + `pipeline_live` ×1). Nothing else regressed; nothing is
+missing from the Planner's worklist.
+
+### Maine: the fixture row does NOT degrade — a trap avoided
+
+`test_bare_quote_means_subsection_scope_maine` now fails with
+`assert 'subsection' == 'local'`, i.e. the rule stamps **subsection** on that
+row. So the 81% Maine degrade rate is a CORPUS-WIDE rate, not a property of
+this fixture, and restoring that assertion to `"subsection"` is correct.
+**But** the Planner must not stop at the scope string: a subsection scope that
+resolves is only worth pinning if it actually LINKS. Pinning
+`scope == "subsection"` while the definition links nothing would be a silent
+under-link wearing a green test — the exact shape S-R10 exists to catch.
+
+### Trap recorded: `_SCOPE_BY_UNIT["subsection"]`'s VALUE is now dead code
+
+The dict's KEYS still feed `_UNIT_ALT` (so the entry must stay), but
+`_event_scope` short-circuits before ever reading the `"subsection"` VALUE.
+Editing it now does nothing — a silent no-op waiting for a future reader who
+assumes otherwise. Not a defect today; flagged for a comment or an explicit
+sentinel. QA cycle 2 should confirm no test asserts on it.
+
+### S-R16 — the period-style degrade is a CORE resolver coverage gap, measured
+
+The Developer measured the `"local"` degrade rate (18 states): **Maine 81.0%
+(1,068/1,318)**, AZ 69.6%, VA 33.3%, overall 12.4%. Cause: core's
+`_US_UNIT_MARKER_RE` recognizes PARENTHESIZED markers only, so Maine's `2-A.`
+and Florida's `1.` numbering is invisible to `resolve_unit_path`, which returns
+an empty path and triggers our zero-miss degrade.
+
+**Nothing is LOST by this** — the degrade links at article granularity (the
+recorded S-R9-style precision cost), it does not drop definitions. But under
+the director's absolute zero-miss bar it is a **named, measured limitation**
+until core extends the ladder vocabulary, and it is core's to fix, not ours.
+
+Binding on QA cycle 2: quantify it cleanly — extend toward the 53-state census
+if cheap, otherwise sample the high-degrade states' actual marker shapes to
+confirm the period-style diagnosis rather than assuming it explains all three.
+It then goes up as a routed core item at the same evidence standard as our
+S-R3/S-R10 escalations.
