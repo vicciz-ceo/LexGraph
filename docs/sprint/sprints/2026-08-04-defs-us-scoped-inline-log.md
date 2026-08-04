@@ -1628,3 +1628,66 @@ idiom, the law-wide/subsection over-link cost) -- nothing here needed a
 NEW recall-vs-precision judgment call from QA, or touches a shared module.
 
 Commit: test files + this log entry only, no implementation touched.
+
+---
+
+## 2026-08-04 — Manager: QA cycle 1 verdict BOUNCE; ruling S-R12 (M-D3)
+
+### QA verification (manager-run)
+
+- Role boundary held: QA's diff since `6cb5eef` is two test/fixture files plus
+  the log — zero implementation. U3 holds: the only file under `backend/app/`
+  in the whole sprint diff is `rules/us_scoped_inline.py`.
+- Suite reproduced: **6 failed, 742 passed, 2 xfailed**.
+- I did NOT take the "12 confirmed misses" claim on trust. I pulled all 6 QA
+  fixture rows from the live parquet and compared `section_title` + `text`:
+  **6/6 byte-verbatim real**. I then ran the rule over each: it captures
+  **ZERO** candidates from every one. These are genuine misses in conventions
+  this sprint already claims to support, not testing artifacts.
+
+**Verdict: U4 FAILS. Sprint bounces to a Developer fix cycle.** `qa_cycles: 1`
+(safety valve is 5). Under the director's absolute zero-miss bar a confirmed
+in-vocabulary miss is disqualifying — these are not deferrable.
+
+The 8 root causes QA proved: unmarked colon-then-quoted-list (worst — IL 2
+terms, VA 7 terms, all lost); period-style list markers (`1.` not `(1)`, FL);
+chained parenthetical unit qualifiers (CO); an intervening citation clause
+breaking recognition (DE/OH/OR — 3 independent rows); `the term:` with no space
+(DC); `shall have the following meaning(s)` (NY/MS); plural `have the same
+meaning as` (TN); bare copula `is` (ND).
+
+Credit: QA's mutation testing found two gates (bare-`in` adjacency,
+marker→quote adjacency) that survive weaker mutations because redundant
+downstream checks mask the mechanism the tests claim to protect. That is
+exactly the "green for the wrong reason" class this sprint has been bitten by
+twice. Also honest: QA self-corrected an initial 15.4% false-positive
+measurement to 0/26 after finding the 4 apparent FPs were its own 4000-char
+sampling-cap artifact.
+
+### S-R12 — M-D3 erratum: real risk, currently DORMANT for us; binding for cycle 2
+
+Core's M-D3 erratum: the English-word→marker-kind table
+(`subsection`→outermost `lower_alpha`, `paragraph`→`digit`) is
+ILLUSTRATIVE-FEDERAL-ONLY. Real conventions diverge three ways — federal/TN/VT/TX
+`lower_alpha`-outermost, Oregon and most sampled states `digit`-outermost
+(Oregon's `paragraph` designator is `lower_alpha`, NOT digit), Ohio
+`upper_alpha`-outermost. A rule declaring kind from the table mis-scopes
+SILENTLY.
+
+Assessed against our actual code: **this rule declares no marker kind at all.**
+`_subsection_label` OBSERVES the nearest preceding marker whatever its shape
+(`_SUBSECTION_LABEL_RE` matches digit, lettered and dotted forms alike) rather
+than declaring a kind from a table. So the erratum's failure mode does not bite
+us today, for two independent reasons: we never declare a kind, and under S-R11
+`subsection` maps to `"local"`, so no kind-based matching happens at all.
+
+It becomes LIVE at the post-core revert, when true subsection scope returns and
+our label must agree with core's resolver per state. **Binding checklist item
+for QA cycle 2** (recorded now so it cannot slip between cycles): verify, per
+state and from that state's OWN real marker shapes, that our derived label
+agrees with core's resolved unit for all 12+ states we stamp levels for —
+evidence-based, never table-copied.
+
+### Sprint state at manager clean-exit
+
+Phase: Developer fix cycle 2 (not started). Nothing is blocked on a decision.
