@@ -1947,3 +1947,110 @@ numbering token ("division (ii)", "part (a)", "title 5"). Residual
 false-positive classes escalate with data per D-Q1. Needs a Planner RED test
 first (QA's corpus examples supply the fixture material — the
 "Division"/"division (ii)" case), then Developer implementation. New item I10.
+
+---
+
+## 2026-08-04 — Round 18: QA-fail cycle 2 — I1 fixed, C1 pin strengthened, I11 settled, D-CF REDs authored
+
+### I1 / C1 fix (Developer, `c76c2f6`, merged `86e0bbe`)
+
+Two production files, **zero test edits**. Manager did the mandatory FULL-HUNK
+read (core containment logic is a named risk class):
+
+- `matcher.py` — `_subsection_contains_offset` gains an optional `profile=None`.
+  Keeps the `article.subsections` branch FIRST (the `SimpleNamespace` stub path
+  the unit tests use; a real `MatcherArticle` never has the attribute); when the
+  attribute is absent and a `profile` IS supplied — the real live-path case — it
+  reuses the ALREADY-LIVE `profile.resolve_unit_path(article, char_offset=...)`
+  retrieval seam and compares `mention_path[0].value` against `scope_value`.
+  Compares `.value` only, never `.kind`, per v2.2's kind-is-display-only rule.
+  `profile` threaded through `definition_covers_mention` with a `None` default,
+  so every existing call site is unaffected.
+- `pipeline.py` — Stage 3 passes `profile=profile`.
+
+**Reused the D-ANCHOR seam rather than building a parallel span mechanism** —
+exactly as briefed, so there is ONE implementation of "which subsection is this
+offset in" and the two cannot drift.
+
+**Manager check the Developer's own report did not claim:** verified that
+`profile` at that Stage 3 call site is bound PER DOCUMENT
+(`profile = _profile_for_document(document_id)`, inside the per-document loop,
+above the edge loop) — not a stale binding leaking across documents. A leak
+there would have been invisible and would have mis-scoped every multi-document
+run. Confirmed correct.
+
+Suite reproduced by manager on the merged tree: **693 passed / 0 failed**
+(was 692/1). The C1 RED is green.
+
+### Planner cycle 2 (`a25b72c`, merged `0471f49`)
+
+Manager-verified: diff is `backend/tests/**` + the seam doc ONLY; the
+production diff vs `bca9fb9` is **EMPTY**, which independently proves every
+mutation-test edit was restored. Suite reproduced by manager: **696 passed /
+3 failed**, the 3 being the intended I10/D-CF REDs.
+
+- **Deliverable 1 (QA gap 3)** — live US chapter-scope OUT-of-scope exclusion.
+  GREEN on arrival (chapter containment, unlike subsection, was already live),
+  reported honestly as a coverage addition rather than contorted into a fake
+  RED, and mutation-proven (breaking `_in_scope`'s chapter branch produced the
+  correct directional `AssertionError`).
+- **Follow-up 1a — the C1 pin strengthened, and the insight that made it
+  possible.** `_create_assertion`'s dedup key has NO `char_offset` component,
+  so a definition with one owning article and one term can never produce more
+  than ONE `USES_DEFINITION` assertion — meaning neither "an edge exists" NOR
+  "count of edges" can discriminate the (a) mention from the (b) mention. The
+  discriminator is `get_mention_unit_paths` on the SURVIVING assertion: because
+  (a) appears BEFORE (b) in the body, a permissive containment would let (a)
+  win the dedup race and the path would resolve to `'a'`. Asserting the
+  survivor resolves to `'b'` is therefore a genuine directional proof.
+  Mutation-proven both ways.
+- **Follow-up 1b — multi-level nesting.** 3-level test, GREEN on arrival and
+  honestly explained: containment compares the OUTERMOST step only, so it is
+  depth-agnostic by construction. Mutation-proven.
+  **Build hazard worth carrying to every future brief:** fixture prose
+  containing `(b)(1)(A)`-style notation POLLUTES the real marker stream —
+  `resolve_unit_path` scans the whole article body, so citation-shaped text in
+  prose is indistinguishable from real markers. The Planner rewrote the fixture.
+- **Deliverable 2 (I10 / D-CF)** — 3 REDs on real vendored AL/IL/AK rows, plus
+  a GREEN pin that a genuine lowercase re-mention still survives the guard (the
+  whole reason I6 is not reverted), plus both pre-existing I6 guards
+  re-confirmed. Its own P-R7-compliant residual-class check (bare `that
+  division` anaphora, 905-row independent denominator) returned 5/905, all
+  genuine re-mentions — correctly raised no escalation.
+- **Deliverable 3 (I11)** — **DECIDED: `scope_value` stays TRANSIENT**; seam
+  doc amended as **v2.5**, append-only (only the AUTHORITATIVE-VERSION pointer
+  line changed, which it must; all prior text retained verbatim — manager
+  verified the deletion set). Reasoning adds a fact nobody else had:
+  `Definition` has **zero API/frontend consumers today** (grep-verified), so the
+  `Assertion.subject_unit_path` precedent does NOT transfer. The flip condition
+  — a real read-without-reextraction consumer — is named in the correction.
+
+### Manager finding: D-CF's pinned contract is BROADER than D-CF's literal text
+
+The `Part (a)` RED suppresses an **EXACT-CASE** match. `"Part (a)"` with a
+capital P matches a defined term `"Part"` exactly; that match predates I6 and
+has nothing to do with case-folding. So the guard as pinned is
+**context-based, not case-based**.
+
+Measured the blast radius before authorizing a Developer to build it, with a
+**P-R7-compliant denominator** — population built from DEFINITION IDIOMS IN THE
+PROSE (`"X" means` / `shall mean` / `has the meaning`), never from the code's
+own trigger regexes, so it is signal-agnostic by construction:
+
+```
+rows containing at least one quoted-term definition idiom: 106,275
+rows where a STRUCTURAL UNIT WORD is itself the defined term:  1,157  (1.09%)
+  division 932 | subdivision 103 | article 41 | part 35 | section 18
+  title 14 | chapter 11 | paragraph 1 | subsection 1 | subchapter 1
+```
+
+The guard can only ever fire on **~1.1% of definition-bearing rows**, and
+`division` is **81%** of that — a term whose structural references are lowercase
+anyway, so the case question does not even arise for the dominant case.
+
+**Manager decision: proceed with the context-based reading** (it is semantically
+right — `"Part (a) shall be at the rate..."` is a structural reference whether or
+not it is capitalized), with the Developer required to COMMENT the departure so
+it is visible rather than accidental, and the interpretation flagged upward as a
+D-Q1 class rather than silently absorbed. Not a blocker: the class is small,
+measured, and the dominant term is unaffected.

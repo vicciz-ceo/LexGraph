@@ -7,14 +7,14 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-scope
 locked_by: "claude-code:qa-manager"
 locked_at: "2026-08-04T09:52:12Z"
 last_agent: "claude-code:qa-manager"
-last_updated: "2026-08-04T11:05:00Z"
+last_updated: "2026-08-04T11:40:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
 lint: PASS
-completed_items: 8
-dev_complete_items: 1
+completed_items: 9
+dev_complete_items: 2
 qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -134,7 +134,24 @@ silently resolved.
   D-ANCHOR anchoring tests do NOT satisfy this: anchoring records WHERE a
   mention is, containment restricts WHICH mentions a definition covers.
 
-- [ ] **I10 (NEW, director ruling D-CF) — case-fold structural-context guard.**
+- [ ] **I10 (RED AUTHORED, cycle 2 — Developer in flight) — D-CF case-fold
+  structural-context guard.**
+  **3 REDs committed** on real vendored AL/IL/AK rows
+  (`backend/tests/unit/test_definition_links_us_profile.py::test_us_profile_find_term_uses_case_fold_guard_suppresses_*`),
+  plus a GREEN pin that a genuine lowercase re-mention still survives
+  (`::...does_not_suppress_a_genuine_lowercase_re_mention`) — that pin is
+  the whole reason I6 is not reverted. Fixture:
+  `backend/tests/fixtures/us_statutes/d_cf_structural_reference_rows.json`.
+  **Note the third shape:** `Title 1` is a BARE number, no parentheses.
+  **Manager finding — the pinned contract is BROADER than D-CF's literal
+  text:** the `Part (a)` RED suppresses an EXACT-CASE match, which predates
+  I6 and is unrelated to case-folding, so the guard is context-based, not
+  case-based. Blast radius measured with a P-R7-compliant, signal-agnostic
+  denominator (population from prose definition idioms, never the code's
+  triggers): **1,157 / 106,275 definition-bearing rows = 1.09%** can ever
+  trigger the guard, and `division` is 81% of those. Proceeding with the
+  context-based reading; departure to be COMMENTED in code, and flagged
+  upward as a D-Q1 class rather than silently absorbed.
   Case-folding stays (I6 is not reverted); it gains a guard that SUPPRESSES a
   case-fold match when the hit sits inside a structural-reference pattern —
   a unit word followed by a numbering token ("division (ii)", "part (a)",
@@ -144,16 +161,17 @@ silently resolved.
   Developer implements. No test may read the corpus (prior R6) — vendor the
   real rows as fixtures.
 
-- [ ] **I11 (NEW, QA gap 5) — `Definition.scope_value` spec/code
-  reconciliation.** Seam v2 §M4 specifies `scope_value` as a PERSISTED column
-  with a migration. **Neither the column nor the migration exists.** Harmless
-  today (nothing reads a persisted `scope_value`; the field lives only on the
-  in-memory `DefinitionCandidate`), but spec and code disagree, and six
-  family panels are about to build against that spec. Planner-role decision:
-  either implement the column + migration, or amend the seam doc to match the
-  code. **Do not leave the disagreement standing.** Note I1's fix may make a
-  persisted `scope_value` genuinely load-bearing — settle I11 with I1's
-  design in hand, not before it.
+- [x] **I11 (DECIDED, cycle 2 — pending re-QA) — `Definition.scope_value`
+  is TRANSIENT-BY-DESIGN.** Seam doc amended as **v2.5** (append-only; only
+  the AUTHORITATIVE-VERSION pointer line changed, all prior text retained
+  verbatim). Deciding evidence: Stage 2 re-extracts every
+  `DefinitionCandidate` FRESH from source text on every
+  `run_definition_linking` call and never reads a persisted scope value
+  back for matching; and `Definition` has **zero API/frontend consumers
+  today** (grep-verified), so the `Assertion.subject_unit_path` persisted-
+  column precedent does NOT transfer. **Flip condition, named in the
+  correction:** a real read-without-reextraction consumer would make the
+  persisted column right. Spec and code no longer disagree.
 
 ## Completed
 
@@ -188,9 +206,16 @@ path traced to a production call site, and the pinning test **mutation-proven**
 
 ## Context Dump
 
-**State:** cycle 2 in progress. Backend at merge `86e0bbe`: **693 passed /
-0 failed** — I1's C1 RED is now GREEN. Planner still in flight (gap-3
-exclusion test, D-CF REDs, I11). Merge-to-main gate is re-QA cycle 2. Frontend 165 passed, `tsc` clean.
+**State:** cycle 2. Backend at merge `0471f49`: **696 passed / 3 failed** —
+the 3 are I10's intended D-CF REDs (guard not yet built; Developer in
+flight). I1's C1 RED is GREEN and its pin is now strengthened in BOTH
+directions plus 3-level nesting. I11 decided. Merge-to-main gate is re-QA
+cycle 2.
+
+**Fixture hazard (cost a rewrite once):** prose containing `(b)(1)(A)`-style
+notation POLLUTES the real marker stream — `resolve_unit_path` scans the whole
+article body, so citation-shaped text in prose is indistinguishable from real
+markers. Check any marker-based fixture for this. Frontend 165 passed, `tsc` clean.
 
 **The bounce in one line:** subsection-scope CONTAINMENT never runs in
 production — no producer stamps `scope="subsection"`, and the live
