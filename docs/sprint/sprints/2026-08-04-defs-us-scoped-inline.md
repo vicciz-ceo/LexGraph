@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-scoped-inline"
 status: in_progress
-current_role: planner
+current_role: developer
 branch: claude/defs-us-scoped-inline
 locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04"
@@ -13,7 +13,7 @@ evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix fr
 total_items: 0
 completed_items: 0
 dev_complete_items: 0
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -288,7 +288,7 @@ _None._
 
 ## Context Dump
 
-Sprint opened. Worktree `/Users/nerya/LexGraph-wt/defs-us-scoped-inline` off
+Cycle-2 fix pending. See log for full history.
 `origin/main` `83532fe`; own backend venv built and importing. Panel log
 opened with the manager's verified architecture read (F1 root cause is the
 `else:` branch at `pipeline.py:436-442` calling Hebrew-only
