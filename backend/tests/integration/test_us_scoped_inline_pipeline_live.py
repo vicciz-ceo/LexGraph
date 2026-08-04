@@ -6,26 +6,20 @@ spec` could invalidate -- once core merges and the Developer wires the new
 `app.definition_links.rules.us_scoped_inline` module into `pipeline.py`'s
 `else:` branch (Phase B), these tests go GREEN without being rewritten.
 
-RED TODAY, and legitimately so: `pipeline.py`'s `else:` branch (pipeline.py
-:436-442) calls the Hebrew-only `extract_local_definitions`/
-`extract_adhoc_definitions` (extract.py:28-33) for EVERY profile including
-US, so a real US "As used in this section/chapter..." article yields ZERO
-`DefinitionCandidate`s today (independently re-verified live by the
-Planner, matching the manager's architecture read in the sprint log). Every
-assertion below fails against the CURRENT, unmodified pipeline -- an
+RED TODAY, and legitimately so: `pipeline.py`'s `else:` branch calls the
+Hebrew-only `extract_local_definitions`/`extract_adhoc_definitions` for
+EVERY profile including US, so a real US "As used in this
+section/chapter..." article yields ZERO `DefinitionCandidate`s today.
+Every assertion below fails against the CURRENT, unmodified pipeline -- an
 assertion failure, not an import error, since `run_definition_linking`
-itself already exists; only its Stage-2 candidate list is empty for this
-family.
+itself already exists; only its Stage-2 candidate list is empty here.
 
 Gate U2 requires proof in BOTH directions: an in-scope mention LINKS via a
 `USES_DEFINITION` assertion, and an out-of-scope mention does NOT. Two
-scope units are proven live-path here -- "local" (`this section`,
-`matcher._in_scope`'s `article.number == definition.source_article_number`
-branch) and "chapter" (`this chapter`, the `article.chapter ==
-definition.source_chapter` branch) -- the only two units today's
-`matcher._in_scope` (matcher.py:104-110) actually enforces (see the sprint
-log's D3 section for the full scope-unit gap table and the coordination ask
-to core for the rest).
+scope units are proven live-path here -- "local" and "chapter" -- both
+shipped and enforced by `matcher.py:136` `_in_scope` post-merge (ruling
+S-R4; see the trigger-axis test file's module docstring for the full,
+amended scope-unit mapping table).
 
 Drives the real `ingest_us_statute_rows` -> `run_definition_linking`
 entrypoints, following the exact pattern already established in
@@ -150,14 +144,17 @@ def test_local_scope_links_a_mention_within_the_same_article_only(db_session, ma
     definition_row = db_session.get(Definition, definition_id)
     assert definition_row.scope == "local"
 
+    # object/subject ids live on the persisted `Assertion` row, not the
+    # summary dict (see test_definition_links_pipeline_live.py's contract).
     uses_edges = [
         a
         for a in result["created_assertions"]
-        if a["assertion_type"] == "USES_DEFINITION" and a["object_entity_id"] == definition_id
+        if a["assertion_type"] == "USES_DEFINITION"
+        and db_session.get(Assertion, a["id"]).object_entity_id == definition_id
     ]
     assert uses_edges, "no USES_DEFINITION edge was created for the in-article reuse"
 
-    linked_article_ids = {a["subject_entity_id"] for a in uses_edges}
+    linked_article_ids = {db_session.get(Assertion, a["id"]).subject_entity_id for a in uses_edges}
     assert linked_article_ids == {
         definition_row.article_id
     }, (
@@ -183,6 +180,7 @@ def test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_dif
     exercised for English text)."""
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
+    from app.models.assertion import Assertion
     from app.models.definition import Definition
 
     m = matter_with_users
@@ -226,12 +224,14 @@ def test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_dif
     definition_row = db_session.get(Definition, definition_id)
     assert definition_row.scope == "chapter"
 
+    # (same fix as the local-scope test above.)
     uses_edges = [
         a
         for a in result["created_assertions"]
-        if a["assertion_type"] == "USES_DEFINITION" and a["object_entity_id"] == definition_id
+        if a["assertion_type"] == "USES_DEFINITION"
+        and db_session.get(Assertion, a["id"]).object_entity_id == definition_id
     ]
-    linked_article_ids = {a["subject_entity_id"] for a in uses_edges}
+    linked_article_ids = {db_session.get(Assertion, a["id"]).subject_entity_id for a in uses_edges}
 
     from app.models.article import Article
 
@@ -257,17 +257,21 @@ def test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_dif
 def test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully(
     db_session, matter_with_users
 ):
-    """D3 (scope-unit gap): `STATE_ME_T38_C3_S464` defines "designated
-    use" via `"For the purposes of this subsection..."` -- `"subsection"`
-    is NOT one of the two units `matcher._in_scope` enforces today (only
-    `"local"`/`"chapter"` are), so this candidate's scope is stamped
-    faithfully as `"subsection"` (never silently coerced to `"local"`,
-    `"chapter"`, or `"law-wide"`) even though core has not yet added
-    `Article`-level subsection granularity to enforce it. This is the
-    exact, documented, escalated gap D3 hands to core -- this test proves
-    the STAMPING half of that gap (the ENFORCEMENT half is core's, and out
-    of scope for `matcher.py`, which ruling S-R2 forbids this sprint from
-    editing)."""
+    """D3 (scope-unit gap) -- AMENDED, Planner pass 2: `"subsection"` is
+    now SHIPPED and live-enforced (ruling S-R4, `matcher.py:136`
+    `_in_scope`, offset-checked via `profile.resolve_unit_path`) -- the
+    docstring's original "NOT enforced today" claim is stale post-merge.
+    `STATE_ME_T38_C3_S464` defines "designated use" via `"For the purposes
+    of this subsection..."`; this test proves only the STAMPING half
+    (`.scope == "subsection"`), deliberately NOT upgraded to a full
+    both-directions live-enforcement proof like local/chapter above:
+    verified live that real Maine text embeds bracketed legislative-
+    history annotations (`(NEW)`/`(AMD)`/`(AFF)`) inline in the body,
+    which `resolve_unit_path`'s marker regex mis-parses as nested
+    sub-article markers, producing a garbage path unrelated to the
+    statute's real "2-A." structure -- a genuine, separate CORE defect
+    (`us_profile.py` is shared, S-R2 forbids editing it), reported to the
+    manager in the `-log.md` rather than silently worked around."""
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
     from app.models.definition import Definition

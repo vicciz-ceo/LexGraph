@@ -82,83 +82,201 @@ Full reasoning in `2026-08-04-defs-us-scoped-inline-log.md` (append-only).
   `main`. Zero edits to `pipeline.py` / `extract.py` / `matcher.py` /
   `profiles.py` / `us_profile.py` / `sections.py` (gate U3).
 
+## D12 — U4 zero-miss sweep denominator design (Planner pass 2, program
+ruling P-R7)
+
+**P-R7, binding**: a zero-miss sweep's ground truth must be built
+INDEPENDENTLY of the capture mechanism's own signals. This Planner's own D1
+inventory (12 lead states, the trigger-regex-hit population) was built
+exactly the way P-R7 forbids for a DENOMINATOR — it is a fine tool for
+precision/recall measurement WITHIN the population the regex already finds
+(D1/D3's own purpose), but circular as ground truth for "did we miss
+anything the regex never looked at in the first place." QA's U4 sweep needs
+a denominator that does not, at any step, invoke this family's own trigger
+vocabulary (or any other capture-mechanism's own signal, including core's).
+
+**Design**:
+
+1. **Sample BEFORE any trigger regex touches the text.** Draw a stratified
+   RANDOM sample of raw `text` rows straight from the parquet, per
+   jurisdiction (minimum N per state — e.g. 200-300 — regardless of that
+   state's corpus size, so small states are not statistically invisible;
+   gate U4 says ALL 53 jurisdictions, not volume-weighted). No regex,
+   keyword list, or heading check filters the sample at draw time — this
+   is the step that actually breaks circularity; everything downstream can
+   be automated without reintroducing it, AS LONG AS this step stays
+   trigger-blind.
+2. **Judge each sampled row's FULL text with an INDEPENDENT method** — a
+   general-purpose semantic read (LLM-judged, or a qualified human panel
+   for a sub-sample), prompted in PLAIN LANGUAGE ("does this text
+   introduce/define any term, with any scope claim, in any phrasing —
+   quote the term and the defining sentence if so") — never given this
+   family's trigger-phrase list, never given the rule module's regex, and
+   never told what "family 1" means technically. A semantic reader is
+   methodologically independent of pattern-matching in a way that even a
+   DIFFERENT, broader regex is not (D11's own experience is the proof:
+   this Planner's OWN "improved" v2 regex still needed a human/manual pass
+   to catch curly-quote variants, MO's comma-appositive convention, and
+   idiom phrases like "shall be construed to mean" — regexes share blind
+   spots as a FAMILY, even with different keyword lists).
+3. **Cross-validate, do not trust one judge.** Run a SECOND, differently-
+   sourced judge (a different model, or a human spot-check) over a
+   sub-sample of the first judge's positives AND negatives. Report
+   agreement rate. Low agreement means the denominator itself is not yet
+   trustworthy — fix the prompt/method before using it to score any
+   family panel's miss rate.
+4. **The miss test**: for every denominator-positive row, run the REAL
+   production pipeline (post-Phase-B) and check whether ANY assertion
+   traces to that row's definition. A denominator-positive row with zero
+   real-pipeline output is a candidate miss — triage each one (genuinely
+   missed vs. a boundary case some OTHER family/sprint owns, per S-R3-style
+   boundaries) before counting it against this family.
+
+**How this is PROVEN signal-agnostic (not just claimed)**:
+
+- **Zero keyword overlap, audited.** The sampling code and the judge's
+  prompt are committed artifacts; an auditor greps both for every string
+  in this family's own `TRIGGER_RE`/idiom vocabulary and confirms zero
+  overlap with the SAMPLING step (the judge's PROMPT may legitimately
+  describe "definitions" in plain English — that is not the same as
+  sharing the regex/keyword list the extractor matches against).
+- **Divergence measurement.** Run this family's OWN trigger regex over the
+  SAME sampled rows and report the confusion matrix (regex-hit vs.
+  judge-positive) x 4 cells. A genuinely independent judge WILL disagree
+  with the regex on some rows in both directions (finds phrasings the
+  regex misses -- expected, e.g. MO's comma-appositive shape; and rejects
+  some regex hits as bait -- expected, e.g. the "Nothing in this section
+  may be construed..." bare-`in` noise this sprint's own negative controls
+  already document). Perfect agreement is a red flag that the "independent"
+  judge secretly mirrors the regex signal, not evidence of quality.
+- **Reproducibility.** The sample, the prompt, and the raw judge outputs
+  are all committed artifacts (not summarized away), so a later auditor
+  can re-run the SAME judge over the SAME sample and get the SAME
+  classification, and so a differently-tasked reviewer can re-judge a
+  sub-sample independently without needing to reconstruct the method from
+  a description.
+
+**Honest limitation, stated rather than hidden**: sampling bounds a miss
+RATE with a confidence interval; it cannot prove literal zero misses over
+an unbounded population the way a full census could. "Zero-miss" as a
+practical program bar means "no confirmed miss survives triage on a
+sample large and random enough to make a non-trivial miss rate
+implausible," not a mathematical guarantee — stated here so a future
+reader does not mistake a passing sweep for a stronger claim than it is.
+
+Not run by this Planner (QA's job, per the deliverable's own instruction
+— design and document only). No sweep numbers are claimed or implied here.
+
 ## Next Steps
 
-Full design rationale, the D1 convention inventory, D2 boundary verdict, and
-D3 scope-unit gap table are in the panel log (`## 2026-08-04 — Planner`).
-This section is the executable item list only.
+Full design rationale, the D1 convention inventory, D2 boundary verdict, D3
+scope-unit gap table, and (Planner pass 2) the D8 part/subchapter
+measurement, D10 dedup verdict, D11 CLAUSE-package accuracy, and D12
+denominator design are in the panel log (`## 2026-08-04 — Planner` and
+`## 2026-08-04 — Planner (pass 2)`). This section is the executable item
+list only.
 
-### Phase A — buildable now (no core dependency; ruling S-R2 fences all of
-Phase A to ONE new file; zero edits to `pipeline.py`/`extract.py`/
-`matcher.py`/`profiles.py`/`us_profile.py`/`sections.py`)
+**STATUS UPDATE (Planner pass 2, post-core-merge): Phase A is unchanged and
+still buildable now. Phase B is UNBLOCKED** -- core merged to `main`
+(`0d57228`); the registry/registration mechanism is no longer speculative.
+A new rule module self-registers by existing as a file in
+`backend/app/definition_links/rules/` (see `rules/us_scope_trigger_proof.py`
+and `rules/il_scope_triggers.py` as working examples this sprint's own
+module should follow) -- `profiles.py`'s `USProfile.extract_local_scope_
+definitions` already discovers and unions every registered `ScopeTriggerRule`
+for `US-*`, so Phase B step 2 below ("register through core's registry") is
+satisfied by FILE PLACEMENT alone, not a separate registration call the
+Developer writes by hand.
 
-1. **Create `backend/app/definition_links/rules/__init__.py`** (empty,
-   new package) and **`backend/app/definition_links/rules/us_scoped_inline
-   .py`** exposing:
+### Phase A — the ONLY Developer step left (ruling S-R2 fences it to ONE
+new file; zero edits to `pipeline.py`/`extract.py`/`matcher.py`/
+`profiles.py`/`us_profile.py`/`sections.py`)
+
+**Phase A/B are now COLLAPSED into one step.** Pre-merge, "register" and
+"wire into `pipeline.py`" were assumed to be separate Developer actions
+(items 2/3 below, historical). Verified against the SHIPPED code (Planner
+pass 2): `pipeline.py`'s Stage 2 `else:` branch ALREADY calls `profile.
+extract_local_scope_definitions(...)`, which ALREADY unions every
+registered `ScopeTriggerRule` for the document's jurisdiction code
+(`us_profile.py`, read directly). A new rule module self-registers purely
+by EXISTING as a file in `backend/app/definition_links/rules/` (auto-
+discovery, `rules/__init__.py`, core-authored, "stable forever" per its own
+docstring) — there is no separate registration call or pipeline.py edit
+left for the Developer to write. Items 2/3 below are KEPT for their
+still-live provenance requirement (below) but are no longer distinct
+Developer actions; step 1 alone lands Phase A AND B.
+
+1. **Create `backend/app/definition_links/rules/us_scoped_inline.py`**
+   (the `rules/` package itself already exists, core-authored) exposing
+   BOTH:
 
    ```python
    def extract_us_scoped_inline_definitions(body: str) -> list[DefinitionCandidate]
    ```
 
-   A pure function (`DefinitionCandidate` imported read-only from
-   `app.definition_links.extract` — same dataclass `extract_local_
-   definitions` already uses, so Phase B can hand its output straight into
-   `pipeline.py`'s existing candidate list). Serves gates **U1**, **U2**
-   (the scope-STAMPING half), **U3**. Full behavioral spec — trigger
-   vocabulary, scope-unit mapping table, recognized defining idioms, the
-   entry-boundary/no-over-split algorithm, and every excluded shape — is in
-   the panel log's D1/D2 sections; the RED tests below are the executable
-   version of that spec and are the actual source of truth for edge cases.
+   — the PURE function this sprint's unit tests pin directly (trigger
+   vocabulary, scope-unit mapping, idiom recognition, entry-boundary
+   algorithm; `.source_article_number`/`.source_chapter` left `None` on
+   every candidate it returns, matching `extract_local_definitions`'s
+   existing convention) — AND a thin adapter matching core's shipped
+   `ScopeTriggerRule.extract: Callable[[str, RuleContext], list[
+   DefinitionCandidate]]` signature (see `rules/us_scope_trigger_proof.py`
+   for the exact worked pattern), registered via `register_scope_trigger_
+   rule(ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract))`
+   at module import time. **Critical provenance requirement, corrected
+   from the pre-merge draft**: `extract_local_scope_definitions`
+   (`us_profile.py`) auto-defaults ONLY `.source_article_number` when
+   `None` — it does NOT fill in `.source_chapter` for a `scope="chapter"`
+   candidate. The adapter itself, not anything downstream, must stamp
+   `candidate.source_chapter = ctx.chapter` whenever the pure function
+   returns a `scope="chapter"` candidate (mirrors core's own `pipeline.py`
+   Definitions-section-path pattern, `if scope == "chapter": candidate.
+   source_chapter = art.chapter`) — otherwise a `"chapter"`-scoped
+   candidate on the live path silently degrades to matching only
+   articles whose `.chapter` is also `None`.
 
-   Proven by (all currently RED with `ModuleNotFoundError`, pasted tails in
-   the log):
+   **Scope-unit mapping the adapter must stamp (Planner pass 2 amendment;
+   full table + rationale in the trigger-axis test file's module
+   docstring and the `-log.md`'s D8/S-R4/S-R5 sections)**: `section` ->
+   `"local"`, `chapter` -> `"chapter"`, `subsection` -> `"subsection"`
+   (all three shipped/enforced); `act`/`article`/`title`/`subdivision`/
+   `paragraph`/`division`/`subpart` -> `"law-wide"` (dead-kind fallback,
+   core's own AK-range precedent); `part`/`subchapter` -> **PENDING** the
+   manager's D8 ruling (chapter-fallback vs. law-wide-fallback) — do NOT
+   implement either until that ruling lands; the RED tests currently
+   pinning the literal `"part"`/`"subchapter"` strings are placeholders,
+   not a final answer (see those tests' own docstrings).
+
+   Serves gates **U1**, **U2** (both directions — enforcement is core's,
+   already shipped for local/chapter/subsection), **U3**.
+
+   Proven by (RED today, real tails in the `-log.md`'s D13 section):
    - `backend/tests/unit/test_us_scoped_inline_rules_trigger_axis.py` (13
-     tests — trigger phrase recognition, scope-unit mapping, marker-prefix
-     tolerance, trigger-after-term).
-   - `backend/tests/unit/test_us_scoped_inline_rules_body_axis.py` (14
-     tests — every idiom shape, multi-entry splitting, the two
-     must-not-over-split cases, multi-scope-in-one-body).
-   - `backend/tests/unit/test_us_scoped_inline_rules_negative_controls.py`
-     (6 tests — false-positive bait, baseline-state no-trigger rows, the
-     escalated PA boundary case).
+     tests), `..._body_axis.py` (15 tests, +1 Planner-pass-2 Missouri
+     appositive-convention case), `..._negative_controls.py` (6 tests) —
+     `ModuleNotFoundError`.
+   - `backend/tests/integration/test_us_scoped_inline_pipeline_live.py` (4
+     tests) — real `AssertionError`s against the unmodified pipeline.
+   - `backend/tests/integration/test_us_scoped_inline_pipeline_core_overlap_
+     dedup.py` (1 test, Planner pass 2, D10) — already GREEN today (proves,
+     independently of Phase A landing, that core's proof rule + a second
+     overlapping `ScopeTriggerRule` dedupe to one `Definition` row on the
+     live path now) — a regression tripwire, not a RED-then-GREEN gate.
 
-   `.source_article_number`/`.source_chapter` stay `None` on every returned
-   candidate (matches `extract_local_definitions`'s existing convention —
-   the caller fills these in from the owning `Article`, Phase B's job, not
-   this function's).
-
-### Phase B — blocked on `2026-08-04-defs-core-scope` merging to `main` and
-publishing its `## Seam spec`
-
-2. **Register** `extract_us_scoped_inline_definitions` through core's
-   per-jurisdiction rule registry for every `US-*`/`US-FED` code (never
-   `IL`). Exact registration API is core's seam spec's call — not
-   pre-decided here (ruling S-R1: no test was written against it before it
-   publishes).
-3. **Wire the registered rule into `pipeline.py` Stage 2's `else:` branch**
-   (pipeline.py:436-442) so a US-profile article whose heading is NOT a
-   recognized Definitions heading routes through the new rule instead of
-   (or alongside, per core's seam) the Hebrew-only `extract_local_
-   definitions`/`extract_adhoc_definitions`. **Critical provenance
-   requirement**: use the SAME conditional pattern the `if is_definitions_
-   section:` branch already uses at pipeline.py:434 — `if candidate.scope
-   == "chapter": candidate.source_chapter = art.chapter` /
-   `elif candidate.scope == "local": candidate.source_article_number =
-   art.number` — NOT the current `else:` branch's unconditional
-   `source_article_number = art.number` (every existing Hebrew else-branch
-   candidate is `scope="local"`; this family's are not — a `"chapter"` or
-   other-unit-scoped candidate wired through the old unconditional line
-   would be silently mis-stamped). Serves gates **U1**, **U2** (both
-   directions), **U3**.
-   Proven by: `backend/tests/integration/test_us_scoped_inline_pipeline_live.py`
-   (4 tests, currently RED with real assertion failures against the
-   unmodified pipeline — go GREEN once this step lands).
+2. *(historical, see the collapse note above — no longer a distinct step)*
+   Register through core's per-jurisdiction rule registry for every
+   `US-*`/`US-FED` code (never `IL`) — satisfied by file placement alone.
+3. *(historical — no longer a distinct step)* Wire into `pipeline.py`
+   Stage 2's `else:` branch — already true on `main`, nothing to edit.
 4. **Confirm** `backend/tests/integration/test_us_scoped_inline_pipeline_baseline_regression.py`
-   stays GREEN, unchanged, after step 3 (gate **U5**).
+   stays GREEN, unchanged, after step 1 lands (gate **U5**).
 5. **Full-corpus before/after capture-rate measurement** for this family's
    trigger signal across all 53 jurisdictions (gate **U6**) — QA's sweep,
-   unblocked once steps 2-4 land; flagged here as the next acceptance gate,
-   not a Developer task.
+   unblocked once step 1 lands. **U4's zero-miss sweep denominator is now
+   DESIGNED** (Planner pass 2, D12; P-R7-compliant, signal-agnostic —
+   full design in the `-log.md`'s D12 section) — QA should read that
+   section before building the sweep, not re-derive a denominator from
+   this family's own trigger regex.
 
 ## Dev Complete
 

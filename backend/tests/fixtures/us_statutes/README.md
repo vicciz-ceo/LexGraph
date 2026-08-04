@@ -339,10 +339,30 @@ separately vendored here, already well covered by the other 10):
   ever revisited, and as a reminder that a row's opening sentence is not
   reliable evidence of its whole body.)
 
+### Added 2026-08-04, Planner pass 2 (D11 — routed CLAUSE package absorption)
+
+- **`STATE_MO_C44_S44.091`** — a NEW body-shape variant D1's original 12-lead-
+  state inventory missed: `"Term" , definition` (quote, then a bare comma,
+  then the definition text directly — no idiom keyword — `means`/`shall
+  mean`/`includes`/etc. — anywhere in the entry at all). Found while
+  verifying a random 147-row sample (3 per jurisdiction, stratified across
+  all 51) of the `defs-us-preamble` panel's routed CLAUSE package
+  (`docs/sprint/sprints/2026-08-04-defs-us-preamble-clause-package.json`,
+  `origin/claude/defs-us-preamble` @ `8a8837a`) against the real corpus —
+  see the `-log.md`'s D11 section for the full verification methodology and
+  measured accuracy. This convention is MO's own dominant, pervasive house
+  style (all 3 entries in this one row use it; MO is the single largest
+  contributor to the routed package at 456 rows) and was invisible to D1's
+  original idiom-keyword-based genuineness heuristic, which is exactly why
+  a real independent verification pass against a differently-sourced
+  population (the preamble panel's own discriminator, not ours) was worth
+  doing rather than trusting corpus coverage from one inventory pass alone.
+
 Provenance: same dataset/commit as every other fixture in this directory,
 fetched 2026-08-04 by the Planner via the worktree's own read of the local
 HF cache (no network I/O — `pyarrow` already present in this worktree's
 venv, unlike the disposable-venv note above from the 2026-08-02 sprint).
 Analysis/fetch scripts (scratchpad, not committed):
 `/private/tmp/claude-501/-Users-nerya-LexGraph/87b55b0a-5a38-44b6-887d-1e093b526197/scratchpad/f1_inventory.py`,
-`f1_precision.py`, `fetch_fixture_rows.py`.
+`f1_precision.py`, `fetch_fixture_rows.py` (pass 1); `d8_part_subchapter_measure.py`,
+`d8_breadcrumb_structural.py`, `d11_verify_clause_package_v2.py` (pass 2).
