@@ -3127,3 +3127,90 @@ core's merge (ruling M-R11 — our P2 gap closes by implementing
 `pipeline.py`). Gates unchanged since QA: P1/P5 PASS, P3 honestly deferred,
 P2/P4 FAIL with the work to fix them now planned and pinned by 35 new RED
 tests. `qa_cycles: 1` — nowhere near the 5-cycle valve.
+
+---
+
+## 2026-08-04 — Manager: REBASED onto main; seam v2.5 delta analysed; clean exit
+
+**Rebase done.** `claude/defs-us-pr` is now on top of `origin/main`
+(`git merge-base --is-ancestor origin/main HEAD` → true). 21 commits
+replayed. One conflict, in `backend/tests/fixtures/us_statutes/README.md` —
+an append-only provenance doc where both sides added sections; resolved as a
+UNION (both kept, ours then theirs), which is the semantically right
+resolution for that file. No stray conflict markers anywhere in `backend/`
+or `docs/`. `origin/main` advanced once mid-rebase (`965ae57`, the wake-wave
+commit); re-rebased onto the new tip rather than leaving the branch behind.
+
+**Venv refreshed** (`pip install -e '.[dev]'` from `backend/`, exit 0).
+
+**Post-rebase suite: `41 failed, 893 passed, 8 xfailed`.** The passing
+baseline grew 834 → 893 as core's own tests arrived. All 41 failures are our
+intentional cycle-4 REDs, still failing for behavioural reasons — the rebase
+neither fixed nor broke them.
+
+### Seam v2.5 delta vs. the v2.4 we planned against
+
+- **`Definition.scope_value` is TRANSIENT-BY-DESIGN** (v2.5 §I11). No
+  persisted column, no migration. Anything we plan must treat it as
+  in-memory only.
+- **PR ships as `USProfile`-hosted rule modules (M7)** — this settles the
+  seam question against our cycle-1 `PRProfile` proposal, exactly the
+  residual risk I recorded in **M-R5**. Crucially it is **reversible by
+  construction**: "profiles resolve by code, rules register by code-match,
+  so a later dedicated `PRProfile` can inherit the same registered rules
+  unchanged." Our Spanish rule FUNCTIONS survive intact; what must be
+  rehomed is the class wrapper and the tests' import surface — which is what
+  M-R5 predicted and priced.
+- **The rank registry is withdrawn.**
+- **M12 REVERSES part of M7 in our favour, by name**: `find_citations` is now
+  rule-extensible via `CitationRule`, and the spec says explicitly *"PR
+  panel: the wall named in M7 moved; a `CitationRule` is your path now."*
+  Verified live in `us_profile.find_citations` — it unions
+  `registry.citation_rules_for(self.code)` over the baseline with overlap
+  discipline. Our Spanish citation grammar is an ordinary rule.
+
+### Rehoming map for cycle 4 (what goes where)
+
+| Our current code | Its v2.5 home |
+|---|---|
+| `is_definitions_heading` | `HeadingRule` |
+| blank-title recognition (47 rows) | `derive_heading_from_body` / `BodyPreambleRule` |
+| entry marker splitting | `EntrySplitterRule` |
+| the 6 separator/term-clause shapes | `TermClauseRule` |
+| `A los fines de este Capítulo/Artículo` | `ScopeTriggerRule` |
+| Spanish citation grammar | `CitationRule` (M12) |
+
+### A near-miss I am recording against myself
+
+M7 keeps `find_term_uses` profile-class-only and instructs panels hitting
+that wall to escalate. I tested whether `USProfile`'s English word-boundary
+matcher works on Spanish terms and got `[]` for all six — including plain
+ASCII ones that were obviously present. That looked like a genuine wall and
+an escalation. **It was my own bug**: the real signature is
+`find_term_uses(self, term, text)` and I had passed `(text, term)`. I
+checked the signature via CodeGraph before reporting, and with the correct
+argument order it works properly on Spanish:
+
+```
+Composta                       -> 2: ['composta', 'Composta']
+Obra de construcción           -> 1: ['obra de construcción']
+Instituto de Ciencias Forenses -> 1: ['Instituto de Ciencias Forenses']
+```
+
+Accents, case-insensitivity (core's M8(b) fix) and multi-word terms all
+behave. **No wall, no escalation.** Recording it because I came one step from
+sending the program manager a false alarm, and the only thing that stopped it
+was verifying my own test before trusting its output — the same standard I
+have been holding every agent on this panel to.
+
+### Next step (clean exit — re-spawn to resume)
+
+Sequence is **Planner → Developer → QA**, and it must start with the Planner,
+not the Developer: our tests still import `pr_profile`'s module functions and
+`PRProfile(code="US-PR")`, and under M7 they must be realigned to the
+rule-module seam. Realigning tests is Planner work; the Developer must never
+touch them. Then items 18-25 as rule modules (D-PR-A and D-PR-18c both
+green-lit, 18c WITH the re-mention guard), P3 xfails converted to real tests
+now that scope enforcement is live, the corruption bug
+(`STATE_PR_LEY_240_2002_ART3` footer boilerplate) fixed — and then the
+independent QA cycle, whose P4 sweep must use P-R7 denominators.
