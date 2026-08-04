@@ -136,6 +136,14 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   rule** (headings naming the term, e.g. "Bienes; definición"); anchor-less
   residue is enumerated by act_id as a documented gap. PR sprint is NOT
   blocked.
+- **D-MT-E1 (2026-08-04): pointer-only cross-references ARE definitions —
+  capture now, AND capture the reference.** (Director, verbatim intent: "the
+  architecture should be such that you can capture it, and the code should
+  already refer to the other law/section because it is mentioned. Then
+  capture now, and make sure the reference is captured too.") Every pointer
+  definition = the definition row + a captured reference/link to its target
+  law/section (incl. internal same-law section targets). Seam plumbing in
+  core v2; affects 7,610 rows / 32 jurisdictions across four panels.
 
 ## Program routing decisions (program manager)
 
