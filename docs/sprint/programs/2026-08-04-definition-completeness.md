@@ -148,6 +148,24 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   reference edge connecting the definition to the law/section it mentions IS
   the typing; the connection itself carries the semantics. No schema field,
   no follow-up item for one.
+- **D-ANCHOR (2026-08-04): path now, graph nodes later.** Assertions anchor
+  at the row-level unit (סעיף/Section/Artículo — the unit every system's
+  citations anchor at, per the unit research) plus a structured subsection
+  path of arbitrary depth. If sub-unit graph traversal becomes a product
+  need, referenced subsections get promoted to first-class nodes in a later
+  phase — additive, no rewrite. (Supersedes the provisional Option-C ruling;
+  now final.)
+- **D-PREAMBLE-ALL (2026-08-04): ALL states get researched AND coded.**
+  (Director, verbatim: "I explicitly asked researching and writing code for
+  all of the states.") No jurisdiction stays uninventoried: the preamble
+  QA's corpus-wide candidate population (7,383 rows: 1,468 gated + 5,915
+  ungated-only, per-state table in the preamble sprint log) is the
+  worklist. Every state's BLOCK-shaped preamble conventions get inventoried
+  and captured by the preamble panel; CLAUSE-shaped rows route to
+  scoped-inline with data; dispatch is ungated (core M6 confirmed at
+  director level); precision is protected by inventoried per-state rules +
+  negative guards, with conflicts escalated per D-Q1 — not by leaving
+  states dark.
 - **D-UNITS (2026-08-04): connections target the law system's MAIN UNIT —
   subsections, not necessarily articles.** (Director, verbatim intent: "We
   want the connections to subsections, not necessarily to articles. In some
