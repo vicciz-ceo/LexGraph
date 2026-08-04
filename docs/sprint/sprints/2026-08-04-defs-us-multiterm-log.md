@@ -1517,3 +1517,74 @@ remaining item is either a new registry module that needs core's registry on
 main, or blocked on markers' splitter, or on seam v2 (E1 reference plumbing,
 E2 enumerated scope). Resume conditions and next actions are in the
 contract's Context Dump.
+
+---
+
+## 2026-08-04 — REBASED onto core (main @ 0d57228); partial unblock
+
+Manager-run. Seam v2.5 (`docs/sprint/sprints/2026-08-04-defs-core-scope-seam.md`,
+on main) is now authoritative.
+
+**Rebase:** one conflict, `backend/tests/fixtures/us_statutes/README.md` —
+main appended an NY M14 fixture section, we appended our multiterm section.
+Disjoint additive doc hunks; resolved by keeping BOTH. While resolving I also
+struck the phrase "attempt 1 — FAILED SILENTLY" that our section quoted from
+my own log entry: I retracted that claim in M-R7 and it must not survive in a
+provenance doc. No provenance fact was altered.
+
+### E1 pins FLIPPED GREEN — cross-panel validation worked
+
+```
+$ backend/.venv/bin/pytest backend/tests/unit/test_definition_links_e1_pointer_reference_capture.py -q
+7 passed in 0.01s
+```
+
+All 7 (6 RED + 1 control) now pass. Core's I7 shipped the decimal-truncation
+fix, the state-code citation form, and pointer emission in the D-MT-E1
+two-capture shape — and our expected values (`['Section 552.003']`,
+`['ORS 153.005']`, `edges[0].matched_text`) matched core's implementation
+exactly, with no adjustment on either side. The defects I found by probing
+(`Section 552.003` truncating to `Section 552`; `ORS 153.005` invisible) are
+fixed on main. **Nothing to escalate — this is the intended outcome.**
+
+### Honest post-rebase split
+
+```
+$ backend/.venv/bin/pytest backend/tests -q \
+    --ignore=.../test_definition_links_multiterm_shared_clause.py \
+    --ignore=.../test_definition_links_inline_parenthetical.py
+10 failed, 707 passed
+```
+
+The 10 are ALL F5/F6 behavioural capture REDs and nothing else — the exact
+set that must stay red until the Developer ships the rule modules:
+`test_multiterm_f5_shared_clause.py` (MI/MT top-level + nested, TX 2002.001 +
+2009.003), `test_multiterm_f5_blocked_on_markers.py` (VT/SD), 
+`test_multiterm_f6_blocked_on_core_seam.py` (OR/NH/ND), and the MT e2e
+per-term linking test. Zero regressions. The green baseline rose 641 -> 707
+because core merged its own suite.
+
+### PLANNING DEFECT surfaced by the rebase (M-R9)
+
+Two Planner-authored modules no longer COLLECT:
+
+```
+ImportError: cannot import name '_determine_scope' from 'app.definition_links.pipeline'
+ImportError: cannot import name '_MEANS_IDIOM_GAP_RE' from 'app.definition_links.pipeline'
+```
+
+They imported PRIVATE `pipeline.py` internals. Core's C3 gate moved both
+behind the seam exactly as its spec promised — `_MEANS_IDIOM_GAP_RE` is now
+`us_profile.py:545`, `determine_scope` is now a profile method
+(`profiles.py:116` Protocol, `us_profile.py:1003`/`:1156`).
+
+**This is a planning miss, and it was foreseen.** My original Planner brief
+said: "write tests against the most stable public behavioural surface you can
+find (profile/pipeline observable outcomes) NOT against internals that do not
+exist yet — so core's landing does not invalidate your tests." Two modules
+did the opposite and the predicted breakage happened on the first rebase.
+**Ruling M-R9: the Planner (never the Developer, never me) repoints these to
+the public seam** — `profile.determine_scope(...)`, and the idiom-gap
+behaviour asserted through `USProfile` rather than a raw private regex.
+Expected VALUES must not change; only the access path. If repointing forces
+an expected value to change, that is a finding to escalate, not to absorb.
