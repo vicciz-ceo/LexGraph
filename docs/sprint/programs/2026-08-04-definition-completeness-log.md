@@ -16,6 +16,22 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04 panel manager, defs-us-pr (opus): a0f33c079eda12235
 - 2026-08-04 core QA-phase manager (opus, fresh context after impl-phase
   manager clean-exit): a9efb2de1f275f494
+- 2026-08-04 headings phase-2 manager (opus, fresh context after
+  predecessor context-limit exit): aa5eb2a338fe6b0ab
+
+## Wake wave (post core merge, 2026-08-04)
+
+Core merged to main @ 06d67d8 (program-manager checklist run: containment
+probe, risk-classed materialized diff read incl. full persistence hunks,
+risk grep all-benign, own full evaluator 700/0/165/tsc on merged tree;
+main venv refreshed for mcp>=2.0). All six family panels woken in one
+wave with: seam v2.5 re-read requirement, rebase+venv instructions,
+panel-specific rulings (D-DF, D-HG, D-PR-A, D-PR-18c, P-E3 corrected
+facts, AK cp1252 fact, NY-fix baseline note), and routing artifacts
+(CLAUSE package, guarded-cluster doc). Note: the "injection-styled"
+messages re-QA disclosed are identified as the harness's benign
+file-changed notices (program manager received the identical notice
+verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
