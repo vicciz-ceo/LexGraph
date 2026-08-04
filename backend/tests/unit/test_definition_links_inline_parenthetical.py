@@ -91,31 +91,25 @@ def _extract_both_ways(row: dict) -> list:
 # unambiguously being defined as shorthand for the long name, but there is
 # no "means"/"shall mean"/"has the meaning" anywhere in the sentence for
 # `us_profile._MEANS_IDIOM_GAP_RE` to anchor on.
-
-
-def test_nh_s1_short_title_apposition_has_no_means_idiom_to_anchor_on():
-    """Characterizes WHY this is rejected today (not just THAT it is).
-
-    Sprint 2026-08-04-defs-us-multiterm, ruling M-R9: originally asserted
-    directly against `_QUOTE_TERM_RE`/`_MEANS_IDIOM_GAP_RE` (then in
-    `pipeline.py`); both are now PRIVATE to `us_profile.py` (core's C3
-    gate), so this is repointed to the PUBLIC surface those regexes back
-    -- `extract_definitions_from_section(..., heading_was_derived=True)`,
-    the documented way to force the exact inline-quoted-fallback code path
-    that runs both regexes internally. The observable claim is unchanged:
-    because no quoted term in this apposition-only sentence is followed by
-    a recognized defining idiom, the fallback extractor recognizes NO
-    definition at all -- same fact the old regex-level test pinned, now
-    pinned as the extractor's own output rather than by inspecting its
-    internals directly."""
-    row = _load_rows()["STATE_NH_TXXVII_C301-B_S1"]
-    candidates = _extract_both_ways(row)
-    all_terms = {t for c in candidates for t in c.terms}
-    assert not all_terms, (
-        f"expected NO means-idiom to follow any quoted term in this "
-        f"apposition-only sentence, so the fallback extractor should "
-        f"recognize NO definition at all; got candidates={candidates!r}"
-    )
+#
+# Sprint 2026-08-04-defs-us-multiterm, ruling M-R10 (deletion, not a
+# reformulation): this section used to also carry
+# `test_nh_s1_short_title_apposition_has_no_means_idiom_to_anchor_on`, a
+# white-box characterization asserting the two idiom-gap regexes above
+# don't match. When M-R9 repointed it off the (now-private) regexes onto
+# the public `extract_definitions_from_section(...)` OUTPUT, its assertion
+# silently became "this row yields no definitions" -- the exact claim this
+# sprint exists to falsify, and the literal negation of the RED test right
+# below it. That test is DELETED, not reformulated: a "why it's broken
+# today" characterization pinned at the regex level would have stayed true
+# forever (a new F6 rule module is not those two regexes), but no
+# equivalent formulation exists at the public-output level that both (a)
+# avoids importing the now-private regexes and (b) stays true once the F6
+# rule ships and "Act" is correctly extracted -- any such formulation would
+# have to assert emptiness, which is precisely what must stop being true.
+# The RED test below already pins the real requirement; a defect-
+# characterization test that is a straight negation of it has no value
+# once the row is fixed and the Developer cannot touch tests to remove it.
 
 
 def test_nh_s1_act_apposition_is_extracted_as_a_definition():
