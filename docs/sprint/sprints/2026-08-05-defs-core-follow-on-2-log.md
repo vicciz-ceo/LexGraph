@@ -3035,3 +3035,51 @@ Planner/test-estate item, not authorization to change migration production.
 Planner owns tests/fixtures and sprint evidence only. Production and migration
 files are frozen. After manager acceptance, a fresh QA cycle reruns the full
 release gate; no Developer is expected unless the test exposes a real defect.
+
+---
+
+## Phase 23 — G9 automated migration contract repaired (2026-08-06)
+
+Planner added
+`backend/tests/integration/test_migration_heading_breadcrumbs_column.py`.
+It uses the repository's established raw-DDL SQLite migration harness (not
+`Base.metadata.create_all()`): a manually-created pre-G9 `articles` table is
+seeded with one Article row, then the real migration module executes
+**upgrade → downgrade → upgrade** against that file.
+
+The single durable test asserts on both upgrades that `heading_breadcrumbs`
+exists and is nullable, the historical row remains SQL `NULL`, and the owned
+`deserialize_heading_breadcrumbs(NULL)` contract returns `()`. Between them
+it asserts downgrade removed precisely the column while the complete seeded
+row remains unchanged. The final upgrade repeats the same null/default-safe
+checks. No migration or production source was changed.
+
+**Focused proof:**
+
+```text
+backend/.venv/bin/pytest backend/tests/integration/test_migration_heading_breadcrumbs_column.py -v
+1 passed in 0.02s
+```
+
+**Required mutation proof:** recorded migration SHA-256 was
+`0dad7e9ff90540f4279af876cb8f46232d14806af50d2de0429c5ff9366570f8`.
+Temporarily and uncommitted, the migration upgrade DDL was changed from
+`heading_breadcrumbs` to `heading_breadcrumbs_broken`. The focused test then
+failed at its first post-upgrade schema assertion, reporting that the actual
+columns contained `heading_breadcrumbs_broken` but not
+`heading_breadcrumbs` (**1 failed in 0.03s**). The exact original line was
+restored; the SHA-256 matched again, `git diff --exit-code --
+backend/app/migrations/add_heading_breadcrumbs_column.py` passed, and the
+focused test re-passed (**1 passed in 0.13s**). This proves the test executes
+the real upgrade DDL rather than inspecting source text or mocking calls.
+
+**Full backend evaluator:**
+
+```text
+backend/.venv/bin/pytest backend/tests -q
+850 passed, 18 warnings in 29.10s
+```
+
+The 18 warnings are five existing Starlette deprecations for
+`HTTP_422_UNPROCESSABLE_ENTITY` (four test groups plus
+`routers/workspace.py`); none originates in this migration contract.
