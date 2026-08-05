@@ -5765,3 +5765,205 @@ named enumerated residual for cycle 4, but their blocking condition is
 now "closes on core-2 G9 merge + our own two-part rule fix" rather than
 "indefinitely core-blocked". The certification contract already carries
 that flip explicitly (M26, amendment 2).
+## 2026-08-05 — D-1b Developer (Sonnet/medium), worktree `defs-il-dev4`
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-dev4`, branch
+`claude/defs-il-dev-d1b`, at `f22439b` (M25, D-1a merged), clean at start.
+Venv verified: `backend/.venv/bin/python -c "import app,os;..."` printed
+this worktree's own `backend/app`. Baseline reproduced exactly:
+`6 failed, 836 passed` (my 4 E6 REDs + the 2 core-blocked סימן/חלק
+containment REDs).
+
+### Bundle: exactly the 4 E6 REDs named in the brief, nothing else touched
+
+Per-test live root-cause re-confirmation before writing any fix (reading
+`profiles.py:210-222`'s frozen union dispatch and `extract.py`'s frozen
+`_split_into_blocks`/`_parse_block`/`_ENTRY_START_RE`/
+`_parse_terms_and_qualifier`, plus the fixtures themselves byte-for-byte):
+
+1. `test_class_d_prose_body_definitions_section_yields_zero_today` —
+   confirmed live: `חוק החברות הממשלתיות` art.16's body (after
+   `strip_wikilinks`) is `: בפרק זה, "דירקטור" - דירקטור מטעם המדינה
+   בחברה ממשלתית.`, ONE line, no `:-` anywhere — `_split_into_blocks`
+   returns `[]`, so baseline's own `_parse_block` never runs. Matches the
+   Planner's/M20's root cause exactly.
+2. `test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_
+   is_captured` — confirmed live: `תקנות קרן גרמניה-ישראל` art.1's body has
+   a `: (א) בתקנות אלה -` preamble (single colon, no dash after it — does
+   NOT match `_ENTRY_START_RE` either) followed by four `::-`-marked
+   entries; zero `:-`-prefixed lines exist at all, so baseline again
+   yields `[]`.
+3. `test_class_d_minimal_single_sentence_variant_is_captured` — confirmed
+   live: same shape as #1, `צו פיקוח... (חמאה)` art.1 body is the single
+   line `: בצו זה, "חמאה" - חמאה רגילה בחבילה.`, zero `:-` lines, `[]`.
+4. `test_class_c_adhoc_parenthetical_beparagraph_zo_inside_definitions_
+   section_is_captured` — confirmed live: `חוק הבנקאות (שירות ללקוח)`
+   art.1's heading `הגדרות (תיקון: ...)` matches baseline
+   `is_definitions_heading`; the article's 20 ordinary `:-` entries
+   (including "גוף פיננסי", the one whose OWN body contains
+   `(בפסקה זו - חוק הדואר)`) already extract correctly with terms == 20
+   distinct entries before any fix — printed `result["created_definitions"]`
+   and confirmed "גוף פיננסי" present, "חוק הדואר" absent. This is a
+   genuine `TermClauseRule` gap (an embedded marker inside an
+   already-correctly-split block's own body text), not a missing-block
+   gap — a different mechanism from tests 1-3.
+
+All four verdicts match the Planner D-1b / manager M20 root-cause split
+exactly (3x `EntrySplitterRule`, 1x `TermClauseRule`) — nothing needed
+re-deriving from scratch, nothing contradicted.
+
+### Fix — 2 new rule-module files, `backend/app/definition_links/rules/`
+
+**`il_definitions_section_entry_splitters.py`** (128 lines) — two
+`EntrySplitterRule`s:
+- `_split_marker_less_prose`: when NO line in the section body matches
+  `^\s*:-`, returns the WHOLE body as one block (empty list otherwise, so
+  it can never touch an already-working `:-` section). This is exactly
+  the Planner's own positive-control shape ("whole body as one block, no
+  other change") — baseline's own frozen `_parse_block` then reads the
+  block's first line unaided and extracts the term correctly. Fixes tests
+  1 and 3. Deliberately NOT a general multi-entry marker-less-prose
+  parser — `_parse_block` only ever reads the block's FIRST line, so this
+  fix is narrowly scoped to what these two REDs need; a fuller class-(d)
+  parser (M7's two-pass numbered-continuation guard) is a materially
+  larger, unauthorized design this bundle does not attempt.
+- `_split_double_colon_dash_entries`: mirrors baseline's own
+  `_split_into_blocks` algorithm, keyed on `::-` instead of `:-`. Fixes
+  test 2. One deliberate divergence from baseline's own continuation
+  philosophy, reasoned through explicitly (see "block interaction"
+  below): continuation-collection for a `::-`-started block stops (flush,
+  don't accumulate) the moment a line is not itself `::`-prefixed, rather
+  than running all the way to the next top-level marker the way baseline
+  does for `:-`. Registered `EntrySplitterRule`s are a union kind
+  (profiles.py:210-214) — both rules run unconditionally over every
+  definitions-section body of every IL article; neither depends on the
+  other or on which fixture is being processed.
+
+**`il_definitions_section_embedded_adhoc_marker.py`** (90 lines) — one
+`TermClauseRule`, `_parse`, scanning each block's text (baseline's own
+blocks INCLUDED, since `TermClauseRule`s run over `all_blocks` per
+profiles.py:219-221, not just this bundle's own new splitter blocks) for
+`(בפסקה זו - X)`, same grammar/guards `il_adhoc_scope_triggers.py`
+already trusts for the ordinary-article path (<=4-token cap,
+citation-shaped-term rejection), stamping `scope="paragraph"`,
+`scope_value=None` — the same generic kind that trigger word already
+carries everywhere else in this sprint (M-D3: measured, not invented).
+Deliberately does not import from `il_adhoc_scope_triggers.py` (D-1a's
+file, off-limits per the brief) — the small regex/guard is duplicated
+locally instead of coupling to a file being edited concurrently on
+another branch. Fixes test 4.
+
+### Splitter/baseline block interaction and dedup — reasoned explicitly, not assumed
+
+Per the brief's own instruction not to treat the `(article_id,
+sorted(terms))` dedup as a substitute for splitting cleanly: I traced
+every case where my new blocks could coexist with baseline's own blocks
+for the SAME body.
+- Tests 1/3 (marker-less prose): baseline finds zero `:-` lines, so
+  `baseline_blocks == []` always when `_split_marker_less_prose` fires —
+  never coexists with a baseline block for the same body, no duplication
+  possible.
+- Test 2 (`::-` variant): baseline ALSO finds zero `:-` lines here (the
+  `: (א) בתקנות אלה -` preamble uses a single colon+space, not
+  colon+dash), so `_split_marker_less_prose` ALSO fires on this same
+  body, contributing the WHOLE raw text as an extra block alongside the
+  4 clean `::-`-derived blocks. Traced `_parse_block` on that extra
+  whole-body block by hand: its first line is the preamble
+  `: (א) בתקנות אלה -`, which has a trailing standalone dash but NO
+  quoted term in the header before it — `_parse_terms_and_qualifier`
+  returns `([], None)`, so `_parse_block` returns `[]` for it. Confirmed
+  live (see verification below): harmless, produces zero extra
+  candidates, not merely assumed from the static trace.
+- Test 4: the "גוף פיננסי" block is baseline's own (`:-`-derived,
+  unaffected by either new `EntrySplitterRule`); my `TermClauseRule` only
+  adds a SECOND, distinct candidate (`terms=("חוק הדואר",)`) alongside
+  whatever baseline's own `_parse_block` already produces for that same
+  block's "גוף פיננסי" candidate — additive, not overlapping (different
+  `terms`), so the dedup key never collides.
+
+### Regression scan (read-only, before writing any rule), not merely trusted
+
+Wrote a throwaway scan (not committed) over every `*.wiki` fixture under
+`backend/tests/fixtures/wiki_laws/` calling the real, unchanged
+`sections.parse_articles`/`is_definitions_heading` to find every
+definitions-heading article body that either (a) has zero `:-`-prefixed
+lines, or (b) has any `::-`-prefixed line — the two conditions either new
+rule can act on. Result: **exactly 3 hits, all 3 this bundle's own target
+fixtures** (art.16 and the (חמאה) fixture for condition (a); the קרן
+גרמניה-ישראל fixture for both). Separately scanned every definitions-
+heading body for a parenthesized `(בפסקה זו - X)` span (the
+`TermClauseRule`'s own trigger): **exactly 1 hit**, the חוק הבנקאות
+fixture. No IL `HeadingRule`/`BodyPreambleRule` is registered anywhere in
+this codebase today (grepped `rules/*.py` for `register_heading_rule`/
+`register_body_preamble_rule` call sites — none), so
+`is_definitions_section` reduces exactly to baseline
+`sections.is_definitions_heading`'s own regex for every article in the
+suite; this scan is therefore exhaustive over every fixture any existing
+or new IL test can reach, not a sample.
+
+### Verification
+
+`backend/.venv/bin/pytest backend/tests/integration/test_definition_links_
+il_missed_classes_live.py backend/tests/integration/test_definition_links_
+il_missed_classes_extended_live.py -v` → **14 passed** (all 4 target REDs
+green; the other 10 sibling tests in these two files — classes A/B/C,
+siman/chelek capture, item 6/9/10 — unaffected, confirming the regression
+scan above empirically, not just statically).
+
+Full suite: `backend/.venv/bin/pytest backend/tests -q` →
+**`2 failed, 840 passed, 18 warnings`** — exactly the expected end state.
+The 2 remaining failures are `test_definition_links_il_siman_chelek_
+containment_live.py`'s both tests, untouched, still red for the same
+core-blocked reason M20 established (`sections.py`/`pipeline.py` frozen,
+no live breadcrumb data source) — not attempted, per the brief's explicit
+instruction to leave them alone.
+
+`bash scripts/contract_lint.sh 2026-08-04-defs-il` → `PASS 398`.
+
+`git diff --name-status HEAD -- backend/tests backend/app/definition_
+links/profiles.py backend/app/definition_links/pipeline.py backend/app/
+definition_links/sections.py backend/app/definition_links/extract.py` →
+**empty** — zero test edits, zero frozen-file edits. `git status --short`
+shows exactly the 2 new rule-module files (128 + 90 lines, both under the
+300-line style gate) plus this log append.
+
+### Honest gaps
+
+1. `_split_marker_less_prose` only ever captures the FIRST line's
+   `"term" - definition` sentence of a marker-less body — a
+   hypothetical marker-less definitions section with MULTIPLE separate
+   sentences, each its own term, would only get the first one. Not
+   observed in either target fixture (both are genuinely single-sentence
+   bodies) and not required by this bundle's REDs; a general fix is
+   explicitly out of scope (M7's parked design).
+2. `_split_double_colon_dash_entries`'s trailing-context-drop behavior
+   (stopping continuation at the first non-`::`-prefixed line) is a
+   deliberate divergence from baseline `_split_into_blocks`'s own
+   "accumulate until the next top-level marker" philosophy, chosen to
+   avoid glomming the קרן גרמניה-ישראל fixture's own trailing `: (ב) ...`
+   sentence onto the "מס רכישה" entry's definition text. Only traced
+   against this bundle's one real fixture — not verified against the
+   broader corpus population `::-` occurs in (out of this bundle's scope,
+   which is these 4 REDs only).
+3. `il_definitions_section_embedded_adhoc_marker.py` only widens
+   `בפסקה זו` (this bundle's one RED) inside a definitions-section entry
+   body — the brief's item-11 framing already notes this as a "same E6
+   blocker, new instance" specific to this one trigger word; did not
+   sweep the corpus for other `(TRIGGER - X)` words embedded the same way
+   inside a definitions-section entry, since no test requires it and the
+   brief scoped this bundle to exactly 4 REDs.
+4. Did not attempt the 2 סימן/חלק containment REDs (core-blocked per M20,
+   explicitly out of this bundle) and did not touch D-1a's files
+   (`il_list_shape_scope.py`/`il_trigger_grammar.py`/
+   `il_law_wide_vocabulary.py`/`il_heading_embedded_preamble_scope_
+   triggers.py`) or `il_adhoc_scope_triggers.py` — confirmed by the git
+   status above (only the 2 new files touched).
+
+### Git discipline (M14)
+
+Worktree `defs-il-dev4` only, branch `claude/defs-il-dev-d1b`. `git add`
+used with explicit paths (the 2 new rule files + this log), never `-A`.
+No `git stash` used. `git config user.email` confirmed the noreply
+address before the first commit. Not pushed, not merged — per the brief,
+the panel manager merges.
+
