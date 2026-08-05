@@ -1,13 +1,13 @@
 ---
 id: "2026-08-04-defs-us-markers"
 status: qa-fail
-current_role: qa
+current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:qa"
-locked_at: "2026-08-05T20:33:51Z"
-last_agent: "/root/markers_panel_manager/developer_pd2_scope_fix"
-last_updated: "2026-08-05T20:33:51Z"
+locked_by: "codex:developer"
+locked_at: "2026-08-05T20:40:04Z"
+last_agent: "/root/markers_panel_manager/qa_final_pd2"
+last_updated: "2026-08-05T20:40:04Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -210,7 +210,8 @@ actual corpus provenance before this cycle can enter independent QA:
    real Subd boundary because `_TRAILING_MARKER_CHAIN_RE` treated that content as
    leaked syntax. Independent QA must first commit a byte-pinned real MN RED that
    preserves `72.` plus a control proving the next Subd heading is still excluded.
-   Only then may Developer resume. The general trailing-marker cleanup stays;
+   QA committed that independent RED in M58; Developer may now resume. The
+   general trailing-marker cleanup stays;
    bypass it only when the selected end is an explicit opt-in MN Subd hard-stop.
    Final QA must enumerate every remaining non-pure retained-text change. MN's 51
    additions classify as 33 exact relative-qualifier adds and 18 ordinary

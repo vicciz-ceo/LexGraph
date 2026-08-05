@@ -7,6 +7,36 @@ to the director).
 
 ---
 
+## M59 — M58 numeric-tail RED accepted; Developer resumes (2026-08-05)
+
+Manager read the complete `af75322...0b47109` diff: one byte-pinned real MN
+fixture, one focused unit test, and one append-only QA log entry; zero production
+or contract edits. The fixture identifies
+`STATE_MN_P216_217_C216B_S216B.68`, pins the full-source and excerpt hashes, and
+retains the verbatim Subd. 4–5 bytes. The test first attempts all three explicit
+MN opt-ins, uses a test-only fallback only for the known missing signature on the
+shared pre-production tip, proves the next Subd. 5 entry is independently
+extracted and excluded from Subd. 4, then fails solely because the genuine
+terminal `72.` is stripped.
+
+Manager reproduced the focused state on the integrated shared tree:
+**3 failed / 1 passed**. The failures are independently attributable to the
+existing FED default-scope RED, the existing MN missing-signature RED, and the
+new fixed-behavior equality (`..., 63, 70, and` versus
+`..., 63, 70, and 72.`). This satisfies the required RED-before-green gate.
+
+Role transition: lock changed from `codex:qa` back to `codex:developer`.
+Existing Developer `/root/markers_panel_manager/developer_pd2_scope_fix` resumes
+its parked two-file WIP after fast-forwarding tests/docs from committed shared
+tip. The accepted implementation constraint is narrow: preserve
+`_TRAILING_MARKER_CHAIN_RE` generally; bypass it only when the selected candidate
+end is an explicit opt-in MN Subd hard-stop. Developer must rerun the full exact
+MN differential, hand-inspect all 18 ordinary tight-idiom additions, and report
+every remaining non-pure retained-text change without assuming this one fix is
+exhaustive.
+
+---
+
 ## M57 — P-D2 Developer scope fix bounced to QA for numeric-tail RED (2026-08-05)
 
 Developer parked an uncommitted, two-owned-file WIP after the original explicit-
