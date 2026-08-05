@@ -19,17 +19,16 @@ ends `'...hide of a live animal.\\n\\n§ Subd. 4. Mark.'` instead of
 the genuine clean sentence).
 
 This module therefore does not reimplement entry-splitting at all: it
-reuses the shared engine's own `extract_quote_anchored_entries` UNMODIFIED
-(imported, not edited -- `us_markers_boundary.py` is core's file this
-cycle) and applies one MN-scoped post-processing pass that strips a
-trailing `§ Subd. N[a]. TermName.` marker (and any whitespace before
-it) off each entry's `definition_text` before re-wrapping the result via
-the shared `entries_to_quoted_blocks` helper -- the SAME defect class as
-`us_markers_boundary.py`'s own documented `_TRAILING_MARKER_CHAIN_RE`
-guard (SC's `"(2)"` leak, AZ's `"13."` leak), for a marker shape neither
-existing regex covers. Scoped to `"US-MN"` only -- the section-sign
-pilcrow-numbered `Subd.` marker is MN's own drafting convention, not a
-general US-wide pattern."""
+explicitly opts into the shared engine's MN-only relative-qualifier,
+trailing-term-comma cleanup, and `§ Subd.` hard-stop options, all of which
+are default-off for other callers. It retains a compatible MN-scoped
+post-processing defense that strips a trailing `§ Subd. N[a]. TermName.`
+marker (and any whitespace before it) from each `definition_text` before
+re-wrapping through `entries_to_quoted_blocks` -- the SAME defect class as
+`us_markers_boundary.py`'s documented `_TRAILING_MARKER_CHAIN_RE` guard
+(SC's `"(2)"` leak, AZ's `"13."` leak). Scoped to `"US-MN"` only -- the
+section-sign pilcrow-numbered `Subd.` marker is MN's own drafting
+convention, not a general US-wide pattern."""
 
 from __future__ import annotations
 
@@ -53,7 +52,12 @@ _TRAILING_SUBD_MARKER_RE = re.compile(
 
 def _split(text: str) -> list[str]:
     cleaned: list[tuple[str, str]] = []
-    for term, definition_text in extract_quote_anchored_entries(text):
+    for term, definition_text in extract_quote_anchored_entries(
+        text,
+        allow_relative_qualifiers=True,
+        clean_trailing_term_commas=True,
+        stop_at_mn_subd_headers=True,
+    ):
         stripped = _TRAILING_SUBD_MARKER_RE.sub("", definition_text).strip()
         if stripped:
             cleaned.append((term, stripped))

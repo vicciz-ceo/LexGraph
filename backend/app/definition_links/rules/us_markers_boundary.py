@@ -14,7 +14,11 @@ REAL defect confirmed live against a real vendored row (see the sprint log
 - `_TIGHT_IDIOM_RE` requires the defining idiom (means/shall mean/has the
   meaning) to sit essentially IMMEDIATELY after a quoted term's closing
   quote (only a short punctuation/marker/"and its variants" gap is
-  tolerated), except for a bounded statutory relative qualifier ("when
+  tolerated). The default shared-engine path deliberately does not accept
+  a relative qualifier, a trailing term comma cleanup, or an MN `Subd.`
+  heading stop: those are explicit default-off options for MN's registered
+  caller. With `allow_relative_qualifiers=True`, a bounded statutory
+  relative qualifier ("when
   used in reference to ...", "when used to indicate ...", or "with
   respect to ...") ending in a comma -- never merely "means" appearing
   anywhere within an unbounded lookahead window, which is exactly the bug that collapsed
@@ -25,6 +29,10 @@ REAL defect confirmed live against a real vendored row (see the sprint log
   `STATE_WA_T9A_C04_S110`'s nested `"motor vehicle"` (inside `"Vehicle"
   means a "motor vehicle" as defined in the vehicle and traffic laws, ...
   by mechanical means or by sail;`) as a phantom top-level term.
+- `clean_trailing_term_commas=True` removes a final comma from a quoted
+  term, and `stop_at_mn_subd_headers=True` recognizes `§ Subd. N.` headings
+  as hard stops. Both are MN-only opt-ins; callers that omit them preserve
+  the pre-P-D2 shared-engine behavior byte-for-byte.
 - When several quoted terms share ONE defining clause via "or"
   (`STATE_VA_T23.1_SI_C3_S23.1-300`'s `"Enrollment" or "student
   enrollment" means ...`), only the LAST quote before the idiom is
@@ -153,6 +161,11 @@ _LEADING_QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # later in an unrelated sentence never qualifies.
 _TIGHT_IDIOM_RE = re.compile(
     r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
+    r'(?:means|shall mean|has the meaning)\b:?\s*',
+    re.IGNORECASE,
+)
+_TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE = re.compile(
+    r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
     r'(?:(?:when used (?:in reference to|to indicate)|with respect to)\s+'
     r'[^.\n]{1,300}?,\s*)?'
     r'(?:means|shall mean|has the meaning)\b:?\s*',
@@ -170,7 +183,7 @@ _DIGIT_DOT_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*\d{1,3}\.[ \t]+")
 _LETTER_DOT_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*[A-Z]\.[ \t]+")
 # Minnesota's statutory subsection headings bound the preceding definition
 # even when the following heading does not itself contain a recognized idiom.
-_MN_SUBD_HEADER_RE = re.compile(r"(?:^|\n\n)§\s*Subd\.\s+\d{1,3}\.\s+")
+_MN_SUBD_HEADER_RE = re.compile(r"(?:^|\n\n)§\s*Subd\.\s+\d{1,3}[a-z]?\.\s+")
 _AFTER_MARKER_UPPER_OR_QUOTE_RE = re.compile(r'^[A-Z"“]')
 _QUOTE_WITHIN_LOOKAHEAD_RE = re.compile(r'^[^.\n"“]{0,40}["“]')
 # See this module's own docstring, "The list-introducer exclusion".
@@ -203,7 +216,13 @@ TRAILING_STOP_RE = re.compile(
 )
 
 
-def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
+def extract_quote_anchored_entries(
+    text: str,
+    *,
+    allow_relative_qualifiers: bool = False,
+    clean_trailing_term_commas: bool = False,
+    stop_at_mn_subd_headers: bool = False,
+) -> list[tuple[str, str]]:
     """`text` (an already-mojibake-repaired, if applicable, section/article
     body) -> `[(term, definition_text), ...]`, each boundary-clean per this
     module's docstring. Pure text in, pure data out -- callers (this
@@ -211,13 +230,20 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
     own registered rule kind."""
     stop = TRAILING_STOP_RE.search(text)
     limit = stop.start() if stop else len(text)
+    idiom_re = (
+        _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE
+        if allow_relative_qualifiers
+        else _TIGHT_IDIOM_RE
+    )
 
     starts: list[tuple[int, str, int]] = []
     for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
-        idiom_m = _TIGHT_IDIOM_RE.match(text, m.end(), limit)
+        idiom_m = idiom_re.match(text, m.end(), limit)
         if idiom_m is None:
             continue
-        term = m.group(1).strip().removesuffix(",").rstrip()
+        term = m.group(1).strip()
+        if clean_trailing_term_commas:
+            term = term.removesuffix(",").rstrip()
         if not term:
             continue
         starts.append((m.start(), term, idiom_m.end()))
@@ -245,7 +271,10 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
                 continue
             if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[m.end() : m.end() + 1]):
                 hard_stops.append(m.start())
-    hard_stops.extend(m.start() for m in _MN_SUBD_HEADER_RE.finditer(text))
+    mn_subd_stops: set[int] = set()
+    if stop_at_mn_subd_headers:
+        mn_subd_stops.update(m.start() for m in _MN_SUBD_HEADER_RE.finditer(text))
+        hard_stops.extend(mn_subd_stops)
 
     entries: list[tuple[str, str]] = []
     for idx, (_qstart, term, dstart) in enumerate(starts):
@@ -267,7 +296,9 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
         # "Satisfactory evidence of identity", bounded by the real next
         # `"Seal" means` term, is exactly this shape).
         bounded = bool(candidate_stops) or has_next_term
-        raw = _TRAILING_MARKER_CHAIN_RE.sub("", text[dstart:end])
+        raw = text[dstart:end]
+        if end not in mn_subd_stops:
+            raw = _TRAILING_MARKER_CHAIN_RE.sub("", raw)
         definition_text = raw.strip()
         if not definition_text:
             continue
