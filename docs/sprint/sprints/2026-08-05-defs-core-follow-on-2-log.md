@@ -90,7 +90,8 @@ arrives) and must NOT pin resolver internals that G2/G4 legitimately change.
 | 2 | Planner | G3 + G1 (extraction) | Sonnet/high — P-R6; Haiku considered: no, G3's boundary design is open-ended and three panels are blocked on it | `claude/defs-core-follow-on-2-plan2` / `...-wt/defs-core-follow-on-2-plan2` | `aae653f9956064e9f` | running |
 | 3 | Planner | G5 + G6 (seam) | Sonnet/high — P-R6; Haiku considered: no, G6 authors a seam version the rest of the program builds against | `claude/defs-core-follow-on-2-plan3` / `...-wt/defs-core-follow-on-2-plan3` | `a2987562ee6ff3a61` | running |
 
-| 4 | Scout (read-only) | G7 baseline reproducibility | Sonnet/high — tracing measurement recipes across divergent branches; a misclassified number produces a false G7 pass; Haiku considered: no | read-only, no branch | `a682047c7fe5507af` | running |
+| 4 | Scout (read-only) | G7 baseline reproducibility | Sonnet/high — tracing measurement recipes across divergent branches; a misclassified number produces a false G7 pass; Haiku considered: no | read-only, no branch | `a682047c7fe5507af` | **COMPLETE** — protocol committed @ 503fb64; opened Q-G3-A + Q-G3-B |
+| 5 | Planner | G8 (collision preference) | Sonnet/high — P-R6; Haiku considered: no, the deliverable is a design judgment over shared persistence code with real wrong-direction risk both ways | `claude/defs-core-follow-on-2-plan4` / `...-wt/defs-core-follow-on-2-plan4` | `a880e3c4f0fed4e79` | running |
 
 ### Manager-identified G7 ambiguity (scout #4 commissioned to resolve it)
 
