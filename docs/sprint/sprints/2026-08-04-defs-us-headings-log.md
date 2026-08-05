@@ -2937,3 +2937,94 @@ right when written, and what made it obsolete — or RE-AUTHOR it to pin the
 narrower still-true property (that capture comes from item 12's dedicated
 predicate rather than an accidental widening of R-MID/R-VERB), which would be
 strictly stronger than either the old pin or an inversion.
+
+---
+
+## 2026-08-05 — D-INCLUDES ruled CAPTURE; and an ESCALATION on the WA_T50 re-routing
+
+### D-INCLUDES — L2 closes as RULED CAPTURE
+
+Director ruled **capture with the naive quoted-term anchor**. The scout's
+measurement carried it: **50,528 occurrences, 100/100 definitional across two
+seeds, 3.6% upper bound**, guards **rejected as measured pure recall loss**.
+Program doc @ main `6a56a84`.
+
+Panel consequences:
+- **L2 CLOSED — ruled capture.** Becomes cycle-6 build **item 16**: the 15-row
+  class PLUS the `includes`-verb widening of this panel's own heading and
+  body-confirmation rules. Red-first, this panel's sequencing.
+- **Named residuals of the anchor** (recorded, not silently inherited):
+  (a) non-adjacent `includes` where a colon+list sits between term and verb;
+  (b) unquoted terms.
+- **Massachusetts shows ZERO corpus-wide anchor hits** — flagged as a cheap
+  **scout** follow-up (drafting convention vs corpus artifact), explicitly NOT
+  a build item.
+
+### ESCALATION — the WA_T50 re-routing rationale is factually wrong
+
+`STATE_WA_T50_C29_S030` was returned to this panel as a *"recognition-side
+miss — RECOGNITION never dispatches (the title never says 'definition')"*.
+**Manager checked it against the real corpus row before accepting it. The
+rationale does not hold.**
+
+Real `section_title`:
+`RCW 50.29.030: "Wages" defined for purpose of prorating benefit charges.`
+It **does** contain `defined`. Layer-by-layer, on the shipped code at `533f12d`:
+
+| Layer | Result |
+|---|---|
+| bare baseline `is_definitions_heading(title)` | False |
+| panel `matches_heading_variant_unconditional` | False |
+| panel `matches_defined_for_heading` | **True** |
+| panel `defines_in_body` | **True** |
+| **LIVE `profile.is_definitions_heading(title, body)`** | **True** ← recognition WORKS |
+| `find_citations(body)` | `['RCW 50.04.320']` |
+| `extract_definitions_from_section(..., heading_was_derived=False)` — the LIVE value | **0 candidates** |
+| `extract_definitions_from_section(..., heading_was_derived=True)` | **1 candidate — `('wages',)`** |
+
+**Reconciliation of the two panels' opposite conclusions.** Both observations
+are true; neither diagnosis is. Markers is right that extraction yields
+`wages` cleanly — but that holds only with `heading_was_derived=True`, which is
+**not** the live-path value for this row. This panel's recognition is right
+too. The failing layer is neither: it is the **`heading_was_derived` gate** on
+the inline-quote fallback inside core-owned `us_profile.extract_definitions_
+from_section`. That flag is True only on the body-derived-heading path
+(CA/IL/GA style); a heading recognised through the **HeadingRule registry**
+gets False, so the fallback never runs. This is textbook **P-R10** — two probes
+at different layers with different arguments, reaching opposite conclusions.
+
+**Requested routing correction:** the row is NOT a recognition-side miss.
+Recognition already covers it today. Sending it here cannot fix it, because the
+gate lives in a core-owned module U3 forbids this panel to edit.
+
+### The gate is not a one-row problem — MEASURED
+
+`scratchpad/headings_mgr3_hwd_gate.py`, over `defin`-titled rows (pinned
+denominator, 52 files, PR excluded):
+
+| | rows |
+|---|---|
+| live-recognized | **82,155** |
+| yield on the LIVE path | 28,237 |
+| **ZERO on the live path** | **53,918** |
+| …**RESCUED** if `heading_was_derived=True` | **39,955** |
+| …still zero under both | 13,963 |
+
+**The gate alone explains 74.1% of the zero-yield population.** Rescued rows
+are not exotic: they include ordinary `Definitions.` headings
+(`STATE_AL_T25_C5_S25-5-1` → 4 candidates, `STATE_AL_T13A_C11_S13A-11-240` → 3)
+alongside this family's verb-form shapes. Top states: NV 8,555, NJ 2,650,
+AZ 2,645, MI 2,205, WA 2,044, UT 1,688, FED 1,610.
+
+**P-R10 self-check — why isn't this already visibly broken?** It IS, and it is
+already known: the program recon dossier's §6 finding #1 records that FED 84% /
+VA 97% / WA 98% of *detected* Definitions sections extract ZERO today, and that
+"the existing-but-unwired inline fallback rescues most". This measurement does
+not discover a new defect — it **quantifies the known markers headline item at
+39,955 rows** and identifies the specific gate. That reconciliation is why the
+number is credible rather than alarming.
+
+**Caveat, stated rather than buried:** this 39,955 is measured over
+`defin`-titled rows and is a DIFFERENT population from the 12,869 shape-1
+bucket-A figure handed to markers earlier. The two must not be added or
+conflated; they overlap by an unmeasured amount.
