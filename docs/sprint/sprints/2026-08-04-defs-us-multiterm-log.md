@@ -4148,3 +4148,53 @@ Checked rather than assumed:
 - **R6's multi-state correction is UNAFFECTED for DC/NH/TX**; its NY count (19
   or 20) is a raw-text shape frequency, already labelled a shape frequency and
   not a miss count.
+
+### M-R27 addendum — NY numbers RECONCILED across panels (markers §M45 @ `f2bc76d`)
+
+The markers manager independently caught finding D and reported **160 zero
+(10.8%)** against my **1,245 zero (84.2%)**. Two contradictory figures for the
+same quantity in the program record is worse than either being wrong, so:
+
+**They do not disagree. They are two points on a timeline, on different trees.**
+
+```
+raw parquet text (ARTIFACT, no panel's product)      1,479 zero   100.0%
+production, pre-devC   (my branch; their "1,181")  ~1,181-1,245    84.2%
+production, post-devC  (their merged branch)            160        10.8%
+```
+
+My branch does not contain markers' devC widening; theirs does. Their own
+stated improvement is 1,181 -> 160, and my 1,245 sits within noise of their
+1,181 (heading-detection differences between trees). The 85.3% the program
+manager cited is their PRE-devC number, which is why it matches mine and not
+their current one.
+
+Recorded explicitly because without it someone would later "resolve" 85.3% vs
+10.8% by picking one. **The current production number is theirs: 160 / 10.8%.**
+
+### The generalisation error, named precisely (their framing, accepted)
+
+They logged my TX-only claim as "the same generalisation error in a fourth
+costume", beside the three emission/correctness polarities. Accepted, and the
+precise shape for the record: **my Planner measured ONE sub-shape (the
+cross-reference idiom) across 8 comparison states, and I generalised that
+negative result to the whole class including plain-`means`.** The measurement
+was sound; the inference over-reached it.
+
+The cost was nearly worse than a wrong number: NY entered their rule's
+`_JURISDICTIONS` tuple at devC, so a TX-only framing would have led them to
+scope the probe to TX, find nothing in NY, and conclude the shape was ABSENT
+when it was merely unlooked-for — a clean-looking negative result, which is
+strictly harder to catch than a bad count.
+
+### Known caveat, disclosed rather than cleaned
+
+The one measurement class this panel has NOT re-derived post-ingest is the
+fire-rate / duplicate harness, which samples all 53 files including NY on raw
+text. NY is 1 of 53 files and the harness measures the ordinary-body idiom
+path rather than block splitting, so the exposure is small — but it is a real
+caveat and is recorded as one rather than asserted clean.
+
+Also transferable, from the duplicate correction: **a 79,500-row stride sample
+undercounts a rare shape.** It reported 1 duplicate row; the full corpus has 2.
+Rare-shape claims need the full population or an explicit sampling label.
