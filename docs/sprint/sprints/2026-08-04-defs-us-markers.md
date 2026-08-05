@@ -1,13 +1,13 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: active
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/defs-us-markers-core2-integration
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers-core2-integration
-locked_by: "/root/markers_g3_heal_planner"
-locked_at: "2026-08-05T22:01:35Z"
+locked_by: "/root/markers_g3_heal_developer"
+locked_at: "2026-08-05T22:34:06Z"
 last_agent: "/root"
-last_updated: "2026-08-05T22:22:27Z"
+last_updated: "2026-08-05T22:34:06Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -15,7 +15,7 @@ total_items: 3
 completed_items: 2
 dev_complete_items: 0
 qa_cycles: 2
-lint: "PASS 400 2026-08-05T22:22:27Z"
+lint: "PASS 400 2026-08-05T22:34:06Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:

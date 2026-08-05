@@ -5827,3 +5827,26 @@ The WA+MI blanket command was re-run on its two files and reproduced **12,774**
 changes (MI 12,757; WA 17). Focused pre-developer state is **18 passed / 3
 failed**: the longstanding persisted WA RED plus the two deliberately missing
 priority-API seam REDs. G8 and C5 controls are among the 18 passing tests.
+
+---
+
+## M68 — G3-HEAL Developer dispatch roster (2026-08-06)
+
+Canonical agent: `/root/markers_g3_heal_developer`; branch
+`claude/defs-us-markers-g3-heal-dev`; worktree
+`/Users/nerya/LexGraph-wt/defs-us-markers-g3-heal-dev`. The expected fork is
+the exact integration dispatch commit containing this roster entry; the brief
+names its SHA and the Developer must stop if HEAD differs.
+
+Model/effort: **Terra / medium** — the causal seam and RED mutation matrix are
+fully specified, but the change alters shared extraction ordering and is not a
+mechanical low-effort edit. Haiku considered: **no** — shared parser dispatch
+and cross-jurisdiction ordering require the standard Developer tier.
+
+Exclusive production write set: `rules/registry.py`,
+`rules/us_markers_inline_quote.py`, and `us_profile.py`. Tests, fixtures,
+artifacts, contracts, logs, `pipeline.py`, persistence, migrations, and every
+other production file are read-only. The Developer implements only P-G3H,
+runs the committed four-file focused command to GREEN, then one authoritative
+combined evaluator; it commits and pushes its own branch and escalates rather
+than editing a test or widening the seam.
