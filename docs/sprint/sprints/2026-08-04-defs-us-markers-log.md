@@ -2489,3 +2489,409 @@ for whichever pass picks up implementation.
 
 **Commit**: tests + fixtures + this log section, branch
 `claude/defs-us-markers-planB`, pushed to origin.
+---
+
+## QA1 — phase-2 QA cycle 1 (2026-08-05)
+
+Sonnet/high, independent QA, own worktree (`/Users/nerya/LexGraph-wt/
+defs-us-markers-qa`, branch `claude/defs-us-markers-qa` off `claude/
+defs-us-markers` @ `2a35362`) and own venv (confirmed `.venv/bin/python`
+resolves inside this worktree before trusting any measurement).
+`git config user.email` verified = `256402398+vicciz-ceo@users.noreply.
+github.com` before first commit. Never touched `us_profile.py`, any
+shared module, or any `rules/*.py` file — diffed clean throughout (only
+`backend/tests/**` files added, listed at the end).
+
+**VERDICT: PASS.** Six real, reproducible defects found and pinned with
+RED tests, all correctly attributed to their owning layer (four to shared
+`us_profile.py`/`pipeline.py` code this panel cannot touch; two to this
+sprint's own `us_markers_boundary.py`, a genuinely new finding). Zero
+regressions: suite is `7 failed, 829 passed` = the 1 permitted FED RED
+(unchanged, byte-identical failure) + 6 new REDs I added, `814 + 15`
+newly-passing diagnostic/regression-guard tests. No RED required forcing —
+every RED reproduced on first write against the real, unmodified build.
+
+### STEP 0 — probe sanity (P-R10), before anything else
+
+Reproduced the manager's positive control exactly, with my own copy of
+their sweep script (P-R9 slug `markers-qa-p2-sweep.py`): **VA 1,096
+headed / 48 zero = 4.4%, WA 1,800/116 = 6.4%, AL 1,653/230 = 13.9%.**
+Then the kill control (`registry.entry_splitter_rules_for` monkeypatched
+to `[]`): **VA 97.2%, WA 98.8%, AL 97.0%** — the exact pre-build rates.
+Both ends confirmed by me independently; my probe is calibrated. Every
+number below builds on this.
+
+### Q1 — WA's 3 remaining >5,000-char definitions
+
+**Named**: `STATE_WA_T82_C04_S065` "800 service" (10,838 chars),
+`STATE_WA_T43_C88_S020` "Administrative expenses" (6,515 chars),
+`STATE_WA_T82_C04_S192` "Digital audio works" (8,769 chars). Exactly 3,
+matching the manager's own independent count and worst-case value.
+
+**Classification: all 3 are boundary SWALLOWS**, not genuine long
+definitions — each real definition is 105-303 chars (verified with our
+own engine below); what gets persisted swallows every sibling entry in
+the same section.
+
+**Attribution (per-row, with a kill control that could have failed)**:
+all 3 attribute to BASELINE (`us_profile.py`'s `_split_into_numbered_
+blocks`), not our family-3 `EntrySplitterRule`. Root mechanism: all 3
+bodies pack their ENTIRE run of `(1) "Term" means ... (2) "Term2" means
+...` entries onto ONE line with zero internal newlines; baseline's
+line-anchored splitter recognizes only the first `(1)` and returns one
+degenerate block spanning to end of text. Confirmed with our OWN engine
+called directly (`extract_quote_anchored_entries`): produces the CLEAN
+303/188/105-char candidates for all 3 terms, 0 entries ≥5,000 chars — the
+rule module this sprint owns is not at fault. Kill control (family-3
+blinded): baseline alone STILL reproduces the exact swallowed length for
+all 3 rows.
+
+**A second, distinct finding, one layer deeper**: even though our own
+engine already produces the CLEAN candidate for the same term, the
+SWALLOW wins in the real persisted output. Root cause diagnosed in
+`pipeline.py` (not `us_markers_boundary.py`): `all_blocks = baseline_
+blocks + extra_blocks` puts baseline first, and the idempotent-by-key
+persistence loop (`key = (article_id, sorted(terms))`) keeps whichever
+candidate is enumerated FIRST on a collision — baseline's bad candidate
+wins, our clean one is silently discarded. This is a genuinely NEW defect
+class (candidate-collision ordering), distinct from the FED unbounded-
+last-entry defect, though it lives in the same shared, not-ours-to-touch
+code.
+
+**RED pinned**: `backend/tests/integration/test_us_markers_qa_q1_wa_
+newline_collapse_swallow.py`. Node ids: `test_fixture_rows_are_directly_
+definitions_headed_not_body_derived` (PASS, sanity), `test_our_own_
+family_3_engine_already_produces_the_clean_candidate` (PASS, proves the
+engine is clean), `test_kill_control_baseline_alone_already_produces_the_
+swallow` (PASS, proves attribution), `test_real_pipeline_does_not_let_
+the_baseline_swallow_beat_our_clean_candidate` (**RED** — the load-
+bearing pin, on the real `ingest_us_statute_rows`→`run_definition_
+linking` path). Fixture: `us_markers_qa_wa_newline_collapse_rows.json`
+(3 real rows, byte-verified).
+
+**Manager exchange, mid-pass**: reported this exact per-row attribution
+to the manager before they finished measuring it themselves (both
+independently landed on "all 3 baseline"); flagged the collision-ordering
+finding as separate and possibly NOT automatically fixed by core-2's G3
+(depends on whether G3 stops baseline from emitting a bad candidate at
+all, or just shrinks it).
+
+### Q2 — the <10-char definitions: VA 1, WA 5, AL 7
+
+All 13 named and inspected against real body context.
+
+- **VA 1/1 genuine**: `STATE_VA_T64.2_SV_C27_A1_S64.2-2700` "Instrument" =
+  "a record." — clean, correctly bounded.
+- **WA 5/5 genuine**: "Sex" = "gender." (×2, two titles), "Comestible" =
+  "edible.", "Cancel or cancellation" = "to void.", "Instrument" =
+  "a record." — all real terse statutory definitions, all correctly
+  bounded.
+- **AL 1/7 genuine, 6/7 DEGENERATE (U-R1 violation)**:
+  `STATE_AL_T45_C37A_S45-37A-51.120` "EMPLOYER" = "The city." is genuine.
+  The other 6 ("Acquire"/"Bank holding company"/"Out-of-state bank
+  holding company" from `5-13B-2`; "Bank supervisory agency"/"Home
+  state"/"Interstate merger transaction" from `5-13B-21`) are ALL
+  degenerate: real bodies read `(x) "Term" means:` (or just `"Term":`)
+  followed by a NESTED `(1)/(2)/(3)` list that IS the definition — what
+  persists is only the colon/"means:" fragment, the whole nested list is
+  silently dropped.
+
+**Root cause diagnosed**: baseline's `_entry_start_remainder` treats
+EVERY bare `"(N)"` at a line start as an unconditional block boundary (by
+design, to close non-defining interleaved paragraphs) — but it has no
+list-introducer exception the way this sprint's OWN `us_markers_
+boundary.py` engine does. It misreads a defining entry's own nested
+numbered sub-list as a sibling top-level entry. Not rescuable by any
+family-3 rule this sprint owns: AL is only registered for ALL-CAPS
+unquoted terms; these 6 rows use quoted, mixed-case terms, a different
+shape entirely. Noted, not implemented: `us_markers_boundary`'s existing
+list-introducer-aware engine parses these 2 rows correctly when called
+directly — would need `US-AL` added to `us_markers_inline_quote.py`'s
+jurisdictions to fire live, an ownership question for the manager, not
+something this pass implements.
+
+**RED pinned**: `backend/tests/integration/test_us_markers_qa_q2_short_
+definitions.py`. Node ids: `test_genuine_short_definitions_stay_
+captured_correctly` (PASS, regression guard for the 7 genuine cases),
+`test_al_nested_numbered_list_definitions_are_not_truncated_to_the_colon`
+(**RED**). Fixture: `us_markers_qa_q2_short_definitions_rows.json` (9
+real rows).
+
+### Q3 — TX `2009.003`'s 4 degenerate 1-term rows
+
+Confirmed reproduced exactly on this build: `contested case`→`;`,
+`party`→`;`, `person`→`; and`, `rule.`→`''` (empty). Same baseline
+entry-boundary mechanism as Q2 (letter/digit markers wrongly treated as
+sibling boundaries instead of a shared parent-redirect clause's own
+children) — ownership confirmed as markers' by M-R5/M-R8.
+
+**A genuinely NEW finding, not previously named anywhere in this
+sprint**: OUR OWN `us_markers_boundary.py` has a real, live truncation
+bug on this SAME row. `"Governmental body" has the meaning assigned by
+Section 552.003.` — our engine (`extract_quote_anchored_entries`)
+captures this as `'assigned by Section'`, silently dropping `' 552.003.'`.
+Root cause: `_TRAILING_MARKER_CHAIN_RE` (meant to strip a next-entry's
+leaked marker fragment, e.g. a literal `"(2)"` or `"13."`) cannot
+distinguish a genuine statutory citation of the shape `"NNN.NNN."` from
+two back-to-back digit-dot marker tokens, and strips the whole citation.
+
+**Currently MASKED, not absent, on this exact row**: baseline ALSO
+produces a correct "Governmental body" candidate and wins the
+`pipeline.py` collision (same mechanism as Q1), so today's real persisted
+output for this row happens to be fine — pinned as a passing regression
+guard so if the masking ever breaks, this file turns RED immediately
+rather than silently.
+
+**Measured corpus-wide how material this is** (all 7 jurisdictions
+`us_markers_boundary.py` covers, VA/WA/FED/UT/TX/SC/AZ): of 144,706
+quote-anchored entries, **1,842 (1.27%) had a citation-shaped tail
+(`\d{1,3}\.\d{1,3}\.`) stripped by `_TRAILING_MARKER_CHAIN_RE`.**
+Per-jurisdiction: VA 88/14,577 (0.60%), WA 18/20,788 (0.09%), FED 7/30,728
+(0.02%), UT 373/26,392 (1.41%), **TX 1,261/28,009 (4.50%)**, SC 3/10,800
+(0.03%), AZ 92/13,412 (0.69%). TX and UT are disproportionately hit.
+Sampled VA rows confirm the pattern is real and severe: e.g. `"Servicer"`
+loses its statutory citation number the same way. This is a corpus-wide,
+material precision defect in shipped family-3 code, not a one-off.
+
+**RED pinned**: `backend/tests/integration/test_us_markers_qa_q3_tx_
+2009_003.py`. Node ids: `test_fixture_row_is_directly_definitions_
+headed` (PASS), `test_part_a_the_4_baseline_degenerate_terms_still_
+reproduce_on_this_build` (PASS, confirms Part A unchanged),
+`test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_
+stub` (**RED**), `test_part_b_red_our_own_engine_truncates_governmental_
+body_citation_tail` (**RED**), `test_part_b_masking_confirmed_todays_
+real_pipeline_happens_to_be_fine_here` (PASS, documents the masking).
+Fixture: `us_markers_qa_q3_tx_2009_003_row.json` (1 real row).
+
+### Q4 — the 3,000-char ceiling and list-introducer exclusion, audited
+
+**Measured, corpus-wide across the 7 jurisdictions the ceiling actually
+gates** (`markers-qa-q4-ceiling-audit.py`): 144,706 entries kept (≤3,000
+chars), **1,308 (0.9%) DROPPED** (>3,000 chars — the code DROPS the whole
+candidate, it never truncates to 3,000; confirmed by reading
+`us_markers_boundary.py:223`).
+
+**Finding 1 — no spike at the boundary.** Histogram 2,000-2,999 in
+100-char bins is a smooth, monotonic decline (196 → 91), then essentially
+nothing above (1 entry exactly at 3,000, zero above). The brief's
+hypothesis ("a spike is evidence of truncation") is **not confirmed** in
+the literal sense — reported honestly rather than rounded to fit.
+
+**Finding 2 — the real defect is a pure MISS, and manual inspection of a
+15-row VA sample shows a genuine MIX**, not "all correctly-excluded
+swallows": several ARE real swallows (interstate-compact article
+bleed-through, amendment-history tails — correctly excluded); **at least
+one is proven, byte-verified GENUINE**: `STATE_VA_T47.1_C1_S47.1-2`
+(Notary Act Definitions), `"Satisfactory evidence of identity"` — a real
+~3,020-char definition enumerating acceptable ID documents/methods,
+bounded cleanly right before the next real term `"Seal"`. Captured by
+NO path today (no numbered-block structure for baseline; dropped by our
+ceiling) — a real, clean, silent U-R1 miss.
+
+**Finding 3 — a separate boundary bug found while diagnosing Finding 2**:
+`_LETTER_MARKER_RE`'s hard-stop false-fires on the parenthetical
+abbreviation `"(PIV)"` because the CLOSING quote of the SAME already-open
+quoted phrase sits within its 40-char lookahead window. Diagnosed, not
+separately pinned this pass (a corpus sweep for "parenthetical acronym
+near any quote" is real follow-up work) — recorded so it isn't lost;
+means Finding 2's 1,308-entry drop count is itself an under-count in an
+unknown number of cases (true spans are sometimes longer than measured).
+
+**RED pinned**: `backend/tests/integration/test_us_markers_qa_q4_
+ceiling_audit.py`. Node ids: `test_fixture_row_is_directly_definitions_
+headed` (PASS), `test_the_real_definition_is_genuinely_long_not_a_
+swallow` (PASS, proves the classification), `test_red_our_engine_
+silently_drops_the_genuine_long_definition` (**RED**),
+`test_red_real_pipeline_never_captures_this_genuine_definition_at_all`
+(**RED**, end-to-end). Fixture: `us_markers_qa_q4_va_notary_definitions_
+row.json` (1 real row, all 26 of its OTHER terms captured correctly —
+confirmed in the RED test's own failure output).
+
+### Q5 — `STATE_WA_T50_C29_S030` named-row test
+
+**Implied term derived from the real row**: `section_title` = `'RCW
+50.29.030: "Wages" defined for purpose of prorating benefit charges.'` —
+unambiguous, **"wages"**. Real body: `'For the purpose of prorating
+benefit charges "wages" shall mean "wages" as defined for purpose of
+payment of benefits in RCW 50.04.320 .'` No ambiguity to report.
+
+**Finding: this ALREADY PASSES at the extraction layer, un-fixed** — a
+genuinely positive result, not forced into a RED shape. Confirmed:
+`is_definitions_heading` False, `derive_heading_from_body` returns
+`None` (this row IS the recognition-side miss the manager's binding
+constraint described). Drove `extract_definitions_from_section` DIRECTLY
+(same layer-agnostic pattern as core's NY newline test — `ingest_us_
+statute_rows` → `profile.normalize_for_parsing` → `get_profile("US-WA").
+extract_definitions_from_section`, never touching heading dispatch): 
+**yields "wages" cleanly** — `US-WA` is registered in `us_markers_
+inline_quote.py`, and "shall mean" is one of `_TIGHT_IDIOM_RE`'s
+recognized idioms. The manager's acceptance condition ("extraction must
+yield at least the implied term") is met at this layer today.
+
+**The other half, also confirmed**: through the REAL, unmodified
+end-to-end pipeline (`run_definition_linking`), this row still creates
+**ZERO** definitions, because `pipeline.py`'s heading-dispatch gate never
+reaches `extract_definitions_from_section` for it — it falls through to
+`extract_local_scope_definitions` (the ordinary-article path), which also
+yields zero. The gap is entirely RECOGNITION-side (headings panel's
+H-R1/Q-C), not extraction-side (this sprint's).
+
+**Tests (all PASS, no RED needed)**: `backend/tests/integration/test_us_
+markers_qa_q5_wa_t50_c29_s030.py`. Node ids: `test_row_is_confirmed_
+recognition_side_miss_not_heading_recognized`, `test_extraction_layer_
+directly_yields_the_heading_implied_term`, `test_real_full_pipeline_
+still_creates_zero_definitions_today_recognition_gap_confirmed`. Fixture:
+`us_markers_qa_q5_wa_t50_c29_s030_row.json`. **To relay to the headings
+panel's manager**: once recognition closes, the extraction-layer edge is
+already provably ready to attach.
+
+### Q6 — the correctly-empty classifier, independently re-derived + false-positive swept
+
+**Re-derivation, corpus-wide (53 jurisdictions), current build**
+(`markers-qa-q6-correctly-empty-sweep.py`): the claimed 224 (184 DC
+terminal + 40 cross-reference: WY19/MN6/UT5/WA4/TX2/WI2/AL1/NC1)
+reproduces EXACTLY as a subset — but only on the direct-title-recognition
+denominator (21,072 zero-yield rows). On the body-derived-heading-
+inclusive denominator (21,642 — the basis this pass's OWN sweep scripts
+use, matching the manager's style), I measure **267**: the same 224 plus
+43 more (42 CA + 1 GA, both `cross_reference`) that exist only because
+CA/GA are reachable at all via `derive_heading_from_body`. **This is the
+SAME denominator-basis ambiguity the manager flagged for Q7** (21,072 vs
+21,642) — reported here explicitly rather than silently picking a basis.
+
+**False-positive sweep — the check that had never been done.** The
+manager's own M4/M5 full-corpus adversarial sweep (the one that
+previously found and fixed 4 real WA false positives) covered only
+WA/VA/FED/DC/WI/WY. **AL/CA/GA/MN/NC/TX/UT's 58 `cross_reference` hits
+were inspected EXHAUSTIVELY this pass (all 58, not a sample) against
+their real bodies: ZERO false positives.** Every one is, verbatim,
+nothing but a single genuine cross-reference sentence. Also re-confirmed
+WA(4)/WI(2)/WY(19)'s cross-reference rows against current real bodies
+(all clean) and a random 10-row spot-sample of DC's 184 terminal rows
+(all clean).
+
+**Tests (all PASS — a genuinely clean result, not forced RED)**:
+`backend/tests/unit/test_us_markers_qa_q6_correctly_empty_verification.
+py`, one representative real row per newly-verified jurisdiction
+(AL/CA/GA/MN/NC/TX/UT) committed as a permanent regression guard. Node
+ids: `test_all_7_rows_are_genuinely_definitions_headed_or_body_derived`,
+`test_zero_candidates_extracted_precondition_holds`, `test_all_7_never_
+before_checked_jurisdictions_classify_correctly_empty_true`. Fixture:
+`us_markers_qa_q6_correctly_empty_new_jurisdictions_rows.json` (7 real
+rows).
+
+### Q7 — P-R7 signal-agnostic denominator
+
+**What my zero-miss judgment used elsewhere in this pass (STEP 0, Q1-Q6)
+stated explicitly**: the heading-recognized population (`is_definitions_
+heading` direct OR `derive_heading_from_body`-then-recognized), matching
+the manager's own sweep-script convention. **This is NOT signal-
+agnostic** — it is exactly the heading-signalled construction P-R7 warns
+against, and it is vulnerable to the SAME failure mode P-R7 was written
+for (proven live by Q5: `STATE_WA_T50_C29_S030` has a genuine definition
+and is invisible to every heading-denominated sweep in this sprint).
+
+**Signal-agnostic population constructed** (`markers-qa-q7-signal-
+agnostic-sweep.py`): scanned EVERY row (regardless of heading) across all
+13 covered jurisdictions for a defining-idiom shape (quoted-term +
+means/shall mean/has the meaning/shall have the meaning/is defined as;
+mojibake-quote variant; AL's ALL-CAPS marker shape; DC's unquoted "A/An
+X means" shape) — deliberately simpler than the actual extraction
+grammar (M18), presence-only, no boundary reasoning.
+
+**The full, honest number, even though it is much worse**: **44,038
+idiom-bearing rows corpus-wide across the 13 jurisdictions; 23,839 yield
+zero captures = 54.1% miss.** Reported as-is, not rounded to look better.
+
+**But this conflates two different families' scope**, and I decomposed
+it rather than quote it whole: of the 44,038, only 19,179 are even
+heading-recognized as Definitions sections (family 3's actual mandate);
+the other 24,859 are ordinary (non-Definitions) articles with an
+incidental defining idiom — spot-checked several (`STATE_VA_T59.1_C22_
+S59.1-279` "qualified business firm", `STATE_VA_T38.2_C33_A1_S38.2-3300`
+"As used in this article, 'individual life insurance' means...") and
+confirmed these are genuine `defs-us-scoped-inline` (family 1) territory,
+not family 3's — that bucket's miss rate is 94.9% (23,579/24,859), almost
+total, because family 3 has never claimed ordinary articles at all.
+
+**The fairer, still-signal-agnostic (within family 3's own scope) number:
+of the 19,179 idiom-bearing AND heading-recognized rows, 260 yield zero
+captures = 1.4%.** Per jurisdiction, dominated by AL 2.1% (31/1,451), TN
+2.5% (28/1,118), **NC 13.4% (74/554), DC 11.2% (111/994)** — NC/DC stand
+out badly. Sampled NC/DC's own zero-capture rows and found a real,
+previously-unnamed shape driving most of it: `The term/word/phrase "X"
+means/is hereby defined to be/shall be deemed and held to be...` — a
+lead-in-phrase wrapper before the quoted term that neither baseline
+(quote must be first, no prefix) nor either state's own family-3 rule
+(both require UNQUOTED terms) recognizes. Real examples: `STATE_NC_
+C87_S87-21` (`"plumbing"` defined via "The word ... is hereby defined to
+be..."), `STATE_DC_T44_C9_S44-902` (`"Hospital"` via "The term ...
+means..."). Not pinned with a RED this pass (a new rule module is
+implementation, not QA's to write) — named here as a concrete, real,
+previously-unidentified family-3 sub-case for the manager/Planner.
+
+**Explicit limitation, labeled, not hidden**: my idiom detector covers
+only the means/shall-mean/has-the-meaning family plus AL/DC's own
+shapes — it does NOT include other known residual idioms (`includes`,
+`shall be deemed to refer to`, single-term pointer definitions) P1's own
+log named as a smaller "bucket 4" population. **My 1.4% headed-only
+figure is therefore a LOWER BOUND**, not an exhaustive number — the true
+family-3 residual under a fully exhaustive idiom vocabulary is somewhat
+higher. No test artifact for Q7 (a measurement/methodology finding, not a
+single defect to pin) — full sweep scripts are scratchpad-only per data
+policy, numbers reported here and reproducible from this section's
+methodology.
+
+### Q8 — no regression
+
+Full suite, run repeatedly through this pass (final run below): **`7
+failed, 829 passed`** = 1 pre-existing FED RED (`test_us_markers_
+unbounded_last_entry.py::test_real_pipeline_does_not_let_fed_part_time_
+career_employment_swallow_the_amendment_history_tail`, owned by
+`2026-08-05-defs-core-follow-on-2` gate G3, byte-identical failure to
+what M9/M13 recorded) + exactly the 6 REDs added this pass (Q1×1, Q2×1,
+Q3×2, Q4×2). `829 = 814 + 15` newly-passing diagnostic/regression-guard
+tests (Q1×3, Q2×1, Q3×3, Q4×2, Q5×3, Q6×3). No other failure anywhere —
+confirmed by `git status --short`: only new files under `backend/tests/`
+(6 test files, 6 fixture files), zero production-code diffs.
+
+### What rests on a control that could have failed vs. what does not
+
+**Rests on a control that could have failed (and passed)**: STEP 0's
+kill control; Q1's per-row kill control (family-3 blinded, baseline alone
+still swallows); Q1/Q3's "our own engine already produces the clean
+candidate" proofs (could have failed if the engine were also broken).
+
+**Does not rest on a control, but IS independently re-derived from real
+data**: Q2/Q3's degenerate-capture diagnoses (read the actual regex
+mechanism, not assumed); Q3's citation-shaped-tail corpus sweep (a fresh
+measurement, no prior claim to compare against); Q4's histogram/no-spike
+finding and the "Satisfactory evidence of identity" genuine-long
+classification (read the real body, checked for swallow markers
+explicitly); Q5's implied-term derivation and both extraction-layer/
+full-pipeline results; Q6's exhaustive 58-row false-positive inspection;
+Q7's signal-agnostic sweep and its headed/not-headed decomposition.
+
+**Explicitly labeled unverifiable / out of this pass's scope**: Q4's
+Finding 3 (the "(PIV)" false-hard-stop) is diagnosed but its corpus-wide
+prevalence is NOT measured — labeled as an open question, not claimed
+either way. Q7's 1.4% headed-only figure is labeled a lower bound, not an
+exhaustive number. Whether core-2's G3 fix will ALSO close Q1's
+pipeline.py collision-ordering finding is explicitly NOT claimed either
+way — reported to the manager as an open, testable prediction, not
+assumed.
+
+### Files (test-only, no production code touched)
+
+New test files: `backend/tests/integration/test_us_markers_qa_q1_wa_
+newline_collapse_swallow.py`, `test_us_markers_qa_q2_short_definitions.
+py`, `test_us_markers_qa_q3_tx_2009_003.py`, `test_us_markers_qa_q4_
+ceiling_audit.py`, `test_us_markers_qa_q5_wa_t50_c29_s030.py`,
+`backend/tests/unit/test_us_markers_qa_q6_correctly_empty_verification.
+py`. New fixtures (all byte-verified against the real parquet corpus this
+pass): `us_markers_qa_wa_newline_collapse_rows.json`, `us_markers_qa_q2_
+short_definitions_rows.json`, `us_markers_qa_q3_tx_2009_003_row.json`,
+`us_markers_qa_q4_va_notary_definitions_row.json`, `us_markers_qa_q5_
+wa_t50_c29_s030_row.json`, `us_markers_qa_q6_correctly_empty_new_
+jurisdictions_rows.json`.
+
