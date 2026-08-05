@@ -30,6 +30,25 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04 headings phase-3 manager (opus, fresh context after phase-2
   manager context-exhausted clean exit @ b79f588; runs dev cycle 5 + QA
   cycle 4): a1d2487867915919a
+- 2026-08-05 core follow-on-2 panel manager (opus, fresh; sprint
+  2026-08-05-defs-core-follow-on-2, gates G1–G7, merges first):
+  afa01292edb77329b
+- 2026-08-05 markers phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean exit @ c4baf7ce; QA + 10-jurisdiction
+  extension): a2ef4b689a844a074
+- 2026-08-05 IL phase-3 manager (opus, fresh after phase-2 clean exit @
+  64932d7; runs D-1 serialized Developers + QA cycle 4 + certification
+  contract draft): a18597f9be6c49ed6
+- 2026-08-05 multiterm phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean exit @ af0d548; runs M-R17/M-R18/rule-rename
+  Developer pass + re-measure + QA cycle 2): ad9cf6f6c6a351c50
+- 2026-08-05 markers phase-3 manager (opus, fresh after phase-2 handover
+  @ c6732e3; runs U-R14 disposition + QA cycle 2 + merge readiness):
+  a5c69b8e918e550cf
+- 2026-08-05 preamble phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean park @ 8ad3052; runs P-FP option-(c) cycle:
+  Planner exclusion-reversal + Developer M-R53-blocking + QA
+  definition-granularity re-measure): ac822b0047bde31cb
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
@@ -67,6 +86,532 @@ file-changed notices (program manager received the identical notice
 verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
+
+- 2026-08-05 (SESSION CONCLUDED — director order; handoff written): The
+  director concluded this program-manager session. Authoritative handoff
+  for any successor:
+  docs/sprint/programs/2026-08-04-definition-completeness-HANDOFF.md —
+  per-stream state, merge queue + checklist, the two lost-in-flight
+  measurements to respawn first (core-2's G8 reverse-order check = the
+  sole merge blocker; PR's M-R20 Planner pass), cross-panel watch items,
+  certification tracks, program-law index, resumption recipe. ALL agent
+  ids in this log are dead with the session; state lives only on pushed
+  branches and committed docs. Nothing has merged to main from any panel
+  branch yet.
+
+- 2026-08-05 (core-2 blocks its OWN merge — G13 opened): the pre-merge
+  false-truncation check found 28/6,647 changed rows are COMPLETE DROPS,
+  28/28 exhaustively verified as false truncations of real definitions
+  across 11 states (538-char TX "candidate for foster care", 854-char FL
+  "volunteer", one row where the DEFINED TERM ITSELF is "Superfund
+  Amendments and Reauthorization Act of 1986") — all damage G3-main
+  INTRODUCED (pre-G3, last entries ran to end-of-text; nothing truncated).
+  Blocked under the drop-is-worse-than-contamination standard the manager
+  had twice applied when cheap — "applying that standard only when it's
+  cheap would make it worthless." Manager's own generic-token hypothesis
+  REFUTED by the data: 'Pub. L.' (which it called specific) drives 21/28;
+  the flagged generic tokens caused ZERO drops; real mechanism =
+  inline act citations sharing a line with content, where line-granularity
+  wipes instead of trims. G13: targeted positional restriction of
+  'Pub. L.'/'Amendments' (line-start or standalone parenthetical — the
+  D-INCLUDES/G12 targeted-literal shape); broad marker-set narrowing
+  REJECTED (other markers: zero drops, 96.7% genuine). Acceptance: drops
+  to zero, 58/60 preserved, FED RED green at 493 chars. CAVEAT on record:
+  G3's certified 27,051/24.62% is NOT byte-reproducible (script never
+  committed; re-measure 24,952/26.64%) — directionally sound only; plan9
+  refused to force reconciliation and validated its own method three ways
+  exactly. Merge queue waits on G13 alone.
+
+- 2026-08-05 (G3-sibling NO-GO — G11 defers; one pre-merge blocker left):
+  plan9's measurement (best-evidenced of the sprint: three P-R10 anchors
+  exact against post-G12 code, correctly discriminating the pre-widening
+  figure that should NOT reproduce; entries reconstruction self-checked on
+  EVERY row) returned NO-GO: the sibling boundary fix touches 1,113/1,576
+  IL-path last entries (70.62%, 2.9x the main function's rate) at 100%
+  over-correction — and every touch is a WIPE not a trim (structural: 0 of
+  1,672 rows contain newlines, so split("\n") yields one span, any marker
+  match collapses the boundary to start, and the empty-text candidate is
+  dropped — silent term removal, regression-in-kind). CONSEQUENCES:
+  G3-sibling becomes its own follow-up carrying the data (per Q-G3-A's
+  provision); G11 DEFERS this cycle — the ~39,955-row recall lever does
+  not ship, its measured 202-row debt unspent; the gate's data and the
+  per-recognition-path design go to the follow-up. ONE PRE-MERGE BLOCKER
+  commissioned from plan9's false triggers: G3-main's bare-substring
+  markers proven capable of matching statute NAMES inside definition text
+  ("Clean Air Act Amendments of 1990") — the QA attack point carried since
+  G3-main merged, now with real-corpus evidence; measuring false
+  truncations over the 27,051-entry population, marker set narrowed
+  before merge if material. Core-2 at 830/0, ten gates, closing evidence
+  assembles after this one measurement.
+
+- 2026-08-05 (liveness probe recovers three dead agents — core-2 fully
+  green): The status-check probe found plan2 DEAD (128-byte output, ~4h
+  stale, ZERO sibling-sample commits — its "running" status was a
+  phantom); dev5 and dev6 ALSO dead but with COMPLETED, COMMITTED work
+  stranded (8bf4750 G10, 832d79b G9 — reports never arrived). Manager
+  recovered by verifying commits directly, merged both, respawned the
+  sibling measurement as plan9 against CURRENT code (material: G12's
+  idiom widening changed the sibling's entry set since the gap was
+  flagged). CORE-2 NOW 830 PASSED / 0 FAILED — first fully green state;
+  TEN gates integrated (G1,G2,G3-main,G4,G5,G6,G8,G9,G10,G12); G11 rides
+  on plan9 alone. Near-miss recorded as generalizable law: the manager
+  nearly reported a clean Developer for role violation because it diffed
+  against a SIBLING branch that forked earlier — diff a Developer against
+  ITS OWN fork point, never a sibling. PR panel probe likewise found its
+  Developer dead with verified work UNCOMMITTED (one death from loss);
+  manager verified + committed as ops with authorship attributed (harness-
+  sanctioned), QA arbitration running with a reproduce-235-first
+  precondition. Program lesson: silent agent death produces phantom
+  "running" status — liveness probes on long-quiet critical-path agents
+  are part of the manager job, not paranoia.
+
+- 2026-08-05 (IL certification round 2 — whole-file-invisible class found):
+  Round 2 merged @ 1bfe413. Vav predicate corrected and re-pinned: 93,509
+  spans, measured production capture 54.1%->62.8% — the parity insight
+  recorded as certification methodology: a mid-article delimiter
+  misclassification inverts open/close parity for every downstream quote;
+  small errors in paired-delimiter scans are never locally bounded. 'ltr'
+  over-capture root-caused to a D-1b splitter INTERACTION (re-parsing
+  continuation lines baseline already parsed) — and the honest QA note
+  recorded: cycle-4's clean 0/110 sample measured the marker-less-prose
+  population, NOT the union interaction where the over-capture lives; a
+  clean sample of the wrong population is not evidence about the right
+  one. THE STRUCTURAL FIND: 100 corpus files (1.6%) contain @ article
+  markers but yield ZERO Article objects (marker shape `@ (תיקון...) :`
+  with no article number — frozen sections.py gap, same class as M20);
+  1,090 stranded markers including תקנות הדיון בבתי-הדין הרבניים (223
+  markers) and two Arabic-script Druze personal-status/court-procedure law
+  bodies — ENTIRE BODIES OF RELIGIOUS-COURTS LAW invisible to the product.
+  ROUTED: core-follow-on-3, PRIORITY-MARKED (not core-2 — its close gates
+  six merges); certification carries the class as a named cluster closing
+  on the core-3 fix, residual-flip provision applies. Manager's ruling 3
+  refuted by its Planner's live check (fifth cross-panel
+  manager-correction); 121-vs-100 count refinement recorded.
+
+- 2026-08-05 (MULTITERM REVIEW-READY — fourth panel to close): @ 1c0c8cd,
+  14 failed / 815 passed, all 14 owned (13 cross-panel + 1 deferred with
+  E3 grounds). U1/U3/U5 CERTIFIED with named checks; U6 CLOSED both
+  families (+13,680 F5 terms 0 removed; finding A +739 0 lost — 10x QA's
+  prediction, reconciled via the dispatch-precondition rule: a count is a
+  claim about a mechanism only if gated on that mechanism's real dispatch
+  precondition); U2 PARTIAL (enforcement proven, production half broken
+  pending core G10 — never to be read as end-to-end); U4 CANNOT-CERTIFY
+  honestly (P-R7 full-corpus sweep). Cycle's asymmetry finding, verbatim:
+  five agent overrules of the manager, all correct and measurement-backed
+  — "the seeding instruction caught more manager errors than my review
+  caught agent errors." Six production fixes incl. a self-shipped recall
+  regression (up to 91 TX sections) caught by kill-experiment, never by
+  review. WATCH ITEM for merge gates: R3 ("Taken" @
+  STATE_OR_T41_C496_S496.716) is OPEN — scoped-inline has acknowledged it
+  in reports but it appears NOWHERE in their sprint docs; R3's own text
+  says silence isn't closure. Enforce disposition at scoped-inline's
+  merge-readiness check. Also noted: core G10 sits on core-2's dev5
+  sub-branch, not yet its integration branch — multiterm's findings 1/1b
+  close only after BOTH events. SCOPED-INLINE: final fix cycle running
+  (3 mechanical fixes + PA pin re-proof at the real binding, with a
+  suite-wide grep for the monkeypatch-by-value bug class); convergence
+  series 8→6→3; close statement pre-agreed per D-CERT.
+
+- 2026-08-05 (CORRECTION — NY zero-capture figure timeline): This log's
+  earlier entries cite NY at 85.3%/79.9% zero-capture; those are
+  PRE-devC-merge figures and must be labeled as such wherever quoted. The
+  reconciled timeline (both panels agree, verified against markers M24 and
+  multiterm QA-2): raw parquet no-ingest 1,479/100% (ARTIFACT — the
+  literal-\n trap, never a product measurement); post-ingest pre-devC
+  1,181-1,245 / 79.9-84.2% (tree-dependent heading detection, same stage);
+  post-ingest POST-devC merged = 160 / 10.8% — THE CURRENT CITABLE NY
+  FIGURE. Credit: each panel caught the other's stale/artifact number
+  (multiterm surfaced the record's stale 85.3%; markers refuted the raw
+  measurement). New program measurement rule adopted from the exchange: a
+  DIFFERENTIAL between two versions on identical input is immune to a
+  systematic input defect (it cancels); an ABSOLUTE rate is not — when an
+  input-layer defect surfaces, re-derive the absolutes, keep the
+  differentials.
+
+- 2026-08-05 (P-ALT: contract altitude ruled): Three independent arrivals
+  at "which altitude is the contract" (multiterm's M-R18 pin, markers'
+  M40 persisted-idiom observation, U-R13's engine-vs-persisted framing)
+  RULED as program law: THE PROGRAM'S CONTRACT ALTITUDE IS THE
+  PERSISTED/ASSERTED LAYER — what D-CERT certifies and users consume.
+  Candidate/extraction behavior is internal mechanism; candidate-level
+  pins are legitimate only for a single module's OWN emission. "The
+  captured definition" in any test/ruling/ledger condition means the
+  PERSISTED one unless explicitly scoped narrower. G8's preference
+  applies at the persist layer by design. Root-cause sentence for the
+  cycle's twin defects, recorded verbatim from the panels: both treated
+  BASELINE EMISSION as a proxy for BASELINE CORRECTNESS, with opposite
+  polarities (and R6 as the third polarity: no emission read as
+  nothing-there). Neither error was findable by inspection; both needed a
+  measurement designed to fail.
+
+- 2026-08-05 (arbitration reversed on evidence + IL at review): My default
+  suppress-the-duplicate ruling on the markers/multiterm candidate
+  interaction was VACATED by markers' measured counter-evidence: on the
+  three G3-HEAL WA rows, BASELINE's candidate is the 6,515-10,838-char
+  swallow and markers' "duplicate" is the 105-303-char FIX — blanket
+  second-emitter suppression deletes the correction and makes G3-HEAL
+  layer 2 unsatisfiable by construction. RE-RULED: M-R12's "already
+  handles" means handles CORRECTLY, which no emission-layer rule can know
+  per row; duplicates resolve at the PREFERENCE layer (G8/core quality
+  judgment — same thread as the semantic-emptiness steer and mirror-mode
+  check, WA rows are the reverse-mode exhibit); NO suppression obligation
+  on markers anywhere; multiterm re-scopes its M-R18 pin per the
+  two-altitude principle (persisted/asserted outcome + candidate pin over
+  its OWN rule's emission only — an exactly-1 count over the cross-panel
+  union encoded the rejected emission-layer theory). The two-altitude pin
+  principle (pin at the altitude of your hazard; never encode another
+  panel's theory) is now general program law. IL: parent sprint
+  2026-08-04-defs-il flipped to STATUS REVIEW @ 39eefe6 (six-item
+  residual director-visible, cycle 5 unconsumed, contract recompressed to
+  lint budget with history moved to log, nothing deleted); certification
+  Planner spawned off the PARENT TIP a27698d (measures shipped behavior,
+  not a stale baseline), briefed with the manager's own twice-made
+  normalization error and do-not-inherit-my-number instruction; the six
+  residuals seed the initial clusters.
+
+- 2026-08-05 (correction + markers QA-2): CORRECTION to this log's earlier
+  milestone entry: the FED "26,028 swallow" was NEVER in the markers
+  module's docstring — git log -S proves the string lives only in that
+  panel's M9 log entry, and the candidate is bounded=True so the ceiling
+  never applied to it by construction (markers manager verification;
+  Developer A's counter-finding upheld; M9's sentence to be corrected by
+  its panel). Markers QA-2: re-derived the "42 newly-exempted" population
+  from scratch → 64 (unreconcilable to 42; verified ALL 64), finding six
+  defects in already-merged code — two serious (WA ~8,900-char swallow
+  past an unrecognized (j) hard-stop; MN "Affiliate" = four terms' content
+  glued by a too-tight idiom gate). Routing: three-to-four of six are the
+  FOURTH independent arrival at core-3's citation-vs-marker anchor; two
+  are markers' own (FED trailing-annotation architecture — first-block-only
+  TRAILING_STOP_RE with once-computed limit; MN idiom gate) → queued for
+  their fix cycle. MI/NY holds intact; devC's value independently
+  corroborated (NY 81.9% headed-zero-capture root cause = the exact shape
+  devC registers). Markers manager named its own three propagated
+  mislabels this phase — all caught by re-derivation, none by re-reading.
+
+- 2026-08-05 (endgame batch: G8 rulings, U-R14 vacated, R6, M-R23 closed):
+  CORE-2 ruled the two routed G8 items: cross-term coverage assumption
+  WITHDRAWN (persistence keys make class-D structurally unreachable by G8
+  — re-routed to core-3 boundary work); improvement-suppression accepted
+  as named limitation → core-3 with a semantic-emptiness design steer (not
+  a length threshold); AND the manager found the un-reported MIRROR mode —
+  reverse ordering lets G8 replace a good 941-char definition with a
+  degenerate "means:" — ruled a MANDATORY pre-merge corpus check (amend
+  before merge if any real row exhibits it; new-damage class, not
+  follow-on). MARKERS vacated U-R14 (the 'facility' term is a genuine
+  same-sentence alias; three consecutive panel holders mis-called it, each
+  error named; devC cleared, sequenced behind re-pins with
+  no-defect-baked-in constraint); bounced a Planner task on the
+  raw-vs-normalized trap (U-R11 recurring); refuted M24's NJ Cost
+  duplicate (pre-persistence only). MULTITERM closed M-R23 with
+  whole-class verification (all 122,535 TX rows: 0 terms lost, guard
+  changes exactly ONE row — the designed dedup); the regression was ~45x
+  the sampled estimate (111 occ / 91 TX sections — TX-specific (9-a)
+  insertion convention); NEW R6 routed: baseline cannot open a block at
+  hyphen-suffixed markers, so `(4-a) "Distributor" means…` entries are
+  missed OUTRIGHT, TX-wide — zero-miss breach in core-owned marker
+  vocabulary → CORE-3 accumulator (family-3-adjacent; markers informed
+  peer-to-peer). Core-3 accumulator now: citation-vs-marker discriminator
+  (ANCHOR, context-API constraint binding, UCC template evidence),
+  truncation-class trigger classification, item/subitem vocabulary,
+  AZ bare-digit-dot, WA mid-paragraph, MI spaced markers, CT conventions,
+  G8 improvement-suppression, class-D cross-term containment, TN
+  kind/value decoupling (1-of-8), hyphen-suffixed markers (R6), 309-line
+  split.
+
+- 2026-08-05 (truncation class ruled + preamble certification withheld):
+  SCOPED-INLINE escalated the trigger-region truncation class with full
+  verification: mechanism predates the sprint (two-commit proof at
+  9c47af7/fcd2746, line 271 region_end), structural precondition in
+  38,431 rows / 53 of 53 jurisdictions, real loss measured in CA AND GA
+  (~2.7% of at-risk; order 1,000+ rows extrapolated from 75 sampled —
+  labeled extrapolation, not count; 37-vs-9 exemplar row). RULED: class →
+  D-CERT worklist as named/verified/self-alarming-pinned (xfail(strict)
+  containment); exact sweep folds into the US certification build; the
+  FIX (list-introducing vs mid-document-carve-out trigger classification —
+  architecture-level, cross-panel) → core-follow-on-3 with all evidence
+  attached. Not this cycle's work; nothing lost silently. PREAMBLE
+  withheld its own certification: shape-3 FP measured 18% (~3,100 rows)
+  + em-dash 14% — colon-list branch lacks its siblings' self-verification
+  (the five self-verifying shapes all measured 0%); narrower-rule remedy
+  in cycle 8 with the recall side of the trade to be measured; manager
+  superseded its own 836 figure (undisclosed scan window; 984 is the
+  load-bearing number); QA mutation-test found the working forwarding
+  filter pinned by NOTHING (deletable green) — pin commissioned. CORE-2:
+  G5+G6 green 8/8 with G6 shipped as 7-of-8-rows + TN named gap (seam
+  v2.8 row-7 "proven" claim corrected in v2.10); G12 merged with
+  real-data proof of the boundary+emission ruling (IL terms silently
+  dropped today); (b)/(c) dispatch changes → core-3 with the 1-of-8
+  number. IL: או-gap corrected downward by its Planner (230 shapes → 20
+  lines/13 files reaching the broken path); INTERPRETATION LAWS finding —
+  חוק הפרשנות art.3 and פקודת הפרשנות art.1 whole definitions lists
+  unreached (no preamble) → certification worklist.
+
+- 2026-08-05 (multiterm manager clean exit @ af0d548): context limit;
+  suite 13/804, tree clean. Exit highlights: M-R19 — Planner overruled the
+  manager on the 5-TX-duplicates test split and was RIGHT (4 of 5 are
+  ledger R1/markers-owned, proven by excluding F6 and re-running; one
+  combined test would have implied M-R18 fixes all five); the rule.
+  hardcoding spans FOUR files not three (manager found the fourth in the
+  Planner's own U-R10 file); standing lesson recorded — three worst
+  defects were correct-in-isolation/wrong-in-composition, and the suite
+  was green while shipping a duplicate-emission regression (corpus
+  re-measure + a Planner refusing to test around an inconvenience found
+  what the gates could not). U4 CANNOT CERTIFY yet (2 seam-blocked gaps on
+  core G10). Open work by owner in the contract Context Dump. Phase-2
+  successor spawned (roster).
+
+- 2026-08-05 (HEADINGS QA-CERTIFIED — first family panel to certify):
+  claude/defs-us-headings @ 60c0652, suite 860/0, recall 21,080/22,228 =
+  94.8353%. All six gates pass; U4 = PASS-WITH-NAMED-RESIDUAL (full 1,148
+  residual classified, buckets sum exactly; 3-row L12 residual named —
+  unfixable in-panel: needs shared-module edit or D-HG relaxation, both
+  forbidden); U5 = zero FP flips across all 1,931,308 non-defin-titled
+  rows; U6 = WA 74.26→98.64, FL 84.56→98.74, NY 91.35→98.76, zero H-R3
+  violations across 46 states. Convergence signal: FIRST cycle finding no
+  new mechanical gap class (cycles 2/3/convergence-scan each found one);
+  the 100-row unassigned bucket resolved entirely into known shapes.
+  Cross-ledger insight for D-CERT: L12's 3 rows + L7's 2 remaining are ONE
+  exclusionary-verb class ("does not include" — outside both panels'
+  vocabularies) → single D-CERT item, not five orphans. Queued unblocked:
+  item 16 (includes widening), L1 on core-2 G11, L9 on core-2 G6. Manager
+  re-ran load-bearing claims incl. re-fetching L12 rows live; merge
+  conflict in log resolved as union with zero-loss verification.
+  qa_cycles 4/5, valve unused. Merge-queue position: after core-2 →
+  markers → preamble per standing order.
+
+- 2026-08-05 (milestone batch, post-harness-adjustment): CORE-2 @ e4032c7 —
+  G2+G4 resolver fixes merged (SC connector chain solved; i9 test's
+  docstring found to misdescribe its own fixture — load-bearing error,
+  routed to plan1); G11 ruled DO-NOT-SHIP-ALONE (ships only with G12 +
+  G3-sibling); G12 opened (includes boundary+emission under D-INCLUDES —
+  manager chose emission over boundary-only on the inversion argument:
+  boundary-only converts visible contamination into silent drops); G5+G6
+  implementation spawned. SCOPED-INLINE @ 6b45c52 — pass-9 pin re-author
+  verified; Planner found 2 more PA rows ("references to \"the
+  corporation\" include") whose protection would evaporate under cycle-5's
+  finding-5 connector widening — guard requirement routed to the Developer
+  mid-flight with proof obligations. MARKERS @ 8edc197, 15/877 — Developer
+  B's 4 modules: MN 91.7→4.6%, ME 99.9→3.9%, OH 99.9→6.7%, NY 217→298
+  captured, MI 1,763 unchanged; two oracle rulings (U-R12 green-for-wrong-
+  reason AZ test to QA re-author; U-R13); FED "26,028 swallow" in the
+  module's own docstring found to be a genuine enumeration, never a swallow
+  (5/42 spot-checked, 37 to QA). PROCESS FINDING worth keeping: markers
+  Developer B REFUSED the delivery boilerplate as a suspected injection
+  lure (raw id + urgency + "your normal channel is unreliable" is the
+  exfiltration shape) and delivered via the normal path — correct instinct,
+  fails safe; the manager's refinement is the durable fix: anchor the
+  delivery instruction to a COMMITTED artifact the agent can verify in its
+  own worktree (applied to its next brief; recommended to all panels as
+  they next spawn). Manager also self-corrected an M19 role error (had
+  planned to apply the tuple-widening itself — production code is not
+  manager work; re-dispatched as Developer C).
+
+- 2026-08-05 (HARNESS ADJUSTMENT, director-ordered): role agents now
+  interact DIRECTLY with their panel managers, not through the program
+  manager. Mechanism: manager-to-manager SendMessage by raw agentId is
+  proven working in this session; the agent→manager direction failed only
+  because role agents were never given their manager's id. Effective
+  immediately, every panel manager embeds its own agentId in EVERY role
+  agent brief with the instruction to deliver the full report/escalation
+  via SendMessage to that id BEFORE returning (the plain-text final return
+  is not a reliable channel). Escalations resolve at the panel manager,
+  which escalates onward itself when needed. The program manager no longer
+  relays; stray completion notifications reaching its session are
+  forwarded as bare pointers ONLY if apparently undelivered (in-flight
+  agents briefed before this change will still return through the old
+  path until the fleet turns over). Broadcast to all 8 active managers
+  with their ids. Complements the director's micro-management correction
+  (program manager intervenes only on escalation, cross-panel
+  arbitration, director rulings, and merge duties).
+
+- 2026-08-05 (WA_T50 routing CORRECTED + the heading_was_derived gate,
+  G11 candidate): headings manager falsified the rerouting with a
+  layer-by-layer live trace — STATE_WA_T50_C29_S030's title IS
+  recognition-covered ("\"Wages\" defined for purpose of..." → panel
+  defined-for rule True); the failing layer is the heading_was_derived
+  GATE on the inline-quote fallback in core-owned us_profile: the flag is
+  True only on the body-derived-heading path, so registry-recognized
+  headings get False and the fallback NEVER RUNS. extract(...,
+  heading_was_derived=True) yields "wages"; False (the live value) yields
+  0. BOTH panels' probes were right and BOTH diagnoses wrong (markers' QA
+  drove extraction with the non-live flag value) — program lesson
+  recorded: probe ARGUMENTS are part of the claim; my relay propagated
+  the wrong diagnosis. QUANTIFIED: over defin-titled rows, 82,155
+  live-recognized / 53,918 zero on the live path / 39,955 RESCUED by
+  flipping the flag — the gate alone explains 74.1% of zero-yield (NV
+  8,555, NJ 2,650, AZ 2,645, MI 2,205, WA 2,044). Reconciles with recon
+  §6 finding #1 (the known existing-but-unwired fallback) — this NAMES
+  the specific gate and sizes it. CAVEAT recorded: 39,955 (defin-titled
+  population) and 12,869 (shape-1 bucket A) OVERLAP UNMEASURED — never
+  add them. ROUTED: G11 candidate to core-2 (shared module; largest
+  single lever measured in the program) with a BINDING both-sides
+  condition — the gate presumably exists for precision on the
+  body-derived path's messier inputs; find the original rationale (git
+  history/comments) and measure what the fallback would capture on
+  registry-recognized rows (FP side) before any flip; a per-call-site or
+  per-origin loosening may be sounder than removal. MARKERS impact: the
+  10-jurisdiction extension denominators must be RE-MEASURED under the
+  gate-fixed assumption before building (much of PA1's worklist may be
+  gate-rescued; PB1's MN/ME/OH boundary defects are gate-independent) —
+  their manager sequences with core-2. WA_T50 itself: closes when G11
+  lands; headings' reference-edge verification queues on it.
+
+- 2026-08-05 (mega-wave: D-INCLUDES + 4 core-2 planners + markers QA1 +
+  scoped-inline QA2 bounce + IL handoff + seam defect): Director ruled
+  D-INCLUDES (recorded in program doc). CORE-2: all four Planners landed —
+  plan1 @ 6455318 (G2 8 REDs; before/after prototype 8.4%→0.64% corpus,
+  ME 81→0.2%, AZ 69.7→0.2%; G4 scale proxy 42%/34% PROVISIONAL; SC
+  "or"-chain hazard named), plan2 @ 6abe042 (G3 content-marker design with
+  both-sides sampling: narrow 13.54%/extended 24.62% of 27,051 last
+  entries contaminated; G1 2 REDs + 5,423/242,193=2.24% padded terms
+  [NC 55%, WY 61.6%, NM 79.8%]; DC 27.3% PROVEN unreachable by G3 —
+  202/332 quoteless + 130/332 blocked by "The term " lead-in before quote;
+  sibling _extract_inline_quoted_definitions has identical defect, IL
+  71.4% contamination), plan3 @ 65c6336 (G5 reframed as bound-resolver
+  field; G6 seam v2.8 additive detect_value/ScopeAssignment/
+  determine_scope_assignments; 8 REDs; 10-row table corrected to 8 — NJ/UT
+  not value cases), plan4 @ f27299c (G8: baseline collides with ITSELF —
+  AR corpus duplication artifact; 2,282 rows/34 jurisdictions; 745
+  containment-unambiguous vs 2,307 benign vs 1,308 ambiguous;
+  design=strict-substring UPDATE path, ordering-flip and length-threshold
+  REJECTED with data; G3-independence proven structurally 0/4,360).
+  Markers manager sized collisions independently: 213 severe (TN 146/FED
+  51), worst discarded improvement 163,875 chars (USC_T5_C83_S8331); TX
+  labeled unclassified not counted. PROGRAM RULINGS: Q-G3-A = YES, sibling
+  in G3 scope (one shared termination helper), CONDITIONAL on a sampled
+  both-sides check for the fallback population before building; Q-G3-B =
+  DC de-linked from G3 (merge-protocol pass condition amended: G3 proves
+  FED RED green + corpus last-entry contamination near-zero; DC's real
+  shapes routed — "The term" lead-in = markers TermClauseRule family
+  [QA1 Q7 NC/DC shape], quoteless = unquoted family); G9 CANDIDATE added
+  (IL M20 breadcrumbs data source: pipeline.py:212 hardcodes (),
+  sections.py:138 len==2 gate; 2 committed REDs on claude/defs-il); G10
+  CANDIDATE added (multiterm escalation, proven from source:
+  TermClauseRule.parse receives block string only, us_profile.py:1351
+  drops the scope the dispatcher HAS → every panel's TermClauseRules stamp
+  law-wide; silent wrong-scope winner confirmed on real IN row; fix =
+  thread scope to parse, seam version bump) — core-2 manager has
+  accept/defer authority per gate with reasons. CORE-FOLLOW-ON-3
+  accumulator opened: AZ bare-digit-dot sibling-swallow, WA mid-paragraph
+  markers, MI spaced "( l )" markers, CT "Term:" convention + "Cited."
+  annotations, AL nested-sub-list mis-split (markers QA1 Q2). MARKERS:
+  QA1 PASS @ b294091 (6 defects pinned; Q3 = NEW bug in markers' OWN
+  _TRAILING_MARKER_CHAIN_RE stripping NNN.NNN. citations, 1,842/144,706 =
+  1.27%, TX 4.50% — most consequential, theirs to fix; Q4 ceiling: 1,308
+  dropped, VA ~3,020-char row proven genuine; Q5 WA row: extraction
+  PROVEN clean when driven directly — gap is 100% recognition-side →
+  REROUTED to headings [supersedes the H-R1 markers routing, with
+  evidence]; Q7 family-scoped miss 1.4% lower bound + NC/DC lead-in shape
+  named); PA1 @ 25eebf6 (28 guard pins; 83–96% of five guard states'
+  zero-yield is the SAME quote-anchored convention — tuple extension not
+  new modules; 8 REDs); PB1 @ dfd5473 (NM/MN/ME/OH collapse into
+  inline-quote family with 3 new boundary defects; NV = 2 stacked cheap
+  gaps ~95%; NH/HI join, MA/PA need dedicated modules; 6 REDs).
+  SCOPED-INLINE: QA cycle 2 BOUNCE @ 162f987 (U4 FAIL: 6 new
+  in-vocabulary misses pinned RED — "the term(s)" before quote 12,189
+  hits/52 states, shall-include 6,926/50 [now AUTHORIZED under D-INCLUDES
+  with the References-to guard], and-chain, GA "this Code section" 1,299
+  rows, boilerplate-connector break 2,113, second-entry drop; U6 honest
+  number = 314,139 distinct not 359,437 raw; S-R12 census 34,972 events 0
+  disagreements; D-S15 live: 4,034 recovered/143 regressed/1,924 genuine
+  under-links remain; item-5 population DISCREPANCY disclosed 15,282/44.3%
+  vs planner's 6,472/19.4% — reconcile in cycle 3; S-R17 residue now
+  uncertain BOTH directions, 167-vs-714 both contaminated — fresh look
+  ordered before the ownership split is sized). MULTITERM: QA cycle 1
+  found the G10 seam defect (held findings 1-2 correctly); proceeds with
+  findings 3/4/5 (as-defined-in 2,813 occ = largest; DC parent 289;
+  AL nested-clause) + U-R10 narrowing; qa_cycles 1. IL: phase-2 manager
+  clean exit @ 64932d7 (13 REDs; D-1a/b planners verified+merged; M20
+  breadcrumbs → G9; M21 הכרזה spelling variant folded into D-1a; class-C
+  law-wide-default design risk flagged for Developer+QA) — phase-3
+  manager to be spawned for serialized Developers + QA cycle 4 +
+  certification contract. PREAMBLE: Planner @ bf4fdcf (per-shape corpus
+  table: shape 1 = 31,048 total/29,678 uncaptured; shape 2 CORRECTED to
+  #2 at 17,477; ~59,900 matches Q-D2's 59,461 within 1%; 20 REDs with
+  rule-identity attribution; FP remedy = extend _B1_FORWARDING_PHRASES to
+  the widened branch, never a gate) — manager to verify + spawn Developer.
+
+- 2026-08-05 (Q1 second finding → core-2 scope): markers QA attributed all
+  3 WA >5,000-char definitions to BASELINE via kill control (family-3
+  blinded: baseline alone emits the swallow; markers' engine alone emits
+  the same terms at 303/188/105 chars, zero >=5,000) — G3 healing
+  prediction holds for all 3. BUT one layer deeper: a SECOND distinct
+  defect in pipeline.py's Stage-2 persistence (~line 275-310):
+  `all_blocks = baseline_blocks + extra_blocks` + first-candidate-wins on
+  key (article_id, sorted(terms)) means baseline's bad candidate WINS the
+  collision and the rule's clean candidate is silently discarded —
+  confirmed on the real ingest→run_definition_linking path. G3 fixing the
+  splitter alone may not fix the WIN (depends whether baseline stops
+  emitting vs merely shrinks). RULED into core-2 scope: either fold into
+  G3's acceptance (no baseline bad-candidate survives collision against a
+  cleaner same-term rule candidate on the evidence rows) or a named G8
+  with its own RED — core-2 manager's design call, tracking non-optional.
+  Evidence: test_us_markers_qa_q1_wa_newline_collapse_swallow.py on
+  claude/defs-us-markers (3 diagnostic passes + 1 load-bearing RED on real
+  persisted output).
+
+- 2026-08-05 (markers phase-2 verification + U-R10 ruling): markers @
+  cf0aa88 — inherited claims verified with kill-controls (blinding the
+  registry returns exactly the pre-build rates: rules load-bearing, not
+  registered-only). Three inherited-number corrections, all the manager's
+  own probes: FED 7.3% (its first sweep used US-FEDERAL not US-FED — probe
+  artifact); NY production-faithful is 1,262/85.3% NOT 1,479/100% (the
+  parquet holds raw literal-\n that core's fix strips at INGEST — 217 NY
+  rows already capture; only NY+CA affected, CA's 21 match core's recorded
+  residual); the "ten jurisdictions ≈19,278" conflated figures — ten sum
+  to 12,941 (12,724 post-ingest), 19,278 is the TOTAL uncovered residual,
+  so NH (943/100%), MA, PA, HI are being measured for family membership
+  (Planner B) rather than dropped by rank cutoff. U-R10 RULED (program
+  manager, on markers' merged-tree simulation): multiterm's two
+  EntrySplitterRules register US-* wildcard and re-contribute whole-section
+  text — on the merged tree they double WA's >5,000-char damage 3→7 (new
+  worst 11,314 chars) for −6 AL zero-yield, and AL recall belongs to
+  markers' own engine. Multiterm NARROWS: jurisdiction registration scoped
+  to the states its accepted items actually require (per its registry-audit
+  table), plus a contribution length bound if its items permit; red-first
+  per its own M-R13/M-R14 discipline; QA certifies the narrowed
+  registration. Markers' QA audit stays bounded to its branch's 3 WA rows
+  (attributed to baseline splitter — expected to heal at core-2 G3 merge).
+
+- 2026-08-05 (headings cycle-5 COMPLETE + scout respawn): headings @
+  533f12d — suite 860/0, recall 21,080/22,228 = 94.8353% (+76 verified).
+  Pin re-authored to the stronger mechanism-level property (capture via
+  dedicated R-POINTER predicate; manager added the negative control proving
+  the legacy rules CAN fire elsewhere, making the pin falsifiable); manager
+  recorded its own import-name verification error as its own, not the
+  agents'. QA cycle 4 opens against d5c12ab. The includes-FP scout declared
+  DEAD (~10.5h idle) after completing denominator, P-R10 control, full
+  24MB occurrence scan, and both samples — died at hand-classification.
+  Respawned by program manager (fresh Sonnet scout) reusing
+  headings_scout1_* scratchpad artifacts: re-verify the control first,
+  classify from the drawn samples, do NOT re-scan unless the control
+  fails. D-Q1 includes class stays open on headings ledger L2 until the
+  measurement lands.
+
+- 2026-08-05 (markers exit report — baseline-states finding + bucket-A
+  discrepancy): markers @ c4baf7ce, manager context-exhausted, clean exit,
+  QA NOT spawned (correctly — could not have verified it). Probe-sanity on
+  bucket A FAILED to reconcile: markers measures 21,072 zero-yield
+  recognized rows on its branch vs headings' 12,869 — cannot be the same
+  denominator. PROGRAM DIAGNOSIS (hypothesis, to be proven at merge):
+  the branches carry DIFFERENT rule sets — headings' branch has its
+  recognition rules (verb-form headings: NV etc.) but not markers'
+  extraction rules; markers' branch the reverse; also headings' bucket A
+  counts only shape-1 rows while markers counted ALL zero-yield recognized
+  rows. TRUE bucket A is only measurable on the MERGED tree — neither
+  number gets quoted at certification; both recorded as branch-partial.
+  NV attribution corrected: 1,262 recognized on markers' branch (not
+  ~6,866 — that count used headings' recognition rules). THE BIG FINDING:
+  residual concentrates in ten uncovered jurisdictions ≈19,278 rows
+  (NJ 2,372/99.7%, NM 1,578, NY 1,479/100%, NV 1,262/100%, OK 1,146,
+  MI 1,116, ND 1,023, MN 1,016, ME 1,000, OH 949) — and NJ/MI/ND/NY/OK are
+  the program's C5 "working baseline" regression-guard states, recognized
+  but yielding zero at 94–100%: the baseline states were never capturing.
+  RULED (program manager, under D-PREAMBLE-ALL "all states" + D-CERT —
+  director-vetoable): the 10-jurisdiction engine extension is IN-MANDATE
+  markers phase-2 scope (numbers re-derived first per standard), after its
+  QA on the current build. Markers phase-2 manager spawned (roster).
+  Merge order unchanged: core-2 → markers → preamble → rest.
 
 - 2026-08-05 (core-2 commissioned + D-S15 shipped + L11): CORE FOLLOW-ON-2
   commissioned as sprint 2026-08-05-defs-core-follow-on-2 (contract with
