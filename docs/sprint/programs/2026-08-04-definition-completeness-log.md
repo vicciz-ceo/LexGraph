@@ -83,6 +83,25 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (correction + markers QA-2): CORRECTION to this log's earlier
+  milestone entry: the FED "26,028 swallow" was NEVER in the markers
+  module's docstring — git log -S proves the string lives only in that
+  panel's M9 log entry, and the candidate is bounded=True so the ceiling
+  never applied to it by construction (markers manager verification;
+  Developer A's counter-finding upheld; M9's sentence to be corrected by
+  its panel). Markers QA-2: re-derived the "42 newly-exempted" population
+  from scratch → 64 (unreconcilable to 42; verified ALL 64), finding six
+  defects in already-merged code — two serious (WA ~8,900-char swallow
+  past an unrecognized (j) hard-stop; MN "Affiliate" = four terms' content
+  glued by a too-tight idiom gate). Routing: three-to-four of six are the
+  FOURTH independent arrival at core-3's citation-vs-marker anchor; two
+  are markers' own (FED trailing-annotation architecture — first-block-only
+  TRAILING_STOP_RE with once-computed limit; MN idiom gate) → queued for
+  their fix cycle. MI/NY holds intact; devC's value independently
+  corroborated (NY 81.9% headed-zero-capture root cause = the exact shape
+  devC registers). Markers manager named its own three propagated
+  mislabels this phase — all caught by re-derivation, none by re-reading.
+
 - 2026-08-05 (endgame batch: G8 rulings, U-R14 vacated, R6, M-R23 closed):
   CORE-2 ruled the two routed G8 items: cross-term coverage assumption
   WITHDRAWN (persistence keys make class-D structurally unreachable by G8
