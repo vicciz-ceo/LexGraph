@@ -74,7 +74,65 @@ FIXTURE_PATH = (
 
 DEGENERATE_THRESHOLD = 10  # chars; see wave1 fixture's own docstring for justification
 
-_TRAILING_MARKER_LEAK_RE = re.compile(r"\d{1,3}\.\s*$")
+# RULING U-R12 (sprint log §M22/§M23 item 1): the original oracle,
+# `re.compile(r"\d{1,3}\.\s*$")`, could not tell a genuine leaked next-entry
+# marker (e.g. "...the district. 2.") from a REAL trailing statute citation
+# (e.g. AZ's own "Fund" entry, "...established by section 15-1873.") -- both
+# end in 1-3 digits + a period, so the bare pattern matched both. The test
+# was green before Developer A's citation-truncation fix ONLY because the
+# citation was being truncated to "...section 15-1" (no trailing period at
+# all) -- i.e. the truncation DEFECT was what satisfied this assertion.
+#
+# The fix: a leaked marker is a freestanding short digit token -- there must
+# be a word boundary (whitespace, or start of string) immediately before the
+# 1-3 digit run. A citation's tail digits ("...15-1873.") are never preceded
+# by whitespace: they sit directly after a hyphen inside a longer run
+# ("15-1873"), so `\d{1,3}` can only ever match a 1-3-digit SUFFIX of that
+# run ("873"), and the character immediately before that suffix is itself a
+# digit ("1873" -> "1" precedes "873") -- never whitespace. A real leaked
+# marker (a separate list-item token: "...district. 2.", or the confirmed
+# live swallow "...internal revenue code.\n\n13.") is always set off by
+# whitespace/newline from the preceding sentence, so it still matches.
+#
+# Verified against the module docstring's own AZ "Qualified higher education
+# expenses" swallow ("...internal revenue code.\n\n13." -> matches, correctly
+# flagged) and against the real "Fund" row's citation tail measured live from
+# this fixture ("...established by section 15-1873." -> no match, correctly
+# passed). See `test_trailing_marker_leak_oracle_distinguishes_leak_from_citation`
+# below for the pinned control cases -- keep it in sync with any future
+# change to this regex so the oracle cannot rot into a tautology that always
+# returns False.
+_TRAILING_MARKER_LEAK_RE = re.compile(r"(?:^|\s)\d{1,3}\.\s*$")
+
+
+def test_trailing_marker_leak_oracle_distinguishes_leak_from_citation():
+    """Unit-level positive control for `_TRAILING_MARKER_LEAK_RE` itself
+    (U-R12). This must keep failing on a genuine leaked marker and passing
+    on a real citation tail, independent of whatever the live pipeline test
+    below currently does -- so a future edit that silently weakens the
+    regex into a no-op (e.g. always returning no match) gets caught here
+    even if the pipeline test elsewhere happens to still be green."""
+    # A genuine leaked next-entry marker MUST still be detected.
+    assert _TRAILING_MARKER_LEAK_RE.search("the governing board of the district. 2.")
+    assert _TRAILING_MARKER_LEAK_RE.search(
+        "...pursuant to section 529 of the internal revenue code.\n\n13."
+    )
+    # A real trailing statute citation MUST NOT be flagged as a leak.
+    assert not _TRAILING_MARKER_LEAK_RE.search(
+        "a school district established by section 15-1873."
+    )
+    assert not _TRAILING_MARKER_LEAK_RE.search(
+        "AZ529, Arizona's education savings plan trust fund that constitutes a "
+        "public instrumentality of this state and that is established by "
+        "section 15-1873."
+    )
+    # Clean text with no trailing digits at all: no match either way.
+    assert not _TRAILING_MARKER_LEAK_RE.search("the governing board of the district.")
+    # A truncated citation (no trailing period) predates Developer A's fix
+    # and should never occur again, but the oracle must not flag it either.
+    assert not _TRAILING_MARKER_LEAK_RE.search(
+        "a school district established by section 15-1"
+    )
 
 
 def _load_rows() -> dict[str, dict]:

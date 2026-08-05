@@ -17,7 +17,14 @@ duplicates a term changes the set) plus one full `definition_text` pin per
 row (a content-fidelity spot check, not exhaustive -- rows here carry up
 to 16 terms; pinning every
 one's full text would bloat this file past the 300-line convention for
-marginal extra protection over the term-set check)."""
+marginal extra protection over the term-set check).
+
+**Re-pinned 2026-08-05 (phase-3 Planner, U-R17/M35 work order item 1)**:
+Developer C's US-MI registration surfaces one additional genuine term
+('Transient guest'), verified against source, RULING U-R16 vacated
+(the earlier spurious-fragment theory did not survive verification).
+No class-B (defective-text) terms on this file's rows -- MI is not on
+`## M37`'s closed 15-of-75 list."""
 
 from __future__ import annotations
 
@@ -75,7 +82,10 @@ def test_c5_guard_state_mi_c141_aact_244_of_1989_s141_892(db_session, matter_wit
     """STATE_MI_C141_AAct-244-of-1989_S141.892: pins 14 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_MI_C141_AAct-244-of-1989_S141.892")
-    assert sorted(by_term) == ['Assessment', 'Assessment revenues', 'Board', 'Director', 'Master plan', 'Owner', 'Regional assessment district', 'Regional marketing organization', 'Room', 'Room charge', 'Tourism marketing program', 'Tourism marketing program notice', 'Transient facility', 'Travel bureau'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): devC's US-MI registration adds
+    # 'Transient guest' as a genuine new capture, not on the closed
+    # class-B list (ends with a real terminal period, verified).
+    assert sorted(by_term) == ['Assessment', 'Assessment revenues', 'Board', 'Director', 'Master plan', 'Owner', 'Regional assessment district', 'Regional marketing organization', 'Room', 'Room charge', 'Tourism marketing program', 'Tourism marketing program notice', 'Transient facility', 'Transient guest', 'Travel bureau'], f"got {sorted(by_term)!r}"
     spot = by_term['Transient facility']
     assert spot.definition_text.strip() == 'means a building or combination of buildings under common ownership, operation, or management that contains 10 or more rooms used in the business of providing dwelling, lodging, or sleeping to transient guests, whether or not membership is required for the use of the rooms. Transient facility includes a building or combination of buildings, the owner of which has elected to come under the provisions of this act pursuant to section 9. Transient facility does not include a college or school dormitory; a hospital; a nursing home; a hospice; a building or combination of buildings that is otherwise a transient facility, but that is located within 1 mile of a ski lift as defined in section 2 of the ski area safety act of 1962, 1962 PA 199, MCL 408.322; or a facility owned and operated by an organization qualified for an exemption from federal taxation under section 501(c) of the internal revenue code.\n\n( l ) "Transient guest" means a natural person who occupies a room in a transient facility for less than 30 consecutive days regardless of who pays the room charge.', (
         f"content-fidelity spot check failed for 'Transient facility': got {spot.definition_text!r}"

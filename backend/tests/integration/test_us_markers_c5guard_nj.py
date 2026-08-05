@@ -17,7 +17,22 @@ duplicates a term changes the set) plus one full `definition_text` pin per
 row (a content-fidelity spot check, not exhaustive -- rows here carry up
 to 11 terms; pinning every
 one's full text would bloat this file past the 300-line convention for
-marginal extra protection over the term-set check)."""
+marginal extra protection over the term-set check).
+
+**Re-pinned 2026-08-05 (phase-3 Planner, U-R17/M35 work order item 1)**:
+Developer C's US-NJ registration (`_JURISDICTIONS` widening in
+`us_markers_inline_quote.py`, held unmerged pending this re-pin, see M34's
+merge sequencing) surfaces additional genuine terms on 4 of this file's
+rows -- RULING U-R16 vacated the earlier spurious-fragment theory (U-R14):
+every extra term here is real, verified against source text, not a false
+positive. Term SETS below are re-pinned to the widened, correct set. Per
+M34's explicit constraint, a term whose captured TEXT is defective
+(class-B, `## M37`'s closed 15-of-75 list) is still pinned for PRESENCE
+here (that presence is real and correct) but its text is deliberately NOT
+spot-checked in this file -- baking a known-broken capture into an accepted
+baseline is exactly how a defect gets silently laundered. Those defects are
+pinned separately, RED, in
+`test_us_markers_c5guard_class_b_boundary_defects.py`."""
 
 from __future__ import annotations
 
@@ -65,7 +80,15 @@ def test_c5_guard_state_nj_t58_c22_s22_3(db_session, matter_with_users):
     """STATE_NJ_T58_C22_S22-3: pins 11 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_NJ_T58_C22_S22-3")
-    assert sorted(by_term) == ['Commissioner', 'Construct', 'Cost', 'Council', 'Department', 'Division', 'Net revenues', 'Operating expenses', 'Project', 'Real property', 'Water supply facility'], f"got {sorted(by_term)!r}"
+    # Re-pinned per ruling U-R16/U-R17 (sprint log M34/M35): devC's US-NJ
+    # registration adds 'facility' as a genuine second alias, defined in the
+    # same sentence as 'Water supply facility' ("... or "facility" means
+    # and refers to ..."), verified against the real row text -- not a
+    # spurious fragment (U-R14 is vacated). Its captured text IS defective
+    # (missing its own "means " prefix and a truncated citation tail); that
+    # defect is pinned separately as a RED, not baked in here -- see
+    # `test_us_markers_c5guard_class_b_boundary_defects.py`.
+    assert sorted(by_term) == ['Commissioner', 'Construct', 'Cost', 'Council', 'Department', 'Division', 'Net revenues', 'Operating expenses', 'Project', 'Real property', 'Water supply facility', 'facility'], f"got {sorted(by_term)!r}"
     spot = by_term['Cost']
     assert spot.definition_text.strip() == 'shall mean, in addition to the usual connotations thereof, the cost of acquisition or construction of all or any part of a water supply facility and of all or any real or personal property, agreements and franchises deemed by the department to be necessary or useful and convenient therefor or in connection therewith, including interest or discount on bonds, cost of issuance of bonds, cost of geological and hydrological services, engineering and inspection costs and legal expenses, cost of financial, professional and other estimates and advice, organization, administrative, operating and other expenses prior to and during such acquisition or construction, and all such other expenses as may be necessary or incident to the financing, acquisition, construction and completion of such water supply facility or part thereof and the placing of the same in operation, and also such provision for reserves for working capital, operating, maintenance or replacement expenses and for payment or security of principal of or interest on bonds during or after such acquisition or construction as the State Comptroller may determine, and also reimbursements to the State General Fund of any moneys theretofore expended for or in connection with such water supply facility.', (
         f"content-fidelity spot check failed for 'Cost': got {spot.definition_text!r}"
@@ -85,7 +108,11 @@ def test_c5_guard_state_nj_t12a_c2_s2_104(db_session, matter_with_users):
     """STATE_NJ_T12A_C2_S2-104: pins 1 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_NJ_T12A_C2_S2-104")
-    assert sorted(by_term) == ['Merchant'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): 'Between merchants' is class-B
+    # (citation tail truncated -- pinned separately, RED, in
+    # `test_us_markers_c5guard_class_b_boundary_defects.py`), not baked in
+    # here. 'Financing agency' is a clean class-A capture.
+    assert sorted(by_term) == ['Between merchants', 'Financing agency', 'Merchant'], f"got {sorted(by_term)!r}"
     spot = by_term['Merchant']
     assert spot.definition_text.strip() == 'means a person who deals in goods of the kind or otherwise by his occupation holds himself out as having knowledge or skill peculiar to the practices or goods involved in the transaction or to whom such knowledge or skill may be attributed by his employment of an agent or broker or other intermediary who by his occupation holds himself out as having such knowledge or skill. (2) "Financing agency" means a bank, finance company or other person who in the ordinary course of business makes advances against goods or documents of title or who by arrangement with either the seller or the buyer intervenes in ordinary course to make or collect payment due or claimed under the contract for sale, as by purchasing or paying the seller\'s draft or making advances against it or by merely taking it for collection whether or not documents of title accompany the draft. "Financing agency" includes also a bank or other person who similarly intervenes between persons who are in the position of seller and buyer in respect to the goods (12A:2-707). (3) "Between merchants" means in any transaction with respect to which both parties are chargeable with the knowledge or skill of merchants. L.1961, c. 120, s. 2-104.', (
         f"content-fidelity spot check failed for 'Merchant': got {spot.definition_text!r}"
@@ -105,7 +132,11 @@ def test_c5_guard_state_nj_t12a_c2_s2_105(db_session, matter_with_users):
     """STATE_NJ_T12A_C2_S2-105: pins 1 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_NJ_T12A_C2_S2-105")
-    assert sorted(by_term) == ['Goods'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): 'Commercial unit' is class-B
+    # (citation tail truncated -- pinned separately, RED, in
+    # `test_us_markers_c5guard_class_b_boundary_defects.py`), not baked in
+    # here. 'Lot' is a clean class-A capture.
+    assert sorted(by_term) == ['Commercial unit', 'Goods', 'Lot'], f"got {sorted(by_term)!r}"
     spot = by_term['Goods']
     assert spot.definition_text.strip() == 'means all things (including specially manufactured goods) which are movable at the time of identification to the contract for sale other than the money in which the price is to be paid, investment securities (Chapter 8) and things in action. "Goods" also includes the unborn young of animals and growing crops and other identified things attached to realty as described in the section on goods to be severed from realty (12A:2-107). (2) Goods must be both existing and identified before any interest in them can pass. Goods which are not both existing and identified are "future" goods. A purported present sale of future goods or of any interest therein operates as a contract to sell. (3) There may be a sale of a part interest in existing identified goods. (4) An undivided share in an identified bulk of fungible goods is sufficiently identified to be sold although the quantity of the bulk is not determined. Any agreed proportion of such a bulk or any quantity thereof agreed upon by number, weight or other measure may to the extent of the seller\'s interest in the bulk be sold to the buyer who then becomes an owner in common. (5) "Lot" means a parcel or a single article which is the subject matter of a separate sale or delivery, whether or not it is sufficient to perform the contract. (6) "Commercial unit" means such a unit of goods as by commercial usage is a single whole for purposes of sale and division of which materially impairs its character or value on the market or in use. A commercial unit may be a single article (as a machine) or a set of articles (as a suit of furniture or an assortment of sizes) or a quantity (as a bale, gross, or carload) or any other unit treated in use or in the relevant market as a single whole. L.1961, c. 120, s. 2-105.', (
         f"content-fidelity spot check failed for 'Goods': got {spot.definition_text!r}"
@@ -125,7 +156,10 @@ def test_c5_guard_state_nj_t48_c10_s10_3(db_session, matter_with_users):
     """STATE_NJ_T48_C10_S10-3: pins 1 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_NJ_T48_C10_S10-3")
-    assert sorted(by_term) == ['Board'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): 'Natural gas pipeline utility'
+    # is a clean class-A capture (not on the closed class-B list; ends with
+    # a real terminal period, verified).
+    assert sorted(by_term) == ['Board', 'Natural gas pipeline utility'], f"got {sorted(by_term)!r}"
     spot = by_term['Board']
     assert spot.definition_text.strip() == 'shall mean the Board of Public Utility Commissioners of New Jersey. (b) "Natural gas pipeline utility" shall mean any individual, co-partnership, association, corporation, or joint stock company, their lessees, trustees or receivers appointed by any court whatsoever, that now or hereafter may own, operate, manage, or control any pipeline used for the transmission of natural gas within or through this State, but shall not include any individual, co-partnership, association, corporation, or joint stock company which, within this State, is engaged in the business of manufacturing, buying, or selling manufactured, mixed, or natural gas or a mixture of such gases with other gases and distributing the same to consumers within this State. (c) "Pipeline" shall include compressor plants and other facilities integrated with pipeline operations. L.1952, c. 166, p. 540, s. 2, eff. May 9, 1952.', (
         f"content-fidelity spot check failed for 'Board': got {spot.definition_text!r}"
