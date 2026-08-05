@@ -3092,3 +3092,76 @@ is new legitimate capture. 0.55% remains inside F6's mandated "~1-2 per 300"
 **Ruling M-R17:** red-before-green — Planner authors a RED pinning "one term,
 one candidate" for the CROSS-REFERENCE path (mirroring M-R14's apposition
 guard), then the Developer dedupes there. Do not let the fix ship untested.
+
+---
+
+## 2026-08-05 — M-R18: the ratified guard is DEFEATED by our own splitter
+
+### Planner handoff `72d77d7` verified
+
+Production untouched (`git diff --stat backend/app/` empty, including across
+its mutation check). Suite **7 failed / 804 passed** — its predicted number and
+mine. Both M-R16 pins green, M-R17 cross-reference dedup RED filed with a
+byte-exact vendored row (`STATE_AR_T4_C28_S2_S4-28-208`).
+
+### The finding — and it is BIGGER than reported
+
+The Planner tried its under-suppression pin against the REAL, FULL TX row,
+found it RED (2 `"Governmental body"` candidates, not 1), and — rather than
+quietly using the excerpt and saying nothing — pinned the guard's own narrow
+claim with an anchor-sliced excerpt AND reported the full-row failure
+prominently for my disposition. Exactly right: it did not test around a
+defect, and it did not exceed its authorised scope to fix it.
+
+**I reproduced it, and the blast radius is wider than the one term:**
+
+```
+TX STATE_TX_Cgv_C2009_S2009.003 via get_profile("US-TX").extract_definitions_from_section
+total candidates: 9
+duplicated terms: {'Governmental body': 2, 'contested case': 2,
+                   'party': 2, 'person': 2, 'rule.': 2}
+```
+
+**Every term the TX parent-redirect path captures is double-emitted** — not
+just the one the Planner happened to pin. That path is contract item 3, a
+headline deliverable of this sprint.
+
+**Root cause (Planner's, confirmed by me).** U-R10's TX-scoped
+`EntrySplitterRule` re-contributes the WHOLE section text as an extra block so
+the parent line and its lettered children are visible together. When
+`_parse_block` runs on THAT block, the block's own leading token is
+`In this chapter:` — not a quote — so `_leading_quote_term(...)` returns
+`None` and the guard's `candidate.terms[0] == leading_term` comparison can
+never fire. Baseline's per-block pass (1) + the whole-text block's unguarded
+pass (1) = 2, for every term.
+
+**This is my error to own, not the Developer's or the Planner's.** In M-R16 I
+ratified the guard against the finding-4 shape it was written for and did not
+evaluate it against the EntrySplitterRule interaction that had landed in the
+SAME commit. I have now twice ratified/specified something correct in
+isolation and wrong in composition (the OR `"Taken"` row, and now this). The
+standing correction: **when ratifying a guard, test it against every block
+source that reaches it, not just the one that motivated it.**
+
+### Second, separate defect visible in the same output — `'rule.'`
+
+The captured term is `rule.` WITH a trailing period, from the statute's own
+`(F) "rule."` where the period sits inside the quotes. Faithful to the bytes,
+wrong as a term — it will never match a real mention of "rule". Distinct from
+the duplication bug (term boundary/normalisation, not double-emit). Recorded
+as a NEW finding; scale unmeasured; not to be conflated with M-R18.
+
+### Ruling M-R18
+
+Red-before-green, and the RED must be the FULL row, not an excerpt:
+1. **Planner** — author a full-row RED asserting EACH TX parent-redirect term
+   (`Governmental body`, `contested case`, `party`, `person`, and the `rule`
+   entry) appears EXACTLY ONCE. Keep the existing excerpt pin — it correctly
+   pins the guard's own claim; the new test pins the composed behaviour.
+   Also pin the `rule.` trailing-period defect as its own RED so it cannot be
+   silently absorbed into the dedup fix.
+2. **Developer** — fix the composition so a whole-section contributed block
+   cannot re-emit terms baseline already captured per-block, AND fix the
+   cross-reference dedup (M-R17). Both are the same family: a rule must stay
+   silent on what baseline already produced (M-R12), regardless of which
+   block source it is looking at.
