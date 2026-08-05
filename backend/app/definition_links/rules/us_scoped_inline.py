@@ -21,41 +21,32 @@ sections):
 
 `"local"`/`"chapter"` are shipped and live-enforced by `matcher.py`'s
 `_in_scope` (S-R4); every OTHER literal kind falls into its generic
-branch, reading a `MatcherArticle` attribute that does not exist in
-production -- `False` for every article, including the definition's own
-(S-R5): a guaranteed zero-miss violation. `"part"`/`"subchapter"` (D8:
-UNSOUND under a chapter-fallback -- a single Maine Part spans up to 106
-chapters) therefore fall back to the narrowest REPRESENTABLE enclosing
-unit rather than a kind guaranteed dead -- `"law-wide"` -- core's own
-precedent for an unrepresentable narrowing (seam v2 S1, AK ranges):
-zero-miss-safe, precision cost recorded not silently dropped (NAMED OPEN
-CONFLICT CLASSES, P-R2).
+branch, reading a `MatcherArticle` attribute absent in production --
+`False` for every article (S-R5): guaranteed zero-miss violation.
+`"part"`/`"subchapter"` (D8: UNSOUND under a chapter-fallback -- a single
+Maine Part spans up to 106 chapters) fall back to the narrowest
+REPRESENTABLE unit instead -- `"law-wide"` -- core's own precedent (seam
+v2 S1, AK ranges): zero-miss-safe, precision cost recorded (P-R2).
 
 `"subsection"`'s own history (S-R9 diagnosis -> S-R10 live-path proof ->
 S-R11 interim -> S-R14 fix -> D-S15 director ruling, full detail in
-`us_scoped_inline_shapes.py`'s own docstring, not repeated here): the old
-design compared this module's OWN regex-guessed label against core's
-`resolve_unit_path` -- two derivations that silently disagreed, a total
-under-link on the live path (S-R10). S-R14 replaces both with ONE:
+`us_scoped_inline_shapes.py`'s own docstring, not repeated here): S-R14
+replaced two silently-disagreeing derivations with ONE --
 `_resolve_subsection_scope` stamps `.scope_value`/`.scope_unit_kind` from
-core's OWN resolved step, never a shape guess. WHICH step is
-`_subsection_scope_level`'s job (D-S15: the OUTERMOST step, `path[0]`).
-When core's resolver returns no usable step at all (Maine/Florida
-period-style subsections core's marker regex cannot see),
-`_resolve_subsection_scope` degrades to `"local"` -- zero-miss-safe,
-unaffected by D-S15 since the degrade fires on an EMPTY path.
+CORE's own resolved step, never a shape guess (WHICH step is D-S15's job,
+the OUTERMOST, `path[0]`). An empty path (core's marker regex blind to
+Maine/Florida period-style subsections) degrades to `"local"`, zero-miss.
 
 The pure function leaves `.source_article_number`/`.source_chapter` `None`
-(matching `extract_local_definitions`'s convention): `us_profile.py`'s
+(`extract_local_definitions`'s convention): `us_profile.py`'s
 `extract_local_scope_definitions` auto-defaults `.source_article_number`
 from the owning article whenever `None`, but NOT `.source_chapter`, so the
-adapter below stamps `source_chapter=ctx.chapter` itself for every
-`scope="chapter"` candidate (mirrors core's `pipeline.py` Definitions-
+adapter below stamps `source_chapter=ctx.chapter` for every
+`scope="chapter"` candidate (mirrors core's `pipeline.py` Definitions
 path). `.scope_value`/`.scope_unit_kind` are stamped for every
-`subsection`-TRIGGERED candidate by `_resolve_subsection_scope`; the
-VALUE stays transient (S-R7, no test pins it literally), but whether an
-in-subsection mention links and an out-of-subsection one does not is now
-genuinely live-path test-pinned.
+`subsection`-TRIGGERED candidate by `_resolve_subsection_scope` (VALUE
+transient, S-R7; whether in-/out-of-subsection links differ is live-path
+test-pinned).
 
 Body-shape (idiom) vocabulary, real corpus evidence (Planner D1/D11):
 `means`/`shall mean`/`has the meaning`/`has the same meaning as in
@@ -63,42 +54,37 @@ section N` (OH cross-reference)/`includes`/`the term "X" includes`/`does
 not include`/`is defined as`, and (D11, Missouri) a bare `"X" ,
 <definition>` with no idiom keyword. Colon-then-list (incl. Oregon's
 capital-letter `(A)(B)` convention) is supported by only ever starting a
-NEW entry at a short list marker IMMEDIATELY followed by a quote -- the
-same precision mechanism that keeps a term's OWN numbered elaboration
-list (no new quoted term per item, e.g. Montana's fantasy-sports-league
-row) from being spuriously split, and keeps PA's `References to "X"
-shall include Y` construction-clause (a marker NOT immediately followed
-by a quote) from ever being recognized.
+NEW entry at a short list marker IMMEDIATELY followed by a quote -- keeps
+both a term's OWN numbered elaboration list (Montana's fantasy-sports-
+league row) and PA's `References to "X" shall include Y` construction
+clause (marker NOT immediately followed by a quote) from ever splitting.
 
-Fix cycle 2 (QA cycle-1, 8 root causes -- full detail and real-corpus
-before/after evidence in this sprint's report): the body-shape regex
-vocabulary and entry-splitting helpers moved to the sanctioned overflow
-module `us_scoped_inline_shapes.py` (style gate -- this file was already
-at the 300-line ceiling). Added: period-style list markers, an unmarked
-colon-then-quoted-list fallback (the single most severe QA cycle-1 miss),
-one tolerated intervening "and [in] <citation>" clause, `the term(s)`
-without requiring trailing whitespace before a colon, `shall have (the
-following) meaning(s) (as follows)`, plural `have the same meaning as`,
-an "X" or "Y" alias chain, and a bare copula `is` (measured against the
-real corpus per D-Q1 -- see the report). The two precision gates flagged
-load-bearing-but-under-pinned by QA cycle-1 mutation testing are
-UNCHANGED by this cycle: the bare-`in` trigger's strict comma/colon
-adjacency gate, and `_MARKER_QUOTE_RE`'s marker-immediately-followed-by-
-quote rule (only the marker SYNTAX vocabulary widened, never the
-immediate-adjacency requirement itself).
+Fix cycle 2 (QA cycle-1, 8 causes -- full detail in report): body-shape
+vocabulary/entry-splitting moved to overflow module `us_scoped_inline_
+shapes.py` (style gate). Added: period-style markers, an unmarked
+colon-then-quoted-list fallback (cycle-1's most severe miss), one "and
+[in] <citation>" clause, `the term(s)` without trailing whitespace, `shall
+have (the following) meaning(s) (as follows)`, plural `have the same
+meaning as`, an "X" or "Y" alias chain, bare copula `is` (measured, D-Q1).
+Both precision gates (bare-`in` adjacency, `_MARKER_QUOTE_RE` marker-quote
+adjacency) UNCHANGED (marker SYNTAX only widened).
 
-Fix cycle 5 (QA cycle-2, 6 root causes; full detail and corpus-wide
-measurement in this sprint's report): `_UNIT_TAIL` (Georgia's "Code
-section") is the only change here. The other five live in
-`us_scoped_inline_shapes.py` (vocabulary) and the new sanctioned overflow
-module `us_scoped_inline_entries.py` (entry-splitting mechanics, moved out
-this cycle to stay under the 300-line gate a second time; also holds the
-D-INCLUDES targeted "References to" guard). Both precision gates flagged
-load-bearing by QA cycle-1 mutation testing are UNCHANGED again: the
-bare-`in` adjacency gate (`_BARE_CONNECTOR_RE`'s `colon`/`comma` groups,
-which `_leading_events` below still reads directly; this cycle's new
-tolerance is appended AFTER them, never inside), and `_MARKER_QUOTE_RE`'s
-marker-immediately-followed-by-quote rule (untouched this cycle).
+Fix cycle 5 (QA cycle-2, 6 causes; full detail in report): `_UNIT_TAIL`
+(Georgia) is the only change here; the other five live in
+`us_scoped_inline_shapes.py`/`_entries.py` (new overflow module, also
+holds the D-INCLUDES guard). Both precision gates UNCHANGED again.
+
+Fix cycle 6 (QA cycle-3, 3 causes; full detail in report): here,
+`_STRONG_TRIGGER_RE`'s phrase-internal whitespace (finding 1) and
+`_leading_events`'s new `_preceded_by_meaning_tail` guard (finding 2's own
+side effect -- see that function's docstring). Connector tail/filler
+widening (findings 2/3) lives in `us_scoped_inline_shapes.py`. Both
+precision gates UNCHANGED a third time -- PA re-verified zero. KNOWN GAP
+(escalated, not silently absorbed): finding 1's tolerance can ALSO match
+an embedded, line-wrapped "for purposes of this X" deep in an unrelated
+definition's own prose; if that spurious match falls INSIDE an
+already-open multi-entry region it truncates the region early, dropping
+later items. Confirmed on 5 rows (KY, ND, OK x3) -- see report.
 """
 
 from __future__ import annotations
@@ -121,6 +107,7 @@ from app.definition_links.rules.us_scoped_inline_entries import (
 from app.definition_links.rules.us_scoped_inline_shapes import (
     _BARE_CONNECTOR_RE,
     _IDIOM_RE,
+    _MEANING_TAIL_RE,
     _STRONG_CONNECTOR_RE,
     _resolve_subsection_scope,
 )
@@ -142,18 +129,16 @@ _SCOPE_BY_UNIT: dict[str, str] = {
 
 _UNIT_ALT = "|".join(sorted(_SCOPE_BY_UNIT, key=len, reverse=True))
 # unit word + a CHAIN of zero or more parenthetical qualifiers, e.g. "this
-# Subsection (2)," or (root cause 3, Colorado) "this subsection
-# (1)(a)(I)(A),". Was a single optional group (`?`); a chain of qualifiers
-# immediately after the unit word left the later ones unconsumed, breaking
-# both the connector match and the quote-adjacency check that follows.
-# Fix cycle 5, finding 4 (Georgia): optional "Code " before the unit word
-# -- "Code section" names the SAME unit as plain "section" (1,299 rows use
-# "as used in this Code section", vs. 1 plain-form GA row), so no
-# `_SCOPE_BY_UNIT` change is needed.
+# Subsection (2)," or (Colorado) "this subsection (1)(a)(I)(A),". Fix
+# cycle 5, finding 4 (Georgia): optional "Code " before the unit word --
+# "Code section" names the SAME unit as plain "section" (1,299 rows).
 _UNIT_TAIL = rf"(?:Code\s+)?(?P<unit>{_UNIT_ALT})\b(?:\s*\([^)\n]{{1,12}}\))*"
 
+# Fix cycle 6, finding 1: corpus text line-wraps INSIDE the trigger phrase
+# itself ("For\n\npurposes of this section"); `\s+` per word phrase fixes it.
 _STRONG_TRIGGER_RE = re.compile(
-    rf"(?:as used in|for (?:the )?purposes? of|when used in)\s+this\s+{_UNIT_TAIL}", re.IGNORECASE
+    rf"(?:as\s+used\s+in|for\s+(?:the\s+)?purposes?\s+of|when\s+used\s+in)\s+this\s+{_UNIT_TAIL}",
+    re.IGNORECASE,
 )
 
 # Bare "In this <unit>" -- genuine ~21% of the time (vs. ~77% for "as used
@@ -188,9 +173,24 @@ def _event_scope(body: str, unit: str, trigger_start: int) -> tuple[str, str | N
 def _leading_events(body: str) -> list[_TriggerEvent]:
     events: list[_TriggerEvent] = []
     strong_matches = list(_STRONG_TRIGGER_RE.finditer(body))
+    # Fix cycle 6 finding 2 side effect: `_MEANING_TAIL_RE` locates the
+    # EXACT "provided/given (to them) in this <unit>" span (if matched) so
+    # its own "in this <unit>" can be excluded below -- else it
+    # self-matches `_BARE_IN_TRIGGER_RE` as a spurious event (LA). Two
+    # broader exclusions were tried and reverted (see report): widening
+    # `strong_spans` to `region_start` dropped a real bare-`in` event
+    # reached by the "and <citation>" filler's own 120-char reach
+    # (`USC_T10_C53_S1058`); a word-before-position scan suppressed the
+    # SAME idiom where it is the PRIMARY path, not this tail (CA's "has the
+    # meaning given in this section:"). Only this exact span is excluded.
+    tail_spans: list[tuple[int, int]] = []
     for match in strong_matches:
         conn = _STRONG_CONNECTOR_RE.match(body, match.end())
         region_start = conn.end() if conn else match.end()
+        if conn:
+            tail_match = _MEANING_TAIL_RE.search(body, match.end(), region_start)
+            if tail_match:
+                tail_spans.append((tail_match.start(), tail_match.end()))
         unit = match.group("unit").lower()  # gate on the unit word, not `scope` (S-R11: dead)
         scope, scope_value, scope_unit_kind = _event_scope(body, unit, match.start())
         events.append(
@@ -208,6 +208,8 @@ def _leading_events(body: str) -> list[_TriggerEvent]:
     for match in _BARE_IN_TRIGGER_RE.finditer(body):
         if any(start <= match.start() < end for start, end in strong_spans):
             continue  # the "in" tail of "as used in"/"when used in", not a bare trigger
+        if any(start <= match.start() < end for start, end in tail_spans):
+            continue  # the meaning-tail's OWN "in this <unit>", not a bare trigger
         conn = _BARE_CONNECTOR_RE.match(body, match.end())
         if not conn or not (conn.group("colon") or conn.group("comma")):
             continue  # strict adjacency failed -- ordinary prose, not a trigger

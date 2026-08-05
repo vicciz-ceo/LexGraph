@@ -124,16 +124,47 @@ from app.definition_links.us_profile import resolve_unit_path
 # sentence-period-then-bare-list-label (Maine's "A.") is also tolerated --
 # see this module's own docstring for why that tail is scoped to fire only
 # inside this one branch.
+# Fix cycle 6, finding 3 (NY, QA cycle-3): the "unless ... context" filler
+# was anchored to "the context" immediately after "unless" (Maine's "unless
+# the context otherwise indicates"). NY's "unless a different meaning
+# clearly appears from the context" puts the anchor word at the END of the
+# qualifier instead. Widened to a lazy, comma/colon-bounded run of any
+# characters up to the FIRST "context" (never past it into unrelated
+# prose), same bounded-filler philosophy as the "and <citation>" group
+# above -- not a wider gap tolerance, just where "context" is allowed to
+# sit inside the same bounded clause.
+_UNLESS_CONTEXT_FILLER = r"unless\s+[^,:]{0,80}?context\b[^,:]{0,80}"
+# Fix cycle 6, finding 2 (Louisiana/Pennsylvania, QA cycle-3): "shall have
+# (the following) meaning(s)" required "the following" as ONE fixed pair
+# (or neither) -- Louisiana's "shall have THE MEANING provided in this
+# Subsection" uses a bare "the" (ordinary article, no "following") that
+# neither alternative covers. "the"/"following" are now independently
+# optional. Also did not tolerate a trailing "provided in this <unit>" /
+# "given (to them) in this <unit>" qualifier (confirmed on two independent
+# states) before the `unless ... context`/colon that follows -- narrowly
+# scoped to fire only once this branch's own "meaning(s)" phrase has
+# already matched, and the SAME bounded `_UNLESS_CONTEXT_FILLER` reused
+# here (not a new mechanism) for when the qualifier trails the tail
+# instead of leading the branch. Factored into its own name+regex
+# (`_MEANING_TAIL_RE`) so `us_scoped_inline.py` can find this EXACT span
+# again -- its own "in this <unit>" text self-matches `_BARE_IN_TRIGGER_RE`
+# as a spurious event, and only the PRECISE tail span (not a word-before
+# guess, not the whole connector match) may be excluded for that -- see
+# `_leading_events`'s own comment for why a broader exclusion regressed.
+_MEANING_TAIL = r"(?:provided|given)(?:\s+to\s+them)?\s+in\s+this\s+[A-Za-z]+"
+_MEANING_TAIL_RE = re.compile(_MEANING_TAIL, re.IGNORECASE)
 _STRONG_CONNECTOR_RE = re.compile(
     r"\s*"
     r"(?:and\s+(?:in\s+)?[^,:]{0,120})?"
     r"\s*(?:,\s*)?"
-    r"(?:unless\s+the\s+context[^,:]{0,80})?"
+    rf"(?:{_UNLESS_CONTEXT_FILLER})?"
     r"\s*(?:,\s*)?"
     r"(?:"
     r"the following terms?\s+(?:mean|means|(?:shall\s+)?have(?:\s+the following)?"
     r"\s+meanings?(?:\s+as\s+follows)?)\s*(?:\.\s*(?:[A-Za-z0-9]{1,3}\.\s*)?)?"
-    r"|shall have\s+(?:the following\s+)?meanings?(?:\s+as\s+follows)?\s*"
+    r"|shall have\s+(?:the\s+(?:following\s+)?)?meanings?(?:\s+as\s+follows)?"
+    rf"(?:\s+{_MEANING_TAIL})?"
+    rf"\s*(?:,\s*)?(?:{_UNLESS_CONTEXT_FILLER})?\s*"
     r")?"
     r"(?:the terms?\b\s*|an?\s+)?"
     r"(?P<colon>:)?\s*",
