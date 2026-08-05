@@ -996,6 +996,104 @@ are already in flight and nothing is idle waiting on G9.
 
 ---
 
+## Phase 5 — i9 update landed; G10 verified and in implementation
+
+### i9 test update (plan1) — ACCEPTED and merged
+
+plan1 **re-ran the manager's probe independently rather than taking it on
+trust**, and went further: it checked each of the 8 real `(NEW)`/`(AMD)`
+annotations individually (`()` before offset 220, `(digit:'1',)` after),
+confirming zero leakage at every point. Fix: docstring corrected **in place
+and marked "CORRECTED 2026-08-05"** rather than silently rewritten;
+assertion re-pointed; and the I9 invariant **strengthened** — it now loops
+all 8 annotations asserting the exact path at each one's own offset, so a
+future leakage regression is caught where it happens, not only at
+end-of-body. Production code untouched. Contract lint **PASS 110**.
+
+**Manager ruling — 300-line style gate, deliberate exception recorded.**
+The file is now 309 lines (9 over). plan1 flagged it rather than silently
+cutting or silently accepting, and had already trimmed its own additions
+once; the residual length is a PRIOR Planner's fixture-provenance and
+UT-row evidentiary record. **Accepted as an exception for this sprint**, and
+the split routed to the core-follow-on-3 accumulator. Reasons: the overage
+is 9 lines; cutting another author's evidentiary record to hit a line count
+would destroy more value than the gate protects; and restructuring a test
+file that four gates currently depend on, mid-convergence, is a real risk
+for no functional gain. Note the contract lint does not enforce file length
+— this is a convention call, made explicitly rather than by omission.
+
+### item/subitem residual gap — manager ruling: ROUTE to core-follow-on-3
+
+plan1's recommendation ACCEPTED. It independently reproduced both named
+positions on `STATE_SC_T58_C9_A5_S58-9-576`: offset 617 ("under subitem
+(3)") is a no-op, `(A,3)` before and after; offset 1685 ("provided in item
+(8)") does corrupt — `(B,2)` → `(B,8)` — but the row's own next genuine
+marker at offset 1981 overwrites it back to `(B,3)`. **Transient and
+self-correcting**, unlike the persistent fabrications G4 already fixes.
+
+The decisive reason is its second one, and it is correct: adding
+"item"/"subitem" to the structural-word vocabulary **without corpus
+measurement would repeat this module's own reverted mistake** — the earlier
+annotation word-list, removed under precedent P-E3 as unproven once
+mutation-testing showed the general shape-based mechanism already covered
+it. "Item (N)" could plausibly be some jurisdiction's genuine marker
+convention; suppressing it unmeasured is precisely the recall-vs-FP conflict
+**D-Q1** requires be escalated with data rather than settled by judgment
+call. Routed, not built.
+
+### G10 (plan5) — manager verification, ACCEPTED and merged @ af84a25
+
+Verified first-hand:
+- **Zero production code touched**; diff is the test file + seam doc only.
+- **Seam v2.9 is genuinely append-only**: 317 insertions, **0 deletions**.
+- REDs fail for the stated reason: **2 failed / 3 passed**, both failures
+  `TypeError: TermClauseRule.__init__() got an unexpected keyword argument
+  'parse_scoped'`; the 3 passing are the green "before" bug-pin and the two
+  backward-compat anchors.
+
+Notable practice worth recording: plan5 **proved the design buildable** by
+applying it as a scratch edit (5/5 green, 801/17 with zero new failures),
+then **reverted it before committing** — so the design is verified end-to-end
+while the Planner's no-production-code boundary stays intact. That is the
+right way to de-risk a seam design without crossing roles.
+
+Also correctly handled: **P-R10 dormancy explained** — zero registered
+`TermClauseRule` modules exist on this branch, so the buggy loop body never
+executes in production here and the defect is LATENT until the first family
+panel's rule merges. That is exactly the "why isn't everything downstream
+already visibly broken" check the rule demands.
+
+Measured (signal-agnostic, production detection path): 2,038,247 rows →
+64,480 Definitions-section rows → **20,520 chapter-scoped** = the full
+at-risk population; 43,960 law-wide (where hardcoding is coincidentally
+correct). The 494-row figure is explicitly labelled a HEURISTIC lower bound,
+not a census — correct discipline, and the fix's coverage is the full
+20,520, not the 494.
+
+**dev5 spawned** for G10 implementation against seam v2.9 §7.
+
+### The G9-2 hold already paid for itself (2026-08-05)
+
+plan6 accepted the hold without contest and, in re-checking, found its own
+**G9-2 migration precedent citation was WRONG**: it had cited the
+`Document.jurisdiction` / `create_all()` shape, which only applies to
+fresh-test-only tables and **would not have worked on an already-provisioned
+production DB**. Corrected (plan6 @ `01b6f2e`) to
+`add_assertion_subject_unit_path_column.py`'s actual raw-DDL
+`upgrade()`/`downgrade()` pattern — the shape seam v2.5 named.
+
+So the hold did not merely defer a decision; it surfaced a latent defect in
+the item specification before any Developer built against it. The G9-2 item
+is now correctly specified **if** the program manager approves the column.
+plan6 also reclassified its P-R10 note from "unreproduced gap" to "passed
+sanity check," citing P-E3.
+
+| Agent | Gate | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| dev5 | G10 | Sonnet/medium — bounded implementation against seam v2.9 §7 + 5 existing tests, design already proven buildable; Haiku considered: no, shared registry seam | `...-dev5` | `ab129bb0201744fb0` | running |
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
