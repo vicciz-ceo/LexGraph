@@ -1786,3 +1786,75 @@ Per-row attribution required, not aggregate. **Named post-merge re-check
 (binding on whoever holds this panel at the core-2 merge): re-measure WA's
 >5,000-char population on the merged tree. If rows attributed to baseline did
 not heal, that is a finding against G3, and it is reported, not absorbed.**
+
+---
+
+## M18 — G3-HEAL upgraded to a two-layer assertion; the collision defect SIZED for core-2 (2026-08-05)
+
+**QA's Q1 verdict, relayed via the program manager.** All 3 WA >5,000-char rows
+attribute cleanly to **BASELINE** under the kill control I required: baseline
+alone emits the 10,838 / 6,515 / 8,769-char swallows, while our engine alone
+emits the SAME terms at 303 / 188 / 105 chars with zero ≥5,000. G3-HEAL's
+prediction therefore holds per-row, in the falsifiable form demanded rather
+than as an assumption. QA additionally found a **second, distinct defect**:
+`pipeline.py` Stage-2 persistence orders `baseline_blocks` first under
+first-candidate-wins dedup on `(article_id, sorted(terms))`
+(`pipeline.py:289-292`, confirmed by me at source), so baseline's swallow WINS
+the collision and our clean candidate is silently discarded — proven on the
+real ingest→linking path, pinned as
+`test_us_markers_qa_q1_wa_newline_collapse_swallow.py`. Ruled into core-2's
+scope (G3 acceptance or a named G8), with QA's test file as evidence artifact.
+
+**LEDGER G3-HEAL — UPDATED, now a TWO-LAYER assertion.** The post-merge
+re-check must assert BOTH:
+1. the baseline swallow is gone; AND
+2. **our clean candidate is the one PERSISTED.**
+A G3 fix that merely shrinks baseline's candidate would leave the collision
+preference intact and silently satisfy (1) while failing (2). QA's held RED on
+the persisted output is the instrument; **it stays RED until the merged tree
+proves both.** Binding on whoever holds this panel at the core-2 merge.
+
+### What I added: the defect's SIZE, which QA's 3-row proof could not give
+
+QA proved the mechanism. Core-2 needs the magnitude to scope the fix, so I
+measured the whole covered set: for every Definitions-headed row, how often a
+LATER candidate for the same term-key is SHORTER than the winner that
+production would persist.
+
+| Jur | rows losing a cleaner candidate | keys | severe (winner ≥5,000 ch) |
+|---|---|---|---|
+| FED | 327 | 2,077 | **51** |
+| TN | 136 | 492 | **146** |
+| UT | 93 | 93 | 3 |
+| WA | 43 | 47 | **3** |
+| AZ | 28 | 94 | 9 |
+| SC | 24 | 31 | 1 |
+| NC / DC / AK / RI / AL | 11 / 11 / 4 / 3 / 3 | 18 / 11 / 4 / 4 / 19 | 0 |
+| TX | 3,910 | 19,352 | 0 |
+| **TOTAL** | **4,632** | **22,584** | **213** |
+
+Worst single discarded improvement: **163,875 characters** — `USC_T5_C83_S8331`,
+term `representative payee`. That is a persisted definition three orders of
+magnitude larger than the clean candidate available for the same key.
+
+**Independent corroboration that this probe measures QA's defect: WA's severe
+count is exactly 3** — the same 3 rows QA found and attributed by a completely
+different method (kill control on named rows vs my corpus-wide ordering scan).
+Two independent instruments agreeing on 3/3 is why I trust the severe column.
+
+**Honest confound, named rather than smoothed over.** The 4,632 / 22,584 totals
+are an **UPPER BOUND**, not a measurement of QA's defect. My scan counts any
+shorter later candidate sharing a term key, which conflates two populations:
+(a) baseline's swallow beating our clean candidate — QA's defect; and
+(b) two GENUINELY DISTINCT definitions that happen to share a term key, where
+the second is legitimately different rather than cleaner. (b) is a pre-existing
+dedup limitation, not this panel's regression.
+**TX is the reason to say so out loud: 3,910 rows / 19,352 keys but ZERO
+severe** — a profile that looks far more like (b) than (a), and it dominates
+the total. I have NOT discriminated the two populations and I am not going to
+report 22,584 as if I had. **The defensible figures are: 213 severe cases
+across 6 jurisdictions, and the 3 WA rows QA independently confirmed.** The TX
+population is named as unclassified and routed to core-2 with that label.
+
+Sized at section level (article_id treated as constant within a section), which
+is a further upper-bound assumption.
