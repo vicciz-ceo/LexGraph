@@ -4941,6 +4941,9 @@ five have nonzero observed deltas, while `has the meaning found in` is 0/0 in
 this snapshot. This establishes that filters are not generically removable.
 The two listed hazards must also remain: the 74 `shall not include` deltas mix
 genuine exclusion definitions with construction/non-definition text.
+The exact 251-row forwarding ledger (phrase, act id, citation) is preserved in
+`artifacts/2026-08-04-defs-us-preamble-forwarding-filter-ledger.md`; test code
+does not read that artifact or the corpus.
 
 P-FP tuple check: existing real `STATE_CO_T15_A11_P7_S15-11-701` evidence
 proves B1-only unfiltering is unsafe. The current extractor would persist the
