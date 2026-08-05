@@ -87,6 +87,31 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (arbitration reversed on evidence + IL at review): My default
+  suppress-the-duplicate ruling on the markers/multiterm candidate
+  interaction was VACATED by markers' measured counter-evidence: on the
+  three G3-HEAL WA rows, BASELINE's candidate is the 6,515-10,838-char
+  swallow and markers' "duplicate" is the 105-303-char FIX — blanket
+  second-emitter suppression deletes the correction and makes G3-HEAL
+  layer 2 unsatisfiable by construction. RE-RULED: M-R12's "already
+  handles" means handles CORRECTLY, which no emission-layer rule can know
+  per row; duplicates resolve at the PREFERENCE layer (G8/core quality
+  judgment — same thread as the semantic-emptiness steer and mirror-mode
+  check, WA rows are the reverse-mode exhibit); NO suppression obligation
+  on markers anywhere; multiterm re-scopes its M-R18 pin per the
+  two-altitude principle (persisted/asserted outcome + candidate pin over
+  its OWN rule's emission only — an exactly-1 count over the cross-panel
+  union encoded the rejected emission-layer theory). The two-altitude pin
+  principle (pin at the altitude of your hazard; never encode another
+  panel's theory) is now general program law. IL: parent sprint
+  2026-08-04-defs-il flipped to STATUS REVIEW @ 39eefe6 (six-item
+  residual director-visible, cycle 5 unconsumed, contract recompressed to
+  lint budget with history moved to log, nothing deleted); certification
+  Planner spawned off the PARENT TIP a27698d (measures shipped behavior,
+  not a stale baseline), briefed with the manager's own twice-made
+  normalization error and do-not-inherit-my-number instruction; the six
+  residuals seed the initial clusters.
+
 - 2026-08-05 (correction + markers QA-2): CORRECTION to this log's earlier
   milestone entry: the FED "26,028 swallow" was NEVER in the markers
   module's docstring — git log -S proves the string lives only in that
