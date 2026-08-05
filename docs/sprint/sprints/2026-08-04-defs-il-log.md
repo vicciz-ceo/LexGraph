@@ -5142,3 +5142,35 @@ FULL population (the backbone); C3 every disposition carries a measured,
 seeded, hand-verified error rate; C4 fix loop closed INSIDE the sprint
 with re-certification of affected clusters; C5 artifact re-runs clean and
 diffs for an independent QA. Full text in the contract.
+
+---
+
+## 2026-08-05 — M24: harness adjustment — role agents report DIRECTLY to the panel manager
+
+Director-ordered, relayed by the program manager. Effective from this
+panel's next spawn or resume:
+
+- Role agents (Planner / Developer / QA) deliver their reports **directly
+  to the panel manager** (agentId `a18597f9be6c49ed6`) via SendMessage.
+  A plain-text final return is **not** a reliable delivery channel — the
+  SendMessage IS the report. Every brief from now on carries that
+  sentence verbatim, including the "if the send fails, say so in your
+  final text" clause.
+- **Escalations** (first line `ESCALATION:`) arrive on the same channel.
+  The panel manager resolves them, or escalates onward to the program
+  manager — the program manager no longer relays them.
+- Peer-manager coordination by agentId is unchanged.
+
+**Applied retroactively to the in-flight D-1a Developer**
+(`a4f70d362996ee90a`), which was briefed before the change. Rather than
+leave it on the degraded fallback path, I sent it the new delivery
+instruction as a scope-neutral amendment — explicitly "your task, scope
+and constraints are completely unchanged; do not restart or redo
+anything" — plus a restatement of the required report contents and the
+two escalation triggers (a test that looks wrong; a frozen-file edit
+appearing necessary). Recording it here because a mid-flight amendment to
+a running role agent is exactly the kind of thing that must be auditable
+rather than tacit.
+
+Remaining briefs in this sprint (D-1b Developer, QA cycle 4) carry the
+clause from the start.
