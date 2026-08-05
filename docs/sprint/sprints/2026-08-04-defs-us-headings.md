@@ -278,6 +278,31 @@ lost
    in the Completed entry, not silently papered over with a guessed scope
    value.
 
+## Panel protocol — role-agent reporting (director-ordered, 2026-08-05)
+
+**BINDING ON EVERY SPAWN AND EVERY RESUME. Survives manager handoff — a
+successor manager MUST keep applying this.**
+
+Role agents now interact DIRECTLY with the panel manager, not via the program
+manager. The program manager no longer relays agent reports. This panel
+manager's agentId is **`a1d2487867915919a`**.
+
+Every role-agent brief (new spawn OR resume) must include this text verbatim:
+
+> Before you finish or escalate, deliver your full report via SendMessage with
+> to: 'a1d2487867915919a' (raw agent id, exactly as written). Your plain-text
+> final return is NOT a reliable delivery channel — the SendMessage IS your
+> report. If the send fails, say so in your final text.
+
+Escalations (`ESCALATION:` as the first line) arrive by the same channel; the
+panel manager resolves them or escalates onward to the program manager itself.
+Peer-manager coordination by agentId continues as before.
+
+**Why this is load-bearing here:** this panel already lost an agent's report
+once — the `includes` FP scout died after completing its scan and sampling, and
+its measurement only reached the panel second-hand. A report that is not
+delivered is a report that did not happen.
+
 ## Residual ledger
 
 Program-wide pattern (established by the PR panel). Every row this panel does
