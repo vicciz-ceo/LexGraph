@@ -1858,3 +1858,219 @@ population is named as unclassified and routed to core-2 with that label.
 
 Sized at section level (article_id treated as constant within a section), which
 is a further upper-bound assumption.
+## PA1 — phase-2 Planner A (C5 guard states) (2026-08-05)
+
+Worktree `/Users/nerya/LexGraph-wt/defs-us-markers-planA` off
+`claude/defs-us-markers@a2f263b`, own venv confirmed
+(`.venv/bin/python` resolves inside the worktree). `git config user.email`
+verified `256402398+vicciz-ceo@users.noreply.github.com` before first commit.
+Re-derived M13/M15's own headed/zero-yield figures for all five states
+**exactly** (positive control on my own sweep methodology, direct-title basis,
+NY post-ingest per U-R11) before building anything: NJ 2,379/2,372, MI
+2,879/1,116, ND 1,026/1,023, NY 1,479/1,262, OK 1,214/1,146.
+
+### A1 — C5 guard tests (built FIRST, per brief)
+
+28 rows pinned across 5 new integration test files
+(`tests/integration/test_us_markers_c5guard_{nj,mi,nd,ny,ok}.py`,
+92–132 lines each) + 5 fixtures
+(`tests/fixtures/us_statutes/us_markers_c5guard_<state>_rows.json`), all
+**GREEN today** via the real live pipeline (`ingest_us_statute_rows` →
+`run_definition_linking`, not a stub). Every pinned row's exact captured
+term SET is asserted, plus one full `definition_text` content-fidelity spot
+check per row:
+
+| State | rows pinned | of state's captures | terms pinned |
+|---|---|---|---|
+| NJ | 7 | **7/7 (100%)** | 27 |
+| ND | 3 | **3/3 (100%)** | 4 |
+| MI | 6 | 6/1,763 | 42 |
+| NY | 6 | 6/217 (post-ingest) | 62 |
+| OK | 6 | 6/68 | 39 |
+
+**Confirmed by grep before writing every guard docstring: none of these five
+codes has ANY family-3 rule registered against it today** (no
+`EntrySplitterRule`/`TermClauseRule` in `backend/app/definition_links/rules/`
+matches `"US-NJ"`, `"US-MI"`, `"US-ND"`, `"US-NY"`, or `"US-OK"`, and none
+registers the `"US-*"` wildcard). So all 28 pinned rows' captures come
+PURELY from baseline (`_split_into_numbered_blocks` + `_leading_quote_candidate`)
+— confirming these five are genuinely regression-guard-only today, exactly
+matching their C5 designation.
+
+### A2/A3 — convention inventory + family collapse (combined; the finding is one)
+
+**Headline finding, measured not hypothesised.** For all five states, the
+DOMINANT zero-yield shape is the SAME "well-formed quoted-term, `means`/
+`shall mean` idiom, no-`(N)`-paren-marker-or-bare-digit/letter-dot-marker"
+convention **already built and registered** for VA/WA/US-FED/UT/TX/SC/AZ in
+`us_markers_inline_quote.py` (shared engine:
+`us_markers_boundary.extract_quote_anchored_entries` /
+`entries_to_quoted_blocks`) — these five states are simply not yet in that
+rule's `jurisdiction_codes` tuple. Verified by **running the real,
+unmodified production function** directly against every real zero-yield row
+per state (read-only simulation, nothing written to the tree,
+`markers-planA-simulate-quote-engine.py`, P-R9-prefixed scratchpad):
+
+| Jur | zero-yield (denominator) | rescued by the EXISTING engine | rate |
+|---|---|---|---|
+| NJ | 2,372 | 2,281 | **96.2%** |
+| MI | 1,116 | 948 | **84.9%** |
+| ND | 1,023 | 886 | **86.6%** |
+| NY | 1,262 (post-ingest) | 1,046 | **82.9%** |
+| OK | 1,146 | 1,063 | **92.8%** |
+
+**This is not 5 new conventions — it is 1.** The cheapest Developer path is
+extending `us_markers_inline_quote.py`'s `_JURISDICTIONS` tuple (or a thin
+per-state sibling module reusing the same two shared helpers), not new rule
+modules. Sample-verified for garbage/precision, not just count: term strings
+are clean real defined terms across every state sampled (spot-checked
+`STATE_OK_T21_S21-1902`, `STATE_NJ_T39_C4_S4-8.2`, others) — the shared
+engine's own known "means"-only idiom restriction (no "includes") legitimately
+leaves some in-row terms uncaptured (row-level zero-yield still flips to
+"captured" on ≥1 candidate, consistent with this sprint's own established
+metric).
+
+**Precision caveat, measured not asserted.** Registering these five is not
+perfectly free: the shared engine's `_TRAILING_MARKER_CHAIN_RE` (designed to
+strip a genuinely-leaked trailing marker fragment, e.g. SC's `"Municipality"`
+ending in a literal `"(2)"`) collides with these states' own citation-dense
+prose (`"...section 5101."` → `"101."` misread as a leaked trailing marker,
+truncating the definition to `"...section 5"`) — real defect, confirmed live
+on `STATE_MI_C333_...S333.20169` and `STATE_NJ_T39_C4_S4-8.2`. Measured
+corpus-wide across all five states' rescued populations (proxy regex:
+definition_text ending in `section|§ <1-3 digits>.?$`, a lower-bound
+detector, not exhaustive): **NJ 0.0% (7/17,270), MI 1.3% (61/4,677), ND 0.0%
+(0/6,865), NY 0.0% (2/9,029), OK 0.0% (1/9,676)** of rescued definitions show
+this signature. Small and separately fixable (a guard: don't strip a
+trailing bare digit-dot token immediately preceded by `section`/`§`) — not
+blocking, but not zero-cost either; my A4 quote-engine RED tests below
+assert only the independently-verified-clean term subset per row, never the
+corrupted one, so they do not encode this bug as a target.
+
+**Post-quote-engine residual — classified, full corpus, 3 refinement passes
+(scripts `markers-planA-classify-residual{,2,3}.py`, all P-R9-prefixed).**
+Percentages below are of each state's TOTAL zero-yield (the denominator
+throughout this section), not of the smaller residual, so they sum honestly
+against the headline table above:
+
+| Shape (regex-classified, corpus-wide) | NJ | MI | ND | NY | OK |
+|---|---|---|---|---|---|
+| residual (post-quote-engine) | 91 (3.84%) | 168 (15.05%) | 137 (13.39%) | 216 (17.12%) | 83 (7.24%) |
+| `marker_term_period_no_idiom` (NY's own: `N. "Term." Definition`, no verb) | — | — | — | 58 (**4.60%**) | 1 (0.09%) |
+| `heading_anchored_body_idiom` (term named ONLY in heading, e.g. "Definition of X") | 11 (0.46%) | — | 13 (1.27%) | 43 (3.41%) | 14 (1.22%) |
+| `gap_as_used_in_this_or_the_X` (idiom-gap: "term X ... as used in this/the Y, means/shall mean Z") | 14 (0.59%) | 23 (2.06%) | 3 (0.29%) | 19 (1.51%) | 7 (0.61%) |
+| `repealed_or_reserved` (**correctly empty — not a miss**) | — | — | 54 (**5.28%**) | — | — |
+| `pointer_no_local_term` (**arguably correctly empty — no local term named at all**) | — | 6 (0.54%) | — | 4 (0.32%) | 6 (0.52%) |
+| `quoted_term_dashdash_no_idiom` (`"Term" --Definition`, NJ cousin of NC's `.--`) | 4 (0.17%) | — | — | — | — |
+| `marker_bare_term_means` (numbered unquoted term directly + means) | — | — | 3 (0.29%) | 5 (0.40%) | 5 (0.44%) |
+| `quoted_terms_bare_mean_no_s` ("and"/"or"-joined quoted terms + bare "mean", not "means") | 1 (0.04%) | 6 (0.54%) | 3 (0.29%) | 2 (0.16%) | — |
+| `is_defined_as_copula` / `bare_copula_is` / `whenever_word_used_it_means` / `the_term_X_means_bare` / `a_an_means_dc_style` (small tail, each ≤0.3%) | 2 (0.08%) | 4 (0.36%) | 5 (0.44%) | 6 (0.47%) | 3 (0.26%) |
+| **UNCLASSIFIED (genuine, sample-verified heterogeneous)** | 64 (**2.70%**) | 129 (**11.56%**) | 61 (**5.96%**) | 89 (**7.05%**) | 50 (**4.36%**) |
+
+**Honest reading of the residual, by family:**
+
+1. **NY's `marker_term_period_no_idiom`** (4.60% of NY total) is NY's own
+   second-largest lever, architecturally the SAME FAMILY as AL/NC's already-
+   built unquoted-marker engine (`us_markers_unquoted_terms.py`'s
+   `_extract_marker_anchored` helper) — a QUOTED-term, single-period variant,
+   not a new engine. RED test built (`STATE_NY_ADEA_A6_S80`).
+2. **A5's target shape** (`STATE_NY_ARPP_A8_S280-D`, lettered `(a) Term.
+   Sentence.`) is a SIBLING of #1 (letter-marker instead of digit-marker,
+   same family) but is numerically OUTSIDE this table entirely — it is a
+   **recognition-side miss** (heading not detected by either path, verified
+   live), so it never entered the "headed" denominator above. Flagged
+   separately, not double-counted.
+3. **`gap_as_used_in_this_or_the_X`** recurs across all five states
+   (0.29%–2.06% each) and is architecturally the SAME idiom-gap FAMILY
+   already solved once for TN (`us_markers_tn_idiom.py`) — narrow,
+   phrase-scoped rules, not a loosening of the shared tight-idiom gate
+   (which would risk corpus-wide false positives, per that module's own
+   design rationale). Whether one shared "as used in this/the ___" bridge
+   rule covers all four states or each needs its own is a Developer-level
+   judgment call I flag, not decide.
+4. **`heading_anchored_body_idiom`** (0.46%–3.41%) is the one GENUINELY NEW
+   capability in this residual — none of the six existing family-3 modules
+   derive a defined term from the HEADING text itself; every existing rule
+   finds its term inside the body. Real cost, not a relabeling.
+5. **ND's `repealed_or_reserved`** (5.28% of ND's total zero-yield) is **NOT
+   a miss** — repealed statute stubs with no operative content. Capturing
+   these would be a false positive, not a recall win; must be excluded from
+   any zero-miss target for ND.
+6. **`pointer_no_local_term`** (0.32%–0.54%) sections point ENTIRELY to
+   another section/body's definitions with no term named locally at all
+   (e.g. "terms used shall be defined as they are defined in the Rules of
+   the Ethics Commission") — distinct from D-MT-E1's pointer-definition
+   class (which requires a locally-named term + a reference); these have no
+   local term to anchor on. Flagged as a director-level judgment call, not
+   resolved by this panel.
+7. **The unclassified tail is real and sample-verified, not a gap in
+   regex effort I stopped short of.** After 3 classifier refinement passes I
+   hand-read fresh random samples from each state's remaining unclassified
+   pool (not just the ones my regexes already explained) and confirmed
+   genuine heterogeneity: bare-copula sentence-defined terms with no
+   article/idiom signal at all (`"A voluntary deposit is one which..."`),
+   reverse-order definitions where the term is a sentence-final predicate
+   rather than the subject (`"Everyone who offers ... is a common
+   carrier..."`), and one-off phrasings with no recurring structure across
+   more than 2–3 rows each. MI's 11.56%-of-total unclassified tail is the
+   largest single number in this report I cannot explain with a named
+   shape — recorded honestly rather than force-fit.
+
+### A4 — RED tests (live-path, byte-verified fixtures)
+
+All 8 RED assertions verified to fail **for the right reason** (empty
+candidate set / `AssertionError`, never `ImportError`/`AttributeError`) —
+confirmed by direct pytest run before this commit. Sanity tests (fixture
+byte-identity, heading-recognition facts) pass on all files.
+
+| Test | Node id | Real row | Shape | Fails today because |
+|---|---|---|---|---|
+| `test_us_markers_ext_a_nj_quoteengine.py` | `::test_real_pipeline_recovers_nj_quote_anchored_definitions` | `STATE_NJ_T39_C4_S4-8.2` | quote-engine family (96.2% of NJ) | US-NJ has zero family-3 rules registered |
+| `test_us_markers_ext_a_mi_quoteengine.py` | `::test_real_pipeline_recovers_mi_quote_anchored_definitions` | `STATE_MI_C333_AAct-368-of-1978_S333.20169` | quote-engine family (84.9% of MI) | same |
+| `test_us_markers_ext_a_nd_quoteengine.py` | `::test_real_pipeline_recovers_nd_quote_anchored_definitions` | `STATE_ND_T38_C38-24_S38-24-01` | quote-engine family (86.6% of ND) | same |
+| `test_us_markers_ext_a_ny_quoteengine.py` | `::test_real_pipeline_recovers_ny_quote_anchored_definitions` | `STATE_NY_AACA_TP_A40_S40.03` | quote-engine family (82.9% of NY, post-ingest) | same |
+| `test_us_markers_ext_a_ok_quoteengine.py` | `::test_real_pipeline_recovers_ok_quote_anchored_definitions` | `STATE_OK_T56_S56-1005.3` | quote-engine family (92.8% of OK) | same |
+| `test_us_markers_ext_a_ny_quoteperiod.py` | `::test_real_pipeline_recovers_ny_quoted_period_no_idiom_definitions` | `STATE_NY_ADEA_A6_S80` | NY's own marker+quote+period, no idiom (4.60% of NY) | no rule matches quoted-term-then-bare-period boundary |
+| `test_us_markers_ext_a_ok_gapidiom.py` | `::test_real_pipeline_recovers_ok_gap_idiom_definition` | `STATE_OK_T47_S47-157.5` | cross-state idiom-gap ("as used in this act shall mean") | tight-idiom gate's designed-in gap; no OK gap rule |
+| `test_us_markers_ext_a_ny_arpp_a8_s280d.py` | `::test_real_pipeline_extraction_recovers_reverse_mortgage_loan_from_ny_lettered_paragraph` | `STATE_NY_ARPP_A8_S280-D` | A5, lettered-paragraph unquoted term | no rule matches `(letter)` + Title-Case term + period |
+
+### A5 — `STATE_NY_ARPP_A8_S280-D`, U-R11 applied
+
+Confirmed live, before writing the test: this row is a **recognition-side**
+miss (`is_definitions_heading` returns `False` on its real title "Federal
+home equity conversion mortgage default and foreclosure regulation";
+`derive_heading_from_body` also returns `None`) — NOT this panel's defect
+(M10's Q-C / headings panel's H-R1), so the RED test drives
+`get_profile("US-NY").extract_definitions_from_section` DIRECTLY, mirroring
+`test_ingest_us_statutes_ny_newline_defect.py`'s established pattern for
+this exact situation, discriminated purely by the extraction gap. U-R11
+applied throughout: fixture stores RAW corpus bytes (literal `\n`),
+`ingest_us_statute_rows` applies the real transform live, `span.quote_text`
+asserted post-transform before use.
+
+### Honesty ledger (what rests on a control vs. inference)
+
+**Controls that could have failed, and did not:** (1) my bucket-sweep
+methodology reproduced M13/M15's own five-state figures EXACTLY before I
+built anything on top of them; (2) the 82.9–96.2% rescue table is the real,
+unmodified production function executed against every real row, not a
+regex I wrote for the purpose — the SAME function VA/WA/etc. already run
+live; (3) all 28 A1 guards and all 8 A4/A5 REDs were independently verified
+by running pytest, not asserted from the generation script's own output;
+(4) the citation-truncation rate is a direct measurement against the real
+function's real output, though the detector regex is a lower-bound proxy;
+(5) the full suite (851 passed / 9 failed — 8 mine + the 1 pre-existing,
+already-owned-elsewhere FED defect from M13's V2) confirms no regression.
+
+**Inference from sampling, not independently verified:** the residual
+classification shape NAMES and boundaries (`gap_as_used_in_this_or_the_X`,
+`heading_anchored_body_idiom`, etc.) were derived by eyeballing ~50–80 rows
+per state across 3 iterative passes, then applied corpus-wide by regex — the
+regex itself can over/under-match at the margins, and I did not build actual
+extraction rules for any of these to prove they'd work end-to-end (only A4's
+8 named rows are proven that far). The claim that the idiom-gap and
+heading-anchored shapes are "architecturally similar to TN's fix" /
+"genuinely new" respectively is my judgment, not something built and tested.
+The unclassified tail (2.70%–11.56% of total zero-yield per state) is named
+and sample-verified as heterogeneous, but NOT exhaustively characterized —
+an honest residual, not a claim of completeness.
