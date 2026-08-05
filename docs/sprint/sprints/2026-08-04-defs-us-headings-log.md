@@ -3077,3 +3077,31 @@ the panel's last cycle): dispatch semantics (A) and the non-load-bearing status
 of rule ordering; D-HG's guard; D-INCLUDES being cycle-6 item 16 so its absence
 from cycle 5 is CORRECT; L1's gate diagnosis; L9's missing scope-VALUE seam;
 L8/L10's recorded dispositions.
+
+### Harness adjustment — direct role-agent reporting (director-ordered, 2026-08-05)
+
+Role agents now report **directly to the panel manager** (`a1d2487867915919a`);
+the program manager no longer relays agent reports. Every brief — **new spawn
+OR resume** — must carry the delivery instruction verbatim. Recorded in the
+**contract** (`## Panel protocol`), not only here, so it survives a manager
+handoff; this panel's predecessor context-exhausted, and a protocol that lives
+only in one manager's head is a protocol that dies with that context.
+
+Escalations arrive on the same channel with `ESCALATION:` as the first line;
+the panel manager resolves them or escalates onward itself.
+
+**Applied immediately to the in-flight QA cycle 4** rather than relying on the
+legacy path. A resume is exactly the trigger the rule names, so the boilerplate
+went out verbatim, together with two instructions that protect the verdict's
+quality:
+- **Do not rush the 1,148-row classification to report sooner** — U4 cannot
+  certify on a sample, and a bounce on incomplete evidence would burn the
+  panel's last cycle. A late complete classification beats a fast partial one.
+- **Send the COMPLETE report**, not a summary — the manager cannot read agent
+  transcripts, so anything trimmed is simply lost.
+
+**Precedent this is guarding against, stated plainly:** this panel already lost
+an agent report. The `includes` FP scout finished its corpus scan and both
+samples, then died before reporting; its measurement reached the panel only
+second-hand. **A report that is not delivered is a report that did not
+happen.**
