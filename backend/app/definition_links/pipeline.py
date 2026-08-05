@@ -38,6 +38,7 @@ from app.definition_links.profiles import get_profile
 from app.definition_links.rules import registry
 from app.definition_links.rules.registry import ScopeUnit, StructuralContext, UnitStep
 from app.definition_links.sections import Article as MatcherArticle
+from app.definition_links.sections import deserialize_heading_breadcrumbs
 from app.models.article import Article
 from app.models.assertion import Assertion
 from app.models.definition import Definition
@@ -233,14 +234,22 @@ def run_definition_linking(
         # containment path -- see matcher._in_scope's dedicated "chapter"
         # branch, which never actually reads this generic tuple); every
         # registered StructuralUnitRule for this document's jurisdiction
-        # code ADDS to that set, never replaces it (union). No above-
-        # article breadcrumb source is threaded through to this per-run
-        # pass yet (that would need a new persisted column on the ORM
-        # Article, a schema change outside this pass's authorized scope) --
-        # `heading_breadcrumbs` stays `()`; a family panel's own rule is
-        # free to derive purely from `article_number`, or escalate for a
-        # breadcrumb column when it actually needs one.
-        structural_ctx = StructuralContext(article_number=art.number, heading_breadcrumbs=())
+        # code ADDS to that set, never replaces it (union). Sprint
+        # 2026-08-05-defs-core-follow-on-2, item G9-4: `heading_breadcrumbs`
+        # now reads the per-article value items G9-1/G9-2/G9-3 captured at
+        # parse/ingest time (`art.heading_breadcrumbs`, the new additive
+        # `Article` column), deserialized back into `tuple[tuple[int,
+        # str], ...]`. Deliberately GENERIC -- this read does not care
+        # whether the column was populated from wiki/Hebrew ingestion or
+        # (a future gate's own work, not built here) US/parquet ingestion;
+        # it defaults to `()` whenever the column is null/absent (a
+        # pre-G9 row, or a jurisdiction this gate does not populate it
+        # for), preserving the exact safe default the seam spec already
+        # promises.
+        structural_ctx = StructuralContext(
+            article_number=art.number,
+            heading_breadcrumbs=deserialize_heading_breadcrumbs(art.heading_breadcrumbs),
+        )
         structural_units = (ScopeUnit(kind="chapter", value=art.chapter),) + tuple(
             unit
             for rule in registry.structural_unit_rules_for(profile.code)
