@@ -4124,3 +4124,46 @@ something real — but its shape, mechanism and counts are all unconfirmed, and 
 NY portion is now explained as a raw-text artifact. Re-queued, not closed.
 
 ---
+
+## M36 — cycle-2 dispatch; two findings routed OUTWARD (2026-08-05)
+
+Both agents resumed (context retained) after the rulings were committed at
+`4376a09`, each with the §M25 anchor and instructions to fetch the rulings
+first — their worktrees were at `c22d6b0`, older than the rulings they act on.
+
+- **Planner `a2aefc18406e12b97`**: (1) re-pin the 13 stale guards, term lists
+  only, **with the explicit constraint that no known boundary defect may be baked
+  into a re-pinned expectation** — a re-pin that swallows a truncation launders a
+  defect into an accepted baseline and this panel would be structurally unable to
+  see it again; (2) author class-B REDs, coordinating the set boundary with QA
+  rather than guessing; (3) re-derive colon-idiom against the SEVEN
+  currently-live states (VA/WA/FED/UT/TX/SC/AZ), with "not reproducible on any
+  live-path state today" named in advance as an acceptable deliverable so no test
+  is manufactured to have one. New standing requirement on this panel: **every
+  RED states in one line how it was confirmed to run the production path,
+  including whether ingest normalization is in play.**
+- **QA `a0caf5f0005ba98e3`**: a MECHANICAL boundary-quality sweep with stated
+  criteria applied uniformly to all 75 extras, superseding deep hand-reading of a
+  subset. Reason: the Planner needs a defensible, re-runnable boundary for the
+  class-B set, and any class-B missed is a defect that ships unpinned. Told
+  explicitly that a criterion disagreeing with its own earlier hand-calls is
+  information, not an embarrassment.
+
+### Routed to the program manager / core-2 (not ours)
+
+1. **G8 is quality-blind — NEW.** The persistence dedup is purely order-based, so
+   baseline wins even when strictly worse: OK `Area of operation`
+   (`STATE_OK_T3_S3-65.1v1` family) keeps a degenerate 6-char `"means:"` while a
+   correct 941-char candidate is discarded. G8 as understood prevents duplicates;
+   it also **suppresses quality improvements**, which is a different and larger
+   problem. Core-2 should know before finalising G8's design.
+2. **Class-B citation-tail truncations are core-3's**, per §M33 — fresh,
+   independent corroboration of the core-level framing from an investigation that
+   was not looking for it.
+3. **Open question for core-2, raised by QA and NOT resolved here**: G8 was
+   confirmed only for SAME-term collisions. The class-D population routed to it is
+   **cross-term containment** (different term names, overlapping content). Whether
+   G8 as specced handles that is unverified. **Do not assume the G8 route closes
+   the class-D gap until core-2 confirms it.**
+
+---
