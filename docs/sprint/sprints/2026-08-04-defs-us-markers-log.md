@@ -5705,3 +5705,77 @@ missing-keyword `TypeError`; numeric-tail actual remains `..., 63, 70, and`
 versus expected `..., 63, 70, and 72.`. The new fixed-behavior RED fails only
 because the preceding candidate retains `§ Subd. 4a. Enterprise risk.`. No
 broad diff or final-QA verdict was run.
+
+---
+
+## M66 — P-G3H causal plan, WA-only source boundary, and C5 stale-pin repair (2026-08-06)
+
+Planner reproduced M65 in this worktree's own Python 3.13 editable venv:
+`test_us_markers_qa_q1_wa_newline_collapse_swallow.py` is **3 passed / 1
+failed**. The persisted `800 service` value is the 10,838-char baseline
+candidate, not the rule's exact 303-char text. Direct production-dispatch
+trace identifies the same sequence on all three held rows:
+
+| act / term | baseline blocks; candidate chars | inline-quote candidate chars |
+|---|---:|---:|
+| `STATE_WA_T82_C04_S065` / `800 service` | 1; 10,838 | 303 |
+| `STATE_WA_T43_C88_S020` / `Administrative expenses` | 1; 6,515 | 188 |
+| `STATE_WA_T82_C04_S192` / `Digital audio works` | 1; 8,769 | 105 |
+
+`USProfile` currently constructs `baseline_blocks + extra_blocks`; Stage 2
+therefore first-wins the baseline same-key row. This is not a safe occasion to
+restore G8's generic containment/shortest replacement: its AR Occurrence and
+Virtual-currency live controls stay green only under baseline-first behavior.
+
+### Proposed seam and rejected shortcuts
+
+The only proposed production change is profile-owned source ordering: extend
+`EntrySplitterRule` with a default-false opt-in, set it for **US-WA only** on
+`us_markers_inline_quote`, and put that rule's blocks before baseline only when
+the baseline produced exactly one block. `pipeline.py`, persistence identity,
+and candidate-text comparison remain untouched. AR emits no opted-in source, so
+its candidate sequence remains baseline-first.
+
+Two broader forms were measured and rejected before any production dispatch:
+
+- all-source precedence on WA+MI changes **12,774** persisted keys (12,757 MI);
+- applying the one-block rule to every inline-quote jurisdiction changes **99**
+  keys across AZ 2, FED 2, NJ 4, NY 15, SC 17, TX 1, UT 41, WA 17.
+
+These unreviewed populations are not silently claimed as clean. The resulting
+WA-only boundary is the narrowest evidenced seam, not a general quality rule.
+
+### Exact corpus evidence and hand classification
+
+`measure_g3_heal_priority_rule_order.py` replayed production ingest newline
+normalization, profile normalization, Stage 0 heading dispatch, Stage 2 scope
+stamping, and same-key first-wins over all **53** statute files / **2,038,247**
+rows. It observed 472,562 section candidates, 1,683 WA priority-source rows,
+and exactly **17** changed persisted keys, all US-WA; the artifact is
+`2026-08-06-defs-us-markers-g3-heal-priority-order.json` (235.326 s).
+
+All 17 were hand-read: `800 service`, `Department` (two rows),
+`Administrative expenses`, `Community-based care`, `Board`, `Adjusted for
+inflation`, `Air bag`, `Assistant director`, `Digital audio works`, `Animal
+control authority`, `Accumulated contributions`, `Parking facilities`,
+`By-product material`, `Agricultural fair`, `Mobile home`, and `Airport
+charges`. In each, the proposed text occurs intact in the baseline candidate
+and the following baseline bytes open the next numbered quoted entry; no
+ambiguous or non-WA firing remains. The JSON retains both texts, lengths,
+source, indices, and act IDs for independent review.
+
+### MI combined-suite reconciliation and mutation plan
+
+The combined 972/27 result's three new MI C5 failures are **not** G8
+collisions. Each retained every operative byte and removed only its source
+`\n\nHistory: ...` tail. The three exact pins now require operative text plus
+`History:` absence. A new mutation control removes only `History:` from G3's
+marker tuple and restores each old tail exactly; focused C5 is **7 passed**.
+
+Developer/QA mutation matrix: (1) remove the WA opt-in or reverse its order →
+the held WA persisted RED returns; (2) remove the one-block condition or opt in
+another code → the MI C5 baseline pin catches the shortcut; (3) restore generic
+containment → AR Occurrence and Virtual-currency fail; (4) blind `History:` →
+only the three MI history tails return. No forwarding/reference-edge, G3
+sibling, core-3, or unrelated-panel item is authorized. FED Roman sibling and
+TX Part-A remain named holds.

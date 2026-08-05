@@ -7,7 +7,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-markers-core2-integration
 locked_by: "/root/markers_g3_heal_planner"
 locked_at: "2026-08-05T22:01:35Z"
 last_agent: "/root"
-last_updated: "2026-08-05T22:01:35Z"
+last_updated: "2026-08-05T22:22:27Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -15,7 +15,7 @@ total_items: 3
 completed_items: 2
 dev_complete_items: 0
 qa_cycles: 2
-lint: "PASS 388 2026-08-05T22:01:59Z"
+lint: "PASS 400 2026-08-05T22:22:27Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -196,14 +196,31 @@ independent combined-tree QA pass.
 - Preserve the existing two-layer acceptance instrument in
   `test_us_markers_qa_q1_wa_newline_collapse_swallow.py`: the baseline swallow
   must be absent and the clean markers candidate must be the persisted row.
-- Reconcile the WA reverse-direction exhibit with G8's proven first-wins safety
-  exhibits. No generic shortest-candidate or containment preference may return.
-- Planner must derive a bounded production seam and measurement/mutation plan;
-  Developer may edit production only after manager acceptance; independent QA
-  must rerun the combined gate, focused core/markers suites, full evaluators,
-  contract lint, and required corpus evidence.
-- No forwarding/reference-edge, core-3 sibling, or unrelated panel debt enters
-  this repair.
+- **Causal sequence (reproduced at `cb7bb86`):** on each WA exhibit,
+  `_split_into_numbered_blocks` emits one baseline block/candidate first
+  (10,838/6,515/8,769 chars); `us_markers_inline_quote` then emits the same
+  key at 303/188/105 chars. Stage 2 first-wins persists baseline. This is an
+  ordering failure, not a text-quality predicate.
+- **Exact Developer production scope:** add one default-false opt-in field to
+  `EntrySplitterRule`; set it only for `US-WA` on `us_markers_inline_quote`; in
+  `USProfile.extract_definitions_from_section`, put opted-in blocks before
+  baseline blocks **only when `len(baseline_blocks) == 1`**. Otherwise preserve
+  `baseline + extra` order byte-for-byte. Do not edit `pipeline.py`, persistence
+  identity, existing DB rows, G3, rule text, or a generic length/containment
+  replacement. This is the narrow, profile-owned source-order seam.
+- **Measurement:** broad source precedence is rejected: 12,774 changed keys on
+  WA+MI (12,757 MI); one-block precedence across all rule jurisdictions changes
+  99 keys in eight jurisdictions. WA-only one-block precedence changes 17 keys;
+  the three held rows are included. Re-run
+  `backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g3_heal_priority_rule_order.py --output docs/sprint/sprints/artifacts/2026-08-06-defs-us-markers-g3-heal-priority-order.json`
+  over all 53 files; QA hand-checks the 17-row ledger before GREEN.
+- **Acceptance/mutation:**
+  `backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_q1_wa_newline_collapse_swallow.py backend/tests/integration/test_us_g8_candidate_collision_preference.py backend/tests/integration/test_us_markers_c5guard_mi.py -q`
+  must be green. Removing the opt-in/order restores WA RED; removing the
+  single-block gate must fail a MI C5 pin; restoring generic containment must
+  fail AR Occurrence/Virtual-currency; blinding `History:` must restore only the
+  three stale MI tails. Then run the combined evaluator and contract lint.
+- Exclude forwarding/reference-edge, G3 sibling, core-3, and unrelated panels; FED Roman sibling and TX Part-A remain named holds.
 
 ## Stale-pin sweep
 
@@ -380,9 +397,4 @@ wrapper is needed beyond real ingest/persistence for this parser path.
 
 ## Context Dump
 
-P-D2 passed independent final QA cycle 2 and is complete; P-T1 remains complete
-and P-D1 remains retired by M54. The FED Roman sibling and TX Part-A are named
-inherited holds, not regressions. Core-2 is merged to main. The combined branch
-is intentionally not mergeable while P-G3H is RED at persisted altitude; use
-the exact M65 integration/dispatch evidence and do not weaken or re-scope that
-test to obtain GREEN.
+P-D2/P-T1 are complete and P-D1 retired. P-G3H blocks the combined branch: follow M65's source-order contract, never generic containment; MI C5 pins G3 History-tail removal; FED Roman sibling/TX Part-A remain holds.
