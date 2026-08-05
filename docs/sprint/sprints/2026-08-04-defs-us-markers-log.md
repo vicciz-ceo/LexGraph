@@ -1434,3 +1434,50 @@ population and QA disposes of them FIRST, not last:
 A signal-agnostic denominator also means NE's 25,997 rows enter the count
 whether or not anyone recognizes their headings — which makes the unresolved
 NE recognition dependency a certification risk, not just a planning detail.
+
+---
+
+## M12 — bucket A re-measured on MY branch: the number is BIGGER, and NV is much smaller
+
+Probe-sanity run as instructed, corpus-wide (53 files) through the real
+profile with my family-3 rules auto-discovered.
+
+| | headings panel (their branch) | MY branch (rules live) |
+|---|---|---|
+| heading-recognized | (69,009 rows scanned) | **61,075** |
+| bucket A (recognized, zero yield) | **12,869** | **21,072** |
+| provably correctly-empty | — | 224 |
+| **real residual misses** | — | **20,848** |
+
+**The expectation that my build shrinks bucket A is WRONG at corpus level —
+it grew.** My rules did exactly what was claimed *inside my own coverage*:
+
+- **in my 13 covered jurisdictions: 1,794** zero-yield remaining
+- **NOT covered: 19,278** — 91.4% of the residual
+
+So the two numbers are not measuring the same denominator; theirs cannot be a
+strict superset of mine. Either their scan covered fewer jurisdictions or
+recognized fewer headings (mine recognizes 61,075 of 69,009). **This needs
+reconciling with the headings panel before either number is quoted at
+certification** — I am not going to assume mine is the right one.
+
+**NV is NOT ~6,866 — I measure 1,262.** NV: 1,262 heading-recognized,
+1,262 zero-yield (**100%**). It is a real, total, unowned gap and a fair
+candidate engine jurisdiction, but it is ~5.4x smaller than attributed.
+
+**The real residual is concentrated in TEN uncovered jurisdictions**, none of
+them family-3 members today:
+NJ 2,372/2,379 (99.7%), NM 1,578 (97.1%), NY 1,479 (100%), NV 1,262 (100%),
+OK 1,146 (94.4%), MI 1,116 (38.8%), ND 1,023 (99.7%), MN 1,016 (91.7%),
+ME 1,000 (99.9%), OH 949 (99.9%).
+
+**Note NJ, MI, ND, NY and OK are the program's "working baseline"
+regression-guard states** — they are recognized and yielding zero at 94-100%.
+That is a much bigger claim than "NV needs an engine", and it is the single
+most important thing I found this pass. Routing is the program manager's
+call; I flag it rather than absorb it silently, since absorbing ~19,278 rows
+across ten jurisdictions is a program-scope decision, not a panel one.
+
+**Dispositions accepted:** core-follow-on-2 owns the FED last-entry defect
+(G3) — my held RED stays red until it merges, by design. Merge order
+core-2 → us → preamble resolves the NE ordering concern.
