@@ -3116,3 +3116,73 @@ UNREACHED), `STATE_MI_C500_AAct-218-of-1956_S500.1305`,
 a real next cycle of work); NE extraction (blocked on markers); the 6
 unreached preposition rows; `definition_text` boundaries pending the routed
 fallback fix.
+
+---
+
+## 2026-08-05 — Manager: next-cycle plan CONFIRMED with 3 refinements; Planner flipped
+
+Sequence (1)/(2)/(3) confirmed. Three refinements, raised because D-CERT
+changes what this cycle is FOR.
+
+### M-R43 — Refinement 1: harden the P-R7 denominator FIRST, not after
+
+Under D-CERT the US track's close is built on **our** P-R7 denominator. That
+promotes it from a QA artifact to a program-critical one — and QA stated
+plainly under "not measured" that the **true corpus-wide size of each of the
+8 shapes was never re-scanned**; the bands are extrapolations from one
+50-row sample.
+
+Two consequences if we fix shapes before measuring them:
+1. **We cannot prove a fix moved anything.** "Shape 3 fixed" is unfalsifiable
+   without a measured shape-3 baseline.
+2. **The program close inherits sample-derived uncertainty** in its
+   denominator — the one artifact D-CERT requires to be signal-agnostic AND
+   trustworthy.
+
+**Ruling: the next cycle opens with a per-shape corpus-wide re-scan** turning
+the 8 bands into measured counts, before/alongside the fixes. It serves our
+items and the program close with one pass, and it is cheap relative to
+re-doing the close later.
+
+### M-R44 — Refinement 2: RED tests must pin PER-RULE attribution, not aggregate capture
+
+This cycle widens several rules at once — B1's trigger vocabulary (shape 3),
+the CA rule's `jurisdiction_codes` (shape 7 / IN×2), a new "also means"
+branch (NM/shape 5), plus shapes 2/6/8. Dispatch is
+**first-non-None-wins in registration order** (M-R27).
+
+Widening rules that share a corpus is exactly how one rule silently starves
+another: aggregate capture goes UP while a specific rule stops firing, and no
+aggregate assertion can see it. **Every new/widened rule needs a test that
+pins WHICH rule claimed the row**, not merely that the row was captured.
+Otherwise the first regression of this kind will be invisible.
+
+### M-R45 — Refinement 3: re-measure FP after every widening; the remedy is narrower rules
+
+Current FP is a clean **0/50 hand-judged**. Shapes 2, 3 and 6 all widen
+matching into looser trigger/idiom territory, and shape 3's `"In this
+<unit>"` is a common English phrase in non-definitional prose — a genuine
+new-FP risk, not a theoretical one.
+
+**Every widening re-measures FP on its own newly-claimed population.** Per
+the seam, a material number is **NOT** grounds to re-gate dispatch — the
+remedy is a narrower rule. Escalate with data per D-Q1; never gate.
+
+### M-R46 — Confirmations on (2) and (3)
+
+- **NE extraction → markers**: confirmed. Recognition (274 rows) is
+  certified ours and working; the 267 unquoted rows join their unquoted
+  family. Nothing further owed by us beyond keeping the named residual
+  visible.
+- **MS padding + fallback last-entry → core follow-on**: confirmed, and our
+  `definition_text` re-measure stays correctly blocked. Restating so it is
+  not lost: **23,617 clean-primary remains the defensible figure** until
+  that fix lands; 27,209 stay provisional.
+
+### M-R47 — Model/effort for the Planner spawn
+
+Planner: **Sonnet / high** — designing a signal-agnostic per-shape
+measurement that will underpin a program-level certification, plus RED tests
+that must pin per-rule attribution under a first-wins registry, is sustained
+judgment. Per P-R6 Planner is always Sonnet high. **Haiku considered: no.**
+`model=inherit` not used. Sole writer; authors tests only, never rules.
