@@ -2,39 +2,43 @@
 
 The cluster model: every predicate here is a COMMITTED, EXECUTABLE
 function (never a prose sentence -- contract's own binding requirement),
-operating on rows produced by `c1_denominator.py`.
+operating on rows produced by `c1_denominator.py` /
+`c1_heading_denominator.py`.
 
-## Two populations, two cluster levels -- a resolution of an ambiguity
-## in the contract, named explicitly for the panel manager to confirm
-## or correct
+## Two populations, two cluster levels -- RULED (M33-1, panel manager,
+## CONFIRMED as this Planner originally resolved it)
 
-The contract's own text uses "candidate row" at TWO different
-granularities without reconciling them: cluster 1's predicate and its
-own disposal count ("~91,605 characters... 33.1%") are stated at the
-CHARACTER level (33.1% of 276,815 raw quote characters), while C2 says
-"the full ~92,600-row population" -- the SPAN count, not the character
-count. Both cannot be the same population (33.1% of 276,815 is ~91,600;
-33.1% of 92,600 would be ~30,600 -- a different, wrong number).
-
-Resolution adopted here, after measuring both (see `c1_denominator.py`'s
-own docstring for the reproduction): this module implements TWO cluster
-levels.
+Round 1 found the contract's own text uses "candidate row" at TWO
+different granularities without reconciling them: cluster 1's predicate
+and its own disposal count ("~91,605 characters... 33.1%") are stated at
+the CHARACTER level, while C2 says "the full ~92,600-row population" --
+the SPAN count. Ruling M33-1 confirmed the resolution Round 1 proposed:
 
 - **Level 0 (character level, cluster 1 only).** Every raw quote
-  character in the corpus (article-body text, normalized) is either
-  word-internal (this cluster) or eligible. This partition is total and
-  disjoint BY CONSTRUCTION (a single boolean predicate: every character
-  is on exactly one side) -- there is no other Level-0 cluster, and none
-  is needed. Level 0 is how the ~92,602-span population in Level 1 gets
-  CONSTRUCTED (word-internal characters are excluded before pairing),
-  not itself a partition of that population.
-- **Level 1 (span level, clusters 2+).** The ~92,602 paired candidate
-  spans -- built from Level-0-eligible characters only -- are what C2's
-  backbone test actually iterates, matching the contract's own "~92,600-
-  row population" wording literally. This is genuinely INCOMPLETE this
-  round (Job 3: "propose the initial cluster set... do not attempt all
-  20-40") -- most rows are expected to remain unassigned, which is C2's
-  expected RED state, not a bug in this module.
+  character in the corpus is either word-internal (this cluster) or
+  eligible. Total and disjoint BY CONSTRUCTION -- there is no other
+  Level-0 cluster, and none is needed. Level 0 is how the Level-1 span
+  population gets CONSTRUCTED (word-internal characters are excluded
+  before pairing), not itself a partition of it.
+- **Level 1 (span level, clusters 2+).** The paired candidate spans --
+  built from Level-0-eligible characters only -- are what C2's backbone
+  test(s) actually iterate, matching the contract's "~92,600-row
+  population" wording literally. Genuinely INCOMPLETE by design (Job 3:
+  "propose the initial cluster set... do not attempt all 20-40").
+
+## Level 1 has TWO populations as of Round 2 (ruling M33-3) -- BODY
+## (primary) and HEADING (additive, separately measured)
+
+Ruling M33-3: excluding heading-embedded quoted spans from any
+population at all, because "the dispatch path differs," would repeat
+the exact signal-dependence this contract outlaws for `הגדרות`-headed
+articles. BODY stays primary (it is what production actually parses --
+`c1_denominator.py`, 93,509 rows); HEADING is additive and separately
+measured (`c1_heading_denominator.py`, 353 rows) because folding them
+together would silently move the already-reproduced ~92,600 headline.
+`SPAN_CLUSTERS` below classifies BODY rows; `HEADING_CLUSTERS` (further
+down) classifies HEADING rows -- two distinct manifests, two distinct
+cluster registries, never mixed in one `assign_*` call.
 
 ## Buckets
 
@@ -58,36 +62,52 @@ def is_hebrew_letter(ch: str) -> bool:
 CLUSTER_1_WORD_INTERNAL_QUOTE = "word_internal_quote"
 
 
-def is_word_internal_quote(prev_char: str, next_char: str) -> bool:
-    """Cluster 1's predicate, verbatim per the contract: a quote character
-    immediately preceded AND followed by a Hebrew letter (U+05D0-U+05EA),
-    with no intervening whitespace, is word-internal and cannot be a term
-    delimiter. Falsifiable: feed it any two characters and it returns a
-    definite verdict, no context beyond the two adjacent characters
-    needed -- deliberately the simplest possible executable predicate,
-    matching the contract's own stated form exactly."""
-    return is_hebrew_letter(prev_char) and is_hebrew_letter(next_char)
+def _is_standalone_vav_conjunction(prev_char: str, char_before_prev: str) -> bool:
+    """`prev_char` is a bare, one-letter vav conjunction ("ו", "and") in
+    its own right -- itself preceded by whitespace or start-of-text, not
+    a letter INSIDE a longer word. Private helper for `is_word_internal_
+    quote`'s M33 refinement below; not itself a cluster predicate."""
+    return prev_char == "ו" and (char_before_prev == "" or char_before_prev.isspace())
 
 
-def is_vav_conjunction_false_positive(prev_char: str, before_prev_char: str) -> bool:
-    """A MEASURED false-positive candidate of `is_word_internal_quote`,
-    found by tracing `c1_denominator.py`'s own `unpaired_trailing_quotes`
-    diagnostic to real corpus text (not assumed): a quote whose
-    `prev_char` is a bare, standalone vav conjunction ("ו", itself
-    preceded by whitespace or start-of-body) is the OPENING delimiter of
-    a second term in a `"term1" ו"term2"` list (e.g. `"רכב" ו"דרך"` --
-    "car" AND "road", two real terms), never an abbreviation. Cluster 1's
-    literal predicate cannot distinguish this from a genuine word-internal
-    abbreviation (both neighbors are Hebrew letters either way), so this
-    is reported as a SEPARATE diagnostic, never folded into cluster 1's
-    own bucketing this round -- see `c1_denominator.py`'s docstring for
-    the measured corpus-wide count (2,096 / 91,611 = 2.3%, 1,004 files)
-    and the independent confirmation (correcting for it drops the
-    unrelated `unpaired_trailing_quotes` diagnostic by 83%, 1,676 -> 282).
-    This function only classifies the `prev_char` side; `next_char` being
-    a Hebrew letter is already guaranteed by the caller (only invoked
-    when `is_word_internal_quote` was already True)."""
-    return prev_char == "ו" and (before_prev_char == "" or before_prev_char.isspace())
+def is_word_internal_quote(prev_char: str, next_char: str, char_before_prev: str = "") -> bool:
+    """Cluster 1's predicate -- REFINED per ruling M33-2 (panel manager,
+    2026-08-05, `2026-08-05-defs-il-certification-log.md`). Original
+    (pre-M33) form, exactly as the signed-off contract first stated it: a
+    quote character immediately preceded AND followed by a Hebrew letter
+    (U+05D0-U+05EA), with no intervening whitespace, is word-internal.
+
+    **M33 correction, now APPLIED (Round 1 reported it as a candidate,
+    not applied -- Round 2 applies it, per the panel manager's explicit
+    ruling that a stated-falsifiable predicate that is measurably false
+    is worse than no template at all).** The original form has a MEASURED
+    2.3% false-positive rate (2,096/91,611 disposals, 1,004 files -- this
+    Planner's own Round-1 finding, independently re-verified by the panel
+    manager against `"רכב" ו"דרך"` before ruling, not accepted on report):
+    when `prev_char` is a bare, standalone vav conjunction ("ו", itself
+    preceded by whitespace or start-of-text -- `char_before_prev`), the
+    quote is the OPENING delimiter of a SECOND term in a `"t1" ו"t2"`
+    list (e.g. "רכב" AND "דרך", two distinct real terms), never an
+    abbreviation, and must NOT be classified word-internal even though
+    both immediate neighbors are Hebrew letters. Independent confirmation
+    this correction is right, not merely different: applying it drops the
+    unrelated `unpaired_trailing_quotes` diagnostic in `c1_denominator.py`
+    from 1,676 articles to 282 (-83%).
+
+    `char_before_prev` defaults to `""` (treated as start-of-text, i.e. a
+    lone `prev_char='ו'` with no further context is assumed standalone)
+    for callers that cannot supply three characters -- every call site in
+    this package supplies it explicitly. See `backend/tests/unit/
+    test_certification_clusters_word_internal_quote.py` for the committed
+    unit test pinning the `ו"` conjunction case this refinement exists
+    for (M33's own explicit instruction: the refinement must carry its
+    own committed unit test, not rely on the corpus-scale manifest to
+    exercise it)."""
+    if not (is_hebrew_letter(prev_char) and is_hebrew_letter(next_char)):
+        return False
+    if _is_standalone_vav_conjunction(prev_char, char_before_prev):
+        return False
+    return True
 
 
 # --- Level 1 -- span-level clusters (implemented this round) ----------
@@ -192,24 +212,16 @@ def assign_span_clusters(row: dict) -> list[str]:
 # --- whoever runs C4's fix loop, not left as a bare unassigned count. --
 
 PROPOSED_CLUSTERS = (
-    {
-        "id": "vav_conjunction_word_internal_false_positive",
-        "seed_residual": "NOT inherited -- found this round, by this "
-        "Planner, tracing c1_denominator.py's own unpaired_trailing_"
-        "quotes diagnostic (1,676/128,234 articles) to real corpus text.",
-        "predicate_sketch": "is_vav_conjunction_false_positive(prev_char, "
-        "before_prev_char) -- see this module's own function. Measured: "
-        "2,096 of 91,611 cluster-1 disposals (2.3%), 1,004 files, are a "
-        "standalone-vav second-term opener ('רכב\" ו\"דרך') misclassified "
-        "as word-internal. Correcting it drops odd-parity articles 83% "
-        "(1,676 -> 282) and raises the naive eligible/2 span estimate "
-        "from ~92,602 to ~93,650 (+1.1%).",
-        "bucket": "NOT YET DECIDED -- a candidate CORRECTION to cluster "
-        "1's own contract-specified predicate, reported for the panel "
-        "manager's sign-off, not applied unilaterally by this Planner. "
-        "If confirmed, this stops being a 'cluster' at all and becomes "
-        "an amendment to cluster 1 itself.",
-    },
+    # HISTORICAL -- no longer a proposed cluster. Round 1 found and
+    # reported (not applied) a 2.3% false-positive rate in cluster 1's
+    # own predicate (the standalone-vav second-term-opener shape, e.g.
+    # `"רכב" ו"דרך"`). Ruling M33-2 (panel manager) directed this be
+    # APPLIED, not left as a proposal: `is_word_internal_quote` (this
+    # module, above) now folds the correction in directly, with its own
+    # committed unit test (`backend/tests/unit/
+    # test_certification_clusters_word_internal_quote.py`). Left as a
+    # comment, not a dict entry, so the shape of this tuple stays "things
+    # not yet decided", not "a running commentary on past decisions".
     {
         "id": "definitions_heading_uncaptured_numbered_subitems",
         "seed_residual": "parent contract residual (1): 44 articles / ~202 "
@@ -266,17 +278,27 @@ PROPOSED_CLUSTERS = (
         "id": "akraza_zot_heading_embedded",
         "seed_residual": "parent contract residual (5): 'אכרזה זאת', 1 "
         "file, definitional, unreachable by any rule today.",
-        "predicate_sketch": "OUTSIDE this denominator's own population by "
-        "construction -- the quoted span lives entirely inside the "
-        "article's HEADING line, and this script's C1 methodology (see "
-        "c1_denominator.py's own docstring, 'Heading vs body') scans "
-        "BODY text only because that is what pipeline.py actually "
-        "normalizes/extracts from. Flagged as an OPEN QUESTION for the "
-        "panel manager: does C1's population need a documented, additive "
-        "heading-scan extension to make this residual expressible as a "
-        "row at all, or does it stay a permanently-out-of-population "
-        "named exception? Not decided by this Planner round.",
-        "bucket": "director-named residual",
+        "predicate_sketch": "ROUND 2 CORRECTION (this Planner, verified "
+        "against the real file, not assumed): ruling M33-3 named the new "
+        "heading population as 'the honest home' for this residual -- "
+        "that is not quite right, and worth stating precisely rather "
+        "than silently absorbed. The real marker line is `@ (תיקון: "
+        "תשפ\"ג) : באכרזה זאת, \"...\" - ...` -- NO number between `@` "
+        "and `(תיקון`, so it matches NEITHER `sections._ARTICLE_MARKER_"
+        "RE` NOR `_BARE_ARTICLE_MARKER_RE`. `sections.parse_articles` on "
+        "the real file returns ZERO Article objects (confirmed live) -- "
+        "there is no `.heading` string to scan at all, so this residual "
+        "is unreachable by BOTH the body population AND the new heading "
+        "population. The true, more fundamental gap (see "
+        "`c1_heading_denominator.py`'s own 'numberless @ marker "
+        "diagnostic'): 121 whole files (2.0% of the corpus) produce ZERO "
+        "articles because of this exact `@`-marker shape, a `sections.py` "
+        "(frozen) gap -- not a rule-module-only fix, and not this "
+        "population's own boundary question after all.",
+        "bucket": "director-named residual -- but escalate the ROOT "
+        "CAUSE (the 121-file zero-article gap) rather than treat this as "
+        "a heading-population classification question; see "
+        "`c1_heading_denominator.py`.",
     },
     {
         "id": "unquoted_definitional_constructions",
@@ -321,4 +343,66 @@ PROPOSED_CLUSTERS = (
         "parse when `_parse_terms_and_qualifier` finds zero quoted spans "
         "but the pre-dash header is a short Hebrew word run.",
     },
+    {
+        "id": "numberless_at_marker_zero_article_files",
+        "seed_residual": "NOT inherited -- found this round (Round 2), by "
+        "this Planner, while investigating why the אכרזה זאת residual "
+        "does not appear in the new heading population (ruling M33-3).",
+        "predicate_sketch": "A file-level (not row-level) finding: "
+        "`sections.parse_articles` returns ZERO Article objects for 121 "
+        "files (2.0% of the corpus) because their own `@`-prefixed "
+        "marker line matches NEITHER `_ARTICLE_MARKER_RE` (no number) "
+        "NOR `_BARE_ARTICLE_MARKER_RE` (has trailing content) -- e.g. "
+        "`@ (תיקון: תשפ\"ג) : באכרזה זאת, ...`. 21,498 such lines / 1,646 "
+        "files corpus-wide (most of those files also have OTHER, valid "
+        "numbered markers elsewhere -- only 121 end up fully article-"
+        "less). See `c1_heading_denominator.py`'s own "
+        "`numberless_at_marker_diagnostic`.",
+        "bucket": "director-named residual -- a `sections.py` (frozen) "
+        "gap, not rule-module-only work; closer in shape to M20's סימן/"
+        "חלק breadcrumb blocker than to anything a family panel can fix "
+        "without a scoped frozen-file escalation.",
+    },
 )
+
+# --- Level 1b -- heading-population clusters (M33-3) -------------------
+
+CLUSTER_HEADING_QUOTED_SPAN_UNREACHED = "heading_quoted_span_unreached"
+
+
+def cluster_heading_quoted_span_unreached(row: dict) -> bool:
+    """Every row in `c1_heading_span_population.jsonl` matches this
+    cluster, and ONLY this cluster -- verified by exhaustive grep
+    (`c1_heading_denominator.py`'s own docstring), not assumed: no rule
+    anywhere in `backend/app/definition_links` reads `Article.heading`
+    TEXT content today (only its own boolean match against `is_
+    definitions_heading`'s known patterns). This is not a coarse
+    catch-all standing in for undifferentiated work -- it is an
+    accurate description of a single, uniform, verified fact: every
+    heading-embedded quoted span is EQUALLY unreached, because the
+    concept of reading heading text for extraction does not exist yet
+    anywhere in the codebase, so there is nothing to differentiate
+    between rows on."""
+    return row.get("production_captured") is False
+
+
+HEADING_CLUSTERS: tuple[tuple[str, "callable", str, str], ...] = (
+    (
+        CLUSTER_HEADING_QUOTED_SPAN_UNREACHED,
+        cluster_heading_quoted_span_unreached,
+        "director-named residual",
+        "Every heading-embedded quoted span, corpus-wide (353 rows, 55,348 "
+        "articles have at least one quote-bearing heading -- most word-"
+        "internal abbreviation noise, 353 real candidate spans after "
+        "pairing). Zero rules read heading text; zero are captured.",
+    ),
+)
+
+
+def assign_heading_clusters(row: dict) -> list[str]:
+    """Analogous to `assign_span_clusters`, for the SEPARATE heading
+    population (`c1_heading_span_population.jsonl`) -- never mix rows
+    from the two manifests through the wrong `assign_*` function; their
+    schemas differ (`heading_text` vs none, no `is_definitions_heading_
+    article`/`preceded_by_html_attribute` columns)."""
+    return [cluster_id for cluster_id, predicate, _, _ in HEADING_CLUSTERS if predicate(row)]

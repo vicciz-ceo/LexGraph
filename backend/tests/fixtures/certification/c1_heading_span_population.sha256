@@ -1,0 +1,12 @@
+dc90eef0476b555ccd40b2eefdf94188f93afb581dc6d84bc887f589cac5c0c3  c1_heading_span_population.jsonl
+rows: 353
+Integrity pin for C5, same discipline as c1_span_population.sha256: QA re-runs
+backend/tests/certification/c1_heading_denominator.py and compares this
+checksum against the regenerated population. This manifest IS committed and
+MUST stay committed for the same reason c1_span_population.jsonl is (see that
+file's own .sha256 note) -- the heading exhaustiveness test reads it as a
+vendored fixture so it never reads the corpus.
+New in Round 2 (ruling M33-3): a SEPARATE population from the body span
+population above -- headings are scanned RAW (never normalized -- production
+never normalizes heading text either), and all four quote codepoints are
+checked individually rather than assumed collapsed to one.
