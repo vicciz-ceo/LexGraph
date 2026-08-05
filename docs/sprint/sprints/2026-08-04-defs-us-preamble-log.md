@@ -3453,3 +3453,104 @@ markers-sprint REDs + this cycle's 20 new REDs; 818 baseline-passed +
 
 **Existing tests**: none edited, none weakened — verified via `git diff
 --stat` before commit (new files only).
+
+---
+
+## 2026-08-05 — Planner: D3, FP re-measurement design (M-R45)
+
+Tool committed: `docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/
+measure_fp_after_widening.py` — run by the Developer/QA AFTER this cycle's
+widened rules land (not runnable meaningfully today, since nothing is
+implemented yet). It calls the SAME real profile machinery this family's
+own tests do, diffs BEFORE (current 4 rules) against AFTER (whatever the
+Developer's code actually looks like when run — no hardcoded assumption
+about their exact regex), groups newly-captured rows by WINNING RULE
+identity (the same `_winning_rule` technique D2's tests use), and draws a
+Q-D1b-convention random sample (seed `20260805`, 50/rule) for hand-judging.
+**Never a gating tool** — it only measures; per M-R45 the remedy for a
+material FP number is a narrower rule, never re-gating dispatch, and
+nothing in this script suppresses or filters what dispatch produces.
+
+### Prospective newly-claimed population, per shape (measurable NOW)
+
+Using D1's own classifiers as an upper-bound estimate of what a
+reasonably-scoped widening claims (D1's own numbers, recommended-scope
+column applies the narrower jurisdiction choice D4 recommends for shape 7,
+not the raw corpus-wide idiom count):
+
+| Shape | Prospective new-claim volume | Scope |
+|---|---:|---|
+| 2 | 17,477 | `US-*` (unavoidably corpus-wide) |
+| 3 | 9,517 (lower bound — see D1's "not measured" note on the em-dash gap) | `US-*` |
+| 5 | 195 | `US-*` |
+| 6 | 102 | `US-*` |
+| 7 | **352** (US-IN only, recommended) vs 1,173 (if `US-*`, NOT recommended) | `US-IN` [+`US-MS`, optional] |
+| 8 | 296 | `US-*` |
+
+**Shapes 2 and 3 dominate the prospective volume** (27,000 of ~28,000
+total across our 6 shapes) — this is where FP review effort should
+concentrate; shapes 5/6/7/8 are small enough that even an elevated FP rate
+produces a small absolute number of bad Definitions.
+
+### Precision measured NOW on shapes 2 and 3 (the two dominant shapes)
+
+A uniform-random, unbiased sample (30 rows each, seed `20260805`, drawn
+from the FULL corpus-wide hit list — not the reservoir-capped, alphabet-
+order-biased 12-per-shape samples D1's own script stores) was fetched in
+full and hand-judged against the real body text, exactly Q-D1b's own
+discipline:
+
+- **Shape 2: 4/30 (13.3%) false positives**, e.g. `STATE_IN_T15_A16_C4_
+  S15-16-4-27.5` ("As used in this chapter, "nontarget site" **has the
+  meaning set forth in** IC 15-16-5-21.5") and two Ohio rows ("**has the
+  same meaning as in** section 9.23/3313.77 of the Revised Code") — pure
+  forwarding pointers with NO local definition text, the same H1 hazard
+  class this family's own hazard catalogue already documents.
+- **Shape 3: 1/30 (3.3%) false positive** (`STATE_TX_Cin_C862_S862.101`,
+  "has the meaning assigned by statute, rules... or lawful custom" — a
+  vague forwarding pointer with no citable local text at all). Two other
+  flagged rows (WI, FED) were judged genuine on closer reading — MIXED
+  blocks where one or two entries forward but the section also defines
+  other terms locally (the same accepted "mixed forwarding-and-local"
+  shape the existing WV B1-matrix test already tolerates).
+
+**Root cause, and the remedy (a narrower rule, per M-R45 — never a
+gate)**: every genuine false positive found in BOTH samples shares the
+exact same forwarding-phrase vocabulary (`"has the meaning [given/found/
+set forth/provided] in"` / `"has the same meaning as"`) that B1's OWN
+EXISTING colon-list branch already excludes via `_B1_FORWARDING_PHRASES`
+— that filter is applied ONLY to the colon-list branch today, not to the
+quote-means branch this cycle widens for shapes 2/3/6. **Concrete
+recommendation for the Developer (D4)**: apply the SAME existing
+`_B1_FORWARDING_PHRASES` check to the widened quote-means branch's own
+filler/gap text. This one change would likely close most or all of the
+false positives found in both samples above — a narrower rule, exactly
+what M-R45 requires, not a new gate and not new vocabulary invented by
+this Planner (it reuses a filter that already exists and is already
+proven safe on this exact hazard class).
+
+**Secondary, smaller finding**: `_B1_TRIGGER_RE`'s own tail,
+`[A-Za-z0-9 .\-]{0,30}`, is a plain character class that permits SPACES —
+on `STATE_ME_T22_S2_C562-A_S2521-C` ("For the purposes of this section
+**the term** "ritual slaughter" means...") the trigger's own greedy match
+swallowed "the term " into ITS OWN span before the quote-means branch ever
+saw it, which (in this specific real row) still resolved to a genuine
+local definition, so it did not become a false positive here — but it is
+a real, disclosed regex-greediness quirk shared by my own measurement
+script (which deliberately mirrors this exact trigger vocabulary, per
+this cycle's own disclosure for shapes 2/6) and potentially by the real
+`_B1_TRIGGER_RE` too. Flagged for the Developer's own awareness, not
+treated as urgent (found zero false positives caused by it in either
+sample).
+
+### What was NOT measured for D3
+
+- The TRUE post-implementation newly-claimed set and its TRUE FP rate —
+  those require the Developer's actual code, which does not exist yet;
+  this section's numbers are prospective/upper-bound estimates from this
+  Planner's own classifier, explicitly not a substitute for re-running
+  `measure_fp_after_widening.py` after implementation.
+- Shapes 5/6/7/8's own FP rate on a real random sample (their prospective
+  populations are small enough, per the table above, that this Planner
+  judged the 60-row shape-2/3 sample the higher-value use of the time
+  budget — flagged, not silently skipped).
