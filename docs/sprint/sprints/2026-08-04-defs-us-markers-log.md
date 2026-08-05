@@ -23,6 +23,12 @@ at persisted altitude; R6 and the named core-3 debts remain ledgered; then final
 independent QA. Merge slot remains second, after core-2, with G3-HEAL checked on
 the merged tree.
 
+Fresh panel manager delivery record (committed before START): canonical Codex
+task `/root/markers_panel_manager`; model/effort `gpt-5.6-sol/high`; Haiku
+considered: no (manager arbitration, corpus verification, and cross-panel merge
+gates). The Codex collaboration runtime exposes this canonical task name rather
+than a raw session id; it is the identifier briefed back to the manager.
+
 ---
 
 ## M0 — sprint manager setup (2026-08-04)
