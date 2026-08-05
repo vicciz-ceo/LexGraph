@@ -265,3 +265,46 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+
+## `us_g8_ar_occurrence_embedded_continuation_row.json` — G8 candidate-collision-preference RED fixture (2026-08-05)
+
+1 REAL row (all original parquet columns, values unmodified),
+`STATE_AR_T27_C14_S23_S27-14-2301` (Ark. Code Ann. Section 27-14-2301,
+"Definitions"), pulled from `us_ar_statutes.parquet` — sprint
+`2026-08-05-defs-core-follow-on-2`, gate G8 ("a baseline bad candidate
+must not silently beat a cleaner same-term candidate from a registered
+rule at persistence").
+
+**What it proves**: this row's own `text` field carries its content
+duplicated verbatim by the source dataset (the SAME real corpus artifact
+already documented above for `STATE_AR_T20_C48_S6_S20-48-603`, D-CF
+fixture #4 — evidently common across `us_ar_statutes.parquet`, not a
+one-off). For the term "Occurrence", baseline's own
+`extract_definitions_from_section` (zero registered rules needed)
+produces THREE candidates sharing the identical `(article_id,
+("Occurrence",))` persistence key: a 155-char one (FIRST in list order —
+wins today) that illegally contains a structurally separate sub-item's
+own marker+quote (`(B) "Occurrence"`) glommed into its own
+`definition_text`, and two later, correctly-bounded ones (64 and 73
+chars). `pipeline.py`'s Stage 2 persists whichever same-key candidate it
+encounters first and never revisits that row — the 155-char candidate
+wins, silently discarding the clean one.
+
+**Why this row, not the WA newline-collapse rows** (`claude/defs-us-markers`
+QA fixture, read but never cherry-picked here): the WA swallow is caused
+by `_split_into_numbered_blocks` finding the entire body as ONE line — the
+exact shape gate G3 (`us_profile.py:346`, unbounded last entry) targets in
+the same sprint. This AR row's collision is provably G3-independent: the
+section is genuinely multi-block (properly newline-separated), and the
+winning candidate's own block is never the row's last block (verified by
+`test_occurrence_is_not_the_last_entry_g3_cannot_be_the_mechanism_here` in
+`test_us_g8_candidate_collision_preference.py`) — a fix scoped to the
+LAST entry's boundary cannot reach it, whatever shape that fix takes.
+
+Provenance: `vaquill/open-us-law` dataset snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad`, file `us_ar_statutes.parquet`,
+fetched 2026-08-05 by this Planner directly into this worktree's own
+`backend/.venv` (`pyarrow` already installed there for this sprint), never
+read by the committed test suite itself (program rule prior-R6 — suites
+run offline). SHA-256 of the row's `text` field:
+`3fe2c0d1bc4213dda7d56b0aa79677a6460341722bdafe7ead42cda9bd95ec67`.
