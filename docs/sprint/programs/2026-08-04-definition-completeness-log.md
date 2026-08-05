@@ -68,6 +68,32 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (five-panel wave + D-S15): Director ruled D-S15 (outermost) and
+  D-INCLUDES-MEASURE (FP scout first) — recorded in program doc. PREAMBLE QA
+  landed @ 10924fc: GA 2→2,794/28,154 (9.9%; "before=2" traced, historic "5"
+  unreconciled — manager to rule), corpus-wide 29,667→80,493 (+50,826;
+  23,617 clean primary / 27,209 flagged fallback), FP 0/50, mutation-proof
+  31 flips; P-R7 independent denominator: 91,878 hits / 59,461 uncaptured /
+  ~94% genuine sample / 8 named shapes (biggest: bare `"Term" means` no
+  trigger; "In this section" = FED's dominant convention) → shape→owner
+  attribution demanded from preamble manager; NE 7/25,997 disposition
+  demanded; D3 guarded-cluster gaps (CO/NV×2/NM/IN×2) to rescue path; L7
+  78-row third D-HG sibling routed to preamble for reach assessment.
+  IL Phase C complete @ 7463dff (31 REDs green, M16 425-term instrument-wide
+  scope fix class, M17 16 variants, M18 self-correction: denominators from
+  entry LINE not entry grammar; I4 FAIL with named classes A 479/1,173,
+  B 132, C 117; E6 unblocked) + IL manager escalates the certification-method
+  question (iterating sweeps cannot terminate at zero; inverted denominator
+  ~10^5 = its own sprint) — CONVERGES with preamble P-R7 finding and
+  headings' whitelist-cannot-close-zero-miss diagnosis → consolidated
+  D-Q to director. HEADINGS phase-3 boundary: inherited claims re-verified
+  with kill-controls; 1,224-row residual fully classified; 5th class found;
+  L7 escalated; cycle-5 Planner landed @ 8cd3829 (49 tests, 36 RED live,
+  fixtures byte-verified 42/42, item-14 scope-VALUE seam gap → core
+  follow-on, VA "is a" copula excluded as close call). MULTITERM Planner
+  amendment @ 467e67a (OR test → 4 named terms, non-vacuous via extractor
+  probe) — Developer released to re-apply narrowing.
+
 - 2026-08-04 (markers build verified — largest recall event of the program):
   claude/defs-us-markers @ 4d1adff, 6 new rules/ modules (541 lines, zero
   shared/test edits), suite 1 failed / 814 passed. Zero-yield before→after:
