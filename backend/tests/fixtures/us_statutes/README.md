@@ -435,3 +435,66 @@ analysis.
    sprint manager's other measured example (`STATE_GA_T38_C3_S38-3-42`,
    dup `"rule"`) as the smaller of the two real rows (5,425 vs 7,654
    chars), per the manager's own instruction.
+
+## `m_r23_hyphen_marker_recall_rows.json` — ruling M-R23, hyphen-suffixed-marker recall-regression RED fixture (2026-08-05)
+
+2 REAL rows, vendored byte-exact (all 24 original parquet columns, values
+unmodified, no trimming), from `us_tx_statutes.parquet`, dataset snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (same dataset as every other
+fixture in this file). Written straight to JSON by a script reading the
+parquet directly (no manual retyping, so byte-exactness holds BY
+CONSTRUCTION), then independently re-verified by a SEPARATE second
+parquet read (a fresh process from the one that wrote the fixture),
+diffed field-by-field against the committed JSON: zero mismatched fields
+across all 24 columns for both rows, `real_row == fixture_row` `True` for
+both.
+
+Found by the sprint manager's corpus kill-experiment (ruling M-R23): the
+M-R18 guard in `rules/us_inline_parenthetical.py` introduced a silent
+RECALL regression (not merely a duplication/precision defect like M-R16/
+M-R17/M-R18's own original finding) — a term is lost ENTIRELY (1 -> 0),
+not double-counted.
+
+1. **`STATE_TX_Coc_C2310_S2310.001`** (Tex. Occupations Code § 2310.001,
+   `"§ 2310.001. DEFINITIONS."`) — entry `(9-a) "Supplier" has the
+   meaning assigned by Section 162.001, Tax Code.`
+2. **`STATE_TX_Cin_C228_S228.001`** (Tex. Insurance Code § 228.001,
+   `"§ 228.001. GENERAL DEFINITIONS."`) — entry `(5-a) "Low-income
+   community" has the meaning assigned by Section 45D(e), Internal
+   Revenue Code of 1986.`
+
+Both `section_title`s are genuinely heading-recognized by
+`is_definitions_heading` (verified live, not assumed) — both rows reach
+`USProfile.extract_definitions_from_section` via the real production
+Definitions-section path, not `extract_local_scope_definitions`'s
+ordinary-body path.
+
+**Root cause (why these two, mechanism):** `us_profile.py`'s baseline
+entry-start recognizer (`_MARKER_TOKEN_RE = re.compile(r"\(\w+\)\s*")`)
+requires a parenthesized marker to contain only `\w` characters — `\w`
+excludes the hyphen, so a suffixed marker like `(9-a)`/`(5-a)` (Texas's
+real convention for inserting a definition between two existing numbered
+entries without renumbering the whole list) is never recognized as an
+entry start; baseline yields NOTHING for that entry. F6's cross-reference
+scan (`_cross_reference_candidates`) is the only rule that could still
+capture it — but the M-R18 guard's own `_ENTRY_LEADING_QUOTE_RE`
+(`\([^\s()]{1,10}\)`, unlike baseline's `\w`-only pattern) DOES match the
+hyphen, so it wrongly treats the term as "already captured by baseline
+elsewhere" and discards F6's candidate too. Net effect: the term is lost
+entirely, invisible to the suite until this corpus kill-experiment found
+it (no existing test covered either of these two rows).
+
+**Significant scope finding, reported not silently acted on:** an
+exhaustive scan of the full real `us_tx_statutes.parquet` file for this
+exact shape (non-`\w` marker immediately followed by a quoted term
+immediately followed by a cross-reference idiom) found **111 occurrences
+across 91 distinct real TX sections**, not merely these 2 — this
+hyphen-suffixed-marker drafting convention is pervasive in Texas. The
+same scan against 8 other already-fixtured state files (DE, NY, CA, IL,
+FL, OH, PA, GA, AR) found ZERO occurrences in any of them — this class
+appears to be Texas-specific, not corpus-wide. This fixture and its test
+deliberately pin only the 2 named rows per the assigned task's scope; the
+other 89 sections are not vendored or asserted on here.
+
+Used by `backend/tests/unit/test_definition_links_m_r23_hyphen_marker_
+recall_regression.py`.
