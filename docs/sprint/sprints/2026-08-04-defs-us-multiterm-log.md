@@ -3017,3 +3017,78 @@ is faithful to a scope value that was never correct. Recorded so nobody reads
   oversized population 3 -> 7, worst case 11,314 chars, for -6 AL zero-yield
   rows in a state markers already covers). The numbers decide it.
 - **U4 zero-miss** — CANNOT CERTIFY stands until 3/4/5 land and are re-swept.
+
+---
+
+## 2026-08-05 — Cycle-2 verified; M-R16 ratification; M-R17 dedup REGRESSION
+
+### Verification of `1c5b516`
+
+Diff is exactly the 2 rule files (92+/16-), **zero test edits**. Suite
+**6 failed / 802 passed** — precisely the seam-blocked `finding1`/`finding1b`
+plus the 4 VT/SD boundary REDs, nothing else. The Developer independently
+derived the 6/802 arithmetic and CAUGHT my deliberate 5-vs-6 inconsistency,
+and separately caught that my "8 targets" heading enumerated only 7. Both
+flagged, neither guessed. That is the behaviour I seeded the probe for.
+
+### M-R16 — I RATIFY the Developer-initiated leading-quote guard
+
+The Developer added an unrequested guard to the finding-4 wiring
+(`_LEADING_QUOTE_TERM_RE`; skip a cross-reference candidate whose term equals
+the block's OWN leading quote) to stop a double-emit on blocks baseline
+already captures (TX `"Governmental body"`), and flagged it rather than
+letting it pass silently.
+
+**Ratified.** It is a direct, correct implementation of MY OWN ruling M-R12
+(union semantics mean baseline + every rule run over the same blocks; a rule
+must return nothing for shapes baseline already handles). Without it, finding
+4's wiring would have re-created the exact double-emit M-R12 warned about.
+
+**But ratification is not enough — it must be PINNED IN BOTH DIRECTIONS**, and
+the Developer's one-off DC check is not a guard (the M-R13 lesson: a check run
+once is not a check that runs forever). Under-suppression and over-suppression
+are both live risks:
+- **under**: TX `"Governmental body"` block must yield EXACTLY ONE candidate;
+- **over**: DC `"parent"` (whose block does NOT start with a quote) must still
+  be captured — the guard must not silently swallow it.
+Planner pins both.
+
+### M-R17 — cycle 2 REGRESSED the dedup fix; my corpus re-measure caught it
+
+The suite is green on this and would have shipped it. My re-measure was not:
+
+```
+POST-CYCLE-2: sampled=79,500  rows firing=434 (0.55%)  candidates=705
+duplicate-term rows: 18        <-- was 0 after M-R14
+```
+
+Path-level diagnosis (mine):
+```
+rows w/ dup terms from APPOSITION path : 0    (M-R14's dedup lives here — holds)
+rows w/ dup terms from CROSS-REF  path : 18   (NO dedup here)
+  AR 15-74-305 'a standard cubic foot of gas' (2 occ, 1 distinct)
+  AR 4-28-208  'private foundation'     CA 22370 'credit insurance'
+  GA 38-3-42   'rule'
+```
+
+**M-R14's `seen_terms` dedup was added to `_apposition_candidates` ONLY, never
+to `_cross_reference_candidates`.** QA investigated exactly this in cycle 1 and
+honestly reported it as a NON-finding, because at that time the persist-layer
+key `(article_id, sorted(terms))` masked it. Cycle 2 unmasked it: adding
+`as defined in` to the vocabulary (2,813 occurrences) and wiring the
+cross-reference path into the `TermClauseRule` path made the duplication
+observable at candidate level, where it double-emits.
+
+**Nobody was careless here.** QA's cycle-1 conclusion was correct on cycle-1
+code; the change that invalidated it came later. This is precisely why a
+corpus re-measure after every production change is a standing manager duty and
+not a formality — the suite reported 6/802 and would have shipped the
+regression.
+
+**Fire-rate 0.35% -> 0.55%** is EXPECTED, not a regression: `as defined in`
+is new legitimate capture. 0.55% remains inside F6's mandated "~1-2 per 300"
+(0.33-0.67%).
+
+**Ruling M-R17:** red-before-green — Planner authors a RED pinning "one term,
+one candidate" for the CROSS-REFERENCE path (mirroring M-R14's apposition
+guard), then the Developer dedupes there. Do not let the fix ship untested.
