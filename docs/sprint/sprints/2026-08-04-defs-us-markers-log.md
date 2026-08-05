@@ -2895,3 +2895,72 @@ short_definitions_rows.json`, `us_markers_qa_q3_tx_2009_003_row.json`,
 wa_t50_c29_s030_row.json`, `us_markers_qa_q6_correctly_empty_new_
 jurisdictions_rows.json`.
 
+
+---
+
+## M19 — three agents merged; build wave dispatched; DC inbound re-derived (2026-08-05)
+
+**Merged** PA1, PB1 and QA1 into `claude/defs-us-markers` (`da5f820`, pushed).
+Log conflicts were append-only collisions, resolved keep-both in order — no
+content dropped from any agent's section.
+
+**Merged-tree baseline: `21 failed, 871 passed`.** Disposition of every RED:
+
+| Count | REDs | Owner |
+|---|---|---|
+| 8 | `ext_a_*` (MI/ND/NJ/NY×3/OK×2) | **ours** — Developer B |
+| 6 | `ext_b_*` (ME/MN/NM/NV×2/OH) | **ours** — Developer B |
+| 2 | `qa_q3_tx_2009_003` | **ours** — Developer A |
+| 2 | `qa_q4_ceiling_audit` | **ours** — Developer A |
+| 1 | `unbounded_last_entry` (FED) | core-2 **G3**, held |
+| 1 | `qa_q1_wa_newline_collapse_swallow` | core-2 **G8**, held |
+| 1 | `qa_q2_short_definitions` (AL) | core-follow-on-3, held |
+
+**Q3 verified by me before dispatch, and it is worse than reported.** Positive
+control on `_TRAILING_MARKER_CHAIN_RE` (`us_markers_boundary.py:154`):
+`...described in 2009.003.` → **`...described in 2`**. It does not merely strip
+a citation, it truncates mid-number and corrupts the definition text.
+`...Section 42.101.` loses the citation entirely. Controls that must survive
+the fix: `(a) (b)` chains still strip, plain sentences untouched — both verified
+correct today. Confirms QA's 1,842/144,706 (1.27%), TX 4.50%.
+
+**DC inbound from core-2 — re-derived, substance CONFIRMED, counts differ.**
+Per standard I did not accept the numbers. My classification of DC's zero-yield:
+
+| class | core-2 | mine |
+|---|---|---|
+| `The term "X" means` lead-in | 130 | **110** |
+| quoteless | 202 | **201** |
+| neither | — | **20** |
+| total | 332 | **331** |
+
+The finding's SHAPE is confirmed — DC is not the last-entry class, it is a
+lead-in class plus a quoteless majority, and both are ours via registry rules
+with no shared edits. The quoteless count is confirmed (201 vs 202). The
+lead-in count is not: my regex (`[Tt]he term\s+["“]`) is cruder than theirs and
+20 rows land in NEITHER class. **Those ~20 rows are a residual their two-class
+split does not name**, and a two-rule DC fix will leave them uncaptured. Named
+here so it is not discovered at certification; not yet routed.
+
+**Build wave dispatched** (commit-before-spawn observed at `da5f820`):
+
+| Role | Model/effort | agentId | Write set |
+|---|---|---|---|
+| Developer A | Sonnet/medium | `aa32a2108c17bc1cc` | EXACTLY `us_markers_boundary.py` — D-A1 citation-strip, D-A2 the 3,000-char ceiling |
+| Developer B | Sonnet/medium | `ab1a9e8e6ef53da0a` | NEW modules only — the 14 extension REDs |
+
+Haiku considered and rejected for both: every defect this panel has paid for
+came from boundary precision traded away silently.
+
+**Write-set isolation, and the deferred-tuple protocol.** Planner A found 83–96%
+of the guard states are a jurisdiction-tuple extension of the existing engine —
+i.e. edits to existing modules' `_JURISDICTIONS` tuples, which are Developer A's
+files this cycle. Rather than serialise the whole wave behind two small fixes,
+Developer B is instructed to **record each needed tuple widening precisely and
+NOT make it**; the manager applies the list after Developer A lands. Parallelism
+without a shared write set.
+
+**Q5 CLOSED — `STATE_WA_T50_C29_S030` rerouted to the headings panel** by the
+program manager, superseding the earlier H-R1 routing to us: our QA proved
+extraction yields `wages` cleanly when driven directly, so the gap is 100%
+recognition-side. Closed as dispositioned-with-evidence, not as fixed.
