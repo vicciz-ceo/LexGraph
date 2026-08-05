@@ -3028,3 +3028,52 @@ number is credible rather than alarming.
 `defin`-titled rows and is a DIFFERENT population from the 12,869 shape-1
 bucket-A figure handed to markers earlier. The two must not be added or
 conflated; they overlap by an unmeasured amount.
+
+---
+
+## 2026-08-05 — Escalation accepted; QA cycle 4 opened
+
+### WA_T50 escalation — ACCEPTED IN FULL
+
+Program record corrected at main `2463efe`. This panel's layer-by-layer trace
+is now the program's account: **the failing layer is the `heading_was_derived`
+gate — not recognition, not extraction.** The relayed diagnosis had been built
+on a probe using the non-live flag value; the
+**"probe arguments are part of the claim"** lesson is recorded at program level
+alongside P-R10.
+
+- **G11 opened at core-2** as a candidate gate, carrying this panel's data and
+  a **binding both-sides condition**: find the gate's ORIGINAL rationale;
+  measure the fallback's **false-positive** side on registry-recognized rows
+  BEFORE any flip; and consider narrower openings than outright removal. That
+  condition matters — this panel measured only the recall side (39,955
+  rescued), and a one-sided measurement is not a mandate to flip a gate.
+- The markers manager is re-scoping its extension Developer onto
+  **gate-independent shapes** while G11's measurement runs.
+- The **39,955-vs-12,869 different-populations caveat is recorded verbatim** at
+  program level; nobody adds them.
+- **L1's D-MT-E1 reference-edge verification is queued on G11 landing.**
+
+### QA cycle 4 spawned — `qa_cycles` 4 of 5
+
+| Role | Model/effort | Justification (Haiku considered?) | agentId | Worktree/branch |
+|---|---|---|---|---|
+| QA cycle 4 | Sonnet/high | P-R6 assigns QA to Sonnet high; this cycle decides a director-level certification. **Haiku considered: no** — role-forbidden, and the judgment is legal-text classification at scale. | `a6861e5def2bb321f` | `/Users/nerya/LexGraph-wt/defs-us-headings-qa4`, branch `claude/defs-us-headings-qa4`, own venv (verified) |
+
+**Centre of gravity — U4 under D-CERT inverted certification.** The residual is
+now **22,228 − 21,080 = 1,148 rows**. Every one must be either ruled
+correctly-excluded or on the ledger with a named owner and closing condition;
+QA classifies the FULL 1,148, not a sample, and any row in NEITHER category
+fails U4. Prior cycles each found a new mechanical gap class by hand-reading
+the residual — QA is told to find a further one now if it exists.
+
+**P-R7 is now certifiable** against `d5c12ab`, with the certified figures bound
+in the brief: GA 2→2,794/28,154 carrying BOTH before-numbers; **23,617
+clean-primary as THE defensible figure, NOT the blended 80,493**; shapes 2–8,
+NE extraction and `definition_text` boundaries explicitly NOT certified.
+
+**Settled rulings QA is forbidden to re-litigate** (each would otherwise burn
+the panel's last cycle): dispatch semantics (A) and the non-load-bearing status
+of rule ordering; D-HG's guard; D-INCLUDES being cycle-6 item 16 so its absence
+from cycle 5 is CORRECT; L1's gate diagnosis; L9's missing scope-VALUE seam;
+L8/L10's recorded dispositions.
