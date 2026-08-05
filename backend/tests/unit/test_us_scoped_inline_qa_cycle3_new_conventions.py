@@ -143,11 +143,56 @@ def test_unless_a_different_meaning_appears_from_the_context_filler_not_recogniz
     the END of the qualifier ("unless a different meaning clearly appears
     FROM THE CONTEXT"), so the filler group fails to match anything,
     `region_start` lands mid-qualifier instead of after the colon, and
-    `_single_entry` finds no leading quote there."""
+    `_single_entry` finds no leading quote there.
+
+    **Test-harness note (Planner pass 12, 2026-08-05), not a product
+    defect -- the Developer's regex fix above is correct.** This test was
+    RED for a fixture reason: `us_ny_statutes.parquet`'s `text` column
+    stores every NY line break as the LITERAL two-character escape `\\n`
+    (backslash + "n"), never a real newline byte -- BY DESIGN, confirmed
+    independently this pass (400-row sample, all 53 state statute files,
+    HF snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`): NY is 400/400
+    escaped with zero real newlines and is the only one of the 53 where the
+    escape is the PREVAILING convention (KY, by contrast, is 400/400 real
+    newlines; CA's sample showed 203/400 real and 0/400 escaped, though a
+    fuller sweep by an earlier QA pass found a much rarer genuine instance
+    elsewhere in CA's file -- 21/161,429 rows, see
+    `test_ingest_us_statutes_i8_ca_content_verification.py` -- also handled
+    by the same transform named below). Production already handles this at
+    ingest, unconditionally, for every US row:
+    `backend/app/definition_links/ingest_us_statutes.py`, line ~237,
+    substitutes a real newline for that literal escape BEFORE any
+    extraction rule ever sees the body. The parquet is read-only source
+    data -- production never hands a rule's `text` argument straight from
+    it. This fixture row was vendored from the raw parquet (ruling R6)
+    WITHOUT that substitution, so it drove the extractor with a shape
+    production never produces; applying the same substitution here (rather
+    than loosening the assertion) makes the test production-faithful
+    instead of merely tolerant. Reproduced inline below, not in the
+    fixture, because this test calls `extract_us_scoped_inline_definitions`
+    directly rather than going through `ingest_us_statute_rows` -- the same
+    convention core's `test_us_core_g3_guard_states_no_regression.py` uses
+    for the identical reason, and the same fix already shipped for
+    `test_ingest_us_statutes_ny_newline_defect.py` (M14) and
+    `test_ingest_us_statutes_i8_ca_content_verification.py` (I8). This is
+    the program's most-rediscovered trap (fifth occurrence, fourth panel,
+    per this pass's brief) -- any FUTURE NY fixture added to this suite
+    that is fed straight into an extraction function, rather than through
+    `ingest_us_statute_rows`, must either be vendored already-unescaped
+    (post-ingest) or apply this exact substitution first, or it will
+    reproduce this same false RED."""
     from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
 
     row = _rows()["STATE_NY_APVH_A12_S654-C"]
-    candidates = extract_us_scoped_inline_definitions(row["text"])
+    # M14/I8 (already-shipped, `ingest_us_statutes.py:237`): production
+    # unescapes NY's literal \n (backslash + "n") two-character sequence to
+    # a real newline BEFORE any extraction rule ever sees the body -- see
+    # the docstring above. Reproduced here since this test calls the bare
+    # rule function directly rather than going through
+    # `ingest_us_statute_rows`; omitting it would drive the extractor with
+    # a shape production never produces, not exercise a missing capability.
+    text = row["text"].replace("\\n", "\n")
+    candidates = extract_us_scoped_inline_definitions(text)
     terms = {t for c in candidates for t in c.terms}
     assert "Housing New York program" in terms, (
         "the rule captured nothing for a clean 'As used in this section, unless a different "
