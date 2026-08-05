@@ -382,3 +382,200 @@ Provenance (all 3): `vaquill/open-us-law` dataset snapshot
 Planner directly into this worktree's own `backend/.venv` (`pyarrow`
 already installed for this sprint), never read by the committed test
 suite itself (program rule prior-R6 — suites run offline).
+## `us_markers_wave1_rows.json` — sprint 2026-08-04-defs-us-markers, wave 1 (2026-08-04)
+
+6 REAL rows (full original columns, values unmodified), pulled from
+`us_va_statutes.parquet` (2), `us_wa_statutes.parquet` (2), and
+`us_federal_statutes.parquet` (2) — family 3's "no-marker inline-quote"
+sub-case (a real Definitions-headed section whose body is `"Term" means
+...` sentences with NO `(N)`-paragraph markers, which
+`USProfile.extract_definitions_from_section` cannot parse). Confirmed live
+against the real, unmodified `_extract_inline_quoted_definitions`
+(pipeline.py:246-289) and `run_definition_linking` end to end; full
+methodology and measured rates in this sprint's log, `## P1 — planner pass
+1`.
+
+1. **`STATE_VA_T23.1_SI_C3_S23.1-300`** — clean rescue, 9 real terms
+   (College degree, Cost of education, Educational and general fees,
+   Educational and general services, student enrollment, Fiscal year, Peer
+   institutions, STEM, Student), each 44-658 chars. The recon dossier's own
+   named VA example row.
+2. **`STATE_VA_T4.1_SII_C6_S4.1-600`** — real VA Cannabis Control Act
+   Definitions section (14,629-char body), 48 genuine terms (32-1,108
+   chars each) plus a real false-positive trap: "sell" (inside `"Sale" and
+   "sell" includes ... by any means.`) sits ~170 chars before the literal
+   word "means" in UNRELATED prose — the naive fallback's bounded
+   idiom-gap match treats that as sell's own defining idiom, collapsing
+   its captured `definition_text` to a single `"."` character.
+3. **`STATE_WA_T47_C14_S020`** (`RCW 47.14.020: Definitions.`) — clean
+   rescue, 2 real terms (Right-of-way, Airspace). The exact row the recon
+   dossier's own dossier quotes for WA's dominant miss shape.
+4. **`STATE_WA_T9A_C04_S110`** (`RCW 9A.04.110: Definitions.`) — real WA
+   criminal-code Definitions section (7,318-char body), 18 genuine terms
+   plus a real nested-quote trap: "Vehicle"'s own definition contains
+   `a "motor vehicle" as defined in ...` — the naive fallback treats
+   "motor vehicle" as a second, phantom top-level term (no defining
+   sentence of its own in this statute), truncating "Vehicle" itself to a
+   single `"a"` character.
+5. **`USC_T16_C65_S4503d`** — small (1,025-char), real, clean-LOOKING FED
+   Definitions section, 3 real terms (Institutes of Tropical Forestry,
+   Secretary, State). Exposes a SEPARATE, systematic defect: the LAST
+   recognized entry ("State") swallows the row's trailing citation plus
+   appended "Editorial Notes" header (its naive definition_text is 626
+   chars and contains the literal string "Editorial Notes") — this
+   happens on essentially every FED row that carries the dataset's
+   appended-notes shape, not just pathological ones.
+6. **`USC_T15_C12_S431`** — small (3,239-char), real FED Definitions
+   section. Only entry (a) ("agricultural products") uses the fallback's
+   recognized "means" idiom; entries (b)-(f) use idioms it doesn't
+   recognize as a boundary ("shall be held to include and mean", "shall
+   be construed to mean") — so the naive fallback swallows ALL of (b)-(f)
+   plus the row's appended "Editorial Notes"/"References in Text" tail
+   into "agricultural products"'s own definition_text (3,169 of 3,239
+   chars). Full-corpus check (this sprint's log): 83.0% of FED
+   zero-candidate Definitions sections carry this same appended-notes
+   shape, and 99.2% of all >=5,000-char inline-fallback candidates across
+   VA+WA+FED come from a row with it — FED's dominant, and previously
+   unmeasured, boundary hazard.
+
+## `us_markers_correctly_empty_rows.json` — planner pass 2, gate U4 classifier (2026-08-04)
+
+14 REAL rows (full original 24 columns, values unmodified — 10 from
+planner pass 2, 4 more from the bounce cycle below), for
+`test_definition_links_correctly_empty.py`'s RED tests defining/pinning
+the `app.definition_links.correctly_empty` module's contract (sprint log
+`## P2`/bounce cycle, gate U4, rulings U-R3/U-R7). All verified
+byte-identical to the source parquet (`section_title` and `text`, every
+row, every check `True`).
+
+**Terminal-status class** (all real DC rows — DC's zero-candidate set is
+53.6%/178/332 this class alone, this sprint's log `## P1`):
+1. `STATE_DC_T47_C28_S47-2843` — body `"Repealed."`.
+2. `STATE_DC_T42_C36_S42-3631` — body `"Expired."`.
+3. `STATE_DC_T2_C3_S2-308.13` — body `"Recodified as § 2-381.01 ."`.
+4. `STATE_DC_T33_C1_S33-112.03` — body `"Reserved."`. **Caveat, checked
+   exhaustively this pass**: no row in the full 53-state corpus combines
+   a `Reserved.`/`Renumbered.`/`Omitted.`/`Vacant.` body with a heading
+   `is_definitions_heading` recognizes (0 hits, all 53 `*_statutes.parquet`
+   files scanned) — this row's OWN heading is `"§ 33-112.03. [Reserved]."`,
+   not Definitions-shaped. Vendored anyway because the classifier's
+   contract is a pure function of `body_text` (see module docstring in the
+   test file) and this is REAL corpus text proving the `Reserved.` literal
+   shape genuinely exists — not because this specific row would ever reach
+   the classifier in production.
+
+**Cross-reference class** — corrected this pass, see below:
+5. `STATE_WI_C851_S851.002`, 6. `STATE_WY_T99_C3_S99-3-1101`,
+   7. `STATE_WA_T43_C99N_S010` — three real, genuine other-citation
+   cross-references (one per jurisdiction), each a single short sentence
+   naming a DIFFERENT section/chapter than the one it's in, with nothing
+   operative after it (WI has a trailing `History: ...` amendment-citation
+   annotation, real, carries no defining content).
+
+**NEGATIVE class — critical guard, must classify as MISS, not
+correctly-empty:**
+8. `STATE_WA_T47_C14_S020` — wave-1's OWN flagship WA test row (2 real
+   terms, `Right-of-way`/`Airspace`). Its body opens with `"The
+   definitions set forth in this section apply throughout this
+   chapter."` — a SELF-referential preamble (the definitions are right
+   HERE, not elsewhere) immediately followed by real defining content.
+9. `STATE_VA_T29.1_C7_A2.1_S29.1-733.2` — real VA watercraft-titling
+   Definitions section, 9,658 chars, **46 real quoted definitions**. Body
+   opens `"The definitions in this section do not apply to..."`.
+10. `STATE_VA_T58.1_SI_C17_A9_S58.1-1735` — real VA rental-tax Definitions
+    section, 3,726 chars, **7 real quoted definitions**. Body opens
+    `"The definitions in § 46.2-1408 shall apply, mutatis mutandis, to
+    this article."` — names a REAL other citation, same surface shape as
+    the genuine cross-reference rows above, but followed by substantial
+    operative content of its own.
+
+**Why rows 8-10 matter (material correction to pass 1's classifier
+measurement, sprint log `## P2`):** pass 1's log defined the
+cross-reference rule as matched "at the START of the stripped body" with
+no requirement that the match consume the WHOLE body. Applying that
+literal rule to the full real corpus this pass (not merely the WI/WY
+examples pass 1 checked) finds it is dangerously over-broad: **727 of
+WA's 734 naive "cross-reference" hits (99.0%) — including row 8, wave
+1's own flagship test row — are self-referential preambles with real
+defining content immediately after them, not actual cross-references.**
+Both VA rows above are further proof: 46 and 7 real definitions
+respectively, both opening with a citation-shaped sentence that a
+start-anchored-only match would misclassify as "correctly empty." The
+corrected rule (requires the ENTIRE stripped body, after an optional
+trailing `History:` annotation, to be short — nothing substantial follows
+the cross-reference sentence) reclassifies all three of rows 8-10 as MISS
+and leaves rows 1-7 unaffected. Recomputed full-corpus rate with the
+corrected rule: **WA 4/1,778 (0.2%)**, not pass 1's reported 734/1,778
+(41.3%) — VA drops from 2/1,065 (0.2%) to 0/1,065 (0.0%). DC/WI/WY numbers
+are unchanged (unaffected by the fix). Full detail in the sprint log's
+`## P2` entry.
+
+## Rows 11-14 — bounce cycle, real defect in the SHIPPED module (2026-08-04)
+
+4 more real WA rows (same 24-column schema, byte-verified), added after
+the manager's adversarial full-corpus sweep (34,241 real Definitions-
+headed zero-candidate sections, all 53 jurisdiction files) found the
+Developer-shipped `correctly_empty.py` calls 228 of them correctly-empty,
+of which exactly these 4 are WRONG (ruling U-R7) — every other
+jurisdiction's verdicts are clean:
+
+11. `STATE_WA_T82_C23A_S010` (1,848 chars, 7 `"Term" means` entries:
+    Petroleum product, Possession, Previously taxed petroleum product,
+    Rack, Wholesale value, plus nested `Control`/`Actual possession`/
+    `Constructive possession`). Opens with the same self-referential
+    preamble as row 8 above; the shipped regex's citation group crosses
+    all ~1,800 intervening chars (the body has ZERO newlines) to latch
+    onto a SECOND, genuine "...the definitions in chapters 82.04, 82.08,
+    and 82.12 RCW apply to this chapter." sentence at the very end.
+12. `STATE_WA_T18_C44_S011` (4,021 chars, 11 real entries: Committee,
+    Controlling person, Department, Designated escrow officer, Director,
+    ..., Split escrow). Same mechanism; the row's own `text` field
+    concatenates a SECOND, unrelated section's content (a real,
+    non-injected vaquill data-artifact — the escrow-licensing text abruptly
+    becomes health-care "Insurance producer" licensing text mid-string,
+    no separator) whose own trailing "...are applicable to a disability
+    insurance producer." is what the regex actually latches onto — proves
+    the defect doesn't need a genuinely relevant second citation, just the
+    bare trigger words appearing anywhere later on the same (newline-free)
+    line.
+13. `STATE_WA_T70A_C30_S010` (2,677 chars, 12 real entries: Approved
+    shellfish tag or label, Commercial quantity, Department, ...,
+    Shellstock). Same concatenated-unrelated-content artifact as row 12
+    (shellfish-sanitation text becomes vehicle-emissions text mid-string);
+    closes on "...do not apply with respect to..." — a NEGATED "apply"
+    (same shape as pass 1's VA `STATE_VA_T29.1_C7_A2.1_S29.1-733.2`
+    finding above) — the regex does not parse negation, only the bare
+    word.
+14. `STATE_WA_T70_C28_S008` (386 chars, 2 real entries: Department,
+    Secretary, plus a third unquoted "Tuberculosis control"). A DIFFERENT
+    exploit shape from 11-13: only ONE trigger occurrence (the
+    self-referential opening) — the real entries are semicolon-separated
+    with no internal periods, so the shipped regex's trailing-clause
+    group (which tolerates any non-period character) swallows all of it
+    without ever needing a second trigger. Proves a fix that merely
+    rejects "trigger phrase occurs twice" would still miss this row.
+
+`test_definition_links_correctly_empty.py`'s general guard test
+additionally recombines each row's real leading content (self-referential
+opening + real definitions, its own accidental trailing content dropped)
+with a DIFFERENT row's real genuine cross-reference sentence (rows 5-7),
+at test-run time — proving the required fix is general, not a lookup
+table keyed on these 4 exact byte-strings. All 4 recombinations reproduce
+the same false positive against the currently shipped module.
+
+## `us_markers_wave2_subcases_rows.json` — planner pass 2, priorities 2 & 3 (2026-08-04)
+
+9 REAL rows (full original 24 columns, values unmodified), for two new
+integration test files verifying (a) pass 1's claimed wave-1
+"auto-rescue" side effects on UT/TX/AZ, corrected per U-R1 boundary
+rigor, and (b) the sub-cases wave 1 does NOT rescue (AL/DC/RI/AK/TN/SC).
+Full per-row rationale, exact expected term sets, and the two NEW
+boundary defects found this pass (UT's swallow-through-non-means-idiom,
+AZ's leaked-next-marker) are in the sprint log's `## P2` entry and each
+test's own docstring — not duplicated here per this file's size budget.
+
+Rows: `STATE_UT_T75B_S75B_1_301`, `STATE_TX_Cfi_C37_S37.001`,
+`STATE_AZ_T15_C14_A7_S1871` (priority 2); `STATE_AL_T1_C19_S22-19-141`,
+`STATE_DC_T28_C25_S28-2501`, `STATE_RI_T35_C35-13_S35-13-2`,
+`STATE_AK_T44_C44.42_S44.42.900`, `STATE_TN_T50_C2_S50-2-115`,
+`STATE_SC_T5_C1_S5-1-20` (priority 3).

@@ -1,0 +1,16 @@
+{
+  "act_id": "USC_T38_C17_S1712A",
+  "section_title": "Eligibility for readjustment counseling and related mental health services",
+  "text": "\"family member\", with respect to a veteran or member of the Armed Forces, means an individual who—",
+  "_fixture_provenance": {
+    "source": "vaquill/open-us-law",
+    "dataset_revision": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+    "source_file": "us_federal_statutes.parquet",
+    "act_id": "USC_T38_C17_S1712A",
+    "source_url": "https://www.govinfo.gov/app/details/USCODE-2024-title38/USCODE-2024-title38-partII-chap17-subchapII-sec1712A",
+    "text_is_verbatim_excerpt": true,
+    "source_full_text_sha256": "616aac6ff4a5811c86e1c13e1a7acf19acfb6646870f053629c4b059239454d8",
+    "excerpt_start_offset": 11938,
+    "excerpt_end_offset": 12036
+  }
+}

@@ -1,0 +1,28 @@
+[
+ {
+  "act_id": "STATE_OK_T47_S47-157.5",
+  "citation": "Okla. Stat. tit. 47, § 47-157.5",
+  "citation_short": "Okla. Stat. tit. 47, § 47-157.5",
+  "state": "ok",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "title_number": "47",
+  "title_name": "OK Code",
+  "chapter": "",
+  "chapter_name": null,
+  "section_number": "47-157.5",
+  "section_title": "Definition",
+  "breadcrumb": "[{\"type\": \"title\", \"num\": \"47\", \"label\": \"Title 47\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"47-157.5\", \"label\": \"Section 47-157.5\", \"name\": \"\"}]",
+  "display_path": "OK Code / Title 47 / Section 47-157.5",
+  "act_status": "in_force",
+  "text": "The term \"person\" as used in this act shall mean any individual,\n\nfirm, partnership, corporation, or business entity of any kind or\n\ncharacter, or the executor, administrator, trustee, receiver,\n\nassignee, or personal representative thereof.",
+  "word_count": 34,
+  "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os47.pdf",
+  "last_amended_year": null,
+  "subsection_count": 0,
+  "cross_references_usc": "[]",
+  "cross_references_cfr": "[]",
+  "public_laws_referenced": "[]",
+  "year": 2026
+ }
+]

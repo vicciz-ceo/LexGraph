@@ -1,0 +1,28 @@
+[
+ {
+  "act_id": "STATE_NJ_T39_C4_S4-8.2",
+  "citation": "N.J. Stat. § 39:4-8.2",
+  "citation_short": "N.J. Stat. § 39:4-8.2",
+  "state": "nj",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "title_number": "39",
+  "title_name": "NJ Code",
+  "chapter": "4",
+  "chapter_name": null,
+  "section_number": "4-8.2",
+  "section_title": "Definitions relative to traffic regulation.",
+  "breadcrumb": "[{\"type\": \"title\", \"num\": \"39\", \"label\": \"Title 39\", \"name\": \"\"}, {\"type\": \"chapter\", \"num\": \"4\", \"label\": \"Chapter 4\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"4-8.2\", \"label\": \"Section 4-8.2\", \"name\": \"\"}]",
+  "display_path": "NJ Code / Title 39 / Chapter 4 / Section 4-8.2",
+  "act_status": "in_force",
+  "text": "1. As used in this act: \"Public highways\" means public highways as defined in section 3 of P.L.1984, c.73 (C.27:1B-3). \"Transportation system\" means transportation system as defined in section 3 of P.L.1984, c.73 (C.27:1B-3). \"Under the jurisdiction of the commissioner\" means that which has been taken over, or is owned, controlled, or maintained by the Department of Transportation. L.1998, c.28, s.1.",
+  "word_count": 61,
+  "source_url": "https://www.njleg.state.nj.us/legislative-activity/statutes",
+  "last_amended_year": 1998,
+  "subsection_count": 0,
+  "cross_references_usc": "[]",
+  "cross_references_cfr": "[]",
+  "public_laws_referenced": "[]",
+  "year": 2026
+ }
+]
