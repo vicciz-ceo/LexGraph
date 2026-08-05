@@ -3444,3 +3444,86 @@ show regression.
 Run in parallel; write sets disjoint (QA writes no code or tests at all).
 
 ---
+
+## M27 — spawns dispatched; scoped-inline re-tabulation received and VERIFIED (2026-08-05)
+
+### Spawned (both at `c22d6b0`, both anchored to §M25)
+
+| Role | agentId | Branch / worktree | Scope |
+|---|---|---|---|
+| QA cycle 2 | `a0caf5f0005ba98e3` | `claude/defs-us-markers-qa2` | U-R15 four-class classification of all 13 guards' extra terms; retained-text fidelity gap; confirm/refute the two devC defects. **Writes nothing.** |
+| Planner | `a2aefc18406e12b97` | `claude/defs-us-markers-planC` | Re-author U-R12 AZ oracle + U-R13 Q3B oracle; author colon-idiom RED. **Tests only, no `backend/app/` edits.** |
+
+Both worktrees created FROM the M25/M26 commit specifically so each agent can
+read my agentId in its OWN checkout — verified before dispatch (`grep` for the
+id returns a hit in both). Per-worktree venvs built and confirmed importing
+`app` from inside their own worktree (the documented wrong-venv trap).
+
+QA's brief carries the priority order explicitly, because I may need to cut it
+short: the 5 small-delta guards FIRST (the only population where a precision
+regression can hide), then the never-executed text-fidelity assertions, then
+the 8 large-delta guards. It is also told that a fifth class would be a finding
+against MY taxonomy, not a failure — U-R15 is a hypothesis with an escape hatch.
+
+### Cross-panel: scoped-inline's narrow-slice re-tabulation
+
+Their manager (`a1b29c30b33e45591`, verified by me at
+`docs/sprint/sprints/2026-08-04-defs-us-scoped-inline.md` line 289 on their
+branch, not from chat) delivered the number my S-R17 sizing waited on:
+
+**1,675 distinct rows / 3,394 distinct (row,term) pairs — narrow slice only.**
+This **supersedes the 2,306-row residue figure carried in my own phase-3 brief**,
+and their earlier 714 and 167. Recorded here so no successor of mine quotes
+2,306 again. Both units are quoted deliberately: rows and pairs size different
+things.
+
+Excluded from that number and NOT claimed by us: the IL embedded-caption bucket
+(618 rows, held pending a shape-validity check — the "marker" may be a citation
+tail like `340.` off a section number `3.340.`; and it is not an IL quirk, IL is
+477 of 618), and the marker-chain bucket (19 rows, unpriced, 2-of-35 hand
+coverage).
+
+**Split as ruled**: they own the marker+label+quote adjacency pattern and the
+term-selection rule (prefer the QUOTED string over the label); **we own
+classifying `(N) LABEL.` as candidate-entry-boundary vs generic structural
+sub-header, including the boilerplate blocklist** (the S-R17 helper).
+
+**Binding constraint accepted**: their `_MARKER_QUOTE_RE` next-character
+adjacency gate is load-bearing precision machinery and stays byte-untouched. If
+our classification half ever appears to require widening it, that is a **D-Q1
+escalation to the director, not a regex tweak**. Recorded so it survives a
+handover of this seat.
+
+**The trap in our half**, and it reframes the work: nested boilerplate
+sub-headers. Nearest-marker pairing latches onto `(A) In general.—` instead of
+the governing label; `in general`/`en general` appears as the captured label in
+144 of 3,963 occurrences across 94 rows (125 federal, 20 PR). A term captured as
+`in general` matches nearly everywhere in its scope — a **poisoning** failure
+mode, so the damage is not proportional to 144. The blocklist is therefore the
+load-bearing part of our half, not a tidiness feature.
+
+**Their methodology note is taken as binding on any census we run**: "is this
+row already captured today?" is NOT answered by the heading gate alone — that
+omission left 1,145 of 6,097 rows as false positives, already captured via an
+unrelated trigger elsewhere in the same body. Check every live capture path, per
+kind. This is the same lesson this panel learned in different costume (a registry
+proven live for one rule kind proves nothing about the others).
+
+**Status: helper NOT started, and it will not start without going back to them
+first.** Sizing is unblocked but queued behind the devC disposition. When we
+size it we request a re-cut from them rather than re-censusing — a second
+independent census is exactly how this program produced three mutually
+inconsistent numbers before theirs.
+
+### Process finding reported to them
+
+Their delivery contract points agents at a committed artifact but their message
+did not state the id INLINE — so the mismatch check they asked for was not
+runnable; a reader can only read the committed id and adopt it. Trust-on-first-use
+with extra steps. The id must appear in both places for the disagreement to be
+detectable. Also offered them our M25 dual-channel refinement, since their
+contract still frames the plain-text return as "the fallback, not the channel" —
+which retains the coercive framing that made the original instruction correctly
+refusable.
+
+---
