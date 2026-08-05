@@ -5105,3 +5105,23 @@ defining-verb plus Option-C is exactly 1 held-T35 failed / 15 passed. The
 separate core G8 local-vs-law-wide test still fails exactly because persisted
 scope is `law-wide`; it was neither edited nor suppressed. Final preamble QA
 remains blocked on that separately owned scope/dispatch regression.
+
+### M-R87 — Root assigns the G8 shared scope/dispatch repair to this manager
+
+Root expanded this manager's ownership to repair the cross-panel G8 regression
+on exact production/test base `ce5161d`. Before dispatch, the canonical Planner
+is committed as `/root/markers_panel_manager/planner_g8_scope`, model
+`gpt-5.6-terra`, high reasoning, Planner brief v3.1. Haiku is rejected because
+the task must arbitrate a shared live dispatch/scope seam and author
+discriminating RED evidence. Its isolated branch/worktree are
+`claude/defs-us-preamble-g8-scope-plan` and
+`/Users/nerya/LexGraph-wt/defs-us-preamble-g8-scope-plan`.
+
+Planner writes tests and sprint evidence only; production is locked. Required
+gates are: a new live ingest-to-link RED proving B1 currently persists a
+trailing `law-wide` candidate instead of clean `local`; every core G8 case,
+including reverse order, stays green; real option-c positives and a genuine
+non-local/chapter preamble control retain intended scope; the suite rejects
+both B1 suppression and global scope relabeling; and all repo-profile roots
+receive a stale-pin sweep. Any architectural fork must escalate before a
+Developer or production write set is commissioned.

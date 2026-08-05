@@ -1,18 +1,18 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: planned
-blocked_on: "core follow-on: B1-derived local-scope dispatch regression"
+blocked_on: null
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
-last_agent: "/root/markers_panel_manager/planner_cycle9_correction"
-last_updated: "2026-08-05T22:34:57Z"
+last_agent: "/root/markers_panel_manager/planner_g8_scope"
+last_updated: "2026-08-05T22:37:18Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 3
+total_items: 4
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -58,6 +58,14 @@ for this sprint.
 3. **Bounded B1 module split.** Split `us_body_preamble.py` from 386 to at
    most 300 lines without changing registration order or behavior. Acceptance:
    `wc -l` is `<=300` and all B1 integration tests retain their outcomes.
+
+4. **G8 shared local-scope dispatch repair.** A B1-derived heading must not
+   turn ordinary `As used in this section` definitions from a clean local
+   candidate into a trailing `law-wide` candidate. Planner first owns a new
+   live ingest-to-link RED plus two-sided local/chapter and B1 controls; shared
+   production scope and the exact write set require manager acceptance before
+   Developer dispatch. Core G8 reverse-order safety must remain green, and
+   neither suppressing B1 nor globally relabeling scopes is acceptable.
 
 ## Held dependencies / non-gates
 
@@ -124,11 +132,11 @@ production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Start from four Developer causal REDs; T35 is a separate held extraction RED.
-2. Fix B1 only; do not edit `us_profile.py` or shared extraction.
+1. The four B1 causal gates are green; T35 is a separate held extraction RED.
+2. Item 4 owns the shared B1-derived local-scope dispatch regression.
 3. Keep forwarding tuples and name D-MT-E1 reference edges as core-held.
 4. PA must make the real bounded B1 call return `Definitions`, not just shorten a regex.
 5. Preserve the four paired full ingest+link guards.
-6. M-R53 comment correction and the <=300 line split are still Developer work.
+6. M-R53 comments are corrected and the B1 facade is 259 lines.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
-8. Final QA is blocked on the separate core G8 scope/dispatch regression; do not suppress it.
+8. Final QA waits for item 4; do not suppress B1 or relabel all scopes.
