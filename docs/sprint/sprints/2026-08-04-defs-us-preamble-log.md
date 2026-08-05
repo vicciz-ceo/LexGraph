@@ -3802,3 +3802,349 @@ flight.
 required element of every brief, alongside the existing fences (sole writer
 per worktree; role separation; CodeGraph first; never fabricate; "not
 measured" is valid).
+
+---
+
+## 2026-08-05 — QA: cycle-7 D1 (real FP sweep) / D2 (recert) / D3 (comment check) / D4 (suite + mutation audit)
+
+Worked in `/Users/nerya/LexGraph-wt/defs-us-preamble` at `64d3630`.
+**Zero `backend/app/` edits committed** — one temporary mutation each for D4
+(em-dash branch, quote-means forwarding filter), both reverted, `git status`
+verified clean before every commit. All measurement scripts live in the
+scratchpad: `qa_cycle7_d1_shapes.py` (per-shape newly-claimed population +
+attribution, full corpus), `qa_cycle7_emdash_raw_population.py` (raw
+trigger+dash pattern count, independent cross-check), `qa_d1_measure.py`
+(Planner-authored, reused verbatim for D2 — same Q-D1 methodology as last
+cycle), `qa_cycle7_render_samples_v2.py` (hand-judging renderer).
+
+### D1 — FP sweep on the REAL newly-claimed populations, per widened rule
+
+**Methodology**: one full-corpus pass (2,038,247 rows, snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad`) computing OLD = would this row
+capture under the pre-cycle-7 shipped rules (commit `3ebd982`'s CA(US-CA
+only)/NE/B2(original)/B1(no "In", no em-dash, strict "the term")) vs NEW =
+today's real production dispatch (`64d3630`). Every row where NEW captures
+and OLD does not is attributed to exactly one shape via the REAL imported
+regex objects from `us_body_preamble.py` (no reimplementation) — zero rows
+fell into an "UNATTRIBUTED"/"UNEXPECTED" bucket across the full corpus,
+which is itself a positive signal that the shape taxonomy is complete.
+Hand-judged samples: uniform-random, seed `20260805`, 50/shape (Q-D1b's own
+established discipline), drawn from the REAL newly-claimed population, not
+a reservoir-capped/order-biased one.
+
+**Real newly-claimed population, corpus-wide, per shape** (this cycle's
+own delta over the pre-cycle-7 baseline — smaller than the D2/Q-D1
+"before=zero-rules" denominator, see D2 below):
+
+| Shape | Real newly-claimed (this cycle's delta) | Planner's prospective estimate | states |
+|---|---:|---:|---|
+| 2 (no "the term") | 24,444 | 17,477 | CA-dominated, 40+ states |
+| 3 ("In this X" trigger, colon/quotemeans only) | 17,370 | 9,517 (disclosed lower bound) | FED-dominated |
+| **em-dash branch** | **984** | n/a (M-R53 cited 836) | FED 978, CA 3, DC 1, PR 1, VT 1 |
+| 6 (qualifier clause) | 390 | 102 | CO/IA/TN/ME/AR-heavy |
+| 7 (CA idiom, other states) | 201 | 352–440 | IN 103, MS 98 |
+| 5 (named act) | 92 | 195 | NM 79, OK 9, OH 2, AR 1, CA 1 |
+| 8 (B2 ascribed variant) | 73 | 296 | MS 62, IL 3, LA 3, KS 2, MN 1, VA 1, WA 1 |
+
+Cross-check: summing the 7 rows above (43,554) against an independent
+computation of `D2's after − before` restricted to this cycle's own delta
+(123,482 total-after − ~80,493 pre-cycle-7-after ≈ 42,989) lands within
+1.3% — corroboration from two differently-built measurements.
+
+**Em-dash raw pattern population** (independent reproduction of M-R53's
+cited 836, `qa_cycle7_emdash_raw_population.py`, current `_B1_TRIGGER_RE`
+imported live): counting ANY occurrence of the trigger anywhere in the body
+immediately followed by "—" gives **2,759 rows corpus-wide (FED 2,693, MO
+20, DC 14, CA 8, MA 7, VT 4, others ≤3)** — over 3x M-R53's cited 836. This
+raw "pattern present somewhere in the body" count is NOT the same
+population as "captured via the em-dash branch" (a row can contain the
+pattern on an occurrence that never wins, because an EARLIER trigger
+occurrence in the same body already succeeds via colon/quotemeans first —
+production only evaluates the FIRST successful occurrence). The actual
+operative population is the 984 in the table above. I cannot reconcile
+either number exactly to M-R53's 836 — that script isn't in the log/
+scratchpad for me to inspect — so I'm reporting my own two independently
+measured numbers (2,759 raw / 984 operative) rather than forcing a match.
+**Not measured**: what specific methodology produced M-R53's 836.
+
+#### Em-dash branch — the priority — hand-judged 50/50
+
+**FP rate: 7/50 = 14%.** (Full detail: `qa_cycle7_emdash_judgment.txt`.)
+Methodology note, disclosed rather than hidden: my rendering script
+initially had a bug (`body.find(trigger_text)` can land on an EARLIER,
+non-winning occurrence of the same phrase when it repeats in a body) that
+produced 4 false alarms and missed 1 real FP on first pass; caught via a
+shape2 row (`STATE_CA_Cgov_T9_C9.5_A4_S89513`) that looked non-definitional
+at the wrong index but was genuine at the real one. Fixed to use the actual
+regex match position and re-verified every flagged row before finalizing.
+
+Real FPs, with `act_id`s:
+- `USC_T12_C11_S1437` — both entries are pure "has the meaning given...in
+  section X" forwarding, zero local content.
+- `USC_T15_C1_S26a` — spurious "in this section shall—" match on "Nothing
+  in this section shall—(A) preclude...(B) preclude...(C) require..." — a
+  prohibition list, not term definitions.
+- `USC_T46_C49_S4901` — spurious "in this section shall apply to—" match on
+  a vessel-applicability criteria list.
+- `USC_T10_C303_S4093` — spurious "in this paragraph is an individual
+  who—" match (eligibility criteria); the only real definition elsewhere in
+  the body is 100% forwarding.
+- `USC_T33_C36_S2319` — spurious "in this section—" match on "(g)
+  Limitations.—Nothing in this section—(1) affects...(5) supersedes..." —
+  a limitations list.
+- `USC_T50_C46_S3512` — spurious "in this paragraph is an individual
+  who—" match (same eligibility-criteria pattern).
+- `USC_T10_C4_S132` — spurious "in this paragraph are the following—"
+  match on a list of policy objectives.
+
+**Root cause, precisely**: all 7 share ONE mechanism. The colon-list
+branch's own definitional-content check is weak by construction — it only
+verifies the filler text contains no forwarding phrase, never that a
+term:means structure actually follows the colon/dash. A self-referential
+enumeration clause ("nothing in this section shall—", "an individual
+described in this paragraph is an individual who—", "the objectives...are
+the following—") satisfies that check trivially, and the em-dash branch's
+explicit skip of the forwarding-phrase filter (justified at position 0,
+per M-R53) provides no protection here because the problem was never a
+forwarding phrase — there is no term:means structure at all. This is
+exactly the hazard M-R52 observed once during the build ("B1 transiently
+claimed the MS row via a spurious mid-sentence 'In' match") — my sweep
+shows it is not a one-off; it recurs at real, measurable scale.
+
+#### Shape 3 ("In this X" trigger) — hand-judged 50/50
+
+**FP rate: 9/50 = 18%.** Same root cause as the em-dash branch (spurious
+mid-sentence "in this X" match on a non-definitional enumeration/criteria
+list), plus one NEW subclass not seen in the em-dash sample: the trigger
+matched **inside an editorial/amendment-history note** quoting OLD
+statutory text as part of describing a legislative change, not a live
+definitions preamble (`USC_T10_C953_S9448` — a note reading "...inserted
+'the term' after 'In this section,'" describing a 1989 amendment).
+
+Real FPs: `USC_T42_C7_S679c`, `STATE_CT_T1_C14_S1-212`, `USC_T22_C102_S9528`,
+`USC_T35_C4_S41`, `USC_T10_C953_S9448`, `STATE_AZ_T28_C25_A2_S8242`,
+`STATE_AR_T8_C8_S1_S8-8-102`, `STATE_DE_T13_C5_SII_S513`,
+`STATE_CO_T22_A1_S22-1-120`.
+
+Shape 3's own trigger widening (`_B1_TRIGGER_RE` gained "In" as a bare
+alternative, unanchored to clause-start) is the SAME regex that also
+produces the em-dash branch's exposure — both hazards trace to the same
+change, which is why they share a root cause and why I am NOT treating
+them as two independent, additive risks in the framing below.
+
+#### Shape 2 (no "the term") — hand-judged 50/50
+
+**FP rate: 0/50 (0%).** Every one of the 50 real sampled rows is a
+genuine, substantive, LOCAL "trigger + quoted term + means" definition —
+CA-dominated (32/50), also AL/AR/AZ. **This confirms the D3-recommended
+remedy (M-R50: apply `_B1_FORWARDING_PHRASES` to the widened quote-means
+branch's own gap text) worked**: last cycle's pre-fix measurement on a
+30-row prospective sample found 13.3% FP (4/30, all pure forwarding
+pointers); this cycle's 50-row sample of the REAL shipped population finds
+zero. I re-verified the one ambiguous-looking case
+(`STATE_CA_Cgov_T9_C9.5_A4_S89513`, index 39) against the real winning
+occurrence (not a naive first-match) — genuine ("directly" means...).
+
+#### Shape 6 (qualifier clause) — hand-judged 50/50
+
+**FP rate: 0/50 (0%).** All 50 real rows follow the exact pattern
+("As used in this X, unless the context otherwise requires, 'TERM'
+means..."), CO/IA/TN/ME/AR/MS/VA-heavy. Zero rendering-position mismatches
+in this sample (the qualifier clause structurally prevents the trigger
+phrase from repeating ambiguously), so no re-verification was needed.
+
+#### Shape 5 (named act), shape 7 (CA idiom other states), shape 8 (B2 ascribed variant) — hand-judged 50/50 each
+
+**FP rate: 0/50 for all three (0%).** Shape 5: overwhelmingly NM
+(Election Code — 40+ of 50), also OK/AL — 4 samples initially looked
+ambiguous (Oklahoma "Contingency Review Board" procedural text with the
+match not visible in the rendered window) and were independently
+re-verified against the real regex match position; all 4 are genuine
+("proposed agreement" means..., "minor" means...). Shape 7: MS/IN, mostly
+duplicate `act_id`s across near-identical chapter copies in the corpus (a
+data characteristic, not a rule defect) — all genuine block-style
+definitions lists. Shape 8: overwhelmingly MS (vehicle code, water
+pollution, purchasing definitions), also IL/LA — all genuine.
+
+### D1 — Summary, per the director's framing (report, never gate)
+
+The FP exposure is **not evenly distributed across the 6 widened shapes**.
+It is concentrated entirely in the two mechanisms that touch B1's
+COLON-LIST branch (shape 3's "In" trigger addition, and the em-dash
+sub-branch) — 14–18% FP there. The four mechanisms that route through B1's
+QUOTE-MEANS branch or an independent new rule (shapes 2, 5, 6, 7, 8) show
+**0% FP across 250 hand-judged real rows combined**. The mechanical reason:
+quote-means requires an actual quoted term immediately followed by
+"means"/"shall mean" — a self-verifying structural check. Colon-list only
+checks that the filler text contains no known forwarding phrase — it never
+verifies a term:means structure follows at all, so a self-referential
+enumeration clause (prohibition list, eligibility criteria, policy
+objectives, "sources described in this subclause are the following")
+satisfies it. **Recommended narrower-rule remedy for the next Developer
+touch** (report only, not implemented — QA does not touch `backend/app/`):
+require the colon-list branch's own post-colon/post-dash text to contain
+at least one recognizable defining-verb pattern (`means`/`shall mean`/
+`includes`/`has the meaning`) within its own window, mirroring the
+structural check the quote-means branch already gets for free — this is
+the same "reuse an existing, already-proven-safe check" discipline M-R50
+already applied once this cycle.
+
+### D2 — Re-certified capture numbers (Q-D1 methodology, reused exactly)
+
+Ran `qa_d1_measure.py` (the Planner's own script from last cycle,
+unmodified) against today's shipped code across all 53 jurisdictions.
+BEFORE = bare functions, zero registry rules (identical methodology to
+last cycle — **before totals match exactly**, 29,667 = 29,667, confirming
+the baseline is genuinely unaffected and the two cycles' numbers are
+comparable). AFTER = today's real production dispatch (all cycle-7 shapes
+shipped).
+
+**Corpus-wide**: before **29,667**, after **123,482**, new **93,815**
+(last cycle: 80,493 / 50,826). **Clean-primary: 29,249** (last cycle:
+23,617) **/ fallback-affected: 64,566** (last cycle: 27,209). Per the
+binding caveat, the fallback split is reported alongside every number, not
+netted out — the S1 last-entry-boundary defect remains unfixed (core
+follow-on), so fallback-derived figures stay labelled provisional.
+
+**GA**: before 2, after **2,928** (last cycle 2,794 — +134 this cycle,
+plausible: GA rows can also be newly reached by the B1 quote-means
+widening, not just its own dominant B1 colon-list convention), new_primary
+1,952, new_fallback 974.
+
+**FEDERAL — item 14's own target, the one to watch**: before **320**,
+after **6,311**, new **5,991** (new_primary 537 / new_fallback 5,454).
+Last cycle: 320 → 2,268 (new 1,948). This is a **2.7x increase over last
+cycle's own AFTER figure**, driven by shape 3 + the em-dash branch as
+intended (816-978 of the ~2,700 em-dash-pattern-bearing FED rows feed
+directly into this). Honest caveat, not a reconciliation I can perform:
+item 14's own **198/435 target is a hand-inventoried subset figure** from
+an early scout classifier, not the same population as "real pipeline
+output under ungated dispatch" — my 6,311 is the latter (same caveat Q-D1
+raised for MD's "3,185 vs ~1,841–1,849" last cycle). In raw terms FEDERAL's
+capture count is now **32x** the 198-row target; I did not re-derive or
+cross-check the specific 435-row worklist itself this cycle (not
+measured), so I report the honest pipeline number rather than claiming a
+verified match to item 14's own figure.
+
+**10-state table** (same columns as last cycle, directly comparable):
+
+| state | rows | before | after | new | new_primary | new_fallback |
+|---|---:|---:|---:|---:|---:|---:|
+| GA | 28,154 | 2 | 2,928 | 2,926 | 1,952 | 974 |
+| MD | 39,552 | 0 | 5,183 | 5,183 | 3,444 | 1,739 |
+| NE | 25,997 | 0 | 10 | 10 | 2 | 8 |
+| MS | 158,688 | 0 | 8,338 | 8,338 | 6,229 | 2,109 |
+| SD | 39,589 | 712 | 914 | 202 | 43 | 159 |
+| CA | 161,429 | 1,296 | 10,277 | 8,981 | 3,951 | 5,030 |
+| FL | 24,866 | 684 | 2,932 | 2,248 | 42 | 2,206 |
+| FED | 54,853 | 320 | 6,311 | 5,991 | 537 | 5,454 |
+| DC | 23,694 | 884 | 1,674 | 790 | 359 | 431 |
+| NY | 40,102 | 0 | 1,655 | 1,655 | 0 | 1,655 |
+| **TOTAL (53 jur.)** | **2,038,247** | **29,667** | **123,482** | **93,815** | **29,249** | **64,566** |
+
+Full 53-jurisdiction appendix and every per-row detail: `d1_results/*.json`
+in the scratchpad (not committed, per program rule — measurement output,
+not a test).
+
+Notable secondary finding: **IN** jumped from before=283 to after=**7,002**
+(new 6,719) — far larger than shape 7's own measured 352–440 IN-specific
+estimate, because the vast majority of IN's gain comes from B1's shape 2/3
+widenings (which apply to every `US-*` code, including IN), not from shape
+7's CA-idiom jurisdiction widening specifically. Flagging so shape 7's own
+scope isn't mistakenly credited with IN's full jump.
+
+### D3 — M-R53 condition-1 comment fix: NOT corrected
+
+Checked `backend/app/definition_links/rules/us_body_preamble.py` (current
+HEAD, `64d3630`) directly and via `git diff 9e30ec5 HEAD -- <file>`
+(empty diff — zero changes to this file since the Developer's last commit).
+The comment at `_b1_colon_list_branch` (lines ~342–350) is **unchanged**
+and still reads:
+
+> "...verified corpus-wide (every fixture file under `backend/tests/
+> fixtures/us_statutes/`) that this exact trigger-immediately-followed-by-
+> em-dash shape occurs in ONLY this one real row..."
+
+This is the exact false claim M-R53 required corrected — it conflates
+"every fixture file" (fixture scope) with "corpus-wide" in the same
+sentence, and still states "ONLY this one real row" against a real,
+now-doubly-measured count (M-R53: 836; my own independent reproduction:
+2,759 raw / 984 operative). **Open item for the next Developer touch,
+flagged not fixed** (QA does not edit `backend/app/`).
+
+### D4 — Suite + regression audit
+
+**Full suite reproduces exactly**: `.venv/bin/pytest -q` → **3 failed / 840
+passed**. The 3 failures are the disclosed `defs-us-markers` unquoted
+dependencies (`test_real_pipeline_still_cannot_capture_the_real_nebraska_
+unquoted_body_preamble_definitions_needs_markers_sprint_too`,
+`test_ne_unquoted_term_means_needs_markers_sprint_too`,
+`test_sd_unquoted_comma_term_needs_markers_sprint_too`) — same failure
+reason each (unquoted-term extraction is out of this sprint's scope), no
+new failures.
+
+**Attribution tests: 10/10 pass** (`pytest -k winning_rule` across the 6
+shape test files) — confirmed live, not merely re-read from the log.
+
+**Mutation-proofs** (temporary edits, each confirmed to break the target
+test, then reverted; `git status` clean of `backend/app/` before every
+commit):
+1. Em-dash branch (`if window[:1] == "—": return True` →
+   `if False and window[:1] == "—"`): both
+   `test_federal_in_this_section_trigger_is_captured[usc-t27-c6-s122a-
+   attorney-general]` and its sibling attribution test FAILED as expected.
+   Confirms the em-dash pin is genuinely load-bearing, not vacuous.
+2. Quote-means forwarding-phrase filter (D3's own recommended remedy,
+   `return not any(phrase in gap for phrase in _B1_FORWARDING_PHRASES)` →
+   `return True`): **full suite still 3 failed / 840 passed — ZERO test
+   regressions.** This confirms a real coverage gap: **no test in this
+   repository pins the forwarding-phrase filter on the WIDENED quote-means
+   branch** (D3/M-R50's own specific remedy for shape 2/6's pre-fix 13.3%
+   FP rate). The existing negative-guard tests
+   (`test_us_body_preamble_negative_guard*.py`) only cover the COLON-LIST
+   branch's forwarding-phrase check, a pre-existing behavior this cycle
+   didn't touch. My own D1 sweep (0/50 FP on shape 2, 0/50 on shape 6)
+   shows the filter demonstrably WORKS on the real corpus — this is a
+   missing regression pin, not a broken feature. **Flagged for the next
+   Developer/QA touch as an open item, not fixed here** (QA does not add
+   production tests without... actually QA CAN add test files per role
+   rules, but doing so mid-audit risks conflating "measured" with "fixed";
+   left as a named gap for the manager to schedule explicitly, consistent
+   with "report, never gate/fix silently").
+
+**Not mutation-tested this cycle** (time budget): shapes 5/7/8's own
+dedicated RED tests (each already has a rule-attribution + live-capture
+pair per file, same pattern verified em-dash and shape-3 belong to;
+sampled the em-dash + quote-means-filter mutations as the two highest-risk
+targets — the em-dash deviation because M-R53 flagged it explicitly, the
+forwarding filter because D1's own sweep depends on it actually
+functioning).
+
+### What was NOT measured this cycle
+
+- M-R53's own 836-figure methodology (script not available to inspect) —
+  reproduced independently instead (2,759 raw / 984 operative), both
+  reported, not reconciled.
+- Item 14's specific 198/435 hand-inventoried FEDERAL worklist (the raw
+  pipeline capture number, 6,311, is reported honestly instead of a
+  verified match to that narrower figure).
+- Byte-coverage contamination rate of the 64,566 fallback-affected
+  `definition_text` fields (same S1-flagged, still-open question as last
+  cycle — out of this cycle's own scope, core follow-on).
+- Mutation-proofs for shapes 5/7/8's own dedicated tests (0% FP in hand-
+  judging gave no immediate reason to doubt them; flagged as unverified
+  rather than silently assumed sound).
+
+### Zero-miss / precision framing, per the director's own rule
+
+Recall and precision are reported in both directions, not traded off:
+this cycle's widening genuinely captures thousands of new real definitions
+(FEDERAL alone +5,991) with 0% measured FP on 4 of 6 shapes and 14–18% FP
+concentrated in exactly the two colon-list-branch mechanisms identified
+above. The remedy is a narrower rule (recommended above), never a gate on
+dispatch — consistent with M-R45's own binding principle, which this
+report does not override.
+
+Pushed SHA: see commit immediately following this entry.
+Confirmation: `git diff --stat HEAD` before this commit shows only this
+log file changed; `git status` shows zero `backend/app/` modifications.
