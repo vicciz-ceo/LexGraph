@@ -2709,3 +2709,81 @@ outcome:
 Both carry P-R10 probe sanity: the harness must reproduce the known SC result
 (0-of-4 innermost, 4-of-4 outermost) before any aggregate built on it is
 trusted.
+
+---
+
+## 2026-08-05 — Manager: Planner pass 9 verified + ACCEPTED; its side-finding
+routed to the live Developer as a false-positive risk
+
+Branch `claude/defs-us-scoped-inline-plan9` @ `41b6e06`. Harness note: role
+agents now deliver reports to me directly; this is the first report on the new
+channel.
+
+### Verified
+
+- **Fence holds**: only `test_us_scoped_inline_rules_negative_controls.py`;
+  zero `backend/app/` edits.
+- **299 lines** — under the gate, but at the ceiling.
+- **Suite 7 failed / 847 passed** vs 6/848 before: exactly **+1 RED**, total
+  test count unchanged at 854. The always-green negative control was replaced
+  by a currently-RED guard-isolation test. Reproduced by me.
+
+### Why this re-author mattered
+
+The PA row was protected ONLY because `shall include` was absent from the
+idiom vocabulary. D-INCLUDES puts it in, so that protection evaporates and
+transfers entirely to the new targeted guard. A test that keeps passing for a
+reason that has ceased to exist is the green-for-the-wrong-reason class this
+sprint has now hit four times. The pin now asserts the GUARD.
+
+The Planner also found the row was **independently** blocked by
+marker-adjacency, not idiom-absence alone — so its simulation had to widen BOTH
+`_IDIOM_RE` and `_MARKER_QUOTE_RE` to make the row reachable before the guard
+could be shown to be load-bearing. Mutation evidence on a scratch copy OUTSIDE
+the repo: guard-absent → row captured (FAILS); guard-present → suppressed,
+while the real unmodified positive row `STATE_NY_ARSS_A2_T9_S89-H` stays
+captured. That last check is what proves the guard is NARROW rather than a
+blanket suppression of the includes family — exactly what D-INCLUDES rejected.
+It also deliberately reproduced the documented venv trap to confirm which tree
+its mutated code was imported from, rather than assuming.
+
+### The side-finding — verified by me, and routed to the LIVE Developer
+
+`STATE_PA_T15_C17_S1748` and `STATE_PA_T15_C57_S5748`:
+
+> "(a) General rule.--Except as provided in subsection (b), for the purposes of
+> this subchapter, **references to "the corporation" include** all constituent
+> corporations absorbed in a consolidation, merger or division, …"
+
+I ran the real rule on both: **0 captures today**. They are invisible only
+because `_STRONG_CONNECTOR_RE` refuses a `references to ` filler between the
+unit word and the quote. **This needs no D-INCLUDES** — bare `include` is
+already a recognized idiom.
+
+That makes it a live risk in cycle 5's finding 5, which widens exactly that
+connector for the "unless the context otherwise indicates" shape. A generic
+widening would capture "the corporation" as a defined term — an extremely
+common phrase — reproducing the poisoning failure mode we rejected in the
+"Bill" legislative-honorific case, and breaking cycle 2's measured 0-FP result.
+
+Messaged the Developer mid-flight with the two act_ids, a requirement to prove
+both still yield ZERO in its report, the note that this is a THIRD distinct
+code path (STRONG connector / `_single_entry`, no marker) so one guard may need
+to sit in two places, and instructions to escalate with numbers rather than
+trade recall for precision on its own authority (D-Q1).
+
+### Carried to QA cycle 3
+
+- **The pin is a SIMULATION.** It monkeypatches `_IDIOM_RE`/`_MARKER_QUOTE_RE`
+  to stand in for D-INCLUDES, and the Planner's guard regex is its OWN design,
+  not the Developer's. Once the real implementation lands, QA must re-verify
+  the test still isolates the REAL guard — a simulation that drifts from the
+  shipped mechanism is the same trap one level up.
+- **Honest gap named by the Planner**: only the row's FIRST clause is
+  guard-isolated; the second ("serving at the request of the corporation")
+  never becomes its own entry under the minimal widening, so its silence rests
+  on the plain sanity assertion. If the Developer's entry-splitting learns to
+  split it, it needs its own probe.
+- The Planner checked every other negative control for idiom-absence
+  dependence and found none — a clean negative result, recorded so cycle 3
+  need not redo it.
