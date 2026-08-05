@@ -674,6 +674,166 @@ the sibling boundary fix** or ship the measured 202-row debt), so this error
 cost wall-clock time on the longest chain. No work was lost or duplicated.
 Recorded rather than quietly fixed, per this log's append-only convention.
 
+### G2 + G4 — manager verification (dev3), ACCEPTED and merged
+
+Merged; **integrated sprint suite: 803 passed / 10 failed** — dev1 and dev3
+compose cleanly. The 10 are fully accounted for: G5 (2) and G6 (6)
+unimplemented, plus the two known test-side items below.
+
+Verified first-hand: `us_profile.py` only, **205 insertions / 30 deletions,
+0 test files touched**; every changed hunk lies in **1078-1450** (the
+resolver region), clear of dev1's extraction region — which is why the two
+merged without conflict.
+
+**One token-acceptance story, as required:** every candidate token (paren OR
+period-style) passes one funnel — G4's citation/cross-reference reject
+first, then (only while the ladder is unset) G2's shape-must-match-a-rung
+defer. G2 widens what is *recognized*; G4 narrows what is *trusted*; they
+compose because G4's reject is applied uniformly to both token vocabularies.
+
+**SC connector-chain hazard SOLVED** (handed over as unsolved): resolves to
+exact `(C,2,c,i)` — top-level lands on `'C'`, not `'A'`, hand-traced against
+the real 23,574-char row.
+
+**All 4 G4 cases are the non-empty WRONG-path class** (per the binding
+split-reporting ruling) — none are visibly-empty failures: SC `(C,)` vs
+correct 4-level; TX top-level relabeled `'a'` vs correct `'f'`; ME
+`(digit:'13',)` where the correct answer is EMPTY `()`; OR `(digit:'1',)`
+vs correct `(digit:'2', lower_alpha:'a')`. The whole named sample is the
+more dangerous silent-mis-scope class.
+
+**Provisional figures correctly NOT laundered:** dev3 explicitly declined to
+certify or re-quote the 42%/34% G4 corpus numbers, citing them as the
+Planner's provisional 6-row-spot-checked figures. G2's census is cited as
+Planner-measured, not re-derived.
+
+#### MANAGER PROBE — a suspected G2 regression, DISPROVEN
+
+`test_i9_me_s751_body_with_only_annotations_produces_the_articles_own_base_path`
+(a PRIOR sprint's test, cd_i9) flipped from `()` to `(digit:'1',)`. Its
+docstring claims the row uses period-style markers **"A.", "B.", "C."** — so
+a DIGIT-seeded path would have meant G2 mis-selected the ladder on ME, its
+own flagship state. That would be a silent wrong-direction fix, so the
+manager probed the real fixture rather than accepting "intended change":
+
+- `STATE_ME_T30-A_P1_C3_S751` (2,072 chars) contains **exactly ONE**
+  period-style marker — `'1'` at offset 219, context
+  `[PL 1991, c. 257 (NEW).]\n\n1. Membership. The budget com...`
+- Line-start scan: `^\s*A\.\s` → **0**, `^\s*B\.\s` → **0**,
+  `^\s*1\.\s` → **1**, `^\s*2\.\s` → **0**.
+- Resolver returns `(digit:'1',)` consistently at every offset past 219.
+
+**Verdict: `(digit:'1',)` is CORRECT** — a genuine top-level marker the
+parenthesized-only regex could never see. The suspicion was wrong, and the
+check was still worth running. Confirmed still-correct on the same row: the
+`(NEW)` annotation and the `PL 1991, c. 257` citation are both ABSENT from
+the path, so I9's annotation-is-a-no-op invariant and G4's citation
+discriminator both hold.
+
+**The real defect is in the OLD TEST'S DOCSTRING, which misdescribes its own
+fixture** ("A.", "B.", "C." — the row has none). That error was
+load-bearing: the entire `== ()` rationale rested on it. Routed to plan1
+(author of the predicting RED) to update the assertion AND correct the
+docstring AND preserve the annotation-no-op guard — not a bare assertion
+flip.
+
+#### New residual gap disclosed by dev3 (assessment requested, build nothing)
+
+G4's discriminator uses a CLOSED structural-word vocabulary that does **not**
+include `"item"`/`"subitem"`. Real SC text "under subitem (3)" and "provided
+in item (8)" are therefore not recognized as cross-reference context and can
+transiently mis-set the stack until the next real marker overwrites it
+(observed at positions ~631 and ~1702 in `STATE_SC_T58_C9_A5_S58-9-576`).
+Bounded and non-cascading on that row, but **untested and un-measured**.
+plan1 asked to recommend test-and-measure-now vs route to
+core-follow-on-3; manager rules after.
+
+---
+
+## Phase 3 — G11 measurement returned; manager ruling (2026-08-05)
+
+plan7 delivered a measurement-only report (no commits, correctly withholding
+items/REDs because the data does not support shipping).
+
+### Verified quality of the measurement
+
+- **P-R10 anchor reproduced:** 82,155→82,156 live-recognized;
+  53,918→53,919 zero-live; 39,955→**39,956** rescued (74.1%). Off by exactly
+  1 in each aggregate, **EXACT on all 5 cited per-state numbers**
+  (NV/NJ/AZ/MI/WA) — a population-definition edge case, not a methodology
+  mismatch.
+- **Denominator is genuinely signal-agnostic (P-R7/M18):**
+  `re.search(r"defin", title, re.I)` over raw `section_title` — independent
+  of baseline's positional logic, of every HeadingRule predicate, and of the
+  extraction grammar (which reads `text`, not the title). Drawn from the
+  entry LINE. 53 files, 2,038,247 rows.
+- **Denominator hygiene honored:** it did not touch or attempt to reconcile
+  the markers panel's 86.5%/11,010 population.
+- **FP sample is reproducible:** seed 20260805, reservoir k=30 per path
+  (60 rows), uniform over the full rescued populations, rubric stated,
+  judged at row level.
+
+### Findings that change the gate
+
+- **The rationale was MISREAD by everyone, including me.** The "zero-risk for
+  the 7 already-working states" guarantee is a **regression-safety**
+  guarantee ("don't break what already produces candidates"), NOT a precision
+  guarantee about the fallback's output. Those states are themselves
+  majority zero-yield on baseline recognition today (NY 1479/1479,
+  OH 949/950, WA 1778/1800, PA 534/543) — the fallback was never exercised
+  for them, so it was never *proven safe* for them.
+- **The split is empirically TWO-way, not three:** baseline 61,075 +
+  registry 21,081 = 82,156; **ZERO** body-derived rows in the defin-titled
+  population (placeholder-heading derivation and defin-titled headings are
+  near-disjoint). The conflation mechanism itself was confirmed exactly as
+  predicted.
+- **Counter-intuitive direction, and its cause:** baseline path **40.0%**
+  (12/30) contaminated vs registry **13.3%** (4/30). Cause is **section
+  complexity/length, NOT which recognition mechanism fired** — registry rows
+  skew short single-term "X defined" sections (NV alone is 42% of all
+  registry-recognized rows), baseline rows include large multi-topic
+  sections. **This kills the narrow-open-by-recognition-path design I
+  hypothesized in Phase 1b** — it would open the *cleaner* population while
+  leaving the *dirtier* one closed, backwards from the intent.
+- **G3-main overlap is provably ZERO** (structural, from the `if not
+  candidates` guard — the fallback only runs when the splitter produced
+  nothing). No double-counting risk between G3-main and G11.
+- **NV reconciled, non-contradictory:** baseline path 924/1,262 = 73.2%
+  (exact match to the amendment) and registry path 8,881→8,217 rescued are
+  different NV slices.
+
+### MANAGER RULING ON G11: DO-NOT-SHIP-ALONE, accepted
+
+G11 does **not** flip this sprint unless the extraction-grammar fixes land
+with it. Accepted on the evidence: at 40%/13.3% row-level contamination
+neither path is clean enough to open, and no per-path narrowing rescues it.
+
+### ESCALATED — a second defect with no home, colliding with a director ruling
+
+plan7 found a **previously-unflagged defect**: `_MEANS_IDIOM_GAP_RE` matches
+only `means|shall mean|has the meaning`. When an intermediate entry uses
+`includes` or "has the SAME meaning", it never starts its own candidate and
+is **silently swallowed into the PRECEDING entry's `definition_text`**
+(observed repeatedly — e.g. a 14-candidate US-NY row where 5 candidates each
+absorbed 1-4 unrelated subsequent definitions). Because this corrupts
+content well below the 5,000-char proxy, **the length-only proxy
+systematically undercounts true contamination.**
+
+It is in no gate's scope, and widening the idiom set collides with
+**D-INCLUDES-MEASURE**, where the director explicitly reserved the
+`includes`-as-defining-verb question pending a measured FP side. Escalated
+rather than absorbed — with a proposed decoupling: treat `includes` as an
+entry **BOUNDARY** (terminating the preceding definition) **without emitting
+a candidate** for it. That fixes the contamination this sprint owns while
+leaving the director's recall question untouched.
+
+Also recorded from plan7: a severe federal outlier (8 U.S.C. §1101 — a
+"term" of `"SEC. 602. PROTECTION FOR AFGHAN ALLIES."` with a 104,229-char
+swallowed definition, from amendment-history notes quoting old statutory
+text in quotes), and a named likely-overlap with G8 (the US-AR
+duplicate-candidate row), flagged for the merge protocol rather than
+asserted.
+
 ---
 
 # Appendix A — Planner record: plan3 (G5, G6)
