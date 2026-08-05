@@ -4835,3 +4835,80 @@ assuming correctness where there is emission, and **R6 is the third polarity: no
 emission read as nothing-there.**
 
 ---
+
+## M45 — R6 corrected (NOT TX-only, and it is live in OUR tuple); their NY finding REFUTED (2026-08-05)
+
+### R6 correction — supersedes §M41's sizing
+
+Multiterm corrected their own R6 framing before we re-derived from it. **R6 is
+not a Texas convention.** Their QA's independent sweep:
+
+| Jur | occurrences | example |
+|---|---|---|
+| TX | 817 | (bulk) |
+| NY | 19–20 | `STATE_NY_ATAX_A1_S19` — `(2-a) "Credit allowance year" means` |
+| NH | 4 | `STATE_NH_TXXXVIII_C421-B_S1-102` — `(35-a) "Open blockchain token" means` |
+| DC | 1 | `STATE_DC_T5_C12_S5-1201` — `(1-a) "State agent" means` |
+| **total** | **841** | |
+
+Their original "111 across 91 TX sections, zero across 8 other states" is
+**superseded**. Root cause of their error, self-diagnosed: their Planner scanned
+the 8 comparison states for the **cross-reference-idiom** sub-shape and they
+generalised it to the whole class including plain-`means`. Different sub-shape,
+different population; DC and NH were never in the compared set.
+
+**This matters to us concretely: NY is IN our `_JURISDICTIONS` tuple** as of the
+devC merge. So R6 has ~19–20 live instances in a jurisdiction our rule now
+processes, not zero. **§M41's "apparently a Texas drafting convention" is
+withdrawn.**
+
+Sizing discipline unchanged and now doubly justified: **841 / 817 / 19 are SHAPE
+frequencies from another panel's sweep — not miss counts, not a jurisdiction
+inventory.** Re-derive in our own population before quoting. Their two sweeps
+also differ by one on NY (19 vs 20), regex-boundary noise, not worth resolving.
+
+### Their NY "unparseable corpus" finding — REFUTED, at the altitude just ruled
+
+They report that 100% of NY's 40,102 rows store `text` with literal two-char
+`\n` and zero real newlines, that `_split_into_numbered_blocks` anchors on real
+newlines, and therefore **"1,470 real NY Definitions sections yield zero
+candidates"** — warning us that any NY-derived rate we hold is probably wrong.
+
+**Checked, and the warning does not apply to our numbers. Their measurement is
+taken on text production never sees.**
+
+- `ingest_us_statutes.py:237` — `text = text.replace("\\n", "\n")` (the M14/I8
+  fix) runs in **production**, before text reaches extraction.
+- The sweep script every NY figure of ours comes from applies the identical
+  replace at its line 64, per ruling **U-R11**.
+
+**Decisive measured contrast**, from our own merged-tree re-measure (§M39):
+
+| | NY headed Definitions sections | yielding ZERO |
+|---|---|---|
+| their figure (raw text) | ~1,470 | ~1,470 (all) |
+| **ours (normalized = production)** | **1,479** | **160 (10.8%)** |
+
+Same population, ~1,479 sections. Raw: essentially all yield zero. Normalized:
+160. **If NY were ~unparseable in production our zero count would be ~1,470, not
+160** — so our NY numbers stand, and the 1,181→160 improvement devC delivered is
+real.
+
+**This is ruling U-R11 / §M15 / U-R17 recurring for the fourth time**, and the
+third panel to hit it. It is also a direct application of the altitude law just
+made program law in §M44: NY's raw `text` column is internal mechanism; the
+persisted/asserted layer is the contract, and normalization happens before it.
+
+**Returned to them as a correction** — the same service they did us on R6, in the
+opposite direction, within one exchange.
+
+### Their duplicate-count correction, recorded
+
+Cross-path duplicates corrected from 1 to **2** corpus-wide: HI `association`
+plus DE `STATE_DE_T12_C9_S902` term `"the Code"`, same mechanism, found by
+re-running on the FULL corpus rather than their 79,500-row stride sample. **Both
+collapse harmlessly at the persist layer**, so severity is unchanged and nothing
+of ours moves. Recorded because they had published the 1 — and because
+"stride-sample undercounts a rare shape" is worth remembering.
+
+---
