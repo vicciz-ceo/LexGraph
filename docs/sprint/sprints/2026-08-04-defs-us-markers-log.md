@@ -1745,3 +1745,44 @@ rule set. **None of these is the merged-tree number**; all are branch-partial
 by construction and are labelled as such.
 
 Routed via the program manager, as the counterpart is a panel I do not manage.
+
+---
+
+## M17 — U-R10 RULED by the program manager; the G3-healing prediction made testable (2026-08-05)
+
+**U-R10 outcome (program manager, on this panel's measurements).** Multiterm
+narrows: registration scoped to their accepted items' ACTUAL states rather than
+the `US-*` wildcard, plus a contribution length bound where their items permit
+(they check their TX combined row against a 3,000-char ceiling before adopting
+it). Their manager holds the ruling with red-first process requirements; their
+QA certifies the narrowed registration. **The cross-panel hazard this panel
+measured is therefore closed at the source**, not merely documented — the
+merged-tree interaction that doubled WA's >5k population (3 → 7, M14(d)) should
+not arise once their narrowing lands. Our QA's audit stays bounded to our
+branch's 3 rows, as scoped.
+
+All three of this phase's inherited-number corrections (FED probe artifact,
+NY production-faithfulness resize, 12,941-vs-19,278 disentanglement + the
+rank-cutoff point) are accepted and recorded verbatim in the program log.
+Planner B's family-membership measurement on NH/MA/PA/HI is endorsed as the
+right instrument for the scope question.
+
+**Ledger item G3-HEAL — a prediction, recorded as testable, not as a fact.**
+The expectation relayed is that our 3 remaining WA >5,000-char definitions HEAL
+at the core-2 merge via gate G3, on the theory that they share the baseline
+`_split_into_numbered_blocks` defect with our held FED last-entry RED. That is
+currently an untested prediction, and this panel does not record predictions as
+findings. I have made it falsifiable in-flight by requiring QA to attribute
+EACH of the 3 rows to a layer, using the kill control already in hand:
+re-extract the row with `entry_splitter_rules_for`/`term_clause_rules_for`
+blinded to `[]`.
+
+- defect still present with our rules blinded → **baseline's**, G3 territory,
+  prediction holds for that row;
+- defect disappears → **ours**, will NOT heal at merge, and is a markers fix we
+  owe.
+
+Per-row attribution required, not aggregate. **Named post-merge re-check
+(binding on whoever holds this panel at the core-2 merge): re-measure WA's
+>5,000-char population on the merged tree. If rows attributed to baseline did
+not heal, that is a finding against G3, and it is reported, not absorbed.**
