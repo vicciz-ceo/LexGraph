@@ -4124,3 +4124,133 @@ something real — but its shape, mechanism and counts are all unconfirmed, and 
 NY portion is now explained as a raw-text artifact. Re-queued, not closed.
 
 ---
+
+## M36 — cycle-2 dispatch; two findings routed OUTWARD (2026-08-05)
+
+Both agents resumed (context retained) after the rulings were committed at
+`4376a09`, each with the §M25 anchor and instructions to fetch the rulings
+first — their worktrees were at `c22d6b0`, older than the rulings they act on.
+
+- **Planner `a2aefc18406e12b97`**: (1) re-pin the 13 stale guards, term lists
+  only, **with the explicit constraint that no known boundary defect may be baked
+  into a re-pinned expectation** — a re-pin that swallows a truncation launders a
+  defect into an accepted baseline and this panel would be structurally unable to
+  see it again; (2) author class-B REDs, coordinating the set boundary with QA
+  rather than guessing; (3) re-derive colon-idiom against the SEVEN
+  currently-live states (VA/WA/FED/UT/TX/SC/AZ), with "not reproducible on any
+  live-path state today" named in advance as an acceptable deliverable so no test
+  is manufactured to have one. New standing requirement on this panel: **every
+  RED states in one line how it was confirmed to run the production path,
+  including whether ingest normalization is in play.**
+- **QA `a0caf5f0005ba98e3`**: a MECHANICAL boundary-quality sweep with stated
+  criteria applied uniformly to all 75 extras, superseding deep hand-reading of a
+  subset. Reason: the Planner needs a defensible, re-runnable boundary for the
+  class-B set, and any class-B missed is a defect that ships unpinned. Told
+  explicitly that a criterion disagreeing with its own earlier hand-calls is
+  information, not an embarrassment.
+
+### Routed to the program manager / core-2 (not ours)
+
+1. **G8 is quality-blind — NEW.** The persistence dedup is purely order-based, so
+   baseline wins even when strictly worse: OK `Area of operation`
+   (`STATE_OK_T3_S3-65.1v1` family) keeps a degenerate 6-char `"means:"` while a
+   correct 941-char candidate is discarded. G8 as understood prevents duplicates;
+   it also **suppresses quality improvements**, which is a different and larger
+   problem. Core-2 should know before finalising G8's design.
+2. **Class-B citation-tail truncations are core-3's**, per §M33 — fresh,
+   independent corroboration of the core-level framing from an investigation that
+   was not looking for it.
+3. **Open question for core-2, raised by QA and NOT resolved here**: G8 was
+   confirmed only for SAME-term collisions. The class-D population routed to it is
+   **cross-term containment** (different term names, overlapping content). Whether
+   G8 as specced handles that is unverified. **Do not assume the G8 route closes
+   the class-D gap until core-2 confirms it.**
+
+---
+
+## M37 — class-B population CLOSED at 15 of 75; verified by sampling QA's own criterion (2026-08-05)
+
+QA ran the mechanical sweep with stated criteria (T1 trailing hyphen, T2 marker
+leak, T3 dangling connector, T4 no terminal punctuation, H1 leading alias leak,
+L1 under 15 chars, M1 under 60% of source span), flagged 18 of 75, then read all
+18 against raw source rather than reporting mechanical output as truth.
+
+### My verification — I sampled its judgement, not its arithmetic
+
+I re-derived five of the 18 independently on the live engine, deliberately
+weighting FALSE positives, because a wrongly-cleared term ships an unpinned
+defect:
+
+| Term | QA call | My measured tail | Verdict |
+|---|---|---|---|
+| `Commercial property` (ND) | class-B | `…subsections 1, 4, 10, 12, 13, and` | **TP confirmed** — list cut mid-enumeration, nothing follows |
+| `Air carrier transportation property` (ND) | class-B | `…pursuant to chapters 57-06 and 57-` | **TP confirmed** — mid-citation |
+| `Unencumbered cash` (ND) | cleared (FP) | `…which are chargeable against the fund.` | **Correctly cleared** — complete sentence |
+| `Residential property` (ND) | cleared (FP) | `…and primary residential\n\nproperty.` | **Correctly cleared** |
+| `retailer` (NY) | cleared (FP) | `…shall not include a\nfood store; and` | **Accepted** — see caveat below |
+
+**`Offer` attribution correction independently confirmed**: my own §M26 inventory
+lists `nd:88`'s extras and `Offer` is not among them — it was in the guard's
+pinned baseline (`['Offer', 'Offer to purchase']`). QA was right to withdraw it.
+
+### FINAL class-B list — 15 of 75, and the population is CLOSED
+
+`facility` (NJ), `Between merchants` (NJ), `Commercial unit` (NJ), `gallon` (OK),
+`Bundled transaction` (ND), `Farm machinery repair parts` (ND), `Gross receipts`
+(ND), `sale at retail` (ND), `Agricultural property` (ND), `Air carrier
+transportation property` (ND), `Centrally assessed property` (ND), `Commercial
+property` (ND), `Commissioner` (ND), `Franchise` (ND), `Rule` (ND).
+The other 60 pass.
+
+### The finding underneath the list: class B is ONE defect, not fifteen
+
+Sorting by mechanism rather than by symptom, **essentially all 15 trace to the
+same parenthesised/bare-number-vs-marker ambiguity that §M33 scoped to CORE**:
+
+- mid-citation truncation (`…57-`, `…s. 2-`) — a citation's internal number read
+  as a boundary;
+- "stops after sub-item (1)" (`Bundled transaction`, `Gross receipts`,
+  `Agricultural property`) — the source's own `(2)` read as a next-entry marker;
+- marker leaks (`…5. a.`, `…12. a.`, `…14. a.`) — bare digit-dot markers;
+- `gallon` → `"one"` — the `(1)` inside `means one (1) United States standard
+  gallon`.
+
+Only `facility`'s missing `means ` prefix sits outside it, and that is the
+engine's universal idiom-stripping convention (ruling U-R13), not a defect.
+
+**So this panel's entire class-B population is core-3's item.** That is now the
+third independent arrival at the same ambiguity — U-R12, scoped-inline's shape 8,
+and now a 75-term mechanical sweep that was not looking for it. Reported to the
+program manager as corroboration.
+
+### Criterion blind spots — recorded as reusable knowledge
+
+QA documented these rather than discarding the false positives, which is what
+makes them worth having:
+
+- **T3 must not fire on a trailing `"; and"` / `"; or"`** — semicolon-then-
+  connector is this corpus's enumerated-list drafting convention, not truncation.
+  It SHOULD still fire on `", and"` after a bare number with nothing following
+  (confirmed on `Commercial property`).
+- **M1's `NEXT_DEF_START_RE` misses `signifies` and `is a`** as definiendum
+  verbs; ND uses both, which inflates the expected-span estimate and produces
+  false shortfalls.
+- **Stated limitation, honestly given**: these criteria catch large and medium
+  losses reliably but NOT single-token losses. `facility` — losing the ` 3` off
+  `…c. 34, p. 97, s. 3.` — is sub-threshold on every criterion and was found only
+  by hand. **A future re-run of this sweep will not re-find it.**
+
+**Manager caveat on `retailer`**: I accept the clear, but the capture does carry
+a trailing `; and` that belongs to the list structure rather than the definition.
+No content is lost or borrowed, so it is not class B — recorded as a **cosmetic
+residue class**, not chased, and named so it is not rediscovered as a defect.
+
+### Behaviour worth reinforcing
+
+QA corrected TWO of its own report-1 calls unprompted — a false negative it had
+hand-found and a term it had wrongly attributed to the extras — and surfaced both
+rather than folding them in silently. It also refused to report raw mechanical
+output as findings. That is the standard this panel needs, and it is the direct
+reason the class-B boundary is defensible enough for the Planner to pin against.
+
+---
