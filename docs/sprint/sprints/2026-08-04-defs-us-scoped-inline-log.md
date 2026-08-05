@@ -3042,3 +3042,83 @@ are easy to lose in a handoff and expensive to rediscover:
 
 Offered a re-cut on request rather than a re-census; the artifacts exist and a
 different slice is cheap.
+
+---
+
+## 2026-08-05 — Manager: Planner pass 10 ACCEPTED; ESCALATING the truncation
+class upward — it is program-wide, not a Georgia footnote
+
+Branch `claude/defs-us-scoped-inline-plan10` @ `12f9adf`, merged at sprint
+`decc49d`. **Suite: 854 passed, 1 xfailed, 0 failed.** Fence verified: `git
+diff --stat 57a8068..HEAD -- backend/app/` is EMPTY. Both files under gate
+(145 / 247).
+
+### Task 1 — the vocabulary-rot problem is now structurally closed
+
+Placeholder swapped to `denotes`, proven unrecognized by running
+`_IDIOM_RE.match` against the SHIPPED regex rather than assuming, and checked
+for prefix/word overlap with every current alternative — the near-miss-of-a-
+recognized-family trap that sank `shall include`.
+
+The part that matters more than the swap: `_assert_idiom_is_unrecognized` is a
+precondition guard both tests call FIRST, so if the placeholder is ever
+recognized the tests fail LOUDLY with a message naming the exact remedy,
+instead of silently pinning nothing. The Planner verified this live by
+monkeypatching `denotes` INTO the vocabulary and confirming the guard fires.
+This is the fourth vocabulary-accident-protected test this sprint; it is the
+first one that cannot rot silently.
+
+### Task 2 — the pre-existing claim VERIFIED by me independently
+
+I did not take it on the Planner's word, because it is the premise of an
+escalation. `git show 9c47af7:…/us_scoped_inline.py` and `fcd2746` both
+contain, at line 271, the exact truncation mechanism:
+
+    region_end = events[i + 1].start if i + 1 < len(events) else len(body)
+
+**Byte-present in the rule's original authorship commit**, before any fix
+cycle in this sprint. Georgia's "Code section" widening only widened which
+phrases can fire a second trigger event; it did not create the mechanism.
+
+The Planner further reproduced term loss on the pinned row with the "Code "
+tolerance reverted in-memory — a plain `for purposes of this chapter` sentence
+later in the same body fires the second event, and `"chapter"` has been in
+`_UNIT_ALT` since day one. **37 distinct terms recoverable vs 9 captured
+today: 28 lost on one row.**
+
+Pinned as `xfail(strict=True)` (the S-R11 tripwire precedent) asserting the
+CORRECT behavior, verified to XFAIL today and XPASS under a simulated fix —
+so it converts into a loud suite failure the moment anyone fixes the
+underlying defect. Row byte-verified twice, sha256 recorded.
+
+### ESCALATION — this leaves the panel
+
+**The structural precondition (`_STRONG_TRIGGER_RE` firing 2+ times in one
+body) is present in 38,431 rows — 1.89% of the corpus — across ALL 53 of 53
+jurisdictions**, from 0.16% (MD) to 10.66% (TN), 9.47% (AR), 9.42% (GA),
+9.29% (MA).
+
+A 75-row deeper sample across the 5 highest-density states found **2 rows with
+real measured term loss, in CA and GA — two different states**, ≈2.7% actual
+loss within the at-risk population, extrapolating to **on the order of 1,000+
+affected rows program-wide**.
+
+Three things I want stated precisely rather than dramatically:
+
+1. **The 1,000+ is an extrapolation from 75 rows, not a count.** The Planner
+   said so unprompted, in its report AND in the pinned test's own docstring. A
+   fix decision should commission an exact sweep; this number is sized to
+   answer "is this a footnote or a class?", nothing finer.
+2. **The confirmed part needs no extrapolation**: the mechanism predates this
+   sprint (verified by me at two commits), the precondition exists in all 53
+   jurisdictions (full-corpus scan), and real loss is measured OUTSIDE Georgia.
+3. **It is not this panel's to fix.** The fix means distinguishing a
+   list-introducing trigger from a mid-document carve-out or cross-reference —
+   an architecture-level change to trigger-event region splitting that would
+   affect every family panel built on this rule shape, and it predates our
+   sprint. ESCALATION 2's ruling anticipated exactly this outcome; pass 10's
+   job was to supply the verification and scale, which it has.
+
+Meanwhile nothing is lost silently: the tripwire is committed and
+self-alarming, and the accepted-for-now tradeoff remains 3,605 terms gained
+vs 116 lost on the Georgia change that surfaced it.
