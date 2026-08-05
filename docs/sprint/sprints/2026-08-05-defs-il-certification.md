@@ -6,7 +6,7 @@ branch: claude/defs-il-certification
 locked_by: null
 locked_at: null
 last_agent: "claude-code:panel-manager-defs-il"
-last_updated: "2026-08-05T12:36:41Z"
+last_updated: "2026-08-05T13:09:45Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -264,6 +264,22 @@ prose is not a cluster; it is a narrative, and it fails C2.
   A residual list that cannot absorb a dependency unblocking mid-sprint
   would force the certification to report a stale blocker as if it were
   permanent — the exact dishonesty these gates exist to prevent.
+
+  **Second core-blocked cluster, same pattern (M35):**
+  `numberless_at_marker_zero_article_files` — **100 corpus files / 1,090
+  stranded `@` markers** whose marker shape (`@ (תיקון: תשפ"ג) :`, no
+  article number) matches neither `_ARTICLE_MARKER_RE` nor
+  `_BARE_ARTICLE_MARKER_RE`, so `sections.parse_articles` returns **zero
+  Article objects for the whole file** and no definition rule of any kind
+  can ever run on it. Named exemplars: the rabbinical-courts procedure
+  regulations (223 markers) and the two Arabic-script Druze
+  personal-status / court-procedure law bodies (171 and 84). Routed by
+  the program manager to the **core-follow-on-3 accumulator,
+  priority-marked** — deliberately NOT into core-2, whose close is one
+  measurement away and gates six panels' merges; a new Hebrew parser
+  change there would trade a known-contained gap for program-wide
+  schedule risk. Closing condition: **"core-3 `sections.py` fix"**. The
+  residual-flip provision above applies if core-3 lands during C4's loop.
 
   **Known additional dependency, measured by this panel (do not assume
   G9 alone closes it):** `matcher._value_matches` is `actual == expected`,

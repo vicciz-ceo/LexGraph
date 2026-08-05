@@ -1074,3 +1074,79 @@ plainly. `class_c_local_scope_under_claims` and the cross-path/position-0
 clusters still cannot be real predicates without mention/containment-level
 data the current row shape does not carry — a manifest-shape question for
 round 3.
+
+---
+
+## 2026-08-05 — M35: routing RULED (core-follow-on-3); C4 loop opens with `'ltr'`
+
+### Routing ruling (program manager)
+
+The `sections.py` marker-regex gap → **core-follow-on-3 accumulator,
+PRIORITY-MARKED**. Deliberately **not** core-2: core-2's close is one
+measurement away and gates six panels' merges, so injecting a new Hebrew
+parser change there would trade a known-contained gap for program-wide
+schedule risk. Evidence attached: **100 files / 1,090 stranded markers**
+(my refined count; the 121-vs-100 delta recorded — the Planner's figure
+included genuinely article-free files), the marker shape
+(`@ (תיקון: תשפ"ג) :`, no article number), and the named exemplars
+including the rabbinical-courts procedure regulations and the two
+Arabic-script Druze law bodies. In this contract the class is now a named
+cluster with closing condition **"core-3 `sections.py` fix"** — the same
+M20/breadcrumb pattern this contract already carries — and the
+residual-flip provision applies if core-3 lands during C4's loop.
+Contract amended; lint **PASS 349**.
+
+Also recorded at program level: the **parity insight** (a mid-article
+delimiter misclassification inverts open/close parity for every
+downstream quote — small errors in paired-delimiter scans are never
+locally bounded) and the **wrong-population sampling note** (a clean
+0/110 sample of the wrong population is not evidence about the right
+one), both as certification-methodology findings.
+
+### BRANCH HYGIENE — flagging this rather than letting the merge queue find it
+
+The certification sprint has its own contract and its own branch
+(`claude/defs-il-certification`), but I have been merging each accepted
+round into **`claude/defs-il`** — the parent branch that is `status:
+review` and sitting in the merge queue behind core-2 → markers →
+preamble. Consequences, measured just now rather than asserted:
+
+```
+git diff --stat a27698d HEAD -- backend/app     -> EMPTY
+git diff --stat a27698d HEAD -- backend/tests docs
+   -> 21 files changed, 97,350 insertions(+), 25 deletions(-)
+```
+
+**The reviewed PRODUCTION content is byte-unchanged** — every
+certification round has been tests/fixtures/docs only with an empty
+`backend/app` diff, verified each time. So the review's substance stands.
+But the merge slot now also carries ~97k lines of certification artifacts
+including the **32MB `c1_span_population.jsonl`** manifest, which the
+reviewer did not sign off on and which is a real payload decision.
+
+Options, for the program manager rather than for me: (a) merge as-is —
+production identical, artifacts ride along; (b) I split the certification
+commits onto `claude/defs-il-certification` only and rewind
+`claude/defs-il` to the reviewed production content, so the queued merge
+is exactly what was reviewed. **I recommend (b)** — a sprint under review
+should not silently grow, and the certification has its own branch and
+its own merge path for a reason. Flagging now because the merge checklist
+is not mine to run and this is the kind of surprise that should never
+arrive at someone else's gate.
+
+### C4 loop opens — `'ltr'` first, as ruled
+
+The over-capture RED exists (Planner round 2, real pipeline via
+`ingest_wiki_law` + `run_definition_linking`, plus a green sanity control
+pinning all 11 genuine terms). Root cause is an **interaction**, not a
+single bad rule: `"תחום המועצה"` is ONE multi-line `:-` block whose
+continuation lines are `::-`-prefixed; baseline parses it correctly as
+one candidate, and D-1b's `::-` `EntrySplitterRule` then re-parses each
+continuation line as its own block. The union (by design, for recall)
+turns 8 lines carrying `<span dir="ltr">` into spurious candidates,
+persisted as 2 `Definition` rows after `(article, sorted(terms))` dedup.
+
+The fix must therefore **preserve** D-1b's own green E6 test
+(`test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_is_captured`),
+which is the reason that splitter exists — this is a precision/recall
+boundary to draw carefully, not a rule to delete.
