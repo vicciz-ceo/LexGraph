@@ -836,6 +836,86 @@ asserted.
 
 ---
 
+## Phase 3b — D-INCLUDES resolves the escalation; G12 opened (2026-08-05)
+
+The escalated `_MEANS_IDIOM_GAP_RE` question was **already answered**.
+**D-INCLUDES** (program doc, main @ `6a56a84`) — manager-verified by reading
+the primary source, not the summary:
+
+> the `includes` defining-verb class is CAPTURED with the naive quoted-term
+> anchor, **program-wide**. 50,528 anchor occurrences / 32,199 rows
+> corpus-wide; **100/100 hand-read occurrences definitional across two
+> independent seeds** (one-sided 95% upper bound 3.6% FP); tightened guards
+> measured to cost **32–56% of TRUE definitions for no measured precision
+> gain — rejected**.
+
+The measurement's anchor shape (quoted term immediately before "includes")
+**is** the fallback's own quote-first + idiom shape, so EMISSION is covered
+by the ruling's evidence, not merely its text. My decouple-to-protect-the-
+director's-question rationale is therefore moot and is withdrawn.
+
+### MANAGER RULING: implement BOTH boundary AND emission, together
+
+Sequencing was mine to choose; I rejected boundary-now/emission-later.
+
+**Reason (decisive):** boundary-without-emission would convert a
+contamination bug into a **silent-drop** bug. Today the swallowed entry's
+content is at least PRESENT in the data, wrongly attached to the preceding
+definition. Terminating the preceding entry without emitting the new one
+would make that content vanish entirely. Under the program's absolute
+zero-miss bar that is a regression in kind — contamination is visible in the
+data; a dropped entry is invisible. Recorded as a scope decision on the
+merits, not as deference to an already-ruled question.
+
+### G12 — opened, assigned to plan8
+
+Widen `_MEANS_IDIOM_GAP_RE` to the includes-family, boundary AND emission.
+
+**Mandatory conditions carried from the primary source** (the relayed
+summary omitted the first two — caught by reading the ruling itself):
+1. **The PA construction-clause guard is REQUIRED and must be TARGETED:**
+   suppress `References to "X" shall include Y` **only when the quote is
+   preceded by "References to"** (22 construction-clause rows protected vs
+   4,729 genuine recall rows). **Never by idiom-absence**, and never by a
+   broader guard — the ruling explicitly rejected tightened guards as pure
+   recall loss.
+2. **Any existing pin that passes BECAUSE `includes` was absent from the
+   vocabulary must be RE-AUTHORED to assert the guard** — those tests will
+   flip, and flipping them silently is forbidden. Every touched test
+   reported with before/after intent.
+3. **Enumerate the naive anchor's known recall limits, do not hide them:**
+   non-adjacent "includes" (colon + numbered-list between term and verb),
+   unquoted defined terms (2 characterized control misses), and
+   **Massachusetts having ZERO anchor occurrences corpus-wide** (open:
+   drafting convention vs corpus artifact).
+
+### Blocking chain for G11, now fully named
+
+G11 (~39,955-row recall win) ships only if BOTH land:
+- **G12** (this gate) — idiom widening; and
+- **G3-sibling** (line-588 boundary) — still pending plan2's GO/NO-GO
+  both-sides sample.
+
+If either fails, **G11 does not ship this cycle**.
+
+## Phase 3c — G5+G6 implementation unblocked
+
+The resolver pair (G2+G4) has landed, so G5's dependency is discharged.
+dev4 spawned for G5+G6 against seam v2.8 (§9 is its implementation spec).
+Baseline handed to it: **803 passed / 10 failed**; target **811 passed / 2
+failed**, the 2 being the known Planner-side items (the G1 re-point and the
+i9 update) which it is explicitly forbidden to touch.
+
+| Agent | Gates | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| plan8 | G12 | Sonnet/high — P-R6; widens a defining-verb vocabulary in shared extraction under a director ruling with mandatory conditions; Haiku considered: no | `...-plan8` | `a17f139e498c1076c` | running |
+| dev4 | G5 + G6 | Sonnet/medium — bounded implementation against seam v2.8 §9 + 8 existing REDs; Haiku considered: no, shared registry/profile seam | `...-dev4` | `abb08ac1b9814cf00` | running |
+
+All briefs from this point carry the direct-report SendMessage instruction
+per the director-ordered harness adjustment.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
