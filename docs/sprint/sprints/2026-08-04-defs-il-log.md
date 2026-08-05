@@ -4819,3 +4819,84 @@ session — noted for the manager's merge, not a finding of mine.
 Status: RED committed for all three classes (A/B/C), none impossible,
 none escalated. Ready for Phase D Developer handoff pending manager
 review.
+
+---
+
+## 2026-08-05 — M21: D-1a ACCEPTED; D-1 planning complete; Developers are the next step
+
+### Boundaries (mechanical)
+
+`git diff --name-only 2e6cfdb..333c467 -- backend/app` → **empty**; zero
+existing tests edited. 7 fixtures + 1 test file + append-only log.
+**All 7 fixtures byte-verified BY ME**; the one that failed my first pass
+(`הכרזה מס' 3 ...`) was my own filename shorthand, not a defect — an
+exhaustive corpus scan found every one of its 6 lines verbatim in
+`הכרזה מס' 3 על שינויים בתחולת חוק כליאתם של לוחמים בלתי חוקיים.wiki`.
+
+**D-1a's flagged merge worry is resolved: unfounded.** It saw D-1b's
+files as `D` when diffing against a tip that had moved, and correctly
+flagged rather than acting. A real `--no-ff` merge (not a reset) preserved
+both; verified after merging — both test files and both containment
+fixtures are present, and both Planners' REDs run. Log conflicts on both
+merges were two concurrent appends; both kept in order.
+
+Suite now: **`13 failed, 829 passed`** = 4 E6-held + 2 סימן/חלק
+containment (core-blocked per M20) + 7 D-1a REDs. Lint PASS 398.
+
+### What D-1a delivered beyond the ask
+
+- **Class B's unexplained ~80% is now characterized** (the thing I
+  specifically asked for): a quoted term followed by a Hebrew
+  inclusion/exclusion verb (`לרבות`/`למעט`) with NO dash anywhere —
+  live-confirmed on two real laws.
+- **A P-R10 catch against QA cycle 3:** one of QA's own cited Bug-B
+  examples (`קצין משטרה`/`קצין צה"ל`) does NOT demonstrate Bug B — it has
+  a real dash; its miss is the separate, already-documented embedded-
+  gershayim limitation. Corrected in the log. Good discipline: it checked
+  a cited example instead of inheriting it.
+- **Class C feasibility proven, not assumed** — a throwaway `HeadingRule`
+  probe showed the class is reachable from a rule-module-only file with
+  zero frozen-file edits.
+
+### M21 — a finding of my own for the D-1a Developer, from D-1a's own fixture
+
+D-1a's class-C fixture opens `@ 1. (תיקון: תשפ"ד) : לעניין הכרזה זו -`.
+That is an INSTRUMENT word — and the M16 law-wide vocabulary in
+`il_trigger_grammar.py` contains `אכרזה זו` (aleph) but **not** `הכרזה זו`
+(heh). Two different Hebrew spellings of "proclamation"; only one is
+covered. Measured corpus-wide by me just now:
+
+```
+באכרזה זו        46 occurrences / 46 files   IN the law-wide table
+לעניין הכרזה זו   3 occurrences /  3 files   NOT in the table
+בהכרזה זו / לענין הכרזה זו / לעניין אכרזה זו   0 (measured zeros)
+```
+
+Small, but under an absolute bar a measured 3 is not zero, and the fix is
+one vocabulary entry. **Fold `לעניין/לענין הכרזה זו` into the law-wide
+table as part of D-1a's build** — and note this is exactly the M17
+spelling-variant class recurring, which is itself evidence for why the
+certification (D-2) is the right closing method rather than another
+variant hunt.
+
+**Related open question D-1a raised and did NOT resolve** (correctly —
+it is a design call): a naive class-C fix defaults heading-only-triggered
+definitions to `"law-wide"`, because `determine_scope` reads the BODY
+only. That is a plausible over-claim in the M16 direction. The Developer
+must decide deliberately and QA must attack it; do not let it default
+silently.
+
+### Next step: D-1 Developers (serialized, per the disjoint-paths analysis)
+
+- **D-1a bundle** — classes A/B/C, 7 REDs, plus the `הכרזה` vocabulary
+  entry above. Buildable, rule-module-only.
+- **D-1b bundle** — the 4 E6 tests ONLY, with D-1b's precise split: three
+  need an **`EntrySplitterRule`** (baseline `_split_into_blocks` yields
+  zero blocks for a marker-less prose body, so the registered-rule loop
+  never runs), one needs a **`TermClauseRule`**. The 2 סימן/חלק
+  containment REDs are **core-blocked (M20)** and stay red as an
+  enumerated residual — NOT a Developer target.
+- Both bundles land rule modules in the same package, so their Developers
+  must NOT run concurrently (one writer per worktree, M14). Worktrees
+  `defs-il-dev3` (exists, venv built) and one more to create.
+- Then **QA cycle 4**; cycle 5 stays the bounce reserve.
