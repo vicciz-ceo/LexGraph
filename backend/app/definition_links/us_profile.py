@@ -343,6 +343,90 @@ def _entry_start_remainder(line: str) -> str | None:
     return None
 
 
+# --- G3 (sprint 2026-08-05-defs-core-follow-on-2): shared content-marker
+# termination helper ----------------------------------------------------
+#
+# The defect: every block below is correctly bounded by the START of the
+# next recognized entry marker -- EXCEPT the last one, which has no next
+# marker to stop at and previously ran unconditionally to the literal end
+# of the input text. Design decided by the Planner (both-sides corpus
+# sampling, 24.62% of 27,051 real last entries measured contaminated): the
+# fix is CONTENT-marker based, not structural -- a structural rule (e.g.
+# "stop at the next blank line") either changes nothing, since these
+# markers already sit inside the document's ordinary blank-line-separated
+# paragraph shape, or risks cutting a genuine multi-paragraph final entry
+# short (this sprint's non-regression guard, `test_us_core_g3_guard_
+# states_no_regression.py`, pins exactly that risk across 12 real
+# multi-entry rows).
+#
+# `_TRAILING_NOTES_MARKERS` is the extended 10-marker set independently
+# confirmed against the real vaquill US-code dataset's own trailing-notes
+# convention (citation histories, "Editorial Notes"/"Amendments" logs,
+# "Statutory Notes and Related Subsidiaries", etc., bundled into the same
+# `text` field after a section's real operative content).
+#
+# `_trailing_notes_boundary` is deliberately OFFSET-based (a text plus a
+# candidate `[start, end)` span), NOT list-of-lines-based, so it is a
+# SHARED helper usable by more than just `_split_into_numbered_blocks`'s
+# own line-oriented block-builder below. `_extract_inline_quoted_
+# definitions` (line ~551) carries the exact same unbounded-last-entry
+# defect at its own `end = ... else len(text)` fallback, and has been
+# ruled INTO this gate's scope -- but is FENCED here pending a both-sides
+# sample on its own population (a named, separate, not-yet-satisfied
+# condition; see this sprint's report). That function's entries are
+# quote-anchored `(term, start, definition_start)` offset tuples into the
+# ORIGINAL text, not a pre-built line list, so a line-list-shaped helper
+# would not fit it without rework -- an offset-in/offset-out interface
+# does: it can call `_trailing_notes_boundary(text, definition_start,
+# end)` in place of its own literal `len(text)` fallback with no other
+# change, whenever that fence lifts. NOT wired there yet in this pass.
+_TRAILING_NOTES_MARKERS = (
+    "Editorial Notes",
+    "Amendments",
+    "Statutory Notes",
+    "References in Text",
+    "Congressional Findings",
+    "Pub. L.",
+    "History:",
+    "Amended by Act",
+    "Source:",
+    "Cited.",
+)
+
+
+def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
+    """Where an entry spanning `text[start:end]` should ACTUALLY end, given
+    that `end` is merely a provisional/unbounded bound (e.g. `len(text)`
+    for a sequence's LAST entry, which -- unlike every other entry -- has
+    no real "the next entry starts here" boundary at all).
+
+    Scans `text[start:end]` LINE BY LINE for the first line that CONTAINS
+    one of `_TRAILING_NOTES_MARKERS` as a substring, and returns the
+    OFFSET of the START of that line (so a caller's own `text[start:
+    boundary]` slice drops the marker line and everything after it, not
+    merely the matched substring onward). Returns `end` unchanged if no
+    such line is found -- the common case; most real Definitions sections
+    carry no trailing notes at all.
+
+    Line granularity (not the marker substring's own raw character
+    offset) is deliberate: a marker can appear MID-line inside an
+    otherwise-unrelated citation parenthetical that is itself part of the
+    SAME trailing-notes block -- e.g. real FED row USC_T5_C34_S3401's own
+    "(Added Pub. L. 95-437, ...)" amendment citation, which precedes
+    "Editorial Notes"/"Amendments" and is not part of the entry's own
+    substantive definition text. Truncating at the marker substring's own
+    raw offset would leave that parenthetical's leading fragment
+    ("(Added ") dangling in the kept text; dropping the whole line does
+    not.
+    """
+    offset = start
+    for line in text[start:end].split("\n"):
+        if any(marker in line for marker in _TRAILING_NOTES_MARKERS):
+            return offset
+        offset += len(line) + 1  # +1 for the "\n" `str.split` consumed
+    return end
+
+
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
@@ -357,7 +441,14 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
             current.append(line)
     if current is not None:
         blocks.append(current)
-    return ["\n".join(b).strip() for b in blocks]
+    joined = ["\n".join(b) for b in blocks]
+    if joined:
+        # G3: only the LAST block has no natural next-entry boundary --
+        # every other block above is already correctly bounded by the
+        # START of the following recognized entry marker.
+        last = joined[-1]
+        joined[-1] = last[: _trailing_notes_boundary(last, 0, len(last))]
+    return [b.strip() for b in joined]
 
 
 # --- Moved from pipeline.py verbatim (sprint 2026-08-04-defs-core-scope,
@@ -605,7 +696,17 @@ def _leading_quote_candidate(block: str, *, scope: str) -> DefinitionCandidate |
     term_match = _LEADING_QUOTE_RE.match(block)
     if not term_match:
         return None
-    term = term_match.group(1)
+    # G1 (sprint 2026-08-05-defs-core-follow-on-2): `.strip()` the captured
+    # quote-interior group, matching `_extract_inline_quoted_definitions`'s
+    # own convention for the SAME `_LEADING_QUOTE_RE`/quote-capture
+    # pattern (line ~581, `term_match.group(1).strip()`). Real drafting
+    # sometimes pads the quote interior with whitespace (`"“ Conviction
+    # ”"`, not `"“Conviction”"` -- real MS row STATE_MS_T45_C10_S34-1);
+    # without this, `find_term_uses`' `re.escape(term)` (which does not
+    # escape a plain space) turns that padding into a literal required
+    # space in the match pattern, silently missing a real mention that
+    # abuts punctuation with no space before it.
+    term = term_match.group(1).strip()
     definition_text = block[term_match.end() :].strip()
     return DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
 
