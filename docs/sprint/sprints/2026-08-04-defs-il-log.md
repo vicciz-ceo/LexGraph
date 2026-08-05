@@ -6670,3 +6670,125 @@ record, not just trusting the first pass.
 `2 failed, 843 passed` -- the 2 סימן/חלק containment REDs (M20,
 core-blocked) unchanged, all 3 separator REDs green, zero regressions
 anywhere else in the suite.
+
+---
+
+## 2026-08-05 — M30: separator Developer ACCEPTED and merged; a cross-path invariant check found a LARGER pre-existing class (67 lines), and 130 cases where OUR parser is the correct one
+
+### Boundaries (verified BY ME)
+
+Three-dot diff read in full: **one production file changed**
+(`il_list_shape_scope.py`, 187→202), plus log. Guard diff against
+`backend/tests` + the four frozen modules → **empty**. `_find_dash_marker`
+and the dash-then-header slice are **untouched** — I checked the diff
+specifically, because the Planner's 13-file precision analysis depends on
+that boundary. Own venv, own run: **`2 failed, 843 passed`**; post-merge
+re-run identical. Lint PASS 398. The 2 remaining are the core-blocked
+containment REDs.
+
+The shipped alternation:
+```python
+_TERM_SEP_RE = re.compile(r'(?:\s*,\s*(?:או\s+|ו-?)?|\s+(?:או\s+|ו-?))"([^"]+)"')
+```
+
+### What this Developer did notably well
+
+It **caught a bug in its own verification tooling and said so**. Its
+first diff pass keyed on `(file, article, marker, line_idx)` and showed 3
+lines whose FIRST term appeared to change — alarming, and the kind of
+result that is tempting to quietly re-run until it looks clean. It
+investigated instead: `קובץ החלטות מועצת מקרקעי ישראל.wiki` restarts
+article numbering per sub-part, so several distinct `Article` objects
+share `.number == "3"`. Re-keyed on heading + entry text; artifacts gone,
+all 19 real changes confirmed additive-only. That is the M25/M28/M29
+pattern applied to its own instrument rather than to the product — I want
+that behaviour on the record.
+
+It also verified the precision property directly rather than re-asserting
+mine: auto-detected 17 lines / 14 files whose definition text carries
+`או`/comma-joined quotes (a superset of the Planner's hand-read 13) and
+confirmed **17/17 byte-identical before and after**.
+
+### M30 — my own cross-path invariant check, and what it found
+
+The Developer's A/B (19 lines / 12 files changed, all additive) matched
+the Planner's 20/13 to within one line, which it flagged honestly and did
+not chase. Rather than chase one line, I ran a **stronger invariant** that
+subsumes the question: for **every** entry line in the corpus, does the
+list-shape parser now agree with the FROZEN definitions-section parser
+(`extract._parse_terms_and_qualifier`) on the **same header**, holding the
+dash boundary constant so only separator logic varies?
+
+```
+entry lines scanned              54,363
+lines with a dash + terms        47,226
+DIVERGENCES                         216
+  list-shape yields FEWER            197
+  list-shape yields MORE               0   <-- no over-capture, anywhere
+  same count, different strings       19
+```
+
+**Zero over-capture across 47,226 lines** is the strongest precision
+evidence this cycle has produced for the class-A/separator work, and it
+is a whole-population result, not a sample.
+
+**Classifying the 197 (heuristic + ~12 hand-reads, NOT 197/197 verified):**
+
+```
+GENUINE MISS  (every extra frozen term looks like a real term)   67  / 54 files
+garbage-avoidance (frozen produced junk; ours correctly declines) 130
+```
+
+**The 130 matter as much as the 67.** In those, the frozen parser emits
+garbage from gershayim-in-term confounds and recital lines — e.g.
+`"ת"י 158" - ...` → frozen yields `['ת', ' - תקן ישראלי ת']`; a
+`'''והואיל:'''` recital → frozen yields `['ז בחשוון התשפ', 'ח בחשוון
+התשפ']` — while our conservative parser correctly returns fewer terms or
+none. **So "make the list-shape path match the frozen path" is the WRONG
+remedy**, and anyone who reads "216 divergences" as "216 bugs" will make
+the product worse. The adjacency guard D-1a deliberately built (requiring
+a REAL separator, never zero-width adjacency) is doing real work.
+
+**The 67 genuine misses are a systematic, PRE-EXISTING class — not a
+regression, and not a leftover of the `או` fix** (the fix only ever added
+terms; nothing was removed anywhere). Four recurring shapes, all with an
+intervening element our alternation cannot cross:
+
+1. comma + qualifier WORDS + comma —
+   `"אמצעי השליטה", בתאגיד, "הבעלים" ו"החזקה"` → ours 1, frozen 3
+2. bare whitespace adjacency, no separator at all —
+   `"פלט", "חומר מחשב" "מחשב" ו"חדירה לחומר מחשב"` → ours 2, frozen 4
+3. a term carrying its own trailing qualifier mid-list —
+   `"הנפקה" של אמצעי תשלום, "חשבון תשלום", ...` (`חוק הבנקאות (רישוי)`)
+   → ours 3, frozen **11**
+4. long intervening citation runs —
+   `"אדם", לענין [[סעיפים 2]], [[13]], ..., "דיוור ישיר"`
+   (`חוק הגנת הפרטיות`) → ours 1, frozen 6
+
+Shape 2 is in direct tension with the adjacency guard: the guard exists to
+stop gershayim false-splits, and relaxing it naively would import the 130
+garbage cases. **That tension is the real design question**, and it is
+not one to answer inside a bundle chartered for `או`.
+
+**One hunch of mine that did NOT survive measurement, recorded so nobody
+re-runs it:** I suspected the fix's ASCII `ו-` would miss the Hebrew
+MAQAF form `ו־` (U+05BE) — the same "don't assume ASCII" lesson as the
+certification's four-codepoint quote finding. Measured: **1 line / 1 file
+corpus-wide** (`חוק הדרכים (שילוט)`), against 23 lines for the ASCII
+form. Real, but a single line — not the class I expected. My first shell
+grep reported 0 because the shell mangled the maqaf; the Python re-count
+is the trustworthy one. Reporting the correction rather than the hunch.
+
+### Routing
+
+- The separator bundle is **complete and closed** — it did exactly what it
+  was chartered to do, with zero over-capture and zero regressions.
+- The **67-line / 54-file cross-path divergence is a NEW named finding**
+  for QA cycle 4 and D-2. It needs a Planner-derived denominator and its
+  own REDs before any Developer touches it, same discipline as the `או`
+  gap — and it needs a *design ruling* on shape 2's adjacency tension,
+  which is mine or the program manager's to make, not a Developer's.
+- **Not opening it in this sprint.** `qa_cycles` is 3 of 5: cycle 4 runs
+  QA over D-1a + D-1b + the separator work, cycle 5 stays the bounce
+  reserve. Opening a fourth build round would consume the reserve for a
+  pre-existing class that has been latent for the whole program.
