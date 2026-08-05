@@ -1,0 +1,28 @@
+[
+  {
+    "act_id": "STATE_WA_T50_C29_S030",
+    "citation": "RCW 50.29.030",
+    "citation_short": "RCW 50.29.030",
+    "state": "wa",
+    "jurisdiction": "US",
+    "document_type": "statute",
+    "title_number": "50",
+    "title_name": "Washington Code",
+    "chapter": "29",
+    "chapter_name": null,
+    "section_number": "030",
+    "section_title": "RCW 50.29.030: \"Wages\" defined for purpose of prorating benefit charges.",
+    "breadcrumb": "[{\"type\": \"title\", \"num\": \"50\", \"label\": \"Title 50\", \"name\": \"\"}, {\"type\": \"chapter\", \"num\": \"29\", \"label\": \"Chapter 29\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"030\", \"label\": \"Section 030\", \"name\": \"\"}]",
+    "display_path": "Washington Code / Title 50 / Chapter 29 / Section 030",
+    "act_status": "in_force",
+    "text": "For the purpose of prorating benefit charges \"wages\" shall mean \"wages\" as defined for purpose of payment of benefits in RCW 50.04.320 .",
+    "word_count": 23,
+    "source_url": "https://apps.leg.wa.gov/rcw/default.aspx?cite=50.29.030",
+    "last_amended_year": null,
+    "subsection_count": 0,
+    "cross_references_usc": "[]",
+    "cross_references_cfr": "[]",
+    "public_laws_referenced": "[]",
+    "year": 2026
+  }
+]
