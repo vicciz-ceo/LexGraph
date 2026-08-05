@@ -3554,3 +3554,67 @@ sample).
   populations are small enough, per the table above, that this Planner
   judged the 60-row shape-2/3 sample the higher-value use of the time
   budget — flagged, not silently skipped).
+
+---
+
+## 2026-08-05 — Planner: D4, item list for the Developer
+
+Registration order TODAY (unchanged unless stated): (1) CA
+`_ca_wide_window_definitions_preamble` `("US-CA",)`, (2) NE `_ne_named_
+code_quoted_list` `("US-NE",)`, (3) B2 `_b2_words_have_meanings_indicated`
+`("US-*",)`, (4) B1 `_b1_trigger_colon_or_quote_means` `("US-*",)`.
+
+| Shape | Function (existing name / prescribed new name) | Pattern change | `jurisdiction_codes` | Registration slot | Tests to turn GREEN |
+|---|---|---|---|---|---|
+| 3 | `_b1_trigger_colon_or_quote_means` (widen `_B1_TRIGGER_RE`) | add `"In this"` as a 3rd trigger alternative alongside "As used in"/"For (the) purposes of" — same two branches (colon-list, quote-means) apply to `after` unchanged | unchanged `("US-*",)` | unchanged, #4 | `test_us_body_preamble_shape3_in_this_trigger_red.py` (8 tests) |
+| 2 | `_b1_trigger_colon_or_quote_means` (widen `_B1_QUOTE_MEANS_RE`) | make `"the term"` OPTIONAL before the quote; keep TIGHT adjacency (BLOCK-only per M-R39's split); **apply `_B1_FORWARDING_PHRASES` to the gap text** (D3 finding) | unchanged | unchanged, #4 | `test_us_body_preamble_shape2_no_the_term_red.py` (2 tests) |
+| 6 | `_b1_trigger_colon_or_quote_means` (widen the quote-means branch further) | tolerate ONE optional short comma-bounded qualifier clause before "the term"/quote; **apply `_B1_FORWARDING_PHRASES` to the gap text** (D3 finding); design shapes 2+6 as ONE combined regex change, not two independently stacked ones (see overlap note below) | unchanged | unchanged, #4 | `test_us_body_preamble_shape6_intervening_qualifier_red.py` (2 tests) |
+| 5 | **NEW**: `_named_act_also_means_preamble` (exact name — D2's tests import it) | trigger `"As used in the <Capitalized ... Act\|Code>"` (word "the", not "this"); verb `means` OR `also means` | recommend `("US-*",)` — measured hits span NM/NE/OK/AR/OH, not one state | recommend EARLY — right after NE (#2), before B2/B1 (narrow-before-broad, M-R27) — any slot before B1/B2 is safe, no overlap found | `test_us_body_preamble_shape5_named_act_also_means_red.py` (2 tests) |
+| 7 | `_ca_wide_window_definitions_preamble` (jurisdiction widening ONLY — regex proven unchanged, D2's own GREEN-today unit pin) | none | widen from `("US-CA",)` to `("US-CA", "US-IN")` — **recommend adding `"US-MS"` too** (Q-D2 independently named `STATE_MS_T17_C3_S17-103` as the same idiom); **NOT `"US-*"`**, see overlap note below | unchanged, #1, **UNLESS** widened to `"US-*"` instead of an explicit list, in which case it MUST move to AFTER NE (#2) — open question, this Planner's lean is the explicit list, not the reorder | `test_us_body_preamble_shape7_ca_idiom_other_states_red.py` (6 tests) |
+| 8 | `_b2_words_have_meanings_indicated` (add a 2nd alternative pattern) | MS's real phrasing REORDERS the sentence ("The following words and phrases when used in this article... have the meanings respectively ascribed to them") — not a same-slot word swap; needs a genuinely alternate regex, design left to the Developer | unchanged `("US-*",)` | unchanged, #3 | `test_us_body_preamble_shape8_b2_wording_variant_red.py` (2 tests) |
+
+**Not in this cycle's build target** (measured by D1, not assigned a test
+by D2): shape 4 (1,643 uncaptured, MS-dominated) — "ours(recognition) +
+core(scope)" per M-R39, and a range citation is not expressible in the
+current `UnitPath`/scope model without a core-side decision this Planner
+judged out of bounds to pin a test against without either fabricating a
+scope claim or leaving an assertion half-specified.
+
+### Overlap / starvation flags (explicit)
+
+1. **Shapes 2, 3, and 6 all modify the SAME function**
+   (`_b1_trigger_colon_or_quote_means`) — architecturally fine (M-R44's
+   attribution requirement is RULE-granularity, not sub-branch), but the
+   Developer must run ALL THREE shape test files after touching this
+   function, not just the one they think they changed. Recommend
+   implementing shapes 2 and 6 as ONE combined regex change (optional
+   qualifier clause AND optional "the term", together) rather than two
+   independently stacked edits, since stacking them separately risks one
+   widening's own anchoring assumption silently breaking the other's.
+2. **Shape 7's jurisdiction widening, if done as a blanket `"US-*"`**
+   (not recommended) risks preempting `_ne_named_code_quoted_list`
+   (registered AFTER CA today, #2) for any Nebraska row that also happens
+   to contain the wide-window CA idiom — this Planner did not find a live
+   NE row triggering this in the sample data, but did not run a targeted
+   NE-only check either (time budget), so this is a live open question,
+   not silently resolved. The explicit-list widening (`US-CA`, `US-IN`,
+   optionally `US-MS`) sidesteps the whole question and additionally
+   claims 3.3x FEWER rows than the blanket alternative (352-440 vs 1,173,
+   per D3's own table) — this Planner's lean.
+3. **Shape 8 (B2, slot #3) is registered BEFORE B1 (slot #4)** — safe by
+   construction; even if B1's own shape-2/3/6 widening ever became broad
+   enough to also match an MS-shaped row, B2 still wins. No action needed,
+   noted for completeness (not a real risk, included so the Developer does
+   not need to re-derive this from scratch).
+4. **Shape 5's new function and shape 4** (not built) both touch
+   "definition lives somewhere other than 'this <unit>'" framing —
+   checked, no direct pattern overlap (shape 4 requires "Section(s)"/§§
+   digits, shape 5 requires "the <Named Act>", structurally disjoint).
+
+### ESCALATION-adjacent note (not a full escalation, informational)
+
+Per-rule attribution (M-R44) proved possible through the public API for
+every shape this cycle — no escalation needed. The one open design
+question (shape 7's jurisdiction scope: explicit list vs. blanket + reorder)
+is flagged above with a stated lean, per the brief's own guidance to hand
+genuine trade-offs to the manager rather than silently pick a side.
