@@ -394,6 +394,54 @@ _TRAILING_NOTES_MARKERS = (
     "Cited.",
 )
 
+# G13 (sprint 2026-08-05-defs-core-follow-on-2, program-manager ruling --
+# item G13-1): a corpus census found 28 real rows where a bare substring
+# match of `'Pub. L.'` or `'Amendments'` ANYWHERE in a line produced a
+# FALSE trailing-notes trigger, wiping an entire genuine entry rather
+# than trimming a tail. Both strings are ordinary US statutory-drafting
+# vocabulary that routinely appears MID-SENTENCE inside a genuine
+# definition's own substantive prose -- citing an act's own Public Law
+# number inline ("... the Family First Prevention Services Act (Title
+# VII, Div. E, Pub. L. No. 115-123) ...", real TX row
+# STATE_TX_Cfa_C264_S264.152), or even as part of the DEFINED TERM's own
+# real name ("Superfund Amendments and Reauthorization Act of 1986,
+# Title III", real AR row STATE_AR_T12_C84_S12-84-103). All 28 drops were
+# hand-checked and are false truncations; zero implicate any of the other
+# 8 markers alone -- so this guard is scoped to EXACTLY these two marker
+# strings, mirroring `_preceded_by_references_to`'s established shape
+# (targeted, literal, positional), not widened to the rest.
+#
+# The rule: a line only counts as a trigger for one of these two markers
+# if, after `lstrip()`, it STARTS WITH `'('` (a standalone citation/
+# parenthetical block -- covers both the immediate `"(Pub. L. ..."` shape
+# and a long semicolon-chained citation-history line, regardless of how
+# far into that already-parenthetical line the marker text itself sits)
+# OR STARTS WITH the marker text itself (a bare section-header line, e.g.
+# a line that is just `"Amendments"`).
+#
+# A character-offset threshold (e.g. "only trigger if the marker sits
+# within N chars of the line start") was tried and REJECTED with data:
+# genuine citation lines legitimately place `'Pub. L.'` anywhere from
+# offset 1 to offset 852 (real case USC_T7_C35_S1301, a long semicolon-
+# chained date list inside a single `'('`-opened citation block) --
+# distance from the line start does not separate genuine citation blocks
+# from false mid-sentence hits. Whether the line itself IS a citation/
+# header block -- signalled by what it starts with, not by how far into
+# it the marker sits -- does. Every other marker keeps the original
+# bare-substring-anywhere-in-line rule, byte-identical to before this
+# gate.
+_POSITIONALLY_GUARDED_MARKERS = frozenset({"Pub. L.", "Amendments"})
+
+
+def _is_guarded_marker_line_trigger(line: str, marker: str) -> bool:
+    """For one of `_POSITIONALLY_GUARDED_MARKERS`, whether `line` (already
+    known to contain `marker` as a substring) genuinely opens a
+    trailing-notes citation/header block -- see the G13 comment above
+    `_POSITIONALLY_GUARDED_MARKERS` for the exact rule and the false-drop
+    defect it closes."""
+    stripped = line.lstrip()
+    return stripped.startswith("(") or stripped.startswith(marker)
+
 
 def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
     """Where an entry spanning `text[start:end]` should ACTUALLY end, given
@@ -419,10 +467,26 @@ def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
     raw offset would leave that parenthetical's leading fragment
     ("(Added ") dangling in the kept text; dropping the whole line does
     not.
+
+    G13 refinement: for exactly the two markers in
+    `_POSITIONALLY_GUARDED_MARKERS` (`'Pub. L.'`, `'Amendments'`), a bare
+    substring-anywhere-in-line match is NOT sufficient on its own -- see
+    `_is_guarded_marker_line_trigger` and the comment above
+    `_POSITIONALLY_GUARDED_MARKERS` for the false-drop defect this closes
+    and why the additional check is positional (what the line STARTS
+    with) rather than offset-based. Every other marker is unaffected --
+    it still triggers on a bare substring match anywhere in the line,
+    exactly as before this gate.
     """
     offset = start
     for line in text[start:end].split("\n"):
-        if any(marker in line for marker in _TRAILING_NOTES_MARKERS):
+        for marker in _TRAILING_NOTES_MARKERS:
+            if marker not in line:
+                continue
+            if marker in _POSITIONALLY_GUARDED_MARKERS and not _is_guarded_marker_line_trigger(
+                line, marker
+            ):
+                continue
             return offset
         offset += len(line) + 1  # +1 for the "\n" `str.split` consumed
     return end
