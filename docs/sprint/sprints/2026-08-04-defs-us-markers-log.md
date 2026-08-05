@@ -3444,3 +3444,683 @@ show regression.
 Run in parallel; write sets disjoint (QA writes no code or tests at all).
 
 ---
+
+## M27 — spawns dispatched; scoped-inline re-tabulation received and VERIFIED (2026-08-05)
+
+### Spawned (both at `c22d6b0`, both anchored to §M25)
+
+| Role | agentId | Branch / worktree | Scope |
+|---|---|---|---|
+| QA cycle 2 | `a0caf5f0005ba98e3` | `claude/defs-us-markers-qa2` | U-R15 four-class classification of all 13 guards' extra terms; retained-text fidelity gap; confirm/refute the two devC defects. **Writes nothing.** |
+| Planner | `a2aefc18406e12b97` | `claude/defs-us-markers-planC` | Re-author U-R12 AZ oracle + U-R13 Q3B oracle; author colon-idiom RED. **Tests only, no `backend/app/` edits.** |
+
+Both worktrees created FROM the M25/M26 commit specifically so each agent can
+read my agentId in its OWN checkout — verified before dispatch (`grep` for the
+id returns a hit in both). Per-worktree venvs built and confirmed importing
+`app` from inside their own worktree (the documented wrong-venv trap).
+
+QA's brief carries the priority order explicitly, because I may need to cut it
+short: the 5 small-delta guards FIRST (the only population where a precision
+regression can hide), then the never-executed text-fidelity assertions, then
+the 8 large-delta guards. It is also told that a fifth class would be a finding
+against MY taxonomy, not a failure — U-R15 is a hypothesis with an escape hatch.
+
+### Cross-panel: scoped-inline's narrow-slice re-tabulation
+
+Their manager (`a1b29c30b33e45591`, verified by me at
+`docs/sprint/sprints/2026-08-04-defs-us-scoped-inline.md` line 289 on their
+branch, not from chat) delivered the number my S-R17 sizing waited on:
+
+**1,675 distinct rows / 3,394 distinct (row,term) pairs — narrow slice only.**
+This **supersedes the 2,306-row residue figure carried in my own phase-3 brief**,
+and their earlier 714 and 167. Recorded here so no successor of mine quotes
+2,306 again. Both units are quoted deliberately: rows and pairs size different
+things.
+
+Excluded from that number and NOT claimed by us: the IL embedded-caption bucket
+(618 rows, held pending a shape-validity check — the "marker" may be a citation
+tail like `340.` off a section number `3.340.`; and it is not an IL quirk, IL is
+477 of 618), and the marker-chain bucket (19 rows, unpriced, 2-of-35 hand
+coverage).
+
+**Split as ruled**: they own the marker+label+quote adjacency pattern and the
+term-selection rule (prefer the QUOTED string over the label); **we own
+classifying `(N) LABEL.` as candidate-entry-boundary vs generic structural
+sub-header, including the boilerplate blocklist** (the S-R17 helper).
+
+**Binding constraint accepted**: their `_MARKER_QUOTE_RE` next-character
+adjacency gate is load-bearing precision machinery and stays byte-untouched. If
+our classification half ever appears to require widening it, that is a **D-Q1
+escalation to the director, not a regex tweak**. Recorded so it survives a
+handover of this seat.
+
+**The trap in our half**, and it reframes the work: nested boilerplate
+sub-headers. Nearest-marker pairing latches onto `(A) In general.—` instead of
+the governing label; `in general`/`en general` appears as the captured label in
+144 of 3,963 occurrences across 94 rows (125 federal, 20 PR). A term captured as
+`in general` matches nearly everywhere in its scope — a **poisoning** failure
+mode, so the damage is not proportional to 144. The blocklist is therefore the
+load-bearing part of our half, not a tidiness feature.
+
+**Their methodology note is taken as binding on any census we run**: "is this
+row already captured today?" is NOT answered by the heading gate alone — that
+omission left 1,145 of 6,097 rows as false positives, already captured via an
+unrelated trigger elsewhere in the same body. Check every live capture path, per
+kind. This is the same lesson this panel learned in different costume (a registry
+proven live for one rule kind proves nothing about the others).
+
+**Status: helper NOT started, and it will not start without going back to them
+first.** Sizing is unblocked but queued behind the devC disposition. When we
+size it we request a re-cut from them rather than re-censusing — a second
+independent census is exactly how this program produced three mutually
+inconsistent numbers before theirs.
+
+### Process finding reported to them
+
+Their delivery contract points agents at a committed artifact but their message
+did not state the id INLINE — so the mismatch check they asked for was not
+runnable; a reader can only read the committed id and adopt it. Trust-on-first-use
+with extra steps. The id must appear in both places for the disagreement to be
+detectable. Also offered them our M25 dual-channel refinement, since their
+contract still frames the plain-text return as "the fallback, not the channel" —
+which retains the coercive framing that made the original instruction correctly
+refusable.
+
+---
+
+## M28 — merge gates measured (both SHUT); QA-2 spawned; peer contract closed (2026-08-05)
+
+### All three of my merge-slot duties are gated, and both gates are shut
+
+Measured, not assumed:
+
+| Gate | State | Consequence for this panel |
+|---|---|---|
+| **core-2** (`claude/defs-core-follow-on-2` @ `194edf9`) | **NOT merged to main** | My merge slot (immediately after core-2) is **not open**. The G3-HEAL two-layer re-check **cannot run yet** — it runs *at* that merge. The bucket-A population-definition reconciliation with headings runs against the MERGED tree, so it is also not startable. |
+| **preamble** (`claude/defs-us-preamble` @ `99f1904`, "certification WITHHELD") | **NOT merged to main** | **NE extraction stays blocked** exactly as briefed — recognition lives on their branch. |
+
+Also measured: `claude/defs-us-markers` does **not** contain current `main`
+(`bf01184`). Main has moved under us with program-doc commits. A rebase/merge of
+main is required at merge time; noting it now so it is not discovered at the
+gate.
+
+**G3-HEAL instrument confirmed RED and correctly so**: the held instrument
+`test_us_markers_qa_q1_wa_newline_collapse_swallow.py::test_real_pipeline_does_not_let_the_baseline_swallow_beat_our_clean_candidate`
+is present in my re-verified 15-failure list. Per M18 it **stays RED until the
+merged tree proves BOTH layers** (swallow gone AND our clean candidate is the one
+persisted). It is not to be re-authored or waived by anyone holding this seat.
+
+### QA-2 spawned — the measurement half of the M23 queue
+
+Sonnet/**high**, agentId `a07329fcd0c08d186`, branch
+`claude/defs-us-markers-qa2m` (worktree created at `a88c281`; venv verified
+importing `app` from its own worktree; §M25 id verified present in its checkout
+before dispatch). *Model justification*:
+these are correctness questions against ALREADY-MERGED Developer A work where
+the known failure mode is a confident generalisation from a small sample —
+the same error class that produced U-R14. **Haiku considered: NO.**
+
+Scope: M23 queue items 4, 5, 6 — the 37 unverified >5,000-char exemptions, the
+"FED 26,028 is a swallow" docstring re-check, and the P-R7 signal-agnostic
+denominator re-run — **plus a hold I omitted from QA-1's brief and am recording
+as my own miss**: the C5 no-regression holds, MI **1,763** and NY **298**
+captured rows, which must not regress. M24 reports devC moves them UP (MI→2,711,
+NY→1,319); that is a claim needing verification, not a reason to skip the check.
+
+### Peer contract closed (scoped-inline)
+
+Their manager re-sent with the id INLINE (`a1b29c30b33e45591`) — now matching
+three independent sources: their committed contract, the program roster
+(line 29), and the inline statement. Both of this panel's critiques were
+accepted into their committed contract at `2c10b8c`: inline-id required (a brief
+lacking one is itself a defect) and M25's both-channels rule adopted wholesale
+with attribution. Our point that a committed artifact is worth little when only
+ONE copy of the number exists is now in their honest-limit paragraph.
+
+Both re-cuts ordered, and each was widened usefully beyond what we asked:
+- **IL shape-validity** — unresolved, decision-blocking on their side too, and
+  ordered as a THREE-way split (citation-tail misparses / genuine instances /
+  unanticipated) rather than yes-or-no, because a clean "all 618 are misparses"
+  and a messy "410 are, 208 are not" route differently for our blocklist.
+- **"In general" breakdown** — extended to the DISTINCT boilerplate label
+  strings per jurisdiction, testing whether PR's set is merely the Spanish
+  translation of the federal set or contains shapes with no federal analogue,
+  and whether `generally`/`definitions`/`scope`/`applicability` fall into the
+  same trap. They deliberately withheld a proposed blocklist: designing it is
+  our half and they declined to prejudge it. Correct call.
+
+**Negative control worth keeping** (their offer, our follow-up): the Bankhead row
+`STATE_FL_TXXIX_C381_S381.922`, where a naive quote-capture rule takes `Bill`
+out of `William G. "Bill" Bankhead, Jr.`. FL is NOT in our `_JURISDICTIONS`
+tuple, so that row is not a live control for us — **but the SHAPE is**: a quoted
+nickname inside a proper name is the same false-positive family as the NJ
+`'facility'` fragment now under dispute. If QA-1 returns a class-C population,
+the fix cycle probes the five NEW states for that shape rather than only for the
+one fragment we happened to find. Recorded so the idea is not lost between
+cycles.
+
+---
+
+## M29 — cross-panel asset: the false-positive SHAPE catalogue (2026-08-05)
+
+Delivered by the scoped-inline manager (`a1b29c30b33e45591`, verified) in
+response to our request for jurisdiction-PORTABLE negative controls. They cut
+their accumulated set **by shape with the failure mode named**, rather than
+dumping rows, and attached the instruction we should honour:
+
+> **Do not run their rows; re-derive occurrences in OUR jurisdictions.**
+
+That instruction is the whole value. Their specimens sit in FL/PA/UT/MT/TN/VT/AR
+— mostly outside our `_JURISDICTIONS` tuple (VA/WA/FED/UT/TX/SC/AZ + the five
+under dispute NJ/MI/ND/NY/OK). Running an inert row through our rule yields a
+trivial green, which is the worst kind. The **shape** transfers; the row does not.
+
+### The catalogue (specimens are to READ, not to run)
+
+**Poisoning shapes** — captured term is a common word, so damage is out of all
+proportion to the count. First-class, not tidiness:
+
+1. **Quoted nickname inside a proper name** — `William G. "Bill" Bankhead, Jr.`
+   Specimens `STATE_FL_TXXIX_C381_S381.922`, `STATE_AR_T1_C4_S1-4-134`.
+   Sweep rule: quoted string bounded by capitalised name tokens on both sides.
+2. **Boilerplate structural sub-header captured as the label** — `(A) In
+   general.—`, 144/3,963 occurrences over 94 rows (125 federal / 20 PR). This is
+   the load-bearing item for our S-R17 half; their per-jurisdiction vocabulary
+   re-cut is in flight.
+
+**Clause-misread shapes** — a non-definitional clause read as a definition:
+
+3. **Construction / scope-extension clause** — `References to "X" shall include
+   Y`. Specimens `STATE_PA_T15_C57_S5749`, `..._S5748`, `STATE_PA_T15_C17_S1748`.
+4. **Cross-reference prose with no definitional content** — "Nothing in this
+   section may be construed…". Specimen `STATE_UT_T11_S11_59_603`. Their
+   measurement: a bare `in this <unit>` trigger is genuine only **~21%** of the
+   time.
+5. **Judicial case-annotation commentary** — two quoted terms joined by "and",
+   followed by a court's interpretive holding, accepted as a definiens through a
+   bare-comma fallback. Specimen `STATE_NE_C48_S48-101`. Found by their own
+   Developer against its own interest.
+
+**Over-split shapes** — one real definition fragmented into bogus entries:
+
+6. A term's own numbered/lettered elaboration with no new quoted term per item.
+   Specimens `STATE_MT_T23_C5_P8_S23-5-801`, `STATE_TN_T36_C5_S36-5-910`,
+   `STATE_VT_T11C_C7_S701`.
+7. Nested roman-numeral sub-clauses one level below the entry split. Specimen
+   `STATE_UT_T53G_S53G_10_402`.
+
+**Parse-artifact shape:**
+
+8. **Citation-number tail read as a list marker** — `340.` out of a section
+   number `3.340.`, in single-definition sections with no list at all. This IS
+   the held 618-row IL bucket. Their warning generalises it: **the shape will
+   appear anywhere section numbers carry internal periods**, not only where it
+   was first noticed.
+
+### Two structural warnings, both of which bind us
+
+**(a) Shape 3 bites on TWO independent code paths for them** (marker-adjacency
+AND the strong-connector path) — "if your classifier has more than one entry
+point, check each." This is verbatim the lesson already in this panel's
+inheritance in different costume: *a registry proven live for ONE kind proves
+nothing about the others; probe per-kind dispatch.* Any blocklist we build gets
+tested at every entry point that can reach it, not at one.
+
+**(b) Shape 5 arose from an INTERACTION** — chain-joining × comma-fallback —
+not from either mechanism alone. That is precisely the bug class that survives
+testing each mechanism separately, and it maps onto the program lesson
+*correct-in-isolation ≠ correct-in-composition*. Note also that shape 5's
+specimen is **NE**, where our own extraction is blocked pending the preamble
+merge: when NE unblocks for us, shape 5 is a live precision risk on arrival,
+not a hypothetical. Recorded now so it is not rediscovered the hard way.
+
+### How this panel will use it
+
+Shapes 1–8 become the sweep basis for the class-C fix cycle IF QA-1 returns a
+class-C population: we probe the five NEW states for each shape rather than
+chasing only the `'facility'` fragment we happened to trip over. Shape 2 is the
+design basis for the S-R17 blocklist. Neither starts before QA-1 reports.
+
+---
+
+## M30 — re-cut 1 landed: shape 8 is LIVE in three of our own states (2026-08-05)
+
+Scoped-inline's IL shape-validity re-cut resolved. **The citation-tail-misparse
+hypothesis is confirmed dominant**: a 45-row stratified sample found **41 (91%)**
+are genuine single-definition sections where the "marker" is a fragment of the
+section's OWN citation number. The 618-row bucket is correctly EXCLUDED from
+their narrow slice — holding it out was the right call, and folding it in would
+have scored a panel against a target that should not exist.
+
+### The part they could not know to flag: three of those states are OURS
+
+Their jurisdiction spread for the 618: **IL 477, ID 66, MO 43, AZ 12, NY 9,
+KS 6, CO 3, FL 1, NJ 1.**
+
+**AZ, NY and NJ are all inside our `_JURISDICTIONS` tuple** (VA/WA/FED/UT/TX/SC/AZ
+plus the five under dispute NJ/MI/ND/NY/OK). That is **22 rows of shape 8 sitting
+in states our rule actually processes** — where every other specimen they sent us
+was inert for us. Their catalogue instruction (re-derive, don't re-run) is what
+surfaces this; a row dump would have been filtered out as out-of-tuple.
+
+**And shape 8 is not a new shape for this panel — it is a shape we already have
+an open defect in.** Our own sprint doc records AZ as a **bare digit-dot marker**
+jurisdiction, and ruling **U-R12** exists precisely because the AZ leak oracle
+cannot distinguish a real A.R.S. citation (`…section 15-1873.`) from a leaked
+digit-dot marker (`…text 2.`). Shape 8 is the SAME confusion running the other
+direction: not a citation surviving into a definition's tail, but a citation tail
+being READ as a list marker and splitting a section that has no list at all.
+
+**Hypothesis, explicitly not a finding**: AZ/NY/NJ may carry a live production
+false-split of this shape, distinct from the test-oracle defect U-R12 already
+names. Their 618-row census is over THEIR narrow-slice population
+(`(N) LABEL.`-shaped sections), which is not the same population as our
+Definitions-headed sections — so overlap is an open question and must be measured
+in our own population before anyone claims a defect. Routed as a probe for the
+class-C fix cycle, alongside shapes 1–8, NOT actioned now.
+
+**Deliberate decision NOT to interrupt the in-flight Planner with this.** The
+Planner (`a2aefc18406e12b97`) is mid-task re-authoring exactly the AZ oracle that
+U-R12 condemns, so this is adjacent to its work — but its brief already requires
+the new oracle to separate a real citation from a leaked marker, which is the
+load-bearing requirement either way. Injecting a live-production-defect
+hypothesis mid-flight buys little and risks scope creep toward `backend/app/`,
+which its brief forbids. Recorded here instead, and it goes to the fix cycle with
+a probe attached. If a successor wonders why an obviously-related finding was not
+relayed to a running agent, this is why.
+
+### Their honest correction to the number we accepted
+
+The 9% remainder was not rounded away: 2 rows cross-citation contamination
+(excludable), and **2 NY rows appear to be genuine multi-term lists mis-bucketed
+by marker misattribution** — conceptually narrow-bucket, not caption-bucket. So
+the narrow slice they gave us (1,675 rows / 3,394 pairs) is **marginally
+UNDERCOUNTED, order ~25–60 rows corpus-wide**, extrapolated from 2 sampled rows —
+their words: "a direction, not a count".
+
+**We continue to quote 1,675 / 3,394 as the headline**, per their decision not to
+revise on that basis, but record that **the error bar is asymmetric and leans
+up**. A later exact sweep will likely nudge it up, not down. A successor sizing
+the S-R17 split must not treat 1,675 as a ceiling.
+
+### Re-cut 2 delayed — and the delay is itself a program data point
+
+Their "in general" vocabulary re-cut is late because they asked the wrong agent
+for it, attributing the figures to a reconciliation analyst that had no artifacts
+for them. **The analyst REFUSED, reading the mismatch as possible fabrication.**
+Data sound; routing broken; re-ordered from the agent that actually holds the
+artifacts.
+
+That is the third refusal-that-worked in this program: our Developer B declining
+an unverifiable delivery instruction (M22), their Developer finding shape 5
+against its own interest, and now an analyst refusing to confirm numbers it could
+not verify. **All three protected correctness by declining rather than by
+complying**, and all three would have been trained out by a harness that punished
+friction. Recorded as a pattern, not three anecdotes.
+
+It is also a literal instance of the provenance point both panels had just
+agreed on: a number nearly acquired a false origin in a handover, and the refusal
+is what caught it.
+
+---
+
+## M31 — the citation-vs-marker ambiguity is MEASURED at ~91% separable; routing question for the program manager (2026-08-05)
+
+Scoped-inline supplied the datum that actually bears on U-R12, which is not the
+22 rows:
+
+**Their shape-8 detection criterion is functionally a citation-vs-marker
+discriminator, and it was scored: 45-row stratified sample, 41 correct (91%),
+with the 4 misses characterised rather than swallowed** (2 cross-citation
+contamination, 2 genuine multi-term lists misbucketed by marker misattribution).
+
+Two things follow for this panel:
+
+1. **U-R12's replacement oracle is feasible.** The open question behind U-R12 was
+   whether a real citation number and a list marker's period can be separated at
+   all by text shape. In one real population, ~91% — and the residual failures
+   are of two NAMED kinds, not an undifferentiated fog.
+2. **~91% is a rough CEILING for a shape-only approach**, before something
+   structural is needed. Their caveat, which we adopt: if our own measurement
+   lands materially below 91%, the difference is most likely POPULATION rather
+   than method — theirs is narrow-slice, ours is Definitions-headed, and the
+   overlap remains unmeasured.
+
+### ROUTING QUESTION — for the program manager, not for this panel to decide
+
+Their structural observation, which we endorse: one underlying ambiguity (a
+period inside a citation number is indistinguishable from a list marker's
+period) is producing **two different defects in two different panels** — theirs
+reads a citation tail AS a marker and splits a list-less section; ours lets a
+real citation survive into a definition's tail (U-R12). Neither would have
+predicted the other.
+
+**A single fix at the ambiguity would address both — which argues for a
+CORE-LEVEL discriminator rather than two panel-local guards.**
+
+This panel does **not** own that call. It is cross-panel scope affecting core,
+and it is recorded here for the program manager to route. It is deliberately NOT
+raised as an `ESCALATION:` early return: nothing is blocked on it, nobody is
+building a discriminator right now, and this manager has three agents in flight
+whose reports would be abandoned by an early return. It goes in the phase report
+instead.
+
+### Specimens deliberately NOT requested yet
+
+They offered the 22 AZ/NY/NJ act_ids as read-only specimens and pointedly did not
+send them unasked, noting we may prefer our own probe to find them independently
+as a check on their criterion. **We take that option.** The probe re-derives in
+our own population FIRST; their list is then a cross-check. If the two sets
+disagree, the disagreement is itself informative about whether the criterion
+transfers across populations. Asking for the list up front would convert an
+independent replication into a confirmation exercise, which is worth less.
+
+---
+
+## M32 — re-cut 2: boilerplate census CORRECTED, and the blocklist design constraint that follows (2026-08-05)
+
+### Correction to a figure recorded in §M27 — supersede it
+
+§M27 recorded "144 of 3,963 occurrences across 94 rows (125 federal, 20 PR)".
+**That was a merged figure and is wrong.** Their analyst's own re-cut caught it.
+Corrected, and the two buckets are jurisdiction-DISJOINT:
+
+| Label | Occurrences / rows | Jurisdiction split |
+|---|---|---|
+| `in general` (English) | **144 / 94** | FED 125/87, **NY 10/2**, TN 3/1, AL 2/1, DC 2/1, HI 1/1, WV 1/1 |
+| `en general` (Spanish) | **20 / 12** | **100% Puerto Rico**, zero federal/state overlap |
+| Combined | **164 / 106** | — |
+
+So the "20 PR" was never a slice of the 144. Direction of the change matters for
+our half: the English bucket is MORE federal-dominated than relayed (125 of 144),
+and PR is a wholly separate population.
+
+**In OUR tuple**: FED 125/87 and NY 10/2 are jurisdictions our rule processes.
+
+### The PR worry resolves — and the reasoning is why it resolves
+
+Our concern was that a blocklist built on federal boilerplate would silently
+under-cover PR. Answer: PR's `en general` is a **direct structural analogue** of
+federal's `in general`, and PR's broader label vocabulary is otherwise genuine
+Spanish tax terms (`Ingreso bruto`, `Dividendos exentos`, `Persona
+descalificada`), not boilerplate.
+
+Crucially that absence is **evidence, not an instrument artifact**: the scan's
+generic-label exclusion filter was English-only and never excluded any Spanish
+equivalent, so `definiciones`/`alcance`/`propósito`-shaped structural headers
+would have SURVIVED into the data had they been feeding the trap. They did not.
+So: a single translated pair, not a Spanish-specific shape family.
+
+### KNOWN UNKNOWN — do not read silence as absence
+
+`generally`, `definitions`, `scope`, `applicability`, `purpose` were excluded by
+the scan's own filter **at scan time**. Their absence from the data is the
+FILTER's doing, not a corpus fact. The analyst stopped rather than guessing,
+which is the correct behaviour and the reason this is a known unknown rather
+than a false negative we would have inherited.
+
+**Narrow census requested** (non-urgent — our blocklist is queued behind the
+merge-blocking dispute; lead time is the only reason to ask now).
+
+### THE DESIGN CONSTRAINT — this is the part that changes how we build
+
+Two findings the analyst volunteered:
+
+1. **`Inclusion(s)`/`Exclusion(s)`** — 52 occurrences, **100% federal**, same
+   nested-sub-header shape (`(B) Inclusions.—` sitting between a term's real
+   label and its quote). Terms captured under it are genuine (`environmental
+   review process`, `security-based swap`, `carbon dioxide stream`) — their true
+   labels are elsewhere. **FED is in our tuple.**
+2. **`Definitions in other articles`** — 7 occurrences, **all capturing the term
+   `Control`**, across **six different states** (DE, GA, MN, NC, **WA**, WV).
+   UCC Article 9 cross-reference-index boilerplate, adopted near-verbatim across
+   state lines. **WA is in our tuple.** `Control` is a poisoning capture in the
+   §M29 sense — an extremely common word matching nearly everywhere in scope.
+
+**Finding 2 is the structurally important one, and it constrains our half
+directly: the boilerplate blocklist MUST NOT be assembled from per-jurisdiction
+frequency thresholds.** Template-borne boilerplate travels as a shared statutory
+TEMPLATE across independent jurisdictions, so no single state contributes enough
+occurrences to clear any per-state threshold — seven occurrences over six states
+is invisible to every per-state cut, yet it is ONE convention with a poisoning
+capture attached. A per-jurisdiction blocklist would systematically miss exactly
+the class that hurts most.
+
+Design implication recorded for whoever builds it: assemble on **shape/template**
+lines with corpus-wide aggregation, then check per-jurisdiction coverage as a
+diagnostic — never the reverse.
+
+### Evidence grading, as they labelled it (adopted)
+
+- **Exact**: the per-jurisdiction counts and raw label strings (deterministic
+  re-cut of cached structured data).
+- **Directional, single-pass, NOT cross-validated**: the characterisation of
+  Inclusions/Exclusions and the UCC family as exhibiting the SAME trap shape.
+
+We build against the exact half and treat the characterisation as a hypothesis
+to re-derive in our own population, per the standing re-derive rule.
+
+---
+
+## M33 — PROGRAM RULING: citation-vs-marker discriminator scoped to CORE (2026-08-05)
+
+The program manager ruled the §M31 routing question. Recorded here because it
+constrains what this panel may build.
+
+**The discriminator is scoped to CORE.** It becomes the **anchor item of the
+core-follow-on-3 accumulator**, where its siblings already sit: our **U-R12**,
+scoped-inline's **shape 8**, **AZ bare-digit-dot**, **G4's pin-cite
+discriminator**, and the **truncation-class trigger classification**. That is
+five previously-separate items resolving to one underlying ambiguity — which is
+the strongest evidence yet that the core-level framing was right, and more than
+either panel could see alone.
+
+**Our API caution is recorded as a BINDING design constraint on that item.**
+Verbatim effect: same input, opposite correct outputs by structural context, so
+the discriminator **must take context as an argument or return a classification
+the caller interprets**. A bare boolean is a **rejected design by construction**,
+with our formulation attached as the reason. A successor should not re-litigate
+this — it is settled and it is ours.
+
+**Evidence from both panels attaches to the item**: our oracle data (U-R12's
+four-input control set) and scoped-inline's 91%-scored criterion with its four
+characterised misses.
+
+### What this FORBIDS this panel, in the meantime
+
+**Neither panel builds beyond its current local guards.** Concretely for us:
+
+- The class-C fix cycle **does NOT** build a citation-vs-marker discriminator,
+  and does not extend the existing AZ guard's reach toward one. Shapes 1–8 remain
+  probes for *measurement*; shape 8's 22 AZ/NY/NJ rows are re-derived and
+  reported, **not fixed here**.
+- Existing local guards stay as they are. Nothing is ripped out in anticipation
+  of the core item.
+
+**What it does NOT forbid**, stated so the Planner's in-flight work is not
+wrongly halted: **re-authoring a defective TEST oracle is not building a guard.**
+U-R12's replacement oracle is a test-side correctness fix on a test that was
+green for the wrong reason; it stays in scope and the Planner
+(`a2aefc18406e12b97`) continues unchanged. Recorded explicitly because "neither
+panel builds beyond its current local guards" could otherwise be read as halting
+it.
+
+**Independent-replication order affirmed** (§M31): re-derive in our own
+population BEFORE consuming scoped-inline's 22 specimens. Noted by the program
+manager as the right order.
+
+---
+
+## M34 — RULING U-R16: U-R14 is VACATED; my own verification error named (2026-08-05)
+
+### The finding that held devC is REFUTED, on source text
+
+QA cycle 2 classified all 75 extra terms. **No class-C (spurious) population
+exists — zero.** I verified the crux myself against the raw fixture rather than
+accepting it. `STATE_NJ_T58_C22_S22-3`, verbatim:
+
+```
+(k) "Water supply facility" or "facility" means and refers to the real
+property and the plans, structures, machinery and equipment ...
+```
+
+**`'facility'` is a genuine second alias, defined in the same sentence as
+`'Water supply facility'`.** It is not a fragment. **RULING U-R16: U-R14 is
+VACATED** — the precision-regression theory that held devC unmerged had no
+factual basis.
+
+### My own error, stated plainly
+
+In §M26 I tabulated U-R14 as "**CONFIRMED**, with control". That was an
+overclaim, and the control I ran does not support the label I gave it:
+
+- **What I actually established**: the extra term `'facility'` appears under
+  devC and not under the sprint branch (28 pass / 13 fail). That is an
+  ATTRIBUTION control — it proves the term is caused by devC's widening.
+- **What I labelled it**: confirmation that the term is SPURIOUS. Attribution
+  and spuriousness are different claims, and no probe I ran addressed the second.
+
+Worse, in the *same commit* I authored U-R15 rule 1 — "capitalisation is NOT
+evidence... decided on SOURCE-TEXT evidence, never on capitalisation" — and then
+failed to apply it to the inherited claim I was carrying forward. I wrote the
+rule that would have caught this and did not run it against the one claim already
+in my hands. **Reading a fixture row would have taken thirty seconds.**
+
+This is the program's "probe arguments are part of the claim" lesson landing on
+me: my probe answered a narrower question than the word "CONFIRMED" implied. It
+is also the third consecutive holder of this panel to mis-call this same defect —
+Developer C generalised from one real example, my predecessor generalised from
+one counter-example, and I ratified the second without testing it. §M26's table
+row for U-R14 is **superseded by this section**.
+
+### devC disposition: CLEARED of the precision charge
+
+- **No class-C.** Nothing spurious ships.
+- **Zero terms lost**, and retained-term text is **byte-identical — structurally
+  guaranteed**, not sampled. QA read the mechanism: `pipeline.py:275-310` keys
+  persistence on `(article_id, sorted(terms))`, first-created wins and is never
+  overwritten, and `us_profile.py:1338-1352` concatenates
+  `all_blocks = baseline_blocks + extra_blocks`, so baseline's candidate for any
+  colliding term name is always created first. This also closes the §M26
+  never-executed-text-assertion gap.
+- **The real population is class A + class D**: 49 of the 75 extras are ND terms
+  **never captured in any form before** (bare `1.`/`2.` digit-dot markers the
+  baseline splitter cannot split on) — stale pins, not duplication, and
+  explicitly NOT routed to G8. The rest are genuine sub-definitions carved out of
+  an unchanged swallow blob.
+
+### Class B is real — and most of it is NOT ours to fix
+
+QA found genuine boundary defects on newly-captured terms: NJ `facility`
+(missing `means ` prefix, truncated tail), OK `gallon` → `"one"`, ND `Franchise`
+losing 2 of 3 clauses, and citation-tail truncations on NJ `Between merchants`,
+NJ `Commercial unit`, ND `Commissioner`/`Rule` and three nd:78 terms
+(`...chapters 57-06 and 57-`).
+
+**Those citation-tail truncations and OK `gallon`'s parenthesised-`(1)`
+mis-split ARE the citation-vs-marker ambiguity that §M33 scoped to CORE** as the
+core-follow-on-3 anchor. They are not this panel's to fix, and per M33 we build
+no discriminator meanwhile. They are documented, routed, and pinned — not
+repaired here. That convergence is corroboration for M33's core-level framing:
+the same ambiguity surfaced again, unprompted, in a completely separate
+investigation.
+
+### Two further corrections to inherited claims
+
+- **M24's NJ `Cost` within-run duplicate: REFUTED.** The live pipeline creates
+  exactly ONE `Cost` row (1,267 chars). The "1,267 vs 1,257" pair existed only in
+  `extract_definitions_from_section()`'s raw output — a layer BEFORE persistence
+  dedup — and never reaches the database. **Methodological warning recorded: the
+  sweep script measures pre-persistence, so duplicate-looking output there does
+  not imply duplicate rows.** Anyone quoting that script's duplicate counts must
+  say which layer they measured.
+- **G8 is quality-blind, and that is a NEW finding for core-2.** Because the
+  dedup is purely order-based, baseline wins even when its candidate is worse:
+  OK `Area of operation` keeps a degenerate 6-char `"means:"` while a correct
+  941-char candidate is discarded. **G8 can suppress a quality IMPROVEMENT, not
+  merely prevent a duplicate.** Routed to core-2 with the act_id.
+
+### Merge sequencing for devC (NOT merged yet)
+
+1. Planner re-pins the 13 stale guards — term LISTS only, which are correct.
+2. Planner authors REDs for the class-B boundary defects. **The defects are not
+   baked into the re-pinned expectations**; a re-pin that swallowed a known
+   truncation would launder a defect into an accepted baseline.
+3. devC merges after (1)+(2). Class-B REDs stay red, routed to core-3.
+
+---
+
+## M35 — RULING U-R17: Planner tasks 1 and 2 ACCEPTED; task 3 BOUNCED (2026-08-05)
+
+Planner (`a2aefc18406e12b97`, branch `claude/defs-us-markers-planC`). Write set
+verified by me: `git diff --stat c22d6b0..HEAD -- backend/app/` is **empty** —
+zero production code touched, 4 test/fixture files only. Suite reproduced by me
+at **15 failed, 881 passed** exactly as reported.
+
+### Task 1 — AZ oracle (U-R12): ACCEPTED
+
+New oracle `(?:^|\s)\d{1,3}\.\s*$`. I re-ran its four controls myself and added
+four of my own that were not in the brief:
+
+| input | old | new |
+|---|---|---|
+| `…section 15-1873.` (real citation) | True (bug) | **False** |
+| `…district. 2.` (genuine leak) | True | **True** |
+| `…district.` (clean) | False | False |
+| `…section 15-1` (truncated) | False | False |
+| **my extra**: `2.` (leak at string start) | True | **True** |
+| **my extra**: `see 15-1873.` (hyphenated) | True | **False** |
+| **my extra**: `a rate of 1.5.` (decimal) | True | **False** |
+| **my extra**: `…revenue code.\n\n13.` (AZ swallow) | True | **True** |
+
+It holds on the leak-at-start case (which `(?:^|\s)` was needed for) and
+correctly rejects decimals, which nobody specified. The standalone positive
+control exercising the regex directly is the right anti-rot measure.
+
+### Task 2 — Q3 Part B (U-R13): ACCEPTED
+
+Green; Planner measured the engine's real output before writing the expectation
+rather than encoding my description of it, which is the correct order.
+
+### Task 3 — colon-idiom RED: BOUNCED, and the proof is decisive
+
+The tests call `extract_quote_anchored_entries(row["text"])` **directly on raw
+fixture text**. Production does not. `ingest_us_statutes.py:237` applies
+`text = text.replace("\\n", "\n")` (the M14/I8 fix) BEFORE text reaches
+extraction. I ran both paths on the Planner's own two fixture rows:
+
+| row / term | RAW (the test's path) | NORMALIZED (production's path) |
+|---|---|---|
+| `STATE_NY_AISC_A55_S5501` → `Hospital` | len **2**, `'\n'` — the pinned collapse | len **381**, `'(1) Any facility defined as a hospital under section tw…'` — **CORRECT** |
+| `STATE_NY_ALFN_A1_S2.00` → `chief fiscal officer` | len **2**, `'\n'` | **term absent entirely** (26 entries vs 27) |
+
+**Row 1's defect does not exist on the production path.** Row 2's term is MISSING
+under production — a real defect, but a *different* one than "collapses to a
+degenerate 2-char definition". Both REDs are invalid as written; one pins a
+non-defect, the other pins the wrong defect.
+
+This is **ruling U-R11 / §M15 recurring**: "the NY target number is measured on
+text production never sees." The Planner's own honest note contains the
+premise — it said the direct call was "the only way to reach this code path live
+for NY today", since NY is not yet in `_JURISDICTIONS`. That is true, and the
+correct conclusion from it is that **NY cannot carry a live-path test for this
+today**, not that a non-live-path test is acceptable. When devC merges, NY joins
+the tuple and the live path opens.
+
+**Not a criticism of the Planner's diligence** — it self-reported the direct-call
+choice, documented the mechanism, and flagged its own inability to reproduce
+M22's MN/ME counts. That transparency is exactly why this was catchable.
+
+### M22's colon-idiom counts are now UNREPRODUCED
+
+The Planner scanned the full real MN (27,747 rows) and ME (25,316 rows) corpora
+and found **zero** instances of M22's stated `means:`/`:` shape; MN/ME store real
+newline bytes so NY's literal-`\n` mechanism cannot fire there. Combined with the
+above, M22's "~16 MN / 3 ME / 13 NY" is **not currently reproducible as stated**.
+
+**Ruling: the colon-idiom defect must be re-derived on the LIVE path before
+anyone pins it.** It is not declared non-existent — Developer B observed
+something real — but its shape, mechanism and counts are all unconfirmed, and the
+NY portion is now explained as a raw-text artifact. Re-queued, not closed.
+
+---
