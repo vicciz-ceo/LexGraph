@@ -46,11 +46,44 @@ MN unit currently raises unexpected-keyword `allow_relative_qualifiers`. The
 existing MN persisted live test remains green and is the required opt-in
 call-path acceptance. No production path was edited.
 
-Authoritative backend result: 891 passed / 25 named inherited holds, none
-P-D2 outside the new scope RED. Frontend: 25 files/165 tests passed (known
-React `act` warnings); typecheck passed. Contract now routes P-D2 to
+Pre-RED backend baseline: 891 passed / 25 named inherited holds, none P-D2.
+Final committed QA state after the two scope REDs: **890 passed / 27 failed**
+(25 inherited + 2 P-D2 scope REDs), 917 collected. Frontend: 25 files/165
+tests passed (known React `act` warnings); typecheck passed. Contract routes P-D2 to
 `qa-fail`/Developer, cycle 1; P-T1 remains completed. Core-2 remains unmerged
 and no combined-tree/G3-HEAL claim is made.
+
+---
+
+## M56 — QA cycle 1 FAIL accepted; explicit MN opt-in correction (2026-08-05)
+
+Manager read the full `95a1caa...3201be2` QA diff: five fixture/test/contract/
+log paths and zero production. Manager reproduced the two fixed-behavior REDs:
+the shared default emits genuine FED `family member` where pre-P-D2 default was
+empty; the MN unit raises on missing explicit opt-in kwargs. The MN persisted
+live and narrow negative remain green. QA's detached pre-fix proof is accepted:
+2 intended MN failures / 1 negative pass with the 7,767-char Affiliate swallow.
+
+The 788,766-row differential is binding evidence: 3,757 changed rows, 3,085 MN
+and **672 non-MN**, with 1,993 added keys / 263 removed / 9,760 retained keys
+whose text changed. FED/FL/WA/DC samples are genuine definitions or cleanup, not
+false positives; they are ledgered as real opportunities for their owning
+families rather than silently absorbed into P-D2.
+
+Program-manager correction design is binding: add explicit default-off options
+to `extract_quote_anchored_entries` for relative qualifiers, trailing term-comma
+cleanup, and MN Subd hard stops. All existing callers retain defaults. Only
+`us_markers_mn_subd_marker._split` opts into all three. A generic body-shape gate
+is rejected because non-MN text can share the shape. Post-fix differential gate:
+**zero non-MN delta**, then exhaustively classify MN additions/removals/text
+truncations mechanically and hand-inspect every outlier.
+
+Role transition: lock changed from `codex:qa` to `codex:developer`. Next role
+delivery record committed before handshake:
+`/root/markers_panel_manager/developer_pd2_scope_fix`; model/effort
+`gpt-5.6-terra/medium` — two-file production correction against committed REDs
+with an explicit API contract. Haiku considered: no because shared-engine seam
+is cross-jurisdictional and corpus safety is load-bearing.
 
 ---
 

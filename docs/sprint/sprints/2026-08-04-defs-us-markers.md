@@ -4,10 +4,10 @@ status: qa-fail
 current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:qa"
-locked_at: "2026-08-05T20:01:27Z"
+locked_by: "codex:developer"
+locked_at: "2026-08-05T20:24:01Z"
 last_agent: "/root/markers_panel_manager/qa_final_pd2"
-last_updated: "2026-08-05T20:21:27Z"
+last_updated: "2026-08-05T20:24:01Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -15,7 +15,7 @@ total_items: 2
 completed_items: 1
 dev_complete_items: 0
 qa_cycles: 1
-lint: "PASS 383 2026-08-05T20:22:24Z"
+lint: null
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
