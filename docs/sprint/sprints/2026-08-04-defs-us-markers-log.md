@@ -5504,3 +5504,57 @@ the FED default-scope RED gets a nonempty `family member` candidate, and the MN
 Affiliate RED raises the expected missing-keyword `TypeError`. The new test
 fails on the fixed-behavior equality only: actual `..., 63, 70, and` versus
 expected `..., 63, 70, and 72.`. No broad diff or final-QA verdict was run.
+
+---
+
+## M61 — exhaustive MN Subd-label census and lettered-boundary RED (2026-08-05)
+
+Independent QA resumed from exact handoff
+`bcc529c4d2368589449d83ded6b6e1998f6ddefe`; production and contract remained
+untouched. The census scanned the `text` field of all **27,747** rows in local
+snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`'s
+`us_mn_statutes.parquet`. The probe preserved production's normalization
+convention exactly — `text.replace("\\n", "\n")` only when the row state is
+NY — so no transform was applied to MN. A second literal-count pass reproduced
+the same total.
+
+Every literal `§ Subd.` occurrence was tokenized at the first following
+non-whitespace run: **68,753 total / 68,753 classified / 0 missing tokens**.
+The exclusive label grammar is:
+
+- numeric `N.`: **61,968** — digit-width counts 1: **51,002**, 2: **10,755**,
+  3: **211**; numeric range 1–272;
+- numeric plus exactly one lowercase letter `N[a-z].`: **6,785** — digit-width
+  counts 1: **5,664**, 2: **1,121**, 3: **0**; numeric range 1–92.
+
+Maximum digit width is **3**. Letter case is **6,785 lowercase / 0 uppercase**;
+no multi-letter suffix exists. Exact suffix distribution:
+`a=4043, b=1233, c=573, d=292, e=175, f=108, g=77, h=61, i=47, j=35,
+k=26, l=18, m=14, n=12, o=8, p=8, q=8, r=8, s=7, t=7, u=6, v=6,
+w=5, x=4, y=3, z=1` (sum 6,785). **Shapes outside `N.` or `N[a-z].`:
+zero.** All prefixes spell exactly `§ Subd.`. Whitespace after the prefix is
+one space in 68,752 cases and absent once (`STATE_MN_P142A_142G_C142F_S142F.20`,
+literal `§ Subd.7.`); its token remains the authorized numeric `7.` shape.
+This finding authorizes only the proposed suffix token grammar
+`\d{1,3}[a-z]?`; it does not authorize a prefix-whitespace or default-engine
+change.
+
+The fixed-behavior RED byte-pins real row
+`STATE_MN_P59A_79A_C60D_S60D.15`: full-source SHA-256
+`0f4460067492d79c31b9c0c44ee0306012f0616f943fd4200ed304828c534ab5`;
+verbatim excerpt Unicode-code-point offsets 666–2323; excerpt SHA-256
+`1d055549e01f0dd882271a31c8c0dc68d7162638222516f738855dcb599a2065`.
+It attempts all three explicit MN opt-ins and uses the same exact unexpected-
+keyword fallback solely for pre-production provenance. The `Enterprise risk`
+definition is independently extracted exactly and absent from the preceding
+candidate, but current production leaves the real heading
+`§ Subd. 4a. Enterprise risk.` at the end of `under common control with`.
+
+Focused command:
+`backend/.venv/bin/pytest tests/unit/test_us_markers_pd2_scope_default_red.py tests/unit/test_us_markers_pd2_mn_affiliate_idiom_unit.py tests/unit/test_us_markers_pd2_mn_numeric_tail.py tests/unit/test_us_markers_pd2_mn_lettered_subd.py -q`
+→ **4 failed, 1 passed**. Existing failures remain independently attributable:
+FED default scope emits `family member`; MN Affiliate raises the expected
+missing-keyword `TypeError`; numeric-tail actual remains `..., 63, 70, and`
+versus expected `..., 63, 70, and 72.`. The new fixed-behavior RED fails only
+because the preceding candidate retains `§ Subd. 4a. Enterprise risk.`. No
+broad diff or final-QA verdict was run.
