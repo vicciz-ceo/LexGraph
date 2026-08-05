@@ -104,6 +104,18 @@ def _ingest_and_link(db_session, matter_with_users, *, row: dict, jurisdiction: 
     )
 
 
+def _persisted_definition_text_by_term(db_session, result: dict) -> dict[str, str]:
+    """Read the persisted P-FP output, not merely the response's term list."""
+    from app.models.definition import Definition
+
+    persisted = []
+    for created in result["created_definitions"]:
+        definition = db_session.get(Definition, created["id"])
+        assert definition is not None, f"pipeline returned missing Definition id {created['id']}"
+        persisted.append(definition)
+    return {term: definition.definition_text for definition in persisted for term in definition.terms}
+
+
 # --- 1. NEGATIVE: the ONE row confirmed genuine definition-level garbage ---
 # --- under P-FP (re-adjudicated; was 6, now 1 -- see module docstring) ----
 
@@ -329,13 +341,19 @@ def test_usc_foreign_person_and_syria_forwarding_definitions_still_captured(db_s
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T22 C102 S9528 (cycle-8/phase-2 forwarding-definition regression guard)",
     )
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
+    persisted = _persisted_definition_text_by_term(db_session, result)
     expected = {"foreign person", "Syria", "financial, material, or technological support"}
-    assert expected <= created_terms, (
-        f"expected all 3 real forwarding-defined terms among {sorted(created_terms)} "
+    assert expected <= persisted.keys(), (
+        f"expected all 3 real forwarding-defined terms among {sorted(persisted)} "
         "-- every entry in this real body is a genuine 'has the meaning given...in "
         "section...' forwarding pointer, GENUINE per D-MT-E1/P-FP, not a false "
         "positive; must remain captured"
+    )
+    assert "section 542.304 of title 31" in persisted["financial, material, or technological support"]
+    assert "section 594.304 of title 31" in persisted["foreign person"]
+    assert "section 542.316 of title 31" in persisted["Syria"], (
+        "P-FP output is the persisted (term, definition_text) tuple: forwarding "
+        "targets, not term presence alone, must be retained"
     )
 
 
@@ -355,11 +373,14 @@ def test_state_de_employer_forwarding_pointer_still_captured(db_session, matter_
         db_session, matter_with_users, row=row, jurisdiction="US-DE",
         title="DE T13 C5 SII S513 (cycle-8/phase-2 forwarding-definition regression guard)",
     )
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
-    assert "Employer" in created_terms, (
-        f"expected 'Employer' among {sorted(created_terms)} -- a genuine "
+    persisted = _persisted_definition_text_by_term(db_session, result)
+    assert "Employer" in persisted, (
+        f"expected 'Employer' among {sorted(persisted)} -- a genuine "
         "forwarding-plus-substantive definition (GENUINE per D-MT-E1/P-FP), "
         "not a false positive; must remain captured"
+    )
+    assert "4301(d) of the Internal Revenue Code of 1986" in persisted["Employer"], (
+        "P-FP requires the persisted forwarding target citation, not only the term"
     )
 
 
@@ -385,13 +406,16 @@ def test_usc_institution_of_higher_education_forwarding_definition_still_capture
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T10 C303 S4093 (cycle-8/phase-2 forwarding-definition regression guard)",
     )
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
-    assert "institution of higher education" in created_terms, (
-        f"expected 'institution of higher education' among {sorted(created_terms)} "
+    persisted = _persisted_definition_text_by_term(db_session, result)
+    assert "institution of higher education" in persisted, (
+        f"expected 'institution of higher education' among {sorted(persisted)} "
         "-- a genuine forwarding definition ('has the meaning given such term in "
         "section 101 of the Higher Education Act of 1965'), GENUINE per D-MT-E1/"
         "P-FP; must remain captured"
     )
+    assert "section 101 of the Higher Education Act of 1965 (20 U.S.C. 1001)" in persisted[
+        "institution of higher education"
+    ]
 
 
 def test_usc_early_approved_tribe_organization_or_consortium_still_captured(db_session, matter_with_users):
@@ -415,14 +439,17 @@ def test_usc_early_approved_tribe_organization_or_consortium_still_captured(db_s
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T42 C7 S679c (cycle-8/phase-2 forwarding-definition regression guard)",
     )
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
-    assert "early approved tribe, organization, or consortium" in created_terms, (
+    persisted = _persisted_definition_text_by_term(db_session, result)
+    assert "early approved tribe, organization, or consortium" in persisted, (
         f"expected 'early approved tribe, organization, or consortium' among "
-        f"{sorted(created_terms)} -- the real subclause (III) 'Definition of "
+        f"{sorted(persisted)} -- the real subclause (III) 'Definition of "
         "early approved tribe, organization, or consortium' clause is a genuine "
         "local `means` definition, not the circular USE elsewhere in the body "
         "the old docstring described; must remain captured"
     )
+    assert "an Indian tribe, tribal organization, or tribal consortium" in persisted[
+        "early approved tribe, organization, or consortium"
+    ]
 
 
 def test_usc_commissioned_service_obligation_still_captured(db_session, matter_with_users):
@@ -447,10 +474,13 @@ def test_usc_commissioned_service_obligation_still_captured(db_session, matter_w
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T10 C953 S9448 (cycle-8/phase-2 forwarding-definition regression guard)",
     )
-    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
-    assert "commissioned service obligation" in created_terms, (
-        f"expected 'commissioned service obligation' among {sorted(created_terms)} "
+    persisted = _persisted_definition_text_by_term(db_session, result)
+    assert "commissioned service obligation" in persisted, (
+        f"expected 'commissioned service obligation' among {sorted(persisted)} "
         "-- subsection (d)'s real 'In this section, the term \"commissioned "
         "service obligation\"... means...' clause is a genuine local definition, "
         "not amendment-history noise; must remain captured"
     )
+    assert "period beginning on the date of the cadet's appointment" in persisted[
+        "commissioned service obligation"
+    ]
