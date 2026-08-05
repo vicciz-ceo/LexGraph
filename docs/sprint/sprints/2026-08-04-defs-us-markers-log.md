@@ -1546,3 +1546,109 @@ other uncovered jurisdictions. Both numbers are right; conflating them
 overstates this phase's reachable target by ~49%. Phase-2's honest headline
 target is 12,941, with the tail named separately.
 
+
+---
+
+## M14 — probe artifact self-caught (P-R10); bucket-A population axis IDENTIFIED; cross-panel interaction MEASURED (2026-08-05)
+
+### (a) A probe artifact of my own, caught by P-R10 before it became an escalation
+
+My first corpus-wide sweep reported **FED at 83.3%** — exactly the PRE-build
+rate — which would have read as "the FED rules are dead". P-R10 says explain
+why everything downstream is not already visibly broken before escalating. It
+was my probe: I derived the profile code from the filename, giving
+`US-FEDERAL`, while the rules register for **`US-FED`** and production maps
+`us_federal_statutes.parquet` → `US-FED` (`ingest_us_statutes_cli.py:138`).
+With the production mapping applied: **FED 1,920 headed / 140 zero = 7.3%**,
+the claimed after-rate exactly. Recorded because the near-miss is the evidence
+P-R10 works, and because any future sweep that builds a code from a filename
+inherits this trap.
+
+### (b) M12's corpus numbers CONFIRMED — and the population axis that explains the bucket-A dispute
+
+Running the sweep with **direct-title recognition only** (no
+`derive_heading_from_body`) reproduces M12 **to the row**:
+
+| basis | headed | zero-yield |
+|---|---|---|
+| direct-title only | **61,075** | **21,072** ← M12 exactly |
+| + body-derived headings | 64,480 | 21,642 |
+| covered 13 jurisdictions (direct) | — | **1,794** ← M12 exactly |
+| uncovered (direct) | — | **19,278** ← M12 exactly |
+
+**The entire 3,405-row / 570-row delta is three jurisdictions: CA (1,728
+headed / 432 zero), IL (1,672 / 135), GA (5 / 3).** Their Definitions sections
+are recognized ONLY via body-derived headings, so they vanish from a
+direct-title denominator and appear in an all-shapes one. 1,728+1,672+5 =
+3,405; 432+135+3 = 570 — exact.
+
+**This is a second, independent population axis** on top of the one the program
+already diagnosed (headings' shape-1-restriction vs markers' all-shapes). So
+"bucket A" is under-specified along at least TWO axes:
+1. shape-1-restricted vs all-shapes;
+2. direct-title recognition vs including body-derived recognition — worth
+   3,405 rows / 570 zero-yield rows, all of it CA+IL+GA.
+
+For the standing duty to agree population DEFINITIONS with the headings panel
+before certification, I propose the merged-tree measurement declare BOTH axes
+explicitly, and I record markers' own two numbers (21,072 direct / 21,642
+all-shapes) so neither is later quoted without its basis.
+
+### (c) The residual's real shape — the "ten" is a top-N artifact, not a natural boundary
+
+Uncovered jurisdictions, direct basis, sorted: the ten commissioned states sum
+to **12,941**; total uncovered is **19,278**; so the tail is **6,337**. But the
+tail's head is not small, and four of its members are TOTAL gaps of exactly the
+same shape as NY/NV/ND/ME/OH:
+
+**NH 943 (100.0%), MA 636 (99.7%), PA 534 (98.3%), HI 459 (97.9%)** — 2,572
+rows, ranked 11th/13th/15th/17th, i.e. they missed the cut only by rank.
+Then AR 840 (29.6%), CO 558 (22.1%), IN 304 (51.8%), WV 297 (27.8%).
+
+Stopping the extension at exactly ten would leave four 97–100% total-gap
+jurisdictions uncovered on a rank cutoff, which is not defensible at
+certification. **Manager position: the Planner inventories the ten as
+commissioned AND measures NH/MA/PA/HI's conventions**; if they collapse into
+the same families (likely — total-gap states usually share one convention),
+covering them is marginal cost on the same rules, and I will put the scope
+extension to the program manager with measured evidence rather than guess.
+
+### (d) RULING U-R10 — multiterm's wildcard whole-text splitters, MEASURED, not hypothesised
+
+Exercising design-time authority over multiterm's two `EntrySplitterRule`s
+(their branch @ `36a2de6`). Both register
+**`jurisdiction_codes=("US-*",)` — a wildcard over every US jurisdiction** —
+and both are whole-text splitters (`_split_parent_redirect_whole_text`,
+`_split_apposition_whole_text`) that re-contribute the ENTIRE section body as
+one block. The seam UNIONs blocks and then runs EVERY `TermClauseRule` over
+EVERY block, so at merge each of our family-3 term rules starts receiving a
+whole-section block it has never been tested against.
+
+I measured it instead of arguing it: I loaded their two modules into the same
+process as our rules (simulating the merged tree; nothing written to our
+worktree) and re-ran our own boundary metrics.
+
+| | markers alone | + multiterm (simulated merge) |
+|---|---|---|
+| VA zero-yield | 48 (4.4%) | 48 (4.4%) |
+| AL zero-yield | 230 (13.9%) | **224 (13.6%)** — real recall gain |
+| **WA >5,000-char definitions** | **3** | **7** |
+| WA worst-case definition | 10,838 ch (`STATE_WA_T82_C04_S065`) | **11,314 ch** (`STATE_WA_T18_C04_S015`, a NEW row) |
+
+So their rules genuinely add recall (AL −6 zero-yield) AND measurably degrade
+our boundary quality (WA's >5k population more than doubles, a new worst-case
+row appears). Both are true; neither cancels the other.
+
+**Ruling U-R10:** a wildcard (`US-*`) whole-text `EntrySplitterRule` is unsafe
+under a union-then-parse seam, because it silently hands every other panel's
+term rules a whole-section block. Our own splitters will be
+**jurisdiction-scoped and never whole-text**, and I ask multiterm to narrow
+theirs the same way. Routed to the program manager rather than settled
+bilaterally, since it constrains a panel I do not manage. **Caveat recorded:
+their branch is actively narrowing (M-R14 in flight), so this measures their
+CURRENT head, not necessarily what merges — it must be re-measured on the real
+merged tree.**
+
+**Consequence for QA, relayed to the in-flight QA agent:** "WA's 3 remaining
+>5,000-char definitions" is a MARKERS-BRANCH number. On the merged tree it is
+currently 7. QA audits the 3 as briefed; the other 4 belong to this ruling.
