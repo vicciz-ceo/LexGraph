@@ -2562,3 +2562,71 @@ Routed to Planner pass 8 for re-authoring, NOT to the Developer.
 - **Condition 1** (SD/VT/NY inverted conventions) enters the ledger as a named
   follow-up: per-state override vs. accepted trace-volume over-link, to be
   enumerated either way, never buried.
+
+---
+
+## 2026-08-05 — Manager: D-S15 IMPLEMENTED and verified; QA cycle-2 hold LIFTED
+
+Both concurrent branches verified and merged. Sprint suite: **839 passed, 0
+failed, 0 xfailed.**
+
+### RED-provenance, verified in the correct order
+
+The provenance question here is subtle, because each agent's worktree lacked
+the other's change. I resolved it by checking the RED side against the
+PRE-CHANGE tree explicitly rather than against either agent's own report:
+
+- Reset a worktree I control to `3f41093` (sprint head BEFORE dev4's change),
+  applied ONLY plan8's test files, and ran the new pins: **4 failed** — the two
+  SC pins and the two Washington pins. Genuine RED, authored in a worktree that
+  never contained the implementation.
+- Merged dev4 + plan8: **839 passed, 0 failed.** RED → GREEN across
+  independently-authored branches.
+
+### Independent verification of the semantics (my own harness, real matcher)
+
+Re-ran the harness I built for the S-R15 verdict against the merged tree:
+
+| row | before (innermost) | after (D-S15 outermost) |
+|---|---|---|
+| `STATE_SC_T12_C6_A9_S12-6-1170` | stamps `('2', digit)`, links **0/4** | stamps `('A', upper_alpha)`, links **4/4** |
+| `STATE_OR_T22_C238_S238.300` | stamps `('c', lower_roman)`, links **1/4** | stamps `('1', digit)`, links **3/4** |
+
+The shipped behavior now matches, byte for byte, what I independently computed
+as "outermost" before the change existed. That is the check I actually trust.
+
+### Both fences held
+
+dev4: only the two rule files. plan8: only `backend/tests/**`. Verified by
+diff, not by report.
+
+### Judgment calls by the agents that I endorse
+
+- **plan8 REMOVED the Oregon direction-2 test rather than flipping it**, with
+  byte-verified evidence that core's resolver latches onto the citation
+  `"under subsection (1) of this section"`. Flipping it would have produced a
+  green test passing FOR THE WRONG REASON — a core defect baked into our
+  suite as an assertion. Removing it and pointing the docstring at the
+  replacement file is the right call and exactly D-S15 condition 2's intent.
+- **plan8 built a TESTABLE ledger for SD/NY/VT** (3 byte-verified rows,
+  including a newly-found NY one) rather than a docstring. Condition 1 said
+  "enumerated either way, never buried"; a test cannot rot silently the way a
+  comment can.
+- **dev4 verified the degrade is policy-independent** — 12.97% identical under
+  both policies across 9,485 real triggers / 15 states, structurally
+  guaranteed because the empty-path check precedes the level choice. It
+  measured this instead of asserting it, which is why I believe it.
+
+### NEW coverage gap found by dev4, routed to QA cycle 2
+
+**No pytest test exercises the empty-path `"local"` degrade branch on a real
+state row.** The two tests that cite Maine/Florida as motivation both resolve
+NON-empty paths, so the branch S-R14/S-R16 rely on is unpinned. That is a
+green-for-the-wrong-reason shape — the third this sprint has found — and it
+goes on the cycle-2 checklist.
+
+### QA cycle 2 hold LIFTED
+
+Checklist re-pointed at **D-S15**, not the interim. The 19.4% under-link
+figure is now the BEFORE-number of an implemented fix, and QA re-derives both
+sides.
