@@ -6697,3 +6697,70 @@ where no other panel would ever see it — the same shape as the original P-R8
 finding, which also looked local until someone asked how far it reached.
 
 Escalating onward to the program manager with a reframed option A.
+
+---
+
+## 2026-08-05 — Manager: census CORRECTED (my error); ruling M-R17; items 31-33 to Developer
+
+### My 13-jurisdiction census was measuring the wrong thing — corrected
+
+Program law (markers U-R11, six prior occurrences across four panels): some
+corpora store line breaks as the LITERAL two-character sequence `\n`, converted
+at ingest (`ingest_us_statutes.py` ~237). My census read RAW parquet text, so it
+over-reported "newline-free" for exactly those jurisdictions. Re-measured,
+counting a row as newline-BEARING if it has a real newline OR a literal `\n`:
+
+```
+juris    rows   raw-NL-free   has-literal   POST-INGEST NL-free
+ny      40102        40102         40102          0  (  0.0%)   <- ARTIFACT, drops off entirely
+ca     161429        87131            21      87131  ( 54.0%)   <- 21 literal rows, stays
+nj      55897        53808             0      53808  ( 96.3%)   <- GENUINE
+```
+
+**NY was a complete artifact: 100.0% → 0.0%.** Every one of its 40,102 rows
+carries a literal `\n`. The "exactly 100.0%" that I quoted as my most alarming
+data point was the signature of the trap, not evidence of the defect — and the
+predicted 21 CA rows are confirmed to the row.
+
+**Revised list: 12 jurisdictions, not 13.** Survivors above 50% post-ingest:
+`nj 96.3%` · `oh 100%` · `nh 100%` · `sc 100%` · `ut 100%` · `pr 100%` ·
+`il 99.6%` · `wa 98.0%` · `ri 61.3%` · `al 56.4%` · `ca 54.0%` · `ms 50.9%`.
+
+**The finding survives, weakened but real:** NJ — a working-baseline
+regression-guard state — is **genuinely** newline-free at 96.3% with zero
+literal `\n`. So one guard state does sit on the broken assumption, not two.
+The census goes to the core-3 item as **PRELIMINARY**, with the standing
+condition that the *trigger* measurement (marker-at-0 + quote-after) re-runs
+POST-INGEST per jurisdiction.
+
+I flagged precondition-vs-trigger as the boundary of my claim; I did not think
+to question whether my precondition measurement was itself reading pre-ingest
+text. The lesson worth keeping: bounding a claim's *scope* is not the same as
+validating its *input*, and I did the first while skipping the second.
+
+### Ruling M-R17 — the 6 cycle-4 scope REDs are RETIRED, with history kept
+
+`test_pr_profile_scope_cycle4.py`'s 6 REDs target `PRProfile.determine_scope`.
+Verified: `PRProfile` has no such method, is never instantiated in
+`backend/app/` outside its own module, and `get_profile("US-PR")` returns a
+`USProfile`. The seam was settled AGAINST the distinct-`PRProfile`-class
+proposal before that method was ever written — so these tests target an
+interface that never existed and no registration can make them pass.
+
+**Retire them**, per the precedent already used in this sprint (superseded-not-
+edited, with the rationale in the docstring). The retirement must record: what
+they were written to prove, that the substance is now covered live against
+`get_profile("US-PR")` in the cycle-9 scope-kind file, and why they could never
+have gone green. A permanently-red test asserting an interface that never
+existed is the misleading-artifact class P-R8 taught this panel to distrust —
+the same reasoning that retired the overruled residual test in cycle 5.
+
+**Execution is Planner work** (test files), in a bounded pass after the
+Developer lands items 31-33. Not folded into the Developer's cycle.
+
+### M-D3 / first-sentence scope anchoring — endorsed as measured
+
+PR bodies are 100% newline-free (now confirmed post-ingest too — PR has zero
+literal `\n`), so English/IL's `splitlines()[0]` anchor is a silent no-op here,
+not merely inapplicable. First-sentence anchoring, 21/633 rows resolving
+`chapter`, every hit hand-verified, zero false positives. Stands.
