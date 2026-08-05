@@ -1389,3 +1389,48 @@ confirmed fixed** — my sweep did not surface this row through the
 heading-recognized path, so its status is genuinely unknown and it needs an
 explicit named-row RED test from the Planner next pass. I will coordinate the
 expected term with their manager if it is ambiguous.
+
+---
+
+## M11 — NE accepted into the unquoted family; the 267 CANNOT yet be re-derived
+
+Treated the preamble panel's numbers as claims to re-derive, per instruction.
+
+**The 267 is NOT re-derivable in this tree, and here is the proof:**
+- NE rows in the corpus: **25,997**. Rows heading-recognized as Definitions by
+  MY tree: **0**.
+- Rows whose `section_title` even CONTAINS the substring `efinition`: **0**.
+
+So NE's recognition depends entirely on the preamble panel's own
+`BodyPreambleRule`, which lives on THEIR branch and is not merged here. Their
+274/267 split may well be right; I simply cannot confirm or refute it until
+that rule lands. **Recorded as unverified. It must be re-derived after their
+merge, before any NE rule is written against it.**
+
+**What I COULD verify — recognition-independent, and it corroborates the
+family assignment.** Scanning all 25,997 NE rows for a `mean` idiom regardless
+of heading: **4,068 have NO quote character at all vs 351 that do — 92.1%
+unquoted dominance.** That is the strongest unquoted signal of any state in
+our family (AL, NC, DC), so **NE is accepted as a member on evidence I derived
+myself**, even though its worklist size is still someone else's claim.
+
+**`STATE_WA_T50_C29_S030` — status resolved.** The row IS present in
+`us_wa_statutes.parquet`; it did not surface in my M9 sweep because it is not
+heading-recognized either. So it is a recognition-side miss reaching us as an
+extraction request. The promised named-row RED test stays on the Planner's
+list, and the test must NOT assume the heading path — it should drive
+extraction directly, the way core's NY newline test does.
+
+**D-CERT (director) — accepted, and it changes our QA priorities.** Program
+close is by inverted certification over a signal-agnostic denominator, so
+everything we leave dirty surfaces there. Our named residuals are exactly that
+population and QA disposes of them FIRST, not last:
+- WA's 3 remaining >5,000-char definitions;
+- VA/WA/AL's 1/5/7 remaining <10-char definitions;
+- TX `2009.003`'s 4 pre-existing degenerate 1-term rows (ours by M-R5);
+- the single still-RED FED last-entry test, whose defect is in
+  `us_profile.py`'s baseline splitter and needs a shared-module owner.
+
+A signal-agnostic denominator also means NE's 25,997 rows enter the count
+whether or not anyone recognizes their headings — which makes the unresolved
+NE recognition dependency a certification risk, not just a planning detail.
