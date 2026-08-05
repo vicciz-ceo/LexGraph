@@ -3339,3 +3339,62 @@ fix.
 
 That is the design property worth protecting, and it is a sharper statement
 than either of my two earlier versions. Adopted with attribution.
+
+---
+
+## 2026-08-05 — Manager: discriminator ruled to CORE with our evidence; QA
+cycle 3 launched with the five-label census riding along
+
+### The ambiguity had FIVE siblings already waiting
+
+Program manager scoped the citation-vs-marker discriminator as the **anchor
+item of core-follow-on-3**. The reason it went to core rather than to either
+panel: it turned out to unify **five separately-tracked items** — markers'
+U-R12, **our shape 8**, AZ bare-digit-dot, G4's pin-cite discriminator, and the
+truncation-class trigger classification. Five items, one ambiguity.
+
+Neither panel could see that from inside itself; it appeared only once two
+descriptions sat next to each other. Worth recording as an argument for
+cross-panel description-sharing over status-reporting: the finding was in the
+gap between two panels' vocabularies, not in either panel's data.
+
+**Both panels' evidence attaches to the item**, including our 91%-scored
+shape-8 criterion with its four characterised misses. The
+context-not-a-boolean caution is recorded as a **BINDING design constraint** —
+a bare boolean predicate is a rejected design by construction, with the
+same-input-opposite-correct-outputs formulation attached as the reason.
+Neither panel builds beyond current local guards meanwhile.
+
+### Evidence-grading, adopted in both directions
+
+The markers panel accepted our exact/directional split as labelled: it builds
+against the exact half (counts, raw strings) and re-derives the
+same-trap-shape characterisation in its own population. It also recorded that
+our merged-figure correction moved a number that MATTERS to it — FED is in its
+jurisdiction tuple and the English bucket is more federal-dominated than the
+merged form implied (125 of 144), not a decorative correction.
+
+Their formulation of why the PR negative result is trustworthy is the sharpest
+statement of a distinction this panel has been relying on implicitly all
+sprint, and belongs in the log verbatim:
+
+> Absence produced by an instrument that could not have hidden the thing is
+> evidence; absence produced by a filter is not.
+
+That is exactly why the analyst's known-unknown paragraph was worth more than
+its answer, and why "we found none" is not a finding without knowing what the
+instrument could see.
+
+### The five-label census: commissioned as a RIDER, not a dedicated pass
+
+`generally` / `definitions` / `scope` / `applicability` / `purpose` were
+excluded at scan time, so their absence is the filter's doing. The markers
+panel needs them for its blocklist, non-urgently, and suggested commissioning
+alongside something already running rather than as a dedicated pass.
+
+Folded into **QA cycle 3**, which is already doing a full-corpus P-R7 sweep —
+marginal cost is a few extra label strings in a scan that is happening anyway.
+Marked explicitly as an **ANCILLARY deliverable, NOT a gate**: it must not
+influence any U1-U6 verdict, and QA is told to drop it without penalty if it
+would compromise gate work. A favour for a partner panel does not get to
+dilute an independent verification pass.
