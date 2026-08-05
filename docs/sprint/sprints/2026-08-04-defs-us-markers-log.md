@@ -3552,7 +3552,10 @@ persisted). It is not to be re-authored or waived by anyone holding this seat.
 
 ### QA-2 spawned — the measurement half of the M23 queue
 
-Sonnet/**high**, branch `claude/defs-us-markers-qa2m`. *Model justification*:
+Sonnet/**high**, agentId `a07329fcd0c08d186`, branch
+`claude/defs-us-markers-qa2m` (worktree created at `a88c281`; venv verified
+importing `app` from its own worktree; §M25 id verified present in its checkout
+before dispatch). *Model justification*:
 these are correctness questions against ALREADY-MERGED Developer A work where
 the known failure mode is a confident generalisation from a small sample —
 the same error class that produced U-R14. **Haiku considered: NO.**
