@@ -4270,3 +4270,239 @@ D-1a and D-1b are independent (different dispatch paths, different rule
 kinds, disjoint file sets), so their Planners can run concurrently in
 separate worktrees per M14. Their Developers must NOT — one writer per
 worktree, and both bundles land rule modules in the same package.
+
+## 2026-08-05 — D-1a Planner (Sonnet/high): RED tests for QA cycle 3 classes A/B/C
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-plan3`, branch
+`claude/defs-il-plan-d1a`, off `origin/claude/defs-il` @ `2e6cfdb`
+(verified at session start: `git log --oneline -3` matched, `git status
+--short` clean, `import app` resolved to this worktree). Baseline
+reproduced: `4 failed, 829 passed` (the E6-held set, untouched —
+sibling D-1b's territory). Read the contract, QA cycle 3, M18, and
+M19-EXT before starting. Note for the manager: `origin/claude/defs-il`
+has since advanced to `462e93f` ("M20 — D-1b accepted..."), one commit
+past this branch's fork point — not rebased onto it this session (out of
+my mandate; flagging so the merge accounts for it).
+
+### Class A — multi-term list entries dropped whole — RED committed
+
+Root cause confirmed live (M4): `il_list_shape_scope.ENTRY_TERM_DASH_RE`
+matches only a single quoted term; both list-shape rules share it.
+Independent denominator re-derivation (M18-compliant — entry-line-based,
+classified AFTER matching; P-R7-compliant — reuses
+`il_trigger_grammar._find_split_marker`/`_QUOTE_RE`, a DIFFERENT helper
+than the buggy one), ordinary (non-הגדרות-heading) articles only, own
+script (`il_d1a_classA_sweep.py`, scratchpad): first pass 549/1336
+lines/terms found unfiltered; after excluding (a) entries with no real
+split marker at all (a different phenomenon, not this class) and (b) a
+gershayim-in-term false-split guard (zero-width adjacency between two
+"quoted spans" — the SAME already-documented, pre-existing limitation
+this sprint's own QA cycle 3 named for `"רכיב המע"` truncation, not a new
+finding), settled at **395 multi-term entry lines / 975 terms found; 392
+lines / 963 terms confirmed missing from live `extract_local_scope_
+definitions`; 207 unique files**. Lower than QA cycle 3's own 479/1,173/
+239 (my gap-validation is stricter — requires an explicit `,`/`ו`/`או`
+separator with no zero-width adjacency), same order of magnitude, same
+class, cross-validated: my own real named examples (חוק אזורים חופשיים
+לייצור בישראל art.23א, חוק ביטוח בריאות ממלכתי art.21ד, חוק הביטוח
+הלאומי art.295א, חוק הבנקאות (שירות ללקוח) art.7א) match QA's own list
+exactly. Separator breakdown: comma-only 83, vav-only 203, mixed 72 (both
+"two real sub-shapes" the brief named are real and independently
+confirmed, plus the naturally-occurring mixed comma+vav construction).
+
+**FP exposure (P-R2/D-Q1):** hand-read the FULL 392-line confirmed-
+missing dump (not a sample) — every entry has genuine defining prose
+after its split marker; zero false positives. Structural argument: the
+multi-term grammar is a superset of the already-shipped, already-
+precision-proven single-term grammar (N>=2 quoted spans separated by a
+real separator immediately before the SAME trusted split marker) — more
+constrained, not less, so it cannot admit anything the single-term
+grammar's own precision argument doesn't already cover.
+
+**RED tests (3, node-ids):**
+`backend/tests/integration/test_definition_links_il_phase_d1a_abc_live.py::test_class_a_single_colon_comma_separated_multiterm_entry_is_currently_missed`
+(fixture `חוק הנהיגה הספורטיבית_art4_excerpt.wiki`, single-colon, pure
+comma, TWO multi-term entries in one block + 3 single-term sibling
+controls asserted captured);
+`::test_class_a_double_colon_vav_joined_multiterm_entry_is_currently_missed`
+(fixture `חוק ביטוח בריאות ממלכתי_art21ד_excerpt.wiki`, double-colon,
+pure ו-joined);
+`::test_class_a_double_colon_mixed_comma_and_vav_multiterm_entry_is_currently_missed`
+(fixture `חוק אזורים חופשיים לייצור בישראל_art23א_excerpt.wiki`,
+double-colon, mixed comma+ו, the exact real example QA cycle 3's log
+names, sibling single-term entries "המעביר"/"הנעבר" asserted captured as
+controls). All 7 vendored fixtures programmatically extracted (Python
+line-slice) and byte-verified (`excerpt in source_text`) immediately
+before writing the test file. Live re-confirmation output (representative):
+
+```
+:- "מונח א", "מונח ב" - הגדרה משותפת;   (after a בחוק זה - preamble) -> []
+:- "מונח ג" ו"מונח ד" - הגדרה משותפת;   (after a בחוק זה - preamble) -> []
+:- "מונח ה" - הגדרה;                     (after a בחוק זה - preamble) -> [('מונח ה','law-wide')]
+```
+reproduces the manager's own M18 minimal probe exactly (own venv, own run).
+
+### Class B — quote-first candidates with no split marker — RED committed
+
+Root cause confirmed live: `il_trigger_grammar.extract_quote_first_
+candidates` discards the whole candidate (`continue`) when
+`_find_split_marker` returns `-1`. Confirmed the ROOT case verbatim:
+`extract_quote_first_candidates('לענין זה - "מסירה" כמשמעותה בסעיף 8
+לחוק המכר...', trig, scope="local")` -> `[]`, matching `חוק מס ערך מוסף`
+art.22 live via the full profile chain.
+
+**Denominator (P-R7):** two independent sweeps, own scripts
+(`il_d1a_classB_sweep.py`, `il_d1a_classB_sweep_prodtriggers.py`,
+scratchpad). (1) A generic demonstrative-anchored scan (1-3 Hebrew words
++ זה/זו/זאת/אלה/אלו + connector + quote, independent of any curated
+trigger list, mirroring M17's own method): 6,534 candidates, 147 no
+split-marker, 139 confirmed missing — order-of-magnitude match to QA's
+own 6,364/132. Hand-reading this raw list surfaced two important P-R10
+findings: (a) `החוק הפלילי הירדני` art.164 "מהומה" and a "נוסח זה"
+disclaimer-text instance are BOTH false candidates of my own generic
+probe, not real production risks — neither "התקהלות זו" nor "בנוסח זה"
+is an actually-registered trigger phrase, so no real rule would ever
+match them; (b) `חוק החמרים המסוכנים` art.16ג "קצין משטרה"/"קצין צה"ל"
+(one of QA's own cited Bug-B examples) does NOT actually demonstrate
+Bug B on inspection — it HAS a real dash; the miss is the SAME
+already-documented, pre-existing embedded-gershayim-in-term limitation
+(`קצין צה"ל`'s own internal gershayim breaks `_find_split_marker`'s
+quote-parity tracking), not an absent marker. Flagging this as a
+correction to QA cycle 3's own example attribution, not a new finding.
+(2) A production-trigger-scoped re-derivation (collected every actual
+`_TRIGGER_RE`-shaped pattern from all 8 `il_*_scope_triggers.py` modules
+that build on `extract_quote_first_candidates`, 20 distinct regexes):
+**103 real production-trigger quote-first matches have no split marker;
+100 confirmed missing from live capture** — the decision-relevant,
+stricter number.
+
+**Characterization of QA's unexplained ~80% (this Planner's own work,
+per the brief):** two real sub-shapes, both live-confirmed:
+(i) the clean reference shape, `TRIGGER, "term" כהגדרתו/כמשמעותה
+[[citation]].` (QA's ~20%, e.g. "מסירة", `חוק זכויות נפגעי עבירה`
+art.1 "אחראי על קטין או חסר ישע");
+(ii) a plain LOCAL-defining continuation with no dash and no reference
+word at all — `TRIGGER, "term" <לרבות/למעט ... defining text>;` — the
+defining clause uses a Hebrew inclusion/exclusion verb (`לרבות`=
+"includes", `למעט`="excludes") directly after the quote. Live-confirmed
+twice independently: `חוק התקנים` art.13 "מצרך" (`... "מצרך" לרבות
+האריזה...`) and `פקודת מס הכנסה` art.135 "פקיד שומה" (`...ולענין זה,
+"פקיד שומה" למעט עוזר פקיד שומה...`), both -> `[]` live, both confirmed
+`_find_split_marker` -> `(-1, 0)` genuinely (not a gershayim confound —
+checked directly).
+
+**FP exposure (P-R2/D-Q1):** hand-read all 60 printed examples of the
+103 production-trigger no-marker set (capped for output length, not for
+verification — the summary counts above are exhaustive). Two named,
+benign risk shapes, both term-identity-safe: (1) ~8% (5/60, extrapolates
+to ~8/100) have a near-empty "rest of clause" (bare `.`/`);`/`).`) under
+a naive "grab rest of clause as definition_text" fix — e.g. `חוק לימוד
+חובה` art.2's "X נקרא בחוק זה 'term'" naming construct, where the TERM is
+genuinely real (the law does name that concept) but its defining prose
+sits BEFORE the quote, not after, so `definition_text` would degenerate
+to punctuation only — a `definition_text` QUALITY gap, term identity
+unaffected, the same accepted-limitation class as this sprint's own
+documented multi-line `::`-continuation truncation residual, not a false
+capture. (2) A handful of `(TRIGGER, "term")`-parenthetical-alias
+instances (e.g. `חוק לעידוד השקעות הון` arts.3/4, "הפקודה") leave a
+stray leading `)` in `definition_text` — same formatting-artifact class,
+not a false capture (a `(hereinafter: "X")` alias IS a legitimate
+definition, the same shape this sprint's own `(TRIGGER - term)` ad-hoc
+mechanism already treats as definitional). No genuinely non-definitional
+term found in the sample.
+
+**RED tests (2, node-ids):**
+`::test_class_b_reference_shape_no_dash_after_quote_is_currently_missed`
+(fixture `חוק מס ערך מוסף_art22_excerpt.wiki`, the manager's own root
+example, "מסירה");
+`::test_class_b_plain_continuation_shape_no_dash_after_quote_is_currently_missed`
+(fixture `חוק התקנים_art13_excerpt.wiki`, "מצרך"; the "פקיד שומה"
+instance cited in the docstring as a second live-reconfirmed occurrence,
+not separately vendored, per this sprint's established "smallest of
+several instances" fixture convention).
+
+### Class C — preambles living in the article's own heading — RED committed
+
+Root cause confirmed by direct reads of all three touch points: neither
+`registry.RuleContext` (article_number/chapter/unit_path only), nor
+`HebrewProfile.extract_local_scope_definitions`'s signature (`profiles.
+py`, FROZEN, `article_body, *, article_number, chapter=None` — no
+heading param), nor its sole caller in `pipeline.py` (FROZEN, `profile.
+extract_local_scope_definitions(matcher_article.body, article_number=
+art.number, chapter=art.chapter)` — heading never passed) ever threads
+the owning article's `.heading` text to a `ScopeTriggerRule`.
+
+**Feasibility independently verified live (M4/P-R10 — the D-1a spec
+asserts "no frozen-file edit should be needed" and a contrary claim
+escalates, so this was checked, not trusted):** a throwaway, uncommitted
+probe registered a NEW `registry.HeadingRule` (`registry.py` is NOT
+frozen) whose `matches` callable recognizes a heading ending in a bare
+`-` and whose `body_confirms` callable checks the body's first line is
+`:-`/`::-`-marked. Registering it and re-running the REAL `אכرزת גנים
+לאומיים` article 8 fixture: `profile.is_definitions_heading` flips
+`False` -> `True`; `profile.extract_definitions_from_section` (the
+ALREADY-correct, multi-term-safe definitions-section path) then captures
+all 10 real terms. Confirms the class is reachable via a NEW rule-module-
+only file, zero frozen-file edits — matching the D-1a spec's claim,
+independently proven rather than assumed. **Open gap, not resolved
+here:** `determine_scope` reads BODY text only, so a heading-only trigger
+like `בתוספת זו` is invisible to it; the probe's `determine_scope`
+returned `"law-wide"` by unconditional default — likely an over-claim for
+a schedule/appendix sub-part (mirrors M16's own reasoning for excluding
+`בתוספת זו` from the law-wide vocabulary). Flagged for the Developer/QA;
+my tests assert CAPTURE only, never a specific `scope` value, for this
+class.
+
+**Denominator:** reused QA cycle 3's own count (27 runs / 24 files / 117
+terms) — did not re-derive independently this session (time-boxed;
+flagged as a gap below). Two real, independent fixtures instead, to
+demonstrate the class recurs across different documents/trigger phrases
+rather than re-deriving the corpus-wide count.
+
+**RED tests (2, node-ids):**
+`::test_class_c_schedule_heading_embedded_preamble_is_currently_missed`
+(fixture `אכרזת גנים לאומיים_art8_excerpt.wiki`, heading `(תיקון: תש"ף) :
+[[בתוספת זו]] -`, 10 terms, all asserted captured);
+`::test_class_c_ordinary_heading_embedded_preamble_is_currently_missed`
+(fixture `הכרזה מס' 3 לוחמים בלתי חוקיים_art1_excerpt.wiki`, heading
+`(תיקון: תשפ"ד) : לעניין הכרזה זו -`, a non-schedule document/trigger, 5
+terms).
+
+### Suite numbers, contract lint, honest gaps
+
+`backend/.venv/bin/pytest backend/tests -q` -> **`11 failed, 829 passed,
+18 warnings in 38.94s`** (the pre-existing 4 E6-held failures, untouched,
++ this session's 7 new REDs; 829 passed unchanged, zero existing test
+edited — `git status --short` at commit time showed only 8 new/untracked
+files). `bash scripts/contract_lint.sh 2026-08-04-defs-il` -> **PASS
+398** (contract file itself untouched this session). `git diff
+--name-status` against this branch's own fork point (`2e6cfdb`) is 8 `A`
+entries, nothing else; a diff against the CURRENT `origin/claude/defs-il`
+tip (`462e93f`, one commit ahead of this branch's fork point — D-1b's
+work landed there since) additionally shows 2 `D` fixture entries + 1 `D`
+test file belonging to D-1b's own prior work, not touched by this
+session — noted for the manager's merge, not a finding of mine.
+
+**Honest gaps:**
+1. Class A's denominator is my own conservative re-derivation (392/963/
+   207), not QA's exact 479/1,173/239 — both measure the same real class
+   via different (both P-R7-compliant) gap-validation strictness; did not
+   reconcile the exact numeric gap between the two methodologies.
+2. Class B's characterization sample is thorough (60/100 production-
+   trigger matches hand-read in full, all named examples individually
+   verified) but not literally 100/100.
+3. Class C's denominator was NOT independently re-derived this session
+   (reused QA's 27/24/117 as-is) — two real, independent fixtures stand
+   in for a fresh corpus-wide sweep; if the manager wants an independent
+   re-derivation before Developer handoff, that is still open.
+4. Did not rebase onto the current `origin/claude/defs-il` tip
+   (`462e93f`, D-1b's acceptance/correction of M19-EXT re: סימן/חלק) —
+   out of this Planner's mandate this session; flagged for the merge.
+5. Class C's `determine_scope` gap (heading-only triggers invisible to
+   body-only scope inference, likely defaulting to an over-claiming
+   `"law-wide"`) is named but not resolved — a genuine open design
+   question for whoever implements, not decided here.
+
+Status: RED committed for all three classes (A/B/C), none impossible,
+none escalated. Ready for Phase D Developer handoff pending manager
+review.
