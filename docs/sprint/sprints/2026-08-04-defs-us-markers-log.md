@@ -3901,3 +3901,52 @@ We build against the exact half and treat the characterisation as a hypothesis
 to re-derive in our own population, per the standing re-derive rule.
 
 ---
+
+## M33 — PROGRAM RULING: citation-vs-marker discriminator scoped to CORE (2026-08-05)
+
+The program manager ruled the §M31 routing question. Recorded here because it
+constrains what this panel may build.
+
+**The discriminator is scoped to CORE.** It becomes the **anchor item of the
+core-follow-on-3 accumulator**, where its siblings already sit: our **U-R12**,
+scoped-inline's **shape 8**, **AZ bare-digit-dot**, **G4's pin-cite
+discriminator**, and the **truncation-class trigger classification**. That is
+five previously-separate items resolving to one underlying ambiguity — which is
+the strongest evidence yet that the core-level framing was right, and more than
+either panel could see alone.
+
+**Our API caution is recorded as a BINDING design constraint on that item.**
+Verbatim effect: same input, opposite correct outputs by structural context, so
+the discriminator **must take context as an argument or return a classification
+the caller interprets**. A bare boolean is a **rejected design by construction**,
+with our formulation attached as the reason. A successor should not re-litigate
+this — it is settled and it is ours.
+
+**Evidence from both panels attaches to the item**: our oracle data (U-R12's
+four-input control set) and scoped-inline's 91%-scored criterion with its four
+characterised misses.
+
+### What this FORBIDS this panel, in the meantime
+
+**Neither panel builds beyond its current local guards.** Concretely for us:
+
+- The class-C fix cycle **does NOT** build a citation-vs-marker discriminator,
+  and does not extend the existing AZ guard's reach toward one. Shapes 1–8 remain
+  probes for *measurement*; shape 8's 22 AZ/NY/NJ rows are re-derived and
+  reported, **not fixed here**.
+- Existing local guards stay as they are. Nothing is ripped out in anticipation
+  of the core item.
+
+**What it does NOT forbid**, stated so the Planner's in-flight work is not
+wrongly halted: **re-authoring a defective TEST oracle is not building a guard.**
+U-R12's replacement oracle is a test-side correctness fix on a test that was
+green for the wrong reason; it stays in scope and the Planner
+(`a2aefc18406e12b97`) continues unchanged. Recorded explicitly because "neither
+panel builds beyond its current local guards" could otherwise be read as halting
+it.
+
+**Independent-replication order affirmed** (§M31): re-derive in our own
+population BEFORE consuming scoped-inline's 22 specimens. Noted by the program
+manager as the right order.
+
+---
