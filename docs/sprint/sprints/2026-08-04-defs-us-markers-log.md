@@ -3600,3 +3600,85 @@ one fragment we happened to find. Recorded so the idea is not lost between
 cycles.
 
 ---
+
+## M29 — cross-panel asset: the false-positive SHAPE catalogue (2026-08-05)
+
+Delivered by the scoped-inline manager (`a1b29c30b33e45591`, verified) in
+response to our request for jurisdiction-PORTABLE negative controls. They cut
+their accumulated set **by shape with the failure mode named**, rather than
+dumping rows, and attached the instruction we should honour:
+
+> **Do not run their rows; re-derive occurrences in OUR jurisdictions.**
+
+That instruction is the whole value. Their specimens sit in FL/PA/UT/MT/TN/VT/AR
+— mostly outside our `_JURISDICTIONS` tuple (VA/WA/FED/UT/TX/SC/AZ + the five
+under dispute NJ/MI/ND/NY/OK). Running an inert row through our rule yields a
+trivial green, which is the worst kind. The **shape** transfers; the row does not.
+
+### The catalogue (specimens are to READ, not to run)
+
+**Poisoning shapes** — captured term is a common word, so damage is out of all
+proportion to the count. First-class, not tidiness:
+
+1. **Quoted nickname inside a proper name** — `William G. "Bill" Bankhead, Jr.`
+   Specimens `STATE_FL_TXXIX_C381_S381.922`, `STATE_AR_T1_C4_S1-4-134`.
+   Sweep rule: quoted string bounded by capitalised name tokens on both sides.
+2. **Boilerplate structural sub-header captured as the label** — `(A) In
+   general.—`, 144/3,963 occurrences over 94 rows (125 federal / 20 PR). This is
+   the load-bearing item for our S-R17 half; their per-jurisdiction vocabulary
+   re-cut is in flight.
+
+**Clause-misread shapes** — a non-definitional clause read as a definition:
+
+3. **Construction / scope-extension clause** — `References to "X" shall include
+   Y`. Specimens `STATE_PA_T15_C57_S5749`, `..._S5748`, `STATE_PA_T15_C17_S1748`.
+4. **Cross-reference prose with no definitional content** — "Nothing in this
+   section may be construed…". Specimen `STATE_UT_T11_S11_59_603`. Their
+   measurement: a bare `in this <unit>` trigger is genuine only **~21%** of the
+   time.
+5. **Judicial case-annotation commentary** — two quoted terms joined by "and",
+   followed by a court's interpretive holding, accepted as a definiens through a
+   bare-comma fallback. Specimen `STATE_NE_C48_S48-101`. Found by their own
+   Developer against its own interest.
+
+**Over-split shapes** — one real definition fragmented into bogus entries:
+
+6. A term's own numbered/lettered elaboration with no new quoted term per item.
+   Specimens `STATE_MT_T23_C5_P8_S23-5-801`, `STATE_TN_T36_C5_S36-5-910`,
+   `STATE_VT_T11C_C7_S701`.
+7. Nested roman-numeral sub-clauses one level below the entry split. Specimen
+   `STATE_UT_T53G_S53G_10_402`.
+
+**Parse-artifact shape:**
+
+8. **Citation-number tail read as a list marker** — `340.` out of a section
+   number `3.340.`, in single-definition sections with no list at all. This IS
+   the held 618-row IL bucket. Their warning generalises it: **the shape will
+   appear anywhere section numbers carry internal periods**, not only where it
+   was first noticed.
+
+### Two structural warnings, both of which bind us
+
+**(a) Shape 3 bites on TWO independent code paths for them** (marker-adjacency
+AND the strong-connector path) — "if your classifier has more than one entry
+point, check each." This is verbatim the lesson already in this panel's
+inheritance in different costume: *a registry proven live for ONE kind proves
+nothing about the others; probe per-kind dispatch.* Any blocklist we build gets
+tested at every entry point that can reach it, not at one.
+
+**(b) Shape 5 arose from an INTERACTION** — chain-joining × comma-fallback —
+not from either mechanism alone. That is precisely the bug class that survives
+testing each mechanism separately, and it maps onto the program lesson
+*correct-in-isolation ≠ correct-in-composition*. Note also that shape 5's
+specimen is **NE**, where our own extraction is blocked pending the preamble
+merge: when NE unblocks for us, shape 5 is a live precision risk on arrival,
+not a hypothetical. Recorded now so it is not rediscovered the hard way.
+
+### How this panel will use it
+
+Shapes 1–8 become the sweep basis for the class-C fix cycle IF QA-1 returns a
+class-C population: we probe the five NEW states for each shape rather than
+chasing only the `'facility'` fragment we happened to trip over. Shape 2 is the
+design basis for the S-R17 blocklist. Neither starts before QA-1 reports.
+
+---
