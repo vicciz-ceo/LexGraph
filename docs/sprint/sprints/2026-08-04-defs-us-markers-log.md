@@ -7,6 +7,51 @@ to the director).
 
 ---
 
+## M64 — P-D2 independent final QA cycle 2 PASS (2026-08-05)
+
+QA verified exact shared tip `aa2cad11d33796db246bc759348d9ad0fc759aa5`
+and read the complete `b6f46b8...b2e94d5` source diff: exactly the two owned
+production rule files, 54 insertions/19 deletions, with three keyword-only
+default-false options and only the MN sibling enabling all three. Detached
+pre-implementation `b6f46b8` plus current tests reproduced four distinct RED
+attributions (4 failed/1 passed); current focused state is 5 passed.
+
+The independent MN label census scanned all 27,747 rows with production's NY-
+only normalization convention: 68,753 labels = 61,968 numeric plus 6,785
+numeric/one-lowercase-letter, zero missing/outside forms, maximum three digits,
+and the exact suffix distribution from M61. The raw-engine comparison over all
+1,108 Definitions headings reproduced 909 changed rows, 51 additions partitioned
+by row shape into 33 relative and 18 ordinary, 19 removed keys all paired to
+comma-normalized replacements, and 9,385 retained changes all strict Subd
+truncations (8,007 numeric/1,378 lettered), with zero residual. QA individually
+inspected all 18 ordinary-only-row additions against their full emitted text and
+immediate source boundary; all are genuine and clean, including the repaired
+`STATE_MN_P59A_79A_C60D_S60D.15` stop immediately before real `Subd. 4a`.
+
+The recoverable exact differential started at `aa2cad11` and processed all 21
+files: 788,766 shared-default rows with zero delta and 761,019 non-MN production
+rows with zero delta, preserving NY literal-`\\n` normalization. Audit artifacts
+are under `/tmp/lexgraph-pd2-qa-final.xsE14V`: exit 0, 21 one-line jurisdiction
+outputs, and output-manifest SHA-256
+`898a509423bbf39dc8bdfbff4405fc459167ad6f7fec557639869b5182227c1c`.
+During parallel execution the live probe briefly had a reporting-only addition:
+immutable script SHA-256 `c5cf95aa954d347eb8bf394ff722740a88db38cb3feb90c2e7f1ac1a0fdd0692`,
+intermediate SHA-256 `ca7c8a51b020005afb88902f497835ace27503c6fc921088867480fb5fd8713f`.
+The durable 36-line unified diff has SHA-256
+`c68badecb3bfa56c66c2f81a90ef6c5570bfac1c8747a6e1f219854cc1a9c797`
+and changes only unreachable `mn_reconciliation` reporting. A mechanical proof
+parsed/compiled both and matched source plus normalized bytecode for the complete
+`--jur` transitive callable set (`file_for`, `rows_for`, `production_text`,
+`stable_candidate`, `rule_output`, `patch_engine`, `restore_engine`, and
+`one_jurisdiction_differential`) plus the pre-engine callable; the separate
+`--jur` dispatch cannot call `mn_reconciliation`. Result: equivalent true.
+
+Historical replay is 10 passed plus exactly the FED core-3 Roman sibling and TX
+Q3 Part-A named holds. Full backend is 894 passed/25 named inherited holds;
+frontend is 165 passed and typecheck passed. No production/test/fixture file was
+edited by QA. P-D2 moves to Completed; status stays review with Planner because
+the merge slot remains shut pending core-2 and combined G3-HEAL authorization.
+
 ## M63 — P-D2 corrected Developer gate PASS; final QA cycle 2 (2026-08-05)
 
 Developer delivered pushed commit `b2e94d5e2269017916e66c7b5c41952f10733bc6`.

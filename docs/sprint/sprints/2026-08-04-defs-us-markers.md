@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-us-markers"
 status: review
-current_role: qa
+current_role: planner
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:qa"
-locked_at: "2026-08-05T21:03:38Z"
-last_agent: "/root/markers_panel_manager/developer_pd2_scope_fix"
-last_updated: "2026-08-05T21:03:38Z"
+locked_by: null
+locked_at: null
+last_agent: "/root/markers_panel_manager/qa_final_pd2"
+last_updated: "2026-08-05T21:36:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 2
-completed_items: 1
-dev_complete_items: 1
+completed_items: 2
+dev_complete_items: 0
 qa_cycles: 2
-lint: null
+lint: "PASS 368 2026-08-05T21:36:53Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -182,53 +182,10 @@ planner pass 1`.
 
 ## Next Steps
 
-**CURRENT continuation phase (M47–M53, supersedes the stale blocked label).**
-P-D2 is Dev Complete and P-T1 is complete. A fresh Planner now audits P-D1's
-actual corpus provenance before this cycle can enter independent QA:
-
-1. **P-D1 — PLANNER BOUNCE; no Developer action [M52].** The synthetic
-   post-`Editorial Notes` entry oracle is invalid because terminal notes must
-   remain terminal. The real `USC_T8_C12_S1101` failure needs a boundary before
-   Roman `(i)`, so it routes to core-3 structural sibling-marker work. A fresh
-   Planner later performs only a bounded corpus search for genuine global-limit
-   harm; absent a real row plus terminal-notes negative control, retire P-D1
-   and amend M38. Phrase-specific Roman stops are forbidden here.
-2. **P-D2 — DEV COMPLETE; final QA cycle 2 [U1/U4].** The corrected two-file
-   implementation at `b2e94d5` makes qualifier/comma/Subd behavior explicit
-   default-off options and enables them only from the US-MN sibling rule. Its
-   exact 21-file comparison is zero-delta for all 788,766 shared-default rows and
-   zero for non-MN production; final QA must reproduce this independently. The
-   existing MN persisted live test remains the call-path acceptance pin.
-   **M57 QA bounce history:** the parked two-file Developer
-   WIP satisfies the original scope REDs but its MN differential found 226
-   retained-text changes that were not pure Subd truncations. A real definition
-   ending in the genuine numeric citation fragment `72.` was shortened before a
-   real Subd boundary because `_TRAILING_MARKER_CHAIN_RE` treated that content as
-   leaked syntax. Independent QA must first commit a byte-pinned real MN RED that
-   preserves `72.` plus a control proving the next Subd heading is still excluded.
-   QA committed that independent RED in M58; Developer may now resume. The
-   general trailing-marker cleanup stays;
-   bypass it only when the selected end is an explicit opt-in MN Subd hard-stop.
-   Final QA must enumerate every remaining non-pure retained-text change. MN's 51
-   additions classify as 33 exact relative-qualifier adds and 18 ordinary
-   tight-idiom terms rescued by a real Subd bound; all 18 require hand inspection.
-   **M60 second QA bounce:** that exhaustive inspection found 17 clean additions
-   and one real `Subd. 4a.` boundary leak in
-   `STATE_MN_P59A_79A_C60D_S60D.15`. QA must census every real MN `§ Subd.`
-   label shape/count, then byte-pin the numeric-to-lettered transition and a RED
-   that excludes while independently extracting Subd. 4a, retaining the `72.`
-   control. M61 proved 68,753/68,753 labels are numeric or numeric plus one
-   lowercase letter, with maximum three digits and zero outside shapes, so
-   Developer widened only the explicit opt-in hard stop to
-   `\d{1,3}[a-z]?`; defaults and generic heading grammar stay fixed. Developer's
-   final MN classification is 51 additions (33 relative-shape + 18 manually clean
-   ordinary), 19 comma-paired removals, and 9,385 strict numeric/lettered Subd
-   truncations with zero residual outliers. Final QA must independently reproduce
-   all counts, all 18 verdicts, and the full 68,753-label census.
-3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
-   Q3 Part B now names the persisted `Governmental body` value (idiom retained)
-   as canonical; the direct stripped value is explicitly an internal
-   own-emission guard. Both named assertions are green, not Developer work.
+**CURRENT continuation phase (M64).** No panel implementation remains: P-D1 is
+retired, P-D2 passed independent final QA cycle 2, and P-T1 is complete. The
+merge slot remains shut until core-2 merges; only the later combined G3-HEAL
+gate may authorize integration or make a combined WA/persistence claim.
 
 ## Stale-pin sweep
 
@@ -366,18 +323,25 @@ names its gate(s).
 
 ## Dev Complete
 
-- **P-D1 — RETIRED after corpus-oracle audit (M54).** The inherited
-  single-global-ceiling attribution is unproven: all 52 reachable
-  first-stop/later-quote+idiom candidates are terminal annotations or amendment
-  history, never an operative post-stop definition. The synthetic post-notes
-  oracle was removed. `USC_T8_C12_S1101` remains a held **core-3** Roman
-  structural-sibling RED, not P-D1 acceptance.
+_None._
 
 ## Completed
 
+- **P-D1 — retired after corpus-oracle audit (M54).** The global-ceiling claim
+  was unproven; `USC_T8_C12_S1101` remains held core-3 debt.
+- **P-D2 — MN-only qualifier/comma/Subd repair.** Independent final QA cycle 2
+  passed at `b2e94d5` with exact full-corpus and live-path evidence (M64).
 - **P-T1 — U-R13 persisted-altitude oracle correction.** Complete (M44/M49).
 
 ## QA Notes
+
+2026-08-05T21:36:00Z — **P-D2 PASS (QA cycle 2).** Detached pre-fix provenance
+reproduced four distinct RED attributions; current focused state is 5 passed.
+Exact census: 68,753 MN labels, all `N.`/`N[a-z].`; exact corpus: 788,766
+default rows and 761,019 non-MN production rows, both zero delta. MN: 1,108
+headings, 909 changed rows, 51 additions (33 relative-shape/18 ordinary), 19
+comma-paired removals, and 9,385 strict Subd truncations; all 18 ordinary were
+manually clean. Backend 894 passed/25 named holds; frontend 165; typecheck pass.
 
 2026-08-05T20:21:27Z — **P-D2 FAIL (QA cycle 1).** The original P-D2
 unit+persisted-live REDs reproduce as 2 failures/1 negative-control pass on
@@ -398,7 +362,7 @@ wrapper is needed beyond real ingest/persistence for this parser path.
 
 ## Context Dump
 
-P-D2 is QA-fail: return it to Developer for explicit MN-only opt-ins, with the
-new provenance-recorded FED default-scope RED. P-T1 remains complete. P-D1 is
-retired by M54; the FED Roman sibling is a core-3 held RED. Core-2 remains
-unmerged; do not claim G3-HEAL or merge/rebase this panel.
+P-D2 passed independent final QA cycle 2 and is complete; P-T1 remains complete
+and P-D1 remains retired by M54. The FED Roman sibling and TX Part-A are named
+inherited holds, not regressions. Core-2 remains unmerged: do not merge/rebase
+this panel or claim G3-HEAL until the program manager opens that gate.
