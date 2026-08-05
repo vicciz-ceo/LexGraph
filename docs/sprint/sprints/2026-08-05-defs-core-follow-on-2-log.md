@@ -1799,6 +1799,74 @@ reproducible.
 
 ---
 
+## Phase 12b — G13 Planner verified; implementation spawned (2026-08-05)
+
+plan9 delivered G13's item + REDs @ `0706fcd`; merged @ `be05352`.
+Manager verification, first-hand: **2 files, 529 insertions, test-side only,
+ZERO production code**; **all 4 fixture rows byte-verified against the real
+corpus** by the manager (TX 3,334 / FL 1,333 / AR 2,462 / FED 15,472 chars,
+all exact); REDs run — **3 failed / 4 passed**, failing for the documented
+reason.
+
+### The rule, and why an offset threshold was rejected WITH data
+
+**G13-1:** for `'Pub. L.'` and `'Amendments'` ONLY, a line triggers
+trailing-notes termination **only if, after `lstrip()`, it starts with `'('`
+or with the marker text itself.** The other eight markers stay byte-identical.
+
+plan9 **tried a bounded-offset threshold first and measured it failing**:
+genuine citation lines legitimately place `'Pub. L.'` anywhere from offset 1
+to **offset 852** (`USC_T7_C35_S1301` — a long semicolon-chained date list
+inside one `'('`-opened citation block). **Distance does not separate genuine
+from false; whether the line is a citation block at all does.** The positional
+rule also correctly leaves `STATE_MO_C108_S108.1000`'s `"3. Any eligible
+issuer..."` clause untouched — a case a threshold would have mishandled.
+
+This is the third time this sprint that a length/offset heuristic was
+proposed and rejected on measurement (plan4's G8 length threshold, the G8
+degenerate-short guard, now this). The pattern is worth naming: **in this
+codebase, positional/structural tests survive contact with the corpus and
+magnitude thresholds do not.**
+
+### Verified by simulation BEFORE proposing — the practice to keep
+
+plan9 applied the exact proposed rule against the full measured population
+before writing a line of test code:
+- **complete drops 28 → 0**, with **zero false negatives** across all 6,647
+  changed rows;
+- 13 lines stop matching at their specific line, so it **re-ran the full
+  end-to-end boundary computation** rather than trusting the single-line
+  check — **0 of the 60 hand-judged sample rows change output**; all 58
+  genuine trims stay byte-identical;
+- the committed FED RED reproduces byte-identically at 493 chars (its
+  trailing block `"(Added Pub. L. 95-437, ...)"` starts with `'('`, so it
+  remains a valid trigger).
+
+### The REDs (4 real byte-verified rows + SHA-256 self-verification)
+
+1. `STATE_TX_Cfa_C264_S264.152` — 538-char "Family preservation service"
+   with real (A)/(B)/(C) sub-items, today **absent from output entirely**
+   (5 of 6 real terms recovered).
+2. `STATE_FL_TX_C110_PIV_S110.501` — **the precision RED**: two genuine
+   inline `'Pub. L.'` citations must NOT terminate the entry, while the row's
+   own separate genuine `"History: ..."` tail (untouched marker) must STILL
+   trim. This is what stops the fix becoming a blanket rollback.
+3. `STATE_AR_T12_C84_S12-84-103` — defined TERM itself contains
+   `"Amendments"`.
+4. `USC_T51_C509_S50902` — non-regression pin, currently green: a genuine
+   standalone `"(Pub. L. 103–272, ...)"` block must keep trimming 9,328→122.
+
+**Acceptance (falsifiable, in the test module's own docstring):** drops
+28 → 0, 58/60-genuine preserved, every guard-state and FED pin byte-identical.
+
+| Agent | Gate | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| dev8 | G13 | Sonnet/medium — rule specified exactly and simulation-verified, 3 REDs committed; Haiku considered: no, edits shared extraction a prior fix in this sprint already got wrong | `...-dev8` | `a3d414787c7c2c3ea` | running |
+
+Baseline handed to dev8: **834 passed / 3 failed**; target **837 / 0**.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
