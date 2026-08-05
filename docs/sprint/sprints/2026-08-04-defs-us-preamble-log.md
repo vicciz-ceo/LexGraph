@@ -5021,3 +5021,26 @@ fixtures, sprint docs, `us_profile.py`, shared extraction/reference-edge code,
 and `_B1_FORWARDING_PHRASES` are read-only. The Developer owns the four B1
 causal fixes, the M-R53 comment correction, and behavior-preserving module
 split; held T35 and forwarding/CO debts are not Developer gates.
+
+### M-R83 — Developer accepted; main containment exposes one stale G12 pin
+
+Developer `/root/markers_panel_manager/developer_option_c` landed production-
+only commit `fe4754c`, integrated at `6ab2b3e`. Manager read the complete diff,
+bounced an unmeasured includes-family widening out of the PA direct-means
+branch, and required the split module to retain the durable B1 hazard/window
+rationale. Authoritative dev-worktree evidence: option-c 5 passed; combined
+focused 1 held-T35 failed / 15 passed; full backend 4 expected held/inherited
+failed / 857 passed; frontend 165 passed; typecheck passed. The facade is 259
+lines, forwarding filters are unchanged, and no tests/docs were Developer-
+edited.
+
+The manager then merged current `origin/main` at `df17346`; main containment is
+true and the merge had no conflicts. Main includes core-2 G12's already-shipped
+`includes|shall include` inline-extraction vocabulary plus the targeted
+`_preceded_by_references_to` guard. The old option-c held test directly asserted
+the pre-G12 regex vocabulary, so after containment it produces one stale-pin
+failure in addition to held T35. Planner
+`/root/markers_panel_manager/planner_cycle9_correction` (`gpt-5.6-terra`, high,
+Planner brief v3.1) resumes from `df17346` to re-point only that pin in both
+directions: PA construction clause suppressed; genuine USC includes definition
+retained. T35 must return to being the sole focused RED before fresh QA.
