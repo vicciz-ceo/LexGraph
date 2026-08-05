@@ -377,3 +377,32 @@ row against the live parquet snapshot byte-for-byte (see sprint log), found
 them accurate and non-redundant with its own work, and adopted them as part
 of this sprint's deliverable rather than discarding verified real-world
 analysis.
+
+## `f6_apposition_duplicate_rows.json` — ruling M-R14, F6 apposition duplicate-term fixture (2026-08-05)
+
+1. `STATE_DE_T18_C35_SIV_S3578` — DE, full row (12,725-char body), Title 18
+   `§ 3578` (Insurance coverage for serious mental illness). Real row,
+   vendored verbatim (all 24 original parquet columns, values unmodified,
+   no trimming) from `us_de_statutes.parquet`, dataset snapshot
+   `301000fc3465374ee0f23c3c6953a8a861e95cad`, retrieved via `pyarrow`
+   directly against the local HF cache (`~/.cache/huggingface/hub/
+   datasets--vaquill--open-us-law`, same dataset as every other fixture in
+   this file) and written straight to JSON — no manual retyping, so
+   byte-exactness holds BY CONSTRUCTION. Re-verified anyway with an
+   independent second parquet read (fresh `pyarrow.parquet.read_table` +
+   filter, a separate process from the one that wrote the fixture),
+   diffed field-by-field against the committed JSON: zero mismatched
+   fields, `real_row == fixture_row` `True`.
+
+   Used by `backend/tests/unit/test_definition_links_f6_apposition_
+   duplicate_terms.py`. The row's own `("ASAM")` parenthetical shorthand
+   for "American Society of Addiction Medicine" appears TWICE in the real
+   body — once inside entry (1)'s own `"ASAM criteria" means ...`
+   definition, once again, unrelatedly, in subsection (d)(1)c's prose —
+   so F6's apposition path (`_apposition_candidates` in `rules/
+   us_inline_parenthetical.py`, which scans the WHOLE article body
+   unconditionally) emits it as TWO separate `DefinitionCandidate`s, not
+   one. Picked over the sprint manager's other measured example
+   (`STATE_DC_T50_C14_S50-1401.01`, dup `"BOP"`) as the smallest/cleanest
+   real reproduction (2 terms extracted, 1 distinct), per the manager's
+   own instruction.
