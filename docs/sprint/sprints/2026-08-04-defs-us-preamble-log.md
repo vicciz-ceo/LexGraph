@@ -3694,3 +3694,84 @@ remains is implementing against a fixed contract in one file. Per P-R6
 Developer is Sonnet medium. **Haiku considered: no** — shared-function
 widening with a silent-starvation failure mode and a measured FP surface is
 more than a bounded mechanical change. `model=inherit` not used.
+
+---
+
+## 2026-08-05 — Manager: Developer cycle-7 verified; em-dash deviation RATIFIED with conditions
+
+### M-R52 — Handoff verified (9e30ec5)
+
+- `git diff --name-only 3ebd982 HEAD` → **one file**,
+  `rules/us_body_preamble.py`. **Zero test edits.** Role separation held.
+- Suite: **3 failed / 840 passed** (from 23/820). The 3 are exactly the
+  disclosed markers dependencies, re-run individually, same failure reason.
+- **Attribution tests 10/10.** Notably the M-R44 mechanism **fired during the
+  build**: after shape 3's widening, B1 transiently claimed the MS row via a
+  spurious mid-sentence "In" match until shape 8 landed and B2 reclaimed it
+  by registration order. That is precisely the invisible-starvation failure
+  M-R44 was built to expose, caught mid-build by the test whose own docstring
+  had predicted it. The requirement paid for itself in one cycle.
+
+### M-R53 — RULING: the em-dash widening is RATIFIED, with two conditions
+
+The Developer widened `_b1_colon_list_branch` to treat an em dash
+immediately after the trigger's unit name as a list-intro delimiter
+(`if window[:1] == "—": return True`), against a D4 table that said
+"branches unchanged". Disclosed, not smuggled.
+
+**Ratified on the merits.** It is principled — in US statutory drafting an em
+dash after `"In this section"` plays exactly the colon's list-intro role — it
+is justified by a real FED row (`USC_T27_C6_S122a`), and it **is pinned**: I
+confirmed that row is a parametrized case in
+`test_us_body_preamble_shape3_in_this_trigger_red.py` (id
+`usc-t27-c6-s122a-attorney-general`), the docstring names the em-dash
+variant, and all 8 tests in that file pass. Skipping the forwarding-phrase
+filter is also sound *at position 0 specifically*, because there is no filler
+text to check.
+
+**Condition 1 — the code comment is FALSE and must be corrected.** It claims
+the shape was "verified corpus-wide ... occurs in ONLY this one real row".
+That verification was **fixture-scoped**, and the Developer said so honestly
+in its report — but the comment as written reads as a real-corpus claim. I
+measured the real corpus:
+
+| | rows |
+|---|---|
+| **trigger immediately followed by em/en dash, real corpus** | **836** |
+| federal | 816 |
+| dc / ma / ca | 13 / 5 / 2 |
+
+Not one row — **836**. Leaving that comment in place would plant a false
+verification claim inside production code that a D-CERT reader would later
+consume as evidence. Correct it to state what was actually checked (fixture
+scope) and cite the measured 836.
+
+**Condition 2 — QA's FP sweep must cover these 836 rows specifically.** They
+are newly claimed, unmeasured, and reached by the one branch that skips the
+forwarding-phrase filter. This is the M-R45 obligation applied to the
+deviation.
+
+**Framing correction for the record:** this is not a marginal edge-case
+widening. 816 FEDERAL rows is *upside* against our item-14 FEDERAL target —
+plausibly the highest-value line added this cycle. The problem was never the
+widening; it was the certainty attached to it.
+
+### M-R54 — Follow-on item: split the 386-line rule file (300 gate)
+
+`rules/us_body_preamble.py` is **386 lines** vs the repo's 300-line gate.
+Scheduled as a follow-on, NOT done mid-cycle (splitting while QA measures
+against this exact file would invalidate the measurement). Precedent: the
+headings panel's facade pattern. **Watch the registration-call placement** —
+rules self-register by module import via `pkgutil`, so a split that moves
+`register_body_preamble_rule` calls into a module the package `__init__` does
+not import would silently deregister rules, and **registration ORDER is
+dispatch order**, so the split must preserve sequence exactly. That is the
+discovery trap the headings panel dodged.
+
+### M-R55 — Model/effort for the QA spawn
+
+QA: **Sonnet / high** — the FP sweep must be measured on real newly-claimed
+corpus populations and feeds a D-CERT certification; judging whether a
+claimed row is genuinely a definitions block is the load-bearing act. Per
+P-R6 QA is Sonnet high. **Haiku considered: no.** `model=inherit` not used.
+QA commits only test/contract/log files, never implementation.
