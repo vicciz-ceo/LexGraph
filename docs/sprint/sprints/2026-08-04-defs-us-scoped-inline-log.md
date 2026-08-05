@@ -3160,3 +3160,58 @@ Unchanged: the two in-flight re-cuts for the markers panel (IL shape-validity
 three-way split; the "in general" per-jurisdiction label VOCABULARY), then
 **QA cycle 3 from this sprint's first fully-green suite** — 854 passed,
 1 xfailed, 0 failed.
+
+---
+
+## 2026-08-05 — Manager: IL check RESOLVED; and a provenance error of mine,
+recorded rather than quietly fixed
+
+### Re-cut 1 — the citation-tail-misparse hypothesis CONFIRMED as dominant
+
+45-row stratified sample: **41 (91%) are citation-tail misparses** — genuine
+single-definition sections where the "marker" is a fragment of the section's
+OWN citation number. These are not instances of the `(N) LABEL.` convention,
+and holding them out of the markers-panel split was correct: folding them in
+would have scored that panel against a target that should not exist.
+
+Exact spread: **IL 477, ID 66, MO 43, AZ 12, NY 9, KS 6, CO 3, FL 1, NJ 1**
+(= 618). **ID and MO are ~18% between them** — substantial, not noise. The
+"Illinois quirk" framing would have left two states' worth of the shape
+unexamined, which is why I asked for the spread re-confirmed rather than
+assumed.
+
+The 9% remainder is not rounding error and I am not discarding it: 2 rows are
+cross-citation contamination, and **2 NY rows look GENUINE** — real lettered
+markers with "Definitions"/"the following terms" language, mis-bucketed by
+marker misattribution. Conceptually those belong in the NARROW bucket, so
+**1,675 may be marginally undercounted, order ~25-60 rows corpus-wide with
+wide uncertainty** (extrapolated from 2 sampled rows — a direction, not a
+count). It does not move the sizing decision; I have told the markers manager
+that the error bar leans UP rather than being symmetric, because a partner
+planning against a number deserves to know which way it will drift.
+
+### My error: I stripped provenance in a handover, and an agent caught it
+
+I asked the reconciliation analyst for the "in general" per-jurisdiction
+breakdown. **Those figures were never its work** — they came from the original
+AL-class scout (`aa02b1af67484dda8`, scripts `si_cycle2_scout1_*`). The analyst
+**correctly REFUSED**: it could not verify numbers it had no artifacts for, and
+read the mismatch as possible fabrication. Its instinct was right and my
+attribution was wrong. Re-ordered from the agent that actually holds the
+artifacts.
+
+Recording it rather than silently re-routing, for two reasons. First, it is an
+unusually literal instance of the thing I had just written into this log —
+"numbers travel across handovers with their provenance stripped; the label on
+the jar is what rots." I stripped a label and the figure nearly acquired a
+false origin, one hop after saying so. Second, the mechanism that protected the
+data was **an agent declining to confirm something it could not verify** — the
+same instinct as the Developer that refused an unverifiable delivery
+instruction, and the analyst that refused a raw-id redirect, arriving from a
+third direction. Three refusals this program, three times correct. That is a
+pattern worth naming rather than praising case by case: agents that verify
+before confirming have caught more real problems here than any process I have
+written.
+
+Also told the scout its own data's true provenance, so a stray reference to it
+belonging to a reconciliation analyst does not confuse it later.
