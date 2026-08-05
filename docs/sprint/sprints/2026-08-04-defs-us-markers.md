@@ -4,10 +4,10 @@ status: dev-complete
 current_role: qa
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:planner"
-locked_at: "2026-08-05T19:46:13Z"
-last_agent: "/root/markers_panel_manager/developer_pd1_pd2"
-last_updated: "2026-08-05T19:46:13Z"
+locked_by: "codex:qa"
+locked_at: "2026-08-05T20:01:27Z"
+last_agent: "/root/markers_panel_manager/planner_pd1_corpus_audit"
+last_updated: "2026-08-05T20:01:27Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"

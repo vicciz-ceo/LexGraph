@@ -5258,3 +5258,34 @@ The contract is now `status: dev-complete`, `current_role: qa`, with two
 items: P-T1 complete and P-D2 Dev Complete. A test-only follow-up retires the
 invalid synthetic RED, preserves the FED core-3 evidence, and adds the real
 terminal-notes negative control.
+
+---
+
+## M55 — M54 independently reproduced; final QA lock acquired (2026-08-05)
+
+The manager read the full `424698a...50be4fa` diff: nine fixture/test/contract/
+log paths, zero production. The invalid synthetic post-notes unit is deleted;
+the real FED test is renamed as a core-3 Roman-sibling hold; P-D2 fixture pins
+follow a pure fixture rename; the new terminal-notes control uses real
+`USC_T33_C11_S511`. Main containment holds with only the user's pre-existing
+`.claude/settings.json`.
+
+Manager independently reran the exact streaming predicate on the 21 registered
+jurisdiction parquet files with NY ingest normalization. It reproduced **all
+four counts exactly**: 788,766 rows / 33,578 Definitions-headed / 291 raw
+first-stop+later-idiom rows / 52 reachable, with the same split FED 51 + SC 1.
+Independent context reads of FED first/middle/last examples and the sole SC row
+confirmed terminal Editorial/Pub.-Law/amendment material; the SC hit expressly
+says `Effect of Amendment` and quotes superseded definitions. Manager scoped
+test run reproduced the final state: terminal control and P-D2/U-R13 checks
+green; exactly one named FED core-3 held RED.
+
+M54 Outcome B is accepted and merged at `50be4fa`: P-D1 retires; M38's
+operative-loss attribution is amended; the actual FED defect stays ledgered to
+core-3. Role transition lock changed atomically from `codex:planner` to
+`codex:qa`. Final QA delivery record committed before handshake:
+`/root/markers_panel_manager/qa_final_pd2`; model/effort
+`gpt-5.6-terra/high` — independent QA must verify persisted behavior, RED
+provenance, corpus-safety guards, and historical hold continuity. Haiku
+considered: no because QA is always high effort and this is the final panel
+verdict.
