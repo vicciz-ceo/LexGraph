@@ -2838,3 +2838,23 @@ Developer write-set is production code only. Tests, fixtures, artifacts,
 and sprint documents are Planner/manager-owned and forbidden. The 31
 U.S.-specific trims remain deferred; no profile grammar may be added to
 `pipeline.py` in this implementation pass.
+
+---
+
+## Phase 17 — G8 Developer gate and independent QA dispatch (2026-08-05)
+
+Developer delivery `056b5d0` passed manager verification and was merged to
+the integration branch at `eaf41b3` before QA started:
+
+- exact source boundary: `pipeline.py` only, **46 deletions / 0 additions**;
+- removed only `_is_tighter_containment` and its overwrite branch; no
+  replacement heuristic, U.S. grammar, or unrelated edit;
+- manager-targeted G8 rerun: **8 passed**;
+- Developer full backend report: **840 passed**, with no docs/tests edited.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| QA | full core-2 critical review, migration/G7 protocol, G8 safety, backend/frontend evaluators | GPT-5.6 Sol / high | yes; rejected because this is the independent release gate for a large shared-parser diff plus a schema migration | `claude/defs-core-follow-on-2-qa1` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-qa1` | `/root/core2_final_qa` | READY; identifier committed before START |
+
+QA is read-only and independent. It may not repair code or tests; every
+finding returns to the manager for a fresh role-separated cycle.

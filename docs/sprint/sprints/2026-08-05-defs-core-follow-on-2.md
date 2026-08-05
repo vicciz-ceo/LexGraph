@@ -1,20 +1,20 @@
 ---
 id: "2026-08-05-defs-core-follow-on-2"
-status: planning
-current_role: developer
+status: review
+current_role: qa
 branch: claude/defs-core-follow-on-2
 worktree: /Users/nerya/LexGraph-wt/defs-core-follow-on-2
-locked_by: "/root/core2_g8_developer"
-locked_at: "2026-08-05T19:46:44Z"
-last_agent: "/root/core2_g8_developer"
-last_updated: "2026-08-05T19:46:44Z"
+locked_by: "/root/core2_final_qa"
+locked_at: "2026-08-05T19:51:26Z"
+last_agent: "/root/core2_final_qa"
+last_updated: "2026-08-05T19:51:26Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 0
 completed_items: 0
 dev_complete_items: 0
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-04-defs-core-dispatch"
 prd_sections: []
 design_sections:
