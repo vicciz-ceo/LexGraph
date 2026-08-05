@@ -1867,6 +1867,68 @@ Baseline handed to dev8: **834 passed / 3 failed**; target **837 / 0**.
 
 ---
 
+## Phase 12c — G13 fix landed; 3 tripwires need re-pointing (2026-08-05)
+
+dev8 @ `1ae2aa8`, merged. **`us_profile.py` only, +65/-1, zero test files
+touched.** It escalated rather than editing tests — the correct boundary
+call, and the third time this sprint a Developer has stopped at that line
+instead of making a RED pass the easy way.
+
+### Manager verification of dev8's "stale assertion" claim — CONFIRMED
+
+"The test is wrong" is the claim that most deserves scrutiny, so I ran the
+file against the landed fix myself rather than accepting the diagnosis. Each
+RED now fails at its FIRST assertion, and each produces **exactly the "real"
+count its own message names**:
+
+| Row | Assertion pins | Actual | Message's own stated real count |
+|---|---|---|---|
+| TX `STATE_TX_Cfa_C264_S264.152` | `== 5` | **6** | "this row's real **6** defined terms" |
+| FL `STATE_FL_TX_C110_PIV_S110.501` | `== 3` | **4** | "real **4** defined terms" |
+| AR `STATE_AR_T12_C84_S12-84-103` | `== 4` | **5** | "real **5** defined terms" |
+
+**These were correct red-state precondition tripwires, not defects.** TX's
+message predicted this exact moment verbatim: *"if this is already 6, the
+drop no longer reproduces and the rest of this test is not exercising the
+defect."* The same self-documenting-tripwire pattern as plan2's
+`' Registrant '` guard and plan1's i9 docstring — a Planner habit worth
+keeping.
+
+dev8's structural argument also verified: `_trailing_notes_boundary` touches
+only a section's LAST block, so recovering a fully-wiped last block
+necessarily moves the count N → exactly N+1. A correct fix cannot leave it
+at N.
+
+### Scoping proof accepted
+
+For any marker NOT in `_POSITIONALLY_GUARDED_MARKERS`, the new per-marker
+loop's `marker in line` → `return offset` is byte-for-byte the old `any()`
+condition and result. Confirmed empirically: full-suite pass count unchanged
+at 834 outside the 3 target REDs — zero collateral change, including every
+other marker's behavior and all IL/Hebrew tests. FED RED byte-exact at 493
+chars; all 12 guard-state pins green; `USC_T51_C509_S50902` still trims
+9,328→122; lint PASS.
+
+### Ruling: Planner-side re-point, with the message text ALSO required
+
+Routed to plan9 (test author). Counts: TX 5→6, FL 3→4, AR 4→5.
+
+**Explicitly instructed NOT to change only the integer.** Changing `== 5` to
+`== 6` while leaving the message reading *"today's real (buggy) candidate
+count is 5"* would produce a test whose prose contradicts its own assertion —
+**precisely the defect caught in the cd_i9 test earlier this sprint**, where
+a stale factual claim about a fixture was load-bearing for the assertion's
+rationale. The messages must be rewritten as green-state guards: all N real
+terms recovered, a drop back to N-1 means the Pub. L./Amendments
+false-truncation has regressed. Every other assertion — byte-exact
+`definition_text` checks, the FL "History: tail still trims" precision check,
+the `USC_T51_C509_S50902` pin, the FED RED re-verification, the SHA-256
+fixture checks — stays untouched.
+
+Target: **837 passed / 0 failed**. This is the sprint's last open item.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
