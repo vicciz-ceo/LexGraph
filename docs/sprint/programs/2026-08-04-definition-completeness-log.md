@@ -42,6 +42,9 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-05 multiterm phase-2 manager (opus, fresh after predecessor
   context-exhausted clean exit @ af0d548; runs M-R17/M-R18/rule-rename
   Developer pass + re-measure + QA cycle 2): ad9cf6f6c6a351c50
+- 2026-08-05 markers phase-3 manager (opus, fresh after phase-2 handover
+  @ c6732e3; runs U-R14 disposition + QA cycle 2 + merge readiness):
+  a5c69b8e918e550cf
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
