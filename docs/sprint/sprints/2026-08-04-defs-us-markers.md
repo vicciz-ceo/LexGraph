@@ -1,13 +1,13 @@
 ---
 id: "2026-08-04-defs-us-markers"
 status: qa-fail
-current_role: developer
+current_role: qa
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:developer"
-locked_at: "2026-08-05T20:40:04Z"
-last_agent: "/root/markers_panel_manager/qa_final_pd2"
-last_updated: "2026-08-05T20:40:04Z"
+locked_by: "codex:qa"
+locked_at: "2026-08-05T20:52:07Z"
+last_agent: "/root/markers_panel_manager/developer_pd2_scope_fix"
+last_updated: "2026-08-05T20:52:07Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -216,6 +216,14 @@ actual corpus provenance before this cycle can enter independent QA:
    Final QA must enumerate every remaining non-pure retained-text change. MN's 51
    additions classify as 33 exact relative-qualifier adds and 18 ordinary
    tight-idiom terms rescued by a real Subd bound; all 18 require hand inspection.
+   **M60 second QA bounce:** that exhaustive inspection found 17 clean additions
+   and one real `Subd. 4a.` boundary leak in
+   `STATE_MN_P59A_79A_C60D_S60D.15`. QA must census every real MN `§ Subd.`
+   label shape/count, then byte-pin the numeric-to-lettered transition and a RED
+   that excludes while independently extracting Subd. 4a, retaining the `72.`
+   control. Only if the census proves the corpus grammar is exactly numeric or
+   numeric plus one lowercase letter may Developer widen the explicit opt-in
+   hard stop to `\d{1,3}[a-z]?`; defaults and generic heading grammar stay fixed.
 3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
    Q3 Part B now names the persisted `Governmental body` value (idiom retained)
    as canonical; the direct stripped value is explicitly an internal

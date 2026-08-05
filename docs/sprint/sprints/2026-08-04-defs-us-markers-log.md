@@ -7,6 +7,44 @@ to the director).
 
 ---
 
+## M60 — P-D2 second QA bounce for real lettered MN Subd label (2026-08-05)
+
+Developer stopped uncommitted during the mandatory exhaustive inspection of
+MN's 18 ordinary tight-idiom additions. The exact corpus gates before the stop
+were clean: 788,766/788,766 default-engine rows byte-identical across all 21
+jurisdictions with production NY normalization; zero non-MN production delta;
+1,108 MN Definitions headings with 908 changed rows; 51 additions split exactly
+33 relative-shape-row additions plus 18 ordinary tight-idiom additions; 19
+removed keys all paired to comma-normalized replacements; and 8,100 retained-
+term text changes all strict real-Subd truncations after the numeric-tail repair,
+with zero residual text outliers.
+
+Manual review found 17/18 ordinary additions genuine and clean. The remaining
+real row, `STATE_MN_P59A_79A_C60D_S60D.15`, emitted term
+`under common control with` as a 1,026-character candidate leaking through
+`§ Subd. 4a. Enterprise risk.` because the opt-in MN boundary regex recognizes
+only numeric Subd labels and stops at a later numeric heading. Developer correctly
+stopped before full suites, commit, or push; its two-file WIP, including the
+already-green narrow `72.` repair, remains isolated and uncommitted.
+
+Program-manager ruling: second QA bounce. Independent QA must first census every
+real US-MN `§ Subd.` label shape and exact counts, then byte-pin the real numeric-
+to-lettered `4a.` transition. The RED must require the Subd. 4a heading and
+definition to be excluded from the preceding candidate while independently
+extracting that definition, and must retain the real terminal-citation `72.`
+preservation control. Only if the corpus proves the label grammar is exclusively
+`N.` and `N[a-z].` may Developer minimally widen the explicit opt-in MN hard stop
+to exactly `\d{1,3}[a-z]?`. No generic heading grammar and no default behavior
+change are authorized. The same full differential and exhaustive addition,
+removal, and retained-text classifications must then rerun; any new residual
+bounces again.
+
+Role transition: lock changed from `codex:developer` to `codex:qa`; existing
+independent QA `/root/markers_panel_manager/qa_final_pd2` resumes tests/census
+only after its branch fast-forwards to this committed shared handoff.
+
+---
+
 ## M59 — M58 numeric-tail RED accepted; Developer resumes (2026-08-05)
 
 Manager read the complete `af75322...0b47109` diff: one byte-pinned real MN
