@@ -4900,3 +4900,153 @@ silently.
   must NOT run concurrently (one writer per worktree, M14). Worktrees
   `defs-il-dev3` (exists, venv built) and one more to create.
 - Then **QA cycle 4**; cycle 5 stays the bounce reserve.
+
+---
+
+## 2026-08-05 — M22: phase-3 manager re-verification of inherited state; THREE corrections to the record
+
+Phase-2 predecessor clean-exited after M21. Per program law I re-verified
+every inherited claim I intend to build on with my own positive controls,
+in the `defs-il` worktree's OWN venv (`import app` ->
+`/Users/nerya/LexGraph-wt/defs-il/backend/app`, confirmed), rather than
+taking the log's word.
+
+### Inherited state — CONFIRMED as stated
+
+- `claude/defs-il` @ `64932d7`, clean, matches `origin`. Worktree git
+  email is the noreply address.
+- **Suite: `13 failed, 829 passed` — reproduced exactly**, and the 13
+  failing node-ids are exactly the enumerated set: 7 D-1a REDs (3 class A
+  + 2 class B + 2 class C), 4 E6 REDs, 2 סימן/חלק containment REDs.
+  Nothing extra, nothing missing.
+- `bash scripts/contract_lint.sh 2026-08-04-defs-il` -> PASS 398.
+- **M20's core-block, re-verified by direct read of the frozen files**
+  (not inferred): `pipeline.py:212` hardcodes
+  `StructuralContext(article_number=art.number, heading_breadcrumbs=())`;
+  `sections.py:138` still gates on `len(break_match.group(1)) == 2`. Both
+  halves of M20 stand. The 2 containment REDs remain core-blocked and are
+  NOT in either Developer bundle.
+- All 8 rule kinds are present in `registry.py` (285 lines, under the
+  300-line style gate), including `HeadingRule`/`EntrySplitterRule`/
+  `TermClauseRule`.
+
+### My own positive controls (throwaway, scratchpad only, never committed)
+
+1. **D-1b's `EntrySplitterRule` root cause — CONFIRMED.** On the real
+   `חוק החברות הממשלתיות` art.16 fixture body: baseline
+   `extract._split_into_blocks` -> `[]`, profile section path -> `[]`.
+   Registering ONE probe `EntrySplitterRule(jurisdiction_codes=("IL",),
+   split=lambda t: [t])` and changing nothing else -> baseline's own
+   `_parse_block` extracts `('דירקטור', 'דירקטור מטעם המדינה בחברה
+   ממשלתית....')` unaided. The gap is the splitter, not the clause parser,
+   exactly as D-1b said.
+2. **D-1a's class-C `HeadingRule` feasibility — CONFIRMED.** On
+   `אכרזת גנים לאומיים` art.8 (heading `@ 8. (תיקון: תש"ף) :
+   [[בתוספת זו]] -`): baseline `is_definitions_heading` -> `False`;
+   after registering one probe `HeadingRule`, -> `True`, and the section
+   path captures **10 terms, 10 unique** (matching D-1a's claimed 10 —
+   my first run printed 11 with `תמצית` doubled, which was MY probe
+   splitter from control 1 leaking into the same process, not a product
+   defect; isolated re-run gives a clean 10). Zero frozen-file edits.
+3. **The class-C scope over-claim — CONFIRMED LIVE, first-hand.**
+   `determine_scope(body)` on that same article returns **`'law-wide'`**.
+   The article's trigger is `בתוספת זו` (a SCHEDULE), so a naive class-C
+   fix would publish a schedule-local definition as law-wide. This is the
+   deliberate design decision I am handing the D-1a Developer.
+4. **D-1a's class-A root cause — CONFIRMED.**
+   `il_list_shape_scope.ENTRY_TERM_DASH_RE` is `^"([^"]+)"\s*-\s*(.*)$`.
+   Applied to entry text after the `:-` prefix: single-term
+   `"מונח ה" - הגדרה;` matches; both `"מונח א", "מונח ב" - ...` and
+   `"מונח ג" ו"מונח ד" - ...` return **no match at all**. Single-term
+   only, as claimed.
+
+### CORRECTION 1 — M21's `בהכרזה זו` "measured zero" is wrong (conclusion survives)
+
+M21 recorded `בהכרזה זו` as a measured **0**. Re-measured on `*.wiki`
+only: **2 files / 4 occurrences.** I read every one: both files are
+COVID `הכרזת סמכויות מיוחדות...` instruments and every occurrence is
+REFERENTIAL prose inside `<מבוא>` ("באזורים המצוינים בהכרזה זו",
+"ההגבלות המפורטות בהכרזה זו") — never a defining preamble. So M21's
+*decision* (no vocabulary entry for `בהכרזה זו`) is right, but its
+*measurement* was not. Recording this because D-2 will re-derive these
+counts mechanically and a stale "measured zero" in this log would read as
+a contradiction. Same class of error as M18: a phrase that OCCURS but is
+never in the defining role is not a zero.
+
+Also re-measured, for the record: `באכרזה זו` = **47 files / 53
+occurrences** (M21 said 46/46); `לעניין הכרזה זו` = **3 files / 3
+occurrences**, all three genuinely definitional heading preambles
+(`@ 1. ... : לעניין הכרזה זו -`) — M21's actual fix target is CONFIRMED
+correct and stays in the D-1a bundle. `לענין הכרזה זו` = 0 (confirmed).
+
+### CORRECTION 2 — a NEW measured, definitional vocabulary gap nobody has named: the `זאת` demonstrative
+
+`LAW_WIDE_WORDS` carries `אכרזה זו` / `פקודה זו` etc. — every entry uses
+the `זו`/`אלה` demonstrative. The `זאת` demonstrative is absent
+entirely. Measured corpus-wide:
+
+```
+באכרזה זאת    1 file    DEFINITIONAL (heading preamble, class-C shape)
+בפקודה זאת    4 files   2 of them DEFINITIONAL law-wide preambles
+בחוק זאת / בהסכם זאת / בצו זאת / בנוהל זאת / בהכרזה זאת   0 (measured)
+```
+
+The definitional ones, read individually:
+- `אכרזה על ארגון יציג של זכאים...` — `@ (תיקון: תשפ"ג) : באכרזה זאת,
+  "זכאים לפי [[החוק האמור]]" - ...` (a heading-embedded preamble — this
+  is simultaneously a class-C instance AND a vocabulary gap)
+- `פקודת הצופים` — `: בפקודה זאת -` (bare law-wide preamble)
+- `פקודת האריסים (הגנה)` — `: בפקודה זאת יהיו למונחים הבאים הפירושים
+  דלקמן מלבד אם ענין הכתוב יחייב פירוש אחר -`
+The other `בפקודה זאת` hits are referential ("שום דבר האמור בפקודה
+זאת"), plus one parenthetical naming alias (`הקרוי בפקודה זאת "פטנט
+לתוספת אמצאה"`) which belongs to the same naming-construct class D-1a
+already characterized under class B.
+
+**This is the M17 spelling-variant class recurring for the THIRD time**
+(M17 spellings, M21 `הכרזה`/`אכרזה`, now `זו`/`זאת`). Small and bounded —
+it is two vocabulary entries — but under an absolute-zero bar a measured
+3 definitional instances is not zero. **Folded into the D-1a Developer's
+vocabulary work.** It is also the strongest argument yet that D-2's
+mechanical certification, not another hand variant-hunt, is the correct
+closing method: three independent hunts each missed a variant the next
+one found.
+
+### CORRECTION 3 — D-INCLUDES: IL DOES have the includes-family gap (my brief's expectation refuted)
+
+The program's D-INCLUDES ruling asks each panel whether its vocabulary
+has an includes-family enumeration-verb gap. My brief carried the
+expectation that `לרבות` is already core IL vocabulary, so likely no
+action. **Measured, that is false:**
+
+```
+grep -rn "לרבות\|למעט" backend/app/definition_links/   ->  NO MATCHES (whole package)
+il_trigger_grammar._find_split_marker('לענין זה, "מצרך" לרבות האריזה...')  -> (-1, 0)
+il_trigger_grammar._find_split_marker('ולענין זה, "פקיד שומה" למעט עוזר...') -> (-1, 0)
+il_trigger_grammar._find_split_marker('לענין זה, "מצרך" - האריזה...')       -> (17, 1)
+```
+
+`לרבות` and `למעט` appear NOWHERE in the definition-links package. They
+are recognized as neither split markers nor defining verbs — only the
+dash is. `לרבות` is common *inside* definition bodies (which is likely
+where the "already core vocabulary" impression came from), but it has no
+grammatical role in capture.
+
+So IL has a genuine analogue of the US includes-family gap. **It is
+already covered by the existing D-1a bundle** — this is precisely
+D-1a's class-B sub-shape (ii), the `TRIGGER, "term" לרבות/למעט <defining
+text>` no-dash form the D-1a Planner characterized as ~80% of class B,
+pinned by the committed RED
+`test_class_b_plain_continuation_shape_no_dash_after_quote_is_currently_missed`
+(fixture `חוק התקנים` art.13, "מצרך"). No new work item — but the D-1a
+Developer is told explicitly that this RED is the IL discharge of
+D-INCLUDES, so the includes-family verbs get treated as a first-class
+defining-verb vocabulary and not as a one-off regex patch. Reporting the
+measurement rather than assuming, per the brief.
+
+### Plan from here (unchanged in shape, corrected in content)
+
+D-1a Developer (dev3) -> merge -> D-1b Developer (dev4) -> QA cycle 4.
+Certification contract drafted once the Developers are RUNNING, sent to
+the program manager for sanity-check before its Planner spawns. Cycle 5
+stays the bounce reserve.
