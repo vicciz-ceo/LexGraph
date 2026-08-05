@@ -2969,3 +2969,150 @@ which is correct behavior for a negative guard, not vacuity.
   in this log to reconcile it; reporting both rather than guessing.
 
 Pushed as `<SHA recorded in final report to the manager>`.
+
+---
+
+## 2026-08-05 — Manager VERDICTS on QA certification (a)–(e) + new preposition cluster
+
+QA handoff verified first: `git diff --name-only a0d82cc..10924fc` → the log
+only; **zero `backend/app/` edits**. Role separation held.
+
+### M-R36 — VERDICT (a): the record carries BOTH numbers. After = 2,794/28,154.
+
+QA measured GA before = **2**, traced to the legacy body-derivation path, and
+could not reconcile the historic **5/28,154** the director has been quoted.
+
+**Ruling: report `before = 2 (measured) / 5 (historic, unreconciled)`,
+never a silent substitution.** Rationale: the two differ by 3 rows on a
+28,154-row corpus — 0.007% vs 0.018%, both indistinguishable from zero — so
+the discrepancy is immaterial to the headline but material to trust. Quietly
+swapping 5→2 would mean the first number the director sees in this program
+that contradicts a number they were previously given, changed without
+comment. That is a worse outcome than a one-line footnote.
+
+**Certified headline: GA 2 → 2,794 of 28,154 (9.9%)**, on QA's stated
+single definition of "captured", corrected-fallback caveat respected. The
+before-value's exact identity does not move it.
+
+### M-R37 — VERDICT (b): NE is a NAMED RESIDUAL, split across two owners
+
+7/25,997 captured against a 46-row target; **274 recognized, only 7
+extract**. That gap is diagnostic, not disappointing: **recognition is
+ours and it works** (274 rows found); **extraction is the markers panel's**
+— NE's dominant convention is unquoted terms, which no current extractor
+parses, exactly the item-5 dependency this sprint disclosed from the start.
+
+**Ruling:** NE is a **named residual on our ledger with the extraction half
+routed to `defs-us-markers`**, not a preamble-family failure and not hidden
+behind the GA headline. The honest sentence for the record: *"NE: our rules
+recognize 274 definitions-bearing blocks; 7 yield definitions today, because
+267 use unquoted terms no extractor can parse. Blocked on markers."*
+The 46-row target was set against the quoted subset only; that framing was
+too narrow and I am correcting it here rather than reporting a miss.
+
+### M-R38 — VERDICT (c): LEDGER the 27,209 fallback-affected rows, do not accept silently
+
+The 50,826 new captures split **23,617 clean-primary / 27,209 via the
+S1-flagged fallback** whose last entry runs to end-of-text.
+
+**Ruling: ledger, not accept and not block.** Concretely:
+1. The **23,617 clean-primary figure is the defensible one** for any
+   certification claim.
+2. The 27,209 are reported **separately and labelled provisional** — their
+   term IDENTIFICATION is sound (that is what our rules do); it is
+   `definition_text` BOUNDARIES that are unquantified.
+3. Quantifying now would mean measuring against a known-broken oracle. The
+   fix is already routed; re-measure **after** it lands.
+This is why I required the split reported rather than one blended number —
+a single 80,493 would have been indefensible.
+
+### M-R39 — VERDICT (d): SHAPE → OWNER ATTRIBUTION. Most of P-R7 is NOT ours.
+
+P-R7's 59,461 uncaptured / ~94% genuine is real, and I am not treating it as
+this panel's gap wholesale. Attribution, from QA's 8 named shapes:
+
+| # | Shape | Owner | Est. volume | Why |
+|---|---|---|---|---|
+| 1 | Bare `"Term" means`, **no trigger phrase at all** | **headings** (2nd: markers) | **largest single shape**; NV alone ~8,323 | There is no preamble to recognize. QA states this is the shape behind NV's `"<Term>" defined` heading convention — the HEADING is the signal, which is the headings panel's own NEW verb-form family. A `BodyPreambleRule` structurally cannot see it. |
+| 2 | Trigger present, quote follows with no literal "the term"/colon | **SPLIT: ours (BLOCK) / scoped-inline (CLAUSE)** | mid | Our own trigger, our own rule, post-trigger pattern too strict. Ours where the section is wholly definitions. |
+| 3 | **`"In this <unit>"` trigger — FEDERAL's dominant convention** | **OURS** | large; threatens our item-14 FEDERAL target | This IS a body preamble; B1's vocabulary just lacks the phrase. 4/4 sampled FEDERAL rows. I do **not** accept the scoped-inline framing for this one — see note below. |
+| 4 | Trigger cites external section ranges | **ours (recognition) + core (scope)** | small | Preamble is ours; a range is not expressible in current scope units. |
+| 5 | Named-Act phrasing | **ours (recognition) + core (scope)** | small | Same shape as 4. |
+| 6 | Intervening qualifier between trigger and term | **OURS** | small–mid | Narrow B1 widening. |
+| 7 | CA wide-window idiom **in other states** | **OURS** | small | Our own rule, needlessly scoped to `US-CA`. Trivial widening. |
+| 8 | B2 wording variants | **OURS** | small | Our own rule, literal-phrase match too strict. |
+
+**Where I push back on the framing:** shape 3 was suggested to me as
+scoped-inline/markers territory. It is not. `"In this section:"` is a body
+preamble introducing a definitions block that never uses the word
+"Definitions" — the literal definition of this sprint's family. B1 already
+matches two trigger phrases; this is a third. It also directly threatens
+**our own contract item 14** (FEDERAL 198/435). Handing it away would move
+our largest remaining in-family gap off our ledger, which is the opposite of
+what P-R7 is for. **Shape 3 stays ours.**
+
+Shape 1, by contrast, genuinely is not ours and it is the biggest — so this
+attribution moves volume off our ledger and onto ours in roughly equal
+measure. That is the honest split, not a defensive one.
+
+**Volume caveat, stated plainly**: these are QA's 50-row-sample-derived
+estimates, not per-shape re-scans. Shapes 1 and 3 dominate; the rest are
+long-tail. Do not treat the bands as measured counts.
+
+### M-R40 — VERDICT (e): D3 guarded-cluster gaps, disposed
+
+- **IN ×2 (CA-idiom)** → **ours, fix**: identical to shape 7; our CA rule is
+  scoped `US-CA` for no principled reason. Widening its `jurisdiction_codes`
+  is a one-line rule change (Developer, next cycle).
+- **NM (Named-Act + "also means")** → **ours (recognition)**, shape 5; the
+  `"also means"` idiom is an additional B1 branch. Scope target → core.
+- **NV ×2 (exclusion-style)** and **CO** → **headings**, same
+  preposition-governed family as the new cluster below; our rules reach them
+  only if the body carries an independent defining idiom (measured below).
+
+### M-R41 — NEW preposition-governed cluster: MEASURED, not estimated
+
+I measured this myself against the shipped rules across all 53 files rather
+than reason about it. Scope note: my heading pattern (`Exclusions|Limitation|
+Applicability|Effect|Scope` + `definition(s)`) is **broader** than the
+headings panel's 78-row cluster, so these populations overlap but are not
+identical — stated so the numbers are not falsely reconciled.
+
+Restricting to rows the Definitions-heading matcher does **not** already
+capture (i.e. the guard-excluded population):
+
+| | rows |
+|---|---|
+| preposition-governed, not already a Definitions heading | **150** |
+| ...body carries a defining idiom + quoted term | **18** |
+| ...**RESCUED by our shipped `BodyPreambleRule`s** | **12** |
+| ...**genuinely UNREACHED** | **6** |
+
+**Answer to the panel: yes, our shipped path already rescues two-thirds of
+them (12/18) with no further work.**
+
+The **6 unreached, named** (D-HG sends these to the director by name, so
+they are listed rather than counted):
+`STATE_ID_T39_C1_S39-129`, `STATE_KY_TIX_C67_S67.323`,
+**`STATE_ME_T28-A_P3_C55_S1401-A`** (the ME "Limitation on definition of
+\"certificate of approval holder\"" textbook case cited to me — confirmed
+UNREACHED), `STATE_MI_C500_AAct-218-of-1956_S500.1305`,
+`STATE_PA_T20_C77_S7721`, `STATE_SC_T59_C58_S59-58-30`.
+
+### M-R42 — What is certified, and at which SHA
+
+**Certified at `10924fc`** (plus this verdict commit):
+- GA **2 → 2,794 / 28,154 (9.9%)**, before-value dual-reported per M-R36.
+- Corpus-wide **29,667 → 80,493**, of which **23,617 clean-primary is the
+  defensible figure**; 27,209 fallback-affected are **provisional** (M-R38).
+- **FP rate 0/50** hand-judged, after a disclosed self-correction.
+- Suite **3 failed / 818 passed**; all 3 are the disclosed markers
+  dependencies; **31 tests mutation-proved** including the GA fabrication
+  guard.
+- Consolidated inventory + CLAUSE package (2,659 act_ids / 51 jurisdictions)
+  stable and safe for the headings panel to consume for its U4 cross-check.
+
+**NOT certified / open on our ledger**: shapes 2–8 of P-R7 (in-family gaps,
+a real next cycle of work); NE extraction (blocked on markers); the 6
+unreached preposition rows; `definition_text` boundaries pending the routed
+fallback fix.
