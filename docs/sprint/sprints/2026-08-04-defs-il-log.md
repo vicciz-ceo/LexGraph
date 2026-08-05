@@ -6792,3 +6792,34 @@ is the trustworthy one. Reporting the correction rather than the hunch.
   QA over D-1a + D-1b + the separator work, cycle 5 stays the bounce
   reserve. Opening a fourth build round would consume the reserve for a
   pre-existing class that has been latent for the whole program.
+
+---
+
+## 2026-08-05 — QA cycle 4 spawned (agentId `a233b5869bcc84d8f`)
+
+Model/effort: **Sonnet/high** — QA is always high; last adversarial check
+before this sprint closes. Haiku considered: **no**. Worktree
+`defs-il-qa3`, branch `claude/defs-il-qa4` off `9d871b2`, own venv
+verified, baseline `2 failed, 843 passed` reproduced by me. Independent
+per the harness: **test/doc-only commits, `backend/app` diff must stay
+empty**, reports fixes rather than applying them.
+
+Briefed with SIZED targets so its effort goes into attacking rather than
+re-measuring: (1) the class-C `scope="local"` decision, to be attacked
+live on the corpus — is "local" ever actively WRONG rather than merely
+narrow; (2) D-1b's 586-article / 1,407-candidate blast radius from M28,
+with a **seeded random sample and a MEASURED error rate** demanded, since
+mine was a ~30-item hand-read and explicitly not a certification; (3)
+verification of **my own M30 classification** (67 genuine / 130
+garbage-avoidance out of 197), which I derived heuristically with only
+~12 hand-reads and want corrected if wrong; (4) gates I1-I5; (5) an
+explicit instruction to assume I made more errors and check my
+load-bearing numbers — I have already corrected the record three times
+this cycle (M22, M25→M29, M30's maqaf hunch).
+
+Told plainly: **honest end-states only** — all-captured / named residual
+for the director / valve — and **do not manufacture a clean bill**, since
+a "everything passes" verdict after three bundles landed 1,400+ new
+captures and a latent 67-line class would not be trustworthy. Equally
+told not to inflate: M30 itself shows how "216 divergences" becomes wrong
+if every divergence is called a bug.
