@@ -3816,3 +3816,88 @@ transfers across populations. Asking for the list up front would convert an
 independent replication into a confirmation exercise, which is worth less.
 
 ---
+
+## M32 — re-cut 2: boilerplate census CORRECTED, and the blocklist design constraint that follows (2026-08-05)
+
+### Correction to a figure recorded in §M27 — supersede it
+
+§M27 recorded "144 of 3,963 occurrences across 94 rows (125 federal, 20 PR)".
+**That was a merged figure and is wrong.** Their analyst's own re-cut caught it.
+Corrected, and the two buckets are jurisdiction-DISJOINT:
+
+| Label | Occurrences / rows | Jurisdiction split |
+|---|---|---|
+| `in general` (English) | **144 / 94** | FED 125/87, **NY 10/2**, TN 3/1, AL 2/1, DC 2/1, HI 1/1, WV 1/1 |
+| `en general` (Spanish) | **20 / 12** | **100% Puerto Rico**, zero federal/state overlap |
+| Combined | **164 / 106** | — |
+
+So the "20 PR" was never a slice of the 144. Direction of the change matters for
+our half: the English bucket is MORE federal-dominated than relayed (125 of 144),
+and PR is a wholly separate population.
+
+**In OUR tuple**: FED 125/87 and NY 10/2 are jurisdictions our rule processes.
+
+### The PR worry resolves — and the reasoning is why it resolves
+
+Our concern was that a blocklist built on federal boilerplate would silently
+under-cover PR. Answer: PR's `en general` is a **direct structural analogue** of
+federal's `in general`, and PR's broader label vocabulary is otherwise genuine
+Spanish tax terms (`Ingreso bruto`, `Dividendos exentos`, `Persona
+descalificada`), not boilerplate.
+
+Crucially that absence is **evidence, not an instrument artifact**: the scan's
+generic-label exclusion filter was English-only and never excluded any Spanish
+equivalent, so `definiciones`/`alcance`/`propósito`-shaped structural headers
+would have SURVIVED into the data had they been feeding the trap. They did not.
+So: a single translated pair, not a Spanish-specific shape family.
+
+### KNOWN UNKNOWN — do not read silence as absence
+
+`generally`, `definitions`, `scope`, `applicability`, `purpose` were excluded by
+the scan's own filter **at scan time**. Their absence from the data is the
+FILTER's doing, not a corpus fact. The analyst stopped rather than guessing,
+which is the correct behaviour and the reason this is a known unknown rather
+than a false negative we would have inherited.
+
+**Narrow census requested** (non-urgent — our blocklist is queued behind the
+merge-blocking dispute; lead time is the only reason to ask now).
+
+### THE DESIGN CONSTRAINT — this is the part that changes how we build
+
+Two findings the analyst volunteered:
+
+1. **`Inclusion(s)`/`Exclusion(s)`** — 52 occurrences, **100% federal**, same
+   nested-sub-header shape (`(B) Inclusions.—` sitting between a term's real
+   label and its quote). Terms captured under it are genuine (`environmental
+   review process`, `security-based swap`, `carbon dioxide stream`) — their true
+   labels are elsewhere. **FED is in our tuple.**
+2. **`Definitions in other articles`** — 7 occurrences, **all capturing the term
+   `Control`**, across **six different states** (DE, GA, MN, NC, **WA**, WV).
+   UCC Article 9 cross-reference-index boilerplate, adopted near-verbatim across
+   state lines. **WA is in our tuple.** `Control` is a poisoning capture in the
+   §M29 sense — an extremely common word matching nearly everywhere in scope.
+
+**Finding 2 is the structurally important one, and it constrains our half
+directly: the boilerplate blocklist MUST NOT be assembled from per-jurisdiction
+frequency thresholds.** Template-borne boilerplate travels as a shared statutory
+TEMPLATE across independent jurisdictions, so no single state contributes enough
+occurrences to clear any per-state threshold — seven occurrences over six states
+is invisible to every per-state cut, yet it is ONE convention with a poisoning
+capture attached. A per-jurisdiction blocklist would systematically miss exactly
+the class that hurts most.
+
+Design implication recorded for whoever builds it: assemble on **shape/template**
+lines with corpus-wide aggregation, then check per-jurisdiction coverage as a
+diagnostic — never the reverse.
+
+### Evidence grading, as they labelled it (adopted)
+
+- **Exact**: the per-jurisdiction counts and raw label strings (deterministic
+  re-cut of cached structured data).
+- **Directional, single-pass, NOT cross-validated**: the characterisation of
+  Inclusions/Exclusions and the UCC family as exhibiting the SAME trap shape.
+
+We build against the exact half and treat the characterisation as a hypothesis
+to re-derive in our own population, per the standing re-derive rule.
+
+---
