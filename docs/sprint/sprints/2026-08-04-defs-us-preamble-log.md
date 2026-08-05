@@ -3186,3 +3186,170 @@ measurement that will underpin a program-level certification, plus RED tests
 that must pin per-rule attribution under a first-wins registry, is sustained
 judgment. Per P-R6 Planner is always Sonnet high. **Haiku considered: no.**
 `model=inherit` not used. Sole writer; authors tests only, never rules.
+
+---
+
+## 2026-08-05 — Planner: D1, per-shape corpus-wide measurement (M-R43)
+
+Worked in `/Users/nerya/LexGraph-wt/defs-us-preamble` at `6910eb0`. Script
+committed at `docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/
+measure_shapes_corpus_wide.py`, raw output at `shape_measurement_output.json`
+in the same directory. Full corpus, all 53 statutes files, snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (the `main` ref — the OTHER
+snapshot dir present in the HF cache, `d2d76035...`, is a stale 11-file
+partial fetch from an earlier sprint, not used). **2,038,247 rows scanned**
+— matches Q-D1's own cited denominator exactly (cross-check).
+
+### P-D1 — Method: signal-agnostic, independently authored, self-validated
+
+Every one of the 8 shape detectors below is written FRESH against Q-D2's own
+English description of the shape — none imports or copies the regex
+OBJECTS from `us_body_preamble.py`. Two shapes (2, 6) unavoidably share
+english vocabulary with our own B1 trigger, because that IS the shape's own
+definition (M-R39: "our own trigger... post-trigger pattern too strict" /
+"narrow B1 widening") — disclosed in the script's own module docstring, not
+hidden. Shapes 1/3/4/5/7/8 use vocabulary our shipped rules do not currently
+match at all, so those are independent in the strong sense too.
+
+"Captured today" is computed by calling the REAL, unedited production code
+(`get_profile`, `.is_definitions_heading`/`.derive_heading_from_body`/
+`.determine_scope`/`.extract_definitions_from_section`) directly against
+each row — mirroring `pipeline.py`'s own Stage-2 dispatch verbatim, never a
+reimplementation. "Captured" = the same single Q-D1 definition (heading
+recognized AND `extract_definitions_from_section` yields >=1 candidate with
+non-empty `.terms`).
+
+**Precision was iteratively verified, not assumed** — four real bugs were
+found and fixed by hand-sampling actual matched excerpts before trusting any
+corpus-wide number (all four fixes are in the committed script, with the bug
+and its fix documented inline):
+1. A bare `\bIn this\b` regex for shape 3 matched INSIDE "**as used** in
+   this article" (substring match) — fixed with a clause-initial guard
+   (preceded by start/newline/`.::`/marker, not by a verb like "used").
+   This alone cut shape 3's 3-state smoke-test count from 6,945 to 172.
+2. Shape 7's CA-idiom search was unanchored, matching "shall **not** apply"
+   (negated scope) and "the definitions found in/provided in/**under**
+   section X apply" (a pure FORWARDING pointer — the same H1 hazard class
+   this family's own hazard catalogue already documents) — fixed by
+   anchoring at body-start (mirroring the real CA rule's own window
+   discipline) plus an explicit forwarding-phrase exclusion list.
+3. Shape 4's bare trigger match ("For purposes of Section N, the period of
+   the underpayment shall run from...") matched an ordinary OPERATIVE
+   sentence citing a section number but defining nothing — fixed by
+   requiring actual post-trigger definitional content (colon-list or
+   quote+verb), the same discipline shapes 2/3/6 already apply.
+4. A naive "any colon present" check (shapes 3/4) accepted "...is the
+   earlier: (a) The 15th day..." (an unrelated operative-deadline list) as
+   evidence of a definitions list — fixed with a shared `_has_definitional_
+   content` helper requiring the colon to actually introduce a quoted-term
+   or unquoted-numbered defining entry.
+
+**Cross-validation against Q-D2's own independent methodology**: my
+component-A reproduction (quoted term + broad verb, same verb vocabulary,
+800-char window vs Q-D2's 600) measured **89,832 candidates / 32,371
+already captured** — Q-D2's own number was **91,878 / 32,417**. Independent
+methods, same corpus, same ballpark (both within ~2%) — good confirmation
+neither run has a gross defect.
+
+### P-D2 — Per-shape measured table (total, not extrapolated)
+
+| # | Shape | Total hits | Captured today | **Uncaptured (measured miss)** |
+|---|---|---:|---:|---:|
+| 1 | Bare `"Term" means`, no trigger | 31,048 | 1,370 | **29,678** |
+| 2 | Trigger present, no "the term"/colon | 23,049 | 5,572 | **17,477** |
+| 3 | `"In this <unit>"` trigger | 13,062 | 3,545 | **9,517** |
+| 4 | External Section-range trigger | 1,702 | 59 | **1,643** |
+| 5 | Named-Act phrasing | 196 | 1 | **195** |
+| 6 | Intervening qualifier clause | 125 | 23 | **102** |
+| 7 | CA idiom in OTHER states | 1,417 | 244 | **1,173** |
+| 8 | B2 wording variant | 576 | 280 | **296** |
+
+Shape 5's own `"also means"` sub-idiom: **2/196** rows corpus-wide (NM's own
+named example is one of the two) — a real but tiny idiom, not a large
+sub-population.
+
+**Distinct-row total** (shapes overlap; 175 raw pairwise-overlap instances
+recorded, a small correction relative to the totals above, triple-overlaps
+assumed negligible): **~59,900 distinct rows** corpus-wide match at least
+one of the 8 shapes and are uncaptured today. **This lands within 1% of
+Q-D2's own independently-derived 59,461** — two unrelated methodologies (one
+per-shape, one aggregate) converging on the same figure is a strong
+cross-check, not a coincidence I am claiming credit for engineering.
+
+**In-family-only total (ours, shapes 2+3+4+5+6+7+8, excluding shape 1 which
+is headings-owned per M-R39)**: **~30,300 distinct rows** — this is the
+honest "our remaining opportunity" headline number for this cycle, measured
+not estimated.
+
+**Per-state**: top state per shape — 1: NV (7,937, vs M-R39's own quoted
+"~8,323" estimate, within 5%); 2: **IN (4,221)**; 3: **TX (2,949)**, not
+FEDERAL (see below); 4: MS (984); 5: NM (111); 6: MS (38); 7: **IN (352,
+the exact shape-7/IN×2 target)**; 8: MS (123). The full 53-state x 8-shape
+table (424 cells) is in the committed `shape_measurement_output.json`
+(`per_state` key) — omitted here for length; every number in this report is
+reproducible from that one file plus the script.
+
+### P-D3 — Which of QA's bands were right, high, or low
+
+M-R39's table gave qualitative bands from a 50-row sample. Measured against
+them:
+
+- **Shape 1 ("largest")** — CONFIRMED. 29,678 uncaptured, the largest single
+  shape. NV's own estimate (~8,323) was close (measured 7,937, ~5% high).
+- **Shape 2 ("mid")** — **BAND WAS TOO LOW.** 17,477 uncaptured is the
+  SECOND-LARGEST shape, comparable in scale to shape 3, not "mid" alongside
+  shapes 4-8's low hundreds. This is the single biggest correction in this
+  report: shape 2 (SPLIT ours/scoped-inline, BLOCK-only for us) needs to be
+  understood as a top-tier volume shape for capacity planning, not a
+  medium one.
+- **Shape 3 ("large; threatens item-14")** — CONFIRMED, with an important
+  nuance: FEDERAL's own 874 shape-3 hits are **49% of FEDERAL's entire own
+  candidate population** (874/1,766) — genuinely its DOMINANT convention,
+  confirming the "threatens item-14" framing — but the corpus-wide ABSOLUTE
+  count is dominated by TX (2,949) and WI (1,979) and MD (1,951), not
+  FEDERAL (855 uncaptured, 4th place). Both framings are true and both
+  matter for different questions (item-14 relies on the proportion-within-
+  FEDERAL framing, not the corpus-wide rank).
+- **Shape 4 ("small")** — CONFIRMED, 1,643 uncaptured, MS-dominated (984).
+- **Shape 5 ("small")** — CONFIRMED, 195 uncaptured, very small.
+- **Shape 6 ("small–mid")** — band's "small" half confirmed; the "mid" half
+  is not supported — 102 uncaptured is small by any comparison in this
+  table.
+- **Shape 7 ("small")** — **BAND WAS A LITTLE LOW.** 1,173 uncaptured is
+  closer to shape 4's scale (1,643) than to shapes 5/6/8's low hundreds —
+  "small-mid" would be the more accurate label. IN alone (352) is the named
+  shape-7/IN×2 target; a blanket `US-*` widening (not recommended, see D4)
+  would claim the full 1,173, ~3.3x more than the targeted `US-IN`-only fix.
+- **Shape 8 ("small")** — CONFIRMED, 296 uncaptured, MS-dominated (123).
+
+### P-D4 — What was NOT measured (stated plainly)
+
+- **A real, bounded corpus-quality blind spot in this classifier (and
+  likely in Q-D2's own component A/B, which uses the same quote
+  vocabulary)**: 4/53 states show near-zero quoted-term+verb signal at all
+  (`component_a_total`): **AK (0), MA (0), RI (0), PR (2)**, against
+  17,168/22,514/20,552/23,636 baseline-fail candidate rows respectively —
+  NOT genuine zero population. Confirmed live for AK: its real quote
+  characters are stored as raw `\x93`/`\x94` bytes (cp1252 mojibake,
+  already documented in this repo's own `ak_i9_cp1252_mojibake_row.json`
+  fixture) — my (ASCII/curly-quote) regex class never matches them. RI's
+  own near-identical mangled-quote defect (`\x80\x9c`/`\x80\x9d`) is
+  ALREADY independently documented in this sprint's own `test_us_body_
+  preamble_b1_colon_list_matrix_red.py` module docstring — cross-confirms
+  this is a real, known corpus defect, not a bug in today's script. MA's
+  cause was not independently root-caused this cycle (flagged, not
+  investigated further) — could be the same encoding class or a genuinely
+  different convention. **Net effect: every number in this report is a
+  LOWER BOUND** for these 4 states specifically; the true corpus-wide
+  totals are somewhat higher than measured.
+- Shapes were classified independently per shape (a row can match more than
+  one); I did NOT attempt single-shape-per-row forced classification, since
+  overlap itself is useful signal for D4's own starvation analysis (the
+  overlap_pairs data is in the committed JSON).
+- I did not re-run Q-D2's own component-B (unquoted-term) denominator
+  slice — Q-D2 itself called it "a small, separately-disclosed contributor"
+  (1,996/59,461 raw); not reproduced here given the time budget, and it does
+  not change any of the 8 shapes' own membership (none of the 8 named
+  shapes are component-B-only).
+- Whether widening any of these rules materially changes FP is a SEPARATE
+  question — that is D3, below, not this measurement.

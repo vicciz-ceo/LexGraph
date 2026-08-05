@@ -1,0 +1,1985 @@
+{
+  "snapshot": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+  "window": 800,
+  "shape_names": {
+    "1": "Bare \"Term\" means, no trigger phrase at all",
+    "2": "Trigger present, quote follows w/o \"the term\" wording or colon",
+    "3": "\"In this <unit>\" trigger (not \"As used in\"/\"For purposes of\")",
+    "4": "Trigger cites external Section range instead of \"this <unit>\"",
+    "5": "Named-Act phrasing (\"As used in the <Named Act>\")",
+    "6": "Intervening qualifier clause between trigger and quoted term",
+    "7": "CA wide-window idiom in OTHER (non-CA) states",
+    "8": "B2 wording variant (\"...have the meaning(s) ...ascribed...\")"
+  },
+  "totals": {
+    "rows_scanned": 2038247,
+    "baseline_fail": 1977172,
+    "component_a_total": 89832,
+    "component_a_captured": 32371,
+    "shape_total": {
+      "1": 31048,
+      "2": 23049,
+      "3": 13062,
+      "4": 1702,
+      "5": 196,
+      "6": 125,
+      "7": 1417,
+      "8": 576
+    },
+    "shape_captured": {
+      "1": 1370,
+      "2": 5572,
+      "3": 3545,
+      "4": 59,
+      "5": 1,
+      "6": 23,
+      "7": 244,
+      "8": 280
+    },
+    "shape5_also_means": 2,
+    "overlap_pairs": {
+      "2,4": 11,
+      "2,3": 21,
+      "2,7": 24,
+      "3,7": 35,
+      "4,7": 48,
+      "2,8": 3,
+      "7,8": 2,
+      "4,8": 29,
+      "6,7": 1,
+      "4,5": 1,
+      "3,4": 1
+    }
+  },
+  "per_state": {
+    "US-AK": {
+      "rows": 17935,
+      "baseline_fail": 17168,
+      "component_a_total": 0,
+      "component_a_captured": 0,
+      "shape_total": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-AL": {
+      "rows": 45984,
+      "baseline_fail": 44331,
+      "component_a_total": 205,
+      "component_a_captured": 75,
+      "shape_total": {
+        "1": 59,
+        "2": 72,
+        "3": 25,
+        "4": 3,
+        "5": 0,
+        "6": 2,
+        "7": 3,
+        "8": 18
+      },
+      "shape_captured": {
+        "1": 5,
+        "2": 6,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 2
+      },
+      "shape5_also_means": 0
+    },
+    "US-AR": {
+      "rows": 36936,
+      "baseline_fail": 34097,
+      "component_a_total": 298,
+      "component_a_captured": 112,
+      "shape_total": {
+        "1": 61,
+        "2": 137,
+        "3": 28,
+        "4": 2,
+        "5": 9,
+        "6": 4,
+        "7": 1,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 40,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-AZ": {
+      "rows": 22674,
+      "baseline_fail": 19659,
+      "component_a_total": 103,
+      "component_a_captured": 6,
+      "shape_total": {
+        "1": 60,
+        "2": 46,
+        "3": 14,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-CA": {
+      "rows": 161429,
+      "baseline_fail": 161429,
+      "component_a_total": 12140,
+      "component_a_captured": 3580,
+      "shape_total": {
+        "1": 6767,
+        "2": 2867,
+        "3": 109,
+        "4": 88,
+        "5": 4,
+        "6": 17,
+        "7": 0,
+        "8": 1
+      },
+      "shape_captured": {
+        "1": 460,
+        "2": 367,
+        "3": 5,
+        "4": 17,
+        "5": 0,
+        "6": 2,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-CO": {
+      "rows": 34231,
+      "baseline_fail": 31705,
+      "component_a_total": 662,
+      "component_a_captured": 422,
+      "shape_total": {
+        "1": 74,
+        "2": 220,
+        "3": 29,
+        "4": 1,
+        "5": 0,
+        "6": 1,
+        "7": 9,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 6,
+        "2": 36,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 3,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-CT": {
+      "rows": 16082,
+      "baseline_fail": 15318,
+      "component_a_total": 968,
+      "component_a_captured": 43,
+      "shape_total": {
+        "1": 810,
+        "2": 163,
+        "3": 5,
+        "4": 7,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 15,
+        "2": 10,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-DC": {
+      "rows": 23694,
+      "baseline_fail": 22478,
+      "component_a_total": 387,
+      "component_a_captured": 290,
+      "shape_total": {
+        "1": 52,
+        "2": 25,
+        "3": 27,
+        "4": 5,
+        "5": 0,
+        "6": 1,
+        "7": 2,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 4,
+        "2": 5,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 1,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-DE": {
+      "rows": 21649,
+      "baseline_fail": 20629,
+      "component_a_total": 518,
+      "component_a_captured": 236,
+      "shape_total": {
+        "1": 121,
+        "2": 167,
+        "3": 31,
+        "4": 2,
+        "5": 0,
+        "6": 1,
+        "7": 17,
+        "8": 5
+      },
+      "shape_captured": {
+        "1": 8,
+        "2": 30,
+        "3": 1,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 9,
+        "8": 2
+      },
+      "shape5_also_means": 0
+    },
+    "US-FED": {
+      "rows": 54853,
+      "baseline_fail": 52933,
+      "component_a_total": 1766,
+      "component_a_captured": 358,
+      "shape_total": {
+        "1": 206,
+        "2": 42,
+        "3": 874,
+        "4": 18,
+        "5": 0,
+        "6": 8,
+        "7": 48,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 28,
+        "2": 2,
+        "3": 19,
+        "4": 6,
+        "5": 0,
+        "6": 5,
+        "7": 8,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-FL": {
+      "rows": 24866,
+      "baseline_fail": 24061,
+      "component_a_total": 1426,
+      "component_a_captured": 1147,
+      "shape_total": {
+        "1": 183,
+        "2": 96,
+        "3": 21,
+        "4": 0,
+        "5": 1,
+        "6": 4,
+        "7": 10,
+        "8": 1
+      },
+      "shape_captured": {
+        "1": 18,
+        "2": 21,
+        "3": 1,
+        "4": 0,
+        "5": 0,
+        "6": 3,
+        "7": 5,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-GA": {
+      "rows": 28154,
+      "baseline_fail": 28154,
+      "component_a_total": 2476,
+      "component_a_captured": 2323,
+      "shape_total": {
+        "1": 71,
+        "2": 66,
+        "3": 16,
+        "4": 0,
+        "5": 0,
+        "6": 2,
+        "7": 1,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 16,
+        "2": 16,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 1,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-HI": {
+      "rows": 16446,
+      "baseline_fail": 15977,
+      "component_a_total": 241,
+      "component_a_captured": 87,
+      "shape_total": {
+        "1": 71,
+        "2": 158,
+        "3": 4,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 5,
+        "2": 24,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-IA": {
+      "rows": 28223,
+      "baseline_fail": 27133,
+      "component_a_total": 732,
+      "component_a_captured": 378,
+      "shape_total": {
+        "1": 106,
+        "2": 332,
+        "3": 24,
+        "4": 4,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 2
+      },
+      "shape_captured": {
+        "1": 7,
+        "2": 43,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 1
+      },
+      "shape5_also_means": 0
+    },
+    "US-ID": {
+      "rows": 22754,
+      "baseline_fail": 21933,
+      "component_a_total": 482,
+      "component_a_captured": 185,
+      "shape_total": {
+        "1": 187,
+        "2": 145,
+        "3": 43,
+        "4": 2,
+        "5": 0,
+        "6": 1,
+        "7": 10,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 8,
+        "2": 47,
+        "3": 2,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 8,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-IL": {
+      "rows": 72456,
+      "baseline_fail": 72456,
+      "component_a_total": 5393,
+      "component_a_captured": 2214,
+      "shape_total": {
+        "1": 2662,
+        "2": 704,
+        "3": 746,
+        "4": 27,
+        "5": 3,
+        "6": 0,
+        "7": 29,
+        "8": 48
+      },
+      "shape_captured": {
+        "1": 234,
+        "2": 178,
+        "3": 421,
+        "4": 13,
+        "5": 1,
+        "6": 0,
+        "7": 20,
+        "8": 18
+      },
+      "shape5_also_means": 0
+    },
+    "US-IN": {
+      "rows": 83148,
+      "baseline_fail": 82561,
+      "component_a_total": 10607,
+      "component_a_captured": 2935,
+      "shape_total": {
+        "1": 3362,
+        "2": 7091,
+        "3": 16,
+        "4": 25,
+        "5": 0,
+        "6": 0,
+        "7": 363,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 12,
+        "2": 2870,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 11,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-KS": {
+      "rows": 24361,
+      "baseline_fail": 23380,
+      "component_a_total": 624,
+      "component_a_captured": 245,
+      "shape_total": {
+        "1": 253,
+        "2": 156,
+        "3": 20,
+        "4": 0,
+        "5": 0,
+        "6": 3,
+        "7": 5,
+        "8": 6
+      },
+      "shape_captured": {
+        "1": 2,
+        "2": 25,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 1
+      },
+      "shape5_also_means": 0
+    },
+    "US-KY": {
+      "rows": 20894,
+      "baseline_fail": 19822,
+      "component_a_total": 635,
+      "component_a_captured": 331,
+      "shape_total": {
+        "1": 97,
+        "2": 246,
+        "3": 14,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 7,
+        "8": 1
+      },
+      "shape_captured": {
+        "1": 2,
+        "2": 38,
+        "3": 0,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 4,
+        "8": 1
+      },
+      "shape5_also_means": 0
+    },
+    "US-LA": {
+      "rows": 43474,
+      "baseline_fail": 42040,
+      "component_a_total": 914,
+      "component_a_captured": 496,
+      "shape_total": {
+        "1": 212,
+        "2": 320,
+        "3": 25,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 26,
+        "8": 12
+      },
+      "shape_captured": {
+        "1": 10,
+        "2": 61,
+        "3": 1,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 19,
+        "8": 9
+      },
+      "shape5_also_means": 0
+    },
+    "US-MA": {
+      "rows": 23152,
+      "baseline_fail": 22514,
+      "component_a_total": 0,
+      "component_a_captured": 0,
+      "shape_total": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-MD": {
+      "rows": 39552,
+      "baseline_fail": 39552,
+      "component_a_total": 5295,
+      "component_a_captured": 3107,
+      "shape_total": {
+        "1": 212,
+        "2": 26,
+        "3": 4980,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 29,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 3,
+        "2": 7,
+        "3": 3029,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 1,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-ME": {
+      "rows": 25316,
+      "baseline_fail": 24315,
+      "component_a_total": 1313,
+      "component_a_captured": 118,
+      "shape_total": {
+        "1": 106,
+        "2": 633,
+        "3": 26,
+        "4": 3,
+        "5": 0,
+        "6": 9,
+        "7": 7,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 3,
+        "2": 49,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 2,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-MI": {
+      "rows": 40658,
+      "baseline_fail": 37779,
+      "component_a_total": 742,
+      "component_a_captured": 251,
+      "shape_total": {
+        "1": 285,
+        "2": 454,
+        "3": 3,
+        "4": 16,
+        "5": 0,
+        "6": 0,
+        "7": 4,
+        "8": 95
+      },
+      "shape_captured": {
+        "1": 12,
+        "2": 191,
+        "3": 0,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-MN": {
+      "rows": 27747,
+      "baseline_fail": 26639,
+      "component_a_total": 1711,
+      "component_a_captured": 371,
+      "shape_total": {
+        "1": 338,
+        "2": 875,
+        "3": 54,
+        "4": 50,
+        "5": 0,
+        "6": 1,
+        "7": 141,
+        "8": 2
+      },
+      "shape_captured": {
+        "1": 15,
+        "2": 129,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 16,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-MO": {
+      "rows": 29296,
+      "baseline_fail": 28253,
+      "component_a_total": 317,
+      "component_a_captured": 111,
+      "shape_total": {
+        "1": 69,
+        "2": 166,
+        "3": 0,
+        "4": 37,
+        "5": 0,
+        "6": 2,
+        "7": 7,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 4,
+        "2": 16,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 2,
+        "7": 3,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-MS": {
+      "rows": 158688,
+      "baseline_fail": 158688,
+      "component_a_total": 8348,
+      "component_a_captured": 4700,
+      "shape_total": {
+        "1": 2147,
+        "2": 579,
+        "3": 171,
+        "4": 999,
+        "5": 0,
+        "6": 42,
+        "7": 131,
+        "8": 367
+      },
+      "shape_captured": {
+        "1": 313,
+        "2": 79,
+        "3": 0,
+        "4": 15,
+        "5": 0,
+        "6": 4,
+        "7": 43,
+        "8": 244
+      },
+      "shape5_also_means": 0
+    },
+    "US-MT": {
+      "rows": 30514,
+      "baseline_fail": 29065,
+      "component_a_total": 323,
+      "component_a_captured": 71,
+      "shape_total": {
+        "1": 111,
+        "2": 148,
+        "3": 45,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 32,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 21,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 19,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NC": {
+      "rows": 26685,
+      "baseline_fail": 25678,
+      "component_a_total": 521,
+      "component_a_captured": 246,
+      "shape_total": {
+        "1": 106,
+        "2": 204,
+        "3": 36,
+        "4": 0,
+        "5": 0,
+        "6": 4,
+        "7": 183,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 10,
+        "2": 32,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 2,
+        "7": 19,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-ND": {
+      "rows": 29042,
+      "baseline_fail": 28016,
+      "component_a_total": 438,
+      "component_a_captured": 150,
+      "shape_total": {
+        "1": 101,
+        "2": 179,
+        "3": 68,
+        "4": 7,
+        "5": 0,
+        "6": 1,
+        "7": 4,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 4,
+        "2": 19,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NE": {
+      "rows": 25997,
+      "baseline_fail": 25997,
+      "component_a_total": 6,
+      "component_a_captured": 1,
+      "shape_total": {
+        "1": 2,
+        "2": 3,
+        "3": 10,
+        "4": 216,
+        "5": 33,
+        "6": 0,
+        "7": 6,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NH": {
+      "rows": 25375,
+      "baseline_fail": 24432,
+      "component_a_total": 670,
+      "component_a_captured": 68,
+      "shape_total": {
+        "1": 320,
+        "2": 135,
+        "3": 217,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 8,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 5,
+        "2": 21,
+        "3": 3,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NJ": {
+      "rows": 55897,
+      "baseline_fail": 53518,
+      "component_a_total": 657,
+      "component_a_captured": 199,
+      "shape_total": {
+        "1": 162,
+        "2": 476,
+        "3": 9,
+        "4": 13,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 3,
+        "2": 94,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NM": {
+      "rows": 34455,
+      "baseline_fail": 32830,
+      "component_a_total": 678,
+      "component_a_captured": 250,
+      "shape_total": {
+        "1": 85,
+        "2": 321,
+        "3": 2,
+        "4": 19,
+        "5": 111,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 2,
+        "2": 45,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 2
+    },
+    "US-NV": {
+      "rows": 48190,
+      "baseline_fail": 46928,
+      "component_a_total": 8561,
+      "component_a_captured": 246,
+      "shape_total": {
+        "1": 8001,
+        "2": 597,
+        "3": 19,
+        "4": 0,
+        "5": 0,
+        "6": 3,
+        "7": 2,
+        "8": 1
+      },
+      "shape_captured": {
+        "1": 64,
+        "2": 81,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-NY": {
+      "rows": 40102,
+      "baseline_fail": 38623,
+      "component_a_total": 1426,
+      "component_a_captured": 519,
+      "shape_total": {
+        "1": 734,
+        "2": 214,
+        "3": 34,
+        "4": 4,
+        "5": 0,
+        "6": 1,
+        "7": 24,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 35,
+        "2": 30,
+        "3": 1,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 11,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-OH": {
+      "rows": 33161,
+      "baseline_fail": 32211,
+      "component_a_total": 2384,
+      "component_a_captured": 1274,
+      "shape_total": {
+        "1": 73,
+        "2": 1019,
+        "3": 0,
+        "4": 98,
+        "5": 7,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 3,
+        "2": 118,
+        "3": 0,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-OK": {
+      "rows": 35329,
+      "baseline_fail": 34115,
+      "component_a_total": 701,
+      "component_a_captured": 276,
+      "shape_total": {
+        "1": 170,
+        "2": 266,
+        "3": 40,
+        "4": 16,
+        "5": 27,
+        "6": 2,
+        "7": 8,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 38,
+        "3": 0,
+        "4": 1,
+        "5": 0,
+        "6": 0,
+        "7": 5,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-OR": {
+      "rows": 36202,
+      "baseline_fail": 34720,
+      "component_a_total": 1819,
+      "component_a_captured": 975,
+      "shape_total": {
+        "1": 377,
+        "2": 737,
+        "3": 13,
+        "4": 3,
+        "5": 1,
+        "6": 2,
+        "7": 108,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 7,
+        "2": 201,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-PA": {
+      "rows": 14547,
+      "baseline_fail": 14004,
+      "component_a_total": 85,
+      "component_a_captured": 35,
+      "shape_total": {
+        "1": 29,
+        "2": 23,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 4,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 1,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-PR": {
+      "rows": 23636,
+      "baseline_fail": 23636,
+      "component_a_total": 2,
+      "component_a_captured": 1,
+      "shape_total": {
+        "1": 1,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-RI": {
+      "rows": 21107,
+      "baseline_fail": 20552,
+      "component_a_total": 0,
+      "component_a_captured": 0,
+      "shape_total": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 15,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-SC": {
+      "rows": 29947,
+      "baseline_fail": 28957,
+      "component_a_total": 518,
+      "component_a_captured": 185,
+      "shape_total": {
+        "1": 151,
+        "2": 215,
+        "3": 29,
+        "4": 7,
+        "5": 0,
+        "6": 1,
+        "7": 5,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 4,
+        "2": 32,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-SD": {
+      "rows": 39589,
+      "baseline_fail": 38791,
+      "component_a_total": 166,
+      "component_a_captured": 33,
+      "shape_total": {
+        "1": 51,
+        "2": 70,
+        "3": 27,
+        "4": 14,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 16,
+        "3": 1,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-TN": {
+      "rows": 32693,
+      "baseline_fail": 31533,
+      "component_a_total": 906,
+      "component_a_captured": 446,
+      "shape_total": {
+        "1": 178,
+        "2": 412,
+        "3": 32,
+        "4": 5,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 9,
+        "2": 71,
+        "3": 1,
+        "4": 3,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-TX": {
+      "rows": 122535,
+      "baseline_fail": 117526,
+      "component_a_total": 3268,
+      "component_a_captured": 88,
+      "shape_total": {
+        "1": 265,
+        "2": 119,
+        "3": 2979,
+        "4": 2,
+        "5": 0,
+        "6": 0,
+        "7": 15,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 2,
+        "2": 31,
+        "3": 30,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-UT": {
+      "rows": 25880,
+      "baseline_fail": 24171,
+      "component_a_total": 2281,
+      "component_a_captured": 1696,
+      "shape_total": {
+        "1": 79,
+        "2": 747,
+        "3": 28,
+        "4": 5,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 7,
+        "2": 261,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 2,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-VA": {
+      "rows": 33856,
+      "baseline_fail": 32760,
+      "component_a_total": 1242,
+      "component_a_captured": 626,
+      "shape_total": {
+        "1": 168,
+        "2": 470,
+        "3": 29,
+        "4": 2,
+        "5": 0,
+        "6": 3,
+        "7": 3,
+        "8": 1
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 25,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 1,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-VT": {
+      "rows": 23521,
+      "baseline_fail": 22674,
+      "component_a_total": 530,
+      "component_a_captured": 280,
+      "shape_total": {
+        "1": 93,
+        "2": 200,
+        "3": 45,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 3,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 5,
+        "2": 45,
+        "3": 2,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 3,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-WA": {
+      "rows": 51498,
+      "baseline_fail": 49698,
+      "component_a_total": 1285,
+      "component_a_captured": 196,
+      "shape_total": {
+        "1": 699,
+        "2": 483,
+        "3": 37,
+        "4": 0,
+        "5": 0,
+        "6": 6,
+        "7": 108,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 7,
+        "2": 64,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 10,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-WI": {
+      "rows": 18158,
+      "baseline_fail": 17617,
+      "component_a_total": 2165,
+      "component_a_captured": 82,
+      "shape_total": {
+        "1": 103,
+        "2": 24,
+        "3": 2005,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 15,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 1,
+        "2": 4,
+        "3": 26,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    },
+    "US-WV": {
+      "rows": 25460,
+      "baseline_fail": 24392,
+      "component_a_total": 763,
+      "component_a_captured": 246,
+      "shape_total": {
+        "1": 385,
+        "2": 134,
+        "3": 49,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 6,
+        "8": 16
+      },
+      "shape_captured": {
+        "1": 6,
+        "2": 18,
+        "3": 2,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 5,
+        "8": 2
+      },
+      "shape5_also_means": 0
+    },
+    "US-WY": {
+      "rows": 10219,
+      "baseline_fail": 9724,
+      "component_a_total": 134,
+      "component_a_captured": 61,
+      "shape_total": {
+        "1": 33,
+        "2": 67,
+        "3": 4,
+        "4": 0,
+        "5": 0,
+        "6": 1,
+        "7": 0,
+        "8": 0
+      },
+      "shape_captured": {
+        "1": 0,
+        "2": 13,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "shape5_also_means": 0
+    }
+  },
+  "samples": {
+    "1": [
+      {
+        "act_id": "STATE_AL_T13A_C12_S13A-12-23",
+        "code": "US-AL",
+        "excerpt": "tivity otherwise than as a player.\n\n(b) \u201cConspire\u201d means to engage in activity constituting a criminal conspiracy as defined in Section 13A-4-3.\n\n(c) Conspiracy to promote gambling is a Class A misdemeanor."
+      },
+      {
+        "act_id": "STATE_AL_T45_C6_S45-6-242",
+        "code": "US-AL",
+        "excerpt": "rly indicates a different meaning:\n\n(1) \u201cCounty\u201d means Bullock County in the State of Alabama.\n\n(2) \u201cCommissioner\u201d means the Commissioner of Revenue of the state.\n\n(3) \u201cState Department of Revenue\u201d means the Department of Revenue of the state.\n\n(4) \u201cState\u201d means the State of Alabama.\n\n(5) \u201cState sales tax statutes\u201d means Division 1 of Article 1 of Chapter 23 of Title 40, as amended, including all "
+      },
+      {
+        "act_id": "STATE_AL_T9_C13_S9-13-160",
+        "code": "US-AL",
+        "excerpt": "\u201cForestland\u201d shall mean any land which supports a forest growth or which under prevailing natural and economic conditions may be expected to support such a growth in the future or which is being used or reserved for any forest purpose."
+      },
+      {
+        "act_id": "STATE_AL_T45_C9_S45-9-84.22",
+        "code": "US-AL",
+        "excerpt": "the following respective meanings:\n\n(1) \u201cReal Property Instrument\u201d means and includes any instrument or document affecting the title to real property that may now or hereafter be filed for record in the probate office pursuant to the applicable requirements of the laws of this state, including, without limitation, Section 12-13-43, and all statutes providing for the filing and recording of notices"
+      },
+      {
+        "act_id": "STATE_AL_T33_C9_S33-9-1",
+        "code": "US-AL",
+        "excerpt": "mpact set out in this chapter, the term \u201cdeep draft harbor and terminal\u201d means a structure, series of structures or facility of any type located on the continental shelf off the coast designed to accommodate deep draft vessels whose draft is greater than the depths of the present United States harbors and waterways commonly used by oceangoing traffic, and includes all functionally related structur"
+      },
+      {
+        "act_id": "STATE_AL_T45_C8_S45-8-84.20",
+        "code": "US-AL",
+        "excerpt": "the following respective meanings:\n\n(1) \u201cReal property instrument\u201d means and includes any instrument or document affecting the title to real property that may now or hereafter be filed for record in the probate office pursuant to the applicable requirements of the laws of this state, including but without limitation to Section 12-13-43, and all statutes providing for the filing and recording of no"
+      },
+      {
+        "act_id": "STATE_AL_T32_C5A_S32-5A-178",
+        "code": "US-AL",
+        "excerpt": " purpose of making a speed record.\n\n(b) \u201cDrag race\u201d is defined as the operation of two or more vehicles from a point side by side at accelerating speeds in a competitive attempt to outdistance each other, or the operation of one or more vehicles over a common selected course, from the same point to the same point, for the purpose of comparing the relative speeds or power of acceleration of such ve"
+      },
+      {
+        "act_id": "STATE_AL_T40_C18_S40-18-33",
+        "code": "US-AL",
+        "excerpt": "x imposed by Section 40-18-31, the term \u201ctaxable income\u201d means federal taxable income without the benefit of federal net operating losses plus the additions prescribed and less the deductions and adjustments allowed by this chapter and as allocated and apportioned to Alabama."
+      },
+      {
+        "act_id": "STATE_AL_T45_C14_S45-14-82.70",
+        "code": "US-AL",
+        "excerpt": "the following respective meanings:\n\n(1) \u201cReal Property Instrument\u201d means and includes any instrument or document affecting the title to real property that may now or hereafter be filed for record in the probate office pursuant to the applicable requirements of the laws of this state, including, without limitation, Section 12-13-43, and all statutes providing for the filing and recording of notices"
+      },
+      {
+        "act_id": "STATE_AL_T45_C49_S45-49-246",
+        "code": "US-AL",
+        "excerpt": ") For purpose of this section, the term \u201creligious organization\u201d shall mean any society, sect, persuasion, mission, church, parish, congregation, temple, convention, or association of any of the foregoing, diocese or presbytery, or other organization, whether or not incorporated, or any employee thereof, no part of the net earnings of which inures to the benefit of any private party or individual "
+      },
+      {
+        "act_id": "STATE_AL_T9_C13_S9-13-180",
+        "code": "US-AL",
+        "excerpt": "\u201cForestlands\u201d shall mean any lands which support a forest growth, which under prevailing natural and economic conditions may be expected to support such a growth in the future or which is being used or reserved for any forest purpose. Such term shall not include any lands within an urban area which are primarily used for residential purposes nor shall it include any publicly owned lands."
+      },
+      {
+        "act_id": "STATE_AL_T34_C24_S34-24-50",
+        "code": "US-AL",
+        "excerpt": "The \u201cpractice of medicine or osteopathy\u201d means:\n\n(1) To diagnose, treat, correct, advise, or prescribe for any human disease, ailment, injury, infirmity, deformity, pain, or other condition, physical or mental, real or imaginary, by any means or instrumentality;\n\n(2) To maintain an office or place of business for the purpose of doing acts described in subdivision (1), whether for compensation or n"
+      }
+    ],
+    "2": [
+      {
+        "act_id": "STATE_AL_T34_C24_S34-24-400",
+        "code": "US-AL",
+        "excerpt": "lt of any physical or mental condition. For the purposes of this article the term \u201cimpaired\u201d shall mean the inability of a physician or osteopath to practice medicine with reasonable skill and safety to patients by reason of illness, inebriation, excessive use of drugs, narcotics, alcohol, chemicals, or other substances or as a result of any physical or mental condition. In order to carry out this"
+      },
+      {
+        "act_id": "STATE_AL_T35_C1_S35-1-6",
+        "code": "US-AL",
+        "excerpt": "(a) As used in this section, \u201cpolitical subdivisions\u201d means all state, county, incorporated city, unincorporated city, public local entity, public-private partnership, and any other public entity of the state, a county, or city.\n\n(b) The State of Alabama and all political subdivisions may not adopt or implement policy recommendations that deliberately or inadvertently infringe or restrict private "
+      },
+      {
+        "act_id": "STATE_AL_T1_C5_S22-5-1",
+        "code": "US-AL",
+        "excerpt": "For the purposes of this chapter, \u201cphysical fitness\u201d means good or improved habits relating to recreation, exercises, sports and the use of leisure time and instructions for these purposes and for improving the physique and health of the residents of the state."
+      },
+      {
+        "act_id": "STATE_AL_T40_C18_S40-18-24.4",
+        "code": "US-AL",
+        "excerpt": "cting Pass-Through Entity Tax Act.\n\n(b) For the purposes of this section, \u201celecting pass-through entity\u201d means any Alabama S corporation, as is defined by Section 40-18-160, and any subchapter K entity, as is defined by Section 40-18-1, that has made an election pursuant to subsection (d) to pay Alabama income tax at the rate prescribed in subsection (e).\n\n(c) For tax years beginning on or after J"
+      },
+      {
+        "act_id": "STATE_AL_T33_C5_S33-5-66.1",
+        "code": "US-AL",
+        "excerpt": "(a) For purposes of this section, an electronic boating traffic ticket, or \u201ce-ticket,\u201d is defined as a ticket that is generated and printed at the site of an offense committed on the waters of this state, as defined under Section 33-5-3, after the violation has been electronically transmitted to the court.\n\n(b) When any person is arrested for an offense committed on the waters of this state, the a"
+      },
+      {
+        "act_id": "STATE_AL_T45_C12_S45-12-240.40",
+        "code": "US-AL",
+        "excerpt": "r motorized and non-motorized vehicles. For purposes of this section the term \u201cmotor vehicle\u201d shall mean the same as defined in Article 5, Chapter 12, Title 40.\n\n(b) Before entering upon the additional duties imposed by this section, the revenue commissioner shall execute an additional bond in a sum prescribed by a written recommendation to the revenue commissioner from the Examiners of Public Acc"
+      },
+      {
+        "act_id": "STATE_AL_T25_C4_S25-4-76",
+        "code": "US-AL",
+        "excerpt": "(a) As used in this section, \u201cmaritime employment\u201d means employment in connection with the construction, repair, loading or unloading of vessels, and in connection with the handling of cargoes for vessels. The secretary shall, after a study of previous employment records and after investigation and hearing, determine, and may thereafter from time to time redetermine which industries are maritime i"
+      },
+      {
+        "act_id": "STATE_AL_T27_C3_S27-3-26.1",
+        "code": "US-AL",
+        "excerpt": "ions may change from time to time.\n\n(c) For purposes of this section, \u201cdomiciliary commissioner\u201d means the chief insurance regulator for the jurisdiction in which the insurer is domiciled."
+      },
+      {
+        "act_id": "STATE_AL_T2_C15_S2-15-211",
+        "code": "US-AL",
+        "excerpt": "nization to feed garbage to swine.\n\n(b) For the purposes of this section, \u201cgarbage\u201d means putrescible animal and vegetable waste resulting from the handling, preparation, cooking and consumption of foods including animal and fowl carcasses or parts thereof; provided, that citrus pulps, pea vines, bakery waste, candy kitchen waste and dairy products waste from milk processing plants shall not be in"
+      },
+      {
+        "act_id": "STATE_AL_T33_C5_S33-5-51",
+        "code": "US-AL",
+        "excerpt": "(a) As used in this chapter, \u201cpersonal watercraft\u201d means a vessel that uses an inboard motor powering a water jet pump as its primary source of motive power and is designed to be operated by a person sitting, standing, or kneeling on the vessel, rather than the conventional manner of sitting or standing inside the vessel.\n\n(b) A person may not operate a personal watercraft on the waters of this st"
+      },
+      {
+        "act_id": "STATE_AL_T24_C3_S24-3-3",
+        "code": "US-AL",
+        "excerpt": "newal plan for the area of the project. As used in this chapter, an \u201curban renewal plan\u201d means a plan, as it exists from time to time, for an urban renewal project, which plan shall conform to the general plan for the municipality as a whole and shall be sufficiently complete to indicate such land acquisition, demolition and removal of structures, redevelopment, improvements, and rehabilitation as"
+      },
+      {
+        "act_id": "STATE_AL_T13A_C12_S13A-12-233",
+        "code": "US-AL",
+        "excerpt": "s substantial income or resources.\n\n(b) For purposes of this section, \u201csubstantial income\u201d means any amount exceeding the established minimum wage, as established by law.\n\n(c) Any person who engages in a criminal enterprise for the purpose of trafficking in illegal drugs shall be punished as follows:\n\n(1) Upon the first conviction of violation of this section, he shall be sentenced to a mandatory "
+      }
+    ],
+    "3": [
+      {
+        "act_id": "STATE_AL_T26_C1A_S26-1A-215",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cretirement plan\u201d means a plan or account created by an employer, the principal, or another individual to provide retirement benefits or deferred compensation of which the principal is a participant, beneficiary, or owner, including a plan or account under the following sections of the Internal Revenue Code:\n\n(1) an individual retirement account under Internal Revenue Code Sec"
+      },
+      {
+        "act_id": "STATE_AL_T8_C9B_S8-9B-12",
+        "code": "US-AL",
+        "excerpt": "(a) In this section:\n\n(1) \u201cSeries\u201d means an arrangement, however denominated, created by a series organization that, pursuant to the law under which the series organization is organized, has the characteristics set forth in paragraph (2).\n\n(2) \u201cSeries organization\u201d means an organization that, pursuant to the law under which it is organized, has the following characteristics:\n\n(i) The public organi"
+      },
+      {
+        "act_id": "STATE_AL_T10A_C1_S10A-1-2.13",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cguaranty\u201d means a mortgage, pledge, security agreement, or other agreement making the domestic entity or its assets secondarily liable for another person\u2019s contract, security, or other obligation.\n\n(b) Unless otherwise provided by its governing documents or this title, a domestic entity may:\n\n(1) make a guaranty on behalf of a parent, subsidiary, or affiliate of the entity; o"
+      },
+      {
+        "act_id": "STATE_AL_T19_C3A_S19-3A-409",
+        "code": "US-AL",
+        "excerpt": "(a) In this section:\n\n(1) \u201cPayment\u201d means a payment that a fiduciary may receive over a fixed number of years or during the life of one or more individuals because of services rendered or property transferred to the payer in exchange for future payments. The term includes a payment made in money or property from the payer\u2019s general assets or from a separate fund created by the payer. For purposes "
+      },
+      {
+        "act_id": "STATE_AL_T13A_C3_S13A-3-2",
+        "code": "US-AL",
+        "excerpt": "in the meaning of Section 13A-3-1.\n\n(e) In this section:\n\n(1) \u201cIntoxication\u201d includes a disturbance of mental or physical capacities resulting from the introduction of any substance into the body.\n\n(2) \u201cVoluntary intoxication\u201d means intoxication caused by substances that the actor knowingly introduced into his body, the tendency of which to cause intoxication he knows or ought to know, unless he i"
+      },
+      {
+        "act_id": "STATE_AL_T19_C3A_S19-3A-414",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cderivative instrument\u201d means a contract, a financial instrument, or a combination of contracts and financial instruments which gives a trust the right or obligation to participate in some or all changes in the price of a tangible or intangible asset or group of assets, or changes in a rate, an index of prices or rates, or other market indicator for an asset or a group of asse"
+      },
+      {
+        "act_id": "STATE_AL_T40_C15B_S40-15B-7",
+        "code": "US-AL",
+        "excerpt": "(a) In this section:\n\n(1) \u201cSpecial elective benefit\u201d means a reduction in an estate tax obtained by an election for:\n\n(A) a reduced valuation of specified property that is included in the gross estate;\n\n(B) a deduction from the gross estate, other than a marital or charitable deduction, allowed for specified property; or\n\n(C) an exclusion from the gross estate of specified property.\n\n(2) \u201cSpecifie"
+      },
+      {
+        "act_id": "STATE_AL_T33_C5B_S33-5B-20",
+        "code": "US-AL",
+        "excerpt": "(a) In this section:\n\n(1) \u201cBy operation of law\u201d means pursuant to a law or judicial order affecting ownership of a vessel:\n\n(A) because of death, divorce or other family law proceeding, merger, consolidation, dissolution, or bankruptcy;\n\n(B) through the exercise of the rights of a lien creditor or a person having a lien created by statute or rule of law; or\n\n(C) through other legal process.\n\n(2) \u201c"
+      },
+      {
+        "act_id": "STATE_AL_T35_C4_S35-4-123",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cpaper document\u201d means a document that is received by the judge of probate in a form that is not electronic.\n\n(b) A judge of probate:\n\n(1) Who implements any of the functions listed in this section shall do so in compliance with standards established by the Electronic Recording Commission.\n\n(2) May receive, index, store, archive, and transmit electronic documents.\n\n(3) May pro"
+      },
+      {
+        "act_id": "STATE_AL_T1_C19_S22-19-180",
+        "code": "US-AL",
+        "excerpt": "(a) In this section:\n\n(1) \u201cAdvance health care directive\u201d means a power of attorney for health care or a record signed or authorized by a prospective donor containing the prospective donor\u2019s direction concerning a health care decision for the prospective donor.\n\n(2) \u201cDeclaration\u201d means a record signed by a prospective donor specifying the circumstances under which a life support system may be with"
+      },
+      {
+        "act_id": "STATE_AL_T19_C3A_S19-3A-410",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cliquidating asset\u201d means an asset whose value will diminish or terminate because the asset is expected to produce receipts for a period of limited duration. The term includes a leasehold, patent, copyright, royalty right, and right to receive payments under an arrangement that does not provide for the payment of interest on the unpaid balance. The term does not include a paym"
+      },
+      {
+        "act_id": "STATE_AL_T19_C3A_S19-3A-503",
+        "code": "US-AL",
+        "excerpt": "(a) In this section, \u201cdepreciation\u201d means a reduction in value due to wear, tear, decay, corrosion, or gradual obsolescence of a fixed asset having a useful life of more than one year.\n\n(b) A fiduciary may transfer from income to principal a reasonable amount of the net cash receipts from a principal asset that is subject to depreciation, but may not transfer any amount for depreciation in any of "
+      }
+    ],
+    "4": [
+      {
+        "act_id": "STATE_AL_T32_C5A_S32-5A-191.4",
+        "code": "US-AL",
+        "excerpt": "(a) As used in Section 32-5A-191, the term, \u201cignition interlock device\u201d means a constant monitoring device that prevents a motor vehicle from being started at any time without first determining the equivalent blood alcohol level of the operator through the taking of a breath sample for testing. The system shall be calibrated so that the motor vehicle may not be started if the blood alcohol level o"
+      },
+      {
+        "act_id": "STATE_AL_T36_C26_S36-26-60",
+        "code": "US-AL",
+        "excerpt": "As used in Sections 36-26-60 through 36-26-63, \u201cstate institutions\u201d or \u201cinstitutions\u201d shall mean the Alabama state hospital known as the Bryce Hospital and the Partlow State School and Hospital, located in Tuscaloosa County, and Searcy Hospital and all institutions under the control of the Board of Trustees of Alabama State Hospitals."
+      },
+      {
+        "act_id": "STATE_AL_T6_C5_S6-5-332.3",
+        "code": "US-AL",
+        "excerpt": "(a) As used in Section 6-5-332, the term \u201cautomated external defibrillator\u201d or \u201cAED\u201d means a medical device heart monitor and defibrillator that meets all of the following specifications:\n\n(1) Is commercially distributed in accordance with the Federal Food, Drug and Cosmetic Act (21 U.S.C. Section 301, et seq.).\n\n(2) Is capable of recognizing the presence or absence of ventricular fibrillation or "
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S3_S23-62-307",
+        "code": "US-AR",
+        "excerpt": "(a) For purposes of \u00a7 23-62-306(c)(3) , a \"qualified United States financial institution\" means an institution that: (1) Is organized or, in the case of a United States office of a foreign banking organization, licensed under the laws of the United States or any state thereof; (2) Is regulated, supervised, and examined by United States federal or state authorities having regulatory authority over "
+      },
+      {
+        "act_id": "STATE_AR_T11_C10_S7_S11-10-707",
+        "code": "US-AR",
+        "excerpt": "(a) (1) As used in \u00a7\u00a7 11-10-701 - 11-10-715 : (A) The term \"annual payroll\" means the total amount of taxable wages paid during a calendar year by an employer for employment and for the employer who has had three (3) or more years of benefit risk experience; and (B) The term \"average annual payroll\" means the average of the annual payrolls for the last three (3) or the five (5) preceding calendar "
+      },
+      {
+        "act_id": "STATE_CA_Crtc_D2_P10_C7_A1_S17637",
+        "code": "US-CA",
+        "excerpt": "For purposes of Sections 17635 to 17639, inclusive, the term \u201cprohibited transaction\u201d means any transaction in which an organization subject to the provisions of Sections 17635 to 17639, inclusive\u2014\n\n(a) Lends any part of its income or corpus, without the receipt of adequate security and a reasonable rate of interest, to;\n\n(b) Pays any compensation, in excess of a reasonable allowance for salaries "
+      },
+      {
+        "act_id": "STATE_CA_Cciv_D3_P4_T3_C2_A4_S1861.1",
+        "code": "US-CA",
+        "excerpt": "Definitions for purposes of Sections 1861 through 1861.27 include the following:\n\n(a) \u201cHotel\u201d, \u201cmotel\u201d, \u201cinn\u201d, \u201cboardinghouse\u201d, and \u201clodginghouse keeper\u201d means any person, corporation, partnership, unincorporated association, public entity, or agent of any of the aforementioned, who offers and accepts payment for rooms, sleeping accommodations, or board and lodging and retains the right of access "
+      },
+      {
+        "act_id": "STATE_CA_Cpen_P6_T1_D2_S16525",
+        "code": "US-CA",
+        "excerpt": "(a) As used in Section 33700, \u201cfirearm barrel\u201d means the tube, usually metal and cylindrical, through which a projectile or shot charge is fired. A firearm barrel includes any forging, casting, printing, extrusion, machined body, or similar article that has reached a stage in manufacture where it may readily be completed, assembled, or converted to be used as a firearm barrel, or that is marketed "
+      },
+      {
+        "act_id": "STATE_CA_Crtc_D2_P11_C7_A1_S24363",
+        "code": "US-CA",
+        "excerpt": "For purposes of Sections 24360 to 24363.5, inclusive, the term \u201cbond\u201d means any bond, debenture, note, or certificate or other evidence of indebtedness, but does not include any such obligation which constitutes stock in trade of the taxpayer or any such obligation of a kind which would properly be included in the inventory of the taxpayer if on hand at the close of the taxable year, or any such o"
+      },
+      {
+        "act_id": "STATE_CA_Crtc_D2_P11_C17_A2_S25120",
+        "code": "US-CA",
+        "excerpt": "As used in Sections 25120 to 25139, inclusive, which shall hereafter be referred to as \u201cthis act,\u201d unless the context otherwise requires:\n\n(a) \u201cBusiness income\u201d means income arising from transactions and activity in the regular course of the taxpayer\u2019s trade or business and includes income from tangible and intangible property if the acquisition, management, and disposition of the property constit"
+      },
+      {
+        "act_id": "STATE_CA_Cciv_D3_P2_T5_C2_S1689.24",
+        "code": "US-CA",
+        "excerpt": "As used in Sections 1689.20 to 1689.23, inclusive:\n\n(a) \u201cSeminar sales solicitation contract or offer\u201d means any contract, whether single or multiple, or any offer which is subject to approval, for the sale, lease, or rental of goods or services or both, made using selling techniques in a seminar setting in an amount of twenty-five dollars ($25) or more, including any interest or service charges. "
+      },
+      {
+        "act_id": "STATE_CA_Cshc_D1_C1_A6_S216.1",
+        "code": "US-CA",
+        "excerpt": "As used in Section 216, \u201cspaces used for pupil personnel services\u201d means rooms that are used primarily for counseling, testing, or similar type services involving the presence of pupils."
+      }
+    ],
+    "5": [
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-105",
+        "code": "US-AR",
+        "excerpt": "(a) As used in the Arkansas Insurance Code, unless the context otherwise requires, \"casualty insurance\" includes: (1) Vehicle Insurance. Insurance against loss of or damage to any land vehicle or aircraft or any draft or riding animal or to property while contained therein or thereon or being loaded or unloaded therein or therefrom, from any hazard or cause, and against any loss, liability, or exp"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-106",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Insurance Code, unless the context otherwise requires, \"surety insurance\" includes: (1) Fidelity insurance, which is insurance guaranteeing the fidelity of persons holding positions of public or private trust; (2) Insurance guaranteeing the performance of contracts, other than insurance policies, and guaranteeing and executing bonds, undertakings, and contracts of suretyshi"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-107",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Insurance Code, unless the context otherwise requires, \"marine insurance\" includes: (1) Insurance against any and all kinds of loss or damage to: (A) Vessels, craft, aircraft, cars, automobiles, and vehicles of every kind as well as all goods, freights, cargoes, merchandise, effects, disbursements, profits, moneys, bullion, precious stones, securities, choses in action, evi"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-103",
+        "code": "US-AR",
+        "excerpt": "(a) As used in the Arkansas Insurance Code, unless the context otherwise requires, \"accident and health insurance\" is insurance of human beings against bodily injury, disablement, or death by accident or accidental means or the expense thereof or against loss of income due to disablement or expense resulting from sickness and every insurance appertaining thereto. (b) Transaction of accident and he"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-108",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Insurance Code, unless the context otherwise requires, \"title insurance\" is insurance of owners of property or others having an interest therein, or liens or encumbrances thereon, against loss by encumbrance, a defective or invalid title, adverse claim to title, or closing protection. Acts 1959, No. 148, \u00a7 79; A.S.A. 1947, \u00a7 66-2408; Acts 2007, No. 684, \u00a7 2.\n\nAs used in the"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-102",
+        "code": "US-AR",
+        "excerpt": "(a) As used in the Arkansas Insurance Code, unless the context otherwise requires, \"life insurance\" is insurance on human lives. (b) The transaction of life insurance includes also the granting of endowment benefits, benefits for expenses incurred in connection with death, additional benefits in event of death or dismemberment by accident or accidental means, additional benefits in event of the in"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-110",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Insurance Code, \"mortgage guaranty insurance\" means insurance that insures lenders against financial loss by reason of nonpayment of principal, interest, or other sums agreed to be paid under the terms of any note, bond, or other evidence of indebtedness secured by a mortgage, deed of trust, or other instrument constituting a lien or charge on improved real estate. Acts 200"
+      },
+      {
+        "act_id": "STATE_AR_T23_C62_S1_S23-62-104",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Insurance Code, unless the context otherwise requires, \"property insurance\" is insurance on real or personal property of every kind and of every interest therein, whether on land, water, or in the air, against loss or damage from any and all hazard or cause and against loss consequential upon the loss or damage, other than noncontractual legal liability for the loss or dama"
+      },
+      {
+        "act_id": "STATE_AR_T1_C2_S2_S1-2-208",
+        "code": "US-AR",
+        "excerpt": "As used in the Arkansas Code, an act of the General Assembly, and an initiated measure: (1) \"Fiscal session\" means with respect to the General Assembly the legislative session in which the General Assembly may consider only appropriation bills under Arkansas Constitution, Article 5, \u00a7 5(c); and (2) \"Regular session\" means with respect to the General Assembly the legislative session in which the Ge"
+      },
+      {
+        "act_id": "STATE_CA_Cgov_T2_D3_P1_C4_A1_S11370.1",
+        "code": "US-CA",
+        "excerpt": "As used in the Administrative Procedure Act \u201cdirector\u201d means the executive officer of the Office of Administrative Hearings."
+      },
+      {
+        "act_id": "STATE_CA_Chsc_D105_P1_C1_S120110",
+        "code": "US-CA",
+        "excerpt": "As used in the Communicable Disease Prevention and Control Act (Section 27) a person has \u201cactive tuberculosis disease\u201d when either one of the following occur:\n\n(a)  A smear or culture taken from any source in the person\u2019s body has tested positive for tuberculosis and the person has not completed the appropriate prescribed course of medication for active tuberculosis disease.\n\n(b)  There is radiogr"
+      },
+      {
+        "act_id": "STATE_CA_Chsc_D105_P3_C1_S120500",
+        "code": "US-CA",
+        "excerpt": "As used in the Communicable Disease Prevention and Control Act (Section 27) \u201cvenereal diseases\u201d means syphilis, gonorrhea, chancroid, lymphopathia venereum, granuloma inguinale, and chlamydia."
+      }
+    ],
+    "6": [
+      {
+        "act_id": "STATE_AL_T37_C8_S37-8-217",
+        "code": "US-AL",
+        "excerpt": "For the purposes of this section, and Sections 37-8-218, 37-8-220, and 37-8-221, the term \u201cprohibited instrument\u201d shall mean and include any instrument, apparatus, equipment, device or appliance, or the plan or instruction for the making or assembling thereof, which is designed, adapted or may be used to avoid billing to the proper person or payment of the lawful price, charge or toll, in whole or"
+      },
+      {
+        "act_id": "STATE_AL_T1_C1_S1-1-3",
+        "code": "US-AL",
+        "excerpt": "(a) As used in this Code or any statute of this state heretofore or hereafter enacted, unless the context requires a different meaning, the term \"blind person\" means a natural person who has no vision or whose vision with correcting glasses is so defective as to prevent the performance of ordinary activities for which eyesight is essential, or who has central visual acuity of 20/200 or less in the"
+      },
+      {
+        "act_id": "STATE_AR_T14_C361_S14-361-118",
+        "code": "US-AR",
+        "excerpt": "(a) (1) For the purposes of this section and \u00a7\u00a7 14-361-119 - 14-361-122 , unless the context otherwise requires, the term \"public agency\" includes municipality, as defined in this chapter, any agency of the state government and of the United States, and any municipality, political subdivision, and agency of another state; and (2) The term \"governing body\" means the governing body of the municipali"
+      },
+      {
+        "act_id": "STATE_AR_T11_C10_S2_S11-10-222",
+        "code": "US-AR",
+        "excerpt": "As used in this chapter, unless the context clearly requires otherwise, the term \"United States\", when used in a geographical sense, includes the states, the District of Columbia, and the Commonwealth of Puerto Rico. Acts 1941, No. 391, \u00a7 2; 1963, No. 93, \u00a7 2; 1971, No. 35, \u00a7 6; A.S.A. 1947, \u00a7 81-1103.\n\nAs used in this chapter, unless the context clearly requires otherwise, the term \"United States"
+      },
+      {
+        "act_id": "STATE_AR_T24_C11_S8_S24-11-818",
+        "code": "US-AR",
+        "excerpt": "(a) (1) (A) As used in this section, unless the context otherwise requires, the term \"salary\" shall mean recurring pays that are received for the firefighter's regularly scheduled workweek and shall not include, except as otherwise provided in subdivision (a)(1)(B) of this section, payments for unused accrued sick leave or annual leave or the cash value of any nonrecurring or unusual remunerations"
+      },
+      {
+        "act_id": "STATE_AR_T11_C10_S2_S11-10-223",
+        "code": "US-AR",
+        "excerpt": "As used in this chapter, unless the context clearly requires otherwise, the term \"supplemental benefit payments\" means unemployment benefit payments made under a private unemployment compensation plan. Acts 1941, No. 391, \u00a7 2; 1975 (Extended Sess., 1976), No. 1083, \u00a7 1; A.S.A. 1947, \u00a7 81-1103; reen. Acts 1987, No. 672, \u00a7 1.\n\nAs used in this chapter, unless the context clearly requires otherwise, t"
+      },
+      {
+        "act_id": "STATE_CA_Cgov_T2_D5_P3_C1_A2_S20058",
+        "code": "US-CA",
+        "excerpt": "blic Employees\u2019 Retirement System.\n\n(b) As used in this code and in every other statute heretofore or hereafter enacted, or in every contract heretofore or hereafter entered into under any provisions of law, the term \u201cState Employees\u2019 Retirement Law\u201d shall be construed to refer to and mean the \u201cPublic Employees\u2019 Retirement Law\u201d; the term \u201cState Employees\u2019 Retirement System\u201d shall be construed to r"
+      },
+      {
+        "act_id": "STATE_CA_Cwic_D5_P1_C1_S5008.1",
+        "code": "US-CA",
+        "excerpt": "As used in this division and in Division 4 (commencing with Section 4000), Division 4.1 (commencing with Section 4400), Division 6 (commencing with Section 6000), Division 7 (commencing with Section 7100), and Division 8 (commencing with Section 8000), the term \u201cjudicially committed\u201d means all of the following:\n\n(a) Persons who are mentally disordered sex offenders placed in a state hospital or in"
+      },
+      {
+        "act_id": "STATE_CA_Cwic_D2_P1_C2_A1_S215",
+        "code": "US-CA",
+        "excerpt": "As used in this chapter, unless otherwise specifically provided, the term \u201cprobation officer\u201d or \u201csocial worker\u201d shall include the juvenile probation officer or the person who is both the juvenile probation officer and the adult probation officer, and any social worker in a county welfare department or any social worker in a California Indian tribe or any out-of-state Indian tribe that has reserva"
+      },
+      {
+        "act_id": "STATE_CA_Cfgc_D3_C2_A5_S2208",
+        "code": "US-CA",
+        "excerpt": "(a) For purposes of this article, except as provided in subdivision (b), the term \u201ccircus\u201d means a performance before a live audience in which entertainment consisting of a variety of acts, such as acrobats, aerialists, clowns, jugglers, or stunts, is the primary attraction or principal business.\n\n(b) The term \u201ccircus\u201d does not include a rodeo, as defined in Section 596.7 of the Penal Code."
+      },
+      {
+        "act_id": "STATE_CA_Cfac_D22_P2_C24.5_A6_S78924",
+        "code": "US-CA",
+        "excerpt": "sion or its duly authorized agent.\n\n(b) For purposes of this section and for any other section of this chapter that relates to recordkeeping or the collection and remittance of assessments from producers, including any section dealing with confidentiality of information received from vintners, the term \u201cvintner\u201d shall include persons in this state outside Mendocino County who otherwise meet the de"
+      },
+      {
+        "act_id": "STATE_CA_Cgov_T8_C1_S68097",
+        "code": "US-CA",
+        "excerpt": "firefighters, and city police officers. For the purposes of this section and Sections 68097.1 to 68097.10, inclusive, only, the term \u201cpeace officer of the California Highway Patrol\u201d shall include those persons employed as vehicle inspection specialists by the Department of the California Highway Patrol, the term \u201cfirefighter\u201d has the definition provided in Section 50925, and a volunteer firefighte"
+      }
+    ],
+    "7": [
+      {
+        "act_id": "STATE_AL_T45_C49_S45-49-121.01",
+        "code": "US-AL",
+        "excerpt": "(a) The following definitions apply to this section:\n\n(1) ELECTION. The employees of the utilities board shall vote through secret ballot to determine if the utilities board and its employees shall be subject to the countywide civil service system created by Part 1. The utilities board shall set the date of the election and provide all materials necessary for conducting the election. At least two "
+      },
+      {
+        "act_id": "STATE_AR_T17_C25_S1_S17-25-107",
+        "code": "US-AR",
+        "excerpt": "(a) The definitions under \u00a7 5-28-101 apply to this chapter. (b) Any contractor licensed or registered under this chapter that is found by the Contractors Licensing Board or the Residential Contractors Committee to have abused, neglected, or exploited an endangered person or an impaired person while engaging in performing the services of a contractor as defined under \u00a7 17-25-101 is subject to emerg"
+      },
+      {
+        "act_id": "STATE_AZ_T36_C29_A1_S2901.01",
+        "code": "US-AZ",
+        "excerpt": "36-2901.01. Additional definition of eligibility for the Arizona health care cost containment system; enforcement; private right of action\n\n(Caution:\u00a0 1998 Prop. 105 Applies)\n\nA. For the purposes of section 36-2901, \"eligible person\" includes any person who has an income level that, at a minimum, is between zero and one hundred per cent of the federal poverty guidelines as published annually by th"
+      },
+      {
+        "act_id": "STATE_AZ_T20_C4_A14_S1098.24",
+        "code": "US-AZ",
+        "excerpt": "20-1098.24. Dormant captive insurers; certificate of dormancy; report; fee; rules\n\nA. A captive insurer that is domiciled in this state and that meets the definition of dormant captive insurer may apply for a certificate of dormancy by submitting an application to the director on a form prescribed by the director. The certificate of dormancy is subject to renewal every five years and expires unles"
+      },
+      {
+        "act_id": "STATE_CO_T12_A20_P1_S12-20-105",
+        "code": "US-CO",
+        "excerpt": "12-20-105. Fee adjustments - division of professions and occupations cash fund created - legal defense account created - general fund transfer - definition - repeal. (1) This section applies to all activities of the division and all regulators.\n\n(2) (a) The director shall propose, as part of the division's annual budget request, an adjustment in the amount of each fee that each regulator is author"
+      },
+      {
+        "act_id": "STATE_CO_T38_A38_P1_S38-38-111",
+        "code": "US-CO",
+        "excerpt": "38-38-111. Treatment of an overbid - agreements to assist in recovery of overbid prohibited - penalty - definition. (1) An overbid shall be first applied to any deficiency as indicated in the holder's bid, and then paid to the officer to be held in escrow until the end of all redemption periods as provided in section 38-38-302.\n\n(2) Upon the expiration of all redemption periods provided in section"
+      },
+      {
+        "act_id": "STATE_CO_T24_A1_S24-1-105",
+        "code": "US-CO",
+        "excerpt": "24-1-105. Types of entities defined - creation of new entities - transfers of existing entities. (1) The following definitions apply to every statute, unless the context otherwise requires:\n\n(a) \"Entity\" means a principal department of the state or any division, institution, or part of a principal department, or any agency, board, commission, or unit of state government that is created in or assig"
+      },
+      {
+        "act_id": "STATE_CO_T42_A4_P13_S42-4-1301.4",
+        "code": "US-CO",
+        "excerpt": "42-4-1301.4. Useful public service - definitions - local programs - assessment of costs. (1) This section applies to any person convicted of a violation of section 42-4-1301 and who is ordered to complete useful public service.\n\n(2) (a) For the purposes of this section and section 42-4-1301, \"useful public service\" means any work that is beneficial to the public and involves a minimum of direct su"
+      },
+      {
+        "act_id": "STATE_CO_T24_A75_P1_S24-75-112",
+        "code": "US-CO",
+        "excerpt": "24-75-112. Annual general appropriation act - headnote definitions - general provisions - footnotes. (1) As used in the annual general appropriation act, the following definitions and general provisions apply for the headnote terms preceding and specifying the purpose of certain line items of appropriation:\n\n(a) (I) \"Capital outlay\" means:\n\n(A) Equipment, furniture, motor vehicles, software, and o"
+      },
+      {
+        "act_id": "STATE_CO_T11_A71_S11-71-103",
+        "code": "US-CO",
+        "excerpt": "11-71-103. Applicability of article - confidentiality of compliance review committee documents - definition. (1) This article applies to a compliance review committee the functions of which are to evaluate and seek to improve:\n\n(a) Loan underwriting standards;\n\n(b) Asset quality;\n\n(c) Compliance with federal or state statutory or regulatory requirements;\n\n(d) Financial reporting to federal or stat"
+      },
+      {
+        "act_id": "STATE_DC_T34_C14A_S34-1440",
+        "code": "US-DC",
+        "excerpt": "(a) The definitions added to \u00a7 34-1431 by D.C. Law 20-245 (\u201camendment act\u201d) shall apply to District of Columbia Standard Offer Service wholesale supply contracts effective on or after June 1, 2015.\n(b) The definitions added by the amendment act shall apply after December 31, 2017, to renewable energy credits included in PJM\u2019s Generator Attributes Tracking System that were or are generated by a fac"
+      },
+      {
+        "act_id": "STATE_DE_T18_C35_SIV_S3580",
+        "code": "US-DE",
+        "excerpt": "(a) Unless otherwise specifically provided, the definitions herein apply throughout this section.\n\n(1) \u201cClass of drugs\u201d means a group of medications having similar actions designed to treat a particular disease process.\n\n(2) \u201cCoinsurance\u201d means a cost-sharing amount set as a percentage of the total cost of the drug.\n\n(3) \u201cCommissioner\u201d means the Insurance Commissioner of this State.\n\n(4) \u201cCopaymen"
+      }
+    ],
+    "8": [
+      {
+        "act_id": "STATE_AL_T45_C37_S45-37-20",
+        "code": "US-AL",
+        "excerpt": " As used in this section, the following words and terms have the meanings hereby ascribed to them:\n\na. ABC LAW. Chapter 3 of Title 28, which establishes and governs the Alcoholic Beverage Control Board.\n\nb. AUTHORITY. A civic center authority heretofore or hereafter established by and under Acts 1965, No. 547, 1965 Regular Session (Acts 1965, p. 797), approved August 20, 1965, (Appendix, Sections "
+      },
+      {
+        "act_id": "STATE_AL_T45_C19_S45-19-241",
+        "code": "US-AL",
+        "excerpt": " As used in this section, the following words and terms shall have the meanings ascribed to them as follows:\n\n(1) BUSINESS. All activities engaged in, or caused to be engaged in, by any person with the object of gain, profit, benefit, or advantage, either direct, or indirect to the person.\n\n(2) LICENSE OR PRIVILEGE FEE. Any fee levied or imposed by this section and shall not include, or be in lieu"
+      },
+      {
+        "act_id": "STATE_AL_T45_C37A_S45-37A-51.07",
+        "code": "US-AL",
+        "excerpt": "(a)(1) The words, terms, and phrases of this section shall have the meaning ascribed to them by Act 929, unless it appears from the context that a different meaning is intended. As used in this section and Section 45-37A-51.11, these words and terms have the meanings hereby accorded them:\n\na. DEFERRED PENSION UNDER THE GENERAL RETIREMENT AND RELIEF SYSTEM. A pension granted to a firefighter or pol"
+      },
+      {
+        "act_id": "STATE_AL_T39_C2_S39-2-12",
+        "code": "US-AL",
+        "excerpt": ") As used in this section the following words shall have the meanings ascribed to them as follows:\n\n(1) CONTRACTOR. Any natural person, partnership, company, firm, corporation, association, limited liability company, cooperative, or other legal entity licensed by the Alabama State Licensing Board for General Contractors.\n\n(2) NONRESIDENT CONTRACTOR. A contractor which is neither a. organized and e"
+      },
+      {
+        "act_id": "STATE_AL_T28_C1_S28-1-4",
+        "code": "US-AL",
+        "excerpt": "(a) The words and phrases used in this section shall have the meanings ascribed to them in Section 28-3-1.\n\n(b)Except as provided in subsection (c) and (d), it shall be unlawful for any common carrier, operator of trucks, buses, or other conveyances or a manufacturer, supplier, or importer to make delivery of any alcoholic beverage to any person within the state, except to the Alabama Alcoholic Be"
+      },
+      {
+        "act_id": "STATE_AL_T45_C37A_S45-37A-51.11",
+        "code": "US-AL",
+        "excerpt": "(a) The words, terms, and phrases used in this section shall have the meaning ascribed to them by Act 929, or Section 45-37A-51.07, unless it appears from the context that a different meaning is intended.\n\n(b)(1) This section shall not apply to any firefighter or police officer, or to his or her spouse, child, or children, unless at the time of his or her death he or she had accumulated at least f"
+      },
+      {
+        "act_id": "STATE_AL_T45_C9_S45-9-20",
+        "code": "US-AL",
+        "excerpt": " of Alabama of 1901.\n\n(b) The following words, terms, and phrases as used herein shall have the meanings ascribed to them in this section except where the context clearly otherwise requires:\n\n(1) \u201cPerson\u201d shall mean any natural person, firm, association, joint venture, partnership, corporation, or any other entity.\n\n(2) \u201cLicensed establishment\u201d shall mean any business operating pursuant to a licen"
+      },
+      {
+        "act_id": "STATE_AL_T45_C9_S45-9-243.40",
+        "code": "US-AL",
+        "excerpt": "(a) The following words, terms, and phrases, when used in this section, shall have the meanings ascribed to them in this subsection, except where the context clearly indicates a different meaning:\n\n(1) PERSON. Any natural person, firm, partnership, association, corporation, receiver, trust, estate, or other entity, or any other group or combination of any thereof acting as a unit.\n\n(2) COUNTY. Cha"
+      },
+      {
+        "act_id": "STATE_AL_T2_C43_S11-43-144",
+        "code": "US-AL",
+        "excerpt": ") As used in this section the following words and terms shall have the meanings ascribed to them herein unless a contrary meaning is indicated by the context:\n\n(1) BENEFIT. Any monetary allowance payable by a city or from a pension system established for the firemen of a city to a firefighter on account of his or her disability or to his or her dependents on account of his or her death, irrespecti"
+      },
+      {
+        "act_id": "STATE_AL_T45_C37_S45-37-244.02",
+        "code": "US-AL",
+        "excerpt": " As used in this section, the following words and terms shall have the meanings ascribed to them:\n\n(1) BUSINESS ACTIVITY. The carrying on or practice of any business, vocation, occupation, work, calling, or profession for profit.\n\n(2) BUSINESS ENTITY. A person engaged in one or more business activities, other than an individual.\n\n(3) COUNTY. Jefferson County.\n\n(4) GOVERNING BODY. The Jefferson Cou"
+      },
+      {
+        "act_id": "STATE_AL_T13A_C11_S13A-11-59",
+        "code": "US-AL",
+        "excerpt": "purposes of this section, the following words and phrases shall have the meanings respectively ascribed to them in this subsection, except in those instances where the context clearly indicates a different meaning:\n\n(1) DEMONSTRATION. Demonstrating, picketing, speechmaking or marching, holding of vigils and all other like forms of conduct which involve the communication or expression of views or g"
+      },
+      {
+        "act_id": "STATE_AL_T45_C5_S45-5-242",
+        "code": "US-AL",
+        "excerpt": "(a) The following words, when used in this section shall have the meaning ascribed to them below, unless the context clearly indicates a different meaning:\n\n(1) \u201cGasoline\u201d means any type of gasoline, naptha, or other liquid motor fuel, or any device or substitute therefor, commonly used in internal combustion engines.\n\n(2) \u201cDiesel fuel\u201d means any type diesel oil, tractor fuel, gas oil, distillate "
+      }
+    ]
+  }
+}
