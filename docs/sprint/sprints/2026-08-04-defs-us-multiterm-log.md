@@ -3569,3 +3569,81 @@ against the block source the re-measure could not reach.
 4. **Fallback, pre-authorised**: if no narrowing can be made safe, REVERT the
    widening and let `Governmental body`'s duplicate return to RED as a named
    residual. A duplicate beats a miss under zero-miss.
+
+---
+
+## 2026-08-05 — M-R24: M-R23 fix VERIFIED whole-class; scale finding; new routings
+
+### The regression was ~45x bigger than my own measurement showed
+
+The Planner's corpus scan (reported, then relied on only after I verified the
+fix against it) found the hyphen-suffixed-marker shape at **111 occurrences
+across 91 distinct real TX sections** — not the 2 my kill-experiment found.
+My stride sample sees ~1/27 of TX, so 2 was sampling, not scale. The same scan
+across 8 other states (DE/NY/CA/IL/FL/OH/PA/GA/AR) found **zero**: this is a
+Texas drafting convention (inserting `(9-a)` between `(9)` and `(10)` without
+renumbering), pervasive within TX and absent elsewhere.
+
+**This means M-R23 was not an edge case.** Had it shipped, F6 would have
+silently lost its only capture for up to 91 real TX sections.
+
+### Whole-class verification (mine, no sampling)
+
+Tests pin only 2 of the 91 rows, so passing tests do NOT prove the class is
+fixed. I ran every TX row through the real dispatching path, old guard vs new:
+
+```
+TX total rows                       : 122,535
+TX definitions-section rows scanned :   5,009      (no stride, full file)
+rows where guard changed output     :       1
+TERMS LOST ENTIRELY (recall loss)   :       0      (was 2 in a 1/27 sample)
+```
+
+The single row whose output changed is TX `2009.003` — the intended M-R18
+dedup (`Governmental body` 2 -> 1). **Corpus-wide in Texas the guard now does
+exactly one thing, and it is the thing it was designed to do.** That is a
+stronger statement than any test in this suite makes.
+
+Corpus re-measure after the change (standing duty):
+```
+POST-M-R23 (06ec869): rows firing=328 (0.41%)  candidates=532  dup rows=1
+```
+Identical to POST-FIX — the guard narrowing cost nothing on the ordinary-body
+path and did not reintroduce duplicates.
+
+### Suite
+
+**10 failed / 812 passed** @ `2348195`. Both Planner REDs flipped green, which
+is the real evidence the fix generalises past the rows it was derived from.
+
+### Process note — the Developer improved my acceptance criterion
+
+I set acceptance as "kill-experiment reports TERMS LOST = 0". The Developer
+pointed out this is **ambiguous**: my stride sample need not contain TX
+`2009.003` at all, so a zero is equally consistent with "fixed" and with "the
+guard branch went dead and suppresses nothing anywhere." It disambiguated with
+a direct before/after on that exact row (2 -> 1). It was right, and my
+whole-file run above now closes the same hole with a corpus-level answer
+rather than a single row. **P-R10 applied to a manager's probe by the agent the
+probe was handed to** — record it as the intended direction of that rule.
+
+### New residuals and routings
+
+- **R5 (OURS, named, not fixed): cross-path duplicate.** `HI
+  STATE_HI_D4_T36_C667_S667-101` emits `'association'` from BOTH
+  `_apposition_candidates` and `_cross_reference_candidates`. Each primitive is
+  individually clean, so neither M-R14's nor M-R17's `seen_terms` can see it —
+  the union happens in `_extract_ordinary_body`. 1 row in 79,500 sampled. Not
+  fixed this pass (a fix needs a Planner RED first and the dedup altitude is a
+  design question, not a patch).
+- **R6 (ROUTE TO MARKERS via program manager, PRE-EXISTING, not ours):**
+  baseline drops hyphen-suffixed-marker entries entirely, because
+  `_MARKER_TOKEN_RE = \(\w+\)` cannot open a block at `(9-a)`. Where such an
+  entry uses a CROSS-REFERENCE idiom, F6 rescues it (that is why M-R23 was
+  visible at all). Where it uses plain `means` — the Planner confirmed real
+  cases, `(4-a) "Distributor" means…`, `(9-b) "Wholesaler" means…` — **nothing
+  rescues it and the definition is simply missed.** That is a genuine
+  zero-miss breach in a core-owned module, TX-wide, and it is family 3's
+  (entry-marker mismatch) mechanism, not ours. Size unmeasured by us.
+- **R1 amended:** now pinned by THREE "exactly once" tests plus one
+  differently-shaped residual pin, not four (M-R19 item 4 superseded).
