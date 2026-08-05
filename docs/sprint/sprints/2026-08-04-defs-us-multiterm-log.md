@@ -3359,3 +3359,92 @@ for bounded mechanical changes).
 list of `rule.` hard-coding sites from disjoint starting points. M-R19 found a
 4th site a careful derivation had missed; if the two lists disagree now, the
 disagreement is itself the finding.
+
+---
+
+## 2026-08-05 — M-R21: three manager findings from re-measure + cross-panel checks
+
+### (a) The standing corpus measurement was NOT independently reproducible
+
+My duty is a corpus re-measure after every production change. I wrote my own
+harness from scratch (P-R9: the shared scratchpad holds other panels' files)
+and could not reproduce the recorded `0.55% / 434 rows / 705 candidates`.
+
+Applying P-R10 to myself — probe arguments are part of the claim — I found ONE
+real defect in MY harness before doubting the code: I measured every row,
+but production routes a body to F6's `ScopeTriggerRule` path ONLY when it is
+NOT treated as a Definitions section (`pipeline.py:237-272`, direct heading OR
+body-derived heading). Gating fixed: 1.01% -> 0.80%.
+
+The RESIDUAL gap is not a defect in either harness — it is a **process gap**.
+Ledger R4 records "same seed as the fire-rate runs", i.e. the predecessor's
+sampling used a seeded RNG **whose seed was never written down**. Its absolute
+fire-rates are therefore not reproducible by any independent party, including
+its own successor. Not a criticism of the numbers; a criticism of the record.
+
+**Corrected standing methodology (binding for this panel from here on):**
+deterministic STRIDE sampling — up to 1,500 rows per file taken at an even
+stride across the WHOLE file, 53 files, 79,500 rows, no RNG and no seed to
+record. Reproducible by anyone, and free of the head-of-file bias that would
+sample one corner of each state's code.
+
+```
+PRE-FIX BASELINE (bf3948e, production-gated + stride)
+sampled=79,500   rows firing=328 (0.41%)   candidates=557
+duplicate-term rows: 18   (cross-reference 17, apposition 0)
+wall=29.2s
+top fire-rates: dc 4.40%  or 2.33%  md 1.53%  pr 1.47%  federal 1.20%
+```
+
+Corroboration worth noting: on a DIFFERENT population, my duplicate-term row
+count is **18 — exactly the predecessor's recorded 18**. The defect census
+replicates even though the fire-rate denominator does not.
+
+### (b) NEW FINDING — a duplicate class that M-R17's fix CANNOT catch
+
+The baseline's own arithmetic does not close: 18 duplicate rows overall, but
+17 on the cross-reference path and **0** on the apposition path. That gap is
+only explicable if a row duplicates ACROSS the two primitives. I probed for
+exactly that and found it:
+
+```
+CROSS-PATH duplicate rows (clean WITHIN each primitive): 1
+  hi STATE_HI_D4_T36_C667_S667-101   shared term: 'association'
+```
+
+`association` is emitted ONCE by `_apposition_candidates` and ONCE by
+`_cross_reference_candidates`. Each primitive is individually clean, so
+**M-R14's `seen_terms` guard and M-R17's planned mirror of it are both
+structurally incapable of catching this** — deduping inside each primitive
+cannot see across them. The union happens in `_extract_ordinary_body`.
+
+**Consequence for my own work-queue expectation, corrected before it misled
+me:** the inherited expectation "dup rate expected back to 0" after the
+Developer's pass is WRONG by exactly this one class. The correct prediction is
+**18 -> 1**, not 18 -> 0. I will verify that prediction by re-measure rather
+than assume it, and a residual of 1 is a NAMED residual, not a silent miss.
+
+Deliberately NOT bolted onto the running Developer's brief: its scope is fixed
+at three fixes under an asymmetric correctness criterion, and widening a
+running agent's mandate is how composition defects get introduced. Red-before-
+green also requires a Planner RED first. Disposition decided after re-measure.
+
+### (c) Two inherited cross-panel claims, corrected
+
+- **"core-2 G10 is already implemented on core's branch and merges first."**
+  Half true, and the half that is false matters. G10 is implemented on
+  `claude/defs-core-follow-on-2-dev5` @ `8bf4750` — but `parse_scoped` does
+  NOT appear anywhere in `backend/app` on core-2's INTEGRATION branch
+  (`claude/defs-core-follow-on-2` @ `52b8f5a`). Findings 1/1b therefore close
+  only when G10 lands on core-2's integration branch AND core-2 merges to
+  main — two events, neither complete. Our own contract item 3 row stays
+  scope-stamped `law-wide` until then (M-R20 Fact 3).
+- **Ledger R3 (`"Taken"` @ OR 496.716) is UNACKNOWLEDGED, not accepted.**
+  R3's own closing condition requires scoped-inline to PROVABLY capture that
+  exact row, confirmed by their manager. Searched their branch
+  (`claude/defs-us-scoped-inline` @ `6393e64`): the row id `496.716` appears
+  nowhere in their own sprint docs — only in a shared recon dossier copy. So
+  the handoff has been neither accepted nor vetoed. Per R3's own text ("If
+  they veto ownership, escalate to the program manager"), silence is not
+  closure: R3 stays OPEN and is reported as an open cross-panel dependency in
+  this sprint's end state, not as a resolved handoff.
