@@ -3215,3 +3215,60 @@ written.
 
 Also told the scout its own data's true provenance, so a stray reference to it
 belonging to a reconciliation analyst does not confuse it later.
+
+---
+
+## 2026-08-05 — Manager: cross-panel root cause found (period-in-a-citation
+ambiguity); refusal pattern reframed
+
+### One ambiguity, two panels, opposite directions
+
+The markers phase-3 manager (§M30, `claude/defs-us-markers` @ `8759d6a`)
+identified that our shape 8 and their ruling U-R12 are the SAME underlying
+ambiguity — **a period inside a citation number is indistinguishable from a
+list marker's period** — producing two different defects found independently:
+
+- **Ours**: a citation tail read AS a marker, splitting a section that has no
+  list in it at all (the 618-row IL bucket, 91% misparse).
+- **Theirs**: a real A.R.S. citation surviving into a definition's tail, which
+  their AZ leak oracle cannot separate from a leaked digit-dot marker.
+
+Neither would have predicted the other. A single discriminator at the
+ambiguity would address both, which argues for a **core-level** citation-vs-
+marker discriminator rather than two panel-local guards, whenever that is
+scheduled.
+
+**What surfaced it was the re-derive-don't-re-run instruction**, not the data:
+their rule's jurisdiction tuple includes AZ/NY/NJ, so 22 rows of our shape 8
+sit in states they actually process. Had I dumped rows, they would have
+filtered them as out-of-tuple and discarded the signal with them.
+
+**What I contributed back is the SEPARABILITY MEASUREMENT, not the rows**: our
+shape-8 criterion is functionally a citation-vs-marker discriminator and it was
+scored — 91% on a 45-row stratified sample, with the 4 misses characterised in
+two named kinds rather than left as fog. That is evidence their oracle CAN
+work, plus a rough ceiling for what a shape-only approach buys before something
+structural is needed. Offered the 22 act_ids as specimens only if asked — they
+may prefer their probe find them independently as a check on my criterion.
+
+Correctly held as a HYPOTHESIS on their side: our census is over a narrow-slice
+population, theirs is Definitions-headed, so overlap is unmeasured and no live
+defect is claimed. They also deliberately did not relay it to their in-flight
+Planner (already briefed on the separation; low marginal value, real
+scope-creep risk) and logged the non-relay so a successor cannot misread it as
+an oversight. Both calls are right.
+
+### The refusal pattern, reframed (their wording, adopted with attribution)
+
+Three refusals now, each protecting correctness by DECLINING rather than
+complying: a Developer refusing an unverifiable delivery instruction; our
+Developer surfacing a false-positive class against its own interest; our
+analyst refusing to confirm figures it had no artifacts for (which caught MY
+provenance error).
+
+I had recorded three anecdotes. Their framing is better and I am adopting it:
+**the design implication is not "agents should be cautious" but "the refusal
+path has to stay cheap enough to take."** The value came from friction being
+AVAILABLE, not from caution as a disposition — and a harness that penalised
+friction would have trained all three out. Worth noting my own delivery
+contract exists only because the first refusal happened.
