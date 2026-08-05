@@ -2858,3 +2858,42 @@ the integration branch at `eaf41b3` before QA started:
 
 QA is read-only and independent. It may not repair code or tests; every
 finding returns to the manager for a fresh role-separated cycle.
+
+---
+
+## Phase 18 — QA cycle 1 FAIL: G4 cross-newline ambiguity (2026-08-05)
+
+QA and the manager independently reproduced a release-blocking G4
+regression on pinned real row `STATE_DC_T4_C2_S4-204.52`:
+
+```text
+... Fund established by § 4-204.53
+(3) “Medicaid” means ...
+```
+
+At an offset after the genuine `(3)` entry marker, `main` resolves
+`digit:3`; core-2 resolves stale `digit:2`. The new
+`_is_citation_or_xref_context` strips every whitespace character,
+including the newline, then mistakes `(3)` for a pin-cite continuation.
+
+A blanket newline break is also unsafe. Manager full-corpus probes over
+all 53 statute files measured:
+
+- **31** `Section/§-number + newline + parenthesized-token` matches in
+  **28** rows, mixing genuine new entries with citation continuations such
+  as `Section 112\n(1965), ...`;
+- **1,221** `structural-unit-word + newline + parenthesized-token` matches
+  in **835** rows, including many NY soft-wrapped cross-references such as
+  `paragraph\n(c) of this section` that must remain rejected.
+
+Therefore this is a two-sided classification problem. Core merge remains
+stopped. QA continues read-only on the remaining release gates while a
+fresh Planner owns only the remediation design and RED evidence.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| Planner | G4 cross-newline genuine-marker vs soft-wrapped-reference discriminator | GPT-5.6 Sol / high | no; this is open-ended corpus classification on a shared resolver where either direction corrupts persisted scope paths | `claude/defs-core-follow-on-2-plan11` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-plan11` | `/root/core2_g4_newline_planner` | READY; identifier committed before START |
+
+Planner may edit tests, vendored fixtures, measurement evidence, and sprint
+records only. Production code remains forbidden until a separately spawned
+Developer receives an accepted two-sided design.
