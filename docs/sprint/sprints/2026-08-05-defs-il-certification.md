@@ -6,7 +6,7 @@ branch: claude/defs-il-certification
 locked_by: null
 locked_at: null
 last_agent: "claude-code:panel-manager-defs-il"
-last_updated: "2026-08-05T11:44:54Z"
+last_updated: "2026-08-05T12:36:41Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -165,6 +165,37 @@ So cluster 1's predicate is mechanical and falsifiable:
 > *A quote character immediately preceded AND followed by a Hebrew letter
 > (U+05D0–U+05EA), with no intervening whitespace, is word-internal and
 > cannot be a term delimiter.*
+
+**RULED WRONG AS STATED — M33, and the error was the panel manager's.**
+The predicate above has a **measured 2.3% false-positive rate**
+(2,096/91,611 disposals, 1,004 files): in `"רכב" ו"דרך"` — two real terms
+joined by the bare conjunction vav — the second term's OPENING quote has
+a Hebrew letter on both sides (`ו` before, `ד` after) and is wrongly
+disposed as word-internal. Verified directly by the panel manager, not
+inferred. Independent corroboration: correcting it drops the
+odd-eligible-quote-count diagnostic from 1,676 articles to 282 (−83%).
+**The predicate must be refined and the manifest re-pinned (a re-run, not
+a patch), and the refinement must carry its own committed unit test
+pinning the `ו"` conjunction case.** A stated-falsifiable predicate that
+is measurably false is worse than no template at all — this is exactly
+the self-correction the method is for.
+
+**Two population levels, ruled (M33).** This contract used "candidate
+row" at two granularities that cannot be the same population: cluster 1
+disposes **characters** (33.1% of quote chars), while C2 iterates
+**spans** (~92,600). Ruled as a deliberate two-level model — **Level 0 =
+characters** (cluster 1 only, exhaustive by construction); **Level 1 =
+spans** (clusters 2+, what C2 asserts over). C2's exhaustiveness and
+disjointness are asserted at Level 1.
+
+**Denominator scope, ruled (M33).** The measured population is article
+**BODY** text — the only configuration that reproduces the M31-corrected
+figures digit-for-digit. **Headings are NOT folded into it, but they are
+NOT silently excluded either**: they get their own separately-measured
+population and their own clusters. Excluding headings because "the
+dispatch path differs" would repeat precisely the signal-dependence this
+contract outlaws for `הגדרות`-headed articles. This directly covers the
+`אכרזה זאת` residual and the class-C heading findings.
 
 That is a committed function, not a sentence. It disposes of ~91,605
 characters before any human judgment is applied. **Every other cluster

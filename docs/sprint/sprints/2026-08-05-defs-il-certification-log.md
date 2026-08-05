@@ -573,3 +573,129 @@ deterministic.
    permanent named exception.
 4. Decide the routing for the `'ltr'` production over-capture bug (Job
    1/4) -- C4's fix loop, or a direct escalation outside this sprint.
+
+---
+
+## 2026-08-05 — M33: certification Planner ACCEPTED and merged; five rulings, one of which reverses a ruling I made an hour earlier
+
+### Boundaries (verified BY ME)
+
+`git diff --name-status origin/claude/defs-il...HEAD -- backend/app` →
+**empty**. Nine additions, nothing edited; containment test untouched
+(last commit on it remains `bc54e1a`). Suite: **`3 failed, 845 passed`**
+— 843 baseline unchanged, +2 new passing, +1 new RED. Lint PASS 302.
+Good discipline noted: the 15MB complement-scout hit list was
+deliberately NOT committed (nothing reads it at test time, deterministic
+to regenerate) while the 32MB span population WAS — that distinction
+turns out to be exactly right, see ruling 5.
+
+### Both load-bearing claims verified BY ME, not accepted on report
+
+**The vav-conjunction false positive is REAL, and it is MY error.** Direct
+probe of the contract's own cluster-1 predicate on `"רכב" ו"דרך"`:
+
+```
+idx 7: quote  prev='ו'  next='ד'  word_internal=True   <-- WRONG
+```
+
+That quote is the OPENING delimiter of the second term. Two real terms
+joined by a bare conjunction vav defeat the predicate I wrote into the
+signed-off contract. Measured 2,096/91,611 disposals (2.3%), 1,004 files.
+
+**The `'ltr'` over-capture is REAL and worse than reported.** Ran the real
+`HebrewProfile` dispatch on `צו המועצות המקומיות (מועצה מקומית תעשייתית
+נאות חובב)` art.1 (heading `הגדרות`): **19 candidates, 8 of them
+spurious**, including one `DefinitionCandidate` carrying **seven** `'ltr'`
+terms:
+
+```
+('ltr','ltr','ltr','ltr','ltr','ltr','ltr') | 'בשלמותם;'
+('ltr',)                                    | 'חלק מחלקה 1 כמסומן במפה;'   (x6 more)
+```
+
+`ltr` is an HTML `dir` attribute value. **This is the program's FIRST
+over-capture defect** — every prior finding across every cycle was a
+recall gap. In a legal product a spurious definition is strictly worse
+than a missed one: it manufactures false `USES_DEFINITION` assertions.
+It was found by nothing but whole-population mechanical classification,
+which is the single best argument for D-CERT this program has produced.
+
+### RULINGS
+
+**Ruling 1 — the two-level population model: CONFIRMED.** The contract
+used "candidate row" at two irreconcilable granularities and that
+ambiguity was mine. **Level 0 = characters** (cluster 1 only, exhaustive
+by construction); **Level 1 = spans** (clusters 2+, what C2 asserts
+over). C2's exhaustiveness/disjointness are asserted at Level 1. Contract
+amended.
+
+**Ruling 2 — apply the vav-conjunction correction; re-run and re-pin.**
+Not a patch: the manifest must be regenerated and the checksum re-pinned,
+and the refined predicate must carry **its own committed unit test
+pinning the `ו"` case**. Rationale: cluster 1 is the contract's stated
+falsifiable template, and a template that is measurably 2.3% false is
+worse than none. The 83% collapse in the odd-eligible-quote diagnostic
+(1,676 → 282) is independent evidence the correction is right rather than
+merely different. Expect the naive span estimate to move ~92,602 →
+~93,650 and the bounded count off 91,764; **that delta is explained, not
+absorbed**, which is what C1 demands.
+
+**Ruling 3 — denominator stays BODY-only; headings get their OWN measured
+population.** Body-only is the configuration that reproduces the
+M31-corrected figures digit-for-digit, so it stays primary. But excluding
+headings because "the dispatch path differs" is **precisely** the
+signal-dependence I outlawed for `הגדרות`-headed articles in this
+contract's own mandate — I came within one ruling of repeating my own
+named error. Headings therefore get a separately-measured population with
+their own clusters. This is also the honest home for residual (5)
+`אכרזה זאת` and for the class-C heading findings.
+
+**Ruling 4 — the `'ltr'` over-capture goes FIRST in C4's fix loop.**
+Precision defects outrank recall gaps in a legal product. It is
+mechanically bounded and needs a Planner-authored RED before any fix
+(red-before-green). Note for whoever builds it: the 15 double-assigned
+spans understate it — one article alone yields 8 spurious candidates.
+
+**Ruling 5 — I was WRONG, within the hour, and reversed myself.** I first
+ruled the 32MB `c1_span_population.jsonl` should not be committed,
+replacing it with a deterministic script plus a SHA-256 pin on
+repo-hygiene grounds. **That ruling was wrong and I reversed it.** The C2
+test reads that manifest **specifically so it never reads the corpus** —
+the program's own standing constraint. My hygiene ruling would have made
+the test pass locally (the file still existed on disk, merely untracked)
+and fail on a clean checkout, which is the worst possible failure mode:
+green where it is written, broken where it is verified. I caught it only
+because I checked the test's actual file dependency before finalizing.
+**The population stays committed.** The checksum file is retained as a
+genuine C5 integrity pin alongside it, and now documents this reversal in
+its own text so the next reader does not re-litigate it.
+
+Recording this at length because the reversal is more instructive than
+the original ruling: I made a plausible-sounding infrastructure call
+outside my verified knowledge, and the only thing that caught it was
+running the check before committing to the position.
+
+### What the Planner did that I want repeated
+
+- **Measured the heading-vs-body scope question against three
+  configurations instead of assuming one**, and reported that only
+  body-only reproduces the figures exactly — digit match, not "within
+  tolerance".
+- **Refused a coarser 4-cluster design that would have made C2 trivially
+  green**, on the explicit grounds that it would launder six named
+  residual classes into one undifferentiated bucket. That is the
+  certification's whole integrity in one decision.
+- **Reported both corrections rather than applying them**, correctly
+  treating cluster 1 as my contract's own template and not its own to
+  edit.
+- Kept the C2 RED's **two failure reasons unblended** (28,967 unassigned
+  by design; 15 double-assigned = a real bug), so neither hides the other.
+
+### Open, carried forward
+
+Complement scout is **NOT near-zero** — "unquoted definitional
+constructions" opens as a named cluster. `חוק זכיון ים המלח` art.1 (a
+real `הגדרות`-headed article) returns **0 candidates for all 13 real
+terms** under the unmodified production call: a genuinely new, previously
+unnamed buildable class. `פקודת הפרשנות` also surfaced here, a plausible
+root cause for the parent's residual (6).
