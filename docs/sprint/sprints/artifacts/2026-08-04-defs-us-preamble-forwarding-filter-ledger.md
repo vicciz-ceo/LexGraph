@@ -9,7 +9,7 @@ D-MT-E1 target-edge work; CO is the demonstrated wrong-tuple control.
 
 | phrase | act_id | citation |
 |---|---|---|
-+| `shall be as defined in` | `STATE_CO_T15_A11_P7_S15-11-701` | C.R.S. § 15-11-701 |
+| `shall be as defined in` | `STATE_CO_T15_A11_P7_S15-11-701` | C.R.S. § 15-11-701 |
 | `shall be as defined in` | `STATE_ID_T49_C14_S49-1405` | Idaho Code § 49-1405 |
 | `shall be as defined in` | `STATE_LA_Crevised-statutes_T40_S1742` | La. Rev. Stat. § 40:1742 |
 | `shall be as defined in` | `STATE_NH_TXXXVII_C400-A_S39` | N.H. Rev. Stat. § 400-A:39 |
