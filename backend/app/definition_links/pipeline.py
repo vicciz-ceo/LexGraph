@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -38,6 +39,7 @@ from app.definition_links.profiles import get_profile
 from app.definition_links.rules import registry
 from app.definition_links.rules.registry import ScopeUnit, StructuralContext, UnitStep
 from app.definition_links.sections import Article as MatcherArticle
+from app.definition_links.sections import deserialize_heading_breadcrumbs
 from app.models.article import Article
 from app.models.assertion import Assertion
 from app.models.definition import Definition
@@ -202,14 +204,22 @@ def run_definition_linking(
         # containment path -- see matcher._in_scope's dedicated "chapter"
         # branch, which never actually reads this generic tuple); every
         # registered StructuralUnitRule for this document's jurisdiction
-        # code ADDS to that set, never replaces it (union). No above-
-        # article breadcrumb source is threaded through to this per-run
-        # pass yet (that would need a new persisted column on the ORM
-        # Article, a schema change outside this pass's authorized scope) --
-        # `heading_breadcrumbs` stays `()`; a family panel's own rule is
-        # free to derive purely from `article_number`, or escalate for a
-        # breadcrumb column when it actually needs one.
-        structural_ctx = StructuralContext(article_number=art.number, heading_breadcrumbs=())
+        # code ADDS to that set, never replaces it (union). Sprint
+        # 2026-08-05-defs-core-follow-on-2, item G9-4: `heading_breadcrumbs`
+        # now reads the per-article value items G9-1/G9-2/G9-3 captured at
+        # parse/ingest time (`art.heading_breadcrumbs`, the new additive
+        # `Article` column), deserialized back into `tuple[tuple[int,
+        # str], ...]`. Deliberately GENERIC -- this read does not care
+        # whether the column was populated from wiki/Hebrew ingestion or
+        # (a future gate's own work, not built here) US/parquet ingestion;
+        # it defaults to `()` whenever the column is null/absent (a
+        # pre-G9 row, or a jurisdiction this gate does not populate it
+        # for), preserving the exact safe default the seam spec already
+        # promises.
+        structural_ctx = StructuralContext(
+            article_number=art.number,
+            heading_breadcrumbs=deserialize_heading_breadcrumbs(art.heading_breadcrumbs),
+        )
         structural_units = (ScopeUnit(kind="chapter", value=art.chapter),) + tuple(
             unit
             for rule in registry.structural_unit_rules_for(profile.code)
@@ -263,9 +273,32 @@ def run_definition_linking(
             section_candidates = profile.extract_definitions_from_section(
                 matcher_article.body, scope=scope, heading_was_derived=used_body_derived_heading
             )
+            # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
+            # `determine_scope_assignments` replaces the old bare
+            # `candidate.source_chapter = art.chapter if scope == "chapter"
+            # else None` stamping line -- fan out ONE `DefinitionCandidate`
+            # copy per returned `ScopeAssignment` (1 assignment, the
+            # article's own chapter/law-wide default, in the overwhelming
+            # common case -- byte-identical to today; >1 only for a body
+            # naming more than one co-equal scope at once, e.g. TN's "this
+            # part and Section 6-51-301", resolved by the already-shipped
+            # M10 tie class, not a new mechanism here).
+            assignments = profile.determine_scope_assignments(
+                matcher_article.body,
+                scope=scope,
+                article_number=art.number,
+                chapter=art.chapter,
+            )
             for candidate in section_candidates:
-                candidate.source_chapter = art.chapter if scope == "chapter" else None
-                all_candidates.append((candidate, art))
+                for assignment in assignments:
+                    stamped = replace(candidate, scope=assignment.kind)
+                    if assignment.kind == "chapter":
+                        stamped.source_chapter = assignment.value
+                    elif assignment.kind == "local":
+                        stamped.source_article_number = assignment.value
+                    else:
+                        stamped.scope_value = assignment.value
+                    all_candidates.append((stamped, art))
         else:
             for candidate in profile.extract_local_scope_definitions(
                 matcher_article.body, article_number=art.number, chapter=art.chapter
