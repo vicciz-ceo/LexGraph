@@ -68,6 +68,41 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (D-CERT + certification wave): Director ruled D-CERT (inverted
+  certification — recorded in program doc). PREAMBLE verdicts certified @
+  d5c12ab: GA 2→2,794/28,154 headline (both before-numbers carried: 2
+  measured / 5 historic-unreconciled); 23,617 clean-primary is the
+  certified corpus figure (27,209 fallback rows ledgered provisional); NE
+  split — recognition preamble's and works, extraction markers' (267
+  unquoted rows → queued to markers, NE joins unquoted family); P-R7
+  shape 1 (bare "Term" means — largest, NV ~8,323) attributed to HEADINGS
+  verb-form family; shape 3 ("In this <unit>", FED-dominant) STAYS preamble
+  (pushback accepted — it is the family, and their item 14 depends on it);
+  D3: IN×2+NM preamble, NV×2+CO headings; preposition cluster measured
+  18 idiom-bearing / 12 already rescued / 6 UNREACHED named to director per
+  D-HG: STATE_ID_T39_C1_S39-129, STATE_KY_TIX_C67_S67.323,
+  STATE_ME_T28-A_P3_C55_S1401-A, STATE_MI_C500_AAct-218-of-1956_S500.1305,
+  STATE_PA_T20_C77_S7721, STATE_SC_T59_C58_S59-58-30 — all enter the
+  D-CERT worklist. HEADINGS: plan5 verified (823/37 reconciled exactly, 860
+  collected, fixtures re-derived 42/42) and merged @ 6c7e5c7, dispositions
+  @ f21537a (L8 IA residual, L9 scope-value seam → core, L10 VA copula
+  excluded-endorsed, L7 pending-external); dev cycle 5 running; certified
+  matrix pointer forwarded — cycle-4 certification may open when dev lands.
+  SCOPED-INLINE: pass 7 merged @ 3f41093; manager caught mis-authored SC
+  direction-2 test (would have shipped a deliberate under-link behind a
+  green test); dev4 DONE @ efa712a (path[-1]→path[0]; SC 4/4 live on real
+  matcher; degrade 12.97% identical both ways — structurally guaranteed;
+  pre-existing gap found: no test exercises empty-path degrade on a real
+  row); plan8 DONE @ 2df1c5c (corrupted OR test REMOVED with pin-cite
+  evidence — flipped assertion would pass for the wrong reason; SC
+  single-level re-authored with offset guards; 4 multi-level RED pins on
+  two ladders, corruption-checked, verified flip-green under simulated
+  fix; SD/NY/VT testable-ledger fixture incl. newly-found NY row) →
+  manager merges, verifies RED provenance, lifts QA-2 hold. MULTITERM:
+  exclusion assertion landed @ 047f83b (RED now 5/789, green-under-
+  narrowing 4/790) → Developer released. IL relayed D-CERT for Phase D
+  spec (build A/B/C + E6 first, then ~10^5 inverted certification).
+
 - 2026-08-05 (five-panel wave + D-S15): Director ruled D-S15 (outermost) and
   D-INCLUDES-MEASURE (FP scout first) — recorded in program doc. PREAMBLE QA
   landed @ 10924fc: GA 2→2,794/28,154 (9.9%; "before=2" traced, historic "5"

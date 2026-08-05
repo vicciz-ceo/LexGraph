@@ -202,6 +202,21 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   re-derives the 19.4% under-link figure as planned. Supersedes the S-R15
   innermost interim.
 
+- **D-CERT (2026-08-05): the program closes by INVERTED CERTIFICATION.**
+  Chosen on the three-panel convergence (IL manager's escalation: three QA
+  cycles each found a new class only by widening the denominator; preamble
+  P-R7: 59,461 uncaptured candidates at ~94% genuine; headings: a connector
+  whitelist cannot close an absolute bar — the tail is unbounded). Close
+  bar: build signal-agnostic candidate denominators (IL: every quoted-term
+  occurrence, ~10^5; US: the P-R7 91,878-hit denominator, extended) and
+  classify EVERY candidate as captured / fixed / proven-not-a-definition /
+  director-named residual. Roughly one certification sprint per track: IL's
+  folds into Phase D after its known residual classes (A/B/C + E6) build;
+  the US track IS the program-close integration QA, commissioned by the
+  program manager on the merged tree. M18 (denominators come from the entry
+  LINE, never the entry grammar) is program law for the certification
+  builds.
+
 ## Program rulings added during execution
 
 - **D-DF (director, 2026-08-04): the "defined for" heading rule ships
