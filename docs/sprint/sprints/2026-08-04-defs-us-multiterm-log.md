@@ -4198,3 +4198,52 @@ caveat and is recorded as one rather than asserted clean.
 Also transferable, from the duplicate correction: **a 79,500-row stride sample
 undercounts a rare shape.** It reported 1 duplicate row; the full corpus has 2.
 Rare-shape claims need the full population or an explicit sampling label.
+
+### M-R27 addendum 2 — timeline COMPLETE (markers §M46 @ `b7193d8`); the audit rule
+
+Markers supplied the row I could not measure (their own pre-devC tree). The
+NY zero-candidate timeline is now closed and citable:
+
+```
+raw parquet, no ingest                    1,479 / 1,479   100.0%   <- ARTIFACT, no panel's product
+post-ingest, pre-devC, THIS panel's tree  1,479 / 1,245    84.2%
+post-ingest, pre-devC, markers' tree      1,479 / 1,181    79.9%
+post-ingest, post-devC, markers' merged   1,479 /   160    10.8%   <- CURRENT, citable
+```
+
+Rows 2 and 3 differ only by heading detection between trees — same stage, not
+a conflict. **Any NY rate above ~79% is pre-devC and must be labelled as such.**
+Markers has flagged the stale 85.3% still circulating in the program record
+upward, since it sits in that record rather than in either panel's log.
+
+### The one genuinely general rule this exchange produced
+
+Stated here because it decides which numbers need re-derivation whenever an
+input-layer defect is found, and "re-derive everything" and "re-derive
+nothing" are both wrong answers:
+
+> **A DIFFERENTIAL between two code versions on identical input is immune to a
+> systematic input defect — the defect appears on both sides and cancels. An
+> ABSOLUTE rate is not.**
+
+Applied to this panel's own claims, which is why the M-R27 audit could be
+answered per-number instead of wholesale:
+- **Differentials, safe:** M-R23's whole-class verification (old guard vs new
+  on identical rows); QA's 53-state extension of it; the F5 kill-experiment
+  (F5 enabled vs disabled).
+- **Absolutes, ingest-dependent:** the fire-rate (0.41%), the duplicate-row
+  count, every per-jurisdiction capture rate.
+
+Markers has adopted the same rule for its VA 97->4.4% / WA 98->6.4% headline
+absolutes versus its byte-identical candidate-dump differentials.
+
+### Provenance, as a live instance rather than an aphorism
+
+Both panels had independently written that numbers travel with their
+provenance stripped. It then happened: a stale 85.3% and a current 10.8%,
+74 points apart, describing the same quantity, with no timeline attached —
+and nothing in the numbers themselves to say which was more careful. It was
+caught by cross-panel comparison, not by either panel auditing itself; each of
+us was watching our own figures rather than the record. **That is an argument
+for cross-panel number reconciliation as a routine step at merge time, not for
+more diligence.**
