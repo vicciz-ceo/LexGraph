@@ -86,25 +86,47 @@ REAL defect confirmed live against a real vendored row (see the sprint log
   END of the PRECEDING entry (`STATE_SC_T5_C1_S5-1-20`'s `"Municipality"`
   ending in a literal `"(2)"`; `STATE_AZ_T15_C14_A7_S1871`'s "Qualified
   higher education expenses" ending in a literal `"13."`) -- the marker
-  belongs to the NEXT entry, not this one.
-- `_MAX_CLEAN_DEFINITION_LENGTH` is a last-resort safety net, not a
-  precision boundary rule: corpus self-verification (the required before/
-  after measurement, not any fixture) found dozens of real rows where a
+  belongs to the NEXT entry, not this one. The `\\d{1,3}\\.` alternative
+  carries a `(?<![\\d.])` guard immediately before each digit-dot token: a
+  genuine statutory citation of the shape `NNN.NNN.` (e.g. `STATE_TX_
+  Cgv_C2009_S2009.003`'s `"Governmental body" has the meaning assigned by
+  Section 552.003.`) is, without the guard, INDISTINGUISHABLE from two
+  back-to-back digit-dot marker tokens ("552." then "003.", glued with no
+  separating whitespace the way real leaked markers always have) -- the
+  guard blocks a digit-dot token from starting immediately after another
+  digit or a bare dot, so a dotted citation number is never partially or
+  wholly consumed as marker-chain noise, while a real trailing single
+  marker (preceded by whitespace, per the SC/AZ examples above) or a
+  whitespace-separated chain (`"... (a) (b)"`) still strips correctly.
+- `MAX_CLEAN_DEFINITION_LENGTH` is a last-resort safety net for the
+  UNBOUNDED shape specifically, not a bare across-the-board precision
+  boundary: corpus self-verification (the required before/after
+  measurement, not any fixture) found dozens of real rows where a
   genuinely LAST-in-section entry -- no next quote+idiom match anywhere
   further in the body, and no marker hard-stop nearby either (an
   architecturally identical shape to the FED baseline-splitter "unbounded
   last entry" defect this sprint's own test file documents as
   unreachable without a shared-module edit, see `us_markers_unbounded_
   last_entry.py`) -- swallows tens of thousands of unrelated trailing
-  characters (e.g. a real FED "State" entry reaching 22,880 chars). No
-  fixture in this sprint's own suite requires a captured definition over
-  ~1,800 chars (`STATE_AZ_T15_C14_A7_S1871`'s "Qualified higher education
-  expenses", the longest REQUIRED capture, is 1,752); dropping any
-  candidate whose text would exceed a generous 3,000-char ceiling trades
-  a bounded, honest MISS for what would otherwise be a false, misleading
-  multi-thousand-char "definition" -- the right side of ruling U-R1's
-  "captured cleanly, or not captured at all" bar when the alternative is
-  architecturally unfixable by a marker/idiom heuristic alone.
+  characters (e.g. a real FED "State" entry reaching 22,880 chars). A
+  SEPARATE QA pass (QA1 Q4) proved a bare "drop anything over 3000"
+  ceiling is not harmless either: it silently discarded genuine long
+  definitions that ARE structurally closed by a real boundary --
+  `STATE_VA_T47.1_C1_S47.1-2`'s "Satisfactory evidence of identity"
+  (~3,020-3,332 chars, correctly bounded by the real next `"Seal" means`
+  term, one coherent notary-law provision throughout) was captured by NO
+  path at all (dropped by the ceiling; no baseline candidate exists for
+  this body shape either). The ceiling therefore applies ONLY to
+  candidates with NO real closing boundary found (`bounded` is `False`
+  in `extract_quote_anchored_entries`: no hard-stop marker AND no
+  subsequent quoted+idiom term) -- exactly the FED/TN/AZ "ran off the end
+  of the text with nothing to close it" shape the 3,000-char measurement
+  above documents. A candidate closed by a real hard-stop marker or a
+  real next term is exempt regardless of length: its length reflects
+  genuine statutory content up to a real boundary, not a runaway swallow
+  -- the right side of ruling U-R1's "captured cleanly, or not captured
+  at all" bar, now for BOTH failure directions (false swallow AND false
+  miss) rather than trading one for the other.
 - `_TRAILING_STOP_RE` truncates the whole working text at the first
   non-operative annotation tail (FED's "Editorial Notes"/"References in
   Text"/"(Pub. L. ...)" citation block, SC's "Effect of Amendment", TN's
@@ -151,10 +173,14 @@ _LIST_INTRODUCER_BEFORE_RE = re.compile(r"[:—]\s*$")
 def _preceded_by_list_introducer(text: str, marker_start: int) -> bool:
     return bool(_LIST_INTRODUCER_BEFORE_RE.search(text[:marker_start]))
 
-_TRAILING_MARKER_CHAIN_RE = re.compile(r"(?:\s*(?:\([\w]{1,4}\)|\d{1,3}\.)\s*)+$")
+_TRAILING_MARKER_CHAIN_RE = re.compile(
+    r"(?:\s*(?:\([\w]{1,4}\)|(?<![\d.])\d{1,3}\.)\s*)+$"
+)
 
 # See this module's own docstring for why this exists and why 3000 -- a
-# last-resort defensive ceiling, not a precision boundary rule.
+# last-resort defensive ceiling for the UNBOUNDED shape only (see
+# `extract_quote_anchored_entries`'s own `bounded` check), not a bare
+# across-the-board precision boundary rule.
 MAX_CLEAN_DEFINITION_LENGTH = 3000
 
 TRAILING_STOP_RE = re.compile(
@@ -215,13 +241,31 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
 
     entries: list[tuple[str, str]] = []
     for idx, (_qstart, term, dstart) in enumerate(starts):
-        next_start = starts[idx + 1][0] if idx + 1 < len(starts) else limit
+        has_next_term = idx + 1 < len(starts)
+        next_start = starts[idx + 1][0] if has_next_term else limit
         candidate_stops = [hs for hs in hard_stops if dstart < hs < next_start]
         end = min([next_start, *candidate_stops])
+        # A candidate is structurally BOUNDED when something REAL closes
+        # it -- an explicit marker hard-stop, or a genuine subsequent
+        # quoted+idiom term -- rather than the candidate simply running off
+        # the end of the working `text`/section with nothing found to
+        # close it. MAX_CLEAN_DEFINITION_LENGTH guards ONLY the latter,
+        # UNBOUNDED shape (the same "unbounded last entry" defect family
+        # as the FED/TN/AZ swallows this module's docstring documents): a
+        # bounded candidate's length reflects real content up to a real
+        # boundary -- long because the statute is long, not because it
+        # swallowed a neighbour -- so the ceiling does not apply to it
+        # (`STATE_VA_T47.1_C1_S47.1-2`'s genuine ~3,020-3,332-char
+        # "Satisfactory evidence of identity", bounded by the real next
+        # `"Seal" means` term, is exactly this shape).
+        bounded = bool(candidate_stops) or has_next_term
         raw = _TRAILING_MARKER_CHAIN_RE.sub("", text[dstart:end])
         definition_text = raw.strip()
-        if definition_text and len(definition_text) <= MAX_CLEAN_DEFINITION_LENGTH:
-            entries.append((term, definition_text))
+        if not definition_text:
+            continue
+        if not bounded and len(definition_text) > MAX_CLEAN_DEFINITION_LENGTH:
+            continue
+        entries.append((term, definition_text))
     return entries
 
 
