@@ -1697,3 +1697,51 @@ production — the failure mode that passes its own fixture test and is dead on
 the live path, which is precisely the class this program has been bitten by
 three times (P-R8, P-R10). Fixtures for NY are byte-verified AFTER the
 transform, and the fixture must record that it is post-ingest.
+
+---
+
+## M16 — phase-2 spawn roster + bucket-A population DEFINITION proposal (2026-08-05)
+
+### Spawns (commit-before-spawn observed; base `a2f263b` pushed before each)
+
+| Role | Model/effort | agentId | Branch | Scope |
+|---|---|---|---|---|
+| QA cycle 1 | Sonnet/high | `aa3e8494ae4b0e888` | `claude/defs-us-markers-qa` | residuals-first: Q1 WA >5k, Q2 <10-char, Q3 TX 2009.003, Q4 the 3,000-char ceiling audit, Q5 `STATE_WA_T50_C29_S030` named row, Q6 correctly-empty FP sweep, Q7 P-R7 denominator, Q8 no-regression |
+| Planner A | Sonnet/high | `a6cf3c469ac9a3544` | `claude/defs-us-markers-planA` | C5 guard states NJ/MI/ND/NY/OK — guard tests FIRST, then inventory |
+| Planner B | Sonnet/high | `ab6edf7868ac5ca17` | `claude/defs-us-markers-planB` | greenfield NM/NV/MN/ME/OH + inventory-only verdict on tail NH/MA/PA/HI |
+
+Haiku considered and rejected for all three: convention inference from raw
+statute text and adversarial verification are the two highest-judgment tasks in
+this program, and both have produced silent-wrong results at lower effort.
+
+Planner split rationale: the five C5 states are recognized-but-near-zero AND
+carry captures that must not regress (**MI already captures 1,763 of 2,879;
+NY 217**), so they need guard tests before any widening. The other five are
+near-total gaps (NV captures exactly 0) where widening risks nothing. Different
+risk classes, so different briefs; concurrent Planners, serialized Developers,
+per the pattern the IL panel established.
+
+### Bucket-A population definition — my proposal to the headings panel
+
+Standing duty: agree the DEFINITION now so the merged-tree measurement is
+well-defined; neither branch-partial number is quoted at certification. From
+M14(b) the population is under-specified along two independent axes, and I
+propose the merged-tree measurement declare both explicitly:
+
+1. **Shape restriction** — shape-1-restricted (headings' operational
+   definition) vs all-shapes (ours). Proposal: measure **all-shapes**, and
+   report shape-1 as a labelled subset, since D-CERT's inverted certification
+   counts every uncaptured row regardless of shape.
+2. **Recognition basis** — direct-title only vs including body-derived
+   headings. Worth **3,405 rows / 570 zero-yield**, entirely CA+IL+GA.
+   Proposal: measure **including body-derived**, because production recognizes
+   those rows and a direct-title denominator silently excludes all of CA.
+
+Markers' own two numbers, both recorded so neither is quoted without its basis:
+**21,072** (direct-title, all-shapes) and **21,642** (+body-derived,
+all-shapes); on production-faithful NY text (U-R11) these become **20,855** and
+≤20,876 respectively. Headings' 12,869 is shape-1-restricted on their own
+rule set. **None of these is the merged-tree number**; all are branch-partial
+by construction and are labelled as such.
+
+Routed via the program manager, as the counterpart is a panel I do not manage.
