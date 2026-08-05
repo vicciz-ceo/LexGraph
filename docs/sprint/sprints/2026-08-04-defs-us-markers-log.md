@@ -2964,3 +2964,67 @@ without a shared write set.
 program manager, superseding the earlier H-R1 routing to us: our QA proved
 extraction yields `wages` cleanly when driven directly, so the gap is 100%
 recognition-side. Closed as dispositioned-with-evidence, not as fixed.
+
+---
+
+## M20 — G11 sized on OUR branch; Developer B re-scoped; the gate flip is NOT free (2026-08-05)
+
+**The WA_T50 lesson, accepted.** Both panels' probes were right and both
+diagnoses wrong because the probe ARGUMENTS differed — our QA drove extraction
+with `heading_was_derived=True`, which silently supplied the very thing the
+production gate withholds. Recorded as a panel lesson: **a probe's arguments
+are part of its claim**, and any measurement quoted in this sprint must state
+the flag values it ran under. Our own M13–M14 sweeps are compliant (they passed
+`False` for registry-recognized rows, matching production), but they were not
+LABELLED as such, and now are.
+
+**G11 sized by me, on our branch, our rules live, per jurisdiction.**
+
+| | NJ | MI | ND | NY | OK | NM | NV | MN | ME | OH |
+|---|---|---|---|---|---|---|---|---|---|---|
+| headed | 2,379 | 2,879 | 1,026 | 1,479 | 1,214 | 1,625 | 1,262 | 1,108 | 1,001 | 950 |
+| zero (gate as-is) | 2,372 | 1,116 | 1,023 | 1,262 | 1,146 | 1,578 | 1,262 | 1,016 | 1,000 | 949 |
+| zero (flag=True) | 73 | 138 | 130 | 180 | 68 | 57 | **924** | 47 | 36 | 61 |
+| **rescued by flag** | 2,299 | 978 | 893 | 1,082 | 1,078 | 1,521 | **338** | 969 | 964 | 888 |
+| **NEW >5k defs** | 55 | 11 | 7 | 36 | 39 | 2 | 1 | 22 | 8 | 21 |
+
+**11,010 of our 12,724 extension target (86.5%) is rescued by the flag alone.**
+The program manager's lean to re-scope Developer B is therefore correct on the
+data, and I have adopted it.
+
+**But the gate flip is NOT free, and this is the finding.** Those rescues fire
+the CURRENT, UNMODIFIED `_extract_inline_quoted_definitions` — and they create
+**202 NEW >5,000-char definitions** across these ten jurisdictions. This panel
+PREDICTED exactly this in planner pass 1 (contract §(d): naively removing the
+gate "would also fire the CURRENT, unmodified function verbatim, which this
+pass proved produces real defects on VA, WA, and FED"). It now has a number.
+
+**Position for G11's both-sides measurement condition: G11 must land WITH
+boundary rules, not before them.** Under U-R1 a rescue that ships a
+5,000-char swallow is not a capture. The honest framing is a division of
+labour, not redundancy — **G11 delivers REACH; this panel's rules deliver
+CLEANLINESS**, and 202 rows across ten states is the size of the cleanliness
+debt G11 creates on its own.
+
+**NV is the exception and is now Developer B's top priority.** The flag rescues
+only 338 NV rows; **924 survive it (73.2%)** — the largest gate-independent
+population in the extension, corroborating Planner B's "two stacked cheap gaps"
+independently.
+
+**Developer B re-scoped (option (b), amended)**, instructed to classify each of
+its 14 REDs mechanically — extract with `heading_was_derived` False vs True;
+still-failing-at-True is gate-independent and gets built now, passing-at-True is
+deferred for post-G11 sizing. Work already built is kept and flagged, never
+reverted: a rule of ours may still produce a cleaner boundary than the fallback,
+which is the whole 202-row problem. **Developer A is unaffected** — the
+citation-strip corruption is our own engine's and urgent regardless.
+
+**Denominator caution.** Headings' 39,955-rows / 74.1% figure is over
+"defin-titled rows" corpus-wide; mine is 11,010 over OUR heading-recognized
+population in ten jurisdictions. Different denominators, both valid, **not to
+be quoted as the same measurement** — the same two-axis problem recorded in
+M14(b)/M16.
+
+**Ledger:** DC's 20 unclassified rows stand as named-unclassified (not
+absorbed). `STATE_WA_T50_C29_S030` closes at G11's landing; our side stands
+ready.
