@@ -77,6 +77,33 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (milestone batch, post-harness-adjustment): CORE-2 @ e4032c7 —
+  G2+G4 resolver fixes merged (SC connector chain solved; i9 test's
+  docstring found to misdescribe its own fixture — load-bearing error,
+  routed to plan1); G11 ruled DO-NOT-SHIP-ALONE (ships only with G12 +
+  G3-sibling); G12 opened (includes boundary+emission under D-INCLUDES —
+  manager chose emission over boundary-only on the inversion argument:
+  boundary-only converts visible contamination into silent drops); G5+G6
+  implementation spawned. SCOPED-INLINE @ 6b45c52 — pass-9 pin re-author
+  verified; Planner found 2 more PA rows ("references to \"the
+  corporation\" include") whose protection would evaporate under cycle-5's
+  finding-5 connector widening — guard requirement routed to the Developer
+  mid-flight with proof obligations. MARKERS @ 8edc197, 15/877 — Developer
+  B's 4 modules: MN 91.7→4.6%, ME 99.9→3.9%, OH 99.9→6.7%, NY 217→298
+  captured, MI 1,763 unchanged; two oracle rulings (U-R12 green-for-wrong-
+  reason AZ test to QA re-author; U-R13); FED "26,028 swallow" in the
+  module's own docstring found to be a genuine enumeration, never a swallow
+  (5/42 spot-checked, 37 to QA). PROCESS FINDING worth keeping: markers
+  Developer B REFUSED the delivery boilerplate as a suspected injection
+  lure (raw id + urgency + "your normal channel is unreliable" is the
+  exfiltration shape) and delivered via the normal path — correct instinct,
+  fails safe; the manager's refinement is the durable fix: anchor the
+  delivery instruction to a COMMITTED artifact the agent can verify in its
+  own worktree (applied to its next brief; recommended to all panels as
+  they next spawn). Manager also self-corrected an M19 role error (had
+  planned to apply the tuple-widening itself — production code is not
+  manager work; re-dispatched as Developer C).
+
 - 2026-08-05 (HARNESS ADJUSTMENT, director-ordered): role agents now
   interact DIRECTLY with their panel managers, not through the program
   manager. Mechanism: manager-to-manager SendMessage by raw agentId is
