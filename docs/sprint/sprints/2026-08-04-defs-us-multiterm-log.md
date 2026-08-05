@@ -2528,3 +2528,56 @@ Developer** dedupes within the apposition path. My own M-R13 lesson applies
 directly: a measurement I ran once is not a guard that runs forever, and a
 dedup fix with no test is that same mistake. The corpus numbers above are
 evidence, not a substitute for a suite guard.
+
+---
+
+## 2026-08-05 — M-R14 fix VERIFIED; residual SIZED; items 1-2 complete
+
+### Verification of `05de256`
+
+One file, 11 insertions / 1 deletion, **zero test edits**. The dedup is a
+per-call `seen_terms` set inside `_apposition_candidates` — the extraction
+primitive BOTH dispatch paths share, so no caller, regex, or sentence-window
+logic changed. Suite **4 failed / 791 passed**; failures are exactly the 4
+VT/SD boundary REDs; E1 pins 7/7; file 203 lines. Arithmetic reconciles with
+the prior 5/790 (the dedup RED flipped green).
+
+### Post-fix corpus measurement (mine, same seed/population throughout)
+
+```
+POST-FIX: sampled=79,500  rows firing=280 (0.35%)  candidates=471
+duplicate-term rows: 0
+```
+
+| | pre-narrow | post-narrow | post-fix |
+|---|---|---|---|
+| rows firing | 7,055 (8.87%) | 280 (0.35%) | **280 (0.35%)** |
+| candidates | 35,337 | 492 | **471** |
+| duplicate-term rows | 10.8% | 6.1% | **0** |
+
+Duplicates are eliminated on the REAL corpus, not just on the fixture. The 21
+candidates removed between post-narrow and post-fix are exactly the duplicates.
+
+### The residual is now SIZED, not an anecdote (ledger R4)
+
+The program manager asked whether the re-measure could cheaply count
+multi-occurrence terms whose sentences materially differ. It could:
+
+```
+multi-occurrence terms (same term, >1 apposition in one body): 19
+...occurrences with MATERIALLY DIFFERENT sentences:            17 (89.5%)
+rows affected:                                                 15 (0.019%)
+  DC 50-1401.01 / BOP (3 occ, 2 distinct)   DC 7-2051 / OSSE
+  DE 3578 / ASAM                            LA 9038.76 / district exclusions
+```
+
+So when a term IS introduced more than once, the occurrences almost always
+differ materially (89.5%) — but that situation is rare (0.019% of rows,
+~385 rows extrapolated to the full 2,038,247-row corpus). **Recorded as R4**
+with the DE/ASAM verified case, and with the explicit closure condition that
+any fix must use a MEASURED occurrence-quality signal, not a position
+heuristic. The Developer declining to invent keep-best was the right call —
+it would have been a guess dressed as a fix.
+
+**Items 1-2 are COMPLETE.** Remaining REDs are the 4 VT/SD boundary cases
+owned by markers. Next: QA + the U4 53-jurisdiction sweep.
