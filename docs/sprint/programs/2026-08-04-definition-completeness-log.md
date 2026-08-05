@@ -30,6 +30,9 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-04 headings phase-3 manager (opus, fresh context after phase-2
   manager context-exhausted clean exit @ b79f588; runs dev cycle 5 + QA
   cycle 4): a1d2487867915919a
+- 2026-08-05 core follow-on-2 panel manager (opus, fresh; sprint
+  2026-08-05-defs-core-follow-on-2, gates G1–G7, merges first):
+  afa01292edb77329b
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
