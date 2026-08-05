@@ -1419,6 +1419,16 @@ _STRUCTURAL_UNIT_WORD_SUFFIX_RE = re.compile(
     r"\b(?:" + "|".join(sorted(_STRUCTURAL_UNIT_WORDS)) + r")\Z",
     re.IGNORECASE,
 )
+_FULL_USC_CITATION_SUFFIX_RE = re.compile(
+    r"\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*\Z"
+)
+_SECTION_CITATION_SUFFIX_RE = re.compile(r"\bSection\s+\d+(?:[.\-]\d+)*\Z")
+_LONE_SECTION_CITATION_SUFFIX_RE = re.compile(r"§\s*\d+(?:[.\-]\d+)*\Z")
+_BARE_STATE_CODE_CITATION_SUFFIX_RE = re.compile(
+    r"\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*\Z"
+)
+# Kept for the committed G4 measurement runner, which scans the original
+# undifferentiated citation surface while production selects a branch above.
 _CITATION_NUMBER_SUFFIX_RE = re.compile(
     r"(?:"
     r"\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*"
@@ -1426,6 +1436,15 @@ _CITATION_NUMBER_SUFFIX_RE = re.compile(
     r"|§\s*\d+(?:[.\-]\d+)*"
     r"|\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*"
     r")\Z"
+)
+
+# G4's post-QA newline exception is deliberately narrower than the general
+# discriminator: only a parenthesized token after `Section N` or lone `§ N`
+# can cross a physical line.  A leading comma, or a parenthetical pin-cite
+# chain ending in "of this act", keeps the token on the citation side.
+_CROSS_LINE_CITATION_CONTINUATION_RE = re.compile(
+    r"[ \t]*(?:,|(?:\((?:[A-Za-z]+|\d+)\)[ \t]*)*of[ \t]+this[ \t]+act\b)",
+    re.IGNORECASE,
 )
 
 # Chain continuation: once a token is rejected as citation/cross-reference
@@ -1466,21 +1485,49 @@ def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str]]:
     return tokens
 
 
-def _is_citation_or_xref_context(body: str, token_start: int) -> bool:
-    """True when the text immediately before `token_start` (skipping only
-    whitespace, newlines included) is a structural-unit word or a
-    citation-number span -- see the module comment above
-    `_STRUCTURAL_UNIT_WORD_SUFFIX_RE` for the full discriminator design.
-    Uses `search(body, 0, trimmed_end)` (endpos, not a slice) so `\\Z`
-    anchors at `trimmed_end` without copying `body`.
+def _citation_or_xref_context(body: str, token_start: int) -> tuple[str | None, int]:
+    """Return the immediate context identity and its whitespace-trimmed end.
+
+    Structural words and the four citation suffix branches remain distinct so
+    G4's measured cross-newline exception can be limited to `Section` and
+    lone-`§` citations.  Uses `search(body, 0, trimmed_end)` (endpos, not a
+    slice) so `\\Z` anchors at `trimmed_end` without copying `body`.
     """
     trimmed_end = token_start
     while trimmed_end > 0 and body[trimmed_end - 1].isspace():
         trimmed_end -= 1
-    return bool(
-        _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, 0, trimmed_end)
-        or _CITATION_NUMBER_SUFFIX_RE.search(body, 0, trimmed_end)
-    )
+    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "structural", trimmed_end
+    if _FULL_USC_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "full_usc", trimmed_end
+    if _SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "section", trimmed_end
+    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "lone_section", trimmed_end
+    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "bare_state_code", trimmed_end
+    return None, trimmed_end
+
+
+def _is_citation_or_xref_context(
+    body: str, token_start: int, token_end: int, marker_form: str
+) -> bool:
+    """Whether a candidate marker remains citation/cross-reference context.
+
+    Same-line decisions, structural words, full-U.S.C., bare-state-code, and
+    period-style candidates retain the ordinary rejection.  The sole exception
+    is a parenthesized candidate following `Section N` or lone `§ N` across a
+    whitespace-only gap containing CR or LF, unless its right tail is a known
+    citation continuation.
+    """
+    context, trimmed_end = _citation_or_xref_context(body, token_start)
+    if context not in {"section", "lone_section"} or marker_form != "parenthesized":
+        return context is not None
+
+    gap = body[trimmed_end:token_start]
+    if "\r" not in gap and "\n" not in gap:
+        return True
+    return bool(_CROSS_LINE_CITATION_CONTINUATION_RE.match(body, token_end))
 
 
 def resolve_unit_path(article, char_offset: int | None = None):
@@ -1603,7 +1650,8 @@ def resolve_unit_path(article, char_offset: int | None = None):
         ):
             last_rejected_end = end
             continue
-        if _is_citation_or_xref_context(article.body, start):
+        marker_form = "parenthesized" if article.body[start] == "(" else "period"
+        if _is_citation_or_xref_context(article.body, start, end, marker_form):
             last_rejected_end = end
             continue
         last_rejected_end = None
