@@ -7,6 +7,39 @@ to the director).
 
 ---
 
+## M65 — core+markers combined gate RED; bounded G3-HEAL Planner dispatched (2026-08-05)
+
+The program manager merged QA-reviewed markers tip
+`abd1d02581cfa867d1096772c2d60ffb2f8ca72e` into current main
+`6cdf7c796ff608f6d45004d3dcc7178dfe386739` on integration branch
+`claude/defs-us-markers-core2-integration`. The merge commit is
+`66b242a4854f0b3e583286d4e9dfb102a5e3fa26`; both parents are ancestors.
+Its only textual conflict was this panel's fixture-provenance README versus
+core-2's independently appended provenance block. Resolution removed only the
+three conflict-marker lines and preserved both content blocks. The branch is
+pushed.
+
+A fresh worktree-local Python 3.13 virtualenv was installed editable from this
+exact checkout. The combined focused command covered the real G9 raw-DDL
+migration, core G3 positive/guard tests, marker unbounded-tail tests, the full
+four-file P-D2 unit/live set, and the binding WA G3-HEAL test: **27 passed / 1
+failed**. The sole failure is the required persisted-altitude assertion:
+`STATE_WA_T82_C04_S065` term `800 service` persists baseline's **10,838**
+characters instead of the markers engine's exact clean **303** characters.
+This confirms core G3's trailing-notes repair and markers' clean emission are
+individually green while the same-key persistence collision remains unresolved.
+No merge authorization is granted.
+
+Fresh Planner dispatch is committed before START: canonical delivery id
+`/root/markers_g3_heal_planner`, model/effort `gpt-5.6-terra/high`. This is the
+cheapest fit for a bounded but cross-cutting shared-persistence design judgment
+that must reconcile the WA reverse-direction exhibit with G8's independently
+proven first-wins safety rows. Planner owns tests/fixtures/docs only and may
+leave the already-causal RED unchanged; it must diagnose the exact sequence,
+propose the narrow production seam, define mutation and corpus-safety evidence,
+and keep unrelated debts out. The program manager remains manager-only and will
+audit the Planner result before any separate Developer is dispatched.
+
 ## M64 — P-D2 independent final QA cycle 2 PASS (2026-08-05)
 
 QA verified exact shared tip `aa2cad11d33796db246bc759348d9ad0fc759aa5`

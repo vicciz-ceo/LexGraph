@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: review
+status: active
 current_role: planner
-branch: claude/defs-us-markers
-worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: null
-locked_at: null
-last_agent: "/root/markers_panel_manager/qa_final_pd2"
-last_updated: "2026-08-05T21:36:00Z"
+branch: claude/defs-us-markers-core2-integration
+worktree: /Users/nerya/LexGraph-wt/defs-us-markers-core2-integration
+locked_by: "/root/markers_g3_heal_planner"
+locked_at: "2026-08-05T22:01:35Z"
+last_agent: "/root"
+last_updated: "2026-08-05T22:01:35Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 2
+total_items: 3
 completed_items: 2
 dev_complete_items: 0
 qa_cycles: 2
-lint: "PASS 368 2026-08-05T21:36:53Z"
+lint: "PASS 388 2026-08-05T22:01:59Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -182,10 +182,28 @@ planner pass 1`.
 
 ## Next Steps
 
-**CURRENT continuation phase (M64).** No panel implementation remains: P-D1 is
-retired, P-D2 passed independent final QA cycle 2, and P-T1 is complete. The
-merge slot remains shut until core-2 merges; only the later combined G3-HEAL
-gate may authorize integration or make a combined WA/persistence claim.
+**CURRENT continuation phase (M65).** Core-2 is merged. The exact combined
+core+markers tree at `66b242a4854f0b3e583286d4e9dfb102a5e3fa26` passes
+the G9 migration, core G3, marker unbounded-tail, and P-D2 focused checks, but
+the binding persisted-altitude G3-HEAL assertion remains RED: the first WA row
+persists the 10,838-character baseline swallow instead of the markers rule's
+clean 303-character candidate. P-G3H is therefore active under a fresh Planner;
+integration remains blocked until a bounded RED-before-GREEN repair and
+independent combined-tree QA pass.
+
+### P-G3H — combined G3-HEAL repair
+
+- Preserve the existing two-layer acceptance instrument in
+  `test_us_markers_qa_q1_wa_newline_collapse_swallow.py`: the baseline swallow
+  must be absent and the clean markers candidate must be the persisted row.
+- Reconcile the WA reverse-direction exhibit with G8's proven first-wins safety
+  exhibits. No generic shortest-candidate or containment preference may return.
+- Planner must derive a bounded production seam and measurement/mutation plan;
+  Developer may edit production only after manager acceptance; independent QA
+  must rerun the combined gate, focused core/markers suites, full evaluators,
+  contract lint, and required corpus evidence.
+- No forwarding/reference-edge, core-3 sibling, or unrelated panel debt enters
+  this repair.
 
 ## Stale-pin sweep
 
@@ -364,5 +382,7 @@ wrapper is needed beyond real ingest/persistence for this parser path.
 
 P-D2 passed independent final QA cycle 2 and is complete; P-T1 remains complete
 and P-D1 remains retired by M54. The FED Roman sibling and TX Part-A are named
-inherited holds, not regressions. Core-2 remains unmerged: do not merge/rebase
-this panel or claim G3-HEAL until the program manager opens that gate.
+inherited holds, not regressions. Core-2 is merged to main. The combined branch
+is intentionally not mergeable while P-G3H is RED at persisted altitude; use
+the exact M65 integration/dispatch evidence and do not weaken or re-scope that
+test to obtain GREEN.
