@@ -4167,3 +4167,90 @@ first — their worktrees were at `c22d6b0`, older than the rulings they act on.
    the class-D gap until core-2 confirms it.**
 
 ---
+
+## M37 — class-B population CLOSED at 15 of 75; verified by sampling QA's own criterion (2026-08-05)
+
+QA ran the mechanical sweep with stated criteria (T1 trailing hyphen, T2 marker
+leak, T3 dangling connector, T4 no terminal punctuation, H1 leading alias leak,
+L1 under 15 chars, M1 under 60% of source span), flagged 18 of 75, then read all
+18 against raw source rather than reporting mechanical output as truth.
+
+### My verification — I sampled its judgement, not its arithmetic
+
+I re-derived five of the 18 independently on the live engine, deliberately
+weighting FALSE positives, because a wrongly-cleared term ships an unpinned
+defect:
+
+| Term | QA call | My measured tail | Verdict |
+|---|---|---|---|
+| `Commercial property` (ND) | class-B | `…subsections 1, 4, 10, 12, 13, and` | **TP confirmed** — list cut mid-enumeration, nothing follows |
+| `Air carrier transportation property` (ND) | class-B | `…pursuant to chapters 57-06 and 57-` | **TP confirmed** — mid-citation |
+| `Unencumbered cash` (ND) | cleared (FP) | `…which are chargeable against the fund.` | **Correctly cleared** — complete sentence |
+| `Residential property` (ND) | cleared (FP) | `…and primary residential\n\nproperty.` | **Correctly cleared** |
+| `retailer` (NY) | cleared (FP) | `…shall not include a\nfood store; and` | **Accepted** — see caveat below |
+
+**`Offer` attribution correction independently confirmed**: my own §M26 inventory
+lists `nd:88`'s extras and `Offer` is not among them — it was in the guard's
+pinned baseline (`['Offer', 'Offer to purchase']`). QA was right to withdraw it.
+
+### FINAL class-B list — 15 of 75, and the population is CLOSED
+
+`facility` (NJ), `Between merchants` (NJ), `Commercial unit` (NJ), `gallon` (OK),
+`Bundled transaction` (ND), `Farm machinery repair parts` (ND), `Gross receipts`
+(ND), `sale at retail` (ND), `Agricultural property` (ND), `Air carrier
+transportation property` (ND), `Centrally assessed property` (ND), `Commercial
+property` (ND), `Commissioner` (ND), `Franchise` (ND), `Rule` (ND).
+The other 60 pass.
+
+### The finding underneath the list: class B is ONE defect, not fifteen
+
+Sorting by mechanism rather than by symptom, **essentially all 15 trace to the
+same parenthesised/bare-number-vs-marker ambiguity that §M33 scoped to CORE**:
+
+- mid-citation truncation (`…57-`, `…s. 2-`) — a citation's internal number read
+  as a boundary;
+- "stops after sub-item (1)" (`Bundled transaction`, `Gross receipts`,
+  `Agricultural property`) — the source's own `(2)` read as a next-entry marker;
+- marker leaks (`…5. a.`, `…12. a.`, `…14. a.`) — bare digit-dot markers;
+- `gallon` → `"one"` — the `(1)` inside `means one (1) United States standard
+  gallon`.
+
+Only `facility`'s missing `means ` prefix sits outside it, and that is the
+engine's universal idiom-stripping convention (ruling U-R13), not a defect.
+
+**So this panel's entire class-B population is core-3's item.** That is now the
+third independent arrival at the same ambiguity — U-R12, scoped-inline's shape 8,
+and now a 75-term mechanical sweep that was not looking for it. Reported to the
+program manager as corroboration.
+
+### Criterion blind spots — recorded as reusable knowledge
+
+QA documented these rather than discarding the false positives, which is what
+makes them worth having:
+
+- **T3 must not fire on a trailing `"; and"` / `"; or"`** — semicolon-then-
+  connector is this corpus's enumerated-list drafting convention, not truncation.
+  It SHOULD still fire on `", and"` after a bare number with nothing following
+  (confirmed on `Commercial property`).
+- **M1's `NEXT_DEF_START_RE` misses `signifies` and `is a`** as definiendum
+  verbs; ND uses both, which inflates the expected-span estimate and produces
+  false shortfalls.
+- **Stated limitation, honestly given**: these criteria catch large and medium
+  losses reliably but NOT single-token losses. `facility` — losing the ` 3` off
+  `…c. 34, p. 97, s. 3.` — is sub-threshold on every criterion and was found only
+  by hand. **A future re-run of this sweep will not re-find it.**
+
+**Manager caveat on `retailer`**: I accept the clear, but the capture does carry
+a trailing `; and` that belongs to the list structure rather than the definition.
+No content is lost or borrowed, so it is not class B — recorded as a **cosmetic
+residue class**, not chased, and named so it is not rediscovered as a defect.
+
+### Behaviour worth reinforcing
+
+QA corrected TWO of its own report-1 calls unprompted — a false negative it had
+hand-found and a term it had wrongly attributed to the extras — and surfaced both
+rather than folding them in silently. It also refused to report raw mechanical
+output as findings. That is the standard this panel needs, and it is the direct
+reason the class-B boundary is defensible enough for the Planner to pin against.
+
+---
