@@ -217,7 +217,7 @@ register_body_preamble_rule(
 # this sprint's own B1 matrix, not just GA -- see
 # `test_us_body_preamble_b1_colon_list_matrix_red.py`.
 _B1_TRIGGER_RE = re.compile(
-    r"(?:As used in|For (?:the )?purposes of) this\s+[A-Za-z][A-Za-z0-9 .\-]{0,30}",
+    r"(?:As used in|For (?:the )?purposes of|In) this\s+[A-Za-z][A-Za-z0-9 .\-]{0,30}",
     re.IGNORECASE,
 )
 _B1_LOOKAHEAD = 250
@@ -232,14 +232,41 @@ _B1_FORWARDING_PHRASES = (
     "shall not include",
     "does not impair",
 )
+# Shapes 2 + 6 (combined per the sprint's own overlap ruling -- stacking
+# them as two independent edits risks one widening's anchoring silently
+# breaking the other's): shape 2 (KS's real `"As used in this act "state
+# agency" means"` -- no "the term", no comma at all) makes the literal "the
+# term" OPTIONAL; shape 6 (TN's real `"As used in this section, unless the
+# context otherwise requires, "veteran" means"`) tolerates ONE short
+# comma-bounded qualifier clause between the trigger and the quote. Both
+# land in the SAME leading `(?P<gap>...)` group so a single combined regex
+# handles: no comma at all (KS), a bare leading comma with no qualifier and
+# no "the term" (never seen, but not excluded), a leading comma + "the
+# term" (SD, the pre-existing case), and a leading comma + qualifier clause
+# + comma (TN) -- with or without "the term" following. The qualifier
+# clause itself excludes quote characters and commas (so it can never
+# swallow past a REAL quoted term into a second one) and is capped at 60
+# chars ("short", per the build target's own wording).
 _B1_QUOTE_MEANS_RE = re.compile(
-    r'^,?\s*the term\s+["“]([^"”]{1,150})["”]\s*(?:means|shall mean)\b',
+    r'^(?P<gap>(?:,\s*(?:[^"“”,\n]{1,60},\s*)?)?(?:the term\s+)?)'
+    r'["“](?P<term>[^"”]{1,150})["”]\s*(?:means|shall mean)\b',
     re.IGNORECASE,
 )
 
 
 def _b1_colon_list_branch(after: str) -> bool:
     window = after[:_B1_COLON_WINDOW]
+    # Shape 3 (FEDERAL's real `"In this section—"` row,
+    # `USC_T27_C6_S122a`): an em dash immediately after the trigger's unit
+    # name plays the exact same "list follows" role a colon does elsewhere
+    # in this same corpus -- verified corpus-wide (every fixture file under
+    # `backend/tests/fixtures/us_statutes/`) that this exact
+    # trigger-immediately-followed-by-em-dash shape occurs in ONLY this one
+    # real row, so treating it as an intro exactly like a colon at position
+    # 0 (empty filler, nothing to forwarding-phrase-check) cannot newly
+    # capture any other fixture in this sprint.
+    if window[:1] == "—":
+        return True
     colon_index = window.find(":")
     if colon_index == -1:
         return False
@@ -248,7 +275,19 @@ def _b1_colon_list_branch(after: str) -> bool:
 
 
 def _b1_quote_means_branch(after: str) -> bool:
-    return _B1_QUOTE_MEANS_RE.match(after) is not None
+    # D3 finding, folded into the shape 2/6 widening per the manager's
+    # pre-decided FP remedy (M-R50): every measured false positive from
+    # widening this branch was a forwarding-phrase pointer, so
+    # `_B1_FORWARDING_PHRASES` is applied to the "gap" text (whatever the
+    # widened regex matched between the trigger and the quoted term) --
+    # the same discipline `_b1_colon_list_branch` already applies to its
+    # own filler text, just on the newly-widened branch instead of a new
+    # gate.
+    match = _B1_QUOTE_MEANS_RE.match(after)
+    if match is None:
+        return False
+    gap = match.group("gap").lower()
+    return not any(phrase in gap for phrase in _B1_FORWARDING_PHRASES)
 
 
 def _b1_trigger_colon_or_quote_means(body: str) -> str | None:
