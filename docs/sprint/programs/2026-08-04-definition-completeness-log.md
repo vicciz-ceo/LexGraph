@@ -33,6 +33,12 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-05 core follow-on-2 panel manager (opus, fresh; sprint
   2026-08-05-defs-core-follow-on-2, gates G1–G7, merges first):
   afa01292edb77329b
+- 2026-08-05 markers phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean exit @ c4baf7ce; QA + 10-jurisdiction
+  extension): a2ef4b689a844a074
+- 2026-08-05 IL phase-3 manager (opus, fresh after phase-2 clean exit @
+  64932d7; runs D-1 serialized Developers + QA cycle 4 + certification
+  contract draft): a18597f9be6c49ed6
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
