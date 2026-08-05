@@ -2683,3 +2683,71 @@ population reaches these 14 is exactly the P-R7 boundary question, and the
 panel is forbidden both from re-scanning the corpus for another panel's
 population and from certifying on that panel's pre-QA log. D-HG's own terms
 apply: rows NEITHER path reaches return to the director BY NAME.
+
+---
+
+## 2026-08-05 — Manager verification of the cycle-5 Planner, and dev spawn
+
+### Verification (every check re-run by the manager, none taken on report)
+
+| Check | Result |
+|---|---|
+| Role separation — `git diff e17ac21...8cd3829 -- backend/app/` | **EMPTY (0 files)**. 12 files touched, all tests/fixtures/docs |
+| Suite (manager-run, plan5 venv) | **823 passed / 37 failed** |
+| Suite arithmetic | reconciles EXACTLY: 811 baseline − 1 deliberately-amended registry test + 13 green pins = **823**; 36 REDs + 1 amended = **37** |
+| Collection integrity | **860 collected, ZERO skipped, ZERO collection errors** (guards against tests silently not running) |
+| Fixture byte-identity | manager re-derived from the real corpus independently: **42/42 act_ids located, 1,008 fields compared, 0 mismatches**, nothing fabricated |
+| RED reason | feature-absent, verified: assertions quote real bodies (`"creditor process" means levy, attachment, garnishment…`), plus the registration-count test now expecting 3 rules |
+
+**Honesty credit to the Planner**, recorded because it is the behavior this
+harness wants: the 4 matcher-level U2 tests are labeled **green PINS, not
+REDs** — the tuple mechanism is already live, and the Planner said so instead
+of mislabeling them to inflate a RED count. Its AK proof establishes Alaska's
+**nine real probate chapters** (`13.06, 13.12, 13.16, 13.21, 13.26, 13.27,
+13.28, 13.33, 13.36`) rather than assuming an arithmetic range, and proves
+non-membership using a **mid-range** member (`13.16`) so the match cannot be a
+prefix/substring artifact — then reuses another U2 row (`139.486`) as the
+negative control.
+
+Merged to the panel branch at `6c7e5c7`; dispositions recorded at `f21537a`.
+
+### Dispositions applied (program manager)
+
+- **L8** — 4 IA stripped-connector rows → RESIDUAL. Structurally
+  unwhitelistable (corpus removed the connector punctuation entirely); the
+  Planner's Title-Case candidate fix was **rejected on 7 measured FPs**, a
+  trade H-R3 does not allow. Real misses, named rather than hidden.
+- **L9** — the other 8 U2 rows → **CORE follow-on**. The Planner found a REAL
+  seam gap: `ScopeKindRule` returns a scope **kind string only**, there is no
+  scope-VALUE seam for enumerated/tuple scopes, and `us_profile.determine_scope`
+  hard-codes the 2-way answer. Panel builds only the 2 expressible today.
+- **L10** — item-13 VA copula row → EXCLUDED, panel-endorsed close call,
+  recorded WITH the body evidence; revisit only on a director widening.
+- MI row → D-MT-E1/markers path. NM row → D-HG rescue path.
+- **L7** (78-row cluster) → **PENDING-EXTERNAL**, routed to the preamble
+  manager for a concrete "does our rescue reach these 14" assessment. Not
+  unresolved, and not blocking cycle 5.
+
+### P-R7 — matrix landed, certification deliberately still shut
+
+The preamble panel's QA has landed (`10924fc` on `claude/defs-us-preamble`):
+GA 2→2,794/28,154; corpus-wide 29,667→80,493; a full 53-jurisdiction
+before/after table; an 8-shape P-R7 residual analysis with real act_ids.
+QA-measured, independent, body-driven — **sufficient for U4 cross-check PREP**.
+Their manager's verdicts are still pending (GA 2-vs-5 reconciliation,
+shape→owner attribution), so **QA cycle 4's formal certification does not open
+until the program manager forwards the verdict pointer.** With `qa_cycles` at
+3 of 5, this deliberately protects the remaining budget from a bounce caused by
+external data churn rather than by this panel's own work.
+
+### Dev cycle 5 spawned
+
+| Role | Model/effort | Justification (Haiku considered?) | agentId | Worktree/branch |
+|---|---|---|---|---|
+| Developer — cycle 5 build | Sonnet/medium | P-R6 assigns Developer to Sonnet medium. **Haiku considered: yes, REJECTED** — not a bounded mechanical change: several rule families, a hard FP gate (H-R3), and a required module split. | `a854c88c3129ada0b` | `/Users/nerya/LexGraph-wt/defs-us-headings-dev5`, branch `claude/defs-us-headings-dev5`, own venv (verified resolving to its OWN module) |
+
+Build: items 10, 11, 12, 13, 15 + the 2 expressible U2 rows. Explicitly NOT
+building L8/L9/L10. Write-set restricted to `rules/`; no shared-module edits;
+no test edits (`git diff -- backend/tests/` must stay empty). Module split from
+479 lines to sub-300 modules required, without changing behavior and keeping
+exactly three import-time registrations.
