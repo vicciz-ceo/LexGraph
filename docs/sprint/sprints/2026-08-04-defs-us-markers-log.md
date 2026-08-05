@@ -3682,3 +3682,84 @@ chasing only the `'facility'` fragment we happened to trip over. Shape 2 is the
 design basis for the S-R17 blocklist. Neither starts before QA-1 reports.
 
 ---
+
+## M30 — re-cut 1 landed: shape 8 is LIVE in three of our own states (2026-08-05)
+
+Scoped-inline's IL shape-validity re-cut resolved. **The citation-tail-misparse
+hypothesis is confirmed dominant**: a 45-row stratified sample found **41 (91%)**
+are genuine single-definition sections where the "marker" is a fragment of the
+section's OWN citation number. The 618-row bucket is correctly EXCLUDED from
+their narrow slice — holding it out was the right call, and folding it in would
+have scored a panel against a target that should not exist.
+
+### The part they could not know to flag: three of those states are OURS
+
+Their jurisdiction spread for the 618: **IL 477, ID 66, MO 43, AZ 12, NY 9,
+KS 6, CO 3, FL 1, NJ 1.**
+
+**AZ, NY and NJ are all inside our `_JURISDICTIONS` tuple** (VA/WA/FED/UT/TX/SC/AZ
+plus the five under dispute NJ/MI/ND/NY/OK). That is **22 rows of shape 8 sitting
+in states our rule actually processes** — where every other specimen they sent us
+was inert for us. Their catalogue instruction (re-derive, don't re-run) is what
+surfaces this; a row dump would have been filtered out as out-of-tuple.
+
+**And shape 8 is not a new shape for this panel — it is a shape we already have
+an open defect in.** Our own sprint doc records AZ as a **bare digit-dot marker**
+jurisdiction, and ruling **U-R12** exists precisely because the AZ leak oracle
+cannot distinguish a real A.R.S. citation (`…section 15-1873.`) from a leaked
+digit-dot marker (`…text 2.`). Shape 8 is the SAME confusion running the other
+direction: not a citation surviving into a definition's tail, but a citation tail
+being READ as a list marker and splitting a section that has no list at all.
+
+**Hypothesis, explicitly not a finding**: AZ/NY/NJ may carry a live production
+false-split of this shape, distinct from the test-oracle defect U-R12 already
+names. Their 618-row census is over THEIR narrow-slice population
+(`(N) LABEL.`-shaped sections), which is not the same population as our
+Definitions-headed sections — so overlap is an open question and must be measured
+in our own population before anyone claims a defect. Routed as a probe for the
+class-C fix cycle, alongside shapes 1–8, NOT actioned now.
+
+**Deliberate decision NOT to interrupt the in-flight Planner with this.** The
+Planner (`a2aefc18406e12b97`) is mid-task re-authoring exactly the AZ oracle that
+U-R12 condemns, so this is adjacent to its work — but its brief already requires
+the new oracle to separate a real citation from a leaked marker, which is the
+load-bearing requirement either way. Injecting a live-production-defect
+hypothesis mid-flight buys little and risks scope creep toward `backend/app/`,
+which its brief forbids. Recorded here instead, and it goes to the fix cycle with
+a probe attached. If a successor wonders why an obviously-related finding was not
+relayed to a running agent, this is why.
+
+### Their honest correction to the number we accepted
+
+The 9% remainder was not rounded away: 2 rows cross-citation contamination
+(excludable), and **2 NY rows appear to be genuine multi-term lists mis-bucketed
+by marker misattribution** — conceptually narrow-bucket, not caption-bucket. So
+the narrow slice they gave us (1,675 rows / 3,394 pairs) is **marginally
+UNDERCOUNTED, order ~25–60 rows corpus-wide**, extrapolated from 2 sampled rows —
+their words: "a direction, not a count".
+
+**We continue to quote 1,675 / 3,394 as the headline**, per their decision not to
+revise on that basis, but record that **the error bar is asymmetric and leans
+up**. A later exact sweep will likely nudge it up, not down. A successor sizing
+the S-R17 split must not treat 1,675 as a ceiling.
+
+### Re-cut 2 delayed — and the delay is itself a program data point
+
+Their "in general" vocabulary re-cut is late because they asked the wrong agent
+for it, attributing the figures to a reconciliation analyst that had no artifacts
+for them. **The analyst REFUSED, reading the mismatch as possible fabrication.**
+Data sound; routing broken; re-ordered from the agent that actually holds the
+artifacts.
+
+That is the third refusal-that-worked in this program: our Developer B declining
+an unverifiable delivery instruction (M22), their Developer finding shape 5
+against its own interest, and now an analyst refusing to confirm numbers it could
+not verify. **All three protected correctness by declining rather than by
+complying**, and all three would have been trained out by a harness that punished
+friction. Recorded as a pattern, not three anecdotes.
+
+It is also a literal instance of the provenance point both panels had just
+agreed on: a number nearly acquired a false origin in a handover, and the refusal
+is what caught it.
+
+---
