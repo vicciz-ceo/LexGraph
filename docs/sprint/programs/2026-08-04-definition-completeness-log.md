@@ -77,6 +77,20 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (multiterm manager clean exit @ af0d548): context limit;
+  suite 13/804, tree clean. Exit highlights: M-R19 — Planner overruled the
+  manager on the 5-TX-duplicates test split and was RIGHT (4 of 5 are
+  ledger R1/markers-owned, proven by excluding F6 and re-running; one
+  combined test would have implied M-R18 fixes all five); the rule.
+  hardcoding spans FOUR files not three (manager found the fourth in the
+  Planner's own U-R10 file); standing lesson recorded — three worst
+  defects were correct-in-isolation/wrong-in-composition, and the suite
+  was green while shipping a duplicate-emission regression (corpus
+  re-measure + a Planner refusing to test around an inconvenience found
+  what the gates could not). U4 CANNOT CERTIFY yet (2 seam-blocked gaps on
+  core G10). Open work by owner in the contract Context Dump. Phase-2
+  successor spawned (roster).
+
 - 2026-08-05 (HEADINGS QA-CERTIFIED — first family panel to certify):
   claude/defs-us-headings @ 60c0652, suite 860/0, recall 21,080/22,228 =
   94.8353%. All six gates pass; U4 = PASS-WITH-NAMED-RESIDUAL (full 1,148
