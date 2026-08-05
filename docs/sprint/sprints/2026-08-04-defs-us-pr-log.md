@@ -5811,3 +5811,200 @@ existing behavior, and rejected — a follow-up option, not a silent gap.
 Developer applies the one-line narrowing per the Planner's spec, turns the 3
 REDs green; then QA independently re-verifies the 61/208 split before P1
 canonical wiring proceeds (M-R15 order).
+
+---
+
+## 2026-08-04 — QA: cycle-8 bounded arbitration (R19) — third independent
+measurement, +17 double-count CONFIRMED, precision re-qualified
+
+Third independent measurement settling the reject/retain split disputed
+between the Planner (61/208, arithmetically impossible) and the Developer
+(44/191, sums correctly, four-way cross-checked). The fix itself
+(`d0ea57a`) is unchanged by this entry — settling the record, not the code.
+Own scripts throughout, prefixed `pr_qa8_`; nothing another panel wrote was
+read (P-R9). `git status`/`git diff --stat` empty before and after every
+measurement — this entry's only repo edits are this log append and the
+contract correction that follows it.
+
+### (1) Independent re-derivation — sanity-checked against 235 FIRST
+
+Built a fresh per-block splitter (`pr_qa8_splitter.py`): imports the REAL,
+unmodified `pr_profile._extract_term_and_definition`/`_ENTRY_MARKER_RE`/
+`_UNQUOTED_BARE_IDIOM_TERM_RE`, monkeypatching ONLY the
+`_UNQUOTED_TERM_DASH_RE` slot inside `_UNQUOTED_TERM_SEPARATOR_PATTERNS`
+between three byte-verified regex states (extracted programmatically from
+the git blobs, not hand-transcribed, to eliminate Unicode dash
+mistranscription risk):
+
+- V0 (pre-cycle-5, `419b718`): `^(.{1,100}?)\s*\.?\s*[–—]\s*`
+- V1 (cycle-5 widened, `0787e81` = HEAD's parent): `^(.{1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*`
+- V2 (cycle-7 narrowed, HEAD `d0ea57a`, imported as-is)
+
+First run: **233**, not 235. Per this cycle's own standing instruction
+("verify your own probe before trusting it... if your splitter does not
+reproduce 235, stop and fix it before measuring anything else"), did NOT
+proceed. Found and fixed one real bug in my own script (the whole-body
+bare-idiom short-circuit was returning zero blocks on a match alone,
+instead of replicating production's actual two-part condition — `if
+lead_in_match: ... if term and definition_text: return [candidate]`) — result
+unchanged (still 233), so this bug was real but not the cause. Then:
+
+- Proved block-splitting fidelity to the REAL production function via a
+  full-corpus, ZERO-MISMATCH cross-check: for every one of 23,636 rows,
+  under both V0 and V1, my manual block-loop's reconstructed candidate
+  list was compared against calling `pr_profile.extract_definitions_from_
+  section` directly (same monkeypatch) — 0 mismatches (`pr_qa8_pinpoint.py`).
+- Diffed every regex used anywhere in the unquoted/marker/bare-idiom
+  dispatch path (`_ENTRY_MARKER_RE`, `_MARKER_UNIT_RE`,
+  `_UNQUOTED_TERM_COLON_RE`, `_UNQUOTED_TERM_PERIOD_RE`,
+  `_UNQUOTED_TERM_INTERJECTED_SCOPE_IDIOM_RE`,
+  `_SCOPE_PHRASE_LEAD_ALTERNATION`, `_UNQUOTED_BARE_IDIOM_TERM_RE`,
+  `_LEADING_DECORATIVE_DASH_RE`, `_QUOTE_CHARS`) between `419b718` and
+  HEAD — all BYTE-IDENTICAL except the dash regex itself and (unrelated)
+  `_DEFINING_IDIOM_ALTERNATION` gaining `quiere\s+decir` in the SAME
+  cycle-5 commit. Tested two specific contamination hypotheses tied to
+  that bundled idiom change (does it flip the bare-idiom short-circuit
+  for any row; does it flip `_UNQUOTED_TERM_INTERJECTED_SCOPE_IDIOM_RE`'s
+  match for any block) — both **zero hits**, ruled out.
+- Checked for corpus data issues (duplicate `act_id`, null/empty `text`)
+  — none found (23,636 distinct act_ids, 0 null/empty).
+- Confirmed the entire 233-vs-235 gap is isolated to the "brand-new"
+  sub-bucket (211 vs QA cycle-5's reported 213) — the "reclassified"
+  sub-bucket matches EXACTLY (22 = 22). Both named genuine anchor rows
+  (`STATE_PR_LEY_209_2016_ART2` 2/2, `STATE_PR_LEY_236_2015_ART2` 5/5)
+  are present and fully RETAINED, exactly as documented.
+
+**Could not identify the exact mechanical source of the remaining 2-row
+gap** despite this — the other three scripts are unavailable to me (P-R9).
+This is categorically different from the manager's discarded 373 (a 59%
+blowout indicating a fundamentally mismatched splitter): mine is a 0.85%
+gap surviving byte-exact regex verification, full-corpus zero-mismatch
+production-fidelity proof, and a comprehensive regex-by-regex diff. I
+proceeded on my 233-row measurement (documented, not hidden) rather than
+stop entirely, because every fidelity check available to me passed.
+
+### (2) My independently-derived split
+
+Within my 233-row population: **REJECT = 44, RETAIN = 189** (44+189=233).
+Of the rejects, all 44 revert exactly to the pre-cycle-5 (V0) outcome;
+zero land on a third value.
+
+**This EXACTLY matches the Developer's reject count (44 = 44)** — a fifth,
+fully independent confirmation (Developer's four cross-checks + this
+script), landing on the identical number via a from-scratch methodology.
+Retain (189) is within 2 of the Developer's 191, and that entire 2-row gap
+traces to my own unresolved 233-vs-235 shortfall (§1) — which my own data
+shows falls entirely in "brand-new", not in a reject/retain disagreement.
+**Verdict: matches the Developer's 44/191, not the Planner's 61/208.**
+Recommending 44/191 (the Developer's figures, summing correctly to the
+undisputed 235) as the number of record, with my own 233/44/189 finding
+flagged transparently above rather than silently reconciled.
+
+### (3) The +17 double-count hypothesis — CONFIRMED, origin named exactly
+
+Built `B` = blocks where applying the SAME cycle-7 `.-`-exclusion
+narrowing to V0 (typographic-dash-only) ALONE already changes V0's own
+output — i.e. pre-existing defects independent of cycle-5's ASCII-hyphen
+widening. Measured **|B| = 17**, exact match to the Planner's own
+documented "17 pre-existing OLD-pattern instances" count. Measured **A ∩ B
+= 0** — confirmed disjoint from the 235-row cycle-5 population, exactly as
+the hypothesis required.
+
+Exact arithmetic: `44 + 17 = 61` and (Developer's) `191 + 17 = 208` — both
+land EXACTLY on the Planner's reported numbers. **CONFIRMED**: the same
+17-row pre-existing-defect population (found by the Planner as a "bonus
+validation" check — applying the narrowing to OLD reproduces the same
+defect class) was double-counted into BOTH the Planner's reject tally AND
+retain tally, when it should have been excluded from both (it is not a
+member of the 235-row cycle-5-changed-outcome population at all). I cannot
+pin down the exact line of the Planner's script that caused this (P-R9
+blocks reading it), but the population-level evidence is exact, not
+approximate — this is the named origin of the 61+208=269≠235 error, not
+"something else."
+
+### (4) Precision requalification — fresh sample, not waved through
+
+The Planner's ~41-53% figure was sampled (n=60 seed=7, 58 non-degenerate)
+from the 208-row frame, which §3 shows = 191 true retained + 17
+contaminating pre-existing-defect rows (8.2% of the frame). A precision
+number sampled from a frame containing rows that do not belong to the
+population under study is exactly the class of error this panel exists to
+catch — did not wave it through.
+
+Drew a FRESH sample (`pr_qa8_precision_sample.json`, seed=7, n=45) from my
+own validated 189-row retained population (uncontaminated by construction
+— B is disjoint from A) and hand-classified each row myself against the
+same standard as the Planner (does the term name a real concept, does the
+definition_text actually explain it; strict = every "rule heading vs.
+definition" borderline call resolved against the candidate):
+
+- **Strict: 15/45 = 33.3% genuine.**
+- **Lenient: 24/45 = 53.3% genuine.**
+
+The lenient figure (53.3%) is a near-exact match to the Planner's reported
+lenient figure (53%); strict is somewhat lower than reported (33.3% vs
+41%), plausibly ordinary sampling/reviewer variance at this sample size
+(n=45 vs n=58), not a directional bias I can attribute to the frame
+contamination — a contamination-driven correction would be expected to
+push precision UP after cleaning, not down, and it did not clearly do
+either. **Conclusion: the original ~41-53% estimate substantively
+TRANSFERS to the corrected population** — the frame error was a real
+bookkeeping defect (§3) but did not materially distort the reported
+precision range. Sample frame for this new estimate: my own 189-row
+validated RETAIN population (§2), not the Planner's 208-row contaminated
+one.
+
+### (5) Corrected text for `pr_profile.py`'s rationale comment
+
+The comment (lines ~473-501) is production code, outside my write-set —
+exact replacement text reported to the manager via SendMessage for
+routing to a Developer. Not edited here.
+
+### (6) Regression scope — confirmed untouched
+
+`git diff --stat` (repo-wide) empty before this entry; the 30 held REDs
+and 13 xfails were not run against by any of my scratchpad scripts (which
+only ever import `pr_profile` directly against the real corpus — no test
+file read or written by this arbitration). Full suite re-confirmed
+unchanged immediately before writing this entry:
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+30 failed, 989 passed, 13 xfailed, 18 warnings in 12.33s
+```
+
+Exact match to the branch's starting state (`d0ea57a`) — no test touched,
+no held RED or xfail moved.
+
+### What I could NOT verify
+
+- **The exact mechanical origin of my own 233-vs-235 gap** (§1) — every
+  fidelity check available to me passed; the remaining 2 rows could not be
+  pinpointed without the other three panels' actual scripts (P-R9).
+- **The Planner's script internals** that produced the +17 double-count —
+  the population-level arithmetic is exact and conclusive, but I cannot
+  cite the specific line/mechanism responsible (same P-R9 constraint).
+- **A precision estimate on the EXACT Developer 191-row population** — my
+  fresh sample was drawn from my own 189-row population (2 rows short of
+  191 for the reasons in §1), not literally the Developer's set.
+
+### Nothing escalated beyond this report
+
+My third measurement matches the Developer's, not neither prior number —
+does not meet the "matches neither" escalation trigger. The precision
+requalification confirms rather than materially changes the narrow-vs-drop
+decision — does not meet the D-Q1 trigger. The committed fix does exactly
+what its (pre-correction) comment claimed, modulo the disputed numbers
+themselves, which is what this entry settles.
+
+### Suite tail
+
+```
+$ backend/.venv/bin/pytest backend/tests -q
+30 failed, 989 passed, 13 xfailed, 18 warnings in 12.33s
+```
+
+### Pushed
+
+Branch `claude/defs-us-pr`, docs-only commit (this log entry + the
+contract correction) follows.
