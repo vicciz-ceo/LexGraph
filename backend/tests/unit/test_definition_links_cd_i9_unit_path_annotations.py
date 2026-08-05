@@ -144,27 +144,75 @@ def test_i9_me_s14_single_new_annotation_produces_no_spurious_unit_step(me_rows,
 def test_i9_me_s751_body_with_only_annotations_produces_the_articles_own_base_path(
     me_rows, us_me
 ):
-    """`STATE_ME_T30-A_P1_C3_S751` uses period-style top-level markers
-    ("A.", "B.", "C." ...) -- never parenthesized, so never in scope for
-    `_US_UNIT_MARKER_RE` regardless of this defect -- interleaved with 8
-    real `(NEW)`/`(AMD)` revisor annotations and NO genuine parenthesized
-    marker anywhere. `resolve_unit_path` at the end of the body must
-    therefore still return `()` (this document has no below-article path
-    for `_US_UNIT_MARKER_RE`'s own marker vocabulary to capture at all).
-    Today it returns an 8-element tuple of nothing but garbage `sub`
-    steps, one per annotation, in document order."""
+    """CORRECTED 2026-08-05 (core-follow-on-2, gate G2 landed @ `bbfe59a`):
+    this docstring previously claimed `STATE_ME_T30-A_P1_C3_S751` "uses
+    period-style top-level markers ('A.', 'B.', 'C.' ...)" with no
+    below-article structure for ANY marker vocabulary to capture -- that
+    was factually wrong about its own fixture, independently re-verified
+    here (line-start scan: `^\\s*[A-D]\\.\\s` finds ZERO occurrences in
+    the real 2,072-char body). The real "A."/"B."/"C."/"D." are INLINE,
+    mid-paragraph, nested under "1. Membership. The budget committee
+    consists of 9 members ... Each committee member serves a 4-year term.
+    A. Budget committee members must be elected ..." -- never a line
+    start, so never top-level. The row's ONE genuine TOP-LEVEL marker is
+    the period-style digit "1." at offset 220, right after the leading
+    `(NEW)` annotation and before any of the inline letters.
+
+    G2 added period-style top-level marker recognition to
+    `resolve_unit_path` -- a marker genuinely present in this row's own
+    text but structurally invisible to the old parenthesized-only
+    `_US_UNIT_MARKER_RE` is now correctly captured. Intended CAPABILITY
+    GAIN, not a tolerated regression: the path at end-of-body is now
+    `(UnitStep(kind='digit', value='1'),)`, not `()`.
+
+    Still guarded here (the I9 invariant, strengthened): none of the
+    row's 8 real `(NEW)`/`(AMD)` revisor annotations may contribute
+    anything to the path anywhere in the document -- `()` before the
+    leading annotation, exactly `(digit:'1',)` after EVERY one of the 8,
+    never an 8-element garbage tuple. Checked per-annotation, not just at
+    the end of the body, so a regression is caught at its own offset."""
     row = me_rows["STATE_ME_T30-A_P1_C3_S751"]
     text = row["text"]
     article = MatcherArticle(number="751", heading="Membership", body=text, chapter="3")
 
+    marker_offset = text.index("1. Membership")
+    assert marker_offset == 220, (
+        f"fixture text changed -- the genuine top-level '1.' marker moved from "
+        f"offset 220 to {marker_offset}, this test's premise needs re-checking"
+    )
+
+    before_marker = us_me.resolve_unit_path(article, char_offset=marker_offset - 2)
+    assert before_marker == (), (
+        f"before the genuine '1.' marker opens, only the leading (NEW) annotation "
+        f"precedes it -- must resolve to the empty path; got {before_marker!r}"
+    )
+
+    annotations = list(re.finditer(r"\((?:NEW|AMD)\)", text))
+    assert len(annotations) == 8, (
+        f"fixture no longer carries exactly 8 (NEW)/(AMD) annotations; "
+        f"found {len(annotations)} -- this test's coverage claim needs re-checking"
+    )
+    for match in annotations:
+        path = us_me.resolve_unit_path(article, char_offset=match.end())
+        if match.start() < marker_offset:
+            expected = ()
+        else:
+            expected = (("digit", "1"),)
+        actual = tuple((s.kind, s.value) for s in path)
+        assert actual == expected, (
+            f"annotation {match.group(0)!r} at offset {match.start()} leaked into the "
+            f"path (I9 invariant broken): expected {expected!r}, got {actual!r}"
+        )
+
     path = us_me.resolve_unit_path(article, char_offset=len(text))
 
-    assert path == (), (
-        f"a body whose only parenthesized tokens are 8 revisor "
-        f"annotations, with no genuine parenthesized sub-article marker "
-        f"anywhere, must resolve to the empty path; got {path!r} "
-        f"(length {len(path)})"
+    assert len(path) == 1, (
+        f"expected the single genuine top-level '1.' step to survive to the end "
+        f"of the body, with none of the 8 revisor annotations contributing "
+        f"anything; got {path!r} (length {len(path)})"
     )
+    assert path[0].kind == "digit"
+    assert path[0].value == "1"
 
 
 # --- B: the annotation-is-a-no-op invariant, on real ME text, for every --
