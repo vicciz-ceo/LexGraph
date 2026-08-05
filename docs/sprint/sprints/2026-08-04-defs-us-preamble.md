@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
 last_agent: "/root/markers_panel_manager/planner_cycle9_correction"
-last_updated: "2026-08-05T22:32:04Z"
+last_updated: "2026-08-05T22:34:57Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -97,6 +97,11 @@ for this sprint.
   Option-C is exactly **1 held-T35 failed, 15 passed**. The shipped core-2 G12
   unit file is **6 passed**; the repointed fifth Option-C pin drives the real
   inline extractor in both PA-suppressed and USC-emitted directions.
+- Post-G12 FED/DC/NY integration is **4 passed**. Its green shared-boundary
+  debt pin now follows the actual final candidate: `recreational purposes`
+  remains swollen beyond 8,000 characters and contains both unrelated
+  subsection headings. `wildlife` is only 70 characters but still carries
+  `(4) The term`, so it is not described as fully clean.
 - The five P-FP guards query persisted `Definition` rows and verify definition
   text; forwarding rows retain the real 31 CFR / IRC / 20 U.S.C. target text.
 - Runtime-only mutation evidence (restored before every command): PA requires
@@ -113,8 +118,9 @@ for this sprint.
 Searched every repo-profile root (`backend/tests/unit`, `backend/tests/integration`,
 `backend/tests/e2e`, `frontend/src/components/__tests__`) case-insensitively
 for the five replaced cycle-9 test names. The sole stale held-G12 name was
-repointed in the owned Option-C file; no external pins remain. No production
-signature/class/CSS rename occurred.
+repointed in the owned Option-C file; the stale FED debt-pin/capture-test names
+were repointed in their owned integration file. No external pins remain and no
+production signature/class/CSS rename occurred.
 
 ## Context Dump
 
@@ -125,4 +131,4 @@ signature/class/CSS rename occurred.
 5. Preserve the four paired full ingest+link guards.
 6. M-R53 comment correction and the <=300 line split are still Developer work.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
-8. Root owns final containment review and fresh QA dispatch; T35 is the sole focused RED.
+8. Final QA is blocked on the separate core G8 scope/dispatch regression; do not suppress it.

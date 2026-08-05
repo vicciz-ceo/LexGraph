@@ -5087,3 +5087,21 @@ cannot protect a local candidate that is no longer produced. Root ruled this
 must not be suppressed, held, or repaired in preamble ownership and is routing
 the shared scope/dispatch seam to a separate core follow-on Planner. Final
 preamble QA and merge-readiness remain stopped on that dependency.
+
+### M-R86 — Planner re-points the FED last-entry debt after shipped G12
+
+Planner changed only the owned FED/DC/NY integration file plus this sprint
+contract/log. On the byte-exact `USC_T7_C50_S1997` row, the green debt spec now
+drives the actual `_extract_inline_quoted_definitions` path and selects its
+final `recreational purposes` candidate. Durable assertions pin its `hunting.`
+start, both swallowed unrelated headings (`Contracts on loan security
+properties` and `Terms and conditions`), and a length above 8,000 but below
+the complete row. No exact-length pin, production edit, fixture edit, or debt
+acceptance flip was introduced. Explanatory text records the actual residual
+state: `wildlife` is 70 characters but still carries `(4) The term`.
+
+Evidence: isolated FED/DC/NY is 4 passed; Option-C is 5 passed; combined
+defining-verb plus Option-C is exactly 1 held-T35 failed / 15 passed. The
+separate core G8 local-vs-law-wide test still fails exactly because persisted
+scope is `law-wide`; it was neither edited nor suppressed. Final preamble QA
+remains blocked on that separately owned scope/dispatch regression.

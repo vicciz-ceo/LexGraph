@@ -11,12 +11,14 @@ byte-for-byte into `fixtures/us_statutes/fed_dc_ny_preamble_rows.json`.
 corpus-wide, 86% of it concentrated in each row's LAST recognized entry
 (`_extract_inline_quoted_definitions`'s own unbounded-last-entry defect,
 already flagged as a shared risk by scout S1 too). This file does NOT
-paper over that: the capture test below asserts only the FIRST TWO of
-`USC_T7_C50_S1997`'s four real defined terms -- verified live, both are
-clean -- and a companion unit-level pin proves, on the SAME real row, that
-its own LAST entry ("wildlife") already swallows 8,195 of the row's 8,539
-characters, including the entirely unrelated "(b) Contracts on loan
-security properties" subsection that follows. **Verdict, stated plainly**:
+paper over that: the capture test below asserts only the two stable pre-G12
+candidates from `USC_T7_C50_S1997`, and a companion unit-level pin proves, on
+the SAME real row, that its own LAST recognized entry ("recreational purposes")
+swallows about 8,091 of the row's 8,539 characters, including the entirely
+unrelated "(b) Contracts on loan security properties" subsection that follows.
+G12's shipped `includes` support now makes that term an entry boundary:
+"wildlife" shrinks to 70 characters but still carries the boundary fragment
+"(4) The term", so it must not be described as fully clean. **Verdict, stated plainly**:
 a body-preamble rule CANNOT produce clean text for FEDERAL's last entry
 using either existing extractor as-is (confirmed on this exact real row,
 not merely asserted) -- this needs a new, properly-bounded extractor
@@ -27,15 +29,13 @@ cannot build, and is out of bounds for this sprint to edit
 real, live-verified defect for whoever builds the bounded extractor next
 -- not silently dropped.
 
-This same real row ALSO shows two more pre-existing extractor gaps,
-independent of contamination (verified live, not assumed): a compound
-quoted-term entry ("highly erodible land" and "wetland" sharing one
-verb) never extracts either term (the gap-matching regex requires no
-intervening quote), and an "includes"-verbed entry ("recreational
-purposes" ... "includes hunting") never extracts because `_MEANS_IDIOM_
-GAP_RE` does not recognize "includes" as a defining verb. Neither is
-this sprint's file's territory to fix; both are named here so they are
-not silently dropped either.
+This same real row ALSO shows a pre-existing compound-quoted-term gap,
+independent of contamination (verified live, not assumed): "highly erodible
+land" and "wetland" share one verb, so the gap-matching regex's no-intervening-
+quote constraint still prevents either term from extracting. G12 has fixed the
+separate `includes` recognition gap for "recreational purposes"; doing so
+exposes that term as the actual final, unbounded candidate rather than fixing
+the held boundary debt.
 
 **DC**: cleaner than FEDERAL (S2: 0% legislative-history contamination --
 no compiled amendment notes in DC Code text). `STATE_DC_T19_C19_S19-1913`
@@ -96,16 +96,16 @@ def _ingest_and_link(db_session, matter_with_users, *, act_id: str, jurisdiction
 # --- FEDERAL -----------------------------------------------------------
 
 
-def test_federal_conservation_easements_definitions_first_two_clean_terms_are_captured(
+def test_federal_conservation_easements_first_two_stable_terms_are_captured(
     db_session, matter_with_users
 ):
     """`USC_T7_C50_S1997` ('(a) Definitions\\n\\nFor purposes of this
-    section:'): asserts only the first two of the row's four real terms,
-    both confirmed live to extract cleanly. See module docstring for why
-    'highly erodible land'/'wetland' (compound-quote gap) and 'recreational
-    purposes' ('includes', not 'means') are deliberately NOT asserted --
-    real, pre-existing, independently-confirmed extractor gaps, not
-    typos in this test.
+    section:'): asserts only the two stable pre-G12 captured terms. The
+    `wildlife` candidate no longer swallows unrelated subsections, but it still
+    ends with the boundary fragment `(4) The term` and is not fully clean. See
+    the module docstring for the compound-quote gap and for why the now-emitted,
+    heavily swollen `recreational purposes` candidate is not asserted here as
+    an acceptable persisted tuple.
     """
     result = _ingest_and_link(
         db_session,
@@ -123,37 +123,39 @@ def test_federal_conservation_easements_definitions_first_two_clean_terms_are_ca
     )
 
 
-def test_federal_last_entry_extraction_swallows_the_next_unrelated_subsection_confirmed_live():
+def test_federal_recreational_purposes_last_entry_swallows_unrelated_subsections_confirmed_live():
     """Unit-level pin, NOT a capture assertion: proves, on the SAME real
     row used above, that `_extract_inline_quoted_definitions`'s last
-    recognized entry ('wildlife') is NOT clean -- it absorbs the entirely
-    unrelated '(b) Contracts on loan security properties' and
-    '(d) Terms and conditions' subsections that follow, because neither
-    existing extractor bounds an entry at a subsequent subsection-level
-    marker. This is the FEDERAL-specific consequence of the shared
-    last-entry-unbounded defect scout S1/S2 both flagged -- confirmed here
-    against a real, vendored row, not merely cited from another agent's
-    report. A properly-bounded extractor is production code this sprint's
-    Planner-only file does not build (and `us_profile.py`/`pipeline.py`
-    are out of bounds here) -- this pin exists so the defect stays visible
-    and attributable, not silently absorbed into a passing capture test.
+    recognized entry ('recreational purposes') is NOT clean -- it absorbs the
+    entirely unrelated '(b) Contracts on loan security properties' and '(d)
+    Terms and conditions' subsections that follow, because neither existing
+    extractor bounds an entry at a subsequent subsection-level marker. This is
+    the FEDERAL-specific consequence of the shared last-entry-unbounded defect
+    scout S1/S2 both flagged -- confirmed here against a real, vendored row,
+    not merely cited from another agent's report. A properly-bounded extractor
+    is production code this debt spec does not build -- this green pin keeps
+    the defect visible and attributable; it is not an acceptance-gate RED.
     """
     from app.definition_links.us_profile import _extract_inline_quoted_definitions
 
     row = _row("USC_T7_C50_S1997")
     candidates = _extract_inline_quoted_definitions(row["text"], scope="law-wide")
-    wildlife = next(c for c in candidates if c.terms == ("wildlife",))
+    recreational_purposes = next(
+        candidate for candidate in candidates if candidate.terms == ("recreational purposes",)
+    )
 
-    assert "Contracts on loan security properties" in wildlife.definition_text, (
+    assert candidates[-1] is recreational_purposes
+    assert recreational_purposes.definition_text.startswith("hunting.")
+    assert "Contracts on loan security properties" in recreational_purposes.definition_text, (
         "if this fails, the extractor's own last-entry-unbounded behavior "
         "has changed -- re-verify whether the FEDERAL contamination note "
         "above is still accurate before reusing it"
     )
-    assert "Terms and conditions" in wildlife.definition_text
-    assert len(wildlife.definition_text) > 8000, (
-        f"expected a heavily-swollen definition_text (>8000 chars out of "
-        f"the row's own 8,539-char total body), got "
-        f"{len(wildlife.definition_text)} chars"
+    assert "Terms and conditions" in recreational_purposes.definition_text
+    assert 8000 < len(recreational_purposes.definition_text) < len(row["text"]), (
+        "expected the final candidate to remain heavily swollen while still "
+        f"being shorter than the complete row; got {len(recreational_purposes.definition_text)} "
+        f"definition chars from a {len(row['text'])}-char body"
     )
 
 
