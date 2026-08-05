@@ -4153,3 +4153,120 @@ right grammar. The director should decide between that and an
 enumerated-residual acceptance; the panel should not pick for them.
 
 Status stays **`qa-fail`, `qa_cycles: 3`** (valve at 5).
+
+---
+
+## 2026-08-05 — M19-EXT: Phase D spec under D-CERT (for program-manager sign-off BEFORE any Planner spawns)
+
+D-CERT read verbatim at `main` `58162b2`. IL's certification folds into
+Phase D after the known residual builds; M18 is program law for the
+certification denominators. This entry is the spec the program manager
+asked for. **No Planner spawned pending sign-off.**
+
+### D-1 — known-buildable residual FIRST (certify against nothing you already know how to fix)
+
+Two bundles, sequenced, RED-provenance gate binding on both.
+
+**D-1a — QA cycle 3's three classes.** No REDs exist yet, so the Planner
+authors them first: **(A)** multi-term entry lines dropped whole
+(`:- "t1", "t2" - def` and the `ו`-joined form) — 479/1,173, the largest
+and the one that also invalidates part of the `::-` rule's earlier "100%"
+claim; **(B)** quote-first candidates with no dash after the quote
+(`TRIGGER, "term" כהגדרתו [[ref]]`) — 132; **(C)** preambles living in the
+article's own HEADING, never scanned by either list-shape rule — 117
+terms / 27 runs. All three are rule-module work on the live path; no
+frozen-file edit should be needed, and a claim that one IS needed
+escalates rather than proceeding.
+
+**D-1b — the E6 batch, now unblocked** (core dispatch merged; all 7 rule
+kinds live). The 3 class-(d) prose-body sub-shapes + item 11's embedded
+ad-hoc marker. **REDs already exist and are already red** — this bundle
+goes straight to a Developer. Uses the definitions-SECTION path and
+`EntrySplitterRule`/`TermClauseRule`/`HeadingRule`, a different dispatch
+path from everything Phase C touched, which is exactly why it is a
+separate bundle and not a Phase C addendum. Honor M-D3: declare any
+`scope_unit_kind` from measured Hebrew convention, not by analogy to US.
+Also now buildable and previously parked: סימן/חלק containment via
+`StructuralUnitRule` (old E1) — needs NEW REDs, since the original was
+never written on the stated grounds that the behavior was unobservable.
+It is observable now.
+
+Then **QA cycle 4** over D-1a+D-1b.
+
+### D-2 — the certification proper, and why it must be its OWN sprint
+
+**Denominator, measured by me today, not estimated.** Every gershayim-
+delimited span in every article of all 6,133 files — **including
+הגדרות-headed articles**, which every prior IL sweep excluded because the
+dispatch path differs. That exclusion is precisely the kind of
+signal-dependence D-CERT outlaws.
+
+```
+files 6,133 / articles 128,234
+raw " characters            276,628
+word-internal (abbreviation) 91,431   (33.1%)
+delimiter-eligible           185,197  -> ~92,598 paired candidate spans
+```
+
+**~92,600 candidates** — confirms the director's 10^5 order with a real
+figure.
+
+**The IL-specific hazard, named up front:** Hebrew gershayim is also a
+word-internal abbreviation marker (`תשע"א`, `עו"ד`, `הג"א`). A naive
+`"([^"]+)"` pairing scan pairs one abbreviation's quote with the next
+one's and manufactures tens of thousands of phantom spans. 33.1% of all
+quote characters are word-internal. So cluster 1 of the certification is
+mechanical and testable: *a gershayim immediately preceded AND followed
+by a Hebrew letter with no intervening whitespace is word-internal and
+cannot be a term delimiter.* That predicate is stated, falsifiable, and
+disposes of ~91,431 quote characters before any judgment is applied.
+
+**Claim structure (the part that makes this a certification rather than a
+report).** Per the program manager: cluster + per-cluster proof, never
+row-by-row prose — but the CLAIM is per-candidate. Concretely:
+1. Every candidate row carries exactly one `cluster_id`.
+2. Every cluster carries a **stated, testable predicate** (a committed
+   function, not a sentence) and a bucket: captured / fixed /
+   proven-not-a-definition / director-named residual.
+3. **Mechanically asserted exhaustiveness and disjointness**: a committed
+   test proves every one of the ~92,600 rows matches exactly one cluster
+   predicate — zero unassigned, zero double-assigned. This is the
+   backbone; without it "every candidate is classified" is narrative.
+4. Each cluster's bucket assignment is backed by a hand-verified random
+   sample with a **measured error rate**, not a clean bill.
+5. The artifact is a committed script + manifest (predicates, counts,
+   sample verdicts, seeds) that QA re-runs and diffs — reproducible, not
+   prose. A certification nobody can re-execute certifies nothing.
+6. **Fix loop INSIDE the certification**, per the program manager: when
+   classification surfaces a new buildable class (expect this — it has
+   happened in all three cycles so far), it goes REDs → build → re-certify
+   the AFFECTED clusters, re-running the exhaustiveness assertion over the
+   full population each time.
+
+### The structural problem I have to raise: the 5-cycle valve
+
+This sprint is at **`qa_cycles: 3` of 5**. D-1 consumes cycle 4. That
+leaves ONE cycle for a certification the director's own ruling calls a
+sprint in its own right — and my honest sizing is that D-2 is comparable
+in effort to Phase A-C combined (~600-1,200 hand verifications across an
+estimated 20-40 clusters, plus an inner fix loop). Running it on the last
+valve cycle would force exactly the choice the valve exists to prevent:
+ship thin or end `blocked` on a technicality.
+
+**Proposal: split the sprints.** D-1 completes `2026-08-04-defs-il` (cycle
+4, cycle 5 held in reserve for a bounce) and the sprint closes on its
+original I1-I5 gates with an enumerated residual. The certification opens
+as a NEW sprint — `2026-08-05-defs-il-certification` — with its own
+5-cycle valve, its own gates (C1 denominator is signal-agnostic and
+reproducible; C2 exhaustive+disjoint assignment; C3 per-cluster sampled
+error rates; C4 fix loop closed; C5 artifact re-runs clean for QA), and a
+fresh Planner/Developer/QA in the existing role worktrees. This is a
+budget/scoping question above my level — flagging it rather than
+quietly consuming the valve.
+
+### Sequencing note
+
+D-1a and D-1b are independent (different dispatch paths, different rule
+kinds, disjoint file sets), so their Planners can run concurrently in
+separate worktrees per M14. Their Developers must NOT — one writer per
+worktree, and both bundles land rule modules in the same package.
