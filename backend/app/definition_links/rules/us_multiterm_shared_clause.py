@@ -77,7 +77,41 @@ from app.definition_links.rules.registry import (
 # while verifying this module against the real MI fixture row).
 _QUOTE_START_RE = re.compile(r'[“"]([^”"]+)[”"]')
 _TERM_SEP_RE = re.compile(r"(?:\s*,\s*and\s+|\s*,\s*|\s+and\s+|\s+)", re.IGNORECASE)
-_IDIOM_RE = re.compile(r"[\s,]*\b(?:means?|shall\s+mean)\b", re.IGNORECASE)
+# QA cycle 2, finding A: adds recognition of the "have/has the meaning(s)"
+# idiom family (real federal row `USC_T2_C20_S900`: `'The terms "budget
+# authority", "new budget authority", "outlays", and "deficit" have the
+# meanings given to such terms in section 3 ...'`) -- previously only
+# `means?`/`shall\s+mean` were recognized, so this whole 4-term nested
+# clause was silently dropped.
+#
+# Deliberately restricted to the PLURAL noun "meaning*s*" only, never bare
+# "meaning" -- checked against the sibling F6 module
+# (`us_inline_parenthetical.py`)'s own cross-reference idiom
+# (`_IDIOM_GAP_RE`: "has the meaning given that term in <citation>" /
+# "has the meaning assigned by <citation>", ALWAYS singular "meaning"),
+# which registers its own `TermClauseRule` and therefore runs over the
+# SAME blocks as this module inside `extract_definitions_from_section`
+# (union dispatch, `us_profile.py` line ~1349). A bare-"meaning" widening
+# here would make this module's `_nested_clause_candidates` ALSO fire on
+# F6's own real, already-covered DC shape (`'(6) Parent. -- The term
+# "parent" has the meaning given that term in section 8101...'`, pinned
+# GREEN by `test_dc_parent_non_leading_quote_block_is_still_captured` in
+# `tests/unit/test_definition_links_leading_quote_guard.py`, which asserts
+# EXACTLY ONE candidate for "parent") and TX's `'"Governmental body" has
+# the meaning assigned by Section 552.003.'` (pinned by the sibling test
+# in the same file) -- doubling both into duplicate candidates for a
+# single term, squarely F6's own remit (its own docstring: "a term whose
+# meaning is pointed at elsewhere"). The real finding-A target sentence
+# always uses plural "meanings" (grammatical agreement with its plural
+# "The terms ..." subject), so requiring the plural is a zero-cost
+# narrowing for the actual defect and a hard backstop against reopening
+# that boundary -- confirmed live: both guard tests above still pass
+# after this change, and the corpus-wide F5 kill-experiment (this
+# Developer's sprint report) found no new single-term duplicate against
+# F6's population anywhere in the 53-file corpus.
+_IDIOM_RE = re.compile(
+    r"[\s,]*\b(?:means?|shall\s+mean|(?:have|has)\s+the\s+meanings)\b", re.IGNORECASE
+)
 
 
 def _extract_leading_terms(text: str, pos: int) -> tuple[list[str], int]:
