@@ -2979,3 +2979,29 @@ Developer write-set is exactly
 `backend/app/definition_links/us_profile.py`. Tests, fixtures, artifacts, and
 sprint records are forbidden. The implementation must follow the committed
 G4 design artifact and stop rather than widening any retained recall debt.
+
+---
+
+## Phase 21 — G4 Developer gate and independent QA cycle 2 (2026-08-05)
+
+Developer commits `d218c51` + compatibility amendment `094f9d4` were
+manager-reviewed and merged to the integration branch at `b7a8220`:
+
+- cumulative diff is exactly `backend/app/definition_links/us_profile.py`,
+  60 insertions / 12 deletions;
+- accepted newline behavior is branch- and token-form-specific; every frozen
+  surface remains on the prior path;
+- the pre-existing three-field `_iter_us_unit_marker_tokens` interface and
+  combined `_CITATION_NUMBER_SUFFIX_RE` were preserved because the committed
+  measurement runner consumes both;
+- Developer reports targeted **15 passed** and full backend **849 passed**;
+  manager live-path/unit smoke is independently **9 passed**, and the
+  measurement-API compatibility probe passes.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| QA cycle 2 | full core-2 release review: G4/G8 artifacts, G7 protocol, migration, backend/frontend/typecheck, containment and diff risk | GPT-5.6 Sol / high | yes; rejected because this is the independent release gate for a large shared-parser/persistence diff plus schema migration | `claude/defs-core-follow-on-2-qa2` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-qa2` | `/root/core2_final_qa2` | READY; identifier committed before START |
+
+QA is independent and may not edit production. Any failure returns to a fresh
+role-separated correction cycle; no release claim may rely on Developer
+results alone.
