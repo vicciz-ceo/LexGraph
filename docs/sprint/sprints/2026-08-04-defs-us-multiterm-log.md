@@ -4072,3 +4072,79 @@ Suite after this cycle's additions: **14 failed / 813 passed** (10
 inherited + 4 new RED; 812 inherited + 1 new GREEN — arithmetic
 reconciles exactly). Zero production files touched
 (`git status --porcelain` shows only the 2 new test/fixture files).
+
+---
+
+## 2026-08-05 — M-R27: QA finding D TRIAGED — probe artifact, not a live miss
+
+Program manager triage, verified by me at source and by measurement.
+
+### The claim, and why it was wrong
+
+QA cycle 2 reported finding D: 100% of NY's 40,102 rows store literal two-char
+`\n` and zero real newlines, so `_split_into_numbered_blocks` cannot anchor,
+so **1,470 NY Definitions sections yield zero candidates — total loss.**
+
+**I verified it and got the same answer, and we were both wrong the same way.**
+The raw-parquet fact is true and by design. The production inference is not:
+core sprint 1 shipped the fix **at ingest**, not in the extraction function —
+`ingest_us_statutes.py:237`, `text = text.replace("\\n", "\n")` (item I8/M14).
+I read it at source. Production never extracts from parquet text; it extracts
+from ingested rows. Calling the extraction function on raw parquet text
+bypasses the fix and MANUFACTURES the zero-candidate population.
+
+"Reproduces on the pre-sprint function" — which I treated as corroboration —
+is fully consistent with the artifact, because the fix was never in that
+function to begin with. It was evidence for the trap, not against it.
+
+### The production-faithful measurement (mine)
+
+Same rows, same code, the only difference being the ingest transform:
+
+```
+RAW parquet text    : defs-sections=1,479   zero-candidate=1,479   (100.0%)
+POST-INGEST (prod)  : defs-sections=1,479   zero-candidate=1,245   ( 84.2%)
+```
+
+**234 sections capture fine once ingested.** The residue is 1,245 sections at
+84.2% zero-capture — which independently corroborates the markers panel's own
+production-faithful NY figure of 85.3%, derived separately and by a different
+route. Two panels converging from different directions on the same number is
+much stronger evidence than either measurement alone.
+
+**Disposition:** finding D collapses into the ALREADY-KNOWN NY residual, owned
+by markers, and their merged devC widening already moves NY captured 298 ->
+1,319. It is NOT a new program-level defect, NOT total loss, and NOT ours. The
+routing I proposed is withdrawn; the corrected residue count goes to markers.
+
+### The lesson, recorded because this is the THIRD panel to hit it
+
+**The ingest transform is part of the claim.** P-R10 says probe arguments are
+part of the claim; this is that rule at the pipeline level — a measurement that
+calls a production function on pre-ingest data is not measuring production. The
+markers panel already ruled this panel-law for themselves (their U-R11: NY
+fixtures must be post-ingest). It has now caught three panels, including this
+manager, which makes it a program-level trap rather than three coincidences.
+
+Concretely, for anyone reading this log later: **if a measurement reads
+`us_*_statutes.parquet` and then calls an extraction/splitting function
+directly, it is measuring RAW data and its absolute numbers are wrong for any
+jurisdiction whose rows need normalising.** Route the text through
+`ingest_us_statute_rows` (or at minimum apply the same normalisation) before
+claiming a production rate. Every corpus script this panel wrote is subject to
+this caveat; the ones that matter are re-checked below.
+
+### Which of THIS panel's own numbers are affected
+
+Checked rather than assumed:
+- **NY-derived numbers only.** Our fire-rate/dup harness samples all 53 files,
+  so NY rows contribute to the denominator on raw text. NY is 1 of 53 files and
+  our reported dup rows (2) are HI and DE, unaffected.
+- **The M-R23 whole-class verification is UNAFFECTED** — it is TX-only, and TX
+  stores real newlines (measured: 16,387 real newlines in 24,000 rows, zero
+  literal). QA's 53-state extension inherits the NY caveat for NY's slice only,
+  and its headline result (0 terms lost) is a DIFFERENTIAL between two guard
+  versions on identical input, which the normalisation cannot flip.
+- **R6's multi-state correction is UNAFFECTED for DC/NH/TX**; its NY count (19
+  or 20) is a raw-text shape frequency, already labelled a shape frequency and
+  not a miss count.
