@@ -19,11 +19,11 @@ family 1 but is not:
    at all -- the new rule module must never manufacture a candidate out of
    ordinary substantive statute text just because SOME word combination
    resembles a trigger.
-4. The genuinely ambiguous PA "References to X shall include Y" shape,
-   which the Planner excludes from this sprint's positive scope by
-   design (a construction/interpretation clause about how OTHER text
-   should be read, not a `"X" means Y`-shaped definition) -- escalated to
-   the manager in the sprint log's D2 section, not silently decided.
+4. The genuinely ambiguous PA "References to X shall include Y" shape --
+   a construction/interpretation clause about how OTHER text should be
+   read, not a `"X" means Y`-shaped definition. Program ruling D-INCLUDES
+   (2026-08-05) settled the ambiguity: excluded via a TARGETED guard, not
+   by design-time silence -- see that test's own docstring, below.
 
 Planner pass 6 addition (Task 2): QA cycle 1's mutation testing found that
 2 of the tests above (the bare-`in` mid-sentence-prose test and the PA
@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 FIXTURE = (
     pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "us_scoped_inline_rows.json"
@@ -125,44 +126,90 @@ def test_baseline_new_york_row_with_no_trigger_yields_nothing():
 # --- escalation-flagged boundary case: excluded from v1 by design ----------
 
 
-def test_references_to_term_shall_include_is_excluded_by_design():
-    """`STATE_PA_T15_C57_S5749`: `"For the purposes of this
-    subchapter: (1) References to \\"other enterprises\\" shall
-    include employee benefit plans..."` -- grammatically this is a
-    RULE about how the phrase "other enterprises" should be READ
-    elsewhere in the subchapter (a construction/interpretation clause),
-    not a definition that introduces "other enterprises" as a term with a
-    meaning ("X" means Y). The Planner's lean is to exclude this shape
-    from v1 (real ambiguity, escalated to the manager rather than silently
-    decided either way -- see the sprint log's D2 section). This test pins
-    that lean as the CURRENT design decision; if the manager overrules it,
-    this is the one test to update.
+def test_pa_construction_clause_guard_is_load_bearing_under_widened_vocabulary(monkeypatch):
+    """`STATE_PA_T15_C57_S5749`: `"For the purposes of this subchapter:
+    (1) References to \\"other enterprises\\" shall include employee
+    benefit plans..."` -- a RULE about how "other enterprises" should be
+    READ elsewhere (construction/interpretation), not a `"X" means Y`
+    definition.
 
-    CORRECTED (Planner pass 6, QA cycle-1 mutation finding): this
-    docstring used to credit `_MARKER_QUOTE_RE`'s marker-immediately-
-    followed-by-quote rule for keeping this row silent. QA's mutation
-    testing disproved that: widening that regex's marker-to-quote gap
-    from immediate to <=20 chars still leaves this test green, because
-    `_multi_entries` never even reaches a marker-adjacency decision here
-    that matters -- `(1)` is followed by `References to ` (14 chars, well
-    inside a widened <=20-char gap) then the quote, so under the widened
-    mutation `_MARKER_QUOTE_RE` WOULD now match and `_split_idiom` WOULD
-    be tried -- but it fails there instead, because "shall include" is not
-    in `_IDIOM_RE`'s recognized vocabulary (only "shall mean"/"shall be
-    construed to mean" match a "shall ..." idiom) and there's no comma
-    right after the quote either. The REAL mechanism protecting this row
-    is the idiom-vocabulary gate, not marker adjacency -- independently
-    reconfirmed on this worktree's own scratch-copy mutation (see this
-    sprint's Planner pass 6 report). `test_marker_quote_adjacency_gate_
-    is_load_bearing_alabama` below isolates the marker-adjacency
-    mechanism this docstring used to (wrongly) credit to this test."""
-    from app.definition_links.rules.us_scoped_inline import extract_us_scoped_inline_definitions
+    HISTORY (re-author, not rename): through Planner pass 6 this row was
+    protected ENTIRELY BY ACCIDENT -- `_IDIOM_RE` had no `shall include`
+    alternative, so `_split_idiom_chain` never paired an idiom with the
+    quote (QA cycle-1 mutation-proved idiom-absence, not marker-adjacency,
+    was the real gate: widening `_MARKER_QUOTE_RE`'s gap to <=20 chars
+    alone left this test green). Program ruling D-INCLUDES (2026-08-05,
+    main @ 6a56a84) deletes that accident: `includes`/`shall include` join
+    the defining-verb vocabulary program-wide (100/100 hand-read
+    occurrences definitional; broad guards cost 32-56% of true
+    definitions, REJECTED). One narrow, TARGETED guard survives: suppress
+    only when the quote is preceded by "References to" (22 construction-
+    clause rows protected vs 4,729 genuine recall rows kept). A test
+    passing because the idiom is absent keeps passing once that reason is
+    gone -- green for the wrong reason. Re-authored to assert the GUARD.
+
+    SECOND finding, this pass: idiom-absence was never the ONLY accident.
+    The colon after "subchapter" routes here through `_multi_entries`,
+    needing `_MARKER_QUOTE_RE` to find `(1)` IMMEDIATELY before a quote --
+    but `References to ` (14 chars) sits between, so it finds zero
+    markers, and `_unmarked_multi_entries` also fails (region doesn't
+    start AT a quote). Confirmed live: swapping `shall include` for the
+    ALREADY-recognized bare `includes` here still yields zero candidates
+    today. An isolated probe must ALSO neutralize this marker-adjacency
+    accident (`test_marker_quote_adjacency_gate_is_load_bearing_alabama`
+    below pins the same mechanism) or it would pass for THAT reason
+    alone, guard or no guard.
+
+    MUTATION EVIDENCE (scratch copy outside this worktree, `backend/app/`
+    untouched -- Planner pass 9 report has the transcript): `_IDIOM_RE`
+    widened for `shall include`, `_MARKER_QUOTE_RE` widened for a bounded
+    `References to `/`Reference to ` filler (same named-filler tolerance
+    `_STRONG_CONNECTOR_RE` already uses) -- MINIMAL "reachable + vocabulary
+    landed," no guard: `other enterprises` gets captured. A guard dropping
+    any quote chain whose bounded lookback matches `references?\\s+to\\s*$`
+    restores silence, while a real `shall include` positive control that
+    is NOT a References-to clause (`STATE_NY_ARSS_A2_T9_S89-H`, QA
+    cycle-2's `test_shall_include_is_not_a_recognized_idiom`) stays
+    captured under the same widened+guarded state -- NARROW, not a
+    blanket suppression (D-INCLUDES rejected blanket guards). Honest gap:
+    the SECOND clause (`serving at the request of the corporation`) never
+    becomes its own entry under this minimal widening (no marker precedes
+    it -- absorbed as entry 1's `definition_text` prose); only the plain
+    real-code assertion above covers it -- a future fix splitting "and
+    references to ..." would need its own probe (named, not written).
+
+    Simulates the not-yet-landed fix with `monkeypatch` (test-side only):
+    RED today (no guard) -> GREEN once the guard ships (checks literal
+    text before the quote, not which regex matched) -> RED again if the
+    guard is removed while the vocabulary stays."""
+    import app.definition_links.rules.us_scoped_inline as mod
+    import app.definition_links.rules.us_scoped_inline_shapes as shapes
 
     row = _rows()["STATE_PA_T15_C57_S5749"]
-    candidates = extract_us_scoped_inline_definitions(row["text"])
+    # Preserved intent: today's real, UNMODIFIED code -- both stacked
+    # accidents documented above keep both terms silent.
+    today_terms = {t for c in mod.extract_us_scoped_inline_definitions(row["text"]) for t in c.terms}
+    assert "other enterprises" not in today_terms
+    assert "serving at the request of the corporation" not in today_terms
+
+    # Guard-isolation probe: simulate D-INCLUDES landing (idiom + the
+    # marker-adjacency reachability this row needs), with NO guard.
+    widened_idiom_re = re.compile(
+        r"\s*(?:has the same meaning as|have the same meaning as|has the meaning|shall be construed to mean"
+        r"|shall include|shall mean|does not include|is defined as|includes?|means|is)\b,?\s*",
+        re.IGNORECASE,
+    )
+    widened_marker_quote_re = re.compile(rf'{shapes._MARKER_RE}\s*(?:references? to\s+)?["“]', re.IGNORECASE)
+    monkeypatch.setattr(shapes, "_IDIOM_RE", widened_idiom_re)
+    monkeypatch.setattr(mod, "_IDIOM_RE", widened_idiom_re)
+    monkeypatch.setattr(shapes, "_MARKER_QUOTE_RE", widened_marker_quote_re)
+
+    candidates = mod.extract_us_scoped_inline_definitions(row["text"])
     terms = {t for c in candidates for t in c.terms}
-    assert "other enterprises" not in terms
-    assert "serving at the request of the corporation" not in terms
+    assert "other enterprises" not in terms, (
+        "simulated D-INCLUDES vocabulary + marker reachability captured 'other enterprises' -- the "
+        f"targeted References-to construction-clause guard is missing or not load-bearing -- got {candidates!r}"
+    )
 
 
 # --- Planner pass 6 (Task 2): isolating two gates QA found "green for the
