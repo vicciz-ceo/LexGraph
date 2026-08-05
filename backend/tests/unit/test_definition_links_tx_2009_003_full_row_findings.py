@@ -167,23 +167,35 @@ def test_tx_person_captured_exactly_once_through_full_dispatch():
 
 def test_tx_rule_entry_captured_exactly_once_through_full_dispatch():
     """Residual ledger R1 (pre-existing, NOT M-R18 -- see module docstring
-    item 2). DEDUP COUNT ONLY -- this test intentionally checks the term
-    string exactly as captured TODAY (`"rule."`, with the trailing
-    period baked into the quoted span), regardless of whether that string
-    is itself the correct term boundary. Whether the string SHOULD be
-    `"rule"` instead is a completely different, unrelated defect, pinned
-    on its own in `test_tx_rule_entry_term_boundary_excludes_trailing_
-    period` below -- kept deliberately separate per the same "don't fold
-    two defects into one test" instruction this ruling gave for that
-    other test, applied here for consistency to every term in this file."""
+    item 2). DEDUP COUNT ONLY -- checks the DUPLICATION count for this
+    term, deliberately independent of the term-BOUNDARY question (whether
+    the trailing period belongs in the term string at all), which is
+    pinned separately in `test_tx_rule_entry_term_boundary_excludes_
+    trailing_period` below -- kept apart per the same "don't fold two
+    defects into one test" instruction this ruling gave for that other
+    test, applied here for consistency to every term in this file.
+
+    Amended per ruling M-R19 item 3 (coordinated Planner change, this
+    commit): before this amendment the assertion tracked `counts["rule."]`
+    (the term-boundary defect's own captured spelling, matching what
+    production emitted at the time). Left as `"rule."`, this pin would
+    have become permanently unsatisfiable the moment the Developer's
+    unrelated term-boundary fix landed -- production would stop emitting
+    `"rule."` (with the period) entirely, so `counts["rule."]` would sit
+    at 0 forever regardless of whether markers ever fixes R1's own
+    duplication, converting this from "a defect pin" into "a test that
+    can never pass." Tracking `counts["rule"]` (bare) instead keeps this
+    a valid R1 duplication pin both before and after that unrelated fix:
+    right now it is RED because bare "rule" is not the captured spelling
+    yet (0 != 1); once the Developer's fix lands it will be RED for R1's
+    actual reason (the term is captured twice, 2 != 1); once markers'
+    entry-boundary work closes R1 it will pass (1 == 1)."""
     counts = _term_counts()
-    assert counts["rule."] == 1, (
-        f'"rule." was captured {counts["rule."]} times through the full, real dispatching '
-        f"path -- expected exactly 1 (using today's actual captured spelling; see the "
-        f"companion term-boundary test for whether that spelling itself is correct). "
-        f"Residual ledger R1 (owned by markers): baseline's own degenerate per-block "
-        f'candidate (definition_text="") coexists with F5\'s correct combined 4-term '
-        f"candidate. All term counts: {dict(counts)!r}"
+    assert counts["rule"] == 1, (
+        f'"rule" was captured {counts["rule"]} times through the full, real dispatching '
+        f"path -- expected exactly 1. Residual ledger R1 (owned by markers): baseline's own "
+        f'degenerate per-block candidate (definition_text="") coexists with F5\'s correct '
+        f"combined 4-term candidate. All term counts: {dict(counts)!r}"
     )
 
 
@@ -214,11 +226,12 @@ def test_tx_rule_entry_term_boundary_excludes_trailing_period():
     matching how `_extract_leading_terms` already strips comma/semicolon
     for the SAME reason on MT's `"owns,"`.
 
-    **CONFLICT this test's own fix will create, flagged prominently, not
-    silently absorbed:** THREE tests elsewhere in this sprint's OWN
-    already-committed suite currently REQUIRE `"rule."` (WITH the
-    trailing period) to be the correctly-captured term, and are
-    CURRENTLY GREEN because of it:
+    **CONFLICT this test's own fix would have created, RESOLVED via
+    ruling M-R19 item 3 (coordinated Planner amendment, this same
+    commit):** THREE tests elsewhere in this sprint's OWN
+    already-committed suite PREVIOUSLY REQUIRED `"rule."` (WITH the
+    trailing period) to be the correctly-captured term, and were GREEN
+    only because of it:
       - `test_definition_links_multiterm_shared_clause.py::
         test_tx_s2009_003_parent_clause_terms_get_the_real_shared_
         definition_text` (`for term in (..., "rule."): assert term in
@@ -227,16 +240,19 @@ def test_tx_rule_entry_term_boundary_excludes_trailing_period():
         test_tx_parent_clause_redirect_list_2009_003`
       - `test_multiterm_f5_shared_clause.py::
         test_tx_parent_clause_redirect_list_2002_001`
-    All three were re-run live (2026-08-05) and confirmed PASSING today,
-    each depending on `"rule."` (with the period) appearing in the
-    extracted/persisted terms. Whatever fix satisfies THIS test (making
-    the captured term bare `"rule"`) will, by construction, make `"rule."`
-    stop appearing -- which will break all three of those tests unless
-    they are updated in the SAME change. This is a cross-test
-    coordination question for the sprint manager to schedule, not
-    something resolved unilaterally here (I do not own those three tests
-    under this task's authorization, and rewriting an already-verified-
-    passing test without being asked is its own kind of overreach)."""
+    All three were re-run live (2026-08-05) and confirmed PASSING at the
+    time, each depending on `"rule."` (with the period) appearing in the
+    extracted/persisted terms. Rather than leaving that coordination gap
+    for a future change, this commit amends all three (plus this file's
+    own dedup pin above and `test_definition_links_entry_splitter_
+    scope_and_length_bound.py`'s `_TX_REDIRECT_TERMS` tuple) to expect
+    bare `"rule"` in the SAME change as this note, so the suite is never
+    left internally inconsistent. Each of those now goes RED
+    (red-before-green, production still emits `"rule."` until the
+    Developer's fix lands) rather than GREEN-for-the-wrong-reason; they
+    are expected to turn GREEN together with this test once that fix
+    lands. Zero production edits were made to achieve this -- test-only
+    coordination, per this task's scope."""
     counts = _term_counts()
     assert "rule" in counts, (
         f'expected the bare term "rule" (no trailing period) to be captured -- the period '

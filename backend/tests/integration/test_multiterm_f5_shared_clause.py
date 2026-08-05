@@ -189,7 +189,7 @@ def test_tx_parent_clause_redirect_list_2009_003(db_session, matter_with_users):
         db_session, matter_with_users, title="TX Government Code 2009.003 (F5 parent-clause)", row=row, jurisdiction="US-TX"
     )
     _assert_tx_parent_clause_redirect_attached(
-        db_session, result, ("contested case", "party", "person", "rule.")
+        db_session, result, ("contested case", "party", "person", "rule")
     )
     # sanity: the 3 ordinary, already-working entries in this same row
     all_terms = {t for d in result["created_definitions"] for t in d["terms"]}
@@ -206,7 +206,7 @@ def test_tx_parent_clause_redirect_list_2002_001(db_session, matter_with_users):
         db_session, matter_with_users, title="TX Government Code 2002.001 (F5 parent-clause)", row=row, jurisdiction="US-TX"
     )
     _assert_tx_parent_clause_redirect_attached(
-        db_session, result, ("contested case", "license", "licensing", "party", "person", "rule.")
+        db_session, result, ("contested case", "license", "licensing", "party", "person", "rule")
     )
     all_terms = {t for d in result["created_definitions"] for t in d["terms"]}
     for working_term in ("Administrative code", "Internet", "State agency"):
