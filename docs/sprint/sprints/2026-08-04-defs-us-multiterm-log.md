@@ -4313,3 +4313,78 @@ review has caught agent errors.
   `USES_DEFINITION`, and the persisted `definition_text` is baseline's correct
   44-char `has the meaning assigned by Section 552.003.` — GREEN first try,
   confirming the first-wins derivation.
+
+---
+
+## 2026-08-05 — M-R29: finding A closed; the two sizings reconciled
+
+### Verified (mine, independently)
+
+I swapped ONLY `_IDIOM_RE` between its pre-fix and post-fix forms on the real
+row through the real dispatching path:
+
+```
+BEFORE fix: 4 target terms captured? False  ([])
+AFTER  fix: 4 target terms captured? True
+'discretionary spending limit'  BEFORE: False   AFTER: False
+terms LOST by the fix: []   GAINED: [budget authority, deficit, new budget authority, outlays]
+```
+
+Corpus, full 53 files, production dispatch, no sampling (Developer's, pattern
+audited by me): **739 terms gained, 0 lost, 0 new F5/F6 collisions** (18
+collisions, byte-identical before and after — pre-existing, from the original
+`means`/`shall mean` alternation).
+
+Ordinary-body harness after the change (standing duty): `rows firing=328
+(0.41%) candidates=532 dup rows=1` — byte-identical to before, correct, since
+F5 dispatches on the definitions-section path and this harness measures the
+ordinary-body path.
+
+### The boundary reasoning is the part worth keeping
+
+The Developer widened to **plural `meanings` only, never bare `meaning`**. It
+tried bare-`meaning` FIRST and measured the result: it broke two currently-green
+guard tests, because F6's cross-reference idiom is always SINGULAR ("has the
+meaning given that term in", "has the meaning assigned by") and F5's Case 2
+would have started double-emitting terms F6 already owns. Plural-only is
+zero-cost for the real defect (the target sentence is grammatically plural) and
+keeps the E3 family boundary intact. **That is the E3 lesson applied
+pre-emptively rather than after a corpus measurement caught it** — the first
+time this sprint a boundary risk was avoided instead of diagnosed.
+
+### QA's "70 missed terms" vs the Developer's "739 gained" — reconciled
+
+Not a contradiction; they measure different things, and only one is a claim
+about F5:
+
+- **QA's 70** came from a corpus TEXT SCAN for the idiom near quoted terms,
+  **not gated on F5's actual dispatch precondition**. F5 registers only a
+  `TermClauseRule`, so it reaches DEFINITIONS-section blocks and nothing else.
+- **The Developer's 739** is measured through the real production precondition
+  (`is_definitions_heading` direct-or-derived, mirroring `pipeline.py`) and is a
+  before/after差 on F5's own reachable population.
+
+The predicted per-state gains for HI/IL/MI/ND did not materialise, and the
+Developer sampled the real rows to find out why: they are either F6's SINGULAR
+idiom shape, or structurally unreachable by F5 (ordinary bodies, which F5
+cannot see without a `ScopeTriggerRule`), or a range-redirect shape ("the words
+and phrases defined in sections 122 to 124 have the meanings ascribed") with no
+quoted terms to scan at all. Real gain is an order of magnitude larger than
+predicted and concentrated in TX (303) and federal (273).
+
+**This is the third instance this cycle of one error class: measuring a SIGNAL
+and attributing it to a MECHANISM without checking reachability.** Mine (R6
+"TX-only" — one sub-shape generalised to a class), the raw-vs-ingest trap (a
+production function measured on pre-ingest data), and now this (an idiom scan
+attributed to a rule that cannot reach most of what it counted). The unifying
+rule: **a count is a claim about a mechanism only if it is gated on that
+mechanism's real dispatch precondition.**
+
+Two genuine gaps FOUND by this reconciliation, neither ours to fix, both named:
+- **F6 idiom-vocabulary gap**: "has the meaning set forth in / provided in /
+  ascribed in / prescribed for" are absent from F6's alternation. Same class as
+  cycle-1 finding 3 ("as defined in"), unfixed. In OUR family — recorded as
+  residual for a follow-up, not smuggled into this cycle.
+- **Range-redirect shape** (MI/ND): "the words and phrases defined in sections
+  122 to 124 have the meanings ascribed" — needs cross-section range
+  resolution, a mechanism no panel currently has.
