@@ -2938,3 +2938,82 @@ sprint's own contract items 5/6 (F6's reachability gap, closed by
 registering a `ScopeTriggerRule`) — F5 never got the equivalent fix. 1,491
 of the 2,302 F5 misses (64.8%) are this exact reachability class.
 
+
+---
+
+## 2026-08-05 — QA cycle 1 verified; SEAM DEFECT found behind findings 1-2
+
+### QA handoff verification (`aa1da87`) — role separation held
+
+`git diff --name-only 85590a9..aa1da87 -- backend/app/` is **EMPTY**. QA
+committed only two test files, one fixture, and the log. Suite **9 failed /
+793 passed**; arithmetic reconciles exactly (4 boundary REDs + 5 new finding
+REDs = 9; 791 + U2 test + green non-finding guard = 793). QA's work is
+accepted as independent and honest — it explicitly reported one suspected
+6th gap as a NON-finding after digging (persist-layer dedup already handles
+it) and kept it as a green guard rather than inflating its count. It also
+disclosed what it did not re-run (R4's numbers). That is the right conduct.
+
+### M-R15 — findings 1 and 2 are a SEAM defect, NOT our module's bug
+
+QA attributes them to `_leading_multiterm_candidate` "hardcoding
+`scope='law-wide'` instead of forwarding the section's actual determined
+scope." The output defect is real and QA is right to fail us on it. **The
+attribution is wrong, and it matters, because the fix is not available inside
+our module.** Proven from source, not argued:
+
+```
+registry.py:139-145
+class TermClauseRule:
+    jurisdiction_codes: tuple[str, ...]
+    parse: Callable[[str], list[DefinitionCandidate]]      # <-- block string ONLY
+
+us_profile.py:1350-1351
+    for rule in registry.term_clause_rules_for(self.code):
+        candidates.extend(rule.parse(block))               # <-- scope NOT passed
+
+us_profile.py:1321-1323
+    def extract_definitions_from_section(self, text, *, scope, ...)
+                                                           # <-- scope EXISTS here,
+                                                           #     and is dropped
+```
+
+**`TermClauseRule.parse` receives only the block string.** The dispatching
+method HAS the section's determined scope and does not forward it. Our
+Developer hardcoded `"law-wide"` because the seam offers no alternative — it
+was the only value obtainable. No change confined to
+`rules/us_multiterm_shared_clause.py` can fix findings 1-2.
+
+**This is program-wide, not ours.** EVERY panel shipping a `TermClauseRule`
+(markers, headings, preamble, PR) inherits the same blindness: any convention
+whose correct scope is `chapter` or `subsection` will be stamped `law-wide`.
+QA's finding 2 is the severe form — where the real scope is `chapter`, the
+WRONG degenerate definition silently wins outright, with no duplicate to
+signal a problem (real row: IN `"Title"`/`"interest in land"`, confirmed by
+QA querying which `Definition` row actually governs). That is a silent
+wrong-answer class, which under the director's zero-miss bar is worse than a
+miss.
+
+**Note the tension in QA's own verdicts, honestly:** it CERTIFIED U2 (scope
+enforced both directions) and simultaneously filed findings 1-2. Both are
+true and not contradictory — U2 tested `matcher._in_scope` ENFORCEMENT, which
+works; findings 1-2 are in candidate PRODUCTION, upstream of it. Enforcement
+is faithful to a scope value that was never correct. Recorded so nobody reads
+"U2 CERTIFIED" as "scope is right end-to-end". It is not.
+
+### Cycle-2 work split (my assessment)
+
+- **Findings 1-2** — BLOCKED on a core seam change (`TermClauseRule.parse`
+  must receive the section scope). ESCALATED to the program manager.
+- **Findings 3, 4, 5** — genuinely OURS and fixable in-module: nested-clause
+  capture skipping independent un-chained clauses (AL); `as defined in` not
+  recognised as a cross-reference idiom (**2,813 real corpus occurrences** —
+  the largest single gap QA found); cross-reference mechanism never firing
+  inside a recognised Definitions section (289 occurrences, DC `"parent"`).
+- **U-R10** — narrow both `EntrySplitterRule` registrations from `US-*` to the
+  jurisdictions our accepted items actually require, plus a contribution
+  length bound. Accepted without argument: it is the same shape as my own E3
+  narrowing, and markers' merged-tree simulation measured the trade (WA
+  oversized population 3 -> 7, worst case 11,314 chars, for -6 AL zero-yield
+  rows in a state markers already covers). The numbers decide it.
+- **U4 zero-miss** — CANNOT CERTIFY stands until 3/4/5 land and are re-swept.

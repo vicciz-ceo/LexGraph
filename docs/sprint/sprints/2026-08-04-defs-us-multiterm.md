@@ -15,7 +15,7 @@ evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix fr
 total_items: 11
 completed_items: 0
 dev_complete_items: 0
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
