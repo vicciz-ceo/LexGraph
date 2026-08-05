@@ -87,6 +87,29 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (IL certification round 2 — whole-file-invisible class found):
+  Round 2 merged @ 1bfe413. Vav predicate corrected and re-pinned: 93,509
+  spans, measured production capture 54.1%->62.8% — the parity insight
+  recorded as certification methodology: a mid-article delimiter
+  misclassification inverts open/close parity for every downstream quote;
+  small errors in paired-delimiter scans are never locally bounded. 'ltr'
+  over-capture root-caused to a D-1b splitter INTERACTION (re-parsing
+  continuation lines baseline already parsed) — and the honest QA note
+  recorded: cycle-4's clean 0/110 sample measured the marker-less-prose
+  population, NOT the union interaction where the over-capture lives; a
+  clean sample of the wrong population is not evidence about the right
+  one. THE STRUCTURAL FIND: 100 corpus files (1.6%) contain @ article
+  markers but yield ZERO Article objects (marker shape `@ (תיקון...) :`
+  with no article number — frozen sections.py gap, same class as M20);
+  1,090 stranded markers including תקנות הדיון בבתי-הדין הרבניים (223
+  markers) and two Arabic-script Druze personal-status/court-procedure law
+  bodies — ENTIRE BODIES OF RELIGIOUS-COURTS LAW invisible to the product.
+  ROUTED: core-follow-on-3, PRIORITY-MARKED (not core-2 — its close gates
+  six merges); certification carries the class as a named cluster closing
+  on the core-3 fix, residual-flip provision applies. Manager's ruling 3
+  refuted by its Planner's live check (fifth cross-panel
+  manager-correction); 121-vs-100 count refinement recorded.
+
 - 2026-08-05 (MULTITERM REVIEW-READY — fourth panel to close): @ 1c0c8cd,
   14 failed / 815 passed, all 14 owned (13 cross-panel + 1 deferred with
   E3 grounds). U1/U3/U5 CERTIFIED with named checks; U6 CLOSED both
