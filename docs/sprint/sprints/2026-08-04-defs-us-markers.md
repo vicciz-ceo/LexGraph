@@ -201,25 +201,25 @@ independent combined-tree QA pass.
   (10,838/6,515/8,769 chars); `us_markers_inline_quote` then emits the same
   key at 303/188/105 chars. Stage 2 first-wins persists baseline. This is an
   ordering failure, not a text-quality predicate.
-- **Exact Developer production scope:** add one default-false opt-in field to
-  `EntrySplitterRule`; set it only for `US-WA` on `us_markers_inline_quote`; in
-  `USProfile.extract_definitions_from_section`, put opted-in blocks before
-  baseline blocks **only when `len(baseline_blocks) == 1`**. Otherwise preserve
-  `baseline + extra` order byte-for-byte. Do not edit `pipeline.py`, persistence
-  identity, existing DB rows, G3, rule text, or a generic length/containment
-  replacement. This is the narrow, profile-owned source-order seam.
-- **Measurement:** broad source precedence is rejected: 12,774 changed keys on
-  WA+MI (12,757 MI); one-block precedence across all rule jurisdictions changes
-  99 keys in eight jurisdictions. WA-only one-block precedence changes 17 keys;
-  the three held rows are included. Re-run
-  `backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g3_heal_priority_rule_order.py --output docs/sprint/sprints/artifacts/2026-08-06-defs-us-markers-g3-heal-priority-order.json`
-  over all 53 files; QA hand-checks the 17-row ledger before GREEN.
-- **Acceptance/mutation:**
-  `backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_q1_wa_newline_collapse_swallow.py backend/tests/integration/test_us_g8_candidate_collision_preference.py backend/tests/integration/test_us_markers_c5guard_mi.py -q`
-  must be green. Removing the opt-in/order restores WA RED; removing the
-  single-block gate must fail a MI C5 pin; restoring generic containment must
-  fail AR Occurrence/Virtual-currency; blinding `History:` must restore only the
-  three stale MI tails. Then run the combined evaluator and contract lint.
+- **Exact Developer production scope:** add additive, default-false
+  `EntrySplitterRule.priority_before_single_baseline`; split
+  `us_markers_inline_quote` registrations into `("US-WA",)` with `True` and
+  the existing non-WA tuple with `False`. In `USProfile.extract_definitions_from_section`, put
+  opted blocks before baseline **only when `len(baseline_blocks) == 1`**;
+  otherwise preserve `baseline + extra` order byte-for-byte. Do not edit
+  `pipeline.py`, persistence identity, existing DB rows, G3, rule text, or use
+  generic length/containment replacement. This is a profile-owned source seam.
+- **Measurement:** default WA-only one-block precedence changes 17 reviewed keys;
+  the artifact asserts zero missing/stale judgments before it writes. Re-run all
+  53 files with `backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g3_heal_priority_rule_order.py --output docs/sprint/sprints/artifacts/2026-08-06-defs-us-markers-g3-heal-priority-order.json`.
+  Rejected scope remains reproducible: `--priority-code US-WA --priority-code US-MI --always-priority`
+  yields 12,774 (12,757 MI); `--all-inline-priority` yields 99 keys in eight codes.
+- **Acceptance/mutation:** add `test_us_markers_g3_heal_priority_seam.py` to
+  `backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_q1_wa_newline_collapse_swallow.py backend/tests/integration/test_us_g8_candidate_collision_preference.py backend/tests/integration/test_us_markers_c5guard_mi.py -q`.
+  Removing WA priority reverses the held RED; test-local opted MI kills removal
+  of the one-block gate; registration/default pins kill widening; AR
+  Occurrence/Virtual-currency kill generic containment; `History:` mutation
+  restores only three MI tails. Then run evaluator and contract lint.
 - Exclude forwarding/reference-edge, G3 sibling, core-3, and unrelated panels; FED Roman sibling and TX Part-A remain named holds.
 
 ## Stale-pin sweep
