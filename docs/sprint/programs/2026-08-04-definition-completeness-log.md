@@ -77,6 +77,25 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (HEADINGS QA-CERTIFIED — first family panel to certify):
+  claude/defs-us-headings @ 60c0652, suite 860/0, recall 21,080/22,228 =
+  94.8353%. All six gates pass; U4 = PASS-WITH-NAMED-RESIDUAL (full 1,148
+  residual classified, buckets sum exactly; 3-row L12 residual named —
+  unfixable in-panel: needs shared-module edit or D-HG relaxation, both
+  forbidden); U5 = zero FP flips across all 1,931,308 non-defin-titled
+  rows; U6 = WA 74.26→98.64, FL 84.56→98.74, NY 91.35→98.76, zero H-R3
+  violations across 46 states. Convergence signal: FIRST cycle finding no
+  new mechanical gap class (cycles 2/3/convergence-scan each found one);
+  the 100-row unassigned bucket resolved entirely into known shapes.
+  Cross-ledger insight for D-CERT: L12's 3 rows + L7's 2 remaining are ONE
+  exclusionary-verb class ("does not include" — outside both panels'
+  vocabularies) → single D-CERT item, not five orphans. Queued unblocked:
+  item 16 (includes widening), L1 on core-2 G11, L9 on core-2 G6. Manager
+  re-ran load-bearing claims incl. re-fetching L12 rows live; merge
+  conflict in log resolved as union with zero-loss verification.
+  qa_cycles 4/5, valve unused. Merge-queue position: after core-2 →
+  markers → preamble per standing order.
+
 - 2026-08-05 (milestone batch, post-harness-adjustment): CORE-2 @ e4032c7 —
   G2+G4 resolver fixes merged (SC connector chain solved; i9 test's
   docstring found to misdescribe its own fixture — load-bearing error,
