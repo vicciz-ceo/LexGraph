@@ -4239,3 +4239,305 @@ reading would have surfaced it.
    item 14's "198/435" is a **different, narrower hand-inventoried
    population** and QA correctly refused to claim a match it had not
    re-derived. Do not let these two numbers be equated.
+
+---
+
+## 2026-08-05 — Planner: cycle-8 D1/D2 — ESCALATION on the M-R59 narrowing; D2 filter pin landed
+
+Worked in `/Users/nerya/LexGraph-wt/defs-us-preamble` from `99f1904`.
+Pushed `5f6fbb0`. **Zero `backend/app/` edits committed** — one temporary
+mutation for D2 (`_b1_quote_means_branch`'s forwarding filter), reverted,
+`git status` verified clean before commit. Measurement scripts (scratchpad,
+never touch `backend/app/`): `planner_c8_fetch_fp_rows.py`,
+`planner_c8_candidate_pattern.py`, `measure_defining_verb_narrowing.py`
+(new — extends `qa_cycle7_d1_shapes.py` by direct import, per the brief's
+"extend, don't rewrite"), `planner_c8_fetch_positive_rows.py`,
+`planner_c8_find_quotemeans_forwarding_gap.py`.
+
+### D1 — the commissioned colon-list defining-verb narrowing: RED tests authored, but the pattern itself is an ESCALATION
+
+**What I built and measured.** Candidate: require the colon-list branch's
+own em-dash/colon structural gate (unchanged) PLUS a quoted-term +
+bounded-gap (≤80 chars, mirrors `us_profile._MEANS_IDIOM_GAP_RE`'s own
+proven discipline) + defining verb (`means`/`shall mean`/`includes`/`shall
+include` — D-INCLUDES honored; `has the meaning` deliberately EXCLUDED,
+measured to collide with the exact `"has the meaning given...in section
+X"` forwarding shape that produced 2 of the 16 real QA-named FPs) found
+within 600 chars of the TRIGGER match's own start (not the colon — a
+plain post-colon window misses real rows whose first entry's own content
+is long, e.g. DE's `"School equipment" ... shall be deemed to mean, and
+to include, but not be limited to: kitchen equipment...` before reaching
+a clean second entry).
+
+**Precision side — works as intended.** Verified against all 16 real FP
+`act_id`s from QA's cycle-7 log: **10/16 correctly dropped** (the other 6
+are captured via a DIFFERENT, unaffected occurrence/branch in the same
+body — not a defect in the candidate, see below). Verified against the 4
+existing FED shape-3/em-dash fixtures
+(`test_us_body_preamble_shape3_in_this_trigger_red.py`): **all 4 still
+captured.**
+
+**Recall side — this is the escalation.** A full corpus-wide run
+(`measure_defining_verb_narrowing.py`, 2,038,247 rows, ~10 min) found the
+candidate touches THREE populations, not one:
+
+| population | total | dropped | dropped % |
+|---|---:|---:|---:|
+| A: shape-3 ("In" trigger) rows that win via the **colon-list branch specifically** | 11,676 | 2,163 | 18.5% |
+| B: em-dash branch | 984 | 132 | 13.4% |
+| C: **already-certified, pre-cycle-7** colon-list captures (GA/MS/DE/CT/AR/... via "As used in"/"For purposes of" + colon, NOT this cycle's own delta) | 42,374 | 2,322 | 5.5% |
+
+**Correction to QA's own 17,370 figure, found while building this**: QA's
+`classify_shape` labels a row "shape3_in_trigger" whenever the WINNING
+occurrence's trigger text starts with "In" — REGARDLESS of whether that
+occurrence won via colon-list or quote-means. Population A above (11,676)
+is the subset that specifically goes through colon-list (the branch M-R59
+commissions narrowing); the other ~5,694 of QA's 17,370 win via the
+UNCHANGED, self-verifying quote-means branch and are outside this
+narrowing's reach entirely (consistent with QA's own diagnosis that
+quote-means is structurally safe). **17,370 must not be read as "the
+population this narrowing touches" — 11,676 is.** Em-dash's 984 matches
+QA's own figure exactly (independent cross-check, no such split there).
+
+**Hand-verified samples (uniform-random, seed `20260805`, full untruncated
+`definition_text` read against the real corpus text — Q-D1b's own
+discipline), of what gets DROPPED:**
+
+| population | n hand-read | genuine (real local def.) | forwarding-only | garbage/malformed | ambiguous |
+|---|---:|---:|---:|---:|---:|
+| A (shape-3 colon-list) | 25 | 16 (64%) | 6 (24%) | 2 (8%) | 1 (4%) |
+| B (em-dash) | 24 | 12 (50%) | 3 (12.5%) | 9 (37.5%) | 0 |
+| C (pre-existing, already-certified) | 30 | 19 (63.3%) | 10 (33.3%) | 0 | 1 (3.3%) |
+
+Extrapolating these rates to the full dropped counts: **≈1,384 (A) + 66
+(B) + 1,470 (C) ≈ 2,920 genuine rows would be silently lost**, against
+**≈692 (A) + 66 (B) + 773 (C) ≈ 1,531 rows correctly fixed** (garbage or
+pure forwarding). **The candidate, as a purely local per-occurrence
+window check, loses more real captures than it fixes false positives —
+including roughly 1,470 rows in the population every earlier cycle
+already certified**, not just this cycle's own still-uncertified delta.
+
+**Why local-window narrowing structurally cannot do better than this**
+(root causes, each confirmed against real bodies, not inferred):
+
+1. **Body-wide extraction is decoupled from WHICH occurrence wins
+   recognition.** `extract_definitions_from_section` re-scans the ENTIRE
+   body once ANY heading is derived — it does not care which trigger
+   occurrence supplied that heading. Many genuine captures in this
+   population are reached ONLY because a totally unrelated, genuinely
+   spurious occurrence elsewhere in a long, multi-topic body happens to
+   grant recognition, while the REAL "As used in ...: (N) "Term"
+   means..." clause sits far away. Real examples, confirmed live:
+   `STATE_OH_T45_C4510_S4510.17` ("Child" genuinely defined in division
+   (H), reached today only via a spurious "in this state." match inside
+   an unrelated driver's-license-suspension clause 18,000+ chars earlier)
+   and `USC_T16_C12_S824` ("Sale of electric energy at wholesale" /
+   "Public utility", reached only via a spurious "in this section
+   shall—" limitations clause — structurally identical to QA's confirmed
+   em-dash FPs). **A window scoped to the winning occurrence's own
+   neighborhood cannot see either fix.**
+2. **`_B1_TRIGGER_RE`'s own greedy unit-name tail
+   (`[A-Za-z0-9 .\-]{0,30}`) can swallow the defining verb into the
+   TRIGGER MATCH ITSELF**, hiding it from any check that only searches
+   text strictly after the match ends. Real example: `STATE_PA_
+   T15_C75_S7502` — the winning match text is literally `'in this
+   chapter means a corporation wit'` (the word "means" consumed by the
+   trigger's own greedy tail). This is the SAME hazard this sprint's own
+   D3 note flagged last cycle ("found zero false positives caused by it"
+   THEN) — it is a real RECALL hazard now that a verb-presence check
+   runs post-trigger.
+3. **The trigger regex itself doesn't reach every real intro clause's
+   own phrasing.** `STATE_AR_T8_C8_S1_S8-8-102`'s real intro is `"For
+   the purpose of this compact..."` — SINGULAR "purpose", never matched
+   by `_B1_TRIGGER_RE` (`For (?:the )?purposes of`, plural only); OH's
+   real intro is `"As used in divisions (C) and (D) of this section:"` —
+   the intervening "divisions (C) and (D) of" breaks the "As used in
+   this X" pattern. Both rows' 5-and-1 real definitions are reached only
+   via the coincidental spurious-match mechanism in (1).
+4. **D-INCLUDES gap in the SIBLING branch.** `USC_T15_C1_S26a`'s only
+   real definition is `"United States" includes the several States...` —
+   a quote-means shape (comma-gap, not colon-list), but
+   `_b1_quote_means_branch`'s own `_B1_QUOTE_MEANS_RE` verb group is
+   `means|shall mean` ONLY, no `includes`. M-R59 does not commission
+   touching quote-means, but narrowing colon-list without ALSO widening
+   quote-means' verb vocabulary orphans this row (recognition today
+   depends entirely on a separate, genuinely spurious colon-list
+   occurrence).
+
+I confirmed the OPPOSITE design (require the defining verb ANYWHERE in
+the body, not near the winning occurrence) as a sanity check: it
+preserves ~99%+ of population C's recall but only drops 2/16 known FPs —
+i.e. it does not meaningfully fix the diagnosed problem at all. **There is
+no simple parameter tune (window size 150→1500, verb vocabulary) that
+resolves this — I tested a range and the tension persists at every
+setting I tried.** This is a genuine architectural mismatch between "one
+local check per occurrence" and "the hazard is about which TEXT triggered
+recognition, but genuine content lives wherever it lives in the body,"
+not a tuning artifact.
+
+**Tests authored anyway** (`test_us_body_preamble_defining_verb_narrowing_
+red.py`, fixtures `cycle8_defining_verb_{negative,positive}_rows.json`, 11
+real rows, byte-verified against the parquet): 6 RED negatives (real
+QA-cycle-7-named FP `act_id`s: `USC_T35_C4_S41`, `USC_T10_C953_S9448`,
+`USC_T22_C102_S9528`, `USC_T10_C303_S4093`, `STATE_DE_T13_C5_SII_S513`,
+`USC_T42_C7_S679c` — must go uncaptured) + 5 GREEN regression-guard tests
+(the OH/PA/FED/US/AR rows above — currently captured, must STAY captured).
+**Verified against my own candidate implementation directly (not just
+reasoned about)**: all 6 negatives correctly drop, all 5 positives
+correctly flip RED — i.e. these tests are not hypothetical, they
+reproduce the exact tension measured above on a concrete implementation.
+Whatever remedy the manager selects must pass all 11.
+
+**ESCALATION (repeated at the top of the final report per the brief's
+format): the naive, purely-local-window implementation of M-R59's
+narrowing is a genuinely bad trade — it measurably loses more real
+captures (≈2,920, including ≈1,470 in the ALREADY-CERTIFIED pre-cycle-7
+population) than it fixes false positives (≈1,531), all figures from a
+full corpus run plus hand-verified samples, not estimates. Options:**
+
+- **(a) Ship the local-window narrowing as designed, accepting the
+  measured recall loss.** Fails the zero-miss bar as I understand it,
+  including for the already-certified population — my lean is against
+  this.
+- **(b) Scope the narrowing to ONLY the em-dash sub-branch + shape-3's
+  "In"-trigger colon path (populations A+B, this cycle's own still-
+  uncertified delta), leaving the pre-existing "As used in"/"For
+  purposes of" + colon path (population C) completely untouched.** Zero
+  NEW risk to the already-certified population; the recall cost shrinks
+  to ≈1,450 (A+B) against ≈758 fixed (A+B) — still a losing trade by raw
+  count within the delta itself, but bounded to still-uncertified rows
+  only.
+- **(c) Invest in the companion fixes named above BEFORE or ALONGSIDE
+  narrowing** (cap `_B1_TRIGGER_RE`'s greedy tail so it cannot consume a
+  following verb; widen the trigger to accept singular "purpose" and
+  intervening-clause phrasing; widen `_B1_QUOTE_MEANS_RE`'s verb group to
+  include `includes`/`shall include` per D-INCLUDES) so the RIGHT
+  occurrence wins directly instead of relying on a coincidental spurious
+  match — this is untested by me (no corpus-wide run of it), but is the
+  only path I can see that could recover MOST of the measured recall
+  loss while still fixing precision. Bigger scope than "a narrower rule."
+- **(d) Some hybrid of (b)+(c).**
+
+**My lean: (b) now, (c) as a follow-on this cycle or next** — (b) is
+strictly safer than shipping nothing changed (it still fixes ~758 FP rows
+in the delta with zero new risk to the certified population) and is
+immediately available; (c) is the only path to closing the recall gap
+properly, but needs its own corpus-wide measurement before it can be
+certified, which is more than this cycle's stated scope. I did not
+choose between these myself, per the brief's own instruction.
+
+### D2 — forwarding-phrase filter pin (M-R60): landed, mutation-verified
+
+`test_us_body_preamble_quotemeans_forwarding_filter_pin.py`, 2 tests.
+**Unit-level, not live-path** — disclosed explicitly in the file's own
+docstring: a full 2,038,247-row corpus search
+(`planner_c8_find_quotemeans_forwarding_gap.py`) for any real row where
+`_B1_QUOTE_MEANS_RE` matches AND its own `gap` group contains a
+`_B1_FORWARDING_PHRASES` entry found **zero real rows** — this exact code
+path is corpus-unreachable today, consistent with QA's own mutation
+finding (no existing test reaches it either) and explaining why: the
+diagnosed hazard (D3, last cycle) turned out, on the real FP rows that
+motivated the filter, to be forwarding phrases acting as the VERB itself
+(already excluded structurally by `_B1_QUOTE_MEANS_RE`'s own `means|shall
+mean` requirement), not as gap/qualifier text. Since no real row can prove
+this line matters, the test calls `_b1_quote_means_branch` directly with a
+hand-constructed string (verified to actually match the regex and to
+contain a forwarding phrase in its own `gap` group) — a normal unit test
+of the function, not a fixture-requiring "row."
+
+**Mutation evidence**: `_b1_quote_means_branch`'s `return not any(phrase
+in gap for phrase in _B1_FORWARDING_PHRASES)` → `return True`, test file
+re-run: `test_quote_means_branch_rejects_a_gap_containing_a_forwarding_
+phrase` FAILED as expected (`assert True is False`); companion control
+test (`test_quote_means_branch_still_accepts_the_same_shape_without_a_
+forwarding_phrase`) still PASSED (proves the pin isn't just "any change
+fails"). Reverted; `git diff --stat -- backend/app/` empty before commit.
+
+### D3 — attribution + regression guard
+
+`pytest -k winning_rule` across the 6 shape test files: **10/10 pass**,
+undisturbed by this cycle's new files (verified after committing D1/D2).
+Full suite: **9 failed / 847 passed** (3 disclosed pre-existing +
+this cycle's 6 new RED negatives; 840 baseline + 5 new positives + 2 new
+D2 tests = 847).
+
+**Starvation risk, flagged per the brief (not built into a test this
+cycle — the exact narrowing design is still open per the escalation
+above, so a starvation test would need to re-target whichever design the
+manager picks):** `_b1_colon_list_branch` is checked BEFORE
+`_b1_quote_means_branch` at EVERY trigger occurrence inside
+`_b1_trigger_colon_or_quote_means` — narrowing colon-list means some
+occurrences that win via colon-list TODAY will fall through to a
+quote-means check at the SAME occurrence (already unwound today; no
+change) or to the NEXT occurrence (a real behavior change). This can flip
+a row's WINNING BRANCH attribution (colon → quotemeans) even when the
+row's final captured/not-captured OUTCOME is unchanged — which matters
+for shape-specific FP-rate tracking (QA's own per-shape sampling
+methodology depends on correct branch attribution) even when it doesn't
+matter for the pass/fail of the 10 existing `winning_rule` tests. Next
+cycle's test author, once a specific narrowing design is chosen, should
+add an explicit "did the winning branch change" pin alongside the
+existing rule-identity tests, not just an outcome-level capture test.
+
+### D4 — item list for the Developer
+
+**Held pending the escalation above** — do not implement any narrowing
+until the manager rules on options (a)-(d). Once ruled:
+
+- **Tests to satisfy, regardless of which option is chosen**:
+  `test_us_body_preamble_defining_verb_narrowing_red.py`'s 11 tests (6
+  negatives must go uncaptured; 5 positives must stay captured) +
+  `test_us_body_preamble_quotemeans_forwarding_filter_pin.py`'s 2 tests
+  (already green, must stay green) + all 10 `winning_rule` attribution
+  tests + the existing 840-test baseline (3 disclosed exceptions
+  unchanged).
+- **If option (b) or (d) is chosen**: the narrowing predicate itself
+  (quoted term + ≤80-char bounded gap + `means`/`shall mean`/`includes`/
+  `shall include`, searched within 600 chars of the trigger match start,
+  deliberately excluding `has the meaning`) is ready to reuse verbatim —
+  it is what produced every number in this report. Scope it to fire only
+  when the winning occurrence's own trigger text starts with "In" (case-
+  insensitive, not "As used in"/"For purposes of") OR when the em-dash
+  sub-branch fires — i.e. gate the NEW check on "is this occurrence part
+  of THIS cycle's own widening" so the pre-existing "As used in"/"For
+  purposes of" + colon path (population C) is untouched.
+- **If option (c) is pursued**: three named, independently-confirmed
+  companion defects to fix first (none touched by me — all still real,
+  unedited `backend/app/`): (i) `_B1_TRIGGER_RE`'s greedy
+  `[A-Za-z0-9 .\-]{0,30}` tail can consume a following defining verb into
+  its own match (PA case); (ii) the trigger's `purposes` alternative is
+  plural-only, missing real singular `purpose` rows (AR case) and
+  intervening-clause phrasing like "As used in divisions (C) and (D) of
+  this section" (OH case); (iii) `_B1_QUOTE_MEANS_RE`'s verb group lacks
+  `includes`/`shall include` (US case, D-INCLUDES). A corpus-wide
+  re-measurement of the SAME `measure_defining_verb_narrowing.py`
+  methodology, extended to model these three fixes, would be the next
+  cycle's own D1 if (c) or (d) is chosen.
+- **Carried forward, still open, not touched this cycle**:
+  1. **M-R53 condition-1 comment fix — STILL NOT DONE.** Verified again
+     directly: `_b1_colon_list_branch`'s comment (lines ~342-350 in
+     `us_body_preamble.py`) still claims "verified corpus-wide (every
+     fixture file...) that this exact trigger-immediately-followed-by-
+     em-dash shape occurs in ONLY this one real row" — false; per M-R58
+     the reconciled real counts are **1,788 whole-body / 984
+     operationally captured**. Ratification was conditional on this;
+     it is now three cycles overdue.
+  2. **File split, `us_body_preamble.py` 386 → 300-line gate** (M-R54) —
+     sequenced AFTER the narrowing question resolves, not during.
+
+**What I did NOT measure this cycle**: the corpus-wide effect of the
+option-(c) companion fixes (named above, not implemented or measured —
+proposing them without numbers would be exactly the "shipping a pattern
+without measuring the trade" the brief warns against); a hand-verified
+sample of population C beyond the 30 rows read in full (a larger sample
+would tighten the ≈63.3% genuine-rate estimate's confidence interval, not
+change its direction); whether the same greedy-trigger-tail hazard (root
+cause 2 above) affects any OTHER already-shipped test in this suite
+(checked only the one PA row that surfaced it).
+
+Full suite tail: `9 failed, 847 passed, 18 warnings in 13.75s`. Pushed
+SHA: `5f6fbb0`. `git log --oneline -1` at time of this entry: `5f6fbb0
+test(us-preamble): cycle-8 D1 defining-verb narrowing REDs + D2
+forwarding-filter pin (M-R59/M-R60)`. Confirmed zero `backend/app/` edits
+in the pushed commit (`git show --stat 5f6fbb0` — 4 files, all under
+`backend/tests/`).
