@@ -224,6 +224,44 @@ drop.**
 
 ---
 
+## Cross-gate interaction — DO NOT DOUBLE-COUNT RESCUES (added 2026-08-05)
+
+Later-accepted gates overlap the populations above and each other. Anyone
+executing this protocol must treat these as interacting, not additive.
+
+**Denominator hygiene — two valid rescue figures over DIFFERENT populations.
+Never quote them as the same measurement, never average them:**
+
+| Figure | Population |
+|---|---|
+| **39,955 / 74.1%** | headings panel — **corpus-wide defin-titled rows** (82,155 live-recognized, 53,918 zero on the live path) |
+| **86.5% rescued** | markers panel — **their ten-state heading-recognized population (11,010)** |
+
+**G11 ↔ G3 sequencing is COUPLED and binding.** Flipping the
+`heading_was_derived` gate against the CURRENT, unmodified fallback produces
+**202 new >5,000-char swallowed definitions across ten states alone**
+(NJ 55, OK 39, NY 36, MN 22, OH 21, MI 11, ME 8, ND 7, NM 2, NV 1) — the
+fallback's own unbounded-last-entry defect (us_profile.py:588) fires on every
+newly-reached row. **G11's flip must land WITH the boundary fixes (G3 main +
+G3 sibling), never before them.** Framing: *G11 delivers reach; the boundary
+rules deliver cleanliness; 202 rows is the measured debt of reach alone.*
+
+**Second-order dependency:** the G3 sibling fix is itself conditional on a
+both-sides sample of the sibling's own population (Q-G3-A condition). If that
+sample fails, the sibling becomes a separate follow-up — and G11's flip would
+then have no sibling boundary fix to pair with. G11's recommendation must
+cover both branches.
+
+**Overlap, currently UNMEASURED:** a single row can be gate-blocked (G11) AND
+carry a last-entry swallow (G3) AND be involved in a persistence collision
+(G8). The G11 Planner is tasked to measure this overlap so rescues are not
+counted twice across gates. Until those numbers land, **do not sum
+per-gate rescue counts.**
+
+**NV is gate-independent — exclude it from G11 accounting.** 73.2% of NV's
+population survives the flip; NV stays on the markers panel's side
+regardless of G11.
+
 ## Open questions for the program manager (both G3-related)
 
 **Q-G3-A — Is `_extract_inline_quoted_definitions` in G3's scope?**

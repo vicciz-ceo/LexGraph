@@ -339,6 +339,343 @@ answer; the manager arbitrates when both return.
 
 ---
 
+## Phase 1 — manager verification of all four Planners (2026-08-05)
+
+**All four verified; all four ACCEPTED.** Merged into the sprint branch
+@ `79c0e73` (plan1, plan2, plan4 clean; plan3 add/add conflict on this log
+resolved by keeping the manager record and folding plan3's planner notes in
+verbatim as Appendix A).
+
+### What the manager verified FIRST-HAND (not accepted on report)
+
+1. **Every RED actually fails, and for the right reason** — run in each
+   Planner's own worktree/venv, failure messages inspected individually:
+   - plan1: **8 failed / 4 passed** (4 passing are regression guards, which
+     must pass now and keep passing). Oregon RED yields
+     `got (UnitStep(kind='digit', value='1'),)` — the non-empty WRONG path
+     mode, exactly as specified.
+   - plan2: **3 failed / 13 passed**. G1 RED shows the mechanism directly:
+     padded `' Registrant '` finds **0** matches where the stripped term
+     finds 1.
+   - plan3: **8 failed / 2 passed**, incl.
+     `TypeError: ScopeKindRule.__init__() got an unexpected keyword argument
+     'detect_value'` (seam genuinely absent) and G5 failing on **both** US
+     and IL — confirming the two-site fix.
+   - plan4: **1 failed / 4 passed**; RED asserts on REAL PERSISTED OUTPUT
+     and shows a 155-char candidate carrying a separate sub-item's
+     `(B) "Occurrence"` marker beating both baseline's own later clean
+     candidate AND the registered rule's, purely by enumeration order.
+2. **Fixture provenance byte-verified against the real corpus by the
+   manager** — all **10 fixture rows across three branches** re-read from
+   the parquet snapshot and compared: **10/10 BYTES MATCH**, lengths
+   identical (AR 4,866 / MS 1,015 / FED `USC_T5_C34_S3401` 5,229 / AZ 9,307
+   / SC 23,574 / SC 1,476 / TX 8,545 / TX 956 / ME 14,416 / OR 6,402).
+   Probe note (P-R10): the manager's first pass failed on a wrong key
+   (`section_id`); the corpus keys on **`act_id`** — the probe was wrong,
+   not the fixtures.
+3. **Tests-only, no production code** on all four branches (diff --stat).
+4. **Seam v2.8 is genuinely append-only**: `254 insertions, 0 deletions`
+   on the seam doc; §0 re-verifies the manager's M9 finding (HOLDS), §8 does
+   the row-by-row on all 8 U2 rows.
+
+### Carried into implementation as named hazards (binding on Developers)
+
+- **G2 requires plan1's discovered THIRD sub-step** — defer ladder selection
+  past tokens matching NO outermost rung, or ME's `(NEW)` annotation still
+  hijacks the ladder. Prototype: 8.4% → 0.64% corpus-wide, ME 81.0 → 0.2%,
+  AZ 69.7 → 0.2%.
+- **G4's 42% / 34% corpus-scale figures are EXPLICITLY PROVISIONAL**
+  (prototype, 6 rows spot-checked). **They must NOT enter any certified
+  record without the sampled audit plan1 recommends.**
+- **G4 implementation hazard:** SC's `(A)(1) or (A)(2)` connector chain
+  still lands the wrong top-level value in the prototype — real engineering
+  required, documented in the G4 test docstring.
+- **G3 termination is CONTENT-marker based, not structural** (plan2's
+  both-sides sampling justified it); extended 10-marker set recommended;
+  24.62% of 27,051 last entries contaminated.
+- **G1 mechanism confirmed:** `re.escape` does not escape spaces, so padded
+  terms miss punctuation-abutting mentions. Padding = 2.24% of extracted
+  terms (NC 55%, WY 61.6%, NM 79.8%) — a **lower bound**; MS stays invisible
+  until preamble merges.
+
+### Program-manager rulings on the two open questions — RECORDED
+
+- **Q-G3-A: YES — the sibling `_extract_inline_quoted_definitions` is IN
+  G3's scope** (its IL 71.4% contamination is the very population G3's
+  purpose clause invokes; one shared termination helper).
+  **CONDITION (binding):** before the Developer touches the sibling, the
+  same both-sides sample plan2 ran for the main function must be run on the
+  **SIBLING's** population — its over-correction risk is plan2's own named
+  unverified gap. **If that sample shows a materially worse trade, the
+  sibling becomes its own follow-up WITH the data — not silently built
+  anyway.** plan2 re-engaged to run this; dev1 is fenced off the sibling
+  until it returns.
+- **Q-G3-B: DC is DE-LINKED from G3.** plan2's mechanical proof stands:
+  **202/332 quoteless, 130/332 blocked by the `"The term "` lead-in** —
+  neither reachable by any boundary fix. Merge-protocol pass condition
+  amended to: (a) FED RED green, (b) corpus-wide last-entry contamination
+  near-zero against plan2's **27,051-row** denominator, (c) **DC explicitly
+  EXCLUDED from G3's promise.** DC's real shapes route elsewhere: the
+  lead-in shape to the markers panel (a registry `TermClauseRule` handles
+  `(1) The term "X" means` with no shared edit — their QA independently
+  named the same NC/DC shape), quoteless to their unquoted family.
+
+### G8 corroboration recorded (independent instruments agreeing)
+
+plan4's AR **self-collision** discovery — baseline colliding with ITSELF,
+**2,282 rows / 34 jurisdictions, no rules needed** — plus its
+containment-update design (ordering-flip and length-threshold both rejected
+WITH data; 745 unambiguous / 2,307 benign / 1,308 ambiguous left untouched).
+Corroborated by a DIFFERENT instrument: the markers manager independently
+sized severe collisions at **213** (TN 146, FED 51; worst discarded
+improvement **163,875 chars**, `USC_T5_C83_S8331`). Its TX finding (3,910
+rows, 19,352 keys, **ZERO** severe — likely a genuinely-distinct-definitions
+population) independently supports leaving the ambiguous group untouched.
+
+---
+
+## Phase 1b — TWO NEW GATES: manager decision (2026-08-05)
+
+Decision authority was the panel manager's; the program manager asked for
+reasons either way. **Both ACCEPTED.**
+
+### G9 — breadcrumbs data source: **ACCEPT**
+
+`pipeline.py:212` hardcodes `heading_breadcrumbs=()`; `sections.py:138`'s
+`len==2` gate discards 3+-equals heading text. Reasons:
+
+1. **The seam doc already claimed this as core's own work and did not
+   finish it.** v2.6 §1 (M-D1), input-availability note, verbatim:
+   accumulating all depths into `heading_breadcrumbs` is *"core's own
+   ONE-PLACE additive change (default `()`, so every existing construction
+   site is unaffected)."* Accepting is completing declared scope, not
+   expanding it.
+2. **It is a starved-seam defect of the P-R8 class this sprint's lineage
+   exists to close.** `StructuralUnitRule.derive` consumes
+   `StructuralContext.heading_breadcrumbs`; hardcoding it `()` means every
+   panel's `StructuralUnitRule` is fed nothing — registered, dispatched,
+   and useless. "Live dispatch" over an empty input is not live capability.
+3. **Only this sprint can do it.** `pipeline.py` is in the exclusive
+   write-set and `sections.py` is core-owned; P-R1 fences every panel out.
+   Deferring leaves IL's סימן/חלק containment residual blocked with no
+   other route.
+4. **Cheapest gate on the board:** small, additive, safe default, and two
+   committed REDs already exist on `claude/defs-il` to vendor equivalents
+   from.
+
+Carried caveat: `sections.py` is a **Hebrew regression surface** — existing
+IL tests must pass UNCHANGED; editing one to fit is a planning bug and
+escalates.
+
+### G10 — `TermClauseRule` scope threading: **ACCEPT** (highest-value of the two)
+
+`registry.py:139-145` — `parse` receives the block string ONLY;
+`us_profile.py:1351` drops the scope the dispatcher already holds. Reasons:
+
+1. **It is an active correctness bug producing WRONG assertions today**, not
+   a missing capability. Every panel's `TermClauseRule` stamps `law-wide`;
+   a law-wide stamp on a section-scoped definition manufactures false
+   `USES_DEFINITION` assertions across the whole law. That is precisely the
+   failure mode seam v2.1 (M9) names — *a silent broadening fallback is a
+   false-positive generator, never an acceptable default* — and it violates
+   the director's founding scoped-definitions constraint and D-E1
+   (narrowest governs).
+2. **Proven from source on a real IN row** (silent wrong-scope winner), not
+   inferred.
+3. **Unblocks correctness for FOUR panels** — the widest leverage available
+   this sprint.
+4. **The fix shape already has a precedent in flight:** additive signature
+   threading (optional param or context object, existing rule modules keep
+   working) is exactly G5's pattern, so it composes with work already
+   designed rather than fighting it. Seam version bump → **v2.9**, appended
+   after v2.8.
+
+**Scope-collision check before accepting both** (manager): G9 touches
+`pipeline.py:212` + `sections.py`; G8 touches `pipeline.py:262-310` —
+distinct regions. G10 touches `registry.py` + `us_profile.py:1351`; the
+resolver pair holds 1075-1256 and the extraction pair 346-620 — all
+distinct. No two accepted gates contend for the same lines.
+
+### Deferred, NOT lost — core-follow-on-3 accumulator
+
+plan2's out-of-scope list routes to the opened core-follow-on-3 accumulator
+(program log), explicitly not absorbed here: **AZ bare-digit-dot
+sibling-swallow, WA mid-paragraph markers, MI spaced `( l )`, CT
+conventions.**
+
+---
+
+## Phase 2 — implementation wave 1 (2026-08-05)
+
+Spawned after Planner verification. Model/effort for every Developer:
+**Sonnet/medium** — design and tests already exist, so this is bounded
+implementation against a written spec; Haiku considered: no, each lands in
+shared code six panels depend on.
+
+| Agent | Gates | Branch | agentId | Outcome |
+|---|---|---|---|---|
+| dev1 | G3 + G1 | `...-dev1` | `a1d5577f4545118ae` | running |
+| dev2 | G8 | `...-dev2` | `ad5caf511b321ca57` | **MERGED @ 715211a** |
+| dev3 | G2 + G4 | `...-dev3` | `ac0dfea20acd8ed41` | running |
+| plan5 | G10 | `...-plan5` | `a78f13f6bc7939fbf` | running |
+| plan6 | G9 | `...-plan6` | `a38aa7f6e1cf03cd3` | running |
+| plan7 | G11 | `...-plan7` | `af70147302e1a0212` | running |
+
+G5+G6 implementation is deliberately NOT yet spawned: G5 depends on the
+resolver pair (dev3) landing. G6 will be paired with it to keep one head on
+plan3's design.
+
+### G8 — manager verification (dev2), ACCEPTED and merged
+
+Verified first-hand, not accepted on report:
+- Diff is **`pipeline.py` only, 46 insertions / 0 deletions, 0 test files
+  touched**; full diff read (shared persistence code — full reads are the
+  rule in this sprint).
+- G8's suite: **5 passed** (the RED now green + 4 that already passed).
+- Full suite **794 passed / 19 failed**, and the 19 are exactly the other
+  gates' unimplemented REDs (G2 4 + G4 4 + G1 2 + G3 1 + G5 2 + G6 6 = 19).
+  Independently recomputed against the manager's own earlier per-branch RED
+  counts — they reconcile exactly.
+- 33 IL/Hebrew tests pass unchanged (regression surface intact).
+
+**The implemented criterion** (`_is_tighter_containment`) is
+`candidate != persisted and len(candidate) < len(persisted) and candidate in
+persisted` — a strict byte-exact substring test, applied in a new `elif`
+branch that updates `definition_text`/`scope`/`qualifier` together.
+
+**Manager's own analysis of why this matches the Planner's partition** (the
+mapping is exact, which is good evidence the design was implemented rather
+than approximated):
+- identical text → excluded by `!=` → the **2,307 benign**;
+- no containment relationship → excluded by `in` → the **1,308 ambiguous**,
+  left untouched as designed;
+- strict containment → fires → the **745 unambiguous**.
+
+**Outcome is order-independent** (manager-checked by reasoning through both
+orders): long-then-short overwrites; short-then-long does not fire, since
+`len(candidate) < len(persisted)` fails. Shorter-contained wins either way,
+and nested chains converge to the innermost.
+
+**Origin-agnostic**, so it covers the majority case — baseline colliding
+with ITSELF (2,282 rows / 34 jurisdictions) — and not merely baseline-vs-rule.
+
+**It also closes the stickiness property** the manager found: because
+`definitions_by_key` is pre-seeded from existing DB rows, this `elif` is the
+only path by which a bad `definition_text` persisted by a PRIOR run can ever
+be corrected.
+
+### TWO RISKS THE MANAGER IDENTIFIED — handed to QA as required attack points
+
+Neither blocks the merge; both are assumptions the fix rests on, and neither
+is proven by the tests as they stand.
+
+1. **"Longer = contaminated" is the load-bearing assumption of all of G8.**
+   The criterion prefers the shorter text whenever it is strictly contained.
+   That is correct when the extra bytes are a leaked neighbor's marker+quote
+   — but WRONG if the longer text is a legitimately fuller definition
+   (e.g. `"means X."` contained in `"means X. It also includes Y."`), where
+   preferring the shorter DROPS real content. Under an absolute zero-miss
+   bar that is a recall loss, not a cleanup. **QA must verify the 745
+   "unambiguous" cases are genuinely contamination, not fuller definitions
+   — on a hand-judged sample, not by assertion.**
+2. **Scope may silently BROADEN on update.** The branch assigns
+   `definition_row.scope = candidate.scope` alongside the text. If the
+   superseding candidate carries a broader scope than the row it replaces,
+   the update broadens it — which seam v2.1 (M9) names as a
+   false-positive generator ("a silent broadening fallback is... never an
+   acceptable default"). The field-replacement is deliberate and reasoned
+   (avoiding a row that mixes fields from two candidates), but its
+   scope-direction effect is untested. **QA must add a direction check: an
+   update must never widen scope.**
+
+### G3 + G1 — manager verification (dev1), ACCEPTED and merged @ cfe10ce
+
+Verified first-hand:
+- Diff is **`us_profile.py` only, 103 insertions / 2 deletions, 0 test files
+  touched**; full diff read.
+- **G3's RED green and all 12 guard pins green** (15 passed / 1 failed in the
+  targeted run, the 1 being the G1 re-point below).
+- Full suite **795 passed / 18 failed**; 17 reconcile exactly to the other
+  unimplemented gates.
+- **Hebrew/IL surface intact** — manager's own filtered run: 52 passed, and
+  its only 2 failures are the unimplemented G5-IL / G6-IL REDs, not
+  regressions.
+
+**Implementation (as instructed, the shared-helper shape is real, not
+cosmetic):** `_trailing_notes_boundary(text, start, end) -> int` plus the
+extended 10-marker `_TRAILING_NOTES_MARKERS`, applied only to `blocks[-1]`
+(every other block is already bounded by the next entry marker's start).
+The helper is deliberately **offset-in / offset-out**, and its docstring
+states the exact sibling wiring: `_trailing_notes_boundary(text,
+definition_start, end)` replaces the sibling's literal `len(text)` fallback
+**with no other change** — which is what makes the Q-G3-A sibling adoption a
+one-line change once its condition is discharged.
+
+**Line-granularity is a verified design decision, not a shortcut:** markers
+can sit MID-line inside citation parentheticals — real FED row
+`USC_T5_C34_S3401` carries `(Added Pub. L. 95-437, ...)` before "Editorial
+Notes", so truncating at the marker substring's own offset would leave
+`"(Added "` dangling in the kept text. Dropping the whole line does not.
+
+**G1** is the one-line `.strip()` on `_leading_quote_candidate`'s captured
+group, matching the sibling's long-standing convention for the same capture.
+
+#### Honest caveats recorded (not papered over)
+
+- **The 12/12 guard-pin result is weaker than it sounds.** dev1 disclosed
+  that LA/ID/MI's last raw blocks DO contain marker text but contribute no
+  candidate — so truncation is **inert** on those three. The guard proves
+  non-regression there, but does not exercise the new boundary. QA should
+  not read 12/12 as 12 live exercises of the rule.
+- **MANAGER-IDENTIFIED QA ATTACK POINT — marker matching is broad.** The
+  check is `any(marker in line for marker in _TRAILING_NOTES_MARKERS)`: a
+  bare, case-sensitive SUBSTRING test anywhere in the line. Tokens like
+  `"Amendments"`, `"Source:"`, `"History:"` and `"Cited."` are generic
+  enough that a GENUINE final-entry line mentioning one (e.g. "...subject
+  to Amendments made by...") would truncate the entry at that line. Blast
+  radius is bounded (last block only), but the last block is a real
+  definition. **QA must measure how often a genuine last-entry line
+  contains one of these tokens** — this is the precision side of G3 and it
+  is not proven by the current pins.
+
+#### The 18th failure — Planner-side re-point, correctly handled by dev1
+
+`test_padded_term_silently_misses_a_mention_that_the_stripped_term_finds`
+fails **by construction**: it sources its padded term from live extraction
+(`next(t for t in by_term if t.strip() == "Registrant")`) and asserts it
+equals `' Registrant '` — which G1 now correctly prevents. The test's OWN
+assertion message prescribed the remedy ("needs to be re-pointed, not
+silently adjusted"). dev1 respected the role boundary and did not touch it.
+
+**Manager judgment (made, then handed to plan2 to execute):** the mechanism
+the test proves — `re.escape` does not escape a plain space, so a padded
+term misses a punctuation-abutting mention — is a property of
+`find_term_uses`, NOT of the extractor, and remains true and worth pinning.
+Re-point to a **synthetically-constructed** padded term, keep the
+stripped-finds-1 / padded-finds-0 contrast intact, and record in the
+docstring that the extractor-side guarantee is covered by the sibling test
+`test_ms_defined_terms_are_stripped_of_quote_interior_padding` (now
+passing). Routed to **plan2** rather than a Haiku micro-fix: it authored the
+tripwire and the M-R32 reasoning, test authorship is Planner-owned, and the
+risk of a re-point that pins the wrong thing outweighs the saving on a task
+this small.
+
+### PROCESS CORRECTION — manager error, recorded
+
+Phase 0d/Phase 1 of this log stated "plan2 re-engaged to run this" for the
+Q-G3-A sibling both-sides sample. **That message was never actually sent.**
+The gap surfaced when plan2 resumed with "no active task," proving it had
+been idle rather than measuring. The real brief has now been dispatched and
+the sibling sample is plan2's PRIMARY task, ahead of the re-point.
+
+Consequence to note: the sibling sample is on the sprint's critical path
+(dev1's sibling fence lifts only after it, and **G11's flip must pair with
+the sibling boundary fix** or ship the measured 202-row debt), so this error
+cost wall-clock time on the longest chain. No work was lost or duplicated.
+Recorded rather than quietly fixed, per this log's append-only convention.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
