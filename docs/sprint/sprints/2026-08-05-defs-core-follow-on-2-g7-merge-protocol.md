@@ -281,11 +281,45 @@ Why this does not break any panel's rebase: the column is **additive and
 nullable**, and code that never reads it is unaffected. Panels need the
 migration only because their suites exercise the shared `Article` model.
 
-**Acceptance evidence for G9 at merge:** the **IL panel's two held
-containment REDs** (the actual G9 consumers) — not this sprint's own
-re-authored fixtures, which deliberately use different real laws to keep
-authorship clean. Row expectations are being confirmed with the IL phase-3
-manager directly rather than discovered at merge.
+**Acceptance evidence for G9 at merge — CORRECTED 2026-08-05.** The original
+designation (IL's two held containment REDs) is **withdrawn as unachievable
+by this sprint alone**, verified in code by both panel managers
+independently:
+
+- `matcher._value_matches(actual, expected)` is `return actual == expected`
+  for non-tuple `expected`;
+- `_in_scope`'s generic branch is
+  `any(unit.kind == scope and _value_matches(unit.value, definition.scope_value) ...)`;
+- the IL trigger module stamps `scope_value=**None**`, and that module is not
+  on this sprint's branch at all — it is IL panel write-set.
+
+So `"סימן א'" == None` → False: **a flawless G9 still leaves IL's REDs red.**
+G9 delivers only half the chain. The other half — an IL `StructuralUnitRule`
+deriving units from breadcrumbs, plus amending the trigger module to stamp a
+real `scope_value` — belongs to the IL panel, and reaching into it would
+breach P-R1.
+
+**Corrected split:**
+- **This sprint's merge evidence:** its own re-authored fixtures **plus the
+  positive-control probe** (a throwaway `StructuralUnitRule` reading
+  `heading_breadcrumbs` together with a throwaway rule stamping a REAL
+  non-None `scope_value`) — proving the seam end-to-end in isolation from
+  unshipped IL rules.
+- **IL's two held REDs:** the correct **end-to-end** evidence for the
+  COMBINED result, run by the IL panel once G9 lands. Tracked as a
+  cross-panel follow-up, not as a gate on this sprint's merge.
+
+**Correctness constraint recorded for anyone touching this data
+(IL-manager-supplied, adopted):** **never infer unit KIND from depth.** In
+`תקנות המשקלות והמידות`, חלק sits BELOW סימן (`== פרק ==` d2 → `=== סימן ===`
+d3 → `==== חלק ====` d4) while most laws invert that. Depth stays monotonic;
+the KINDS swap. Kind must derive from heading TEXT. A separate, genuinely
+non-monotonic depth case (depth-4 before depth-3) exists in this sprint's own
+`תקנות מחלות בעלי חיים` fixture — both shapes must work.
+
+**Two distinct negative shapes** an implementation can get half-right:
+different-VALUED unit (סימן א' vs סימן ב') and ABSENT unit (no חלק ancestor
+at all). Both must be exercised.
 
 ## Open questions for the program manager (both G3-related)
 
