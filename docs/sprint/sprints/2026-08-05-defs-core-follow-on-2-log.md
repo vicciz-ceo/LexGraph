@@ -1408,6 +1408,62 @@ closed from the Planner side, working tree clean @ `18f0a4b`.
 
 ---
 
+## Phase 8b — G12 implemented, verified, merged (2026-08-05)
+
+dev7 @ `2fc6644`, merged. **Suite 821 passed / 3 failed** (G10×2 in flight,
+plus the G1 re-point). Manager verification, first-hand:
+
+- **`us_profile.py` only, 61 insertions / 1 deletion, 0 test files touched**;
+  full diff read.
+- **The flagged monkeypatch fragility is CLOSED — verified by the manager
+  independently, which is the whole reason it was flagged.** Shipped regex
+  (`us_profile.py:659-662`) and the test's hardcoded simulated pattern
+  (test file `:314-317`) are **byte-identical strings with identical
+  `re.IGNORECASE` flags**. Extracted both and compared rather than accepting
+  the equivalence claim.
+- **Exactly two forms added** (`shall include`, `includes`) — bare `include`
+  stays unrecognized, matching D-INCLUDES's precise wording rather than a
+  broader family.
+- **Guard is a literal textual lookback**, as mandated:
+  `_REFERENCES_TO_RE = re.compile(r"References?\s+to\s*$", re.IGNORECASE)`
+  over a bounded 25-char window, wired as a `continue` at the TOP of
+  `_extract_inline_quoted_definitions`'s per-quote loop — before the idiom
+  check runs. It tests nothing about idiom presence/absence or sentence
+  structure, so it cannot become the broad heuristic D-INCLUDES rejected.
+- **G3-sibling's reserved scope untouched**: the `end = ... else len(text)`
+  last-entry fallback is not in the diff. Fence held.
+- IL/Hebrew: 46 passed, 0 failed.
+
+Note on guard semantics (correct, worth recording): a `References to "X"`
+quote is skipped ENTIRELY — it neither starts its own entry nor terminates
+the preceding one. That is right: a construction clause is not a definition,
+so it should not create a boundary either.
+
+### Gate status after Phase 8b
+
+| Gate | State |
+|---|---|
+| G1 | landed (one Planner-side re-point outstanding, plan2) |
+| G2 | landed |
+| G3 (main) | landed |
+| G3 (sibling) | **conditional** — pending plan2's both-sides GO/NO-GO |
+| G4 | landed |
+| G5 | landed, green |
+| G6 | landed, green — **7 of 8 U2 rows**, TN a named gap (v2.10) |
+| G8 | landed |
+| G9 | in implementation (dev6) |
+| G10 | in implementation (dev5) |
+| G11 | **ruled DO-NOT-SHIP-ALONE** — needs G12 (now landed) **and** G3-sibling |
+| G12 | landed, green |
+
+**G11's remaining blocker is now singular:** G12 has landed, so the only
+outstanding dependency is the G3-sibling boundary fix — which is itself
+gated on plan2's both-sides sample. That single measurement now decides
+whether G11's ~39,955-row recall win ships this cycle or defers with its
+202-row debt unspent.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
