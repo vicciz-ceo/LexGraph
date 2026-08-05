@@ -3763,3 +3763,56 @@ agreed on: a number nearly acquired a false origin in a handover, and the refusa
 is what caught it.
 
 ---
+
+## M31 — the citation-vs-marker ambiguity is MEASURED at ~91% separable; routing question for the program manager (2026-08-05)
+
+Scoped-inline supplied the datum that actually bears on U-R12, which is not the
+22 rows:
+
+**Their shape-8 detection criterion is functionally a citation-vs-marker
+discriminator, and it was scored: 45-row stratified sample, 41 correct (91%),
+with the 4 misses characterised rather than swallowed** (2 cross-citation
+contamination, 2 genuine multi-term lists misbucketed by marker misattribution).
+
+Two things follow for this panel:
+
+1. **U-R12's replacement oracle is feasible.** The open question behind U-R12 was
+   whether a real citation number and a list marker's period can be separated at
+   all by text shape. In one real population, ~91% — and the residual failures
+   are of two NAMED kinds, not an undifferentiated fog.
+2. **~91% is a rough CEILING for a shape-only approach**, before something
+   structural is needed. Their caveat, which we adopt: if our own measurement
+   lands materially below 91%, the difference is most likely POPULATION rather
+   than method — theirs is narrow-slice, ours is Definitions-headed, and the
+   overlap remains unmeasured.
+
+### ROUTING QUESTION — for the program manager, not for this panel to decide
+
+Their structural observation, which we endorse: one underlying ambiguity (a
+period inside a citation number is indistinguishable from a list marker's
+period) is producing **two different defects in two different panels** — theirs
+reads a citation tail AS a marker and splits a list-less section; ours lets a
+real citation survive into a definition's tail (U-R12). Neither would have
+predicted the other.
+
+**A single fix at the ambiguity would address both — which argues for a
+CORE-LEVEL discriminator rather than two panel-local guards.**
+
+This panel does **not** own that call. It is cross-panel scope affecting core,
+and it is recorded here for the program manager to route. It is deliberately NOT
+raised as an `ESCALATION:` early return: nothing is blocked on it, nobody is
+building a discriminator right now, and this manager has three agents in flight
+whose reports would be abandoned by an early return. It goes in the phase report
+instead.
+
+### Specimens deliberately NOT requested yet
+
+They offered the 22 AZ/NY/NJ act_ids as read-only specimens and pointedly did not
+send them unasked, noting we may prefer our own probe to find them independently
+as a check on their criterion. **We take that option.** The probe re-derives in
+our own population FIRST; their list is then a cross-check. If the two sets
+disagree, the disagreement is itself informative about whether the criterion
+transfers across populations. Asking for the list up front would convert an
+independent replication into a confirmation exercise, which is worth less.
+
+---
