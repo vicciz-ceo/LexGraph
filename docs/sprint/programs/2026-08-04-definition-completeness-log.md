@@ -71,6 +71,29 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (markers phase-2 verification + U-R10 ruling): markers @
+  cf0aa88 — inherited claims verified with kill-controls (blinding the
+  registry returns exactly the pre-build rates: rules load-bearing, not
+  registered-only). Three inherited-number corrections, all the manager's
+  own probes: FED 7.3% (its first sweep used US-FEDERAL not US-FED — probe
+  artifact); NY production-faithful is 1,262/85.3% NOT 1,479/100% (the
+  parquet holds raw literal-\n that core's fix strips at INGEST — 217 NY
+  rows already capture; only NY+CA affected, CA's 21 match core's recorded
+  residual); the "ten jurisdictions ≈19,278" conflated figures — ten sum
+  to 12,941 (12,724 post-ingest), 19,278 is the TOTAL uncovered residual,
+  so NH (943/100%), MA, PA, HI are being measured for family membership
+  (Planner B) rather than dropped by rank cutoff. U-R10 RULED (program
+  manager, on markers' merged-tree simulation): multiterm's two
+  EntrySplitterRules register US-* wildcard and re-contribute whole-section
+  text — on the merged tree they double WA's >5,000-char damage 3→7 (new
+  worst 11,314 chars) for −6 AL zero-yield, and AL recall belongs to
+  markers' own engine. Multiterm NARROWS: jurisdiction registration scoped
+  to the states its accepted items actually require (per its registry-audit
+  table), plus a contribution length bound if its items permit; red-first
+  per its own M-R13/M-R14 discipline; QA certifies the narrowed
+  registration. Markers' QA audit stays bounded to its branch's 3 WA rows
+  (attributed to baseline splitter — expected to heal at core-2 G3 merge).
+
 - 2026-08-05 (headings cycle-5 COMPLETE + scout respawn): headings @
   533f12d — suite 860/0, recall 21,080/22,228 = 94.8353% (+76 verified).
   Pin re-authored to the stronger mechanism-level property (capture via
