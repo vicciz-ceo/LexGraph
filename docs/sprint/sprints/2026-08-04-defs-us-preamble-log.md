@@ -4541,3 +4541,57 @@ test(us-preamble): cycle-8 D1 defining-verb narrowing REDs + D2
 forwarding-filter pin (M-R59/M-R60)`. Confirmed zero `backend/app/` edits
 in the pushed commit (`git show --stat 5f6fbb0` — 4 files, all under
 `backend/tests/`).
+
+---
+
+## 2026-08-05 — Manager: cycle-8 escalation RULED — the FP metric measures the wrong thing
+
+### M-R62 — Planner cycle-8 verified
+
+Diff `99f1904..648b0a7`: tests + fixtures + log; **`git diff --stat -- backend/app/` empty**. Suite **9 failed / 847 passed** (3 disclosed markers + 6 new RED negatives, as designed). Attribution 10/10. D2's filter pin is mutation-verified in both directions (pin flips RED when the filter is disabled; control still passes). The Planner measured the trade and escalated instead of shipping it — exactly the instruction.
+
+### M-R63 — DECISIVE FINDING: the "18%/14% FP" is a ROW-label metric, not a data-harm metric
+
+Before ruling I tested the assumption under the whole escalation. I ran the live path on all 6 of the Planner's RED negatives — QA's own cycle-7 FP `act_id`s — and **every one produces extracted definitions**:
+
+| act_id | extracted |
+|---|---|
+| `USC_T22_C102_S9528` | 3 — `foreign person`, `Syria`, `financial, material, or tech…` |
+| `STATE_DE_T13_C5_SII_S513` | 1 — `Employer` |
+| `USC_T10_C303_S4093` | 1 — `institution of higher educat…` |
+| `USC_T10_C953_S9448` | 1 — `commissioned service obligat…` |
+| `USC_T42_C7_S679c` | 1 — `early approved tribe, organi…` |
+| `USC_T35_C4_S41` | 1 — **`SEC. 804. DEFINITION.`** ← genuine garbage |
+
+I then read the real body of `USC_T22_C102_S9528`:
+
+```
+(2) Foreign person
+The term "foreign person" has the meaning given such term in section 594.304 of title 31 CFR...
+(3) Syria
+The term "Syria" has the meaning given such term in section 542.316...
+```
+
+**That is a genuine definitions block.** The row was flagged FP because the *triggering clause* was a prohibition sentence — but the section really does define terms, by forwarding reference, and the extracted terms are real.
+
+Two consequences:
+
+1. **QA's FP number is measured at ROW/recognition granularity** ("is the triggering clause a definitions preamble?"), which is **not** the certification-relevant question. The D-CERT question is **"are the extracted TERMS genuine?"** These are different metrics and they disagree.
+2. **The Planner's pattern deliberately excluded `has the meaning`** because it "collided with forwarding pointers" — but forwarding definitions ARE definitions under a zero-miss bar; the term is defined for this chapter, by reference. That exclusion is itself a recall hazard, and it is precisely what would drop `foreign person` and `Syria`.
+
+`USC_T35_C4_S41`'s `'SEC. 804. DEFINITION.'` is the one true defect here — garbage at *definition* granularity, and worth tracking separately.
+
+### M-R64 — RULING: reject (a) and (b). (c) first, but re-measure FP at DEFINITION granularity before anything ships.
+
+- **(a) reject** — fails zero-miss, and now demonstrably drops genuine definitions.
+- **(b) reject**, despite the Planner's lean. It is bounded, but the Planner's own numbers show it still loses ~1,450 genuine rows to fix ~758 flagged ones — a losing trade *even inside the delta*, and M-R63 shows the "fixed" side is partly not broken at all. Bounding a bad trade does not make it good. This is the recall/precision collision D-Q1 forbids a panel from resolving by itself, and I am not resolving it in favour of precision.
+- **(c) adopted**, with a prerequisite: **re-measure FP at definition granularity first** — sample extracted TERMS and judge whether each is a genuine defined term. Only that number can gate certification. The root causes the Planner named (greedy trigger tail, missing `includes` in quote-means, singular "purpose"/intervening-clause phrasing) fix the *right occurrence winning*, which improves precision AND recall together instead of trading them.
+- The Planner's 11 tests **stand as authored** — both directions are the correct contract regardless of remedy, with one amendment needed: the 5 positive guards must be extended to cover forwarding-definition rows like `USC_T22_C102_S9528`, so no future narrowing silently drops them.
+
+### M-R65 — ESCALATED to the program manager (program-wide, not sprint-local)
+
+If row-level FP is the metric other panels are using, **the program's whole FP methodology and D-CERT's denominator semantics are affected** — every panel may be over-reporting FP and under-crediting capture. Raised as a program question, not settled here.
+
+### M-R66 — Sprint parked pending that ruling
+
+`us_body_preamble.py` **unchanged** — no bad trade shipped. Carried, still open: M-R53 comment fix (**four cycles overdue**), file split 386→300 (M-R54), the branch-attribution pin the Planner flagged.

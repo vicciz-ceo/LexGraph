@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: parked-blocked
-blocked_on: "core dispatch-completion sprint (P-R8): BodyPreambleRule registry consumption + _is_placeholder_heading gate removal"
+blocked_on: "program ruling on FP metric granularity (M-R65): row-level vs definition-level FP changes what may be certified"
 current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
@@ -425,18 +425,17 @@ _None._
 
 ## Context Dump
 
-1. RE-PARKED. Blocked on core's dispatch-completion sprint (P-R8), NOT on the registry —
-   the registry exists; `BodyPreambleRule` is simply never consulted and the gate is still live.
-2. Manager-verified in code (M-R23): `us_profile.derive_heading_from_body` is
-   `if not _is_placeholder_heading(heading): return None` — no registry call. A rule file built now is INERT.
-3. Branch rebased onto main and pushed; venv refreshed against main; imports verified.
-4. Suite: 31 failed / 720 passed. All 31 are BEHAVIORAL REDs — zero import errors (M-R24).
-5. Resume with a DEVELOPER once core lands dispatch: create ONE file
-   `backend/app/definition_links/rules/us_body_preamble.py`. Zero shared-module edits.
-6. `BodyPreambleRule` is single-valued, FIRST-NON-None-WINS in filename-sort order —
-   rules must be precise, not greedy, or an early broad rule starves the specific ones.
-7. Build target (shapes, order, jurisdiction_codes, tests each satisfies) is written in `-log.md` by the Planner.
-8. Non-blocked work still available: guarded-cluster cross-check vs headings' 245-row doc; U6 baselines
-   under the S1 inline-fallback caveat (no uncorrected fallback numbers).
-9. QA must honor P-R7: U4 denominator must be independent of the rules' own trigger regexes.
-10. NEVER two writers in this worktree (M-R8). Manager verifies fixtures byte-against-parquet.
+1. PARKED on M-R65: is FP measured at ROW granularity or DEFINITION granularity? Program-wide question.
+2. M-R63 is the key finding: all 6 QA-flagged FP rows DO extract definitions, and at least one
+   (`USC_T22_C102_S9528` -> `foreign person`, `Syria`) is a genuine forwarding-definitions block.
+   The 18%/14% FP number measures section labelling, NOT data harm.
+3. Ruled M-R64: rejected options (a) and (b) — both drop genuine definitions. Adopted (c) = fix root
+   causes (greedy trigger tail, missing `includes`, singular "purpose"/intervening clauses).
+4. PREREQUISITE before any narrowing ships: re-measure FP at definition granularity (are extracted
+   TERMS genuine?). Only that number gates certification.
+5. `us_body_preamble.py` is UNCHANGED — no bad trade was shipped.
+6. Suite 9 failed / 847 passed = 3 disclosed markers deps + 6 cycle-8 RED negatives (by design).
+7. Planner's 11 tests stand; AMEND the 5 positive guards to cover forwarding-definition rows.
+8. Overdue: M-R53 comment fix (4 cycles), file split 386->300 (M-R54), branch-attribution pin.
+9. Cycle-7 capture numbers remain MEASURED, NOT CERTIFIED (M-R59).
+10. Every brief must carry: report via SendMessage to 'a3adfb6a9000b266e' (M-R56). One writer per worktree.
