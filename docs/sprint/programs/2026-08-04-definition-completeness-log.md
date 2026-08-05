@@ -87,6 +87,22 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-06 (CORE-2 MERGED — merge queue opened): Exact QA-reviewed tip
+  `2139bac` merged to `main` at `d783052`. Program-manager checklist:
+  current-main containment true; 55-file name/full three-dot diff materialized
+  (all eight production persistence/parser files read in full); risk grep
+  found no network/API/auth/env/secret expansion; additive nullable G9
+  migration and real upgrade→downgrade→upgrade regression contract verified.
+  Merge-time G7 replay exact: VA 33856/1096/1065/1041, WA
+  51498/1800/1778/1709, WV 25460/1068/297/271, WI 18158/541/62/45,
+  WY 10219/495/56/27, FED 54853/1920/1600/1541, DC
+  23694/1216/332/122; GA baseline 2/28,154. Manager focused gate 11/11;
+  own merged-tree evaluator backend **850 passed / 18 known warnings**,
+  frontend **165 passed / six known act warnings**, typecheck clean. Core
+  residuals remain explicit (G3 sibling/G11, TN 1/8, G4 37+47, G8 31
+  trims). Markers is independently QA-certified at `abd1d02`; its second
+  merge slot now proceeds through the combined G3-HEAL gate before merge.
+
 - 2026-08-05 (SESSION CONCLUDED — director order; handoff written): The
   director concluded this program-manager session. Authoritative handoff
   for any successor:
