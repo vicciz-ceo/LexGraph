@@ -3228,3 +3228,105 @@ makes it a pattern worth naming rather than a run of bad luck.
    inconsistent), Developer second. It is zero-miss relevant: a mention of
    "rule" can never match a term stored as `rule.`.
 4. R1's ledger entry gains a note that it is now PINNED by four named tests.
+
+---
+
+## 2026-08-05 — PHASE-2 MANAGER: inherited state RE-VERIFIED; M-R20
+
+Predecessor context-exhausted and clean-exited. Per program law I re-verify
+inherited claims with positive controls before building on them.
+
+### Re-verification (positive controls, not a restatement)
+
+| Inherited claim | My independent check | Verdict |
+|---|---|---|
+| branch @ `af0d548`, pushed | `git rev-parse HEAD origin/claude/defs-us-multiterm` → identical | HOLDS |
+| tree clean | `git status --porcelain` empty | HOLDS |
+| suite 13 failed / 804 passed | own `pytest backend/tests -q` run | HOLDS |
+| the 13 are the NAMED set | enumerated every failure by nodeid | HOLDS — 4 VT/SD (markers), 2 findings 1/1b (core G10), 1 AR cross-ref dup (M-R17), 5 TX full-row (1 M-R18 + 4 ledger R1), 1 `rule.` boundary |
+| git identity | `user.email` = the noreply address | HOLDS |
+
+Nothing inherited was taken on trust. The failure set matches the exit map
+item-for-item, which is itself the strongest evidence the exit was honest.
+
+### Manager probe — the FULL TX row, every candidate dumped
+
+I did not accept "5 terms double-emit" as a sufficient specification. I ran
+the real dispatching path (`get_profile("US-TX").extract_definitions_from_
+section`, scope from `determine_scope`, full 855-char fixture row) and dumped
+terms + scope + `definition_text` for all 9 candidates. Three facts emerged
+that the ruling M-R18 text does NOT contain:
+
+**Fact 1 — the M-R18 duplicate is not merely a duplicate, it is a CORRUPT
+row.** Candidate [7] (`Governmental body`, the one F6 re-emits off the
+whole-text block) carries a 400-char `definition_text` that spills clean
+across entry boundaries into unrelated entries:
+
+```
+[1] terms=('Governmental body',)  scope='chapter'
+    definition_text='has the meaning assigned by Section 552.003.'        (len=44)   <- baseline, CORRECT
+[7] terms=('Governmental body',)  scope='law-wide'
+    definition_text='Section 552.003.\n\n(3) "State agency" means an officer, board, ...'  (len=400)  <- F6, GARBAGE
+```
+
+The 400 is `_cross_reference_candidates`'s own `definition_start + 400`
+fallback window firing because the whole-text block has no following quoted
+entry to bound it. So this defect degrades data quality, not just row counts.
+
+**Fact 2 — the ASYMMETRIC correctness criterion (this is the pre-brief that
+matters).** Candidate [8] is contract item 3's ENTIRE deliverable:
+
+```
+[8] terms=('contested case', 'party', 'person', 'rule.')  scope='law-wide'
+    definition_text='The following terms have the meanings assigned by Section 2001.003.'
+```
+
+**All four of [8]'s terms also appear in baseline's degenerate rows [3]-[6]**
+(`definition_text` = `';'`, `';'`, `'; and'`, `''`). Therefore a fix phrased
+as the obvious generalisation of M-R12 — "suppress any term baseline already
+produced" — would delete [8] and silently destroy the headline deliverable
+while turning the suite greener. The criterion is asymmetric and must be
+stated as such: **kill [7], keep [8].** This is the fourth would-be instance
+of the sprint's named pattern (correct in isolation, wrong in composition);
+it is being pre-briefed instead of discovered after the fact.
+
+**Fact 3 — findings 1/1b are visible in this same output, and they land on
+our own deliverable.** `determine_scope` returned `'chapter'` for this row.
+Baseline's candidates [0]-[6] carry `scope='chapter'`; both rule-produced
+candidates [7] and [8] carry hard-coded `'law-wide'`, because
+`TermClauseRule.parse` never receives the section scope (core seam G10). So
+contract item 3's own combined row is currently **stamped with the wrong
+scope**. This is not a new defect — it is exactly findings 1/1b — but it
+means the honest statement of our headline deliverable is "extracted
+correctly, scoped incorrectly, pending core-2 G10." Recorded here so QA
+cycle 2 does not re-file it as new, and so no reader mistakes "U2 certified"
+for end-to-end scope correctness.
+
+### Ruling M-R20
+
+1. **Developer owns exactly three production fixes**, no test edits at all:
+   (a) M-R17 cross-reference dedup; (b) M-R18 composition defect, under the
+   asymmetric criterion in Fact 2; (c) the `rule.` → `rule` term-boundary
+   fix. Fix (c) WILL redden sibling tests in the Developer's own worktree —
+   that is expected, and the Developer must **independently enumerate which
+   tests break and report the list** rather than fixing them.
+2. **Planner owns exactly the four `rule.` hard-coding sites**, no production
+   edits, no new tests. Planner and Developer derive their site lists
+   INDEPENDENTLY, in separate worktrees, from disjoint file sets. If the two
+   lists disagree, that disagreement is a finding and comes to me — this is a
+   deliberate positive control on M-R19's "fourth site" discovery, not
+   redundant work.
+3. **M-R17's fix inherits residual R4's keep-first hazard.** Mirroring
+   M-R14's `seen_terms` into `_cross_reference_candidates` means the
+   cross-reference path also keeps the FIRST occurrence's `definition_text`,
+   which R4 already measured can be the wrong sentence (17 of 19 cases,
+   0.019% of sampled rows). R4's ledger entry must be widened to name the
+   cross-reference path too. Named, not silently absorbed.
+4. Both role agents are seeded with "if your derivation disagrees with mine,
+   yours wins, bring evidence" — the practice that produced M-R19.
+
+### Required element of every role-agent brief (recorded per program law)
+
+Every brief this manager issues carries, verbatim, the SendMessage delivery
+instruction addressed to this manager's raw agentId `ad9cf6f6c6a351c50`
+(program log, HARNESS ADJUSTMENT entry).
