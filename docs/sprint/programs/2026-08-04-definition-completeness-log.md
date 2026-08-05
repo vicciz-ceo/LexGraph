@@ -77,6 +77,24 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (HARNESS ADJUSTMENT, director-ordered): role agents now
+  interact DIRECTLY with their panel managers, not through the program
+  manager. Mechanism: manager-to-manager SendMessage by raw agentId is
+  proven working in this session; the agent→manager direction failed only
+  because role agents were never given their manager's id. Effective
+  immediately, every panel manager embeds its own agentId in EVERY role
+  agent brief with the instruction to deliver the full report/escalation
+  via SendMessage to that id BEFORE returning (the plain-text final return
+  is not a reliable channel). Escalations resolve at the panel manager,
+  which escalates onward itself when needed. The program manager no longer
+  relays; stray completion notifications reaching its session are
+  forwarded as bare pointers ONLY if apparently undelivered (in-flight
+  agents briefed before this change will still return through the old
+  path until the fleet turns over). Broadcast to all 8 active managers
+  with their ids. Complements the director's micro-management correction
+  (program manager intervenes only on escalation, cross-panel
+  arbitration, director rulings, and merge duties).
+
 - 2026-08-05 (WA_T50 routing CORRECTED + the heading_was_derived gate,
   G11 candidate): headings manager falsified the rerouting with a
   layer-by-layer live trace — STATE_WA_T50_C29_S030's title IS
