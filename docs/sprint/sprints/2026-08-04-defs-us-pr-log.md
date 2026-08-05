@@ -7055,3 +7055,88 @@ the "minimal fix, zero regressions" simulation already run above. Item
 18c is unblocked for a future cycle on the gate-2 evidence. The M-R17
 retirement of the 6 unsatisfiable scope REDs remains a bounded Planner
 pass, unaffected by this cycle's findings.
+
+---
+
+## 2026-08-05 — Manager: QA cycle-11 VERIFIED; GATE 2 HOLDS (18c unblocked); ruling M-R18
+
+### Handoff verification, materialized
+
+HEAD `a4008a0` == origin, tree clean, **stash stack empty**, `git diff --stat
+84b09a6..HEAD -- backend/` → **empty** (docs-only as claimed). Suite unchanged:
+`30 failed / 1007 passed / 13 xfailed`.
+
+QA work is the strongest of this sprint. Blast radius re-derived to exact
+match on four of five metrics; the fifth (5,723 vs 5,720 candidates) was not a
+discrepancy but a **correction** — the Developer measured on raw body text
+while the live path runs `normalize_for_parsing` first, and the 3-candidate
+delta is two rows where raw parsing fabricates a malformed nested-quote
+candidate that normalized parsing correctly drops. **5,720 is what ships.**
+
+### M-R14 GATE 2 — VERDICT: HOLDS. Item 18c is UNBLOCKED.
+
+The gate 18c's entire deferral rested on. QA could not byte-reproduce the
+original 117-row list (the script lived in another agent's scratchpad, unread
+per P-R9, and 18c has no committed code) — and rather than fake a match, it
+built its own 133-row reproduction and **flagged it as good-faith, not
+identical**. Correct call.
+
+More importantly it found the argument that closes the gate independent of the
+exact count: `pipeline.py`'s Stage-2 loop is a strict `if`/`else` with **no
+fallback either way** (verified by direct read), and the dispatched
+`is_definitions_heading` is True for **100% of the full 633-row canonical
+superset**. Any leak population is therefore a subset of the 633 *by
+construction*, whatever its precise size. Then it closed the loop on the real
+path: a DB-backed `run_definition_linking` over the 21 highest-risk rows
+produced **442 Definitions, zero with `scope="local"`** — and `equipo solar`,
+the row that anchored the original residual, is captured *correctly* rather
+than dropped.
+
+That is a better proof than the one I asked for. I specified a count-based
+re-measurement; QA delivered a structural argument plus a live-path
+confirmation, and was explicit about which part it could not reproduce.
+
+### ESCALATION VERIFIED — a FIFTH chapter-scope shape, live
+
+I reproduced it on the real corpus through the live profile:
+
+```
+STATE_PR_LEY_20_2017_ART2_03    trigger='Para fines de este Capítulo'    determine_scope='law-wide'
+STATE_PR_LEY_20_2017_ART3_03    trigger='Para fines de este Capítulo'    determine_scope='law-wide'
+STATE_PR_LEY_77_1957_ART32_020  trigger='Para efectos de este Capítulo'  determine_scope='law-wide'
+STATE_PR_LEY_77_1957_ART53_020  trigger='Para fines de este Capítulo'    determine_scope='law-wide'
+```
+
+Real gate-P3 scope-correctness defect: **6 canonical rows, 42 live candidates
+mis-scoped `law-wide` instead of `chapter`**, shipping today.
+
+### Ruling M-R18 — stop discovering trigger shapes one at a time
+
+This is the **second** missed chapter-scope shape in two cycles. The Developer
+found the fourth (`Para propósitos de este Capítulo`) via its own corpus
+measurement; QA found the fifth (`Para/A fines/efectos…` without `los`) via
+its own. **Neither was found by a test, and both would have shipped silently
+wrong with a fully green suite.**
+
+Patching the fifth and waiting for a sixth is the wrong response to a
+recurring class. So:
+
+1. **Fix the fifth shape** (make `los` optional) — 6 rows, 42 candidates,
+   zero regressions in QA's simulation.
+2. **Close the class by measurement, not anecdote.** Before any further
+   chapter-scope work ships, the trigger vocabulary must be derived
+   **exhaustively from the corpus**: enumerate every distinct surface form
+   matching a broad structural shape (preposition + scope noun + `de
+   este/esta Capítulo`), classify each as genuine trigger or not, and pin the
+   resulting closed set. A vocabulary assembled from discoveries is open-ended
+   by construction; one derived from an exhaustive sweep is bounded and
+   provable.
+3. The same question should be asked of the **article-scope** trigger set,
+   which was built the same accretive way and has never had this treatment.
+
+### Next
+
+One bounded Planner pass covering: the exhaustive trigger enumeration + RED
+tests for every shape it finds, and the **M-R17** retirement of the 6
+unsatisfiable cycle-4 scope REDs. Then a Developer applies the closed
+vocabulary.
