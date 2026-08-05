@@ -6122,3 +6122,500 @@ Two things I am making explicit in the brief because they are easy to miss:
 
 Items 19-24 stay held and sequence behind P1 on their own merits — deliberately
 not bundled, to keep this cycle verifiable.
+
+---
+
+### Archived from contract — Bucket D final split (full table)
+
+Moved verbatim from the contract by the cycle-9 Planner to free contract
+budget (M-R10/cycle-4 brief: DO NOT REOPEN — this is a relocation, not a
+reopening; the Residual ledger's own bullet already points here). No
+content change.
+
+## Bucket D final split (cycle 3, DO NOT REOPEN — M-R10/cycle-4 brief)
+
+Full method/derivation archived in the panel log under the cycle-3
+Planner entry ("Bucket D final result"). **70 heading-anchored, 8
+anchor-less residue** (cycle-3 shipped 7; QA cycle-4 found the 8th,
+below — documentation-only addition, the rule itself is unchanged and
+not reopened).
+
+**Final documented residue (8 rows, by `act_id`)** — every row below
+correctly yields NOTHING from the heading-anchored rule, each for an
+independently-diagnosed reason:
+
+| `act_id` | `section_title` | Why it stays residue |
+|---|---|---|
+| `STATE_PR_CIVIL_ART1526` | Enriquecimiento sin causa; definición | Nominalization mismatch — body only uses the VERB form ("se enriquece"), never the noun phrase. |
+| `STATE_PR_LEY_77_1957_ART35_020` | Definición | Bare heading, names no term at all. |
+| `STATE_PR_LEY_77_1957_ART42_010` | Organizaciones caritativas, definición | Term never repeated verbatim anywhere in an 897-char qualifying-description body. |
+| `STATE_PR_CIVIL_ART1293` | Las normas de la compraventa; definición y aplicabilidad | Heading/body term MISMATCH — heading names "las normas de la compraventa", body actually defines "permuta". |
+| `STATE_PR_LEY_77_1957_ART4_010` | Definiciones que no se excluyen | Meta-heading about definitions in general, names no specific term. |
+| `STATE_PR_PENAL_ART15` | Definición | Second real bare-heading example (different law). |
+| `STATE_PR_LEY_77_1957_ART5_030` | Activo no Admitido, definición | Non-contiguous term — body says "un activo es uno no admitido", never the contiguous phrase "Activo no Admitido". |
+| `STATE_PR_LEY_77_1957_ART36_010` | Sociedades fraternales benéficas—Definiciones | Singular/plural inflection mismatch — heading's plural "Sociedades…benéficas" vs. body's singular "una sociedad fraternal benéfica" (QA cycle-4 finding, same character as the `ART1526` row). |
+
+Pinned in `test_pr_profile_bucket_d_heading_anchored.py` (7 rows) and
+`test_pr_profile_cycle4_marker_gate_and_residue.py` (8th row, new).
+
+---
+
+## 2026-08-05 — Planner: cycle-9, M-R15 step 2 — P1 canonical wiring
+(items 31-33), plus ESCALATION
+
+Read the contract in full, the last three log entries (WAKE/P-R8 closure,
+QA cycle-8 arbitration + M-R16 ruling, comment-settled/step-2-opening),
+and the cycle-1/cycle-2 entries describing `is_definitions_heading`'s
+original design and diagnosis, before touching anything. Also re-read the
+program doc for D-PR-A, D-Q1, P-R7, D-ANCHOR, D-UNITS, M-D3's erratum.
+CodeGraph was unavailable in this worktree (no `.codegraph/`); read
+`registry.py`/`profiles.py`/`us_profile.py`/`pr_profile.py`/`pipeline.py`
+directly. Zero `backend/app/**` edits throughout (`git diff --stat --
+backend/app/` empty, checked repeatedly during the investigation and
+again at the end).
+
+### (1) Item 31 — Spanish `HeadingRule`, precision measured fresh
+
+Own script (`pr_p1_heading_precision.py`, scratchpad, imports the real
+unmodified `pr_profile.is_definitions_heading`), ground truth built
+independently of the function's own machinery (raw `defini(on|ones)` stem
+substring anywhere in `section_title`, case-insensitive — same
+denominator shape as cycle-1's own survey, re-derived not inherited):
+
+```
+total rows: 23636
+ground truth (raw stem in section_title): 635
+English baseline fires on (Spanish corpus): 0
+pr_profile.is_definitions_heading fires on: 633
+
+TRUE POSITIVES:  633     FALSE POSITIVES: 0
+FALSE NEGATIVES:   2 (STATE_PR_LEY_165_2020_ART1_2, _51_2020_ART1_2 —
+                       both CORRECT Table-of-Contents rejections,
+                       "Definiciones" appears only as a cross-referenced
+                       chapter entry inside a TOC dump)
+
+PRECISION = 633/633 = 100.00%     RECALL = 633/635 = 99.69%
+```
+
+**Decision: no `body_confirms`.** 100% precision is well above the ~90%
+floor the headings panel's D-DF ruling needed a body-confirms gate to
+reach (their BARE rule measured 86-89%). `body_confirms` can only ever
+REJECT a heading match, never rescue a miss — at 100% precision there is
+no false-positive rate to rescue and adding one would be pure downside
+(risk of losing recall on some as-yet-unseen sibling of the 2 already-
+understood TOC misses, for zero precision gain). Data-backed, not
+inherited from the headings panel's own, structurally different, answer.
+
+Plan: `register_heading_rule(HeadingRule(jurisdiction_codes=("US-PR",),
+matches=pr_profile.is_definitions_heading))` in a NEW module,
+`rules/us_pr_headings.py` (Developer's to write — mirrors `rules/
+us_pr_citations.py`'s "wraps an existing extractor verbatim" shape
+exactly, since `is_definitions_heading`'s signature — `(heading: str) ->
+bool` — already matches `HeadingRule.matches`'s `Callable[[str], bool]`
+with zero adaptation needed).
+
+### (2) Item 32 — `ScopeKindRule`, PR's OWN chapter-scope convention (M-D3)
+
+**Structural trap avoided**: PR bodies have ZERO newlines corpus-wide
+(reconfirmed: 0/633 canonical rows contain `"\n"`). English/IL's baseline
+`determine_scope` anchors on `body_text.splitlines()[0]` ("first line") —
+for PR that is a SILENT NO-OP (one "line" == the whole body), not merely
+"inapplicable". Naively porting that convention would degrade to
+"grep anywhere in body", which measurably over-triggers: an unanchored
+substring search for the 3 named phrases hits **28** canonical rows,
+7 of which are the phrase appearing deep in unrelated prose (e.g.
+`STATE_PR_LEY_77_1957_ART9_040` at char offset 1253 of 1305, ~96% through
+the body, inside an unrelated closing sentence — never a scope
+declaration).
+
+Compared two anchoring strategies against the real corpus (own scripts,
+`pr_p1_scope_measure*.py`): "first SENTENCE" (`.`/`!`/`?` boundary,
+`pr_profile._SENTENCE_END_RE`'s own existing convention) vs. "text before
+the first `_ENTRY_MARKER_RE` marker". They disagree on 7 rows. Traced
+every disagreement to real text:
+
+- 3 rows (`STATE_PR_INCENTIVOS_SEC6070_55`, `STATE_PR_LEY_77_1957_
+  ART26_030`, `STATE_PR_RENTAS_SEC2042_01`) open with a bare subsection-
+  style label — `"(a) Para los fines de este Capítulo..."` / `"(1) A los
+  efectos de este capítulo..."` / `"(a) En General.- ... para los fines
+  de este Capítulo..."` — which the marker-based anchor misreads as entry
+  marker #1, returning an EMPTY lead-in and MISSING a genuine trigger.
+  First-sentence anchoring correctly reaches past the label.
+- 1 row (`STATE_PR_LEY_77_1957_ART23_010`) has the trigger in its SECOND
+  sentence (first is a law-naming clause) — a real, but SAFE, miss under
+  first-sentence anchoring (defaults to `"law-wide"`, never wrong, just
+  conservative — matches the standing "false negatives are safe, false
+  positives are not" principle under M-R12).
+- 3 rows (`STATE_PR_LEY_109_2003_ART4`, `STATE_PR_LEY_77_1957_ART36_010`,
+  `STATE_PR_CIVIL_ART1293`) have the trigger only inside a MULTI-sentence
+  lead-in beyond sentence 1, OR (the latter two) are already-documented
+  bucket-D zero-yield residue rows where scope is moot (nothing is ever
+  extracted from them either way).
+
+**Recommendation: first-SENTENCE anchoring** (not lead-in-before-marker,
+not unanchored). Verified precision directly: for every one of the 21
+first-sentence hits, checked whether the matched trigger sits before or
+after `_ENTRY_MARKER_RE`'s own naive "first marker" — 18/21 sit cleanly
+before it (unambiguous lead-in); the other 3 are the "(a)/(1)-prefixed"
+shape above, confirmed genuine by reading the real text, not a mechanism
+artifact. Zero false positives found in the 21-row hit set.
+
+**Measured population: 21/633 canonical rows resolve `"chapter"`**
+(list: `STATE_PR_INCENTIVOS_SEC6070_55`, `STATE_PR_LEY_5_1959_ART2`,
+`STATE_PR_LEY_77_1957_ART12_030/19_020/25_020/26_030/30_020/31_020/
+33_060/34_011/37_010/38_050/39_050/40_030/41_020/45_020/4_010/5_010/
+5_020`, `STATE_PR_LEY_81_2019_ART4_1`, `STATE_PR_RENTAS_SEC2042_01`) —
+supersedes cycle-1's partial 7-row survey (which checked only 2 of the 3
+phrases named in this item's own brief, "En este Capítulo" was never
+measured at all cycle-1) with a 3x larger, anchoring-verified count.
+
+Plan: NEW function in `pr_profile.py` (or a new rules module),
+`detect_pr_chapter_scope(body_text) -> str | None`, first-sentence
+anchored over the phrase alternation above, registered as
+`ScopeKindRule(jurisdiction_codes=("US-PR",), detect=...)`.
+
+### (3) Item 33 — canonical extraction: design, and what the wiring
+simulation found
+
+**The registry seam has no `scope` parameter for `TermClauseRule.parse`**
+(confirmed against `rules/registry.py`'s frozen `Callable[[str],
+list[DefinitionCandidate]]` shape, and against core's OWN dispatch-proof
+test, which hardcodes `scope="law-wide"` literally inside its probe
+lambda — the shipped contract, not an oversight). A canonical section's
+scope is section-level (`pipeline.py` computes it ONCE via `determine_
+scope`, then passes it into `extract_definitions_from_section`) — since a
+registered rule cannot receive that value, the design must have
+`EntrySplitterRule.split(text)` pass the FULL section body through (not
+pre-split into per-marker blocks) so the paired `TermClauseRule.parse`
+can independently re-derive scope from the SAME text using the identical
+chapter-scope detection item 32 builds — verified this is exactly
+consistent with `pipeline.py`'s own separately-computed value, because
+both run on byte-identical input.
+
+**Baseline `_leading_quote_candidate` collision, found by simulating the
+wiring end-to-end (own script, `pr_p1_live_wiring_simulation.py` +
+follow-ups) — not by inspection.** Registered temporary rules matching
+the design above (`EntrySplitterRule.split(text) -> [SENTINEL + text]`,
+`TermClauseRule.parse` strips the sentinel and delegates to `pr_profile.
+extract_definitions_from_section`) and ran the LIVE path against all 633
+canonical rows, diffing against the already-tested DIRECT `pr_profile`
+call:
+
+```
+Total LIVE candidates across 633 canonical rows:   5723
+Total DIRECT candidates:                           5702
+Rows where LIVE != DIRECT:                           21
+```
+
+Traced the mechanism precisely: baseline's `_split_into_numbered_blocks`
+(shared, `us_profile.py`, unconditional, no per-jurisdiction opt-out)
+splits on `text.split("\n")` — for a PR body (zero newlines) this is ONE
+"line". When that one line's OWN START matches `_entry_start_remainder`
+(a bare `(a)`/`(1)`-style marker immediately at position 0 — 32/633
+canonical rows), baseline treats the ENTIRE body-after-that-one-marker as
+ONE block. If THAT block also starts with a quote character after the
+marker (21/633), baseline's `_leading_quote_candidate` fabricates a
+candidate whose `definition_text` is the raw remainder of the WHOLE body
+— measured `definition_text` lengths up to **31,933 characters**
+(`STATE_PR_LEY_77_1957_ART6_020`, spanning all 43 other terms' own
+definitions glommed together). The sentinel-prefix design fully protects
+MY OWN contributed block from this (confirmed: `STATE_PR_LEY_123_2020_
+ART2`, the ONE row whose raw body itself starts with a quote char, is
+SAFE under the sentinel design — produces the correct 4 candidates, byte-
+identical to DIRECT) — but it does NOT and CANNOT protect against
+baseline's OWN, SEPARATE `_split_into_numbered_blocks` call, which runs
+unconditionally on the SAME raw `text` regardless of anything a family
+panel registers. **Confirmed reproducible TODAY, with ZERO PR-specific
+rules registered anywhere** — this is not something item 31/33's own
+Spanish rule work introduces; **item 31 (HeadingRule) ALONE already
+exposes it**, the moment `is_definitions_heading` returns True for one of
+these 21 rows' headings, independent of whether item 33 is ever built at
+all (verified: `get_profile("US-PR").extract_definitions_from_section(
+STATE_PR_LEY_103_2001_ART2's body, scope="law-wide")` on the UNMODIFIED
+current tree already returns exactly 1 candidate, `terms=('Autoridad',)`,
+`definition_text` 2,045 chars).
+
+`pipeline.py`'s dedup (`definitions_by_key.get(key)`, first-candidate-
+per-`(article_id, sorted(terms))`-key wins) means baseline's candidate —
+appended to `all_candidates` BEFORE any registered `TermClauseRule`'s
+loop runs, inside `USProfile.extract_definitions_from_section` itself —
+always wins the race for that one term, regardless of what item 33's
+correct candidate contains. No rule-level lever exists to suppress or
+out-prioritize it; both `_split_into_numbered_blocks`/`_leading_quote_
+candidate` (us_profile.py) and the dedup ordering (pipeline.py) are
+shared, core-owned files outside this panel's write-set (same class as
+P-R8's finding: "Option B, each panel wires us_profile.py, rejected per
+P-R1").
+
+### ESCALATION — 21/633 canonical rows (3.3%), one term each, would
+persist WRONG (not just incomplete) `definition_text` once item 31 ships
+
+**Not the same character as the already-accepted citation baseline-
+ordering limitation** (cycle-5, `test_baseline_ordering_means_the_bare_
+section_symbol_wins...`) — that case has baseline win with a SHORTER but
+still-CORRECT substring (`"§ 3121"` vs `"25 L.P.R.A. § 3121"`, both
+genuinely that citation). This case has baseline win with WRONG content —
+a `definition_text` spanning dozens of unrelated terms, up to 32KB, for a
+term whose real definition is a single sentence. A downstream reader (or
+an LLM-based assertion consumer) looking up "Activos" would get back a
+32,000-character wall of text defining 43 different things.
+
+**Blast radius, precisely bounded**: within each of the 21 affected rows,
+exactly ONE term (the one baseline's misfire happens to key on) is
+corrupted; the OTHER N-1 terms in the same row are captured correctly by
+item 33's `TermClauseRule` (different dedup keys, no collision). Without
+item 33 at all, these 21 rows would each produce ONLY baseline's one
+wrong candidate (0 correct captures + 1 wrong one) — item 33 IMPROVES
+the outcome (adds the other N-1 correct terms) but cannot fully fix it.
+
+**Options**:
+A. Core-level fix — either (i) `pipeline.py`'s dedup prefers a registered-
+   rule candidate over a baseline one on key collision, or (ii) `us_
+   profile._leading_quote_candidate` bounds its own `definition_text`
+   scan (stop at the next quote-pair or a sane length, mirroring the
+   discipline `_UNQUOTED_TERM_PERIOD_RE`'s own `.-` exclusion already
+   uses elsewhere in this exact saga). Precedented shape: P-R8's own
+   dispatch-gap finding triggered exactly this kind of focused core
+   follow-on.
+B. Accept as a documented, bounded residual (3.3% of canonical rows, one
+   term each) — ship items 31-33 now, pin the defect (done, this cycle,
+   `xfail(strict=False)`), track on the Residual ledger.
+C. Sequence item 31 (HeadingRule) to NOT ship until the defect is fixed
+   or accepted — since item 31 ALONE (not item 33) is what exposes it.
+
+**My lean**: Option A if a core cycle is cheap to obtain (the fix is
+almost certainly small — either sub-option is a few lines — and the
+defect is a genuine correctness bug, not a completeness gap, closer in
+kind to a data-integrity issue than a recall trade-off); Option B is
+defensible and bounded if a core cycle is not available soon, PROVIDED it
+is tracked loudly (done) and QA independently re-verifies the exact
+21-row list once items 31/33 ship. I do NOT lean toward C — item 31's
+own value (633 rows recognized, 0 FP, vs. today's 0 rows) vastly exceeds
+the cost of 21 rows each losing 1-of-N terms to a bounded, documented,
+already-xfail-pinned defect; holding all of P1 on this feels
+disproportionate given zero-miss is a program-level bar being weighed
+against a much smaller, already-partially-mitigated correctness issue.
+Not deciding this myself — routing per D-Q1's own spirit (real data, real
+options, a lean, not a unilateral pick).
+
+### (4) Live canonical-path precision of `_UNQUOTED_TERM_DASH_RE`
+(measured, not inherited)
+
+M-R14/M-R16's 235-changed-outcome / 44-reject / 191-retain / ~33-53%
+figures were measured against ALL 23,636 rows regardless of heading —
+most of that population will NEVER reach `extract_definitions_from_
+section` via the real pipeline (only canonical rows do). Re-measured
+restricted to the 633 canonical rows (own script, monkeypatching ONLY the
+dash-regex slot inside the REAL, unmodified `pr_profile._UNQUOTED_TERM_
+SEPARATOR_PATTERNS` — not a reimplementation, exactly QA cycle-8's own
+validated method):
+
+```
+V1 (cycle-5 unnarrowed) -> V2 (HEAD, cycle-7 narrowed), canonical rows:
+  REJECTED: 2   (both confirmed junk on inspection: STATE_PR_RENTAS_
+                 SEC6092_12 / _SEC1115_09, both ".-" subsection-label
+                 swallows, the exact class the narrowing targets)
+  RETAINED: 5702 (byte-identical to the direct call's own full output)
+
+Of RETAINED, 24 are BRAND-NEW (V0=None; only reachable via cycle-5's
+widening) within canonical rows, hand-classified against the real text:
+  22/24 (91.7%) GENUINE
+  2/24 confirmed JUNK (both STATE_PR_RENTAS_SEC4010_01 — one a list-
+       intro fragment "El término propiedad mueble tangible excluye"
+       mistaken for the defined term itself, one a marker-boundary
+       term-swallow spanning two unrelated entries — the SAME already-
+       accepted residual class M-R14's "narrow not drop" ruling already
+       priced in, not a NEW defect)
+4 RECLASSIFIED (same term, cleaner boundary) — all 4 are IMPROVEMENTS
+  (e.g. "e-cigarette" (fragment) -> "Cigarrillo electrónico o
+  “e-cigarette”" (the full real term); "residente de Puerto Rico" ->
+  "Residente de Puerto Rico", capitalization fix)
+```
+
+**91.7% on the live canonical population — materially BETTER than the
+~33-53% whole-corpus projection, not worse.** Does not trigger the "canon
+ical path's live precision proves materially worse" escalation condition.
+Canonical Definiciones sections are exactly where genuine definitions
+concentrate; the earlier estimate's low precision lived almost entirely
+in the much larger non-canonical population (ordinary prose, incidental
+`incluye`/`significa` collisions, etc.) that this registration never
+reaches. Both genuine anchor rows (`STATE_PR_LEY_209_2016_ART2`,
+`STATE_PR_LEY_236_2015_ART2`) preserved — the latter's own heading is
+blank-title (not canonical, out of scope per item 19; not exercised by
+this measurement, which is canonical-only by construction).
+
+### (5) `PRProfile` is dead — confirmed, not assumed
+
+`grep -rn "PRProfile" backend/app/` outside `pr_profile.py` itself →
+nothing. `hasattr(PRProfile(code="US-PR"), "determine_scope")` → `False`
+(checked directly). `_REGISTRY["US-PR"]` (`profiles.py`) is a `USProfile`
+instance. The 6 held cycle-4 scope REDs (`test_pr_profile_scope_
+cycle4.py`) all call `PRProfile(...).determine_scope(...)` directly —
+confirmed they STILL fail via `AttributeError: 'PRProfile' object has no
+attribute 'determine_scope'`, unchanged, byte-untouched (per role
+separation: "do not edit an existing test to fit"). **They do NOT become
+satisfiable by a registered `ScopeKindRule` as written** — no registry
+change makes a method exist on a class `get_profile` never returns. The
+SUBSTANCE of what they assert (4 scope-trigger behaviors) DOES become
+satisfiable, retargeted at `get_profile("US-PR")` — done in `test_pr_
+profile_scope_kind_rule_live_cycle9.py`. The old file is left in place;
+recommend the manager either explicitly retire/rehome it by ruling, or
+leave it as a permanently-RED historical marker — not mine to decide
+unilaterally by editing or deleting it.
+
+### (6) RED tests added
+
+4 files touched — 3 NEW, 1 EXISTING promoted off a stale xfail:
+
+| File | New/Promoted | Genuine RED | Green guards | xfail |
+|---|---|---|---|---|
+| `test_pr_profile_heading_rule_live_cycle9.py` | NEW | 2 | 2 | 0 |
+| `test_pr_profile_scope_kind_rule_live_cycle9.py` | NEW | 5 | 2 | 0 |
+| `test_pr_profile_canonical_extraction_live_cycle9.py` | NEW | 3 | 1 | 1 |
+| `test_pr_profile_definitions_section_end_to_end.py` | PROMOTED | 1 | 0 | 0 (was 1, now removed) |
+
+Every genuine RED fails today via a real assertion mismatch (`False` vs
+`True`, `'law-wide'` vs `'chapter'`, `set()` vs a real 9-term set) — none
+via `ModuleNotFoundError`/`AttributeError`/collection error. Verified by
+running each new/changed file individually (`-v`), reading every
+FAILED/PASSED/XFAIL line, not trusting the aggregate count. Green guards
+are TOC/deep-body/law-wide-default negative controls and the M-R4
+two-sided English-regression checks, which correctly already hold on
+baseline alone (nothing PR-specific needs to exist yet for a "must NOT
+fire" assertion to pass).
+
+Full suite: `41 failed, 996 passed, 13 xfailed` = 30 pre-existing held +
+11 new (10 genuine RED across the 3 new files + 1 promoted) / 989
+pre-existing + 7 new green guards / 12 pre-existing (13 minus the 1
+promoted off xfail) + 1 new escalation-documenting xfail. Reconciles
+exactly; no pre-existing count moved.
+
+### (7) Fixtures — byte-verified
+
+All 100 previously-vendored PR fixture rows (7 files) re-verified against
+a fresh parquet read this cycle: `0 problems`. 2 NEW rows (`STATE_PR_
+INCENTIVOS_SEC6070_55`, `STATE_PR_LEY_103_2001_ART2`,
+`pr_sample_rows_cycle9.json`) written then immediately re-verified
+against a SECOND fresh read: `2 rows checked, 0 problems`. Schema (24
+original parquet columns) matches the existing files exactly. HF snapshot
+used: `301000fc3465374ee0f23c3c6953a8a861e95cad` (confirmed via `refs/
+main`, the same one this whole sprint has used — row count 23,636 matches
+the contract throughout).
+
+### (8) What I could NOT verify
+
+- **Whether option A (a core-level fix) is actually cheap** — I named two
+  candidate shapes but did not scope or estimate the work; that is core's
+  call, not mine to pre-judge.
+- **The exact corpus-wide prevalence of the SEPARATE, out-of-scope
+  "unmarked first entry when later entries are lettered" gap** (the
+  `STATE_PR_LEY_123_2020_ART2` "Estudiantes" miss, confirmed present via
+  DIRECT calls too, i.e. pre-existing and unrelated to registration) —
+  measured only that 124 canonical rows share a LOOSER version of this
+  shape (lead-in text before the first real marker starts with a quote
+  char); did not narrow to the exact sub-shape or hand-verify a sample.
+  Explicitly out of this cycle's bounded scope (adjacent to items 19-24,
+  "ordinary misses") — flagged, not chased.
+- **A fresh, independent precision sample on the 4 RECLASSIFIED canonical
+  candidates beyond eyeballing them** — all 4 looked like clear
+  improvements on inspection; did not build a separate hand-classified
+  sample the way the 24 brand-new ones got.
+- **Whether the 3 "safe miss" chapter-scope rows (`STATE_PR_LEY_77_1957_
+  ART23_010` and the 2 already-bucket-D rows) matter for anything beyond
+  `determine_scope`** — did not check whether a future item (e.g. an
+  18c-adjacent rescue) would ever make their scope value load-bearing.
+
+### Nothing else escalated
+
+Heading precision (100%) is far above the ~90% floor — no D-Q1 trigger.
+Live canonical-path dash-regex precision (91.7%) is BETTER than
+projected, not worse — no trigger. All 6 held cycle-4 scope REDs are
+accounted for (substance satisfiable, file itself correctly unsatisfiable
+as written, explained rather than silently edited) — no "unsatisfiable
+RED" trigger beyond what's already explained above. The ONE trigger hit
+is the baseline-collision dispatch gap, escalated above.
+
+### Contract
+
+`## Bucket D final split`'s full 8-row table archived above (verbatim,
+no content change) to free budget — the `## Residual ledger` section's
+own bullet already points here, so nothing is lost. `## Cycle-9 item
+plan` (items 31-33) added as a dense summary pointing to this entry for
+full derivation, matching the convention established since cycle 1.
+
+### Fixtures README
+
+`## pr_sample_rows_cycle9.json` section appended documenting both new
+rows' provenance and exactly which finding each proves.
+
+### Pushed
+
+Branch `claude/defs-us-pr`. Commit adds: 2 new fixture/log files' worth of
+test files (3 new + 1 promoted), the new fixture, the README addition,
+the contract edit, and this log entry. SHA recorded in the commit itself;
+`git log -1 --format=%H` after commit.
+
+### Next
+
+Per M-R15's own ordering, this WAS "P1 canonical wiring, next". Three
+things now block a clean handoff to the Developer: (1) items 31/32 are
+unescalated and ready — Developer can implement them today; (2) item 33
+is ready in DESIGN and TESTS but ships the 21-row defect unless the
+manager picks an option above; (3) once items 31-33 land (under whichever
+option), M-R15's own next step — the gate-2 by-construction re-measurement
+(117/633) — becomes possible for the first time, then item 18c, then
+items 19-24 on their own merits. Escalating the option choice; not
+blocking the Developer on items 31/32 in the meantime, since those are
+clean.
+
+---
+
+### Archived from contract — Cycle-7 item plan (full item 30 text)
+
+Moved verbatim from the contract by the cycle-9 Planner to free contract
+budget. Fully settled (M-R16 ruling, `## M-R14`/`## Residual ledger`
+already carry the ENTRY CRITERIA and open-residual consequences forward)
+and duplicated by this same log's own cycle-7 Planner/QA-cycle-8/M-R16
+entries above — no content lost, this is a pure de-duplication.
+
+## Cycle-7 item plan (Planner, 2026-08-04 — item 30, M-R14 gate 1 / M-R15 step 1)
+
+30. **`_UNQUOTED_TERM_DASH_RE` precision fix — tests only (gate M-R14
+    gate 1).** Independent per-block re-measurement CONFIRMS QA's 235
+    changed outcomes / ~30-35% precision exactly (own script against the
+    real corpus, measurement only). Root cause: the term-capture group
+    can cross a `.-` (period-then-hyphen, no space) subsection-label
+    boundary that `_UNQUOTED_TERM_PERIOD_RE` already refuses to cross via
+    its own established `(?:[^.]|\.(?!-))` discipline — this predates
+    cycle 5 (17 pre-existing OLD-pattern instances found too). Proposed
+    fix (Developer's to apply): give `_UNQUOTED_TERM_DASH_RE`'s term
+    group the SAME exclusion. Planner's original measurement (rejects
+    61/235, retains 208/235) does not arithmetically sum to 235
+    (61+208=269) — an error, **SETTLED by QA cycle-8 arbitration (R19,
+    full derivation in the panel log)**: rejects 44/235 (19%) at ~100%
+    junk, retains 191/235 (81%) at ~41-53% precision (re-qualified by QA
+    cycle-8 against a fresh, uncontaminated sample — the original n=58
+    sample was drawn from a 208-row frame contaminated by 17 pre-existing,
+    pre-cycle-5 defect rows that do not belong to this population; the
+    ~41-53% estimate substantively transfers regardless). Origin of the
+    Planner's error, confirmed exactly (QA cycle-8): the same 17
+    pre-existing OLD-pattern instances named below were double-counted
+    into BOTH the reject and retain tallies (44+17=61, 191+17=208, exact
+    matches). Both explicitly-named
+    genuine anchor rows (`STATE_PR_LEY_209_2016_ART2`,
+    `STATE_PR_LEY_236_2015_ART2`) preserved in full under every
+    measurement taken (Planner, Developer, and QA cycle-8 alike).
+    **Decision: NARROW, not
+    drop** — dropping costs ~90-110 genuine captures, not "a handful". A
+    known residual junk class (hyphenated-prose, no period involved,
+    e.g. `STATE_PR_LEY_163_2005_ART2`'s "Pro - Festejos") is NOT fixed by
+    this narrowing — pinned `xfail`, not hidden. Full derivation,
+    root-cause trace, and the rejected marker-lookahead alternative
+    archived in the panel log's cycle-7 Planner entry. RED tests (3
+    junk-rejection + 1 GREEN regression guard + 1 xfail) in
+    `test_pr_profile_hyphen_precision_cycle7.py` against
+    `pr_sample_rows_cycle7.json` (3 byte-verified real rows) — DIRECT-
+    FUNCTION tests, explicitly labeled as such (function has zero
+    production callers until P1 wires a PR
+    `TermClauseRule`/`EntrySplitterRule`, next per M-R15). Developer
+    applies the one-line regex fix next; QA re-verifies.

@@ -1,16 +1,32 @@
-"""RED (and explicitly DEFERRED-pending-core-seam) end-to-end integration
-test for the PR (Spanish) profile's Stage-1-to-3 chain -- sprint
-2026-08-04-defs-us-pr, cycle 3, item 8 / gate P1 "Real PR statutes parse"
-on the FULL pipeline, not just the profile layer in isolation.
+"""End-to-end integration test for the PR (Spanish) profile's Stage-1-to-3
+chain -- sprint 2026-08-04-defs-us-pr, cycle 3, item 8 / gate P1 "Real PR
+statutes parse" on the FULL pipeline, not just the profile layer in
+isolation.
 
-## Why this file exists now (it slipped a cycle already)
+## PROMOTED off xfail (cycle-9 Planner, M-R15 step 2)
 
-Cycles 1 and 2 both flagged this item ("the natural closing proof for
-P1's 'real PR statutes parse' on the full pipeline") and both deferred
-authoring it, waiting on core's seam spec. The program manager was
-explicit this cycle: this is the live-path proof gate **P2** needs once
-core's dispatch lands, and it must be authored NOW (marked `xfail` if it
-cannot pass yet), not deferred a third time.
+Originally authored cycle 3, marked `xfail(strict=False)` because
+`get_profile("US-PR")` resolved to the generic (Spanish-inert) `USProfile`
+until a `PRProfile` was registered -- that blocking REASON is now STALE:
+the seam question was settled AGAINST the distinct-`PRProfile`-class
+proposal (contract `## Coordination`) before that registration work was
+ever done. `PRProfile` is a dead, unregistered leftover class; `US-PR`
+was always going to resolve to `USProfile` with PR's Spanish rules
+registered as `HeadingRule`/`EntrySplitterRule`/`TermClauseRule`/
+`ScopeKindRule` instances (core's dispatch seam, merged this cycle). The
+file's own original docstring anticipated exactly this moment ("if it
+unexpectedly passes (XPASS), that is a SIGNAL the registry wiring landed
+and this file should be promoted to a real, non-xfail assertion, not
+silently ignored") -- promoting NOW rather than waiting for a silent
+XPASS, so this is a visible, ordinary RED test like the rest of this
+cycle's work, not a passively-monitored one.
+
+**Confirmed still RED today, for the CURRENT correct reason**: no
+`HeadingRule`/`EntrySplitterRule`/`TermClauseRule` is registered for
+`"US-PR"` yet (this cycle's own item 31/33, `test_pr_profile_heading_
+rule_live_cycle9.py` / `test_pr_profile_canonical_extraction_live_
+cycle9.py`) -- Stage 1 (`is_definitions_heading`) genuinely returns
+`False` for this row's real heading via `get_profile("US-PR")` right now.
 
 ## Mirrors `test_us_profile_definitions_section_end_to_end.py` exactly
 
@@ -24,52 +40,18 @@ test files) actually COMPOSE through the SAME `get_profile(code)` seam
 every other jurisdiction uses -- not just that `pr_profile.py`'s bare
 module-level functions work when imported directly.
 
-## Why this is core-gated (xfail, not a hard failure)
-
-`get_profile("US-PR")` today resolves to a generic `USProfile(code=
-"US-PR")` -- confirmed live (`backend/.venv/bin/python -c "from app.
-definition_links.profiles import get_profile; print(type(get_profile(
-'US-PR')))"` -> `USProfile`) -- because `PRProfile` is NOT YET registered
-in `profiles.py`'s `_REGISTRY` (item 7, a shared-module edit M-R3 defers
-until core `2026-08-04-defs-core-scope` publishes its seam spec AND this
-sprint's own item 6 -- `PRProfile` construction -- lands; see the sprint
-contract's `## Core seam coordination status`). `USProfile`'s baseline is
-CONFIRMED INERT on Spanish text (`is_definitions_heading` returns `False`
-on a real Spanish heading, `extract_definitions_from_section` returns
-`[]` on Spanish body text with zero newlines defeating its line
-splitter) -- so Stage 1 of this test genuinely fails today, for the
-documented, core-gated reason, not a bug in this test or in
-`pr_profile.py` itself. Marked `xfail(strict=False)`, same pattern as
-`test_pr_profile_scope.py` (P3) -- re-run once core publishes and items
-6/7 land; if it unexpectedly passes (`XPASS`), that is a SIGNAL the
-registry wiring landed and this file should be promoted to a real,
-non-xfail assertion, not silently ignored (`strict=False` surfaces XPASS
-without failing the suite, matching this sprint's existing convention).
-
 Fixture: REUSES `STATE_PR_LEY_249_2003_ART3` from `pr_sample_rows.json`
 (cycle 1, already vendored, byte-compared) -- no new fixture row needed.
+Confirmed this cycle NOT to be one of the 21 canonical rows affected by
+the baseline-collision defect named in `test_pr_profile_canonical_
+extraction_live_cycle9.py` -- this row's own live-path extraction is
+byte-identical to the already-tested direct call.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason=(
-        "P1's full-pipeline live-path proof is core-gated: get_profile("
-        "'US-PR') resolves to the generic (Spanish-inert) USProfile until "
-        "PRProfile is registered in profiles.py's _REGISTRY (item 7), "
-        "deferred per M-R3 until core sprint 2026-08-04-defs-core-scope "
-        "publishes its seam spec and this sprint's item 6 (PRProfile "
-        "construction) lands. Re-run once both land; promote off xfail "
-        "once it passes for real."
-    ),
-    strict=False,
-    raises=AssertionError,
-)
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "pr_sample_rows.json"

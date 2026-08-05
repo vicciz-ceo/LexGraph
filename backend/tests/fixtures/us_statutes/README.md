@@ -820,8 +820,63 @@ panel log's cycle-7 Planner entry; this is the provenance inventory only.
    raises=AssertionError)`, not silently omitted from the precision
    report.
 
+## pr_sample_rows_cycle9.json (M-R15 step 2, P1 canonical wiring)
+
+2 REAL rows, byte-compared against a fresh parquet read immediately after
+writing (`2 rows checked, 0 problems`). A SIBLING file — every prior
+cycle's fixtures/tests are untouched. Both used by the live-path (`get_
+profile("US-PR")`) HeadingRule/EntrySplitterRule/TermClauseRule/
+ScopeKindRule tests; the other rows those tests need (`STATE_PR_LEY_
+249_2003_ART3`, `STATE_PR_LEY_77_1957_ART30_020`, `STATE_PR_LEY_
+77_1957_ART9_040`, `STATE_PR_LEY_165_2020_ART1_2`) are already vendored
+in `pr_sample_rows.json`/`pr_sample_rows_cycle2.json` — not re-vendored
+here.
+
+1. `STATE_PR_INCENTIVOS_SEC6070_55` — chapter-scope EDGE CASE. Body opens
+   `"(a) Para los fines de este Capítulo los siguientes términos..."` — a
+   bare subsection-style label (`(a)`) immediately prefixes the scope-
+   declaring sentence itself, which `pr_profile._ENTRY_MARKER_RE` would
+   otherwise misidentify as entry marker #1 (an empty "lead-in before the
+   first marker" would then miss the trigger entirely). Proves the
+   `ScopeKindRule` must anchor on the body's first SENTENCE (`.`/`!`/`?`
+   boundary), not "text before the first entry marker" — measured
+   corpus-wide: 3 canonical rows share this exact shape, all 3 confirmed
+   independently as genuine chapter-scope declarations, not accidental
+   matches (panel log's cycle-9 Planner entry, `### Scope: PR's own
+   chapter-scope convention, measured`).
+2. `STATE_PR_LEY_103_2001_ART2` — canonical Definiciones section (6 real
+   terms: Autoridad, Banco de la Vivienda, Banco Gubernamental de
+   Fomento, Corporación, Municipios Afectados, Registro de Elegibles),
+   body opens `"(a) "Autoridad" — significa..."` with NO newline anywhere
+   (PR structural convention). Documents a PRE-EXISTING, registration-
+   independent defect in the SHARED (core-owned, out of this panel's
+   write-set) `us_profile._split_into_numbered_blocks` +
+   `_leading_quote_candidate`: because the body's single "line" (no `\n`)
+   starts with `(a) "Autoridad"...`, baseline's own English/DE-shaped
+   splitter treats the ENTIRE body-after-that-one-marker as ONE block,
+   and its leading-quote parser fabricates a candidate `terms=("Autoridad
+   ",)` whose `definition_text` is the raw REMAINDER OF THE WHOLE BODY —
+   2,045 characters spanning all 5 OTHER unrelated terms' own definitions
+   glommed together. Confirmed reproducible TODAY via `get_profile(
+   "US-PR").extract_definitions_from_section(text, scope="law-wide")`
+   with ZERO PR-specific rules registered anywhere — this is not
+   something the Spanish rule work in this cycle introduces; it goes LIVE
+   the moment a `HeadingRule` makes `is_definitions_heading` return True
+   for this row's heading, independent of whether any PR `EntrySplitterRule`/
+   `TermClauseRule` is ever registered. Measured corpus-wide: 21/633
+   (3.3%) canonical rows share this exact collision shape. Full
+   derivation in the panel log's cycle-9 Planner entry (`### ESCALATION`).
+
 Provenance: same dataset/commit/license as `pr_sample_rows.json` above,
-fetched 2026-08-04 by the Planner via disposable scratch scripts
-(`/private/tmp/.../scratchpad/pr_hyphen_*.py`, outside `backend/.venv`,
-never committed), reading directly from the already-cached HF snapshot on
+fetched 2026-08-05 by the Planner via disposable scratch scripts
+(`/private/tmp/.../scratchpad/pr_p1_*.py`, outside `backend/.venv`, never
+committed), reading directly from the already-cached HF snapshot (refs/
+main `301000fc3465374ee0f23c3c6953a8a861e95cad`) on disk — no network
+download performed.
+
+Provenance (cycle 7, unchanged): same dataset/commit/license as
+`pr_sample_rows.json` above, fetched 2026-08-04 by the Planner via
+disposable scratch scripts (`/private/tmp/.../scratchpad/pr_hyphen_*.py`,
+outside `backend/.venv`, never committed), reading directly from the
+already-cached HF snapshot on
 disk — no network download performed.
