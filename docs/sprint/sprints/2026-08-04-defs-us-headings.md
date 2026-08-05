@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-headings"
 status: in-progress
-current_role: planner
+current_role: developer
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
 locked_by: "claude-code:sprint-manager"
@@ -11,7 +11,7 @@ last_updated: "2026-08-04"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 14
+total_items: 15
 completed_items: 0
 dev_complete_items: 6
 qa_cycles: 3
@@ -292,8 +292,11 @@ closing condition, or (c) open at director level. Nothing sits here unlabelled.
 | L3 | D-HG guarded cluster — `Application/Applicability of definitions …` | 245 + 29 sibling | **Ruled correctly-excluded** (D-HG, director). Guard STAYS. Genuine minority rescues via the preamble panel's body-content rules under ungated dispatch. The 29-row sibling cluster QA cycle 3 found is the same mechanism, never enumerated by name — recommend appending to `-guarded-cluster.md`. | preamble panel's coverage confirmed; any row NEITHER path reaches goes back to the director BY NAME |
 | L4 | Louisiana templated `"pollution defined and prohibited"` bodies | 14 | **Heading-correct / body-empty → MARKERS family (H-R1).** Cycle 5 captures the HEADING (correct, U1); the body genuinely never mentions the term, so zero yield is expected, same accepted category as the pinned CO/NV/AK hand-offs. | markers' zero-yield work lands, or ruled permanently body-empty |
 | L5 | U2 scope rows not expressible even against merged seam v2.7 | ≤7 of 10 | Cycle 5 item 14 takes the **expressible** subset (AK multi-chapter range + ≥2 KY rows) as a normal Developer item. Whatever remains unexpressible after that measurement stays here, enumerated by act_id. | cycle 5 item 14 measures each of the 10 individually; remainder re-escalates |
-| L7 | **Preposition-governed `… of definition of X` cluster** — `Exclusions from definition of "employment"`, `Limitation on definition of "certificate of approval holder"`, `Modification of definition of "property taxes"`, `Exemption from definition of contribution`, … | **78** (≥**14** measurably definitional) | **ESCALATED — potential cross-panel coverage hole.** A THIRD D-HG sibling cluster, never enumerated for handoff (the ruling's doc lists 245 `Application/Applicability of definitions`; QA cycle 3 found a 29-row sibling; this is a distinct 78-row shape). Guarded HERE by the preposition rule, which D-HG forbids relaxing. Manager-measured: 14/78 bodies carry BOTH a defining idiom AND a quoted term — e.g. `STATE_ME_T28-A_P3_C55_S1401-A` body `"certificate of approval holder" means an in-state manufacturer…` (a textbook definition), `STATE_MT_T39_C51_P2_S39-51-204` body `The term "employment" does not include:…` (exclusionary definition). D-HG's own terms: rows NEITHER path reaches go back to the director BY NAME. The panel cannot settle whether the preamble panel reaches them — re-scanning the corpus for another panel's population is forbidden, and the P-R7 matrix pointer has not arrived. | preamble panel's certified inventory arrives and these 78 act_ids are cross-checked against it; unreached rows go to the director by name |
+| L7 | **Preposition-governed `… of definition of X` cluster** — `Exclusions from definition of "employment"`, `Limitation on definition of "certificate of approval holder"`, `Modification of definition of "property taxes"`, `Exemption from definition of contribution`, … | **78** (≥**14** measurably definitional) | **ESCALATED — potential cross-panel coverage hole.** A THIRD D-HG sibling cluster, never enumerated for handoff (the ruling's doc lists 245 `Application/Applicability of definitions`; QA cycle 3 found a 29-row sibling; this is a distinct 78-row shape). Guarded HERE by the preposition rule, which D-HG forbids relaxing. Manager-measured: 14/78 bodies carry BOTH a defining idiom AND a quoted term — e.g. `STATE_ME_T28-A_P3_C55_S1401-A` body `"certificate of approval holder" means an in-state manufacturer…` (a textbook definition), `STATE_MT_T39_C51_P2_S39-51-204` body `The term "employment" does not include:…` (exclusionary definition). D-HG's own terms: rows NEITHER path reaches go back to the director BY NAME. The panel cannot settle whether the preamble panel reaches them — re-scanning the corpus for another panel's population is forbidden, and the P-R7 matrix pointer has not arrived. | **PENDING-EXTERNAL, not unresolved** — routed by the program manager to the preamble manager for a concrete "does our rescue reach these 14" assessment. If it cannot, D-HG's terms send them to the director by name. Either way this panel gets a definitive answer; it does not block cycle 5. |
 | L6 | Morphology / jargon / active-voice exclusions | 155+169+161+91+38 | **Ruled correctly-excluded**, re-confirmed by QA cycle 3 against the full 1,224-row residual (not a sample). Includes `definite`/`indefinite` morphology — note `STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to "trustee"`) must STAY excluded after cycle 5's mojibake normalization; it is a negative-guard test, not a capture. | n/a — closed, held by negative-guard tests |
+| L8 | IA stripped-connector rows — `Board defined optometry licensed optometrists.`, `Peace officer defined reserved peace officer included.`, `"Road systems" defined roadside parks.`, `"Instruments affecting real estate" defined revocation.` | 4 | **RESIDUAL — structurally unwhitelistable.** The corpus stripped the connector punctuation entirely, so there is no token to match on. The Planner's candidate Title-Case heuristic was **rejected on 7 measured false positives** — under H-R3 that trade is not available. Bodies are genuinely definitional, so these are real misses, recorded by name rather than papered over. | a corpus-defect repair or a director widening of the FP bar |
+| L9 | U2 scope rows NOT expressible against the merged seam | 8 of 10 | **Routed to CORE follow-on (program manager).** The Planner found a REAL seam gap: `ScopeKindRule` returns a scope **kind string only** — there is **no scope-VALUE seam** for enumerated/tuple scopes — and `us_profile.determine_scope` hard-codes the 2-way `chapter`/`law-wide` answer. Cycle 5 builds only the 2 expressible today (`STATE_AK_T13_C13.06_S13.06.050`, `STATE_KY_TXIII_C156_S156.106`). The panel must NOT touch shared modules (U3). | core's follow-on ships a scope-value seam |
+| L10 | Item-13 VA copula row — `STATE_VA_T8.01_C14_A4_S8.01-397.1`, `Evidence of habit or routine practice; defined (Supreme Court Rule 2:406 derived from this section)` | 1 | **EXCLUDED — panel-endorsed close call.** Body is an evidence-admissibility rule (`A. Admissibility. Evidence of the habit of a person…`) using an "is a" copula, not a defining idiom. Capturing it would breach H-R3's zero-false-positive baseline. Recorded as a close call WITH the body evidence rather than silently dropped. | revisit only on a director widening of the capture bar |
 
 ## Next Steps — cycle 5 (manager-defined, phase 3)
 
@@ -353,6 +356,35 @@ P-R10 probe sanity against the pinned figures before any new number is used.
 300-line convention — carried as a preserved-rationale exception. If cycle 5
 grows it materially, **split it** and update the PRD agent inventory per repo
 style gates. This is a Planner design input, not an afterthought.
+
+## Cycle-5 Developer scope (manager-defined, post-Planner)
+
+Planner REDs merged at `6c7e5c7` (from `8cd3829`). Manager-verified
+independently: role separation clean (0 production files), suite **823 passed /
+37 failed** reconciling exactly to 811 + 49, **860 collected with zero skips or
+collection errors**, fixtures **42/42 byte-identical across 1,008 fields** with
+nothing fabricated, RED reasons feature-absent.
+
+**BUILD (green the 37):** items 10, 11, 12, 13, 15, and the 2 expressible U2
+rows of item 14 (`STATE_AK_T13_C13.06_S13.06.050`,
+`STATE_KY_TXIII_C156_S156.106`). The registry-integration test now expects
+**THREE** `register_heading_rule` calls — the third is item 13's gated
+`defined (qualifier)` / `defined to [verb]` rule.
+
+**DO NOT BUILD (ledgered, with owners):** L8 IA stripped-connector (4),
+L9 the other 8 U2 rows (core follow-on — **no shared-module edits**), L10 the
+VA copula row (excluded, endorsed). The MI row routes to the D-MT-E1/markers
+path; the NM row routes to the D-HG rescue path.
+
+**P-R7 status:** the preamble panel's QA has LANDED (`10924fc` on
+`claude/defs-us-preamble`) — GA 2→2,794/28,154; corpus-wide 29,667→80,493; a
+full 53-jurisdiction before/after table; an 8-shape P-R7 residual analysis with
+real act_ids. This is QA-measured independent data, sufficient for U4
+cross-check **PREP only**. Their manager's verdicts are still pending
+(including a GA 2-vs-5 reconciliation and shape→owner attribution), so **QA
+cycle 4's formal certification does not open until the program manager
+forwards the verdict pointer** — this deliberately protects the panel's
+remaining cycle budget from a bounce on external data.
 
 ## Dev Complete
 
