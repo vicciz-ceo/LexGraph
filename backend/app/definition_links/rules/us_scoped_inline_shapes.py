@@ -1,9 +1,10 @@
-"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycles 2-3 (Developer).
+"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycles 2-4 (Developer).
 Sanctioned style-gate overflow from `us_scoped_inline.py` (that module's
 docstring, "Sanctioned overflow" -- `us_scoped_inline.py` was already at
 the 300-line style-gate ceiling before cycle 2's fixes, and again before
 cycle 3's). Holds the BODY-SHAPE regex vocabulary, the entry-splitting
-helpers, and (cycle 3) the subsection-scope derivation: everything that
+helpers, and (cycle 3, revised cycle 4 per D-S15) the subsection-scope
+derivation: everything that
 operates on an already-located trigger region/offset and does not need
 `_SCOPE_BY_UNIT` or `DefinitionCandidate` directly (`_resolve_subsection_
 scope` returns a bare tuple, not a `DefinitionCandidate` -- the caller in
@@ -36,8 +37,17 @@ QA cycle-1 root causes fixed in this module (full detail in
 Fix cycle 3 (ruling S-R14, the subsection revert): `_resolve_subsection_
 scope`/`_subsection_scope_level` moved here (not left in `us_scoped_
 inline.py`) purely for the 300-line style gate -- see that module's
-docstring for the full S-R9/S-R10/S-R11/S-R14/S-R15 design reasoning,
-repeated here only where load-bearing for these two functions themselves.
+docstring for the full S-R9/S-R10/S-R11/S-R14/S-R15/D-S15 design
+reasoning, repeated here only where load-bearing for these two functions
+themselves.
+
+Fix cycle 4 (director ruling D-S15, supersedes S-R15): `_subsection_
+scope_level` now returns the OUTERMOST step of the resolved path, not the
+innermost -- see that function's own docstring for the SC live-path
+evidence and the corpus-wide vocabulary census. `_resolve_subsection_
+scope` itself is UNCHANGED: same resolver call, same zero-miss `"local"`
+degrade on an empty path, same same-step stamping of `scope_value`/
+`scope_unit_kind` -- only WHICH step `_subsection_scope_level` picks moved.
 """
 
 from __future__ import annotations
@@ -230,16 +240,24 @@ def _unmarked_multi_entries(body: str, region_start: int, region_end: int) -> li
 
 
 def _subsection_scope_level(path):
-    """S-R15 (binding interim, ONE swappable decision point -- cite this
-    ruling when changing it): WHICH step of core's `resolve_unit_path`
-    result a subsection trigger's `scope_value`/`scope_unit_kind` are drawn
-    from. The innermost open step (`path[-1]`) is the only option with
-    live-path evidence today (S-R14's Oregon-row probe); whether a
-    different level is right for some state/phrasing is an OPEN,
-    per-state measurement question, not decided here -- kept behind this
-    one function so answering it later is a one-line change, never a
-    redesign scattered across call sites."""
-    return path[-1]
+    """D-S15 (director ruling, supersedes S-R15 -- cite D-S15 when changing
+    this again): WHICH step of core's `resolve_unit_path` result a
+    subsection trigger's `scope_value`/`scope_unit_kind` are drawn from.
+    Adopted semantics: the OUTERMOST step (`path[0]`) -- "as used in this
+    subsection" scopes to the top-level subdivision, not to whatever unit
+    happens to be innermost at the trigger's own offset. Evidence: on
+    `STATE_SC_T12_C6_A9_S12-6-1170` (structure `(A)(1)..(4)`, definition in
+    item (2)), the innermost step stamps `('2', digit)` and links 0 of 4
+    genuine reuses, while the outermost step stamps `('A', upper_alpha)`
+    and links all 4; a corpus-wide census of the drafters' own vocabulary
+    found 202,943 phrases placing "subsection" directly under "section"
+    across 48 of 53 jurisdictions, against only 12 inverted occurrences.
+    Named follow-up (not this cycle): SD/NY/VT genuinely nest subsection
+    under subdivision and are not covered by this default. This stays the
+    ONE swappable decision point -- D-S15 preserves that property, so
+    answering a future per-state question is still a one-line change here,
+    never a redesign scattered across call sites."""
+    return path[0]
 
 
 def _resolve_subsection_scope(body: str, trigger_start: int) -> tuple[str, str | None, str | None]:
