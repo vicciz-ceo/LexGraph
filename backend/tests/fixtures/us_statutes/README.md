@@ -310,3 +310,120 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 `d2d760358de8bea543f016c226ad979b0adf2a85`), fetched 2026-08-04 into this
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
+
+## G8 reverse-order fixtures — containment replacement safety (2026-08-05, Phase 14 correction)
+
+Three REAL rows (all original parquet columns, values unmodified), beginning with
+`STATE_AR_T27_C14_S23_S27-14-2301` (Ark. Code Ann. Section 27-14-2301,
+"Definitions"), pulled from `us_ar_statutes.parquet` — sprint
+`2026-08-05-defs-core-follow-on-2`, gate G8. Phase 14 supersedes the
+original "shorter same-term candidate is cleaner" interpretation: a
+same-term `includes`/`does not include` continuation is definitional content
+under D-INCLUDES/P-ALT, so containment alone is not a safe persistence
+preference.
+
+**Occurrence fixture — what it proves**: this row's own `text` field carries its content
+duplicated verbatim by the source dataset (the SAME real corpus artifact
+already documented above for `STATE_AR_T20_C48_S6_S20-48-603`, D-CF
+fixture #4 — evidently common across `us_ar_statutes.parquet`, not a
+one-off). For the term "Occurrence", baseline's own
+`extract_definitions_from_section` (zero registered rules needed)
+produces THREE candidates sharing the identical `(article_id,
+("Occurrence",))` persistence key. The first 155-char candidate contains
+`(B) "Occurrence" includes ...`; this is the complete same-term definition,
+not a distinct-term leak. The later 64- and 73-char candidates are incomplete
+fragments. The live-path RED now pins that a later contained fragment must
+not replace the complete first candidate. On the pre-G8 parent
+`8943d96^`, first-wins would have preserved this first candidate; the G8
+containment update is what makes the RED fail.
+
+**Why this row, not the WA newline-collapse rows** (`claude/defs-us-markers`
+QA fixture, read but never cherry-picked here): the WA swallow is caused
+by `_split_into_numbered_blocks` finding the entire body as ONE line — the
+exact shape gate G3 (`us_profile.py:346`, unbounded last entry) targets in
+the same sprint. This AR row's collision is provably G3-independent: the
+section is genuinely multi-block (properly newline-separated), and the
+winning candidate's own block is never the row's last block (verified by
+`test_occurrence_is_not_the_last_entry_g3_cannot_be_the_mechanism_here` in
+`test_us_g8_candidate_collision_preference.py`) — a fix scoped to the
+LAST entry's boundary cannot reach it, whatever shape that fix takes.
+
+Provenance: `vaquill/open-us-law` dataset snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad`, file `us_ar_statutes.parquet`,
+read from the local read-only snapshot on 2026-08-05, never read by the
+committed test suite itself (program rule prior-R6 — suites run offline).
+SHA-256 of the Occurrence row's `text` field:
+`3fe2c0d1bc4213dda7d56b0aa79677a6460341722bdafe7ead42cda9bd95ec67`.
+
+**Virtual currency fixture** —
+`us_g8_ar_virtual_currency_reverse_order_row.json` is the unmodified, full
+`STATE_AR_T23_C55_S23-55-102` row from the same snapshot/file. Its first
+`"Virtual currency"` candidate is the complete 528-character `means` plus
+same-term `(B) ... does not include` definition; a later 276-character
+exclusion-only candidate is a literal substring. This is the real-row
+live-path RED for G8's damaging replacement direction. Its row remains a
+fully offline fixture; tests never open the corpus. SHA-256 of its source
+row's `text` field:
+`9fd823ff0fce7c1ad082a7c369219b56fd585a8276c8c601d6af32db970a546a`.
+
+**Partnership fixture** —
+`us_g8_ar_partnership_structural_boundary_row.json` is the unmodified, full
+`STATE_AR_T26_C18_S1_S26-18-104` row from the same snapshot/file. It is a
+positive control: `"Partnership"`'s initial candidate runs into the next,
+different quoted `"Partner"` entry, while the shorter prefix ends exactly
+before that entry. It documents the narrow class of real beneficial trims
+measured by the Phase-14 artifact; it does not authorize a U.S. grammar
+heuristic in jurisdiction-neutral `pipeline.py`. SHA-256 of its source row's
+`text` field:
+`bbe0ad8ce303966493415505caaa13503a601524cc76f28e62c5cfa4cf960051`.
+
+## `g12_il_base_rates_competitive_service_row.json`, `g12_il_government_person_motion_dropped_row.json`, `g12_pa_references_to_construction_clause_row.json` — G12 `includes`-idiom RED fixtures (2026-08-05)
+
+3 REAL rows (all original parquet columns, values unmodified) — sprint
+`2026-08-05-defs-core-follow-on-2`, gate G12 (director ruling
+D-INCLUDES: widen `_MEANS_IDIOM_GAP_RE` to the `includes`/`shall
+include` defining-verb class, boundary AND emission together, with a
+mandatory targeted "References to" construction-clause guard).
+
+1. **`STATE_IL_C220_A5_S16-102`** (220 ILCS 5/16-102, Illinois Public
+   Utilities Act), from `us_il_statutes.parquet` — genuine SWALLOWING:
+   the real `"Base rates" means ...` entry's `definition_text` today
+   illegally runs on to absorb the immediately following, separately
+   quoted `"Competitive service" includes ...` entry whole (1,047 chars
+   instead of the true ~737), because `includes` is not yet a
+   recognized entry-starting idiom. SHA-256 of `text`:
+   `88c0b8caffd8f5679b57f6ea9459d0f023d2e5b923e74744aed3258b185e5b30`.
+2. **`STATE_IL_C735_A110_S10`** (735 ILCS 110/10, Illinois Code of Civil
+   Procedure), from `us_il_statutes.parquet` — genuine DROP: "Government",
+   "Person", and "Motion" are each real `"..." includes ...` entries
+   that appear BEFORE the row's first `means`-idiom entry ("Moving
+   party") — today they are not swallowed into anything (nothing
+   recognized precedes them), they simply never appear in the output at
+   all. Proves the manager ruling's "boundary-without-emission would be
+   a silent-drop bug" concern is not hypothetical. SHA-256 of `text`:
+   `df62b18f3c5f732acedb4b6eb1755fe1b785a8a45917284d5632064651492fd8`.
+3. **`STATE_PA_T15_C57_S5749`** (15 Pa.C.S. Section 5749, PA nonprofit
+   corporation law), from `us_pa_statutes.parquet` — the mandatory PA
+   construction-clause guard shape: `"For the purposes of this
+   subchapter: (1) References to "other enterprises" shall include
+   employee benefit plans and references to "serving at the request of
+   the corporation" shall include ..."` — a rule about how OTHER text
+   should be read, not a `"X" means Y` definition. This row's own real
+   `section_title` ("Application to employee benefit plans.") is a
+   genuine heading (PA is one of the 7 states already working off
+   `section_title`), so it does not reach `heading_was_derived=True` in
+   the live pipeline today — the fixture's own test forces that kwarg
+   deliberately (documented in the test file) because the guard is a
+   REQUIRED, program-wide property of `_extract_inline_quoted_
+   definitions` itself, not a property of which jurisdiction happens to
+   reach it via IL/CA/GA's placeholder-heading convention. Verified
+   live: this row's primary `"(N)"`-block splitter also yields nothing,
+   so forcing the kwarg exercises the same fallback function real
+   placeholder-heading rows do. SHA-256 of `text`:
+   `f57e15bb1708feba189d952d400b750ceb9624d2cb448c22715b54fcf2c2fe0a`.
+
+Provenance (all 3): `vaquill/open-us-law` dataset snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad`, fetched 2026-08-05 by this
+Planner directly into this worktree's own `backend/.venv` (`pyarrow`
+already installed for this sprint), never read by the committed test
+suite itself (program rule prior-R6 — suites run offline).

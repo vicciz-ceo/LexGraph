@@ -18,7 +18,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.definition_links.sections import parse_articles
+from app.definition_links.sections import parse_articles, serialize_heading_breadcrumbs
 from app.models.article import Article
 from app.models.document import Document
 from app.models.source_span import SourceSpan
@@ -75,6 +75,10 @@ def ingest_wiki_law(
             number=parsed_article.number,
             heading=parsed_article.heading,
             chapter=parsed_article.chapter,
+            # Item G9-3: threaded exactly parallel to `.chapter` above.
+            heading_breadcrumbs=serialize_heading_breadcrumbs(
+                parsed_article.heading_breadcrumbs
+            ),
         )
         session.add(article)
 

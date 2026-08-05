@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from app.definition_links.derivation import LawDerivesDefinitionEdge
 from app.definition_links.extract import DefinitionCandidate
@@ -343,6 +344,154 @@ def _entry_start_remainder(line: str) -> str | None:
     return None
 
 
+# --- G3 (sprint 2026-08-05-defs-core-follow-on-2): shared content-marker
+# termination helper ----------------------------------------------------
+#
+# The defect: every block below is correctly bounded by the START of the
+# next recognized entry marker -- EXCEPT the last one, which has no next
+# marker to stop at and previously ran unconditionally to the literal end
+# of the input text. Design decided by the Planner (both-sides corpus
+# sampling, 24.62% of 27,051 real last entries measured contaminated): the
+# fix is CONTENT-marker based, not structural -- a structural rule (e.g.
+# "stop at the next blank line") either changes nothing, since these
+# markers already sit inside the document's ordinary blank-line-separated
+# paragraph shape, or risks cutting a genuine multi-paragraph final entry
+# short (this sprint's non-regression guard, `test_us_core_g3_guard_
+# states_no_regression.py`, pins exactly that risk across 12 real
+# multi-entry rows).
+#
+# `_TRAILING_NOTES_MARKERS` is the extended 10-marker set independently
+# confirmed against the real vaquill US-code dataset's own trailing-notes
+# convention (citation histories, "Editorial Notes"/"Amendments" logs,
+# "Statutory Notes and Related Subsidiaries", etc., bundled into the same
+# `text` field after a section's real operative content).
+#
+# `_trailing_notes_boundary` is deliberately OFFSET-based (a text plus a
+# candidate `[start, end)` span), NOT list-of-lines-based, so it is a
+# SHARED helper usable by more than just `_split_into_numbered_blocks`'s
+# own line-oriented block-builder below. `_extract_inline_quoted_
+# definitions` (line ~551) carries the exact same unbounded-last-entry
+# defect at its own `end = ... else len(text)` fallback, and has been
+# ruled INTO this gate's scope -- but is FENCED here pending a both-sides
+# sample on its own population (a named, separate, not-yet-satisfied
+# condition; see this sprint's report). That function's entries are
+# quote-anchored `(term, start, definition_start)` offset tuples into the
+# ORIGINAL text, not a pre-built line list, so a line-list-shaped helper
+# would not fit it without rework -- an offset-in/offset-out interface
+# does: it can call `_trailing_notes_boundary(text, definition_start,
+# end)` in place of its own literal `len(text)` fallback with no other
+# change, whenever that fence lifts. NOT wired there yet in this pass.
+_TRAILING_NOTES_MARKERS = (
+    "Editorial Notes",
+    "Amendments",
+    "Statutory Notes",
+    "References in Text",
+    "Congressional Findings",
+    "Pub. L.",
+    "History:",
+    "Amended by Act",
+    "Source:",
+    "Cited.",
+)
+
+# G13 (sprint 2026-08-05-defs-core-follow-on-2, program-manager ruling --
+# item G13-1): a corpus census found 28 real rows where a bare substring
+# match of `'Pub. L.'` or `'Amendments'` ANYWHERE in a line produced a
+# FALSE trailing-notes trigger, wiping an entire genuine entry rather
+# than trimming a tail. Both strings are ordinary US statutory-drafting
+# vocabulary that routinely appears MID-SENTENCE inside a genuine
+# definition's own substantive prose -- citing an act's own Public Law
+# number inline ("... the Family First Prevention Services Act (Title
+# VII, Div. E, Pub. L. No. 115-123) ...", real TX row
+# STATE_TX_Cfa_C264_S264.152), or even as part of the DEFINED TERM's own
+# real name ("Superfund Amendments and Reauthorization Act of 1986,
+# Title III", real AR row STATE_AR_T12_C84_S12-84-103). All 28 drops were
+# hand-checked and are false truncations; zero implicate any of the other
+# 8 markers alone -- so this guard is scoped to EXACTLY these two marker
+# strings, mirroring `_preceded_by_references_to`'s established shape
+# (targeted, literal, positional), not widened to the rest.
+#
+# The rule: a line only counts as a trigger for one of these two markers
+# if, after `lstrip()`, it STARTS WITH `'('` (a standalone citation/
+# parenthetical block -- covers both the immediate `"(Pub. L. ..."` shape
+# and a long semicolon-chained citation-history line, regardless of how
+# far into that already-parenthetical line the marker text itself sits)
+# OR STARTS WITH the marker text itself (a bare section-header line, e.g.
+# a line that is just `"Amendments"`).
+#
+# A character-offset threshold (e.g. "only trigger if the marker sits
+# within N chars of the line start") was tried and REJECTED with data:
+# genuine citation lines legitimately place `'Pub. L.'` anywhere from
+# offset 1 to offset 852 (real case USC_T7_C35_S1301, a long semicolon-
+# chained date list inside a single `'('`-opened citation block) --
+# distance from the line start does not separate genuine citation blocks
+# from false mid-sentence hits. Whether the line itself IS a citation/
+# header block -- signalled by what it starts with, not by how far into
+# it the marker sits -- does. Every other marker keeps the original
+# bare-substring-anywhere-in-line rule, byte-identical to before this
+# gate.
+_POSITIONALLY_GUARDED_MARKERS = frozenset({"Pub. L.", "Amendments"})
+
+
+def _is_guarded_marker_line_trigger(line: str, marker: str) -> bool:
+    """For one of `_POSITIONALLY_GUARDED_MARKERS`, whether `line` (already
+    known to contain `marker` as a substring) genuinely opens a
+    trailing-notes citation/header block -- see the G13 comment above
+    `_POSITIONALLY_GUARDED_MARKERS` for the exact rule and the false-drop
+    defect it closes."""
+    stripped = line.lstrip()
+    return stripped.startswith("(") or stripped.startswith(marker)
+
+
+def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
+    """Where an entry spanning `text[start:end]` should ACTUALLY end, given
+    that `end` is merely a provisional/unbounded bound (e.g. `len(text)`
+    for a sequence's LAST entry, which -- unlike every other entry -- has
+    no real "the next entry starts here" boundary at all).
+
+    Scans `text[start:end]` LINE BY LINE for the first line that CONTAINS
+    one of `_TRAILING_NOTES_MARKERS` as a substring, and returns the
+    OFFSET of the START of that line (so a caller's own `text[start:
+    boundary]` slice drops the marker line and everything after it, not
+    merely the matched substring onward). Returns `end` unchanged if no
+    such line is found -- the common case; most real Definitions sections
+    carry no trailing notes at all.
+
+    Line granularity (not the marker substring's own raw character
+    offset) is deliberate: a marker can appear MID-line inside an
+    otherwise-unrelated citation parenthetical that is itself part of the
+    SAME trailing-notes block -- e.g. real FED row USC_T5_C34_S3401's own
+    "(Added Pub. L. 95-437, ...)" amendment citation, which precedes
+    "Editorial Notes"/"Amendments" and is not part of the entry's own
+    substantive definition text. Truncating at the marker substring's own
+    raw offset would leave that parenthetical's leading fragment
+    ("(Added ") dangling in the kept text; dropping the whole line does
+    not.
+
+    G13 refinement: for exactly the two markers in
+    `_POSITIONALLY_GUARDED_MARKERS` (`'Pub. L.'`, `'Amendments'`), a bare
+    substring-anywhere-in-line match is NOT sufficient on its own -- see
+    `_is_guarded_marker_line_trigger` and the comment above
+    `_POSITIONALLY_GUARDED_MARKERS` for the false-drop defect this closes
+    and why the additional check is positional (what the line STARTS
+    with) rather than offset-based. Every other marker is unaffected --
+    it still triggers on a bare substring match anywhere in the line,
+    exactly as before this gate.
+    """
+    offset = start
+    for line in text[start:end].split("\n"):
+        for marker in _TRAILING_NOTES_MARKERS:
+            if marker not in line:
+                continue
+            if marker in _POSITIONALLY_GUARDED_MARKERS and not _is_guarded_marker_line_trigger(
+                line, marker
+            ):
+                continue
+            return offset
+        offset += len(line) + 1  # +1 for the "\n" `str.split` consumed
+    return end
+
+
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
@@ -357,7 +506,14 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
             current.append(line)
     if current is not None:
         blocks.append(current)
-    return ["\n".join(b).strip() for b in blocks]
+    joined = ["\n".join(b) for b in blocks]
+    if joined:
+        # G3: only the LAST block has no natural next-entry boundary --
+        # every other block above is already correctly bounded by the
+        # START of the following recognized entry marker.
+        last = joined[-1]
+        joined[-1] = last[: _trailing_notes_boundary(last, 0, len(last))]
+    return [b.strip() for b in joined]
 
 
 # --- Moved from pipeline.py verbatim (sprint 2026-08-04-defs-core-scope,
@@ -542,10 +698,62 @@ _QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # (`"Immediate and urgent necessity", in accordance with Section 5 ...,
 #  means (i) ...`) -- the bounded, non-greedy `{0,200}?` gap covers both
 # without unbounded backtracking.
+#
+# G12 (sprint 2026-08-05-defs-core-follow-on-2, director ruling
+# D-INCLUDES): adds `shall include` and `includes` -- these two forms
+# EXACTLY, not a broader `include`-family (bare `include`, no trailing
+# `-s`, deliberately stays unrecognized -- it is not one of D-INCLUDES's
+# named forms). This regex is consumed solely by
+# `_extract_inline_quoted_definitions` (the placeholder-heading fallback
+# path); the primary `"(N)"`-block splitter (`_split_into_numbered_
+# blocks`/`_leading_quote_candidate`) never reads it, so that path is
+# untouched. Boundary and emission both fall out of this ONE change: the
+# same `entries`-list index-slicing logic in
+# `_extract_inline_quoted_definitions` already uses "does this quote's
+# gap match the idiom regex" to decide both where the PRECEDING entry's
+# `definition_text` stops and where the new entry's own candidate begins
+# -- there is no separate boundary mechanism to also update. Measured
+# corpus-wide (2,117 fallback-eligible rows: CA 442, GA 3, IL 1,672): of
+# 11,960 quoted-term occurrences, 9,677 recognized today, 10,170 once
+# widened -- +493 newly-recognized entries across 329 rows. See
+# `_preceded_by_references_to` immediately below for the mandatory
+# targeted guard D-INCLUDES also requires alongside this widening (the
+# PA construction-clause shape, `References to "X" shall include Y`,
+# which is not itself a definition).
 _MEANS_IDIOM_GAP_RE = re.compile(
-    r'^[^"“”]{0,200}?\b(?:means|shall mean|has the meaning)\b:?\s*',
+    r'^[^"“”]{0,200}?\b(?:means|shall mean|has the meaning|shall include|includes)\b:?\s*',
     re.IGNORECASE,
 )
+
+# G12 mandatory guard (director ruling D-INCLUDES): a quoted span
+# immediately preceded (within a small bounded, whitespace-tolerant
+# lookback window) by "References to"/"Reference to" (case-insensitive)
+# is a construction/interpretation clause about how OTHER text in the
+# subchapter should be read (real PA shape: `References to "other
+# enterprises" shall include employee benefit plans ...`), not a `"X"
+# means/includes Y`-shaped definition -- suppressed from starting an
+# entry boundary at all, same effect as if no idiom had matched.
+#
+# Deliberately a LITERAL TEXTUAL lookback, not idiom-absence and not any
+# broader construction-clause heuristic: D-INCLUDES explicitly measured
+# and rejected tightened guards as pure recall loss (32-56% of true
+# definitions lost for no measured precision gain). This guard's own
+# trigger rate in the 2,117-row fallback-eligible population is 0 of the
+# 493 newly-recognized entries (none sit within 25 chars of "References
+# to") -- it is nonetheless mandatory per the ruling's program-wide
+# framing, not something to narrow further or drop because it doesn't
+# currently fire.
+_REFERENCES_TO_RE = re.compile(r"References?\s+to\s*$", re.IGNORECASE)
+_REFERENCES_TO_LOOKBACK = 25
+
+
+def _preceded_by_references_to(text: str, quote_start: int) -> bool:
+    """True when `text[:quote_start]` ends (within a small bounded lookback
+    window) in "References to"/"Reference to" (case-insensitive) --
+    see `_REFERENCES_TO_RE` above for what this guards against and why
+    it is a literal textual check rather than a heuristic."""
+    window_start = max(0, quote_start - _REFERENCES_TO_LOOKBACK)
+    return bool(_REFERENCES_TO_RE.search(text[window_start:quote_start]))
 
 
 def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[DefinitionCandidate]:
@@ -571,9 +779,17 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
     definition prose is correctly left alone. Each entry runs from its own
     term through to the START of the next recognized entry (or end of
     text).
+
+    G12 (director ruling D-INCLUDES): a quoted span immediately preceded
+    by "References to"/"Reference to" (`_preceded_by_references_to`) is
+    skipped before the idiom check even runs -- the real PA construction-
+    clause shape (`References to "X" shall include Y`) describes how
+    OTHER text should be read, not a definition of "X" itself.
     """
     entries: list[tuple[str, int, int]] = []
     for term_match in _QUOTE_TERM_RE.finditer(text):
+        if _preceded_by_references_to(text, term_match.start()):
+            continue
         gap = text[term_match.end() : term_match.end() + 200]
         means_match = _MEANS_IDIOM_GAP_RE.match(gap)
         if means_match is None:
@@ -605,7 +821,17 @@ def _leading_quote_candidate(block: str, *, scope: str) -> DefinitionCandidate |
     term_match = _LEADING_QUOTE_RE.match(block)
     if not term_match:
         return None
-    term = term_match.group(1)
+    # G1 (sprint 2026-08-05-defs-core-follow-on-2): `.strip()` the captured
+    # quote-interior group, matching `_extract_inline_quoted_definitions`'s
+    # own convention for the SAME `_LEADING_QUOTE_RE`/quote-capture
+    # pattern (line ~581, `term_match.group(1).strip()`). Real drafting
+    # sometimes pads the quote interior with whitespace (`"“ Conviction
+    # ”"`, not `"“Conviction”"` -- real MS row STATE_MS_T45_C10_S34-1);
+    # without this, `find_term_uses`' `re.escape(term)` (which does not
+    # escape a plain space) turns that padding into a literal required
+    # space in the match pattern, silently missing a real mention that
+    # abuts punctuation with no space before it.
+    term = term_match.group(1).strip()
     definition_text = block[term_match.end() :].strip()
     return DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope)
 
@@ -1076,6 +1302,29 @@ _US_UNIT_MARKER_RE = re.compile(r"\(([A-Za-z]+|\d+)\)")
 _LOWER_ROMAN_CHARS_RE = re.compile(r"^[ivxlcdm]+$")
 _UPPER_ROMAN_CHARS_RE = re.compile(r"^[IVXLCDM]+$")
 
+# --- G2 (sprint 2026-08-05-defs-core-follow-on-2): period-style top-level
+# markers -- real US drafting routinely opens a top-level unit with a
+# digit or short letter run followed by "." instead of a parenthesized
+# token (Maine "2-A."/"F.", Arizona "J.", Virginia "A."). Anchored at a
+# paragraph boundary ONLY (start of body, or immediately after a newline,
+# any amount of leading same-line whitespace) -- never mid-sentence, same
+# "anchored, not free-floating" discipline `_LEADING_PARENTHETICAL_RE`/
+# `_BODY_EMBEDDED_HEADING_RE` already use elsewhere in this module. Token
+# shape: a digit run with Maine's optional hyphen-letter continuation
+# ("2-A", the real convention for a section inserted between "2." and
+# "3." without renumbering), or a bare 1-2 letter run -- followed by "."
+# and whitespace (a trailing decimal, e.g. "12.5", never matches: the
+# lookahead requires whitespace, not a digit, right after the ".").
+# Captures the marker text only (group 1), never the "." itself.
+_US_PERIOD_UNIT_MARKER_RE = re.compile(
+    r"(?:\A|\n)[ \t]*(\d+(?:-[A-Za-z]{1,2})?|[A-Za-z]{1,2})\.(?=\s)"
+)
+
+# `_marker_matches_kind`'s "digit" rung extension: Maine's hyphen-
+# continuation token ("2-A") classifies at the SAME rung a plain digit
+# token would ("2-A." is the section inserted between "2." and "3.").
+_DIGIT_HYPHEN_CONTINUATION_RE = re.compile(r"^\d+-[A-Za-z]{1,2}$")
+
 # The federal-convention ladder (dossier-confirmed, v2.4 §3), used
 # whenever the first genuine marker seen is neither digit- nor
 # upper_alpha-shaped -- see `resolve_unit_path`'s docstring "Honesty note"
@@ -1126,7 +1375,7 @@ _OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER = (
 
 def _marker_matches_kind(token: str, kind: str) -> bool:
     if kind == "digit":
-        return token.isdigit()
+        return token.isdigit() or bool(_DIGIT_HYPHEN_CONTINUATION_RE.match(token))
     if kind == "lower_alpha":
         return len(token) == 1 and token.islower()
     if kind == "upper_alpha":
@@ -1142,6 +1391,145 @@ def _marker_matches_kind(token: str, kind: str) -> bool:
     return False
 
 
+# --- G4 (sprint 2026-08-05-defs-core-follow-on-2): citation/cross-
+# reference discriminator for `resolve_unit_path` ---------------------------
+#
+# The defect: a parenthesized (or, after G2, period-style) token that is
+# shape-identical to a genuine marker but actually belongs to a CITATION
+# pin-cite ("Section 58-9-576(C)", "47 United States Code, Section
+# 522(13)") or an ordinary in-prose CROSS-REFERENCE ("under subsection
+# (1) of this section", "paragraph (b) of this subsection") was, before
+# this item, indistinguishable from a real structural marker -- silently
+# resetting or relabeling the stack `resolve_unit_path` builds below.
+#
+# The fix: a token is a GENUINE marker unless it is immediately preceded
+# (skipping only whitespace) by citation/cross-reference context --
+# either (a) one of the SAME closed structural-unit-word vocabulary the
+# D-CF guard above uses (`_STRUCTURAL_UNIT_WORDS`), reused here as an
+# independent, non-coupled discriminator per that guard's own "no
+# coupling between the two features" design note (same semantic story,
+# not the same code path), or (b) a citation-number span ending right at
+# the token -- mirrors `find_citations`' own patterns (`Section N`, bare
+# `§ N`, a full `N U.S.C. § N` federal cite, a `CODE N.N` state-code
+# cite), widened here to also accept a hyphen-continued section number
+# (SC's own "58-9-576" self-citation shape, which `_SECTION_WORD_RE`
+# itself does not match past the first dot-run -- that regex stays
+# unchanged; this is an independent pattern for this discriminator only).
+_STRUCTURAL_UNIT_WORD_SUFFIX_RE = re.compile(
+    r"\b(?:" + "|".join(sorted(_STRUCTURAL_UNIT_WORDS)) + r")\Z",
+    re.IGNORECASE,
+)
+_FULL_USC_CITATION_SUFFIX_RE = re.compile(
+    r"\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*\Z"
+)
+_SECTION_CITATION_SUFFIX_RE = re.compile(r"\bSection\s+\d+(?:[.\-]\d+)*\Z")
+_LONE_SECTION_CITATION_SUFFIX_RE = re.compile(r"§\s*\d+(?:[.\-]\d+)*\Z")
+_BARE_STATE_CODE_CITATION_SUFFIX_RE = re.compile(
+    r"\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*\Z"
+)
+# Kept for the committed G4 measurement runner, which scans the original
+# undifferentiated citation surface while production selects a branch above.
+_CITATION_NUMBER_SUFFIX_RE = re.compile(
+    r"(?:"
+    r"\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*"
+    r"|\bSection\s+\d+(?:[.\-]\d+)*"
+    r"|§\s*\d+(?:[.\-]\d+)*"
+    r"|\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*"
+    r")\Z"
+)
+
+# G4's post-QA newline exception is deliberately narrower than the general
+# discriminator: only a parenthesized token after `Section N` or lone `§ N`
+# can cross a physical line.  A leading comma, or a parenthetical pin-cite
+# chain ending in "of this act", keeps the token on the citation side.
+_CROSS_LINE_CITATION_CONTINUATION_RE = re.compile(
+    r"[ \t]*(?:,|(?:\((?:[A-Za-z]+|\d+)\)[ \t]*)*of[ \t]+this[ \t]+act\b)",
+    re.IGNORECASE,
+)
+
+# Chain continuation: once a token is rejected as citation/cross-reference
+# context, subsequent tokens joined only by adjacency or a short connector
+# (SC's real "(A)(1) or (A)(2)" -- comma and/or "or"/"and") are ALSO
+# rejected without needing their own qualifying prefix, until the chain
+# breaks. A newline anywhere in the gap always breaks the chain (a
+# paragraph break is never "short") -- this is what keeps a genuine
+# top-level marker opening the NEXT paragraph from being swept in behind
+# an unrelated citation earlier in the previous one.
+_CHAIN_CONNECTOR_GAP_RE = re.compile(
+    r"[ \t]*,?[ \t]*(?:(?:or|and)[ \t]*)?", re.IGNORECASE
+)
+
+
+def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str]]:
+    """Every candidate marker token in `body`, in document order, merging
+    parenthesized tokens (`_US_UNIT_MARKER_RE`) with G2's period-style
+    top-level tokens (`_US_PERIOD_UNIT_MARKER_RE`). Each item is `(start,
+    end, token)`: `start` is the position the G4 citation-context check
+    looks immediately before -- the opening "(" for a parenthesized
+    token (so a self-citation's own digits, e.g. "...576(C)", are seen as
+    immediately adjacent), or the marker's own first character for a
+    period-style token (no bracket to account for); `end` is the position
+    right after the token's own closing character (")" or ".") -- used
+    both for the caller's `char_offset` cutoff and as the "previous token
+    end" a chained rejection continues counting from.
+    """
+    tokens = [
+        (match.start(), match.end(), match.group(1))
+        for match in _US_UNIT_MARKER_RE.finditer(body)
+    ]
+    tokens.extend(
+        (match.start(1), match.end(), match.group(1))
+        for match in _US_PERIOD_UNIT_MARKER_RE.finditer(body)
+    )
+    tokens.sort(key=lambda item: item[0])
+    return tokens
+
+
+def _citation_or_xref_context(body: str, token_start: int) -> tuple[str | None, int]:
+    """Return the immediate context identity and its whitespace-trimmed end.
+
+    Structural words and the four citation suffix branches remain distinct so
+    G4's measured cross-newline exception can be limited to `Section` and
+    lone-`§` citations.  Uses `search(body, 0, trimmed_end)` (endpos, not a
+    slice) so `\\Z` anchors at `trimmed_end` without copying `body`.
+    """
+    trimmed_end = token_start
+    while trimmed_end > 0 and body[trimmed_end - 1].isspace():
+        trimmed_end -= 1
+    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "structural", trimmed_end
+    if _FULL_USC_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "full_usc", trimmed_end
+    if _SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "section", trimmed_end
+    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "lone_section", trimmed_end
+    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+        return "bare_state_code", trimmed_end
+    return None, trimmed_end
+
+
+def _is_citation_or_xref_context(
+    body: str, token_start: int, token_end: int, marker_form: str
+) -> bool:
+    """Whether a candidate marker remains citation/cross-reference context.
+
+    Same-line decisions, structural words, full-U.S.C., bare-state-code, and
+    period-style candidates retain the ordinary rejection.  The sole exception
+    is a parenthesized candidate following `Section N` or lone `§ N` across a
+    whitespace-only gap containing CR or LF, unless its right tail is a known
+    citation continuation.
+    """
+    context, trimmed_end = _citation_or_xref_context(body, token_start)
+    if context not in {"section", "lone_section"} or marker_form != "parenthesized":
+        return context is not None
+
+    gap = body[trimmed_end:token_start]
+    if "\r" not in gap and "\n" not in gap:
+        return True
+    return bool(_CROSS_LINE_CITATION_CONTINUATION_RE.match(body, token_end))
+
+
 def resolve_unit_path(article, char_offset: int | None = None):
     """`JurisdictionProfile.resolve_unit_path` for US -- see the module
     comment above. `char_offset=None` returns `()` (the article's own
@@ -1150,29 +1538,42 @@ def resolve_unit_path(article, char_offset: int | None = None):
     metadata fields instead).
 
     Ladder selection (I11 + follow-on): chosen ONCE per call, from the
-    shape of the first genuine marker encountered -- among THREE named
+    shape of the first GENUINE marker encountered -- among THREE named
     variants: `_DIGIT_OUTERMOST_UNIT_PATH_LADDER` if it is digit-shaped,
     `_OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER` if it is upper_alpha-
     shaped (a single uppercase letter -- see the module comment above for
     why this is an enumerated set of three, not a general per-depth-
-    learned mechanism), else the federal `_UNIT_PATH_LADDER`.
+    learned mechanism), `_UNIT_PATH_LADDER` (federal) if it is
+    lower_alpha-shaped (a single lowercase letter), else -- sprint
+    2026-08-05-defs-core-follow-on-2, gate G2, fix step 3 -- ladder
+    selection is DEFERRED past that token (it cannot open ANY of the
+    three ladders, so it must not consume the "first marker" privilege)
+    and the search continues at the next candidate. A token is a
+    candidate for ladder selection (and for the stack below) at all only
+    if it first survives the G4 citation/cross-reference discriminator --
+    see `_is_citation_or_xref_context` above; a token rejected there is
+    invisible to ladder selection too, same as it is to the stack.
 
     Honesty notes (see the Developer report's GENERALIZATION STATEMENT for
-    the full enumeration; no test pins any of these). QA cycle 1's
-    full-census scan (all 53 `us_*_statutes.parquet`, 2,038,247 rows,
-    signal-agnostic denominator) measured this precisely rather than
-    leaving it asserted -- corrected here to match what was actually
+    the full enumeration; no test pins any of these, except where a
+    sprint-2026-08-05-defs-core-follow-on-2 gate is named below). QA
+    cycle 1's full-census scan (all 53 `us_*_statutes.parquet`, 2,038,247
+    rows, signal-agnostic denominator) measured this precisely rather
+    than leaving it asserted -- corrected here to match what was actually
     found, not what an earlier draft of this note assumed:
 
     - Genuinely double-alpha-outermost: measured ZERO real rows (the one
       raw shape-candidate found was a citation fragment, not a genuine
-      enumeration) -- for THAT shape, a document's outermost marker really
-      is SKIPPED by this function (fails position 0 of every one of the
-      three ladders above, no open ancestor to match either), and every
-      marker after it is classified as though the document were
-      federal-shaped until one eventually DOES match that assumption
-      (which, per the measurement, appears not to happen in the real
-      corpus at all).
+      enumeration) -- for THAT shape, a document's outermost marker is
+      DEFERRED past for ladder-selection purposes (as of G2 fix step 3;
+      previously it fell through to an implicit federal-ladder default
+      and was then skipped at position 0 for failing to match any open
+      ancestor -- same net non-participation in the returned path either
+      way, but the mechanism changed, so this note is updated rather than
+      left stale). Every marker after it is classified once a later
+      token DOES match one of the three named shapes (which, per the
+      measurement, appears not to happen in the real corpus at all for
+      this specific shape).
     - Upper_roman-outermost is DIFFERENT, and NOT a skip: measured 5 real
       rows (0.00025% of the corpus) -- `STATE_IL_C820_A405_S1506.6`,
       `STATE_IL_C820_A405_S2101.1`, `STATE_IL_C820_A405_S403`,
@@ -1193,17 +1594,38 @@ def resolve_unit_path(article, char_offset: int | None = None):
       effect on a real row: exactly ONE spurious `upper_alpha` step,
       frozen for the rest of the call -- bounded and non-cascading, but a
       wrong kind captured, not an absence. Left as a named limitation, not
-      fixed here: the shape is vanishingly rare and prose-incidental
+      fixed here (unaffected by G2/G4 -- this token still passes the G4
+      discriminator, since it is genuine prose, not citation context, and
+      still shape-matches upper_alpha, so G2 step 3 does not defer past
+      it either): the shape is vanishingly rare and prose-incidental
       rather than a jurisdiction convention, and reclassifying it would
       touch the marker-classification path a QA cycle has already signed
       off on.
-    - Ladder selection reads only the FIRST parenthesized token's shape.
-      If that token is noise rather than a genuine marker (a citation
-      fragment, an aside), the ladder for the ENTIRE rest of the call is
-      chosen from the noise token's shape, not the document's real
-      convention -- a pre-existing risk (this mechanism has always relied
-      on the first marker being genuine), now shared across three ladder
-      choices instead of two.
+    - Ladder selection reads only the first GENUINE token's shape (gates
+      G2 fix step 3 and G4 narrow this from "first parenthesized token"
+      to "first token that both survives the citation/cross-reference
+      discriminator and shape-matches one of the three named rungs").
+      Residual risk, still open: a token that is noise in some OTHER
+      sense -- not citation/cross-reference context, not shape-mismatched
+      -- can still wrongly seed the ladder if it happens to be the first
+      thing in the body and is not the document's real convention-opener;
+      no real corpus row exercising this residual was found while
+      implementing G2/G4, but no full-census re-scan was run to confirm
+      its absence either, so this is reported as an open risk, not a
+      closed one.
+    - G4 residual, newly observed while implementing this gate (not
+      covered by any test in this sprint, reported per rule D-Q1 rather
+      than silently left out): the citation/cross-reference discriminator
+      only recognizes the CLOSED `_STRUCTURAL_UNIT_WORDS` vocabulary
+      (division, subdivision, article, part, section, title, chapter,
+      paragraph, subsection, subchapter) plus `Section`/`§`/U.S.C./state-
+      code citation shapes. A cross-reference using a word OUTSIDE that
+      vocabulary -- e.g. real SC text "under subitem (3) of this
+      subsection" / "provided in item (8)" -- is NOT recognized as
+      citation/cross-reference context and is treated as a genuine
+      marker, which can transiently mis-set the stack's value until the
+      next real marker at that rung overwrites it (bounded, non-cascading
+      per row measured, but not zero -- an open gap, not silently closed).
     """
     from app.definition_links.rules.registry import UnitStep
 
@@ -1212,17 +1634,42 @@ def resolve_unit_path(article, char_offset: int | None = None):
 
     stack: list = []
     ladder: tuple[str, ...] | None = None
-    for match in _US_UNIT_MARKER_RE.finditer(article.body):
-        if match.end() > char_offset:
+    last_rejected_end: int | None = None
+    for start, end, token in _iter_us_unit_marker_tokens(article.body):
+        if end > char_offset:
             break
-        token = match.group(1)
+        # G4: citation pin-cite / in-prose cross-reference discriminator --
+        # a token immediately continuing an already-rejected token's chain
+        # (adjacency or a short connector, no newline in the gap) is
+        # rejected without its own qualifying prefix; otherwise it is
+        # rejected if IT is itself immediately preceded by citation/
+        # cross-reference context. Either way, a rejected token never
+        # touches the stack or ladder selection below.
+        if last_rejected_end is not None and _CHAIN_CONNECTOR_GAP_RE.fullmatch(
+            article.body[last_rejected_end:start]
+        ):
+            last_rejected_end = end
+            continue
+        marker_form = "parenthesized" if article.body[start] == "(" else "period"
+        if _is_citation_or_xref_context(article.body, start, end, marker_form):
+            last_rejected_end = end
+            continue
+        last_rejected_end = None
         if ladder is None:
             if _marker_matches_kind(token, "digit"):
                 ladder = _DIGIT_OUTERMOST_UNIT_PATH_LADDER
             elif _marker_matches_kind(token, "upper_alpha"):
                 ladder = _OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER
-            else:
+            elif _marker_matches_kind(token, "lower_alpha"):
                 ladder = _UNIT_PATH_LADDER
+            else:
+                # G2 fix step 3: this token cannot open ANY of the three
+                # ladders -- defer ladder selection to the next candidate
+                # rather than defaulting to federal (real evidence: Maine's
+                # leading "(NEW)" revisor annotation must not hijack the
+                # ladder for a document whose real convention is
+                # digit-outermost).
+                continue
         expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
         if expected_kind is not None and _marker_matches_kind(token, expected_kind):
             stack.append(UnitStep(kind=expected_kind, value=token))
@@ -1248,10 +1695,12 @@ def resolve_unit_path(article, char_offset: int | None = None):
             # real Maine annotation text never actually reaches (6 open
             # ancestor levels; measured real max nesting is 4) -- so it
             # falls through to here too, in practice, on every real row
-            # measured. Also includes citation/aside noise the module
-            # docstring names as a separate, pre-existing, out-of-scope
-            # gap -- unaffected in kind by this fix, just no longer
-            # corrupting every step that follows it.
+            # measured. Citation/cross-reference noise is now caught
+            # earlier, above, by the G4 discriminator instead of relying
+            # on this fallback -- this branch still exists for the
+            # residual, out-of-vocabulary cross-reference gap the
+            # docstring's G4 honesty note names, and for any other
+            # genuinely unclassifiable token.
             continue
     return tuple(stack)
 
@@ -1328,6 +1777,12 @@ class USProfile:
         EVERY block (baseline or rule-contributed) is run through
         baseline's own per-block leading-quote parser AND every registered
         `TermClauseRule.parse` -- zero-miss, no rule suppresses another.
+        (Sprint 2026-08-05-defs-core-follow-on-2, gate G10, seam v2.9: a
+        rule offering `parse_scoped` is dispatched with a `TermClauseContext`
+        carrying this method's own `scope` instead, so the rule sees the
+        section's real determined scope rather than being forced to guess
+        or hardcode one -- `parse` itself is unchanged and still the
+        dispatch target for every rule that does not opt in.)
         The `heading_was_derived` inline-quoted fallback still runs last,
         only when the union above produced nothing, preserving the exact
         "zero-risk for the 7 already-working states" guarantee (baseline-
@@ -1348,7 +1803,12 @@ class USProfile:
                 candidates.append(candidate)
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):
-                candidates.extend(rule.parse(block))
+                if rule.parse_scoped is not None:
+                    candidates.extend(
+                        rule.parse_scoped(block, registry.TermClauseContext(scope=scope))
+                    )
+                else:
+                    candidates.extend(rule.parse(block))
 
         if not candidates and heading_was_derived:
             candidates = _extract_inline_quoted_definitions(text, scope=scope)
@@ -1383,6 +1843,36 @@ class USProfile:
                 return detected
         return baseline
 
+    def determine_scope_assignments(
+        self, body_text: str, *, scope: str, article_number: str, chapter: str | None
+    ) -> tuple[registry.ScopeAssignment, ...]:
+        """(G6, sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §3):
+        ADDITIVE -- does not change `determine_scope`'s own signature,
+        contract, or return value. Replays `determine_scope`'s OWN
+        baseline-first, first-non-None-wins dispatch exactly (same
+        baseline free function, same registry walk, same order), so "the
+        winning rule" is always identical between the two methods by
+        construction. `scope` is the kind `determine_scope` already
+        returned for this same `body_text` -- used only to build the
+        narrow, self-referential DEFAULT assignment (never re-derived
+        independently, never a broadening default, M9)."""
+        from app.definition_links.rules import registry
+
+        default = registry.default_scope_assignment(
+            scope, article_number=article_number, chapter=chapter
+        )
+        if determine_scope(body_text) == "chapter":
+            return (default,)
+        for rule in registry.scope_kind_rules_for(self.code):
+            detected = rule.detect(body_text)
+            if detected is not None:
+                if rule.detect_value is not None:
+                    assignment = rule.detect_value(body_text)
+                    if assignment is not None:
+                        return assignment if isinstance(assignment, tuple) else (assignment,)
+                return (default,)
+        return (default,)
+
     def derive_heading_from_body(self, heading: str, body: str) -> str | None:
         """Baseline (the bare `derive_heading_from_body` function above,
         unchanged -- still gated on `_is_placeholder_heading`, which is
@@ -1415,10 +1905,31 @@ class USProfile:
         A rule that leaves `.source_article_number` unset (the common
         "local to THIS article" case) gets it defaulted here to
         `article_number`; a rule that stamps its OWN target (e.g. an
-        enumerated/cross-article scope, M9) is respected unchanged."""
+        enumerated/cross-article scope, M9) is respected unchanged.
+
+        G5 (sprint 2026-08-05-defs-core-follow-on-2): `ctx.unit_path` is
+        computed via the SAME bound resolver as `ctx.resolve_unit_path`
+        (at `char_offset=None`, correctly `()` -- no match position exists
+        yet at this whole-body-scan point), instead of a bare `()`
+        literal, so a future change to `resolve_unit_path`'s own
+        None-handling can never leave this stale. `ctx.resolve_unit_path`
+        lets a rule ask for the REAL path at ITS OWN match offset (not
+        known until the rule's own regex finds it) -- byte-identical to
+        calling `self.resolve_unit_path(article, offset)` directly, zero
+        duplicated logic."""
         from app.definition_links.rules import registry
 
-        ctx = registry.RuleContext(article_number=article_number, chapter=chapter, unit_path=())
+        article_stub = SimpleNamespace(body=article_body)
+
+        def _resolve(offset: int) -> registry.UnitPath:
+            return self.resolve_unit_path(article_stub, offset)
+
+        ctx = registry.RuleContext(
+            article_number=article_number,
+            chapter=chapter,
+            unit_path=self.resolve_unit_path(article_stub, None),
+            resolve_unit_path=_resolve,
+        )
         candidates: list[DefinitionCandidate] = []
         for rule in registry.scope_trigger_rules_for(self.code):
             for candidate in rule.extract(article_body, ctx):

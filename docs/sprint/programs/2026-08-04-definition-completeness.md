@@ -112,13 +112,15 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 | `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | **MERGED to main @ 06d67d8** (2026-08-04): 11/11 items, 2 QA cycles, evaluator 700/0/165/tsc-clean, program-manager merge checklist run (containment probe, risk-classed diff read incl. full persistence hunks, own evaluator run). Authoritative seam = v2.5 in `2026-08-04-defs-core-scope-seam.md` — family panels MUST re-read it (they planned against v2.2-2.4) | **DONE** |
 | `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
 | `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
-| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | Family 2: body preamble without the literal word "Definitions" (GA/MD/NE/MS zero-signal states + SD-dominant + low-volume everywhere) | 2+ (after core) |
-| `2026-08-04-defs-us-markers` | `claude/defs-us-markers` | Family 3 (highest corpus impact): entry-marker mismatch — bare digit-dot, unquoted caps, mojibake (AL/AZ/AK/IL/AR/RI), bare-(N) (SC), nested lettered sub-clauses (UT), colon-then-list (TN), AND the no-marker inline-quote sub-case dominating VA(97%)/WA(98%)/FED(84%)/WV/DC + DC's unquoted-term shape. The existing-but-unwired inline fallback rescues most (dossier §6 finding #1) | 2+ (after core) |
+| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **ACTIVE cycle 9 @ 7d87d08.** Contract lint repaired; recovered Planner artifact rejected pending a correction pass for weak tuple/occurrence assertions, missing live forwarding-filter measurement, and mutation proof. Production remains frozen. | 3rd pending merge slot |
+| `2026-08-04-defs-us-markers` | `claude/defs-us-markers` | **QA-CERTIFIED @ abd1d02.** P-D2 final QA: 788,766 default rows and 761,019 non-MN production rows at zero delta; MN 51 additions (33+18), 19 comma-pair replacements, 9,385 strict Subd truncations, zero residual; backend 894 + 25 named holds, frontend 165, typecheck clean. | 2nd pending merge slot; combined G3-HEAL first |
 | `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
 | `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
 | `2026-08-04-defs-us-pr` | `claude/defs-us-pr` | NEW: Puerto Rico Spanish-language rules — Definiciones headings, significa / A los fines de / se entenderá por idioms, Spanish scope phrases; ~529 sections 100% missed today | 2+ (after core) |
 | `2026-08-04-defs-core-dispatch` | `claude/defs-core-dispatch` | **MERGED to main @ 8524067** (2026-08-04): 11 items, QA PASS (770/0/165/tsc, program-manager checklist run). P-R8 CLOSED — all 7 rule kinds live + mutation-proven on both profiles; level-aware containment (M-D3/v2.7 + erratum: panels declare scope_unit_kind from their OWN measured convention, never the illustrative table); 3-ladder resolver (federal/digit/upper-alpha outermost); Maine annotation + citation fixes | **DONE** |
-| _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict. **Carried-forward items (from dispatch QA, pre-existing, measured):** ladder selection keys on first parenthesized token (noise-first rows OH 6.51%/FED 1.60%/OR 0.20%); subsection-level ties (distinct from M10 — a principled narrowest answer exists, scope_rank never inspects kind); single-char roman sibling collapse; heading_breadcrumbs=() | last |
+| _program close_ | — | Program-level integration QA: full-corpus US + IL runs on the merged tree; aggregate zero-miss verdict. **Carried-forward items (from dispatch QA, pre-existing, measured):** ladder selection keys on first parenthesized token (noise-first rows OH 6.51%/FED 1.60%/OR 0.20%); subsection-level ties (distinct from M10 — a principled narrowest answer exists, scope_rank never inspects kind); single-char roman sibling collapse; heading_breadcrumbs=(). **Core follow-on 2 candidates — COMMISSIONED 2026-08-05 as sprint `2026-08-05-defs-core-follow-on-2` (contract in sprints dir, gates G1–G7 cover all six; merges FIRST among pending program merges):** us_profile._leading_quote_candidate does not .strip() padded quote contents (padded terms like ' Conviction ' silently under-link mentions — real MS rows, preamble panel evidence @ 92c2b1f) while the inline fallback does strip (inconsistency); resolve_unit_path has no period-style marker support (ME "2-A." → 81% subsection-degrade, AZ 69.6%, measured by scoped-inline dev3); RuleContext.unit_path hardcoded () (rules import resolve_unit_path directly); NO scope-VALUE seam for enumerated/tuple scopes — ScopeKindRule returns a kind string only and us_profile.determine_scope hard-codes a 2-way "chapter"|"law-wide" contract, so an enumerated local scope (AK 9-chapter tuple, KY 2-article enumeration — headings cycle-5 item 14) has no registrable path from heading value to Definition (headings Planner escalation, plan5 @ 8cd3829); FED unbounded-last-entry defect lives in us_profile._split_into_numbered_blocks, which runs BEFORE registered rules and wins the dedup race — un-fixable behind the registry seam (markers' 1 held RED; explains DC 27.3→27.2 non-movement; blocks FED/DC/NY tail recall); citation pin-cites CORRUPT resolve_unit_path's marker stack (scoped-inline pass-7 Planner, quote-verified: SC "Section 58-9-576(C)" resets the stack to [C] and genuine (c)(i) markers are then silently skipped; TX "Section 37.007(a)(1)" same; ME "(NEW)" revisor annotation misselects the federal ladder and the path gets built from CFR/USC pin-cites — non-empty WRONG paths, worse than the empty-path S-R16 class); AL "(N) LABEL. To X means" class MEASURED (scout aa02b1af67484dda8, full report in its task output): 3,963 occ / 1,031 rows / **714 genuinely un-rescued rows** (0.03% of corpus — the "tens of thousands" premise was wrong; 317 rows incl. the motivating AL row are already F3-heading-rescued); sample 92.7% genuine but ~30% of naive captures in the true residue would be wrong, dominated by the "(A) In general.—"/"en general" nested-sub-header decoy (144 occ / 94 rows, federal+PR). RULED (program manager, under D-CF guard precedent + zero-miss; director-vetoable): bounded ADDITIVE item, joint ownership — scoped-inline owns the new separate marker+label+quote pattern (load-bearing `_MARKER_QUOTE_RE` adjacency test stays byte-untouched) + prefer-quoted-string term selection; markers owns boilerplate-label classification (blocklist: "in general", "en general", "generally", "definitions", …). Sequenced after both panels' current builds | last |
+
+| `2026-08-05-defs-core-follow-on-2` | `claude/defs-core-follow-on-2` | **MERGED to main @ d783052** (2026-08-06): QA cycle 3 PASS; G1–G6, G8–G10, G12–G13; G9 real-DDL migration test; manager merge checklist + exact G7 replay; backend 850, frontend 165, typecheck clean. Named residuals remain G3-sibling NO-GO, G11 deferred, G6 TN 1/8 gap, G4 37+47 debt, and 31 G8 trims deferred. | **DONE — first pending slot** |
 
 Working-baseline regression-guard states for every US sprint:
 IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
@@ -179,6 +181,84 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   `wf_db6cce4d-7eb`, 4 systems: IL / US states / US federal / PR). Core's
   v2.1 unit machinery serves both scope containment AND connection
   addressing.
+
+- **D-INCLUDES-MEASURE (2026-08-05): the `includes`-as-defining-verb class
+  (15 rows, headings panel) is NOT ruled — the director requires the
+  false-positive side measured first.** A read-only scout (commissioned via
+  the headings phase-3 manager) measures corpus-wide quoted-term+"includes"
+  occurrences with a signal-agnostic denominator, hand-judged sample, and at
+  least one tightened guard variant if the naive anchor's FP rate is
+  material. The class stays open on the headings ledger until the director
+  rules on the returned data.
+- **D-S15 (2026-08-05): "this subsection" scopes to the OUTERMOST unit
+  (top-level subdivision) by default.** Chosen on manager-verified data: SC
+  counterexample links 0/4 under innermost vs 4/4 under outermost on the
+  real merged matcher; statutes' own self-descriptions support
+  outermost 202,943:12 across 48/53 jurisdictions. Conditions carried with
+  the ruling: SD/VT/NY inverted conventions become NAMED follow-ups
+  (per-state override or accepted trace-volume over-link — enumerate, don't
+  bury); the Oregon direction-2 test that encoded the innermost reading is
+  RE-AUTHORED (Planner-level), not preserved; the swappable decision point
+  stays (deeper trigger vocabularies — "this paragraph" — keep exact
+  declared-kind matching, already supported by the matcher); QA cycle 2
+  re-derives the 19.4% under-link figure as planned. Supersedes the S-R15
+  innermost interim.
+
+- **D-CERT (2026-08-05): the program closes by INVERTED CERTIFICATION.**
+  Chosen on the three-panel convergence (IL manager's escalation: three QA
+  cycles each found a new class only by widening the denominator; preamble
+  P-R7: 59,461 uncaptured candidates at ~94% genuine; headings: a connector
+  whitelist cannot close an absolute bar — the tail is unbounded). Close
+  bar: build signal-agnostic candidate denominators (IL: every quoted-term
+  occurrence, ~10^5; US: the P-R7 91,878-hit denominator, extended) and
+  classify EVERY candidate as captured / fixed / proven-not-a-definition /
+  director-named residual. Roughly one certification sprint per track: IL's
+  folds into Phase D after its known residual classes (A/B/C + E6) build;
+  the US track IS the program-close integration QA, commissioned by the
+  program manager on the merged tree. M18 (denominators come from the entry
+  LINE, never the entry grammar) is program law for the certification
+  builds.
+
+- **D-INCLUDES (2026-08-05): the `includes` defining-verb class is CAPTURED
+  with the naive quoted-term anchor, program-wide.** Measurement (respawned
+  scout, artifacts headings_scout1/2_* in session scratchpad): 50,528
+  anchor occurrences / 32,199 rows corpus-wide; 100/100 hand-read
+  occurrences definitional across two independent seeds (one-sided 95%
+  upper bound 3.6% FP; adversarial outlier probes also all definitional);
+  tightened guards measured to cost 32–56% of TRUE definitions for no
+  measured precision gain — rejected. Consequences: "includes"/"shall
+  include" variants join the program-wide defining-verb vocabulary; each
+  family panel widens its OWN rules red-first. The PA construction-clause
+  protection ("References to \"X\" shall include Y") is preserved by a
+  TARGETED guard — suppress only when the quote is preceded by "References
+  to" (measured: 22 construction-clause rows protected vs 4,729 genuine
+  recall rows, scoped-inline QA2 item 11) — never by idiom-absence; panels
+  whose pins relied on the absence mechanism re-author them to assert the
+  guard. Known recall limits of the naive anchor, enumerated not hidden:
+  non-adjacent "includes" (colon+numbered-list between term and verb) and
+  unquoted defined terms (2 control misses, both characterized);
+  Massachusetts has ZERO anchor occurrences corpus-wide (flagged for
+  follow-up: drafting convention vs corpus artifact).
+
+- **P-FP (program manager, 2026-08-05): false-positive granularity follows
+  the rule's OUTPUT.** For CAPTURE/extraction rules, an FP exists only if a
+  captured (row, term, definition_text) is not a genuine definition of that
+  term in that row — trigger-clause mislabeling that still yields genuine
+  definitions is a recognition-path note, not an FP. For RECOGNITION rules
+  (heading/preamble detection), row-level measurement remains correct,
+  because the row IS the rule's output. Certification (D-CERT) consumes
+  DEFINITION-granularity numbers for all capture claims — already the IL
+  contract's per-(row,term) design; the US track inherits it. Two binding
+  corollaries: (1) forwarding/"has the meaning given in" definitions are
+  GENUINE definitions per D-MT-E1 (capture + reference edge) — a
+  defining-verb pattern that excludes forwarding idioms contradicts a
+  director ruling and is rejected by construction; (2) any row-level FP
+  number already recorded for a capture rule (preamble cycle-7's 18%/14%
+  headline) is re-stated at definition granularity before certification
+  consumes it. Origin: preamble M-R63/M-R65 — its manager proved the two
+  metrics disagree on real rows (USC_T22_C102_S9528 flagged "FP" while
+  genuinely defining "foreign person"/"Syria" by forwarding reference;
+  exactly one of six flagged rows was true definition-level garbage).
 
 ## Program rulings added during execution
 
