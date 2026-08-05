@@ -7684,3 +7684,80 @@ skip-over-xfail mechanism — the "xfail would misrepresent it as
 might-start-passing" reasoning is the semantic honesty the pin conventions
 exist for. The 67-row vocabulary ship proceeds under the report-a-sixth-shape
 instruction as M-R18's end state.
+
+---
+
+## 2026-08-05 — Manager: closed vocabulary + anchoring VERIFIED (cc1cf68)
+
+### Handoff verification
+
+HEAD `cc1cf68` == origin, tree clean, stash empty. Diff is **one file** —
+`pr_profile.py` (+151/−5). `backend/tests/` → empty. Every forbidden core file
+→ empty. Suite `24 failed / 1034 passed / 6 skipped / 13 xfailed`: 49−25=24,
+1009+25=1034, arithmetic exact, 6 skips and 13 xfails unchanged.
+
+**Chapter scope 21 → 28/633 (+7)**, exactly the 6 vocabulary rows plus the
+anchoring target. **Article scope: 65 rows newly produce candidates**, closing
+a gap where `Sección` had been 100% unsupported.
+
+### The course correction that matters
+
+The Developer's first anchoring design — ungated "always also try sentence 2" —
+measured **12 flips, not the predicted 7**, and it investigated rather than
+accepting the larger number as a bonus. Three were genuine false positives
+(trigger-shaped phrases sitting inside another entry's own definition text),
+including `STATE_PR_LEY_77_1957_ART36_010`, **a row the Planner's own sweep had
+already hand-excluded one sentence earlier for exactly that reason**. A fourth
+was reachable only through an unrelated accident: a `[Nota: …]` editorial
+bracket whose `"Art."` abbreviation fooled the naive period-based sentence
+splitter.
+
+It then redesigned to the gated form (consult sentence 2 only when sentence 1
+is itself a short-title/citation-naming clause), re-measured, and got exactly 7
+with zero false positives.
+
+This is the **fourth consecutive cycle** in which corpus measurement caught
+something the target tests could not — but the first in which the agent caught
+its **own** design before shipping it. The tests would have gone green on the
+ungated version. That is the M-R18 discipline working as intended rather than
+being enforced after the fact.
+
+### 65 vs the Planner's 67 — reconciled, and the Planner was the one off
+
+Not a shortfall. The Developer reproduced the Planner's 247-row population
+exactly and its **after-state residual is 162/247 — matching the Planner's
+prediction bit for bit**. The 2-row gap sits entirely in the *before* baseline:
+calling the literal pre-fix module via `git show`, 20 of the 247 already had
+candidates, not 18. Small inaccuracy in the Planner's simulation, not in the
+implementation. Verifying "before" by loading the actual old code rather than
+trusting a recorded number is the right instinct and I want it noted.
+
+### Judgment I endorse: gender-locking
+
+It implemented `este Artículo` / `esta Sección` as gender-correct pairs rather
+than a blind `este|esta` × `Artículo|Sección` cross-product, and **measured that
+this costs zero recall**. A blind cross-product would have matched
+ungrammatical Spanish and widened surface area for nothing. Correct call, and
+correctly evidenced rather than asserted.
+
+### New residual — ledgered
+
+`STATE_PR_RENTAS_SEC1102_01`: a **reading-substitution idiom** (`el término
+"X" según se usa en la Sección Y deberá leerse "Z"`) shares the surface shape
+of the new `"el término "` lead-in but is a cross-reference re-interpretation,
+not a fresh definition. 1 of 80 hand-checked candidates (**79/80 = 98.75%
+genuine**, and it checked all 80 rather than sampling). Deliberately not
+patched — a disambiguation heuristic is new precision machinery, out of a
+vocabulary-closure pass. Named on the ledger.
+
+### No sixth shape
+
+Reported explicitly. M-R18's class-closure holds under an independent
+implementation pass.
+
+### Next
+
+Independent QA: re-derive the blast radius, re-check genuineness, and settle
+the **chapter-degeneracy premise** under the pre-agreed framing (confirmed →
+named characterization, not a defect; refuted → nothing changes; either way it
+does not gate the close).
