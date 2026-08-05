@@ -32,30 +32,18 @@ zero-miss-safe, precision cost recorded not silently dropped (NAMED OPEN
 CONFLICT CLASSES, P-R2).
 
 `"subsection"`'s own history (S-R9 diagnosis -> S-R10 live-path proof ->
-S-R11 interim -> S-R14 fix -> D-S15 director ruling): the old design
-compared this module's OWN `_subsection_label` regex guess against core's
-`resolve_unit_path` -- two independent derivations of the same label that
-never agreed (a level mismatch, nearest-marker vs. outermost step, plus a
-format mismatch), producing a silent, total under-link on the live path
-(S-R10). S-R14 replaces the two derivations with ONE: `_resolve_subsection_
-scope` calls core's `resolve_unit_path` at the trigger's OWN char offset
-and stamps BOTH `.scope_value` and `.scope_unit_kind` from the SAME step
-core returns -- never from this module's own label's glyph shape (kind
-follows core's ladder DEPTH, not shape; a shape guess silently disagrees
-with core on the real `STATE_OR_T22_C238_S238.300` row, S-R14). WHICH
-step of the returned path to use is the S-R15/D-S15 policy question,
-factored into the one function `_subsection_scope_level` (now binding on
-the OUTERMOST step, `path[0]`, overruling S-R15's innermost interim --
-full SC live-path evidence and the corpus-wide vocabulary census are in
-that function's own docstring, `us_scoped_inline_shapes.py`, not repeated
-here). When core's resolver returns no usable step at all (e.g. Maine/
-Florida period-style `1.`/`2-A.` subsections -- core's marker regex
-matches only PARENTHESIZED markers), a true `"subsection"` scope would be
-guaranteed to link nothing; `_resolve_subsection_scope` degrades that one
-candidate to `"local"` instead -- the same narrowest-REPRESENTABLE-unit
-fallback precedent as S-R9/S-R11, zero-miss-safe, precision cost measured
-not silently dropped (unaffected by D-S15: the degrade fires on an EMPTY
-path, before `_subsection_scope_level` is ever called).
+S-R11 interim -> S-R14 fix -> D-S15 director ruling, full detail in
+`us_scoped_inline_shapes.py`'s own docstring, not repeated here): the old
+design compared this module's OWN regex-guessed label against core's
+`resolve_unit_path` -- two derivations that silently disagreed, a total
+under-link on the live path (S-R10). S-R14 replaces both with ONE:
+`_resolve_subsection_scope` stamps `.scope_value`/`.scope_unit_kind` from
+core's OWN resolved step, never a shape guess. WHICH step is
+`_subsection_scope_level`'s job (D-S15: the OUTERMOST step, `path[0]`).
+When core's resolver returns no usable step at all (Maine/Florida
+period-style subsections core's marker regex cannot see),
+`_resolve_subsection_scope` degrades to `"local"` -- zero-miss-safe,
+unaffected by D-S15 since the degrade fires on an EMPTY path.
 
 The pure function leaves `.source_article_number`/`.source_chapter` `None`
 (matching `extract_local_definitions`'s convention): `us_profile.py`'s
@@ -84,27 +72,33 @@ by a quote) from ever being recognized.
 
 Fix cycle 2 (QA cycle-1, 8 root causes -- full detail and real-corpus
 before/after evidence in this sprint's report): the body-shape regex
-vocabulary and entry-splitting helpers (`_STRONG_CONNECTOR_RE`,
-`_IDIOM_RE`, `_MARKER_RE`/`_MARKER_QUOTE_RE`, `_single_entry`,
-`_multi_entries`, and the new `_unmarked_multi_entries` fallback) now
-live in the sanctioned overflow module `us_scoped_inline_shapes.py`
-(style gate -- this file was already at the 300-line ceiling). Added:
-period-style list markers (`1.` `2.`), a colon-then-quoted-list with NO
-per-entry marker (the single most severe QA cycle-1 miss -- the entire
-block was silently dropped, not merely under-split), one tolerated
-intervening "and [in] <citation>" clause between the trigger's unit word
-and the definiendum, `the term`/`the terms` without requiring trailing
-whitespace before a colon, `shall have (the following) meaning(s) (as
-follows)`, plural `have the same meaning as`, an "X" or "Y" alias chain
-sharing one idiom, and a bare copula `is` (measured against the real
-corpus for false-positive surface per program ruling D-Q1 before
-shipping -- see the report). The two precision gates flagged as
+vocabulary and entry-splitting helpers moved to the sanctioned overflow
+module `us_scoped_inline_shapes.py` (style gate -- this file was already
+at the 300-line ceiling). Added: period-style list markers, an unmarked
+colon-then-quoted-list fallback (the single most severe QA cycle-1 miss),
+one tolerated intervening "and [in] <citation>" clause, `the term(s)`
+without requiring trailing whitespace before a colon, `shall have (the
+following) meaning(s) (as follows)`, plural `have the same meaning as`,
+an "X" or "Y" alias chain, and a bare copula `is` (measured against the
+real corpus per D-Q1 -- see the report). The two precision gates flagged
 load-bearing-but-under-pinned by QA cycle-1 mutation testing are
 UNCHANGED by this cycle: the bare-`in` trigger's strict comma/colon
-adjacency gate (`_BARE_CONNECTOR_RE`, this file), and
-`_MARKER_QUOTE_RE`'s marker-immediately-followed-by-quote rule (only the
-marker SYNTAX vocabulary widened to include period-style numbers, never
-the immediate-adjacency requirement itself).
+adjacency gate, and `_MARKER_QUOTE_RE`'s marker-immediately-followed-by-
+quote rule (only the marker SYNTAX vocabulary widened, never the
+immediate-adjacency requirement itself).
+
+Fix cycle 5 (QA cycle-2, 6 root causes; full detail and corpus-wide
+measurement in this sprint's report): `_UNIT_TAIL` (Georgia's "Code
+section") is the only change here. The other five live in
+`us_scoped_inline_shapes.py` (vocabulary) and the new sanctioned overflow
+module `us_scoped_inline_entries.py` (entry-splitting mechanics, moved out
+this cycle to stay under the 300-line gate a second time; also holds the
+D-INCLUDES targeted "References to" guard). Both precision gates flagged
+load-bearing by QA cycle-1 mutation testing are UNCHANGED again: the
+bare-`in` adjacency gate (`_BARE_CONNECTOR_RE`'s `colon`/`comma` groups,
+which `_leading_events` below still reads directly; this cycle's new
+tolerance is appended AFTER them, never inside), and `_MARKER_QUOTE_RE`'s
+marker-immediately-followed-by-quote rule (untouched this cycle).
 """
 
 from __future__ import annotations
@@ -118,15 +112,17 @@ from app.definition_links.rules.registry import (
     ScopeTriggerRule,
     register_scope_trigger_rule,
 )
+from app.definition_links.rules.us_scoped_inline_entries import (
+    _find_entry_end,
+    _multi_entries,
+    _single_entry,
+    _unmarked_multi_entries,
+)
 from app.definition_links.rules.us_scoped_inline_shapes import (
     _BARE_CONNECTOR_RE,
     _IDIOM_RE,
     _STRONG_CONNECTOR_RE,
-    _find_entry_end,
-    _multi_entries,
     _resolve_subsection_scope,
-    _single_entry,
-    _unmarked_multi_entries,
 )
 
 _SCOPE_BY_UNIT: dict[str, str] = {
@@ -150,7 +146,11 @@ _UNIT_ALT = "|".join(sorted(_SCOPE_BY_UNIT, key=len, reverse=True))
 # (1)(a)(I)(A),". Was a single optional group (`?`); a chain of qualifiers
 # immediately after the unit word left the later ones unconsumed, breaking
 # both the connector match and the quote-adjacency check that follows.
-_UNIT_TAIL = rf"(?P<unit>{_UNIT_ALT})\b(?:\s*\([^)\n]{{1,12}}\))*"
+# Fix cycle 5, finding 4 (Georgia): optional "Code " before the unit word
+# -- "Code section" names the SAME unit as plain "section" (1,299 rows use
+# "as used in this Code section", vs. 1 plain-form GA row), so no
+# `_SCOPE_BY_UNIT` change is needed.
+_UNIT_TAIL = rf"(?:Code\s+)?(?P<unit>{_UNIT_ALT})\b(?:\s*\([^)\n]{{1,12}}\))*"
 
 _STRONG_TRIGGER_RE = re.compile(
     rf"(?:as used in|for (?:the )?purposes? of|when used in)\s+this\s+{_UNIT_TAIL}", re.IGNORECASE
