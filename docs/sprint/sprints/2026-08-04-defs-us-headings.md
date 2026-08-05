@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-headings"
-status: in-progress
-current_role: qa
+status: qa-certified
+current_role: manager
 branch: claude/defs-us-headings
 worktree: /Users/nerya/LexGraph-wt/defs-us-headings
 locked_by: "claude-code:sprint-manager"
@@ -12,7 +12,7 @@ program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 15
-completed_items: 0
+completed_items: 15
 dev_complete_items: 12
 qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"

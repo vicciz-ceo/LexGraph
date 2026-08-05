@@ -3347,3 +3347,41 @@ scratch, none read from another agent): `qac4_census.py`,
 director-level certification decision, not a bounded mechanical check.
 **Haiku considered: no** — role-forbidden by P-R6 and this cycle decides a
 director-level certification.
+
+### Manager verification of QA cycle 4 — BOUNCE NOT WARRANTED, CERTIFY ACCEPTED
+
+Report delivered by the QA agent **directly via SendMessage** — the new
+reporting protocol's first live use, and it worked.
+
+Independently re-run by the manager, not taken on trust:
+
+| Check | Result |
+|---|---|
+| QA commit scope | **doc-only** — 0 files under `backend/app/`, 0 under `backend/tests/` |
+| U3 across the **FULL branch history** (`git diff main...HEAD -- backend/app/`) | **7 files, every one inside `rules/us_heading_variants/`, zero elsewhere** |
+| L12's 3 rows re-fetched from the real corpus, re-run through the LIVE profile | all three **False** today, bodies exactly as described (`The term "operation and maintenance expenses" does not include:`, `The term "pledged revenues" does not include…`, CO insurance-producer exemptions) |
+| Suite at the merged state | **860 passed / 0 failed** |
+| Log merge | resolved as a **union**, mechanically verified: **0 non-blank lines lost from either parent**, 0 markers remaining |
+
+**Why this is a CERTIFY and not a bounce.** The 3 L12 rows are unfixable inside
+this panel's write-set: capturing them needs either a shared-module edit (U3
+forbids) or a relaxation of the D-HG guard (the director forbids). Bouncing
+would consume the panel's final QA cycle for no actionable outcome. This is
+precisely the "named residual for the director" end-state the stakes
+contemplate.
+
+**Manager's own observation, added for D-CERT.** L12's three rows and L7's two
+remaining unreached rows share one shape: the body defines by **exclusion** —
+`The term "X" does not include …` — a defining verb outside BOTH panels'
+vocabularies (which key on `means` / `shall mean` / `has the meaning`). The
+manager's own earlier L7 probe hit the same shape independently
+(`STATE_MT_T39_C51_P2_S39-51-204`: `The term "employment" does not include:`).
+So this is not five scattered orphans but **one coherent cross-ledger class**,
+and QA's recommendation is right: a single body-side exclusionary-verb gate
+would close L7's remainder and L12 together. Recommended to D-CERT as one item.
+
+**First cycle with no new mechanical gap class.** Cycles 2, 3 and the phase-3
+convergence scan each found one; cycle 4 found none, and its 100-row
+first-pass unassigned bucket was hand-read in FULL and resolved entirely into
+refinements of already-known exclusion shapes. That is the convergence signal
+this panel has been missing for three cycles.
