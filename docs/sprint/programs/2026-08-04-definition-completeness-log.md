@@ -87,6 +87,22 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (CORRECTION — NY zero-capture figure timeline): This log's
+  earlier entries cite NY at 85.3%/79.9% zero-capture; those are
+  PRE-devC-merge figures and must be labeled as such wherever quoted. The
+  reconciled timeline (both panels agree, verified against markers M24 and
+  multiterm QA-2): raw parquet no-ingest 1,479/100% (ARTIFACT — the
+  literal-\n trap, never a product measurement); post-ingest pre-devC
+  1,181-1,245 / 79.9-84.2% (tree-dependent heading detection, same stage);
+  post-ingest POST-devC merged = 160 / 10.8% — THE CURRENT CITABLE NY
+  FIGURE. Credit: each panel caught the other's stale/artifact number
+  (multiterm surfaced the record's stale 85.3%; markers refuted the raw
+  measurement). New program measurement rule adopted from the exchange: a
+  DIFFERENTIAL between two versions on identical input is immune to a
+  systematic input defect (it cancels); an ABSOLUTE rate is not — when an
+  input-layer defect surfaces, re-derive the absolutes, keep the
+  differentials.
+
 - 2026-08-05 (P-ALT: contract altitude ruled): Three independent arrivals
   at "which altitude is the contract" (multiterm's M-R18 pin, markers'
   M40 persisted-idiom observation, U-R13's engine-vs-persisted framing)
