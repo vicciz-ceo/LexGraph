@@ -3353,3 +3353,103 @@ them:
   shapes are component-B-only).
 - Whether widening any of these rules materially changes FP is a SEPARATE
   question — that is D3, below, not this measurement.
+
+---
+
+## 2026-08-05 — Planner: D2, RED tests pinning per-rule attribution (M-R44)
+
+6 new files, `backend/tests/integration/test_us_body_preamble_shape{2,3,5,
+6,7,8}_*_red.py`, one per in-family shape the sprint charter's D2 list
+names (shape 4, "ours(recognition)+core(scope)" per M-R39, is not on that
+list — D1 still measured its population, 1,643 uncaptured, MS-dominated,
+for the record, but no test was assigned or built for it this cycle). 10
+real rows vendored into ONE new fixture, `backend/tests/
+fixtures/us_statutes/cycle7_pr7_shapes_rows.json` (dict keyed by `act_id`,
+matching this directory's own established convention), all original
+columns, values unmodified.
+
+**Row provenance** (every row independently re-fetched and re-verified by
+this Planner against the real on-disk snapshot, not copied from QA's report
+uncritically): `STATE_KS_C75_A45_S75-4511` (shape 2), `USC_T7_C31_S936f` /
+`USC_T27_C6_S122a` / `USC_T43_C35_S1742a` / `USC_T10_C147_S2496` (shape 3,
+all 4 of Q-D2's own named FEDERAL rows), `STATE_NM_C3_A32_S3-32-3` (shape 5,
+the same row Q-D2 and Q-D3 independently cross-confirmed), `STATE_TN_T49_
+C4_S49-4-938` (shape 6, Q-D2's own named row), `STATE_IN_T21_A44_C7_
+S21-44-7-1` + `...-1-b` (shape 7, Q-D2/Q-D3's own named IN pair), `STATE_
+MS_T27_C7_S19-3` (shape 8, Q-D2's own named row). Every row independently
+confirmed, before any test was written: fails baseline `is_definitions_
+heading`/`_is_placeholder_heading` (so the profile's separate LEGACY gate
+is a no-op and outcome is decided entirely by the `BodyPreambleRule`
+registry loop), and yields ZERO candidates from the real, unedited
+`extract_definitions_from_section`/`_extract_inline_quoted_definitions`
+today (verified by calling them directly, before writing any assertion).
+
+### How per-rule attribution was pinned (M-R44)
+
+All 4 existing rules return the LITERAL STRING `"Definitions"` as their
+synthesized heading (NOT a distinctive per-rule string) — confirmed by
+reading `us_body_preamble.py` directly — except CA's rule, which returns an
+actual body-text slice (distinctive, but only for CA). **This means the
+FINAL result (a captured Definition) cannot by itself reveal WHICH rule
+produced it** — exactly the invisible-starvation risk M-R44 describes.
+Since editing production code to add distinguishing headings is out of
+scope for a Planner, and the manager's own brief named "a direct rule-level
+assertion alongside the live-path one" as the sanctioned alternative, every
+test file in this cycle defines a small `_winning_rule(code, body)` helper
+that mirrors `USProfile.derive_heading_from_body`'s own registry loop
+(`us_profile.py:1402-1405`, first-non-None-wins in REGISTRATION order,
+M-R27) but returns the WINNING rule's `derive_heading` CALLABLE itself, not
+just its string result. Each test then asserts (a) `_winning_rule(code,
+body) is <the specific target function>` — an IDENTITY comparison, not a
+string comparison — and (b) every EARLIER-registered existing rule
+independently returns `None` on the same real body (a stable, permanently-
+re-checked invariant, not a one-time snapshot). This directly reproduces
+this codebase's own established precedent (`test_us_body_preamble_ca_
+block_red.py`'s `_derive_heading_from_body`/`_is_placeholder_heading`
+unit-level pins already import and call private functions by name) rather
+than inventing a new pattern.
+
+This combination would FAIL if the wrong rule claimed a row in three
+concrete ways: (1) if a SIBLING rule being widened THIS SAME cycle
+overreaches into another shape's fixture (e.g. B2's shape-8 widening
+starts also matching a FEDERAL shape-3 row) — the "earlier rules return
+None" assertions catch this directly; (2) if the intended target rule's
+own widening is missing or scoped wrong (its own identity check fails,
+`_winning_rule(...) is not <target>`); (3) if the live-path capture check
+passes for the WRONG reason (some unrelated code path produces the right
+terms without going through this family's own dispatch at all) — the
+identity check and the live-path check are independent enough that either
+alone catches a class of regression the other cannot.
+
+**Function-name contract with the Developer (D4's own build target)**:
+shapes 2/3/6 all widen the SAME existing function, `_b1_trigger_colon_or_
+quote_means` (imported today, already exists); shape 8 widens `_b2_words_
+have_meanings_indicated` (exists today); shape 7 widens `_ca_wide_window_
+definitions_preamble`'s own `jurisdiction_codes` registration, NOT its
+regex (proven live: calling the function directly on both real IN bodies
+ALREADY returns non-`None` today — a dedicated unit-level pin, GREEN today
+by design, proves this so the Developer does not waste time changing a
+regex that needs no change); shape 5 requires a genuinely NEW function,
+`_named_act_also_means_preamble` — this exact name is imported inside the
+attribution test's own body (not at module level, matching this
+repo's own established `test_definition_links_rules_registry.py`
+convention so a missing symbol fails ONE test, not the whole file's
+collection) and IS the Developer's build target, not a suggestion.
+
+### RED run tail (all 6 files together, before commit)
+
+```
+20 failed, 2 passed in 0.54s
+```
+
+The 2 PASSED are shape 7's own unit-level "the regex already works, only
+`jurisdiction_codes` is missing" pin (both IN rows) — a deliberate,
+documented, GREEN-today regression pin (same convention as the CA block
+red file's own prefix-cap pin), not a gap in RED coverage; every CAPTURE
+and every ATTRIBUTION test across all 6 files is confirmed RED. Full suite
+after adding these 6 files: **23 failed / 820 passed** (the 3 pre-existing
+markers-sprint REDs + this cycle's 20 new REDs; 818 baseline-passed +
+2 new GREEN-today pins) — zero regressions.
+
+**Existing tests**: none edited, none weakened — verified via `git diff
+--stat` before commit (new files only).
