@@ -5050,3 +5050,22 @@ D-1a Developer (dev3) -> merge -> D-1b Developer (dev4) -> QA cycle 4.
 Certification contract drafted once the Developers are RUNNING, sent to
 the program manager for sanity-check before its Planner spawns. Cycle 5
 stays the bounce reserve.
+
+---
+
+## 2026-08-05 — D-1a Developer spawned (agentId `a4f70d362996ee90a`)
+
+Model/effort: **Sonnet/medium** — implementation against 7 already-written
+REDs whose root causes are established and positive-controlled; Haiku
+considered: **no**, because the class-C scope semantics is a genuine
+design decision with over-claim risk, and the Hebrew grammar work is
+nuanced. Worktree `defs-il-dev3`, branch `claude/defs-il-dev-d1a` off
+`8599a81` (M22 tip), own venv verified. Briefed with: the 7 RED node-ids,
+per-class root causes, the class-C scope decision as an explicit
+deliberate choice (with my live `determine_scope -> 'law-wide'`
+measurement), M21 + M22 vocabulary entries to re-measure themselves, and
+D-INCLUDES as discharged by class-B sub-shape (ii). Told explicitly: no
+test edits (escalate instead), no frozen-file edits (escalate instead),
+files under 300 lines, corpus read-only, D-1b's 4 E6 REDs and the 2
+core-blocked containment REDs are off-limits. Expected end state
+`6 failed, 836 passed`.
