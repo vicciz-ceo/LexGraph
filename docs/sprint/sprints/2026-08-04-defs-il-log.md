@@ -5716,3 +5716,52 @@ discriminators. The סימן test's negative case is a *different-valued*
 unit (סימן א' vs ב'); the חלק test's negative case is an *absent* unit
 (art. 47 has no חלק ancestor at all). An implementation that handles one
 and not the other is caught by only one of the two tests.
+
+---
+
+## 2026-08-05 — M27: core-2 G9 coordination CLOSED; IL-side containment work sequenced behind cycle-4 QA
+
+core-2's panel manager independently re-verified M26's item-0 finding on
+its own branch (it also confirmed `il_siman_chelek_scope_triggers.py` is
+not on its branch at all, so the `scope_value` fix is squarely in OUR
+write-set) and **adopted the split wholesale**:
+
+- **Their merge evidence** = their own re-authored fixtures + a
+  positive-control probe (throwaway `StructuralUnitRule` reading
+  `heading_breadcrumbs`, plus a throwaway rule stamping a REAL non-None
+  `scope_value`), isolating their seam from our unshipped rule work.
+  Their Developer is explicitly told NOT to chase our REDs — reaching
+  into our rule modules would breach the P-R1 fence.
+- **Our two REDs** = the end-to-end evidence for the COMBINED result,
+  run by us once G9 lands. They escalated the acceptance-evidence change
+  to the program manager themselves; we do not carry it.
+
+Both of M26's corrections were adopted and propagated into their
+Developer's brief: **"never infer unit KIND from depth"** is now a stated
+correctness constraint (a depth→kind mapping is a defect even if every
+current test passes), and the **different-VALUED vs ABSENT discriminator**
+distinction is an explicit check. Confirmed shape: ordered
+`(depth, heading_text)`, depth-2 `.chapter` byte-identical under a
+positive-control pin, deeper entries appended — compatible with both our
+fixtures, and they are protecting `il_chapter_scope_triggers.py`'s
+`source_chapter=ctx.chapter` path hardest, which is the regression
+surface we would most regret losing.
+
+**Sequencing decision (mine).** The IL-side work — a `StructuralUnitRule`
+deriving סימן/חלק units from breadcrumbs, plus amending
+`il_siman_chelek_scope_triggers.py` to stamp a real `scope_value` — lands
+**after cycle-4 QA reports**, not before. core-2 explicitly asked us to
+sequence against our own QA rather than rush to meet their merge; their
+sprint merges first and nothing of theirs waits on us. Committing a
+landing window while a Developer and a Planner are still in flight would
+be a guess. I will send them a concrete window once cycle 4 closes.
+
+**Boundary on the record, both directions:** core-2 builds the seam and
+data path only; the IL סימן/חלק rule modules and the `scope_value`
+amendment are ours; they are neither building them nor fencing us out.
+
+**Consequence for this sprint's close:** the 2 containment REDs remain a
+named enumerated residual for cycle 4, but their blocking condition is
+now "closes on core-2 G9 merge + our own two-part rule fix" rather than
+"indefinitely core-blocked". The certification contract already carries
+that flip explicitly (M26, amendment 2).
