@@ -87,6 +87,28 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (G3-sibling NO-GO — G11 defers; one pre-merge blocker left):
+  plan9's measurement (best-evidenced of the sprint: three P-R10 anchors
+  exact against post-G12 code, correctly discriminating the pre-widening
+  figure that should NOT reproduce; entries reconstruction self-checked on
+  EVERY row) returned NO-GO: the sibling boundary fix touches 1,113/1,576
+  IL-path last entries (70.62%, 2.9x the main function's rate) at 100%
+  over-correction — and every touch is a WIPE not a trim (structural: 0 of
+  1,672 rows contain newlines, so split("\n") yields one span, any marker
+  match collapses the boundary to start, and the empty-text candidate is
+  dropped — silent term removal, regression-in-kind). CONSEQUENCES:
+  G3-sibling becomes its own follow-up carrying the data (per Q-G3-A's
+  provision); G11 DEFERS this cycle — the ~39,955-row recall lever does
+  not ship, its measured 202-row debt unspent; the gate's data and the
+  per-recognition-path design go to the follow-up. ONE PRE-MERGE BLOCKER
+  commissioned from plan9's false triggers: G3-main's bare-substring
+  markers proven capable of matching statute NAMES inside definition text
+  ("Clean Air Act Amendments of 1990") — the QA attack point carried since
+  G3-main merged, now with real-corpus evidence; measuring false
+  truncations over the 27,051-entry population, marker set narrowed
+  before merge if material. Core-2 at 830/0, ten gates, closing evidence
+  assembles after this one measurement.
+
 - 2026-08-05 (liveness probe recovers three dead agents — core-2 fully
   green): The status-check probe found plan2 DEAD (128-byte output, ~4h
   stale, ZERO sibling-sample commits — its "running" status was a
