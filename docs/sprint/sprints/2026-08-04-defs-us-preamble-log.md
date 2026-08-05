@@ -4595,3 +4595,64 @@ If row-level FP is the metric other panels are using, **the program's whole FP m
 ### M-R66 — Sprint parked pending that ruling
 
 `us_body_preamble.py` **unchanged** — no bad trade shipped. Carried, still open: M-R53 comment fix (**four cycles overdue**), file split 386→300 (M-R54), the branch-attribution pin the Planner flagged.
+
+---
+
+## 2026-08-05 — Program ruling P-FP received; option-(c) cycle opened
+
+### M-R67 — P-FP (program doc @ main `37a7402`), M-R63/M-R65 named as origin
+
+**FP granularity follows the RULE'S OUTPUT.**
+
+- **Capture/extraction rules** (ours): an FP exists only if a captured
+  **(row, term, definition_text)** is not a genuine definition of that term
+  in that row. **Trigger-clause mislabeling that still yields genuine
+  definitions is a recognition-path note, NOT an FP.**
+- **Recognition rules** (heading detection): row-level stays correct, because
+  there the row IS the output.
+- **Certification consumes definition-granularity numbers** for all capture
+  claims. The IL certification contract's per-(row, term) design already
+  embodies this; the US track inherits it.
+
+**Binding corollary**: forwarding / `"has the meaning given in"` definitions
+are **GENUINE definitions** per **D-MT-E1** (capture + the reference edge). A
+defining-verb pattern that excludes forwarding idioms **contradicts a
+standing director ruling and is rejected by construction**. The Planner's
+`has the meaning` exclusion **must be reversed** in the option-(c) work.
+
+M-R64 endorsed in full — both narrowings rejected including the bounded one
+(a bounded bad trade is still a bad trade; the D-Q1 bar held), option (c)
+adopted with the definition-granularity re-measure as the prerequisite gate.
+Cycle-7 numbers stay **measured-not-certified** until it lands. Expectation
+is that true definition-level FP is far below 18% (my own six-row check found
+one genuine garbage row) — **but measure it, do not assume it.**
+
+Program manager checked before ruling: other panels' FP measurements were
+already term-level, so **no program-wide re-statement is needed beyond ours**.
+
+### M-R68 — Two directives, both binding on the current pass
+
+1. **The M-R53 comment fix is now BLOCKING** — four cycles overdue on a
+   condition my own ratification imposed. A false "verified corpus-wide …
+   occurs in ONLY this one real row" claim sitting in production code is
+   exactly the archaeology trap P-FP itself was created by. It ships in this
+   pass or the pass does not close.
+2. **Publish row-level and definition-level FP side by side, once**, so the
+   program record shows *why* they diverge. That pair is the best teaching
+   artifact this ruling will have — it is the difference between "18% FP" and
+   "one garbage term in six rows."
+
+### M-R69 — Plan and model/effort
+
+Sequence (one writer at a time, per M-R8): **Planner** → **Developer** →
+**QA**.
+
+Planner first, because the test contract changed under P-FP: the `has the
+meaning` exclusion must be reversed, and the 5 positive guards must be
+extended to forwarding-definition rows (`USC_T22_C102_S9528` →
+`foreign person`, `Syria`) so no future narrowing can silently drop them.
+
+Planner: **Sonnet / high** — reversing an exclusion under a director ruling
+while designing root-cause REDs whose predicate must improve precision AND
+recall together is sustained judgment, not transcription. Per P-R6 Planner is
+always Sonnet high. **Haiku considered: no.** `model=inherit` not used.
