@@ -5624,3 +5624,95 @@ Developer writes only `backend/app/definition_links/rules/**` — disjoint
 file sets, same pattern this panel used for the concurrent D-1a/D-1b
 Planners. Log appends may conflict; those are resolved by keeping both in
 order, as with the D-1a merge.
+
+---
+
+## 2026-08-05 — M26: certification contract SIGNED OFF (2 amendments applied); peer coordination with core-2 on G9 — a real gate mismatch found
+
+### Certification contract — signed off, amended, re-linted PASS 273
+
+Program manager signed off `2026-08-05-defs-il-certification.md` in full
+and asked for two ADDITIVE amendments (lines, not redesigns). Both
+applied; contract re-lints **PASS 273**. Planner spawns when THIS
+sprint's cycle-4 QA lands — not before.
+
+**Amendment 1 — name the denominator's own assumption.** The ~92,600 is
+the QUOTED-span population, and that is itself a signal choice even
+though a well-motivated one. The US track's hardest lesson was that
+unquoted-term definitions are real at scale (NE 92.1% unquoted). Whether
+Hebrew ever defines a term WITHOUT gershayim is an assumption, not a
+measurement. Added a bounded scout item to C1: probe the COMPLEMENT —
+definitional-marker lines containing no quote character of ANY of the
+four codepoints — sample, hand-judge, and either close it with a measured
+near-zero (with the sample size that makes "near-zero" mean something,
+per C3) or add "unquoted definitional constructions" as a named cluster.
+Recorded explicitly that using the trigger vocabulary as a PROBE OF THE
+COMPLEMENT does not violate M18: M18 governs the denominator, not the
+instrument used to test whether the denominator's boundary sits in the
+right place.
+
+**Amendment 2 — the M20 residual is no longer immutable.** core-2's G9-2
+persisted breadcrumb column is APPROVED and in implementation
+(additive-nullable, D-ANCHOR pattern). The סימן/חלק containment cluster
+now carries the closing condition **"closes on core-2 G9 merge"** and may
+flip from named-residual to buildable DURING C4's fix loop. A residual
+list that cannot absorb a dependency unblocking mid-sprint would force
+the certification to report a stale blocker as permanent — the exact
+dishonesty these gates exist to prevent.
+
+### Peer coordination: core-2 (`afa01292edb77329b`) building G9 — I found a gate mismatch
+
+The core-2 panel asked what my two held containment REDs expect, because
+**the program manager designated MY two REDs as their acceptance evidence
+at merge.** I answered from a direct read of the test file and both
+fixtures, not from this log's own summary. Three findings, one serious:
+
+**1. G9 ALONE WILL NOT TURN MY REDs GREEN — their merge gate would fail
+through no fault of their implementation.** Verified live by me:
+`matcher._value_matches` is `actual == expected` (matcher.py:130-133) and
+`_in_scope`'s generic branch compares `unit.value` against
+`definition.scope_value` (matcher.py:186-190). The shipped
+`il_siman_chelek_scope_triggers.py` stamps **`scope_value=None`**
+(line 53). So even with perfect breadcrumbs and a correct
+`StructuralUnitRule`, the comparison is `"סימן א'" == None` → False. No
+edge. Still red.
+
+Closing the containment residual needs BOTH halves, and the second is
+**ours, not theirs**: an IL `StructuralUnitRule` deriving units from
+breadcrumbs, AND amending our own trigger rule to stamp a real
+`scope_value`. Advised them to use their own fixtures plus a
+positive-control probe as their MERGE evidence (isolating their seam from
+our unshipped rule work), and to treat my two REDs as the end-to-end
+evidence for the COMBINED result, which I run and report once G9 lands.
+Better to own that dependency explicitly than have their merge blocked on
+our queue.
+
+**2. A correction to M20's own wording, which I got imprecise.** M20's
+"reversed nesting" finding is about **kind ordering, not depth
+monotonicity**. `תקנות המשקלות והמידות` runs `== פרק ==` (2) →
+`=== סימן ===` (3) → `==== חלק ====` (4): perfectly monotonic in depth,
+unusual only in that חלק sits BELOW סימן where most laws put it above.
+My fixture contains NO non-monotonic depth sequence; core-2's own
+`תקנות מחלות בעלי חיים` depth-4-before-depth-3 case is a genuinely
+different phenomenon my fixtures do not cover. The actionable form for
+whoever builds breadcrumbs: **never infer unit KIND from depth.**
+
+**3. My own containment test file's docstring is inaccurate about its
+assembled fixture** — caught only because I read the fixture instead of
+the docstring. The docstring describes art. 72 as `פרק ה' > סימן ג' >
+חלק 1` and art. 47 as `פרק ד' > סימן ב'`, but the assembled excerpt
+contains only three heading lines (`== פרק ד' ==`, `=== סימן ב': כללי
+===`, `==== חלק 1 ====`); `פרק ה'`/`סימן ג'` appear nowhere in it. As
+assembled, arts. 72/73 resolve to `פרק ד' > סימן ב' > חלק 1` and art. 47
+to `פרק ד' > סימן ב'` with no depth-4 entry. The test LOGIC is still
+sound (47 genuinely is not in חלק 1), but anyone validating expected
+breadcrumb VALUES from that docstring would not match the file. Flagged
+to core-2: trust the file, not the docstring. **Not corrected in place**
+— Planner owns tests and the file is a held RED; recording it here for
+whoever next touches it.
+
+**Consequence worth carrying:** the two tests exercise DIFFERENT
+discriminators. The סימן test's negative case is a *different-valued*
+unit (סימן א' vs ב'); the חלק test's negative case is an *absent* unit
+(art. 47 has no חלק ancestor at all). An implementation that handles one
+and not the other is caught by only one of the two tests.

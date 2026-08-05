@@ -6,7 +6,7 @@ branch: claude/defs-il-certification
 locked_by: null
 locked_at: null
 last_agent: "claude-code:panel-manager-defs-il"
-last_updated: "2026-08-05T09:49:42Z"
+last_updated: "2026-08-05T10:30:12Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -23,8 +23,10 @@ design_sections:
 
 # Sprint: Israel — inverted certification of definition capture
 
-**DRAFT — awaiting program-manager sanity-check. No Planner spawns until
-signed off.**
+**SIGNED OFF by the program manager (2026-08-05), with two additive
+amendments applied below (the denominator's own quoted-span assumption,
+and the M20 residual's closing condition). Planner spawns when the parent
+sprint `2026-08-04-defs-il` cycle-4 QA lands — not before.**
 
 ## Mandate
 
@@ -95,6 +97,32 @@ Two consequences the Planner must design for, not discover:
    **mixed-codepoint pairs** (`“term”` opens `U+201C` and closes
    `U+201D`; `"term"` uses `U+0022` twice).
 
+### The denominator's OWN assumption, named rather than buried
+
+**~92,600 spans is the QUOTED-span population.** That is itself a signal
+choice — a well-motivated one, but a choice, and this sprint does not get
+to make one silently. The US track's hardest lesson was that
+**unquoted-term definitions are real at scale** (NE 92.1% unquoted; the
+AL/NC/DC family). Whether Hebrew statutory drafting ever defines a term
+WITHOUT gershayim delimiters is, today, an **assumption — not a
+measurement**.
+
+**Bounded scout item (C1):** probe the COMPLEMENT. Scan for definitional-
+marker lines — the known trigger / dash / colon vocabulary — that contain
+**no quote character of any of the four codepoints**. Sample and
+hand-judge the hits. Then either:
+- close the assumption with a **measured near-zero**, reported with the
+  sample size that makes "near-zero" meaningful (C3's own standard — a
+  bare "we looked and found nothing" does not qualify); or
+- add **"unquoted definitional constructions"** as a named cluster and
+  bring it into the C2 assignment like any other.
+
+Using the trigger vocabulary as a **probe of the complement** is
+legitimate and does not violate M18: M18 governs the DENOMINATOR (which
+stays signal-agnostic), not the instrument used to test whether the
+denominator's own boundary is in the right place. Say which role the
+vocabulary is playing wherever it appears.
+
 ## Cluster 1, stated up front as the falsifiable-mechanical template
 
 The IL-specific hazard: Hebrew gershayim is *also* a word-internal
@@ -162,11 +190,29 @@ prose is not a cluster; it is a narrative, and it fails C2.
 - Not a rewrite of capture. Fixes are in scope **only** via C4's loop,
   scoped to what classification surfaces.
 - Not a place to relitigate `2026-08-04-defs-il`'s enumerated residual.
-  The סימן/חלק containment REDs are **core-blocked** (M20 — no live
-  breadcrumb data source; `pipeline.py:212` hardcodes
-  `heading_breadcrumbs=()` and `sections.py:138` gates on 2-equals, both
-  frozen). They enter the certification as a **named residual cluster**
-  with that citation, not as work.
+  The סימן/חלק containment REDs enter as a **named residual cluster**,
+  not as fresh work.
+
+  **But that residual is NOT immutable, and this contract says so
+  explicitly.** Its blocking condition (M20 — no live breadcrumb data
+  source; `pipeline.py:212` hardcoded `heading_breadcrumbs=()`,
+  `sections.py:138` gating on 2-equals) is being lifted: core-2's
+  **G9-2 persisted breadcrumb column is APPROVED and in implementation**
+  (additive-nullable, D-ANCHOR migration pattern). The cluster therefore
+  carries the closing condition **"closes on core-2 G9 merge"**, and it
+  **may flip from named-residual to buildable DURING C4's fix loop.**
+  A residual list that cannot absorb a dependency unblocking mid-sprint
+  would force the certification to report a stale blocker as if it were
+  permanent — the exact dishonesty these gates exist to prevent.
+
+  **Known additional dependency, measured by this panel (do not assume
+  G9 alone closes it):** `matcher._value_matches` is `actual == expected`,
+  and the shipped `il_siman_chelek_scope_triggers.py` stamps
+  `scope_value=None`, so a real `ScopeUnit.value` compares against `None`
+  and never matches. Closing this cluster needs BOTH core-2's G9 AND an
+  IL-side rule change (derive units from breadcrumbs; stamp a real
+  `scope_value`). Whoever re-certifies this cluster must verify both
+  halves live rather than inferring closure from G9's merge alone.
 
 ## Coordination
 
