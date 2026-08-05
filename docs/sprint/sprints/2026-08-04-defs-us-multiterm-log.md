@@ -4388,3 +4388,78 @@ Two genuine gaps FOUND by this reconciliation, neither ours to fix, both named:
 - **Range-redirect shape** (MI/ND): "the words and phrases defined in sections
   122 to 124 have the meanings ascribed" — needs cross-section range
   resolution, a mechanism no panel currently has.
+
+---
+
+## 2026-08-05 — M-R30: PHASE-2 END STATE — review-ready with named residuals
+
+Branch `claude/defs-us-multiterm` @ `3df9dab`, pushed, tree clean.
+Suite **14 failed / 815 passed**.
+
+### Per-gate verdicts, each naming its CHECK
+
+| Gate | Verdict | CHECK |
+|---|---|---|
+| **U1** capture + per-term resolution | **CERTIFIED** | QA read `matcher.link_articles_to_definitions` at source (per-term loop over `definition.terms`) + ran the live ingest->link e2e; both terms of a combined row draw independent assertions |
+| **U2** scope stamped + enforced | **PARTIAL — enforcement only** | `matcher._in_scope` mutated to `return True` -> scope test FAILED; reverted -> PASSED. Genuinely discriminating. **PRODUCTION half is BROKEN**: rule candidates carry hard-coded `law-wide` while `determine_scope` returns `chapter` for the same row (core G10). **"U2 certified" must never be read as end-to-end** |
+| **U3** registry modules, zero shared edits | **CERTIFIED** | `git diff main...HEAD --stat -- backend/`: 28 files, **5,294 insertions, 0 deletions** — every file new, no shared module touched |
+| **U4** zero-miss, 53 jurisdictions | **CANNOT CERTIFY** | P-R7-compliant sweep over all 2,038,247 raw rows, ungated by `is_definitions_heading`; agnosticism proven by rediscovering F5's own reachability gap, which a heading-gated sweep would hide |
+| **U5** nothing regresses | **CERTIFIED** | bare-vs-dispatched probe, full files, all 12 baseline states: 17,886 definitions rows, **0 lost**; Hebrew 10/10 |
+| **U6** measured before/after | **CLOSED, both families** | F6 fire-rate 8.87% -> 0.55%; F5 kill-experiment (module-filtered, 64,480 rows, no sampling): **+13,680 terms across 2,462 rows, 0 removed**. Finding-A fix adds **+739, 0 lost** |
+
+### Corpus, final (deterministic stride, reproducible with no seed)
+
+```
+FINAL (031afda): sampled=79,500  rows firing=328 (0.41%)  candidates=532  dup rows=1*
+```
+*stride-sample figure; QA's full-corpus run finds **2** (HI `association`, DE `the Code`). The full-corpus number is the correct one — a 79,500-row sample undercounts a rare shape.
+
+### All 14 failures classified — 13 cross-panel, 1 ours
+
+| # | Failures | Owner | Closes when |
+|---|---|---|---|
+| 4 | VT/SD marker-less rows | **markers** | marker-less-body splitting lands |
+| 2 | findings 1/1b | **core-2 G10** | G10 lands on core-2's INTEGRATION branch (today it is only on `...-dev5` @ `8bf4750`) AND core-2 merges |
+| 4 | TX R1 degenerate terms | **markers** (jointly tracked, M-R25) | core-follow-on-3's boundary discriminator |
+| 2 | R6 hyphen-marker DC/NH | **markers** | entry-marker work covers `\(\w+\)`-excluded markers |
+| 1 | NY literal-`\n` residual | **markers** | largely closed already on their branch (10.8%) |
+| 1 | **A2** untriggered trailing member | **OURS — named, deliberately not fixed** | a structural change to F5 Case 2's clause boundary; deferred because it broadens exactly the `means\|shall mean` alternation E3 ruled is family 1's, verbatim |
+
+**Nothing is silently accepted, and no failure is unowned.**
+
+### Merge position
+
+After **core-2** (G10 -> findings 1/1b), then **markers** (7 of our failures),
+then **preamble**; also after scoped-inline's R3 `"Taken"` resolution — which is
+**OPEN, not accepted**: `496.716` appears nowhere in their sprint docs, and R3's
+own text says silence is not closure.
+
+**Known merge interaction, flagged and resolved by design:** markers emits a
+second `Governmental body` candidate. Our pins survive it — the candidate pin
+filters by `rule.parse.__module__` and never inspects the union; the outcome pin
+rides persist-layer first-wins. Verified.
+
+### What this phase actually produced
+
+Six production fixes across four passes — but the honest headline is that **the
+cycle's most valuable output was corrections to claims that had already passed
+review**, including four of my own:
+
+1. duplicate count 1 -> 2 (my stride sample undercounted);
+2. R6 "TX-only" -> four jurisdictions (one sub-shape generalised to a class);
+3. NY "total loss" -> a probe artifact, real figure 10.8% (I verified the wrong thing);
+4. M-R12's predicate is CORRECTNESS, not emission (my panel's own ruling, overturned by markers' WA evidence);
+5. and a recall regression **we shipped ourselves** (M-R23), which would have destroyed F6's only capture across up to 91 TX sections.
+
+**Not one was caught by review or inspection.** Every one required a measurement
+built to fail: a kill-experiment, a full-corpus census, a bivalence check. The
+transferable rules, all earned this cycle:
+
+- **a differential cancels a systematic input defect; an absolute rate does not** — this is the decision procedure for what needs re-derivation when an input-layer bug appears;
+- **a count is a claim about a mechanism only if gated on that mechanism's real dispatch precondition**;
+- **an assertion is not specified until someone has run it against the defect state and watched it fail** — which binds a manager writing a spec exactly as much as a Developer writing code (M-R28: I specified a pin that would have been green in both states);
+- **in this architecture, a claim about what baseline does is not verifiable by reading baseline.**
+
+Five agent overrules of this manager, all correct, all measurement-backed. The
+seeding instruction caught more manager errors than manager review caught agent
+errors — that asymmetry is the finding, not an anecdote.
