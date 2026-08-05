@@ -3336,3 +3336,111 @@ permission settings, CLAUDE.md, or harness configuration.
 it or escalates onward to the program manager.
 
 ---
+
+## M26 — inherited state RE-VERIFIED; RULING U-R15 refines U-R14's taxonomy (2026-08-05)
+
+### Inherited claims re-verified with positive controls (program law)
+
+| Inherited claim | My check | Verdict |
+|---|---|---|
+| Suite `15 failed, 877 passed` @ `c6732e3` | Ran full backend suite myself | **CONFIRMED exactly.** All 15 failure NAMES map 1:1 onto M22's disposition table (5 `*_quoteengine`, 3 G11-deferred, 1 NV cross-ref, 3 cross-panel holds, 2 Q3, 1 AZ) |
+| U-R12 — AZ oracle cannot tell a citation from a leaked marker | Ran `_TRAILING_MARKER_LEAK_RE` against 4 strings incl. two controls | **CONFIRMED.** Real citation `…section 15-1873.` → match; genuine leak `…district. 2.` → match; clean text → no match; truncated `…section 15-1` → **no match**. The test was green *because* the truncation defect satisfied it |
+| U-R14 — devC surfaces a spurious `'facility'` | Ran all `c5guard` tests on devC AND on the sprint branch | **CONFIRMED,** with control: sprint branch **28 passed / 0 failed**; devC **13 failed / 15 passed**. Every delta is attributable to devC's widening |
+| devC write set is one file, tuple-widening only | Materialized three-dot diff and read it | **CONFIRMED.** `us_markers_inline_quote.py` only, +23/−3 = docstring (+8) and tuple reformat. **Zero logic change** |
+
+Probe arguments recorded above per program lesson. Suite output and the
+three-dot diff are in this session's scratchpad.
+
+### The full 13-guard inventory (measured, not argued)
+
+`pinned → yielded`, EXTRA = terms present after widening but not in the pin:
+
+| Guard | Pin→Yield | Extra terms |
+|---|---|---|
+| `nd.py:68` | 1→21 | 20, incl. `attachment unit`, `sale at retail` |
+| `nd.py:78` | 1→17 | 16, incl. `moneys`, `taxing district`, `piece or parcel of land` |
+| `nd.py:88` | 2→15 | 13, all capitalised |
+| `ok.py:118` | 1→10 | 9, incl. `gallon`, `fuel`, `person`, `vehicle` |
+| `ny.py:68` | 1→7 | 6, all lowercase (`battery manufacturer`, `consumer`, …) |
+| `nj.py:88` | 1→3 | `Between merchants`, `Financing agency` |
+| `nj.py:108` | 1→3 | `Commercial unit`, `Lot` |
+| `nj.py:128` | 1→2 | `Natural gas pipeline utility` |
+| `ok.py:88` | 16→18 | `County`, `project` |
+| `mi.py:78` | 14→15 | `Transient guest` |
+| `nj.py:68` | 11→12 | **`facility`** ← the U-R14 finding |
+| `ny.py:108` | 7→8 | `acquire the assets of` |
+| `ok.py:78` | 9→10 | `Municipal` |
+
+**No guard LOST a single pinned term.** The widening is purely additive at the
+term-name level, corpus-wide across these 13.
+
+### RULING U-R15 — U-R14's two buckets are insufficient; use four classes
+
+U-R14 required every extra term be sorted into *genuine-swallowed-sub-definition*
+or *spurious-fragment*. The measured inventory does not fit two buckets, and
+forcing it would produce a wrong answer in both directions:
+
+- **8 of 13 guards pinned a near-empty baseline** (1–2 terms) and now yield 3–21.
+  These guards did not catch a regression; they pinned a baseline that had
+  swallowed an entire section into one blob. Calling these "duplication" or
+  "spurious" are both wrong.
+- **Only 5 guards pinned a full set and added 1–2 terms.** That is the only
+  population where a precision regression can hide, and it is where `'facility'`
+  and `'acquire the assets of'` sit.
+
+**Four classes. Every extra term gets exactly one, decided on SOURCE-TEXT
+evidence, never on capitalisation:**
+
+- **A — clean win.** Term is genuinely defined in the source row; its captured
+  `definition_text` is faithful; the former containing blob no longer carries
+  that content. → The guard's pin is STALE and is re-pinned by its Planner owner.
+- **B — real term, broken boundary.** Term genuinely defined, but captured text
+  is defective (M24's OK `gallon` → `"one"` is the known instance). → OUR defect.
+- **C — spurious.** No such definition in the source row (the `'facility'`
+  hypothesis). → OUR precision defect, fixed before merge.
+- **D — containment duplication.** Term is real AND newly captured, but the
+  containing blob STILL also carries the same content, so both persist. →
+  route to core-2 **G8** with rows. This is U-R14's bucket 1, but it is only
+  class D if the blob genuinely persists — that must be *shown*, not assumed.
+
+**A/D differ by one checkable fact:** whether the old containing entry still
+holds the sub-definition's text after widening. devC preserved before/after
+dumps precisely so this is decidable.
+
+**Lowercase is NOT evidence of spuriousness.** ND genuinely defines `taxing
+district`; OK genuinely defines `gallon`, `fuel`, `person`. Any classification
+resting on capitalisation is rejected. U-R14's own `'facility'` call was made on
+the *pairing* with `'Water supply facility'` plus fragment shape, not on case.
+
+### A gap M24 did not name
+
+Each guard asserts a `definition_text` spot-check on a line AFTER the
+`sorted(by_term)` assert. All 13 aborted at the term-list assert, so **those
+text assertions never executed**. Text fidelity for RETAINED terms across the
+five new states is therefore UNVERIFIED — devC's byte-identical dump proof
+covered the seven pre-existing states only. QA re-checks this explicitly.
+
+**devC remains HELD** (U-R14 stands as to disposition), but the reason is now
+narrowed: it is held pending classification of the ~5-guard small-delta
+population and the retained-text check, not because 13 guards are presumed to
+show regression.
+
+### Spawn roster (this manager; delivery anchored to §M25)
+
+- **QA cycle 2 / U-R14+U-R15 classification** — Sonnet/**high**. Branch
+  `claude/defs-us-markers-qa2`. Read-only classification against source rows.
+  *Model justification*: adversarial per-term judgement against statutory text,
+  where the predecessor manager and Developer C each already erred by
+  generalising from one example; needs strong reasoning. **Haiku considered:
+  NO** — this is exactly the judgement task that produced two prior wrong calls.
+- **Planner — defective test oracles** — Sonnet/**high**. Branch
+  `claude/defs-us-markers-planC`. Re-authors the U-R12 AZ oracle and the U-R13
+  Q3B oracle, and pins the colon-idiom degenerate-definition defect with a RED
+  (M23 queue 1–3). Planner owns tests; QA does not author them.
+  *Model justification*: writing a leak-detector oracle that distinguishes a
+  real citation from a leaked marker is the precise reasoning the old oracle got
+  wrong. **Haiku considered: NO.**
+
+Run in parallel; write sets disjoint (QA writes no code or tests at all).
+
+---
