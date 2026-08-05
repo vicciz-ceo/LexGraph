@@ -48,24 +48,42 @@ independently by `finditer` itself, regardless of what the first
 occurrence's own (best-effort, truncated-at-the-next-trigger) definition
 text captured.
 
+## D-1a (sprint 2026-08-04-defs-il, Phase D) -- Class B: no split marker
+## at all after the quote
+
+Root cause, live-confirmed before this fix: `extract_quote_first_
+candidates` `continue`s (discards the WHOLE candidate) whenever
+`_find_split_marker` returns `(-1, 0)` -- i.e. the clause after the quote
+has no standalone `-`/`((-))` anywhere. Two real sub-shapes, both with NO
+punctuation marker at all:
+  (i)  the reference shape -- the term is defined BY REFERENCE to another
+       law/section, no local defining text: `"term" כהגדרתו/כהגדרתה/
+       כמשמעותו/כמשמעותה [[citation]].`
+  (ii) the plain local-defining continuation -- an inclusion/exclusion
+       VERB follows the quote directly, no dash anywhere: `"term"
+       לרבות/למעט <defining text>`. This is IL's discharge of the
+       program's D-INCLUDES ruling (measured: `לרבות`/`למעט` appear
+       NOWHERE ELSE in `backend/app/definition_links/` before this fix --
+       see the sprint log's M22 entry) -- `INCLUDES_FAMILY_WORDS` below is
+       a first-class, reusable defining-verb vocabulary, not a one-off
+       regex patch for one fixture.
+
+`_find_fallback_word_marker` is tried ONLY when `_find_split_marker`
+itself finds nothing (a real dash always wins when present -- unchanged
+priority for every rule already built on this helper). Unlike the dash
+(punctuation, discarded from `definition_text`), a matched marker WORD is
+meaningful content and stays part of `definition_text` -- `marker_len` is
+therefore always `0` for a word marker (a zero-width split point
+immediately BEFORE the word), so nothing is torn out of the sentence.
+
 ## M16/M17 -- shared law-wide instrument vocabulary
 
-`LAW_WIDE_WORDS`/`law_wide_preamble_phrases` -- measured, hand-verified
-per phrase (sprint log's Phase C round 2 entry has the full per-phrase
-verification transcript) -- instrument words whose preamble genuinely
-names the WHOLE law/instrument (`scope="law-wide"`), each with its
-`לענין`/`לעניין` preposition variant. Shared between the list-shape
-scope-inference table (`il_list_shape_scope.py`) and the quote-first
-law-wide rule (`il_m17_spelling_variant_scope_triggers.py`) so the
-vocabulary is defined and measured ONCE, not duplicated per grammar
-shape. Deliberately EXCLUDES (each verified against real corpus
-instances -- see the log): `בתוספת זו` (schedule), `בפוליסה זו` (an
-embedded form), `בפרק משנה זה` (sub-chapter), `בנספח זה` (appendix),
-`בטבלה זו` (table), `בנוסחה זו` (formula), `בתקנה זאת`/`בתקנת שעת חירום
-זו` (article-level, not law-wide), `לעניין כלל זה` (one rule, singular
--- NOT the same as plural `בכללים אלה`), `לעניין פרט חימוש זה`, `באמת
-מידה זו`, enumerated multi-article ranges, and `בכלל זה` (a false
-friend meaning "including this").
+Moved to `il_law_wide_vocabulary.py` (sprint 2026-08-04-defs-il, Phase D,
+D-1a bundle -- purely to keep both files under the 300-line style gate;
+`LAW_WIDE_WORDS`/`law_wide_preamble_phrases` are re-exported below for
+every existing importer, byte-identical behavior). See that module's own
+docstring for the full vocabulary, its measured INCLUDE/EXCLUDE
+reasoning, and D-1a's own two vocabulary additions (M21/M22).
 """
 
 from __future__ import annotations
@@ -73,6 +91,11 @@ from __future__ import annotations
 import re
 
 from app.definition_links.extract import DefinitionCandidate
+from app.definition_links.rules.il_law_wide_vocabulary import (  # noqa: F401
+    LAW_WIDE_PREPOSITION_ONLY_WORDS,
+    LAW_WIDE_WORDS,
+    law_wide_preamble_phrases,
+)
 
 # --- C1: the widened trigger-to-quote connector ----------------------------
 
@@ -122,6 +145,42 @@ def _find_split_marker(text: str) -> tuple[int, int]:
     return -1, 0
 
 
+# --- D-1a Class B: fallback word markers (no punctuation marker exists) ----
+
+REFERENCE_WORDS: tuple[str, ...] = ("כהגדרתו", "כהגדרתה", "כמשמעותו", "כמשמעותה")
+INCLUDES_FAMILY_WORDS: tuple[str, ...] = ("לרבות", "למעט")
+_FALLBACK_MARKER_WORDS: tuple[str, ...] = REFERENCE_WORDS + INCLUDES_FAMILY_WORDS
+
+
+def _find_fallback_word_marker(text: str) -> tuple[int, int]:
+    """A zero-width split point immediately BEFORE the first
+    `_FALLBACK_MARKER_WORDS` occurrence outside any quoted span in `text`
+    -- tried only when `_find_split_marker` finds no punctuation marker at
+    all (see module docstring). Matched as a whole word: the character
+    immediately before must be start-of-text/whitespace (never mid-word),
+    and the character immediately after must be end-of-text/whitespace/a
+    light punctuation mark, so the marker word is never torn out of a
+    longer word it happens to prefix. Returns `(-1, 0)` if none is found."""
+    in_quote = False
+    n = len(text)
+    i = 0
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            in_quote = not in_quote
+            i += 1
+            continue
+        if not in_quote and (i == 0 or text[i - 1].isspace()):
+            for word in _FALLBACK_MARKER_WORDS:
+                end = i + len(word)
+                if text[i:end] == word and (
+                    end == n or text[end].isspace() or text[end] in ".,;)"
+                ):
+                    return i, 0
+        i += 1
+    return -1, 0
+
+
 def _parse_terms_and_qualifier(header: str) -> tuple[list[str], str | None]:
     """Mirrors `extract._parse_terms_and_qualifier`'s proven algorithm (a
     local copy, not an import -- see module docstring): every quoted term
@@ -164,7 +223,9 @@ def extract_quote_first_candidates(
 
         marker_idx, marker_len = _find_split_marker(clause)
         if marker_idx == -1:
-            continue
+            marker_idx, marker_len = _find_fallback_word_marker(clause)
+            if marker_idx == -1:
+                continue
         header = clause[:marker_idx].rstrip()
         terms, qualifier = _parse_terms_and_qualifier(header)
         if not terms:
@@ -179,33 +240,3 @@ def extract_quote_first_candidates(
             )
         )
     return results
-
-
-# --- M16/M17: shared law-wide instrument vocabulary -------------------------
-
-LAW_WIDE_WORDS: tuple[str, ...] = (
-    "חוק זה",
-    "חוק יסוד זה",
-    "תקנות אלה",
-    "תקנות אלו",
-    "הסכם זה",
-    "כללים אלה",
-    "פקודה זו",
-    "צו זה",
-    "אכרזה זו",
-    "נוהל זה",
-)
-
-
-def law_wide_preamble_phrases() -> tuple[str, ...]:
-    """Every `<ב-word>` / `לענין <word>` / `לעניין <word>` law-wide
-    phrase built from `LAW_WIDE_WORDS`, longest-first (defensive against
-    substring-shadowing in a linear scope-inference scan, even though no
-    actual collision exists among these phrases -- see
-    `il_list_shape_scope.py`)."""
-    phrases: list[str] = []
-    for word in LAW_WIDE_WORDS:
-        phrases.append("ב" + word)
-        phrases.append("לענין " + word)
-        phrases.append("לעניין " + word)
-    return tuple(sorted(phrases, key=len, reverse=True))

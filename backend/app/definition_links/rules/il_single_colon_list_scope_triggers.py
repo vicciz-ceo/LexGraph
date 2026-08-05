@@ -48,7 +48,10 @@ with `il_colon_dash_nested_list_scope_triggers.py` via
 measured once) -- including ruling M16's law-wide fix, so a single-`:-`
 list under a `בחוק זה -`/`בתקנות אלה -`/... preamble correctly classifies
 `scope="law-wide"` from day one (never shipped with the M16 under-claim
-the `::-` rule originally had).
+the `::-` rule originally had). Sprint 2026-08-04-defs-il, Phase D, D-1a
+bundle: also now shares `parse_entry` (multi-term-aware, see `il_list_
+shape_scope.py`'s own docstring) instead of the single-term-only
+`ENTRY_TERM_DASH_RE` this rule used before.
 """
 
 from __future__ import annotations
@@ -57,10 +60,10 @@ import re
 
 from app.definition_links.extract import DefinitionCandidate
 from app.definition_links.rules.il_list_shape_scope import (
-    ENTRY_TERM_DASH_RE,
     PREAMBLE_RE,
     infer_scope,
     make_candidate,
+    parse_entry,
 )
 from app.definition_links.rules.registry import (
     RuleContext,
@@ -93,11 +96,12 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
             entry_match = _ENTRY_LINE_RE.match(line)
             if not entry_match:
                 break
-            term_match = ENTRY_TERM_DASH_RE.match(entry_match.group(1).strip())
-            if term_match:
-                term = term_match.group(1).strip()
-                definition_text = term_match.group(2).strip().rstrip(";").strip()
-                results.append(make_candidate(term, definition_text, scope, ctx))
+            parsed = parse_entry(entry_match.group(1).strip())
+            if parsed is not None:
+                terms, definition_text = parsed
+                results.append(
+                    make_candidate(terms, definition_text.rstrip(";").strip(), scope, ctx)
+                )
             i += 1
     return results
 
