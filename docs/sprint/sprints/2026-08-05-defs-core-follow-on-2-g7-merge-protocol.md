@@ -321,6 +321,29 @@ non-monotonic depth case (depth-4 before depth-3) exists in this sprint's own
 different-VALUED unit (סימן א' vs סימן ב') and ABSENT unit (no חלק ancestor
 at all). Both must be exercised.
 
+## G3-main — MERGE BLOCKER CHECK: marker breadth (added 2026-08-05)
+
+`_TRAILING_NOTES_MARKERS` are matched as **bare, case-sensitive substrings
+anywhere in a line**. Generic tokens (`"Amendments"`, `"Source:"`,
+`"History:"`, `"Cited."`) can therefore fire on substantive definition text.
+
+**This is no longer hypothetical.** The G3-sibling measurement found real
+false triggers on **statute names embedded in definition text** —
+`"Clinical Laboratory Improvement Amendments (CLIA)"` and `"Clean Air Act
+Amendments of 1990"`. G3-main is already merged, and its population (FED-style,
+multi-paragraph) does not exhibit the sibling's total-wipe mode, but the
+false-truncation mode applies directly: a genuine last entry whose text
+contains such a line would be cut there.
+
+**Pass condition:** over the main function's own last-entry population
+(the 27,051 / 24.62% denominator), measure how many truncations remove
+SUBSTANTIVE definition text rather than a genuine trailing-notes block, with
+per-marker breakdown (specific `"Pub. L."`/`"Editorial Notes"`/`"Statutory
+Notes"`/`"References in Text"`/`"Congressional Findings"` vs generic
+`"Amendments"`/`"Source:"`/`"History:"`/`"Cited."`) and a seeded hand-judged
+sample. **If the false-truncation rate is material, G3-main's marker set must
+be NARROWED BEFORE MERGE** — this does not route to a follow-on.
+
 ## G8 — MERGE BLOCKER CHECK plus a named limitation (added 2026-08-05)
 
 **BLOCKER CHECK — must run before G8 merges.** G8's containment-update

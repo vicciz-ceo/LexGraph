@@ -1607,6 +1607,105 @@ carrying the data.
 
 ---
 
+## Phase 11 — G3-sibling: **NO-GO**, accepted in full (2026-08-05)
+
+plan9 delivered the Q-G3-A condition's measurement. **Ruling: NO-GO,
+accepted without qualification.** Measurement-only, no commits (mirrors
+plan7's precedent for a data-only verdict); worktree clean; baseline 830/0
+confirmed before starting.
+
+### Why it was decisive (evidence quality, recorded)
+
+- **Three independent P-R10 anchors reproduced EXACTLY** against post-G12
+  code: 2,117 fallback-eligible rows (IL 1,672 / CA 442 / GA 3), 11,960
+  quote occurrences, 10,170 recognized entries. It also correctly identified
+  that G12's earlier **9,677** was the PRE-widening figure and therefore
+  should NOT reproduce — precisely the discrimination P-R10 exists to force.
+- **Methodology guard on every row, not a sample:** the script asserts its
+  `entries` reconstruction matches the real shipped
+  `_extract_inline_quoted_definitions` byte-for-byte. Never fired across all
+  2,117 rows.
+- **Root cause structurally diagnosed, not correlated:** the helper is
+  line-granular by design (correct for FED's multi-paragraph population),
+  but the sibling's population has **0/1,672 IL rows containing ANY `\n`**
+  (1.65% corpus-wide). With no newlines, `split("\n")` yields ONE span, so
+  any marker match collapses the boundary back to `start`.
+- **The measured rule was the EXACT prescribed one**, no invented variant.
+
+### The numbers
+
+- Recall side: **1,113 / 1,576 last entries (70.62%)** would be touched —
+  **~2.9× the main function's 24.62%**. All 1,113 are IL; CA 0/12, GA 0/0,
+  so the rule delivers **zero benefit anywhere** in the population.
+- Precision side: **100% over-correction, and every touch is a WIPE, not a
+  trim** — `new_text == ""` in all 1,113 cases. Because the sibling drops
+  empty-text candidates, the term is **silently removed from output
+  entirely**. That converts a cosmetic trailing-citation blemish into a
+  dropped definition — the regression-in-kind class this program treats as
+  worse than contamination, and the same reasoning behind the Phase-3b
+  boundary+emission ruling.
+- Hand sample: seed **20260805**, n=60 of 1,113, rubric stated —
+  **60/60 (100%) genuine over-correction**. Degenerate-tail objection killed
+  pre-emptively by reading the 10 shortest cases plus both non-`Source:`
+  hits (72 rows read in full, 0 exceptions).
+- Cause of the IL firing: routine `(Source: P.A. ...)` citation footers — a
+  standard Illinois Compiled Statutes convention the marker set was never
+  built against (it was derived from FED's USC codification apparatus).
+
+### Consequences (binding)
+
+1. **G3-sibling does NOT ship this cycle** — it becomes its own follow-up
+   carrying this data, exactly as the Q-G3-A condition's own text provided
+   for ("not silently built anyway").
+2. **G11 DEFERS this cycle.** Its only two blockers were G12 (landed) and
+   this measurement. The ~39,955-row recall win does not ship; its measured
+   **202-row debt** carries forward unspent.
+
+### Flagged, unmeasured lead for the follow-up (recorded verbatim, not built)
+
+plan9's own suggestion, explicitly NOT tested: the real target is an
+IL-specific, highly regular trailing `(Source: ...)` tag; a rule scoped to
+that literal pattern — **or one that falls back to the marker's own raw
+character offset rather than line-start whenever the span contains zero
+internal newlines** — would avoid this failure mode. Different rule from the
+one measured; carries no evidence yet.
+
+## Phase 11b — NEW PRE-MERGE GATE on ALREADY-LANDED G3-main
+
+plan9's two non-`Source:` cases are the consequential secondary finding, and
+they bear on **code that has already merged**. The false triggers were on
+**real statute names embedded in definition text**:
+`"Clinical Laboratory Improvement Amendments (CLIA)"` and
+`"Clean Air Act Amendments of 1990"`.
+
+When G3-main merged (Phase 5), the manager recorded a QA attack point
+warning that `_TRAILING_NOTES_MARKERS` are matched as **bare, case-sensitive
+substrings anywhere in a line**, and that generic tokens (`"Amendments"`,
+`"Source:"`, `"History:"`, `"Cited."`) could truncate a genuine final entry.
+**That risk was never measured. plan9 has now proven the shape is real in
+real corpus text.**
+
+G3-main's population differs — FED-style multi-paragraph text HAS newlines,
+so the total-wipe mode does not apply — but the **false-trigger-on-a-statute-
+name** mode does: a genuine last entry containing a line that mentions
+"Clean Air Act Amendments of 1990" would be truncated there. That would be
+**shipped damage, not a prospective risk**.
+
+**Commissioned to plan9 as a PRE-MERGE gate, not a follow-up:** measure, over
+the main function's own last-entry population (the 27,051 / 24.62% denominator),
+how many truncations cut **substantive definition text** rather than a genuine
+trailing-notes block; break false-trigger counts down **per marker** (specific
+tokens like `"Pub. L."`/`"Editorial Notes"` vs generic `"Amendments"`/
+`"Source:"`/`"History:"`/`"Cited."`); hand-judge a seeded sample with rubric;
+and state whether any truncation wipes an ENTIRE entry on that population.
+
+**If the false-truncation rate is material, G3-main's marker set must be
+narrowed BEFORE this sprint merges.** If it is nil, that closes an attack
+point carried unmeasured since G3 landed. Either answer is useful; shipping
+without the answer is not.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
