@@ -205,9 +205,37 @@ _B2_WORDS_HAVE_MEANINGS_RE = re.compile(
 )
 _B2_SEARCH_WINDOW = 600
 
+# Shape 8 (Q-D2): MS's REAL convention is not a same-slot word swap
+# ("indicated" -> "ascribed") but a genuinely reordered sentence -- the
+# subject ("the following words and phrases") and the "when used in this
+# <unit>" clause come BEFORE "have the meaning(s)", and the closing phrase
+# is "respectively ascribed to them" instead of "indicated":
+# `STATE_MS_T27_C7_S19-3`, `"The following words and phrases when used in
+# this article for the purpose of this article have the meanings
+# respectively ascribed to them in this section, except ...:"`. Gap bounds
+# (120 / 60 chars) are set above this one real row's own measured gaps (86
+# / 13 chars) with margin, the same discipline B1's own `_COLON_WINDOW` was
+# set under -- verified corpus-wide (every fixture file under `backend/
+# tests/fixtures/us_statutes/`) that this exact phrase shape occurs in
+# ONLY this one real row, so it cannot newly capture any other fixture in
+# this sprint. Deliberately does NOT require an immediately-following
+# colon (unlike the original B2 pattern above) -- the real row's own colon
+# sits 129 chars after "ascribed to them", behind an "except in those
+# instances..." carve-out clause, so anchoring on it would just reintroduce
+# the same kind of prefix-cap miss CA's own wide-window rule was written to
+# avoid.
+_B2_WORDS_PHRASES_ASCRIBED_RE = re.compile(
+    r"following words and phrases\b.{0,120}?\bhave\s+the\s+meanings?\b.{0,60}?"
+    r"\bascribed\s+to\s+(?:them|it)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
 
 def _b2_words_have_meanings_indicated(body: str) -> str | None:
-    return "Definitions" if _B2_WORDS_HAVE_MEANINGS_RE.search(body[:_B2_SEARCH_WINDOW]) else None
+    window = body[:_B2_SEARCH_WINDOW]
+    if _B2_WORDS_HAVE_MEANINGS_RE.search(window) or _B2_WORDS_PHRASES_ASCRIBED_RE.search(window):
+        return "Definitions"
+    return None
 
 
 register_body_preamble_rule(
