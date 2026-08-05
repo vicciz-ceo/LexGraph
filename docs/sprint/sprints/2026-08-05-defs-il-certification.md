@@ -6,7 +6,7 @@ branch: claude/defs-il-certification
 locked_by: null
 locked_at: null
 last_agent: "claude-code:panel-manager-defs-il"
-last_updated: "2026-08-05T10:30:12Z"
+last_updated: "2026-08-05T11:44:54Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -83,19 +83,48 @@ population is a **mixture of four**, with radically different behaviour:
 | `U+201D` right double quote | 12,468 | **1.6%** | 12,263 | 6,131 |
 | `U+201C` left double quote | 18 | 0.0% | 18 | 9 |
 
-Two consequences the Planner must design for, not discover:
+**CORRECTED after QA cycle 4 — read this before acting on the table.**
+The table above is measured on **RAW** corpus text. Production does not
+parse raw text: `pipeline.py:188` calls
+`profile.normalize_for_parsing(raw_body)` first, and
+`normalize.normalize_for_parsing` collapses **all** quote variants
+(curly quotes, gershayim) to `"` and all dash variants (en/em dash,
+Hebrew maqaf) to `-`. Re-measured by the panel manager on
+production-normalized text:
 
-1. A certification that scans only `U+0022` **silently drops ~12,500
-   `U+201D` characters (~6,100 spans, 6.6% of the population)** — a
-   6.6% blind spot in a sprint whose entire purpose is having no blind
-   spot.
-2. The word-internal predicate is **not uniform across codepoints**:
-   `U+05F4` is 98.7% word-internal (it is essentially only an
-   abbreviation marker), `U+201D` is 1.6% (essentially only a
-   delimiter). A single blended predicate hides both facts. Cluster 1
-   must be evaluated per codepoint, and pairing must handle
-   **mixed-codepoint pairs** (`“term”` opens `U+201C` and closes
-   `U+201D`; `"term"` uses `U+0022` twice).
+```
+                       RAW        NORMALIZED
+U+0022             256,680           276,815
+U+05F4               7,649                 0
+U+201D              12,468                 0
+U+201C                  18                 0
+TOTAL              276,815           276,815
+word-internal       91,605 (33.1%)    91,611 (33.1%)
+paired spans       ~92,605           ~92,602
+```
+
+So the two consequences are:
+
+1. **The denominator must be computed on NORMALIZED text, exactly as
+   production parses it.** The headline **~92,600 is robust** — it is the
+   same to within 3 spans either way — but a certification that scans
+   **raw** text for only `U+0022` still silently drops **12,486
+   characters** that production would have folded in. Scan normalized
+   text and the problem disappears at the source.
+2. **Do NOT write four per-codepoint predicates.** An earlier version of
+   this contract said cluster 1 "must be evaluated per codepoint" and
+   that pairing must handle mixed-codepoint pairs. That was derived from
+   the raw-text table and is **wrong for the production path**: after
+   normalization there is exactly one quote codepoint, so one predicate
+   is correct and four would be dead code plus a false sense of rigour.
+   The *lesson* stands — measure the character class rather than assuming
+   it — but the remedy is to normalize first, not to enumerate variants.
+
+**Generalize the habit, not the number:** any certification statistic
+must be computed on the same text the production path actually consumes.
+This exact error cost a 23% undercount elsewhere in the parent sprint
+(QA cycle 4's correction of M28), and it was invisible until someone
+compared raw against normalized.
 
 ### The denominator's OWN assumption, named rather than buried
 

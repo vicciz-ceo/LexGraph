@@ -7214,3 +7214,155 @@ Per the brief's explicit ask: caught and corrected my own 12/44 → 15/44
 a script rather than trusting my manual tally. Did not find other
 load-bearing errors in my own measurements on a second pass, but did not
 have time for a third.
+
+---
+
+## 2026-08-05 — M31: QA cycle 4 ACCEPTED. It corrected ME twice, and one of those corrections propagates into the signed-off certification contract.
+
+### Boundaries
+
+`git diff --name-status HEAD -- backend/app` on `claude/defs-il-qa4` →
+**empty** across the whole cycle. Log-only commit `80018c6`, append-only.
+QA independence held. Merged `--no-ff`; log conflict was concurrent
+appends, both kept. Post-merge suite (my own run): **`2 failed, 843
+passed`**, lint PASS 398. The 2 are the core-blocked containment REDs,
+still correctly RED.
+
+### CORRECTION TO MY OWN M28 — QA is right, and I reproduced it exactly
+
+QA found that **my M28 measurement script fed RAW corpus text** into
+`extract_definitions_from_section`. Production never does that:
+`pipeline.py:188` calls `profile.normalize_for_parsing(raw_body)` first.
+I re-ran the comparison myself rather than accept the report:
+
+```
+D-1b population        M28 (raw, mine)   production-faithful (normalized)
+population articles              586                    584
+articles yielding                489                    525
+candidates                     1,407                  1,735
+terms                          1,519                  1,869
+```
+
+My independent reproduction matches QA's reported 584 / 1,735 / 1,869 /
+525 **exactly**. So **D-1b's real capture is ~23% larger than I reported**
+— the error was mine, in the instrument, and it under-stated the win.
+Root cause is real corpus convention: en-dashes and curly quotes that
+normalization folds and raw scanning misses.
+
+QA's seeded sample of the corrected population (seed `20260805`,
+n=110/1,735, 6.3%): **0/110 errors**, all genuine definitions. That is a
+measured error rate with a stated sample size, which is what I asked for
+and what M28 did not have.
+
+### THE SAME ERROR IS IN THE CERTIFICATION CONTRACT — corrected today
+
+This matters more than the M28 number, because the certification is
+downstream of it. My M23 four-codepoint finding was **also** computed on
+raw text. Re-measured on production-normalized text:
+
+```
+                   RAW        NORMALIZED
+U+0022         256,680           276,815
+U+05F4           7,649                 0
+U+201D          12,468                 0
+U+201C              18                 0
+TOTAL          276,815           276,815
+word-internal   91,605 (33.1%)    91,611 (33.1%)
+paired spans   ~92,605           ~92,602
+```
+
+`normalize_for_parsing` collapses every quote variant to `"` and every
+dash variant (including the Hebrew maqaf) to `-`. Consequences:
+
+1. **The ~92,600 headline is ROBUST** — identical to within 3 spans
+   either way. The denominator itself does not move.
+2. **But my prescribed remedy was wrong.** M23 told the certification
+   Planner that "cluster 1 must be evaluated per codepoint" and that
+   pairing must handle mixed-codepoint pairs. After normalization there
+   is exactly **one** quote codepoint, so four predicates would be dead
+   code wearing the costume of rigour. Contract amended today: compute
+   the denominator on **normalized** text; one predicate; the *lesson*
+   (measure the character class, don't assume it) stands, but the remedy
+   is normalize-first, not enumerate-variants. Re-lints **PASS 302**.
+3. Generalized into the contract as a standing rule: **any certification
+   statistic must be computed on the text the production path actually
+   consumes.** This single methodology error produced a 23% undercount in
+   M28 and a wrong prescription in M23, and was invisible until someone
+   diffed raw against normalized.
+
+Two of my own findings this cycle have now been corrected by people I
+briefed to check me (M25→M29's 230→20, and M28/M23 here). The instruction
+to check my load-bearing numbers earned its keep; I am keeping it in
+every future QA brief.
+
+### QA cycle 4 gate verdicts (accepted as reported)
+
+- **I1 — PASS**, by diff not re-run: no commit this cycle touches an
+  I1-path file. Honest gap: the 37s bulk ingest was not re-executed.
+- **I5 — PASS**, mechanical: `2 failed, 843 passed`; lint PASS 398;
+  `git diff --name-status 71fda25 HEAD -- backend/tests` = **98 A / 0 M /
+  0 D** across the entire sprint. Zero existing tests ever modified — the
+  single strongest structural guarantee this sprint produced.
+- **I2 — PASS for every committed RED**, but a **NEW residual inside
+  class (d)'s own mandate**: 44 definitions-heading articles still yield
+  ZERO candidates (~202 estimated terms) — numbered/lettered sub-items
+  under one preamble, a shape neither D-1b splitter reaches. Worse than
+  D-1b's own named "first sentence only" gap, which yields something.
+- **I3 — mostly PASS.** Class-C's `local` default is **confirmed SAFE two
+  independent ways** (code read of `matcher._in_scope` + live end-to-end
+  runs): it never over-claims. But it is a measured, live-demonstrated
+  UNDER-claim for **15/44 (34%)** of its firing population — proven on
+  `צו לימוד חובה`, where article 2 contains six genuine uses of terms
+  defined in article 1 and zero edges are created. QA also caught its own
+  12/44 arithmetic error and corrected it to 15/44 before reporting.
+- **I4 — NOT a clean pass, and I am not recording one.** Six real, sized,
+  measured findings; zero over-captures; zero regressions.
+
+### The design decision QA was told to attack hardest, and its verdict
+
+Class-C `scope="local"`: **the call was right.** Safe, never
+over-claiming, verified by code and by live pipeline runs — not by
+reading the docstring. QA additionally found the module's own stated
+detection theory ("the preamble lives in the heading") does not always
+hold: 4/44 firing articles have no heading hook at all, and in one the
+entry's own already-parsed-then-discarded qualifier (`לענין חוק זה`) is
+**already in the recognized law-wide vocabulary** and ignored anyway.
+That is a sharper critique than I expected and it is correctly a recall
+finding, not a safety one.
+
+### Enumerated residual — for the DIRECTOR to see and accept
+
+1. **44 articles / ~202 terms**, class-(d) numbered-sub-item shape —
+   zero capture. Needs REDs + a splitter.
+2. **15/44 class-C under-claims** (8 headings already carrying recognized
+   law-wide vocabulary; 7 unrecognized definitions-heading synonyms —
+   `פירושים`, `הגדרת X`, `'''הגדרות'''`, `N.N הגדרות`). Recall only.
+3. **~67 (M30) / ~254 (QA) cross-path separator divergences** — exact
+   split unreconciled between two sweeps; **zero over-capture confirmed
+   independently by both**. Plus a NEW root cause QA found and I confirm
+   by code read: `parse_entry` does `_QUOTE_RE.match(header)`, anchored at
+   position 0, so ANY leading content before the first quote (an `<ins>`
+   tag, a `(2)` numbering prefix, a same-line preamble) drops the WHOLE
+   entry. Hit 5/70 in QA's seeded sample — not a fluke.
+4. **2 סימן/חלק containment REDs** — core-blocked; closing condition
+   "core-2 G9 merge **plus** our own two-part rule fix" (M27).
+5. **`אכרזה זאת`** — 1 file, definitional, unreachable by any rule today.
+6. **29 never-reached entry lines**, incl. `חוק הפרשנות` art.3 and
+   `פקודת הפרשנות` art.1 — the Interpretation Laws' ENTIRE definitions
+   lists (M29).
+
+### My decision: no cycle 5 build round here; route residuals to D-CERT
+
+Every item above is a **bounded, named, non-regressing recall gap or a
+proven-safe design tradeoff**. Nothing over-captures. Nothing regresses.
+Opening a fifth build round would consume the bounce reserve chasing a
+class that has been latent for the whole program, using the same forward
+method that has now missed something in three consecutive cycles.
+**D-CERT exists precisely to close these mechanically**, and its contract
+already carries the residual-flip provision (M26 amendment 2). QA reached
+the same recommendation independently and correctly left the call to me.
+
+`qa_cycles` → 4. Cycle 5 remains the bounce reserve, unconsumed.
+
+**I4 is NOT cleanly passed** — that is a director-visible bar and I am
+escalating the residual for acceptance rather than declaring it met.
