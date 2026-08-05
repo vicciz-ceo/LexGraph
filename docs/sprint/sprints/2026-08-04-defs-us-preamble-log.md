@@ -4148,3 +4148,94 @@ report does not override.
 Pushed SHA: see commit immediately following this entry.
 Confirmation: `git diff --stat HEAD` before this commit shows only this
 log file changed; `git status` shows zero `backend/app/` modifications.
+
+---
+
+## 2026-08-05 — Manager: QA cycle-7 verified; FP is MATERIAL; certification WITHHELD
+
+### M-R57 — Handoff verified (fee2878)
+
+Diff vs `64d3630` → **the log only**; `git diff --name-only -- backend/app/`
+**empty**. Suite reproduces **3 failed / 840 passed**. QA's two D4 mutations
+were reverted before commit, as it stated and as the empty diff confirms.
+
+QA's self-disclosed renderer bug (a `body.find()` landing on the wrong
+occurrence when a trigger repeats) — caught mid-cycle, fixed, and **every
+flagged row re-verified**, flipping 4 false alarms to TP and 1 false clean to
+FP. Finding and reporting a bug in your own measurement instrument, then
+re-deriving the affected numbers, is the behavior that makes the rest of the
+report usable.
+
+### M-R58 — RECONCILED: the 836 / 1,788 / 2,759 / 984 spread is measurement scope, not disagreement
+
+QA could not reconcile my M-R53 figure of **836** and reported its own
+**2,759 raw / 984 operationally-captured** without forcing a match — correct
+discipline. I reconciled it myself, since it is my number and D-CERT will
+consume it:
+
+| measurement | rows |
+|---|---:|
+| my M-R53 pattern, scanned in `body[:600]` | **836** |
+| **the same pattern, scanned whole-body** | **1,788** |
+| QA's broader raw pattern | 2,759 |
+| QA's **operationally captured** by the shipped rule | **984** |
+
+Nobody was wrong. My 836 carried an undisclosed 600-char window — that was a
+defect in MY reporting, not in QA's. **Ruling: none of these is "the" number
+without its definition attached.** For certification the load-bearing figure
+is **984 operationally captured**, because that is what the rule actually
+claims. M-R53's "836" is superseded and must never be quoted bare.
+
+### M-R59 — RULING: FP is MATERIAL. Certification is WITHHELD. Not a gate.
+
+| shape | newly claimed | FP (n=50) |
+|---|---:|---:|
+| **3 (`"In this X"`)** | **17,370** | **9/50 = 18%** |
+| **em-dash branch** | **984** | **7/50 = 14%** |
+| 2, 5, 6, 7, 8 | 25,200 combined | **0/50 each** |
+
+18% of 17,370 is on the order of **~3,100 false rows**, plus ~140 from the
+em-dash branch. **That cannot be certified**, and I am not certifying it.
+Cycle-7's capture numbers stand as **measured, not certified**.
+
+**This is NOT grounds to gate**, per the seam and M-R45, and I am not
+proposing one. The diagnosis is precise and QA nailed it: all FP is
+concentrated in B1's **colon-list** branch, which only checks "no forwarding
+phrase in the filler" and never checks that a term:means structure actually
+follows — whereas the **quote-means** branch self-verifies via its quoted-term
+regex, which is exactly why shapes 2/5/6/7/8 measured **0/50**. The 0% shapes
+prove the architecture is sound; one branch just lacks the self-verification
+the others have.
+
+**Commissioned remedy (a narrower rule, per the seam):** require the
+colon-list branch's post-colon/post-dash window to contain a recognizable
+defining-verb pattern. This makes the weak branch self-verifying like its
+sibling. QA reported it and did not implement it — correct.
+
+### M-R60 — Coverage gap: the forwarding-phrase filter is pinned by NOTHING
+
+QA mutation-tested the forwarding-phrase filter on the widened quote-means
+branch: disabling it produced **zero test regressions** (still 3/840). So a
+filter that demonstrably works on the real corpus (0% FP on shapes 2/6) is
+protected by **no test at all** — a future refactor could delete it silently
+and every suite would stay green.
+
+This is the most dangerous finding in the report, more so than the FP number,
+because the FP number is visible and this is not. **A pin is required in the
+next Planner cycle.** Mutation testing earned its keep here: no amount of
+reading would have surfaced it.
+
+### M-R61 — Open items carried into the next cycle
+
+1. **Colon-list defining-verb narrowing** (M-R59) — the FP remedy.
+2. **Forwarding-phrase filter pin** (M-R60) — close the coverage gap.
+3. **M-R53 condition-1 comment fix — STILL NOT DONE.** Verified by QA via
+   empty diff. The false "verified corpus-wide … ONLY this one real row"
+   claim is still in production code. Ratification was explicitly
+   conditional; this is now overdue and goes in the next Developer touch.
+4. **File split, 386 → 300 gate** (M-R54), after the above land — not
+   during measurement.
+5. FEDERAL **320 → 6,311** is reported honestly as full-pipeline output;
+   item 14's "198/435" is a **different, narrower hand-inventoried
+   population** and QA correctly refused to claim a match it had not
+   re-derived. Do not let these two numbers be equated.
