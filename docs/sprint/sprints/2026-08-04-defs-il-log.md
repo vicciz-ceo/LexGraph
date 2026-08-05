@@ -4270,3 +4270,208 @@ D-1a and D-1b are independent (different dispatch paths, different rule
 kinds, disjoint file sets), so their Planners can run concurrently in
 separate worktrees per M14. Their Developers must NOT — one writer per
 worktree, and both bundles land rule modules in the same package.
+
+---
+
+## 2026-08-05 — Planner D-1b (Sonnet/high), worktree `defs-il-plan4`
+
+Read the full contract (all items, especially 2b/5/11), this log's E6/E1
+history, `## QA cycle 3`, M18, and `## 2026-08-05 — M19-EXT`, plus
+`2026-08-04-defs-core-dispatch.md` and the seam spec through v2.7. Verified
+baseline myself first: `backend/.venv/bin/pytest backend/tests -q` ->
+`4 failed, 829 passed, 18 warnings` — exact match to the brief.
+
+### Job 1 — revalidation of the 4 existing E6 REDs (per-test verdict)
+
+All four re-run individually and read; for each I also ran a POSITIVE
+CONTROL (a throwaway monkeypatched probe rule registered for `"IL"`,
+never committed) proving the dispatch machinery genuinely fires on that
+exact fixture, so the failure is "no rule registered" and not "the seam
+itself can't reach this." **Verdict for all four: still correctly RED,
+same failure mode as before core's dispatch merge (an empty result), now
+CONFIRMED buildable rather than architecture-blocked. No stale
+expectations found — nothing edited.**
+
+1. `test_definition_links_il_missed_classes_live.py::
+   test_class_d_prose_body_definitions_section_yields_zero_today` —
+   `extract_definitions_from_section` on art.16's body (`חוק החברות
+   הממשלתיות`) returns `[]` (confirmed live). Root cause: `baseline_
+   blocks = extract._split_into_blocks(text)` requires a `:-` line to
+   start ANY block; a marker-less prose body produces zero blocks, so the
+   `TermClauseRule` union loop (`for block in all_blocks: ...`) never
+   even executes — not a TermClauseRule gap, an EntrySplitterRule gap.
+   Positive control: registered a probe `EntrySplitterRule` that returns
+   `[text]` (whole body as one block) with NO other change — baseline's
+   OWN `_parse_block` then correctly extracts `('דירקטור',
+   'דירקטור מטעם המדינה בחברה ממשלתית.')` unaided. Failure: `assert 0 ==
+   1` / `got []`.
+2. `...::test_class_d_variant_double_colon_entry_list_under_a_trigger_
+   preamble_is_captured` — same law family (`תקנות קרן גרמניה-ישראל`
+   art.1, heading `הגדרות`), `::-`-marked entries. `[]` confirmed live
+   (`_ENTRY_START_RE` only matches `:-`, not `::-`). Positive control:
+   probe `EntrySplitterRule` recognizing `::-` as a block-start — baseline
+   `_parse_block` then correctly extracts all 4 real terms, INCLUDING the
+   multi-quote entry `"מס שבח מקרקעין" ו"זכות במקרקעין"` via the existing
+   `_parse_terms_and_qualifier` multi-quote logic (no TermClauseRule
+   needed either). Failure: `got []`.
+3. `...::test_class_d_minimal_single_sentence_variant_is_captured` — same
+   shape/root-cause as #1 (`צו פיקוח... (חמאה)` art.1, single sentence, no
+   `:-`). Positive control: identical whole-body-as-block probe correctly
+   extracts `('חמאה', 'חמאה רגילה בחבילה.')`. Failure: `got []`.
+4. `test_definition_links_il_missed_classes_extended_live.py::
+   test_class_c_adhoc_parenthetical_beparagraph_zo_inside_definitions_
+   section_is_captured` — `חוק הבנקאות (שירות ללקוח)` art.1, `(בפסקה זו -
+   חוק הדואר)` embedded inside the "גוף פיננסי" entry's OWN body.
+   Confirmed live: 18 candidates extracted total, "גוף פיננסי" among them
+   (baseline `:-` grammar unaffected), "חוק הדואר" absent. THIS one IS a
+   genuine `TermClauseRule` gap (the embedded marker lives inside an
+   already-existing block's body text, not a missing block) — positive
+   control: a probe `TermClauseRule` scanning block text for `(בפסקה זו -
+   X)` correctly produced `DefinitionCandidate(terms=('חוק הדואר',),
+   ...)` when registered. Failure: `any(...) == False`.
+
+No test's assertions, fixtures, or docstrings needed correction — every one
+already documents (in its own prose, written before this session) exactly
+the mechanism this session's positive controls just proved live. `git diff
+--name-status` confirms zero edits to either file this session.
+
+### Job 2 — old-E1 סימן/חלק structural-unit containment: new REDs
+
+**Load-bearing claim, proven with a positive control (not inferred from
+the dispatch-sprint merge):** `matcher._in_scope`'s generic branch +
+`pipeline.py`'s `structural_units` population site
+(`pipeline.py:212-228`) ARE genuinely live and CORRECT when given data.
+Throwaway probe `backend/tests/integration/zzz_d1b_probe.py` (deleted
+before this commit, never pushed) registered a fake IL `StructuralUnitRule`
+hardcoding article->siman membership PLUS a fake `ScopeTriggerRule`
+stamping a real `scope_value` (needed because the REAL, shipped
+`il_siman_chelek_scope_triggers.py` always stamps `scope_value=None` — see
+below), ran the real `ingest_wiki_law` + `run_definition_linking` against a
+3-article synthetic law. Result: same-siman article got
+`'Article 2 uses the definition of "מונח_בדיקה".'`; different-siman
+article got nothing. Reproduced, stable.
+
+**But — re-reading the contract's own item 2b (which this Planner was
+directed to read) shows this is NOT a new finding, it is a CONFIRMATION,
+with a more precise root cause, of what item 2b already said.** Item 2b:
+"Containment is NOT achievable this sprint... it needs a core-owned edit
+to `sections.py` (capture `heading_breadcrumbs`...) and `pipeline.py`
+(consume `StructuralUnitRule`...), both frozen/off-limits to a family
+panel." The dispatch sprint fixed the SECOND half (pipeline.py now DOES
+consume `StructuralUnitRule` and populate `structural_units` — proven
+above). **It did NOT fix the first half**, verified this session, live,
+against the actual frozen files (read only, not edited):
+- `StructuralUnitRule.derive` receives only `StructuralContext
+  (article_number, heading_breadcrumbs)`. `heading_breadcrumbs` is
+  hardcoded `()` at pipeline.py's one production call site
+  (`structural_ctx = StructuralContext(article_number=art.number,
+  heading_breadcrumbs=())`, pipeline.py:212) — the comment there says so
+  explicitly and invites exactly this escalation: "a family panel's own
+  rule is free to derive purely from `article_number`, or escalate for a
+  breadcrumb column when it actually needs one." Deriving סימן/חלק
+  membership from `article_number` alone is not possible (article numbers
+  don't encode their enclosing סימן/חלק).
+- The chapter-scope precedent this Planner was told to look at
+  (`il_chapter_scope_triggers.py` stamps `source_chapter=ctx.chapter`)
+  works ONLY because `RuleContext.chapter` IS populated, from `sections.
+  py`'s OWN `==`-depth chapter tracking. `RuleContext` has no equivalent
+  field for סימן/חלק, and `sections.py` (frozen, read only) still
+  discards every 3+-equals heading's own text
+  (`_HEADING_BREAK_RE` matches any `={2,}` break and ends the article's
+  body scope for all of them, but `current_chapter` is updated ONLY when
+  `len(break_match.group(1)) == 2` — unchanged since v1, confirmed by
+  direct read this session).
+- `ingest_wiki_law` persists only `.number`/`.heading`/`.chapter` onto the
+  ORM `Article` (confirmed by direct read) — no trace of any enclosing
+  סימן/חלק reaches the database at all, so there is nothing for
+  `pipeline.py` to thread into `StructuralContext` even if it wanted to.
+
+**Conclusion: neither side of a fix (stamping a real `scope_value` on the
+`ScopeTriggerRule` side, or stamping a matching `ScopeUnit` on the
+`StructuralUnitRule` side) has a live data source today.** This is
+rule-module-UNREACHABLE, unlike D-1a's three bugs — it needs frozen-file
+work (`sections.py` to capture full-depth heading breadcrumbs instead of
+discarding anything past 2 equals-signs; `pipeline.py` to thread real
+breadcrumbs into `StructuralContext`; very likely a new persisted column
+on `models.article.Article`). M19-EXT's phrasing ("It is observable
+now... needs NEW REDs") is right about the consumption machinery (proven
+above) but does not on its own convey that the DATA gap item 2b named is
+still standing — a Developer reading only M19-EXT could reasonably attempt
+an unauthorized frozen-file edit or a fragile article_number-based hack.
+Flagging this explicitly rather than letting it surface downstream.
+
+**Real corpus complication found while building the fixtures below,
+recorded per M-D3 ("measured convention, not analogy"):** חלק nesting
+depth is NOT uniform corpus-wide. Most laws nest חלק ABOVE סימן; `תקנות
+המשקלות והמידות` nests `==== חלק N ====` (4 equals) INSIDE `=== סימן
+... ===` (3 equals) inside `== פרק ... ==` (2 equals) — the reverse. Any
+future breadcrumb-capture fix must record full depth-ordered breadcrumbs,
+not assume a fixed סימן/חלק ordering.
+
+**New REDs (2, both directions each, combined into one assertion block per
+axis — see the file's own docstring for why: following the Phase C
+Planner's own established, manager-accepted precedent (round 2's M16
+entry), a standalone non-leakage assertion would be VACUOUSLY true today
+since nothing links anywhere yet; combining keeps each test genuinely RED
+for the real reason while still pinning non-leakage as part of "green"):**
+
+- `backend/tests/integration/test_definition_links_il_siman_chelek_
+  containment_live.py::
+  test_besiman_zeh_scoped_definition_containment_holds_in_both_
+  directions_live` — fixture `חוק לקידום תשתיות לאומיות_siman_
+  containment_excerpt.wiki` (real law, articles 8/9/22, non-adjacent
+  assembly, every span independently byte-verified a literal substring of
+  the source file, method identical to Phase C round 2's
+  `il_phaseC_plan_m16_multi_fixture_builder.py`). Article 8 (סימן א')
+  defines `"קו תשתית שאינו ממופה"`; article 9 (SAME סימן א') genuinely
+  uses it; article 22 (סימן ב', a DIFFERENT unit) genuinely uses it too
+  while explicitly stating its own סימן's rules don't apply to it — real
+  corpus prose, not authored. Live failure tail (reproduced):
+  `AssertionError: expected article 9 (same סימן א' as the defining
+  article 8) to get a USES_DEFINITION edge for the genuine mention of "קו
+  תשתית שאינו ממופה" in its own body; got []`. (The capture-only asserts —
+  one Definition row, `scope == "siman"` — pass today; only containment is
+  RED, confirming item 2b's capture/containment split is still accurate.)
+- `...::test_bechelek_zeh_scoped_definition_containment_holds_in_both_
+  directions_live` — fixture `תקנות המשקלות והמידות_chelek_containment_
+  excerpt.wiki` (articles 47/72/73, same byte-verification method).
+  Article 72 (פרק ה'>סימן ג'>חלק 1) defines `"בקרה מטרולוגית"` via a
+  wikilink-aliased trigger `[[סימן משנה זה|בחלק זה]]` (display text
+  resolves to `בחלק זה` after `strip_wikilinks`, confirmed live); article
+  73 (SAME חלק 1) genuinely uses the construct-state surface variant
+  "הבקרה המטרולוגית" (confirmed live via `matcher.find_term_uses` — one
+  hit); article 47 (a different פרק AND סימן AND חלק entirely) genuinely
+  uses the bare term. Live failure tail (reproduced): `AssertionError:
+  expected article 73 (same חלק 1 as the defining article 72) to get a
+  USES_DEFINITION edge for its genuine (construct-state) mention of "בקרה
+  מטרולוגית"; got []`.
+
+Full suite after adding both: `6 failed, 829 passed, 18 warnings` (the
+same 4 Job-1 tests + these 2 new ones; 829 unchanged, confirming zero
+regressions and zero existing tests touched).
+`bash scripts/contract_lint.sh 2026-08-04-defs-il` -> `PASS 398`.
+`git diff --name-status HEAD -- backend/app` -> empty (zero frozen-file
+edits, zero production code — Planner-only, as required).
+
+### Honest gaps
+
+1. Did not attempt to build (or even sketch) the frozen-file fix itself —
+   out of scope for a Planner, and per this sprint's own discipline a
+   Developer must not attempt it either without the manager authorizing a
+   scoped frozen-file change (same posture as D-1a's "a claim that one IS
+   needed escalates rather than proceeding").
+2. Did not survey the WHOLE corpus for every חלק-nesting-depth variant
+   beyond the one real complication found while building the fixture
+   above (`תקנות המשקלות והמידות`'s reversed nesting) — flagged as a
+   measured data point for whoever eventually designs the breadcrumb
+   capture, not claimed as an exhaustive census.
+3. Did not re-verify Group A/B/precision REDs from earlier phases — out of
+   this session's Job 1/Job 2 scope, untouched.
+
+### Git discipline (M14)
+
+Worktree `defs-il-plan4` only. New files only (`git status --short` shows
+2 new fixtures + 1 new test file, plus this log edit); `git diff --name-
+status HEAD -- backend/app` empty throughout. Throwaway probe file created
+and deleted within this session, never staged, never pushed — same
+discipline as prior QA cycles' own throwaway probes.
