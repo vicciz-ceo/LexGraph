@@ -68,6 +68,44 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (core-2 commissioned + D-S15 shipped + L11): CORE FOLLOW-ON-2
+  commissioned as sprint 2026-08-05-defs-core-follow-on-2 (contract with
+  gates G1–G7 = all six candidates; shared modules its exclusive write-set;
+  merges FIRST; pointer re-pointed). SCOPED-INLINE: D-S15 merged @ 8a2b239,
+  suite 839/0; RED-provenance proven correctly across independent branches
+  (plan8 tests alone on 3f41093 → 4 RED; merged → green); manager's
+  independent harness confirms SC 0/4→4/4, OR 1/4→3/4; QA cycle 2 running
+  (12-item break-the-claims brief incl. 19.4% both sides + S-R17 714-row
+  re-derivation + re-mutation of both adjacency gates). Endorsed judgment
+  calls recorded: remove-not-flip the corrupted OR test; testable SD/NY/VT
+  ledger; measured (not asserted) policy-independent degrade. HEADINGS
+  L11: shape-1 attribution measured to a decisive split — corpus 69,009
+  (NV band confirmed 8,575 vs ~8,323 cited); bucket A = 12,869
+  heading-RECOGNIZED-but-zero-yield rows (markers-family, in core-owned
+  extractor; NV alone ~6,866 and NV is NOT in markers' built jurisdiction
+  set) — biggest measured capture gap seen; bucket B = 51,855 rows with NO
+  heading signal (CA 9,769/FED 3,451/IN/IL/MS) — body-only, currently
+  UN-OWNED by any family → D-CERT worklist. L11 accepted as proposed (not
+  absorbed into cycle 5); bucket A routed to markers (re-measure on THEIR
+  branch post-merge — their family-3 rules likely already shrink it — then
+  absorb residual + NV as new member); reconciliation caveat recorded
+  (headings' operational shape-1 definition ≠ preamble's band definition).
+  MULTITERM: Developer re-applied narrowing @ abe5127, exactly 4/790,
+  OR test green with exclusion guard — manager's re-measure next. PREAMBLE:
+  M-R43 (denominator hardened BEFORE shape fixes — per-shape corpus
+  re-scan, classifier built without own trigger vocabulary), M-R44
+  (which-rule-claimed pins vs first-non-None starvation), M-R45 (FP
+  re-measure per widening) — noted, no action needed. IL: Phase D spec
+  @ 2e6cfdb; D-2 split APPROVED — D-1 (classes A/B/C + E6 + old-E1
+  StructuralUnitRule, concurrent Planners, serialized Developers) completes
+  2026-08-04-defs-il on I1–I5 + enumerated residual; certification opens
+  as NEW sprint 2026-08-05-defs-il-certification (own valve/gates; ~92,600
+  gershayim-delimited spans measured incl. הגדרות articles; word-internal
+  gershayim hazard 33.1% named as cluster 1; exhaustive+disjoint assignment
+  test as backbone; committed re-runnable manifest). Budget already
+  authorized by D-CERT's chosen option ("one certification sprint per
+  track").
+
 - 2026-08-05 (D-CERT + certification wave): Director ruled D-CERT (inverted
   certification — recorded in program doc). PREAMBLE verdicts certified @
   d5c12ab: GA 2→2,794/28,154 headline (both before-numbers carried: 2
