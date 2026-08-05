@@ -3272,3 +3272,70 @@ path has to stay cheap enough to take."** The value came from friction being
 AVAILABLE, not from caution as a disposition — and a harness that penalised
 friction would have trained all three out. Worth noting my own delivery
 contract exists only because the first refusal happened.
+
+---
+
+## 2026-08-05 — Manager: re-cut 2 closed (with a correction I propagated);
+two cross-panel design insights recorded
+
+### Re-cut 2 landed, and corrected a figure I had passed on
+
+The analyst's own re-cut caught that its earlier "144 occurrences across 94
+rows — 125 federal, 20 PR" **merged two disjoint buckets**, and I had relayed
+the merged form to the markers panel. Corrected:
+
+- `"in general"` (English): **144 occ / 94 rows** — federal 125/87, NY 10/2,
+  TN 3/1, AL 2/1, DC 2/1, HI 1/1, WV 1/1
+- `"en general"` (Spanish): **20 occ / 12 rows — 100% Puerto Rico**, zero
+  federal/state overlap
+- Combined: 164 / 106 (buckets are jurisdiction-disjoint)
+
+"20 PR" was never part of the 144. Corrected at the destination.
+
+**The PR worry resolves, and the negative result is properly evidenced**:
+PR's `en general` is a direct structural analogue of the federal shape, and
+PR's broader vocabulary is genuine Spanish tax terms rather than boilerplate.
+That absence is EVIDENCE, not an instrument artifact — the scan's generic-label
+filter was English-only, so Spanish structural headers would have survived into
+the data had they existed. The analyst also refused to answer the
+"generally/definitions/scope" question, because its own filter excluded those
+AT SCAN TIME and their absence is the filter's doing, not a corpus fact.
+Stopping there rather than guessing is the right call.
+
+**Volunteered finding that matters most**: `"Definitions in other articles"` —
+7 occurrences, ALL capturing the term **"Control"**, across **six different
+states** (DE, GA, MN, NC, WA, WV). UCC Article 9 boilerplate adopted
+near-verbatim across state lines. A blocklist assembled per-jurisdiction would
+systematically MISS template-borne boilerplate: seven occurrences over six
+states is invisible to any per-state threshold, yet it is one convention. And
+"Control" is a poisoning capture.
+
+### Design caution for the core discriminator (markers panel, §M31) — record
+this before anyone scopes it
+
+Our two panels **disagree about what the RIGHT answer is** in the ambiguous
+case, not merely about how to detect it. A period that must be PRESERVED as a
+citation in their definition tails is a period that must be SUPPRESSED as a
+false marker in our list-less sections — **same input, opposite correct
+outputs, distinguishable only by surrounding structure**.
+
+So a core discriminator returning a boolean `is_this_a_marker` will satisfy one
+panel and break the other. It has to take context as an argument, or return
+something the caller interprets in its own context. Recorded here because the
+natural way to scope this work is as a one-line predicate, and that scoping is
+wrong.
+
+### The refusal property, in its sharpest form (markers panel's third pass)
+
+Not "agents should be cautious" — two of the three refusers were assertive.
+**The common factor is that declining was CHEAPER than the alternative**: our
+analyst could refuse without having to prove fabrication; their Developer could
+report through the normal channel without having to prove an id was hostile;
+our Developer could surface a false-positive class without having to own the
+fix.
+
+> When refusal requires you to first establish that something is wrong, you get
+> compliance instead.
+
+That is the design property worth protecting, and it is a sharper statement
+than either of my two earlier versions. Adopted with attribution.
