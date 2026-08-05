@@ -4788,3 +4788,131 @@ Sequence unchanged (one writer at a time, M-R8): **Planner → Developer → QA*
 - **QA — Sonnet / high** (planned): the definition-granularity FP re-measure,
   the certification gate; row-level and definition-level published side by side
   once (M-R68 directive 2).
+
+### M-R75 — Planner spawned (cycle 9)
+
+Spawned **after** the M-R70..M-R74 commit landed (`d235c3c`), per commit-before-spawn.
+
+- **Agent**: Planner, `acb43d1f810eebfa1`
+- **Model/effort**: Sonnet / high. **Haiku considered: no** — the pass turns on
+  reading real statutory bodies and applying a director ruling to adjudicate
+  test contracts; a cheap model's failure mode here is a confident wrong
+  adjudication that then gets built on.
+- **Worktree**: `/Users/nerya/LexGraph-wt/defs-us-preamble-plan9`, branch
+  `claude/defs-us-preamble-plan9` forked from `claude/defs-us-preamble` @ `d235c3c`.
+  Sole writer. Own `backend/.venv`, **positively verified** to import
+  `…-plan9/backend/app/definition_links/rules/us_body_preamble.py` — the
+  worktree-venv trap checked, not assumed.
+- **Brief points at M-R70** for the delivery id, with the discrepancy rule:
+  committed id wins; on disagreement, report instead of sending.
+
+**Charter**: (1) re-adjudicate all six cycle-8 RED negatives against real
+bodies — two ruled rejected-by-construction, two suspect, two expected to
+stand; (2) extend the 5 positive guards to forwarding rows; (3) option-(c)
+root-cause REDs (greedy trigger tail, `includes` per D-INCLUDES with the
+targeted "References to" guard, singular "purpose", intervening clauses);
+(4) **measure** whether the six forwarding entries in the live
+`_B1_FORWARDING_PHRASES` are load-bearing on genuine rows — measure, don't
+assume; (5) name the D-MT-E1 reference-edge dependency rather than shipping
+half the ruling.
+
+Fences carried: Planner owns tests and writes zero production code; red-before-
+green on the live path; byte-exact real corpus rows; no snapshot reads; pins
+must be mutation-verified in both directions; never `git stash`; never
+`git add -A`.
+
+---
+
+## 2026-08-05 — Successor recovery: cycle-9 manager dispatch
+
+### M-R76 — Delivery record and exact recovery state
+
+The successor program manager verified the shared branch clean at `c3bec0f`
+and recovered the predecessor Planner's clean committed work at `a72c6a3` on
+`claude/defs-us-preamble-plan9`. That branch was previously local-only and is
+now pushed byte-for-byte to `origin`; it is **one commit on each side** of the
+shared branch and must be reviewed/reconciled, not recreated.
+
+Fresh preamble assignment: **`/root/markers_panel_manager`**, GPT-5.6 Sol /
+high, reused only after its separate markers panel closed and released its
+QA. Sol/high is the cheapest fit for succession arbitration across P-FP,
+D-MT-E1, D-INCLUDES, the stale 444-line contract, and a recovered Planner
+artifact; the reused task name does not change its manager-only role or
+authorize it to write code or tests.
+
+The manager must first read the program handoff, program rulings, this
+contract/log tail, and the complete `a72c6a3` diff against its own fork point
+`d235c3c`. It then:
+
+1. reconciles the stale contract without deleting durable history (move detail
+   to this log as needed; contract lint must pass before final QA);
+2. independently validates the recovered Planner tests, real-row provenance,
+   P-FP adjudications, mutation evidence, and scope fences before merging them;
+3. spawns a separate Developer (production only) for the approved option-(c)
+   root causes, blocking M-R53 comment correction, and 386→300 module split;
+4. spawns a fresh independent QA for definition-granularity FP measurement,
+   row-vs-definition comparison, full evaluators, and the release verdict.
+
+The manager never writes production or tests. Planner owns tests; Developer
+never tests/QA's its own work; QA edits docs/evidence only. CodeGraph is used
+first for main-state structure, with direct reads for branch-divergent files.
+Current `main` containment is false and must be reconciled deliberately before
+final QA; no merge-readiness claim may precede that gate. All role-agent ids
+must be committed here before their first task is sent.
+
+### M-R77 — Recovered Planner review: correct P-FP direction, incomplete causal contract
+
+Successor manager reviewed the complete `d235c3c..a72c6a3` diff from its own
+fork point (877-line materialized diff, SHA-256
+`7a4cf5bfdc84e512ec2bfaffbfb62f7c1a1a8e4d5136b3066308f13d554f20cf`).
+The commit touches only two integration-test files and one fixture. All fields
+of all 12 referenced fixture rows independently match snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` exactly. Focused result is
+**5 failed / 11 passed**: one confirmed P-FP garbage negative and four
+option-(c) root causes fail; the five re-adjudicated genuine rows and existing
+positive guards pass. No production edit is present.
+
+P-FP direction is correct: the two forwarding rows rejected by M-R72 plus
+`USC_T10_C303_S4093`, `USC_T42_C7_S679c`, and `USC_T10_C953_S9448` are real
+definitions; only `USC_T35_C4_S41` remains definition-level garbage. The
+recovered tests are not yet admissible as the Developer contract:
+
+1. the five positive re-adjudications assert term presence only, while P-FP's
+   output is the complete `(row, term, definition_text)` tuple;
+2. the PA greedy-tail RED can turn green merely by shortening the regex even
+   if the genuine occurrence still cannot make the production recognition
+   function return `Definitions`; it does not prove “the right occurrence
+   wins”;
+3. the other causal REDs directly probe live regex objects and have paired
+   live-path outcome guards, but the PA “References to” guard is entirely
+   test-local and cannot constrain production. It must be classified honestly
+   as a held extraction-side D-INCLUDES dependency unless a production path in
+   this sprint actually changes;
+4. M-R75's required corpus measurement of the six forwarding entries in live
+   `_B1_FORWARDING_PHRASES` is absent, so P-FP safety is not yet established;
+5. mutation evidence exists only as commit prose and must be rerun durably on
+   the corrected causal tests.
+
+Manager ruling: do not integrate `a72c6a3` yet. A fresh Planner corrects the
+same recovered branch/worktree, writes tests/fixtures/docs only, and returns
+exact provenance, RED/live-path, mutation, and forwarding-filter measurement.
+No narrowing is authorized. D-MT-E1's reference edge remains an explicit
+core dependency; this sprint captures and preserves forwarding definitions.
+
+### M-R78 — Fresh Planner correction delivery record
+
+- Canonical child id: `/root/markers_panel_manager/planner_cycle9_correction`.
+- Model/effort: `gpt-5.6-terra` / high. Planner judgment spans real statutory
+  bodies, P-FP/D-MT-E1/D-INCLUDES, causal RED design, and corpus measurement.
+  Haiku considered: no; a cheap model risks another confident wrong
+  adjudication. `model=inherit` is not used.
+- Worktree/branch: recovered sole-writer
+  `/Users/nerya/LexGraph-wt/defs-us-preamble-plan9` /
+  `claude/defs-us-preamble-plan9`. It must retain `a72c6a3` authorship, correct
+  rather than recreate it, and never touch the main checkout or production.
+- Brief: M-R77 defects are binding. Finish M-R75's forwarding-filter
+  measurement; strengthen P-FP tuple assertions; make each option-(c) causal
+  RED prove the real production function reaches the genuine occurrence,
+  with paired live-path guards and durable mutation flips; classify the
+  test-local PA guard honestly; name the reference-edge dependency. Stop and
+  escalate on any new trade-off or production/test ownership conflict.

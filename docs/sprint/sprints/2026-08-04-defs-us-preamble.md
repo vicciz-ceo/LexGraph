@@ -1,14 +1,14 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: parked-blocked
+status: planning
 blocked_on: null   # P-FP ruled; option-(c) cycle ready to run — spawn Planner
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: null
-locked_at: null
-last_agent: "claude-code:sprint-manager"
-last_updated: "2026-08-04"
+locked_by: "/root/markers_panel_manager"
+locked_at: "2026-08-05T21:44:41Z"
+last_agent: "/root/markers_panel_manager"
+last_updated: "2026-08-05T21:44:41Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -349,71 +349,16 @@ reconciliation — see item 3 below).
     receiving panel's own gate covers it. Tracked here only so it is not
     silently dropped by either panel.
 
-## Manager status (2026-08-04, after both Planners)
+## Historical basis (detail moved to the append-only log)
 
-Both Planner instances ran to completion **concurrently in one worktree** and
-are reconciled as ONE deliverable: `bd18411..f77eec3`. (My earlier
-"Planner died" diagnosis was wrong — retracted in log M-R8.)
-
-**Verified by the manager directly** (log M-R10): diff is additions-only with
-**zero edits to `pipeline.py`/`matcher.py`/`profiles.py`/`extract.py`/
-`us_profile.py`** (U3 holds by construction); suite is **12 failed, 647
-passed** against a 641-passing baseline, so **U5 is intact**; the RED tests
-drive the real ingest + real `run_definition_linking` and fail for the right
-reason; **all 12 fixture rows are byte-exact real corpus rows**; no test
-reads the snapshot.
-
-**Routings approved by the program manager**: item 7 (MS clause rows) →
-`defs-us-scoped-inline`; item 5 (NE/SD unquoted shapes) → `defs-us-markers`.
-The `find_term_uses` case-sensitivity finding → core.
-
-**Items 3/4/6/8 are HELD** pending core's seam-v2 ruling on M-R7(a).
-
-**Items 2 and 9 are blocked on core's registry existing at all** — verified:
-core's branch is docs-only and has no `rules/` package. Manager ruling: do
-NOT force GA through the frozen shared modules (`_BODY_DEFINITIONS_PREAMBLE_RE`
-is slated for deletion by core). No Developer work is available in this
-sprint until `rules/` lands.
-
-**Open defects for Planner/QA** (manager does not edit tests): (a) three test
-names say "misses" while asserting the fixed behavior — rename; (b) the
-fixture README wrongly says `pyarrow` is not installed in `backend/.venv`
-(it is, and it is declared at `backend/pyproject.toml:15`).
-
-**Active work**: all-state inventory per director ruling D-PREAMBLE-ALL.
-
-## Director ruling D-PREAMBLE-ALL (main @ 321ddab) — sprint scope is now all states
-
-*"I explicitly asked researching and writing code for all of the states."*
-Supersedes QA's options A/B/C. **Dispatch stays UNGATED** (core's M6,
-director-confirmed) — so **M-R7(a) is ANSWERED (branch 1) and items 3/4/6/8
-are UN-HELD**. Precision now comes from **inventoried per-state rules +
-negative guards**, not from gating.
-
-**Worklist** = QA's measured candidate population: **7,383 rows / 2,038,247
-scanned**, 1,468 gated + **5,915 ungated-only**, touching **50 of 53
-jurisdictions**. Diffuse, not concentrated: top 6 states hold 69%; the
-remaining 1,813 rows spread over 44 jurisdictions at 1–142 each. Only 5
-states have ever been inventoried — ~3,079 ungated-only rows sit in 41
-states with no inventory, no test, no routing.
-
-Per state, classify: **BLOCK-shaped** (ours → capture rules), **CLAUSE-shaped**
-(scoped-inline's → hand off with data), **hazard** (→ negative guards).
-
-**Scale-out design (M-R15)**: 4 parallel **read-only** inventory scouts
-(disjoint jurisdiction slices, findings to disjoint scratchpad files, no repo
-writes, no git) → then **ONE** consolidating Planner as sole writer. This
-avoids the two-writers-in-one-worktree hazard from M-R8 by construction.
-Slices: S1 FL/NC/AL/MO · S2 FED/DC/NY · S3 the 39 low-volume states ·
-S4 re-classify GA/MD/NE/MS/SD + gated CA/IL.
-
-Also folded in: the MS chapter-scope U2 RED test (QA-flagged gap), and
-per-state CLAUSE row lists packaged for scoped-inline routing.
-
-**Still blocked**: implementation. Core is docs-only with no `rules/`
-package. Inventory + RED authoring proceed now; code follows core's merge.
-
-Suite at `eb1f0d8`: **648 passed, 12 RED** (641 baseline intact).
+The original two-Planner reconciliation, manager verification, routings, and
+then-blocked core-registry state are preserved in log M-R8/M-R10. The later
+D-PREAMBLE-ALL ruling superseded the narrow inventory: all states are in scope,
+dispatch is ungated, and precision comes from inventoried rules plus guards.
+Its 7,383-row/2,038,247-row all-state worklist, four-scout scale-out, and
+BLOCK/CLAUSE/hazard dispositions are preserved in log M-R15 through the D1–D6
+consolidation entries. Core registry/dispatch subsequently landed; this cycle is
+now the P-FP option-(c) correction described in M-R67–M-R78.
 
 ## Dev Complete
 
@@ -425,20 +370,11 @@ _None._
 
 ## Context Dump
 
-1. UNBLOCKED. P-FP ruled (M-R67): FP granularity follows the rule's OUTPUT. For our capture rules an
-   FP exists only if a captured (row, term, definition_text) is not a genuine definition.
-2. Forwarding "has the meaning given in" definitions are GENUINE (D-MT-E1). The Planner's exclusion
-   of `has the meaning` MUST be reversed — it contradicts a director ruling by construction.
-3. NEXT: spawn Planner (Sonnet/high) -> Developer -> QA, one writer at a time.
-4. Planner charter: reverse the `has the meaning` exclusion; extend the 5 positive guards to
-   forwarding rows (USC_T22_C102_S9528 -> "foreign person","Syria"); author option-(c) root-cause REDs
-   (greedy trigger tail; add `includes` to _B1_QUOTE_MEANS_RE; singular "purpose"; intervening clauses).
-5. Developer charter: option-(c) fixes PLUS the M-R53 comment fix, which is BLOCKING this pass
-   (4 cycles overdue; production comment still falsely claims "ONLY this one real row" — real counts
-   are 1,788 whole-body / 984 operationally captured). Then the 386->300 file split (M-R54).
-6. QA charter: definition-granularity FP re-measure (the certification gate), and publish row-level
-   vs definition-level numbers SIDE BY SIDE once (M-R68) as the program's teaching artifact.
-7. Cycle-7 capture numbers remain MEASURED, NOT CERTIFIED until that re-measure lands.
-8. Suite 9 failed / 847 passed = 3 disclosed markers deps + 6 cycle-8 RED negatives (by design).
-9. us_body_preamble.py UNCHANGED — no bad trade shipped; options (a) and (b) were rejected (M-R64).
-10. Every brief carries: report via SendMessage to 'a3adfb6a9000b266e' (M-R56). One writer per worktree.
+1. P-FP judges captured `(row, term, definition_text)`; forwarding definitions are genuine.
+2. Recovered Planner `a72c6a3` is tests-only but needs the M-R77 correction before integration.
+3. Correction must strengthen tuple-level guards and causal right-occurrence tests.
+4. It must measure live forwarding-filter load and preserve D-MT-E1 reference-edge debt.
+5. Then Developer owns option-(c), blocking M-R53 comments, and the 386→≤300 split only.
+6. Fresh QA owns definition-level FP certification and row-vs-definition evidence.
+7. Main containment must be reconciled deliberately before final QA; root owns merge queue.
+8. One writer per worktree; user `.claude/settings.json` is always out of scope.
