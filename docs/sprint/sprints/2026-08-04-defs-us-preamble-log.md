@@ -4916,3 +4916,64 @@ core dependency; this sprint captures and preserves forwarding definitions.
   with paired live-path guards and durable mutation flips; classify the
   test-local PA guard honestly; name the reference-edge dependency. Stop and
   escalate on any new trade-off or production/test ownership conflict.
+
+### M-R79 — Full forwarding-filter ledger and Option-A scope ruling
+
+Planner correction measured snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`
+mechanically across all 105 US parquet files / 2,046,009 rows. The probe
+inspected only the actual B1 colon filler or quote-gap, compared live B1 with
+one phrase removed, and counted a delta only when the row changed from no B1
+recognition to `Definitions`.
+
+| live phrase | B1 inspected hits | None→Definitions rows |
+|---|---:|---:|
+| `shall be as defined in` | 12 | 8 |
+| `shall have the same meaning as` | 99 | 71 |
+| `has the same meaning as` | 152 | 117 |
+| `has the meaning provided in` | 17 | 14 |
+| `has the meaning found in` | 0 | 0 |
+| `has the meaning stated in` | 46 | 41 |
+| hazard `shall not include` | 182 | 74 |
+| hazard `does not impair` | 1 | 0 |
+
+The six forwarding phrases account for 251 newly B1-recognized candidate rows;
+five have nonzero observed deltas, while `has the meaning found in` is 0/0 in
+this snapshot. This establishes that filters are not generically removable.
+The two listed hazards must also remain: the 74 `shall not include` deltas mix
+genuine exclusion definitions with construction/non-definition text.
+
+P-FP tuple check: existing real `STATE_CO_T15_A11_P7_S15-11-701` evidence
+proves B1-only unfiltering is unsafe. The current extractor would persist the
+exception-list tuple, not the forwarding term's target (`section 15-10-201`),
+so it cannot meet P-FP or D-MT-E1. This is HELD shared extraction/reference-edge
+debt. It is not a B1 developer item and does not authorize `us_profile.py` or
+reference logic changes.
+
+Manager ruling: **Option A** — keep all forwarding filters unchanged in this
+bounded option-(c) sprint. The Developer may touch only
+`backend/app/definition_links/rules/us_body_preamble.py` and, if necessary for
+the <=300-line split, new `backend/app/definition_links/rules/us_body_preamble_b1.py`.
+
+### M-R80 — Corrected Planner test contract and mutation evidence
+
+P-FP guards now query persisted `Definition` rows: all five re-adjudicated
+genuine rows assert the required `(term, definition_text)` tuple. Forwarding
+targets retained: T22 `foreign person`→31 CFR 594.304, `Syria`→31 CFR 542.316,
+DE `Employer`→IRC 4301(d), and T10 institution→20 U.S.C. 1001. The two local
+means rows assert their real definition text too. `USC_T35_C4_S41` remains the
+only definition-level garbage RED.
+
+Four causal REDs call the actual production
+`_b1_trigger_colon_or_quote_means` on byte-exact bounded statutory spans. The
+full rows' existing ingest+link guards stay green; the bounded spans exclude
+the rescue occurrence. Focused command:
+`backend/.venv/bin/pytest backend/tests/integration/test_us_body_preamble_defining_verb_narrowing_red.py backend/tests/integration/test_us_body_preamble_option_c_root_cause_red.py -q`
+returns 5 failed / 11 passed (one P-FP garbage + PA/USC/AR/OH causal REDs).
+
+Runtime-only mutations, each restored before exit, changed its named bounded
+probe from `None` to `Definitions`: PA non-greedy trigger plus B1 direct-means
+branch; USC quote branch adds `includes|shall include`; AR trigger accepts
+singular `purpose`; OH trigger accepts bounded `divisions (C) and (D) of`.
+Restoration returned all four probes to `None`. No production edit was retained.
+PA `References to` is now a green held extraction-side D-INCLUDES spec using
+the real unmodified `_MEANS_IDIOM_GAP_RE`, never a test-local future guard.
