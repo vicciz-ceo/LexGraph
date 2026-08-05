@@ -1,14 +1,14 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: parked-blocked
+status: planning
 blocked_on: null   # P-FP ruled; option-(c) cycle ready to run — spawn Planner
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: null
-locked_at: null
-last_agent: "claude-code:sprint-manager"
-last_updated: "2026-08-04"
+locked_by: "/root/preamble_cycle9_manager"
+locked_at: "2026-08-05T21:38:56Z"
+last_agent: "/root/preamble_cycle9_manager"
+last_updated: "2026-08-05T21:38:56Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"

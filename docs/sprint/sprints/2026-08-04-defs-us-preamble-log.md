@@ -4820,3 +4820,40 @@ Fences carried: Planner owns tests and writes zero production code; red-before-
 green on the live path; byte-exact real corpus rows; no snapshot reads; pins
 must be mutation-verified in both directions; never `git stash`; never
 `git add -A`.
+
+---
+
+## 2026-08-05 — Successor recovery: cycle-9 manager dispatch
+
+### M-R76 — Delivery record and exact recovery state
+
+The successor program manager verified the shared branch clean at `c3bec0f`
+and recovered the predecessor Planner's clean committed work at `a72c6a3` on
+`claude/defs-us-preamble-plan9`. That branch was previously local-only and is
+now pushed byte-for-byte to `origin`; it is **one commit on each side** of the
+shared branch and must be reviewed/reconciled, not recreated.
+
+Fresh sub-manager: **`/root/preamble_cycle9_manager`**, GPT-5.6 Sol / high.
+Sol/high is the cheapest fit for succession arbitration across P-FP,
+D-MT-E1, D-INCLUDES, the stale 444-line contract, and a recovered Planner
+artifact; it does not authorize the manager to write code or tests.
+
+The manager must first read the program handoff, program rulings, this
+contract/log tail, and the complete `a72c6a3` diff against its own fork point
+`d235c3c`. It then:
+
+1. reconciles the stale contract without deleting durable history (move detail
+   to this log as needed; contract lint must pass before final QA);
+2. independently validates the recovered Planner tests, real-row provenance,
+   P-FP adjudications, mutation evidence, and scope fences before merging them;
+3. spawns a separate Developer (production only) for the approved option-(c)
+   root causes, blocking M-R53 comment correction, and 386→300 module split;
+4. spawns a fresh independent QA for definition-granularity FP measurement,
+   row-vs-definition comparison, full evaluators, and the release verdict.
+
+The manager never writes production or tests. Planner owns tests; Developer
+never tests/QA's its own work; QA edits docs/evidence only. CodeGraph is used
+first for main-state structure, with direct reads for branch-divergent files.
+Current `main` containment is false and must be reconciled deliberately before
+final QA; no merge-readiness claim may precede that gate. All role-agent ids
+must be committed here before their first task is sent.
