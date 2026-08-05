@@ -3527,3 +3527,73 @@ which retains the coercive framing that made the original instruction correctly
 refusable.
 
 ---
+
+## M28 — merge gates measured (both SHUT); QA-2 spawned; peer contract closed (2026-08-05)
+
+### All three of my merge-slot duties are gated, and both gates are shut
+
+Measured, not assumed:
+
+| Gate | State | Consequence for this panel |
+|---|---|---|
+| **core-2** (`claude/defs-core-follow-on-2` @ `194edf9`) | **NOT merged to main** | My merge slot (immediately after core-2) is **not open**. The G3-HEAL two-layer re-check **cannot run yet** — it runs *at* that merge. The bucket-A population-definition reconciliation with headings runs against the MERGED tree, so it is also not startable. |
+| **preamble** (`claude/defs-us-preamble` @ `99f1904`, "certification WITHHELD") | **NOT merged to main** | **NE extraction stays blocked** exactly as briefed — recognition lives on their branch. |
+
+Also measured: `claude/defs-us-markers` does **not** contain current `main`
+(`bf01184`). Main has moved under us with program-doc commits. A rebase/merge of
+main is required at merge time; noting it now so it is not discovered at the
+gate.
+
+**G3-HEAL instrument confirmed RED and correctly so**: the held instrument
+`test_us_markers_qa_q1_wa_newline_collapse_swallow.py::test_real_pipeline_does_not_let_the_baseline_swallow_beat_our_clean_candidate`
+is present in my re-verified 15-failure list. Per M18 it **stays RED until the
+merged tree proves BOTH layers** (swallow gone AND our clean candidate is the one
+persisted). It is not to be re-authored or waived by anyone holding this seat.
+
+### QA-2 spawned — the measurement half of the M23 queue
+
+Sonnet/**high**, branch `claude/defs-us-markers-qa2m`. *Model justification*:
+these are correctness questions against ALREADY-MERGED Developer A work where
+the known failure mode is a confident generalisation from a small sample —
+the same error class that produced U-R14. **Haiku considered: NO.**
+
+Scope: M23 queue items 4, 5, 6 — the 37 unverified >5,000-char exemptions, the
+"FED 26,028 is a swallow" docstring re-check, and the P-R7 signal-agnostic
+denominator re-run — **plus a hold I omitted from QA-1's brief and am recording
+as my own miss**: the C5 no-regression holds, MI **1,763** and NY **298**
+captured rows, which must not regress. M24 reports devC moves them UP (MI→2,711,
+NY→1,319); that is a claim needing verification, not a reason to skip the check.
+
+### Peer contract closed (scoped-inline)
+
+Their manager re-sent with the id INLINE (`a1b29c30b33e45591`) — now matching
+three independent sources: their committed contract, the program roster
+(line 29), and the inline statement. Both of this panel's critiques were
+accepted into their committed contract at `2c10b8c`: inline-id required (a brief
+lacking one is itself a defect) and M25's both-channels rule adopted wholesale
+with attribution. Our point that a committed artifact is worth little when only
+ONE copy of the number exists is now in their honest-limit paragraph.
+
+Both re-cuts ordered, and each was widened usefully beyond what we asked:
+- **IL shape-validity** — unresolved, decision-blocking on their side too, and
+  ordered as a THREE-way split (citation-tail misparses / genuine instances /
+  unanticipated) rather than yes-or-no, because a clean "all 618 are misparses"
+  and a messy "410 are, 208 are not" route differently for our blocklist.
+- **"In general" breakdown** — extended to the DISTINCT boilerplate label
+  strings per jurisdiction, testing whether PR's set is merely the Spanish
+  translation of the federal set or contains shapes with no federal analogue,
+  and whether `generally`/`definitions`/`scope`/`applicability` fall into the
+  same trap. They deliberately withheld a proposed blocklist: designing it is
+  our half and they declined to prejudge it. Correct call.
+
+**Negative control worth keeping** (their offer, our follow-up): the Bankhead row
+`STATE_FL_TXXIX_C381_S381.922`, where a naive quote-capture rule takes `Bill`
+out of `William G. "Bill" Bankhead, Jr.`. FL is NOT in our `_JURISDICTIONS`
+tuple, so that row is not a live control for us — **but the SHAPE is**: a quoted
+nickname inside a proper name is the same false-positive family as the NJ
+`'facility'` fragment now under dispute. If QA-1 returns a class-C population,
+the fix cycle probes the five NEW states for that shape rather than only for the
+one fragment we happened to find. Recorded so the idea is not lost between
+cycles.
+
+---
