@@ -7,11 +7,11 @@ section/list boundaries chosen to exclude the unrelated occurrence that makes
 the complete row pass today; the paired full ingest+link guards remain in
 ``test_us_body_preamble_defining_verb_narrowing_red.py``.
 
-The PA ``References to`` example is deliberately *not* a Developer gate.
-It belongs to the shared inline-extraction ``_MEANS_IDIOM_GAP_RE`` path,
-which this sprint does not change.  The green hold below records that
-D-INCLUDES dependency without modeling its future production guard in test
-code.  See the sprint contract/log for the owner and required future guard.
+The PA ``References to`` example is not a B1 Developer gate.  Core-2 G12 has
+now shipped its shared inline-extraction vocabulary and targeted
+``_preceded_by_references_to`` guard.  The green integration pin below drives
+that actual extraction path in both directions: the PA construction clause is
+suppressed and a genuine USC ``includes`` definition is emitted.
 """
 
 from __future__ import annotations
@@ -136,21 +136,40 @@ def test_oh_intervening_divisions_genuine_occurrence_reaches_production_b1_red()
     )
 
 
-def test_d_includes_pa_references_to_is_a_held_extraction_side_dependency_not_a_developer_gate():
-    """Hold, do not authorize: the PA hazard belongs to shared extraction.
-
-    ``_MEANS_IDIOM_GAP_RE`` is still the unmodified extraction-side vocabulary;
-    this sprint may widen B1's recognition regex only.  The real PA construction
-    clause and genuine USC control are kept as byte-exact fixtures for the
-    future extraction owner, but this test neither widens nor mocks that target.
-    """
-    from app.definition_links.us_profile import _MEANS_IDIOM_GAP_RE, _QUOTE_TERM_RE
-
-    pa_text = _optionc_row("STATE_PA_T15_C57_S5749")["text"]
-    us_text = _positive_row("USC_T15_C1_S26a")["text"]
-    pa_terms = [m.group(1) for m in _QUOTE_TERM_RE.finditer(pa_text) if _MEANS_IDIOM_GAP_RE.match(pa_text[m.end():m.end() + 200])]
-    us_terms = [m.group(1) for m in _QUOTE_TERM_RE.finditer(us_text) if _MEANS_IDIOM_GAP_RE.match(us_text[m.end():m.end() + 200])]
-    assert pa_terms == [] and us_terms == [], (
-        "scope drift: this sprint must not silently widen shared inline extraction; "
-        "the PA References-to guard remains a held D-INCLUDES dependency"
+def test_d_includes_shipped_g12_suppresses_pa_references_to_and_emits_genuine_usc_definition():
+    """Pin shipped G12 on real PA and USC rows through its inline extractor."""
+    from app.definition_links.us_profile import (
+        USProfile,
+        _extract_inline_quoted_definitions,
+        _preceded_by_references_to,
+        _QUOTE_TERM_RE,
     )
+
+    pa_text = USProfile(code="US-PA").normalize_for_parsing(
+        _optionc_row("STATE_PA_T15_C57_S5749")["text"]
+    )
+    pa_quotes = {match.group(1): match for match in _QUOTE_TERM_RE.finditer(pa_text)}
+    assert _preceded_by_references_to(pa_text, pa_quotes["other enterprises"].start())
+    assert _preceded_by_references_to(
+        pa_text, pa_quotes["serving at the request of the corporation"].start()
+    )
+    pa_candidates = _extract_inline_quoted_definitions(pa_text, scope="law-wide")
+    assert pa_candidates == [], (
+        "G12 must prevent the PA 'References to \"X\" shall include Y' construction "
+        "clause from becoming an inline-definition boundary or candidate"
+    )
+
+    us_text = USProfile(code="US").normalize_for_parsing(
+        _positive_row("USC_T15_C1_S26a")["text"]
+    )
+    us_quotes = [
+        match for match in _QUOTE_TERM_RE.finditer(us_text) if match.group(1) == "United States"
+    ]
+    assert us_quotes and all(
+        not _preceded_by_references_to(us_text, match.start()) for match in us_quotes
+    )
+    us_candidates = _extract_inline_quoted_definitions(us_text, scope="law-wide")
+    by_term = {term: candidate for candidate in us_candidates for term in candidate.terms}
+    assert by_term["United States"].definition_text.startswith(
+        "the several States, the District of Columbia"
+    ), "G12 must retain and emit the genuine USC 'United States includes ...' definition"
