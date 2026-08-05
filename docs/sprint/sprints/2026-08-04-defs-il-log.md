@@ -5463,3 +5463,116 @@ log entry. Every touched/added file under the 300-line style gate
 Worktree `defs-il-dev3` only, explicit-path `git add`, no `-A`, no
 `git stash`. Commit message below covers the rule-module changes; this
 log entry is appended, not editing any prior entry.
+
+---
+
+## 2026-08-05 — M25: D-1a ACCEPTED and merged; but I found a measured incompleteness in the Class-A fix (`או`)
+
+### Boundaries (mechanical, verified BY ME, not from the report)
+
+`git diff --name-status origin/claude/defs-il...bdc8e61 -- backend/tests
+backend/app/definition_links/profiles.py pipeline.py sections.py` →
+**empty**. Zero test edits, zero frozen-file edits. Three-dot diff (696
+lines) materialized to scratchpad and **read in full**. Own venv, own
+run: **`6 failed, 836 passed`** — the 4 E6 + 2 containment REDs remain,
+all 7 D-1a REDs green, 829→836 = +7, zero regressions. Lint PASS 398.
+Style gate: largest touched rule file 242 lines (`il_trigger_grammar.py`),
+all under 300. Merged `--no-ff`; log conflict was two concurrent appends,
+both kept in order. Post-merge re-run by me: `6 failed, 836 passed`.
+
+### What D-1a delivered well
+
+- `parse_entry` **fails closed** — returns `None` rather than guessing
+  whenever the trusted quote/dash shape is absent. That is the right
+  default for a recall fix and is what makes its precision argument hold.
+- **A real bonus catch:** `il_colon_dash_nested_list_scope_triggers.py`
+  kept its OWN private single-term `_TERM_DASH_RE` while its docstring
+  claimed it shared `il_list_shape_scope`'s logic. A doc/code mismatch
+  nobody had noticed; now genuinely shared.
+- The **class-C scope decision is sound and well-argued**: `scope="local"`
+  built directly by the rule, never delegated to the heading-blind frozen
+  `determine_scope`, with four alternatives explicitly rejected in the
+  module docstring. It UNDER-claims (named, quantified) and never
+  over-claims. That is the honest direction, and it respects M16's own
+  exclusion of `בתוספת זו` from the law-wide vocabulary.
+- **D-INCLUDES discharged properly**: `INCLUDES_FAMILY_WORDS =
+  ("לרבות", "למעט")` as named reusable vocabulary in the shared helper
+  every quote-first IL rule builds on, so all 8 consumers get it — not a
+  one-off patch.
+- `LAW_WIDE_PREPOSITION_ONLY_WORDS` is a genuinely good piece of design:
+  it lets `הכרזה זו` generate only its verified-safe `לענין/לעניין`
+  forms and never the verified-UNSAFE bare `ב`-form.
+
+### M25 — the incompleteness: `parse_entry` does not handle `או`
+
+Green tests do not prove a class is closed. None of the 7 REDs uses the
+`או` ("or") separator, so I attacked the new parser directly:
+
+```
+D-1a parse_entry              FROZEN extract._parse_terms_and_qualifier
+  comma -> 2 terms              comma -> 2 terms
+  vav   -> 2 terms              vav   -> 2 terms
+  OR    -> 1 term  <-- GAP      OR    -> 2 terms  <-- handles it
+```
+
+`extract._parse_block` on `:- "טופס השתתפות" או "כרטיס" - ...` returns
+**both** terms. `parse_entry` on the same line returns **one**.
+
+This matters for three reasons:
+
+1. **The claimed parity is incomplete.** The module docstring justifies
+   the new dash scan as "porting an already-precision-proven algorithm,
+   not inventing one" — but it ported the dash-finding and
+   qualifier-tolerance and NOT the `או` separator the frozen algorithm
+   also has. So the SAME entry line now yields 2 terms through the
+   definitions-section path and 1 term through the list-shape path. An
+   internal inconsistency between two live paths in one product.
+2. **The miss became silent.** Before D-1a, `"א" או "ב" - def` matched
+   nothing and the whole entry was dropped — a visible total miss. Now
+   the first term is captured and `או "ב"` is discarded as a "qualifier".
+   Strictly better recall, but the second term is now dropped with no
+   trace. Silent partial > visible total, for an absolute-zero-miss bar.
+3. **It is not small.** Measured by me, corpus-wide, on the entry LINE
+   (M18):
+
+```
+^:{1,2}- "term" או "term2"            230 lines / 160 files   (upper bound)
+   same, requiring a following dash   197 lines / 142 files
+^:{1,2}- "term" ו- "term2"             23 lines   (hyphenated vav conjunction)
+^:{1,2}- "term" ו "term2"               1 line    (spaced vav — negligible)
+```
+
+**230 is an UPPER BOUND, not the decision-relevant number** — it counts
+every entry line corpus-wide including those inside `הגדרות` sections,
+which route through the frozen path and are parsed correctly today. The
+subset that actually reaches the list-shape rules (ordinary,
+non-`הגדרות`-heading articles) needs its own M18-compliant derivation;
+that is the Planner's job, not a number I will invent here. But even the
+upper bound's shape is telling: `או` alone is larger than the comma-only
+sub-shape (83) the fix DID handle, and `ו-` adds ~23 more.
+
+**Not a regression, and not grounds to reject D-1a** — it delivered its
+seven REDs with zero regressions and reported honestly. But class A is
+**not closed**, and I am not going to let "7/7 green" stand in for that.
+
+### Routing (red-before-green preserved)
+
+The `או`/`ו-` separator gap needs a **RED test first** — the Developer
+who wrote `parse_entry` may not author its own acceptance test. Spawning
+a Planner for it, concurrently with the D-1b Developer: the Planner
+writes only `backend/tests/**`, the Developer writes only
+`backend/app/definition_links/rules/**`, so the file sets are disjoint
+and M14's one-writer rule holds (same concurrency pattern this panel used
+for the D-1a/D-1b Planners).
+
+### Carried forward as enumerated residual (not silently dropped)
+
+- `אכרזה זאת` — 1 file, measured definitional, heading-embedded
+  quote-first; unreachable by any rule registered today (no rule reads
+  heading text). D-1a correctly declined to add dead vocabulary. Named
+  here so it survives to the certification's cluster set.
+- Class C's two under-claim sub-populations (headings whose own trigger
+  IS a recognized law-wide phrase; numbering-prefixed plain `הגדרות`
+  headings) — recall gaps, never false links, blocked on the same frozen
+  heading-text seam.
+- The 2 סימן/חלק containment REDs — core-blocked per M20, unchanged.
