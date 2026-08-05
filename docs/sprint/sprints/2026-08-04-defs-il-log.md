@@ -5069,3 +5069,76 @@ test edits (escalate instead), no frozen-file edits (escalate instead),
 files under 300 lines, corpus read-only, D-1b's 4 E6 REDs and the 2
 core-blocked containment REDs are off-limits. Expected end state
 `6 failed, 836 passed`.
+
+---
+
+## 2026-08-05 — M23: certification contract DRAFTED (awaiting program-manager sign-off); D-2 denominator independently re-derived
+
+Drafted `docs/sprint/sprints/2026-08-05-defs-il-certification.md` while
+the D-1a Developer runs, per the phase-3 brief's sequencing ("once the
+Developers are RUNNING, not before"). `contract_lint.sh` -> **PASS 227**.
+**No Planner spawns until the program manager signs it off.** The
+certification sprint opens only after this sprint closes anyway — its
+denominator must be measured against the capture behaviour the panel
+actually ships in cycle 4, not a moving target.
+
+### The D-2 denominator, re-derived from scratch by me — CONFIRMED
+
+I did not inherit the ~92,600 figure. Own script, own venv, production
+`sections.parse_articles`, full read-only corpus:
+
+```
+                        phase-3 (mine)   phase-2 (M19-EXT)   delta
+files                            6,133             6,133    exact
+articles                       128,234           128,234    exact
+raw quote chars                276,815           276,628    +187 (0.07%)
+word-internal                   91,605 (33.1%)    91,431 (33.1%)  pct exact
+delimiter-eligible             185,210           185,197    +13
+paired candidate spans         ~92,605           ~92,598    +7
+```
+
+Two independent derivations agreeing to 0.07% — the denominator stands.
+The residual delta is written into the contract as a **C1 gate item**
+(explain or eliminate), not waved through: every downstream percentage
+rests on it.
+
+### NEW phase-3 finding folded into the contract: the quote character is FOUR characters
+
+M19-EXT's spec says "raw `"` characters", singular. Measured per
+codepoint, the population is a mixture with *opposite* behaviours:
+
+```
+codepoint                    raw     word-internal   eligible    ~spans
+U+0022 straight quote    256,680           32.7%     172,826    86,413
+U+05F4 Hebrew gershayim    7,649           98.7%         103        51
+U+201D right double       12,468            1.6%      12,263     6,131
+U+201C left double            18            0.0%          18         9
+```
+
+Two consequences, both now written into the contract as design
+constraints rather than left for the Planner to trip over:
+
+1. A certification scanning only `U+0022` **silently drops ~12,500
+   `U+201D` characters — ~6,100 spans, 6.6% of the population.** A 6.6%
+   blind spot in the one sprint whose entire purpose is having no blind
+   spot.
+2. **The word-internal predicate is not uniform across codepoints.**
+   `U+05F4` is 98.7% word-internal (essentially only an abbreviation
+   marker); `U+201D` is 1.6% (essentially only a delimiter). One blended
+   predicate hides both facts. Cluster 1 must be evaluated per codepoint,
+   and pairing must handle mixed-codepoint pairs (`“term”` opens U+201C
+   and closes U+201D).
+
+This is the same lesson as M-D3 and M22's `זאת` finding, one level down:
+**measure the character class, don't assume it.** Carried into the
+contract as a precedent binding D-CERT's US track too — it should check
+its own quote/dash inventory rather than assuming ASCII.
+
+### Gates proposed (C1-C5)
+
+C1 signal-agnostic reproducible denominator covering all four codepoints;
+C2 mechanically-asserted exhaustive+disjoint cluster assignment over the
+FULL population (the backbone); C3 every disposition carries a measured,
+seeded, hand-verified error rate; C4 fix loop closed INSIDE the sprint
+with re-certification of affected clusters; C5 artifact re-runs clean and
+diffs for an independent QA. Full text in the contract.
