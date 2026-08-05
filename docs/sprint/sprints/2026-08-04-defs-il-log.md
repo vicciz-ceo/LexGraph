@@ -4508,3 +4508,79 @@ Worktree `defs-il-plan4` only. New files only (`git status --short` shows
 status HEAD -- backend/app` empty throughout. Throwaway probe file created
 and deleted within this session, never staged, never pushed — same
 discipline as prior QA cycles' own throwaway probes.
+
+---
+
+## 2026-08-05 — M20: D-1b ACCEPTED, and it corrects M19-EXT (mine). ESCALATION to core.
+
+### Boundaries (mechanical)
+
+`git diff --name-only 2e6cfdb..bc54e1a -- backend/app` → **empty**; no
+existing test edited. 3 additions + append-only log. Both fixtures
+independently byte-verified BY ME: these are non-contiguous multi-article
+excerpts, so the contiguous-substring check is the wrong shape — checked
+line-wise instead, **12/12 and 48/48 non-blank lines verbatim in source,
+zero not found.** Merged (log conflict was two concurrent appends; both
+kept in order). Post-merge, my own run: **`6 failed, 829 passed`**, lint
+PASS 398.
+
+### Job 1 — the four E6 REDs are still correctly RED, and now have exact root causes
+
+D-1b did what I asked and did not assume: it re-ran each and registered
+throwaway positive-control probe rules (never committed) to prove the
+specific dispatch path fires. Result — all four still fail for the right
+reason, **and the root causes are now precise enough to hand a Developer**:
+three of them (`class_d` prose-body, `::-` variant, minimal single
+sentence) are a missing **`EntrySplitterRule`**, NOT `TermClauseRule` —
+baseline `_split_into_blocks` needs a `:-` line to produce ANY block, so a
+marker-less prose body yields zero blocks and the registered-rule loop
+never runs; once a probe splitter hands over the body, the EXISTING
+baseline `_parse_block` extracts the terms unaided. The fourth (item 11's
+embedded `(בפסקה זו - X)`) is a genuine **`TermClauseRule`** gap. That is a
+materially better spec than "implement class (d)".
+
+### M20 — I was wrong in M19-EXT about סימן/חלק containment
+
+I wrote that old-E1 containment is "now observable" and scoped it into
+D-1 as panel-buildable. **Half right, and the wrong half matters.** The
+CONSUMPTION machinery is genuinely live (D-1b proved it end-to-end with a
+probe `StructuralUnitRule`, not by inferring it from core's merge — the
+standard I asked for). But there is still **no live DATA SOURCE**, and I
+verified both halves myself rather than taking the report's word:
+
+```
+pipeline.py:212  StructuralContext(article_number=art.number, heading_breadcrumbs=())
+sections.py:138  if len(break_match.group(1)) == 2:      # only 2-equals (chapter) kept
+```
+
+So breadcrumbs are hardcoded empty at the single call site, and 3+-equals
+(סימן/חלק) heading text is still discarded at parse time. Both files are
+FROZEN. No family-panel rule module can close this — a rule can only
+derive from `article_number`, which cannot express סימן membership.
+
+**This is exactly the escalation core itself anticipated.** `pipeline.py`'s
+own comment at the call site: a family panel "is free to derive purely
+from `article_number`, or **escalate for a breadcrumb column when it
+actually needs one**." We actually need one now.
+
+**ESCALATION to the program manager → core:** סימן/חלק containment needs a
+persisted above-article breadcrumb source (core's own suggested shape: a
+breadcrumb column on the ORM `Article`, plus lifting `sections.py`'s
+2-equals gate to capture deeper heading levels). Two committed REDs now
+exist and are correctly red, so whoever builds it has its acceptance test
+already written — that is the one thing this panel could usefully do here.
+
+### Consequence for D-1's scope (correcting my own plan)
+
+- **D-1b Developer bundle = the 4 E6 tests only** (buildable now, with the
+  splitter/clause split above). The 2 containment REDs are **blocked on
+  core**, stay red, and become a named enumerated residual for the
+  sprint's close — not a Developer target.
+- D-1a (classes A/B/C) is unaffected and still buildable.
+
+### A real finding worth carrying to whoever builds breadcrumbs
+
+חלק nesting depth is **not uniform corpus-wide**: `תקנות המשקלות והמידות`
+nests חלק INSIDE סימן, reversed from the usual convention. A breadcrumb
+design that assumes a fixed level→kind mapping will be wrong on real data.
+This is an M-D3-style "measure the convention, don't assume it" finding.
