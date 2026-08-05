@@ -6619,3 +6619,81 @@ entries above — no content lost, this is a pure de-duplication.
     production callers until P1 wires a PR
     `TermClauseRule`/`EntrySplitterRule`, next per M-R15). Developer
     applies the one-line regex fix next; QA re-verifies.
+
+---
+
+## 2026-08-05 — Manager: cycle-9 Planner VERIFIED; the escalation is PROGRAM-WIDE, not a PR residual
+
+### Handoff verification, materialized
+
+HEAD `4740ae8` == origin, tree clean. `backend/app/` → **empty diff**. All 6
+held-RED files → **empty diff**. Suite `41 failed / 996 passed / 13 xfailed`,
+reconciling exactly as reported (30 held + 11 new / 989 + 7 / 12 + 1).
+
+Planner work is excellent. Heading precision measured **633/633 = 100%** on a
+signal-agnostic denominator, and the `body_confirms` decision correctly made
+on PR's own data rather than inherited from the headings panel's D-DF answer —
+the reasoning that `body_confirms` can only reject, never rescue, so it is pure
+downside at 100% precision, is exactly right.
+
+The live canonical-path dash-regex precision is **91.7%**, materially BETTER
+than the ~33-53% whole-corpus projection. The explanation is convincing:
+canonical sections are where genuine definitions concentrate, and the low
+projection lived almost entirely in the non-canonical population this
+registration never reaches. Good instinct to measure it rather than inherit it.
+
+### I reproduced the defect myself
+
+Zero PR rules registered, real vendored row, live profile:
+
+```
+get_profile("US-PR").extract_definitions_from_section(STATE_PR_LEY_103_2001_ART2)
+  -> 1 candidate: term=('Autoridad',)  definition_text length = 2045
+```
+
+Exactly as reported. The defect is real, pre-existing, and live today.
+
+### THE THING THE PLANNER DID NOT ASK — and it changes the escalation
+
+The Planner scoped this as "21/633 PR canonical rows". The root cause is
+`us_profile._split_into_numbered_blocks` splitting on `text.split("\n")`, which
+degenerates when a body has no newlines. So I asked the question that decides
+whether this is ours: **how many jurisdictions have newline-free bodies?**
+
+Measured across all 53 corpus files:
+
+```
+100.0%  us_ny  (40,102)   <- WORKING-BASELINE REGRESSION-GUARD STATE
+100.0%  us_oh  (33,159)
+100.0%  us_nh  (25,375)
+100.0%  us_sc  (29,947)
+100.0%  us_ut  (25,870)
+100.0%  us_pr  (23,636)
+ 99.6%  us_il  (72,178)
+ 98.0%  us_wa  (50,471)
+ 96.3%  us_nj  (53,808)   <- WORKING-BASELINE REGRESSION-GUARD STATE
+ 61.3%  us_ri   61.3% | 56.4% us_al | 54.0% us_ca | 50.9% us_ms
+```
+
+**13 jurisdictions exceed 50% newline-free, and two of them — NY and NJ — are
+on the program's own working-baseline regression-guard list.** The shared
+splitter returns the entire body as a single block for every row in those
+states.
+
+**Bounding my own claim honestly:** I measured the *precondition* (no
+newlines), not the full trigger, which additionally needs a bare marker at
+position 0 AND a quote immediately after it. Whether the trigger actually
+fires outside PR is UNMEASURED. NY and NJ pass their tests today, so either
+they do not hit the trigger or their definitions arrive by another path. I am
+not claiming those states are broken — I am claiming the assumption underneath
+them is not what anyone thought it was, and nobody has checked.
+
+### Why this changes the disposition
+
+The Planner's option B ("accept as a documented PR residual") is framed on the
+premise that this is a 21-row PR problem. It is not. Accepting it PR-locally
+would file a program-wide latent defect under a family panel's residual ledger,
+where no other panel would ever see it — the same shape as the original P-R8
+finding, which also looked local until someone asked how far it reached.
+
+Escalating onward to the program manager with a reframed option A.
