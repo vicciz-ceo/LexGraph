@@ -90,6 +90,26 @@ arrives) and must NOT pin resolver internals that G2/G4 legitimately change.
 | 2 | Planner | G3 + G1 (extraction) | Sonnet/high — P-R6; Haiku considered: no, G3's boundary design is open-ended and three panels are blocked on it | `claude/defs-core-follow-on-2-plan2` / `...-wt/defs-core-follow-on-2-plan2` | `aae653f9956064e9f` | running |
 | 3 | Planner | G5 + G6 (seam) | Sonnet/high — P-R6; Haiku considered: no, G6 authors a seam version the rest of the program builds against | `claude/defs-core-follow-on-2-plan3` / `...-wt/defs-core-follow-on-2-plan3` | `a2987562ee6ff3a61` | running |
 
+| 4 | Scout (read-only) | G7 baseline reproducibility | Sonnet/high — tracing measurement recipes across divergent branches; a misclassified number produces a false G7 pass; Haiku considered: no | read-only, no branch | `a682047c7fe5507af` | running |
+
+### Manager-identified G7 ambiguity (scout #4 commissioned to resolve it)
+
+G7 requires the panels' certified numbers to "re-reproduce **on this
+branch**." But this branch contains **no panel code** — panels are fenced
+out of shared modules (P-R1) and their rule modules are unmerged. A number
+certified WITH panel rules registered therefore cannot reproduce here even
+in principle; only numbers that are pure corpus/shared-code measurements
+can. Classifying a panel-code-dependent number as reproducible here would
+manufacture a false G7 pass.
+
+Rather than guess or spend a program-manager round-trip on an unanswered
+question, scout #4 resolves it with data: per certified number (markers'
+zero-yield table, preamble's 23,617 + the 27,209 fallback-affected rows,
+GA 2,794) it traces the exact recipe and denominator, classifies it as
+reproducible-here / needs-unmerged-panel-code / untraceable, and proposes
+the concrete G7 verification protocol. Escalation to the program manager
+follows only if G7 as written turns out to be unachievable for some number.
+
 ### Briefing notes carried into all three Planner spawns
 - Own worktree + own venv (main venv imports main checkout code); verify
   noreply `user.email` before first commit; never `git stash`, never
