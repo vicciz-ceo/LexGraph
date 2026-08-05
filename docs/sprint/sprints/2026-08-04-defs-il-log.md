@@ -6792,3 +6792,395 @@ is the trustworthy one. Reporting the correction rather than the hunch.
   QA over D-1a + D-1b + the separator work, cycle 5 stays the bounce
   reserve. Opening a fourth build round would consume the reserve for a
   pre-existing class that has been latent for the whole program.
+
+## QA cycle 4 (Sonnet/high, independent)
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-qa3`, branch `claude/defs-il-qa4`,
+at `9d871b2`, clean at start. `import app` → this worktree's `backend/app`
+(verified). Read the contract, program doc, and the log sections named in
+the brief (M20, M22, M25, M28, M29, M30) in full before attacking. **Never
+touched `backend/app/**`** — `git diff --name-status HEAD -- backend/app`
+verified empty at start, mid-session, and now. One throwaway pytest file
+(`test_zzz_qa4_scratch_classc_live.py`, corpus-reading, 2 tests) was created
+to run 2 real corpus laws end-to-end through `run_definition_linking` —
+deleted before this commit, never staged, `git status --short` clean.
+Every corpus-reading analysis script lives in scratchpad only, never
+committed. Suite/lint reproduced fresh at the end of this cycle (see I5).
+
+### Gate I5 (regressions) — PASS
+
+- `backend/.venv/bin/pytest backend/tests -q` → **`2 failed, 843 passed,
+  18 warnings in ~15-22s`**, reproduced 3×. The 2 failures are exactly the
+  סימן/חלק containment REDs (M20, core-blocked) — correctly still RED,
+  unchanged.
+- `bash scripts/contract_lint.sh 2026-08-04-defs-il` → **PASS 398**.
+- `git diff --name-status 71fda25 HEAD -- backend/tests` (manager-setup
+  commit → now, the WHOLE sprint) → **98 `A`, 0 `M`, 0 `D`** — strictly
+  additive across every cycle, mechanically checked, not inherited on
+  trust.
+- `git diff --name-status HEAD -- backend/app` → **empty** throughout.
+- CHECK run: full suite + lint, both reproduced by me independently.
+
+### Gate I1 (corpus loads) — PASS, verified by diff, not re-run
+
+CHECK run: `git log 71fda25..HEAD -- ingest_wiki_corpus_cli.py
+ingest_wiki_corpus.py ingest.py sections.py pipeline.py profiles.py
+extract.py matcher.py` → only the pre-existing core-dispatch merge +
+the original I1 build commit; **zero commits from D-1a/D-1b/separator**.
+The measured 6,133/6,133 files, 0 failures, 128,234 articles (established
+QA cycle 3, re-confirmed M22) is unchanged by anything that shipped this
+cycle. **Honest gap: I did not re-run the full ~37s bulk ingest myself
+this cycle** — verified by diff instead, since none of this cycle's three
+bundles touch any file in I1's path.
+
+### Gate I2 (four missed classes captured) — PASS for every committed RED,
+but a NEW real residual found squarely inside class (d)'s own mandate
+
+All 7 D-1a + 4 D-1b + 3 separator REDs are green (suite above). But I4's
+zero-miss bar is about the CLASS, not the tests, so I attacked class (d)
+("prose-body definition sections... extraction yields []") directly on
+the live corpus rather than trusting "3/3 REDs green" — see target 2
+below. **Found: 44 real corpus definitions-heading articles (of the
+467-article population reached ONLY by `_split_marker_less_prose`, i.e.
+no `:-`/`::-` line anywhere) still yield ZERO candidates from the
+CURRENT shipped code, despite containing genuine defining content** — an
+estimated ~202 missed terms across those 44 files (crude per-line quote+
+dash count, likely off by a modest margin either way, not exact). Root
+cause, confirmed live on `הוראות מס הכנסה (ניהול פנקסי חשבונות)` article
+27: the body is a preamble line (`: בפרק זה -`) followed by numbered
+`: (1)`/`: (2)`/... sub-entries, each its own `"term" - definition;` —
+neither of D-1b's two `EntrySplitterRule`s reaches this shape (no `:-`
+line exists for baseline, no `::-` line for the double-colon splitter),
+so `_split_marker_less_prose` hands the WHOLE body as one block, and
+`_parse_block` reads only the first line — the bare preamble, with no
+quoted term at all — so it returns `[]`, not even one term. This is
+**worse** than D-1b's own named honest gap ("captures only the first
+sentence"): for this shape, nothing is captured at all. Real corpus
+examples include substantive tax/investment statutes: `חוק היטל על רכוש
+(הוראת שעה)` (arts 1/2/3, ~10-22 terms each), `חוק לעידוד השקעות הון`
+art 53א (~13 terms), `חוק לעידוד השקעות (חברות עתירות הון)` art 1 (~8
+terms), `חוק מס הכנסה (עידוד להשכרת דירות)`, `חוק מס מעסיקים`, and
+`צו מס קניה (פטור)` art 1 (~21 terms) among others. **Named residual for
+the director** — not a regression (D-1b's own scope was deliberately
+narrower, 2 sub-shapes only, by design), not this cycle's fault, but real
+and sizable, and squarely inside I2(d)'s original mandate.
+
+### Gate I3 (scope containment, both directions) — mostly PASS, one
+measured under-claim on real live data
+
+Class-C's `scope="local"` default (target 1, full attack below) is
+**confirmed SAFE — never over-claims** by two independent methods: (a)
+direct read of `matcher._in_scope`'s `"local"` branch, which strictly
+requires `article.number == definition.source_article_number` (cannot
+leak to another article, structurally); (b) a live end-to-end run
+(`ingest_wiki_law` → `run_definition_linking`) against 3 real corpus laws
+through this worktree's own test DB — every persisted `local` Definition
+row only ever produced `USES_DEFINITION` edges pointing at its OWN
+article. But it is a **measured, real under-claim** for a sizable slice
+of its own population — see target 1. The סימן/חלק containment REDs
+(M20, core-blocked) remain correctly red, untouched by anything this
+cycle (diff-verified above).
+
+### Gate I4 (zero-miss sweep) — the director's bar; six real, sized,
+measured findings this cycle, none a regression, none an over-capture
+
+Bucketed per the brief's three honest end-states. **All-captured** (proven,
+live evidence): D-1a classes A/B/C's own committed REDs; D-1b's 4 E6 REDs;
+the 3 separator REDs; zero cross-article false `USES_DEFINITION` edges
+found anywhere I probed live. **Named residuals for the director** (real,
+measured, sized, blocker stated): the six numbered findings below.
+**Valves** (cannot resolve within this cycle, needs escalation): none new
+— the סימן/חלק containment gap stays core-blocked per M20, unchanged.
+
+---
+
+#### TARGET 1 — the class-C scope decision: attacked live, on the real corpus
+
+Reproduced the real production dispatch (`sections.parse_articles` →
+`HebrewProfile.is_definitions_heading` → `normalize_for_parsing` +
+`strip_wikilinks` → the actual `_extract` from
+`il_heading_embedded_preamble_scope_triggers.py`) corpus-wide, read-only.
+
+**Denominator: 44 firing articles corpus-wide** (123,176 ordinary articles
+scanned, 4,785 definitions-heading skipped, 273 bidi-degraded skipped) —
+**not** the Developer's own claimed 57. I could not reproduce 57 under any
+of 4 methodology variants I tried (raw body/all articles: 67; raw body
+excl. defs-heading: 42; normalized excl. defs-heading with/without bidi
+filter: 44 both times, my production-faithful number). Flagging the gap
+rather than assuming either number — same order of magnitude, not
+reconciled to the exact count, matching this cycle's own established
+pattern of independent sweeps disagreeing by 20-50%.
+
+**Precision — confirmed clean.** Read all 215 captured terms across the
+44 firing articles (not a sample): zero empty, zero digit-only, zero
+obviously-bogus fragments. Live end-to-end run on `חוק אוויר נקי` (607
+`USES_DEFINITION` assertions, all sane) and `הכרזה מס' 3 ...` (5
+definitions, all `scope=local`, correctly self-contained) confirmed no
+wrong edges.
+
+**Does it over-fire on articles whose heading carries NO preamble at
+all? Yes — 4/44 confirmed, and they reveal the class's own stated
+detection theory ("whatever triggered this, if anything, therefore lives
+OUTSIDE the body — most likely the heading") does not always hold:**
+1. `חוק איסור אפיית לילה` art 1, heading `פירושים` ("Interpretations") —
+   this is NOT a heading-embedded preamble at all; it is a full, ordinary
+   definitions section using a Hebrew definitions-heading SYNONYM
+   `_DEFINITIONS_HEADING_RE` doesn't recognize (frozen, pre-existing gap,
+   unrelated to this cycle). Class-C accidentally captures its 6 real
+   terms correctly, but stamps `local` where the CORRECT dispatch path
+   would default to `law-wide` (an ordinary unqualified הגדרות/synonym
+   heading) — a genuine under-claim, not merely narrow-by-design.
+2. `חוק הספנות (ימאים)` art 88, heading `הגדרת סכסוך עבודה` — same
+   synonym-heading mechanism (`הגדרת X`, construct state, not matched by
+   the frozen regex which requires bare `הגדרה`). **Worse: the entry's
+   OWN qualifier text says `לענין חוק זה`** ("for the purposes of this
+   Act") — a phrase ALREADY in the recognized law-wide vocabulary
+   (`infer_scope` would return `"law-wide"` on it) — but Class-C never
+   even checks its own discarded qualifier text against that vocabulary;
+   it hardcodes `local` unconditionally. Measured precisely: of all 44
+   firing articles' entry qualifiers (not just this bucket), **exactly 1
+   would flip to `law-wide` if `infer_scope` were applied to it** — small,
+   but it demonstrates the "wrong, not merely narrow" case the brief
+   asked me to look for is real, not hypothetical.
+3. `חוק מס הכנסה (ניכוי הפרשי הצמדה)` art 2 — heading is itself a huge
+   unrelated clause fragment (a real, if unusual, wiki-source shape); the
+   single entry's own qualifier (`לענין זה`) happens to already resolve
+   to `local` correctly. No defect, but proves the class fires for
+   reasons that have NOTHING to do with a heading preamble at all — the
+   class's own "if anything" hedge, confirmed empirically.
+4. `תקנות התגמולים לנפגעי פעולות איבה...` art 1 — entry qualifier says
+   `לענין החוק` ("for the purposes of THE Act", definite-article form) —
+   the SAME M17-recurring spelling-variant class (definite article vs.
+   the `זה`/`זו` demonstrative form already in vocabulary), a 4th
+   instance of a pattern this log has now caught three times before.
+
+**Quantified under-claim, corpus-wide over the 44-article population
+(script-verified, corrected once — see below): 15/44 (34%) are files
+where `local` is a measured, provable under-claim**, not just cautious:
+8 files where `infer_scope` on the heading text itself would already
+return something other than `local` (7 → `law-wide`: the `הכרזה`/`הסכם`/
+`צו` family; 1 → `chelek`, moot since chelek containment is separately
+core-blocked); PLUS 7 files (zero overlap) whose heading is an
+unrecognized definitions-heading SYNONYM that should default to
+`law-wide` under the correct dispatch path (`פירושים`, `הגדרת X`,
+`'''הגדרות'''` with wiki bold-markup × 3, numbering-prefixed `N.N
+הגדרות` × 2 — this last sub-population is EXACTLY the module's own named
+"numbering-prefixed plain הגדרות heading" honest gap, now with 2 real
+corpus instances measured). **I initially mis-added this to 12/44 (27%)
+in my own working notes; the script-verified correct figure is 15/44
+(34%) — correcting myself before reporting, per the brief's own standard.**
+
+**Live-demonstrated, not merely inferred:** `צו לימוד חובה (שיעור
+ההשתתפות...)` — heading `בצו זה -`, `infer_scope` says `law-wide` if
+honored, Class-C stamps `local`. Article 2 of the SAME real document
+contains **6 literal textual occurrences** of terms defined "locally" in
+article 1 (`בית ספר יסודי`, `גן חובה`, `גן טרום-חובה`, `חטיבת ביניים`,
+`פסיכולוג מתמחה`, `עובד סיוע`) — confirmed via a live
+`ingest_wiki_law`/`run_definition_linking` run against the real corpus
+file. **Zero `USES_DEFINITION` edges were created for any of the 6** (only
+3 self-referential article-1 edges fired). This is not theoretical: a
+real document, real cross-article uses, real measured recall loss.
+
+**Verdict on target 1: the design call (local, never delegating to
+`determine_scope`) is the right one — safe by construction, proven two
+ways. But "safe" and "correct" are not the same claim, and the under-claim
+is measurably NOT confined to the two sub-populations the module's own
+docstring names — it is 15/44 (34%) of the class's own firing population,
+plus a distinct 4th "no visible hook at all" structural mismatch (4/44)
+with the module's own stated detection theory. Named residual for the
+director, not a blocker to closing this cycle.**
+
+---
+
+#### TARGET 2 — D-1b's blast radius: seeded sample + the two named
+sub-behaviours + a correction to M28's own denominator
+
+**Correction to M28's denominator (load-bearing, checked before
+sampling from it).** M28's own A/B script fed RAW (un-normalized,
+wikilinks-unstripped) body text into `extract_definitions_from_section`.
+Production never does this — `pipeline.py` always calls
+`profile.normalize_for_parsing` + `strip_wikilinks` first, for EVERY
+article, unconditionally. I reproduced M28's exact reported numbers
+(586 articles / 1,407 candidates / 1,519 terms / 489 articles-with-capture)
+**only** when feeding raw body text; feeding the SAME, production-faithful
+normalized+stripped text instead gives:
+
+```
+population (no ':-' line)      584   (M28: 586, -2)
+candidates produced           1,735   (M28: 1,407, +328 / +23%)
+terms produced                 1,869   (M28: 1,519, +350 / +23%)
+articles yielding >=1 candidate  525   (M28: 489, +36 / +7.4%)
+```
+
+Root cause, confirmed on a real example (`חוק חניה לנכים` art 1): its
+real `::-`-marked entries use `–` (en-dash) and `”...”` (curly quotes)
+throughout, not ASCII. Raw-body extraction finds nothing (`_find_split_
+dash`/`_QUOTE_RE` require ASCII); normalization (which collapses exactly
+these variants, per `normalize.py`'s own documented job) lets it capture
+all 3 real terms — matching live production behavior exactly. **This is
+not a defect** — the shipped code, fed what production actually feeds it,
+performs BETTER than M28 measured. It is a correction to the SIZED target
+itself: the population to certify against is the larger one, 1,735
+candidates, not 1,407.
+
+**Seeded random sample, precision.** `random.seed(20260805)`, n=110
+candidates (~6.3%) drawn from the corrected 1,735-candidate population.
+Hand-read all 110 (terms + definition_text, not just terms): **0/110
+errors** — every one a plausible, genuine, real Israeli-law definition
+(including some visually generic-looking single-word terms like `שווי`,
+`כמות`, `הוצאות`, all verified in context as genuine). With 0/110
+observed, a rule-of-three bound puts the true error rate's 95%-CI upper
+bound at roughly **≤2.7%** on this population. This is a MEASURED rate
+with a stated sample size, not a clean-bill claim — I did not read all
+1,735.
+
+**Sub-behaviour 1 — `_split_marker_less_prose`'s "only the first
+sentence" limit: verified, AND found something worse.** On the "pure"
+population (no `:-`, no `::-` anywhere — 467 articles, reached ONLY by
+this rule) I measured **zero** cases where a second, later quote-dash
+sentence in the SAME body is silently dropped in favor of the first
+(0/467, both a structural heuristic and the real extraction's own
+candidate count agree) — the docstring's own "not observed" claim now
+holds corpus-wide, not just for the 2 target fixtures. **But this same
+population has a worse, previously-uncharacterized gap: of the 467, 59
+produce ZERO candidates, and 44 of those genuinely contain >=1 real
+quoted-term-dash shape somewhere in the body** (see Gate I2 above for the
+full writeup — the numbered/lettered-sub-item-under-one-preamble shape,
+~202 estimated missed terms across 44 real files). This is NOT the "only
+first sentence" limitation the docstring names; it is a different,
+larger, unnamed gap in the same rule.
+
+**Sub-behaviour 2 — `_split_double_colon_dash_entries`'s trailing-context
+drop, on the FULL 159-article `::-` population (M28's own count,
+reproduced exactly: 159/159 on the normalized-text measure).** Did not
+find a single case where the "flush on first non-`::`-prefixed line"
+rule truncates real continuation text a human would consider part of the
+SAME definition — every flush point I sampled (12 hand-read, drawn from
+the largest/most complex bodies in the 159) correctly coincided with a
+genuine new top-level entry or the section's own closing prose. **No
+new finding here — D-1b's own claimed behavior holds** on this population,
+independently re-verified rather than trusted.
+
+**Verdict on target 2: D-1b's own 3-fixtures-vs-489-articles honesty
+(M28) undersold itself — the real number is 525 articles / 1,735
+candidates, and precision holds at 0/110 sampled. But class (d) is
+STILL not fully closed: 44 files / ~202 estimated terms remain at zero
+capture, a shape D-1b's own two rules were never chartered to reach.
+Named residual for the director.**
+
+---
+
+#### TARGET 3 — the separator work + verifying M30's classification
+
+Reproduced M30's whole-population cross-path invariant independently
+(own script, own dash/header slicing mirroring both `il_list_shape_
+scope.parse_entry` and the frozen `extract._parse_terms_and_qualifier`):
+
+```
+                                  MY RUN      M30's RUN
+entry lines scanned               53,171        54,363
+lines with dash + frozen terms    51,383        47,226
+DIVERGENCES, ours fewer              254           197
+DIVERGENCES, ours MORE                 0             0   <- both agree, exactly
+DIVERGENCES, same count, diff str     20            19
+```
+
+**The single most important claim — zero over-capture — reproduces
+exactly independently: 0 in both runs**, across two different
+implementations of the same invariant. My own "fewer" count (254) is
+~29% higher than M30's (197); did not reconcile the exact gap (same
+"independent sweeps disagree by 20-50%" pattern this whole cycle has
+shown repeatedly) — flagging rather than picking a number.
+
+**Seeded sample of my own 254-line population**: `random.seed(20260805)`,
+n=70 (27.6%), hand-read every entry/OURS/FROZEN triple. Classification
+(mine, 3 buckets — M30 used 2; I added a third because several cases
+genuinely don't fit either cleanly):
+
+```
+GENUINE MISS (clean)                    ~15 / 70   (21%)
+GARBAGE-AVOIDANCE (clean)                ~47 / 70   (67%)
+MIXED / boundary (see below)              ~7 / 70   (10%)
+```
+
+**M30's classification substantially HOLDS on the directional claim**
+(garbage-avoidance is the dominant bucket, ~66-67% in both M30's and my
+own independent read — a strong match) but **the exact 67/130 (34%/66%)
+split is optimistic toward "genuine"** once boundary cases are separated
+out rather than force-fit into one of two buckets. Concretely:
+- **A NEW genuine-miss root cause, not one of M30's 4 named shapes**:
+  content BEFORE the header's first quote (an HTML/wiki tag like
+  `<ins>`, a numbering prefix like `(2)`, or a same-line preamble phrase)
+  defeats `_QUOTE_RE.match`'s position-0 anchor entirely, dropping the
+  WHOLE entry — not a separator gap between term 2+ (M30's 4 shapes),
+  a term-1 lookup failure. Found **5/70 times** (cases: `חוק-יסוד:
+  מקרקעי ישראל` art 3, `תקנות הבטיחות בעבודה (עגורנאים)` art 1 ×2, `חוק
+  התכנון והבניה` art 70א, `חוק עידוד התעשיה (מסים)` art 1) — not a
+  fluke; extrapolated to the 254-line population this is a real,
+  double-digit corpus-wide count. **This is the load-bearing correction
+  to M30's classification** the brief asked me to check for.
+- **A boundary case that undermines the "genuine" bucket's own safety
+  margin**: `פקודת הפיצויים לעובדים` art 2 — FROZEN finds 3 terms
+  (`אנייה`, `ספינה`, `אנייה ישראלית`); 2 are genuine real misses, but
+  `ספינה` is **NOT actually being defined here at all** — it is a
+  CROSS-REFERENCED term from a different law's vocabulary
+  (`"אנייה" מובנה כמובן הנודע לביטוי "ספינה" בפקודת הנמלים` = "'vessel'
+  shall be construed per the meaning known to the term 'ship' in the
+  Ports Ordinance"), so FROZEN's own "genuine-looking" extra term is
+  itself wrong here. M30's own hand-read (~12 examples) did not surface
+  this; my larger sample did. **Is 67 right? Likely close in spirit
+  (the dominant garbage-avoidance direction is real and independently
+  reproduced), but the exact count almost certainly needs a downward
+  adjustment for cases like this one, and an upward one for the new
+  leading-content shape — I did not fully reconcile the net direction
+  given the scale of the population (254, not 197, by my own count).**
+- Two new small sub-shapes not named by M30, both genuine-leaning but
+  worth a separate note: (a) a parenthetical English-language gloss
+  between a multi-term entry's terms and its `או`/vav connector
+  (`"גישה סופית" (Final Approach) או "קטע גישה סופית" (FAS...)`, found
+  2/70 times) — the connector-adjacency requirement in `_TERM_SEP_RE`
+  doesn't tolerate the intervening parenthetical; (b) an invisible RTL
+  mark (U+200F) sitting between a closing quote and its comma
+  (`"dB(A)"‏, "dB(C)"‏...`) defeating the same adjacency check, found
+  once — a new "don't assume ASCII/no-invisible-marks" instance of the
+  lesson M30's own maqaf correction already taught.
+
+**Verdict on target 3: the separator bundle's own precision claim
+(zero over-capture) is independently reconfirmed, exactly, on a
+DIFFERENT implementation of the same whole-population check — this is
+strong, real evidence, not just M30's word. The 67/130 split is
+directionally right but not exactly right; I could not fully verify it
+to the precision the brief asked for given the scale (254 vs 197
+unreconciled), and I found one new genuine-miss root cause (leading
+content before term 1) plus one concrete case where a "genuine" example
+is actually partly wrong. Named residual for the director — a Planner
+denominator + REDs for the 67-class was already ruled out of THIS
+cycle's scope by M30's own routing note, and nothing here changes that
+call.**
+
+---
+
+### Honest gaps I did not close
+
+1. Did not reconcile the exact 254-vs-197 (target 3) or 44-vs-Developer's-
+   57 (target 1) count differences between independent sweeps — flagged,
+   not resolved, matching this cycle's own repeated pattern.
+2. D-1b sample is 110/1,735 (6.3%) and M30-classification sample is
+   70/254 (27.6%) — both real, seeded, hand-read samples, neither a full
+   census. 0/110 is a strong precision signal but not a certification.
+3. Did not independently verify D-1b's `בפסקה זו`-only `TermClauseRule`
+   scope (item 3 in M28's own honest gaps) — out of my time budget this
+   cycle, not attacked.
+4. Did not check whether the same "leading content before term 1" root
+   cause (target 3) also affects `il_heading_embedded_preamble_scope_
+   triggers.py`'s own `parse_entry` calls (target 1's rule reuses the
+   same shared parser) — plausible, not checked live.
+5. I1 verified by diff, not re-run this cycle (stated above, not hidden).
+
+### My own numbers, self-checked before reporting
+
+Per the brief's explicit ask: caught and corrected my own 12/44 → 15/44
+(target 1) arithmetic error before writing it up, by re-deriving it with
+a script rather than trusting my manual tally. Did not find other
+load-bearing errors in my own measurements on a second pass, but did not
+have time for a third.
