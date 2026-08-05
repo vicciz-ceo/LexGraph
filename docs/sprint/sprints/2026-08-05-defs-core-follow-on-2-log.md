@@ -588,6 +588,92 @@ is proven by the tests as they stand.
    scope-direction effect is untested. **QA must add a direction check: an
    update must never widen scope.**
 
+### G3 + G1 — manager verification (dev1), ACCEPTED and merged @ cfe10ce
+
+Verified first-hand:
+- Diff is **`us_profile.py` only, 103 insertions / 2 deletions, 0 test files
+  touched**; full diff read.
+- **G3's RED green and all 12 guard pins green** (15 passed / 1 failed in the
+  targeted run, the 1 being the G1 re-point below).
+- Full suite **795 passed / 18 failed**; 17 reconcile exactly to the other
+  unimplemented gates.
+- **Hebrew/IL surface intact** — manager's own filtered run: 52 passed, and
+  its only 2 failures are the unimplemented G5-IL / G6-IL REDs, not
+  regressions.
+
+**Implementation (as instructed, the shared-helper shape is real, not
+cosmetic):** `_trailing_notes_boundary(text, start, end) -> int` plus the
+extended 10-marker `_TRAILING_NOTES_MARKERS`, applied only to `blocks[-1]`
+(every other block is already bounded by the next entry marker's start).
+The helper is deliberately **offset-in / offset-out**, and its docstring
+states the exact sibling wiring: `_trailing_notes_boundary(text,
+definition_start, end)` replaces the sibling's literal `len(text)` fallback
+**with no other change** — which is what makes the Q-G3-A sibling adoption a
+one-line change once its condition is discharged.
+
+**Line-granularity is a verified design decision, not a shortcut:** markers
+can sit MID-line inside citation parentheticals — real FED row
+`USC_T5_C34_S3401` carries `(Added Pub. L. 95-437, ...)` before "Editorial
+Notes", so truncating at the marker substring's own offset would leave
+`"(Added "` dangling in the kept text. Dropping the whole line does not.
+
+**G1** is the one-line `.strip()` on `_leading_quote_candidate`'s captured
+group, matching the sibling's long-standing convention for the same capture.
+
+#### Honest caveats recorded (not papered over)
+
+- **The 12/12 guard-pin result is weaker than it sounds.** dev1 disclosed
+  that LA/ID/MI's last raw blocks DO contain marker text but contribute no
+  candidate — so truncation is **inert** on those three. The guard proves
+  non-regression there, but does not exercise the new boundary. QA should
+  not read 12/12 as 12 live exercises of the rule.
+- **MANAGER-IDENTIFIED QA ATTACK POINT — marker matching is broad.** The
+  check is `any(marker in line for marker in _TRAILING_NOTES_MARKERS)`: a
+  bare, case-sensitive SUBSTRING test anywhere in the line. Tokens like
+  `"Amendments"`, `"Source:"`, `"History:"` and `"Cited."` are generic
+  enough that a GENUINE final-entry line mentioning one (e.g. "...subject
+  to Amendments made by...") would truncate the entry at that line. Blast
+  radius is bounded (last block only), but the last block is a real
+  definition. **QA must measure how often a genuine last-entry line
+  contains one of these tokens** — this is the precision side of G3 and it
+  is not proven by the current pins.
+
+#### The 18th failure — Planner-side re-point, correctly handled by dev1
+
+`test_padded_term_silently_misses_a_mention_that_the_stripped_term_finds`
+fails **by construction**: it sources its padded term from live extraction
+(`next(t for t in by_term if t.strip() == "Registrant")`) and asserts it
+equals `' Registrant '` — which G1 now correctly prevents. The test's OWN
+assertion message prescribed the remedy ("needs to be re-pointed, not
+silently adjusted"). dev1 respected the role boundary and did not touch it.
+
+**Manager judgment (made, then handed to plan2 to execute):** the mechanism
+the test proves — `re.escape` does not escape a plain space, so a padded
+term misses a punctuation-abutting mention — is a property of
+`find_term_uses`, NOT of the extractor, and remains true and worth pinning.
+Re-point to a **synthetically-constructed** padded term, keep the
+stripped-finds-1 / padded-finds-0 contrast intact, and record in the
+docstring that the extractor-side guarantee is covered by the sibling test
+`test_ms_defined_terms_are_stripped_of_quote_interior_padding` (now
+passing). Routed to **plan2** rather than a Haiku micro-fix: it authored the
+tripwire and the M-R32 reasoning, test authorship is Planner-owned, and the
+risk of a re-point that pins the wrong thing outweighs the saving on a task
+this small.
+
+### PROCESS CORRECTION — manager error, recorded
+
+Phase 0d/Phase 1 of this log stated "plan2 re-engaged to run this" for the
+Q-G3-A sibling both-sides sample. **That message was never actually sent.**
+The gap surfaced when plan2 resumed with "no active task," proving it had
+been idle rather than measuring. The real brief has now been dispatched and
+the sibling sample is plan2's PRIMARY task, ahead of the re-point.
+
+Consequence to note: the sibling sample is on the sprint's critical path
+(dev1's sibling fence lifts only after it, and **G11's flip must pair with
+the sibling boundary fix** or ship the measured 202-row debt), so this error
+cost wall-clock time on the longest chain. No work was lost or duplicated.
+Recorded rather than quietly fixed, per this log's append-only convention.
+
 ---
 
 # Appendix A — Planner record: plan3 (G5, G6)
