@@ -7,7 +7,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-core-follow-on-2
 locked_by: "/root/core2_g4_newline_planner"
 locked_at: "2026-08-05T19:58:54Z"
 last_agent: "/root/core2_g4_newline_planner"
-last_updated: "2026-08-05T19:58:54Z"
+last_updated: "2026-08-05T20:58:45Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -62,7 +62,11 @@ fixes unblock three panels' held state.
   genuine `(c)(i)` skipped), TX `Section 37.007(a)(1)`, ME `(NEW)` revisor
   annotation (ladder misselection + path built from CFR/USC pin-cites).
   Also covers the Oregon S-R14-validation-row latch ("under subsection (1)
-  of this section" — scoped-inline plan8 evidence).
+  of this section" — scoped-inline plan8 evidence). Post-QA newline scope
+  is binding: only `Section`/lone-`§` + parenthesized candidates may use the
+  measured cross-line exception; structural, full-USC, bare-code, and period
+  forms stay unchanged. Tests must not import/pin the private context helper
+  signature (`rg` stale-pin sweep: zero matches before Developer handoff).
 - **G5 — RuleContext.unit_path.** No longer hardcoded `()`; rules receive
   the real unit path through the seam instead of importing
   `resolve_unit_path` directly. Existing rule modules keep working (their

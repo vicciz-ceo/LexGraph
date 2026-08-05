@@ -22,7 +22,6 @@ import pyarrow.parquet as pq
 
 from app.definition_links.normalize import strip_wikilinks
 from app.definition_links.matcher import scope_rank
-from app.definition_links.pipeline import _is_tighter_containment
 from app.definition_links.profiles import get_profile
 from app.definition_links.extract import _parse_terms_and_qualifier
 
@@ -46,6 +45,21 @@ _NEXT_ENTRY_HEADER_RE = re.compile(
 )
 _TERM_PUNCTUATION_RE = re.compile(r"[\"“”'`.,;:]+")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _historic_g8_tighter_containment(candidate_text: str, persisted_text: str) -> bool:
+    """Simulate the exact retired G8 predicate for historical evidence.
+
+    Production intentionally restored first-wins and removed this helper at
+    056b5d0.  The measurement still asks how often that former behavior
+    *would* have fired, so it carries the three-clause predicate locally
+    instead of importing a production symbol which no longer exists.
+    """
+    return (
+        candidate_text != persisted_text
+        and len(candidate_text) < len(persisted_text)
+        and candidate_text in persisted_text
+    )
 
 
 def _jurisdiction(path: Path) -> str:
@@ -281,7 +295,9 @@ def main() -> int:
                     if key not in collided_keys:
                         collided_keys.add(key)
                         counts["same_key_collision_groups"] += 1
-                    if _is_tighter_containment(candidate.definition_text, earlier.definition_text):
+                    if _historic_g8_tighter_containment(
+                        candidate.definition_text, earlier.definition_text
+                    ):
                         counts["firings"] += 1
                         structural = _structural_discriminator(
                             earlier.definition_text,
