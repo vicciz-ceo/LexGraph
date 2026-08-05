@@ -937,10 +937,11 @@ genuine fix has THREE parts, not two, mirroring exactly how `.chapter`
 itself already flows end to end:
 1. `sections.py` — capture full-depth breadcrumbs additively (item G9-1).
 2. `models.article.Article` — one new additive, nullable column to carry
-   it from ingest-time to pipeline-time (item G9-2) — the same "additive
-   column on a `Base.metadata.create_all()`-only table, no migration
-   module needed" precedent `models/document.py`'s own docstring already
-   documents for `Document.jurisdiction`.
+   it from ingest-time to pipeline-time (item G9-2) — see that item's own
+   entry below for the corrected migration precedent (a real
+   `backend/app/migrations/*.py` module, not `Document.jurisdiction`'s
+   fresh-test-only `create_all()` shape) and the merge-sequencing HOLD on
+   it.
 3. `ingest.py` (persist) + `pipeline.py` (read instead of hardcode) —
    items G9-3/G9-4.
 
@@ -972,10 +973,39 @@ assignment is UNTOUCHED — this is a parallel accumulation, not a rewrite.
 **G9-2 — `models.article.Article`: one new additive nullable column.**
 Carries G9-1's captured breadcrumbs from ingest-time to pipeline-time (no
 other route exists — `run_definition_linking` never re-parses raw text,
-see "Design decision" above). Additive, nullable, no migration module
-(same precedent as `Document.jurisdiction`). Column name/serialization is
-the Developer's implementation choice; no RED in this Planner's set pins
-it directly.
+see "Design decision" above). Additive, nullable. **Correction to this
+Planner's own first pass:** the fresh-test-only `Base.metadata.create_
+all()` precedent (`Document.jurisdiction`'s own docstring) is NOT the
+right analogy for a column that must survive on an already-provisioned
+production database — `backend/app/migrations/add_assertion_subject_
+unit_path_column.py` (verified present, read in full) is the real,
+already-established convention for exactly this shape: a raw-DDL
+`upgrade(engine)`/`downgrade(engine)` pair against a plain `Engine`, no
+backfill (`NULL` == "no breadcrumbs known" is the correct, honest value
+for every pre-existing row). Follow that file's shape exactly, not
+`Document.jurisdiction`'s. Column name/serialization choice is otherwise
+the Developer's own; no RED in this Planner's set pins it directly. See
+the HOLD note immediately below — this item does not proceed until the
+program manager confirms the merge-sequencing question.
+
+**HOLD (2026-08-05, manager verification, not this Planner's call to
+lift):** the manager independently re-verified the "no other route"
+reasoning above (`pipeline.py`'s `select(Article)` load site does not
+re-parse; `Article`'s current columns carry no breadcrumb field;
+`add_raw_text_columns.py` covers assertion tables only, no document-level
+raw text exists anywhere to re-derive structure from) and confirmed it
+holds. G9-2 is held pending a PROGRAM-level merge-sequencing call
+(P-R5, program manager's own authority, not a panel-level decision) — this
+sprint merges first among pending program merges and all six family
+panels rebase onto it, so a schema migration here ripples into every
+panel's rebase; that materially changes the "small, additive, safe
+default" premise the manager's own G9 acceptance was reasoned on. Per
+seam v2.5's own precedent test ("a column becomes right when a concrete
+consumer needs to answer it without re-deriving it from source text"),
+follow `add_assertion_subject_unit_path_column.py`'s shape exactly if/when
+this proceeds (additive, nullable, real `downgrade()`, no backfill). No
+Developer is spawned for G9 until the manager confirms; G9-1/G9-3/G9-4 are
+unaffected and stand as specified.
 
 **G9-3 — `ingest.py`: persist `heading_breadcrumbs` onto the new column.**
 `ingest_wiki_law`'s per-article `Article(...)` construction gains one more
@@ -1149,24 +1179,30 @@ expected breadcrumbs for 2 real files, 3 fixture excerpts, covering the
 2-level, chapter-only, reset/non-leak, and non-monotonic-depth cases) —
 not merely asserted to be correct.
 
-**P-R10 probe-sanity, honest gap:** attempted to reproduce an EXISTING,
-UNRELATED cited figure as an additional cross-check of this script's
-methodology — `sections.py`'s own M8(a) code comment states "124 of 6,133
-... documents use a bare `@` marker for at least one section." This
-script's own bare-marker sub-check (same `_BARE_ARTICLE_MARKER_RE` regex,
-same corpus) reproduces **42**, not 124; two broader variants tried (any
-`@`-prefixed line that fails full article-marker matching: 1,658; a
-`.strip()`-relaxed bare-marker match: 42, identical) did not reproduce 124
-either. The corpus itself is confirmed unchanged since that figure was
-presumably measured (`git log` inside the corpus repo shows one scrape
-commit, dated 2026-07-26, "corpus 6133" — the same count this script
-independently gets). This discrepancy belongs to M8(a) (a DIFFERENT,
-already-shipped item, not part of G9, not edited by this Planner) and is
-flagged rather than silently resolved or hidden — it does NOT undermine
-this gate's own two new numbers (14,393 / 50,472), which mirror the real
-production algorithm directly rather than depending on that other figure.
+**P-R10 probe-sanity, CORRECTED (2026-08-05, manager verification of this
+Planner's delivery):** this Planner's first pass at this note flagged its
+own bare-marker sub-check (same `_BARE_ARTICLE_MARKER_RE` regex, same
+corpus) reproducing **42** files instead of `sections.py`'s M8(a) code
+comment's "124 of 6,133" as an unreproduced discrepancy. The manager
+identified the actual reference: the program doc's own **P-E3** (append,
+"cross-panel factual correction," program-manager-probed on the real
+corpus) already supersedes M8(a)'s "124" — verbatim: *"the IL panel's E5
+'124 bare-@ laws / 12 with definitions' framing is corrected — real
+bare-@ occurrences are 331 across 42 files, ALL followed by table/list
+markup, never by a heading."* **42 is the corrected figure, and this
+script's own read-only measurement hit it exactly.** This is therefore a
+PASSED P-R10 sanity check, not a gap — the same scanning approach used
+for this gate's own two new numbers independently reproduced an
+already-corrected, program-level corpus figure, which strengthens
+confidence in 14,393/50,472 rather than merely leaving them unchecked.
 
 ## What the Developer must implement
+
+**No Developer is spawned for G9 yet** — G9-2 (the new persisted column)
+is held pending the program manager's own merge-sequencing call (see the
+HOLD note under G9-2 above); G9-1/G9-3/G9-4 depend on it existing, so the
+whole gate waits together rather than a partial build. The below is the
+implementation spec for once the hold lifts.
 
 - G9-1/G9-2/G9-3/G9-4 above, in order (G9-1 has no dependency; G9-2/3/4
   depend on G9-1's field existing).
