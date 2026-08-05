@@ -820,6 +820,78 @@ def extract_definitions_from_section(text: str, *, scope: str) -> list[Definitio
     return candidates
 
 
+# --- Item 32 (P3 chapter half, sprint cycle-9): PR's own chapter-scope ------
+# convention -- the Spanish analog of `USProfile`/`HebrewProfile`'s own
+# `determine_scope` chapter-trigger detection, registered as a
+# `ScopeKindRule` (see `rules/us_pr_scope_kind.py`).
+#
+# ANCHORING (M-D3 erratum, own measurement -- see the sprint contract/panel
+# log's cycle-9 Planner entry): the real PR corpus has ZERO newlines within
+# any canonical Definiciones section body (0/633, reconfirmed this cycle),
+# so English/IL's `body_text.splitlines()[0]` "first line" convention is a
+# SILENT NO-OP for PR (one "line" == the whole body), not merely
+# inapplicable -- naively porting it degrades to "grep anywhere in body",
+# which measurably over-triggers (an unanchored search hits 28 canonical
+# rows, 7 of which are the phrase deep in unrelated closing prose, e.g.
+# `STATE_PR_LEY_77_1957_ART9_040` at ~96% through the body). Anchoring
+# instead on the body's first SENTENCE (`.`/`!`/`?` boundary, reusing
+# `_sentence_containing`/`_SENTENCE_END_RE`'s own existing convention
+# above) was measured against "text before the first `_ENTRY_MARKER_RE`
+# marker" and found to correctly reach PAST a bare subsection-style label
+# opening the body (`"(a) Para los fines de este Capítulo..."`,
+# `STATE_PR_INCENTIVOS_SEC6070_55`) that the marker-based anchor
+# misreads as entry marker #1, returning an empty lead-in and MISSING the
+# trigger. Measured population: 21/633 canonical rows resolve `"chapter"`,
+# every hit hand-verified, zero false positives.
+#
+# TRIGGER PHRASES: both `A` and `Para` lead into `los fines/efectos de este
+# Capítulo` in the real corpus (`STATE_PR_LEY_77_1957_ART30_020`: "A los
+# fines de este Capítulo..."; `STATE_PR_INCENTIVOS_SEC6070_55`: "Para los
+# fines de este Capítulo..."; `STATE_PR_LEY_77_1957_ART26_030`: "A los
+# efectos de este capítulo...") -- the same `a|para` preposition
+# flexibility `_SCOPE_PHRASE_LEAD_ALTERNATION` above already establishes
+# for this exact grammatical construction, reused here rather than a
+# narrower literal-phrase list that would miss real corpus rows. A THIRD
+# real shape, no "los fines/efectos" at all (`STATE_PR_LEY_77_1957_
+# ART5_010`/`_ART5_020`/`_ART31_020`: "Para propósitos de este Capítulo,
+# los activos/pasivos se definirán..."), mirrors
+# `_SCOPE_PHRASE_LEAD_ALTERNATION`'s own separate `para\s+prop[oó]sitos\s+
+# de` branch -- found via this Developer's own corpus-wide blast-radius
+# re-measurement (18/21 on first pass; these 3 rows were the gap) rather
+# than assumed from the item's own headline 3-phrase summary, confirming
+# the full 21-row population the Planner measured. `En este Capítulo` is a
+# fourth, independent trigger shape (no preposition variant needed).
+# Deliberately anchored on `Capítulo` only -- `STATE_PR_LEY_249_2003_
+# ART3`'s "Para propósitos de esta Ley" (a LAW-scope idiom, same
+# "propósitos" vocabulary but a different noun) and `extract_local_
+# definitions`'s "A los fines de este Artículo" (an ARTICLE-scope idiom,
+# item 26) both share a leading preposition/noun with one branch above but
+# name a different noun (`Ley`/`Artículo`, never `Capítulo`), so neither
+# collides with this pattern.
+_PR_CHAPTER_SCOPE_TRIGGER_RE = re.compile(
+    r"(?:A|Para)\s+los\s+(?:fines|efectos)\s+de\s+este\s+Capítulo"
+    r"|Para\s+prop[oó]sitos\s+de\s+este\s+Capítulo"
+    r"|En\s+este\s+Capítulo",
+    re.IGNORECASE,
+)
+
+
+def detect_pr_chapter_scope(body_text: str) -> str | None:
+    """`"chapter"` when `body_text`'s own first SENTENCE contains one of
+    the chapter-scope trigger phrases (see module comment above); `None`
+    ("no opinion") otherwise -- the `ScopeKindRule` contract, letting
+    baseline (which never fires on Spanish text) or the profile's own
+    `"law-wide"` default stand when this returns `None`. Reused verbatim
+    (not re-implemented) by `rules/us_pr_canonical_extraction.py`'s
+    `TermClauseRule` to independently re-derive a canonical section's
+    scope from the same body text (item 33) -- that seam has no `scope`
+    parameter to receive `pipeline.py`'s own separately-computed value."""
+    first_sentence = _sentence_containing(body_text, 0)
+    if _PR_CHAPTER_SCOPE_TRIGGER_RE.search(first_sentence):
+        return "chapter"
+    return None
+
+
 # --- Item 3 (P2): ad-hoc/local definitions outside canonical sections -------
 #
 # Two mechanically distinct Spanish idioms, the analogs of Hebrew's
