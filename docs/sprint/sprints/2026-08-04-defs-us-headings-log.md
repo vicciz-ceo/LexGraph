@@ -3028,3 +3028,247 @@ number is credible rather than alarming.
 `defin`-titled rows and is a DIFFERENT population from the 12,869 shape-1
 bucket-A figure handed to markers earlier. The two must not be added or
 conflated; they overlap by an unmeasured amount.
+
+---
+
+## 2026-08-05 — QA cycle 4 report: CERTIFY, with one newly-named 3-row residual
+
+Sole writer, worktree `/Users/nerya/LexGraph-wt/defs-us-headings-qa4`, branch
+`claude/defs-us-headings-qa4` (forked from the panel branch @ `829ccad`).
+Every script written from scratch, prefixed `qac4_`, none read from another
+agent's scratchpad file (P-R9). `git user.email` verified noreply before this
+commit. `git diff -- backend/app/` is empty on this commit (doc/log only).
+
+### P-R10 probe sanity — reproduced FIRST, live path
+
+`qac4_census.py`, all 52 in-scope `us_*_statutes.parquet` (PR excluded),
+`defin` case-insensitive, calling the REAL `USProfile.is_definitions_heading
+(title, body)` (not the bare predicates) for every miss-pool row:
+
+| Quantity | Pinned | QA cycle 4 (independent) |
+|---|---|---|
+| total rows | 2,014,611 | **2,014,611** |
+| `defin`-titled | 83,303 | **83,303** |
+| miss pool | 22,228 | **22,228** |
+| captured (live path) | 21,080 / 94.8353% | **21,080 / 94.8353%** |
+| residual | 1,148 | **1,148** |
+
+Exact match on every figure. Precision control folded in: R-TRUNC 117 +
+R-MISSPELL 6 = **123** non-canonical-tail matches among the miss pool, exact
+match to the pinned figure — reproduced via `rule_trunc`/`rule_misspell`
+called directly against every miss-pool title.
+
+### U1 — cycle-5 items 10/11/12/13/15 verified capturing their target rows
+ON THE LIVE PATH (`profile.is_definitions_heading(title, body)`, real corpus
+rows fetched fresh, not the fixture file)
+
+42 act_ids pulled from the cycle-5 RED test files' own literals (item
+10 `and`-connector, item 11 RI mojibake, item 12 pointer-table, item 13
+qualifier, item 15's three mechanisms, plus the U2 AK/KY rows and the
+required negative guards), independently re-fetched from the real parquet
+corpus and run through `get_profile(code).is_definitions_heading(title,
+body)`:
+
+- **34 positive-target rows: 34/34 True**, incl. `STATE_MI_..._S440.4952`
+  (`"Creditor process" defined and explained.`), `STATE_ID_..._S18-111A`
+  (`FELONY DEFINED FURTHER.`), `STATE_SC_..._S16-11-10` (`"Dwelling house"
+  defined in case of burglary...`), `STATE_NM_..._S29-8-2` (`"Public
+  agency" defined 1]`), `STATE_CO_..._S5-1-303` / `STATE_WY_..._S40-14-142`
+  / `STATE_OK_..._S14A-1-303` (pointer-table), `STATE_KY_..._S156.106` /
+  `STATE_AK_..._S13.06.050` (U2 expressible rows).
+- **8 negative-guard rows: 8/8 False**, incl. **the required guard,
+  `STATE_RI_T34_C34-11_S34-11-37` (`Indefinite references to "trustee"`) —
+  confirmed False on the live path, after mojibake normalization, exactly
+  as required.** Also confirmed False: `STATE_VA_..._S8.01-397.1` (L10),
+  `STATE_PA_..._S7101` (repealed, harmless), `STATE_WA_T43_C41_S109`
+  (`"Undue hardship"—Defined by rule.`, delegation), `STATE_AK_...
+  _S11.81.220` (`All offenses defined by statute.`), `STATE_FL_
+  ..._S800.05` (cross-ref `defined in s. 800.04`), `STATE_IN_
+  ..._S27-1-50-2` (`"Defined cost sharing"`, jargon), `STATE_ND_
+  ..._S1-01-09` (delegation/cross-ref).
+
+**U1: PASS**, on the live path, both directions (positive and negative).
+
+### U2 — scope enforced BOTH directions, live path
+
+`test_definition_links_matcher_u2_scope_cycle5.py`, re-run directly:
+**4/4 passed** — AK multi-chapter range (in-scope: a mention in chapter
+`13.16`, a genuine mid-range member touching neither literal boundary,
+links; out-of-scope: a mention in `13.90`, a real non-member AK chapter,
+does not link) and KY enumerated-local (in-scope: mentions in BOTH named
+sections `156.106`/`161.605` link; out-of-scope: `139.486`, a real,
+uninvolved KY article that happens to share the term in its own body text,
+does not link). **Adversarial non-vacuity check** (own script, not from the
+suite): widening AK's `source_chapter` tuple to include `13.90` flips the
+same out-of-scope article to linking — proving the containment check
+genuinely reads the scope value rather than returning a constant.
+
+**U2: PASS**, both directions, non-vacuous.
+
+### U3 — registry-only, full branch history
+
+`git diff main...HEAD --stat -- backend/app/` (the ENTIRE panel history
+against `main`, not just this cycle): **7 files, all under
+`backend/app/definition_links/rules/us_heading_variants/`**, 727 insertions,
+zero deletions elsewhere, zero files outside that package. **U3: PASS.**
+
+### U5 — no regressions, full corpus precision re-verified
+
+`backend/.venv/bin/pytest backend/tests -q` → **860 passed, 0 failed**
+(reproduced twice). H-R3 violations across the U6 per-state sweep (below):
+**zero**. Precision, re-measured full-corpus (not sampled): own script
+(`qac4_precision_full_scan.py`) called the live registry path against every
+one of the **1,931,308** rows whose title carries NO `defin` substring at
+all — **0 flips to True**, confirming by direct full-corpus measurement
+(not just the regex-construction argument) that the registry cannot produce
+a false positive outside the `defin`-titled population. **U5: PASS.**
+
+### U6 — measured before/after per jurisdiction, full corpus
+
+Own script (`qac4_u6_per_state.py`), denominator = `defin`-titled rows per
+state, before = bare baseline, after = live `profile.is_definitions_
+heading`. 46 states carry `defin`-titled rows (CA/GA/IL/MD/MS/NE carry
+zero, confirming the contract's own "known starting point" once more).
+**Zero H-R3 violations** (`after < before`) across all 46. Named states:
+
+| state | before | after |
+|---|---:|---:|
+| WA | 74.26% | **98.64%** |
+| FL | 84.56% | **98.74%** |
+| NY | 91.35% | **98.76%** |
+
+Full 46-row table in `qac4_u6_per_state.json`. Biggest movers: IN 22.31%→
+90.35%, NV 12.40%→99.64%, SD 47.19%→97.28%, MO 64.11%→99.08%, MI 63.88%→
+99.31% — consistent with the mandate's own targets. **U6: PASS.**
+
+### U4 — the zero-miss certification, full 1,148-row residual classified
+(not a sample)
+
+`qac4_u4_classify_final.py`, buckets computed by calling the REAL shipped
+predicates where one exists (D-DF's `defines_in_body`/`matches_defined_
+for_heading`, item 13's `defines_qualifier_in_body`/`matches_defined_
+qualifier_heading`, and the shared `preposition_governs`/`tail_tokens_core`
+primitives that ARE the D-HG guard mechanism itself — calling the actual
+mechanism is the correct way to prove WHY a row is guarded, not a
+re-implementation), plus independently-authored regexes for classes with no
+corresponding shipped predicate (morphology, jargon, cross-reference,
+negation, delegation). Arithmetic control: buckets sum to **exactly 1148**.
+Every row hand-verified in at least one of: a direct predicate call, a
+cross-reference against a committed handoff doc, or (for the 100-row
+first-pass `UNASSIGNED` set) an individual body read — **all 100 read, not
+sampled** — before being folded into a named bucket.
+
+| Bucket | Rows | Disposition |
+|---|---:|---|
+| `C_morphology` (definite/indefinite/definitional/definable/…) | 192 | ruled correctly-excluded (ledger L6) |
+| `C_tx_municipal_jargon` (DEFINED AREA / DESIGNATED PROPERTY) | 159 | ruled correctly-excluded (ledger L6) |
+| `C_pension_jargon` (defined benefit/contribution, incl. hyphenated) | 152 | ruled correctly-excluded (ledger L6) |
+| `L3_prep_guard_tail_dHG` (classic D-HG cluster, tail-token guard) | 243 | **240 ruled correctly-excluded (ledger L3, verified as an EXACT 243-row subset of the committed 245-row guarded-cluster.md, cross-checked act_id-for-act_id — 2 rows graduated out via cycle 5's own item 12); 3 rows are a NEW finding — see below** |
+| `C_active_voice` (define/defines/defining, not the passive `defined`) | 103 | ruled correctly-excluded (ledger L6) |
+| `L3_L7_prep_guard_mid_definition_of` (`… of definition of X` / sibling `Applicability of definitions in/and X`) | 99 | ruled correctly-excluded / dispositioned-external (ledger L3 + L7 — see P-R7 cross-check below, confirms CLOSED) |
+| `C_dDF_suppressed` (`defined for` heading, body does not self-confirm) | 50 | correctly suppressed by director ruling D-DF's own body-confirmation gate (the ruled ~90%-precision-floor design point, not a miss) |
+| `C_adjectival_jargon` (defined measures/network/disorders/tax credit/…) | 36 | ruled correctly-excluded (ledger L6-class jargon) |
+| `C_xref_defined_elsewhere` (`… defined in/by/under/outside …`) | 35 | ruled correctly-excluded — cross-references to a definition located elsewhere, no local content (hand-verified: DC 47-4304.01, LA 11:1133, NY ATRY §3, AZ 20-456, USC 18§3110, all confirmed via real body text) |
+| `C_negation_un_re_defined` (undefined/redefined/redefining) | 25 | ruled correctly-excluded — negation/change-of-boundary, not definitional |
+| `C_authority_to_define` (delegation) | 23 | ruled correctly-excluded (ledger L6-class) |
+| `C_all_offenses_umbrella` (`[all] offenses/crimes defined by statute`) | 9 | ruled correctly-excluded |
+| `C_not_defined_negation` (`… not defined …`) | 6 | ruled correctly-excluded |
+| `C_delegation_defined_by` (`defined by ordinance`, `may be defined`) | 6 | ruled correctly-excluded |
+| `L8_ia_stripped_connector` | 4 | ledger L8, RESIDUAL, already named |
+| `C_item13_qualifier_suppressed` | 2 | ledger L10 (VA) + repealed-harmless (PA), both already ruled |
+| **TOTAL** | **1148** | |
+
+**Explicit answer to "any row in NEITHER category": yes, 3 rows** —
+`STATE_CO_T10_A2_P1_S10-2-105`, `STATE_NV_T34_C396_S396.826`,
+`STATE_NV_T34_C396_S396.829` — inside the 243-row tail-guard bucket, part
+of the classic 245-row D-HG cluster, but reported by the CERTIFIED P-R7
+pointer (`d5c12ab`, M-R40) as explicitly routed **back to headings** and
+**not** reached by preamble's shipped rules (their idiom test requires
+`means`/`shall mean`/`has the meaning`; all 3 real bodies use an
+exclusionary `does not include` verb — verified directly against the real
+corpus text, not assumed). Added to the contract's residual ledger as
+**L12** this cycle (full detail, real body excerpts, and the recommended
+D-CERT routing in the contract file). Every one of the other 1,145 rows
+lands in a ruled-excluded or already-ledgered bucket — **zero other
+unowned rows found.**
+
+No new mechanical gap CLASS was found this cycle (unlike cycles 2, 3, and
+the phase-3 manager's convergence scan, each of which found one) — the
+100-row hand-read that would normally be where such a class surfaces
+instead resolved entirely into refinements of already-known exclusion
+shapes (cross-reference, negation-prefix, delegation, adjectival jargon)
+plus the 4 already-ledgered L8 rows. This is read as a sign cycle 5's build
+genuinely closed the mechanical-gap tail, not as a sign nothing was looked
+for — all 100 bodies were individually read, not inferred from title
+pattern alone (see spot-check examples above and the full read log in
+`qac4_unassigned_titles.txt`).
+
+**U4 verdict: PASS-WITH-NAMED-RESIDUAL.** Under D-CERT's inverted
+certification, all 1,148 residual rows are either ruled-excluded (1,145) or
+on the ledger with a named owner and closing condition (L8's 4, L12's 3
+new). Zero rows are silently unaccounted for.
+
+### P-R7 boundary cross-check against the certified pointer `d5c12ab`
+
+Read directly from the committed branch `claude/defs-us-preamble`
+(`10924fc` QA findings, `d5c12ab` manager verdicts on top) — no corpus
+re-scan for their population, per instruction.
+
+**D3 cross-check (their QA against our 245-row guarded-cluster.md,
+certified):** found 5 genuine gaps — CO×1, NV×2, NM×1 (2 act_id variants),
+IN×2 (2 act_id variants, same statute). Manager verdict M-R40 disposes:
+**IN×2 + NM → preamble's own** (shape 7 CA-idiom widening / shape 5
+Named-Act "also means" — both since built on their branch post-certification,
+not leaned on here since only `d5c12ab` is certified); **CO + NV×2 →
+headings** (this panel) — confirmed independently: all 3 still uncaptured
+on the live merged branch today, verified against real body text (`does
+not include` exclusion-style local definitions), added to this panel's own
+ledger as **L12** (see U4 above) since it was not previously there.
+
+**M-R41 (their new 150-row preposition-governed measurement, overlapping
+but not identical to this panel's L7 78-row cluster, per their own stated
+caveat):** of 18 idiom-bearing rows, 12 rescued by their shipped
+`BodyPreambleRule`s, 6 unreached and NAMED (`STATE_ID_T39_C1_S39-129`,
+`STATE_KY_TIX_C67_S67.323`, `STATE_ME_T28-A_P3_C55_S1401-A`, `STATE_MI_
+C500_AAct-218-of-1956_S500.1305`, `STATE_PA_T20_C77_S7721`, `STATE_SC_
+T59_C58_S59-58-30`). Cross-checked all 6 against my current residual: **4
+of the 6 (ID, KY, MI, PA) are now captured on THIS panel's OWN live path**
+— cycle 5's build (R-MID against dash/semicolon-separated topic lists, no
+change needed) closed them as a side effect, independent of preamble's
+rescue; this is a benign timing artifact (their measurement predates this
+panel's cycle-5 merge), not a discrepancy to chase. The remaining 2 (ME,
+SC) are still in my residual, bucket `L3_L7_prep_guard_mid_definition_of`
+— exactly matching ledger L7's already-CLOSED disposition ("6 unreached…
+enter the D-CERT worklist"). Also spot-verified `STATE_MT_T39_C51_P2_
+S39-51-204` (the exclusionary-verb example this panel's own log names for
+L7) is STILL in my residual but is one of the 12 rescued externally
+(confirmed absent from preamble's 6-unreached list) — consistent, no
+action needed.
+
+**Boundary verdict: closes with one exception, now named (L12).** Every row
+this panel's rules do not reach is either rescued by preamble's shipped
+rules (verified for MT and 4/6 of L7's named rows), already on this
+panel's ledger (L7's remaining ME/SC), or — for the 3 CO/NV rows — newly
+added to the ledger this cycle as L12. No population is reached by
+neither with no name attached.
+
+### Overall recommendation: **CERTIFY**
+
+All six gates verified PASS on the live path with independently-reproduced
+numbers; U4 carries one small, honestly-named 3-row residual (L12) that is
+not fixable inside this panel's write-set without either violating U3
+(shared-module edit) or D-HG (guard relaxation) — both forbidden — and is
+the same class of problem as L7's already-accepted 6-row D-CERT residual.
+Recommend folding L12 into the same D-CERT worklist as L7. This is the
+"named residual for the director" honest end-state, not a bounce: there is
+no buildable fix inside this cycle's scope, and bouncing would burn the
+panel's last QA cycle without producing one.
+
+Scripts (all prefixed `qac4_`, all in the shared scratchpad, written from
+scratch, none read from another agent): `qac4_census.py`,
+`qac4_u6_per_state.py`, `qac4_u4_classify.py` (first pass),
+`qac4_u4_classify_final.py` (final, refined after the 100-row hand-read),
+`qac4_precision_full_scan.py`. Per P-R6, QA is Sonnet high; U4 is a
+director-level certification decision, not a bounded mechanical check.
+**Haiku considered: no** — role-forbidden by P-R6 and this cycle decides a
+director-level certification.
