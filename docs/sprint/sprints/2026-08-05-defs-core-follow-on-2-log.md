@@ -229,5 +229,109 @@ without waiting on the resolver pair.
 
 No further program-manager input required until the Planner verifications.
 
+---
+
+## Phase 0c — scout #4 returned; two G3 questions opened (2026-08-05)
+
+Scout #4 (`a682047c7fe5507af`) completed. Its protocol is committed as
+`2026-08-05-defs-core-follow-on-2-g7-merge-protocol.md` (manager-committed;
+scout remained read-only). Classifications: markers' zero-yield table
+**reproducible on-branch** (exact 7/7 state match); preamble's
+23,617/27,209 and GA's 2,794 **merged-tree only** (verified three ways);
+nothing untraceable. One disclosed gap: the preamble QA's harness scripts
+were never committed and no longer exist — the prose methodology survives
+and its BEFORE side was independently re-verified (GA before = 2/28,154,
+exact).
+
+Two findings exceeded the scout's brief and were **re-verified by the
+manager against source** before being recorded:
+
+- **Q-G3-A — sibling-function scope gap.** us_profile.py:588 in
+  `_extract_inline_quoted_definitions` reads
+  `end = entries[index + 1][1] if index + 1 < len(entries) else len(text)`
+  — the identical unbounded-last-entry defect, in a function G3's gate text
+  does not name. The 27,209 rows' `definition_text` caveat lives HERE, not
+  in `_split_into_numbered_blocks`. Inside the sprint's write-set, so no
+  fence issue; the question is gate coverage. **Open — needs a ruling.**
+- **Q-G3-B — DC attribution unproven.** G3's held RED
+  (`test_us_markers_unbounded_last_entry.py`, `claude/defs-us-markers`)
+  pins CONTAMINATION on an already-capturing FED row (`USC_T5_C34_S3401`,
+  ~487 real chars captured as 4,627), not a zero-to-nonzero conversion.
+  The same file records that DC's relayed 91.7% **did not reproduce** —
+  DC bodies ended cleanly in 8/8 sampled rows, trailing-marker measure
+  0.1%. So no evidence supports "G3 moves DC's 27.3%". Hypothesis (NOT
+  measured, flagged as such): DC's zero-yield is driven by its
+  unquoted-term shape, which `_leading_quote_candidate` cannot match and
+  G3 cannot touch. **Open — plan2 tasked to measure DC's real causation.**
+
+Also confirmed incidentally: **G1's premise is exact.** us_profile.py:581
+(`_extract_inline_quoted_definitions`) does `term_match.group(1).strip()`;
+us_profile.py:608 (`_leading_quote_candidate`) does `term_match.group(1)`
+with no strip. The asymmetry is real as specified.
+
+---
+
+## Phase 0d — G8 RULED IN (program manager, 2026-08-05)
+
+**New shared-module defect, ruled into this sprint while Planners are still
+designing.** Found by the markers panel's QA while attributing WA's 3
+oversized definitions; it sits one layer past the split defect, in
+PERSISTENCE rather than extraction.
+
+**Mechanism (manager-verified against `pipeline.py`, not accepted on
+report):** Stage 2 builds `all_candidates` baseline-first, then persists in
+list order (lines 289-310). The write is guarded by
+`if definition_row is None:` on key `(article_id, tuple(sorted(terms)))`.
+When baseline emits a BAD candidate and a registered rule emits a CLEAN
+candidate for the SAME term, baseline's row is created first and the rule's
+`definition_text` is **never written** — first-candidate-wins.
+
+Kill-control evidence (markers QA, real
+`ingest_us_statute_rows → run_definition_linking` path): on all 3 WA rows,
+baseline alone emits 10,838 / 6,515 / 8,769-char swallows while the markers
+engine alone emits the same terms at 303 / 188 / 105 chars — and the swallow
+is what persists.
+
+**Two properties the manager found beyond the relayed report, both
+load-bearing for the fix design:**
+1. **There is no UPDATE path for `definition_text` at all** — the only write
+   is inside the `is None` branch. A colliding candidate can never correct
+   an existing row.
+2. **`definitions_by_key` is pre-seeded from existing DB rows** (lines
+   282-284), so a bad `definition_text` persisted once **wins over every
+   future re-run**. The defect is sticky across runs, not merely
+   within one. (Corpus measurements call extraction functions directly and
+   are unaffected; the live product path is not.)
+3. Nuance for the RED's assertion target: the losing candidate IS still
+   appended to `resolved` (line 310), paired with the WINNER's `Definition`
+   row. What is discarded is specifically its `definition_text`/scope at
+   persistence — not the candidate's downstream participation.
+
+### MANAGER DESIGN CALL: opened as a named **G8**, not folded into G3
+
+Ruled by the program manager as the panel manager's call. Decided **G8**,
+for four reasons:
+1. **Different module and different mechanism** — `pipeline.py` persistence
+   dedupe vs `us_profile.py` entry-boundary logic.
+2. **It honors the program manager's own guard.** "G3 happened to make it
+   unobservable on these 3 rows" must not close it. An independent gate with
+   its own RED — one that does NOT depend on baseline emitting a swallow —
+   makes that structurally impossible, whereas folding it into G3's
+   acceptance makes silent closure the default outcome.
+3. **The design judgment is independent.** Preference between baseline and
+   rule candidates is seam-relevant; baseline-first was presumably
+   deliberate, and flipping order could let a BAD rule candidate beat a GOOD
+   baseline one. A length-sanity or specificity criterion may be sounder.
+   That reasoning does not belong inside a boundary-fix gate.
+4. **Coupling acceptance of two independent fixes** would let either one's
+   difficulty hold the other hostage at QA.
+
+**G8 — collision preference.** A baseline bad candidate must not silently
+beat a cleaner same-term candidate from a registered rule at persistence.
+Owner: **new Planner (plan4)**, `pipeline.py` surface. The G3↔G8 interaction
+is owned explicitly: plan2 reports (factually) whether its G3 design would
+moot the 3 WA rows; plan4 designs G8 so it stands independently of that
+answer; the manager arbitrates when both return.
+
 </content>
 </invoke>
