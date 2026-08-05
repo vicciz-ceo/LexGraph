@@ -2751,3 +2751,78 @@ building L8/L9/L10. Write-set restricted to `rules/`; no shared-module edits;
 no test edits (`git diff -- backend/tests/` must stay empty). Module split from
 479 lines to sub-300 modules required, without changing behavior and keeping
 exactly three import-time registrations.
+
+---
+
+## 2026-08-05 — P-R7 certified pointer consumed; shape-1 attribution MEASURED
+
+### Certified pointer `d5c12ab` recorded
+
+External-data risk resolved; cycle-4 formal certification may open once the
+Developer lands. Consumable: GA **2→2,794/28,154** carrying BOTH before-numbers
+(2 measured / 5 historic-unreconciled); **23,617 clean-primary as THE
+defensible corpus-wide figure** (27,209 fallback-affected rows ledgered
+provisional — **the blended 80,493 must NOT be cited as certified**, and an
+earlier draft of this contract did cite it; corrected); FP 0/50; suite 3/818
+with 31 mutation-proved; CLAUSE package 2,659 act_ids / 51 jurisdictions.
+**NOT certified:** shapes 2–8, NE extraction, `definition_text` boundaries.
+
+### Shape-1 attribution — measured before accepting (P-R7/P-R10 discipline)
+
+The band was flagged sample-derived, not a per-shape re-scan, so the manager
+re-scanned (`scratchpad/headings_mgr3_shape1.py`, 52 files, PR excluded).
+**NV measures 8,575 against the cited ~8,323** — the band was sound, ~3% low.
+
+The decisive split is ruling **H-R1** (this panel owns heading RECOGNITION; a
+body that then yields zero is markers-family work):
+
+| Bucket | Rows | Meaning |
+|---|---|---|
+| **A** — heading RECOGNIZED live, extractor yields **0** | **12,869** | **This panel's leg is ALREADY DONE.** Gap is body extraction in core-owned `us_profile.extract_definitions_from_section` — U3 forbids editing it here. Same failure mode as ledger L1. |
+| recognized AND yields >0 | 4,285 | already captured today |
+| **B** — heading NOT recognized live | **51,855** | headings carry **no definitional signal at all** |
+| **total shape 1** | **69,009** | |
+
+**The attribution is right about the association and wrong about the
+consequence.** NV bucket-A rows are exactly this family — `"Constructional
+defect" defined`, `"Local government employer" defined`, `"Credit card"
+defined`, `"Bus" defined` — and this panel's rules **already recognize them**.
+Of NV's 8,575 shape-1 rows only **1,709** are heading-unrecognized, and those
+are not verb-form headings at all: `Confidentiality and use of information
+obtained by Department; penalty`, `Compromise by parent or guardian of claim by
+minor against third person`, `Issuance of citation or notice of correction to
+driver of heavy-duty motor vehicle`. Bucket B is dominated by CA (9,769),
+FED (3,451), IN (2,989), IL (2,748), MS (2,279) — the known body-driven,
+zero-heading-signal states.
+
+**Flipping bucket-B headings True would be a catastrophic H-R3 breach.** There
+is no heading signal to key on; capture there is necessarily body-driven, which
+is the preamble/scoped-inline families' mechanism, not this one's.
+
+**Proposal to the program manager:** shape 1 is **measured and named** as
+ledger **L11**, split A/B with owners, and **not absorbed into cycle 5**
+(consistent with the program manager's own expectation at `qa_cycles` 3/5).
+Both populations enter the **D-CERT** inverted-certification worklist. Nothing
+is silently dropped and nothing is silently absorbed.
+
+**Honest caveats.** (1) The 69,009 figure uses the MANAGER's operational
+definition of shape 1 (quoted term + `means`/`shall mean`, minus a lead-in
+trigger list); it may not match the preamble panel's definition exactly, so it
+should be reconciled with them before being treated as a shared number. (2) The
+zero-yield test calls the real extractor with `scope="chapter",
+heading_was_derived=False` — the ACTUAL live-path argument values for
+registry-recognized headings, per QA cycle 3's finding that
+`heading_was_derived` is True only on the body-derived path.
+
+**Program-level flag:** 12,869 heading-recognized-but-zero-yield rows is an
+order of magnitude larger than this panel's entire 1,224-row residual. It is
+the single biggest measured capture gap this panel has seen, and it sits
+squarely in markers-family territory.
+
+### L7 CLOSED — dispositioned-external
+
+Preamble's shipped rules rescue **12 of 18** idiom-bearing rows; the **6
+unreached went to the DIRECTOR BY NAME** per D-HG and enter the D-CERT
+worklist. Nothing unowned. (Manager's probe counted 14 idiom+quoted-term vs
+their 18 idiom-bearing — a difference in the idiom test, not in disposition;
+not re-litigated.) The NM row is preamble's (shape 5 + "also means").
