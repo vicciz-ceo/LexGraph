@@ -339,6 +339,172 @@ answer; the manager arbitrates when both return.
 
 ---
 
+## Phase 1 — manager verification of all four Planners (2026-08-05)
+
+**All four verified; all four ACCEPTED.** Merged into the sprint branch
+@ `79c0e73` (plan1, plan2, plan4 clean; plan3 add/add conflict on this log
+resolved by keeping the manager record and folding plan3's planner notes in
+verbatim as Appendix A).
+
+### What the manager verified FIRST-HAND (not accepted on report)
+
+1. **Every RED actually fails, and for the right reason** — run in each
+   Planner's own worktree/venv, failure messages inspected individually:
+   - plan1: **8 failed / 4 passed** (4 passing are regression guards, which
+     must pass now and keep passing). Oregon RED yields
+     `got (UnitStep(kind='digit', value='1'),)` — the non-empty WRONG path
+     mode, exactly as specified.
+   - plan2: **3 failed / 13 passed**. G1 RED shows the mechanism directly:
+     padded `' Registrant '` finds **0** matches where the stripped term
+     finds 1.
+   - plan3: **8 failed / 2 passed**, incl.
+     `TypeError: ScopeKindRule.__init__() got an unexpected keyword argument
+     'detect_value'` (seam genuinely absent) and G5 failing on **both** US
+     and IL — confirming the two-site fix.
+   - plan4: **1 failed / 4 passed**; RED asserts on REAL PERSISTED OUTPUT
+     and shows a 155-char candidate carrying a separate sub-item's
+     `(B) "Occurrence"` marker beating both baseline's own later clean
+     candidate AND the registered rule's, purely by enumeration order.
+2. **Fixture provenance byte-verified against the real corpus by the
+   manager** — all **10 fixture rows across three branches** re-read from
+   the parquet snapshot and compared: **10/10 BYTES MATCH**, lengths
+   identical (AR 4,866 / MS 1,015 / FED `USC_T5_C34_S3401` 5,229 / AZ 9,307
+   / SC 23,574 / SC 1,476 / TX 8,545 / TX 956 / ME 14,416 / OR 6,402).
+   Probe note (P-R10): the manager's first pass failed on a wrong key
+   (`section_id`); the corpus keys on **`act_id`** — the probe was wrong,
+   not the fixtures.
+3. **Tests-only, no production code** on all four branches (diff --stat).
+4. **Seam v2.8 is genuinely append-only**: `254 insertions, 0 deletions`
+   on the seam doc; §0 re-verifies the manager's M9 finding (HOLDS), §8 does
+   the row-by-row on all 8 U2 rows.
+
+### Carried into implementation as named hazards (binding on Developers)
+
+- **G2 requires plan1's discovered THIRD sub-step** — defer ladder selection
+  past tokens matching NO outermost rung, or ME's `(NEW)` annotation still
+  hijacks the ladder. Prototype: 8.4% → 0.64% corpus-wide, ME 81.0 → 0.2%,
+  AZ 69.7 → 0.2%.
+- **G4's 42% / 34% corpus-scale figures are EXPLICITLY PROVISIONAL**
+  (prototype, 6 rows spot-checked). **They must NOT enter any certified
+  record without the sampled audit plan1 recommends.**
+- **G4 implementation hazard:** SC's `(A)(1) or (A)(2)` connector chain
+  still lands the wrong top-level value in the prototype — real engineering
+  required, documented in the G4 test docstring.
+- **G3 termination is CONTENT-marker based, not structural** (plan2's
+  both-sides sampling justified it); extended 10-marker set recommended;
+  24.62% of 27,051 last entries contaminated.
+- **G1 mechanism confirmed:** `re.escape` does not escape spaces, so padded
+  terms miss punctuation-abutting mentions. Padding = 2.24% of extracted
+  terms (NC 55%, WY 61.6%, NM 79.8%) — a **lower bound**; MS stays invisible
+  until preamble merges.
+
+### Program-manager rulings on the two open questions — RECORDED
+
+- **Q-G3-A: YES — the sibling `_extract_inline_quoted_definitions` is IN
+  G3's scope** (its IL 71.4% contamination is the very population G3's
+  purpose clause invokes; one shared termination helper).
+  **CONDITION (binding):** before the Developer touches the sibling, the
+  same both-sides sample plan2 ran for the main function must be run on the
+  **SIBLING's** population — its over-correction risk is plan2's own named
+  unverified gap. **If that sample shows a materially worse trade, the
+  sibling becomes its own follow-up WITH the data — not silently built
+  anyway.** plan2 re-engaged to run this; dev1 is fenced off the sibling
+  until it returns.
+- **Q-G3-B: DC is DE-LINKED from G3.** plan2's mechanical proof stands:
+  **202/332 quoteless, 130/332 blocked by the `"The term "` lead-in** —
+  neither reachable by any boundary fix. Merge-protocol pass condition
+  amended to: (a) FED RED green, (b) corpus-wide last-entry contamination
+  near-zero against plan2's **27,051-row** denominator, (c) **DC explicitly
+  EXCLUDED from G3's promise.** DC's real shapes route elsewhere: the
+  lead-in shape to the markers panel (a registry `TermClauseRule` handles
+  `(1) The term "X" means` with no shared edit — their QA independently
+  named the same NC/DC shape), quoteless to their unquoted family.
+
+### G8 corroboration recorded (independent instruments agreeing)
+
+plan4's AR **self-collision** discovery — baseline colliding with ITSELF,
+**2,282 rows / 34 jurisdictions, no rules needed** — plus its
+containment-update design (ordering-flip and length-threshold both rejected
+WITH data; 745 unambiguous / 2,307 benign / 1,308 ambiguous left untouched).
+Corroborated by a DIFFERENT instrument: the markers manager independently
+sized severe collisions at **213** (TN 146, FED 51; worst discarded
+improvement **163,875 chars**, `USC_T5_C83_S8331`). Its TX finding (3,910
+rows, 19,352 keys, **ZERO** severe — likely a genuinely-distinct-definitions
+population) independently supports leaving the ambiguous group untouched.
+
+---
+
+## Phase 1b — TWO NEW GATES: manager decision (2026-08-05)
+
+Decision authority was the panel manager's; the program manager asked for
+reasons either way. **Both ACCEPTED.**
+
+### G9 — breadcrumbs data source: **ACCEPT**
+
+`pipeline.py:212` hardcodes `heading_breadcrumbs=()`; `sections.py:138`'s
+`len==2` gate discards 3+-equals heading text. Reasons:
+
+1. **The seam doc already claimed this as core's own work and did not
+   finish it.** v2.6 §1 (M-D1), input-availability note, verbatim:
+   accumulating all depths into `heading_breadcrumbs` is *"core's own
+   ONE-PLACE additive change (default `()`, so every existing construction
+   site is unaffected)."* Accepting is completing declared scope, not
+   expanding it.
+2. **It is a starved-seam defect of the P-R8 class this sprint's lineage
+   exists to close.** `StructuralUnitRule.derive` consumes
+   `StructuralContext.heading_breadcrumbs`; hardcoding it `()` means every
+   panel's `StructuralUnitRule` is fed nothing — registered, dispatched,
+   and useless. "Live dispatch" over an empty input is not live capability.
+3. **Only this sprint can do it.** `pipeline.py` is in the exclusive
+   write-set and `sections.py` is core-owned; P-R1 fences every panel out.
+   Deferring leaves IL's סימן/חלק containment residual blocked with no
+   other route.
+4. **Cheapest gate on the board:** small, additive, safe default, and two
+   committed REDs already exist on `claude/defs-il` to vendor equivalents
+   from.
+
+Carried caveat: `sections.py` is a **Hebrew regression surface** — existing
+IL tests must pass UNCHANGED; editing one to fit is a planning bug and
+escalates.
+
+### G10 — `TermClauseRule` scope threading: **ACCEPT** (highest-value of the two)
+
+`registry.py:139-145` — `parse` receives the block string ONLY;
+`us_profile.py:1351` drops the scope the dispatcher already holds. Reasons:
+
+1. **It is an active correctness bug producing WRONG assertions today**, not
+   a missing capability. Every panel's `TermClauseRule` stamps `law-wide`;
+   a law-wide stamp on a section-scoped definition manufactures false
+   `USES_DEFINITION` assertions across the whole law. That is precisely the
+   failure mode seam v2.1 (M9) names — *a silent broadening fallback is a
+   false-positive generator, never an acceptable default* — and it violates
+   the director's founding scoped-definitions constraint and D-E1
+   (narrowest governs).
+2. **Proven from source on a real IN row** (silent wrong-scope winner), not
+   inferred.
+3. **Unblocks correctness for FOUR panels** — the widest leverage available
+   this sprint.
+4. **The fix shape already has a precedent in flight:** additive signature
+   threading (optional param or context object, existing rule modules keep
+   working) is exactly G5's pattern, so it composes with work already
+   designed rather than fighting it. Seam version bump → **v2.9**, appended
+   after v2.8.
+
+**Scope-collision check before accepting both** (manager): G9 touches
+`pipeline.py:212` + `sections.py`; G8 touches `pipeline.py:262-310` —
+distinct regions. G10 touches `registry.py` + `us_profile.py:1351`; the
+resolver pair holds 1075-1256 and the extraction pair 346-620 — all
+distinct. No two accepted gates contend for the same lines.
+
+### Deferred, NOT lost — core-follow-on-3 accumulator
+
+plan2's out-of-scope list routes to the opened core-follow-on-3 accumulator
+(program log), explicitly not absorbed here: **AZ bare-digit-dot
+sibling-swallow, WA mid-paragraph markers, MI spaced `( l )`, CT
+conventions.**
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
