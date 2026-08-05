@@ -112,7 +112,7 @@ def _load(path: Path) -> dict[str, dict]:
 # --- TX parent-redirect splitter (rules/us_multiterm_shared_clause.py) ----
 
 _TX_ROW = _load(_F5_FIXTURE_PATH)["STATE_TX_Cgv_C2009_S2009.003"]
-_TX_REDIRECT_TERMS = ("contested case", "party", "person", "rule.")
+_TX_REDIRECT_TERMS = ("contested case", "party", "person", "rule")
 
 
 def test_tx_parent_redirect_fires_for_us_tx_positive_control():

@@ -162,7 +162,7 @@ def test_tx_s2009_003_parent_clause_terms_get_the_real_shared_definition_text():
     row = _load_rows()["STATE_TX_Cgv_C2009_S2009.003"]
     candidates = _extract(row)
     by_term = {t: c for c in candidates for t in c.terms}
-    for term in ("contested case", "party", "person", "rule."):
+    for term in ("contested case", "party", "person", "rule"):
         assert term in by_term, f"term {term!r} missing entirely from {candidates!r}"
         definition_text = by_term[term].definition_text.strip()
         assert len(definition_text) > 10, (
