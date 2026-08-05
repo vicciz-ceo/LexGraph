@@ -5779,3 +5779,51 @@ containment → AR Occurrence and Virtual-currency fail; (4) blind `History:` �
 only the three MI history tails return. No forwarding/reference-edge, G3
 sibling, core-3, or unrelated-panel item is authorized. FED Roman sibling and
 TX Part-A remain named holds.
+
+---
+
+## M67 — G3-HEAL seam audit: split registration, mutation proof, and reproducible ledger (2026-08-06)
+
+M66's phrase "set it only for US-WA" is now pinned as an exact API shape,
+not merely an outcome: `EntrySplitterRule` must gain additive
+`priority_before_single_baseline: bool = False`; the inline-quote module must
+register `("US-WA",)` with `True` and its prior eleven non-WA codes with
+`False`. This prevents a flag on a mixed-code tuple from widening precedence
+to MI (or any other prior family-3 jurisdiction). Planner-owned
+`test_us_markers_g3_heal_priority_seam.py` is deliberately RED pre-developer:
+the default field is absent and a test-local `dataclasses.replace` cannot opt
+the real MI inline rule in yet (**2 failed**, missing API only).
+
+Once the API exists, that second test executes real ingest → profile → Stage-2
+persistence on `STATE_MI_C206_AAct-281-of-1967_S206.278`. It test-locally
+marks MI's actual inline splitter preferred, proves the baseline produces more
+than one block, and requires its 794-character `Qualified investment`
+baseline text to persist. Removing `len(baseline_blocks) == 1` makes the
+priority candidate win and fails this row; production MI registration remains
+false. The same file pins the false default plus exact WA/non-WA registrations.
+
+The corpus instrument now carries an act+sorted-term judgment map for all 17
+default changed keys. Each judgment says that the clean text ends immediately
+before its named next quoted entry; a new/unclassified firing or a stale map
+entry asserts before output. The final JSON includes the judgment beside both
+candidate texts. Default final command:
+
+`backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g3_heal_priority_rule_order.py --output docs/sprint/sprints/artifacts/2026-08-06-defs-us-markers-g3-heal-priority-order.json`
+
+Rejected-scope counts are now reproducible by switches on that same read-only
+instrument, not remembered probes: `--priority-code US-WA --priority-code
+US-MI --always-priority` is the 12,774 WA+MI blanket-order method;
+`--all-inline-priority` is the 99 all-inline, one-block method. The default
+remains WA-only plus one-block guard. The mutation matrix is therefore exact:
+WA RED kills reversal; real locally-opted MI kills gate removal; registration
+and default checks kill widening; AR G8 kills generic containment; MI History
+mutation proves its own causal tail removal. No production file was edited by
+the Planner.
+
+Final default rerun completed over all 53 files in **221.562 s**: 2,038,247
+rows, 472,562 section candidates, 1,683 priority-source rows, and 17 changed
+persisted keys (US-WA only); all 17 JSON records carry a nonempty judgment.
+The WA+MI blanket command was re-run on its two files and reproduced **12,774**
+changes (MI 12,757; WA 17). Focused pre-developer state is **18 passed / 3
+failed**: the longstanding persisted WA RED plus the two deliberately missing
+priority-API seam REDs. G8 and C5 controls are among the 18 passing tests.
