@@ -132,6 +132,47 @@ register_body_preamble_rule(
     BodyPreambleRule(jurisdiction_codes=("US-NE",), derive_heading=_ne_named_code_quoted_list)
 )
 
+# --- Rule 2b: Named-Act "As used in the <Act/Code>" + quoted term + -------
+# --- means/also means ------------------------------------------------------
+#
+# Q-D2 shape 5 (M-R40): "As used in the <Named Act>" -- the word "the", not
+# "this" -- reaches neither B1's own trigger (which requires the literal
+# word "this" right after "in"/"of") nor its quote-means branch. Real row
+# `STATE_NM_C3_A32_S3-32-3`: `"As used in the Industrial Revenue Bond Act,
+# "project" also means: A. any land..."`. Cross-confirmed by two
+# independent methods this same cycle (Q-D2's P-R7 sweep and Q-D3's
+# guarded-cluster cross-check) landing on the SAME real row. M-R40 ruled
+# RECOGNITION ours, SCOPE (a Named-Act-bounded unit rather than "this
+# <unit>") a core follow-on out of bounds here -- like every other rule in
+# this file, this one only supplies a synthesized "Definitions" heading.
+#
+# Registered EARLY (right after NE, before B2/B1) per M-R27's own
+# narrow-trigger-before-broad-catch-all precedence discipline -- checked
+# against B1's own shape-2/3/6 widenings this same cycle and found disjoint
+# ("the <Act>" vs "this <unit>" never overlap, D4's own overlap notes).
+# `US-*`: measured hits span NM/NE/OK/AR/OH, not one state (D4).
+_NAMED_ACT_TRIGGER_RE = re.compile(
+    r"As used in the\s+(?:[A-Z][A-Za-z.'\-]*\s+){1,8}(?:Act|Code)\b,?\s*"
+)
+_NAMED_ACT_LOOKAHEAD = 60
+_NAMED_ACT_QUOTE_MEANS_RE = re.compile(
+    r'^["“][^"”]{1,150}["”]\s*(?:also\s+)?(?:means|shall mean)\b',
+    re.IGNORECASE,
+)
+
+
+def _named_act_also_means_preamble(body: str) -> str | None:
+    for trigger_match in _NAMED_ACT_TRIGGER_RE.finditer(body):
+        after = body[trigger_match.end() : trigger_match.end() + _NAMED_ACT_LOOKAHEAD]
+        if _NAMED_ACT_QUOTE_MEANS_RE.match(after):
+            return "Definitions"
+    return None
+
+
+register_body_preamble_rule(
+    BodyPreambleRule(jurisdiction_codes=("US-*",), derive_heading=_named_act_also_means_preamble)
+)
+
 # --- Rule 3: B2 -- "In this <unit>[,] the following word(s) have the -----
 # --- meaning(s) indicated" -------------------------------------------------
 #
