@@ -8,8 +8,9 @@ Self-registers at import time by existing as a file in this package
 (`rules/__init__.py`'s auto-discovery, core-authored) -- no other file
 needs to change (ruling S-R2/U3).
 
-Scope-unit -> `.scope` mapping (rulings S-R9/S-R14/S-R15, binding -- full
-reasoning in the sprint log's S-R4/S-R5/S-R9/S-R10/S-R11/S-R14 sections):
+Scope-unit -> `.scope` mapping (rulings S-R9/S-R14/S-R15/D-S15, binding --
+full reasoning in the sprint log's S-R4/S-R5/S-R9/S-R10/S-R11/S-R14/D-S15
+sections):
 
     "section" -> "local"; "chapter" -> "chapter";
     "subsection" -> "subsection", derived from CORE's resolver (S-R14,
@@ -31,27 +32,30 @@ zero-miss-safe, precision cost recorded not silently dropped (NAMED OPEN
 CONFLICT CLASSES, P-R2).
 
 `"subsection"`'s own history (S-R9 diagnosis -> S-R10 live-path proof ->
-S-R11 interim -> S-R14 fix): the old design compared this module's OWN
-`_subsection_label` regex guess against core's `resolve_unit_path` -- two
-independent derivations of the same label that never agreed (a level
-mismatch, nearest-marker vs. outermost step, plus a format mismatch),
-producing a silent, total under-link on the live path (S-R10). S-R14
-replaces the two derivations with ONE: `_resolve_subsection_scope` calls
-core's `resolve_unit_path` at the trigger's OWN char offset and stamps
-BOTH `.scope_value` and `.scope_unit_kind` from the SAME step core
-returns -- never from this module's own label's glyph shape (kind follows
-core's ladder DEPTH, not shape; a shape guess silently disagrees with
-core on the real `STATE_OR_T22_C238_S238.300` row, S-R14). WHICH step of
-the returned path to use is the S-R15 policy question, factored into the
-one function `_subsection_scope_level` (interim, binding: the innermost
-open step, `path[-1]` -- the only option with live-path evidence today).
-When core's resolver returns no usable step at all (e.g. Maine/Florida
-period-style `1.`/`2-A.` subsections -- core's marker regex matches only
-PARENTHESIZED markers), a true `"subsection"` scope would be guaranteed
-to link nothing; `_resolve_subsection_scope` degrades that one candidate
-to `"local"` instead -- the same narrowest-REPRESENTABLE-unit fallback
-precedent as S-R9/S-R11, zero-miss-safe, precision cost measured not
-silently dropped.
+S-R11 interim -> S-R14 fix -> D-S15 director ruling): the old design
+compared this module's OWN `_subsection_label` regex guess against core's
+`resolve_unit_path` -- two independent derivations of the same label that
+never agreed (a level mismatch, nearest-marker vs. outermost step, plus a
+format mismatch), producing a silent, total under-link on the live path
+(S-R10). S-R14 replaces the two derivations with ONE: `_resolve_subsection_
+scope` calls core's `resolve_unit_path` at the trigger's OWN char offset
+and stamps BOTH `.scope_value` and `.scope_unit_kind` from the SAME step
+core returns -- never from this module's own label's glyph shape (kind
+follows core's ladder DEPTH, not shape; a shape guess silently disagrees
+with core on the real `STATE_OR_T22_C238_S238.300` row, S-R14). WHICH
+step of the returned path to use is the S-R15/D-S15 policy question,
+factored into the one function `_subsection_scope_level` (now binding on
+the OUTERMOST step, `path[0]`, overruling S-R15's innermost interim --
+full SC live-path evidence and the corpus-wide vocabulary census are in
+that function's own docstring, `us_scoped_inline_shapes.py`, not repeated
+here). When core's resolver returns no usable step at all (e.g. Maine/
+Florida period-style `1.`/`2-A.` subsections -- core's marker regex
+matches only PARENTHESIZED markers), a true `"subsection"` scope would be
+guaranteed to link nothing; `_resolve_subsection_scope` degrades that one
+candidate to `"local"` instead -- the same narrowest-REPRESENTABLE-unit
+fallback precedent as S-R9/S-R11, zero-miss-safe, precision cost measured
+not silently dropped (unaffected by D-S15: the degrade fires on an EMPTY
+path, before `_subsection_scope_level` is ever called).
 
 The pure function leaves `.source_article_number`/`.source_chapter` `None`
 (matching `extract_local_definitions`'s convention): `us_profile.py`'s
