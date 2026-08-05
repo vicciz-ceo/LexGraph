@@ -1269,6 +1269,145 @@ program manager because it bears on what v2.8 promised.
 
 ---
 
+## Phase 7b — both G6 escalations resolved; G5+G6 GREEN (2026-08-05)
+
+plan3 delivered both fixes. Merged; **suite 815 passed / 3 failed**, and
+**G5 and G6 are fully green (8/8 REDs)** — the 3 remaining are G10's
+in-flight REDs and the G1 re-point. Verified: seam **v2.10 append-only
+(125 insertions, 0 deletions)**; **zero production code touched** by the
+Planner.
+
+**KY fixed the better way.** Re-authored onto `ingest_us_statute_rows` (the
+production US row-dict path) rather than renumbering to non-dotted values, so
+the real dotted KY numbers (`156.106`/`161.605`/`139.486`) persist exactly —
+the test is now MORE production-faithful than originally, not less.
+`_ARTICLE_MARKER_RE` untouched. plan3 independently re-derived the
+"US never uses that regex" conclusion rather than taking the manager's
+diagnosis on trust.
+
+**A second defect plan3 found independently — manager-confirmed.**
+`pipeline.py`'s `created_assertions.append({...})` carries only `id`,
+`assertion_type`, `proposition`, `status`, `origin` — **no
+`subject_entity_id`**, though the test read that key. It was fully MASKED
+behind the earlier `ImportError`, i.e. the kind of defect that survives a
+green suite. Fixed test-side by querying persisted `Assertion` rows. Whether
+the RETURN SHAPE should carry the key is latent (nothing else reads it) →
+routed to core-follow-on-3, not opened here.
+
+### TN blast radius MEASURED: 1 of 8 — and the MANAGER RULING
+
+plan3 ran `determine_scope` against the real corpus `text` for all 8 U2 rows:
+**exactly 1 (TN) trips a baseline trigger.** The other 7 (AK, CT, KY×4, VA)
+fall through to `law-wide`, leaving the registered-rule path open as designed.
+Per-row table in seam v2.10. **Single-row limitation, not a structural hole.**
+
+**RULING: (c) is NOT implemented this sprint, and the (b) measurement is NOT
+commissioned.** Reasons, in order:
+1. Measured severity is 1/8; the other 7 work as designed.
+2. **(c)-narrow is inert today** (zero `detect_value` consumers), so it would
+   change shipped dispatch precedence — in the sprint that merges FIRST and
+   that all six panels rebase onto — for zero measurable behavior now.
+3. **Decisive: (c)-narrow does not fix TN, its own motivating row.** plan3's
+   sharper framing established this: TN's true two-kind (`"part"`+`"local"`)
+   split needs the rule's `detect()` to fire independently of baseline's
+   `"chapter"` verdict — the BIGGER variant. Changing precedence semantics for
+   a change that does not fix the case that motivated it is the wrong trade.
+4. **The bigger variant is not a panel-level call.** Letting `detect()` fire
+   independently of baseline contradicts the baseline-first-never-overridden
+   mechanism seam v2.6/M-D2 established to protect the 7 already-working
+   states. That needs a program/director ruling AND a corpus-wide cost
+   measurement first — which is why (b) is deferred WITH (c) rather than run
+   ahead of it.
+
+**Disposition:** TN ships as a NAMED, documented gap. plan3's partial-(a) —
+TN-shaped-but-non-triggering wording in the dispatch proof, **disclosed in
+the docstring** so the mechanism is proven live while the real-row gap stays
+visible — is the correct handling and the disclosure must survive. Both (b)
+and (c) route to core-follow-on-3 **carrying the 1-of-8 measurement**, so the
+next owner starts from the number instead of re-deriving it.
+
+### DELIVERABLE CORRECTION (owed to the program manager)
+
+Seam **v2.8 §8 row 7 claimed TN was "Yes — live-path dispatch proven." That
+claim was wrong** — it cannot have been run against the real unmodified
+baseline. v2.10 corrects it. **G6 therefore ships with 7 of 8 U2 rows
+expressible, TN named as a limitation** — not the 8/8 the original gate text
+promised.
+
+---
+
+## Phase 8 — G12 Planner verified; implementation spawned (2026-08-05)
+
+plan8 delivered on `claude/defs-core-follow-on-2-plan8` @ `c7b32ec`; merged
+@ `a963cb4`. Manager verification: **zero production code touched**; 3 REDs
+fail / 3 sanity checks pass; **all 3 fixtures byte-verified by the manager
+against the real corpus** (`STATE_IL_C220_A5_S16-102` 9,304 chars,
+`STATE_IL_C735_A110_S10` 1,058, `STATE_PA_T15_C57_S5749` 946 — all exact).
+
+**The boundary+emission ruling is now proven with real data, not just
+argued.** RED #2 (`STATE_IL_C735_A110_S10`) shows "Government"/"Person"/
+"Motion" precede the row's first `means`-entry and are therefore **silently
+DROPPED entirely today** — not swallowed into a neighbour. That is exactly
+the silent-drop failure mode the manager's Phase-3b ruling predicted when
+rejecting boundary-only, and it was speculative when ruled. It is now a
+measured, real-row fact.
+
+**Mandate #2 discharged as a genuine negative result:** plan8 searched every
+test using `heading_was_derived=True` and every fixture containing
+"includes"/"shall include", then EMPIRICALLY simulated the widened regex
+against each candidate — **zero core-owned pins rely on idiom-absence.**
+Verified, not assumed, and correctly distinguished from the scoped-inline
+panel's own re-authored pins (different panel, different file, unmerged
+here — not double-counted).
+
+**Measured (M18-compliant, idiom-agnostic denominator):** the population is
+defined structurally (`heading_was_derived` True AND primary splitter yields
+nothing), never by which idiom words appear — so the denominator does not
+come from the grammar being changed. 2,117 fallback-eligible rows corpus-wide
+(CA 442, GA 3, IL 1,672); 11,960 quoted-term occurrences; 9,677 recognized
+today → 10,170 widened = **+493 newly-recognized entries across 329 rows**.
+Of those 493, **0** are preceded by "References to" within 25 chars — the
+guard's real trigger rate in this population is currently zero, yet it stays
+mandatory per the ruling's program-wide framing.
+
+**P-R10 honestly reported as approximate:** re-derived the ruling's anchor at
+49,594 occurrences / 31,588 rows vs the ruling's 50,528 / 32,199 — **~1.9%
+low, reported as a close but NOT exact reproduction** because the original
+script no longer exists to diff against. Corpus row count 2,038,247 matched
+exactly, confirming glob and scope.
+
+**Additional recall limits found and carried forward** (beyond the three
+D-INCLUDES named): bare `include` without `-s` stays unrecognized (matching
+the ruling's precise wording, not a broader family); and the OR-chain shape
+(`"Judicial claim" or "claim" include ...` — two quotes sharing one verb) is
+structurally unreachable regardless of vocabulary, since `_QUOTE_TERM_RE`'s
+gap-matching stops at the intervening quote. Pre-existing and separate, not
+introduced or fixed here.
+
+### MANAGER-FLAGGED FRAGILITY carried into the Developer brief
+
+RED #3 **monkeypatches `_MEANS_IDIOM_GAP_RE` to a hardcoded widened pattern**
+(no real row combines the PA construction-clause shape with the fallback path
+— plan8 swept all 2,117 and found 0). Consequence: **if the shipped regex
+differs in any way from the pattern the test hardcodes, the test validates a
+stale pattern rather than the real one.** dev7 is required to quote BOTH its
+shipped regex and the test's simulated one and state explicitly whether they
+are equivalent, stopping rather than adjusting either if they differ.
+
+Noted for QA: RED #3 guards **G12-2 only** — because it patches the regex
+itself, it would still pass if G12-1 were reverted. G12-1 is guarded by REDs
+#1 and #2. The division is intentional, but it means #3 must not be read as
+evidence for G12-1.
+
+| Agent | Gate | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| dev7 | G12 | Sonnet/medium — both items specified exactly, 3 REDs committed; Haiku considered: no, widens a defining-verb vocabulary under a director ruling with a mandatory guard | `...-dev7` | `a20fef95ffe28f502` | running |
+
+**plan3 acknowledged the (b)/(c) deferral** with no disagreement; G5/G6 are
+closed from the Planner side, working tree clean @ `18f0a4b`.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
