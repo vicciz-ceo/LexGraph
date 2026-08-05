@@ -83,6 +83,34 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (truncation class ruled + preamble certification withheld):
+  SCOPED-INLINE escalated the trigger-region truncation class with full
+  verification: mechanism predates the sprint (two-commit proof at
+  9c47af7/fcd2746, line 271 region_end), structural precondition in
+  38,431 rows / 53 of 53 jurisdictions, real loss measured in CA AND GA
+  (~2.7% of at-risk; order 1,000+ rows extrapolated from 75 sampled —
+  labeled extrapolation, not count; 37-vs-9 exemplar row). RULED: class →
+  D-CERT worklist as named/verified/self-alarming-pinned (xfail(strict)
+  containment); exact sweep folds into the US certification build; the
+  FIX (list-introducing vs mid-document-carve-out trigger classification —
+  architecture-level, cross-panel) → core-follow-on-3 with all evidence
+  attached. Not this cycle's work; nothing lost silently. PREAMBLE
+  withheld its own certification: shape-3 FP measured 18% (~3,100 rows)
+  + em-dash 14% — colon-list branch lacks its siblings' self-verification
+  (the five self-verifying shapes all measured 0%); narrower-rule remedy
+  in cycle 8 with the recall side of the trade to be measured; manager
+  superseded its own 836 figure (undisclosed scan window; 984 is the
+  load-bearing number); QA mutation-test found the working forwarding
+  filter pinned by NOTHING (deletable green) — pin commissioned. CORE-2:
+  G5+G6 green 8/8 with G6 shipped as 7-of-8-rows + TN named gap (seam
+  v2.8 row-7 "proven" claim corrected in v2.10); G12 merged with
+  real-data proof of the boundary+emission ruling (IL terms silently
+  dropped today); (b)/(c) dispatch changes → core-3 with the 1-of-8
+  number. IL: או-gap corrected downward by its Planner (230 shapes → 20
+  lines/13 files reaching the broken path); INTERPRETATION LAWS finding —
+  חוק הפרשנות art.3 and פקודת הפרשנות art.1 whole definitions lists
+  unreached (no preamble) → certification worklist.
+
 - 2026-08-05 (multiterm manager clean exit @ af0d548): context limit;
   suite 13/804, tree clean. Exit highlights: M-R19 — Planner overruled the
   manager on the 5-TX-duplicates test split and was RIGHT (4 of 5 are
