@@ -33,3 +33,7 @@ coverage/
 
 # Local demo database (recreate with: python -m app.seed_demo)
 backend/dev.db
+
+# Certification: regenerated deterministically, pinned by checksum (M33)
+backend/tests/fixtures/certification/c1_span_population.jsonl
+backend/tests/fixtures/certification/c1_complement_scout_hits.jsonl

@@ -1,0 +1,7 @@
+a953e690441300477fdd2e64c572bfb400d7cef56da0968f6f6ad40669d82e2d  c1_span_population.jsonl
+rows: 91764
+Regenerate with: backend/.venv/bin/python backend/tests/certification/c1_denominator.py
+The 32MB population itself is NOT committed (M33 ruling): the deterministic
+script + this checksum give C5 the same re-run-and-diff guarantee without the
+repo weight. QA regenerates and compares; on mismatch, regenerate both and diff
+locally. NOTE: this pin is STALE until the M33 vav-conjunction correction lands.
