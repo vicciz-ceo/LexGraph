@@ -3005,3 +3005,33 @@ manager-reviewed and merged to the integration branch at `b7a8220`:
 QA is independent and may not edit production. Any failure returns to a fresh
 role-separated correction cycle; no release claim may rely on Developer
 results alone.
+
+---
+
+## Phase 22 — QA cycle 2 FAIL and G9 test-contract bounce (2026-08-05)
+
+Independent QA `/root/core2_final_qa2` returned **FAIL** despite all behavior
+and evaluator gates passing. Three release-process blockers were verified:
+
+1. the long-lived branch did not contain current `main`; manager merged
+   `origin/main` with only the three authoritative program documents added;
+2. contract/pointer state was stale and `total_items: 0` made the
+   `dev-complete` state lint-invalid; manager synchronized both records and
+   represented the single remaining QA item explicitly;
+3. G9's additive migration passed the manual upgrade → downgrade → upgrade
+   proof, including an existing row remaining NULL/default-safe, but no
+   committed automated regression test exercises the migration module.
+
+All substantive QA evidence passed: G4 **15**, exact 747/501 corpus replay;
+G8 **8** plus exact historical artifact; G7 rescue/GA counts exact; migration
+manual round-trip green; backend **849**, frontend **165**, typecheck clean;
+diff-check/risk review clean. The missing migration contract is therefore a
+Planner/test-estate item, not authorization to change migration production.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| Planner | durable automated G9 migration round-trip/default-safe contract, mutation-verified | GPT-5.6 Terra / high | no; Planner role is always high and must design a real migration execution harness rather than pin implementation text | `claude/defs-core-follow-on-2-plan12` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-plan12` | `/root/core2_g9_migration_test_planner` | READY; identifier committed before START |
+
+Planner owns tests/fixtures and sprint evidence only. Production and migration
+files are frozen. After manager acceptance, a fresh QA cycle reruns the full
+release gate; no Developer is expected unless the test exposes a real defect.
