@@ -215,10 +215,12 @@ def test_tx_family_preservation_service_survives_the_targeted_guard():
     candidates = extract_definitions_from_section(text, scope="law-wide")
     by_term = {c.terms[0]: c for c in candidates}
 
-    assert len(candidates) == 5, (
-        f"today's real (buggy) candidate count is 5 of this row's real 6 defined "
-        f"terms -- got {len(candidates)}; if this is already 6, the drop no longer "
-        f"reproduces and the rest of this test is not exercising the defect"
+    assert len(candidates) == 6, (
+        f"G13-1 landed (dev8, us_profile.py) -- this row has 6 real defined terms, "
+        f"and this count now pins that ALL 6 survive, not merely that "
+        f"'Family preservation service' came back by name. A count of 5 means the "
+        f"Pub. L. false-truncation drop this gate closed has regressed -- got "
+        f"{len(candidates)}"
     )
     assert "Family preservation service" in by_term, (
         f"'Family preservation service' must be recovered as its own candidate -- "
@@ -277,9 +279,11 @@ def test_fl_volunteer_survives_the_guard_and_the_genuine_history_tail_still_trim
     candidates = extract_definitions_from_section(text, scope="law-wide")
     by_term = {c.terms[0]: c for c in candidates}
 
-    assert len(candidates) == 3, (
-        f"today's real (buggy) candidate count is 3 of this row's real 4 defined "
-        f"terms -- got {len(candidates)}"
+    assert len(candidates) == 4, (
+        f"G13-1 landed -- this row has 4 real defined terms, and this count now "
+        f"pins that ALL 4 survive, not merely that 'Volunteer' came back by name. "
+        f"A count of 3 means the Pub. L. false-truncation drop this gate closed "
+        f"has regressed -- got {len(candidates)}"
     )
     assert "Volunteer" in by_term, (
         f"'Volunteer' must be recovered -- got terms {sorted(by_term)!r} (today "
@@ -333,9 +337,12 @@ def test_ar_term_that_itself_contains_amendments_survives_the_guard():
     candidates = extract_definitions_from_section(text, scope="law-wide")
     by_term = {c.terms[0]: c for c in candidates}
 
-    assert len(candidates) == 4, (
-        f"today's real (buggy) candidate count is 4 of this row's real 5 defined "
-        f"terms -- got {len(candidates)}"
+    assert len(candidates) == 5, (
+        f"G13-1 landed -- this row has 5 real defined terms, and this count now "
+        f"pins that ALL 5 survive, not merely that the Amendments-named term came "
+        f"back by name. A count of 4 means the term-contains-the-marker "
+        f"false-truncation drop this gate closed has regressed -- got "
+        f"{len(candidates)}"
     )
     assert _AR_TERM in by_term, (
         f"{_AR_TERM!r} must be recovered as its own candidate -- got terms "
