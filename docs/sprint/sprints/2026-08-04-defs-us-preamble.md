@@ -2,13 +2,13 @@
 id: "2026-08-04-defs-us-preamble"
 status: planned
 blocked_on: null
-current_role: planner
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
 last_agent: "/root/markers_panel_manager/planner_cycle9_correction"
-last_updated: "2026-08-05T22:21:45Z"
+last_updated: "2026-08-05T22:25:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -33,8 +33,9 @@ definition_text)` granularity. Forwarding definitions are genuine under
 D-MT-E1 and must remain captured. This sprint does **not** implement the
 second D-MT-E1 requirement: a definition-to-target reference edge remains a
 core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
-`includes`/`shall include`; it does not authorize widening shared
-`us_profile.py::_MEANS_IDIOM_GAP_RE`.
+`includes`/`shall include`; core-2 G12's shared inline-extraction widening and
+targeted `References to` guard are now main-contained, shipped, and read-only
+for this sprint.
 
 ## Next Steps
 
@@ -82,18 +83,20 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 - **D-MT-E1 reference edges:** core shared reference-edge plumbing must add a
   link from each captured forwarding definition to its cited target. This
   sprint preserves the definition tuples but must not claim the edge shipped.
-- **D-INCLUDES `References to`:** PA `STATE_PA_T15_C57_S5749` is an
-  extraction-side held specification for the future `_MEANS_IDIOM_GAP_RE`
-  owner. It is not a Developer gate here; no `us_profile.py` widening is
-  authorized.
+- **D-INCLUDES `References to` (shipped G12 evidence):** the actual
+  `_extract_inline_quoted_definitions` path suppresses PA
+  `STATE_PA_T15_C57_S5749` via `_preceded_by_references_to` while retaining and
+  emitting genuine USC `"United States" includes ...`. This is main-contained
+  integration evidence, not a future held dependency or B1 Developer gate.
 - Existing NE/SD unquoted markers dependencies are inherited and expected in
   the full backend baseline; they are unrelated to these Developer items.
 
 ## Evidence
 
-- Focused inventory command returns **5 failed, 11 passed**: held T35 plus
-  PA/USC/AR/OH B1 causal gates. Developer target is
-  `backend/.venv/bin/pytest backend/tests/integration/test_us_body_preamble_option_c_root_cause_red.py -q` → four causal REDs.
+- Post-main Option-C integration is **5 passed**. Combined defining-verb plus
+  Option-C is exactly **1 held-T35 failed, 15 passed**. The shipped core-2 G12
+  unit file is **6 passed**; the repointed fifth Option-C pin drives the real
+  inline extractor in both PA-suppressed and USC-emitted directions.
 - The five P-FP guards query persisted `Definition` rows and verify definition
   text; forwarding rows retain the real 31 CFR / IRC / 20 U.S.C. target text.
 - Runtime-only mutation evidence (restored before every command): PA requires
@@ -109,7 +112,8 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 
 Searched every repo-profile root (`backend/tests/unit`, `backend/tests/integration`,
 `backend/tests/e2e`, `frontend/src/components/__tests__`) case-insensitively
-for the five replaced cycle-9 test names; no external pins found. No production
+for the five replaced cycle-9 test names. The sole stale held-G12 name was
+repointed in the owned Option-C file; no external pins remain. No production
 signature/class/CSS rename occurred.
 
 ## Context Dump
@@ -120,5 +124,5 @@ signature/class/CSS rename occurred.
 4. PA must make the real bounded B1 call return `Definitions`, not just shorten a regex.
 5. Preserve the four paired full ingest+link guards.
 6. M-R53 comment correction and the <=300 line split are still Developer work.
-7. Full evaluator expected: four causal + held T35 + three NE/SD markers REDs.
-8. Root owns integration/main-containment reconciliation and final QA dispatch.
+7. Main-contained G12 is shipped integration evidence, not a held dependency.
+8. Root owns final containment review and fresh QA dispatch; T35 is the sole focused RED.

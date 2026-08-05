@@ -5044,3 +5044,21 @@ failure in addition to held T35. Planner
 Planner brief v3.1) resumes from `df17346` to re-point only that pin in both
 directions: PA construction clause suppressed; genuine USC includes definition
 retained. T35 must return to being the sole focused RED before fresh QA.
+
+### M-R84 — Planner re-points the stale held-G12 pin to shipped behavior
+
+Planner `/root/markers_panel_manager/planner_cycle9_correction` changed only
+the owned Option-C integration test and sprint contract/log. The former held
+test now drives the actual normalized `_extract_inline_quoted_definitions`
+path without monkeypatching: both PA `References to` quotes are positively
+identified by `_preceded_by_references_to` and produce no boundary/candidate,
+while genuine USC `"United States" includes ...` is not guarded and is emitted
+with the expected definition-text start. No fixture, production, causal B1
+gate, paired guard, or T35 assertion changed.
+
+Post-main evidence: Option-C is 5 passed; defining-verb plus Option-C is exactly
+1 held-T35 failed / 15 passed; shipped core-2 G12 unit coverage is 6 passed.
+The old held-test name has no remaining hit in any repo-profile test root.
+Contract lint passes at 128 lines with a 9-line Context Dump. The corrected
+contract routes next to fresh QA; G12 is shipped integration evidence, not a
+future held dependency.
