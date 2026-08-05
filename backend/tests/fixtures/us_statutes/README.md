@@ -476,6 +476,36 @@ against the real, unmodified text before being selected — neither is
 corrupted by the pin-cite stack-corruption class Task 1 found on the
 Oregon row this fixture's tests replace as the direction-2 proof.
 
+## `planner_pass10_ga_code_section_truncation_regression_rows.json` — Planner pass 10, Task 2, ESCALATION 2 regression pin (2026-08-05)
+
+1 REAL row (full original 24-column schema, values unmodified),
+independently byte-verified across 2 separate fetches from this worktree's
+own read of the local, already-cached `vaquill/open-us-law` HF snapshot
+(`us_ga_statutes.parquet`, row index 9526; sha256 of the `text` column,
+both fetches: `b657bcd2f22be52b7c637f5ebe16e986d58abba0a820a1d837e1e7be
+333592d3`), used by
+`test_us_scoped_inline_ga_code_section_truncation_regression.py`:
+
+- **`STATE_GA_T14_C3_S14-3-140`** (O.C.G.A. § 14-3-140, Georgia Nonprofit
+  Corporation Code definitions) — pins the manager-log-2026-08-05
+  ESCALATION 2 regression: Developer fix cycle 5 finding 4 (Georgia "Code
+  section" support) is net strongly positive corpus-wide (3,605 distinct
+  new terms / 1,527 rows gained vs. 116 distinct terms / 12 rows lost,
+  31:1) and shipped per director ruling, but the 116 lost terms are a
+  real, measured, NEW miss under the absolute zero-miss bar. This row is
+  one of the 12: a real "As used in this chapter, the term:" colon-list
+  defining dozens of terms, truncated today at char offset ~2509 by a
+  spurious second trigger event — an ordinary mid-body sentence, "For the
+  purpose of this Code section, rights shall be considered the same
+  if...", which only became trigger-shaped once finding 4 widened
+  `_UNIT_TAIL` for "Code section" — silently dropping every colon-list
+  entry after that point. The test file's own module docstring has the
+  full root-cause verification (confirmed PRE-EXISTING, not
+  Georgia-specific — reproduces via a plain, always-recognized "chapter"
+  phrase later in this SAME row, and via a corpus-wide scale probe finding
+  the structural precondition in all 53 states, 38,431 rows / 1.89% of the
+  2,038,247-row corpus) and the `xfail(strict=True)` tripwire rationale.
+
 ## `us_scoped_inline_subsection_inverted_convention_rows.json` — Planner pass 8, Task 4, director ruling D-S15 condition 1 (2026-08-05)
 
 3 REAL rows (full original columns, values unmodified), independently
