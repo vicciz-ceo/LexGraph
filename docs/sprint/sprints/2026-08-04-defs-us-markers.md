@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "codex:planner"
@@ -11,7 +11,7 @@ last_updated: "2026-08-05T19:25:47Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 10
+total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -185,17 +185,32 @@ planner pass 1`.
 The sprint is in Planner RED authoring, with no active Dev Complete item. The
 Planner owns exactly three acceptance tracks before any Developer starts:
 
-1. **FED trailing-annotation single-global-limit defect [U1/U-R1].** Pin the
-   persisted/live-path failure for `USC_T8_C12_S1101` without absorbing the
-   separate core G3 boundary work.
-2. **MN Affiliate idiom-gate defect [U1/U4].** Pin the persisted/live-path
-   four-definition swallow at `STATE_MN_P300_323A_C302A_S302A.011` while
-   preserving a negative guard against broad idiom capture.
-3. **U-R13 persisted-altitude oracle correction.** Manager probe M49 proved
-   TX `2009.003` persists `Governmental body` WITH the idiom retained. The
-   Planner re-authors Part B so the canonical contract is the persisted value;
-   any candidate-level stripped-idiom assertion is labelled only as this
-   module's own-emission mechanism, not the user-facing contract.
+1. **P-D1 — FED per-entry trailing-annotation boundary [U1/U-R1].** In
+   `us_markers_boundary.py`, replace the single global trailing-stop ceiling
+   with per-entry lawful annotation boundaries; do not take core-3 marker work.
+   Live acceptance: `test_us_markers_pd1_fed_trailing_annotations_live.py`
+   persists `serious criminal offense` through its own `(1)`–`(3)` clause only.
+   Unit acceptance: later entries survive an earlier annotation; substantive
+   `references in text`/citation words remain definition content.
+2. **P-D2 — MN Affiliate relative-idiom gate [U1/U4].** Add a narrow MN
+   handling path for `"X," when used in reference to…, means` without broadening
+   quote matching globally. Live acceptance:
+   `test_us_markers_pd2_mn_affiliate_idiom_live.py` persists Affiliate,
+   Announcement date, Associate, and Consummation date separately and cleanly.
+   Unit acceptance requires the exact real idiom and rejects non-defining prose.
+3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
+   Q3 Part B now names the persisted `Governmental body` value (idiom retained)
+   as canonical; the direct stripped value is explicitly an internal
+   own-emission guard. Both named assertions are green, not Developer work.
+
+## Stale-pin sweep
+
+Case-insensitive sweep: `backend/tests/unit`, `backend/tests/integration`,
+`backend/tests/e2e`, and frontend `*.test.*`/`__tests__`; re-pointed
+`test_us_markers_qa_q3_tx_2009_003.py` Part-B names and altitude text only.
+No existing stale pin for P-D1/P-D2 was found; their tests are new, distinct
+REDs. No API/E2E test was added because real ingest + pipeline + persistence
+is the live acceptance path for these parser defects.
 
 R6 and the named core-3 debts remain ledgered only; this panel does not absorb
 shared-core work. NY's current post-devC figure remains 160/1,479 = 10.8% and

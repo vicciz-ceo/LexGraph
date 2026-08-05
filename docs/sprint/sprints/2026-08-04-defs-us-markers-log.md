@@ -7,6 +7,36 @@ to the director).
 
 ---
 
+## M50 — Planner REDs and U-R13 oracle correction (2026-08-05)
+
+The new Planner verified the mandated isolated base `b8bc238`, created its own
+worktree venv, and authored two panel-owned test tracks only:
+
+- **P-D1** uses a provenance-recorded, byte-verbatim excerpt of real
+  `USC_T8_C12_S1101` (current HF revision and full-row SHA recorded in the
+  fixture). Its unit RED proves the first annotation ceiling suppresses a later
+  entry; its persisted live RED proves `serious criminal offense` currently
+  swallows the following `(i)` provision/annotation material. The test retains
+  the term's own numbered list and citation and does not prescribe core-3's
+  generic marker algorithm.
+- **P-D2** uses a corresponding real MN excerpt from
+  `STATE_MN_P300_323A_C302A_S302A.011`. Its unit and persisted live REDs pin the
+  four named clean definitions and a narrow non-definition prose guard. Current
+  failure is the known 7,767-char Affiliate swallow, not setup/collection.
+
+M44/M49 control P-T1: Q3 Part B now labels the idiom-retained persisted value
+as its canonical contract, while retaining the direct idiom-stripped assertion
+only as the boundary engine's internal own-emission guard. Both explicitly
+labelled checks passed before handoff. Parser coverage stops at the real
+ingest -> `run_definition_linking` -> persisted `Definition` call path; an HTTP
+or E2E wrapper would not add a distinct acceptance seam.
+
+Stale-pin sweep covered every repository test root case-insensitively. The sole
+re-point was Q3 Part-B naming/docstrings/assertion altitude; no pre-existing
+P-D1/P-D2 pin exists to turn into a Developer-uneditable failure.
+
+---
+
 ## M49 — U-R13 independently established at PERSISTED altitude (2026-08-05)
 
 The manager ran the real ingest + `run_definition_linking` + persisted
