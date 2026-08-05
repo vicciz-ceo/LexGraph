@@ -1,7 +1,7 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: planning
-current_role: planner
+status: dev-complete
+current_role: qa
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "codex:planner"
@@ -11,7 +11,7 @@ last_updated: "2026-08-05T19:46:13Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 3
+total_items: 2
 completed_items: 1
 dev_complete_items: 1
 qa_cycles: 0
@@ -339,17 +339,24 @@ names its gate(s).
 - **P-D2 — MN Affiliate relative-idiom gate.** Developer `98143f7`, integrated
   as `d81e3eb`; only `backend/app/definition_links/rules/us_markers_boundary.py`
   changed (11 insertions, 3 deletions). Manager probe: P-D2 unit+persisted live
-  plus both U-R13 altitudes = 5 passed; P-D1 invalid/core-3 REDs remain red.
+  plus both U-R13 altitudes = 5 passed.
+
+- **P-D1 — RETIRED after corpus-oracle audit (M54).** The inherited
+  single-global-ceiling attribution is unproven: all 52 reachable
+  first-stop/later-quote+idiom candidates are terminal annotations or amendment
+  history, never an operative post-stop definition. The synthetic post-notes
+  oracle was removed. `USC_T8_C12_S1101` remains a held **core-3** Roman
+  structural-sibling RED, not P-D1 acceptance.
 
 ## Completed
 
-_None._
+- **P-T1 — U-R13 persisted-altitude oracle correction.** Complete (M44/M49).
 
 ## Context Dump
 
-P-D2 is merged/Dev Complete; P-T1 is complete. P-D1's synthetic post-notes
-oracle is invalid and `USC_T8_C12_S1101` routes to core-3. Fresh Planner must
-search boundedly for a REAL row harmed by the global annotation ceiling and
-pair it with a terminal-notes negative control. If none exists, remove/retire
-P-D1's invalid REDs and amend M38's attribution. No production changes in this
-Planner pass. Core-2 remains unmerged; G3-HEAL stays pending.
+P-D2 is Dev Complete and P-T1 is complete. P-D1 is retired by M54: its
+synthetic post-notes oracle contradicted the terminal-notes rule, and the
+bounded 21-jurisdiction corpus audit found no real operative post-stop
+definition. The real `USC_T8_C12_S1101` boundary failure is held for core-3's
+structural sibling-marker work. No production changes occurred in this Planner
+pass. Core-2 remains unmerged; G3-HEAL stays pending.

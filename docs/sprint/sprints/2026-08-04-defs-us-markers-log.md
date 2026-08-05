@@ -5181,3 +5181,80 @@ before/after rates are absolutes and depend on the ingest transform being
 correct; our byte-identical dump comparisons are differentials and do not.
 
 ---
+
+## M54 — P-D1 corpus-oracle audit: RETIRED; FED held for core-3 (2026-08-05)
+
+This fresh Planner audited the current `424698a` markers engine against the
+locally cached `vaquill/open-us-law` HF snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (the fixtures' recorded data
+revision remains `108806d5ab017581806d46122dfec04dcbfc2db8`). The production
+entry points were read first: `USProfile.extract_definitions_from_section`
+consults `EntrySplitterRule`s only for a recognised Definitions heading;
+`extract_local_scope_definitions` separately invokes FL's `ScopeTriggerRule`.
+NY text was scanned with the production ingest transform
+`text.replace("\\\\n", "\\n")`.
+
+### Exact bounded population and result
+
+The `TRAILING_STOP_RE` users reachable through registered markers rules are:
+
+- `us_markers_inline_quote._split`: `US-AZ`, `US-FED`, `US-MI`, `US-ND`,
+  `US-NJ`, `US-NY`, `US-OK`, `US-SC`, `US-TX`, `US-UT`, `US-VA`, `US-WA`;
+- `us_markers_mojibake._split_ak/_split_ri`: `US-AK`, `US-RI`;
+- `us_markers_me_pl_citation._split`, `us_markers_mn_subd_marker._split`, and
+  `us_markers_oh_trailing_clause._split`: `US-ME`, `US-MN`, `US-OH`;
+- `us_markers_unquoted_terms._split_al/_split_nc/_split_dc` and
+  `us_markers_ny_apposition._split`: `US-AL`, `US-NC`, `US-DC`, `US-NY`;
+- `us_markers_fl_scope_trigger._extract`: `US-FL`.
+
+That is **21 unique statute files / 788,766 rows**, including **33,578
+Definitions-headed rows**. The literal search shape was exactly: first
+`TRAILING_STOP_RE` match, then a later `_LEADING_QUOTE_TERM_RE` match accepted
+by `_TIGHT_IDIOM_RE`. It produced 291 raw rows (290 FED, 1 SC); only **52** are
+reachable through a Definitions section (51 FED + 1 SC). FL had zero raw
+matches even across its complete ordinary-article scope-trigger population.
+
+All 52 reachable candidates were individually inspected — no sampling. The
+51 FED `act_id`s are `USC_T5_C6_S601`, `USC_T43_C29_S1331`,
+`USC_T41_C83_S8301`, `USC_T49_C303_S30301`, `USC_T46_C21_S2101`,
+`USC_T42_C163_S19131`, `USC_T23_C1_S101`, `USC_T42_C7_S1396d`,
+`USC_T42_C7_S629a`, `USC_T11_C1_S101`, `USC_T38_C17_S1701`,
+`USC_T6_C1_S650`, `USC_T22_C102_S9521`, `USC_T50_C36_S1801`,
+`USC_T15_C119_S9401`, `USC_T42_C21_S2000e`, `USC_T10_C1_S101`,
+`USC_T26_C1_S414`, `USC_T43_C40_S2201`, `USC_T10_C47_S801`,
+`USC_T25_C30_S2801`, `USC_T6_C1_S651`, `USC_T38_C34_S3452`,
+`USC_T31_C61_S6101`, `USC_T38_C43_S4303`, `USC_T18_C11_S202`,
+`USC_T11_C9_S902`, `USC_T15_C100A_S7421`, `USC_T21_C22_S1701`,
+`USC_T16_C35_S1532`, `USC_T19_C28_S4301`, `USC_T18_C44_S921`,
+`USC_T7_C6_S136`, `USC_T29_C18_S1301`, `USC_T38_C35_S3501`,
+`USC_T49_C241_S24102`, `USC_T15_C25_S1191`, `USC_T5_C55_S5561`,
+`USC_T46_C313_S31301`, `USC_T42_C55_S4370m`, `USC_T22_C71_S6213`,
+`USC_T18_C206_S3127`, `USC_T6_C1_S681`, `USC_T33_C11_S511`,
+`USC_T18_C10_S178`, `USC_T41_C65_S6501`, `USC_T31_C35_S3551`,
+`USC_T16_C10_S773`, `USC_T6_C4_S1101`, `USC_T7_C93_S6402`, and
+`USC_T16_C56A_S3631`; the SC candidate is
+`STATE_SC_T51_C17_A1_S51-17-10`.
+
+The post-stop content in every FED candidate is an Editorial, Historical and
+Revision, References-in-Text, statutory-note, or amendment-history block. The
+SC candidate is expressly `Effect of Amendment` prose quoting superseded
+definitions. Thus a later quote+idiom is a deliberately broad *search signal*,
+not a claimed operative definition. `USC_T33_C11_S511` is now the real,
+provenance-recorded negative control: its terminal Editorial Notes repeat
+`"Secretary" means ...` amendment text, which remains non-emitted.
+
+### Binding disposition
+
+**Outcome B.** M38's historical observation that `TRAILING_STOP_RE.search()`
+computes one row-level limit is mechanically true, but its inherited
+attribution as a P-D1 operative-definition loss is **unproven and retired**.
+M52's ruling is confirmed: the synthetic post-Editorial-Notes entry was an
+invalid oracle. The real `USC_T8_C12_S1101` failure still exists, but its first
+missing boundary is the Roman `(i) With respect ...` structural sibling; it is
+renamed and held as a core-3 RED. No phrase-specific Roman guard, P-D1 code, or
+P-D2 change belongs in this pass.
+
+The contract is now `status: dev-complete`, `current_role: qa`, with two
+items: P-T1 complete and P-D2 Dev Complete. A test-only follow-up retires the
+invalid synthetic RED, preserves the FED core-3 evidence, and adds the real
+terminal-notes negative control.
