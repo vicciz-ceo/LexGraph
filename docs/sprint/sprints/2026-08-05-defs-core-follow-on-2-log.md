@@ -1094,6 +1094,56 @@ sanity check," citing P-E3.
 
 ---
 
+## Phase 6 — G9-2 APPROVED; G9 in implementation (2026-08-05)
+
+Program manager approved the persisted breadcrumb column. Grounds: the
+manager's independently-verified no-other-route claim clears seam v2.5's
+bar; the program already has the accepted shape (D-ANCHOR's
+`subject_unit_path` column — additive NULLABLE, reversible raw-DDL
+`upgrade()`/`downgrade()`, no backfill); and an additive nullable column
+does not break any panel's rebase, since code that never reads it is
+unaffected.
+
+### Four binding conditions, and where each is discharged
+
+1. **Nullable, no default-write requirement outside the new code path** —
+   in dev6's brief as a binding condition.
+2. **`downgrade()` proven reversible** — dev6 must *demonstrate* it
+   (upgrade → verify present → downgrade → verify gone, on a real engine),
+   explicitly not assert it.
+3. **Merge protocol gains the migration line** — DONE, new
+   "SCHEMA MIGRATION" section in
+   `2026-08-05-defs-core-follow-on-2-g7-merge-protocol.md`: each panel runs
+   `upgrade()` in its OWN worktree venv before its suite, or it will read
+   migration-absence as regression.
+4. **IL's two held containment REDs are the acceptance evidence at merge** —
+   coordinated with the IL phase-3 manager (`a18597f9be6c49ed6`) NOW rather
+   than discovered at merge. Asked specifically for: which laws/rows and
+   what containment outcomes they assert; the breadcrumb SHAPE assumed
+   (ordered `(depth, heading_text)`, `.chapter` unchanged at depth-2 with
+   deeper entries appended); any surprising depth convention
+   (non-monotonic sequences, depth-3 with no depth-2 parent); and whether
+   they consume via a `StructuralUnitRule` reading
+   `StructuralContext.heading_breadcrumbs` or some other route. This matters
+   because our Planner deliberately re-authored against DIFFERENT real laws
+   to keep authorship clean — good for provenance, but it means the
+   implementation is validated against fixtures that are not the acceptance
+   evidence.
+
+dev6 also carries the corrected migration pattern explicitly, with the
+rejected one named: **do NOT use the `Document.jurisdiction`/`create_all()`
+shape** (works only for fresh-test-only tables; would fail on an
+already-provisioned production DB).
+
+| Agent | Gate | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| dev6 | G9 | Sonnet/medium — items/REDs/migration pattern all specified; Haiku considered: no, it ships a schema migration in the first-merging sprint and touches Hebrew-side parsing | `...-dev6` | `ac0a7de0800432e51` | running |
+
+Boundary restated to the IL manager: this sprint builds the seam and data
+path only; the IL סימן/חלק rule modules remain the IL panel's own work.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which

@@ -262,6 +262,31 @@ per-gate rescue counts.**
 population survives the flip; NV stays on the markers panel's side
 regardless of G11.
 
+## SCHEMA MIGRATION — every panel's rebase must run it (added 2026-08-05)
+
+This sprint ships **one additive, nullable schema change**: gate G9's
+`heading_breadcrumbs` column on `articles` (program-manager approved; D-ANCHOR
+`add_assertion_subject_unit_path_column.py` pattern — raw DDL against a plain
+`Engine`, real `downgrade()`, **no backfill**, `NULL` is the honest value for
+every pre-existing row).
+
+**Binding step for EACH family panel's rebase onto the merged tree:**
+
+> After rebasing onto this sprint's merged tree, run the G9 migration's
+> `upgrade()` **in that panel's own worktree venv** BEFORE running its suite.
+> A panel that skips it will see failures that are migration-absence, not
+> genuine regressions.
+
+Why this does not break any panel's rebase: the column is **additive and
+nullable**, and code that never reads it is unaffected. Panels need the
+migration only because their suites exercise the shared `Article` model.
+
+**Acceptance evidence for G9 at merge:** the **IL panel's two held
+containment REDs** (the actual G9 consumers) — not this sprint's own
+re-authored fixtures, which deliberately use different real laws to keep
+authorship clean. Row expectations are being confirmed with the IL phase-3
+manager directly rather than discovered at merge.
+
 ## Open questions for the program manager (both G3-related)
 
 **Q-G3-A — Is `_extract_inline_quoted_definitions` in G3's scope?**
