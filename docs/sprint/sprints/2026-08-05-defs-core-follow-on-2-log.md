@@ -1929,6 +1929,59 @@ Target: **837 passed / 0 failed**. This is the sprint's last open item.
 
 ---
 
+## Phase 13 — G13 closed; ONE self-imposed blocker remains (2026-08-05)
+
+plan9's re-point merged @ `b14e81a`. **Suite 837 passed / 0 failed. Lint
+PASS 110.** Test-file only, 17 insertions / 10 deletions.
+
+plan9 **independently re-verified the manager's diagnosis before editing**
+(ran the file against the merged fix, confirmed all 3 failed at the count
+precondition with exactly the named counts, and read dev8's actual diff
+rather than trusting the description). It then rewrote each message to state
+its NEW role — e.g. TX: *"this count now pins that ALL 6 survive, not merely
+that 'Family preservation service' came back by name"* — and **grepped for
+residual `"buggy"`/`"today's real"` phrasing afterward, finding zero**. That
+last step is what stops a half-done rename, and it is why the cd_i9
+prose/assertion divergence was not recreated.
+
+**Judgment call, flagged not buried, and ACCEPTED:** plan9 left the "today it
+is silently dropped entirely" phrasing in the adjacent `"X" in by_term`
+assertion messages. Correct — that prose only ever prints when the assertion
+FAILS, i.e. when the term genuinely IS dropped, so it stays accurate in the
+only state a reader sees it. Distinguishing "stale numeric claim asserted
+unconditionally" from "conditional prose accurate at failure time" is the
+right distinction.
+
+### ALL GATES NOW GREEN — but the sprint is NOT closeable
+
+Landed and verified: **G1, G2, G3-main, G4, G5, G6, G8, G9, G10, G12, G13.**
+Deferred with data: **G3-sibling** (NO-GO), **G11** (do-not-ship-alone,
+202-row debt carried). G6 ships at **7 of 8** U2 rows.
+
+**Outstanding: the G8 reverse-order displacement check** — a pre-merge
+blocker THIS MANAGER opened in Phase 9 and which has never been run.
+Recorded plainly because the temptation at 837/0 is to let one's own gate
+quietly lapse:
+
+> If a GOOD long candidate is persisted FIRST and a DEGENERATE short one
+> arrives SECOND, `_is_tighter_containment` evaluates `!=` ✓, `len <` ✓, and
+> `short in long` — so G8 would REPLACE a good definition with a degenerate
+> one. That is **new damage introduced by G8**, unlike the accepted
+> improvement-suppression limitation, and the protocol states it must be
+> AMENDED BEFORE MERGE if it fires.
+
+Commissioned to plan9. **Pass condition: zero degrading firings.** Method:
+enumerate real same-key collisions on the production path, isolate those
+where the later candidate satisfies `_is_tighter_containment` against the
+earlier, and hand-judge each as IMPROVING (earlier text was contaminated) vs
+DEGRADING (earlier was good, replacement is degenerate) — exhaustively if the
+population is small, as was done for the 28 G13 drops.
+
+Until that verdict lands, **the sprint does not close and the merge does not
+proceed.**
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
