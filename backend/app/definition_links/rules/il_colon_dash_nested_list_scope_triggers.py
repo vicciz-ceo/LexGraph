@@ -63,6 +63,18 @@ instrument-naming preamble (`בחוק זה -`, `בתקנות אלה -`, ...) now
 classifies `"law-wide"` instead of under-claiming `"local"` -- the SAME
 vocabulary extension the new sibling rule needs, added to the shared
 table rather than duplicated here.
+
+Sprint 2026-08-04-defs-il, Phase D, D-1a bundle -- Class A fix: this
+module used to keep its OWN private single-term-only `_TERM_DASH_RE`
+copy despite this very docstring already claiming the candidate-building
+logic was shared -- that regex was NEVER actually imported from `il_
+list_shape_scope.py` (a doc/code mismatch, confirmed live before this
+fix), so a `::-` entry naming >=2 terms (`"t1" ו"t2" - def`) silently
+dropped the whole entry, exactly the FROZEN `extract._parse_terms_and_
+qualifier`-adjacent bug this sprint's own single-term grammar had
+everywhere else. Now genuinely shares `parse_entry` (multi-term-aware)
+with the `:-` sibling, closing both the bug and the doc/code mismatch in
+one change.
 """
 
 from __future__ import annotations
@@ -70,7 +82,7 @@ from __future__ import annotations
 import re
 
 from app.definition_links.extract import DefinitionCandidate
-from app.definition_links.rules.il_list_shape_scope import infer_scope, make_candidate
+from app.definition_links.rules.il_list_shape_scope import infer_scope, make_candidate, parse_entry
 from app.definition_links.rules.registry import (
     RuleContext,
     ScopeTriggerRule,
@@ -79,7 +91,6 @@ from app.definition_links.rules.registry import (
 
 _PREAMBLE_RE = re.compile(r"\S.*\s-\s*$")
 _ENTRY_LINE_RE = re.compile(r"^\s*::-\s*(.*)$")
-_TERM_DASH_RE = re.compile(r'^"([^"]+)"\s*-\s*(.*)$')
 
 
 def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
@@ -101,11 +112,12 @@ def _extract(article_body: str, ctx: RuleContext) -> list[DefinitionCandidate]:
             entry_match = _ENTRY_LINE_RE.match(line)
             if not entry_match:
                 break
-            term_match = _TERM_DASH_RE.match(entry_match.group(1).strip())
-            if term_match:
-                term = term_match.group(1).strip()
-                definition_text = term_match.group(2).strip().rstrip(";").strip()
-                results.append(make_candidate(term, definition_text, scope, ctx))
+            parsed = parse_entry(entry_match.group(1).strip())
+            if parsed is not None:
+                terms, definition_text = parsed
+                results.append(
+                    make_candidate(terms, definition_text.rstrip(";").strip(), scope, ctx)
+                )
             i += 1
     return results
 

@@ -5050,3 +5050,293 @@ D-1a Developer (dev3) -> merge -> D-1b Developer (dev4) -> QA cycle 4.
 Certification contract drafted once the Developers are RUNNING, sent to
 the program manager for sanity-check before its Planner spawns. Cycle 5
 stays the bounce reserve.
+
+## 2026-08-05 — D-1a Developer (Sonnet/medium), worktree `defs-il-dev3`
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-dev3`, branch
+`claude/defs-il-dev-d1a`, at `8599a81` (M22), clean at start. Venv
+verified: `import app` -> this worktree's `backend/app`. Git email
+confirmed noreply. Baseline reproduced myself before touching anything:
+`backend/.venv/bin/pytest backend/tests -q` -> `13 failed, 829 passed` --
+exact match to the brief and to M22's own re-verification.
+
+### Per-class live re-confirmation (before fixing, per M4)
+
+- **Class A.** `il_list_shape_scope.ENTRY_TERM_DASH_RE` re-confirmed:
+  `"מונח א", "מונח ב" - ...` and `"מונח ג" ו"מונח ד" - ...` both return no
+  match; single-term `"מונח ה" - ...` matches. Matches M22 control 4
+  exactly.
+- **Class B.** `extract_quote_first_candidates('לענין זה - "מסירה"
+  כמשמעותה [[בסעיף 8 לחוק המכר, תשכ"ח-1968]].', ...)` -> `[]` reproduced;
+  `_find_split_marker` on the post-quote clause -> `(-1, 0)`, and the
+  visible dash inside `תשכ"ח-1968` is correctly NOT picked up (no space
+  on either side) -- confirmed this is a genuine no-marker case, not a
+  measurement artifact.
+- **Class C.** `HeadingRule` feasibility re-confirmed with my own
+  throwaway probe (registered, ran, deleted, never committed): on
+  `אכרזת גנים לאומיים` art.8, baseline `is_definitions_heading` -> `False`;
+  with the probe registered -> `True`, section path captures all 10
+  terms. Also independently re-confirmed the scope hazard myself:
+  `HebrewProfile.determine_scope(body)` on that same article body ->
+  `'law-wide'` (no chapter trigger in the first body line, no
+  `ScopeKindRule` registered that could see the heading-only trigger
+  `בתוספת זו` either way). This is the load-bearing fact the whole
+  Class-C design decision below rests on.
+
+### Class A fix -- multi-term list entries
+
+`il_list_shape_scope.py`: added `parse_entry(entry_text)`, replacing the
+single-term `ENTRY_TERM_DASH_RE` match at both call sites. Finds the
+entry's split marker (first standalone `-` outside any quote, whole-string
+scan) first, then reads every leading quoted term from the header before
+it, each non-first one introduced by a comma and/or the vav conjunction
+prefixed directly to its own opening quote (the two real corpus
+sub-shapes, plus their natural combination). `make_candidate` widened to
+accept `terms: str | tuple[str, ...]` (a bare string still wraps to a
+1-tuple, so every pre-existing call site needed zero changes beyond the
+two list-shape `_extract` functions themselves).
+
+Also fixed, found while reading the code (not asked for, but real): the
+`::-` rule (`il_colon_dash_nested_list_scope_triggers.py`) had its OWN
+private single-term-only `_TERM_DASH_RE` copy, despite its own docstring
+already claiming to share `il_list_shape_scope.py`'s logic -- a doc/code
+mismatch, not just a duplicate of the multi-term bug. Both sibling rules
+now call the one shared `parse_entry`.
+
+While making Class C's fixture pass (see below), I found `parse_entry`
+also needed to tolerate a QUALIFIER between the last term and the dash
+(`"גידול מלאכותי" (Artificially propagated) - כהגדרתו ...`, a real entry
+in the Class-C schedule fixture) -- the FROZEN, already-shipped
+definitions-SECTION path (`extract._find_split_dash` +
+`_parse_terms_and_qualifier`) already tolerates exactly this shape (a
+whole-line, quote-aware dash search, not an immediately-after-the-quote
+match), so widening `parse_entry` to the same algorithm is parity with
+an already-precision-proven mechanism, not new risk.
+
+### Class B fix -- no split marker after the quote (also IL's D-INCLUDES discharge)
+
+`il_trigger_grammar.py`: added `_find_fallback_word_marker`, tried only
+when `_find_split_marker` finds no punctuation marker at all (a real dash
+still always wins when present). Two named word sets: `REFERENCE_WORDS =
+("כהגדרתו", "כהגדרתה", "כמשמעותו", "כמשמעותה")` (sub-shape (i), the
+by-reference shape) and `INCLUDES_FAMILY_WORDS = ("לרבות", "למעט")`
+(sub-shape (ii)). Matched as a whole word (start/whitespace before,
+whitespace/light-punctuation/end after) outside any quote; the marker is
+zero-width and stays IN `definition_text` (unlike the dash, these are
+meaningful content words, not punctuation).
+
+**D-INCLUDES discharge, stated explicitly per the brief:** `INCLUDES_
+FAMILY_WORDS` is a named, reusable defining-verb vocabulary living
+alongside the dash in the SAME shared helper every quote-first IL rule
+already builds on (`extract_quote_first_candidates`), not a one-off
+regex patch scoped to one fixture. Every rule already built on this
+helper (8 modules) picks up both sub-shapes for free, for its own
+already-registered trigger vocabulary -- confirmed live: the "פקיד שומה"
+/ `למעט` instance the Planner named (not vendored as a fixture) also now
+captures (spot-checked in the venv, not asserted by any test).
+
+### Class C fix -- preambles living in the article's own heading
+
+New file `il_heading_embedded_preamble_scope_triggers.py`. Detection:
+the article body's FIRST non-blank line is already a `:-`/`::-`-marked
+entry -- i.e. neither list-shape sibling rule ever found a preamble line
+to start a list from (both already scan the WHOLE body for one). Reused
+`parse_entry`/`make_candidate` from the shared module (so this path is
+multi-term-safe too, for free). Registered as an ordinary `ScopeTriggerRule`
+(the already-wired `extract_local_scope_definitions` path), NOT a new
+`HeadingRule`.
+
+**Corpus-wide precision sanity check (my own, scratchpad, read-only,
+not a test):** swept all 6,133 files for this exact detection shape
+(ordinary article, `is_definitions_heading` False, body's first content
+line already `:-`/`::-`-marked) -- **57 real hits**. Hand-read the full
+list: ~50 are genuine definitional lists (schedules/appendices, `פירוש`/
+`פירושים`-headed articles baseline's regex doesn't recognize, a
+numbering-prefixed `הגדרות` heading, a heading-embedded `לעניין הכרזה זו`
+instance and its 2 siblings). The remaining ones are all SAFE non-captures
+by construction, not false positives: `והואיل:`/`لكבود` recital/form-letter
+bodies whose first "entry" doesn't start with a quote (`parse_entry`
+returns `None`); a `בפקודה זאת -`-adjacent article whose OWN first `:-`
+line is a stray `((,))` artifact with no quote at all; a `TERM פירושו
+definition` no-dash grammar `parse_entry` correctly declines to guess at.
+Zero false TERM captures found in the full sweep.
+
+### THE DESIGN DECISION -- Class-C scope semantics
+
+**Chosen: `scope="local"` for every Class-C candidate, unconditionally,
+built directly by this rule (never delegated to `determine_scope`).**
+
+**Why not the `HeadingRule` + definitions-section route (the Planner's own
+probe used it for feasibility, but feasibility != correctness):** once
+`is_definitions_heading` is flipped `True`, `pipeline.py` calls `scope =
+profile.determine_scope(matcher_article.body)` and stamps that ONE scope
+string onto EVERY candidate from `extract_definitions_from_section`
+uniformly (`extract._parse_block(block, scope=scope, ...)`) -- there is no
+per-candidate override available from a rule module on that path.
+`determine_scope`'s signature is `(self, body_text: str)` -- FROZEN, and
+verified live (control 3 above) that it never receives heading text, so
+for a Class-C article (no chapter trigger in the body's own first line,
+and no `ScopeKindRule` I could register would have any body-text signal
+for a heading-only trigger either) it falls through to its own
+unconditional `return "law-wide"`. Ruling M16 already, deliberately,
+EXCLUDES `בתוספת זו` from the law-wide vocabulary specifically because it
+does NOT mean "the whole law" -- shipping `scope="law-wide"` here via the
+section-dispatch route would directly contradict that established policy
+and manufacture real false `USES_DEFINITION` edges reaching articles
+outside the defining schedule/instrument-subpart. That is a genuine
+precision regression, not a hypothetical one, so I did not take that
+route even though it is the more "obvious" one Class C's feasibility
+probe used.
+
+**Rejected alternatives (stated per the brief's explicit ask):**
+1. HeadingRule + section dispatch, accepting `determine_scope`'s law-wide
+   default -- rejected for the reason above.
+2. A new `scope_unit_kind` (e.g. `"schedule"`) -- rejected per M-D3 (no
+   measured Hebrew structural convention for what a schedule/appendix
+   UNIT even is, gathered this session) and moot regardless: it is the
+   SAME "no live DATA SOURCE" gap M20 already found for סימן/חלק --
+   `pipeline.py`'s `StructuralContext(..., heading_breadcrumbs=())` is
+   hardcoded empty at its one call site, so no `StructuralUnitRule` could
+   populate a matching `ScopeUnit` even if I declared the kind.
+3. A module-level mutable side channel (`HeadingRule.matches` stashing the
+   heading string, a `ScopeKindRule.detect` call reading it back) --
+   technically achievable (pipeline.py's per-article loop IS sequential,
+   confirmed by reading it), but rejected as a fragile hidden coupling on
+   a frozen file's own call ordering that I do not own and that could
+   change; it also does not even answer the real question (WHICH scope a
+   given, still-invisible heading trigger means) -- it would only
+   relocate the guess, not remove it.
+4. Escalating and leaving Class C red -- rejected: the brief frames this
+   choice as mine to make deliberately, and a legitimate, non-over-claiming
+   rule-module-only path exists (this file), so there is no genuine
+   blocker.
+
+**The honest trade, stated plainly:** `scope="local"` (`HebrewProfile.
+main_unit_kind`, the same conservative default `infer_scope` already
+falls back to for any unrecognized preamble) UNDER-claims -- a mention of
+the same term in a SIBLING article of the same schedule/instrument will
+not link, and it under-claims even in the (measured, real) cases where the
+heading's own invisible trigger IS an already-recognized law-wide phrase
+(`: בצו זה -`, `: [[בתוספת זו]] -`, both present among the 57 corpus hits)
+or a numbering-prefixed plain "הגדרות" heading that would ordinarily
+default to law-wide. It NEVER over-claims -- no false link to an unrelated
+article elsewhere in the law. Given there is genuinely no live way for any
+rule-module-only file to learn what a Class-C heading's own trigger phrase
+says, I chose the direction that cannot fabricate a wrong link, consistent
+with the brief's own framing ("refusing to over-claim when the trigger is
+unknown"). This is a recall gap on top of an already-uncapturable class,
+not a new false-positive risk -- P-R2-compliant, no precision conflict to
+escalate. Both concrete under-claim examples above are documented in the
+new rule module's own docstring for whoever eventually threads heading
+text through the frozen seam.
+
+### Law-wide vocabulary -- own re-measurement (not trusted from the log)
+
+Re-measured directly against `/Users/nerya/AI for others/israeli-laws-wiki/data/laws/*.wiki`
+(read-only, grep + manual reads, not a script re-running M21/M22's own
+tooling):
+
+- `לעניין הכרזה זו` = **3 files / 3 occurrences**, all three
+  `@ N. ... : לעניין הכרזה זו -` heading preambles (Class-C shape) --
+  matches M22 exactly. `לענין הכרזה זו` = 0, confirmed.
+- `בהכרזה זו` = **2 files / 4 occurrences**, both COVID
+  `הכרזת סמכויות מיוחדות...` instruments, every occurrence referential
+  prose inside `<מבוא>`, NEVER ending in a dash -- matches M22's
+  correction of M21's stale "measured zero" exactly.
+- Added `הכרזה זו` to a NEW `LAW_WIDE_PREPOSITION_ONLY_WORDS` table (in
+  the new `il_law_wide_vocabulary.py`, see below) rather than
+  `LAW_WIDE_WORDS` -- `law_wide_preamble_phrases()` now generates ONLY
+  `לענין הכרזה זו`/`לעניין הכרזה זו` for it, never the bare `בהכרזה זו`
+  form every other entry gets. This is a real, deliberate mechanism
+  change (not just a data addition): blindly adding `"הכרזה זו"` to
+  `LAW_WIDE_WORDS` would have auto-generated the unsafe `ב`-form too.
+- `באכרזה זאת` = **1 file**, confirmed definitional, but its ONE
+  occurrence is `@ (תיקון: תשפ"ג) : באכרזה זאת, "..." - ...` -- a HEADING
+  line (inline quote-first grammar, not a `:-` list) -- a Class-C-adjacent
+  shape my Class-C mechanism does NOT reach (it only handles `:-`/`::-`
+  list bodies). **Deliberately NOT added to the vocabulary** -- neither
+  vocabulary consumer (list-shape body scan, M17 quote-first body scan)
+  ever reads heading text, so it would be a permanently-dead entry today.
+  Recorded here as an honest, measured, currently-unreachable gap rather
+  than added as vocabulary theater.
+- `בפקודה זאת` = **4 files / 6 lines**, 2 genuinely definitional
+  (`פקודת הצופים`: `: בפקודה זאת -`; `פקודת האריסים (הגנה)`: `: בפקודה
+  זאת יהיו למונחים... -`, both immediately followed by real `:-` entries,
+  read directly). The other 2 dash-ending lines carrying this SAME phrase
+  (also in `פקודת האריסים (הגנה)`, arts. 7/15) are referential prose that
+  ALSO happens to end in "-" -- checked directly whether this is a real
+  FP risk: both are immediately followed by `(א)`/`(ב)`-labelled clause
+  continuations, never `:-`-marked entries, so `infer_scope` firing on
+  them is harmless (the entry-collecting loop finds nothing and produces
+  zero candidates) -- the SAME "a preamble ending in `-` for an unrelated
+  reason cannot fabricate a definition on its own" argument this whole
+  sprint already relies on. Added `"פקודה זאת"` as a full `LAW_WIDE_WORDS`
+  entry (all 3 prefix forms) since this specific FP path is verified
+  neutralized.
+
+Split `il_trigger_grammar.py`'s law-wide vocabulary section into a NEW
+`il_law_wide_vocabulary.py` (both files were pushed over the 300-line
+style gate by this session's additions) -- `il_trigger_grammar.py`
+re-exports `LAW_WIDE_WORDS`/`LAW_WIDE_PREPOSITION_ONLY_WORDS`/`law_wide_
+preamble_phrases` for every existing importer, byte-identical behavior,
+verified live (`import` + a direct call) before running the suite.
+
+### Suite, lint, diff boundaries
+
+`backend/.venv/bin/pytest backend/tests -q` -> **`6 failed, 836 passed,
+18 warnings`** (reproduced twice, stable) -- exactly the expected end
+state: the 4 E6 REDs (D-1b's bundle) + 2 סימן/חלק containment REDs
+(core-blocked, M20) stay red, unaffected; 829 -> 836 (+7, all D-1a's own),
+zero existing test edited or broken.
+
+`bash scripts/contract_lint.sh 2026-08-04-defs-il` -> `PASS 398`.
+
+`git diff --name-status HEAD -- backend/tests backend/app/definition_
+links/profiles.py backend/app/definition_links/pipeline.py backend/app/
+definition_links/sections.py` -> **empty** (verified, reproduced above).
+Full diff: 4 modified rule files (`il_colon_dash_nested_list_scope_
+triggers.py`, `il_list_shape_scope.py`, `il_single_colon_list_scope_
+triggers.py`, `il_trigger_grammar.py`) + 2 new rule files (`il_heading_
+embedded_preamble_scope_triggers.py`, `il_law_wide_vocabulary.py`) + this
+log entry. Every touched/added file under the 300-line style gate
+(largest: `il_trigger_grammar.py` at 242 lines).
+
+### Honest gaps
+
+1. Class C's `scope="local"` default is a genuine, measured recall gap
+   for two real sub-populations found in my own 57-hit sweep (headings
+   whose own trigger is an already-recognized law-wide phrase; a
+   numbering-prefixed plain "הגדרות" heading) -- named above and in the
+   new rule module's own docstring, not silently absorbed. Not fixable
+   rule-module-only given the frozen `determine_scope(body_text)`
+   signature.
+2. Did not hand-verify all 57 corpus-wide Class-C-shape hits term-by-term
+   (spot-checked the majority, verified every NON-definitional one
+   produces zero candidates by construction) -- a full per-term audit is
+   D-2/certification-scale work, out of this bundle's mandate.
+3. Class B's fallback-word fix was verified against the two vendored
+   fixtures plus the "פקיד שומה" instance named in the test's own
+   docstring (spot-checked live, not asserted by any test) -- did not
+   re-run the Planner's own 103-item production-trigger sweep to confirm
+   every one of those now captures; the mechanism is a direct,
+   conservative widening of an already-scoped, already-measured class, so
+   I judged this sufficient for this bundle rather than re-deriving the
+   whole population.
+4. `parse_entry`'s new qualifier-tolerance (needed for Class C's own
+   fixture) widens what EVERY list-shape rule accepts, not just Class C
+   -- a deliberate, justified widening (parity with the already-shipped,
+   already-precision-proven `extract._find_split_dash`/`_parse_terms_
+   and_qualifier`), but I did not separately corpus-sweep for its own
+   marginal recall/precision effect on Class A's already-shipped
+   single-term shape; the full-suite zero-regression result is the
+   evidence I am relying on for its safety, not a dedicated sweep.
+5. Did not attempt to characterize or fix `אכרזה זאת`'s heading-embedded
+   quote-first shape or the two Class-C under-claim sub-populations named
+   above -- out of scope for this bundle (no RED test requires them),
+   flagged for whoever next touches heading-text plumbing.
+
+### Git discipline (M14)
+
+Worktree `defs-il-dev3` only, explicit-path `git add`, no `-A`, no
+`git stash`. Commit message below covers the rule-module changes; this
+log entry is appended, not editing any prior entry.
