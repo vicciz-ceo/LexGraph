@@ -257,20 +257,19 @@ def test_chapter_scope_links_a_sibling_article_in_the_same_chapter_but_not_a_dif
 def test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully(
     db_session, matter_with_users
 ):
-    """D3 (scope-unit gap) -- AMENDED, Planner pass 4 (ruling S-R11):
-    pass 2 believed `"subsection"` was SHIPPED and live-enforced (S-R4),
-    but pass 3's S-R10 live-path test proved it dead on the live path --
-    `us_scoped_inline._subsection_label` and `profile.resolve_unit_path`
-    are two independent derivations that never agree (format + level-
-    semantics mismatch, plus a `resolve_unit_path` bug mislabeling a
-    digit-outermost marker), so `_subsection_contains_offset` always
-    returns False, even for a mention truly inside the defining subsection.
-    S-R11 (interim, revert self-alarmed via `test_us_scoped_inline_
-    pipeline_subsection_live.py`'s `xfail(strict=True)`): `"subsection"`
-    maps to `"local"`, the narrowest REPRESENTABLE enclosing unit --
-    zero-miss-safe, over-link bounded by one article. `STATE_ME_T38_C3_
+    """D3 (scope-unit gap) -- REVERTED, Planner pass 7 (rulings S-R14/
+    S-R15): the S-R11 `"local"` interim is retired now that core's
+    `scope_unit_kind` + 3-ladder `resolve_unit_path` let the rule derive
+    `scope_value`/`scope_unit_kind` from ONE resolver call instead of the
+    two never-agreeing derivations S-R10 found dead. `STATE_ME_T38_C3_
     S464` defines "designated use" via `"For the purposes of this
-    subsection..."`; this test proves only the STAMPING half."""
+    subsection..."`; this test proves only the STAMPING half, deliberately:
+    pass 7's own trace found this row's real numbering is period-style
+    (`"2-A."`, invisible to core's paren-only marker regex -- S-R16, routed
+    to core), so its resolved path is built from unrelated CITATION
+    pin-cites, not Maine's real unit -- linking isn't honestly pinnable
+    here. `..._pipeline_subsection_live.py` proves both linking directions
+    on Oregon's clean row instead."""
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
     from app.models.definition import Definition
@@ -294,6 +293,7 @@ def test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully(
     du_defs = [d for d in result["created_definitions"] if "designated use" in d["terms"]]
     assert du_defs, "the real Maine subsection-scoped definition was never captured"
     definition_row = db_session.get(Definition, du_defs[0]["id"])
-    # S-R11 interim: was "subsection" pre-ruling; reverts the moment core's
-    # resolve_unit_path level-contract fix lands (see the xfail'd test).
-    assert definition_row.scope == "local"
+    # S-R14/S-R15 revert: restored (was "local" under the retired S-R11
+    # interim). See this test's docstring for why only the scope string,
+    # not linking, is pinned for this specific row.
+    assert definition_row.scope == "subsection"

@@ -28,29 +28,28 @@ STRICT adjacency only (see `test_us_scoped_inline_rules_negative_
 controls.py`: bare `in this <unit>` is genuine only ~21% of the time,
 72.7% pure prose noise, vs. ~77% for `as used in`).
 
-Scope-unit -> `.scope` string mapping -- AMENDED, Planner pass 4 (ruling
-S-R11), against the SHIPPED seam (`rules/registry.py`, `matcher.py:136`
-`_in_scope`). Live-enforced: `"chapter"` (`article.chapter == definition.
-source_chapter`), `"local"` (`article.number == definition.
-source_article_number`). `"subsection"` was believed live-enforced (S-R4)
-but pass 3's S-R10 live-path test proved it dead: `_subsection_label` and
-`profile.resolve_unit_path` are independent derivations that never agree
-(format + level-semantics mismatch, plus a core resolver bug), so
-`_subsection_contains_offset` always returns False. S-R11 (interim, self-
-alarmed via `test_us_scoped_inline_pipeline_subsection_live.py`'s
-`xfail(strict=True)`): maps to `"local"`, the narrowest REPRESENTABLE
-enclosing unit -- zero-miss-safe, over-link bounded by one article,
-reverts once core's fix lands. Any OTHER literal kind falls into
-`_in_scope`'s generic branch (`getattr(article, "structural_units", ())`
--- absent on a real `MatcherArticle`), returning `False` for every
-article including the definition's own (ruling S-R5).
+Scope-unit -> `.scope` string mapping -- REVERTED, Planner pass 7 (rulings
+S-R14/S-R15), against the SHIPPED seam (`rules/registry.py`, `matcher.py:136`
+`_in_scope`, `matcher.py:193` `_subsection_contains_offset`). Live-enforced:
+`"chapter"`/`"local"` as before, and now `"subsection"` again: core's
+merged dispatch sprint added `scope_unit_kind` (`extract.py`) and a
+3-ladder `resolve_unit_path` (`us_profile.py`), letting the rule derive
+`scope_value` AND `scope_unit_kind` from ONE resolver call at the trigger
+offset instead of the two independent, never-agreeing derivations S-R10
+found dead (S-R11's `"local"` interim is retired; `_SCOPE_BY_UNIT
+["subsection"]`'s dict value is now dead code). S-R15 (OPEN, interim
+only): WHICH step of the path to stamp is unresolved -- interim uses the
+innermost open step; pass 7's own measurement found real rows (SC, OR)
+where that under-links vs. the state's own named "subsection" level,
+escalated with data. Any OTHER kind falls into `_in_scope`'s generic
+branch (absent on a real `MatcherArticle`), `False` always (ruling S-R5).
 
     "section"     -> "local"      (enforced, source_article_number)
     "chapter"     -> "chapter"    (enforced, source_chapter)
-    "subsection"  -> "local"      (RESOLVED, S-R11, pass 4, interim --
-                                    narrowest REPRESENTABLE enclosing unit;
-                                    reverts once core's resolve_unit_path
-                                    fix lands. Was "subsection".)
+    "subsection"  -> "subsection" (REVERTED, S-R14/S-R15, pass 7 -- was
+                                    "local" under the retired S-R11 interim;
+                                    level-selection within the subsection is
+                                    a named open question, see above)
     "act"         -> "law-wide"   (D3: "this act" == the whole document ==
                                     already-unenforced law-wide semantics,
                                     no coordination gap, just a name map)
