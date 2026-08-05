@@ -4247,3 +4247,69 @@ caught by cross-panel comparison, not by either panel auditing itself; each of
 us was watching our own figures rather than the record. **That is an argument
 for cross-panel number reconciliation as a routine step at merge time, not for
 more diligence.**
+
+---
+
+## 2026-08-05 — M-R28: the manager's re-scope would have been a VACUOUS test
+
+Ruling M-R26 ordered the M-R18 pin re-scoped to two altitudes. I specified the
+candidate-level half as **"our rule contributes at most one candidate"**.
+
+**The Planner measured it and refuted it.** It isolated our rule's own
+contribution for `Governmental body` from the EntrySplitterRule's whole-text
+block, then reproduced the PRE-fix guard state (neutralising
+`_ENTRY_LEADING_QUOTE_RE`) and re-measured. I reproduced the whole experiment
+independently:
+
+```
+extra whole-text blocks: 1     our TermClauseRules: 1
+CURRENT (fixed)  our-rule contribution : 0
+PRE-FIX (guard disabled)             : 1
+
+  '<= 1'  ->  pre-fix PASS / today PASS    <- VACUOUS: green in both states
+  '== 0'  ->  pre-fix FAIL / today PASS    <- discriminating
+```
+
+Our rule's pre-fix contribution was **1, not 2** — the second `Governmental
+body` in the original 9-candidate dump was baseline's own, not a second
+emission of ours. So my `<= 1` bound would have been satisfied by the DEFECT
+itself. **The pin I ordered could never have failed**, and it would have been
+committed as the replacement for the one test that actually caught M-R18.
+
+The Planner used `== 0` instead — verified RED pre-fix, GREEN today, both
+directions run live — and documented the deviation with its method in the
+test's own docstring rather than quietly substituting a different assertion.
+
+### Why this keeps happening, stated plainly
+
+This is the **third** never-failing/always-failing assertion this sprint:
+1. `rule.` trailing-period pin — *unsatisfiable* (demanded a shared-module row
+   vanish that U3 forbids us to touch);
+2. "exactly one candidate over the cross-panel union" — *unsatisfiable by
+   design* once markers merges (M-R26);
+3. this one — *vacuously satisfiable* (green in the defect state).
+
+All three came from ME specifying an assertion by reasoning about what the code
+ought to produce instead of MEASURING both states first. The rule this panel
+should carry forward: **an assertion is not specified until someone has run it
+against the defect state and watched it fail.** Red-before-green is usually
+framed as a workflow ordering; it is really a claim about evidence, and a
+manager writing an assertion spec is exactly as bound by it as a Developer.
+
+Five agent overrules of this manager this sprint, all correct, all
+measurement-backed. That is not a run of luck; it is what the seeding
+instruction ("if your derivation disagrees with mine, yours wins — bring
+evidence") is FOR, and it has now caught more manager errors than manager
+review has caught agent errors.
+
+### Both pins, as merged @ `6b7b557` — suite 14 failed / 814 passed
+
+- **Candidate altitude:** our rule's OWN contribution is 0, reached through the
+  PUBLIC registry (`entry_splitter_rules_for` + `term_clause_rules_for` filtered
+  by `rule.parse.__module__`), never a private import, with two preconditions
+  guarding against vacuous pass. Survives markers' merge because it never
+  inspects the union.
+- **Persisted/asserted altitude:** a real prose mention draws exactly ONE
+  `USES_DEFINITION`, and the persisted `definition_text` is baseline's correct
+  44-char `has the meaning assigned by Section 552.003.` — GREEN first try,
+  confirming the first-wins derivation.
