@@ -1697,3 +1697,421 @@ production — the failure mode that passes its own fixture test and is dead on
 the live path, which is precisely the class this program has been bitten by
 three times (P-R8, P-R10). Fixtures for NY are byte-verified AFTER the
 transform, and the fixture must record that it is post-ingest.
+
+---
+
+## PB1 — phase-2 Planner B (greenfield + tail) (2026-08-05)
+
+Sonnet/high. Workspace: `/Users/nerya/LexGraph-wt/defs-us-markers-planB`,
+branch `claude/defs-us-markers-planB`, based on `claude/defs-us-markers` @
+`a2f263b` (M15). Own venv built and confirmed
+(`.venv/bin/python -c "import sys; print(sys.executable)"` resolves inside
+this worktree). `git config user.email` verified =
+`256402398+vicciz-ceo@users.noreply.github.com` before the first commit.
+Read in mandated order: this log's M9/M13/M14/M15, program doc P-R7/P-R10
+(and P-R9, scratchpad discipline, applied throughout). Copied the
+manager's handed-over sweep script into my own P-R9-slugged scratchpad
+copy (`markers-planB-sweep.py`) rather than reading the manager's own file
+directly, and RE-RAN it myself as a positive control before trusting it.
+
+### Control — all nine assigned numbers reproduced exactly
+
+`markers-planB-sweep.py NM NV MN ME OH NH MA PA HI` (direct-title-only
+basis, same method as M13's V5/M14):
+
+| Jur | headed | zero-yield | rate |
+|---|---|---|---|
+| NM | 1,625 | 1,578 | 97.1% |
+| NV | 1,262 | 1,262 | 100.0% |
+| MN | 1,108 | 1,016 | 91.7% |
+| ME | 1,001 | 1,000 | 99.9% |
+| OH | 950 | 949 | 99.9% |
+| NH | 943 | 943 | 100.0% |
+| MA | 638 | 636 | 99.7% |
+| PA | 543 | 534 | 98.3% |
+| HI | 469 | 459 | 97.9% |
+
+Every figure matches the brief to the row. All nine states' full
+zero-yield populations (act_id/section_title/text, direct-title basis)
+were then dumped to my own scratchpad
+(`markers-planB-zero-<state>.json`, P-R9-slugged) for classification —
+this is the ONLY place this pass reads the corpus; no committed test
+touches it (grepped `huggingface`/`datasets--vaquill`/`snapshots/301000`
+across every new test and fixture file this pass — zero hits).
+
+### Method note — three-tier measurement, and what "rescuable" does and
+does not mean
+
+For every state I ran each zero-yield row through, in order: (1) the
+ALREADY-SHIPPED `correctly_empty.classify_correctly_empty` (unmodified);
+(2) if not correctly-empty, the ALREADY-SHIPPED
+`us_markers_boundary.extract_quote_anchored_entries` (unmodified,
+simulating "this state were simply added to `us_markers_inline_quote.py`'s
+`_JURISDICTIONS` tuple, nothing else"); (3) whatever remains is the true
+residual. Rule (2)'s "rescuable" count means "returns >=1 candidate" — it
+does NOT mean "returns ALL candidates cleanly." Per ruling U-R1 I also
+measured, separately, the split between rows where EVERY quoted term uses
+a means-family idiom (fully clean if registered) versus rows with a MIX
+of means-family and includes/shall-include idiom (partial rescue only —
+some terms captured, sibling entries using "includes" silently dropped,
+itself a defect) versus rows with NO means-family idiom at all
+(registration alone would rescue nothing). Reporting both numbers
+throughout below is deliberate: the bare "rescuable" figure overstates
+what a pure registration fix would actually deliver.
+
+### B1/B2 — convention inventory + family collapse, all five states
+
+**All five of NM/NV/MN/ME/OH share ONE dominant convention with the
+already-registered `us_markers_inline_quote.py` family**: a
+Definitions-headed section whose body is a run of numbered/lettered
+entries, each opening with a marker already structurally recognized by
+`us_markers_boundary.py`'s hard-stop engine (bare digit-dot, bare
+single-letter-dot, or digit/letter in parens), followed by a
+quoted/curly-quoted term and a means-or-includes idiom. None needed a new
+module; every one is a registration-scoped extension of the SAME rule,
+each with its own state-specific boundary detail (named per state below —
+this is the single most valuable finding this pass, per the brief's own
+instruction).
+
+**NM** — `A. "term" means/includes ...` (bare letter-dot markers, no
+parens), full body semicolon-joined. 1,578 zero-yield. 0 correctly-empty
+(neither terminal nor cross-reference — NM's own idiom for chapter-wide
+xrefs did not appear in this state's residual at any scale worth
+naming). 1,509/1,578 (95.6%) return >=1 candidate from the unmodified
+engine; of the full 1,578, **821 (52.0%) are FULLY clean means-only**
+(registration alone suffices), **688 (43.6%) are a means+includes MIX**
+(partial rescue only until "includes"/"shall include" join the shared
+`_TIGHT_IDIOM_RE` — this is the SAME wave-2 idiom-broadening need M1/P1
+already named for VA/FED, not a new ask, just a much larger population
+here), 53 (3.4%) carry zero means-idiom terms. Ground truth:
+`STATE_NM_C13_A4B_S13-4B-2` (5 real terms — artist, fine art, gross
+negligence, public building, public view — letter markers A-E, ALL
+means-idiom), independently confirmed via the unmodified engine to
+extract all 5 with clean boundaries, no marker leak. Residual: 69/1,578
+(4.4%), sampled, mostly single-sentence prose bodies under a real
+"Definition(s)" heading with no marker/quote structure at all — not
+further classified.
+
+**NV** — see B3 below; the ten-jurisdiction manager's own named special
+case.
+
+**MN** — `§ Subdivision N. TermName. "term" means ...` (a section-sign-
+prefixed, pilcrow-numbered mini-heading naming the term, THEN the quoted
+term itself). 1,016 zero-yield. 6 (0.6%) already correctly-empty
+(cross-reference — the shipped classifier DOES recognize MN's own
+phrasing, unlike NV's). 965/1,016 (95.0%) return >=1 candidate
+unmodified; of the full 1,016, **729 (71.8%) fully clean means-only**,
+**237 (23.3%) means+includes mix**, 19 (1.9%) zero means-idiom.
+**Real, NEW boundary defect found (not in any existing fixture)**: MN's
+own `§ Subd. N. TermName.` marker is not a shape any existing hard-stop
+regex recognizes (only `(N)`, `(letter)`, bare digit-dot, bare
+letter-dot are covered) — confirmed live on `STATE_MN_P17_43_C35_S35.821`,
+"Freeze branding"'s captured definition_text (unmodified engine) is
+`'...hide of a live animal.\n\n§ Subd. 4. Mark.'` (89 chars, leaking the
+NEXT entry's own marker) instead of the genuine ~72-char clean sentence —
+the same defect CLASS as `us_markers_boundary.py`'s own documented SC
+`"(2)"`/AZ `"13."` marker-chain leaks, for a marker shape neither
+existing regex covers. Residual: 45/1,016 (4.4%), sampled, mostly
+non-glossary prose under a Definitions heading.
+
+**ME** — bare digit-dot markers (`1.` `2.` ...) with a `TermName.`
+mini-heading, then the quoted term. 1,000 zero-yield. 0 correctly-empty.
+962/1,000 (96.2%) return >=1 candidate unmodified; of the full 1,000,
+**626 (62.6%) fully clean means-only**, **336 (33.6%) means+includes
+mix**, 26 (2.6%) zero means-idiom. **Real, NEW boundary defect found**:
+EVERY entry on the real fixture row carries a trailing bracketed
+legislative-history citation (`[PL 1981, c. 270, §4 (NEW).]`) on the same
+line as its own defining sentence, with no period before the bracket —
+`us_markers_boundary.TRAILING_STOP_RE` has no entry for this shape
+(it recognizes FED's "Editorial Notes" family, not ME's `[PL ...]`
+citation). Confirmed live on `STATE_ME_T5_P2_C69_S902`: "Job-sharing
+employment"'s captured definition_text is 90 chars (retains the
+citation) instead of the genuine ~55-char clean sentence — present on
+EVERY entry on this row, not a corner case. Residual: 38/1,000 (3.8%) —
+**named, not classified**: spot inspection of several residual rows
+(`STATE_ME_T23_P7_C617_S7221`, `STATE_ME_T23_P1_C7_S301`,
+`STATE_ME_T23_P1_C19_S1651`) found a genuine "Definition(s)"-shaped
+heading (verified against the real `section_title`) over a body that is
+ordinary operational statute prose with NO term-glossary structure and no
+obvious single implicit definition either. I could not determine what, if
+anything, these rows are meant to capture, and I am not claiming a shape
+for them.
+
+**OH** — `(A) As used in ...: (1) "term" means ...` (lettered top-level
+grouping, digit-paren entries within it), both shapes already
+structurally supported. 949 zero-yield. 0 correctly-empty (see the
+single-term-xref note below — OH DOES carry this shape, but the shipped
+classifier only recognizes WHOLE-BODY cross-references, not a
+term-scoped one inside an otherwise-real definitions body, so it
+correctly does not fire here; not a defect in the classifier, a
+different, narrower shape). 885/949 (93.3%) return >=1 candidate
+unmodified; of the full 949, **462 (48.7%) fully clean means-only**,
+**423 (44.6%) means+includes mix — OH has the HIGHEST includes-idiom
+share of all five states measured this pass**, 54 (5.7%) zero
+means-idiom. **Real, NEW boundary defect found**: OH commonly appends
+ONE trailing lettered clause after the digit-paren list that is NOT
+itself a defined term (`(B) The department of health shall encourage
+...`), plus a `Last updated <date> at <time>` scrape-artifact stamp.
+Neither is caught by any existing hard-stop (the letter-marker guard
+deliberately requires a QUOTE within lookahead, by design, to protect
+the WA "Threat"/"(a) To cause bodily injury" nested-non-defining-clause
+precedent — `(B) The department...` has no quote nearby, so it is not a
+false negative in the existing guard, it is a genuinely uncovered
+shape). Confirmed live on `STATE_OH_T21_C2108_S2108.61`: "Umbilical cord
+blood"'s captured definition_text is 415 chars (swallows `(B)`'s entire
+clause) instead of the genuine ~95-char sentence. Residual: 64/949
+(6.7%), not further classified this pass; also separately noted, two
+residual OH rows (`STATE_OH_T29_C2949_S2949.01`,
+`STATE_OH_T29_C2947_S2947.01`) are genuine single-term cross-references
+(`The definition of "magistrate" set forth in section 2931.01 ... applies
+to Chapter 2949.`) — the same "single-term cross-reference" class M1's
+own classifier design already named as a known, not-yet-covered follow-up
+(P1 §2 class 4), reproduced here in a fifth state, not a new finding.
+
+### B3 — NV root cause: TWO stacked systematic gaps, not a hard tail
+
+NV is the manager's own named 100.0%/1,262 special case. My measurement
+found the perfect zero is explained by two INDEPENDENT, STACKED,
+systematic gaps, together accounting for ~95% of the population — not a
+long tail of hard per-row cases, confirming the manager's own hypothesis:
+
+1. **Extraction-side: NV is simply absent from `us_markers_inline_quote.
+   py`'s `_JURISDICTIONS` tuple.** NV's dominant shape (`1. "term" means
+   ...`, bare digit-dot markers, curly-quoted terms with internal padding
+   spaces `" Board of Regents "`, stripped cleanly by the existing
+   `.strip()`) is IDENTICAL to VA/WA/FED's already-solved convention.
+   337/1,262 (26.7%) of NV's zero-yield rows return >=1 candidate from the
+   unmodified engine. Ground truth: `STATE_NV_T34_C396_S396.005` (5 real
+   terms), independently confirmed to extract ALL 5 with clean boundaries
+   and correctly-stripped terms via the unmodified engine — a pure
+   registration-only gap on this sub-population, zero new boundary logic
+   needed.
+2. **Classifier-side: NV's own majority "definitions live elsewhere"
+   idiom is not recognized by the shipped `correctly_empty._CROSS_
+   REFERENCE_RE`.** NV's idiom is "As used in <chapter ref>, ... the
+   words and terms defined in NRS <citation> ... have the meanings
+   ascribed to them in those sections" — genuinely correctly-empty (no
+   operative content of its own — confirmed by inspecting the still-zero
+   rows after step 1: EVERY one of the 15 sampled had this exact shape,
+   not a definitions body at all), but keyed on "defined in ... have the
+   meanings ascribed to", not the shipped regex's "definitions ... in
+   <citation> apply/govern/are applicable". Measured with a scratchpad-
+   only (not committed) broadened regex: **roughly 862-925/1,262
+   (68-73%)** of NV's zero-yield population is this idiom, reported as a
+   RANGE rather than one exact count because my measurement regex itself
+   is not the shipped classifier and I could not fully enumerate every
+   minor trailing-clause phrasing variant (`"ascribed"` vs `"attributed"`,
+   `"those sections"` vs `"such sections"` vs `"NRS <cite>, inclusive"`,
+   leading `<Section effective ...>`/`<Section expires ...>` bracket
+   annotations, leading-vs-trailing placement of the `"unless the context
+   otherwise requires"` clause) — each variant I DID check moved the
+   count up, none moved it down, so 68% is a firm floor, not a guess.
+
+Stacking both gaps (337 + ~862, disjoint sets by construction since step
+2 only ran on step 1's non-rescued residual) explains 1,199/1,262 (95.0%)
+of NV's population with two CHEAP, already-scoped fixes (a jurisdiction-
+tuple addition and a classifier-regex generalization), neither requiring
+new per-row engineering. The true remaining "hard" NV residual — genuine
+quoted-"includes"-idiom entries, single-"Definition"-headed sections
+defining ONE named legal concept via numbered prose with no term-glossary
+shape at all (e.g. `STATE_NV_T15_C205_S205.220` "Grand larceny:
+Definition"), and roughly 57 more cross-reference-idiom phrasing variants
+I did not fully classify — is the honest ~5% left over, not the 100%
+the raw zero-yield number implies.
+
+### B4 — RED tests (live-path, byte-verified fixtures)
+
+Six real rows, full original 24-column schema, pulled fresh from the real
+parquet files via a P-R9-slugged scratchpad script
+(`markers-planB-pull_fixture_rows.py`) and cross-verified
+(`section_title`/`text`, byte-identical) against an INDEPENDENTLY,
+separately-dumped copy of the same rows (the earlier zero-yield sweep
+dump) — two independent reads agreeing, the same discipline the manager's
+own CHECK 5/CHECK 3 used. Fixtures:
+`backend/tests/fixtures/us_statutes/us_markers_ext_b_{nm,nv,mn,me,oh}.json`.
+Tests: `backend/tests/integration/test_us_markers_ext_b_{nm,nv,mn,me,oh}.py`
+(115-162 lines each, under the 300-line style gate). All drive the REAL
+production path (`ingest_us_statute_rows` -> `run_definition_linking`,
+both imported unmodified) except the NV classifier test, which calls the
+real, unmodified `correctly_empty.classify_correctly_empty` directly (a
+pure function outside the extraction seam, consistent with ruling U-R3
+that the classifier is independently, separately verifiable).
+
+**Proven RED, exact reason verified (not merely observed red):**
+
+```
+backend/.venv/bin/pytest tests/integration/test_us_markers_ext_b_{nm,nv,mn,me,oh}.py -v
+...
+test_nm_fixture_heading_is_recognized_as_definitions_section PASSED
+test_real_pipeline_recovers_all_five_nm_lettered_definitions_end_to_end FAILED   -- got []
+test_nv_fixtures_headings_are_recognized_as_definitions_sections PASSED
+test_real_pipeline_recovers_all_five_nv_higher_education_definitions_end_to_end FAILED  -- got []
+test_nv_cross_reference_idiom_is_not_yet_recognized_as_correctly_empty FAILED    -- got CorrectlyEmptyResult(is_correctly_empty=False, reason=None)
+test_mn_fixture_heading_is_recognized_as_definitions_section PASSED
+test_real_pipeline_recovers_mn_definitions_without_leaking_the_next_subd_marker FAILED  -- got []
+test_me_fixture_heading_is_recognized_as_definitions_section PASSED
+test_real_pipeline_recovers_me_definitions_without_leaking_pl_citation_tail FAILED -- got []
+test_oh_fixture_heading_is_recognized_as_definitions_section PASSED
+test_real_pipeline_recovers_oh_definitions_without_swallowing_trailing_non_defining_clause FAILED -- got []
+6 failed, 5 passed
+```
+
+Every RED is `got []` (today's pipeline creates zero `Definition` rows —
+none of NM/NV/MN/ME/OH is registered anywhere) except the NV classifier
+test, which fails on the classifier's own wrong verdict, not an
+extraction miss — both verified by reading the actual pytest failure
+output, not inferred. Each extraction test's assertions are TWO-LAYERED
+per ruling U-R1: exact term-set equality (not `len() > 0`) PLUS a
+named boundary-quality guard calibrated against this Planner's own live
+run of the unmodified engine (so the guard fails a naive
+"just register this state" fix for the four states with a found defect —
+NM is the one state this pass found genuinely fully clean on registration
+alone, and its test still asserts the exact 5-term set and a
+neighbour-swallow guard as a regression floor).
+
+**Full suite, no regressions:**
+
+```
+backend/.venv/bin/pytest tests -q
+7 failed, 819 passed, 18 warnings in 28.96s
+```
+
+819 = 814 (M13's own re-verified baseline) + 5 new deliberate sanity
+passes (one per new test file). 7 failed = 1 (the pre-existing FED
+unbounded-last-entry RED, unchanged, owned by sprint
+`2026-08-05-defs-core-follow-on-2` per V2) + 6 new RED (this pass, all
+above). Nothing previously green went red. Grepped
+`huggingface`/`datasets--vaquill`/`snapshots/301000` across every new file
+— zero hits, no test reads the corpus.
+
+### B5 — four tail states (NH/MA/PA/HI): inventory + verdict, no tests
+
+Per the brief, inventory only — no fixtures, no tests. Same three-tier
+method as B1.
+
+**NH — COLLAPSES into the same family.** Roman-numeral top-level markers
+(`I.` `II.` `III.`, a marker shape the existing hard-stop engine has NO
+explicit rule for — a real structural note, though the quote+idiom
+anchor scanning still found candidates on 93.5% of rows without it,
+since consecutive quoted-term entries naturally bound each other via the
+NEXT quote match even absent a roman-numeral-specific hard stop; boundary
+QUALITY on entries that need a roman-numeral hard stop specifically —
+e.g. a non-defining lettered sub-clause after a roman-numeral entry — was
+not separately verified this pass, named as an open question, not
+asserted clean). 943 zero-yield, 0 correctly-empty, 882/943 (93.5%)
+return >=1 candidate unmodified (704/943 = 74.7% fully clean means-only,
+178/943 = 18.9% means+includes mix, 38/943 = 4.0% zero means-idiom).
+Residual 61/943 (6.5%), not classified.
+
+**HI — COLLAPSES into the same family.** Straight/curly double-quoted
+`"term" means ...` under a `When used in this chapter:`/`As used in this
+part...:` preamble, digit or none markers — the same shape as VA/WA/ME/
+MN/OH. 459 zero-yield, 0 correctly-empty, 431/459 (93.9%) return >=1
+candidate unmodified (297/459 = 64.7% fully clean means-only, 134/459 =
+29.2% means+includes mix, 21/459 = 4.6% zero means-idiom). One residual
+row (`STATE_HI_D1_T14_C239_S239-23`, "Mobile telecommunications
+definitions") is itself a genuine cross-reference the shipped classifier
+does not recognize (its own idiom, "The definitions relating to X set
+forth under section Y shall apply...", a fourth distinct cross-reference
+phrasing beyond WI/WY/WA's and NV's own — not measured at scale this
+pass, named as a single confirmed instance only). Residual 28/459 (6.1%)
+overall, not further classified.
+
+**MA — DOES NOT collapse. A genuinely distinct convention.** 636
+zero-yield, and the unmodified engine rescues **exactly 0 (0.0%)** —
+confirmed mechanistically, not by sampling: MA's real quote-mark
+convention is a DOUBLED ASCII APOSTROPHE (`codepoint 39`, `''Term'',
+definition prose`), not a real double-quote or curly-quote character at
+all (corpus-wide codepoint count across MA's zero-yield rows: 66,655
+occurrences of `'` (0x27) vs only 886 of `"` (0x22), the latter almost
+certainly incidental, not the term-delimiter). `_LEADING_QUOTE_TERM_RE`
+has no apostrophe in its character class, so MA is invisible to the
+existing engine at the REGEX level, not merely unregistered. Compounding
+this, MA's idiom is COMMA-APPOSITIVE, not a "means"/"includes" verb at
+all (`''Commissioner'', the commissioner of revenue.` — term, comma,
+noun-phrase definition, no defining verb) — confirmed: 626/636 (98.4%)
+of MA's zero-yield rows have zero occurrences of a real `"`/`“` quote
+character at all. MA needs its own quote-repair (apostrophe-pair ->
+plain-quote, analogous to the RI/AK mojibake module but a different
+character) AND its own comma-appositive idiom rule — two real, separate,
+new pieces of work, not a registration-only fix.
+
+**PA — DOES NOT collapse. A genuinely distinct convention.** 534
+zero-yield. PA DOES use real straight double-quotes (14,783 occurrences
+of `"` (0x22) across PA's zero-yield rows) — so this is not a quote-
+character problem like MA's — but the unmodified engine rescues only
+25/534 (4.7%), because PA's dominant idiom is PERIOD-APPOSITIVE, not a
+"means"/"includes" verb: `"Administrative proceeding." Any proceeding
+other than a judicial proceeding...` (quoted term, period INSIDE the
+closing quote, then a new capitalized sentence with no defining verb at
+all). Measured directly: a period-appositive marker
+(`"[^"]{1,200}\.["”]\s+[A-Z]`) appears in 510/534 (95.5%) of PA's
+zero-yield rows, 5,836 such markers total across the file. The 24/534
+(4.5%) that do NOT match this shape are a mixed residual: several
+`(Reserved)`/`(Repealed)`/`(Expired)` headed rows whose BODY is
+amendment-history prose (not the bare terminal-status word the shipped
+classifier's rule 1 checks for — genuinely correctly-empty in spirit but
+not matching either existing classifier rule, a real, small gap named
+but not sized further), one row whose `text` field is an artifact (a
+table-of-contents-shaped list of OTHER sections' captions, not this
+section's own body), and a handful of ordinary means-idiom rows. PA needs
+its own new idiom rule (quoted-term-then-period-then-prose), not a
+registration-only fix, and not the same fix MA needs (different quote
+character, different appositive punctuation).
+
+**Scope recommendation, with evidence, not opinion (per the brief).**
+Of the four candidates for the ten-to-fourteen scope extension: **NH and
+HI are marginal cost** — they are the SAME family-3 quote+idiom
+convention already built, at coverage rates (93.5%/93.9% rescuable
+unmodified, plus per-state boundary-detail fixes of the same small
+shape already named for NM/MN/ME/OH) fully consistent with the other
+five commissioned states; extending the registered `_JURISDICTIONS`
+tuples to include them is genuinely marginal, evidence-based, not a
+guess. **MA and PA are NOT marginal cost** — each needs its own new
+quote-normalization-and/or-idiom rule module, comparable in scope to a
+SIXTH and SEVENTH family-3 sub-case, not a registration line. I recommend
+the program manager take NH+HI into this phase's scope (cheap,
+proven) and treat MA+PA as separately-sized follow-up items if wanted,
+not silently folded into "the ten-jurisdiction extension" at the same
+cost.
+
+### What rests on a control that could fail, vs. what is sampling inference
+
+**Control-verified (could have failed, did not):** all nine states'
+headed/zero-yield/rate figures (independent re-run of the manager's own
+sweep method); all 6 fixture rows' byte-identity (two independent reads);
+every named "engine already returns X cleanly" and "engine already fails
+in manner Y" claim (each ran the real unmodified function against the
+real row's text, not asserted from reading the text alone); the NV
+classifier gap (ran the real unmodified `classify_correctly_empty`); MA's
+apostrophe-vs-quote codepoint counts (exact `ord()` tally, not eyeballed);
+the "6 failed / 819 passed" full-suite state and the specific `got []` /
+`got CorrectlyEmptyResult(...)` failure reasons (read from actual pytest
+output).
+
+**Sampling inference, named as such:** every "residual N%, not further
+classified" figure is a SAMPLE-based characterization (10-25 rows
+inspected per state, not all); the fully-clean/mixed/zero-idiom split is
+an exact count over the FULL zero-yield population per state (a full
+scan, not a sample) but the IDIOM-DETECTION regex itself (means-family
+vs includes-family, 40-char lookahead) is my own measurement tool, not
+the shipped engine's own logic path, so it is a close but not
+byte-identical proxy for what registration would actually produce; NV's
+"68-73%" cross-reference range is explicitly a range because my
+measurement regex is scratchpad-only and I could not fully enumerate
+every phrasing variant; HI's fourth cross-reference-idiom phrasing is a
+single confirmed instance, not a rate.
+
+**Named residuals I could NOT classify:** NM 4.4% (69 rows), MN 4.4% (45
+rows), ME 3.8% (38 rows, with 3 specific rows confirmed to carry a
+Definitions heading over non-glossary prose and no shape claimed), OH
+6.7% (64 rows), NV's own further ~57-row cross-reference-phrasing tail
+plus its "Grand larceny"-shaped single-concept-prose rows, NH 6.5% (61
+rows), HI 6.1% (28 rows, minus the one named single instance above), and
+PA's 4.5% (24 rows) mixed bag (terminal-status-body-shaped-but-not-
+matching, one data-artifact row, a few plain means-idiom rows). None of
+these are claimed as a shape; they are named as open, unsized residuals
+for whichever pass picks up implementation.
+
+**Commit**: tests + fixtures + this log section, branch
+`claude/defs-us-markers-planB`, pushed to origin.
