@@ -6830,3 +6830,228 @@ QA now verifies items 31-33 **and** — because P1 wiring is what finally makes
 it measurable — runs M-R14 gate 2, the full 117/633 by-construction
 re-measurement that gates 18c (M-R15 step 3). The M-R17 retirement of the 6
 unsatisfiable scope REDs follows as a bounded Planner pass.
+
+---
+
+## 2026-08-05 — QA: cycle-11 independent verification of items 31-33 + M-R14 gate 2
+
+Read the contract in full and the last four log entries (cycle-9 Planner,
+census-corrected/M-R17, items-31-33-VERIFIED) before touching anything.
+State verified first: HEAD `84b09a6` == origin, tree clean, suite
+`30 failed / 1007 passed / 13 xfailed` reproduced exactly. All measurement
+via own fresh scripts (scratchpad, prefixed `pr_qa11_`, never reading a
+sibling panel's file per P-R9), all behavioral claims proven via
+`get_profile("US-PR")` or a real DB-backed `run_definition_linking` —
+never a direct `pr_profile` call.
+
+### (1) Blast radius — independently re-derived, not accepted
+
+Fresh corpus load, live dispatched path throughout:
+
+```
+Heading flip:        633 False->True, 0 True->False   EXACT MATCH
+Scope split:         612 law-wide / 21 chapter          EXACT MATCH (row-for-row)
+Zero-candidate rows: 102                                 EXACT MATCH
+Total candidates:    5,720 (Developer/Planner reported 5,723)
+```
+
+The 3-candidate gap is explained, not a defect: the reported 5,723 was
+measured on RAW body text; the TRUE live path runs `profile.
+normalize_for_parsing` (curly-quote-to-ASCII) BEFORE extraction
+(`pipeline.py`'s own Stage 0), which the original wiring-simulation script
+skipped. Re-measured on raw text myself: 5,723, confirming the mechanism.
+Traced to exactly 2 rows (`STATE_PR_LEY_169_2019_ART2`,
+`STATE_PR_LEY_77_1957_ART6_020`) whose bodies contain a nested-quote
+double-name idiom (`"Secretario de Salud o "Secretario""`); raw curly-quote
+parsing fabricates a truncated, mid-quote candidate that normalized ASCII
+parsing correctly does not produce. 5,720 is what actually ships.
+
+Separately (own initiative, not previously reported): comparing TRUE-LIVE
+(normalized) against the DIRECT unit-test baseline (raw) surfaces 12 MORE
+term-set differences beyond the pinned 21-row baseline-collision defect —
+all 5 hand-sampled are byte-for-byte identical except a curly-vs-ASCII
+quote INSIDE the term text itself (e.g. `Cargo "Pay-Go"` vs `Cargo
+"Pay-Go"`). Cosmetic, not a defect — if anything an improvement for
+downstream matching consistency. The pinned 21-row defect itself
+independently reproduces EXACTLY when both sides use the same
+(unnormalized) text, matching the contract precisely.
+
+### (2) A FIFTH missed chapter-scope grammatical shape — CONFIRMED, ESCALATING
+
+Per the brief: the Developer's own item-32 pass caught a 4th shape
+("Para propósitos de este Capítulo") its first pass missed despite all 11
+target tests passing. I hunted for a 5th. Found one.
+
+`_PR_CHAPTER_SCOPE_TRIGGER_RE` requires the definite article "los" between
+"A"/"Para" and "fines"/"efectos": `(?:A|Para)\s+los\s+(?:fines|efectos)\s+
+de\s+este\s+Capítulo`. The real corpus also uses the equally-idiomatic
+form WITHOUT "los" — "Para fines de este Capítulo" / "Para efectos de este
+Capítulo" / "A fines de este Capítulo" — grammatically valid Spanish,
+18 raw corpus-wide hits. Restricted to canonical rows where this shape
+sits in the FIRST sentence (the function's own anchor) and current
+`determine_scope` does NOT already say `"chapter"` for some other reason:
+**6 canonical rows, 42 real live candidates, currently mis-scoped
+`"law-wide"` instead of `"chapter"`**:
+`STATE_PR_LEY_20_2017_ART2_03/_ART3_03/_ART4_03/_ART5_03`,
+`STATE_PR_LEY_77_1957_ART32_020`, `STATE_PR_LEY_77_1957_ART53_020`.
+Simulated the minimal fix (`(?:los\s+)?` made optional before
+`fines|efectos`): chapter population rises 21->27/633, **zero regressions**
+(no row removed from the set). This is a live, real scope-correctness
+defect (gate P3's own bar), not a hypothetical — 42 candidates ship with
+the wrong scope today. Same character as the 4th-shape gap the Developer
+already found and fixed; the class of gap the brief predicted is
+CONFIRMED to still exist. Not mine to fix (write-set is tests/contracts
+only) — routing to the manager per D-Q1's own spirit.
+
+### (3) 102 zero-candidate rows — characterized, sample of 36 (35%), not 3
+
+Classified all 102 by heading shape (bare "Definición(es)" vs a
+compound/qualified clause, `pr_profile._matches_definicion_stem`'s own
+first-word rule), then hand-read: **14 bare-heading rows in full** (10
+already literally named in the HELD items-19-24 test files' own fixtures,
+2 already named verbatim in the bucket-D test docstring as correct-zero
+cross-law-reference rows, 1 same-shape-family copulative row
+(`STATE_PR_PENAL_ART15`, "Delito es un acto...", identical mechanism to
+bucket-D's own named "X es Y" examples) + 1 more of the same family
+(`STATE_PR_LEY_77_1957_ART35_020`), 1 genuine data-truncation artifact
+(`STATE_PR_TRANSITO_ART1_02` — body is ONLY the intro clause, promised
+list never appears in this row's own `text` field, nothing left to
+extract) — plus a **22-row spot sample of the remaining 88** compound-
+heading rows, overwhelmingly the already-ruled bucket-D copulative/
+semicolon-heading shape (`"X; definición"` -> `"X es..."`), several
+literally the SAME act_ids named in the bucket-D test file's own examples.
+**No new, previously-unknown defect class found in the 102.** Everything
+traces to bucket-D (already correct-zero, D-PR-A), the already-catalogued
+items 19-24 "ordinary misses" population (HELD, future cycle, unaffected
+by this cycle's wiring), or one data-completeness artifact outside any
+code's control.
+
+### (4) Mutation rigor on the 11 load-bearing greens — all proven, not assumed
+
+Three surgical mutations (Edit -> targeted pytest run -> `git checkout --`
+revert -> `git diff HEAD` empty confirmed before the next), never touching
+more than one rule module at a time:
+
+| Mutation | Target | Result |
+|---|---|---|
+| `us_pr_headings.py`: `matches=lambda h: False` | 2 heading tests + promoted E2E test | all 3 correctly FAIL; negative controls (TOC/English) correctly still PASS |
+| `us_pr_scope_kind.py`: `detect=lambda b: None` | 5 scope-kind tests | all 5 correctly FAIL; 4 negative-control/guard tests correctly still PASS |
+| `us_pr_canonical_extraction.py`: `_parse_canonical_block` stubbed to `[]` | 3 extraction tests + promoted E2E test | all 4 correctly FAIL; the xfail stays XFAIL (unaffected — it tests BASELINE's own collision, independent of this rule); P5 guard still passes for the RIGHT reason (both real and stubbed code return `[]` on English text) |
+
+11/11 target tests + the promoted E2E test proven load-bearing. Suite
+reconciled to exactly 30F/1007P/13X after each revert.
+
+### (5) Sentinel (`_SENTINEL = "\x00"`) — adversarially probed, clean
+
+- Corpus collision: 0/23,636 rows contain a literal NUL anywhere in
+  `text` or `section_title` (full corpus, not just canonical) — no other
+  stray control characters exist in the corpus at all.
+- Leak-into-output: scanned all 5,720 live candidates' terms +
+  definition_text across all 633 canonical rows — 0 leaked sentinels.
+- Direct mechanism probes: `_parse_canonical_block` on a real baseline
+  block (0 false positives across the mandate row's blocks — baseline
+  itself produces ZERO blocks for any PR row, confirming "near-total
+  no-op for PR" is exactly right, not approximately); on `''`
+  (graceful `[]`, no crash); on a sentinel present but NOT at position 0
+  (`[]`, confirming `startswith`-only, not `in`); on a real quote-led
+  non-sentinel block (`[]`, correctly deferring to baseline).
+
+### (6) English/IL regression — independently confirmed, different angle
+
+Full suite (30F/1007P/13X, exact match) + explicit Hebrew/IL keyword sweep
+(287 passed) + explicit US-profile/Delaware/regression-keyword sweep (48
+passed). Structurally verified `_matches()` in `rules/registry.py`: exact
+code match or literal `"US-*"` wildcard (PR's own rules use neither
+loosely — `("US-PR",)` only). Empirically verified beyond the Developer's
+own fixture-based tests: `heading_rules_for`/`scope_kind_rules_for`/
+`entry_splitter_rules_for`/`term_clause_rules_for` all return **zero**
+matches for `US-DE`/`US-CA`/`US-NY`/`US-TX`/`US-FED`/`IL`, and a real
+Spanish PR heading+body fed through `get_profile("US-DE")` correctly
+returns `False` — PR's rules structurally cannot reach another profile's
+object at all, not merely "don't happen to fire".
+
+### (7) M-R14 gate 2 — the by-construction claim, measured empirically
+
+**VERDICT: HOLDS.** Could not reproduce the exact "117/633" figure
+byte-for-byte (the original `QUOTED_BARE_IDIOM_ANY` script lived in
+another agent's scratchpad, unread per P-R9, and item 18c was never built
+as committed code to import) — built my OWN unanchored whole-body
+quoted-idiom sweep from `pr_profile`'s own already-shipped idiom
+vocabulary (no trigger-phrase anchor, matched anywhere via `finditer`):
+**1,039 hits land in 133/633 canonical rows** (same order of magnitude,
+same ~7.8 hits/row density as the reported 913/117 — a good-faith
+reproduction, not a byte-exact one; flagged, not hidden).
+
+The gate does not actually turn on hitting 117 exactly. `pipeline.py`'s
+Stage 2 loop (`is_definitions_section = profile.is_definitions_heading(...)`)
+is a STRICT `if`/`else` — confirmed by direct read, not inference: the
+`if` branch calls ONLY `extract_definitions_from_section`, the `else`
+branch calls ONLY `extract_local_scope_definitions`, no fallback either
+way regardless of candidate count. Verified `is_definitions_heading`
+(dispatched, live) is `True` for **100% of my own 133-row reproduction
+AND the full 633-row canonical superset** (0/633 fail) — since ANY
+"leak population," however exactly computed, is by definition a subset of
+the 633 canonical rows, this closes the claim regardless of the precise
+117-vs-133 count.
+
+Then closed the loop on the GOLD-STANDARD live path per the brief's own
+non-negotiable standard: real DB-backed `run_definition_linking` (via
+`ingest_wiki_law` + `matter_with_users`/`db_session` fixtures, mirroring
+`test_pr_profile_scope_triggers_live_pipeline_cycle5.py`'s own pattern) on
+the 20 highest-hit-density rows from my reproduction PLUS the already-known
+former residual row `STATE_PR_LEY_133_1979_ART1` ("equipo solar"). Result:
+**442 real Definitions created, 0 with `scope="local"`, all `chapter` or
+`law-wide`.** `equipo solar` itself is captured (1 candidate, confirmed via
+the live path) — not silently dropped, captured CORRECTLY instead of
+wrongly. Test file was temporary (`test_zzz_qa11_gate2_temp.py`), run, and
+deleted — QA does not own test files (Planner does); `git diff HEAD`
+empty-confirmed after cleanup.
+
+**Item 18c is unblocked for a future cycle on this evidence.**
+
+### (8) Fixtures — byte-verified
+
+Both cycle-9 fixture rows (`STATE_PR_INCENTIVOS_SEC6070_55`,
+`STATE_PR_LEY_103_2001_ART2`) re-verified byte-exact (`text` AND
+`section_title`) against a fresh parquet read.
+
+### Updated gate table (QA cycle-11, independent)
+
+| Gate | Verdict | Basis |
+|---|---|---|
+| **P1** | **PASS** | Canonical dispatch independently re-verified exact (633/0, 612/21, 102 zero-candidate all reproduced). Detection/extraction genuinely live. |
+| **P2** | PARTIAL | Canonical half now live and correct. Non-canonical recall still bounded by 18c's deliberate deferral (M-R13) — now confirmed SAFE to keep deferring (gate 2 holds). |
+| **P3** | **PARTIAL, NEW DEFECT NAMED** | Article half PASS (unchanged). Chapter half mostly correct (21/633 reproduced exact) but carries a live, confirmed 6-row/42-candidate mis-scoping defect (finding 2 above) pending a fix. |
+| **P4** | HELD | Unchanged — zero-miss bar still gated on items 19-24 (HELD, own future cycle) and 18c (now safely deferrable, not yet built). |
+| **P5** | **PASS** | Independently re-confirmed via a different method (registry-level structural probes + mutation, not just fixture assertions). |
+
+### What I could NOT verify
+
+- The EXACT 117-row canonical-leak list (only a good-faith 133-row
+  reproduction, order-of-magnitude consistent) — the original script is
+  unread per P-R9 and 18c has no committed implementation to import.
+- Whether Option A/B/C (core-level fix vs accept vs sequence) is the
+  right call for the pre-existing 21-row baseline-collision defect or the
+  program-wide 12-jurisdiction census — both are already correctly routed
+  to the manager/program level by prior cycles, outside this cycle's job.
+- Full corpus-wide prevalence of the "no los" 5th shape beyond the 633
+  canonical rows (18 raw hits corpus-wide measured, not narrowed further —
+  out of this cycle's bounded scope, flagged not chased, same discipline
+  the cycle-9 Planner used for its own item-31 "124 canonical rows" note).
+
+### Pushed
+
+Branch `claude/defs-us-pr`. This entry + a contract update (gate table,
+new escalation, M-R14 gate-2 closure note, cycle-9 item plan compressed
+per the established archive-to-log convention). SHA recorded in the
+commit; `git log -1 --format=%H` after commit.
+
+### Next
+
+Manager rules on the 5th-shape scope defect (finding 2) — same
+disposition shape as the 4th-shape fix, likely a Developer one-liner
+(make `los` optional) plus a QA-independent re-verification pass, given
+the "minimal fix, zero regressions" simulation already run above. Item
+18c is unblocked for a future cycle on the gate-2 evidence. The M-R17
+retirement of the 6 unsatisfiable scope REDs remains a bounded Planner
+pass, unaffected by this cycle's findings.
