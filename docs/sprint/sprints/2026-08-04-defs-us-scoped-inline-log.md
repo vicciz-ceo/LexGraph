@@ -3845,3 +3845,74 @@ not a reporting nicety but part of the actual verification loop for this rule
 family, and it belongs in the close-out as a standing practice rather than as
 one Developer's diligence. Recorded with credit — a two-strikes-before-landing
 history disclosed voluntarily is worth more than a clean narrative.
+
+---
+
+## 2026-08-05 — Manager: Escalation 1 CORRECTED — I escalated a fix that
+already shipped, and P-R10 was the rule that should have caught me
+
+**Superseding my own ruling above.** The upstream fix I demanded already
+exists: `backend/app/definition_links/ingest_us_statutes.py` line ~237 applies
+`text = text.replace("\\n", "\n")` at INGEST (core sprint 1, items I8/M14;
+verified 40,102/40,102 NY rows at the time). I confirmed that line myself. The
+parquet is READ-ONLY SOURCE DATA and stays escaped **by design**; production
+never extracts from parquet `text` directly.
+
+So nothing upstream is broken. My byte measurement was correct and my
+route-upstream *instinct* was correct — the ingest layer IS the right and only
+home for this — but my conclusion was wrong, because the layer was already
+doing its job. What remains is a fixture defect: ours was vendored raw instead
+of post-ingest.
+
+### The check I had and did not run
+
+**P-R10** — "before escalating *X is broken*, explain why everything
+downstream of X is not already visibly broken; if you cannot, your probe is
+suspect." I have put that rule into other agents' briefs this sprint. I did not
+apply it to myself.
+
+The disproof was sitting in the report I was reading. If NY text were really
+reaching extractors escaped, NY would capture nothing anywhere — yet the same
+Developer report listed **NY at 272 added distinct pairs**, and
+`STATE_NY_ARSS_A2_T9_S89-H` has been a captured, cited NY row since cycle 5.
+A jurisdiction cannot be both wholly unreadable and among the top five
+contributors in the same table. I read both numbers and did not put them
+together.
+
+This is my third self-owned error this sprint, and the pattern in all three is
+the same: **I accepted a locally-coherent story without running the one check
+that would have contradicted it** — a pin that went green (coincidence, not
+proof), a merge that conflicted (unchecked exit status), and now a defect that
+was already fixed (unchecked downstream consequence). The measurements were
+never the weak part; the inference from them was.
+
+### Ruling, corrected
+
+Routed to Planner pass 12 as a TEST change: apply the ingest transform in the
+test path, following the convention core's G3 guard test already established
+(it reproduces the unescape inline with an explanatory comment, since it calls
+the extraction function directly). Explicitly NOT extractor tolerance — that
+would hide the seam, which was the one part of my original reasoning that
+survives intact. Also ordered an audit for other raw-vendored NY fixtures in
+this suite.
+
+With the transform applied the test goes green **legitimately** —
+production-faithful, not a workaround — and my "red until the data is fixed"
+framing dissolves, because as production sees it the data was never broken.
+
+### The program-level fact worth more than my error
+
+This is the **FIFTH occurrence of the raw-vs-ingest trap, by the FOURTH
+panel** — the program's most reliable independent rediscovery. Four panels, no
+communication, same wrong turn. That is not four careless panels; it is a seam
+that is invisible from where every panel stands, because the raw artifact is
+the natural thing to vendor and the transform lives somewhere you have no
+reason to look until it bites. The durable fix is not "remember this" — four
+panels demonstrate that memory is not the mechanism. It is that NY fixtures
+must be post-ingest by construction, which the markers panel's U-R11 already
+states and which this panel now adopts in the pin's own docstring.
+
+Unaffected by this correction and still standing: the Developer's
+corpus-delta-as-verification-loop finding (two real regressions invisible to
+858 tests, caught only by re-measuring), accepted for the close-out as standing
+practice.
