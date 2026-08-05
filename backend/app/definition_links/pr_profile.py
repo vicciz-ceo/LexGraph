@@ -487,13 +487,30 @@ _UNQUOTED_TERM_COLON_RE = re.compile(r"^([^.:;\n]{1,100}?):\s*")
 # four independent ways, including a from-scratch reimplementation with no
 # monkeypatching -- found rejects 44/235 at ~100% junk on spot inspection,
 # retains 191/235 (up from the pre-narrowing ~30-35% precision baseline).
-# The Planner's originally-reported 61/235 rejected / 208/235 retained
-# does not arithmetically sum to 235 (61+208=269) and is understood to be
-# in error; QA's independent re-derivation (the third measurement) is
-# still pending as of this writing -- treat 44/191 as provisional until
-# that lands. Zero regression to the two genuine anchor rows
+# QA cycle-8's independent, fifth re-derivation (own from-scratch script,
+# byte-verified regex reconstruction, full-corpus zero-mismatch dispatch
+# cross-check) EXACTLY reconfirms the reject count (44=44) and settles the
+# split: SETTLED at 44/191. The Planner's originally-reported 61/235
+# rejected / 208/235 retained does not arithmetically sum to 235
+# (61+208=269) -- CONFIRMED origin (QA cycle-8): the same 17 pre-existing,
+# pre-cycle-5 typographic-dash defect rows this comment's root-cause
+# section already names ("17 pre-existing OLD-pattern instances") were
+# double-counted into BOTH the reject and retain tallies (44+17=61,
+# 191+17=208, exact matches) -- that 17-row population is confirmed
+# disjoint from this 235-row population (zero overlap). Precision on the
+# retained population was re-qualified by QA cycle-8 against a fresh,
+# uncontaminated sample (the Planner's original sample frame was the
+# contaminated 208-row set, not the true 191): ~33-53% genuine
+# (strict/lenient), confirming the original ~41-53% estimate transfers.
+# Zero regression to the two genuine anchor rows
 # (`STATE_PR_LEY_209_2016_ART2`, `STATE_PR_LEY_236_2015_ART2`) under any
-# of these measurements. Does NOT
+# of these five independent measurements.
+# Open, immaterial (manager ruling M-R16): QA cycle-8's own splitter measured
+# 233 rather than 235 for this population -- logged on the contract's residual
+# ledger, NOT settled by majority (it is the only run documenting a
+# full-corpus zero-mismatch fidelity proof against the real dispatch path).
+# `reject = 44` is invariant across all five derivations, so no decision here
+# depends on it. Does NOT
 # close the separate hyphenated-prose false-positive class with no
 # period involved (`STATE_PR_LEY_163_2005_ART2`, "Consejo Juanadino Pro -
 # Festejos") -- an accepted, documented residual (see
