@@ -2581,3 +2581,360 @@ it would have been a guess dressed as a fix.
 
 **Items 1-2 are COMPLETE.** Remaining REDs are the 4 VT/SD boundary cases
 owned by markers. Next: QA + the U4 53-jurisdiction sweep.
+
+---
+
+## 2026-08-05 — QA (Sonnet/high): independent adversarial verification + U4 53-jurisdiction sweep
+
+**Model/effort justification**: judgment-heavy adjudication (zero-miss vs
+correctly-rejected classification across a real, messy corpus) and
+cross-panel escalation authorship; Haiku considered and rejected.
+
+**Stance taken**: assumed every claim in the contract/log was wrong until
+re-derived myself. Re-ran the baseline suite, re-read the two rule modules
+and the live dispatch code directly (`us_profile.py:1321-1428`,
+`profiles.py:191-263`, `matcher.py:163-321`, `pipeline.py:220-320`) rather
+than trusting the log's paraphrase, and designed my own U4 sweep from
+scratch (not the Planner's scratchpad scripts, per the brief).
+
+### Environment
+
+```
+$ backend/.venv/bin/python -c "import app; print(app.__file__)"
+/Users/nerya/LexGraph-wt/defs-us-multiterm/backend/app/__init__.py
+$ backend/.venv/bin/pytest backend/tests -q
+4 failed, 791 passed, 18 warnings in 19.78s
+```
+Matches the sprint's claimed state exactly, reproduced independently.
+
+### Gate verdicts
+
+**U1 — CERTIFIED, with a large residual not on the ledger (see ESCALATION
+below).** Every variant named in the contract (MI top-level list, MT
+nested clause, TX parent-redirect, NH/ND apposition, OR cross-reference)
+verified live via the existing 11 green integration tests, re-run by me.
+VT/SD's 4 REDs verified STRUCTURAL, not a rule defect: `_split_into_
+numbered_blocks` returns 0 blocks AND both registered `EntrySplitterRule`s
+(`_split_parent_redirect_whole_text`, `_split_apposition_whole_text`)
+independently return 0 extra blocks for both real bodies — confirmed by
+direct call, not by reading:
+```
+STATE_VT_T23_C35_S3700   baseline blocks: 0   entry_splitter extra blocks: 0
+STATE_SD_T3_C14_S3-14-5  baseline blocks: 0   entry_splitter extra blocks: 0
+```
+Since `TermClauseRule` is only ever consulted per-block
+(`us_profile.py:1345-1351`), zero blocks means zero rule invocations —
+structurally red, exactly as claimed. **But** my own U4 sweep (below)
+found 5 additional real, verified gaps NOT on the Residual ledger — see
+ESCALATION.
+
+**U2 — CERTIFIED**, the gate the manager flagged as having had the least
+attention. New test:
+`backend/tests/integration/test_multiterm_qa_u2_scope_enforcement.py`
+drives the REAL production pipeline (`ingest_us_statute_rows` ->
+`run_definition_linking`) on the real NH apposition row plus a synthetic
+second article in the SAME document, proving BOTH directions in one run:
+(1) the defining article's own later re-mentions of "withdrawing state"
+DO link (`Article 14 uses the definition of "withdrawing state"`); (2) a
+different article in the same document that also mentions the term does
+NOT link. **Mutation-proved**, not just passing: patched
+`matcher._in_scope` to `return True` unconditionally, re-ran — test FAILS
+exactly as expected (Article 99 now draws an assertion); reverted, `git
+diff` on `matcher.py` empty, re-ran clean — PASSED. This is a genuine
+discriminating test, not a vacuous one.
+
+**U3 — CERTIFIED.** `git diff --name-status origin/main...HEAD --
+backend/app/` shows exactly 2 files, both ADDED, both under
+`rules/`: `us_inline_parenthetical.py` (203 lines), `us_multiterm_shared_
+clause.py` (218 lines). Zero modifications to any shared module
+(`pipeline.py`/`us_profile.py`/`matcher.py`/`profiles.py`/`extract.py` all
+absent from the diff). Frontend diff against origin/main is empty.
+
+**U4 — CANNOT CERTIFY ZERO-MISS; sweep run in full, honest numbers
+below, 5 new real gaps found and pinned.** See full section below.
+
+**U5 — CERTIFIED, with independent evidence beyond the existing suite.**
+- IL/Hebrew: `pytest -k "hebrew or il_ or _il or IL"` → **169 passed**,
+  matching the log's claim, reproduced by me.
+- Baseline states (IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK): I wrote an
+  independent regression probe comparing the bare (pre-dispatch) function
+  vs. the dispatched profile method on **all** real Definitions sections
+  in each state's full parquet file (not a sample) —
+  **17,886 real Definitions sections, zero lost candidates in any of
+  them** (every candidate baseline used to produce alone is still produced
+  after this sprint's rules are unioned in). This directly answers the
+  U5 "baseline states hold" requirement with corpus evidence, not fixture
+  evidence alone.
+- Full suite: 4 pre-existing REDs (VT/SD) unchanged, byte-identical names.
+
+**U6 — PARTIAL.** F6's fire-rate before/after (8.87% -> 0.35%) was
+independently re-derived by me, calling the real, unmodified
+`_extract_ordinary_body` directly against the **full** corpus (2,038,247
+rows, no sampling — stronger than the manager's 79,500-row sample):
+```
+rows firing: 7,438 / 2,038,247 = 0.36%   candidates: 12,654
+```
+**0.36% vs. the claimed 0.35% — materially consistent**, not a finding.
+No equivalent "before vs. after" fire-rate report exists in the log for
+F5 specifically (only real-row proofs) — flagged as a partial gap in U6,
+not fabricated.
+
+### U4 — 53-jurisdiction zero-miss sweep
+
+**Methodology** (designed from scratch, not reusing the Planner's
+scratchpad scripts): a broad, high-recall regex signal per family, run
+over **every row of all 53 real `us_<code>_statutes.parquet` files** (no
+sampling — 2,038,247 rows), snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`.
+Every hit is adjudicated by running the REAL production dispatch
+(replicating `pipeline.py`'s own `is_definitions_heading` ->
+`derive_heading_from_body` -> `determine_scope` -> `extract_definitions_
+from_section` / `extract_local_scope_definitions` branching, calling the
+real profile object, no DB needed for this classification pass) — never a
+regex-only verdict. F5 signal: 2+ back-to-back quoted spans (comma/"and"
+joined, trailing punctuation inside the quote handled the same way
+production's own `.rstrip(" ,;")` does — a bug in my FIRST draft under-
+counted terms whose serial comma sits inside the quote; caught mid-sweep
+via a real AR row, fixed, re-run). F6 signal: parenthesized quoted span
+(apposition) OR quoted term + a cross-reference idiom gap (broader than
+production's own idiom list, deliberately, to measure the list's own
+coverage).
+
+**Top-line, honest denominators, full corpus:**
+
+| | rows scanned | hit rows | captured | not-a-def (signal FP) | miss |
+|---|---|---|---|---|---|
+| F5 | 2,038,247 | 2,628 | 903 | 20 | 2,302 |
+| F6 | 2,038,247 | 11,875 | 13,690 | 28 | 7,383 |
+
+**F5 miss decomposition (this is the load-bearing number, not the raw
+2,302):** split by whether the hit ever reached the Definitions-section
+dispatch path at all:
+```
+reachability miss (ordinary body -- TermClauseRule architecturally
+  cannot fire there; F5 registered NO ScopeTriggerRule, unlike F6):  1,491
+logic miss (reached the Definitions-section path, still not captured):  811
+```
+Of the 811 logic misses, I sectioned them (not per-hit) and checked
+`_split_into_numbered_blocks` directly: **501/673 sections (74.4%) have
+ZERO baseline blocks at all** — an entry-marker/splitting defect (decimal
+markers like `"(1.5)"`, differently-styled markers like `"10."`, or
+whole-section no-newline bodies where `_split_into_numbered_blocks`
+requires a line-start-anchored marker and finds none) that drops EVERY
+definition in the section, not just multi-term ones — squarely markers'
+family per the sprint's own established boundary, verified live on 3
+concrete real rows (`STATE_WA_T13_C38_S040` — 0 real newlines, 0 blocks,
+0 candidates for the WHOLE 13-entry section; `STATE_CO_T18_A19_S18-19-102`
+— `"(1.5)"` swallowed; `STATE_AZ_T27_C4_A1_S501` — `"10."` swallowed).
+**Only the remaining 172 sections (25.6%) are genuinely F5's own
+territory** — hand-sampled ~10 of them: some are further signal false
+positives (UCC §9-102's `"Record", except as used in "for record",
+"of record", ...` EXCLUSION clauses, not shared definitions — same shape
+as the earlier "on account of"/"statement of account" false hit), but at
+least 3 are confirmed GENUINE misses within F5's own mechanism (see
+findings 2-5 below and the "as ... defined in" cross-reference variant
+noted but not separately pinned, real row `STATE_AR_T26_C51_S5_S26-51-506`,
+`"direct positions and independent direct positions as those terms are
+defined in Acts 2013, No. 1084, § 8"`).
+
+**F6 miss decomposition:** re-classified using production's OWN
+`_APPOSITION_RE` character-class restriction (`[A-Za-z][A-Za-z \-]{0,60}`)
+against every "miss" hit's captured span — **2,779 of the 7,383 broad
+hits fail that shape outright** (commas/digits/punctuation — mostly
+section-caption cross-reference lists like DC/MD's `"§ 4-205 (\"Chain
+store, supermarket, or discount house\")"`, correctly rejected by
+production, my broader signal over-counted them) and are reclassified
+not-a-definition. Of the remaining **4,604 plausible misses**, idiom
+sub-typing against the real corpus text gives:
+```
+"as defined in <citation>"            2,813   (idiom NOT in _IDIOM_GAP_RE)
+"has the meaning specified in"           64   (idiom NOT in _IDIOM_GAP_RE)
+exact _IDIOM_GAP_RE idiom, still missed 289   (reachability -- see finding 4)
+other / not yet characterized         1,436
+```
+**"as defined in" is the single largest verified real gap in this whole
+sweep** (2,813 occurrences) — an extremely common English cross-reference
+idiom that F6's `_IDIOM_GAP_RE` simply does not include.
+
+**Zero-miss verdict: NOT MET. 5 real, live-path-verified gaps found,
+none on the Residual ledger, all pinned as new committed RED tests** (QA
+role: tests/fixtures only, never implementation) in
+`backend/tests/integration/test_multiterm_qa_u4_findings.py`, vendored
+real rows in `backend/tests/fixtures/us_statutes/qa_u4_finding_rows.json`
+(6 rows, byte-verified against the real parquet snapshot by my own script,
+`ok=6 bad=0`):
+
+1. **F5 top-level-list double-assertion when section scope is genuinely
+   `"law-wide"`.** `_leading_multiterm_candidate`
+   (`rules/us_multiterm_shared_clause.py`) HARDCODES `scope="law-wide"`
+   on every candidate it emits — it never reads or forwards the section's
+   real `determine_scope(...)` result (the seam's own `TermClauseRule.
+   parse: Callable[[str], list[DefinitionCandidate]]` interface doesn't
+   even pass scope in). When the section's real scope IS "law-wide" (the
+   common case), this ties baseline's own degenerate 1-term candidate at
+   the same rank; per the seam's M10 ruling ("equal-rank ties: both
+   survive"), BOTH fire — a real downstream mention draws 2
+   `USES_DEFINITION` assertions for the same term. Verified live,
+   full pipeline, real row `STATE_WY_T17_C14_S17-14-202` ("Limited
+   partnership"/"domestic limited partnership"). An independent
+   candidate-overlap measurement across the full corpus found **524
+   rows** with this overlap shape (NOT the same as ledger R1, which is
+   scoped specifically to TX's parent-clause mechanism and attributed to
+   markers — this is F5's OWN top-level-list mechanism, broader, and ours).
+2. **Same hardcoding, worse consequence, when section scope is
+   `"chapter"`.** No tie this time — "chapter" (rank 2) beats
+   `"law-wide"` (rank 1000) OUTRIGHT, so the WRONG, degenerate baseline
+   definition silently GOVERNS every downstream mention with no duplicate
+   to signal a problem. Verified live, real row
+   `STATE_IN_T4_A3_C9_S4-3-9-1` ("Title"/"interest in land") — the
+   governing `Definition` row for a real downstream mention is confirmed
+   (queried the DB directly) to be the degenerate one
+   (`terms=["Title"]`, `definition_text='and "interest in land"
+   means...'`), not the correct one this sprint exists to produce.
+3. **F5's nested-clause boundary search skips later, independent
+   "The term(s)... means..." clauses.** `_nested_clause_candidates`'s
+   `_NEXT_NESTED_CLAUSE_RE` (matches only `", and the term(s)"`) finds
+   the NEXT such literal chain marker anywhere ahead and sets `cursor`
+   there, silently skipping every OTHER nested trigger in between whose
+   own clause isn't chained that way. Works for the MT fixture (exactly 2
+   chained clauses) but real drafting routinely has long runs of
+   independent sentences. Verified live, real row
+   `STATE_AL_T40_C21_S40-21-100`: 18 nested triggers in one block; only 2
+   captured; `"teletypewriter"`/`"computer exchange service"` (a clean,
+   textbook 2-term nested clause) silently dropped.
+4. **F6's `_IDIOM_GAP_RE` does not recognize `"as defined in"`.** Only
+   `"has the meaning given that term in"` / `"has the meaning assigned
+   by"` are recognized. Verified live, real row
+   `STATE_AL_T13A_C8_S13A-8-52` (`"pharmacy robbery" as defined in
+   Section 13A-8-51(2)`), a small, clean row chosen specifically because
+   its heading is NOT a Definitions heading (isolates the idiom-list gap
+   from finding 5's reachability gap). **2,813 real corpus occurrences**
+   of this exact idiom shape were found, uncaptured.
+5. **F6's cross-reference mechanism never fires inside a recognized
+   Definitions section at all.** `TermClauseRule._parse_block` (used for
+   blocks inside a Definitions section) calls ONLY `_apposition_
+   candidates`; `_cross_reference_candidates` is wired into the
+   `ScopeTriggerRule` (ordinary-body) path exclusively. Any cross-
+   reference-idiom term sitting inside a WELL-FORMED, correctly-
+   recognized Definitions section (the most common real-world place such
+   definitions occur — e.g. federal statutes) is unreachable, even with
+   the exact idiom `_IDIOM_GAP_RE` already recognizes. Verified live,
+   real row `STATE_DC_T38_C18N_S38-1853.13`
+   (`is_definitions_heading(...)` confirmed `True`): `'The term "parent"
+   has the meaning given that term in section 8101...'` never captured.
+   **289 real corpus occurrences** of this exact idiom, inside a
+   recognized Definitions section, uncaptured.
+
+**One suspected gap checked and found NOT to hold** (reported honestly,
+per "re-derive, don't re-read" — a QA that only reports confirmed bugs and
+never reports a false alarm it caught itself is not being fully honest
+about its own process): `_cross_reference_candidates` has no `seen_terms`
+dedup unlike `_apposition_candidates` (M-R14 only touched the apposition
+path) — a raw-candidate check found 32 real rows with duplicate terms.
+But run through the FULL pipeline (real row
+`STATE_AR_T26_C57_S13_S26-57-1302`), the persist-layer `(article_id,
+sorted(terms))` dedup key correctly collapses them, because both
+duplicate candidates carry the IDENTICAL term tuple (unlike finding 1's
+hazard, where the two term tuples differ and so never collide on that
+key). Kept as a GREEN regression guard
+(`test_cross_reference_path_duplicate_candidates_are_still_deduped_at_
+persist_layer`) rather than silently discarded.
+
+### Residual ledger audit
+
+- **R1 (TX double-assertion)** — re-verified live, unchanged: 8
+  candidates from `extract_definitions_from_section` on
+  `STATE_TX_Cgv_C2009_S2009.003` (4 degenerate + 3 working + 1 correct
+  combined), exactly as described. Correctly scoped to TX's
+  parent-clause mechanism specifically — does NOT cover findings 1/1b
+  above, which are a different mechanism (top-level list, not
+  parent-redirect) and are NOT markers' to close.
+- **R2 (state inventory unverified beyond fixtures)** — CLOSED by this
+  U4 sweep: full corpus numbers now exist (table above); NH/ND/NY/OK
+  (F5) and MI/MT/NY (F6) generalization is no longer merely claimed —
+  MI/MT/OK/ND/NY all appear with nonzero F5/F6 hits and captures in my
+  sweep. Resized, not just closed: the real gap is bigger than "state
+  inventory" — see findings 1-5.
+- **R3 ("Taken" handoff to scoped-inline)** — re-verified: still
+  correctly excluded (the OR integration test's exclusion guard still
+  passes), still correctly not fixed here (belongs to scoped-inline per
+  E3). Named correctly, sized correctly (1 term, 1 row).
+- **R4 (keep-first apposition dedup)** — mechanism verified correct by
+  reading `_apposition_candidates`; manager's corpus numbers (19
+  multi-occurrence terms, 89.5% differ, 0.019% of rows) not independently
+  re-run by me (time-bounded prioritization toward the un-swept U4
+  deliverable) — trusted on the mechanism check, not re-measured.
+- **Not on the ledger, now added by this entry**: findings 1/1b/2/4/5
+  above (finding 3 in the numbered list above is finding 4's twin,
+  renumber note: the test file's own finding numbers are 1, 1b, 2, 3, 4,
+  5 — matching 1:1 with this section's list order 1, 2, 3, 4, 5 above,
+  offset by the 1b split).
+
+### Dispatch — per-kind positive AND negative controls (not generalized from one kind)
+
+Verified live, not by reading, for every rule kind this sprint registers:
+
+```
+TermClauseRule    POSITIVE US-TX (method): fires, union of baseline degenerate
+                    + multiterm candidate
+                  NEGATIVE IL (method): []  (registry has no IL-registered rule)
+                  NEGATIVE free function (bypasses registry entirely): baseline-only
+EntrySplitterRule POSITIVE US-TX: 2 registered rules fire (F5 TX-redirect + F6 apposition)
+                  NEGATIVE IL: []
+                  Real TX row: confirmed exactly ONE combined candidate emitted
+                    (not duplicated) -- an earlier synthetic-text probe of mine
+                    DID show duplication, traced to my synthetic text not
+                    reproducing real letter-marker block-splitting; the REAL
+                    row does not duplicate. Recorded so the false alarm isn't
+                    silently dropped.
+ScopeTriggerRule  POSITIVE US-NH ordinary body: fires, scope="local",
+                    source_article_number correctly defaulted to the passed
+                    article_number
+                  NEGATIVE IL: []
+```
+
+### Style / role discipline
+
+- New QA files: 1 unit-adjacent scope test, 1 findings test file (7 test
+  functions), 2 fixture JSON files. Zero production files touched by QA
+  (verified: `git diff --name-only` for this entry's commit touches only
+  `backend/tests/**` and this log/contract).
+- Every new fixture row byte-verified against the real parquet snapshot
+  by an independent script before use (`ok=6 bad=0` for the findings
+  fixture; the pre-existing multiterm_f5/f6 fixtures were not
+  re-verified by me — already verified by the manager/Planner earlier in
+  this sprint, not re-derived here to manage scope).
+
+### ESCALATION: 5 real gaps found, none on the Residual ledger
+
+Per the brief's explicit instruction ("If you find a residual that is NOT
+on the ledger, that is a significant finding — say so loudly"). All 5
+are pinned as committed RED tests (never implementation, per this role's
+absolute rule) in `test_multiterm_qa_u4_findings.py`. None of them are
+VT/SD-class (blocked on markers) — findings 1/1b/2/4/5 are all inside
+F5/F6's OWN rule logic, buildable today, not blocked on any other sprint.
+The scale differs sharply: finding 4 (2,813 occurrences) and finding 5
+(289 occurrences) are the largest verified real-corpus gaps found this
+sprint, bigger than the F6 fire-rate narrowing's own before/after
+numbers. Recommend the sprint manager decide ownership/priority (my role
+ends at reporting, not deciding) — these did not exist as separate line
+items before this QA cycle.
+
+### ESCALATION: F5's own reachability gap is structurally identical to F6's pre-existing item 5/6, unaddressed
+
+F5 registered a `TermClauseRule` (fires only inside a recognized
+Definitions section) and an `EntrySplitterRule` (narrowly gated to the TX
+redirect shape), but **no `ScopeTriggerRule`** — unlike F6, which
+registered BOTH a `TermClauseRule` AND a `ScopeTriggerRule` specifically
+so it could reach ordinary (non-Definitions) article bodies. This means
+**every genuine multi-term shared clause sitting inside an ordinary
+article body (interstate compacts, "Text of compact" headings, and any
+other non-Definitions-heading body) is a total, silent F5 miss** —
+verified live, real row `STATE_AR_T17_C93_S5_S17-93-501` (Physical
+Therapy Licensure Compact, `"Physical therapy," "physical therapy
+practice," and "the practice of physical therapy" mean..."` — 3-term F5
+clause, heading "Text of compact", `is_definitions_heading` is `False`,
+never reached by ANY registered F5 rule). This is the SAME shape as this
+sprint's own contract items 5/6 (F6's reachability gap, closed by
+registering a `ScopeTriggerRule`) — F5 never got the equivalent fix. 1,491
+of the 2,302 F5 misses (64.8%) are this exact reachability class.
+
