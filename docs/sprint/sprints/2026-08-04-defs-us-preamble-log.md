@@ -5062,3 +5062,28 @@ The old held-test name has no remaining hit in any repo-profile test root.
 Contract lint passes at 128 lines with a 9-line Context Dump. The corrected
 contract routes next to fresh QA; G12 is shipped integration evidence, not a
 future held dependency.
+
+### M-R85 — Integrated evaluator finds one stale FED pin and one real cross-panel scope regression
+
+The manager-owned post-main evaluator ran from the contained shared worktree:
+backend **935 passed / 6 failed**, frontend **25 files / 165 tests passed**, and
+typecheck passed. Four backend failures are the declared T35 plus NE/SD
+markers dependencies. The other two were independently attributed before QA.
+
+The FED failure is a stale G12 debt pin, not a production regression. Shipped
+`includes` extraction makes `recreational purposes` the final recognized entry:
+`wildlife` shrank to 70 characters, while `recreational purposes` is now the
+8,091-character candidate that swallows `Contracts on loan security
+properties`. The same held unbounded-last-entry debt remains; Planner may only
+re-point that existing debt spec and its explanatory text to the actual term.
+
+The core G8 failure is a real cross-panel regression and blocks final QA.
+On the exact live probe, B1 and body-derived heading both return `Definitions`;
+`determine_scope` returns `law-wide`, so the definitions-section branch emits a
+law-wide `Scope probe` with trailing marker text. Without B1 dispatch, the
+ordinary-section `extract_local_scope_definitions` path emits the correct local,
+clean candidate. The mutually exclusive pipeline branches mean first-wins G8
+cannot protect a local candidate that is no longer produced. Root ruled this
+must not be suppressed, held, or repaired in preamble ownership and is routing
+the shared scope/dispatch seam to a separate core follow-on Planner. Final
+preamble QA and merge-readiness remain stopped on that dependency.

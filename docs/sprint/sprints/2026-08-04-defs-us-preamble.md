@@ -1,14 +1,14 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: planned
-blocked_on: null
-current_role: qa
+blocked_on: "core follow-on: B1-derived local-scope dispatch regression"
+current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
 last_agent: "/root/markers_panel_manager/planner_cycle9_correction"
-last_updated: "2026-08-05T22:25:00Z"
+last_updated: "2026-08-05T22:32:04Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
