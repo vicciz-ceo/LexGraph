@@ -133,6 +133,23 @@ def test_or_cross_reference_style_definitions_resolve(db_session, matter_with_us
             f"(blocked on core-scope C3 + scoped-inline, see module docstring). "
             f"All captured terms: {sorted(all_terms)!r}"
         )
+    # Ruling M-R13: containment-only assertions above permit "Taken" to also
+    # be captured without failing -- not the exact-4 boundary E3 requires.
+    # "Taken" is a plain-`means` definition, family 1's mechanism, not F6's
+    # cross-reference idiom (E3; Residual ledger R3, owned by
+    # `claude/defs-us-scoped-inline`, closes only on their named-row live
+    # proof). This exclusion is the actual regression guard on F6's family
+    # boundary: if `_IDIOM_GAP_RE` is ever re-broadened back to matching
+    # bare `means`/`shall mean`, F6 silently re-colonizes family 1's 8.87%-
+    # of-all-US-rows territory, and R3's handoff double-captures the same
+    # term across two panels once scoped-inline lands -- this assertion is
+    # what fails first in either case.
+    assert "Taken" not in all_terms, (
+        'F6 must NOT capture "Taken" -- it is defined with a plain `means`, '
+        "not a cross-reference idiom, so it is family 1's mechanism (E3), "
+        "handed to claude/defs-us-scoped-inline and tracked as Residual "
+        f"ledger R3, not F6's to keep. All captured terms: {sorted(all_terms)!r}"
+    )
     defs_by_term = {t: d for d in result["created_definitions"] for t in d["terms"]}
     assert "ORS 153.005" in _definition_text(db_session, defs_by_term["Enforcement officer"]["id"])
 
