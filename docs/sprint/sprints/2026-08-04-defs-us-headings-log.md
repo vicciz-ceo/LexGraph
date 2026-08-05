@@ -3385,3 +3385,29 @@ convergence scan each found one; cycle 4 found none, and its 100-row
 first-pass unassigned bucket was hand-read in FULL and resolved entirely into
 refinements of already-known exclusion shapes. That is the convergence signal
 this panel has been missing for three cycles.
+
+### Panel close-out — standing resources for whoever picks up the follow-ons
+
+**QA cycle 4's agent retains full sprint context and can be RESUMED by
+agentId (`a6861e5def2bb321f`) rather than re-spawned cold**, and has offered a
+follow-up verification pass if/when the director rules on the D-CERT
+exclusionary-verb gate. A resume preserves its 1,148-row classification, its
+`qac4_*` scripts and its P-R7 cross-check working state; a cold re-spawn would
+rebuild all of it. Per the 2026-08-05 protocol, any resume MUST carry the
+SendMessage delivery boilerplate (see the contract's `## Panel protocol`).
+
+It also confirmed the L12+L7 consolidation independently: it had identified the
+mechanism (`does not include` falling outside both panels' `means`/`shall mean`
+vocabulary) but had not connected it to the manager's own MT probe example —
+agreeing one worklist item is the right shape rather than two.
+
+**Open follow-ons, all owned elsewhere, none blocking this panel:**
+
+| Item | Owner | Unblocks when |
+|---|---|---|
+| Item 16 — `includes` widening (D-INCLUDES ruled capture) | THIS panel, cycle 6 | ready now; red-first |
+| L1 — WA_T50 D-MT-E1 reference edge | core-2 **G11** (gate, both-sides condition) | G11 lands |
+| L9 — 8 U2 scope rows | core-2 **G6** (scope-VALUE seam); **this panel builds the rules after** | G6 lands |
+| L11-A / L11-B | markers (re-measuring w/ their family-3 rules) / program D-CERT | their measurement / D-CERT |
+| L12 + L7 remainder — exclusionary-verb class | program **D-CERT**, as ONE item | director ruling |
+| MA zero anchor-hits | scout follow-up (not a build item) | — |
