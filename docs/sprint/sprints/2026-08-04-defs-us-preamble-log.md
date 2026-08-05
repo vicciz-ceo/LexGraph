@@ -4980,3 +4980,27 @@ singular `purpose`; OH trigger accepts bounded `divisions (C) and (D) of`.
 Restoration returned all four probes to `None`. No production edit was retained.
 PA `References to` is now a green held extraction-side D-INCLUDES spec using
 the real unmodified `_MEANS_IDIOM_GAP_RE`, never a test-local future guard.
+
+### M-R81 — Manager audit correction: PA non-trap and T35 held scope
+
+The PA permanent RED formerly asserted that the pre-fix trigger regex's match
+contained `means`. That would make a required non-greedy trigger correction
+fail an immutable assertion. It now pins only the byte-exact real statutory
+clause (`"association" in this chapter means a corporation`) and asserts the
+actual B1 function returns `Definitions`; the runtime mutation goes green and
+restoration goes red. Re-run evidence invoked the four committed test
+functions directly against runtime-only production-module mutations: PA,
+USC, AR, and OH each greened; restoring all original module values made each
+same test red again.
+
+Manager direct proof corrected the T35 ownership: the real `In this section:`
+occurrence around offset 62,295 correctly makes B1 return `Definitions`, and a
+later `Director` definition is genuine. The existing body-wide extractor instead
+persists `SEC. 804. DEFINITION.` with 8,431 characters. Since B1 returns only a
+heading, no B1 occurrence selection can repair that tuple; narrowing would be
+the rejected remedy and still lose Director. T35 remains a held shared-
+extraction/P-FP RED beside CO and D-MT-E1, not a Developer acceptance gate.
+
+The superseded 20-item historical contract is preserved without loss at shared
+commit `7d87d08` and in the cited D1–D6 / M-R historical entries above; this
+compact current contract carries only the bounded Developer handoff.

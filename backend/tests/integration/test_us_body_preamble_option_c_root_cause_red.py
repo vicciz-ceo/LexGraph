@@ -73,12 +73,13 @@ def test_pa_association_greedy_tail_genuine_occurrence_reaches_production_b1_red
     it.  The full ingest+link guard is
     ``test_state_pa_association_still_captured_despite_the_trigger_regexs_own_greedy_tail_swallowing_means``.
     """
-    from app.definition_links.rules.us_body_preamble import _B1_TRIGGER_RE
-
     body = _positive_row("STATE_PA_T15_C75_S7502")["text"]
     bounded = _bounded_real_body(body, start="(a) General rule.--", end=":\n\n(1)")
-    match = next(_B1_TRIGGER_RE.finditer(bounded))
-    assert "means" in match.group(), "fixture/regex drift: expected the known greedy PA match"
+    assert 'the word "association" in this chapter means a corporation' in bounded, (
+        "fixture drift: the byte-exact PA clause must retain its genuine term and "
+        "defining verb; this structural pin is intentionally independent of the "
+        "pre-fix trigger-match span"
+    )
     _expect_real_b1_recognition(
         bounded,
         act_id="STATE_PA_T15_C75_S7502",

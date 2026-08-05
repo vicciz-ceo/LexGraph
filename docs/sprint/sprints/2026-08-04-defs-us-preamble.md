@@ -38,23 +38,21 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 
 ## Next Steps
 
-1. **P-FP definition-level garbage + four B1 causal fixes.** Allowed
+1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
    and, only if needed for the mandated <=300-line split,
    `backend/app/definition_links/rules/us_body_preamble_b1.py` (new).
-   Make B1 reject only the confirmed `USC_T35_C4_S41` garbage output while
-   preserving all five re-adjudicated genuine tuples. Make the real B1 call
+   Preserve all five re-adjudicated genuine tuples. Make the real B1 call
    site recognize the bounded PA greedy-tail, USC `includes`, AR singular
    `purpose`, and OH intervening-divisions occurrences. Do not edit shared
-   extraction or remove/change `_B1_FORWARDING_PHRASES`. Acceptance: the five current REDs in
-   `test_us_body_preamble_defining_verb_narrowing_red.py` and
-   `test_us_body_preamble_option_c_root_cause_red.py` go green; their paired
+   extraction or remove/change `_B1_FORWARDING_PHRASES`. Acceptance: the four
+   REDs in `test_us_body_preamble_option_c_root_cause_red.py` go green; their paired
    full ingest+link guards remain green.
 
 2. **M-R53 production-comment correction.** Remove the false corpus-wide
    uniqueness claim in `us_body_preamble.py` without changing runtime
    behavior. Acceptance: the focused test command retains exactly the four
-   causal REDs and one P-FP garbage RED before item 1 lands.
+   causal REDs before item 1 lands.
 
 3. **Bounded B1 module split.** Split `us_body_preamble.py` from 386 to at
    most 300 lines without changing registration order or behavior. Acceptance:
@@ -77,6 +75,10 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
   extractor, which persists the exception rather than the forwarding target.
   Correct capture needs shared extraction plus D-MT-E1 reference-edge work and
   is out of scope.
+- **T35 P-FP wrong tuple:** `USC_T35_C4_S41` has a real correct B1 occurrence
+  and a later genuine `Director` definition, but body-wide extraction persists
+  `SEC. 804. DEFINITION.` with 8,431 characters. B1 has no occurrence-level
+  output, so this is held shared-extraction/P-FP debt, not a B1 Developer gate.
 - **D-MT-E1 reference edges:** core shared reference-edge plumbing must add a
   link from each captured forwarding definition to its cited target. This
   sprint preserves the definition tuples but must not claim the edge shipped.
@@ -89,7 +91,9 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 
 ## Evidence
 
-- Focused RED: `backend/.venv/bin/pytest backend/tests/integration/test_us_body_preamble_defining_verb_narrowing_red.py backend/tests/integration/test_us_body_preamble_option_c_root_cause_red.py -q` → **5 failed, 11 passed**: `USC_T35_C4_S41` plus PA/USC/AR/OH B1 causal gates.
+- Focused inventory command returns **5 failed, 11 passed**: held T35 plus
+  PA/USC/AR/OH B1 causal gates. Developer target is
+  `backend/.venv/bin/pytest backend/tests/integration/test_us_body_preamble_option_c_root_cause_red.py -q` → four causal REDs.
 - The five P-FP guards query persisted `Definition` rows and verify definition
   text; forwarding rows retain the real 31 CFR / IRC / 20 U.S.C. target text.
 - Runtime-only mutation evidence (restored before every command): PA requires
@@ -110,11 +114,11 @@ signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Start from the five focused REDs; all other P-FP tuple guards are green.
+1. Start from four Developer causal REDs; T35 is a separate held extraction RED.
 2. Fix B1 only; do not edit `us_profile.py` or shared extraction.
 3. Keep forwarding tuples and name D-MT-E1 reference edges as core-held.
 4. PA must make the real bounded B1 call return `Definitions`, not just shorten a regex.
 5. Preserve the four paired full ingest+link guards.
 6. M-R53 comment correction and the <=300 line split are still Developer work.
-7. Full evaluator expected inherited NE/SD markers dependency failures separately.
+7. Full evaluator expected: four causal + held T35 + three NE/SD markers REDs.
 8. Root owns integration/main-containment reconciliation and final QA dispatch.

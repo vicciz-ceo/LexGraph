@@ -18,7 +18,8 @@ tuples against the real corpus body (not the test's own prior docstring --
 including 3 the manager had not yet ruled on (`USC_T10_C303_S4093`,
 `USC_T42_C7_S679c`, `USC_T10_C953_S9448` -- all three docstrings'
 characterizations turned out to be WRONG once the actual captured text was
-read). Only `USC_T35_C4_S41` is confirmed definition-level garbage.
+read). Only `USC_T35_C4_S41` is confirmed definition-level garbage, now held
+for shared extraction rather than assigned to B1 recognition.
 
 | act_id | captured term(s) | real definition_text (abridged) | verdict |
 |---|---|---|---|
@@ -35,8 +36,9 @@ and are re-authored below as `test_*_still_captured` regression guards,
 physically joining Section 2's existing 5-test family (M-R64's directive:
 "the 5 positive guards must be extended to cover forwarding-definition
 rows like `USC_T22_C102_S9528`" -- satisfied here for `USC_T22_C102_S9528`
-AND the other 4 newly-adjudicated genuine rows in one pass). Only
-`USC_T35_C4_S41` remains a true negative (Section 1).
+AND the other 4 newly-adjudicated genuine rows in one pass). The remaining
+`USC_T35_C4_S41` RED is held shared-extraction/P-FP debt (Section 1), not a
+B1 Developer gate.
 
 **Zero production code touched by this re-adjudication.** No narrowing has
 shipped; `us_body_preamble.py` is unchanged. Every row below is captured
@@ -76,7 +78,7 @@ def _negative_row(act_id: str) -> dict:
     # as POSITIVE/regression-guard fixtures below, per the P-FP
     # re-adjudication in this file's module docstring. Kept unrenamed to
     # avoid churning a byte-exact vendored fixture file for a naming-only
-    # reason; only `USC_T35_C4_S41` is still used as a true negative.
+    # reason; only `USC_T35_C4_S41` remains as a held P-FP extraction RED.
     data = json.loads((FIXTURES / "cycle8_defining_verb_negative_rows.json").read_text(encoding="utf-8"))
     return data[act_id]
 
@@ -116,35 +118,28 @@ def _persisted_definition_text_by_term(db_session, result: dict) -> dict[str, st
     return {term: definition.definition_text for definition in persisted for term in definition.terms}
 
 
-# --- 1. NEGATIVE: the ONE row confirmed genuine definition-level garbage ---
-# --- under P-FP (re-adjudicated; was 6, now 1 -- see module docstring) ----
+# --- 1. HELD RED: P-FP garbage that B1 recognition cannot repair ----------
 
 
-def test_usc_t35_c4_s41_section_label_is_not_a_defined_term_not_captured(db_session, matter_with_users):
+def test_usc_t35_c4_s41_wrong_tuple_needs_shared_extraction_p_fp_debt(db_session, matter_with_users):
     """`USC_T35_C4_S41`: today's colon-list branch wrongly claims this row
-    off a spurious 'in this section to recover the estimate...' occurrence.
-    The real body DOES contain a genuine embedded definition (a quoted
-    historical note whose own internal heading is 'SEC. 804. DEFINITION.',
-    reading 'In this title, the term "Director" means the Under Secretary
-    of Commerce for Intellectual Property...') -- but the extractor
-    captures the SECTION-LABEL HEADING TEXT ITSELF ('SEC. 804.
-    DEFINITION.') as the TERM, not 'Director', and the definition_text
-    then bleeds across several unrelated subsequent editorial notes all the
-    way to the end of the body. Confirmed live (this Planner, phase-2):
-    the captured term is not genuinely defined by the captured
-    definition_text in this row -- genuine definition-level garbage under
-    P-FP, independent of the (also real) recognition-path mislabeling."""
+    has a genuine `In this section:` occurrence at offset about 62,295 that
+    correctly makes B1 return `Definitions`; later, `Director` is genuinely
+    defined. But body-wide extraction persists the SECTION-LABEL HEADING
+    ('SEC. 804. DEFINITION.') with an 8,431-character definition text instead.
+    B1 returns only `Definitions`, not a winning occurrence, so an option-(c)
+    recognition change cannot repair this tuple without the rejected narrowing
+    that would also miss Director. This RED is held shared-extraction/P-FP debt,
+    not a Developer gate in this bounded B1 sprint."""
     row = _negative_row("USC_T35_C4_S41")
     result = _ingest_and_link(
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T35 C4 S41 (cycle-8 defining-verb negative)",
     )
     assert result["created_definitions"] == [], (
-        f"expected zero created definitions for {row['act_id']} once the colon-list "
-        f"branch requires a real term:means structure in its own window; got "
+        f"expected extraction to stop persisting the wrong tuple for {row['act_id']}; got "
         f"{result['created_definitions']!r} -- this row has no genuine local "
-        "definition anywhere near its winning trigger occurrence (QA cycle-7 FP, "
-        "P-FP-confirmed definition-granularity garbage)"
+        "definition for the captured section-label term (held P-FP shared-extraction debt)"
     )
 
 
