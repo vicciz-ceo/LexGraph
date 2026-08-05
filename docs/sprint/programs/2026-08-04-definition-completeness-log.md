@@ -71,6 +71,31 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (markers exit report — baseline-states finding + bucket-A
+  discrepancy): markers @ c4baf7ce, manager context-exhausted, clean exit,
+  QA NOT spawned (correctly — could not have verified it). Probe-sanity on
+  bucket A FAILED to reconcile: markers measures 21,072 zero-yield
+  recognized rows on its branch vs headings' 12,869 — cannot be the same
+  denominator. PROGRAM DIAGNOSIS (hypothesis, to be proven at merge):
+  the branches carry DIFFERENT rule sets — headings' branch has its
+  recognition rules (verb-form headings: NV etc.) but not markers'
+  extraction rules; markers' branch the reverse; also headings' bucket A
+  counts only shape-1 rows while markers counted ALL zero-yield recognized
+  rows. TRUE bucket A is only measurable on the MERGED tree — neither
+  number gets quoted at certification; both recorded as branch-partial.
+  NV attribution corrected: 1,262 recognized on markers' branch (not
+  ~6,866 — that count used headings' recognition rules). THE BIG FINDING:
+  residual concentrates in ten uncovered jurisdictions ≈19,278 rows
+  (NJ 2,372/99.7%, NM 1,578, NY 1,479/100%, NV 1,262/100%, OK 1,146,
+  MI 1,116, ND 1,023, MN 1,016, ME 1,000, OH 949) — and NJ/MI/ND/NY/OK are
+  the program's C5 "working baseline" regression-guard states, recognized
+  but yielding zero at 94–100%: the baseline states were never capturing.
+  RULED (program manager, under D-PREAMBLE-ALL "all states" + D-CERT —
+  director-vetoable): the 10-jurisdiction engine extension is IN-MANDATE
+  markers phase-2 scope (numbers re-derived first per standard), after its
+  QA on the current build. Markers phase-2 manager spawned (roster).
+  Merge order unchanged: core-2 → markers → preamble → rest.
+
 - 2026-08-05 (core-2 commissioned + D-S15 shipped + L11): CORE FOLLOW-ON-2
   commissioned as sprint 2026-08-05-defs-core-follow-on-2 (contract with
   gates G1–G7 = all six candidates; shared modules its exclusive write-set;
