@@ -3106,3 +3106,62 @@ without committing mutations, rerun focused G4/G8/G9 and exact artifact
 reconciliations, run full backend/frontend/typecheck, inspect the full
 main...HEAD diff/risk classes, and return a docs-only PASS/FAIL verdict. Any
 failure stops the release; QA may not edit production or tests.
+
+---
+
+## Phase 25 — QA cycle 3 PASS (2026-08-06)
+
+Independent QA `/root/core2_final_qa2` started at exact dispatch
+`1df4abf394d5cbc8c1ce0bff8d50f2167737adec` on
+`claude/defs-core-follow-on-2-qa3`. Current `origin/main`
+`71e3a4a834ec7b2df1067184149764a3bb236074` is an ancestor; `diff --check`
+passes. The complete main...HEAD production diff was read and risk-classed.
+Production is byte-identical to QA cycle 2; only the migration regression
+test and sprint/program evidence changed. No network/API/auth/env/secret or
+unowned panel logic was introduced.
+
+**G9 migration contract:** the committed raw-DDL SQLite test passes. QA
+independently changed upgrade to add `heading_breadcrumbs_broken`: the test
+failed at its first schema assertion. QA restored exact bytes, then changed
+downgrade to drop that broken name: the test failed with `OperationalError`.
+After the second exact restoration, migration/test SHA-256 remained
+`0dad7e9ff90540f4279af876cb8f46232d14806af50d2de0429c5ff9366570f8` /
+`6effa153004159bdd48d6604bcaf72f245717ea9a19a14717a2693f00b0f2dfa`,
+the focused test re-passed, and both files had zero diff. An independent
+manual upgrade → downgrade → upgrade also preserved the seeded row, nullable
+SQL `NULL`, and `deserialize_heading_breadcrumbs(NULL) == ()` twice.
+
+**Focused and corpus evidence:** G9 owned/live/migration **7 passed**; G4
+**15 passed**; G8 **8 passed**. QA replayed G8 over all **53 files / 2,038,247
+rows**: 271,261 candidates, 7,363 later same-key candidates, 5,220 collision
+groups, 1,256 historical firings, and 31 structurally eligible cases. The
+full generated JSON is exact against the committed artifact after deleting
+only `wall_seconds`. G4's runner, production, and both committed artifacts
+are byte-identical to QA cycle 2, where this same independent QA reran all
+53 files and obtained byte-identical full/summary artifacts (747 occurrences
+in 501 rows; accepted 613 surface = 607 genuine + 6 continuations, zero audit
+errors, 585 path deltas). Repeating that unchanged deterministic 2M-row G4
+run would add no independent evidence; focused G4 and both artifact hashes
+were reverified in this cycle.
+
+**G7 and compatibility:** VA/WA/WV/WI/WY/FED/DC total-headed-zero-rescue
+counts reproduced exactly: 33856/1096/1065/1041,
+51498/1800/1778/1709, 25460/1068/297/271, 18158/541/62/45,
+10219/495/56/27, 54853/1920/1600/1541, and 23694/1216/332/122.
+GA baseline reproduced at **2/28,154**. The **23,617 / 27,209** and GA
+after **2,794** remain honestly classified as merged-panel-only evidence.
+The marker iterator still emits only 3-tuples; Section/full-USC/lone-§/
+bare-state-code suffix cases all match; no removed G8 helper import remains.
+
+**Evaluator:** backend **850 passed, 18 known Starlette deprecation
+warnings**; frontend **25 files / 165 tests passed** with six pre-existing
+React `act(...)` warnings; `tsc --noEmit` clean. `npm ci` reports the unchanged
+lockfile baseline of five audit findings (3 moderate, 1 high, 1 critical);
+frontend manifests have zero sprint diff.
+
+**Release judgment: PASS.** Landed gates are G1, G2, G3-main, G4, G5, G6,
+G8, G9, G10, G12, and G13. G6 exposes 7/8 scope-value rows with the TN gap
+still disclosed. G4 retains measured recall debt (37 bare-code, 47 period).
+G8 deliberately keeps first-wins and defers 31 U.S. trims. G3's sibling
+NO-GO and G11 remain deferred program work, not claims of this sprint.
+Contract and pointer move to unlocked `review`, 1/1 completed, QA cycle 3.
