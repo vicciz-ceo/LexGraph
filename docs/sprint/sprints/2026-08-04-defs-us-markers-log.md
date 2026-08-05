@@ -1481,3 +1481,68 @@ across ten jurisdictions is a program-scope decision, not a panel one.
 **Dispositions accepted:** core-follow-on-2 owns the FED last-entry defect
 (G3) — my held RED stays red until it merges, by design. Merge order
 core-2 → us → preamble resolves the NE ordering concern.
+
+---
+
+## M13 — phase-2 manager: inherited state RE-VERIFIED with positive AND kill controls (2026-08-05)
+
+Predecessor context-exhausted and clean-exited at `c4baf7ce`; QA deliberately
+NOT spawned. Per program law I re-verified every inherited claim I intend to
+build on, before spawning anything. Nothing below is quoted from a doc.
+
+**V1 — tree identity.** Worktree clean, `HEAD == origin/claude/defs-us-markers
+== c4baf7cebaf849bb89e1371dab32e26c62d514b8`. `git config user.email` =
+`256402398+vicciz-ceo@users.noreply.github.com`. Six family-3 rule modules
+present in `backend/app/definition_links/rules/`.
+
+**V2 — suite: `1 failed, 814 passed`** (14.5s), re-run by me in this worktree.
+The single RED is exactly the expected one:
+`test_us_markers_unbounded_last_entry.py::test_real_pipeline_does_not_let_fed_
+part_time_career_employment_swallow_the_amendment_history_tail` — the FED
+last-entry defect in `us_profile.py`'s baseline splitter, owned BY AGREEMENT by
+sprint 2026-08-05-defs-core-follow-on-2 (gate G3). It stays red here until
+core-2 merges. `us_profile.py` is not this panel's to touch.
+
+**V3 — zero-yield rates reproduced EXACTLY (positive control).** My own sweep
+(`markers-mgr-p2-sweep.py`, P-R9 slug-prefixed), through the real `USProfile`
+with `rules/` auto-discovered, over the real parquet corpus:
+
+| Jur | headed | zero-yield | my rate | inherited |
+|---|---|---|---|---|
+| VA | 1,096 | 48 | **4.4%** | 4.4% |
+| WA | 1,800 | 116 | **6.4%** | 6.4% |
+| AL | 1,653 | 230 | **13.9%** | 13.9% |
+
+**V4 — KILL CONTROL, the check the inherited numbers had never had.** I re-ran
+the identical sweep with the registry blinded to family-3 kinds only
+(`entry_splitter_rules_for`/`term_clause_rules_for` → `[]`, everything else
+untouched): **VA 97.2%, WA 98.8%, AL 97.0%** — the exact recorded PRE-build
+rates. So the probe moves when and only when the rules are removed: the
+before→after table is confirmed by me at BOTH ends, and the rules are proven
+load-bearing on the live path (not merely registered). This upgrades the M9
+claim from "reproduced" to "reproduced with a control that could have failed".
+
+**V5 — the ten-jurisdiction extension numbers RE-DERIVED (all ten exact).**
+
+| Jur | headed | zero-yield | rate |
+|---|---|---|---|
+| NJ | 2,379 | 2,372 | 99.7% |
+| NM | 1,625 | 1,578 | 97.1% |
+| NY | 1,479 | 1,479 | 100.0% |
+| NV | 1,262 | 1,262 | 100.0% |
+| OK | 1,214 | 1,146 | 94.4% |
+| MI | 2,879 | 1,116 | 38.8% |
+| ND | 1,026 | 1,023 | 99.7% |
+| MN | 1,108 | 1,016 | 91.7% |
+| ME | 1,001 | 1,000 | 99.9% |
+| OH | 950 | 949 | 99.9% |
+| **TOTAL** | **14,923** | **12,941** | 86.7% |
+
+**Arithmetic correction carried up to the program manager.** The ten named
+jurisdictions sum to **12,941** zero-yield rows, not 19,278. The 19,278 figure
+is M12's TOTAL uncovered residual across ALL uncovered jurisdictions; these ten
+are 12,941 of it (67.1%), and the remaining ~6,337 sit in the long tail of
+other uncovered jurisdictions. Both numbers are right; conflating them
+overstates this phase's reachable target by ~49%. Phase-2's honest headline
+target is 12,941, with the tail named separately.
+
