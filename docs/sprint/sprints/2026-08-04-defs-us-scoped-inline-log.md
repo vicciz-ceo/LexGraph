@@ -3342,6 +3342,7 @@ than either of my two earlier versions. Adopted with attribution.
 
 ---
 
+<<<<<<< HEAD
 ## 2026-08-05 — Manager: discriminator ruled to CORE with our evidence; QA
 cycle 3 launched with the five-label census riding along
 
@@ -3398,3 +3399,382 @@ Marked explicitly as an **ANCILLARY deliverable, NOT a gate**: it must not
 influence any U1-U6 verdict, and QA is told to drop it without penalty if it
 would compromise gate work. A favour for a partner panel does not get to
 dilute an independent verification pass.
+=======
+## 2026-08-05 — QA (cycle 3, independent verification pass)
+
+Workspace verified at `085efe0`. Baseline reproduced exactly: **854 passed, 1
+xfailed, 0 failed**. Read the contract, the full log (S-R1 onward, QA cycle
+1/2 sections in full), D-S15, D-INCLUDES, P-R7, P-R10 before starting. Zero
+`backend/app/` edits this cycle — confirmed via `git status --short`/`git
+diff --name-only origin/main...HEAD -- backend/app/` (three sprint rule files
+only, none touched by me).
+
+### Item 1 — 18 pinned/confirmed misses re-verified: 17/18 captured
+
+Fetched all 18 act_ids (cycle 1's 12 + cycle 2's 6) fresh from the live
+parquet, ran the real unmodified `extract_us_scoped_inline_definitions` on
+each. **17/18 now capture >=1 candidate; `STATE_NY_ARPP_A8_S280-D` still
+captures 0**, exactly the expected, deliberately-out-of-scope
+unquoted-term-convention row. No over-broad widening. 16/18 byte-verified
+against their existing committed fixtures (all match); OH and NY_ARPP (no
+prior fixture) fetched and confirmed directly.
+
+### Item 2 — U4 fresh sweep: 3 NEW confirmed in-vocabulary misses, U4 FAILS again
+
+P-R7-compliant denominator, independently built (own script, own seed
+`20260805`, N=6/jurisdiction, 318 rows, zero regex/keyword touch at draw
+time — grep-audited). Judged by 6 independent parallel agent readers (5
+batches + 1 blind 40-row crossval), plain-language D12 prompt only. **40/318
+POSITIVE (12.6%). Crossval: 39/40 = 97.5% agreement** (the one disagreement,
+`STATE_MT_T28_C2_P4_S28-2-409`, a genuinely borderline no-scope-phrase call).
+
+Divergence proof (non-circularity): family's own regex vs. judges on the
+same 318 rows — **TP=13, FN=27, FP=1, TN=277; recall 32.5%, precision
+92.9%, raw agreement 91.2%** — disagrees both ways, not near-total either
+direction.
+
+Triage (both real capture paths, per the standing dual-path rule): 13
+already captured, 3 F3-rescued (not ours), 24 CANDIDATE_MISS. Of those, 9
+have no in-family trigger at all (out of remit). Of the remaining 15: 6 are
+the already-known unquoted-term tradeoff; 1 is the already-escalated S-R17
+`(N) LABEL. "X"` gap (now confirmed reaching federal ERISA text,
+`USC_T29_C18_S1310` — gate stays byte-untouched); 1 is the already-documented
+bare-`in` adjacency-gate recall cost. **3 are genuinely NEW, distinct from
+every root cause in cycles 1/2**, pinned as RED tests
+(`test_us_scoped_inline_qa_cycle3_new_conventions.py`, 3 tests, real
+byte-verified rows):
+
+1. **Line-wrap whitespace inside the trigger phrase itself** — the corpus
+   text sometimes line-wraps WITHIN "for purposes of"/"as used in"/"when
+   used in" (e.g. "For\n\npurposes of this section"), and `_STRONG_TRIGGER_RE`
+   uses literal single spaces between the words of each phrase fragment, not
+   `\s+`. Measured corpus-wide with a whitespace-tolerant variant of the SAME
+   wording: **523 extra trigger events / 487 distinct rows / 7 states** (OK
+   279, ND 125, KY 74, NY 3, PA 3, DC 2, CA 1) invisible to the shipped
+   regex — 0.21% of total trigger volume (253,255 shipped vs. 253,778
+   tolerant), concentrated in 3 states never previously flagged for this
+   family (OK, ND, KY).
+2. **`shall have the meaning(s) {provided/given} in this <unit>` tail
+   clause** not tolerated by `_STRONG_CONNECTOR_RE` — confirmed on two
+   independent states, Louisiana and Pennsylvania, different exact wording,
+   a recurring drafting pattern.
+3. **`unless [a different meaning ...] context` filler-phrase variance** —
+   the connector's qualifier tolerance is anchored to the literal
+   `unless\s+the\s+context` shape; New York's "unless a different meaning
+   clearly appears from the context" places "the context" at the END, so
+   the filler never matches and the colon opening a cleanly marked, quoted
+   list is never reached.
+
+**U4 VERDICT: FAIL** (third bounce). Baseline reproduced exactly before
+adding tests; after: 3 new RED failures, zero unrelated regression.
+
+### Item 3 — U6 delta, deduped, full corpus
+
+`si_cycle3_qa_u6_full_corpus.py`: **432,830 raw candidates; 369,861 distinct
+(act_id, sorted-terms) pairs; gap 62,969 (14.5% of raw)** — larger than
+cycle 2's 45,298/12.6% gap, consistent with continued vocabulary growth
+(cycle 5's Georgia widening especially inflates AR/GA/TN's raw-vs-distinct
+ratio via corpus text duplication). BEFORE = 0 for all slices, inherited
+architecture fact, not re-derived.
+
+### Item 4 — D-S15 after-measurement
+
+P-R10 sanity, own independent harness driving the REAL
+`matcher._subsection_contains_offset`/`definition_covers_mention` with a
+REAL `USProfile` (never reimplementing containment): reproduces
+`STATE_SC_T12_C6_A9_S12-6-1170` linking **0/4 under innermost, 4/4 under
+outermost** — trusted the aggregate below only after this passed.
+
+Full-corpus AFTER (`si_cycle3_qa_d_s15_after.py`): 18,970 subsection-triggered
+candidates, all resolved (no local-degrade among scope=="subsection" rows,
+by construction — the degrade path stamps scope=="local" instead, a
+separate population, item 6). Of 12,739 with a comparable same-string reuse:
+**2,165 RESCUED by outermost (0→linked), 131 REGRESSED (linked→0), 9,065
+link either way, 1,378 remain unlinked under BOTH policies** (the residual
+genuine-under-link population — SD/NY/VT-style inverted conventions plus
+other unresolved structural gaps). Rescue:regression ratio ~16.5:1,
+consistent with "D-S15 is measurably correct."
+
+### Item 5 — D-Q1 new FP class, SIZED (not accepted as 1/36)
+
+**ESCALATION-relevant data, not a decision.** Full-corpus scan for the EXACT
+interaction (an "and"-joined 2+-term quote chain whose definiens comes from
+the bare-comma fallback, not a recognized idiom), using the real shipped
+regex objects: **only 9 distinct rows in the ENTIRE 2,038,247-row corpus**
+exhibit this exact shape (one, `STATE_NY_AISC_A71_S7101`, was a scan
+false-flag — verified directly against the real rule output, its `means`
+idiom actually matched fine; corrected out). Of the 9: **2 confirmed genuine
+false positives** (`STATE_NE_C48_S48-101`, the already-known judicial
+case-annotation row; `USC_T21_C9_S350g`, newly found — a forward-looking
+"the Secretary shall...define the terms..." directive captured as if it
+were the definiens itself, verified against the real full row text), 6
+genuinely correct captures (real Missouri-style bare-comma synonym
+definitions), 1 borderline-but-directionally-correct (extra qualifier
+clause prepended, real content still present). **Rate within this narrow
+class: ~22% (2/9); absolute corpus volume: ~9/432,830 = 0.002%.** Disclosed
+limitation: this scan used straight-quote needles only; candidates using
+curly quotes in this exact shape would not have been found.
+
+### Item 6 — S-R16 empty-path degrade census, full 53-jurisdiction (not the
+
+18-state sample). `si_cycle3_qa_s_r16_degrade_census.py`: **78,113
+subsection-unit trigger events corpus-wide, 6,145 degrade (7.9%)** — close
+to the earlier 8.4%/38,172 figure. ME 81.5%, AZ 67.3%, VA 35.2% reproduce
+the earlier figures closely. **New finding: ME/AZ/VA is an INCOMPLETE list**
+— six more states sit at comparable-or-higher degrade rates and were never
+previously named: **ND 60.6%, NM 38.1%, OK 37.7%, NV 36.9%, MO 34.8%, NJ
+34.5%**. Spot-checked marker shapes (not assumed) for all six: ND/OK/NV/MO
+show genuine period-style numbering (`"2."`, `"B. 1."`) matching the
+Maine/Florida hypothesis; NM shows genuinely UNMARKED body regions (no
+structure to resolve — benign, not a gap); **NJ shows degrade even with
+PARENTHESIZED markers `(3)`/`(4)` visible nearby** — a different, unexplained
+cause, flagged not root-caused (honest gap).
+
+### Item 7 — Gate re-mutation, scratch copy outside the repo
+
+Copy at `/private/tmp/.../scratchpad/mutation_copy` (rsync, no `.venv`).
+Venv trap reproduced exactly as documented: bare `python -c "import app"`
+from a neutral cwd resolves to the ORIGINAL worktree; `pytest`'s own
+`pythonpath = ["."]` correctly resolves `app` to the copy (verified with a
+throwaway sanity test before trusting any mutation result, then deleted).
+
+- **(a) Removed the bare-`in` strict comma/colon adjacency gate**: exactly
+  **1** new failure — `test_bare_in_strict_comma_or_colon_adjacency_gate_
+  is_load_bearing` — plus this cycle's own pre-existing 3 REDs (unrelated).
+  Isolates cleanly.
+- **(b) Widened `_MARKER_QUOTE_RE`'s gap to <=20 chars**: fails
+  `test_marker_quote_adjacency_gate_is_load_bearing_alabama` exactly, PLUS
+  (expected, not a defect) this cycle's own new
+  `test_the_committed_tests_own_monkeypatch_scope_never_reaches_entries_
+  module` (item 8, below) — that test's own premise depends on this same
+  gate being intact, so it is correctly sensitive to the same mutation.
+
+Both load-bearing gates confirmed intact and correctly isolated on `main`
+(only the scratch copy was ever mutated).
+
+### Item 8 — PA guard pin: MAJOR FINDING, its OWN isolating test is vacuous
+
+`test_pa_construction_clause_guard_is_load_bearing_under_widened_vocabulary`
+does **NOT** actually isolate the shipped `_preceded_by_references_to`
+guard. Its `monkeypatch.setattr(shapes, "_MARKER_QUOTE_RE"/"_IDIOM_RE", ...)`
+patches attributes on `us_scoped_inline_shapes` — but
+`us_scoped_inline_entries.py` (where `_multi_entries`/`_unmarked_multi_
+entries`/`_split_idiom_chain` actually live and actually resolve those
+names) imported them with `from ...shapes import (...)`, a SEPARATE binding
+in `entries.__dict__`, decoupled from `shapes.__dict__` after import time —
+the classic "from X import Y" gotcha. The widening never reaches the code
+that needs it; the PA row's marker-adjacency gap (`(1) References to
+"other enterprises"`, 14 non-whitespace chars between marker and quote)
+is never actually neutralized, so the row stays unreachable **regardless of
+whether the guard exists**.
+
+Proven with 2 new tests
+(`test_us_scoped_inline_qa_cycle3_pa_guard_pin_scoping_gap.py`): (1)
+reproduces the existing test's exact monkeypatch scope, ALSO neutralizes
+the guard, and shows the row STILL stays silent (vacuous — both pass); (2)
+the CORRECTLY-scoped version (patching `entries.py`'s own bound names,
+matching what a real scratch-copy FILE EDIT would do) shows the underlying
+mechanism genuinely IS load-bearing: guard present → silent; guard removed
+→ "other enterprises" captured. **The guard mechanism itself is sound; the
+committed test that is supposed to prove it is not** — the same
+"green-for-the-wrong-reason" trap this sprint has now hit five times, one
+level deeper than the brief anticipated (not a simulated-vs-shipped-design
+drift, but a monkeypatch-scoping bug in the isolating test itself).
+
+### Item 9 — both self-alarming tripwires verified to actually alarm
+
+(a) GA truncation `xfail(strict=True)`: XFAILs today (reproduced). Under a
+simulated fix (monkeypatched `_leading_events` to keep only the first
+trigger event, matching Planner pass 10's own "no-truncation proxy"): **XPASS
+→ suite FAILURE**, confirmed via a direct `pytest.main()` run.
+(b) `denotes` rot-guard (`_assert_idiom_is_unrecognized`): passes silently
+today; when `_IDIOM_RE` is monkeypatched to also recognize `denotes`, the
+guard **fires loudly** (raises `AssertionError` with the exact diagnostic
+message naming the remedy), confirmed directly.
+
+### Item 10 — Gate verdicts
+
+- **U1**: FAIL-WITH-FINDINGS — 3 new confirmed misses this cycle (item 2),
+  beyond the 18 already tracked from cycles 1/2.
+- **U2**: PASS for local/chapter/subsection — D-S15 outermost, live-proven
+  (existing pytest suite + my own independent P-R10-sanity-passed harness,
+  item 4).
+- **U3**: PASS — `git status --short`/`git diff --name-only
+  origin/main...HEAD -- backend/app/` both confirm zero edits under
+  `backend/app/` this cycle (3 sprint rule files only, all pre-existing).
+- **U4**: **FAIL** — third bounce, 3 new confirmed in-vocabulary misses,
+  P-R7-compliant fresh denominator (item 2).
+- **U5**: PASS — baseline states hold
+  (`test_us_scoped_inline_pipeline_baseline_regression.py`, 3/3 passed);
+  full suite 856 passed / 3 failed (this cycle's own RED) / 1 xfailed —
+  zero unrelated regression from the 854/0/1 baseline.
+- **U6**: PASS-WITH-CAVEAT — 432,830 raw / 369,861 distinct measured (item
+  3); the null-`title_number` over-link-ceiling caveat cycle 1 disclosed is
+  inherited, not re-derived this cycle.
+
+Frontend half of the evaluator: **not run** — `frontend/node_modules`
+absent, and `git diff --stat origin/main...HEAD -- frontend/` is empty (the
+sprint diff touches zero frontend files). Said honestly, not claimed.
+
+### Item 11 — Named conflict classes, re-escalated with fresh volumes
+
+- **S-R9 law-wide over-link**: NOW **132,824 of 432,830 candidates (30.7%)**
+  — up from cycle 1's ~27.0%, reflecting continued vocabulary growth. The
+  corpus-structural over-link-exposure numbers (mean 977.6 rows/title, up to
+  122,535 in TX, 36.8% null-`title_number`) are corpus/ingestion facts
+  independent of this sprint's code and were not re-derived.
+- **PA construction-clause pin**: the underlying guard IS load-bearing (item
+  8), but its OWN committed isolating test currently is not — see item 8.
+  The D-INCLUDES-era volumes (22 real construction-clause rows protected vs.
+  4,729 genuine recall rows kept) were not re-derived this cycle (unrelated
+  to code changes since).
+- **SD/NY/VT inverted subsection conventions**: the manager's real-corpus
+  cross-reference count (12 occurrences vs. 202,943 supporting) is
+  corpus-text-only and not code-dependent; my own D-S15 AFTER measurement
+  (item 4) found 1,378 candidates unlinked under BOTH innermost and
+  outermost policies corpus-wide — consistent in order of magnitude with a
+  small structurally-inverted population plus other unresolved gaps, not
+  independently re-attributed to SD/NY/VT specifically this cycle.
+
+### Item 12 — ANCILLARY (not a gate; did not influence any U1-U6 verdict)
+
+Narrow census for the markers panel: do `generally`/`definitions`/`scope`/
+`applicability`/`purpose` appear as a captured LABEL in the `(N) LABEL. "X"`
+shape? Raw counts, full 53-jurisdiction scan: **definitions 237 (184
+`DEFINITIONS` + 53 `Definitions`), purpose 9, applicability 5, scope 1,
+generally 1**; per-jurisdiction breakdown and act_id examples in
+`si_cycle3_qa_item12_label_census.py`'s output (scratchpad).
+
+**Caveat, load-bearing**: spot-checking examples found most hits — likely
+most of the 237 "definitions" — are NOT the genuine per-entry-list trap;
+they are one of two known confounds this sprint already learned about the
+hard way: **federal bill-style `SEC. N. LABEL.` SECTION HEADINGS** (e.g.
+`"SEC. 2. DEFINITIONS."`, `"SEC. 3. SCOPE."`, `"SEC. 2. PURPOSE."` —
+matched by my generic marker-shape regex but not an entry-list marker at
+all) and **citation-tail misparses** (e.g. Colorado `"18-14-101. Definitions.
+\"Hotel facility\" means..."`, the section's OWN citation number matching as
+if it were a list marker — the same class that was 91% of the AL/S-R17 IL
+bucket). **Only one clean, genuine per-entry-list example found**: Maine,
+`"1. Generally. \"Autism spectrum disorder\"...means..."` — and per S-R17's
+own already-decided term-selection rule ("prefer the quoted string over the
+label"), this specific case is likely benign. Not de-confounded further this
+cycle (ancillary, time-boxed); raw counts reported as-is with this caveat,
+no blocklist proposed.
+
+### RED tests committed this cycle
+
+`test_us_scoped_inline_qa_cycle3_new_conventions.py` (3 tests, RED against
+the real unmodified rule, item 2's three new root causes) +
+`qa_cycle3_new_conventions_rows.json` (3 real, byte-verified rows).
+`test_us_scoped_inline_qa_cycle3_pa_guard_pin_scoping_gap.py` (2 tests,
+GREEN — they prove the scoping-gap finding in item 8 by demonstration, not
+by asserting missing behavior). Suite: **856 passed, 3 failed (own RED), 1
+xfailed** — zero unrelated regression from the 854/0/1 baseline.
+
+### ESCALATION
+
+**ESCALATION: item 5's new false-positive class is a recall-vs-precision
+data point, not a decision QA can make (P-R2/D-Q1).** Absolute volume is
+negligible (9 rows / 432,830 candidates corpus-wide) but the within-class
+rate is real (~22%, 2/9 confirmed FPs — one already known, one newly found
+and verified, `USC_T21_C9_S350g`). No action recommended by QA; reported for
+the director/manager to weigh, consistent with every other conflict class
+this sprint has routed rather than resolved.
+
+### Honest gaps — what I could NOT verify, and where numbers carry real uncertainty
+
+- Item 5's exact-interaction scan used straight-quote needles only; the
+  same shape using curly quotes would not have been found (disclosed, not
+  silently assumed complete).
+- Item 6's NJ anomaly (degrade despite visible parenthesized markers
+  nearby) is flagged, not root-caused — a genuinely different mechanism
+  from the period-style hypothesis, not chased further this cycle.
+- Item 11's corpus-structural figures (over-link exposure, PA guard's
+  D-INCLUDES-era volumes, SD/NY/VT's 202,943 supporting count) were
+  inherited from prior cycles' real measurements rather than re-derived —
+  they are either corpus-text-only (code-independent) or not meaningfully
+  affected by code changes since their original measurement; flagged as
+  inherited rather than freshly proven.
+- Item 12's raw label census is NOT de-confounded (SEC.N.LABEL headers and
+  citation-tail misparses both plausibly inflate it, per this sprint's own
+  prior AL/S-R17 experience); only one clean example was hand-verified.
+- U4's judge panel is 6 LLM agent readers (5 batches + 1 blind crossval),
+  not the "qualified human panel" D12 names as an alternative — same
+  inherited methodology limitation as cycles 1 and 2.
+- Did not re-derive the null-`title_number` over-link ceiling (cycle 1's
+  own disclosed limitation, still open).
+
+Commit: 3 test/fixture files + this log entry only; zero implementation
+touched. Final SHA `63c7cea85e9c1c482630addc7162568b1b6523b6`.
+>>>>>>> claude/defs-us-scoped-inline-qa2
+
+---
+
+## 2026-08-05 — Manager: QA cycle 3 BOUNCE accepted; a manager error I own;
+CONVERGENCE ASSESSMENT (promised to the program manager)
+
+### Item 8 indicts MY OWN acceptance — owning it plainly
+
+QA found that `test_pa_construction_clause_guard_is_load_bearing_under_widened_
+vocabulary` **passes vacuously**. I verified the mechanism myself:
+`us_scoped_inline_entries.py:61` binds `_IDIOM_RE`/`_MARKER_QUOTE_RE` via
+`from ...shapes import (...)`, and `_preceded_by_references_to` lives in
+`entries.py` (used at lines 154/180/214). Monkeypatching `shapes._MARKER_QUOTE_RE`
+never reaches the bound copies, so the widening never happens, the PA row stays
+unreachable regardless of guard state, and the test passes for no reason.
+
+**This is my error, not just QA's find.** Two cycles ago I wrote that the pin
+"went GREEN against the Developer's REAL guard" and that this "empirically
+closes the Planner's own honest gap #3". That inference was wrong. I treated
+*turned green when the real guard landed* as evidence that the pin tracked the
+real guard — a post hoc ergo propter hoc, and precisely the reasoning this
+sprint has spent five cycles teaching itself not to accept. The Planner
+disclosed the simulation risk honestly; I closed it on a coincidence.
+
+The guard MECHANISM is sound (QA's correctly-scoped version proves it:
+present → silent, removed → captured). Only its proof was hollow. Fifth
+green-for-the-wrong-reason of the sprint, and the first one *I* introduced.
+
+### CONVERGENCE ASSESSMENT (qa_cycles 3 of 5)
+
+**New in-vocabulary root causes per cycle: 8 → 6 → 3.** Monotonic decline.
+
+Cycle 3's sweep surfaced 15 in-vocabulary candidates, of which **12 were
+already-known classes** (6 unquoted-term tradeoff, 1 S-R17 label gap, 1
+documented bare-in adjacency cost) and only 3 were new. Of those 3, one is
+mechanical and trivially fixable (literal spaces instead of `\s+` inside the
+trigger phrase — 523 events / 487 rows / 7 states) and two are narrow connector
+variants (LA/PA tail clause; NY context-filler ordering).
+
+**Assessment: genuinely converging, not stalling.** The signal is the ratio of
+NEW to ALREADY-KNOWN, not the raw count — a sweep that returns mostly known
+classes is finding the edge of the space.
+
+**But the honest limit must be stated to the director, because it is a
+property of the method and not of this panel's effort**: a sampled sweep bounds
+a miss RATE; it cannot prove literal zero over an unbounded population. That
+was written into the D12 denominator design at the start of this sprint and
+has been true every cycle since. Cycles 4 and 5 will very likely find fewer,
+and may find none — but "none in a 318-row sample" is not "zero in 2,038,247
+rows", and no number of clean cycles converts one into the other.
+
+**My recommendation**: one more dev cycle (3 mechanical fixes + the PA pin
+re-scope) and a QA cycle 4. If cycle 4's sweep returns zero NEW in-vocabulary
+classes, the honest close is *"no confirmed miss survives triage on a sample
+large enough to make a non-trivial miss rate implausible"* — with the residual
+named — rather than a claim of literal zero-miss. That distinction belongs to
+the director, not to me.
+
+### Also this cycle
+
+- **S-R16 corrected upward by QA's full 53-state census**: ME/AZ/VA was an
+  INCOMPLETE list. ND 60.6%, NM 38.1%, OK 37.7%, NV 36.9%, MO 34.8%, NJ 34.5%
+  were never named. Marker shapes spot-checked rather than assumed — ND/OK/NV/MO
+  confirm the period-style hypothesis; **NJ degrades despite visible
+  parenthesized markers, cause unexplained** and flagged rather than guessed.
+  The routed core item gets the corrected state list.
+- **D-Q1 FP class sized honestly**: 9 rows corpus-wide, 2 confirmed FPs
+  (including a newly-found `USC_T21_C9_S350g`). ~22% within-class but 0.002%
+  absolute. Escalated, not decided — correct call by QA.
+- **D-S15 after-measurement**: 2,165 rescued / 131 regressed (~16.5:1), 1,378
+  still unlinked under both policies.
