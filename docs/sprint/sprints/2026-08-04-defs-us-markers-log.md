@@ -4434,3 +4434,76 @@ with act_ids and mechanisms precisely so a successor can dispatch without
 re-deriving. **Handing over with headroom is the correct call, not a shortfall.**
 
 ---
+
+## M40 — M-R5 / R1 LOCATED and MEASURED: it does NOT close (2026-08-05)
+
+§M39 item 4 recorded that `M-R5` could not be found. **It exists — in the OTHER
+panel's record**, which is why searching ours returned nothing. Both artifacts
+verified by me before acting:
+
+- **R1** is item 1 of `## Residual ledger` in
+  `docs/sprint/sprints/2026-08-04-defs-us-multiterm.md` **on branch
+  `claude/defs-us-multiterm`**: "TX `2009.003` double-assertion hazard… the 4
+  ORIGINAL degenerate 1-term rows (`;`, `""`)". Owner: **markers** (entry-boundary
+  damage, per M-R5). Closes when: "markers' entry-boundary work lands **and the
+  degenerate rows stop being produced**".
+- **Their manager id `ad9cf6f6c6a351c50`** is committed at line 3331 of their log.
+
+### MEASURED on our merged tree (`4daca3e`) — R1 STAYS OPEN
+
+`extract_definitions_from_section` on `STATE_TX_Cgv_C2009_S2009.003`,
+`scope='chapter'` → **9 candidates** (their ledger recorded 8; our work added
+one). The four degenerate rows are **still produced, unchanged**:
+
+| terms | len | definition_text |
+|---|---|---|
+| `contested case` | 1 | `;` |
+| `party` | 1 | `;` |
+| `person` | 5 | `; and` |
+| `rule.` | 0 | `''` |
+
+Exactly the four terms named, trailing period on `rule.` confirmed. **Our
+entry-boundary work has landed and the degenerate rows did NOT stop being
+produced, so R1's closing condition is NOT met.** Reported as measured, not
+argued — this is a ledger item another panel is waiting on and it would have been
+easy to assume our merge closed it.
+
+**Family**: these are degenerate-split artifacts of the same
+number/marker-vs-content ambiguity as our 16 class-B pins (cf. OK `gallon` →
+`"one"`). They very likely fold into core-3's anchor outcome tests rather than
+needing separate treatment — but that is a proposal to the owning panel, not a
+unilateral re-assignment.
+
+### INCIDENTAL FINDING — possible problem with ruling U-R13, FLAGGED not ruled
+
+The same probe showed `Governmental body` emitted **twice** on this row:
+
+| order | len | text |
+|---|---|---|
+| 1st (baseline) | 44 | `has the meaning assigned by Section 552.003.` — **idiom RETAINED** |
+| 2nd (our engine) | 28 | `assigned by Section 552.003.` — idiom stripped |
+
+`us_profile.py:1342` is `all_blocks = baseline_blocks + extra_blocks`, and
+persistence is first-wins on `(article_id, sorted(terms))` — so **the version
+that PERSISTS is the baseline's, with the idiom retained.**
+
+U-R13 vacated Q3 Part B's original expectation on the grounds that it "expects
+`definition_text` to retain the idiom, contradicting the engine's universal
+idiom-stripping contract". That reasoning is correct **at the engine level** and
+may be wrong **at the persisted level** — which is the level Part B was arguably
+written at. If so, the ORIGINAL Part B was right, U-R13 was wrong, and the
+Planner's re-authored replacement (which calls the engine directly) tests a value
+production does not persist — the same class of error U-R17 caught.
+
+**Deliberately NOT ruled here.** I measured `extract_definitions_from_section`,
+not the persisted DB rows, and re-litigating a standing ruling on a partial
+measurement is exactly the failure this phase has already corrected three times.
+**Required check for whoever picks it up**: ingest the row through the real
+pipeline and read the PERSISTED `definition_text` for `Governmental body`. If it
+retains the idiom, U-R13 must be revisited and Q3 Part B re-authored a second
+time — against the persisted value.
+
+This is also G8's quality-blindness (§M38) in a third costume: baseline's
+candidate wins on ordering alone, regardless of which is more correct.
+
+---
