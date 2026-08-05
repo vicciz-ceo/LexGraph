@@ -185,7 +185,16 @@ def _parent_redirect_candidates(text: str) -> list[DefinitionCandidate]:
             m = _LETTERED_TERM_RE.match(text, cursor)
             if m is None:
                 break
-            terms.append(m.group(1))
+            # Real drafting sometimes places the enclosing list-sentence's
+            # OWN terminal period INSIDE the closing quote mark (TX's
+            # `(D) "rule."`) -- that period is the SENTENCE's punctuation,
+            # not part of the defined word, the same reasoning
+            # `_extract_leading_terms` above already applies via
+            # `.rstrip(" ,;")` for MT's `"owns,"` (comma/semicolon picked
+            # up the same way); `.` is added to that same strip set here
+            # so a real downstream mention of the bare word ("rule") can
+            # still match this captured term.
+            terms.append(m.group(1).rstrip(" ,;."))
             cursor = m.end()
         if len(terms) < 2:
             continue

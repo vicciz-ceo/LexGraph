@@ -159,6 +159,20 @@ _IDIOM_GAP_RE = re.compile(
 
 
 def _cross_reference_candidates(text: str, *, scope: str) -> list[DefinitionCandidate]:
+    """Ruling M-R17: mirrors `_apposition_candidates`' M-R14 `seen_terms`
+    guard -- "one term, one candidate" (never one term, N candidates from
+    the SAME body). The sibling apposition primitive got this guard under
+    M-R14; this primitive never did, and a real corpus row can genuinely
+    repeat the SAME cross-reference idiom twice (a scrape artifact -- a
+    duplicated paragraph -- not a synthetic edge case; see AR's real
+    `STATE_AR_T4_C28_S2_S4-28-208` row). `entries` itself is built from
+    EVERY match (unfiltered) because a later, skipped-as-duplicate entry's
+    own START position is still needed to correctly bound the PRECEDING
+    entry's `definition_text` window; only the final candidate-emitting
+    pass drops a later occurrence of an already-seen term, keeping the
+    FIRST occurrence's `definition_text` (the same keep-first hazard
+    already accepted and residual-ledger-tracked for the apposition path,
+    now inherited here too -- not a new heuristic)."""
     entries: list[tuple[str, int, int]] = []
     for term_match in _QUOTE_TERM_RE.finditer(text):
         gap = text[term_match.end() : term_match.end() + 250]
@@ -171,11 +185,15 @@ def _cross_reference_candidates(text: str, *, scope: str) -> list[DefinitionCand
         entries.append((term, term_match.start(), term_match.end() + idiom_match.end()))
 
     candidates: list[DefinitionCandidate] = []
+    seen_terms: set[str] = set()
     for index, (term, _start, definition_start) in enumerate(entries):
         end = entries[index + 1][1] if index + 1 < len(entries) else min(len(text), definition_start + 400)
+        if term in seen_terms:
+            continue
         definition_text = text[definition_start:end].strip()
         if not definition_text:
             continue
+        seen_terms.add(term)
         candidates.append(DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope))
     return candidates
 
@@ -217,11 +235,46 @@ def _leading_quote_term(block: str) -> str | None:
     return m.group(1) if m else None
 
 
+# Ruling M-R18: the position-0-only guard above is provably correct for a
+# block baseline's OWN splitter produced (`us_profile._split_into_numbered_
+# blocks` always STRIPS a block's leading entry marker before handing the
+# block to any `TermClauseRule`, so an already-covered term sits at
+# position 0 with no marker in front of it there -- `_leading_quote_term`
+# alone is exactly right for that shape, unchanged, still the ONLY check
+# that applies to it). But an `EntrySplitterRule`'s WHOLE-TEXT contribution
+# (e.g. `us_multiterm_shared_clause.py`'s TX-scoped `_split_parent_redirect_
+# whole_text`) bypasses that splitter entirely and hands over the RAW
+# section text -- markers ("(1)", "(2)", "(A)", ...) and all, still
+# literally present, just no longer sitting at position 0 of their OWN
+# block. Every position where baseline's splitter WOULD have recognized a
+# new entry -- a marker immediately followed by a quote, at the start of a
+# line -- is still a term baseline's own per-block pass independently
+# already captures elsewhere (from ITS OWN, separately-split block for
+# that same entry); this scans for every such position, not only position
+# 0, so the guard also fires inside a whole-text contribution. Requires an
+# actual marker before the quote (unlike the position-0 check), which is
+# exactly what keeps this from ever firing on a block starting mid-
+# sentence with a bare quote and no marker (baseline already stripped the
+# marker there, so there is nothing left for this pattern to match) --
+# DC's `"parent"` shape (`test_dc_parent_non_leading_quote_block_is_still_
+# captured`, M-R16) has no parenthesized marker anywhere near its quote,
+# so this pattern is a no-op for it, same as before.
+_ENTRY_LEADING_QUOTE_RE = re.compile(r'(?:\A|\n)\s*\([^\s()]{1,10}\)\s*[“"]([^”"]+)[”"]')
+
+
+def _leading_quote_terms(block: str) -> set[str]:
+    terms = {m.group(1) for m in _ENTRY_LEADING_QUOTE_RE.finditer(block)}
+    leading = _leading_quote_term(block)
+    if leading is not None:
+        terms.add(leading)
+    return terms
+
+
 def _parse_block(block: str) -> list[DefinitionCandidate]:
     candidates = _apposition_candidates(block, scope="law-wide")
-    leading_term = _leading_quote_term(block)
+    leading_terms = _leading_quote_terms(block)
     for candidate in _cross_reference_candidates(block, scope="law-wide"):
-        if candidate.terms and candidate.terms[0] == leading_term:
+        if candidate.terms and candidate.terms[0] in leading_terms:
             continue
         candidates.append(candidate)
     return candidates
