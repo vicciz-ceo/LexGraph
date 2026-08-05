@@ -308,3 +308,54 @@ fetched 2026-08-05 by this Planner directly into this worktree's own
 read by the committed test suite itself (program rule prior-R6 — suites
 run offline). SHA-256 of the row's `text` field:
 `3fe2c0d1bc4213dda7d56b0aa79677a6460341722bdafe7ead42cda9bd95ec67`.
+
+## `g12_il_base_rates_competitive_service_row.json`, `g12_il_government_person_motion_dropped_row.json`, `g12_pa_references_to_construction_clause_row.json` — G12 `includes`-idiom RED fixtures (2026-08-05)
+
+3 REAL rows (all original parquet columns, values unmodified) — sprint
+`2026-08-05-defs-core-follow-on-2`, gate G12 (director ruling
+D-INCLUDES: widen `_MEANS_IDIOM_GAP_RE` to the `includes`/`shall
+include` defining-verb class, boundary AND emission together, with a
+mandatory targeted "References to" construction-clause guard).
+
+1. **`STATE_IL_C220_A5_S16-102`** (220 ILCS 5/16-102, Illinois Public
+   Utilities Act), from `us_il_statutes.parquet` — genuine SWALLOWING:
+   the real `"Base rates" means ...` entry's `definition_text` today
+   illegally runs on to absorb the immediately following, separately
+   quoted `"Competitive service" includes ...` entry whole (1,047 chars
+   instead of the true ~737), because `includes` is not yet a
+   recognized entry-starting idiom. SHA-256 of `text`:
+   `88c0b8caffd8f5679b57f6ea9459d0f023d2e5b923e74744aed3258b185e5b30`.
+2. **`STATE_IL_C735_A110_S10`** (735 ILCS 110/10, Illinois Code of Civil
+   Procedure), from `us_il_statutes.parquet` — genuine DROP: "Government",
+   "Person", and "Motion" are each real `"..." includes ...` entries
+   that appear BEFORE the row's first `means`-idiom entry ("Moving
+   party") — today they are not swallowed into anything (nothing
+   recognized precedes them), they simply never appear in the output at
+   all. Proves the manager ruling's "boundary-without-emission would be
+   a silent-drop bug" concern is not hypothetical. SHA-256 of `text`:
+   `df62b18f3c5f732acedb4b6eb1755fe1b785a8a45917284d5632064651492fd8`.
+3. **`STATE_PA_T15_C57_S5749`** (15 Pa.C.S. Section 5749, PA nonprofit
+   corporation law), from `us_pa_statutes.parquet` — the mandatory PA
+   construction-clause guard shape: `"For the purposes of this
+   subchapter: (1) References to "other enterprises" shall include
+   employee benefit plans and references to "serving at the request of
+   the corporation" shall include ..."` — a rule about how OTHER text
+   should be read, not a `"X" means Y` definition. This row's own real
+   `section_title` ("Application to employee benefit plans.") is a
+   genuine heading (PA is one of the 7 states already working off
+   `section_title`), so it does not reach `heading_was_derived=True` in
+   the live pipeline today — the fixture's own test forces that kwarg
+   deliberately (documented in the test file) because the guard is a
+   REQUIRED, program-wide property of `_extract_inline_quoted_
+   definitions` itself, not a property of which jurisdiction happens to
+   reach it via IL/CA/GA's placeholder-heading convention. Verified
+   live: this row's primary `"(N)"`-block splitter also yields nothing,
+   so forcing the kwarg exercises the same fallback function real
+   placeholder-heading rows do. SHA-256 of `text`:
+   `f57e15bb1708feba189d952d400b750ceb9624d2cb448c22715b54fcf2c2fe0a`.
+
+Provenance (all 3): `vaquill/open-us-law` dataset snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad`, fetched 2026-08-05 by this
+Planner directly into this worktree's own `backend/.venv` (`pyarrow`
+already installed for this sprint), never read by the committed test
+suite itself (program rule prior-R6 — suites run offline).
