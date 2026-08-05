@@ -4254,3 +4254,87 @@ output as findings. That is the standard this panel needs, and it is the direct
 reason the class-B boundary is defensible enough for the Planner to pin against.
 
 ---
+
+## M38 — QA-2: SIX defects in ALREADY-MERGED code; two of my own brief's claims were wrong (2026-08-05)
+
+### My verification of QA-2's structural claims
+
+| Claim | My check | Verdict |
+|---|---|---|
+| "26,028" never appeared in the module docstring | `git log --all -S"26,028"` on `us_markers_boundary.py` | **CONFIRMED — empty.** The string lives in the LOG (§M9 line 1344). §M22 asserted "the module docstring names FED 26,028"; that was wrong |
+| `TRAILING_STOP_RE` excludes only the FIRST annotation block per row | Read source | **CONFIRMED.** L205-206: `stop = TRAILING_STOP_RE.search(text)` / `limit = stop.start()…` — computed ONCE, then reused as the ceiling for every subsequent `finditer` |
+| The MI/NY holds are section-yield, not row counts | Read §M16 origin | **CONFIRMED.** M16: "MI already captures **1,763 of 2,879**". M22's NY reconciles identically (1,479−1,262=217; 1,479−1,181=298) |
+| All 64 candidates verified, 6 defects | Read preserved `qa2-t1-final-table.tsv` | 64 rows present, 6 marked DEFECT |
+
+### TWO errors of mine, both caught by the agent I briefed
+
+1. **I told QA the MI/NY holds were "row counts (sum of candidates across headed
+   sections), not section counts."** That is backwards. I took it from the sweep
+   script's own docstring ("MI's 1,763 and NY's 298 are ROW counts") without
+   checking it against the numbers' origin in §M16. **The sweep script's docstring
+   is wrong and should be corrected by its owner.**
+2. **I told QA the "FED 26,028" claim lived in the module docstring.** It never
+   did. I inherited that from §M22/§M23 and passed it on unchecked.
+
+Both are the same failure: **I propagated a label without checking its
+provenance**, in a brief that explicitly instructed the agent that probe
+arguments are part of the claim. The agent applied that standard back to my own
+brief, which is exactly what it should do. Combined with §M34's attribution error,
+that is three propagated-or-ratified mislabels from this seat in one phase — all
+three caught by re-derivation, none by re-reading.
+
+### SIX confirmed defects in the MERGED tree (Developer A's exemption population)
+
+QA re-derived the exempted population from scratch rather than trusting the
+inherited "42" and got **64** (47 even restricting to Developer A's original
+7-jurisdiction tree). It could not reconcile to 42 — no list of the 5
+already-checked candidates was ever enumerated — so it **verified all 64** rather
+than guessing a subset. Correct call.
+
+| # | Jur | act_id / term | Defect |
+|---|---|---|---|
+| 1 | VA | `STATE_VA_T65.2_C1_S65.2-101` `Employee` (5,892) | TRUNCATION — hard-stop misfires on `(1)`, a NESTED sub-item of item `m.` |
+| 2 | WA | `STATE_WA_T46_C96_S185` `confidential or proprietary information` (9,109) | **SWALLOW** — real definition ends at a semicolon; capture runs ~8,900 further chars through an unrelated franchise-termination provision because `(j)` isn't a recognised hard-stop |
+| 3 | FED | `USC_T42_C7_S1395x` `medical and other health services` (10,122) | TRUNCATION — Medicare §1395x(s); cut at item `(4)` only because `X-ray` is capitalised. Items (4)+ lost |
+| 4 | FED | `USC_T8_C12_S1101` `serious criminal offense` (6,803) | TRAILING-ANNOTATION SWALLOW — **architectural**, see above |
+| 5 | MN | `STATE_MN_P352_356B_C353_S353.01` `Public employee` (17,531) | TRUNCATION — same nested-marker mechanism as #1 |
+| 6 | MN | `STATE_MN_P300_323A_C302A_S302A.011` `Affiliate` (7,767) | **MULTI-DEFINITION SWALLOW** — one 7,767-char candidate containing FOUR terms' content (`Announcement date`, `Associate`, `Consummation date` all verbatim inside), because `_TIGHT_IDIOM_RE` rejects their `"X," when used in reference to…, means` phrasing |
+
+**Routing — and it splits:**
+- **#1, #3, #5 (and likely #2)** are the nested/parenthesised-number-vs-marker
+  ambiguity again → **core-3's anchor item**. Fourth independent arrival.
+- **#4 and #6 are OURS.** Both live in `us_markers_boundary.py`, our own module,
+  and neither is the core ambiguity: #4 is a single-global-`limit` architecture
+  that cannot handle multiple annotation blocks in one large row, and #6 is our
+  own tight-idiom gate being too tight. **These need REDs from the Planner and a
+  Developer fix cycle — queued, not started** (the Planner is already carrying
+  three items; adding six would be overload).
+
+### Other results
+
+- **Task 2**: `USC_T8_C12_S1101` `immigrant` measures **exactly 26,028** chars,
+  is genuinely bounded by the real next term `immigrant visa`, and is
+  `bounded=True` — so the length ceiling **never applies to it by construction**.
+  Calling it "a swallow the ceiling was added to stop" is wrong twice over.
+  **§M9's sentence grouping it with TN 153,837 / AZ 20,925 as fixed swallows
+  needs correction by its owner.** Developer A's counter-finding is upheld.
+- **Task 3 (P-R7 signal-agnostic)**: denominator = every row containing a
+  defining-idiom shape regardless of heading. ME 0.1%, MN 0.2%, OH 0.0%
+  headed-only zero-capture — family 3's mandate is being met. **NY is the
+  outlier at 81.9%**, root-caused: NY's dominant plain quoted-term-means shape is
+  registered nowhere (Developer B's NY module targets a different shape by its
+  own docstring). **This is precisely what devC's held widening fixes** — NY zero
+  drops 1,181→160 on its branch. Independent corroboration of devC's value from a
+  task that was not assessing devC.
+- **Task 4**: both holds **intact on the tree that ships today** — MI 1,763 and
+  NY 298, unchanged, measured. On devC's branch MI **2,711** / NY **1,319**,
+  **exactly matching M24's claim**. M24 verified accurate here.
+
+### Honest gaps QA named (carried forward, not smoothed)
+
+58 "genuine" verdicts rest on three automated signature checks plus hand-reading
+the 12 largest — evidence, not proof, for the smaller ones. The Task-3 idiom
+detector inherits QA cycle 1's documented bucket-4 gap, so those rates are LOWER
+BOUNDS. TN 153,837 / AZ 20,925 were not independently verified.
+
+---
