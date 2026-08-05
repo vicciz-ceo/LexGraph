@@ -3618,3 +3618,79 @@ every shape this cycle — no escalation needed. The one open design
 question (shape 7's jurisdiction scope: explicit list vs. blanket + reorder)
 is flagged above with a stated lean, per the brief's own guidance to hand
 genuine trade-offs to the manager rather than silently pick a side.
+
+---
+
+## 2026-08-05 — Manager: Planner cycle-7 verified; shape-7 scope ruled; Developer briefed
+
+### M-R48 — Handoff verified (bf4fdcf)
+
+- Diff vs `6910eb0`: 6 new RED test files + 1 fixture + log + 3 scratchpad
+  scripts. **Zero `backend/app/` edits.** Role separation held.
+- Suite reproduces: **23 failed / 820 passed**.
+- **Fixtures re-read byte-for-byte against the parquet: 10/10 byte-exact**,
+  zero fabricated, titles matching.
+- **M-R44 is genuinely satisfied**, and I checked the mechanism rather than
+  the claim. `test_mississippi_winning_rule_is_b2_not_some_other_rule`
+  asserts `_winning_rule("US-MS", body) is _b2_words_have_meanings_indicated`
+  — **identity on the function object** — plus explicit
+  `_ca_...(body) is None` / `_ne_...(body) is None`. That fails if the wrong
+  rule wins, which is exactly the invisible-starvation failure I required be
+  made visible. The docstring even names the hazard ("an over-widened B1
+  silently winning ahead of it").
+- Measurement corrections accepted: **shape 2 was under-ranked** — QA's
+  "mid" band was wrong; it is **#2 by volume (17,477 uncaptured)**. Shape 1
+  = 31,048 total / 29,678 uncaptured. ~59,900 distinct rows cross-check
+  Q-D2's 59,461 **within 1%**, which is real corroboration of the
+  denominator from an independently-built classifier.
+- **AK/MA/RI/PR near-zero signal flagged as corpus-ENCODING lower-bounds,
+  not clean zeros** — correctly refusing to certify a zero it cannot
+  distinguish from an artifact. Carried forward to D-CERT.
+
+### M-R49 — RULING: shape 7 ships as an EXPLICIT jurisdiction list
+
+The Planner raised this rather than deciding it, with a stated lean. Ruling:
+**explicit list (`US-CA`, `US-IN`, `US-MS`), NOT blanket `US-*`.** Reasons:
+
+1. Blanket claims **1,173 rows vs 352–440** — 3.3x more, across states never
+   inventoried for this idiom. Under D-CERT that is new unmeasured exposure
+   of precisely the kind P-R7 exists to surface.
+2. The **NE preemption question is open** — the Planner honestly did not run
+   the targeted NE check. Shipping blanket would resolve an open question by
+   assumption.
+3. The seam's own remedy principle for exposure is **narrower rules**. The
+   explicit list IS the narrower rule.
+
+**Zero-miss is satisfied, not traded away**: shape 7 membership is now
+measured per-state, so any other state carrying the idiom appears in the
+denominator as a **named residual** rather than a silent miss. Widening later
+with measurement is cheap; un-shipping false positives from a certified
+close is not.
+
+### M-R50 — Developer scope fences (from program notes)
+
+- **Shape 1 is OUT of scope.** Headings measured its ownership and split it:
+  recognition is not the gap — extraction (bucket A → markers) and
+  body-only-no-signal rows (bucket B → un-owned, D-CERT worklist) are. Our
+  shape-1 row stays **attribution-only**. The Developer does not touch it.
+- **D-INCLUDES applies**: includes-family verbs are now in the program
+  defining-verb vocabulary (naive quoted-term anchor, **no tightened guard**).
+  Any shape implementation touching includes-variants builds under it.
+- **FP remedy is fixed in advance**: shape 2 measured **13.3%** FP, shape 3
+  **3.3%**, and *every* FP is a forwarding-phrase pointer. The remedy is
+  extending `_B1_FORWARDING_PHRASES` to the widened branch — **a narrower
+  rule, never a gate**. This is settled; the Developer implements it rather
+  than re-deciding it.
+- **Shapes 2, 3, 6 share `_b1_trigger_colon_or_quote_means`** — all three
+  test files run after ANY touch to it, and shapes 2+6 land as ONE combined
+  regex change per the Planner's reasoning (stacking them separately risks
+  one widening breaking the other's anchoring).
+
+### M-R51 — Model/effort for the Developer spawn
+
+Developer: **Sonnet / medium** — design is settled (D4 item list, ruled
+shape-7 scope, pre-decided FP remedy) and 23 REDs are the oracle; what
+remains is implementing against a fixed contract in one file. Per P-R6
+Developer is Sonnet medium. **Haiku considered: no** — shared-function
+widening with a silent-starvation failure mode and a measured FP surface is
+more than a bounded mechanical change. `model=inherit` not used.
