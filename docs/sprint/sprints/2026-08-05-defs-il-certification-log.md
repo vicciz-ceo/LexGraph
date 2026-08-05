@@ -1150,3 +1150,29 @@ The fix must therefore **preserve** D-1b's own green E6 test
 (`test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_is_captured`),
 which is the reason that splitter exists — this is a precision/recall
 boundary to draw carefully, not a rule to delete.
+
+**C4 Developer spawned** — agentId `af80d94e32944c340`, **Sonnet/medium**
+(bounded fix against an existing RED, but sitting on a precision/recall
+boundary that must be drawn deliberately; Haiku considered: **no**).
+Worktree `defs-il-dev4`, branch `claude/defs-il-cert-dev-ltr` off
+`6ed6aad`, own venv verified, sole writer.
+
+Briefed with the constraint that makes it non-trivial: **D-1b's `::-`
+splitter must keep working** — it is why
+`test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_is_captured`
+is green — so the real question is a boundary, *when is a `::-` line a
+top-level entry versus a continuation of an enclosing `:-` block*, to be
+drawn deliberately with rejected alternatives documented. Explicitly told
+**not** to blacklist the string `ltr` or strip HTML: a markup-shaped
+filter would paper over the structural confusion and would not survive
+the next markup variant; if a narrow markup guard is genuinely needed
+*in addition to* the structural fix, it must be argued, not assumed.
+
+Required to measure beyond pytest: a corpus-scale A/B of changed
+candidate sets, confirmation that only garbage was removed (any genuine
+term lost is a P-R2 trade to report, not absorb), and the spurious-count
+before/after. Told plainly that green tests are necessary but not
+sufficient — this defect was itself missed by a clean 0/110 QA sample of
+the wrong population — and to correct me if my root cause is wrong, since
+five manager rulings in this program have already been corrected by
+agents who checked instead of complying.
