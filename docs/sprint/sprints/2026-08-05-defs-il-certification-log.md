@@ -1150,3 +1150,203 @@ The fix must therefore **preserve** D-1b's own green E6 test
 (`test_class_d_variant_double_colon_entry_list_under_a_trigger_preamble_is_captured`),
 which is the reason that splitter exists — this is a precision/recall
 boundary to draw carefully, not a rule to delete.
+
+---
+
+## 2026-08-05 -- Developer (Sonnet/medium), C4 fix loop, worktree `defs-il-dev4` -- `'ltr'` fixed, first attempt caught and discarded by corpus-wide A/B
+
+### Scope discipline, verified before and after
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-dev4`, branch
+`claude/defs-il-cert-dev-ltr`, at `6ed6aad`, clean at start and HEAD
+unchanged throughout (`git rev-parse HEAD` re-checked before commit).
+Own venv verified: `import app` -> this worktree's `backend/app`. `git
+config user.email` -> noreply address, confirmed. Baseline reproduced
+myself before writing anything: `4 failed, 855 passed` -- exact match to
+the brief. Found both named tests before starting:
+`test_definition_links_il_certification_ltr_markup_overcapture_live.py`
+(RED: `test_span_dir_ltr_markup_must_never_be_captured_as_a_defined_term_live`;
+GREEN control:
+`test_genuine_definitions_in_the_same_article_survive_the_fix_live`) and
+the E6 `::-` test in `test_definition_links_il_missed_classes_live.py`
+(GREEN at baseline). Did not edit any test file, `profiles.py`,
+`pipeline.py`, `sections.py`, `extract.py`, anything under
+`backend/tests/certification/`, or `c1_span_population.jsonl` --
+`git diff --name-status HEAD -- backend/tests
+backend/app/definition_links/profiles.py
+backend/app/definition_links/pipeline.py
+backend/app/definition_links/sections.py
+backend/app/definition_links/extract.py` is **empty**, checked at the
+end. Did not touch `test_definition_links_il_siman_chelek_containment_live.py`
+-- still RED at the end, confirmed below.
+
+### Live root-cause re-confirmation -- the manager's own account was right
+
+Ran the RED test directly: today's `created_definitions` for `צו
+המועצות המקומיות (מועצה מקומית תעשייתית נאות חובב)` art.1 contained
+exactly 2 `Definition` rows with `'ltr'` in `terms` -- one with
+`('ltr','ltr','ltr','ltr','ltr','ltr','ltr')`, one with `('ltr',)` --
+matching the manager's brief exactly. Traced the mechanism by hand
+against `extract.py` (read-only) and the vendored fixture: baseline
+`_split_into_blocks` correctly folds `:- "תחום המועצה" -` plus every
+`::-`-prefixed land-block ("גוש") continuation line into ONE block/one
+candidate (`::-` never matches `_ENTRY_START_RE`, which requires
+literal `:-`). D-1b's `_split_double_colon_dash_entries`
+(`il_definitions_section_entry_splitters.py`) independently re-scans
+the SAME section text for `::-` lines and re-splits each into its own
+block; `HebrewProfile.extract_definitions_from_section` (frozen) unions
+both block sets and runs baseline's own frozen `_parse_block` over
+every block from either source. Most re-split land-block lines have no
+quote at all (`_parse_block` -> `[]`, harmless). Eight lines contain
+`<span dir="ltr">NNNNNN_N</span>` (an RTL-forcing HTML wrapper around
+land-block numbers); `dir="ltr"` is itself a `"..."`-quoted span
+`extract._QUOTE_RE` cannot distinguish from a real term, so those 8
+re-split lines manufacture 8 spurious `DefinitionCandidate`s (1 with
+seven `'ltr'` terms, 7 with one each), which `pipeline.py`'s
+`(article, sorted(terms))` dedup collapses to the 2 persisted rows
+above. Root cause confirmed exactly as briefed; no correction needed.
+
+### First attempt: a whole-text structural guard -- built, tested green, then DISPROVEN by the mandated corpus-wide A/B, and discarded
+
+Added a guard to `_split_double_colon_dash_entries`: skip entirely
+whenever the section text contains any `:-`-prefixed line anywhere
+(mirroring `_split_marker_less_prose`'s own existing guard, and
+justified by the fact that baseline's own accumulation, once started by
+its first `:-` line, never resets for the rest of the text). This fixed
+the RED, kept the sanity control and E6 green, and reproduced the
+brief's exact `3 failed, 856 passed`. Before treating that as done, ran
+the corpus-scale A/B the fix's own verification section requires
+(pre-fix and post-fix snapshots of `HebrewProfile.
+extract_definitions_from_section`'s output for every definitions-heading
+article across all 6,133 real corpus files, diffed by
+`(terms, definition_text)`). Result: **33 articles changed, 112
+candidates lost, only 8 containing `'ltr'`.** The other **104, across 32
+real law files**, were genuine nested sub-definitions the buggy splitter
+was (as an unintended side effect) correctly recovering -- e.g. `חוק
+הגנת הצרכן` art.1's `:- "נותן ערבות אחר" - ... לעניין הגדרה זו -` (ending
+in a DASH, not the COMMA baseline's own frozen `_NESTED_MARKER_RE`
+requires) is followed by three genuine `::-` nested terms (`"בעל רישיון
+נותן שירותי תשלום יציבותי"`, `"מבטח"`, `"רישיון למתן אשראי"`/`"רישיון
+למתן שירותי פיקדון ואשראי"`) that baseline alone folds unparsed into
+`"נותן ערבות אחר"`'s own `definition_text`. Same shape recurred in `חוק
+ניירות ערך`, `חוק עידוד התעשיה (מסים)`, `פקודת התעבורה`, `חוק מיסוי
+מקרקעין`, and 27 more files -- a real, wide pattern, not an edge case.
+Verified every one of the 32 files by re-reading the actual corpus
+source, not just the diff output. This would have been a silent
+104-term precision-for-recall trade — **escalating this to myself, per
+P-R2, meant not shipping it.** Discarded before commit; the working tree
+never carried it into a passing state I would have reported as final.
+
+### The rule actually shipped: a markup-attribute-quote filter, not a section-wide guard
+
+Replaced the whole-text guard with `_is_markup_quote_only`: for a
+candidate `::-` line, parse its quoted SPANS with the same
+open-quote/close-quote pairing `extract._QUOTE_RE` itself uses (checked
+at that granularity, not per raw `"` char, because a closing quote is
+never itself preceded by an `attr=` token -- only an opening quote can
+be), and reject the line only when it has at least one quoted span AND
+every span's opening quote is immediately preceded by an HTML/wiki
+attribute-assignment token. That token pattern
+(`[A-Za-z][A-Za-z-]*(?:=|\{\{=\}\})$`) is not new or `'ltr'`-specific --
+it is the exact `_HTML_ATTR_RE` `backend/tests/certification/
+c1_denominator.py` already established and named
+`wiki_table_markup_attribute` for the unrelated MediaWiki table-header
+case, reused here for the same reason it was named there: an attribute
+quote is never Hebrew legal-drafting text. A line with a genuine quote
+anywhere (even beside an incidental markup one) is unaffected; a line
+with no quote at all is also unaffected (harmless either way -- baseline
+`_parse_block` already yields `[]` for it, unaided). Nothing is
+stripped, rewritten, or blacklisted by value; the filter only decides
+which blocks this rule contributes to the union baseline already
+receives.
+
+### Measurement 1 -- corpus-scale A/B (mandated, re-run after the real fix)
+
+Same methodology as the discarded attempt, re-run after adopting the
+filter, full 6,133-file corpus, no sampling:
+
+```
+definitions-heading articles (pre and post, unchanged): 4,785
+articles with ANY changed candidate set:                1
+total candidates lost:                                  8
+total candidates gained:                                0
+```
+
+The one changed article is exactly the target fixture (`צו המועצות
+המקומיות (מועצה מקומית תעשייתית נאות חובב)` art.1). Every one of the
+32 previously-regressed files now shows **zero** diff against the
+pre-fix snapshot -- confirmed by re-running the identical diff script
+against the new post-fix snapshot, not assumed from the aggregate count.
+
+### Measurement 2 -- confirm only garbage was removed
+
+All 8 lost candidates carry `'ltr'` in `terms` (one 7-term candidate,
+four/two/one-count 1-term candidates keyed by their differing
+`definition_text`, matching the 7 individual land-block lines' distinct
+trailing prose -- reconciles exactly against the manager's own "19
+candidates, 8 spurious" live finding). Zero lost candidates lack `'ltr'`.
+Zero candidates gained anywhere in the corpus. No precision/recall trade
+survives in the shipped version -- the only casualties are the 8
+markup-derived rows the fix exists to remove.
+
+### Measurement 3 -- quantify the win
+
+Corpus-wide, pre-fix: **8 spurious `'ltr'`-class candidates, 14 `'ltr'`
+term instances, confined to exactly 1 file / 1 article** (not spread
+thin across many files -- checked explicitly, not assumed). Post-fix:
+**0 and 0.** 100% elimination, zero collateral, corpus-wide.
+
+### Suite
+
+`4 failed, 855 passed` (baseline) -> **`3 failed, 856 passed`** (final),
+exactly the brief's expected end state. The 3 remaining failures,
+individually re-confirmed unchanged by this fix:
+`test_c2_every_span_carries_exactly_one_cluster_id` (reads the frozen,
+committed `c1_span_population.jsonl` manifest -- computed before this
+fix, untouched by it, same failure content before and after,
+out of my scope) and the 2 `test_definition_links_il_siman_chelek_
+containment_live.py` containment REDs (untouched, still RED, confirmed
+via targeted re-run). Target file also re-checked standalone: 9/9 pass
+(`test_span_dir_ltr_markup_must_never_be_captured_as_a_defined_term_live`,
+`test_genuine_definitions_in_the_same_article_survive_the_fix_live`, and
+all 7 of `test_definition_links_il_missed_classes_live.py` including
+E6). `bash scripts/contract_lint.sh 2026-08-05-defs-il-certification` ->
+`PASS 349 2026-08-05T13:36:29Z`. `git diff --name-status HEAD --
+backend/tests backend/app/definition_links/profiles.py
+backend/app/definition_links/pipeline.py
+backend/app/definition_links/sections.py
+backend/app/definition_links/extract.py` -> empty.
+
+### Files changed
+
+`backend/app/definition_links/rules/il_definitions_section_entry_splitters.py`
+only (277 lines, under the 300-line style gate) -- adds
+`_HTML_ATTR_RE`/`_QUOTE_SPAN_RE`/`_is_markup_quote_only`, wires the
+filter into `_split_double_colon_dash_entries`, and rewrites the module
+docstring to document the boundary chosen, the first attempt that was
+tried and disproven, and why. No other file touched.
+
+### Honest gaps
+
+- The discarded first attempt is real, working code that lived in this
+  worktree for part of this session before being replaced -- not
+  reported after the fact from memory, but I am flagging that its
+  104-candidate regression was caught ONLY because the corpus-wide A/B
+  is mandatory in this fix loop; a Developer relying on the suite alone
+  (`3 failed, 856 passed`, every named test green) would have shipped it.
+  That is this sprint's own recurring lesson
+  (`lexgraph-sprint-verification-lesson`) reproducing inside a single
+  fix loop, not just across cycles.
+- `_is_markup_quote_only` is scoped to `_split_double_colon_dash_entries`
+  only. `_split_marker_less_prose` (sub-shape 1) was not touched or
+  re-audited for the same class of defect -- it returns the WHOLE body
+  as one block only when baseline finds zero `:-` lines at all, a
+  narrower and differently-shaped situation than sub-shape 2's, and no
+  live or corpus-wide evidence surfaced this session suggesting it
+  manufactures markup-derived terms. Not proven clean by measurement,
+  only by inspection -- naming this rather than implying full coverage.
+- Did not re-run the 32-file regression scan against `_split_marker_
+  less_prose`'s own candidate set (out of scope: the brief's defect and
+  both named tests are specific to the `::-` splitter). If a future
+  cycle finds a markup-quote defect in sub-shape 1, this same
+  `_is_markup_quote_only` helper is directly reusable.
