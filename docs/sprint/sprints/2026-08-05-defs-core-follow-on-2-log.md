@@ -204,5 +204,30 @@ Resolver work (G2+G4) lands **before** dependent plumbing (G5). **G3 is
 independent** — if plan2 returns first, its Developer starts immediately
 without waiting on the resolver pair.
 
+### Phase 0b addendum — program-manager approvals (binding)
+
+1. **Scout-protocol authorship settled.** Scout #4 stays read-only; the
+   manager commits its protocol. Confirmed as manager-scope hands-on work
+   under the harness (doc/contract commits), not a role deviation — the
+   requirement is the committed artifact plus a clean authorship trail, and
+   single-writer-per-tree is the better discipline for reaching it.
+
+2. **G4 RESULT-REPORTING EXPECTATION (binding on Planner, Developer, and
+   QA).** G4's before/after must report the two failure modes **separately**:
+   - **empty path** (the S-R16 class — visibly fails to scope), and
+   - **non-empty WRONG path** (e.g. Oregon's top-level `'1'` where `(2)`
+     governs — silently MIS-scopes assertions).
+
+   Collapsing them into a single number is not an acceptable report: it
+   hides G4's actual effect, and the two carry different downstream costs.
+
+3. **G4 discriminator bar (binding).** A discriminator built only around
+   citation shapes (preceding `Section` / `§` / CFR / U.S.C. context) passes
+   SC/TX/ME and **still misses Oregon**, which is an in-prose cross-reference
+   with no citation-looking section number. The design must cover both
+   shapes or state plainly which shape it does not cover, and why.
+
+No further program-manager input required until the Planner verifications.
+
 </content>
 </invoke>
