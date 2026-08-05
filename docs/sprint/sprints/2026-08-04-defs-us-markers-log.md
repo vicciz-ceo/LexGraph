@@ -4338,3 +4338,99 @@ detector inherits QA cycle 1's documented bucket-4 gap, so those rates are LOWER
 BOUNDS. TN 153,837 / AZ 20,925 were not independently verified.
 
 ---
+
+## M39 — devC MERGED; sprint branch state consolidated (2026-08-05)
+
+### Planner cycle 2 verified and ACCEPTED
+
+Write set: `git diff --stat c22d6b0..HEAD -- backend/app/` **empty** — zero
+production code across two cycles. Suite reproduced by me at **42 failed, 867
+passed** on its branch, reconciling exactly.
+
+**The 16th class-B term is genuine — I verified it independently** before
+accepting it, since §M37 declared the set closed at 15. `Nonprimary residential
+property` (ND): source reads `…not included in the class of property defined in
+subsection 12.`; capture ends `…defined in subsection`, losing the ` 12`.
+
+**That vindicates QA's stated blind spot rather than contradicting it.** BOTH
+terms the mechanical sweep missed — `facility` (lost ` 3`) and this one (lost
+` 12`) — are single-token losses, exactly the limitation QA named in advance.
+The criterion is sound and its boundary is now empirically confirmed twice.
+**Class B closes at 16.**
+
+Task 3's **negative finding is accepted as a deliverable**: zero literal-`\n`
+rows and zero near-total collapses across all seven live states (VA/WA/FED/UT/
+TX/SC/AZ, ~341k rows scanned). No test was manufactured to have one. FED's 4
+sub-5-char results were inspected and are a DIFFERENT defect — dollar figures
+truncated at a comma (`means $2,000.` → `'$2,'`) because the guard's lookbehind
+doesn't exclude a preceding comma. **New, real, unpinned; same core-3 family.**
+
+Removing the two bounced colon-idiom tests was correct: leaving REDs that fail
+for reasons not reflecting the production path would itself be the
+confidently-wrong-oracle class this sprint exists to hunt.
+
+### MERGED — devC is in
+
+`claude/defs-us-markers-planC` then `claude/defs-us-markers-devC`, both
+`--no-ff`. **U-R14's blocker is vacated (U-R16), the class-B population is
+pinned, and the guards were pre-pinned to devC's target so the merge turns them
+green rather than requiring a follow-up edit.**
+
+**Merged tree: `24 failed, 885 passed`.** Every failure has a named owner:
+
+| # | Tests | Owner |
+|---|---|---|
+| 16 | `c5guard_class_b_boundary_defects` | **core-3** anchor (number-vs-marker) |
+| 3 | `ext_a_ok_gapidiom`, `ext_b_nm`, `ext_b_nv` higher-ed | G11-deferred |
+| 1 | `ext_b_nv` cross-reference | blocked — `correctly_empty.py` |
+| 1 | `qa_q1_wa_newline_collapse_swallow` | **G3-HEAL instrument — MUST stay RED until core-2 merge proves BOTH layers** |
+| 1 | `unbounded_last_entry` FED | core-2 G3 |
+| 1 | `qa_q2_short_definitions` AL | core-3 |
+| 1 | `qa_q3` Part A | cross-panel M-R8 |
+
+All 13 c5guards and all 5 `*_quoteengine` are now GREEN.
+
+### Corpus re-measured on the MERGED artifact (not on a branch)
+
+Program law: a green suite is not evidence of no regression.
+
+| Jur | headed | zero | rate | section-yield |
+|---|---|---|---|---|
+| MI | 2,879 | 168 | 5.8% | **2,711** (hold was 1,763 — UP, no regression) |
+| NY | 1,479 | 160 | 10.8% | **1,319** (hold was 298 — UP, no regression) |
+| VA | 1,096 | 48 | **4.4%** (was 97%) | 1,048 |
+| WA | 1,800 | 116 | **6.4%** (was 98%) | 1,684 |
+
+U6 headline for this panel: **VA 97%→4.4%, WA 98%→6.4%**, measured on the merged
+tree. Both C5 holds intact.
+
+### OPEN — handed forward, not closed
+
+1. **SIX defects in merged code (§M38) are unpinned.** #4 (`TRAILING_STOP_RE`
+   single global `limit`) and #6 (MN `Affiliate`, 4 terms in one candidate) are
+   **OURS** and need REDs then a Developer fix. #1/#3/#5/#2 route to core-3.
+   Not dispatched — see the stopping-point note below.
+2. **FED comma-truncated dollar figures** — 4 instances, real, unpinned.
+3. **`chief fiscal officer` (NY) goes missing entirely** post-normalization —
+   real, and now live-testable since devC merged and NY is registered.
+4. **`M-R5` / "multiterm's 4 R1 degenerate TX terms" could NOT be located.**
+   Grepped the program log, the multiterm sprint doc and the multiterm log; no
+   `M-R5` ruling and no enumeration of four TX terms exists in the committed
+   record I can reach. **Not actioned, and not guessed at.** Whoever holds this
+   needs to point at the artifact or re-state the four terms.
+5. **Merge slot still SHUT** — core-2 unmerged. G3-HEAL two-layer re-check runs
+   AT that merge; NE stays blocked on preamble; bucket-A reconciliation runs
+   against the merged tree.
+6. Planner flagged its own commit-hygiene slip (`3e6c61e` also carries a file
+   deletion not named in its message). Functionally correct; noted.
+
+### Deliberate stopping point
+
+Items 1–3 are dispatchable but were NOT dispatched. This seat has now consumed
+substantial context, and this panel has already lost one manager to context
+exhaustion mid-sprint. Starting a cycle this manager cannot supervise to
+verification would repeat that failure — and every finding above is recorded
+with act_ids and mechanisms precisely so a successor can dispatch without
+re-deriving. **Handing over with headroom is the correct call, not a shortfall.**
+
+---
