@@ -470,7 +470,38 @@ _UNQUOTED_TERM_COLON_RE = re.compile(r"^([^.:;\n]{1,100}?):\s*")
 # digit-hyphen-digit, and a marker-adjacent "Término-" with no space at
 # all). The typographic dash keeps its original, unconditional match
 # (unchanged, already safe -- no collision found for it).
-_UNQUOTED_TERM_DASH_RE = re.compile(r"^(.{1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*")
+# Cycle-7 (M-R14 gate 1 / M-R15 step 1): the term group is narrowed from a
+# bare `.{1,100}?` to `(?:[^.]|\.(?!-)){1,100}?`, restoring symmetry with
+# `_UNQUOTED_TERM_PERIOD_RE`'s own established discipline immediately
+# below. Root cause: this pattern's term group was not excluded from
+# crossing a `.-` (period-immediately-followed-by-hyphen, no space)
+# subsection-label boundary -- a real, common PR drafting convention
+# ("Definiciones.- Para fines de esta sección"). Left unexcluded, the
+# non-greedy search walks past that boundary hunting for the next
+# reachable space-preceded hyphen, fabricating a bogus term out of the
+# whole heading-plus-preamble. Measured corpus-wide (per-block, matching
+# `extract_definitions_from_section`'s own `_ENTRY_MARKER_RE` split): the
+# 235-row changed-outcome population (cycle-5's widening) is
+# triple-corroborated (QA, Planner, Developer, three independently-written
+# scripts). Within it, the Developer's own re-derivation -- cross-checked
+# four independent ways, including a from-scratch reimplementation with no
+# monkeypatching -- found rejects 44/235 at ~100% junk on spot inspection,
+# retains 191/235 (up from the pre-narrowing ~30-35% precision baseline).
+# The Planner's originally-reported 61/235 rejected / 208/235 retained
+# does not arithmetically sum to 235 (61+208=269) and is understood to be
+# in error; QA's independent re-derivation (the third measurement) is
+# still pending as of this writing -- treat 44/191 as provisional until
+# that lands. Zero regression to the two genuine anchor rows
+# (`STATE_PR_LEY_209_2016_ART2`, `STATE_PR_LEY_236_2015_ART2`) under any
+# of these measurements. Does NOT
+# close the separate hyphenated-prose false-positive class with no
+# period involved (`STATE_PR_LEY_163_2005_ART2`, "Consejo Juanadino Pro -
+# Festejos") -- an accepted, documented residual (see
+# `test_pr_profile_hyphen_precision_cycle7.py`'s xfail). The typographic
+# dash branch and the ASCII-hyphen lookbehind are unchanged by this fix.
+_UNQUOTED_TERM_DASH_RE = re.compile(
+    r"^((?:[^.]|\.(?!-)){1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*"
+)
 _UNQUOTED_TERM_PERIOD_RE = re.compile(
     r"^((?:[^.]|\.(?!-)){1,100}?)(?<!\.[A-Z])\.\s+(?=[A-ZÁÉÍÓÚÑÜ])"
 )
