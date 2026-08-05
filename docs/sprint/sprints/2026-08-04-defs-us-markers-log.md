@@ -5405,3 +5405,34 @@ core-3. Role transition lock changed atomically from `codex:planner` to
 provenance, corpus-safety guards, and historical hold continuity. Haiku
 considered: no because QA is always high effort and this is the final panel
 verdict.
+
+---
+
+## M58 — P-D2 real MN terminal-numeric-citation RED pinned (2026-08-05)
+
+Independent QA resumed from exact handoff
+`af75322be9b7a5c622e2fb79ee69065a12ca337c`; production remained untouched.
+The real corpus row surfaced by Developer E's differential is
+`STATE_MN_P216_217_C216B_S216B.68`, source full-text SHA-256
+`43e0982e95d77c159db556f11d6c0a8096bdb1057f18837cc0eccc89b590b11e`.
+Its byte-verbatim Subd. 4–5 excerpt is Unicode-code-point offsets 465–951,
+SHA-256 `4f64d2c9e71463abb4de6495afcde36fb0c126dfc923855b4b800488f8d152be`.
+
+The focused regression first attempts P-D2's explicit MN-only API
+(`allow_relative_qualifiers=True`, `clean_trailing_term_commas=True`,
+`stop_at_mn_subd_headers=True`). Because `af75322` predates that signature, a
+test-only fallback on the exact unexpected-keyword `TypeError` invokes the
+current engine solely to isolate behavior provenance. The new RED is therefore
+not another signature failure: current production emits `Federal mercury
+regulations` ending `..., parts 60, 63, 70, and`, losing genuine terminal
+`72.`. Before that equality assertion, the test proves the real next
+`§ Subd. 5.` heading and its complete `Mercury emissions reduction` definition
+remain excluded from Subd. 4 and are independently extracted.
+
+Focused command:
+`backend/.venv/bin/pytest tests/unit/test_us_markers_pd2_scope_default_red.py tests/unit/test_us_markers_pd2_mn_affiliate_idiom_unit.py tests/unit/test_us_markers_pd2_mn_numeric_tail.py -q`
+→ **3 failed, 1 passed**. Existing failures remain separately attributable:
+the FED default-scope RED gets a nonempty `family member` candidate, and the MN
+Affiliate RED raises the expected missing-keyword `TypeError`. The new test
+fails on the fixed-behavior equality only: actual `..., 63, 70, and` versus
+expected `..., 63, 70, and 72.`. No broad diff or final-QA verdict was run.
