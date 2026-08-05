@@ -259,7 +259,50 @@ def _leading_quote_term(block: str) -> str | None:
 # DC's `"parent"` shape (`test_dc_parent_non_leading_quote_block_is_still_
 # captured`, M-R16) has no parenthesized marker anywhere near its quote,
 # so this pattern is a no-op for it, same as before.
-_ENTRY_LEADING_QUOTE_RE = re.compile(r'(?:\A|\n)\s*\([^\s()]{1,10}\)\s*[“"]([^”"]+)[”"]')
+#
+# Ruling M-R23 (own finding, this Developer): the ORIGINAL M-R18 pattern
+# above used `[^\s()]{1,10}` for the marker token itself -- deliberately
+# LOOSER than baseline's own entry-start recognition
+# (`us_profile._MARKER_TOKEN_RE = re.compile(r"\(\w+\)\s*")`, `\w` only --
+# no hyphen). That looseness is a real, corpus-measured recall regression:
+# TX real rows `STATE_TX_Coc_C2310_S2310.001` (`(9-a) "Supplier" has the
+# meaning assigned by ...`) and `STATE_TX_Cin_C228_S228.001` (`(5-a)
+# "Low-income community" has the meaning assigned by ...`) both suffix
+# their marker with a hyphenated letter. `\d` in `_BARE_DIGIT_MARKER_RE`
+# and `\w` in `_MARKER_TOKEN_RE` both stop at the hyphen, so baseline's
+# `_entry_start_remainder` recognizes NEITHER as an entry boundary at all
+# -- the marker and its quote stay embedded inside the PRECEDING block,
+# with no baseline-produced candidate for either term anywhere. The old,
+# looser `[^\s()]{1,10}` guard pattern DID match `9-a`/`5-a` (any non-
+# space, non-paren run), so it wrongly concluded "baseline already
+# captured this" and suppressed the ONLY candidate (this rule's own
+# cross-reference match) for both terms -- a silent recall loss, not a
+# dedup. Confirmed via corpus-wide kill-experiment (see this Developer's
+# sprint report): `TERMS LOST ENTIRELY` dropped from 2 to 0 after this
+# fix, with the TX 2009.003 M-R18 pin (`"Governmental body"` captured
+# exactly once, marker `"(2)"`, plain digit, unaffected) staying green.
+#
+# Fix: replace the marker token's character class with baseline's own
+# `\(\w+\)`, so a hyphenated (or otherwise non-`\w`) marker can never
+# match here either -- and additionally mirror baseline's `_strip_marker_
+# chain_before_quote`, which recognizes a CHAIN of one or more `\(\w+\)`
+# tokens immediately followed by a quote as a single entry start (real CA
+# shape: `"(d) (1) \"Term\""`), not merely a single token. This is a
+# STRICT widening from "single marker token" to "chain of one-or-more
+# marker tokens", but never wider than baseline's own recognition surface
+# -- every additional position this chain form matches is, by
+# construction, also a position `_strip_marker_chain_before_quote` itself
+# would recognize as an entry start, so it can only ever suppress a term
+# baseline genuinely already captured elsewhere. No currently-registered
+# `EntrySplitterRule` whole-text contribution reaching this guard actually
+# contains a chained marker today (TX's own `_split_parent_redirect_whole_
+# text` rows use single-token markers only -- "(1)"/"(2)"/"(3)"/"(4)"/
+# "(A)"/"(B)"/"(C)"/"(D)" in the real TX 2009.003 fixture; NH's own
+# `_split_apposition_whole_text` rows carry no "(N)" markers at all per
+# this module's own docstring) -- this is a defensive, zero-behavior-
+# change-today alignment with baseline, not a response to an observed
+# defect.
+_ENTRY_LEADING_QUOTE_RE = re.compile(r'(?:\A|\n)\s*(?:\(\w+\)\s*)+[“"]([^”"]+)[”"]')
 
 
 def _leading_quote_terms(block: str) -> set[str]:
