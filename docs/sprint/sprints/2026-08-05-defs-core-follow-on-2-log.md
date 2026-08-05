@@ -2812,3 +2812,29 @@ OTHER gates' own still-open REDs, G2/G4/G5/G6, untouched by this Planner).
 The 5 new failures are exactly this gate's own REDs (4 unit + 1
 live-path); the 1 new pass is this gate's own regression pin. Zero
 collateral damage anywhere else in the suite.
+
+---
+
+## Phase 16 — G8 safety Developer dispatch (2026-08-05)
+
+The manager verified Planner delivery `cf090ef` before dispatch:
+
+- diff boundary: tests, fixtures, sprint evidence, and the reproducible
+  read-only corpus script only; zero production paths;
+- both new fixtures byte-equal their pinned AR parquet rows;
+- targeted current-state proof: **3 failed / 5 passed**, exactly the
+  Occurrence, Virtual currency, and scope-broadening safety REDs;
+- artifact/log arithmetic reconciles exactly:
+  `1,256 = 398 + 30 + 247 + 545 + 5 + 31`.
+
+Planner delivery was merged to the integration branch at `de2fc51` and
+pushed before the next role started.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| Developer | G8 safety amendment: remove the generic containment update and restore first-wins | GPT-5.6 Terra / medium | yes; not selected because no Haiku model is available and this edits shared persistence behavior | `claude/defs-core-follow-on-2-dev9` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-dev9` | `/root/core2_g8_developer` | READY; identifier committed before START |
+
+Developer write-set is production code only. Tests, fixtures, artifacts,
+and sprint documents are Planner/manager-owned and forbidden. The 31
+U.S.-specific trims remain deferred; no profile grammar may be added to
+`pipeline.py` in this implementation pass.
