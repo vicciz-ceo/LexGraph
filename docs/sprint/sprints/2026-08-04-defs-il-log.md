@@ -5576,3 +5576,51 @@ for the D-1a/D-1b Planners).
   headings) — recall gaps, never false links, blocked on the same frozen
   heading-text seam.
 - The 2 סימן/חלק containment REDs — core-blocked per M20, unchanged.
+
+---
+
+## 2026-08-05 — Concurrent spawns: D-1b Developer + separator Planner (M24 reporting channel applied)
+
+Both briefs carry the M24 clause verbatim (report via SendMessage to
+`a18597f9be6c49ed6`; `ESCALATION:` first line on the same channel).
+
+**D-1b Developer** — agentId `aea6e05cfb8b031c3`. Model/effort:
+**Sonnet/medium** — 4 REDs with exact, positive-controlled root causes;
+Haiku considered: **no** (rule-kind dispatch semantics + Hebrew entry
+grammar need care). Worktree `defs-il-dev4`, branch
+`claude/defs-il-dev-d1b` off `f22439b` (post-D-1a-merge), own venv
+verified, baseline `6 failed, 836 passed` reproduced by me. Bundle: the 4
+E6 REDs ONLY — 3 `EntrySplitterRule`, 1 `TermClauseRule`. Explicitly told
+the 2 סימן/חלק containment REDs are core-blocked, must STAY RED, and that
+an `article_number`-derived hack to force them green is a gate failure.
+Also told to leave D-1a's four files alone (concurrent separator work).
+`extract.py` added to its frozen list — its whole bundle exists precisely
+because baseline's parser is already correct once handed the right blocks.
+Expected end state `2 failed, 840 passed`.
+
+**Separator Planner** — agentId `ad74c58c961241622`. Model/effort:
+**Sonnet/high** — Planners are always high; it owns a denominator that
+propagates into the certification sprint. Haiku considered: **no**.
+Worktree `defs-il-plan3`, branch `claude/defs-il-plan-sep` off `f22439b`,
+own venv verified. Job: M18-compliant independent derivation of the `או`
+(and `ו-`) separator gap I found in M25, RED tests for it, and a P-R2
+false-positive analysis — `או` is a very common ordinary Hebrew word, so
+its safety as a separator has to be established, not assumed.
+
+**Explicitly handed over my numbers as LEADS TO RE-DERIVE, not findings
+to inherit**, including the warning that my 230 is an upper bound
+counting `הגדרות`-section entries that are already parsed correctly by
+the frozen path — and that separating the subset which actually reaches
+the list-shape rules is the whole point. Also asked it to cross-check
+against the D-1a Planner's own 392-line class-A sweep, whose stated
+gap-validation "requires an explicit `,`/`ו`/`או` separator": if `או`
+lines were inside that 392, then D-1a's fix does not close class A as its
+own Planner measured it, and I want that stated plainly rather than
+smoothed over. Told it plainly I would rather be corrected than
+confirmed.
+
+**M14 concurrency justification:** Planner writes only `backend/tests/**`,
+Developer writes only `backend/app/definition_links/rules/**` — disjoint
+file sets, same pattern this panel used for the concurrent D-1a/D-1b
+Planners. Log appends may conflict; those are resolved by keeping both in
+order, as with the D-1a merge.
