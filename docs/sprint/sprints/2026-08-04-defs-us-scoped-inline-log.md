@@ -3916,3 +3916,60 @@ Unaffected by this correction and still standing: the Developer's
 corpus-delta-as-verification-loop finding (two real regressions invisible to
 858 tests, caught only by re-measuring), accepted for the close-out as standing
 practice.
+
+---
+
+## 2026-08-05 — Manager: Planner pass 12 ACCEPTED — suite FULLY GREEN; a SIXTH
+trap instance found, live and dormant
+
+Merged. **Suite: 857 passed, 0 failed, 1 xfailed.** First fully-green state
+since the sprint's fix cycles began, and the xfail is the deliberate GA
+truncation tripwire.
+
+### Accepted, and for the right reasons
+
+- Applied the transform **inline at the call site**, matching core's G3 guard
+  test — located and read rather than assumed, and correctly reasoned: the
+  fixture is R6-compliant vendored-raw source data, so the defect was in the
+  test DRIVING it un-transformed, not in the fixture.
+- **Proved the transform is what makes the difference** rather than asserting
+  it: raw (388 escapes, 0 real newlines) yields nothing; unescaped yields the
+  pinned term plus 3 more. No assertion weakened, no extractor tolerance added.
+- Docstring cross-references all three sibling instances (M14, I8, G3) and
+  states the forward rule: any future NY fixture fed straight to an extraction
+  function must be post-ingest or apply the substitution, "or it will reproduce
+  this same false RED."
+- **Declined to overclaim on CA**: its 400-row sample showed 0 escaped, but it
+  noted I8's full-corpus sweep found 21/161,429 real instances and refused to
+  write "CA has zero" on sample evidence. That is the instrument-vs-filter
+  distinction applied unprompted.
+
+### The audit found a SIXTH instance — live in the suite right now
+
+`STATE_NY_APBS_A2_S42-A` (in QA cycle 2's `qa_cycle2_new_conventions_rows.json`,
+consumed by `test_single_entry_drops_a_second_and_joined_entry_in_the_same_
+region`) is fed raw directly to the extractor. Its FIRST captured term
+literally contains the two-character backslash-n escape — **a shape production
+could never emit**.
+
+It is dormant ONLY because that test's assertion checks a substring of the
+SECOND captured term and never inspects the first. So a test is currently green
+while extracting a term that cannot exist in production. That is not a passing
+test; it is a test that has not yet been asked the right question.
+
+Correctly REPORTED not fixed — QA-authored file, outside the Planner's fence,
+matching this sprint's standing rule that out-of-fence findings route to the
+manager. **Routing it as a one-line follow-up applying the identical pattern.**
+
+### What this does to the trap's status
+
+Sixth occurrence, fourth panel — and the first found by DELIBERATE AUDIT rather
+than by being bitten. The other five all announced themselves as failures; this
+one was silent and would have stayed silent indefinitely, since nothing about a
+green test invites inspection.
+
+That sharpens the durable fix considerably. "NY fixtures must be post-ingest by
+construction" is not merely about avoiding false REDs — a false RED is
+self-announcing and costs a cycle. The real hazard is the SILENT case: a green
+test asserting on production-impossible data, which no amount of suite-running
+will surface. This one was found only because someone was asked to go looking.
