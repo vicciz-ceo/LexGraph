@@ -3254,7 +3254,7 @@ genuinely positive result, not forced into a RED shape. Confirmed:
 constraint described). Drove `extract_definitions_from_section` DIRECTLY
 (same layer-agnostic pattern as core's NY newline test — `ingest_us_
 statute_rows` → `profile.normalize_for_parsing` → `get_profile("US-WA").
-extract_definitions_from_section`, never touching heading dispatch): 
+extract_definitions_from_section`, never touching heading dispatch):
 **yields "wages" cleanly** — `US-WA` is registered in `us_markers_
 inline_quote.py`, and "shall mean" is one of `_TIGHT_IDIOM_RE`'s
 recognized idioms. The manager's acceptance condition ("extraction must
