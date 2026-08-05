@@ -1,16 +1,13 @@
 """C5 regression guard -- US-MI (sprint 2026-08-04-defs-us-markers,
-phase-2 Planner A, item A1). NOT a target: these tests pin what today's
-REAL pipeline already captures for US-MI, purely via baseline
-`_split_into_numbered_blocks` + `_leading_quote_candidate` -- US-MI has
-ZERO family-3 rules registered against it (no EntrySplitterRule/
-TermClauseRule matches `"US-MI"` or `"US-*"` anywhere in
-`backend/app/definition_links/rules/`, confirmed by grep before writing
-this file). US-MI is one of the five C5 working-baseline regression-guard
-states (program doc `2026-08-04-definition-completeness.md`); this sprint's
-zero-yield extension work must not silently shrink, duplicate, or corrupt
-any of the captures pinned below. GREEN NOW; would fail if a future rule
-(this panel's own A4 widening, or anyone else's) changed or swallowed
-these baseline captures.
+phase-2 Planner A, item A1). NOT a target: these tests pin what the REAL
+pipeline persists for US-MI. US-MI later joined the family-3 inline-quote
+rule, but its normally multi-block baseline output still wins for these
+guard rows. That distinction is now deliberate: the G3-HEAL repair may
+give an explicitly opted-in rule precedence only over a ONE-block baseline
+collapse; it must not silently change these multi-block captures. US-MI is
+one of the five C5 working-baseline regression-guard states (program doc
+`2026-08-04-definition-completeness.md`); this sprint's zero-yield
+extension work must not shrink, duplicate, or corrupt any pinned capture.
 
 Each row's exact term SET is pinned (a regression that drops, merges, or
 duplicates a term changes the set) plus one full `definition_text` pin per
@@ -33,11 +30,28 @@ from pathlib import Path
 
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
+from app.definition_links import us_profile
 from app.models.definition import Definition
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "us_markers_c5guard_mi_rows.json"
 )
+
+# G3 intentionally removes these source-history tails from a final baseline
+# block.  Keep the three historic tails separate from the operative-text
+# pins below so the mutation proof can show the exact causal delta rather
+# than merely accepting a shorter value.
+_HISTORY_TAILS = {
+    "STATE_MI_C206_AAct-281-of-1967_S206.278": (
+        "\n\nHistory: Add. 2010, Act 235, Imd. Eff. Dec. 14, 2010; Am. 2011, Act 38, Eff. Jan. 1, 2012"
+    ),
+    "STATE_MI_C205_AAct-167-of-1933_S205.54u": (
+        "\n\nHistory: Add. 1999, Act 116, Imd. Eff. July 14, 1999; Am. 2004, Act 173, Eff. Sept. 1, 2004; Am. 2008, Act 556, Eff. Jan. 20, 2009"
+    ),
+    "STATE_MI_C257_AAct-198-of-1965_S257.1102": (
+        "\n\nHistory: 1965, Act 198, Eff. Nov. 1, 1965; Am. 1967, Act 274, Imd. Eff. July 20, 1967; Am. 1971, Act 211, Imd. Eff. Dec. 29, 1971; Am. 2012, Act 572, Imd. Eff. Jan. 2, 2013"
+    ),
+}
 
 
 def _load_rows() -> dict[str, dict]:
@@ -74,9 +88,10 @@ def test_c5_guard_state_mi_c206_aact_281_of_1967_s206_278(db_session, matter_wit
     by_term = _run(db_session, matter_with_users, "STATE_MI_C206_AAct-281-of-1967_S206.278")
     assert sorted(by_term) == ['Board', 'Michigan strategic fund', 'Qualified business', 'Qualified investment'], f"got {sorted(by_term)!r}"
     spot = by_term['Qualified investment']
-    assert spot.definition_text.strip() == "means, except as otherwise provided under this subdivision, an investment of at least $20,000.00 certified by the Michigan strategic fund that is made alongside of, or through, a seed venture capital or angel investor group that is registered with the Michigan strategic fund and is not in a business in which any member of the investor's family is an employee or owner of the business or in which the investor or any member of the investor's family has a preexisting fiduciary relationship with the business. Qualified investment does not include an investment in a business that engages in life sciences technology unless those activities are included in the definition of life sciences as that term is defined under section 88a of the Michigan strategic fund act, 1984 PA 270, MCL 125.2088a.\n\nHistory: Add. 2010, Act 235, Imd. Eff. Dec. 14, 2010; Am. 2011, Act 38, Eff. Jan. 1, 2012", (
+    assert spot.definition_text.strip() == "means, except as otherwise provided under this subdivision, an investment of at least $20,000.00 certified by the Michigan strategic fund that is made alongside of, or through, a seed venture capital or angel investor group that is registered with the Michigan strategic fund and is not in a business in which any member of the investor's family is an employee or owner of the business or in which the investor or any member of the investor's family has a preexisting fiduciary relationship with the business. Qualified investment does not include an investment in a business that engages in life sciences technology unless those activities are included in the definition of life sciences as that term is defined under section 88a of the Michigan strategic fund act, 1984 PA 270, MCL 125.2088a.", (
         f"content-fidelity spot check failed for 'Qualified investment': got {spot.definition_text!r}"
     )
+    assert "History:" not in spot.definition_text
 
 def test_c5_guard_state_mi_c141_aact_244_of_1989_s141_892(db_session, matter_with_users):
     """STATE_MI_C141_AAct-244-of-1989_S141.892: pins 14 term(s) as currently captured by baseline
@@ -117,9 +132,10 @@ def test_c5_guard_state_mi_c205_aact_167_of_1933_s205_54u(db_session, matter_wit
     by_term = _run(db_session, matter_with_users, "STATE_MI_C205_AAct-167-of-1933_S205.54u")
     assert sorted(by_term) == ['Extractive operations'], f"got {sorted(by_term)!r}"
     spot = by_term['Extractive operations']
-    assert spot.definition_text.strip() == 'means the activity of taking or extracting for resale ore, oil, gas, coal, timber, stone, gravel, clay, minerals, or other natural resource material. An extractive operation begins when contact is made with the actual type of natural raw product being recovered. Extractive operation includes all necessary processing operations before shipment from the place of extraction. Extractive operations include all necessary processing operations and movement of the natural resource material until the point at which the natural raw product being recovered first comes to rest in finished goods inventory storage at the extraction site. Extractive operations for timber include transporting timber from the point of extraction to a place of temporary storage at the extraction site and loading or transporting timber from a place of temporary storage at the extraction site to a vehicle or other equipment located at the extraction site that will remove the timber from the extraction site.\n\n(b) An extractive operator is a person who, either directly or by contract, performs extractive operations.\n\nHistory: Add. 1999, Act 116, Imd. Eff. July 14, 1999; Am. 2004, Act 173, Eff. Sept. 1, 2004; Am. 2008, Act 556, Eff. Jan. 20, 2009', (
+    assert spot.definition_text.strip() == 'means the activity of taking or extracting for resale ore, oil, gas, coal, timber, stone, gravel, clay, minerals, or other natural resource material. An extractive operation begins when contact is made with the actual type of natural raw product being recovered. Extractive operation includes all necessary processing operations before shipment from the place of extraction. Extractive operations include all necessary processing operations and movement of the natural resource material until the point at which the natural raw product being recovered first comes to rest in finished goods inventory storage at the extraction site. Extractive operations for timber include transporting timber from the point of extraction to a place of temporary storage at the extraction site and loading or transporting timber from a place of temporary storage at the extraction site to a vehicle or other equipment located at the extraction site that will remove the timber from the extraction site.\n\n(b) An extractive operator is a person who, either directly or by contract, performs extractive operations.', (
         f"content-fidelity spot check failed for 'Extractive operations': got {spot.definition_text!r}"
     )
+    assert "History:" not in spot.definition_text
 
 def test_c5_guard_state_mi_c257_aact_198_of_1965_s257_1102(db_session, matter_with_users):
     """STATE_MI_C257_AAct-198-of-1965_S257.1102: pins 5 term(s) as currently captured by baseline
@@ -127,6 +143,34 @@ def test_c5_guard_state_mi_c257_aact_198_of_1965_s257_1102(db_session, matter_wi
     by_term = _run(db_session, matter_with_users, "STATE_MI_C257_AAct-198-of-1965_S257.1102")
     assert sorted(by_term) == ['Fund', 'Person', 'Secretary', 'Treasurer', 'Uninsured motor vehicle'], f"got {sorted(by_term)!r}"
     spot = by_term['Person']
-    assert spot.definition_text.strip() == 'includes natural persons, firms, copartnerships, associations, and corporations, except this state or an agency or political subdivision of this state. Person does not include a municipal corporation or a corporation owned or operated by this state or a political subdivision of this state.\n\nHistory: 1965, Act 198, Eff. Nov. 1, 1965; Am. 1967, Act 274, Imd. Eff. July 20, 1967; Am. 1971, Act 211, Imd. Eff. Dec. 29, 1971; Am. 2012, Act 572, Imd. Eff. Jan. 2, 2013', (
+    assert spot.definition_text.strip() == 'includes natural persons, firms, copartnerships, associations, and corporations, except this state or an agency or political subdivision of this state. Person does not include a municipal corporation or a corporation owned or operated by this state or a political subdivision of this state.', (
         f"content-fidelity spot check failed for 'Person': got {spot.definition_text!r}"
     )
+    assert "History:" not in spot.definition_text
+
+
+def test_g3_history_marker_is_the_exact_cause_of_the_three_repointed_c5_values(
+    db_session, matter_with_users, monkeypatch
+):
+    """Blinding only G3's History marker restores each old, now-invalid tail.
+
+    This proves the concurrent C5 failures were stale oracles, not a G8
+    candidate-order regression: the retained operative bytes are asserted by
+    the three guards above; this control recovers precisely the source History
+    tail and nothing else.
+    """
+    monkeypatch.setattr(
+        us_profile,
+        "_TRAILING_NOTES_MARKERS",
+        tuple(marker for marker in us_profile._TRAILING_NOTES_MARKERS if marker != "History:"),
+    )
+    cases = (
+        ("STATE_MI_C206_AAct-281-of-1967_S206.278", "Qualified investment"),
+        ("STATE_MI_C205_AAct-167-of-1933_S205.54u", "Extractive operations"),
+        ("STATE_MI_C257_AAct-198-of-1965_S257.1102", "Person"),
+    )
+    for act_id, term in cases:
+        historic = _run(db_session, matter_with_users, act_id)[term].definition_text
+        assert historic.endswith(_HISTORY_TAILS[act_id]), (act_id, historic)
+        operative = historic.removesuffix(_HISTORY_TAILS[act_id])
+        assert "History:" not in operative, (act_id, operative)
