@@ -4270,3 +4270,39 @@ D-1a and D-1b are independent (different dispatch paths, different rule
 kinds, disjoint file sets), so their Planners can run concurrently in
 separate worktrees per M14. Their Developers must NOT — one writer per
 worktree, and both bundles land rule modules in the same package.
+
+---
+
+## 2026-08-05 — M19-EXT APPROVED; D-1 Planners dispatched
+
+Program manager signed off on the Phase D spec in full, incl. the sprint
+split, and closed the budget question: D-CERT was presented to the
+director with "roughly one additional sprint per track" as its stated
+cost, so `2026-08-05-defs-il-certification` sits INSIDE the authorized
+envelope rather than expanding it. Recorded at `main` `8c49498`.
+
+**Confirmed:** D-1 (classes A/B/C + the E6 batch + the now-observable
+old-E1 `StructuralUnitRule` containment) completes THIS sprint — cycle 4
+runs it, **cycle 5 is held as the bounce reserve** — closing on the
+original I1-I5 gates with an enumerated residual. Concurrent Planners,
+serialized Developers, per the disjoint-paths analysis. The certification
+sprint opens with its own valve and the five gates I named.
+
+**Two program precedents set from this panel's work:** (1) the ~92,600
+denominator INCLUDING הגדרות-headed articles is now the no-signal-
+dependence standard the US certification will also be held to; (2) the
+word-internal-gershayim predicate (Hebrew letter both sides, no
+whitespace) is the falsifiable-mechanical form the whole classification
+should take.
+
+Dispatched concurrently in their own worktrees (M14): **D-1a** (plan3 /
+`claude/defs-il-plan-d1a`) — REDs for classes A/B/C, incl. characterizing
+the ~80% of class B that QA cycle 3 left uncharacterized. **D-1b** (plan4
+/ `claude/defs-il-plan-d1b`) — job 1: REVALIDATE the 4 existing E6 REDs,
+which were authored against a DEAD dispatch and may encode stale seam
+assumptions (escalate, never edit); job 2: NEW both-directions
+containment REDs for סימן/חלק, whose original "unobservable, so no test"
+justification has now expired.
+
+Certification contract to be drafted once D-1's Developers are running,
+not before — one thing at a time through the remaining cycles.
