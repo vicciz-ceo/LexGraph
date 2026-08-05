@@ -1537,6 +1537,76 @@ occurs, G8's criterion must be amended BEFORE merge, not routed to core-3.**
 
 ---
 
+## Phase 10 — liveness audit: THREE agents dead with undelivered work (2026-08-05)
+
+Triggered by a program-manager status check. **Verified by inspection, not
+assumed** — agent output-file mtimes (checked via `ls`, never read) against
+branch commit state:
+
+| Agent | Last activity | Committed work | Delivered? |
+|---|---|---|---|
+| plan2 (sibling sample) | 12:57 (~4h stale) | G1 re-point only | never reported |
+| dev5 (G10) | 13:21 (~3h40 stale) | **G10 implemented** `8bf4750` | never reported |
+| dev6 (G9) | 13:26 (~3h35 stale) | **G9 implemented** `832d79b` | never reported |
+
+All three output files were 128 bytes — stubs, not live transcripts. **Two
+gates were fully implemented and sitting unmerged because their reports never
+arrived.** Recovered by verifying the COMMITS directly rather than waiting on
+reports — the robust path when a delivery channel fails.
+
+### A near-miss worth recording: a false boundary-violation alarm
+
+An initial check appeared to show dev6 editing 2 of plan6's test files — a
+role-boundary violation, the worst outcome available to a Developer. **The
+alarm was my own bad baseline, not dev6's behavior.** I had diffed dev6
+against *plan6*, whose fork point predates plan1's i9 update and plan5's G10
+tests landing on integration; those two commits therefore showed up as
+"dev6's changes." Re-checked against **dev6's own fork point** (`fa3ac5c`):
+`--diff-filter=M` over `backend/tests/` returns **empty** — every test file
+is an ADD (plan6's REDs it was instructed to merge in). Role boundary intact.
+Lesson: diff a Developer against ITS OWN fork point, never against a sibling
+branch that forked earlier.
+
+### Result: FULL SUITE 830 PASSED / 0 FAILED
+
+With dev5 (G10), dev6 (G9) and plan2's G1 re-point all merged, the sprint
+branch is **entirely green** for the first time. Landed and integrated:
+**G1, G2, G3-main, G4, G5, G6, G8, G9, G10, G12.** Contract lint **PASS 110**.
+
+**G9's binding migration conditions verified first-hand:**
+`backend/app/migrations/add_heading_breadcrumbs_column.py` uses raw DDL
+`ALTER TABLE articles ADD COLUMN heading_breadcrumbs TEXT` / `DROP COLUMN`
+against a plain `Engine` — the D-ANCHOR pattern, nullable, reversible — and
+its docstring explicitly names the REJECTED `create_all()` shape so the
+correction cannot be re-lost.
+
+### The one genuinely dead item: RESPAWNED
+
+plan2 has exactly two commits since fork: a merge and the G1 re-point.
+**There is no sibling-sample commit at all** — so the program manager's
+"respawn from its committed scripts/artifacts" is not literally possible for
+this measurement; nothing was produced. The METHOD, however, is fully
+recoverable: the main function's landed `_trailing_notes_boundary` helper,
+its docstring stating the exact intended sibling wiring, and the committed G3
+test docstrings + log record all specify it.
+
+**plan9 spawned** to run the G3-sibling both-sides sample against the
+CURRENT code — which matters, because G12's just-landed widening of
+`_MEANS_IDIOM_GAP_RE` (adding `shall include`/`includes` plus the
+`References to` guard) has changed the sibling's entry set since the gap was
+first flagged. Measuring against a remembered earlier state would be wrong.
+
+| Agent | Task | Model/effort | Branch | agentId | Outcome |
+|---|---|---|---|---|---|
+| plan9 | G3-sibling both-sides GO/NO-GO | Sonnet/high — go/no-go measurement deciding whether a ~39,955-row gate ships; Haiku considered: no | `...-plan9` | `a9f5a1810986d10fe` | running |
+
+**G11's dependency is now singular and explicit:** G12 has landed; plan9's
+GO/NO-GO is the last input. GO → G11 can ship paired with the sibling fix.
+NO-GO → G11 defers this cycle and the sibling becomes its own follow-up
+carrying the data.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
