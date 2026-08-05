@@ -7,6 +7,37 @@ to the director).
 
 ---
 
+## M51 — Planner gate independently verified; Developer lock acquired (2026-08-05)
+
+The manager read the complete `b8bc238...3bab5f3` diff from a materialized
+scratchpad: eight paths, all tests/fixture/contract/log and **zero production
+files**. Remote `claude/defs-us-markers-planD` and the integrated shared branch
+both resolve to `3bab5f3`. Main-checkout containment holds: only the pre-existing
+untracked `.claude/settings.json` remains; no markers artifact remains there.
+
+Manager scoped run reproduced the intended RED signals exactly:
+
+- P-D1 unit: later lawful entry is absent after the first annotation ceiling;
+- P-D1 persisted live: `serious criminal offense` includes the later `(i)`
+  provision/annotation tail instead of ending after its own `(1)`–`(3)` list;
+- P-D2 unit: `Affiliate` swallows later Subd. definitions;
+- P-D2 persisted live: the same swallow persists and separate terms are absent.
+
+The combined five-file check yielded those four new failures plus the named,
+inherited TX Q3 Part-A/core-3 RED; seven checks passed, including both explicitly
+labelled U-R13 altitudes. No collection/setup error occurred. Planner gate is
+accepted and merged to `claude/defs-us-markers` at `3bab5f3`.
+
+Role transition: `status: planned`, `current_role: developer`, lock changed
+atomically from `codex:planner` to `codex:developer`. Next role delivery record,
+committed before handshake: `/root/markers_panel_manager/developer_pd1_pd2`;
+model/effort `gpt-5.6-terra/medium` — bounded implementation in one existing
+rule module against exhaustive REDs. Haiku considered: no, because two coupled
+regex/boundary defects require corpus-safe negative-guard reasoning and are not
+a mechanical string/config change.
+
+---
+
 ## M50 — Planner REDs and U-R13 oracle correction (2026-08-05)
 
 The new Planner verified the mandated isolated base `b8bc238`, created its own

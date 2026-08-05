@@ -4,15 +4,15 @@ status: planned
 current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:planner"
-locked_at: "2026-08-05T19:24:20Z"
-last_agent: "/root/markers_panel_manager"
-last_updated: "2026-08-05T19:25:47Z"
+locked_by: "codex:developer"
+locked_at: "2026-08-05T19:37:06Z"
+last_agent: "/root/markers_panel_manager/planner_red_u_r13"
+last_updated: "2026-08-05T19:37:06Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
-completed_items: 0
+completed_items: 1
 dev_complete_items: 0
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
@@ -181,9 +181,9 @@ planner pass 1`.
 
 ## Next Steps
 
-**CURRENT continuation phase (M47/M48, supersedes the stale blocked label).**
-The sprint is in Planner RED authoring, with no active Dev Complete item. The
-Planner owns exactly three acceptance tracks before any Developer starts:
+**CURRENT continuation phase (M47–M51, supersedes the stale blocked label).**
+The sprint is in Developer implementation, with P-T1 complete and P-D1/P-D2
+RED at both unit and persisted-live altitudes:
 
 1. **P-D1 — FED per-entry trailing-annotation boundary [U1/U-R1].** In
    `us_markers_boundary.py`, replace the single global trailing-stop ceiling
