@@ -71,6 +71,21 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (headings cycle-5 COMPLETE + scout respawn): headings @
+  533f12d — suite 860/0, recall 21,080/22,228 = 94.8353% (+76 verified).
+  Pin re-authored to the stronger mechanism-level property (capture via
+  dedicated R-POINTER predicate; manager added the negative control proving
+  the legacy rules CAN fire elsewhere, making the pin falsifiable); manager
+  recorded its own import-name verification error as its own, not the
+  agents'. QA cycle 4 opens against d5c12ab. The includes-FP scout declared
+  DEAD (~10.5h idle) after completing denominator, P-R10 control, full
+  24MB occurrence scan, and both samples — died at hand-classification.
+  Respawned by program manager (fresh Sonnet scout) reusing
+  headings_scout1_* scratchpad artifacts: re-verify the control first,
+  classify from the drawn samples, do NOT re-scan unless the control
+  fails. D-Q1 includes class stays open on headings ledger L2 until the
+  measurement lands.
+
 - 2026-08-05 (markers exit report — baseline-states finding + bucket-A
   discrepancy): markers @ c4baf7ce, manager context-exhausted, clean exit,
   QA NOT spawned (correctly — could not have verified it). Probe-sanity on
