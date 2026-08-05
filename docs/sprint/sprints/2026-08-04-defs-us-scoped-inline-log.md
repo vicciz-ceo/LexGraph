@@ -3122,3 +3122,41 @@ Three things I want stated precisely rather than dramatically:
 Meanwhile nothing is lost silently: the tripwire is committed and
 self-alarming, and the accepted-for-now tradeoff remains 3,605 terms gained
 vs 116 lost on the Georgia change that surfaced it.
+
+---
+
+## 2026-08-05 — Manager: truncation-class escalation RULED and disposed
+
+Program disposition, recorded so it survives a seat handover:
+
+1. **The CLASS** goes on the D-CERT worklist as a NAMED, VERIFIED,
+   SELF-ALARMING-PINNED zero-miss class. Our `xfail(strict=True)` tripwire is
+   the containment. The exact sweep pass 10 recommended is **commissioned as
+   part of the US certification build** rather than as a separate scout — the
+   certification needs that population regardless, so the count arrives without
+   a duplicate census.
+2. **The FIX** — distinguishing list-introducing triggers from mid-document
+   carve-outs in trigger-event region splitting — goes to the
+   **core-follow-on-3 accumulator** as a cross-panel architecture item,
+   carrying our two-commit mechanism proof, the 38,431-row precondition census,
+   the CA/GA measured-loss evidence, and the 37-vs-9 exemplar row. **Not this
+   cycle's work.** The stated reason is worth keeping: an architecture change to
+   region splitting mid-merge-queue is the correct-in-isolation /
+   wrong-in-composition trap this program keeps catching — and nothing is lost
+   silently meanwhile, because the pin fails loudly the moment anyone fixes it.
+3. **The class appears in the director's certification residual enumeration
+   with our data attached.** It is not quietly parked, which was the outcome
+   ruling S-R16 and this escalation were both designed to prevent.
+
+Recorded as the thing that made this decidable in one round rather than two:
+the escalation carried a two-commit proof of the mechanism, a full-corpus
+precondition census, measured loss OUTSIDE the motivating state, and an honest
+extrapolation-vs-count boundary. A conclusion of the same shape without those
+four would have earned another round of questions, and deserved to.
+
+### Remaining panel scope
+
+Unchanged: the two in-flight re-cuts for the markers panel (IL shape-validity
+three-way split; the "in general" per-jurisdiction label VOCABULARY), then
+**QA cycle 3 from this sprint's first fully-green suite** — 854 passed,
+1 xfailed, 0 failed.
