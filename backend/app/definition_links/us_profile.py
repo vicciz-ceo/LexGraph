@@ -1791,10 +1791,17 @@ class USProfile:
         from app.definition_links.rules import registry
 
         baseline_blocks = _split_into_numbered_blocks(text)
+        priority_blocks: list[str] = []
         extra_blocks: list[str] = []
         for rule in registry.entry_splitter_rules_for(self.code):
-            extra_blocks.extend(rule.split(text))
-        all_blocks = baseline_blocks + extra_blocks
+            if rule.priority_before_single_baseline:
+                priority_blocks.extend(rule.split(text))
+            else:
+                extra_blocks.extend(rule.split(text))
+        if len(baseline_blocks) == 1:
+            all_blocks = priority_blocks + baseline_blocks + extra_blocks
+        else:
+            all_blocks = baseline_blocks + priority_blocks + extra_blocks
 
         candidates: list[DefinitionCandidate] = []
         for block in all_blocks:

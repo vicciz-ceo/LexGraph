@@ -36,9 +36,8 @@ from app.definition_links.rules.us_markers_boundary import (
     extract_quote_anchored_entries,
 )
 
-_JURISDICTIONS = (
+_OTHER_JURISDICTIONS = (
     "US-VA",
-    "US-WA",
     "US-FED",
     "US-UT",
     "US-TX",
@@ -56,4 +55,11 @@ def _split(text: str) -> list[str]:
     return entries_to_quoted_blocks(extract_quote_anchored_entries(text))
 
 
-register_entry_splitter_rule(EntrySplitterRule(jurisdiction_codes=_JURISDICTIONS, split=_split))
+register_entry_splitter_rule(
+    EntrySplitterRule(
+        jurisdiction_codes=("US-WA",),
+        split=_split,
+        priority_before_single_baseline=True,
+    )
+)
+register_entry_splitter_rule(EntrySplitterRule(jurisdiction_codes=_OTHER_JURISDICTIONS, split=_split))
