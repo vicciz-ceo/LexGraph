@@ -4,10 +4,10 @@ status: blocked
 current_role: planner
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "claude-code:planner"
-locked_at: "2026-08-04T01:00:00Z"
-last_agent: "claude-code:sprint-manager"
-last_updated: "2026-08-04"
+locked_by: null
+locked_at: null
+last_agent: "codex:program-manager"
+last_updated: "2026-08-05T19:21:32Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"

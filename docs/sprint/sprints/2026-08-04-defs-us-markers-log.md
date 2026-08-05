@@ -7,6 +7,24 @@ to the director).
 
 ---
 
+## M47 — successor-session checkpoint; stale lock cleared (2026-08-05)
+
+The successor program manager fetched origin, reconciled the handoff against
+the local history, and pushed the exact panel tip `b7193d8` (31 commits that had
+not yet reached GitHub). The day-old `claude-code:planner` lock was stale under
+the 90-minute-plus-new-commits rule and is cleared. The contract's old
+`status: blocked` is deliberately left untouched for the fresh panel manager to
+reconcile from M38–M46 rather than having the program manager guess a role-state
+transition.
+
+Binding continuation scope from the handoff and M38–M46: RED-first fixes for
+the panel-owned FED trailing-annotation architecture and MN idiom gate; U-R13
+at persisted altitude; R6 and the named core-3 debts remain ledgered; then final
+independent QA. Merge slot remains second, after core-2, with G3-HEAL checked on
+the merged tree.
+
+---
+
 ## M0 — sprint manager setup (2026-08-04)
 
 **Manager (Opus/high).** Read in mandated order: program doc, recon dossier
