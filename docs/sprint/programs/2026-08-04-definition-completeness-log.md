@@ -77,6 +77,38 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (WA_T50 routing CORRECTED + the heading_was_derived gate,
+  G11 candidate): headings manager falsified the rerouting with a
+  layer-by-layer live trace — STATE_WA_T50_C29_S030's title IS
+  recognition-covered ("\"Wages\" defined for purpose of..." → panel
+  defined-for rule True); the failing layer is the heading_was_derived
+  GATE on the inline-quote fallback in core-owned us_profile: the flag is
+  True only on the body-derived-heading path, so registry-recognized
+  headings get False and the fallback NEVER RUNS. extract(...,
+  heading_was_derived=True) yields "wages"; False (the live value) yields
+  0. BOTH panels' probes were right and BOTH diagnoses wrong (markers' QA
+  drove extraction with the non-live flag value) — program lesson
+  recorded: probe ARGUMENTS are part of the claim; my relay propagated
+  the wrong diagnosis. QUANTIFIED: over defin-titled rows, 82,155
+  live-recognized / 53,918 zero on the live path / 39,955 RESCUED by
+  flipping the flag — the gate alone explains 74.1% of zero-yield (NV
+  8,555, NJ 2,650, AZ 2,645, MI 2,205, WA 2,044). Reconciles with recon
+  §6 finding #1 (the known existing-but-unwired fallback) — this NAMES
+  the specific gate and sizes it. CAVEAT recorded: 39,955 (defin-titled
+  population) and 12,869 (shape-1 bucket A) OVERLAP UNMEASURED — never
+  add them. ROUTED: G11 candidate to core-2 (shared module; largest
+  single lever measured in the program) with a BINDING both-sides
+  condition — the gate presumably exists for precision on the
+  body-derived path's messier inputs; find the original rationale (git
+  history/comments) and measure what the fallback would capture on
+  registry-recognized rows (FP side) before any flip; a per-call-site or
+  per-origin loosening may be sounder than removal. MARKERS impact: the
+  10-jurisdiction extension denominators must be RE-MEASURED under the
+  gate-fixed assumption before building (much of PA1's worklist may be
+  gate-rescued; PB1's MN/ME/OH boundary defects are gate-independent) —
+  their manager sequences with core-2. WA_T50 itself: closes when G11
+  lands; headings' reference-edge verification queues on it.
+
 - 2026-08-05 (mega-wave: D-INCLUDES + 4 core-2 planners + markers QA1 +
   scoped-inline QA2 bounce + IL handoff + seam defect): Director ruled
   D-INCLUDES (recorded in program doc). CORE-2: all four Planners landed —
