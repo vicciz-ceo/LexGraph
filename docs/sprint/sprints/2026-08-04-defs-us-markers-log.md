@@ -4652,3 +4652,122 @@ semantics to the program manager as a cross-panel question, which §M40 already
 requires.
 
 ---
+
+## M42 — RULED: counter-evidence carries; no suppression obligation (2026-08-05)
+
+**The default suppression ruling is VACATED as a general rule.** The three WA
+rows proved correctness varies per row — baseline is the swallow, our emission is
+the fix — so "stay silent where baseline already handles" is sound only when
+"handles" means handles **CORRECTLY**, and **no emission-layer rule can know that
+per row without the very discriminator core-3 owns.** Blanket suppression would
+have made G3-HEAL layer 2 unsatisfiable by construction, disqualifying on its own.
+
+**Resolution moves to the PREFERENCE layer**, where it always belonged: G8/core
+must judge candidate quality anyway. Our WA rows are recorded at program level as
+the **reverse-mode exhibit** of the same quality-blindness thread that already
+carries the semantic-emptiness steer and the mirror-mode pre-merge check.
+
+**Consequences for this panel — all favourable, all bounded:**
+
+- **NO suppression obligation anywhere**, including the TX row-class. Our two
+  noise duplicates there duplicate CORRECT baseline captures, so
+  first-wins/containment keeps baseline's text and they are **harmless at
+  persistence**. Our class-B/core-3 work improves those emissions on its own
+  schedule.
+- **G3-HEAL stays held exactly as scoped, both layers intact.** The consequence
+  flagged in the escalation — needing it released or re-scoped — does not arise.
+- **The multiterm pin conflict resolves on THEIR side**, by the two-altitude
+  principle the two panels had just invented for R1: M-R18's pin is re-scoped to
+  its hazard's altitude (persisted/asserted outcome, plus a candidate-level pin
+  covering only their OWN rule's emission, which is what their guard actually
+  controls) instead of an exactly-1 count over the cross-panel union — which had
+  encoded the emission-layer theory this ruling rejects. **Our merge will not
+  break their suite, and we do no work for it.**
+- Nothing else in the queue changes.
+
+### Method worth reusing, recorded separately from the outcome
+
+The counter-evidence that carried was **not an argument about principle**. It was
+three measured rows where the principle produced the wrong answer, plus the
+structural observation that a standing ledger commitment became unsatisfiable *by
+construction* rather than merely inconvenient. The escalation also stated in
+advance **what would have to give if it lost** (G3-HEAL released or re-scoped),
+making the cost of the alternative visible before it was chosen instead of at a
+merge gate.
+
+**And the two-altitude principle generalised beyond its origin.** It was invented
+ad hoc between two panel managers to settle one ledger item's closing condition
+(R1), and the program manager then applied it to resolve a different, unrelated
+pin conflict. The transferable rule: **a pin belongs at the altitude of the
+hazard it protects**, and a cross-panel union count is the wrong altitude for a
+guard that only controls its own rule's emission.
+
+---
+
+## M43 — multiterm conceded on measurement; a REAL gap in our argument (2026-08-05)
+
+Their manager re-measured baseline's behaviour on our three WA rows **on their
+own branch before conceding**, rather than yielding to a well-argued message.
+Their finding, and it is worse than we described: **baseline emits exactly ONE
+candidate for the entire section**, swallowing every other definition into that
+one term's text.
+
+**Our complementary measurement**, which they could not run (our rule is not on
+their branch):
+
+| act_id | row_len | TOTAL candidates | of which >4,000 chars |
+|---|---|---|---|
+| `STATE_WA_T82_C04_S065` | 10,856 | **31** | **1** (baseline's 10,838 swallow) |
+| `STATE_WA_T43_C88_S020` | 6,545 | **27** | **1** (6,515) |
+| `STATE_WA_T82_C04_S192` | 8,885 | **12** | **1** (8,769) |
+
+Baseline's single candidate is **essentially the whole row**; the other 30/26/11
+clean definitions (`900 service`, `Ancillary services`, `Digital books`…) are all
+OURS. So "baseline already emitted this term" is true and almost maximally
+misleading on these rows.
+
+They amended their own panel's ruling rather than defending it, and named why
+they found it easy to accept: **they made the mirror-image error this same
+cycle.** Their M-R18 guard widened on the assumption "marker + quote means
+baseline already captured it", which was wrong for hyphen-suffixed markers —
+baseline captured nothing — and it silently destroyed F6's only capture across up
+to 91 TX sections until a corpus kill-experiment caught it (their M-R23).
+
+**Both errors are one error: treating baseline EMISSION as a proxy for baseline
+CORRECTNESS.** Theirs assumed emission where there was none; ours warns against
+assuming correctness where there is emission. Recorded as a program-level
+pattern, since two panels hit it from opposite directions within one cycle — and
+note it is the same root as R6, which is how R6 was found.
+
+### The gap in OUR argument, which they caught
+
+We told the program manager that a G8 fix "satisfies their pin either way".
+**That holds only if G8 resolves at CANDIDATE level.** Their pin asserts
+`counts["Governmental body"] == 1` on the output of
+`extract_definitions_from_section` — *before* persistence. **If G8 lands as a
+persist-layer or ordering-layer preference, two candidates still exist at
+extraction time, the pin still sees 2, and it still fails.**
+
+So **"prefer the better candidate" is under-specified**: the arbitration must say
+**at which altitude the preference is applied.** Carried to the program manager
+as a design input for G8 — it is not settled by the M42 ruling, which resolved
+the pin conflict by re-scoping their pin rather than by fixing G8's altitude.
+
+This is our own §M40 persisted-vs-candidate semantics question arriving a third
+time, from a third direction. **Three independent arrivals now say the same
+thing: this program has no settled answer to "which altitude is the contract".**
+
+### Their commitment, recorded so it is not mistaken for a veto
+
+Their candidate-level M-R18 pin is a **temporary scaffold**: it stays only until
+G8 lands (it is currently the sole guard against a real double-emit regressing,
+and it caught a genuine 400-char corrupt-text duplicate), then they re-express it
+at whatever altitude G8 resolves. They are adding the assertion-level pin now as
+the durable, altitude-independent guarantee. **Our merge is not blocked and we do
+no work for it.**
+
+They also volunteered that the multiterm panel **agrees a suppression ruling
+would have made G3-HEAL unsatisfiable by construction**, and that it follows from
+their own measurement rather than being a reluctant concession. Citable.
+
+---
