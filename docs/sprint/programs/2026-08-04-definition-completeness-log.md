@@ -87,6 +87,18 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (SESSION CONCLUDED — director order; handoff written): The
+  director concluded this program-manager session. Authoritative handoff
+  for any successor:
+  docs/sprint/programs/2026-08-04-definition-completeness-HANDOFF.md —
+  per-stream state, merge queue + checklist, the two lost-in-flight
+  measurements to respawn first (core-2's G8 reverse-order check = the
+  sole merge blocker; PR's M-R20 Planner pass), cross-panel watch items,
+  certification tracks, program-law index, resumption recipe. ALL agent
+  ids in this log are dead with the session; state lives only on pushed
+  branches and committed docs. Nothing has merged to main from any panel
+  branch yet.
+
 - 2026-08-05 (core-2 blocks its OWN merge — G13 opened): the pre-merge
   false-truncation check found 28/6,647 changed rows are COMPLETE DROPS,
   28/28 exhaustively verified as false truncations of real definitions
