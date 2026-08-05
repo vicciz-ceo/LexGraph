@@ -890,3 +890,344 @@ above (2 × G5 dispatch, 5 × G6 dispatch, 1 × G6 live-path); zero
 collateral damage to the pre-existing suite. The 2 intentionally-GREEN
 tests (G5's static-field invariant, G6's positive control) are included
 in the 772 passed and are load-bearing regression guards, not filler.
+
+---
+
+# Appendix B — Planner record: plan6 (G9)
+
+Worktree `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-plan6`, branch
+`claude/defs-core-follow-on-2-plan6`, forked from the sprint branch @
+4a47666 (after G8 and G3+G1 had already merged — verified both defects
+still present at this tip before writing anything: `pipeline.py:243`
+still hardcodes `heading_breadcrumbs=()`; `sections.py:138` still gates
+`.chapter` on a literal `len(break_match.group(1)) == 2`, line numbers
+shifted from the brief's 212/138 by G8/G1/G3's own edits elsewhere in
+these files, same defects). This log covers gate **G9** only — Planner
+owns tests and item definitions, no production `.py` file under
+`backend/app/` was edited (`git diff --stat HEAD -- backend/app` is
+empty).
+
+## Read before writing anything
+
+Seam spec v2.6 §1 (M-D1, `docs/sprint/sprints/2026-08-04-defs-core-scope-seam.md:1226-1276`)
+per the brief — its "input-availability, resolved" paragraph is the
+authorizing text: accumulating all depths into `heading_breadcrumbs` is
+*"core's own ONE-PLACE additive change (default `()`, so every existing
+construction site is unaffected)"*, and US/parquet availability was
+separately verified against a real file in a prior sprint (no ingest-
+contract escalation needed for US — not built this gate, see "What was
+NOT built" below). Also read this log's own "Phase 1b" section (G9's
+acceptance reasons) and `claude/defs-il`'s D-1b Planner commit `bc54e1a`
+(`git show bc54e1a`) in full — the two existing committed REDs this gate
+vendors equivalents from, per the brief's "do not cherry-pick" instruction.
+
+## Design decision: what "the fix" requires beyond the two named lines
+
+The two named defects (`pipeline.py:243` hardcoded `()`, `sections.py:138`'s
+`len==2` gate) are the OBSERVABLE locus, but tracing the data path required
+by a genuine fix surfaces one more fact worth recording so the Developer
+doesn't have to re-derive it: `run_definition_linking` (`pipeline.py`)
+operates over ALREADY-INGESTED `Article` ORM rows (`models/article.py`) —
+it never re-parses raw wiki text, and `models.document.Document` does not
+store the original text either (confirmed by reading both models). Depth
+3+ heading text is discarded at PARSE time (`ingest_wiki_law` calls
+`sections.parse_articles`, then persists only `.number`/`.heading`/
+`.chapter` onto the ORM row — confirmed by reading `ingest.py`). So a
+genuine fix has THREE parts, not two, mirroring exactly how `.chapter`
+itself already flows end to end:
+1. `sections.py` — capture full-depth breadcrumbs additively (item G9-1).
+2. `models.article.Article` — one new additive, nullable column to carry
+   it from ingest-time to pipeline-time (item G9-2) — the same "additive
+   column on a `Base.metadata.create_all()`-only table, no migration
+   module needed" precedent `models/document.py`'s own docstring already
+   documents for `Document.jurisdiction`.
+3. `ingest.py` (persist) + `pipeline.py` (read instead of hardcode) —
+   items G9-3/G9-4.
+
+This is NOT scope creep — it is the necessary shape of "core's own
+ONE-PLACE additive change" once traced to where the data actually has to
+live to reach `pipeline.py:243` at all. No test in this Planner's set
+asserts anything about the INTERNAL persistence shape (column name,
+serialization format) — every RED goes through the public entry points
+(`sections.parse_articles`, `ingest_wiki_law`, `run_definition_linking`)
+only, so the Developer is free to choose the concrete column/serialization
+as long as the item's observable contract holds.
+
+## Item definitions (G9)
+
+**G9-1 — `sections.py`: capture full-depth heading breadcrumbs, additively.**
+New field `Article.heading_breadcrumbs: tuple[tuple[int, str], ...] = ()`
+on `sections.Article` (mirrors `.structural_units`'s own existing
+additive-default convention in the same dataclass). `parse_articles`
+maintains a breadcrumb STACK alongside (not instead of) its existing
+`current_chapter` tracking: on any `_HEADING_BREAK_RE` match at depth `d`
+with text `t`, pop every stack entry with depth `>= d`, then push `(d,
+t)`; every `Article` flushed after that point carries `tuple(stack)` as
+its own `.heading_breadcrumbs`. `.chapter`'s own existing `len==2`-gated
+assignment is UNTOUCHED — this is a parallel accumulation, not a rewrite.
+*Acceptance (RED, unit, byte-verified real fixtures):*
+`backend/tests/unit/test_definition_links_g9_heading_breadcrumbs.py`,
+4 REDs + 1 regression-pin (see "REDs" below).
+
+**G9-2 — `models.article.Article`: one new additive nullable column.**
+Carries G9-1's captured breadcrumbs from ingest-time to pipeline-time (no
+other route exists — `run_definition_linking` never re-parses raw text,
+see "Design decision" above). Additive, nullable, no migration module
+(same precedent as `Document.jurisdiction`). Column name/serialization is
+the Developer's implementation choice; no RED in this Planner's set pins
+it directly.
+
+**G9-3 — `ingest.py`: persist `heading_breadcrumbs` onto the new column.**
+`ingest_wiki_law`'s per-article `Article(...)` construction gains one more
+field, sourced from G9-1's `parsed_article.heading_breadcrumbs`, exactly
+parallel to how `.chapter` is already threaded there today.
+
+**G9-4 — `pipeline.py`: read real breadcrumbs instead of hardcoding `()`.**
+The one `StructuralContext(article_number=art.number,
+heading_breadcrumbs=())` construction site (`pipeline.py:243`) reads the
+per-article value G9-2/G9-3 persisted (deserialized back into
+`tuple[tuple[int, str], ...]`), defaulting to `()` only when the column is
+genuinely absent/empty (e.g. a pre-G9 row, or a jurisdiction this gate
+does not populate it for — see "What was NOT built"). Safe default
+preserved exactly as the seam spec already promises.
+*Acceptance (RED, live-path, P-R8-shaped, byte-verified real fixture):*
+`backend/tests/integration/test_definition_links_g9_heading_breadcrumbs_live.py`,
+1 RED (both containment directions combined — see "REDs" below for why).
+
+## REDs (re-authored, not cherry-picked — new law, new articles, new fixtures)
+
+The two `claude/defs-il` REDs this gate's brief points at
+(`test_definition_links_il_siman_chelek_containment_live.py`, commit
+bc54e1a) use `חוק לקידום תשתיות לאומיות`/`תקנות המשקלות והמידות` and a
+REAL, shipped `il_siman_chelek_scope_triggers.py` rule module that does
+not exist on this branch (IL panel work, not yet merged here). Vendoring
+their EXACT fixtures/rule would be cherry-picking; instead this Planner
+independently read the same read-only corpus and picked a DIFFERENT real
+law (`חוק תכנון משק החלב, התשע"א-2011` — Milk Economy Planning Law) with
+the same structural shape (chapter > two siblings simanim, byte-verified
+this session), plus a SECOND real law
+(`תקנות מחלות בעלי חיים (שחיטת בהמות)`) for a non-monotonic-depth edge
+case D-1b's own log flagged as a real corpus complication but did not
+build a fixture for. Both source files verified present in the read-only
+corpus at `/Users/nerya/AI for others/israeli-laws-wiki/data/laws/`; every
+excerpted span verified (this session, via direct Python `in`-substring
+checks, shown in this Planner's own transcript) a literal, byte-identical
+substring of its real source file before being copied into a new fixture
+under `backend/tests/fixtures/wiki_laws/`. The corpus itself was never
+read by, or made reachable from, any test — only by this Planner's
+one-off, non-committed measurement/verification scripts.
+
+### Unit-level (G9-1's capture contract) — 4 REDs, 1 regression pin
+
+File: `backend/tests/unit/test_definition_links_g9_heading_breadcrumbs.py`.
+Run: `backend/.venv/bin/pytest tests/unit/test_definition_links_g9_heading_breadcrumbs.py -v`.
+
+1. `test_parse_articles_captures_chapter_and_siman_breadcrumbs_for_a_nested_article`
+   — article 3 (`פרק ג': תכנון משק החלב` > `סימן א': הסדרת הייצור
+   והשיווק`). RED: `AttributeError: 'Article' object has no attribute
+   'heading_breadcrumbs'`.
+2. `test_parse_articles_captures_chapter_only_breadcrumbs_when_no_siman_is_open`
+   — article 1 (chapter only, no siman nested under it) — same
+   `AttributeError`.
+3. `test_parse_articles_resets_the_siman_breadcrumb_and_does_not_leak_the_prior_simans_text`
+   — articles 12 (last of סימן א') and 15 (סימן ב', same chapter) — same
+   `AttributeError`; also pins that a superseding depth-3 heading REPLACES
+   rather than appends (a naive stack that only pushes would leave the
+   stale סימן א' entry present alongside סימן ב').
+4. `test_parse_articles_handles_a_real_non_monotonic_depth_sequence` —
+   the `תקנות מחלות בעלי חיים` fixture, where a REAL depth-4 heading
+   appears BEFORE the depth-3 heading it nests under (D-1b's own flagged
+   complication, reproduced against an independently-found file, not
+   theirs) — same `AttributeError`.
+5. `test_the_existing_len_two_chapter_gate_stays_byte_identical_alongside_the_new_field`
+   — the depth-2 NON-REGRESSION pin: pins `.chapter` to the EXACT values
+   today's unmodified `parse_articles` already produces for every article
+   these fixtures touch (confirmed by running against today's code before
+   writing the other 4 tests). **This one PASSES today** (positive
+   control — `.chapter` is untouched by this gate's design) and must keep
+   passing unchanged after G9-1 lands; if it ever goes red, the Developer
+   changed `.chapter` behavior, which this gate forbids.
+
+Actual run today (`4 failed, 1 passed`), full text captured this session;
+all 4 failures are the identical one-line `AttributeError` above (correct
+reason — the field genuinely does not exist yet, not a fixture/import
+error).
+
+### Live-path (G9-4's consumption contract, P-R8) — 1 RED
+
+File: `backend/tests/integration/test_definition_links_g9_heading_breadcrumbs_live.py`.
+Run: `backend/.venv/bin/pytest tests/integration/test_definition_links_g9_heading_breadcrumbs_live.py -v`.
+
+`test_a_structural_unit_rule_receives_real_siman_breadcrumbs_and_containment_holds_in_both_directions_live`
+registers (jurisdiction code `US-HI`, verified unused by any other
+rule-registration test on this branch — `git grep -c "US-HI"` → 0 hits in
+both `backend/tests` and `backend/app`, so this cannot pollute the real
+`"IL"` dispatch path or collide with any sibling gate's own probe codes)
+a `ScopeTriggerRule` that stamps a real `"siman"`-scoped `Definition` for
+the real word `"מוצרי חלב"` from article 3's genuine body, and a
+`StructuralUnitRule` whose `.derive` DYNAMICALLY reads
+`ctx.heading_breadcrumbs` for a depth-3 entry (not hardcoded per article,
+unlike QA gate A2's own `ctx.article_number`-keyed probe — A2 predates
+this gate and deliberately avoided `heading_breadcrumbs` because it was
+already known dead; this test's whole point is that field). Runs the REAL
+`ingest_wiki_law` + `run_definition_linking` and inspects the REAL created
+`USES_DEFINITION` assertions, both directions combined in one test
+(same-סימן article 12 must link, different-סימן article 15 must not —
+combined per the established M16/D-1b precedent so the test is not
+vacuously green on the non-leakage half alone, since nothing links
+anywhere yet today).
+
+Actual failure today, quoted verbatim:
+```
+AssertionError: expected article 12 (SAME סימן א' as the defining article 3) to get a USES_DEFINITION edge for its genuine mention of "מוצרי חלב" in its own body -- this requires a live StructuralUnitRule to have received article 12's real depth-3 breadcrumb ("סימן א': הסדרת הייצור והשיווק") through ctx.heading_breadcrumbs and stamped a matching ScopeUnit; got uses_props=[], created_assertions=[]. If this is empty, pipeline.py's StructuralContext(heading_breadcrumbs=()) hardcode (or sections.py's discarded 3+-equals heading text) is still starving StructuralUnitRule.derive of real data.
+assert False
+ +  where False = any(<generator object ...>)
+```
+The Definition-capture assertions (`len(term_defs) == 1`, `scope ==
+"siman"`) pass BEFORE this failure — proving the `ScopeTriggerRule` half
+fires correctly and the failure is isolated to CONTAINMENT (the
+`StructuralUnitRule`/breadcrumbs half), the exact defect this gate targets
+and not some other cause.
+
+**Why this proves CONSUMPTION, not mere population:** the assertion under
+test is an END-TO-END observable answer (`USES_DEFINITION` assertions
+created by the real pipeline, read back through
+`result["created_assertions"]`), not an inspection of
+`StructuralContext.heading_breadcrumbs`'s own value or `Article.
+structural_units`'s own contents. `_derive` reads `ctx.heading_breadcrumbs`
+DYNAMICALLY per article (no article-number branching) — if the Developer's
+fix populated the field but with WRONG data (e.g. the wrong depth, stale
+text, or a value that doesn't match `defining_siman`'s exact string), this
+test would still fail, exactly as a population-only test would NOT catch.
+
+## Depth-2 non-regression proof (not an assertion — measured two ways)
+
+1. **Execution-level:** the EXISTING, UNEDITED
+   `backend/tests/unit/test_definition_links_sections.py` (10 tests,
+   including its own `test_article_records_its_nearest_preceding_chapter_
+   heading`) plus `test_definition_links_profiles.py` (25 tests) and
+   `test_definition_links_models.py` (4 tests) — 35 tests total, ALL still
+   PASS, unedited, run this session:
+   `backend/.venv/bin/pytest tests/unit/test_definition_links_sections.py tests/unit/test_definition_links_profiles.py tests/unit/test_definition_links_models.py -v`
+   → `35 passed`. `git diff --stat HEAD -- backend/tests/unit/test_definition_links_sections.py`
+   is empty — this Planner touched zero bytes of that file.
+2. **Assertion-level, this Planner's own fixtures:** item G9's own
+   `test_the_existing_len_two_chapter_gate_stays_byte_identical_alongside_
+   the_new_field` (above) pins the EXACT `.chapter` values for every
+   article these NEW fixtures touch, confirmed against today's unmodified
+   code before the other REDs were written, and passes today as a
+   positive control.
+
+## Measured before/after (read-only corpus scan, never touched by a test)
+
+One-off script (`/private/tmp/.../scratchpad/g9_measure.py` — not
+committed, not importable, not part of the test suite), mirroring
+`sections.parse_articles`'s exact control flow plus the additive
+breadcrumb-stack G9-1 specifies, run read-only against the corpus at
+`/Users/nerya/AI for others/israeli-laws-wiki/data/laws` (6,133 `.wiki`
+files — this file count independently matches the corpus-size denominator
+already cited elsewhere in this codebase's own comments, e.g.
+`sections.py`'s M8(a) note, cross-validating this measurement targets the
+same corpus snapshot):
+
+| Denominator | Value |
+|---|---|
+| total `.wiki` law files scanned | 6,133 |
+| files containing >= 1 depth>=3 (`===`+) heading | 3,064 (49.96% of files) |
+| total depth>=3 heading-break LINES (currently-discarded heading text — M18 entry-line count) | 14,393 |
+| total articles parsed corpus-wide | 128,234 |
+| articles gaining a non-empty breadcrumb tail beyond `.chapter` once fixed | 50,472 (39.36% of all articles) |
+
+**Why these generalize:** the script does not approximate or sample — it
+runs the SAME regexes (`_ARTICLE_MARKER_RE`, `_BARE_ARTICLE_MARKER_RE`,
+`_HEADING_BREAK_RE`) and the SAME control flow as the real
+`sections.parse_articles`, over every real file, so "articles gaining a
+breadcrumb tail" is not an estimate — it is what the exact algorithm this
+gate's REDs pin produces, corpus-wide. The algorithm itself is validated
+against ground truth by this Planner's own 4 unit REDs (hand-verified
+expected breadcrumbs for 2 real files, 3 fixture excerpts, covering the
+2-level, chapter-only, reset/non-leak, and non-monotonic-depth cases) —
+not merely asserted to be correct.
+
+**P-R10 probe-sanity, honest gap:** attempted to reproduce an EXISTING,
+UNRELATED cited figure as an additional cross-check of this script's
+methodology — `sections.py`'s own M8(a) code comment states "124 of 6,133
+... documents use a bare `@` marker for at least one section." This
+script's own bare-marker sub-check (same `_BARE_ARTICLE_MARKER_RE` regex,
+same corpus) reproduces **42**, not 124; two broader variants tried (any
+`@`-prefixed line that fails full article-marker matching: 1,658; a
+`.strip()`-relaxed bare-marker match: 42, identical) did not reproduce 124
+either. The corpus itself is confirmed unchanged since that figure was
+presumably measured (`git log` inside the corpus repo shows one scrape
+commit, dated 2026-07-26, "corpus 6133" — the same count this script
+independently gets). This discrepancy belongs to M8(a) (a DIFFERENT,
+already-shipped item, not part of G9, not edited by this Planner) and is
+flagged rather than silently resolved or hidden — it does NOT undermine
+this gate's own two new numbers (14,393 / 50,472), which mirror the real
+production algorithm directly rather than depending on that other figure.
+
+## What the Developer must implement
+
+- G9-1/G9-2/G9-3/G9-4 above, in order (G9-1 has no dependency; G9-2/3/4
+  depend on G9-1's field existing).
+- Column/serialization choice for G9-2 is open — JSON is one reasonable
+  option (Hebrew heading text may contain arbitrary characters including
+  `:`/`>`, ruling out a naive delimiter scheme like `_serialize_unit_path`'s
+  own `kind:value>kind:value` convention elsewhere in `pipeline.py`).
+- `heading_breadcrumbs=()` must remain the default read path whenever the
+  new column is null/absent (pre-G9 rows, or a jurisdiction this gate does
+  not populate — see below) — the safe-default promise the seam spec
+  already makes.
+
+## What must NOT change
+
+- `sections.py`'s existing `.chapter` computation/gate (`len(break_match.
+  group(1)) == 2`) — G9-1 is additive alongside it, never a rewrite.
+- `StructuralContext`'s existing shape (`article_number`,
+  `heading_breadcrumbs: tuple[tuple[int, str], ...]`) — already fully
+  specified by seam spec v2.6 §1; no seam-doc version bump needed for this
+  gate (the DATA source changes, the CONTRACT shape does not).
+- Any existing test in `test_definition_links_sections.py`,
+  `test_definition_links_profiles.py`, `test_definition_links_models.py`,
+  or any other already-passing IL test — all verified passing UNCHANGED
+  this session (see "Depth-2 non-regression proof" above). Per the brief:
+  editing one of these to fit would be a planning bug, escalated rather
+  than done; none needed editing.
+- `matcher._in_scope` / `_value_matches` / `_subsection_contains_offset` —
+  already proven live and correct by QA gate A2
+  (`test_dispatch_qa_gate_a2_structural_unit_rule_live.py`); G9 only fixes
+  what feeds INTO the `StructuralContext` that dispatch already consumes
+  correctly. Zero edits needed or made.
+
+## What was NOT built (explicitly out of scope, flagged not silently assumed)
+
+- **The IL siman/chelek `StructuralUnitRule`/`ScopeTriggerRule` rule
+  modules themselves.** This gate unblocks them (real data now reaches
+  `StructuralUnitRule.derive`); building them is the IL panel's own future
+  work per the brief ("their M20 escalation") and this sprint's P-R1
+  panel/shared-module fence. This Planner's live-path RED registers its
+  OWN throwaway probe rules (jurisdiction `US-HI`) purely to PROVE the
+  seam is live — not a shipped rule module.
+- **`ingest_us_statutes.py` (US/parquet ingestion) reading the real
+  `breadcrumb`/`display_path`/`chapter_name`/`title_number` parquet
+  columns.** The seam spec's own "input availability, resolved" note
+  confirms these columns EXIST in real parquet files (verified in a prior
+  sprint) — but confirming a column's EXISTENCE is not the same as this
+  gate WIRING it, and neither of the two named defects in this gate's
+  brief mentions `ingest_us_statutes.py`. G9-4's fix in `pipeline.py`
+  reads generically (whatever the ORM row's new column holds, defaulting
+  to `()`), so it is NOT US-hostile — a future gate can wire
+  `ingest_us_statutes.py` to populate the same column with zero further
+  `pipeline.py` change. Flagged as a natural, low-cost follow-on, not
+  built here (no US parquet fixture was byte-verified this session, and
+  the brief's own "main risk" framing is entirely IL/Hebrew).
+
+## Full suite state, this worktree, this branch
+
+`backend/.venv/bin/pytest tests -q` → **22 failed, 797 passed** (up from
+the pre-existing **17 failed, 796 passed** baseline confirmed at this
+branch's tip before writing anything — the 17 pre-existing failures are
+OTHER gates' own still-open REDs, G2/G4/G5/G6, untouched by this Planner).
+The 5 new failures are exactly this gate's own REDs (4 unit + 1
+live-path); the 1 new pass is this gate's own regression pin. Zero
+collateral damage anywhere else in the suite.
