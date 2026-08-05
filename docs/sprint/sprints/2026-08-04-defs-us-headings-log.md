@@ -2826,3 +2826,58 @@ unreached went to the DIRECTOR BY NAME** per D-HG and enter the D-CERT
 worklist. Nothing unowned. (Manager's probe counted 14 idiom+quoted-term vs
 their 18 idiom-bearing — a difference in the idiom test, not in disposition;
 not re-litigated.) The NM row is preamble's (shape 5 + "also means").
+
+---
+
+## 2026-08-05 — L11 accepted and dispatched; L9 commissioned as core-2 G6
+
+### L11 — accepted exactly as proposed, both halves now owned
+
+- **Bucket A (12,869 heading-recognized / zero-yield) → MARKERS panel.** Program
+  manager's caveat, recorded because it materially qualifies this panel's
+  number: **the measurement ran WITHOUT markers' family-3 rules loaded**, so
+  12,869 is an upper bound from this panel's vantage, not a settled count.
+  Markers re-measures on their own branch and **probe-sanities against 12,869
+  first** (P-R10). **NV is not currently in their covered jurisdiction set and
+  becomes a candidate new member** — a direct consequence of this measurement.
+- **Bucket B (51,855, no heading signal) → recorded at PROGRAM level as
+  UN-OWNED**, parked on the D-CERT worklist. No panel absorbs it silently.
+- This panel's operational shape-1 definition vs the preamble band's definition
+  is **reconciled in the D-CERT denominator build**, not informally — the
+  caveat is recorded verbatim in the program log.
+
+**Why this mattered:** the attribution arrived pointing at this panel, and
+measuring it rather than accepting it **changed the routing of 64,724 rows**
+and surfaced a new candidate jurisdiction for another panel.
+
+### L9 — commissioned, with this panel owning stage 2
+
+The scope-VALUE seam is **G6 of `2026-08-05-defs-core-follow-on-2`** (G1–G7).
+Contract: **core delivers the seam + ONE live-path proof; THIS panel then
+builds the actual rules.** L9 is a scheduled two-stage item, not a dead end.
+
+**Merge order set at program level:** core-2 → markers → preamble → rest. This
+panel's bucket-A finding strengthened that ordering (markers must land before
+the panels whose captures depend on bodies actually yielding).
+
+### Dev cycle 5 in flight — a dead-dispatch risk flagged pre-emptively
+
+The Developer is mid-build and has split the 479-line module into a **package**
+(`rules/us_heading_variants/` with `__init__.py` + 6 submodules) rather than
+sibling modules. Legitimate, but it converts a `*.py` MODULE into a PACKAGE
+directory, and **core's rule auto-discovery may enumerate only `*.py` files**.
+If so, the three `register_heading_rule` calls would never execute in
+production while the suite stayed fully green — because the tests import the
+package directly. **That is precisely the failure mode that left 5 of 7 rule
+kinds dead earlier in this program, undetected by passing wiring tests.**
+
+Manager sent a pre-emptive instruction (not a bounce): read the actual
+discovery implementation and quote it; prove in a FRESH interpreter that does
+not pre-import the package that `heading_rules_for("US-CT")` returns exactly
+**3** and `heading_rules_for("IL")` returns **0**; and confirm a real family-4
+heading is True via `profile.is_definitions_heading` while bare baseline is
+False — the positive control proving the registry path, not baseline, does the
+work. If discovery does not descend into packages, the Developer must fall back
+to a real `us_heading_variants.py` importing private sibling modules — and must
+NOT edit core discovery (U3). Stale `__pycache__` and a coexisting old module
+are called out as things that could mask the check.
