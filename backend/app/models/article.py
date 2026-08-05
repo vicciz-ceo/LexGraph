@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -34,3 +34,14 @@ class Article(Base):
     number: Mapped[str] = mapped_column(String(64), nullable=False)
     heading: Mapped[str] = mapped_column(String(1024), nullable=False)
     chapter: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Sprint 2026-08-05-defs-core-follow-on-2, item G9-2 (program-manager
+    # approval; see `app/migrations/add_heading_breadcrumbs_column.py` for
+    # the binding conditions this column satisfies). Additive, nullable --
+    # no existing `Article(...)` construction site needs to set it.
+    # JSON-serialized `sections.Article.heading_breadcrumbs`
+    # (`app.definition_links.sections.serialize_heading_breadcrumbs`/
+    # `deserialize_heading_breadcrumbs`); `NULL` means "no breadcrumbs
+    # captured for this row" (a pre-G9 row, or a jurisdiction this gate
+    # does not populate it for), read back as `()` by
+    # `pipeline.run_definition_linking`'s safe-default read path.
+    heading_breadcrumbs: Mapped[str | None] = mapped_column(Text, nullable=True)
