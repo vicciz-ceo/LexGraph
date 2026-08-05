@@ -505,6 +505,91 @@ conventions.**
 
 ---
 
+## Phase 2 — implementation wave 1 (2026-08-05)
+
+Spawned after Planner verification. Model/effort for every Developer:
+**Sonnet/medium** — design and tests already exist, so this is bounded
+implementation against a written spec; Haiku considered: no, each lands in
+shared code six panels depend on.
+
+| Agent | Gates | Branch | agentId | Outcome |
+|---|---|---|---|---|
+| dev1 | G3 + G1 | `...-dev1` | `a1d5577f4545118ae` | running |
+| dev2 | G8 | `...-dev2` | `ad5caf511b321ca57` | **MERGED @ 715211a** |
+| dev3 | G2 + G4 | `...-dev3` | `ac0dfea20acd8ed41` | running |
+| plan5 | G10 | `...-plan5` | `a78f13f6bc7939fbf` | running |
+| plan6 | G9 | `...-plan6` | `a38aa7f6e1cf03cd3` | running |
+| plan7 | G11 | `...-plan7` | `af70147302e1a0212` | running |
+
+G5+G6 implementation is deliberately NOT yet spawned: G5 depends on the
+resolver pair (dev3) landing. G6 will be paired with it to keep one head on
+plan3's design.
+
+### G8 — manager verification (dev2), ACCEPTED and merged
+
+Verified first-hand, not accepted on report:
+- Diff is **`pipeline.py` only, 46 insertions / 0 deletions, 0 test files
+  touched**; full diff read (shared persistence code — full reads are the
+  rule in this sprint).
+- G8's suite: **5 passed** (the RED now green + 4 that already passed).
+- Full suite **794 passed / 19 failed**, and the 19 are exactly the other
+  gates' unimplemented REDs (G2 4 + G4 4 + G1 2 + G3 1 + G5 2 + G6 6 = 19).
+  Independently recomputed against the manager's own earlier per-branch RED
+  counts — they reconcile exactly.
+- 33 IL/Hebrew tests pass unchanged (regression surface intact).
+
+**The implemented criterion** (`_is_tighter_containment`) is
+`candidate != persisted and len(candidate) < len(persisted) and candidate in
+persisted` — a strict byte-exact substring test, applied in a new `elif`
+branch that updates `definition_text`/`scope`/`qualifier` together.
+
+**Manager's own analysis of why this matches the Planner's partition** (the
+mapping is exact, which is good evidence the design was implemented rather
+than approximated):
+- identical text → excluded by `!=` → the **2,307 benign**;
+- no containment relationship → excluded by `in` → the **1,308 ambiguous**,
+  left untouched as designed;
+- strict containment → fires → the **745 unambiguous**.
+
+**Outcome is order-independent** (manager-checked by reasoning through both
+orders): long-then-short overwrites; short-then-long does not fire, since
+`len(candidate) < len(persisted)` fails. Shorter-contained wins either way,
+and nested chains converge to the innermost.
+
+**Origin-agnostic**, so it covers the majority case — baseline colliding
+with ITSELF (2,282 rows / 34 jurisdictions) — and not merely baseline-vs-rule.
+
+**It also closes the stickiness property** the manager found: because
+`definitions_by_key` is pre-seeded from existing DB rows, this `elif` is the
+only path by which a bad `definition_text` persisted by a PRIOR run can ever
+be corrected.
+
+### TWO RISKS THE MANAGER IDENTIFIED — handed to QA as required attack points
+
+Neither blocks the merge; both are assumptions the fix rests on, and neither
+is proven by the tests as they stand.
+
+1. **"Longer = contaminated" is the load-bearing assumption of all of G8.**
+   The criterion prefers the shorter text whenever it is strictly contained.
+   That is correct when the extra bytes are a leaked neighbor's marker+quote
+   — but WRONG if the longer text is a legitimately fuller definition
+   (e.g. `"means X."` contained in `"means X. It also includes Y."`), where
+   preferring the shorter DROPS real content. Under an absolute zero-miss
+   bar that is a recall loss, not a cleanup. **QA must verify the 745
+   "unambiguous" cases are genuinely contamination, not fuller definitions
+   — on a hand-judged sample, not by assertion.**
+2. **Scope may silently BROADEN on update.** The branch assigns
+   `definition_row.scope = candidate.scope` alongside the text. If the
+   superseding candidate carries a broader scope than the row it replaces,
+   the update broadens it — which seam v2.1 (M9) names as a
+   false-positive generator ("a silent broadening fallback is... never an
+   acceptable default"). The field-replacement is deliberate and reasoned
+   (avoiding a row that mixes fields from two candidates), but its
+   scope-direction effect is untested. **QA must add a direction check: an
+   update must never widen scope.**
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
