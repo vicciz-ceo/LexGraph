@@ -34,6 +34,5 @@ coverage/
 # Local demo database (recreate with: python -m app.seed_demo)
 backend/dev.db
 
-# Certification: regenerated deterministically, pinned by checksum (M33)
-backend/tests/fixtures/certification/c1_span_population.jsonl
+# Certification: full hit-list is not read by any test; regenerate on demand (M33)
 backend/tests/fixtures/certification/c1_complement_scout_hits.jsonl
