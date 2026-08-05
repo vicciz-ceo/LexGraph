@@ -87,6 +87,30 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (MULTITERM REVIEW-READY — fourth panel to close): @ 1c0c8cd,
+  14 failed / 815 passed, all 14 owned (13 cross-panel + 1 deferred with
+  E3 grounds). U1/U3/U5 CERTIFIED with named checks; U6 CLOSED both
+  families (+13,680 F5 terms 0 removed; finding A +739 0 lost — 10x QA's
+  prediction, reconciled via the dispatch-precondition rule: a count is a
+  claim about a mechanism only if gated on that mechanism's real dispatch
+  precondition); U2 PARTIAL (enforcement proven, production half broken
+  pending core G10 — never to be read as end-to-end); U4 CANNOT-CERTIFY
+  honestly (P-R7 full-corpus sweep). Cycle's asymmetry finding, verbatim:
+  five agent overrules of the manager, all correct and measurement-backed
+  — "the seeding instruction caught more manager errors than my review
+  caught agent errors." Six production fixes incl. a self-shipped recall
+  regression (up to 91 TX sections) caught by kill-experiment, never by
+  review. WATCH ITEM for merge gates: R3 ("Taken" @
+  STATE_OR_T41_C496_S496.716) is OPEN — scoped-inline has acknowledged it
+  in reports but it appears NOWHERE in their sprint docs; R3's own text
+  says silence isn't closure. Enforce disposition at scoped-inline's
+  merge-readiness check. Also noted: core G10 sits on core-2's dev5
+  sub-branch, not yet its integration branch — multiterm's findings 1/1b
+  close only after BOTH events. SCOPED-INLINE: final fix cycle running
+  (3 mechanical fixes + PA pin re-proof at the real binding, with a
+  suite-wide grep for the monkeypatch-by-value bug class); convergence
+  series 8→6→3; close statement pre-agreed per D-CERT.
+
 - 2026-08-05 (CORRECTION — NY zero-capture figure timeline): This log's
   earlier entries cite NY at 85.3%/79.9% zero-capture; those are
   PRE-devC-merge figures and must be labeled as such wherever quoted. The
