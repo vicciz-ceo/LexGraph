@@ -2490,3 +2490,75 @@ SILENT UNDER-LINK (a miss — disqualifying under the absolute zero-miss bar).
 Under outermost, the failure is an over-link (a precision cost) bounded to one
 top-level subsection and, per the vocabulary census, empirically rare. Those
 are not symmetric.
+
+---
+
+## 2026-08-05 — Manager: D-S15 adopted; pass 7 merged; a MIS-AUTHORED test
+caught before it reached the Developer
+
+Director ruling **D-S15** (program doc, main @ `5190e84`): OUTERMOST default —
+my lean, adopted on the verified data. Conditions 1-4 recorded and carried.
+
+### Planner pass 7 verified + merged
+
+Fence held (zero `backend/app/` edits, checked); all six touched/created files
+under the 300-line gate. Merged. Sprint suite: **831 passed, 1 failed.**
+
+Note for the record: pass 7's "12 expected REDs" were red against ITS OWN
+pre-revert worktree. On the sprint branch — which already carries Developer
+cycle 3's revert — eleven of them are GREEN. That is red-before-green working
+across concurrent worktrees exactly as S-R13 designed, not a discrepancy.
+
+### The one remaining RED is MIS-AUTHORED — and D-S15 would NOT have fixed it
+
+`test_subsection_scope_does_not_link_a_different_subsection_south_carolina`
+(row `STATE_SC_T14_C7_A7_S14-7-845`) asserts that a mention of "school
+employee" sits in subsection **(A)**, "a DIFFERENT subsection than the one
+defining it", and must not link.
+
+I checked the row's own text rather than the docstring:
+
+- `(A)` begins at offset **0**; `(B)` begins at offset **307**; `(C)` at 1197.
+- The definition's trigger is at **709** — inside **(B)**
+  (`For purposes of this subsection, a "school employee" is a person employed
+  as a teacher…`).
+- The mention the test calls "in subsection (A)" is at offset **334** — which
+  is 27 characters AFTER `(B)` starts. It is the phrase "school employee" in
+  (B)'s own opening clause: `(B) If a public or private school employee, a
+  person…`.
+
+**The mention is in the SAME subsection as the definition.** It SHOULD link.
+The test asserts the opposite, so its factual premise is simply wrong.
+
+Two things make this worth stopping for:
+
+1. **D-S15 will not fix it.** This row is single-level — `(A)/(B)/(C)` with no
+   nesting — so innermost and outermost are THE SAME STEP. I verified both
+   policies against the real matcher on this row and they are identical. A
+   Developer handed this as a target would have chased a failure the ruling
+   cannot address.
+2. **"Fixing" it would mean deliberately introducing an under-link** — teaching
+   the rule not to link a mention sitting inside its own definition's
+   subsection. That is precisely the silent-miss failure mode this whole
+   escalation exists to eliminate, and it would have arrived wearing a green
+   test.
+
+Routed to Planner pass 8 for re-authoring, NOT to the Developer.
+
+### Pass 8 / cycle 4 launched concurrently (S-R13 pattern, disjoint write sets)
+
+- **Planner pass 8** (tests only): re-author the Oregon direction-2 test to
+  D-S15 semantics (per condition 2), re-author the mis-authored SC test above,
+  add RED pins for outermost semantics on rows that are genuinely MULTI-level
+  (a single-level row cannot distinguish the policies and must not be used to
+  pin one), and — per condition 2's second half — select fixture rows that are
+  NOT corrupted by the pin-cite defect, since that defect is core follow-on and
+  must not be silently baked into our pins.
+- **Developer cycle 4** (rules only): the stamping-side change —
+  `_subsection_scope_level` returns the subsection-level step (outermost)
+  rather than `path[-1]`. Condition 3 preserved: the matcher keeps exact
+  declared-kind matching, so deeper trigger vocabularies still work; the
+  decision point stays swappable.
+- **Condition 1** (SD/VT/NY inverted conventions) enters the ledger as a named
+  follow-up: per-state override vs. accepted trace-volume over-link, to be
+  enumerated either way, never buried.
