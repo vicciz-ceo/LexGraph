@@ -56,12 +56,27 @@ PREAMBLE_RE = re.compile(r"\S.*\s-\s*$")
 ENTRY_TERM_DASH_RE = re.compile(r'^"([^"]+)"\s*-\s*(.*)$')
 
 _QUOTE_RE = re.compile(r'"([^"]+)"')
-# A non-first term's own separator: a comma (optionally spaced, optionally
-# followed by the vav conjunction directly prefixed to the quote) OR bare
-# whitespace followed directly by vav -- requires a REAL separator
-# character either way, so two quoted spans can never be silently treated
-# as adjacent terms with zero gap between them (not a real corpus shape).
-_TERM_SEP_RE = re.compile(r'(?:\s*,\s*ו?|\s+ו)"([^"]+)"')
+# A non-first term's own separator, one of:
+#   - a comma (optionally spaced), optionally followed by a connector
+#     word directly prefixed to the quote: bare vav (`ו"..."`), hyphenated
+#     vav (`ו-"..."`), or the standalone word `או` ("or", itself requiring
+#     its own trailing whitespace before the quote since -- unlike vav --
+#     it is never glued directly to it);
+#   - OR the same connector-word set introduced by bare whitespace with no
+#     comma at all (`"t1" ו"t2"` / `"t1" ו-"t2"` / `"t1" או "t2"`).
+# Sprint 2026-08-04-defs-il, Phase D, or/vav-hyphen separator bundle
+# (log `## M25` + the separator Planner's RED tests): extends D-1a's
+# original comma/vav-direct alternation to also recognize `או` and the
+# hyphenated `ו-` conjunction -- both real, measured (20 lines / 13 files),
+# live-confirmed corpus shapes the original alternation silently dropped
+# as a discarded "qualifier". Widens ONLY this alternation; does not touch
+# `_find_dash_marker` or the dash-then-header boundary (the Planner's own
+# precision analysis of 13 real post-dash-quote files depends on that
+# boundary being untouched -- see this module's own docstring and the
+# sprint log). Requires a REAL separator character/word either way, so two
+# quoted spans can never be silently treated as adjacent terms with zero
+# gap between them (not a real corpus shape).
+_TERM_SEP_RE = re.compile(r'(?:\s*,\s*(?:או\s+|ו-?)?|\s+(?:או\s+|ו-?))"([^"]+)"')
 
 
 def _find_dash_marker(text: str) -> int:
