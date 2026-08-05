@@ -2630,3 +2630,82 @@ goes on the cycle-2 checklist.
 Checklist re-pointed at **D-S15**, not the interim. The 19.4% under-link
 figure is now the BEFORE-number of an implemented fix, and QA re-derives both
 sides.
+
+---
+
+## 2026-08-05 — Manager: QA cycle 2 BOUNCE verified + accepted; cycle 3 planned
+to converge (qa_cycles 2 of 5)
+
+### QA cycle 2 verified (not taken on its report)
+
+Branch `claude/defs-us-scoped-inline-qa2` @ `162f987`, merged at sprint
+`ce37b86`. Fence held: `git diff --name-only 8a2b239..HEAD | grep backend/app/`
+is EMPTY — tests and fixtures only. Suite reproduces **6 failed, 848 passed**.
+
+I spot-checked 3 of the 6 pinned rows against the live parquet myself
+(`STATE_GA_T10_C12_S10-12-16`, `USC_T18_C83_S1716E`,
+`STATE_ME_T20-A_P7_C606-B_S15671-A`): **3/3 byte-identical** on both
+`section_title` and `text`, and **3/3 yield ZERO captures** from the real rule.
+The bounce is genuine — these are real in-vocabulary misses, not artifacts.
+
+**Verdict: U4 FAILS again. Bounce accepted.** Under the absolute zero-miss bar
+a confirmed in-vocabulary miss is disqualifying.
+
+### What QA got right, recorded because it is the standard
+
+- Caught its OWN methodology error mid-cycle (F3-filtering) and disclosed the
+  resulting population discrepancy rather than quietly shipping the newer
+  number.
+- Refined its own 962-vs-1,924 no-reuse figure rather than leaving the looser
+  one standing.
+- Ran the gate mutations on a scratch copy OUTSIDE the repo, and applied the
+  corruption guard when selecting item 12's replacement row.
+- **S-R12 is now CLOSED with a real result**: 34,972 events, **zero
+  disagreements** between our stamped pair and core's resolver. That is the
+  binding item carried across three cycles, and single-source derivation
+  (S-R14) is why it came back clean — two derivations could never have.
+- **D-S15 confirmed live at full corpus**: 4,034 recovered, 143 regressed,
+  1,924 genuine under-links remaining. The director's ruling is measurably
+  correct AND the residue is honestly reported.
+- **U6's honest number is 314,139 distinct, not 359,437 raw** — the dedup
+  correction I flagged in Finding A is now measured, and the gap (45,298) is
+  exactly the inflation I predicted from repeated corpus text.
+
+### Cycle 3 launched — three concurrent workstreams, disjoint write sets
+
+1. **Developer cycle 5** (rules only): the 6 new findings. Briefed that the
+   bare-`in` adjacency gate and `_MARKER_QUOTE_RE` are load-bearing with
+   isolating tests, and that a green suite is NOT evidence he left them intact.
+   Will likely need a SECOND non-registering helper module — both rule files
+   are within 8 lines of the 300 gate.
+2. **Planner pass 9** (tests only): re-author the PA construction-clause pin.
+   **This is the subtle one.** That row is protected TODAY only because
+   `shall include` is absent from the idiom vocabulary. D-INCLUDES puts it IN,
+   so the row's protection transfers entirely to the new targeted guard — and a
+   test that passes for a reason that has ceased to exist is the exact
+   green-for-the-wrong-reason class this sprint has hit THREE times (QA cycle
+   1's two masked gates; my mis-authored-SC-test catch). The pin must assert
+   the GUARD, proven by mutation. The Planner is also told to go hunting for
+   OTHER negative controls whose protection evaporates under D-INCLUDES —
+   finding one would be a valuable result.
+3. **Reconciliation analyst** (read-only): the two disputed populations.
+
+### Both reconciliations ordered as DISPUTED, not as corrections
+
+Per program ruling, neither number is load-bearing until reconciled, and the
+analyst is explicitly told that finding BOTH prior numbers wrong is a good
+outcome:
+
+- **D-S15 before-figure**: Planner pass 7's 1,254/6,472 (19.4%) vs QA's
+  15,282/44.3%. The F3-filtering explanation is a **hypothesis to prove, not
+  assume**; the gap must be attributed to specific quantified causes, not
+  hand-waved, and the winning population defined reproducibly.
+- **S-R17 residue**: 714 vs 167, where QA's own spot-check found its number
+  ~50% contaminated by USC quoted-bill-text artifacts. A fresh
+  contamination-aware census is ordered, with the contamination class
+  characterized before it is excluded. The program will size an ownership
+  split against this figure, so its uncertainty must be stated.
+
+Both carry P-R10 probe sanity: the harness must reproduce the known SC result
+(0-of-4 innermost, 4-of-4 outermost) before any aggregate built on it is
+trusted.
