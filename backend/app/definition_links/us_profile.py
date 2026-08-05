@@ -1427,6 +1427,16 @@ _LONE_SECTION_CITATION_SUFFIX_RE = re.compile(r"§\s*\d+(?:[.\-]\d+)*\Z")
 _BARE_STATE_CODE_CITATION_SUFFIX_RE = re.compile(
     r"\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*\Z"
 )
+# Kept for the committed G4 measurement runner, which scans the original
+# undifferentiated citation surface while production selects a branch above.
+_CITATION_NUMBER_SUFFIX_RE = re.compile(
+    r"(?:"
+    r"\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*"
+    r"|\bSection\s+\d+(?:[.\-]\d+)*"
+    r"|§\s*\d+(?:[.\-]\d+)*"
+    r"|\b[A-Z]{2,6}\s+\d+(?:[.\-]\d+)*"
+    r")\Z"
+)
 
 # G4's post-QA newline exception is deliberately narrower than the general
 # discriminator: only a parenthesized token after `Section N` or lone `§ N`
@@ -1450,11 +1460,11 @@ _CHAIN_CONNECTOR_GAP_RE = re.compile(
 )
 
 
-def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str, str]]:
+def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str]]:
     """Every candidate marker token in `body`, in document order, merging
     parenthesized tokens (`_US_UNIT_MARKER_RE`) with G2's period-style
     top-level tokens (`_US_PERIOD_UNIT_MARKER_RE`). Each item is `(start,
-    end, token, form)`: `start` is the position the G4 citation-context check
+    end, token)`: `start` is the position the G4 citation-context check
     looks immediately before -- the opening "(" for a parenthesized
     token (so a self-citation's own digits, e.g. "...576(C)", are seen as
     immediately adjacent), or the marker's own first character for a
@@ -1464,11 +1474,11 @@ def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str, str]]:
     end" a chained rejection continues counting from.
     """
     tokens = [
-        (match.start(), match.end(), match.group(1), "parenthesized")
+        (match.start(), match.end(), match.group(1))
         for match in _US_UNIT_MARKER_RE.finditer(body)
     ]
     tokens.extend(
-        (match.start(1), match.end(), match.group(1), "period")
+        (match.start(1), match.end(), match.group(1))
         for match in _US_PERIOD_UNIT_MARKER_RE.finditer(body)
     )
     tokens.sort(key=lambda item: item[0])
@@ -1625,7 +1635,7 @@ def resolve_unit_path(article, char_offset: int | None = None):
     stack: list = []
     ladder: tuple[str, ...] | None = None
     last_rejected_end: int | None = None
-    for start, end, token, marker_form in _iter_us_unit_marker_tokens(article.body):
+    for start, end, token in _iter_us_unit_marker_tokens(article.body):
         if end > char_offset:
             break
         # G4: citation pin-cite / in-prose cross-reference discriminator --
@@ -1640,6 +1650,7 @@ def resolve_unit_path(article, char_offset: int | None = None):
         ):
             last_rejected_end = end
             continue
+        marker_form = "parenthesized" if article.body[start] == "(" else "period"
         if _is_citation_or_xref_context(article.body, start, end, marker_form):
             last_rejected_end = end
             continue
