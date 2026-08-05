@@ -1982,6 +1982,20 @@ proceed.**
 
 ---
 
+## Phase 14 — successor-session resumption (2026-08-05)
+
+The successor program manager read the committed handoff, fetched all refs,
+verified `b52aed5` as the exact sprint tip, and pushed the previously local-only
+branch to `origin/claude/defs-core-follow-on-2`. A fresh Planner lock is held
+solely for the Phase-13 G8 reverse-order displacement measurement. No code or
+test change is authorized unless a degrading firing is found and escalated to
+the manager for a RED-first amendment cycle.
+
+Agent roster entry is added immediately after spawn, before any result is
+accepted.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which

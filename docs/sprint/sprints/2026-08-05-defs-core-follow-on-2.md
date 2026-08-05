@@ -4,10 +4,10 @@ status: planning
 current_role: planner
 branch: claude/defs-core-follow-on-2
 worktree: /Users/nerya/LexGraph-wt/defs-core-follow-on-2
-locked_by: null
-locked_at: null
-last_agent: "claude-code:program-manager"
-last_updated: "2026-08-05T00:00:00Z"
+locked_by: "codex:planner"
+locked_at: "2026-08-05T19:19:20Z"
+last_agent: "codex:planner"
+last_updated: "2026-08-05T19:19:20Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
