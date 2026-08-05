@@ -1,19 +1,19 @@
 ---
 id: "2026-08-05-defs-core-follow-on-2"
-status: dev-complete
+status: review
 current_role: qa
 branch: claude/defs-core-follow-on-2
 worktree: /Users/nerya/LexGraph-wt/defs-core-follow-on-2
-locked_by: "/root/core2_final_qa2"
-locked_at: "2026-08-05T21:44:38Z"
+locked_by: null
+locked_at: null
 last_agent: "/root/core2_final_qa2"
-last_updated: "2026-08-05T21:44:38Z"
+last_updated: "2026-08-05T21:53:24Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
-completed_items: 0
-dev_complete_items: 1
+completed_items: 1
+dev_complete_items: 0
 qa_cycles: 3
 previous_sprint: "2026-08-04-defs-core-dispatch"
 prd_sections: []
@@ -99,20 +99,24 @@ coordinate timing with the program manager.
 
 ## Next Steps
 
-- QA: independently verify the G9 migration test executes real DDL, mutation
-  sensitivity is credible, all prior release evidence still holds, and the
-  complete release gate passes from the integrated tree.
+- _None — QA cycle 3 PASS; unlocked in review for manager merge._
 
-## Dev Complete
+## QA Notes
 
-- G9 migration regression contract executes upgrade → downgrade → upgrade on
-  a seeded pre-G9 Article row and pins nullable/NULL/default-safe behavior.
+- Cycle 3 PASS from exact dispatch `1df4abf`; current `origin/main` is contained.
+- G9 real-DDL upgrade and downgrade mutations each failed; exact bytes restored.
+- Focused G4/G8/G9: 15/8/7 passed; G8 corpus artifact reproduced exactly.
+- G7 live counts reproduced; merged-panel-only figures remain correctly deferred.
+- Full evaluator: backend 850 passed; frontend 165 passed; typecheck clean.
+- Full diff/risk review found no release-blocking regression or scope expansion.
+
+## Completed
+
+- G9 migration regression contract plus all prior core follow-on gates were
+  independently verified in QA cycle 3; full evidence is in log Phase 25.
 
 ## Context Dump
 
-Fresh sprint. Worktree needs creating (`git worktree add` off current main
-@ 58162b2 or later) + its OWN backend venv (main venv imports main checkout
-code). Git identity: verify `user.email` is the noreply address before
-first commit. Never `git stash`; never `git add -A`. CodeGraph indexes main
-only — fine here (this sprint works off main), but panel-branch evidence
-needs Read/Grep on those branches.
+QA cycle 3 PASS at dispatch `1df4abf`; current main contained, contract
+unlocked, and all release evidence recorded in log Phase 25. Known deferred
+program work remains G3 sibling NO-GO and G11; this sprint does not claim it.
