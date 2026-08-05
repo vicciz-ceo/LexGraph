@@ -3448,3 +3448,124 @@ green also requires a Planner RED first. Disposition decided after re-measure.
   they veto ownership, escalate to the program manager"), silence is not
   closure: R3 stays OPEN and is reported as an open cross-panel dependency in
   this sprint's end state, not as a resolved handoff.
+
+---
+
+## 2026-08-05 — M-R22: dev/plan pass verified; M-R23: RECALL REGRESSION found
+
+### Verification of the Developer + Planner pass
+
+Both landed, both write-sets disjoint and respected. Merged sprint branch
+@ `97ae680`, suite **10 failed / 808 passed**.
+
+**The M-R20 positive control PASSED.** Planner and Developer independently
+derived the complete `rule.` hard-coding site list from disjoint starting
+points and produced IDENTICAL lists — including site 4, the one M-R19 exists
+because a careful prior derivation missed. Two independent derivations
+agreeing is the strongest completeness evidence available here.
+
+**I was overruled twice, correctly, and record both.**
+
+1. **Developer (accepted).** I predicted fix (c) would turn
+   `test_tx_rule_entry_term_boundary_excludes_trailing_period` green. It did
+   not. The Developer proved the test is UNSATISFIABLE within this panel's
+   authority: it demands the string `rule.` vanish, but `rule.` is produced by
+   baseline's `_leading_quote_candidate` in `us_profile.py`, a shared module
+   gate U3 forbids us to edit. It refused both available workarounds (editing
+   the shared module; editing the test) and escalated instead. It ALSO
+   self-reported an unflagged side effect rather than bank a greener suite:
+   an R1 pin flipped green because the two candidates stopped colliding on
+   spelling, not because R1 was fixed. R1 is now pinned by THREE "exactly
+   once" tests, not four — M-R19 item 4 is amended accordingly.
+2. **Planner (accepted).** I proposed preserving the unsatisfiable assertion
+   as a docstring. It implemented a live, still-RED companion test instead,
+   arguing a docstring is prose nobody re-verifies while a live assertion is
+   a canary that flips green if `rule.` ever vanishes for an unrelated reason
+   and forces reconciliation. It matches this file's own convention (three
+   plain-RED R1 pins) and the sibling VT/SD file's. It also flagged, rather
+   than silently absorbed, that this makes the count 10/808 and not my
+   predicted 9/808. **Ratified as authored.** Third time this sprint an agent
+   improved on a manager instruction.
+
+### Corpus re-measure — prediction confirmed exactly
+
+```
+PRE-FIX  (bf3948e): rows firing=328 (0.41%)  candidates=557  dup rows=18
+POST-FIX (25a04c1): rows firing=328 (0.41%)  candidates=532  dup rows=1
+```
+M-R21(b)'s predicted `18 -> 1` (NOT 18 -> 0) is exactly what happened; the
+survivor is the predicted HI `STATE_HI_D4_T36_C667_S667-101` `'association'`
+cross-path row. **Rows firing is UNCHANGED at 328** — the dedup removed only
+duplicate candidates and cost zero recall on that path.
+
+---
+
+## M-R23 — RECALL REGRESSION in the M-R18 guard. Does not ship.
+
+### How it was found (the gap was in MY verification, and I closed it)
+
+My corpus re-measure exercises `_apposition_candidates` /
+`_cross_reference_candidates` over ORDINARY bodies — the `ScopeTriggerRule`
+path. The M-R18 change lives in `_parse_block`, the **`TermClauseRule` path**,
+reached for DEFINITIONS sections. So the re-measure gave **zero evidence**
+about the guard, and a green suite gave none either (no test covers the
+affected rows). Per this sprint's own standing lesson — test a guard against
+every source that reaches it — I ran a dedicated kill-experiment: run the real
+`extract_definitions_from_section` over every sampled definitions-section row
+twice in one process, once with the new guard and once with
+`_leading_quote_terms` monkeypatched back to the old position-0 behaviour, and
+diff the FULL candidate populations.
+
+```
+definitions-section rows scanned : 2,834
+rows where guard changed output  : 2
+TERMS LOST ENTIRELY (recall loss): 2
+  !! tx STATE_TX_Coc_C2310_S2310.001  term='Supplier'             1->0
+  !! tx STATE_TX_Cin_C228_S228.001    term='Low-income community' 1->0
+```
+
+### Root cause — the Developer's safety argument is FALSE for this shape
+
+The Developer's stated guarantee was that baseline's splitter ALWAYS strips a
+block's leading entry marker before the block reaches `_parse_block`, so a
+marker-anchored pattern is structurally incapable of firing on an ordinary
+block. I diagnosed both rows directly:
+
+- Neither row has a parent-redirect shape; **entry-splitter extra blocks = 0**.
+  There is no whole-text block at all, so the guard is firing where it has no
+  business firing.
+- Both lost terms sit behind SUFFIXED markers: `(9-a) "Supplier" has the
+  meaning assigned by Section 162.001, Tax Code.` and `(5-a)
+  "Low-income community" has the meaning assigned by Section 45D(e)...`.
+- Baseline's entry-start test is `_MARKER_TOKEN_RE = \(\w+\)` (plus
+  `_BARE_DIGIT_MARKER_RE = ^\s*\(\d+\)`). **`\w` excludes the hyphen**, so
+  `(9-a)` is NOT an entry start: the entry stays embedded inside the PRECEDING
+  block with its marker intact, and baseline produces no candidate for it.
+- The guard's pattern is `\([^\s()]{1,10}\)`, which **does** match `9-a`.
+
+So the guard is strictly WIDER than the baseline behaviour it claims to
+mirror. It sees `(9-a) "Supplier"`, concludes "baseline already captured
+this", and suppresses F6's cross-reference candidate — which was the ONLY
+capture. The term is then captured by nothing. Under the director's ABSOLUTE
+ZERO-MISS bar a miss is strictly worse than the duplicate M-R18 set out to
+remove.
+
+**Fourth instance of the sprint's named pattern** (OR `"Taken"`, M-R18, the
+4th `rule.` site, now this). It was caught only because the guard was tested
+against the block source the re-measure could not reach.
+
+### Ruling M-R23
+
+1. **This regression blocks review-ready. It does not ship as-is.**
+2. **Planner first**: RED tests from BOTH real rows, vendored byte-exact,
+   asserting each term is captured through the real dispatching path.
+3. **Developer second**: narrow the guard so it cannot be wider than
+   baseline's own entry-start recognition. My proposed minimal fix — to be
+   VERIFIED, not obeyed — is to align the guard's marker class with
+   baseline's `\w` (`\(\w+\)`), which preserves the M-R18 fix (TX 2009.003's
+   markers `(1)`/`(2)`/`(A)` are all `\w`) while restoring both lost terms
+   (`9-a`/`5-a` contain hyphens). Acceptance is the kill-experiment reporting
+   **TERMS LOST ENTIRELY = 0** with the M-R18 pin still green.
+4. **Fallback, pre-authorised**: if no narrowing can be made safe, REVERT the
+   widening and let `Governmental body`'s duplicate return to RED as a named
+   residual. A duplicate beats a miss under zero-miss.
