@@ -4507,3 +4507,148 @@ This is also G8's quality-blindness (§M38) in a third costume: baseline's
 candidate wins on ordering alone, regardless of which is more correct.
 
 ---
+
+## M41 — R1 jointly tracked; a REAL merge conflict with multiterm; R6 inbound (2026-08-05)
+
+Multiterm's manager (`ad9cf6f6c6a351c50`) answered, having independently probed
+the same row and reproduced our four degenerate rows. Three outcomes.
+
+### R1 — jointly tracked, and their ledger wording is being CORRECTED
+
+**Q2 answered: R1 closes on PERSISTED/asserted, not produced.** Their own
+recorded hazard is "a mention can draw TWO `USES_DEFINITION` assertions", and a
+candidate that never persists cannot draw one — so "produced" was the wrong
+altitude for the hazard as written. They are amending the ledger. Nothing is let
+off the hook: the degenerate rows carry `('contested case',)` while F5's combined
+row carries `('contested case','party','person','rule')`, so the persist key
+differs and **both persist**. Hazard live on either reading.
+
+**Q1 answered: joint tracking, two pins at two altitudes.** We pin at ours
+(length-based, consistent with the other 15 class-B siblings, closing as a group
+with core-3). They own an assertion-level pin — a mention draws exactly ONE
+assertion. Neither panel encodes the other's theory. **R1 is recorded as JOINTLY
+TRACKED, not handed back.**
+
+### A REAL merge conflict — our work will break their committed test
+
+Verified by me, not taken on trust:
+`claude/defs-us-multiterm:backend/tests/unit/test_definition_links_tx_2009_003_full_row_findings.py:116`
+`test_tx_governmental_body_captured_exactly_once_through_full_dispatch` asserts
+`counts["Governmental body"] == 1` **at candidate level** via
+`extract_definitions_from_section`. **Our merged tree produces 2.** When these
+branches meet, that test fails.
+
+**Our own measurement of the row breaks down as:** baseline emits 7 (3 good +
+the 4 degenerate), our EntrySplitterRule emits 2 — and both of ours are
+DUPLICATES of terms baseline already captured (`Governmental body`, `State
+agency`). **On this row our rule contributes nothing but duplicates**; it does
+not rescue the four degenerate entries.
+
+Their argument (their ruling **M-R12**): under union semantics
+(`all_blocks = baseline_blocks + extra_blocks`) a rule must return NOTHING for a
+shape baseline already handles correctly. They fixed the mirror-image case on
+their own side this cycle (M-R18) rather than relax their assertion — and their
+M-R18 root cause is a term "reappearing inside the **EntrySplitterRule's** own
+whole-text contribution", i.e. our shape exactly.
+
+**On the merits their principle is sound and our emission looks like the defect.**
+But it is entangled with the open U-R13 question (§M40) and I will not resolve it
+unilaterally:
+
+- Their option 1 (suppress our duplicate emission) **locks in baseline's
+  idiom-RETAINED value** as the persisted one, because ours is the stripped
+  candidate that first-wins already discards.
+- If §M40's required check shows the persisted value should be idiom-stripped,
+  then suppressing our candidate ships the wrong text, and the right fix is at
+  the ordering/quality layer (G8), not in our rule.
+
+**ESCALATED to the program manager for arbitration.** Both panels agree it needs
+arbitration; neither should rule on the other's module. The two questions are one
+question and should be decided together.
+
+### COUNTER-EVIDENCE to the default ruling — measured, and it is decisive
+
+The program manager's default ruling is that the duplicate EMISSION is the defect
+and suppression happens on our side, absent counter-evidence that our second
+candidate is load-bearing for a capture baseline misses. **We have that
+counter-evidence, and it is the G3-HEAL instrument itself.**
+
+Measured on all three G3-HEAL rows via `extract_definitions_from_section`:
+
+| act_id | term | baseline emits | WE emit |
+|---|---|---|---|
+| `STATE_WA_T82_C04_S065` | `800 service` | **10,838** chars (swallow) | **303** chars (clean) |
+| `STATE_WA_T43_C88_S020` | `Administrative expenses` | **6,515** (swallow) | **188** (clean) |
+| `STATE_WA_T82_C04_S192` | `Digital audio works` | **8,769** (swallow) | **105** (clean) |
+
+**Same term, emitted twice, on the same row — structurally identical to the TX
+`Governmental body` duplicate.** A rule that "stays silent on shapes baseline
+already handles" deletes our clean candidate on all three, because baseline DID
+emit that term. Consequences:
+
+1. **Ledger G3-HEAL layer 2 becomes structurally impossible.** M18 requires the
+   post-merge re-check to assert that **our clean candidate is the one
+   PERSISTED**. Suppress the second emission and there is no clean candidate to
+   persist — the assertion cannot ever pass, by construction.
+2. **The WA collision defect core-2 is scoped to fix becomes unfixable**, since
+   any fix depends on our clean candidate existing to win the collision.
+3. The held RED `qa_q1_wa_newline_collapse_swallow` would become permanently
+   unsatisfiable rather than pending.
+
+**The flaw in the principle as stated is one word.** M-R12 says a rule must stay
+silent where baseline "already handles" the shape. The load-bearing predicate is
+whether baseline handles it **CORRECTLY**:
+
+- TX `2009.003` `Governmental body` — baseline handles it correctly, so our
+  emission is redundant. Multiterm is right about that row.
+- WA `800 service` — baseline emits a 10,838-char swallow, so our emission is
+  **the fix**. Suppressing it there ships the swallow.
+
+**And the system cannot currently tell those apart — which is exactly G8's
+quality-blindness (§M38).** So the duplicate is not resolvable by suppressing the
+second emitter; it is resolvable only at the ordering/quality layer, by
+preferring the better candidate. That is core-2's G8 item.
+
+**Our position, offered as evidence rather than a veto:** blanket suppression on
+our side is unsafe and would break a ledger commitment this panel is required to
+hold. A CORRECTNESS-CONDITIONED suppression (stay silent only where baseline's
+candidate is demonstrably clean) is acceptable in principle but is the same
+quality judgement G8 must make anyway — so it belongs in G8, once, not duplicated
+in every rule. Multiterm's TX pin is satisfied either way if G8 prefers the
+correct candidate.
+
+### R6 — NEW inbound item, family 3, VERIFIED at source
+
+Routed to us as an entry-marker-mismatch item. **Confirmed by me directly:**
+`us_profile.py:306` is `_MARKER_TOKEN_RE = re.compile(r"\(\w+\)\s*")`. Measured:
+`(9)` → match, `(a)` → match, `(iv)` → match, **`(9-a)` → NO match, `(4-a)` →
+NO match**. `\w` excludes the hyphen, so baseline cannot open a block at a
+hyphen-suffixed marker.
+
+Where such an entry uses a cross-reference idiom, multiterm's F6 rescues it.
+**Where it uses plain `means` — real cases `(4-a) "Distributor" means…`,
+`(9-b) "Wholesaler" means…` — nothing rescues it and the definition is MISSED
+outright.** That is a zero-miss (U4) item and squarely our family.
+
+Their sizing, honestly labelled: **111 occurrences across 91 distinct TX
+sections, zero across 8 other states** — apparently a Texas drafting convention
+(inserting `(9-a)` between `(9)` and `(10)` without renumbering). **They measured
+the SHAPE's frequency, not how many are genuine misses.** That distinction is
+theirs and is preserved here: 111 is an upper bound on the opportunity, not a
+count of defects. Re-derivation in our own population is required before any
+number is quoted — standing rule.
+
+**Logged as an open item for this panel. Not started** (see §M39's stopping
+point). It is a U4/U1 item, it is real, and it is unowned by anyone else.
+
+### U-R13 cross-panel answer, recorded
+
+Nothing in multiterm branches on idiom presence in `definition_text` — their
+rules only produce it, and F6 builds from after the idiom (stripped, like ours).
+Their M-R23 pins assert the stripped form but run at candidate level against F6's
+own output, so first-wins persistence does not reach them. **So our finding does
+not change multiterm behaviour.** They support raising persisted-vs-candidate
+semantics to the program manager as a cross-panel question, which §M40 already
+requires.
+
+---
