@@ -144,9 +144,16 @@ _QUOTE_TERM_RE = re.compile(r'[“"]([^”"]{1,200})[”"]')
 # ("Taken") by plain "means" -- "Taken" is deliberately NOT captured by
 # this rule anymore; it is family 1's to pick up, closing only on their
 # own live proof against this exact row.
+#
+# QA finding 3: "as defined in <citation>" is a THIRD, distinct
+# cross-reference idiom -- the single largest gap the U4 sweep found
+# (2,813 real corpus occurrences). It is a genuine cross-reference (a
+# term whose meaning is pointed at elsewhere), squarely F6's own remit,
+# not family 1's plain-"means" territory E3 carved out above -- adding
+# it does not reopen that boundary question.
 _IDIOM_GAP_RE = re.compile(
     r"^[\s,]{0,5}\b(?:has the meaning given that term in"
-    r"|has the meaning assigned by)\b:?\s*",
+    r"|has the meaning assigned by|as defined in)\b:?\s*",
     re.IGNORECASE,
 )
 
@@ -185,19 +192,60 @@ def _extract_ordinary_body(article_body: str, _ctx: RuleContext) -> list[Definit
 register_scope_trigger_rule(ScopeTriggerRule(jurisdiction_codes=("US-*",), extract=_extract_ordinary_body))
 
 
-# --- Dispatch: TermClauseRule + EntrySplitterRule (marker-less body being
-# parsed as a Definitions section, e.g. NH's own short-title row) ----------
+# --- Dispatch: TermClauseRule + EntrySplitterRule (blocks inside a
+# recognized Definitions section, or a marker-less body being parsed as
+# one, e.g. NH's own short-title row) ---------------------------------------
+
+# QA finding 4: baseline's own `_leading_quote_candidate` already
+# correctly handles a block whose OWN leading quote is immediately
+# followed by a cross-reference idiom (e.g. TX's `"Governmental body"
+# has the meaning assigned by Section 552.003.`) -- wiring
+# `_cross_reference_candidates` into every block unconditionally would
+# double-emit exactly that already-working shape (M-R12). This mirrors
+# baseline's own `_LEADING_QUOTE_RE.match(block)` check (not imported --
+# `us_profile.py` stays untouched and its internals stay private) to
+# skip only a term baseline's leading-quote parse would already produce
+# for THIS block, while still capturing a cross-reference idiom sitting
+# anywhere else inside the block (e.g. DC's `"Parent. -- The term
+# \"parent\" has the meaning given that term in section 8101..."`,
+# which does NOT start with a quote, so baseline never touches it).
+_LEADING_QUOTE_TERM_RE = re.compile(r'^[“"]([^”"]+)[”"]')
+
+
+def _leading_quote_term(block: str) -> str | None:
+    m = _LEADING_QUOTE_TERM_RE.match(block)
+    return m.group(1) if m else None
 
 
 def _parse_block(block: str) -> list[DefinitionCandidate]:
-    return _apposition_candidates(block, scope="law-wide")
+    candidates = _apposition_candidates(block, scope="law-wide")
+    leading_term = _leading_quote_term(block)
+    for candidate in _cross_reference_candidates(block, scope="law-wide"):
+        if candidate.terms and candidate.terms[0] == leading_term:
+            continue
+        candidates.append(candidate)
+    return candidates
+
+
+# Ruling U-R10 (program, binding): see the identical rationale in
+# `rules/us_multiterm_shared_clause.py` -- `entry_splitter` contributions
+# are additive across every panel scanning every US-* body. Empirically
+# derived: only US-NH has a currently-accepted item needing this
+# splitter (NH's OTHER apposition rows reach the shape through the
+# `ScopeTriggerRule` registration above instead, a different rule kind,
+# unaffected by this narrowing). Same 2000-char bound as the sibling
+# module, same evidence (>2.2x headroom over the largest real accepted
+# row, 99 chars here; >5.6x under markers' 11,314-char worst case).
+_MAX_CONTRIBUTION_CHARS = 2000
 
 
 def _split_apposition_whole_text(text: str) -> list[str]:
+    if len(text) > _MAX_CONTRIBUTION_CHARS:
+        return []
     return [text] if _APPOSITION_RE.search(text) else []
 
 
 register_term_clause_rule(TermClauseRule(jurisdiction_codes=("US-*",), parse=_parse_block))
 register_entry_splitter_rule(
-    EntrySplitterRule(jurisdiction_codes=("US-*",), split=_split_apposition_whole_text)
+    EntrySplitterRule(jurisdiction_codes=("US-NH",), split=_split_apposition_whole_text)
 )

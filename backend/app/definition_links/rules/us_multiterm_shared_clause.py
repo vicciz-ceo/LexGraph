@@ -128,15 +128,28 @@ def _leading_multiterm_candidate(block: str) -> DefinitionCandidate | None:
 # --- Case 2: nested clause anywhere inside a block's own body (MT shape) --
 
 _NESTED_TRIGGER_RE = re.compile(r"\bthe\s+terms?\b\s*", re.IGNORECASE)
-_NEXT_NESTED_CLAUSE_RE = re.compile(r",?\s*and\s+the\s+terms?\b", re.IGNORECASE)
+# Ruling M-R14 (QA finding 2): trims a trailing ", and"/" and" chain-link
+# off a clause's own definition_text -- used only AFTER the boundary is
+# already known (the NEXT trigger's own start), not to LOCATE the
+# boundary itself (that was the old, defective design: searching ahead
+# for an "and"-chained continuation specifically overshoots past every
+# UNCHAINED, independent "The term X means Y." sentence in between,
+# silently dropping all of them -- real AL row, 18 triggers in one
+# block, only 2 ever recovered before this fix).
+_TRAILING_CHAIN_LINK_RE = re.compile(r",?\s*and\s*$", re.IGNORECASE)
 
 
 def _nested_clause_candidates(block: str) -> list[DefinitionCandidate]:
+    """Every "the term(s)" trigger is its OWN clause, full stop -- the
+    boundary between clause N and clause N+1 is simply wherever trigger
+    N+1 itself starts (whether N+1 is "and"-chained to N or an entirely
+    independent sentence later in the block), trimmed of any trailing
+    chain-link text. This makes each trigger's own candidate fully
+    independent of whether ITS neighbours succeed or fail their own
+    idiom check -- no cursor/skip bookkeeping needed."""
     candidates: list[DefinitionCandidate] = []
-    cursor = 0
-    for trigger in _NESTED_TRIGGER_RE.finditer(block):
-        if trigger.start() < cursor:
-            continue  # already consumed as part of a previous nested match
+    triggers = list(_NESTED_TRIGGER_RE.finditer(block))
+    for index, trigger in enumerate(triggers):
         terms, end = _extract_leading_terms(block, trigger.end())
         if not terms:
             # "the term(s)" not immediately followed by a quote -- an
@@ -145,14 +158,12 @@ def _nested_clause_candidates(block: str) -> list[DefinitionCandidate]:
             continue
         if _IDIOM_RE.match(block, end) is None:
             continue
-        boundary = _NEXT_NESTED_CLAUSE_RE.search(block, end)
-        stop = boundary.start() if boundary is not None else len(block)
-        definition_text = block[end:stop].strip()
+        stop = triggers[index + 1].start() if index + 1 < len(triggers) else len(block)
+        definition_text = _TRAILING_CHAIN_LINK_RE.sub("", block[end:stop]).strip()
         if definition_text:
             candidates.append(
                 DefinitionCandidate(terms=tuple(terms), definition_text=definition_text, scope="law-wide")
             )
-        cursor = stop
     return candidates
 
 
@@ -190,12 +201,29 @@ def _has_parent_redirect_with_children(text: str) -> bool:
     return False
 
 
+# Ruling U-R10 (program, binding): `entry_splitter` is additive across
+# EVERY panel scanning EVERY US-* body (`all_blocks = baseline_blocks +
+# extra_blocks`), so a `US-*`-wide whole-section contribution inflates
+# every other panel's block population too, not just this sprint's own.
+# Empirically derived (disable-and-measure, not guessed -- see the
+# Planner's RED test module docstring for the exact kill-experiment
+# output): only US-TX has a currently-accepted item needing this
+# splitter. 2000 chars is >2.2x headroom over the largest real accepted
+# row (881 chars) and >5.6x under markers' measured 11,314-char worst
+# case.
+_MAX_CONTRIBUTION_CHARS = 2000
+
+
 def _split_parent_redirect_whole_text(text: str) -> list[str]:
     # A per-block `EntrySplitterRule` cannot see the parent's own text and
     # its lettered children at once (baseline already splits them into
     # separate blocks) -- re-contribute the WHOLE section text as one
     # extra block, gated narrowly so this never fires for a section that
-    # doesn't contain the redirect shape at all.
+    # doesn't contain the redirect shape at all, and bounded so it can
+    # never contribute an unbounded whole-section blob even for the
+    # in-scope jurisdiction (U-R10).
+    if len(text) > _MAX_CONTRIBUTION_CHARS:
+        return []
     return [text] if _has_parent_redirect_with_children(text) else []
 
 
@@ -214,5 +242,5 @@ def _parse(block: str) -> list[DefinitionCandidate]:
 
 register_term_clause_rule(TermClauseRule(jurisdiction_codes=("US-*",), parse=_parse))
 register_entry_splitter_rule(
-    EntrySplitterRule(jurisdiction_codes=("US-*",), split=_split_parent_redirect_whole_text)
+    EntrySplitterRule(jurisdiction_codes=("US-TX",), split=_split_parent_redirect_whole_text)
 )
