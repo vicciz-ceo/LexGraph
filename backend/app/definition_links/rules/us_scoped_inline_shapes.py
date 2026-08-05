@@ -1,53 +1,98 @@
-"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycles 2-4 (Developer).
+"""Sprint 2026-08-04-defs-us-scoped-inline, fix cycles 2-5 (Developer).
 Sanctioned style-gate overflow from `us_scoped_inline.py` (that module's
 docstring, "Sanctioned overflow" -- `us_scoped_inline.py` was already at
 the 300-line style-gate ceiling before cycle 2's fixes, and again before
-cycle 3's). Holds the BODY-SHAPE regex vocabulary, the entry-splitting
-helpers, and (cycle 3, revised cycle 4 per D-S15) the subsection-scope
-derivation: everything that
-operates on an already-located trigger region/offset and does not need
-`_SCOPE_BY_UNIT` or `DefinitionCandidate` directly (`_resolve_subsection_
-scope` returns a bare tuple, not a `DefinitionCandidate` -- the caller in
-`us_scoped_inline.py` builds that). Deliberately NOT a `ScopeTriggerRule`
--- it calls no `register_*` function and has no import-time side effects,
-so `rules/__init__.py`'s auto-discovery (every sibling module in this
-package gets imported at package-import time) can safely import this file
-without adding new dispatch surface. Does not import `us_scoped_inline`
-(would be circular); `us_scoped_inline.py` imports FROM here.
+cycle 3's/5's). Holds the trigger/idiom VOCABULARY regexes and (cycle 3,
+revised cycle 4 per D-S15) the subsection-scope derivation. Deliberately
+NOT a `ScopeTriggerRule` -- it calls no `register_*` function and has no
+import-time side effects, so `rules/__init__.py`'s auto-discovery (every
+sibling module in this package gets imported at package-import time) can
+safely import this file without adding new dispatch surface. Does not
+import `us_scoped_inline` (would be circular); `us_scoped_inline.py`
+imports FROM here. Fix cycle 5 moved the ENTRY-SPLITTING mechanics
+(`_single_entry`/`_multi_entries`/`_unmarked_multi_entries`/
+`_find_entry_end`/`_match_quote_chain`/`_split_idiom_chain`) OUT to a
+second sanctioned overflow module, `us_scoped_inline_entries.py` (same
+pattern, imports the vocabulary regexes it needs FROM this file) -- this
+file was back at the 300-line ceiling once cycle 5's own vocabulary
+widenings landed; see that module's own docstring for the entry-mechanics
+history and the fix-6/D-INCLUDES-guard detail.
 
 QA cycle-1 root causes fixed in this module (full detail in
 `us_scoped_inline.py`'s docstring and this sprint's report):
 
   2. Period-style list markers (`1.` `2.`, not just `(1)` `(2)`) --
      `_MARKER_RE` now accepts either.
-  1. Unmarked colon-then-quoted-list (the most severe miss: the entire
-     block was lost, not merely under-split) -- `_unmarked_multi_entries`,
-     a new fallback tried only when the marker-based `_multi_entries`
-     finds nothing.
   7. Plural `have the same meaning as` (`_IDIOM_RE` recognized only
      singular `has`).
   8. Bare copula `is` (measured for false-positive surface against the
      real corpus per program ruling D-Q1 -- see the sprint report; shipped
      unnarrowed, ~0% FP in a 40-row hand-inspected sample of 846 corpus-wide
      new candidates).
-  (Also: a "X" or "Y" alias chain -- `_match_quote_chain` -- needed to even
-  REACH the Tennessee row's plural `have` idiom, since its two terms share
-  one idiom via "or".)
+  (Also: a "X" or "Y" alias chain -- needed to even REACH the Tennessee
+  row's plural `have` idiom, since its two terms share one idiom via "or".)
 
 Fix cycle 3 (ruling S-R14, the subsection revert): `_resolve_subsection_
-scope`/`_subsection_scope_level` moved here (not left in `us_scoped_
-inline.py`) purely for the 300-line style gate -- see that module's
-docstring for the full S-R9/S-R10/S-R11/S-R14/S-R15/D-S15 design
-reasoning, repeated here only where load-bearing for these two functions
-themselves.
+scope`/`_subsection_scope_level` moved here purely for the 300-line style
+gate -- see `us_scoped_inline.py`'s docstring for the full S-R9/S-R10/
+S-R11/S-R14/S-R15/D-S15 design reasoning, repeated here only where
+load-bearing for these two functions themselves.
 
 Fix cycle 4 (director ruling D-S15, supersedes S-R15): `_subsection_
-scope_level` now returns the OUTERMOST step of the resolved path, not the
-innermost -- see that function's own docstring for the SC live-path
-evidence and the corpus-wide vocabulary census. `_resolve_subsection_
-scope` itself is UNCHANGED: same resolver call, same zero-miss `"local"`
-degrade on an empty path, same same-step stamping of `scope_value`/
-`scope_unit_kind` -- only WHICH step `_subsection_scope_level` picks moved.
+scope_level` now returns the OUTERMOST step of the resolved path -- see
+that function's own docstring for the SC live-path evidence and the
+corpus-wide vocabulary census. `_resolve_subsection_scope` itself is
+UNCHANGED: same resolver call, same zero-miss `"local"` degrade on an
+empty path, same same-step stamping of `scope_value`/`scope_unit_kind` --
+only WHICH step `_subsection_scope_level` picks moved.
+
+Fix cycle 5 (QA cycle-2, 4 of the 6 root causes; the other 2 -- Georgia's
+"Code section" and the second and-joined non-colon entry -- live in
+`us_scoped_inline.py`/`us_scoped_inline_entries.py` respectively):
+
+  1. Bare-`in this <unit>` trigger's connector did not tolerate a
+     `the term(s)` phrase before the quote, unlike `_STRONG_CONNECTOR_RE`'s
+     own tolerance (12,189 corpus-wide hits). `_BARE_CONNECTOR_RE` now
+     tolerates it -- but ONLY as a trailing, optional group AFTER the
+     existing `colon`/`comma` capture groups, which are what the strict
+     adjacency gate in `_leading_events` actually inspects
+     (`conn.group("colon") or conn.group("comma")`); the gate's own
+     matching -- whether a comma/colon appears immediately (whitespace-only)
+     after the unit word -- is completely untouched by whether this new
+     trailing group also happens to match. `test_bare_in_strict_comma_or_
+     colon_adjacency_gate_is_load_bearing` (the isolating probe, no colon/
+     comma at all) is unaffected: its own gate check still fires and
+     rejects the probe before the new group is ever reached.
+  2. `shall include` was not a recognized idiom (director ruling
+     D-INCLUDES: the `includes`-family verbs join the defining vocabulary
+     program-wide with the naive quoted-term anchor, 100/100 hand-read
+     definitional; see `us_scoped_inline_entries.py`'s docstring for the
+     ONE targeted guard the ruling still requires). Finding 3's own KS row
+     (below) also needed a bare `(shall )?have the meaning(s)` alternative
+     -- the same cross-reference-friendly, no-`same`/`as`-required design
+     as the existing `has the meaning` (OH cross-reference) alternative,
+     just its `have` cousin.
+  3. A quote chain sharing one idiom could only be joined by `or`
+     (`_QUOTE_CHAIN_SEP_RE`), not `and` -- KS's `the terms "governing
+     body" and "municipality" shall have the meanings ascribed to...`.
+  5. An intervening `unless the context otherwise indicates` clause (and
+     variants, 2,113 corpus-wide hits / 31 states) broke
+     `_STRONG_CONNECTOR_RE`'s recognition of `the following terms ...
+     meaning(s)` the same way root cause 4's `and <citation>` clause used
+     to -- the SAME bounded-filler mechanism (an anchor phrase then a
+     comma/colon-bounded clause that can never swallow past the real
+     connector) now tolerates a second such clause, in the position
+     drafters actually use it (Maine: after the leading comma, before "the
+     following terms"). Maine's own phrasing is also bare "the following
+     terms have the following meanings" (no "shall"), so "shall" is now
+     optional there too; and Maine numbers its list with a bare, single
+     letter/digit label ("A.") that `_MARKER_RE` does not cover (letters
+     without parens) -- rather than widen that shared vocabulary (which
+     would open `_multi_entries`'s marker recognition broadly, out of this
+     finding's scope), the trailing `(?:\\.\\s*(?:[A-Za-z0-9]{1,3}\\.\\s*)?)?`
+     is scoped to fire ONLY once the FULL "the following terms ...
+     meaning(s)" anchor phrase has already matched -- never a bare,
+     unconditional swallow of an arbitrary period.
 """
 
 from __future__ import annotations
@@ -59,24 +104,35 @@ from app.definition_links.us_profile import resolve_unit_path
 
 # Connector between a STRONG trigger's unit word and the definiendum.
 # Root cause 4 (intervening secondary citation clause, e.g. Delaware's "As
-# used in this section AND IN Section 15-105 of this title, the term..."):
-# tolerates one optional "and [in] <citation text>" clause -- bounded to
-# stop at the next comma/colon (the real connector), never swallowing past
-# it -- before the rest of the connector vocabulary.
+# used in this section AND IN Section 15-105 of this title, the term...")
+# and fix cycle 5's finding 5 (Maine's "unless the context otherwise
+# indicates..."): a SINGLE bounded-filler mechanism -- an anchor phrase
+# followed by a comma/colon-bounded clause, never able to swallow past the
+# next comma/colon -- tolerates one intervening qualifier clause in EITHER
+# of the two positions drafters actually use it (directly after the unit
+# word, no leading comma; or after a comma, before "the following terms").
 # Root cause 5 (DC's "the term:" -- no space before the colon) and root
 # cause 7 (Tennessee's plural "the terms ... have"): "the term(s)" now uses
 # a `\b` word boundary instead of requiring trailing whitespace, so it
 # can't over-consume into "terms" nor refuse a colon glued directly onto
 # "term".
 # Root cause 6 (NY's "shall have the following meanings", MS's "shall have
-# meanings as follows"): added alongside the existing "the following terms
-# mean(s)" phrasing.
+# meanings as follows") and fix cycle 5's finding 5 (Maine's bare "have the
+# following meanings", no "shall"): "shall" is now optional before
+# "have (the following) meaning(s) (as follows)"; when that whole "the
+# following terms ... meaning(s)" phrase matches, an OPTIONAL trailing
+# sentence-period-then-bare-list-label (Maine's "A.") is also tolerated --
+# see this module's own docstring for why that tail is scoped to fire only
+# inside this one branch.
 _STRONG_CONNECTOR_RE = re.compile(
     r"\s*"
     r"(?:and\s+(?:in\s+)?[^,:]{0,120})?"
     r"\s*(?:,\s*)?"
+    r"(?:unless\s+the\s+context[^,:]{0,80})?"
+    r"\s*(?:,\s*)?"
     r"(?:"
-    r"the following terms?\s+(?:mean|means|shall have(?:\s+the following)?\s+meanings?(?:\s+as\s+follows)?)\s*"
+    r"the following terms?\s+(?:mean|means|(?:shall\s+)?have(?:\s+the following)?"
+    r"\s+meanings?(?:\s+as\s+follows)?)\s*(?:\.\s*(?:[A-Za-z0-9]{1,3}\.\s*)?)?"
     r"|shall have\s+(?:the following\s+)?meanings?(?:\s+as\s+follows)?\s*"
     r")?"
     r"(?:the terms?\b\s*|an?\s+)?"
@@ -85,18 +141,24 @@ _STRONG_CONNECTOR_RE = re.compile(
 )
 
 # Strict: only a comma or a colon, no filler words -- the bare-`in` trigger's
-# load-bearing adjacency gate (QA cycle-1 mutation testing target). NOT
-# touched by this fix cycle.
-_BARE_CONNECTOR_RE = re.compile(r"\s*(?:(?P<colon>:)|(?P<comma>,))?\s*")
-
-_QUOTE_TERM_RE = re.compile(r'["“](?P<term>[^"”]+?),?["”]')
+# load-bearing adjacency gate (QA cycle-1 mutation testing target). The gate
+# check in `_leading_events` reads ONLY the `colon`/`comma` groups below, so
+# fix cycle 5's trailing `the term(s)` tolerance (finding 1) -- appended
+# AFTER those groups -- cannot loosen what the gate itself accepts as
+# "immediately adjacent"; it only widens where `region_start` lands once the
+# gate has ALREADY passed.
+_BARE_CONNECTOR_RE = re.compile(
+    r"\s*(?:(?P<colon>:)|(?P<comma>,))?\s*(?:the terms?\b\s*)?",
+    re.IGNORECASE,
+)
 
 # Root cause 7's Tennessee row aliases two quoted terms with a shared idiom
-# ("the terms "X" or "Y" have the same meaning as..."): a chain of quotes
-# joined by literal "or" (optionally comma-preceded) all share ONE
+# ("the terms "X" or "Y" have the same meaning as..."), and fix cycle 5's
+# finding 3 (KS) needs the same for "and": a chain of quotes joined by a
+# literal "or" OR "and" (optionally comma-preceded) all share ONE
 # definition. A bare comma alone does NOT continue the chain -- that stays
 # reserved for separate marked/unmarked list entries.
-_QUOTE_CHAIN_SEP_RE = re.compile(r"\s*(?:,\s*)?or\s*", re.IGNORECASE)
+_QUOTE_CHAIN_SEP_RE = re.compile(r"\s*(?:,\s*)?(?:or|and)\s*", re.IGNORECASE)
 
 # Root cause 2 (Florida's period-style "1." "2." list markers, not just
 # parenthesized "(1)" "(2)"): a bare 1-3 digit number followed by a literal
@@ -110,133 +172,21 @@ _MARKER_QUOTE_RE = re.compile(rf'{_MARKER_RE}\s*["“]')
 
 # Root cause 7 (plural "have the same meaning as") and root cause 8 (bare
 # copula "is", measured -- see module docstring and the sprint report's
-# D-Q1 section) added to the existing idiom vocabulary. Order matters:
-# "is defined as" is tried before bare "is" so the longer, more specific
-# phrase wins when both are present.
+# D-Q1 section) added to the existing idiom vocabulary. Fix cycle 5's
+# finding 2 (director ruling D-INCLUDES) adds `shall include`, the
+# `shall`-prefixed cousin of `includes` that `shall mean` already proves
+# this vocabulary intends to support; finding 3 adds a bare `(shall )?have
+# the meaning(s)` alternative (KS's "shall have the meanings ascribed to
+# <cross-reference>", the same cross-reference-friendly design as `has the
+# meaning`). Order matters: more specific phrases are tried before their
+# shorter cousins so the longer one wins when both are present.
 _IDIOM_RE = re.compile(
     r"\s*(?:has the same meaning as|have the same meaning as|has the meaning"
+    r"|(?:shall\s+)?have the meanings?"
     r"|shall be construed to mean"
-    r"|shall mean|does not include|is defined as|includes?|means|is)\b,?\s*",
+    r"|shall include|shall mean|does not include|is defined as|includes?|means|is)\b,?\s*",
     re.IGNORECASE,
 )
-
-_COMMA_SEP_RE = re.compile(r"\s*,\s*")
-_SENTENCE_BOUNDARY_RE = re.compile(r"\.\s")
-_LEADING_WS_RE = re.compile(r"\s*")
-
-
-def _find_entry_end(body: str, def_start: int, boundary: int) -> int:
-    """Nearer of the next marker-adjacent quote (a new entry) or the next
-    sentence boundary, bounded by `boundary` (region end or next entry)."""
-    marker_match = _MARKER_QUOTE_RE.search(body, def_start, boundary)
-    period_match = _SENTENCE_BOUNDARY_RE.search(body, def_start, boundary)
-    ends = [m.start() for m in (marker_match, period_match) if m]
-    return min(ends) if ends else boundary
-
-
-def _match_quote_chain(body: str, pos: int, boundary: int) -> tuple[tuple[str, ...], int]:
-    """A quote at `pos`, plus any further quotes chained onto it by a
-    literal "or" (root cause 7's TN alias shape) -- e.g. `"X" or "Y"`.
-    Returns `((), pos)` (empty terms, unchanged position) if `pos` is not
-    itself a quote."""
-    terms: list[str] = []
-    cur = pos
-    while True:
-        quote_match = _QUOTE_TERM_RE.match(body, cur, boundary)
-        if not quote_match:
-            break
-        term = quote_match.group("term").strip()
-        if not term:
-            break
-        terms.append(term)
-        cur = quote_match.end()
-        sep_match = _QUOTE_CHAIN_SEP_RE.match(body, cur, boundary)
-        if not sep_match:
-            break
-        cur = sep_match.end()
-    return (tuple(terms), cur) if terms else ((), pos)
-
-
-def _split_idiom_chain(
-    body: str, terms: tuple[str, ...], chain_end: int, boundary: int
-) -> tuple[tuple[str, ...], str, int] | None:
-    """`terms` is the (one or more) quoted term(s) from `_match_quote_chain`,
-    `chain_end` the position right after them. Returns
-    `(terms, definition_text, entry_end)` -- `entry_end` is exposed (not
-    just the stripped text) so `_unmarked_multi_entries` can resume
-    scanning for a FOLLOW-ON entry from the right place."""
-    idiom_match = _IDIOM_RE.match(body, chain_end, boundary)
-    if idiom_match:
-        def_start = idiom_match.end()
-    else:
-        comma_match = _COMMA_SEP_RE.match(body, chain_end, boundary)
-        if not comma_match:
-            return None
-        def_start = comma_match.end()
-    entry_end = _find_entry_end(body, def_start, boundary)
-    definition_text = body[def_start:entry_end].strip()
-    return (terms, definition_text, entry_end) if definition_text else None
-
-
-def _single_entry(body: str, region_start: int, region_end: int) -> list[tuple[tuple[str, ...], str]]:
-    ws = _LEADING_WS_RE.match(body, region_start, region_end)
-    pos = ws.end() if ws else region_start
-    terms, chain_end = _match_quote_chain(body, pos, region_end)
-    if not terms:
-        return []
-    entry = _split_idiom_chain(body, terms, chain_end, region_end)
-    return [(entry[0], entry[1])] if entry else []
-
-
-def _multi_entries(body: str, region_start: int, region_end: int) -> list[tuple[tuple[str, ...], str]]:
-    markers = list(_MARKER_QUOTE_RE.finditer(body, region_start, region_end))
-    entries: list[tuple[tuple[str, ...], str]] = []
-    for i, marker_match in enumerate(markers):
-        boundary = markers[i + 1].start() if i + 1 < len(markers) else region_end
-        terms, chain_end = _match_quote_chain(body, marker_match.end() - 1, boundary)
-        if not terms:
-            continue
-        entry = _split_idiom_chain(body, terms, chain_end, boundary)
-        if entry:
-            entries.append((entry[0], entry[1]))
-    return entries
-
-
-def _unmarked_multi_entries(body: str, region_start: int, region_end: int) -> list[tuple[tuple[str, ...], str]]:
-    """Root cause 1 fix: a colon-then-quoted-list with NO per-entry marker
-    (Illinois: `"As used in this Section: "X" means... "Y" means..."`;
-    Virginia: seven terms separated only by blank lines) -- the single most
-    severe QA cycle-1 miss, where `_multi_entries` finding zero markers
-    meant the ENTIRE block was silently dropped, not merely under-split.
-
-    Only ever called as a fallback AFTER `_multi_entries` returns nothing
-    (see `extract_us_scoped_inline_definitions`), and only ever advances
-    entry-to-entry through content immediately (whitespace/period-only)
-    adjacent to the previous entry's end -- it can never skip over
-    unrelated intervening prose to pick up some later, unrelated quote,
-    which is what keeps this fallback from becoming a new false-positive
-    surface. Stops at the first entry that fails to parse (conservative by
-    design, same rationale as the marker-adjacency gate: an ambiguous stop
-    is safer than guessing which later quote resumes the list)."""
-    entries: list[tuple[tuple[str, ...], str]] = []
-    pos = region_start
-    while pos < region_end:
-        ws = _LEADING_WS_RE.match(body, pos, region_end)
-        p = ws.end() if ws else pos
-        terms, chain_end = _match_quote_chain(body, p, region_end)
-        if not terms:
-            break
-        entry = _split_idiom_chain(body, terms, chain_end, region_end)
-        if not entry:
-            break
-        entries.append((entry[0], entry[1]))
-        entry_end = entry[2]
-        skip = re.match(r"[.\s]*", body[entry_end:region_end])
-        next_pos = entry_end + (skip.end() if skip else 0)
-        if next_pos <= pos:
-            break  # guard against a zero-width loop on malformed input
-        pos = next_pos
-    return entries
 
 
 def _subsection_scope_level(path):
