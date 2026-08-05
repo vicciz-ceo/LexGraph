@@ -86,5 +86,32 @@ arrives) and must NOT pin resolver internals that G2/G4 legitimately change.
 
 | # | Role | Gates | Model/effort | Branch / worktree | agentId | Outcome |
 |---|---|---|---|---|---|---|
+| 1 | Planner | G2 + G4 (resolver) | Sonnet/high — P-R6 Planner is always Sonnet/high; Haiku considered: no, open-ended design over a shared parsing surface six panels depend on | `claude/defs-core-follow-on-2-plan1` / `...-wt/defs-core-follow-on-2-plan1` | `a3dda557ae5eb694e` | running |
+| 2 | Planner | G3 + G1 (extraction) | Sonnet/high — P-R6; Haiku considered: no, G3's boundary design is open-ended and three panels are blocked on it | `claude/defs-core-follow-on-2-plan2` / `...-wt/defs-core-follow-on-2-plan2` | `aae653f9956064e9f` | running |
+| 3 | Planner | G5 + G6 (seam) | Sonnet/high — P-R6; Haiku considered: no, G6 authors a seam version the rest of the program builds against | `claude/defs-core-follow-on-2-plan3` / `...-wt/defs-core-follow-on-2-plan3` | `a2987562ee6ff3a61` | running |
+
+### Briefing notes carried into all three Planner spawns
+- Own worktree + own venv (main venv imports main checkout code); verify
+  noreply `user.email` before first commit; never `git stash`, never
+  `git add -A`.
+- CodeGraph-first; index reflects `main`, so panel-branch evidence is read
+  directly (`git show` / `git grep` on the panel branch).
+- Vendor equivalent REDs rather than cherry-picking panel commits
+  (authorship stays clean); no test reads the corpus; fixtures name the real
+  row they were copied from.
+- P-R7 signal-agnostic denominator, P-R10 probe sanity (reproduce a known
+  number first), M18 entry-LINE denominators, measured before/after.
+- Contract duty carried explicitly: flag any candidate that should NOT be
+  built, with evidence, rather than silently dropping or over-building it.
+- Per-gate cautions briefed: G2/G4 pull in opposite directions (widen
+  recognition vs. trust fewer tokens) and must share one token-acceptance
+  story; G3's terminator rule can truncate genuine final entries (measure
+  BOTH sides) and affects every US jurisdiction because the splitter runs
+  before registered rules; G1 changes a term string that is also a matching
+  key; G5 is a two-site fix including the Hebrew regression surface; G6 is
+  seam + ONE proof only (the headings panel's rules stay theirs).
+- Cross-planner coupling briefed out: plan3's G5 tests prove the PLUMBING
+  and must not pin resolver internals plan1 is legitimately changing.
+
 </content>
 </invoke>
