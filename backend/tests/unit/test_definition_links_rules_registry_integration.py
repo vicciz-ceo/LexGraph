@@ -6,21 +6,32 @@ Two things this file proves, independently:
 
 1. **Self-registration** (U3): importing
    `app.definition_links.rules.us_heading_variants` calls the PUBLISHED
-   registry function `register_heading_rule` exactly TWICE (amended
-   2026-08-04 for director ruling D-DF / program ruling P-R8 -- see below;
-   previously exactly once, `matches is module.matches_heading_variant`,
-   before `body_confirms` existed) -- with an UNCONDITIONAL
+   registry function `register_heading_rule` exactly THREE TIMES (amended
+   2026-08-04, cycle 5, item 13 -- see below; previously exactly two,
+   D-DF's unconditional/gated pair; before that exactly once,
+   `matches is module.matches_heading_variant`, before `body_confirms`
+   existed) -- with an UNCONDITIONAL
    `HeadingRule(jurisdiction_codes=("US-*",),
-   matches=matches_heading_variant_unconditional)` registered FIRST, and a
+   matches=matches_heading_variant_unconditional)` registered FIRST, D-DF's
    GATED `HeadingRule(jurisdiction_codes=("US-*",),
    matches=matches_defined_for_heading, body_confirms=defines_in_body)`
-   registered SECOND. This is tested by patching `register_heading_rule`
-   itself (the only part of the registry's surface the seam spec actually
-   publishes/fixes -- see `## Seam spec (published)`, "Seam 2" ->
-   "Registration") and observing both calls, rather than guessing at an
-   unpublished internal storage accessor (`registry.py`'s read-side API is
-   core's own internal detail, not part of the documented family-panel
-   surface).
+   registered SECOND, and cycle 5 item 13's GATED `HeadingRule(
+   jurisdiction_codes=("US-*",), matches=matches_defined_qualifier_heading,
+   body_confirms=defines_qualifier_in_body)` registered THIRD -- same
+   design reasoning as D-DF (a real, evidenced precision risk on the VA
+   row means this shape cannot ship unconditional either; see
+   `test_definition_links_us_heading_variants_cycle5.py`'s module
+   docstring, "Item 13" section, for the full rationale). This is tested
+   by patching `register_heading_rule` itself (the only part of the
+   registry's surface the seam spec actually publishes/fixes -- see
+   `## Seam spec (published)`, "Seam 2" -> "Registration") and observing
+   all three calls, rather than guessing at an unpublished internal
+   storage accessor (`registry.py`'s read-side API is core's own internal
+   detail, not part of the documented family-panel surface). Items 10, 11,
+   12, and 15 do NOT add a new registration (10/11/15 widen the existing
+   unconditional rule's own regex; 12 folds into the existing
+   unconditional union too, per that item's own "UNCONDITIONAL" design
+   choice) -- only item 13 changes this test's shape.
 
    **Why two rules, and why this order** -- full design rationale (D-DF
    cannot be a single-rule change without gating all ~20,307 recognized
@@ -56,13 +67,16 @@ test's dependencies -- `app.definition_links.rules.registry`
 was doubly blocked until both landed. Core has since merged (`1d17d81`) and
 the original single-registration shape shipped and went green.
 
-RED signal (2026-08-04 amendment, D-DF): the SAME test now asserts the
-NEW two-registration shape (see class docstring item 1) -- it fails today
-with `AssertionError: mock_register.call_count == 2` (actual: 1), a genuine
-"feature absent" failure, not an import error -- proving core has not yet
-shipped `HeadingRule.body_confirms` AND the Developer has not yet split the
-module's registration into two calls. Stays red until BOTH land (program
-ruling P-R8's authorized sequencing).
+RED signal (2026-08-04 amendment, D-DF): the SAME test asserted the
+two-registration shape; that landed and went green (dev cycle 4).
+
+RED signal (2026-08-04 amendment, cycle 5, item 13): the SAME test now
+asserts the NEW three-registration shape -- it fails today with
+`AssertionError: mock_register.call_count == 3` (actual: 2), a genuine
+"feature absent" failure, not an import error -- the module's registration
+site has not yet grown a third call. Stays red until the Developer adds
+item 13's `matches_defined_qualifier_heading`/`defines_qualifier_in_body`
+functions AND their registration call.
 """
 
 from __future__ import annotations
@@ -87,19 +101,21 @@ def _load_rows() -> dict[str, dict]:
 
 
 def test_module_self_registers_exactly_one_heading_rule_for_us_star():
-    """Amended 2026-08-04 for director ruling D-DF / program ruling P-R8 --
-    see this file's module docstring item 1 and
-    test_definition_links_us_heading_variants_d_df.py's module docstring
-    for the full design rationale. Name kept (not renamed) so the git blame
-    /history on this exact assertion stays traceable across the amendment;
-    the CONTRACT it pins has changed from one registration to two.
+    """Amended 2026-08-04, cycle 5, item 13 -- see this file's module
+    docstring item 1 and `test_definition_links_us_heading_variants_
+    cycle5.py`'s module docstring ("Item 13") for the full design
+    rationale. Name kept (not renamed) so the git blame/history on this
+    exact assertion stays traceable across BOTH amendments (D-DF's
+    one-to-two, and this one's two-to-three) -- the CONTRACT it pins has
+    changed from one registration, to two (D-DF), to three (item 13).
 
-    Original: `assert mock_register.call_count == 1` with
-    `registered_rule.matches is module.matches_heading_variant`. That
-    shape is gone -- attaching `body_confirms` to a single rule whose
-    `matches` is the whole-module union would gate ALL ~20,307 recognized
-    headings on body content, not just the 110 `defined for` rows (see the
-    D-DF test file's docstring for the full rejection rationale)."""
+    D-DF shape (dev cycle 4, shipped): `assert mock_register.call_count ==
+    2`. That count is now stale -- item 13's `defined (qualifier)`/
+    `defined to [verb]` shape carries a real, evidenced precision risk
+    (the VA "Evidence of habit or routine practice; defined..." row) of
+    exactly the same kind D-DF's `defined for` alternation did, so it
+    ships as a THIRD gated rule, not folded into the existing unconditional
+    union."""
     from app.definition_links.rules import registry
 
     with patch.object(registry, "register_heading_rule") as mock_register:
@@ -112,23 +128,24 @@ def test_module_self_registers_exactly_one_heading_rule_for_us_star():
         sys.modules.pop("app.definition_links.rules.us_heading_variants", None)
         module = importlib.import_module("app.definition_links.rules.us_heading_variants")
 
-    assert mock_register.call_count == 2, (
-        "us_heading_variants.py must call register_heading_rule exactly TWICE at "
-        "import time (module-level, not inside a function): an UNCONDITIONAL rule "
-        "first, then a GATED (body_confirms) rule for the 'defined for' shape only "
-        "-- see module docstring item 1 and the D-DF test file's design rationale"
+    assert mock_register.call_count == 3, (
+        "us_heading_variants.py must call register_heading_rule exactly THREE "
+        "TIMES at import time (module-level, not inside a function): an "
+        "UNCONDITIONAL rule first, D-DF's GATED 'defined for' rule second, and "
+        "cycle-5 item 13's GATED 'defined (qualifier)'/'defined to [verb]' rule "
+        "third -- see module docstring item 1"
     )
 
     (unconditional_rule,), _ = mock_register.call_args_list[0]
     assert unconditional_rule.jurisdiction_codes == ("US-*",)
     assert unconditional_rule.matches is module.matches_heading_variant_unconditional, (
-        "the FIRST registered rule must be the unconditional one -- registering the "
+        "the FIRST registered rule must be the unconditional one -- registering a "
         "gated rule first is unsafe under a 'stop at first matching rule' dispatch "
         "reading (see the D-DF test file's docstring)"
     )
     assert getattr(unconditional_rule, "body_confirms", None) is None, (
         "the unconditional rule must NOT be body-gated -- every shape except "
-        "'defined for' stays unconditional"
+        "'defined for'/item 13's qualifier shape stays unconditional"
     )
 
     (gated_rule,), _ = mock_register.call_args_list[1]
@@ -141,6 +158,19 @@ def test_module_self_registers_exactly_one_heading_rule_for_us_star():
     assert gated_rule.body_confirms is module.defines_in_body, (
         "the gated rule's body_confirms must be the D-DF self-definition-marker "
         "predicate"
+    )
+
+    (qualifier_rule,), _ = mock_register.call_args_list[2]
+    assert qualifier_rule.jurisdiction_codes == ("US-*",)
+    assert qualifier_rule.matches is module.matches_defined_qualifier_heading, (
+        "the THIRD registered rule's matches must be cycle-5 item 13's NARROW "
+        "'defined (qualifier)'/'defined to [verb]' predicate, not the full union"
+    )
+    assert qualifier_rule.body_confirms is module.defines_qualifier_in_body, (
+        "the qualifier rule's body_confirms must be item 13's own self-definition-"
+        "marker predicate (a superset of defines_in_body's verb whitelist, adding "
+        "include(s)/shall (not) include -- see test_definition_links_us_heading_"
+        "variants_cycle5.py's module docstring)"
     )
 
 
