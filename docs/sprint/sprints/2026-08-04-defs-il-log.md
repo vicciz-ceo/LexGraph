@@ -6430,3 +6430,214 @@ nobody thinks to grep for "articles with no preamble".
 2. It did not check whether `או`/`ו-` also affect the quote-first or
    class-C heading-embedded shapes — out of its brief, flagged for D-2.
 3. The 29 unreached lines are named, not fixed.
+
+---
+
+## 2026-08-05 — Developer (Sonnet/medium, worktree `defs-il-dev3`, branch
+`claude/defs-il-dev-sep`): the 3 separator REDs turned GREEN
+
+### Scope discipline (M14)
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-dev3` only, own venv verified
+(`import app` -> this worktree's `backend/app`). Checked out clean at
+`e376fb1` (M29, separator Planner merged). `git config user.email` verified
+noreply before any commit. `git diff --name-status HEAD -- backend/tests
+backend/app/definition_links/{profiles,pipeline,sections,extract}.py` ->
+**empty**, checked before writing anything and again just before this
+commit. Did not touch `test_definition_links_il_siman_chelek_containment_
+live.py` (M20, core-blocked, must stay RED) or any other existing test.
+Only file touched: `backend/app/definition_links/rules/il_list_shape_
+scope.py`.
+
+### Root-cause re-confirmation BEFORE any change (own run)
+
+Baseline: `backend/.venv/bin/pytest backend/tests -q` -> **`5 failed, 840
+passed`**, matching the brief exactly. Ran the 3 target REDs alone first:
+all 7 preceding sanity/control assertions passed (sibling single-term
+entries capture; term 1 of the multi-term entry captures via `parse_
+entry`'s single-term fallback), and each test's own FINAL assertion is
+the one that fails, for exactly its stated reason:
+- `..._single_colon_pure_multiterm_..._is_currently_missed` ->
+  `AssertionError` at the `"הסכם גג" in captured_terms` line (missing
+  SECOND `או`-joined term).
+- `..._double_colon_mixed_comma_and_or_multiterm_..._is_currently_missed`
+  -> `AssertionError` at the `"הגדר" in captured_terms` line (missing
+  THIRD term, reached via `או` after a comma-separated pair).
+- `..._vav_hyphen_separator_double_colon_..._is_currently_missed` ->
+  `AssertionError` at the `"יחד עם אחר" in captured_terms` line (missing
+  SECOND term, hyphenated `ו-` conjunction).
+
+Root cause confirmed live, matching M25/M29 exactly: `_TERM_SEP_RE =
+re.compile(r'(?:\s*,\s*ו?|\s+ו)"([^"]+)"')` requires a comma and/or a
+bare vav DIRECTLY prefixed to the next quote -- `או` and hyphenated `ו-`
+satisfy neither branch, so `parse_entry`'s loop stops after term 1 and
+the rest is silently absorbed into the discarded "qualifier".
+
+### The fix
+
+Widened ONLY `_TERM_SEP_RE`'s alternation, in
+`backend/app/definition_links/rules/il_list_shape_scope.py`
+(187 -> 202 lines, style gate 300 untouched):
+
+```python
+_TERM_SEP_RE = re.compile(r'(?:\s*,\s*(?:או\s+|ו-?)?|\s+(?:או\s+|ו-?))"([^"]+)"')
+```
+
+Two branches, unchanged in shape from D-1a's original (comma-anchored /
+whitespace-anchored), each now offering a 3-way connector choice instead
+of the old bare `ו?`/`ו`:
+- `או\s+` -- the standalone word `או`, which (unlike vav) is never glued
+  directly to the following quote, so it always requires its own
+  trailing whitespace before the `"`. Added to BOTH branches so it works
+  whether or not a comma precedes it -- the brief specifically asked me
+  to consider this, and fixture 2 (`"תואר", "כינוי" או "הגדר"`) plus a
+  real corpus line found in my own A/B sweep
+  (`"ההסכם", או "הסכם שיתוף פעולה"`, `חוק סדר הדין הפלילי (סמכויות אכיפה
+  – חיפוש בגוף ונטילת אמצעי זיהוי)` art. 11טז) both need the
+  comma-then-`או` combined form, not just bare `או`.
+- `ו-?` -- generalizes the old bare `ו` to also tolerate one optional
+  hyphen directly before the quote (`ו"..."` still matches with zero
+  hyphens, exactly as before; `ו-"..."` now also matches). Verified this
+  is backward-compatible with every string the old `ו?`/`ו` branches
+  matched (worked through both by hand before editing).
+
+**Did not touch `_find_dash_marker` or the dash-then-header slicing** --
+per the brief's explicit constraint and the Planner's own M29-accepted
+precision analysis, the widening is confined to the alternation inside
+`_TERM_SEP_RE`, which only ever runs against `header = entry_text[:dash_
+idx]`, already computed before any term-scanning starts. Did not need to
+escalate; no conflict arose with the dash-boundary constraint.
+
+### The 3 REDs, GREEN
+
+```
+backend/.venv/bin/pytest backend/tests/integration/test_definition_links_il_or_separator_gap_live.py -v
+-> 3 passed
+```
+
+### Full suite, lint
+
+`backend/.venv/bin/pytest backend/tests -q` -> **`2 failed, 843 passed,
+18 warnings`** -- exactly the expected end state. The 2 remaining
+failures are the `siman`/`chelek` containment REDs (M20, core-blocked,
+untouched, unchanged). `bash scripts/contract_lint.sh 2026-08-04-defs-il`
+-> **PASS 398**.
+
+`git diff --name-status HEAD -- backend/tests backend/app/definition_
+links/profiles.py backend/app/definition_links/pipeline.py backend/app/
+definition_links/sections.py backend/app/definition_links/extract.py` ->
+**empty** (verified, reproduced above).
+
+### Verification beyond pytest -- A/B measurement against the real corpus
+
+Wrote a fresh script (`il_or_sep_ab_dev3.py`, scratchpad) that calls the
+ACTUAL `il_list_shape_scope.parse_entry` (not a reimplementation -- this
+is an A/B of the real function's observable behavior change, the
+Planner's independent-denominator derivation is a separate, already-done
+job) against every entry line reached by the real production scan (its
+own `PREAMBLE_RE` + `:-`/`::-` marker regex, mirroring both live
+`ScopeTriggerRule` modules' own loops exactly, restricted to non-
+`הגדרות`-heading articles exactly as production does), corpus-wide
+(6,133 files). Ran it once BEFORE the edit and once AFTER, snapshotting
+every reached entry's `parse_entry()` result to JSON, then diffed.
+
+**7,053 unique reached entry lines both before and after** (the reach-
+scan does not depend on `_TERM_SEP_RE`, so this count is invariant by
+construction -- confirmed identical key sets before asserting anything
+about content).
+
+**19 entry lines changed their parsed terms, across 12 unique files.**
+Every single change is **strictly additive** -- checked programmatically,
+not just eyeballed: for all 19, `before_terms` is an exact prefix of
+`after_terms` (term 1, and any comma/vav-direct terms already captured
+pre-fix, are byte-identical before and after; only NEW trailing terms
+are appended, never a removal, never a change to an existing term).
+Breakdown by connector (reclassified against the actual entry text after
+first mis-tagging one comma+`או` line with too-narrow a labeling regex,
+corrected and re-run):
+- `ו-` hyphenated: **4 lines / 4 files** -- exact match to the Planner's
+  own independently-derived 4/4.
+- `או`: **15 lines / 8 files** -- one line and one file short of the
+  Planner's own 16/9.
+
+**Honest reconciliation on the 15-vs-16 gap:** did not find the specific
+missing line. Both my reach-scan and the Planner's are independent
+reimplementations of the same production loops (P-R7-style, mine also
+independent of the Planner's own script), and a 1-line/1-file difference
+between two independently-built sweeps over 6,133 files is within
+ordinary noise for that kind of derivation -- **not** the "much larger
+than reported" pattern the brief told me to treat as a finding. It is
+smaller, not larger, which is the safe direction (my fix under-produces
+relative to the Planner's count, not over-produces via an accidentally
+broad regex). Did not spend further time chasing the exact line down
+given the direction is safe; flagged here rather than smoothed over, per
+the brief.
+
+Manually inspected the `או`-candidate lines that did NOT change (found
+by grepping all 7,053 reached entries' raw text for `או` regardless of
+position) to make sure none of them was a missed gap hiding as a
+"same": all 4 non-changing candidates have their `או`-joined quotes
+sitting in the DEFINITION TEXT (after the dash), e.g. `חוק העונשין` art.
+85: `"טיפול למשתמשים בסמים" - "טיפול סוציאלי", "טיפול רפואי" או "טיפול
+משולב" כהגדרתם...` -- correctly untouched, confirming the header/
+definition-text boundary is doing its job on real data, not just the
+one worked FP example.
+
+### Verification beyond pytest -- the 13-file precision population, measured not assumed
+
+Wrote a second fresh script (`il_or_sep_precision_check_dev3.py`,
+scratchpad) that independently finds every reached entry line whose
+DEFINITION TEXT (post-dash, `_find_dash_marker`-sliced exactly as
+`parse_entry` slices it) contains >=2 quoted spans joined by a real
+comma/`או`/`ו-` separator -- the exact shape M25/M29 worried about,
+generalized past the Planner's single hand-verified example. Found **17
+entry lines / 14 unique files** (a superset of the Planner's hand-read
+13 -- my regex-based detector is broader/automatic, not manually
+curated, so a larger count here is expected and not itself concerning).
+
+Cross-referenced all 17 against the A/B before/after snapshots by exact
+`(file, heading, article, marker, line_idx, entry_text)` key: **17/17
+matched, 0/17 mismatches** -- every one of these definition-text-quote
+lines produced byte-identical `terms` before and after the fix. The
+precision property is measured directly on real data, not merely
+re-asserted from the Planner's report.
+
+### A methodology bug I found and fixed in my own script, named honestly
+
+My first pass at the A/B diff keyed records by `(file, article, marker,
+line_idx)` only and found 3 lines that appeared to have their FIRST term
+silently replaced by a completely different term (not additive) --
+alarming at first glance. Investigated before reporting it as a finding:
+the real corpus file `קובץ החלטות מועצת מקרקעי ישראל.wiki` (also the
+fixture-1 source law) restarts its own local article numbering per
+sub-part, so `sections.parse_articles` legitimately returns multiple
+distinct `Article` objects sharing the same `.number` (e.g. four
+different articles all numbered `"3"`, with headings `2.1. הגדרות`,
+`4.1. הגדרות`, `5.1. הגדרות`, `8.1. הגדרות`) -- a real, unrelated
+corpus/parser characteristic, not a `parse_entry` regression. Re-keyed
+including `.heading` and `.entry_text`; the "changed term" artifacts
+disappeared and every remaining change was confirmed additive-only (see
+above). Naming this because a green diff coexisting with an unclosed
+measurement bug is exactly the failure mode M25/M28/M29 warned about,
+and I want the discipline of catching it in my OWN tooling on the
+record, not just trusting the first pass.
+
+### Honest gaps
+
+1. The 1-line/1-file `או` shortfall against the Planner's 16/9 (15/8
+   measured here) was not tracked down to the specific line -- see
+   above; the direction (smaller, not larger) is the safe one, but it is
+   not fully reconciled.
+2. Did not re-verify the Planner's 26+3=29 "ordinary article, never
+   reached at all" population or the `אכרזה זאת` heading-embedded
+   residual -- both out of this bundle's scope, already routed to D-2 by
+   M29.
+3. Did not check whether `או`/`ו-` also need widening in the quote-first
+   or class-C heading-embedded rule modules -- same explicit exclusion
+   the Planner already named, still out of scope here.
+
+### Suite state at handoff
+
+`2 failed, 843 passed` -- the 2 סימן/חלק containment REDs (M20,
+core-blocked) unchanged, all 3 separator REDs green, zero regressions
+anywhere else in the suite.
