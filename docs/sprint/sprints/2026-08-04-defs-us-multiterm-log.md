@@ -3165,3 +3165,66 @@ Red-before-green, and the RED must be the FULL row, not an excerpt:
    cross-reference dedup (M-R17). Both are the same family: a rule must stay
    silent on what baseline already produced (M-R12), regardless of which
    block source it is looking at.
+
+---
+
+## 2026-08-05 — M-R19: Planner overruled ME, correctly. Both claims verified.
+
+Handoff `034e518` verified: production untouched, one new test file, suite
+**13 failed / 804 passed** (its own derivation, confirmed by me).
+
+### Claim 1 — ACCEPTED. My combined-pin instruction was WRONG.
+
+I told the Planner to pin all 5 duplicated TX terms in one test. It refused,
+split them into 5, and argued 4 of them have a DIFFERENT root cause than
+M-R18. **I verified by excluding F6 entirely and re-running the F5 path
+alone:**
+
+```
+baseline blocks: 8   extra(whole-text) blocks: 1
+F5-ONLY dup terms: {'contested case': 2, 'party': 2, 'person': 2, 'rule.': 2}
+```
+
+With F6 not involved at all, those four still duplicate. They are
+**baseline's degenerate per-block candidates colliding with F5's combined
+parent-redirect candidate — precisely ledger R1**, which already documents
+"8 candidates ... a real mention of 'contested case' can draw TWO
+USES_DEFINITION assertions", owned by **markers** under M-R5. Only
+`Governmental body` is M-R18 (the F6 guard defeated by the whole-text block).
+The Planner's corroborating arithmetic holds: R1's documented 8 + 1 new = the
+9 I measured.
+
+Had I got my way, one combined test would have implied that fixing M-R18
+fixes all five — it does not, and four of them are on another panel's
+timeline. **The Planner's judgment was better than my instruction. Ratified as
+authored.**
+
+### Claim 2 — ACCEPTED, and it is BROADER than the Planner found
+
+It flagged that fixing `rule.` -> `rule` breaks 3 currently-green sibling
+tests. Verified: all 3 pass today and hardcode `"rule."`. **There is a
+FOURTH location it did not name — its own U-R10 file:**
+
+```
+test_definition_links_entry_splitter_scope_and_length_bound.py:115
+_TX_REDIRECT_TERMS = ("contested case", "party", "person", "rule.")   # 6 passed today
+```
+
+So the coordinated change spans FOUR files, not three. Noted without blame:
+this is the same composition blindness that produced M-R18 and my own OR
+`"Taken"` miss — a change verified correct locally, unexamined against
+everything downstream of it. It is now the third instance this sprint, which
+makes it a pattern worth naming rather than a run of bad luck.
+
+### Ruling M-R19
+
+1. **The 5-test split stands as authored.** The 4 R1 tests are
+   **markers-blocked**, NOT Developer targets — they close when markers'
+   entry-boundary work removes the degenerate rows. Cross-referenced to R1.
+2. **Only `Governmental body` (M-R18) + the M-R17 cross-reference dedup are
+   this Developer's actionable dedup work.**
+3. **The `rule.` boundary fix is a COORDINATED four-file change**, Planner
+   first (update all four hardcodings in one commit, so the suite never sits
+   inconsistent), Developer second. It is zero-miss relevant: a mention of
+   "rule" can never match a term stored as `rule.`.
+4. R1's ledger entry gains a note that it is now PINNED by four named tests.

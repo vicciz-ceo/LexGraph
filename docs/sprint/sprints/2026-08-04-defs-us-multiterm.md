@@ -388,48 +388,40 @@ _None._
 
 ## Context Dump
 
-**PARKED** — planning complete and manager-verified; no Developer spawned by
-design. Branch `claude/defs-us-multiterm`, rebased onto core (main `0d57228`).
+**MANAGER CLEAN-EXIT — re-spawn to resume.** Context exhausted; state is
+committed, pushed, and consistent. Branch `claude/defs-us-multiterm`, tree
+clean, suite **13 failed / 804 passed**.
 
-Manager-run verification (never accepted on an agent's report): full suite
-**15 failed / 709 passed**; all 15 are F5/F6 behavioural capture REDs and
-nothing else; zero production files touched across the whole sprint
-(`git diff --name-only <base>...HEAD` minus docs/tests is EMPTY); all 11
-vendored fixture rows byte-exact against the real parquet by an independent
-manager script (`ok=11 bad=0`).
+**Done & verified:** items 1-2 shipped as 2 registry modules (zero
+shared-module edits, U3 holds). E3 narrowing landed (F6 fire-rate 8.87% ->
+0.35%, later 0.55% with `as defined in` — legitimate capture). Apposition
+dedup landed (dups -> 0 on that path). U-R10 splitter narrowing landed
+(`("US-TX",)`/`("US-NH",)` + 2000-char bound). QA cycle 1 done (qa_cycles=1).
 
-**E1 pointer work is DONE and GREEN (7 passed).** Core's I7 shipped the
-decimal-truncation fix (`Section 552.003` no longer truncates to
-`Section 552`), state-code citations (`ORS 153.005`), and pointer emission in
-the two-capture shape. Our expected values matched core's implementation
-exactly with no adjustment on either side. `CitationRule` is one of the two
-LIVE rule kinds, so these are genuine live-path passes.
+**Open RED, by owner:**
+- 4 VT/SD boundary — **markers** (marker-less bodies, zero blocks).
+- `finding1`/`finding1b` — **core gate G10** (`TermClauseRule.parse` never
+  receives section scope; proven at registry.py:143 + us_profile.py:1350).
+- 4 TX terms (`contested case`/`party`/`person`/`rule.`) — **markers**, ledger
+  R1 (verified F5-internal, NOT M-R18; confirmed by excluding F6 and
+  re-running).
+- `Governmental body` (M-R18) + cross-ref dedup (M-R17) — **OURS, next
+  Developer pass.**
+- `rule` vs `rule.` — **OURS**, coordinated FOUR-file change (Planner first):
+  `test_definition_links_multiterm_shared_clause.py:165`,
+  `test_multiterm_f5_shared_clause.py` (x2 tests),
+  `test_definition_links_entry_splitter_scope_and_length_bound.py:115`.
 
-**BLOCKED on `2026-08-04-defs-core-dispatch`.** P-R8: `TermClauseRule` (ours)
-is one of 5 of 7 kinds DEAD on the live path — registered and looked up, never
-consulted by the extractor. Verified myself: `registry.py:202` defines
-`term_clause_rules_for`; no caller exists in `us_profile.py`/`extract.py`/
-`pipeline.py`. Building now would produce an inert module and REDs red for the
-wrong reason.
+**NEXT:** Developer fixes M-R17 + M-R18 (a rule must stay silent on what
+baseline already produced, whatever block source it sees); then the
+coordinated `rule.` change; then re-measure corpus (dups must return to 0);
+then QA cycle 2 for the U4 re-sweep + zero-miss verdict.
 
-Rulings: **M-R4** per-term resolution is behavioural, N terms may share a row.
-**M-R5** TX 2002.001 entry (4) ours / entry (3) markers'; the 13/75 "17.33%"
-metric aggregates both mechanisms and must be decomposed. **M-R6** one writer
-per worktree, liveness proven via artifacts. **M-R7** I retracted a false
-"attempt 1 FAILED SILENTLY" entry that had contaminated the panel's evidence
-base. **M-R8 CORRECTED** — a published interface is a promise, not evidence;
-prove one call reaches the implementation before building on a seam.
-**M-R9/M-R10** tests must target the public seam, and a repoint must preserve
-the assertion's SEMANTIC LEVEL, not just its literals. **E1** no typed pointer
-field ever — the reference edge is the typing. **E2** SD's enumerated-sibling
-scope is in core seam v2; silently stamping `law-wide` is FORBIDDEN.
+**STANDING LESSON (3 instances: OR `Taken`, M-R18, the 4th `rule.` site):**
+changes verified correct in isolation keep being wrong in composition. Always
+test a guard against EVERY source that reaches it, and grep the whole suite
+for a literal before changing what produces it.
 
-RESUME ORDER when core dispatch merges: (1) rebase; (2) refresh venv
-(`pip install -e '.[dev]'`); (3) re-run suite and report the honest split;
-(4) PROVE `TermClauseRule` dispatch is live before building — one call
-reaching the implementation, not a registration test; (5) spawn Developer
-(Sonnet/medium) for items 1-2 as NEW files only, zero `us_profile.py` edits;
-(6) items 3-4 stay blocked on markers' `EntrySplitterRule`; (7) QA
-(Sonnet/high) with P-R7 denominators + the U4 53-jurisdiction sweep against
-post-core reality (NY's ingest fix moved baselines). Developer never touches
-tests; QA never touches implementation; qa_cycles=5 -> blocked, report up.
+**Agents:** Planner `a7119f41538c56bf9`, Developer `abeebce5d5406dd0e`, QA
+`a44459ec5b63c13f7`. They report via SendMessage to the manager's raw id.
+Scoped-inline manager `a1b29c30b33e45591` holds ledger R3 (`"Taken"`).
