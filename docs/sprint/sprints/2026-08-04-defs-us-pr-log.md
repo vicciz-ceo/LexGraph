@@ -7761,3 +7761,373 @@ Independent QA: re-derive the blast radius, re-check genuineness, and settle
 the **chapter-degeneracy premise** under the pre-agreed framing (confirmed →
 named characterization, not a defect; refuted → nothing changes; either way it
 does not gate the close).
+
+---
+
+## 2026-08-05 — QA: cycle-14 independent verification of the closed vocabulary
+## + anchoring fix (cc1cf68), and the chapter-degeneracy premise
+
+### Handoff verification
+
+Read the contract in full and the log's last three entries (cycle-12 Planner,
+the two Manager rulings, the closed-vocabulary-VERIFIED entry) before touching
+anything. HEAD `edbe164` == origin, tree clean. Reproduced the suite myself
+before trusting the reported tail: `24 failed / 1034 passed / 6 skipped / 13
+xfailed`, byte-for-byte the same FAILED/SKIPPED/XFAIL line lists as the
+contract's held population (24 = the five non-`scope_cycle4` cycle-4 files;
+6 skips = `scope_cycle4` M-R17 retirement; 13 xfails = the same set named in
+the contract, zero XPASS). Venv canary: `app.__file__` resolves inside this
+worktree. All measurement via own fresh scripts, scratchpad-prefixed
+`pr_qa14_`, never reading `pr_dev13_*` or any other panel's file (P-R9).
+
+### Job 1.1 — blast radius, independently re-derived
+
+Method: never re-derived the trigger regexes. Built a script that mirrors
+`pipeline.py`'s Stage-1/Stage-2 transformation exactly (`raw_body =
+text.replace("\\n","\n")` per `ingest_us_statutes.py:237`, then
+`profile.normalize_for_parsing` + `strip_wikilinks`, then
+`is_definitions_heading`/`derive_heading_from_body` re-check) against the
+real, pinned `us_pr_statutes.parquet` (snapshot `301000fc3465374ee0
+f23c3c6953a8a861e95cad`, 23,636 rows), calling the REAL bound
+`get_profile("US-PR")` methods throughout (`determine_scope`,
+`extract_local_scope_definitions`) for every AFTER-fix measurement — never a
+bare function call for the number that matters. Canonical/non-canonical
+partition reproduced exactly: 633 / 23,003 (matches every prior cycle).
+
+For the BEFORE state (a genuine counterfactual — there is no live path to the
+retired code any more), loaded the pre-fix `pr_profile.py` (commit `03abdf1`,
+blob `4a9654f`) as a standalone module from a `git show` dump, byte-verified
+via `git hash-object` against git's own blob hash before trusting it, and
+replicated `USProfile.determine_scope`/`extract_local_scope_definitions`'s
+own dispatch logic around it (baseline-first, then the one swapped-out
+function) — the same discipline the Developer's own entry describes.
+
+**Results, exact match to the Developer's reported numbers:**
+- Chapter scope: BEFORE 21/633, AFTER 28/633, **+7 exactly**, **zero
+  regressions** (no row lost `"chapter"`). The 7: the 6 vocabulary rows
+  (`STATE_PR_LEY_20_2017_ART2_03/_ART3_03/_ART4_03/_ART5_03`,
+  `STATE_PR_LEY_77_1957_ART32_020/_ART53_020`) + the 1 anchoring row
+  (`STATE_PR_LEY_77_1957_ART23_010`) — hand-read all 7 in full body context;
+  all 7 genuine, matching the log's own disposition exactly.
+- Article scope: **65 rows newly producing >=1 candidate, exactly** (not the
+  Planner's simulated 67), **zero regressions**. Internal cross-check: the 65
+  are a strict subset of my own independently-swept 246-row "genuine trigger
+  family" population (see 1.2 below); nonzero-after = 85 = 65 (newly) + 20
+  (already-producing-before) — my own "20" independently matches the
+  Developer's own reported "20 of the 247 already producing before" figure
+  exactly, a strong cross-check neither number was cherry-picked.
+
+**Verdict: my blast radius does NOT materially differ from the Developer's.**
+No escalation trigger on this point.
+
+### Job 1.1b — the 247/162 residual, independently re-derived: 246/161, a
+### 1-row gap, explained and immaterial
+
+Built my own "genuine trigger family" sweep (P-R7 discipline: not seeded from
+the shipped regex's own literal alternation, but from the SAME broad
+grammatical shape already hand-verified genuine for Capítulo in the Planner's
+own job 1 — `(A|Para) + (los)? + (fines|efectos|propósitos) + de + (este
+Artículo|esta Sección)`), independently over the true 23,003-row non-canonical
+population. Result: **246 bodies** (not 247) contain the family shape;
+**161** (not 162) still produce zero candidates from the REAL, live
+`extract_local_scope_definitions` call.
+
+Investigated the 1-row gap rather than shrug at it: confirmed it is NOT
+NFD/NFC Unicode normalization (checked all 12 corpus-wide rows with
+decomposed accents — 0 differ in match outcome), NOT footer-stripping choice
+(family count is 246 identically with or without stripping), and NOT a
+transcription difference (imported `pr_profile._LOCAL_TRIGGER_PHRASE_
+ALTERNATION` directly rather than retyping it). The gap is confined ENTIRELY
+to the residual (zero-candidate) side — my nonzero-after count (85) matches
+the Developer's exactly (65 newly + 20 already-before, both independently
+reproduced above) — so whatever the missing 247th row is, it is a row BOTH
+sides agree produces no candidate either way; it does not touch the closed/
+captured population at all. A targeted near-miss sweep (allowing a short
+"del inciso/apartado/párrafo (N)" qualifier between the scope-noun and "de
+este/esta UNIT") found 9 candidates for what the 247th row could be, but
+hand-reading 3 of them (`STATE_PR_MUNICIPAL_ART7_231`, `STATE_PR_LEY_2_1998_
+ART8`, `STATE_PR_RENTAS_SEC4030_03`) confirmed all 3 are genuinely NOT
+definitions (procedural/substantive rules scoped to a sub-clause, e.g. "se
+considerará causa suficiente para investigar...") — i.e. even the plausible
+candidates for the missing row are correctly-excluded, non-definitional, and
+consistent with the ALREADY-ledgered "162 rows split into structural-shape /
+genuinely-not-a-definition" characterization. Immaterial to every decision on
+this ledger, same as the sprint's own standing "233 vs 235" precedent — not
+chased further (bounded-pass discipline).
+
+### Job 1.2 — genuineness re-check, independent sample: 79/80 = 98.75%,
+### matching the Developer's rate exactly, PLUS two new text-fidelity findings
+
+Dumped all 80 candidates from the 65 newly-producing rows via the live
+`get_profile("US-PR").extract_local_scope_definitions` path and hand-read
+every one (not a sample — the full population, since 80 is small enough).
+Confirmed the ledgered reading-substitution FP
+(`STATE_PR_RENTAS_SEC1102_01`) independently. **Classification genuineness:
+79/80 = 98.75%, exact match to the Developer's rate** — every other
+candidate correctly identifies a real term and a real defining relationship.
+
+Per the brief's own instruction to look for a blind spot the Developer's
+single heuristic ("does definition_text open with a genuine defining verb")
+structurally cannot see (it only inspects the OPENING of the string), applied
+two different checks — where does the captured span END, and what sits in
+its MIDDLE — and found two real, previously-uncatalogued classes. Neither is
+a classification false-positive (term and defining relationship are both
+real in every case below); both are TEXT-FIDELITY corruption of the
+captured `definition_text`, invisible to an opening-verb check by
+construction:
+
+1. **A second, unhandled page-break footer family: "LexJuris de Puerto Rico
+   ©2011 www.LexJuris.net <N>".** `_PAGE_BREAK_FOOTER_RE` (the cycle-6 fix)
+   only recognizes the `ogp.pr.gov` footer shape. This different shape
+   leaks, verbatim, mid-span into **6 of the 80 (7.5%)** newly-captured
+   candidates (`STATE_PR_RENTAS_SEC1102_06`, `_SEC1010_04`, `_SEC1034_04`,
+   `_SEC1102_04`, `_SEC1063_02`, `_SEC1063_07`) — none of these 6 happen to
+   truncate early only because `www.LexJuris.net`'s internal periods are not
+   followed by whitespace (the exact condition `(.+?[.;])` needs to stop),
+   a corpus-composition coincidence, not a structural guard. **This is
+   corpus-wide and PRE-EXISTING, not introduced by this cycle**: 453 rows
+   corpus-wide contain this literal string, `_PAGE_BREAK_FOOTER_RE` strips
+   0/453 of them, 12 are CANONICAL (already-shipped `Definiciones` rows),
+   and **5 of those 12 already have it leaked into a live, shipped
+   `definition_text` TODAY** via `extract_definitions_from_section` — e.g.
+   `STATE_PR_RENTAS_SEC4010_01`'s captured definition_text literally OPENS
+   with `'LexJuris de Puerto Rico ©2011 www.LexJuris.net 713 (ll)
+   Servicios...'` (this one WOULD fail an opening-verb check; the other 5
+   canonical + all 6 of my 80 would not, since the artifact sits mid-span).
+   This cycle's fix did not create this gap; it surfaced 6 more instances of
+   it via the newly-supported `Sección` population.
+2. **Non-greedy definition-text capture stops at a list-marker's own
+   period, not the sentence end** — a third instance of the SAME bug class
+   already named twice in this sprint (cycle-6's "Rev." abbreviation,
+   M-R19(1)'s own "[Nota: ...] Art." abbreviation), now hitting a lowercase
+   roman-numeral list marker: `STATE_PR_LEY_249_2008_ART5`'s captured
+   `definition_text` for "causa justificada" is **`'significará: i.'`** —
+   the real body reads `'...significará: i. Una violación crasa por el
+   Administrador...; ii. Una violación crasa...; y iii. La quiebra o
+   insolvencia...'` (3 genuine enumerated grounds), but capture stops after
+   the first list marker's own trailing period since nothing but whitespace
+   follows it. Reduces a real definition to near-zero informational content
+   while still opening with a genuine defining verb (`significará`) — would
+   pass the Developer's own stated heuristic outright. 1/80 in this sample;
+   not chased further corpus-wide (bounded-pass discipline, same as the
+   Planner's own 162-row characterization).
+   Additionally (not escalated, noted only): 3/80 candidates have a stray
+   LEADING COMMA in `definition_text` (content substantively fine, cosmetic
+   only) from the same mechanical cause — a quoted term followed by a comma
+   rather than "como" before the defining clause, which the trigger regex's
+   `\s*(?:como\s+)?` gap does not consume.
+
+**Escalating both 1 and 2 per the brief's own trigger ("a second FP class...
+with real corpus counts")** — not a genuineness-rate problem (still
+98.75%, unchanged), a text-fidelity problem sharing the exact blind spot the
+brief predicted. Not fixed (write-set is tests/contract/log only); named on
+the Residual ledger below.
+
+### Job 1.3 — anchoring gate, adversarially probed both directions
+
+**Too broad?** Over all 633 canonical rows, the GATE (`_SHORT_TITLE_NAMING_
+CLAUSE_RE` on sentence 1) fires on **13 rows**, but only **1** actually flips
+(the intended `ART23_010`) because only 1 has a genuine trigger in sentence
+2. Hand-traced what the OTHER 12 gate-fires actually matched — this is real,
+not hypothetical:
+- **7 are cross-references citing a DIFFERENT, unrelated law's own short
+  title** inside sentence 1 (e.g. `STATE_PR_LEY_3_2022_ART4`: "...por la Ley
+  20-2017, según enmendada, **conocida como** 'Ley del Departamento de
+  Seguridad Pública'..." — a citation grammar, not a self-referential
+  short-title clause for THIS section).
+- **1 is a word-boundary bug in the shared, reused `_LAW_TITLE_NAMING_CUE_
+  RE` vocabulary**: `STATE_PR_LEY_212_2018_SEC4` matched because
+  "**re**conocida como" contains "conocida como" as a bare substring — the
+  pattern has no leading `\b`, so any word ending "...conocid[oa]" (reconocido,
+  desconocida, etc.) also fires it.
+- **2 more are "conocido/a como" used as a plain alternate-name gloss**
+  unrelated to law-naming (`STATE_PR_LEY_202_2015_ART2`'s sky-lantern
+  nicknames "también conocidas como 'Lámpara China'..."; `STATE_PR_LEY_
+  103_2001_ART2`'s "antes conocida como la Corporación...", an entity's
+  FORMER name).
+- The remaining 2 are further "cites another law's short title" instances
+  of the same first bucket.
+
+All 12 are SAFE TODAY only because sentence 2 (footer text, or the next
+entry in a multi-entry preamble) does not also happen to contain the chapter
+trigger phrase — a corpus-composition coincidence, not a structural
+guarantee. Given 7-9 of 13 fires are the "cites another law's short title"
+drafting pattern (a common PR idiom — "según enmendada, conocida como..."),
+this is a real, live exposure surface: a future corpus row combining this
+common citation pattern with an unrelated genuine trigger in its own next
+sentence would silently mis-flip. **Zero live consequence today, verified by
+counting, not assumed.**
+
+**Too narrow?** Searched, past sentence 1, all 633 canonical rows NOT
+resolving `"chapter"` today for a raw trigger phrase anywhere in the rest of
+the body (broader than just sentence 2). Found 17. Of those, only 5 have the
+trigger specifically in literal sentence 2 (the only sentence the mechanism
+could plausibly reach) — and all 5 are CORRECTLY excluded, not missed: 3
+(`STATE_PR_LEY_77_1957_ART36_010`, `STATE_PR_INCENTIVOS_SEC1020_07`,
+`STATE_PR_LEY_26_1941_ART81`) are the EXACT rows the Developer's own source
+comment already names as confirmed false positives / the "[Nota:...] Art."
+accident from the 12-flip ungated-draft investigation; the other 2
+(`STATE_PR_LEY_109_2003_ART4`, `STATE_PR_LEY_77_1957_ART21_010`) hand-read as
+a tautological in-entry self-reference and a narrower-than-chapter
+article-range scope respectively (the same excluded shape as the Planner's
+own already-named `STATE_PR_MUNICIPAL_ART7_100`). **No genuine miss found —
+the gate is not too narrow for anything real in today's corpus.**
+
+### Job 1.4 — mutation rigor (3 rounds, each: mutate -> run targeted tests ->
+### revert -> confirm `git diff` empty)
+
+Git status confirmed clean before starting and after every revert.
+
+1. **Chapter "los"-optional**: reverted branch 1 to require "los". Result:
+   **6/6 chapter-vocabulary tests FAIL**; the anchoring test still PASSES
+   (its own row already uses "los", correctly unaffected by this mutation —
+   confirms the anchoring test is proving something mechanically distinct,
+   exactly as designed).
+2. **Anchoring gate removal**: deleted the gated second-`if` block entirely.
+   Result: **the 1 anchoring test FAILS**; all 6 chapter-vocabulary tests
+   still PASS (unaffected, as expected).
+3. **Article-scope alternation + lead-in reverted** to the pre-fix 3-literal-
+   phrase form (no Sección, no los-optional, no "el término"): **exactly 18
+   failed / 2 passed** — bit-for-bit the documented 18-target/2-accidental
+   split, not just "some failed".
+
+Every mutation reverted immediately; full suite re-run after all 3 rounds
+confirms exact return to `24 failed / 1034 passed / 6 skipped / 13 xfailed`.
+**None of the 25 target assertions are vacuous — all die precisely on the
+mechanism they claim to prove, and no more.**
+
+### Job 1.5 — English/IL regression + exact-match jurisdiction_codes claim,
+### confirmed structurally
+
+Read `registry.py`'s `_matches` (not assumed): `code in jurisdiction_codes`
+(exact tuple membership) with one wildcard case, `"US-*" in jurisdiction_
+codes`, which **none** of PR's 7 rule registrations use (all 7 register with
+the literal tuple `("US-PR",)`, confirmed by grepping every `us_pr_*.py`
+registration call site). Live-probed all 54 non-PR registered jurisdiction
+codes (every US state + `IL`): for every one, inspected the actual rule
+objects returned by `heading_rules_for`/`scope_kind_rules_for`/
+`scope_trigger_rules_for`/`citation_rules_for`/`entry_splitter_rules_for`/
+`term_clause_rules_for` and confirmed **zero** whose underlying callable's
+`__module__` is `pr_profile` or any `us_pr_*` module — a structural
+guarantee, not a content-dependent one. (`US-PR` itself correctly gets 3
+`scope_trigger` rules, not 2 — the 3rd is core's own English-only `US-*`
+wildcard proof rule, `us_scope_trigger_proof.py`, unrelated to PR and
+irrelevant to Spanish text.)
+
+Ran the existing live-path P5 suite (`test_pr_profile_p5_language_
+regression_live_cycle5.py` + `test_pr_profile_no_english_regression.py`, 12
+tests) against the current code: all 12 PASS, including the two DB-backed,
+`run_definition_linking`-through-real-ingest tests (a real English DE row
+ingested as `jurisdiction="US-PR"` produces zero Definitions; the same row
+ingested correctly as `US-DE` is unaffected by PR's rules being registered
+in-process). Since English words share no surface form with any Spanish
+vocabulary this cycle touched (`los`, `esta Sección`, `el término` — none
+collide with English), and the registry gate is structural, this is
+low-risk by construction and confirmed live, not merely assumed.
+
+### Job 2 — chapter-degeneracy premise: **CONFIRMED**, properly re-grouped
+
+The manager's own spot-check grouped `act_id`s on a 3-token prefix (lumping
+every `STATE_PR_LEY_*` law into one bucket, 1,610 distinct values — too
+coarse to test anything). Regrouped by the parquet's own `title_name`
+column — the actual law/code identity field (independently cross-checked
+against `citation_short`'s own stem per code: 1:1 alignment, confirming
+`title_name` is not accidentally over/under-grouping).
+
+Recomputed the chapter-scoped population LIVE (`get_profile("US-PR").
+determine_scope` over the true 633-row canonical set): **28 rows**, matching
+1.1 above. These 28 come from **6 distinct law codes**, every one with
+**exactly 1 distinct `chapter` value across its own ENTIRE corpus-wide row
+population** (not just its contribution to the 28):
+
+| Law code (`title_name`) | rows contributed to the 28 | total rows in this code (corpus-wide) | distinct `chapter` values |
+|---|---|---|---|
+| Código de Seguros de Puerto Rico | 20 | 1,015 | **1** |
+| Ley de la Policía de PR | 4 | 91 | **1** |
+| Ley de la Comisión de Juegos del Gobierno de Puerto Rico | 1 | 101 | **1** |
+| Código de Incentivos de Puerto Rico (2019) | 1 | 250 | **1** |
+| Ley de la Autoridad Metropolitana de Autobuses | 1 | 24 | **1** |
+| Código de Rentas Internas de Puerto Rico (2011) | 1 | 783 | **1** |
+
+Cross-check: **Código Civil de Puerto Rico (2020)** (1,821 rows) has **7**
+distinct `chapter` values (the 7 "Libro" divisions, e.g. "Libro Quinto: Los
+Contratos y otras Fuentes de las Obligaciones") and is confirmed **NOT**
+among the 28 contributing codes — exactly the named exception.
+
+Went one step further than a data-column count: read `matcher.py:163-178`'s
+`_in_scope` directly. For `scope == "chapter"`, containment is
+`article.chapter == definition.source_chapter` (a direct value compare);
+`pipeline.py` stamps `source_chapter` from the DEFINING article's own
+`.chapter`. Since every row in one of these 6 codes shares the SAME
+`.chapter` string by data construction, this comparison is `True` for every
+article in the SAME law and `False` for every article in a DIFFERENT law —
+**structurally identical matching behavior to `scope == "law-wide"`**
+(`_in_scope` returns `True` unconditionally), not merely a coincidence of
+counting. The premise is confirmed at the MECHANISM level, not just the
+data level.
+
+**Verdict: CONFIRMED.** Per the pre-agreed framing: recorded as a **named
+characterization, not a defect** (Residual ledger, below) — the kind still
+stamps semantically-correct scope; the promised finer granularity
+materializes exactly when a multi-chapter code enters the corpus (as
+Código Civil already demonstrates the mechanism supports); per-(row,term)
+correctness is indifferent to it. **Does not gate the close.**
+
+### Updated gate table (QA cycle-14, independent; supersedes cycle-11 on P3)
+
+| Gate | Verdict | Basis |
+|---|---|---|
+| P1 | PASS | Unaffected by this cycle; not re-litigated. |
+| P2 | PARTIAL | Unaffected structurally (18c still deferred); the M-R18/M-R19 vocabulary widening improves recall within already-shipped rules 18a/26/32, independently reproduced (1.1 above). |
+| P3 | **PARTIAL, PRIOR DEFECT CLOSED** | Chapter half: the QA-cycle-11-confirmed 6-row/42-candidate mis-scoping defect is FIXED and independently re-verified exact (28/633, 0 regressions, all 7 new hits genuine). Article half: 65 rows newly capture (independently reproduced exact); 161-246 (my own count; Developer's 162/247, 1-row gap, explained, immaterial) structural residue remains, ledgered, not a vocabulary gap. Título/Subtítulo/Subcapítulo gap still routed to core-2/G6, unblocked, not yet built. |
+| P4 | HELD | Unaffected; still gated on items 19-24. |
+| P5 | **PASS, independently re-confirmed by a THIRD method** (cycle-11: structural probes + mutation; cycle-14: exact-match dispatch-filter code reading + 54-code live registry sweep + the existing 12-test live DB-backed P5 suite). |
+
+### Suite tail
+
+`24 failed / 1034 passed / 6 skipped / 13 xfailed` — reproduced before any
+probe, and again after all 3 mutation rounds (each fully reverted). Zero
+XPASS. The 24 FAILED / 6 SKIPPED / 13 XFAILED line lists are byte-for-byte
+the contract's held population — none touched, none weakened, none
+retargeted.
+
+### What I could NOT verify
+
+- The exact identity of the "247th" row (residual population 246 vs
+  claimed 247) — bounded the investigation to ruling out 3 concrete
+  mechanical hypotheses and hand-checking 3 plausible near-miss candidates
+  (all confirmed non-definitional either way); did not exhaustively
+  classify all ~1,993 raw-net-but-not-family rows to find the exact one.
+  Immaterial per 1.1b above (does not touch the captured/closed population).
+- Corpus-wide prevalence of the two new text-fidelity findings (LexJuris
+  footer contamination, roman-numeral list-marker truncation) beyond the
+  counts given — measured precisely within the 80-candidate + 12-canonical
+  populations actually touched by this verification pass; did not run a
+  full-corpus census of either (would be a new, separately-scoped precision
+  audit, not this cycle's verification job).
+- Frontend test/typecheck (`npm run test`/`typecheck`) — not re-run; no
+  frontend file is touched by this cycle's diff (one file,
+  `backend/app/definition_links/pr_profile.py`), reasoned as low-risk per
+  the same discipline the Developer's own entry used, not empirically
+  re-confirmed by me.
+
+### Escalations (see SendMessage report)
+
+Two, both meeting the brief's own escalation trigger ("a second FP class or
+a gate weakness with real corpus counts"): (1) the LexJuris.net footer
+family, unhandled by `_PAGE_BREAK_FOOTER_RE`, already live-corrupting 5/12
+affected canonical rows' shipped `definition_text` TODAY (pre-existing, not
+introduced by this cycle); (2) the anchoring gate's 13-fires-for-1-genuine-
+case exposure surface (0 live consequence today, real latent fragility).
+Routed to the manager/director for disposition, not fixed (write-set
+discipline) and not gating this close per the brief's own framing.
+
+### Pushed
+
+Branch `claude/defs-us-pr`. This entry + contract update (gate table P3 row,
+Residual ledger: 2 entries resolved/closed, 1 updated with the settled
+degeneracy verdict + per-code table, 2 new entries for the escalated
+findings; frontmatter `last_agent`/`lint`/`last_updated`). No file under
+`backend/app/` left modified (all 3 mutation rounds reverted and reconfirmed
+clean before this commit). SHA recorded via `git log -1 --format=%H` after
+commit.
