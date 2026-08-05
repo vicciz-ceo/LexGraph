@@ -4788,3 +4788,35 @@ Sequence unchanged (one writer at a time, M-R8): **Planner → Developer → QA*
 - **QA — Sonnet / high** (planned): the definition-granularity FP re-measure,
   the certification gate; row-level and definition-level published side by side
   once (M-R68 directive 2).
+
+### M-R75 — Planner spawned (cycle 9)
+
+Spawned **after** the M-R70..M-R74 commit landed (`d235c3c`), per commit-before-spawn.
+
+- **Agent**: Planner, `acb43d1f810eebfa1`
+- **Model/effort**: Sonnet / high. **Haiku considered: no** — the pass turns on
+  reading real statutory bodies and applying a director ruling to adjudicate
+  test contracts; a cheap model's failure mode here is a confident wrong
+  adjudication that then gets built on.
+- **Worktree**: `/Users/nerya/LexGraph-wt/defs-us-preamble-plan9`, branch
+  `claude/defs-us-preamble-plan9` forked from `claude/defs-us-preamble` @ `d235c3c`.
+  Sole writer. Own `backend/.venv`, **positively verified** to import
+  `…-plan9/backend/app/definition_links/rules/us_body_preamble.py` — the
+  worktree-venv trap checked, not assumed.
+- **Brief points at M-R70** for the delivery id, with the discrepancy rule:
+  committed id wins; on disagreement, report instead of sending.
+
+**Charter**: (1) re-adjudicate all six cycle-8 RED negatives against real
+bodies — two ruled rejected-by-construction, two suspect, two expected to
+stand; (2) extend the 5 positive guards to forwarding rows; (3) option-(c)
+root-cause REDs (greedy trigger tail, `includes` per D-INCLUDES with the
+targeted "References to" guard, singular "purpose", intervening clauses);
+(4) **measure** whether the six forwarding entries in the live
+`_B1_FORWARDING_PHRASES` are load-bearing on genuine rows — measure, don't
+assume; (5) name the D-MT-E1 reference-edge dependency rather than shipping
+half the ruling.
+
+Fences carried: Planner owns tests and writes zero production code; red-before-
+green on the live path; byte-exact real corpus rows; no snapshot reads; pins
+must be mutation-verified in both directions; never `git stash`; never
+`git add -A`.
