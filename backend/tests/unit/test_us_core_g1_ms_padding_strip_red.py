@@ -1,6 +1,18 @@
 """RED tests -- sprint 2026-08-05-defs-core-follow-on-2, gate G1 ("MS
 padding strip", program doc `2026-08-04-definition-completeness.md`).
 
+**Status (updated post-fix, Developer commit `5cddc36`).** Both tests
+below are GREEN now that `_leading_quote_candidate` strips its capture.
+The first test is the extraction-level RED-turned-guard: it would catch a
+future regression that removes `.strip()`. The second test was
+RE-POINTED (not silently adjusted -- its own original assertion message
+required this) once its live-extractor-sourced padded term stopped
+existing: it now documents a permanent property of `find_term_uses`
+itself (padding-as-literal-space causes a silent miss) using a
+synthetically-constructed padded term, rather than re-proving the
+already-fixed extractor. See that test's own docstring for the full
+re-pointing rationale.
+
 **The defect, byte-verified this pass (not merely relayed).**
 `us_profile._leading_quote_candidate` (line 598) does:
 
@@ -130,24 +142,28 @@ def test_padded_term_silently_misses_a_mention_that_the_stripped_term_finds():
     risk... silent under-linking" scenario the preamble panel's Planner
     named but explicitly left unproven for the general case (`-log.md`,
     2026-08-04 entry, M-R32 write-up: "fixture-specific luck... a mention
-    directly abutting non-space punctuation would not match"). Proven here
-    directly against the LIVE `find_term_uses` (not a stub), using the
-    padded term AS ACTUALLY PRODUCED by today's live extractor above (not
-    hand-typed), on a realistic (hand-authored, not corpus-sourced --
-    the corpus row itself does not happen to contain a later mention of
-    this term) illustrative "using" sentence, matching the style the
-    preamble panel's own sibling MS test already uses for the same
-    purpose.
+    directly abutting non-space punctuation would not match").
+
+    **Re-pointed post-G1 (sprint 2026-08-05-defs-core-follow-on-2,
+    Developer commit `5cddc36`).** `_leading_quote_candidate` now strips
+    its capture, so the live extractor can no longer PRODUCE a padded term
+    at all -- `test_ms_defined_terms_are_stripped_of_quote_interior_
+    padding` (this file's sibling test, now green) is what guards THAT
+    property, and would catch any future regression that removes
+    `.strip()`. This test's own job was never the extractor -- it was
+    always to prove a property of `find_term_uses` itself (the matching
+    layer, one level down): that padding-as-literal-required-space causes
+    a real, silent miss. That property is unchanged by G1 landing (G1
+    fixes the SOURCE of padded terms; it says nothing about what
+    `find_term_uses` does if handed one) and is still worth pinning as
+    living, checked documentation of the mechanism -- so the padded term
+    below is now constructed directly (synthetic, not sourced from live
+    extraction) rather than mined out of `by_term`. Division of labour
+    going forward: the sibling test guards the extractor no longer
+    producing padding; this test guards why that mattered.
     """
-    candidates = _extract_ms_candidates()
-    by_term = {c.terms[0]: c for c in candidates}
-    padded_registrant = next(t for t in by_term if t.strip() == "Registrant")
-    assert padded_registrant == " Registrant ", (
-        f"today's live extractor produced {padded_registrant!r} -- if this "
-        "changes, the test below needs to be re-pointed, not silently "
-        "adjusted"
-    )
-    stripped_registrant = padded_registrant.strip()
+    padded_registrant = " Registrant "
+    stripped_registrant = "Registrant"
 
     natural_mention = (
         "A Registrant who fails to comply with this chapter commits a violation."
@@ -157,27 +173,34 @@ def test_padded_term_silently_misses_a_mention_that_the_stripped_term_finds():
         "offense, is not diminished."
     )
 
-    # Non-regression half: an ordinary space-separated mention must keep
-    # matching under EITHER term string -- this is what must NOT change
-    # once the Developer's fix lands.
+    # Non-regression half: an ordinary space-separated mention matches
+    # under EITHER term string -- a padded term is not INHERENTLY broken,
+    # only broken against a specific, ordinary shape (see below). This is
+    # why the extractor-side fix (strip at the source) is the right fix,
+    # not a `find_term_uses` change -- `find_term_uses` behaves correctly
+    # given ITS contract (exact `\b`-bounded literal match); the defect
+    # was always in what string it was handed.
     assert len(find_term_uses(padded_registrant, natural_mention)) == 1
     assert len(find_term_uses(stripped_registrant, natural_mention)) == 1
 
-    # Direction-proof half (the actual RED): a mention immediately
-    # followed by a comma is missed by today's padded term, even though
-    # the correctly-stripped term finds it -- proving the padding defect
-    # is not cosmetic, it silently under-links real mentions.
+    # Direction-proof half -- the standing documentation this test exists
+    # for. A mention immediately followed by a comma is matched by the
+    # correctly-stripped term but MISSED by a padded one: a permanent,
+    # mechanical property of `re.escape` + `\b` (not something G1 or any
+    # future change to `find_term_uses` is expected to alter), which is
+    # exactly why a padded term extracted anywhere in this codebase is a
+    # real, silent under-linking risk and not merely cosmetic.
     stripped_hits = find_term_uses(stripped_registrant, abutting_mention)
     assert len(stripped_hits) == 1, (
         f"sanity check failed: the STRIPPED term should find this ordinary "
         f"mention; got {len(stripped_hits)} matches"
     )
     padded_hits = find_term_uses(padded_registrant, abutting_mention)
-    assert len(padded_hits) == 1, (
-        f"today's PADDED term {padded_registrant!r} found "
-        f"{len(padded_hits)} match(es) in {abutting_mention!r}, expected 1 "
-        "(matching the stripped term) -- if this now passes, the padding "
-        "under-linking risk M-R32 named is no longer real for this shape "
-        "and this test's premise needs re-checking, not just its assertion "
+    assert len(padded_hits) == 0, (
+        f"a PADDED term {padded_registrant!r} found "
+        f"{len(padded_hits)} match(es) in {abutting_mention!r}, expected 0 "
+        "-- if this now finds a match, `find_term_uses`'s boundary "
+        "handling has changed and the padding-under-linking risk this "
+        "file documents needs re-verifying, not just this assertion "
         "flipped"
     )
