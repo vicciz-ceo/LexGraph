@@ -266,29 +266,31 @@ Provenance: same dataset/commit as the rows above (`vaquill/open-us-law`,
 worktree's scratchpad (never `backend/.venv`), never read by the committed
 test suite itself (program rule prior-R6 — suites run offline).
 
-## `us_g8_ar_occurrence_embedded_continuation_row.json` — G8 candidate-collision-preference RED fixture (2026-08-05)
+## G8 reverse-order fixtures — containment replacement safety (2026-08-05, Phase 14 correction)
 
-1 REAL row (all original parquet columns, values unmodified),
+Three REAL rows (all original parquet columns, values unmodified), beginning with
 `STATE_AR_T27_C14_S23_S27-14-2301` (Ark. Code Ann. Section 27-14-2301,
 "Definitions"), pulled from `us_ar_statutes.parquet` — sprint
-`2026-08-05-defs-core-follow-on-2`, gate G8 ("a baseline bad candidate
-must not silently beat a cleaner same-term candidate from a registered
-rule at persistence").
+`2026-08-05-defs-core-follow-on-2`, gate G8. Phase 14 supersedes the
+original "shorter same-term candidate is cleaner" interpretation: a
+same-term `includes`/`does not include` continuation is definitional content
+under D-INCLUDES/P-ALT, so containment alone is not a safe persistence
+preference.
 
-**What it proves**: this row's own `text` field carries its content
+**Occurrence fixture — what it proves**: this row's own `text` field carries its content
 duplicated verbatim by the source dataset (the SAME real corpus artifact
 already documented above for `STATE_AR_T20_C48_S6_S20-48-603`, D-CF
 fixture #4 — evidently common across `us_ar_statutes.parquet`, not a
 one-off). For the term "Occurrence", baseline's own
 `extract_definitions_from_section` (zero registered rules needed)
 produces THREE candidates sharing the identical `(article_id,
-("Occurrence",))` persistence key: a 155-char one (FIRST in list order —
-wins today) that illegally contains a structurally separate sub-item's
-own marker+quote (`(B) "Occurrence"`) glommed into its own
-`definition_text`, and two later, correctly-bounded ones (64 and 73
-chars). `pipeline.py`'s Stage 2 persists whichever same-key candidate it
-encounters first and never revisits that row — the 155-char candidate
-wins, silently discarding the clean one.
+("Occurrence",))` persistence key. The first 155-char candidate contains
+`(B) "Occurrence" includes ...`; this is the complete same-term definition,
+not a distinct-term leak. The later 64- and 73-char candidates are incomplete
+fragments. The live-path RED now pins that a later contained fragment must
+not replace the complete first candidate. On the pre-G8 parent
+`8943d96^`, first-wins would have preserved this first candidate; the G8
+containment update is what makes the RED fail.
 
 **Why this row, not the WA newline-collapse rows** (`claude/defs-us-markers`
 QA fixture, read but never cherry-picked here): the WA swallow is caused
@@ -303,11 +305,32 @@ LAST entry's boundary cannot reach it, whatever shape that fix takes.
 
 Provenance: `vaquill/open-us-law` dataset snapshot
 `301000fc3465374ee0f23c3c6953a8a861e95cad`, file `us_ar_statutes.parquet`,
-fetched 2026-08-05 by this Planner directly into this worktree's own
-`backend/.venv` (`pyarrow` already installed there for this sprint), never
-read by the committed test suite itself (program rule prior-R6 — suites
-run offline). SHA-256 of the row's `text` field:
+read from the local read-only snapshot on 2026-08-05, never read by the
+committed test suite itself (program rule prior-R6 — suites run offline).
+SHA-256 of the Occurrence row's `text` field:
 `3fe2c0d1bc4213dda7d56b0aa79677a6460341722bdafe7ead42cda9bd95ec67`.
+
+**Virtual currency fixture** —
+`us_g8_ar_virtual_currency_reverse_order_row.json` is the unmodified, full
+`STATE_AR_T23_C55_S23-55-102` row from the same snapshot/file. Its first
+`"Virtual currency"` candidate is the complete 528-character `means` plus
+same-term `(B) ... does not include` definition; a later 276-character
+exclusion-only candidate is a literal substring. This is the real-row
+live-path RED for G8's damaging replacement direction. Its row remains a
+fully offline fixture; tests never open the corpus. SHA-256 of its source
+row's `text` field:
+`9fd823ff0fce7c1ad082a7c369219b56fd585a8276c8c601d6af32db970a546a`.
+
+**Partnership fixture** —
+`us_g8_ar_partnership_structural_boundary_row.json` is the unmodified, full
+`STATE_AR_T26_C18_S1_S26-18-104` row from the same snapshot/file. It is a
+positive control: `"Partnership"`'s initial candidate runs into the next,
+different quoted `"Partner"` entry, while the shorter prefix ends exactly
+before that entry. It documents the narrow class of real beneficial trims
+measured by the Phase-14 artifact; it does not authorize a U.S. grammar
+heuristic in jurisdiction-neutral `pipeline.py`. SHA-256 of its source row's
+`text` field:
+`bbe0ad8ce303966493415505caaa13503a601524cc76f28e62c5cfa4cf960051`.
 
 ## `g12_il_base_rates_competitive_service_row.json`, `g12_il_government_person_motion_dropped_row.json`, `g12_pa_references_to_construction_clause_row.json` — G12 `includes`-idiom RED fixtures (2026-08-05)
 

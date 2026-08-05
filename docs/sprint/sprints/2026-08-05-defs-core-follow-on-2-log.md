@@ -2000,6 +2000,124 @@ is the delivery identifier briefed back to the agent.
 
 ---
 
+## Phase 15 — G8 reverse-order measurement and placement ruling (2026-08-05)
+
+### Result: generic containment replacement is UNSAFE; restore first-wins
+
+The Phase-13 prerequisite was run against the entire pinned
+`vaquill/open-us-law` snapshot
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (53 parquet files), replaying
+the real production sequence: literal-`\\n` ingest normalization, profile
+normalization, Stage 0 heading/derived-heading dispatch, Stage 2 candidate
+extraction, and real scope-assignment stamping before the same-key
+list-order persistence simulation. The complete machine-readable result is
+`docs/sprint/sprints/artifacts/2026-08-05-defs-core-follow-on-2-g8-structural-full.json`;
+the reviewed judgment ledger is the adjacent `...-summary.json`; the
+reproducible, read-only measurement program is
+`measure_g8_reverse_order.py`.
+
+| Population / control | Result |
+|---|---:|
+| statute rows replayed | 2,038,247 |
+| emitted candidates | 271,261 |
+| later same-key candidates | 7,363 |
+| same-key collision groups | 5,220 |
+| old `_is_tighter_containment` firings | 1,256 |
+| later broad-scope firings / narrow-scope firings / equal rank | 0 / 0 / 1,256 |
+| NY raw rows with literal `\\n` / real newline | 40,102 / 0 |
+| NY raw fixture candidates before ingestion | 0 |
+| NY post-ingest fixture terms | 6 (the pinned expected set) |
+| CA control fixture literal-`\\n` count | 1 |
+
+These controls matter: the earlier 745 figure did not replay real ingest
+normalization or scope assignment and treated every strict substring as
+unambiguous. **That claim is retired and must not be cited again.** The
+correct full-run denominator is 1,256 old-G8 firings.
+
+### Direct regression evidence
+
+Three live-path safety tests were authored through the real
+`ingest_us_statute_rows -> run_definition_linking` path. They are RED under
+the currently shipped generic predicate and turn green once that predicate
+is removed and safe first-wins is restored:
+
+1. `Occurrence` (`STATE_AR_T27_C14_S23_S27-14-2301`): the first 155-char
+   text is the complete same-term `means` + `(B) "Occurrence" includes`
+   definition; the later 64-char substring is incomplete. This corrects the
+   original G8 oracle. `git show 8943d96^:.../pipeline.py` verifies the
+   pre-G8 implementation had no update branch, so first-wins preserves this
+   complete text.
+2. `Virtual currency` (`STATE_AR_T23_C55_S23-55-102`, full vendored row):
+   the complete 528-char `means` + same-term `does not include` definition
+   is wrongly displaced by the 276-char exclusion-only substring.
+3. A scope-stamped live probe: a later `law-wide` substring wrongly replaces
+   an earlier complete `local` definition. The full corpus happened to have
+   equal ranks for every historical firing; that does not make the generic
+   function safe, and this live proof closes the untested direction.
+
+`test_us_g8_candidate_collision_preference.py` now keeps the distinct-term
+`Partnership -> Partner` row only as a non-failing extraction
+characterization. It deliberately does not require persistence trimming:
+that desirable U.S.-specific cleanup is deferred rather than converted into
+a permanent RED/xfail after G8 removal.
+
+### Exhaustive structural characterization (not a shipping rule)
+
+For each of the 1,256 firings, a proposed **U.S.-only** discriminator first
+required no scope broadening, an exact same-start prefix, and a suffix that
+begins a parenthesized quoted entry. It parses the complete leading quoted
+term-set with `extract._parse_terms_and_qualifier`, not merely the first
+quote, then compares it to the sorted `candidate.terms` persistence-key
+semantics after punctuation canonicalization and conservative near-alias
+screening. Result: 398 same canonical-term continuations, 30 near aliases,
+247 non-prefixes, 545 non-parseable suffixes, 5 header-without-term cases,
+and **31** mechanically eligible distinct-entry boundaries.
+
+The Planner hand-read the prior text, later text, and discarded suffix for
+all 31. All are **IMPROVING** distinct next-entry trims; none is degrading.
+The exact complete term-set ledger is committed in the summary artifact.
+For audit visibility, the current-term -> next complete quoted-term-set
+pairs are:
+
+`Partnership -> Partner`; `Building materials -> Consumer food item`;
+`Business -> Debtor in bankruptcy`; `Production facilities -> Production
+process`; `Actuary -> Insurer`; `General license -> Specific license`;
+`Grievance -> Employee`; `Sale -> Offer, offer to sell`; `Consumer ->
+Creditor`; `Copayment -> Gatekeeper system`; `Brand family -> Cigarette`;
+`Car-sharing delivery period -> Car-sharing period`; `Bank -> Public funds,
+funds`; `Lessee -> Other public body`; `Affected group -> Sub-group`;
+`Prevention program -> Primary prevention`; `Primary prevention -> Secondary
+prevention`; `Actuarial certification -> Base premium rate`; `Fetal death ->
+Induced termination of pregnancy`; `Healthcare plan -> Health carrier`;
+`Institution of higher education -> Statement of selective service status`;
+`On-site -> Adjacent`; `Premarital agreement -> Property`; `Contractor ->
+normal architectural and engineering services`; `Substantial gainful activity
+-> Significant duties`; `Intentional -> Knowing`; `Goods -> future goods.,
+Lot`; `Merchant -> Financing agency`; `City, -> county election commission`;
+`City, -> This charter`; `Health maintenance organization -> Insurance group,`.
+
+### Placement ruling — ACCEPTED
+
+This discriminator recognizes U.S. parenthesized/quoted entry grammar.
+`pipeline.py` is jurisdiction-neutral, and C3's standing constraint keeps
+jurisdiction-specific parsing behind the profile seam. Therefore it is not
+permissible to "fix" G8 by importing this grammar into persistence. The
+manager accepted the following disposition:
+
+- Remove generic `_is_tighter_containment` replacement and restore safe
+  first-wins in core-2; the three safety REDs are the acceptance tests.
+- Preserve the 31 beneficial U.S. cases only as measured evidence. A future
+  core-3/follow-up may introduce an **additive profile-owned
+  candidate-quality/entry-boundary seam** and re-evaluate them there.
+- Do not ship a global parser heuristic, a test that demands deferred
+  trimming, or an xfail carrying the deferred cleanup as hidden debt.
+
+This resolves Phase 13's pass condition: the generic behavior is amended
+before sprint close; measured beneficial work is explicitly routed rather
+than smuggled across the profile boundary.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
