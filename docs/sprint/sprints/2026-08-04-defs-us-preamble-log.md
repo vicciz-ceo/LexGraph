@@ -3775,3 +3775,30 @@ corpus populations and feeds a D-CERT certification; judging whether a
 claimed row is genuinely a definitions block is the load-bearing act. Per
 P-R6 QA is Sonnet high. **Haiku considered: no.** `model=inherit` not used.
 QA commits only test/contract/log files, never implementation.
+
+### M-R56 — HARNESS CHANGE (director-ordered): role agents report DIRECTLY to this manager
+
+Effective immediately. Role agents no longer report through the program
+manager; they deliver to this manager's agentId **`a3adfb6a9000b266e`**.
+
+**Every role-agent brief — new spawns AND resumes — must carry this verbatim:**
+
+> Before you finish or escalate, deliver your full report via SendMessage
+> with to: 'a3adfb6a9000b266e' (raw agent id, exactly as written). Your
+> plain-text final return is NOT a reliable delivery channel — the
+> SendMessage IS your report. If the send fails, say so in your final text.
+
+Escalations (`ESCALATION:` first line) arrive the same way; this manager
+resolves them or escalates onward to the program manager itself. Peer-manager
+coordination by agentId continues as before.
+
+**Applied retroactively to the in-flight QA** (`ad897d10d497511ea`, spawned
+before the change): resumed it with the delivery instruction rather than
+relying on the deprecated relay path, since a resume counts as the trigger.
+Its work is unchanged — only the delivery channel. No other agent is in
+flight.
+
+**Standing note for whoever resumes this sprint**: this instruction is now a
+required element of every brief, alongside the existing fences (sole writer
+per worktree; role separation; CodeGraph first; never fabricate; "not
+measured" is valid).
