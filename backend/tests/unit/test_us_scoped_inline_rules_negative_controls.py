@@ -129,86 +129,86 @@ def test_baseline_new_york_row_with_no_trigger_yields_nothing():
 def test_pa_construction_clause_guard_is_load_bearing_under_widened_vocabulary(monkeypatch):
     """`STATE_PA_T15_C57_S5749`: `"For the purposes of this subchapter:
     (1) References to \\"other enterprises\\" shall include employee
-    benefit plans..."` -- a RULE about how "other enterprises" should be
-    READ elsewhere (construction/interpretation), not a `"X" means Y`
-    definition.
+    benefit plans..."` -- construction/interpretation, not a `"X" means
+    Y` definition. D-INCLUDES (2026-08-05) lets `includes`/`shall
+    include` join the defining vocabulary program-wide; the one guard
+    that survives, `_preceded_by_references_to` (`us_scoped_inline_
+    entries.py`), suppresses a term-quote immediately preceded by
+    "References to". RE-AUTHORED, Planner pass 11: supersedes the PRIOR
+    version of this test AND `test_us_scoped_inline_qa_cycle3_pa_guard_
+    pin_scoping_gap.py` (QA cycle 3 item 8, now removed -- OWNERSHIP).
 
-    HISTORY (re-author, not rename): through Planner pass 6 this row was
-    protected ENTIRELY BY ACCIDENT -- `_IDIOM_RE` had no `shall include`
-    alternative, so `_split_idiom_chain` never paired an idiom with the
-    quote (QA cycle-1 mutation-proved idiom-absence, not marker-adjacency,
-    was the real gate: widening `_MARKER_QUOTE_RE`'s gap to <=20 chars
-    alone left this test green). Program ruling D-INCLUDES (2026-08-05,
-    main @ 6a56a84) deletes that accident: `includes`/`shall include` join
-    the defining-verb vocabulary program-wide (100/100 hand-read
-    occurrences definitional; broad guards cost 32-56% of true
-    definitions, REJECTED). One narrow, TARGETED guard survives: suppress
-    only when the quote is preceded by "References to" (22 construction-
-    clause rows protected vs 4,729 genuine recall rows kept). A test
-    passing because the idiom is absent keeps passing once that reason is
-    gone -- green for the wrong reason. Re-authored to assert the GUARD.
+    HISTORY -- the guard was sound THE WHOLE TIME; only this test's patch
+    target was wrong: the PRIOR test (through pass 9) patched
+    `us_scoped_inline_shapes._IDIOM_RE`/`_MARKER_QUOTE_RE` (and
+    `us_scoped_inline._IDIOM_RE`, read only by the unrelated embedded-
+    trigger path). But this row's colon-triggered region actually routes
+    through `_multi_entries`/`_split_idiom_chain` in `us_scoped_inline_
+    entries.py`, which took `from ...shapes import (_IDIOM_RE,
+    _MARKER_QUOTE_RE, ...)` at import time -- a SEPARATE binding,
+    decoupled from `shapes.__dict__` from that moment on (the classic
+    `from X import Y` gotcha). QA cycle 3 proved it: the simulated
+    widening never reached the guarded code, so the row stayed
+    unreachable regardless of guard state and the assertion passed
+    vacuously -- this sprint's fifth "green for the wrong reason." FIX:
+    patch `entries`'s OWN bound names below, never `shapes`'s or `mod`'s.
 
-    SECOND finding, this pass: idiom-absence was never the ONLY accident.
-    The colon after "subchapter" routes here through `_multi_entries`,
-    needing `_MARKER_QUOTE_RE` to find `(1)` IMMEDIATELY before a quote --
-    but `References to ` (14 chars) sits between, so it finds zero
-    markers, and `_unmarked_multi_entries` also fails (region doesn't
-    start AT a quote). Confirmed live: swapping `shall include` for the
-    ALREADY-recognized bare `includes` here still yields zero candidates
-    today. An isolated probe must ALSO neutralize this marker-adjacency
-    accident (`test_marker_quote_adjacency_gate_is_load_bearing_alabama`
-    below pins the same mechanism) or it would pass for THAT reason
-    alone, guard or no guard.
+    RECURRENCE RESISTANCE: (1) `monkeypatch.setattr` defaults `raising=
+    True` -- if `entries.py` ever stops binding these names as its own
+    attributes, this errors loudly (`AttributeError`), not a silent
+    wrong-target pass; (2) asserting ONLY "guard present -> silent" (the
+    PRIOR design) is inherently vacuous-prone, since "the guard blocked
+    it" and "the widening never arrived" look identical -- the second
+    assertion below ("guard neutralized -> captured") closes that gap:
+    it can only pass if the widening genuinely reached the path under
+    test. That IS "verify by experiment," built into the pin itself.
 
     MUTATION EVIDENCE (scratch copy outside this worktree, `backend/app/`
-    untouched -- Planner pass 9 report has the transcript): `_IDIOM_RE`
-    widened for `shall include`, `_MARKER_QUOTE_RE` widened for a bounded
-    `References to `/`Reference to ` filler (same named-filler tolerance
-    `_STRONG_CONNECTOR_RE` already uses) -- MINIMAL "reachable + vocabulary
-    landed," no guard: `other enterprises` gets captured. A guard dropping
-    any quote chain whose bounded lookback matches `references?\\s+to\\s*$`
-    restores silence, while a real `shall include` positive control that
-    is NOT a References-to clause (`STATE_NY_ARSS_A2_T9_S89-H`, QA
-    cycle-2's `test_shall_include_is_not_a_recognized_idiom`) stays
-    captured under the same widened+guarded state -- NARROW, not a
-    blanket suppression (D-INCLUDES rejected blanket guards). Honest gap:
-    the SECOND clause (`serving at the request of the corporation`) never
-    becomes its own entry under this minimal widening (no marker precedes
-    it -- absorbed as entry 1's `definition_text` prose); only the plain
-    real-code assertion above covers it -- a future fix splitting "and
-    references to ..." would need its own probe (named, not written).
+    never touched -- report has the transcript, incl. the `python -c`-vs-
+    editable-install trap hit and worked around): `_preceded_by_
+    references_to`'s SOURCE mutated (`return False` unconditionally),
+    same `entries`-scoped widening both runs -- shipped guard: silent;
+    mutated: captured. Matches the in-process monkeypatch below.
 
-    Simulates the not-yet-landed fix with `monkeypatch` (test-side only):
-    RED today (no guard) -> GREEN once the guard ships (checks literal
-    text before the quote, not which regex matched) -> RED again if the
-    guard is removed while the vocabulary stays."""
+    OWNERSHIP: this test IS QA cycle 3's correctly-scoped proof, folded
+    into the canonical pin location, not duplicated in a second file. QA
+    cycle 3's OTHER test (reproducing the PRIOR wrong scope) is not
+    carried forward: fixed, it would pin a bug that no longer exists to
+    regress against, risking a reader mistaking a defect-proof for a
+    live issue. Survives here in prose."""
     import app.definition_links.rules.us_scoped_inline as mod
+    import app.definition_links.rules.us_scoped_inline_entries as entries
     import app.definition_links.rules.us_scoped_inline_shapes as shapes
 
     row = _rows()["STATE_PA_T15_C57_S5749"]
-    # Preserved intent: today's real, UNMODIFIED code -- both stacked
-    # accidents documented above keep both terms silent.
+    # Today's real, UNMODIFIED code stays silent on both terms.
     today_terms = {t for c in mod.extract_us_scoped_inline_definitions(row["text"]) for t in c.terms}
     assert "other enterprises" not in today_terms
     assert "serving at the request of the corporation" not in today_terms
 
-    # Guard-isolation probe: simulate D-INCLUDES landing (idiom + the
-    # marker-adjacency reachability this row needs), with NO guard.
+    # Simulate D-INCLUDES landing, patched on `entries` (see HISTORY);
+    # `shapes` sources only the `_MARKER_RE` constant, not a patch target.
     widened_idiom_re = re.compile(
         r"\s*(?:has the same meaning as|have the same meaning as|has the meaning|shall be construed to mean"
         r"|shall include|shall mean|does not include|is defined as|includes?|means|is)\b,?\s*",
         re.IGNORECASE,
     )
     widened_marker_quote_re = re.compile(rf'{shapes._MARKER_RE}\s*(?:references? to\s+)?["“]', re.IGNORECASE)
-    monkeypatch.setattr(shapes, "_IDIOM_RE", widened_idiom_re)
-    monkeypatch.setattr(mod, "_IDIOM_RE", widened_idiom_re)
-    monkeypatch.setattr(shapes, "_MARKER_QUOTE_RE", widened_marker_quote_re)
+    monkeypatch.setattr(entries, "_IDIOM_RE", widened_idiom_re)
+    monkeypatch.setattr(entries, "_MARKER_QUOTE_RE", widened_marker_quote_re)
 
+    # Guard PRESENT (shipped, untouched): must stay silent.
     candidates = mod.extract_us_scoped_inline_definitions(row["text"])
     terms = {t for c in candidates for t in c.terms}
-    assert "other enterprises" not in terms, (
-        "simulated D-INCLUDES vocabulary + marker reachability captured 'other enterprises' -- the "
-        f"targeted References-to construction-clause guard is missing or not load-bearing -- got {candidates!r}"
+    assert "other enterprises" not in terms, f"guard not load-bearing under widened reachability: {candidates!r}"
+
+    # Guard NEUTRALIZED, same reachability: MUST now capture -- the
+    # direction making the assertion above non-vacuous (RECURRENCE #2).
+    monkeypatch.setattr(entries, "_preceded_by_references_to", lambda body, pos: False)
+    candidates_unguarded = mod.extract_us_scoped_inline_definitions(row["text"])
+    terms_unguarded = {t for c in candidates_unguarded for t in c.terms}
+    assert "other enterprises" in terms_unguarded, (
+        f"widening didn't reach the code, or guard wasn't it: {candidates_unguarded!r}"
     )
 
 
