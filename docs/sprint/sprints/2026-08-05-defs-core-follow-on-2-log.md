@@ -916,6 +916,86 @@ per the director-ordered harness adjustment.
 
 ---
 
+## Phase 4 — G9 Planner returned; ONE ITEM HELD for a program-level call
+
+plan6 (`a38aa7f6e1cf03cd3`) delivered on `claude/defs-core-follow-on-2-plan6`
+@ `bd53d10`. **Items G9-1 / G9-3 / G9-4 ACCEPTED. Item G9-2 HELD.**
+
+### Manager verification (first-hand)
+
+- REDs **re-authored, not cherry-picked** — independently chosen real laws
+  (`חוק תכנון משק החלב`, `תקנות מחלות בעלי חיים`), every excerpt
+  byte-verified as a literal substring of its real source.
+- The live-path P-R8 proof registers a `StructuralUnitRule` whose `.derive`
+  reads `ctx.heading_breadcrumbs` **dynamically** and fails today with
+  `uses_props=[], created_assertions=[]`, while definition-capture
+  assertions pass FIRST — so it isolates containment and genuinely proves
+  **consumption**, not mere population. (A wrongly-populated field fails the
+  same assertion.) This is the distinction P-R8 exists to enforce.
+- Depth-2 non-regression evidenced, not asserted: 35 existing IL tests pass
+  UNEDITED with an empty `git diff --stat` on those files, plus a positive-
+  control `.chapter` byte-identity pin.
+- Zero production code touched; lint PASS.
+- Line numbers had drifted from the brief (pipeline.py 212→243,
+  sections.py 138 gate) because of other gates' edits; plan6 re-verified
+  both defects still present at its fork point rather than trusting the
+  brief's numbers.
+
+### plan6's self-reported "gap" was actually a P-R10 SUCCESS (manager correction)
+
+plan6 honestly flagged that it could not reproduce M8(a)'s "124 of 6,133
+bare-@ documents," getting **42**. It was comparing against a **superseded**
+number. Program ruling **P-E3** corrects that framing verbatim: *"real
+bare-@ occurrences are 331 across **42 files**."*
+
+**plan6 hit the corrected figure exactly.** Its probe PASSED its sanity
+check; the reference was stale, not the method — which materially
+strengthens confidence in its own corpus numbers (14,393 discarded depth≥3
+heading lines; **50,472/128,234 = 39.36%** of articles gaining breadcrumb
+depth), since the same scan reproduced an independently-corrected figure.
+Relayed to plan6 for correction in its appendix.
+
+### G9-2 — new persisted column: HELD, with a recommendation to proceed
+
+plan6 specified a new additive nullable column on `models.article.Article`.
+**The manager verified its "no other route" reasoning independently and it
+HOLDS:**
+- `pipeline.py:172` loads articles via `select(Article)` — it never
+  re-parses raw text.
+- `Article` carries no breadcrumb field (id, document_id, matter_id,
+  source_span_id, number, heading, chapter).
+- `add_raw_text_columns.py` applies to **assertion tables only**; no
+  document-level raw text is persisted anywhere to re-derive heading
+  structure from. (Checked precisely because, if raw text WERE persisted,
+  pipeline could re-derive transiently and seam v2.5's philosophy would
+  favor no column.)
+
+This meets the exact bar seam **v2.5** set when ruling `scope_value`
+transient-by-design: a column becomes right when a concrete consumer needs
+the value without re-deriving it from source text. v2.5 also named the
+shape — `add_assertion_subject_unit_path_column.py` (additive, nullable,
+real `downgrade()`, no backfill) — and that file exists.
+
+**Why it is nonetheless HELD rather than approved by the panel manager:**
+this sprint merges **FIRST** among pending program merges and **all six
+family panels rebase onto it**, so a schema migration here ripples into
+every panel's rebase. That is merge-sequencing, which **P-R5 assigns to the
+program manager**. Additionally, the manager's own Phase-1b acceptance of G9
+was reasoned as *"small, additive, safe default"* and *"cheapest gate on the
+board"* — **a premise a schema migration materially changes**, so the
+acceptance was made on an incomplete picture and is re-surfaced honestly
+rather than quietly extended.
+
+**Recommendation: PROCEED.** The technical bar is met on verified evidence,
+the precedent shape exists, G9 is non-functional without it (the whole gate
+is making `StructuralUnitRule` consumption possible), and deferring pays the
+same migration cost later with MORE panel rebases outstanding, not fewer.
+
+**No G9 Developer spawned pending that call** — zero cost, since six agents
+are already in flight and nothing is idle waiting on G9.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
