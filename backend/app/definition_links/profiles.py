@@ -42,6 +42,7 @@ bidi guarding stays Hebrew-only for this sprint).
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from typing import Protocol
 
 from app.definition_links import derivation, extract, matcher, normalize, sections
@@ -114,6 +115,10 @@ class JurisdictionProfile(Protocol):
     main_unit_kind: str
 
     def determine_scope(self, body_text: str) -> str: ...
+
+    def determine_scope_assignments(
+        self, body_text: str, *, scope: str, article_number: str, chapter: str | None
+    ) -> tuple[registry.ScopeAssignment, ...]: ...
 
     def extract_local_scope_definitions(
         self, article_body: str, *, article_number: str, chapter: str | None = None
@@ -240,6 +245,35 @@ class HebrewProfile:
                 return detected
         return "law-wide"
 
+    def determine_scope_assignments(
+        self, body_text: str, *, scope: str, article_number: str, chapter: str | None
+    ) -> tuple[registry.ScopeAssignment, ...]:
+        """(G6, sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §3):
+        ADDITIVE -- does not change `determine_scope`'s own signature,
+        contract, or return value. Replays `determine_scope`'s OWN
+        baseline-first, first-non-None-wins dispatch exactly (same trigger
+        phrases, same registry walk, same order), so "the winning rule" is
+        always identical between the two methods by construction. `scope`
+        is the kind `determine_scope` already returned for this same
+        `body_text` -- used only to build the narrow, self-referential
+        DEFAULT assignment (never re-derived independently, never a
+        broadening default, M9)."""
+        default = registry.default_scope_assignment(
+            scope, article_number=article_number, chapter=chapter
+        )
+        first_line = next((ln for ln in body_text.splitlines() if ln.strip()), "")
+        if any(trigger in first_line for trigger in _IL_CHAPTER_SCOPE_TRIGGERS):
+            return (default,)
+        for rule in registry.scope_kind_rules_for(self.code):
+            detected = rule.detect(body_text)
+            if detected is not None:
+                if rule.detect_value is not None:
+                    assignment = rule.detect_value(body_text)
+                    if assignment is not None:
+                        return assignment if isinstance(assignment, tuple) else (assignment,)
+                return (default,)
+        return (default,)
+
     def extract_local_scope_definitions(
         self, article_body: str, *, article_number: str, chapter: str | None = None
     ) -> list[DefinitionCandidate]:
@@ -252,8 +286,29 @@ class HebrewProfile:
         are inherently "local to the CURRENT article") gets it defaulted
         here to `article_number`, matching what pipeline.py used to stamp
         manually right after extraction.
+
+        G5 (sprint 2026-08-05-defs-core-follow-on-2): `ctx.unit_path` is
+        computed via the SAME bound resolver as `ctx.resolve_unit_path`
+        (at `char_offset=None`, correctly `()` -- no match position exists
+        yet at this whole-body-scan point), instead of a bare `()`
+        literal, so a future change to `resolve_unit_path`'s own
+        None-handling can never leave this stale. `ctx.resolve_unit_path`
+        lets a rule ask for the REAL path at ITS OWN match offset (not
+        known until the rule's own regex finds it) -- byte-identical to
+        calling `self.resolve_unit_path(article, offset)` directly, zero
+        duplicated logic.
         """
-        ctx = registry.RuleContext(article_number=article_number, chapter=chapter, unit_path=())
+        article_stub = SimpleNamespace(body=article_body)
+
+        def _resolve(offset: int) -> registry.UnitPath:
+            return self.resolve_unit_path(article_stub, offset)
+
+        ctx = registry.RuleContext(
+            article_number=article_number,
+            chapter=chapter,
+            unit_path=self.resolve_unit_path(article_stub, None),
+            resolve_unit_path=_resolve,
+        )
         candidates: list[DefinitionCandidate] = []
         for rule in registry.scope_trigger_rules_for(self.code):
             for candidate in rule.extract(article_body, ctx):

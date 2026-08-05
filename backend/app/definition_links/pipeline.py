@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -294,9 +295,32 @@ def run_definition_linking(
             section_candidates = profile.extract_definitions_from_section(
                 matcher_article.body, scope=scope, heading_was_derived=used_body_derived_heading
             )
+            # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
+            # `determine_scope_assignments` replaces the old bare
+            # `candidate.source_chapter = art.chapter if scope == "chapter"
+            # else None` stamping line -- fan out ONE `DefinitionCandidate`
+            # copy per returned `ScopeAssignment` (1 assignment, the
+            # article's own chapter/law-wide default, in the overwhelming
+            # common case -- byte-identical to today; >1 only for a body
+            # naming more than one co-equal scope at once, e.g. TN's "this
+            # part and Section 6-51-301", resolved by the already-shipped
+            # M10 tie class, not a new mechanism here).
+            assignments = profile.determine_scope_assignments(
+                matcher_article.body,
+                scope=scope,
+                article_number=art.number,
+                chapter=art.chapter,
+            )
             for candidate in section_candidates:
-                candidate.source_chapter = art.chapter if scope == "chapter" else None
-                all_candidates.append((candidate, art))
+                for assignment in assignments:
+                    stamped = replace(candidate, scope=assignment.kind)
+                    if assignment.kind == "chapter":
+                        stamped.source_chapter = assignment.value
+                    elif assignment.kind == "local":
+                        stamped.source_article_number = assignment.value
+                    else:
+                        stamped.scope_value = assignment.value
+                    all_candidates.append((stamped, art))
         else:
             for candidate in profile.extract_local_scope_definitions(
                 matcher_article.body, article_number=art.number, chapter=art.chapter
