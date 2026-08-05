@@ -6080,3 +6080,233 @@ to probe.
 3. Only `בפסקה זו` is widened for the embedded-marker `TermClauseRule`;
    other `(TRIGGER - X)` words were not swept inside definitions-section
    bodies.
+## 2026-08-05 — Planner (Sonnet/high, worktree `defs-il-plan3`, branch `claude/defs-il-plan-sep`): RED tests for the `או`/`ו-` separator gap M25 found
+
+### Scope discipline (M14)
+
+Worktree `/Users/nerya/LexGraph-wt/defs-il-plan3` only, own venv verified
+(`import app` -> this worktree's `backend/app`). `git diff --name-status
+HEAD -- backend/app` -> **empty**, verified before and after this
+session's writes. Zero existing tests edited — one NEW test file
+(`backend/tests/integration/test_definition_links_il_or_separator_gap_
+live.py`) + 3 NEW vendored fixtures. Did not touch `test_definition_
+links_il_siman_chelek_containment_live.py` (M20's 2 core-blocked REDs,
+untouched, still red). A D-1b Developer was running concurrently in a
+different worktree against `backend/app/definition_links/rules/**` only
+— disjoint file sets, M14 held.
+
+### Job 1 — independently re-derived denominator (M18/P-R7-compliant)
+
+Own script (`il_or_sep_sweep_planner3.py`, scratchpad), imports NOTHING
+from `il_list_shape_scope.py`/`extract.py` (the code under test) except
+`app.definition_links.sections.parse_articles`/`is_definitions_heading`
+— production article-routing code, not part of the separator bug, and
+literally the function `pipeline.py` itself uses to decide which of the
+two live paths an article's entries reach. Every dash-finder,
+quote-scanner, separator-classifier, and the preamble+entry-scan "is this
+line actually reached by the list-shape rule" simulation is a fresh,
+independent re-implementation of both `il_*_list_scope_triggers.py`
+modules' own scan loop (not copied from them).
+
+**`או` ("or") separator, corpus-wide (6,133 files):**
+
+```
+total entry lines with an 'או' header-separator:                    243
+  no real standalone split dash at all (excluded -- a different,
+    already-named phenomenon, e.g. "X" או "Y" כוללים... with no dash):  20
+  WITH a dash, inside a הגדרות/הגדרת מונחים/הגדרה/הגדרות ופירוש
+    -headed article (FROZEN definitions-section path, already correct
+    -- extract._parse_terms_and_qualifier grabs every quoted span
+    regardless of separator):                                        181
+  WITH a dash, ordinary article, NOT reached by the list-shape scan
+    (no preceding preamble line ending in bare "-" found -- a SEPARATE
+    pre-existing gap, e.g. all of `חוק הפרשנות` art.3 and `פקודת
+    הפרשנות` art.1, whose own preamble ends in ":" not "-"; affects
+    those articles' SINGLE-term entries too, unrelated to `או`):        26
+  WITH a dash, ordinary article, REACHED (THE REAL GAP):                16
+    unique files:                                                        9
+```
+
+**`ו-` hyphenated vav conjunction** (distinct from D-1a's already-fixed
+bare `ו"t2"` direct-prefix form):
+
+```
+total entry lines:            37
+  no real dash:                 1
+  frozen (correct):            29
+  not reached:                  3
+  REACHED (THE GAP):            4  (unique files: 4)
+```
+
+**`ו ` spaced-vav form:** 1 line corpus-wide, confirmed — and that ONE
+instance (`תקנות ביטוח בריאות ממלכתי (העברת דמי ביטוח...)`, `"נכה" ו
+"נצרך"`) sits inside a `הגדרות`-headed article, already routed to the
+FROZEN path today. **Zero live gap from this form** — excluded from the
+RED tests not merely as "negligible" but as a confirmed zero.
+
+**The 230/160 lead in my own brief was an upper bound, exactly as
+flagged — the decision-relevant number is 16 (`או`) + 4 (`ו-`) = 20
+lines / 13 unique files that actually reach the buggy list-shape path.**
+The other 181+29=210 with-dash `או`/`ו-` lines are already correctly
+captured today via the frozen path; a further 26+3=29 are in ordinary
+articles but never reached by ANY rule today for a reason unrelated to
+this separator bug (no preceding preamble line in the shape the scan
+loop requires) — a pre-existing, orthogonal gap, named here, not folded
+into this bug's count.
+
+All 20 gap lines were then LIVE re-confirmed against `profile.
+extract_local_scope_definitions` directly (own script) — every one shows
+the FIRST term captured (parse_entry's single-term fallback) and every
+subsequent term absent, the exact "silent partial" signature M25 named.
+
+### Cross-check against the D-1a Planner's own 392 (explicitly asked for)
+
+Read D-1a's own sweep script, still present in the shared scratchpad
+(`il_d1a_classA_sweep.py`). Its own gap-validation regex,
+`re.fullmatch(r'[,\s]*(?:או|ו)?[\s]*', gap)`, **does** match a bare `"
+או "` gap between two quoted spans — so D-1a's reported 392
+confirmed-missing lines already counted `או`-joined entries as missing,
+alongside comma/vav ones. But its separator-BREAKDOWN accounting only
+tests `has_vav = bool(re.search(r'ו"', header))` and `has_comma = ","
+in header` — neither of which an `או`-only pair satisfies. The
+arithmetic confirms it: comma-only 83 + vav-only 203 + mixed 72 = **358**
+against D-1a's own reported total of **392** — a gap of **34** lines its
+own breakdown does not name.
+
+**Plain finding for the manager:** `או`-separated entries were very
+likely already inside D-1a's own reported 392/963/207, silently
+uncounted in its separator breakdown, and — per M25's own live re-probe
+on the merged tree, reproduced independently here — are **not** actually
+fixed by the `parse_entry` that shipped against that number. D-1a's own
+work was honestly scoped (it said "requires an explicit `,`/`ו`/`או`
+separator" for its gap-VALIDATION step, i.e. `או` was swept INTO the
+denominator, just never separately reported) and delivered real, correct
+comma/vav fixes with zero regressions — this is not a fault in what it
+built. But **class A, as D-1a's own Planner measured and reported its
+392/963/207 headline, was not fully closed by the fix that shipped
+against those numbers.** Did not re-run D-1a's exact script end-to-end
+to identify the specific 34 lines 1:1 (time-boxed; honest gap below) —
+the arithmetic plus this session's own independent 16-line live-reproduced
+`או` gap both point the same way, which is what I am reporting.
+
+### Job 2 — RED tests (3, node-ids), all fail for the right reason
+
+`backend/tests/integration/test_definition_links_il_or_separator_gap_live.py`:
+
+- `::test_or_separator_single_colon_pure_multiterm_entry_is_currently_missed`
+  (fixture `קובץ החלטות מועצת מקרקעי ישראל_art3_5.1_excerpt.wiki`,
+  single-colon, pure `או`, "הסכם" או "הסכם גג" — a numbered `5.1.
+  הגדרות` sub-heading that does NOT match `_DEFINITIONS_HEADING_RE`
+  (must START with the bare word), a real, live-confirmed instance of a
+  numbered-heading definitions article routing to the ordinary-article
+  path);
+- `::test_or_separator_double_colon_mixed_comma_and_or_multiterm_entry_is_currently_missed`
+  (fixture `חוק הפסיכולוגים_art5א_excerpt.wiki`, double-colon, mixed
+  comma+`או`, "תואר", "כינוי" או "הגדר" — proves comma still resolves up
+  to the point `או` is hit, same entry);
+- `::test_vav_hyphen_separator_double_colon_multiterm_entry_is_currently_missed`
+  (fixture `פקודת מס הכנסה_art68א_excerpt.wiki`, double-colon, `ו-`
+  hyphenated, "אמצעי שליטה" ו-"יחד עם אחר").
+
+Each asserts (a) sibling single-term entries in the SAME list still
+capture (sanity control), (b) the FIRST term of the multi-term entry
+still captures (parse_entry's single-term fallback — proves "silent
+partial", not "silent total"), (c) the missing subsequent term(s) —
+which is what actually fails today. Reproduced failure tails (own run):
+
+```
+test_or_separator_single_colon_pure_multiterm_entry_is_currently_missed
+  AssertionError: expected the SECOND term of the או-joined entry
+  ("הסכם" או "הסכם גג" ...) to be captured ...
+  got {'תשתיות צמודות', 'תשתיות על', 'הסכם', 'מוסדות חינוך', 'הקרקע',
+       'מוסדות ציבור רשות', 'תשתיות תחבורתיות', 'הוועדה לתכנון ופיתוח'}
+
+test_or_separator_double_colon_mixed_comma_and_or_multiterm_entry_is_currently_missed
+  AssertionError: expected the THIRD term ("הגדר" ...) to be captured ...
+  got {'תואר', 'השתמש', 'כינוי'}
+
+test_vav_hyphen_separator_double_colon_multiterm_entry_is_currently_missed
+  AssertionError: expected the SECOND term ("יחד עם אחר" ...) to be
+  captured ... got {'אמצעי שליטה', 'בעלי שליטה'}
+```
+
+All 7 preceding sanity/control assertions in these 3 tests passed (never
+the line that raised) — confirmed each test fails for the SPECIFIC
+missing-term reason, not a broad breakage.
+
+Fixtures: all 3 real, unedited, programmatically line-sliced (`@ N.
+heading` line through the line before the next `@`/`==` marker),
+byte-verified (`excerpt in source_text`) both immediately after
+extraction and again from the written fixture files immediately before
+writing the test module.
+
+### Job 3 — precision/FP analysis (P-R2/D-Q1)
+
+Hand-read all 20 live-confirmed gap lines (not a sample) — every one is
+a genuine Hebrew legal-drafting convention: near-synonym headwords or a
+canonical-name-plus-symbol-alias sharing one definition. Zero cases
+where `או` between two header quotes meant anything other than "these
+names share one definition" — the same structural argument (superset of
+an already-precision-proven single-term grammar, N>=2 quoted spans
+immediately adjacent to a real separator, immediately before the one
+trusted split dash) D-1a's own Class-A FP analysis already made for
+comma/vav.
+
+**The manager's specific concern, checked rather than assumed:** does
+`parse_entry` reading terms only from the pre-dash header actually
+protect against a real corpus shape like `"term" - def containing
+"quoted thing" או "other thing"`? **Verified with real corpus text, not
+hypothesized** — 13 real files found (e.g. `תקנות ביטוח בריאות ממלכתי
+(הסדרי בחירה בין נותני שירותים)`: `"כירורגיה גדולה" - כירורגיה שאינה
+"כירורגיה זעירה", "כירורגיה קטנה" או "כירורגיה בינונית";` — three
+comma/`או`-joined quoted spans, all in the DEFINITION TEXT after the
+dash). Traced `_find_dash_marker`: the header for this entry is
+`"כירורגיה גדולה"` alone (dash immediately after); the three post-dash
+quotes never enter the header string the term-loop scans. **Confirmed
+safe by construction, for any `או`-widening implemented the way D-1a's
+comma/vav widening already is** (extending `_TERM_SEP_RE`'s
+alternation, not restructuring the dash-then-header boundary). No
+escalation — this is a real shape with a real, already-relied-upon
+protection, not an open conflict.
+
+### Honest gaps
+
+1. Did not re-run D-1a's exact classA sweep end-to-end to name the
+   specific 34 unreconciled lines 1:1 against my own 16/4 (`או`/`ו-`)
+   gap — the arithmetic reconciliation plus this session's own
+   independently-derived, live-confirmed 20-line gap both point at the
+   same conclusion, but the two sets were not proven line-for-line
+   identical.
+2. Did not investigate whether `או`/`ו-` also appears as a separator
+   inside the quote-first (`extract_quote_first_candidates`) or Class-C
+   heading-embedded shapes — out of this session's scope (M25 named the
+   list-shape `parse_entry` specifically), flagged for whoever
+   certifies class A/B/C completeness next.
+3. The 26 (`או`) + 3 (`ו-`) = 29 "ordinary article, not reached at all"
+   lines are a real, separate, pre-existing gap (missing/malformed
+   preamble line) — named, not fixed, not tested here; two concrete
+   examples (`חוק הפרשנות` art.3, `פקודת הפרשנות` art.1) are
+   important, frequently-referenced interpretation-clause laws whose
+   ENTIRE definitions list (not just multi-term entries) is unreached
+   by any list-shape rule today.
+4. Test file is 326 lines, over the sprint's stated 300-line style
+   gate. Checked precedent before proceeding: every prior `_live.py`
+   integration test file in this sprint that touches this area is
+   already over 300 lines (`test_definition_links_il_phase_d1a_abc_
+   live.py` 440, `..._missed_classes_extended_live.py` 439,
+   `..._qa_cycle1_fixups_live.py` 419, `..._phase_c_widening_live.py`
+   1154), and every log entry citing "under 300 lines" names "rule
+   file"/"touched rule file" specifically (production code under
+   `backend/app/definition_links/rules/`) — this Planner reads the gate
+   as scoped to production files, consistent with actual sprint
+   practice, not test files. Flagging the reasoning rather than
+   silently assuming.
+
+### Suite, lint
+
+`backend/.venv/bin/pytest backend/tests -q` -> **`9 failed, 836
+passed, 18 warnings`** (6 pre-existing: 4 E6-held + 2 סימן/חלק
+containment (M20, untouched) + 3 new REDs this session). `836` passed
+unchanged from the post-D-1a baseline. `bash scripts/contract_lint.sh
+2026-08-04-defs-il` -> **PASS 398**. `git diff --name-status HEAD --
+backend/app` -> empty, verified.
