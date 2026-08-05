@@ -133,5 +133,76 @@ follows only if G7 as written turns out to be unachievable for some number.
 - Cross-planner coupling briefed out: plan3's G5 tests prove the PLUMBING
   and must not pin resolver internals plan1 is legitimately changing.
 
+---
+
+## Phase 0b — program-manager clarification (2026-08-05)
+
+Phase 0 intake ACCEPTED by the program manager. Seam **v2.8 append-only**
+confirmed as G6's publication target. Two binding updates recorded below;
+they supersede the Phase-0 ambiguity note above (append-only convention —
+the earlier text stays, read this as its resolution).
+
+### G7 CLARIFIED — binding form (program manager)
+
+G7 as originally written conflated two obligations. Binding reading:
+
+- **(a) ON THIS BRANCH.** The existing suite stays green (baseline-path
+  behavior doesn't regress), and each gate carries its OWN measured
+  before/after on the real corpus. Panel-certified numbers whose recipe
+  involves unmerged panel rules are **not reproducible here even in
+  principle** — this sprint is NOT required to reproduce them, only to
+  avoid touching their baseline-path inputs in unintended ways.
+- **(b) ON THE MERGED TREE, AT MERGE TIME.** No panel-certified number moves
+  except in its INTENDED direction: markers' held RED goes green, DC moves
+  UP, preamble's fallback rows become re-measurable, GA's 2,794 does not
+  drop. **This verification belongs to the program manager's merge
+  checklist, not to this sprint's close.**
+
+**Consequence for scout #4 (agentId `a682047c7fe5507af`):** its deliverable
+becomes a per-number VERIFICATION PROTOCOL the program manager can execute
+at merge — per number: recipe (script + branch + command + denominator,
+traced not inferred), P-R7 signal-agnostic assessment, classification
+(reproducible-on-branch / merged-tree-only / untraceable), **expected
+direction under this sprint's fixes and which gate drives it**, and the
+concrete merge-time step with its pass condition. Anything untraceable
+**escalates to the program manager with the full trace attempt attached**;
+an honest "untraceable, here is how far I got" is a valid outcome, a
+plausible reconstruction presented as traced is not.
+
+The scout stays READ-ONLY (it is not a writer in any worktree, and three
+planner worktrees have live writers). It returns the protocol as finished,
+directly-committable prose; **the manager commits it** into the sprint docs
+as the artifact the program manager executes. This preserves one-writer-per-
+worktree while still producing the committed artifact requested.
+
+### G4 — fourth verified latch case (relayed to plan1)
+
+Oregon **`STATE_OR_T22_C238_S238.300`**: `resolve_unit_path` latches onto
+"under subsection (1) of this section" and returns top-level digit `'1'`
+instead of the structural `(2)`.
+
+Manager note carried into the plan1 brief: this is a **structurally
+different shape** from the SC/TX/ME cases. Those are citation pin-cites (a
+section number followed by a parenthesized token); the Oregon case is an
+ordinary in-prose CROSS-REFERENCE containing no citation-looking section
+number at all. **A discriminator built only around citation shapes will not
+catch it** — plan1 must cover both shapes or state plainly which it does not
+cover and why. Also flagged: this case yields a **non-empty WRONG path**,
+not an empty one (the class the program doc calls worse than the empty-path
+S-R16 class), so G4's before/after must distinguish "empty path" from
+"non-empty wrong path" — collapsing them into one number would hide the
+fix's actual effect.
+
+Scratchpad access to the scoped-inline pass-7 Planner's corpus-scale
+corruption-class scripts (prefix `si_cycle2_scout1_` and later
+scoped-inline-era prefixes) **explicitly authorized by the program manager**,
+as a named exception to P-R9; read-only, scoped to that set.
+
+### Sequencing confirmed (program manager)
+
+Resolver work (G2+G4) lands **before** dependent plumbing (G5). **G3 is
+independent** — if plan2 returns first, its Developer starts immediately
+without waiting on the resolver pair.
+
 </content>
 </invoke>
