@@ -7,6 +7,42 @@ to the director).
 
 ---
 
+## M57 — P-D2 Developer scope fix bounced to QA for numeric-tail RED (2026-08-05)
+
+Developer parked an uncommitted, two-owned-file WIP after the original explicit-
+opt-in scope REDs, the five-file replay, full backend, frontend, and typecheck all
+passed. The exact MN corpus differential nevertheless found a second precision
+defect: 226 retained-term text changes were not strict truncations at a real Subd
+heading because the existing `_TRAILING_MARKER_CHAIN_RE` cleanup stripped genuine
+terminal numeric citation text once the new opt-in Subd boundary exposed it. A
+real `Federal mercury regulations` definition ended in `...and 72.` but the WIP
+emitted `...and`. The WIP remains uncommitted and untouched in isolated devE.
+
+Program-manager ruling: this is a QA bounce; no production commit is admissible
+before a byte-pinned real MN RED. Independent QA owns a regression that requires
+the genuine terminal `72.` and a companion control that the next real Subd heading
+and its definition remain excluded. The subsequent implementation must preserve
+`_TRAILING_MARKER_CHAIN_RE` generally and bypass it only when the chosen candidate
+end is itself an explicit opt-in MN Subd hard-stop: that marker is already
+excluded, so a numeric tail immediately before it is definition content rather
+than leaked next-entry syntax.
+
+The addition classifier is amended from a single relative-qualifier bucket to two
+exhaustive buckets: 33 exact relative-qualifier additions and 18 ordinary tight-
+idiom terms rescued because a real Subd boundary made a formerly unbounded/
+MAX-dropped candidate finite. Every one of the 18 ordinary additions requires
+manual inspection as a genuine definition. Final QA must enumerate all remaining
+non-pure retained-text changes rather than assume the numeric-tail fix exhausts
+them.
+
+Role transition: devE is parked with no commit. Lock changed from
+`codex:developer` to `codex:qa`; the existing independent QA agent
+`/root/markers_panel_manager/qa_final_pd2` resumes on the shared pre-production
+tip to author tests/fixture only. Its existing branch/worktree will be
+fast-forwarded to the committed shared handoff before work begins.
+
+---
+
 ## QA final P-D2 — scope FAIL; MN opt-in required (2026-08-05)
 
 Fresh independent QA checked the expected qa3 head `95a1caa`, then installed

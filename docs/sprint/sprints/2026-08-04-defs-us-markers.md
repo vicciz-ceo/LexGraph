@@ -1,13 +1,13 @@
 ---
 id: "2026-08-04-defs-us-markers"
 status: qa-fail
-current_role: developer
+current_role: qa
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:developer"
-locked_at: "2026-08-05T20:24:01Z"
-last_agent: "/root/markers_panel_manager/qa_final_pd2"
-last_updated: "2026-08-05T20:24:01Z"
+locked_by: "codex:qa"
+locked_at: "2026-08-05T20:33:51Z"
+last_agent: "/root/markers_panel_manager/developer_pd2_scope_fix"
+last_updated: "2026-08-05T20:33:51Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -203,7 +203,18 @@ actual corpus provenance before this cycle can enter independent QA:
    row's pre-P-D2 default behavior and re-authors the MN unit pin to require
    explicit qualifier/comma/Subd opt-ins. Developer must enable those only from
    the US-MN sibling rule; the existing MN persisted live test remains the
-   call-path acceptance pin.
+   call-path acceptance pin. **M57 QA bounce:** the parked two-file Developer
+   WIP satisfies the original scope REDs but its MN differential found 226
+   retained-text changes that were not pure Subd truncations. A real definition
+   ending in the genuine numeric citation fragment `72.` was shortened before a
+   real Subd boundary because `_TRAILING_MARKER_CHAIN_RE` treated that content as
+   leaked syntax. Independent QA must first commit a byte-pinned real MN RED that
+   preserves `72.` plus a control proving the next Subd heading is still excluded.
+   Only then may Developer resume. The general trailing-marker cleanup stays;
+   bypass it only when the selected end is an explicit opt-in MN Subd hard-stop.
+   Final QA must enumerate every remaining non-pure retained-text change. MN's 51
+   additions classify as 33 exact relative-qualifier adds and 18 ordinary
+   tight-idiom terms rescued by a real Subd bound; all 18 require hand inspection.
 3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
    Q3 Part B now names the persisted `Governmental body` value (idiom retained)
    as canonical; the direct stripped value is explicitly an internal
