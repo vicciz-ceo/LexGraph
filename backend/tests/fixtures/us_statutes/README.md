@@ -406,3 +406,32 @@ analysis.
    (`STATE_DC_T50_C14_S50-1401.01`, dup `"BOP"`) as the smallest/cleanest
    real reproduction (2 terms extracted, 1 distinct), per the manager's
    own instruction.
+
+## `f6_cross_reference_duplicate_rows.json` — ruling M-R17, F6 cross-reference duplicate-term fixture (2026-08-05)
+
+1. `STATE_AR_T4_C28_S2_S4-28-208` — AR, full row (5,425-char body), Title 4
+   `§ 4-28-208` (Private foundations — Amendment of articles of
+   incorporation by operation of law). Real row, vendored verbatim (all 24
+   original parquet columns, values unmodified, no trimming) from
+   `us_ar_statutes.parquet`, dataset snapshot
+   `301000fc3465374ee0f23c3c6953a8a861e95cad` (same dataset as every other
+   fixture in this file), retrieved via `pyarrow` directly against the
+   local HF cache and written straight to JSON — no manual retyping, so
+   byte-exactness holds BY CONSTRUCTION. Re-verified anyway with an
+   independent second parquet read (fresh `pyarrow.parquet.read_table` +
+   filter, a separate process from the one that wrote the fixture), diffed
+   field-by-field against the committed JSON: zero mismatched fields,
+   `real_row == fixture_row` `True`.
+
+   Used by `backend/tests/unit/test_definition_links_f6_cross_reference_
+   duplicate_terms.py`. The row's real `text` column itself repeats an
+   entire paragraph verbatim (a genuine scrape artifact, not injected), so
+   the cross-reference idiom `"private foundation" as defined in section
+   509 of the Internal Revenue Code of 1954...` appears TWICE in the real
+   body — F6's cross-reference path (`_cross_reference_candidates` in
+   `rules/us_inline_parenthetical.py`, which has no `seen_terms`-style
+   dedup — M-R14 added that guard to `_apposition_candidates` only) emits
+   it as TWO separate `DefinitionCandidate`s, not one. Picked over the
+   sprint manager's other measured example (`STATE_GA_T38_C3_S38-3-42`,
+   dup `"rule"`) as the smaller of the two real rows (5,425 vs 7,654
+   chars), per the manager's own instruction.
