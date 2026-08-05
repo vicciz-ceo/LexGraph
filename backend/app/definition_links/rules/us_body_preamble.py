@@ -92,8 +92,22 @@ def _ca_wide_window_definitions_preamble(body: str) -> str | None:
     return window[: match.end()] if match is not None else None
 
 
+# Shape 7 (Q-D2, M-R40/M-R49): this exact idiom, verbatim, also appears in
+# Indiana (`STATE_IN_T21_A44_C7_S21-44-7-1` and its versioned sibling) and
+# Mississippi (Q-D2 independently named `STATE_MS_T17_C3_S17-103` as the
+# same idiom) -- the regex itself needs no change, only the jurisdiction
+# list. Manager ruling M-R49: ships as an EXPLICIT list (`US-CA`, `US-IN`,
+# `US-MS`), NOT a blanket `US-*` -- a wildcard would make this rule (still
+# registered FIRST, slot #1) capable of preempting NE's own narrower rule
+# at slot #2 for any Nebraska row that also happens to contain this idiom,
+# an open question this cycle deliberately did not resolve by assumption;
+# the explicit list also claims 3.3x fewer rows than the blanket
+# alternative (352-440 vs 1,173, D3's own measurement).
 register_body_preamble_rule(
-    BodyPreambleRule(jurisdiction_codes=("US-CA",), derive_heading=_ca_wide_window_definitions_preamble)
+    BodyPreambleRule(
+        jurisdiction_codes=("US-CA", "US-IN", "US-MS"),
+        derive_heading=_ca_wide_window_definitions_preamble,
+    )
 )
 
 # --- Rule 2: Nebraska, "In the <Named Code/Act>:" quoted list -------------
