@@ -1404,3 +1404,257 @@ The scoped-inline panel is normalizing to bare labels now and interim-mapping
 `subsection` → `local` until this lands (program-manager approved). **Revert
 condition:** once M-D3 ships, that interim mapping must be removed and the
 panel's rules must stamp bare labels plus a declared `scope_unit_kind`.
+
+
+---
+
+## Seam spec v2.8 (published) — the scope-VALUE seam (sprint
+2026-08-05-defs-core-follow-on-2, gate G6)
+
+Append-only correction, same convention as v2.5/v2.6/v2.7 — every earlier
+version stays verbatim above; where this section disagrees, v2.8 wins.
+
+### 0. Manager's "M9 already live" finding — RE-VERIFIED, HOLDS
+
+Before designing anything, this Planner byte-verified the commissioning
+finding that M9's tuple-valued scope machinery is already live on `main`,
+per the program's own "verify, then build" standing instruction:
+
+- `DefinitionCandidate` (`extract.py:67-78`) types `source_article_number`,
+  `source_chapter`, and `scope_value` as `str | tuple[str, ...] | None` —
+  confirmed by direct read.
+- `matcher._value_matches` (`matcher.py:130-133`) — `actual in expected` for
+  a tuple, `actual == expected` for a scalar — is genuinely CALLED by the
+  `"chapter"` branch (`matcher.py:170`), the `"local"`/`"subsection"`
+  branches (`172`/`176`), and the generic-kind branch (`188`) of `_in_scope`
+  — confirmed by direct read, not by trusting the brief.
+- `_subsection_contains_offset`'s value comparison (`matcher.py:240`,
+  `allowed = expected if isinstance(expected, tuple) else (expected,)`) —
+  confirmed live.
+
+**The finding holds. It does NOT need re-scoping.** The genuinely open gap,
+also confirmed by direct read, is exactly as briefed: `ScopeKindRule.detect:
+Callable[[str], str | None]` (v2.6 §2, M-D2) returns a KIND STRING ONLY, and
+neither `us_profile.determine_scope`/`HebrewProfile.determine_scope`'s
+baseline+registry dispatch nor `pipeline.py`'s Definitions-SECTION stamping
+line (`candidate.source_chapter = art.chapter if scope == "chapter" else
+None`) has any hook for a rule to supply a VALUE — `pipeline.py` always uses
+the CURRENT article's own chapter, never a rule-computed enumeration/range.
+This is corroborated verbatim by the headings panel's own escalation
+(`claude/defs-us-headings-plan5@8cd3829`,
+`test_definition_links_us_heading_variants_cycle5_scope_parse.py`'s module
+docstring): "even a `ScopeKindRule` returning `'local'` would still need
+`pipeline.py` (shared, out of scope) to know how to fill
+`source_article_number` with more than 'this article's own number' for the
+enumerated case."
+
+**One byte-verified correction to the brief's own framing, reported
+honestly:** the value gap is NOT confined to the CHAPTER kind. `determine_
+scope`'s 2-way contract (`"chapter"` / `"law-wide"`) has **no `"local"`
+option at all** — 4 of the 8 target rows (all of KY) need a Definitions-
+SECTION heading to yield `"local"` scope, which is impossible on `main`
+today regardless of the value question. The fix below closes both gaps
+together, since they share one dispatch/consumption mechanism.
+
+### 1. Design choice: extend `ScopeKindRule`, not a new rule kind
+
+The gate text offered either. Extending `ScopeKindRule` is chosen because:
+(a) it was introduced this same program (v2.6) and has **zero real
+consumers to break** — verified via `git grep register_scope_kind_rule`
+across every remote branch's `rules/*.py`, matching only `registry.py`
+itself; no family panel has registered a real instance yet; (b) the value
+question is inseparable from the kind question — a value only ever makes
+sense paired with the kind the SAME rule already decided; a second,
+independently-dispatched rule kind would risk the two disagreeing about
+which rule "won" for a given body. Extending keeps one winner, one source
+of truth, by construction.
+
+### 2. New shapes (`rules/registry.py`)
+
+```python
+@dataclass(frozen=True)
+class ScopeAssignment:
+    kind: str                          # e.g. "chapter", "local", "part",
+                                        # "title" -- any kind a rule wants;
+                                        # provenance/display + dispatch key,
+                                        # same status as ScopeUnit.kind (v2.2).
+    value: str | tuple[str, ...] | None  # bare or enumerated/ranged (M9).
+
+
+@dataclass(frozen=True)
+class ScopeKindRule:
+    jurisdiction_codes: tuple[str, ...]
+    detect: Callable[[str], str | None]           # UNCHANGED (v2.6 M-D2)
+    # NEW (G6): optional companion. Called ONLY on the rule that already
+    # won `detect`'s own dispatch for a given body_text (never a second,
+    # independently-selected rule). Returns ONE assignment (the ordinary
+    # case) or a TUPLE of co-equal assignments (a body that names more
+    # than one simultaneous scope -- see §5). `None` (the default)
+    # preserves today's behavior exactly -- no existing `ScopeKindRule(...)`
+    # construction anywhere supplies this field.
+    detect_value: Callable[[str], "ScopeAssignment | tuple[ScopeAssignment, ...] | None"] | None = None
+```
+
+### 3. New `JurisdictionProfile` method — additive, `determine_scope` untouched
+
+```python
+def determine_scope_assignments(
+    self, body_text: str, *, scope: str, article_number: str, chapter: str | None
+) -> tuple[ScopeAssignment, ...]: ...
+```
+
+Does **not** change `determine_scope`'s own signature, contract, or return
+value in any way — `determine_scope` still returns exactly one kind string,
+unchanged, still the method `extract_definitions_from_section`'s `scope=`
+kwarg consumes for its OWN (unrelated) block-splitting decision. The new
+method answers a DIFFERENT question — "what VALUE(S) should candidates
+extracted under this kind be stamped with" — and is called SEPARATELY, by
+`pipeline.py`, immediately after `determine_scope`.
+
+**Dispatch — replays `determine_scope`'s own baseline-first, first-non-
+None-wins order EXACTLY, so "the winning rule" is always identical between
+the two methods by construction (no drift possible, no second selection
+mechanism to fall out of sync):**
+
+1. Compute the narrow, self-referential default for `scope`:
+   `ScopeAssignment(kind="chapter", value=chapter)` when `scope=="chapter"`;
+   `ScopeAssignment(kind="local", value=article_number)` when
+   `scope=="local"`; `ScopeAssignment(kind=scope, value=None)` for anything
+   else (including `"law-wide"`). **Never a broadening default** (M9's
+   standing rule) — always the article's own identity or nothing.
+2. If baseline's own `determine_scope(body_text)` free function returns
+   `"chapter"` directly (i.e. baseline itself matched, never a registered
+   rule), return the default as a 1-tuple — baseline has no `detect_value`
+   companion, matching today's behavior byte-for-byte.
+3. Otherwise, walk `registry.scope_kind_rules_for(self.code)` in the SAME
+   order `determine_scope` walks it; the FIRST rule whose `detect(body_text)`
+   returns non-`None` is the winner (by construction, the SAME rule
+   `determine_scope` itself picked). If that rule has a `detect_value` and
+   calling it returns non-`None`, return that (wrapped in a 1-tuple if a
+   bare `ScopeAssignment` was returned). Otherwise return the default
+   1-tuple — a rule may win the KIND dispatch and still decline to supply
+   a VALUE; declining is not an error, and never broadens.
+4. Nothing fired at all (kind is baseline's own `"law-wide"` fallback):
+   return the default 1-tuple (`ScopeAssignment(kind="law-wide",
+   value=None)`) — unchanged from today's implicit behavior.
+
+### 4. `pipeline.py` consumption — fan-out, additive
+
+The Definitions-SECTION stamping loop —
+
+```python
+candidate.source_chapter = art.chapter if scope == "chapter" else None
+```
+
+— is replaced by a call to the new method and a fan-out over its result:
+for each extracted candidate, for each returned `ScopeAssignment`, emit ONE
+`DefinitionCandidate` copy stamped with that assignment's `kind` as
+`.scope` and its `value` routed to the matching existing field —
+`source_chapter` for `"chapter"`, `source_article_number` for `"local"`,
+`scope_value` for any other kind (exactly the existing `_in_scope`
+dispatch, v2 M4, unchanged). **The overwhelmingly common case is exactly
+one assignment** — byte-identical, one candidate, to today's stamping.
+More than one assignment (§5) naturally produces more than one
+`DefinitionCandidate` for the same underlying extracted entry.
+
+### 5. Multi-assignment fan-out — TN's "dual scope", no new resolution mechanism
+
+A body may declare TWO OR MORE co-equal scopes for the SAME set of terms
+simultaneously (`STATE_TN_T6_C51_S6-51-101`: "As used in this part and
+Section 6-51-301, unless the context otherwise requires: (1) ..."). One
+`DefinitionCandidate` has exactly one `.scope`, so `detect_value` may
+return a TUPLE of `ScopeAssignment`s instead of one, and §4's fan-out
+produces one `DefinitionCandidate` per assignment — here, one
+`"part"`-scoped copy and one `"local"`-scoped copy of the SAME extracted
+term/definition-text pair. This is deliberately **not a new resolution
+mechanism**: the resulting two `Definition` rows, sharing a term and both
+genuinely covering the same mentions, are exactly the ALREADY-NAMED, ALREADY-
+SHIPPED M10 tie class ("both survive, both get an assertion") — the fan-out
+only changes how the two candidates are PRODUCED, not how they are later
+resolved.
+
+### 6. What this does NOT change
+
+- `_in_scope` / `_value_matches` / `_subsection_contains_offset` — zero
+  edits. The tuple/enumerated-value mechanism they already run is reused
+  as-is (§0).
+- `ScopeKindRule.detect`'s existing signature/contract, and every existing
+  registration/lookup test (`test_definition_links_rule_dispatch_scope_
+  kind.py`) — `detect_value` is additive-only, defaulted to `None`.
+- `determine_scope`'s own signature, return type, or dispatch order.
+- `Definition.scope_value` stays TRANSIENT (v2.5) — this seam adds no
+  persisted column; every new field (`ScopeAssignment`, `detect_value`) is
+  either a `DefinitionCandidate`-only carrier or a rule-registry shape, the
+  same "recompute from source, minimize persisted state" discipline v2.5
+  already established. Re-applied the v2.5 deciding test before writing
+  this: would any re-run/retrieval-from-DB/incremental path need a
+  `ScopeAssignment` to survive a round trip? No — `determine_scope_
+  assignments` is recomputed fresh from `body_text` on every
+  `run_definition_linking` pass, exactly like every other candidate field.
+
+### 7. What family panels may now register
+
+A family panel (starting with the headings panel, on its own later branch)
+may register a `ScopeKindRule` with BOTH `detect` and `detect_value` for its
+own jurisdiction code(s), supplying:
+
+- A bare string value (an ordinary, single-target scope — e.g. a
+  `"local"` kind whose value is just a named cross-reference article
+  number), or
+- An enumerated/ranged tuple value (M9 shape — e.g. AK's 9-member chapter
+  tuple, KY's 2-member article tuple), or
+- A TUPLE of `ScopeAssignment`s (§5) when a body genuinely names more than
+  one co-equal scope in the same declaration.
+
+**Explicitly NOT this sprint's work, and not built here (write-set
+fence):** the actual per-row VALUE-PARSING logic (extracting "13.06"/"13.36"
+from AK's own heading text, or "161.605" from KY's own body text) is
+ordinary rule-module work for the family panel that owns those rows —
+exactly as `chapter_range_scope_bounds`/`enumerated_local_scope_targets`
+(already RED-pinned, heading-text-only, on `claude/defs-us-headings-
+plan5@8cd3829`) anticipated. This seam only guarantees that once a rule
+computes a value, there is now a registrable path for it to reach a real
+`Definition` row and control real containment.
+
+### 8. Row-by-row: the 8 non-expressible U2 rows
+
+Full context: the manager's own `defs-us-headings-log.md` (2026-08-04, "U2
+gap" entry) enumerates **10** `act_id`s naming a scope unit at all. Two —
+NJ `STATE_NJ_T17_C35_S35-23` and UT `STATE_UT_T78A_S78A_5_201` — are, on
+direct read of their real corpus body text (re-fetched this session), NOT
+actually scope-VALUE cases: NJ's body is an ordinary substantive liability
+provision with no `"means"`/definitional structure at all despite its
+heading; UT's body creates a drug-court program and never declares a
+broader scope for the one term its heading names. Both are heading/body-
+classification questions for the headings panel, outside this seam's
+territory. The remaining **8** are this gate's real target:
+
+| # | act_id | Real declared scope (verified) | Kind under this seam | Expressible? |
+|---|---|---|---|---|
+| 1 | `STATE_AK_T13_C13.06_S13.06.050` | "AS 13.06 — AS 13.36" chapter range, 9 real member chapters | `"chapter"`, `value=` 9-tuple | **Yes** — `ScopeAssignment(kind="chapter", value=(9 chapters))`; live-path mechanism proven generically by this sprint's own `test_g6_scope_kind_rule_detect_value_overrides_the_chapter_value_with_an_enumerated_tuple_us` (uses this exact 9-chapter tuple) |
+| 2 | `STATE_CT_T12_C202_S12-35b` | "for sections concerning state liens..." (prose, not enumerated numbers in the heading itself) | `"local"` or a new kind, `value=` tuple (once the panel researches which sections) | **Yes, mechanism-wise** — the seam has a slot for whatever value a future rule computes; VALUE-SOURCING for this specific prose form is headings-panel research, not a seam limitation |
+| 3-6 | KY ×4 (`17.185`, `156.106`, `246.420`, `139.486`) | "Definitions for section" (×3, self-only) / "for section and KRS 161.605" (×1, 2-member enumeration) | `"local"` | **Yes** — proven live-path end to end, real corpus words, in `test_definition_links_g6_scope_value_seam_live.py` (156.106's real enumerated case); the 3 plain "for section" rows need no `detect_value` at all — the DEFAULT (`ScopeAssignment(kind="local", value=article_number)`) is already exactly correct once a rule supplies `detect() -> "local"` |
+| 7 | `STATE_TN_T6_C51_S6-51-101` | "this part AND Section 6-51-301" — TWO co-equal scopes at once | `"part"` + `"local"`, TWO assignments | **Yes** — the §5 multi-assignment fan-out is purpose-built for exactly this row; live-path dispatch proven by `test_g6_scope_kind_rule_can_supply_two_coequal_assignments_tn_dual_scope_shaped` |
+| 8 | `STATE_VA_T8.01_C1_S8.01-2` | "As used in this title" — broader than chapter | new kind `"title"`, `value=` VA's own title number | **Yes, mechanism-wise** — `ScopeAssignment(kind="title", value=...)` routes through the generic `scope_value` branch already live (§0); ALSO needs a `StructuralUnitRule` stamping a matching `ScopeUnit(kind="title", ...)` onto VA articles for containment to resolve — that rule kind already exists (v2.1 M11/v2.6 M-D1), is NOT part of this gate, and is the headings/markers panel's own future registration, same as any other new kind |
+
+Every row is expressible in the sense this gate promises: a registrable
+path exists from a rule-computed scope VALUE to a real `Definition` row
+that controls real containment. Rows 2 and 8 additionally need ordinary
+future rule-module work (value parsing for CT; a `StructuralUnitRule` for
+VA's `"title"` kind) that this sprint does not build — flagged here, not
+silently assumed away.
+
+### 9. What the Developer must implement (from the RED tests, exactly)
+
+1. `ScopeAssignment` dataclass in `rules/registry.py` (§2).
+2. `ScopeKindRule.detect_value`, optional, defaulted `None` (§2).
+3. `JurisdictionProfile.determine_scope_assignments` on both `USProfile`
+   and `HebrewProfile` (and the Protocol in `profiles.py`) (§3).
+4. `pipeline.py`'s Definitions-SECTION stamping loop: call the new method,
+   fan out one `DefinitionCandidate` copy per `ScopeAssignment`, route
+   `.value` to `source_chapter`/`source_article_number`/`scope_value` by
+   `.kind` (§4).
+
+**What must NOT change:** `determine_scope`'s signature/return/dispatch;
+`_in_scope`/`_value_matches`/`_subsection_contains_offset`; any existing
+`ScopeKindRule` test's assertions; `Definition`'s schema (no new column).
