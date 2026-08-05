@@ -5967,3 +5967,116 @@ No `git stash` used. `git config user.email` confirmed the noreply
 address before the first commit. Not pushed, not merged — per the brief,
 the panel manager merges.
 
+
+---
+
+## 2026-08-05 — M28: D-1b ACCEPTED and merged; its real impact is ~470x larger than its own test count, and I measured it
+
+### Boundaries (mechanical, verified BY ME)
+
+Three-dot diff (230 lines) materialized to scratchpad and **read in
+full**. `git diff --name-status origin/claude/defs-il...19955d6` → 2 new
+rule modules + log append, nothing else. Guard diff against
+`backend/tests` + `profiles.py`/`pipeline.py`/`sections.py`/`extract.py`
+→ **empty**. Style gate: 90 and 128 lines. Own venv, own run:
+**`2 failed, 840 passed`**; post-merge re-run by me: identical. Lint PASS
+398. The 2 remaining failures are the core-blocked containment REDs,
+untouched. Merged `--no-ff`; log conflict was two concurrent appends,
+both kept in order.
+
+### What D-1b did well
+
+- Both splitters are **pure block-producers** — neither parses a term nor
+  builds a `DefinitionCandidate`. All term extraction stays in baseline's
+  own frozen `_parse_block`. That is exactly the right seam, and it is
+  why the multi-quote entry inside its own fixture is captured with zero
+  extra code.
+- `_split_marker_less_prose` **fails closed by construction**: it returns
+  `[]` whenever any `:-` line exists, so it can never duplicate or
+  interfere with an already-working section.
+- It **traced the block-interaction by hand instead of leaning on the
+  dedup key**, as instructed — including noticing that on the `::-`
+  fixture BOTH its rules fire, and hand-tracing that the extra whole-body
+  block yields `[]` because its first line has a trailing dash but no
+  quoted term. I re-confirmed that reasoning holds at corpus scale below.
+- It **refused to import from D-1a's `il_adhoc_scope_triggers.py`** and
+  duplicated a small regex instead, rather than coupling to a file it was
+  told not to touch. Correct call under a concurrent-writer constraint.
+
+### M28 — the finding: D-1b's blast radius is far larger than it verified
+
+D-1b's regression scan was **exhaustive over fixtures** (3 hits, all its
+own targets) and it honestly flagged that it had NOT swept the corpus.
+So I swept it. Same probe, run against the pre-D-1b tree and the post-D-1b
+tree — a real A/B, not an inference:
+
+```
+population: definitions-heading articles with NO ':-' line
+                                    PRE-D-1b      POST-D-1b
+definitions-heading articles          4,785         4,785
+  ...of those, with a '::-' line        159           159
+  ...of those, with NO ':-' line        586           586
+candidates produced                       0         1,407
+articles yielding >=1 candidate           0           489
+terms produced                            0         1,519
+```
+
+**Every one of those 1,407 candidates is new capture where the product
+previously returned literally nothing.** The zero is measured on the
+pre-merge tree, not argued from the code.
+
+So a bundle whose acceptance criterion was "4 tests go green" in fact
+moved **489 real corpus articles** from zero-capture to captured. That is
+a much better outcome than the brief asked for — and also a much larger
+behavioural change than anyone had verified. Both halves of that sentence
+matter.
+
+### Precision at corpus scale — clean on my scan, and now a SIZED target for QA
+
+Scanned all 1,519 produced terms:
+
+```
+terms with >6 words        12   (hand-read: ALL genuine long defined terms,
+                                 e.g. 'מוסד פיננסי ישראלי קטן הנותן שירותי
+                                 פיקדון ואשראי בלא ריבית')
+digits/punctuation only     0
+empty                       0
+leading punctuation         0
+```
+
+Hand-read the three biggest producers (55 / 45 / 33 candidates —
+`כללי התקשורת (בזק ושידורים)` art.1, `חוק ההתנתקות והפיצויים לנפגעיה`
+art.2, `תקנות הטיס (אגרות רישום)` art.1): all three are unambiguous
+`::-` definition lists under a real `בכללים אלה -`/`בחוק זה -`/`בתקנות
+אלה -` preamble. Sampled 25 more across the population — every one a
+genuine definition. **No false capture found.**
+
+**This is a sample, not a certification.** I am not claiming 1,407/1,407
+correct; I am claiming a clean scan on mechanical red flags plus ~30
+hand-reads. **QA cycle 4 inherits a SIZED precision target** — a named
+population of 586 articles / 489 producing / 1,519 terms — rather than a
+vague "the splitter might over-fire". That is the useful form of this
+finding.
+
+### Carried into the certification (D-2)
+
+This population is a natural cluster for the certification's C2
+assignment, and it is a good illustration of why D-CERT exists: the
+forward process here shipped a fix sized against 3 fixtures whose true
+reach was 489 articles. Nobody was careless — the fixtures were the
+authorized scope. Only an inverted, whole-population method surfaces the
+difference as a matter of routine rather than because a manager happened
+to probe.
+
+### Honest gaps I am carrying forward (D-1b's own, which I endorse)
+
+1. `_split_marker_less_prose` captures only the FIRST line's
+   `"term" - definition` sentence; a marker-less body with several
+   separate term-sentences yields only the first. Not observed in the
+   targets; M7's parked two-pass design is the general fix.
+2. `_split_double_colon_dash_entries`'s trailing-context-drop divergence
+   from baseline was traced against one fixture, not the 159-article
+   `::-` population. **Now sized** — a concrete QA target.
+3. Only `בפסקה זו` is widened for the embedded-marker `TermClauseRule`;
+   other `(TRIGGER - X)` words were not swept inside definitions-section
+   bodies.
