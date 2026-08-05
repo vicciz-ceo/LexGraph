@@ -1176,3 +1176,40 @@ sufficient — this defect was itself missed by a clean 0/110 QA sample of
 the wrong population — and to correct me if my root cause is wrong, since
 five manager rulings in this program have already been corrected by
 agents who checked instead of complying.
+
+---
+
+## 2026-08-05 — M36: branch split executed; this sprint now owns its own branch and merge path
+
+The panel manager had been merging each accepted certification round into
+`claude/defs-il`, the parent branch at `status: review`. Flagged by the
+manager, ruled by the program manager, executed here. Program principle
+recorded: **a branch at `status: review` merges EXACTLY what was
+reviewed** — growth after review, even test/doc-only with byte-unchanged
+production, breaks the equivalence the review certifies.
+
+```
+claude/defs-il                 3375b01 -> 24c88a6  (--force-with-lease)
+claude/defs-il-certification   e072c4b -> 3375b01  (fast-forward, pushed FIRST)
+```
+
+Verified before any forced push: this branch retains **all 10
+certification commits** — Planner rounds `8fde401` and `e072c4b`, manager
+entries `385a324` (M33), `1bfe413` (M34), `6ed6aad` (M35), plus the merge
+and fix commits. Post-rewind whole-tree diff of `claude/defs-il` against
+the reviewed tip `24c88a6` is **EMPTY** (checked by `git diff --quiet`
+exit status, not by eye). `3375b01` stays reachable here, so the
+in-flight C4 Developer branch `claude/defs-il-cert-dev-ltr` keeps a live
+base — checked before forcing, not after.
+
+**This sprint now has its own branch, its own contract, and its own merge
+slot.** Certification work lands here from now on; nothing further goes
+onto `claude/defs-il`.
+
+**Merge-notes section added to the contract** per program-manager
+direction: whether the 32MB `c1_span_population.jsonl` manifest merges to
+`main`, stays branch-referenced, or moves out-of-band is a decision for
+THIS sprint's merge slot, with the three options and their consequences
+written down — including why the branch-referenced option must first
+resolve the clean-checkout failure it caused when a manager briefly ruled
+it mid-sprint and reversed within the hour.

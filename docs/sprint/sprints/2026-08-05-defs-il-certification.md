@@ -6,7 +6,7 @@ branch: claude/defs-il-certification
 locked_by: null
 locked_at: null
 last_agent: "claude-code:panel-manager-defs-il"
-last_updated: "2026-08-05T13:09:45Z"
+last_updated: "2026-08-05T13:15:41Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -338,6 +338,24 @@ _None._
 ## Completed
 
 _None._
+
+## Merge notes (decide at THIS sprint's own merge slot)
+
+**The 32MB `c1_span_population.jsonl` manifest — decide deliberately,
+do not discover it in a bloated clone.** The C2 backbone test reads it as
+its vendored manifest, which is precisely what keeps that test from
+reading the corpus (program standing constraint), so it cannot simply be
+dropped. Options for the merge reviewer: (a) merge it to `main` as-is —
+simplest, C5 re-run/diff works out of the box, permanent repo weight;
+(b) keep it branch-referenced and have `main` carry only the
+deterministic generator + the committed `.sha256` pin, with C2 skipped or
+regenerating on `main`; (c) store it out-of-band (LFS/artifact) with the
+pin as the integrity check. A panel manager briefly ruled (b) mid-sprint
+on repo-hygiene grounds **and reversed it within the hour** — under (b)
+the C2 test passes where it is written and fails on a clean checkout,
+which is the worst available failure mode. Any reviewer choosing (b) or
+(c) must resolve that first. Flagged now, per program-manager direction,
+so it is a decision rather than a surprise.
 
 ## Context Dump
 
