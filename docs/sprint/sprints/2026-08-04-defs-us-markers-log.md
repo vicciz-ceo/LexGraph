@@ -3028,3 +3028,34 @@ M14(b)/M16.
 **Ledger:** DC's 20 unclassified rows stand as named-unclassified (not
 absorbed). `STATE_WA_T50_C29_S030` closes at G11's landing; our side stands
 ready.
+
+---
+
+## M21 — PROCESS: role agents now report DIRECTLY to this manager (2026-08-05)
+
+Director-ordered harness change. Role agents no longer report through the
+program manager; they report to this panel manager directly. **This manager's
+agentId: `a2ef4b689a844a074`.**
+
+**MANDATORY BOILERPLATE — paste verbatim into EVERY role-agent brief, both new
+spawns and resumes** (a SendMessage to a running agent counts as a resume):
+
+> Before you finish or escalate, deliver your full report via SendMessage with
+> to: 'a2ef4b689a844a074' (raw agent id, exactly as written). Your plain-text
+> final return is NOT a reliable delivery channel — the SendMessage IS your
+> report. If the send fails, say so in your final text.
+
+Escalations use `ESCALATION:` as the first line, to the same id; this manager
+resolves them or escalates onward to the program manager. Peer-manager
+coordination by agentId continues as practised.
+
+**Applied retroactively to the two in-flight Developers** (`aa32a2108c17bc1cc`
+Developer A, `ab1a9e8e6ef53da0a` Developer B), who were briefed before the
+change. The program manager offered to forward their reports as bare pointers
+if they appear undelivered, but that is a degraded channel, so both were
+resumed with the delivery instruction rather than left dependent on it. Their
+scope, write sets and the M20 re-scope are unchanged by this.
+
+**Recorded here because it must survive a context handover** — the previous
+holder of this panel context-exhausted mid-sprint, and a successor who omits
+this boilerplate will silently lose role-agent reports.
