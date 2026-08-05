@@ -1658,3 +1658,320 @@ silently assumed away.
 **What must NOT change:** `determine_scope`'s signature/return/dispatch;
 `_in_scope`/`_value_matches`/`_subsection_contains_offset`; any existing
 `ScopeKindRule` test's assertions; `Definition`'s schema (no new column).
+
+
+---
+
+## Seam spec v2.9 (published) — `TermClauseRule.parse` receives the section's
+real scope (sprint 2026-08-05-defs-core-follow-on-2, gate G10)
+
+Append-only, same convention as v2.5/v2.6/v2.7/v2.8 — every earlier version
+stays verbatim above; where this section disagrees, v2.9 wins.
+
+### 0. The defect, proven from source, not inferred
+
+```
+backend/app/definition_links/rules/registry.py:139-145
+class TermClauseRule:
+    jurisdiction_codes: tuple[str, ...]
+    parse: Callable[[str], list[DefinitionCandidate]]      # <-- block ONLY
+
+backend/app/definition_links/us_profile.py:1450-1452 (USProfile)
+backend/app/definition_links/profiles.py:220-221 (HebrewProfile)
+    for rule in registry.term_clause_rules_for(self.code):
+        candidates.extend(rule.parse(block))                # <-- scope NOT passed
+
+backend/app/definition_links/us_profile.py:1422-1423
+    def extract_definitions_from_section(self, text, *, scope, ...)
+                                                             # <-- scope EXISTS
+                                                             #     here, two
+                                                             #     lines above
+                                                             #     baseline's
+                                                             #     OWN correct
+                                                             #     use of it:
+                                                             #     _leading_
+                                                             #     quote_
+                                                             #     candidate(
+                                                             #     block,
+                                                             #     scope=scope)
+```
+
+**`TermClauseRule.parse` receives only the block string.** The dispatching
+method HAS the section's determined scope (`determine_scope`'s own output,
+computed by `pipeline.py` and threaded in as the `scope` kwarg) and drops it
+two lines below baseline's own correct use of the identical value. This is
+program-wide, not one panel's bug: `registry.py` is the SAME shared module
+`profiles.py` (`HebrewProfile`) and `us_profile.py` (`USProfile`) both
+dispatch through, with a byte-identical shape at both call sites — every
+family panel shipping a `TermClauseRule` (multiterm, PR, headings, preamble)
+inherits the same blindness, for both jurisdictions.
+
+**Independently found and escalated by the multiterm family panel**
+(`claude/defs-us-multiterm`, QA ruling M-R15,
+`docs/sprint/sprints/2026-08-04-defs-us-multiterm-log.md`, "findings 1 and 2
+are a SEAM defect, NOT our module's bug"): their real, working
+`TermClauseRule` module (`rules/us_multiterm_shared_clause.py::
+_leading_multiterm_candidate`) is forced to hardcode `scope="law-wide"`
+because the seam offers no alternative — confirmed by this Planner via direct
+read of that branch's file.
+
+**Confirmed live, on a real row, this session — not merely re-cited.**
+`STATE_IN_T4_A3_C9_S4-3-9-1` (Ind. Code Section 4-3-9-1, jurisdiction US-IN,
+`us_in_statutes.parquet`, chapter `"9"`), byte-verified this session via a
+direct `pyarrow.parquet.read_table` read. Body opens "As used in this
+chapter:" — `determine_scope` (unchanged, baseline `"in this chapter"`
+trigger) returns `"chapter"`, verified by direct call. Entry `(3)`: `"Title"
+and "interest in land" means both legal and equitable title and interest in
+land.` — a real, working `TermClauseRule` shaped exactly like the multiterm
+panel's own `_leading_multiterm_candidate` recognizes this as a 2-term
+leading list and is forced to stamp `scope="law-wide"`. Two independently
+verified, live-path consequences (`backend/tests/unit/
+test_definition_links_g10_term_clause_scope_threading.py::
+test_g10_today_dispatcher_manufactures_a_cross_chapter_false_positive_real_in_row`,
+GREEN today, reproduces both via `matcher.link_articles_to_definitions` —
+production code, not a shortcut):
+
+1. **Broadening false positive.** The `"law-wide"` stamp makes the
+   `interest in land`/`Title` definition wrongly govern EVERY article in the
+   entire Indiana Code Title 4, not just chapter 9 — verified: a synthetic
+   downstream article in chapter `"12"` mentioning "interest in land" gets a
+   wrongly-created `ArticleUsesTermEdge`.
+2. **Silent wrong winner, same row, in-chapter.** Per the already-published
+   "narrowest governs" ranking (v2.2 §3), `"chapter"` (depth 1) beats
+   `"law-wide"` (depth 0) outright — no tie, nothing to signal a problem.
+   Baseline's OWN degenerate single-term candidate for this exact block
+   (`_leading_quote_candidate` only ever recovers the FIRST quoted span —
+   `terms=("Title",)`, `definition_text` starting `and "interest in land"
+   means...`) is correctly `"chapter"`-scoped (baseline gets `scope` right)
+   and therefore silently GOVERNS every in-chapter mention, while the
+   correct, richer 2-term candidate — mis-scoped `"law-wide"` by this defect
+   — loses outright instead of tying. This matches seam v2.1/M9's own
+   standing principle verbatim: *"a silent broadening fallback is a
+   false-positive generator, never an acceptable default."*
+
+**Why this is dormant on `main` today, not already visibly broken (P-R10):**
+verified via `grep -rn register_term_clause_rule
+backend/app/definition_links/rules/*.py` (excluding `registry.py` itself) —
+**zero** rule modules registered on this branch. `term_clause_rules_for`
+returns `[]` for every code, so the buggy dispatch loop body never executes
+in production here; the defect is fully latent until the FIRST family
+panel's `TermClauseRule` merges — exactly why the panel manager named this
+"unblocks correctness for FOUR panels."
+
+### 1. Design choice: an additive companion field, mirroring v2.8's own
+convention — not a signature break, not a context reused wholesale from G5
+
+Two constraints, both binding (panel manager's brief): existing rule modules
+(including the real, currently-unmerged multiterm/PR/headings/preamble
+branches, all constructed as `TermClauseRule(jurisdiction_codes=...,
+parse=<fn>)`, one positional-equivalent argument) must keep working
+UNCHANGED; the fix must compose with v2.8 and G5 rather than invent a THIRD
+convention.
+
+**Chosen: the exact "additive companion callable, dispatched instead of the
+original when present, defaulted `None`" shape v2.8 §2 already established
+for `ScopeKindRule.detect_value` alongside the untouched `detect`.** Verified
+before choosing (re-applying v2.8 §1's own diligence, not skipping it): `git
+grep -n 'TermClauseRule(' -- 'backend/app/definition_links/rules/*.py'`
+across this repo returns only `registry.py` itself on this branch — zero real
+consumers here to break by construction, though real consumers DO exist on
+other unmerged branches (multiterm), which is exactly why the OLD field must
+keep working, not merely why breaking it would be theoretically safe.
+
+**Why not a bare second positional argument on `parse` itself** (i.e.
+`Callable[[str, str], list[DefinitionCandidate]]`, always two args): breaks
+every existing single-arg `parse=lambda block: ...` construction outright
+(`TypeError: <lambda>() takes 1 positional argument but 2 were given`) —
+fails the hard backward-compatibility requirement.
+
+**Why not reuse `RuleContext` wholesale** (G5's own context, `ScopeTriggerRule.
+extract`'s second argument): `RuleContext` carries `article_number`, `chapter`,
+`unit_path`, and (once G5 lands) a bound `resolve_unit_path` — fields
+answering "where is this article positioned," which `extract_definitions_
+from_section` does not hold at its own `TermClauseRule` dispatch site (it
+receives only `text` and the pre-computed `scope` kwarg; no `article_number`/
+`chapter`/offset is threaded to it at all — verified by direct read of its own
+signature, `us_profile.py:1422-1423`). Handing a `TermClauseRule` a
+`RuleContext` promising fields the dispatcher cannot actually populate would
+either silently lie (fabricate `article_number=""`) or reopen a second,
+independent design question (should `extract_definitions_from_section`
+itself grow those parameters?) that is out of this gate's write-set and not
+needed to close the confirmed defect. **This seam only threads what the
+dispatcher ALREADY holds** — exactly the gate's own framing ("the scope the
+dispatcher already holds").
+
+**Why a NEW one-field context object rather than a bare `str`** — composing
+with, not duplicating, G5's convention: `RuleContext`/`StructuralContext`
+(M5/M11) both exist specifically so a future field is additive, never a
+second signature break. The same reasoning applies here even though today
+there is exactly one field to carry; a bare `Callable[[str, str], ...]`
+would face the identical "how do we add a second thing later" problem
+`RuleContext` was invented to avoid. This is the sense in which v2.9
+composes with G5: same PATTERN (a context object per dispatched-with-extra-
+data rule kind), applied to a DIFFERENT, narrower dispatch site — not the
+same object reused where its fields don't fit.
+
+### 2. New shapes (`rules/registry.py`)
+
+```python
+@dataclass(frozen=True)
+class TermClauseContext:
+    """Passed to a `TermClauseRule.parse_scoped` call (G10). Carries the
+    section-level scope KIND the dispatcher already computed via
+    `determine_scope` before ever reaching `extract_definitions_from_
+    section` -- the exact value baseline's own `_leading_quote_candidate(
+    block, scope=scope)` already receives at the same call site. One field
+    today, deliberately minimal: `extract_definitions_from_section` itself
+    holds nothing more at its own TermClauseRule dispatch point (no
+    chapter value, no article number -- v2.8/G6 threads those separately,
+    for the Definitions-SECTION VALUE question, an independent seam; see
+    §5 below for exactly how the two compose). A frozen dataclass rather
+    than a bare `str` so a future field never forces a second signature
+    break -- the same reasoning that produced RuleContext/StructuralContext
+    (M5/M11)."""
+
+    scope: str
+
+
+@dataclass(frozen=True)
+class TermClauseRule:
+    """Union kind: every matching rule's candidates are kept for a given
+    entry block."""
+
+    jurisdiction_codes: tuple[str, ...]
+    parse: Callable[[str], list[DefinitionCandidate]]              # UNCHANGED, still required
+    # NEW (G10). Optional companion, defaulted None -- same "additive
+    # companion callable" convention v2.8 established for ScopeKindRule.
+    # detect_value alongside the unchanged detect. Dispatched INSTEAD OF
+    # `parse` when present (never both for the same rule+block -- one
+    # winner, no double-counting). `None` (the default) preserves today's
+    # exact call shape, `parse(block)`, so every existing
+    # `TermClauseRule(...)` construction -- across every family-panel
+    # branch shipping BEFORE this gate -- keeps working completely
+    # untouched, proven (not merely asserted) by this Planner's own
+    # backward-compat tests (§4 below).
+    parse_scoped: Callable[[str, TermClauseContext], list[DefinitionCandidate]] | None = None
+```
+
+`parse` stays REQUIRED, deliberately, even for a rule module that only ever
+wants `parse_scoped` (it supplies a trivial `parse=lambda _: []` stub, never
+invoked once `parse_scoped` is present) — the same ergonomic cost v2.8
+accepted for `ScopeKindRule.detect` staying required alongside `detect_value`.
+Chosen for consistency and because it needs zero extra validation logic (no
+"at least one of the two must be given" runtime check); a future gate is free
+to revisit this once real family-panel modules exist that would benefit from
+`parse` becoming optional too.
+
+### 3. Consumption — both dispatch sites, mirrored
+
+```python
+# us_profile.py:1450-1452 (USProfile.extract_definitions_from_section)
+# profiles.py:220-221 (HebrewProfile.extract_definitions_from_section)
+for rule in registry.term_clause_rules_for(self.code):
+    if rule.parse_scoped is not None:
+        candidates.extend(rule.parse_scoped(block, registry.TermClauseContext(scope=scope)))
+    else:
+        candidates.extend(rule.parse(block))
+```
+
+Both sites already hold `scope` as a local variable at this exact point
+(the method's own `*, scope: str` kwarg) — this is purely additive plumbing,
+zero new parameters threaded INTO `extract_definitions_from_section` itself,
+zero change to its own signature, zero change to `determine_scope`. Mirrored
+identically in both profiles so the fix is symmetric across jurisdictions —
+`registry.py` is shared, so a fix landing in only one dispatch site would
+leave Hebrew's own (currently dormant, no IL `TermClauseRule` registered
+today) exposure unfixed while claiming the gate closed.
+
+### 4. Backward compatibility — proven, not asserted
+
+`backend/tests/unit/test_definition_links_g10_term_clause_scope_threading.py`:
+`test_g10_backward_compat_old_style_single_arg_parse_still_dispatches_
+unchanged_us`/`_il` construct a `TermClauseRule` the OLD way (`parse=<fn>`,
+no `parse_scoped` at all) and assert dispatch is unaffected — GREEN both
+BEFORE and AFTER the Developer's change, since neither test touches the new
+field. Independently reinforced by the pre-existing (written before this
+gate existed) `test_definition_links_rule_dispatch.py::
+test_term_clause_rule_dispatch_changes_the_answer_us`/`_il`, which construct
+a `TermClauseRule` the same old way and must also keep passing unchanged.
+
+### 5. How this composes with v2.8 (G6, the scope-VALUE seam) — two
+independent seams, same section, no overlap
+
+**Layering, stated precisely so a future reader never conflates the two:**
+v2.8's `determine_scope_assignments`/`ScopeAssignment` fan-out answers "what
+VALUE(S) should THIS SECTION's candidates be stamped with" (chapter number,
+enumerated/ranged tuple, TN's dual co-equal scopes) and is consumed by
+`pipeline.py`, AFTER `extract_definitions_from_section` returns its full
+candidate list, via the `.source_chapter`/`.source_article_number`/
+`.scope_value` value-routing v2.8 §4 describes. v2.9 answers a narrower,
+strictly earlier question — "does a `TermClauseRule`-produced candidate even
+carry the right `.scope` KIND string (`"chapter"` vs `"law-wide"`) in the
+first place, or is it hardcoded wrong before pipeline.py ever sees it." A
+`TermClauseRule` adopting `parse_scoped` gets the section's scope KIND
+directly (this seam); the concrete VALUE for that kind (which chapter, which
+enumerated set) is still v2.8's own, separate remit, applied afterward by
+`pipeline.py`, unmodified by this gate. **Neither seam needs the other to
+close its own confirmed defect**: v2.9 alone, with NO v2.8 work at all,
+already fixes the real IN row end-to-end (`source_chapter` is filled
+correctly today, unconditionally, by pipeline.py's EXISTING, un-touched
+`candidate.source_chapter = art.chapter if scope == "chapter" else None`
+line — only `.scope` itself was ever wrong) — verified directly, this
+session, by applying this design as a scratch/local edit (never committed)
+and re-running the full suite: **801 passed / 17 failed** (identical 17
+pre-existing failures for OTHER, still-unimplemented gates; zero new
+failures; +5 vs. today's 796/17 baseline, exactly this gate's 5 new tests
+all green). v2.8, once it lands separately, extends what a rule CAN declare
+(an enumerated/ranged value, a second co-equal scope) without needing
+anything from v2.9 to do so for baseline-produced candidates — but a
+`TermClauseRule`-produced candidate specifically needed v2.9's own kind-level
+fix regardless, since v2.8's fan-out re-stamps `.scope` from its OWN computed
+`ScopeAssignment.kind`, which for the common single-assignment case is
+identical in VALUE to what `determine_scope` already returned — i.e., once
+v2.8 lands too, its fan-out becomes redundant-but-harmless for a
+`parse_scoped`-adopting rule's candidates (both agree on `"chapter"`), and
+remains the ONLY fix for a rule that never adopts `parse_scoped` at all (an
+old-style `parse=`-only rule still hardcoding something) IF AND ONLY IF v2.8's
+fan-out is implemented to overwrite `.scope` unconditionally for every
+extracted candidate — a design detail of v2.8's OWN implementation this
+Planner did not build and does not assume; flagged here, not silently relied
+upon, so G6's own Developer/QA can confirm or correct it independently.
+
+### 6. What this does NOT change
+
+- `determine_scope`'s signature, return type, or dispatch order (unchanged
+  free function and profile method, still exactly the `"chapter"`/
+  `"law-wide"` 2-way contract).
+- `extract_definitions_from_section`'s own signature (`text`, `*, scope,
+  heading_was_derived=False`) — zero new parameters.
+- `_leading_quote_candidate`/baseline's own per-block parsing — untouched;
+  it already receives `scope` correctly and is not part of this defect.
+- `EntrySplitterRule`/`HeadingRule`/`BodyPreambleRule`/`ScopeTriggerRule`/
+  `StructuralUnitRule`/`CitationRule`/`ScopeKindRule` — no other rule kind's
+  shape, dispatch order, or consumption contract changes.
+- `Definition`'s schema — no new column, no migration (this seam's only new
+  data lives on the transient `TermClauseContext`, never persisted, same
+  "recompute from source" discipline v2.5 established for `scope_value`).
+- Any existing `TermClauseRule` test's assertions, on ANY branch — proven in
+  §4, not merely claimed.
+
+### 7. What the Developer must implement (from the RED tests, exactly)
+
+1. `TermClauseContext` dataclass in `rules/registry.py` (§2).
+2. `TermClauseRule.parse_scoped`, optional, defaulted `None` (§2).
+3. `us_profile.py`'s `USProfile.extract_definitions_from_section` dispatch
+   loop (currently `us_profile.py:1450-1452`) — §3's `if rule.parse_scoped
+   is not None: ... else: ...` shape.
+4. `profiles.py`'s `HebrewProfile.extract_definitions_from_section` dispatch
+   loop (currently `profiles.py:220-221`) — the SAME shape, mirrored.
+
+**What must NOT change:** `determine_scope`; `extract_definitions_from_
+section`'s own signature; `_leading_quote_candidate`; any other rule kind;
+`Definition`'s schema; any existing `TermClauseRule`/`ScopeKindRule`/
+`RuleContext` test's assertions. RED tests: `backend/tests/unit/
+test_definition_links_g10_term_clause_scope_threading.py` — 2 REDs
+(`test_g10_term_clause_rule_scope_threading_eliminates_cross_chapter_false_
+positive_live_us`, `test_g10_term_clause_rule_scope_threading_live_il`), both
+currently failing with `TypeError: TermClauseRule.__init__() got an
+unexpected keyword argument 'parse_scoped'`; 3 GREEN-today anchors (the
+confirmed-bug pin and two backward-compat proofs) must stay green throughout.
