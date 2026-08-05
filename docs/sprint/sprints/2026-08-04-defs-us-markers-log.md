@@ -3199,3 +3199,80 @@ reporting channel, and to STOP if the repo contradicts the brief.
 - **NE extraction** — still blocked until preamble merges.
 - **S-R17 boilerplate-label helper** — not yet built; coordinate with
   scoped-inline when it is.
+
+---
+
+## M24 — RULING U-R14: Developer C NOT merged; the 13 guard failures are not proven benign (2026-08-05)
+
+**Developer C delivered real, well-verified wins** (branch
+`claude/defs-us-markers-devC` @ `9893739`, NOT merged):
+- NJ 99.7→3.8%, MI 38.8→5.8%, ND 99.7→13.4%, NY 79.9→10.8%, OK 94.4→6.8%
+- No-regression holds moved UP: MI 1,763→2,711, NY 298→1,319
+- The seven pre-existing states VA/WA/FED/UT/TX/SC/AZ **byte-identical**,
+  verified by full candidate-dump diff rather than aggregate counts — the right
+  standard, and it is the reason this work is worth salvaging.
+- It correctly refused to decide the load-bearing question unilaterally, and it
+  verified this brief against the committed log first (the M22 anchoring fix
+  worked as intended).
+
+**But its central characterisation does not survive my own spot-check.**
+Developer C reported the 13 newly-red `c5guard` tests as *additive duplication*
+— previously-swallowed sub-definitions now also captured separately, with no
+existing content corrupted — and cited NJ Merchant/Financing agency. I checked
+a failure directly rather than accepting the generalisation:
+
+`test_us_markers_c5guard_nj.py:68` — expected 11 terms, got 12. The pinned
+terms are all unchanged. The single extra term is **`'facility'`** (lowercase),
+appearing alongside the existing **`'Water supply facility'`**.
+
+That is not a swallowed sub-definition surfacing. A lowercase one-word fragment
+sitting beside the full capitalised term is the signature of a **spurious
+extraction — a FALSE POSITIVE**, which is a precision regression, not benign
+duplication. Developer C's honest report was right about the mechanism it
+investigated (NJ Merchant genuinely does contain swallowed sub-definitions) and
+wrong to generalise from it to all 13.
+
+**RULING U-R14 — devC is HELD UNMERGED.** Merging would ship a measured
+precision regression into the sprint branch behind a story that it is benign.
+The recall wins do not buy that; U-R1 says captured means captured CLEANLY, and
+P-R2 says a zero-miss/false-positive conflict escalates with real rows rather
+than being silently resolved.
+
+**Required before devC merges — QA cycle 2, top priority.** Classify ALL 13
+guard failures and every extra term they surface into exactly two buckets:
+1. **Genuine previously-swallowed sub-definition** → route to core-2 **G8**;
+   this is the different-term containment face of the same defect (G8 = same-term
+   dedup collision where baseline wins; this = different-term containment where
+   BOTH persist). Same root: baseline emits a swallow blob containing other
+   definitions. Strong hypothesis, routed with evidence, NOT settled.
+2. **Spurious fragment** (e.g. NJ `'facility'`) → **OUR precision defect**, must
+   be fixed before merge.
+The 13 guards STAY RED until classified. They are not to be re-authored: unlike
+U-R12/U-R13, these tests are doing exactly their job — Planner A wrote them
+anticipating this widening and they caught something real.
+
+**Two further defects from Developer C, both real, both needing a RED first:**
+- OK `STATE_OK_T68_S68-701` term `gallon` → definition_text `"one"` (3 chars):
+  the engine reads the parenthesised `(1)` in `means one (1) United States
+  standard gallon` as a next-entry marker and truncates. Genuine, single
+  instance found.
+- NJ `STATE_NJ_T58_C22_S22-3`: within-run duplicate `Cost` entries, 1,267 vs
+  1,257 chars, differing only by a leading `shall mean` — same union-of-blocks
+  mechanism.
+
+Developer C's before/after JSON dumps are preserved at
+`scratchpad/devC-before/`, `devC-after/`, sweep at `markers-devC-sweep.py`,
+for independent re-verification.
+
+### HANDOVER STATE (this manager is approaching context exhaustion)
+
+**Sprint branch `claude/defs-us-markers` @ this commit: `15 failed, 877
+passed`.** devA + devB merged and verified; devC held per U-R14.
+
+Next actions, in order: (1) QA cycle 2 with the M23 queue **plus** the U-R14
+13-guard classification as item 0; (2) merge devC only after the spurious-
+fragment class is fixed; (3) the 3 G11-deferred REDs re-size after core-2's G11
+measurement — note Developer B found NM and NV higher-ed are ALSO reachable by
+registration, so G11 and widening are independent non-exclusive paths.
+All standing rulings U-R1/U-R10/U-R11/U-R12/U-R13/U-R14, ledger G3-HEAL
+(two-layer), and the M21 anchored-brief requirement remain binding.
