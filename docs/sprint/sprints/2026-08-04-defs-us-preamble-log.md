@@ -4656,3 +4656,135 @@ Planner: **Sonnet / high** — reversing an exclusion under a director ruling
 while designing root-cause REDs whose predicate must improve precision AND
 recall together is sustained judgment, not transcription. Per P-R6 Planner is
 always Sonnet high. **Haiku considered: no.** `model=inherit` not used.
+
+---
+
+## 2026-08-05 — Manager (phase-2): succession, re-verification, and a contract contradiction
+
+### M-R70 — DELIVERY SECTION (committed artifact; supersedes M-R56's id)
+
+**This manager's agentId: `ac822b0047bde31cb`.**
+
+The predecessor manager (`a3adfb6a9000b266e`, M-R56) context-exhausted and is
+**dead**. Any brief still naming that id would deliver into a context nobody
+reads. It is **superseded** for all spawns from this point.
+
+**Every role-agent brief — new spawns AND resumes — carries this verbatim:**
+
+> Before you finish or escalate, deliver your full report via SendMessage
+> with to: 'ac822b0047bde31cb' (raw agent id, exactly as written). Your
+> plain-text final return is NOT a reliable delivery channel — the
+> SendMessage IS your report. If the send fails, say so in your final text.
+> This id is committed at `docs/sprint/sprints/2026-08-04-defs-us-preamble-log.md`
+> (M-R70). **If the id in this brief and the id committed there disagree, do
+> NOT send — report the discrepancy instead.**
+
+The committed id is the authority; a briefed id is a copy and may be stale.
+
+### M-R71 — Inherited claims RE-VERIFIED with positive controls (program law)
+
+I did not build on the handoff's word. Checked directly at `8ad3052`:
+
+| Inherited claim | Control run | Verdict |
+|---|---|---|
+| Branch parked at `8ad3052`, pushed, tree clean | `git status --porcelain` empty; `git rev-parse HEAD origin/…` identical | **TRUE** |
+| Suite 9 failed / 847 passed | full `pytest backend/tests -q` re-run | **TRUE** — 9 failed, 847 passed |
+| The 9 = 3 markers deps + 6 cycle-8 REDs | read the failure list | **TRUE** — 3 NE/SD unquoted + 6 in `test_us_body_preamble_defining_verb_narrowing_red.py` |
+| `us_body_preamble.py` UNCHANGED — no bad trade shipped | `git log -- <file>` last touched at `9e30ec5` (cycle-7 Dev) | **TRUE** |
+| M-R53 comment fix still outstanding | grepped the file | **TRUE** — false claim live at two sites (lines ~218 and ~345) |
+| File is 386 lines (>300 gate) | `wc -l` | **TRUE** — 386 |
+| noreply git identity in worktree | `git config user.email` | **TRUE** |
+
+Handoff is accurate on every checked point. What it did **not** catch is M-R72.
+
+### M-R72 — DECISIVE: two cycle-8 RED negatives are REJECTED BY CONSTRUCTION under P-FP
+
+The handoff framed the `has the meaning` exclusion as living in the *proposed*
+narrowing pattern, to be reversed by widening the verb vocabulary. I read the
+actual assertions. It is worse than that: **two of the six cycle-8 RED
+negatives assert, at definition granularity, that genuine forwarding
+definitions must NOT be captured.**
+
+- `test_usc_t22_c102_s9528_pure_forwarding_pointers_not_captured` asserts
+  `created_definitions == []` for the **exact row P-FP names as genuine**
+  (`foreign person`, `Syria`). Its own docstring states the intent plainly:
+  *"`has the meaning given` is deliberately NOT in this narrowing's verb
+  vocabulary … so this row must be excluded."*
+- `test_state_de_employer_forwarding_pointer_not_captured` asserts
+  `created_definitions == []` for `"Employer" has the meaning given such term…`.
+
+P-FP is verbatim: forwarding / "has the meaning given in" definitions are
+GENUINE per D-MT-E1, and a defining-verb pattern that excludes forwarding
+idioms **"contradicts a standing director ruling and is rejected by
+construction."** These two tests ARE that pattern, written as a contract.
+
+**Making them green would ship precisely what the program forbids.** They must
+be **re-authored to assert capture**, not satisfied. M-R64's "the Planner's 11
+tests stand as authored" is **superseded on exactly these two** by P-FP, which
+post-dates it.
+
+**Two further negatives are SUSPECT, not yet ruled** — both assert
+definition-granularity emptiness on rows whose own docstrings concede real
+definitional content:
+
+- `test_usc_t10_c303_s4093_eligibility_criteria_list_not_captured` — docstring:
+  *"the row's one real definition elsewhere is 100% forwarding."* Under P-FP
+  that definition is GENUINE, so `created_definitions == []` may be the wrong
+  contract even though the *triggering clause* is genuinely not a preamble.
+- `test_usc_t42_c7_s679c_circular_is_an_individual_not_captured` — extracts
+  `early approved tribe, organi…`; whether that is genuine or circular garbage
+  is a **judgment against the real body**, not a naming question.
+
+Only `test_usc_t35_c4_s41_…` (`'SEC. 804. DEFINITION.'`) is confirmed true
+definition-level garbage (M-R63, and my own read agrees).
+
+**This is the recognition/definition granularity split doing real work**: a
+row can be mis-*recognized* (its trigger clause is not a preamble) while its
+*extracted definitions* are genuine. P-FP says only the second is an FP. Four
+of these six negatives were authored against the first.
+
+### M-R73 — Production `_B1_FORWARDING_PHRASES` is in the same conflict — MEASURE, do not assume
+
+Six of the eight live entries in `_B1_FORWARDING_PHRASES`
+(`us_body_preamble.py:308`) are **forwarding idioms**, i.e. genuine pointer
+definitions per D-MT-E1: `shall be as defined in`, `shall have the same
+meaning as`, `has the same meaning as`, `has the meaning provided in`,
+`has the meaning found in`, `has the meaning stated in`. Two are genuine
+hazards and **stay**: `shall not include` (exclusion-only clause),
+`does not impair` (construction clause).
+
+So the exclusion P-FP rejects is not only in the unshipped narrowing — a
+version of it is **already live in shipped production code**, suppressing
+recognition of rows whose trigger clause forwards.
+
+**I am NOT asserting this drops genuine rows in practice.** Two reasons for
+caution, both from the file itself: the list is applied only to the *gap/filler*
+text between trigger and colon/quote, and the production comment concedes that
+on the MS row the filter is redundant ("excluded on window grounds alone, the
+forwarding-phrase filter is the second line of defense"). Also note
+`has the meaning **given**` — the canonical P-FP idiom — **is not in the list
+at all**. Whether the filter is load-bearing on genuine rows is an open
+measurement, and per the program's own lesson ("a green suite is not evidence")
+it gets measured on the real corpus before anything is removed.
+
+**Consequence for D-MT-E1's second half**: capturing a forwarding definition
+requires capturing the **reference edge** to the target law/section. That is
+core-v2 seam plumbing, not this sprint's file. We capture now and name the edge
+as a core dependency — we do **not** silently ship half of D-MT-E1.
+
+### M-R74 — Plan and model/effort for this pass
+
+Sequence unchanged (one writer at a time, M-R8): **Planner → Developer → QA**.
+
+- **Planner — Sonnet / high.** Re-adjudicating four test contracts against real
+  corpus bodies under a director ruling, then designing root-cause REDs whose
+  predicate must improve precision AND recall together. Sustained judgment.
+  Per P-R6 Planner is always Sonnet high. **Haiku considered: no** — this pass
+  turns on reading real statutory text and applying a ruling to it, which is
+  exactly where a cheap model produces confident wrong adjudications.
+  `model=inherit` not used.
+- **Developer — Sonnet / medium** (planned): option-(c) fixes + the BLOCKING
+  M-R53 comment fix + the 386→300 split. Mechanical against a written plan.
+- **QA — Sonnet / high** (planned): the definition-granularity FP re-measure,
+  the certification gate; row-level and definition-level published side by side
+  once (M-R68 directive 2).
