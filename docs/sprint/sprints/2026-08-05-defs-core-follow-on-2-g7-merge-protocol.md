@@ -335,14 +335,33 @@ multi-paragraph) does not exhibit the sibling's total-wipe mode, but the
 false-truncation mode applies directly: a genuine last entry whose text
 contains such a line would be cut there.
 
-**Pass condition:** over the main function's own last-entry population
-(the 27,051 / 24.62% denominator), measure how many truncations remove
-SUBSTANTIVE definition text rather than a genuine trailing-notes block, with
-per-marker breakdown (specific `"Pub. L."`/`"Editorial Notes"`/`"Statutory
-Notes"`/`"References in Text"`/`"Congressional Findings"` vs generic
-`"Amendments"`/`"Source:"`/`"History:"`/`"Cited."`) and a seeded hand-judged
-sample. **If the false-truncation rate is material, G3-main's marker set must
-be NARROWED BEFORE MERGE** — this does not route to a follow-on.
+**MEASURED 2026-08-05 — RESULT: BLOCKS MERGE. Gate G13 opened.**
+
+**28 of 6,647 changed rows are COMPLETE DROPS**, all 28 checked exhaustively,
+**28/28 false truncations** destroying real definitions across **11 states**.
+Since the last entry was never truncated before G3-main, **all 28 are damage
+this sprint introduced** — a MISS under the absolute zero-miss bar.
+
+Overall precision is otherwise fine (seed 20260805, n=60: **58/60 genuine**).
+
+**The generic/specific hypothesis was WRONG.** Driver is `'Pub. L.'`
+(**21/28**) plus act-names containing `'Amendments'` (8/28) — a genuine
+definition citing an act's Public Law number INLINE, sharing a line with real
+content, so line-granularity wipes the whole entry.
+`'Cited.'`/`'Editorial Notes'`/`'Statutory Notes'`/`'References in Text'`/
+`'Congressional Findings'`: **0/28**. `'History:'`/`'Source:'` never a sole
+trigger.
+
+**Pass condition (G13):** complete drops → **ZERO**, 58/60-genuine behavior
+preserved, committed FED RED (`USC_T5_C34_S3401`, 493 chars) still green.
+Fix is TARGETED (`'Pub. L.'`/`'Amendments'` must start their own line or a
+standalone parenthetical) — **broad marker-set narrowing REJECTED**, as it
+would repeat the D-INCLUDES mistake.
+
+**Certified-number caveat recorded:** G3's **27,051 / 24.62%** is **not
+independently reproducible** (its script was never committed; re-measurement
+gives 24,952 / 26.64%). Directionally sound, not byte-verifiable — same gap
+as the preamble harnesses above.
 
 ## G8 — MERGE BLOCKER CHECK plus a named limitation (added 2026-08-05)
 

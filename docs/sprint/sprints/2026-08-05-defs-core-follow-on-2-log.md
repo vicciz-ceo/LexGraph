@@ -1706,6 +1706,99 @@ without the answer is not.
 
 ---
 
+## Phase 12 — G3-main false-trigger check: **MERGE BLOCKED**, gate G13 opened
+
+The Phase-11b pre-merge gate returned. **Ruling: this BLOCKS MERGE.**
+
+### The finding
+
+- **28 of 6,647 changed rows are COMPLETE DROPS** (`definition_text` → `""`,
+  term vanishes from pipeline output). plan9 checked **all 28 exhaustively**
+  rather than trusting the 60-row draw — **28/28 (100%) are FALSE
+  truncations**, every one destroying a real, correct, substantive
+  definition. Dispersed across **11 states** (AR 12, FL 3, TX 3, VT 3, IA 2,
+  and one each DC/LA/MO/NC/SC/SD/TN) — not a single-jurisdiction quirk.
+  Examples: `STATE_TX_Cfa_C264_S264.152` (538-char multi-part "candidate for
+  foster care" with (A)/(B) sub-items) and `STATE_FL_TX_C110_PIV_S110.501`
+  (854-char "volunteer"), both completely destroyed.
+- Overall precision is otherwise GOOD: seeded sample (seed 20260805, n=60)
+  **58/60 (96.7%) genuine** trailing-notes removal. The marker set is doing
+  its job in the general case.
+
+### Why it blocks (the decisive reasoning)
+
+**Before G3-main, the last entry ran to end-of-text and nothing was ever
+truncated — so all 28 drops are damage THIS SPRINT INTRODUCED**, not
+pre-existing behavior inherited. Under the program's absolute zero-miss bar a
+complete drop is a MISS, and this manager has twice ruled that a silent drop
+is more serious than contamination (Phase-3b boundary+emission; Phase-11
+sibling NO-GO). Applying that standard only when it is cheap would make it
+worthless — so it applies here, where it costs a clean close.
+
+### MANAGER'S OWN HYPOTHESIS CORRECTED BY THE DATA
+
+The Phase-5 attack point predicted risk from **generic** marker tokens
+(`"Amendments"`, `"Source:"`, `"History:"`, `"Cited."`) versus specific ones.
+**The generic/specific split does not predict risk at all.** Measured
+per-marker over all 28 drops:
+
+| Marker | Drops implicated |
+|---|---|
+| `'Pub. L.'` (a "specific" marker) | **21/28 (75%)** |
+| `'Amendments'` | 8/28 (29%) — incl. one where the DEFINED TERM ITSELF is `"Superfund Amendments and Reauthorization Act of 1986, Title III"` |
+| `'Amended by Act'`, `'History:'`, `'Source:'` | only ever CO-OCCURRING with `'Pub. L.'`, never the sole trigger |
+| `'Cited.'`, `'Editorial Notes'`, `'Statutory Notes'`, `'References in Text'`, `'Congressional Findings'` | **0/28** |
+
+The real driver is **a genuine definition naming an act by citing its Public
+Law number** (`"means the federal ... Act (Pub. L. No. 116-284)."`) — an
+entirely ordinary US drafting convention. Because that citation sits INLINE,
+sharing a line with real definitional content, line-granularity has no
+protection and the WHOLE entry is wiped rather than a tail trimmed. The
+tokens I flagged as risky (`'History:'`/`'Source:'`/`'Cited.'`) showed **zero**
+independent false-drop risk. Right instinct, wrong mechanism — recorded
+because a correct-for-the-wrong-reason flag is worth less than the data that
+replaced it.
+
+### Ruling: targeted fix, NOT broad narrowing → gate **G13**
+
+Broad marker-set narrowing is REJECTED on plan9's reasoning: the other
+markers show zero measured false-drop risk and 96.7% genuine accuracy, so
+narrowing them unmeasured would repeat exactly the mistake **D-INCLUDES**
+already rejected (tightened guards costing 32–56% of true definitions for no
+precision gain).
+
+**G13-1:** restrict `'Pub. L.'` (and `'Amendments'`) to fire only when the
+marker starts its own line or a standalone parenthetical/citation block —
+never mid-sentence inside definitional prose. Same guard SHAPE D-INCLUDES/G12
+established for `'References to'`: targeted, literal, positional. Every other
+marker byte-identical.
+
+**Acceptance:** complete drops → **zero**, with 58/60-genuine behavior
+preserved. REDs commissioned from plan9 (Planner role): two of the real
+28 drop rows asserting the FULL definition survives; the term-contains-marker
+case (`STATE_AR_T12_C84_S12-84-103`); a no-regression pin on genuine
+trailing-notes removal (`USC_T51_C509_S50902`, 9,328→122); and the committed
+FED RED (`USC_T5_C34_S3401`, exactly 493 chars) staying green.
+
+### Recorded at program level: a certified number is not reproducible
+
+plan9's P-R10 anchor came **close but not exact** — 24,952 last entries /
+26.64% vs the certified **27,051 / 24.62%** — and it correctly declined to
+force the reconciliation. Cause: **the certified figure's script was never
+committed**, so it cannot be byte-reproduced (the same gap already documented
+for the preamble panel's harnesses in the G7 protocol). Its methodology was
+instead validated three independent ways that all landed exactly: byte-exact
+reproduction of the committed FED fixture; independent empirical rediscovery
+of dev1's LA/ID/MI inert-truncation disclosure (found before knowing it was
+already recorded); and a per-row self-check against the real shipped
+functions clean across all 2,038,135 rows.
+
+**This is a finding about the certified number, not about the measurement.**
+G3's 24.62% should be treated as directionally sound but not independently
+reproducible.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
