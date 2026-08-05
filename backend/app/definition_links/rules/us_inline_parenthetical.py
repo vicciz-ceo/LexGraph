@@ -91,14 +91,24 @@ def _sentence_around(text: str, start: int, end: int) -> str:
 
 
 def _apposition_candidates(text: str, *, scope: str) -> list[DefinitionCandidate]:
+    """Ruling M-R14: `text` is scanned unconditionally for EVERY apposition
+    match, and a real acronym/short-title shorthand (`("ASAM")`, `("BOP")`,
+    `("OSSE")`) is routinely (re-)named more than once in one article body
+    for otherwise-unrelated sentences -- "one term, one candidate" (never
+    one term, N candidates from the SAME body) is enforced here, at the
+    extraction primitive both dispatch paths share, by keeping only the
+    FIRST occurrence's `definition_text` per distinct term and skipping
+    every later occurrence of an already-seen term outright."""
     candidates: list[DefinitionCandidate] = []
+    seen_terms: set[str] = set()
     for m in _APPOSITION_RE.finditer(text):
         term = m.group(1).strip()
-        if not term:
+        if not term or term in seen_terms:
             continue
         definition_text = _sentence_around(text, m.start(), m.end())
         if not definition_text:
             continue
+        seen_terms.add(term)
         candidates.append(DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope))
     return candidates
 
