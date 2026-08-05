@@ -7,7 +7,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "codex:planner"
 locked_at: "2026-08-05T19:24:20Z"
 last_agent: "/root/markers_panel_manager"
-last_updated: "2026-08-05T19:24:20Z"
+last_updated: "2026-08-05T19:25:47Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -191,10 +191,11 @@ Planner owns exactly three acceptance tracks before any Developer starts:
 2. **MN Affiliate idiom-gate defect [U1/U4].** Pin the persisted/live-path
    four-definition swallow at `STATE_MN_P300_323A_C302A_S302A.011` while
    preserving a negative guard against broad idiom capture.
-3. **U-R13 persisted-altitude oracle audit.** The manager independently
-   establishes the persisted `Governmental body` value on TX `2009.003`.
-   If the current candidate-level Part-B pin disagrees with persistence, the
-   Planner re-authors it at the program-law altitude and records the history.
+3. **U-R13 persisted-altitude oracle correction.** Manager probe M49 proved
+   TX `2009.003` persists `Governmental body` WITH the idiom retained. The
+   Planner re-authors Part B so the canonical contract is the persisted value;
+   any candidate-level stripped-idiom assertion is labelled only as this
+   module's own-emission mechanism, not the user-facing contract.
 
 R6 and the named core-3 debts remain ledgered only; this panel does not absorb
 shared-core work. NY's current post-devC figure remains 160/1,479 = 10.8% and

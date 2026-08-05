@@ -7,6 +7,28 @@ to the director).
 
 ---
 
+## M49 — U-R13 independently established at PERSISTED altitude (2026-08-05)
+
+The manager ran the real ingest + `run_definition_linking` + persisted
+`Definition` path on vendored TX row `STATE_TX_Cgv_C2009_S2009.003` using:
+
+`backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_q3_tx_2009_003.py::test_part_b_masking_confirmed_todays_real_pipeline_happens_to_be_fine_here -q`
+
+Result: **1 passed in 0.17s**. The exact persisted value for `Governmental
+body` is `has the meaning assigned by Section 552.003.` — the idiom is
+retained. Therefore M40's conditional fires and U-R13's candidate-level
+reasoning is **vacated as the program contract**. The stripped candidate
+`assigned by Section 552.003.` remains a legitimate pin of this module's own
+emission only; it cannot define what users consume.
+
+Planner action is required despite the existing passing persistence guard:
+re-author Q3 Part B's naming/docstring/assertion structure so the persisted
+value is the canonical Part-B contract under M44, and demote the direct-engine
+assertion to an explicitly internal own-emission guard. Preserve the history;
+do not silently flip or delete the mechanism-level pin.
+
+---
+
 ## M48 — fresh panel manager reconciliation; Planner lock acquired (2026-08-05)
 
 Fresh manager `/root/markers_panel_manager` reconciled the clean/pushed panel
