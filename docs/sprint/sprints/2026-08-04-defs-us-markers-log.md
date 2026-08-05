@@ -4771,3 +4771,67 @@ would have made G3-HEAL unsatisfiable by construction**, and that it follows fro
 their own measurement rather than being a reluctant concession. Citable.
 
 ---
+
+## M44 — PROGRAM LAW: the contract altitude is PERSISTED; our artifacts audited (2026-08-05)
+
+The altitude question raised in §M43 is RULED, and is now program law:
+
+> **THE PROGRAM'S CONTRACT ALTITUDE IS THE PERSISTED/ASSERTED LAYER** — that is
+> what D-CERT certifies and what users consume. Candidate/extraction-level
+> behaviour is internal mechanism. A candidate-level pin is legitimate **only for
+> what a single module's OWN emission controls.** Any test, ruling or ledger
+> condition saying "the captured definition" means the **PERSISTED** one unless
+> explicitly scoped narrower.
+
+Also ruled: **G8's preference applies at the PERSIST layer by design** — its
+shipped mechanism is the update path in `pipeline.py`'s Stage-2 loop and it never
+touches candidate emission. That settles the gap multiterm caught in our
+argument: in their favour on the facts, ours on the outcome.
+
+### AUDIT of this panel's artifacts against the new law — all clear, but CHECKED
+
+The law makes altitude load-bearing for pins already shipped, so this was
+verified rather than assumed.
+
+**The 16 class-B REDs are authored at CANDIDATE level** (direct
+`extract_quote_anchored_entries` calls). Two conditions must hold for that to be
+legitimate: they must pin our own module's emission (they do), and the candidate
+must actually BE what persists. Measured **all 16, not a sample** — each class-B
+term on its own row through `extract_definitions_from_section`:
+
+**Every one is emitted exactly ONCE. Zero collisions.** Baseline emits none of
+them — they are precisely the terms devC's widening newly surfaced — so
+first-wins has nothing to choose between and **our candidate IS the persisted
+one.** The pins are altitude-equivalent to persisted and legitimate under the
+own-emission exception. **No re-authoring required.**
+
+**DURABILITY CAVEAT, recorded because it is invisible from the tests
+themselves**: that equivalence holds only while no OTHER emitter produces these
+16 terms. If a successor widens `_JURISDICTIONS` again, registers another rule
+over these rows, or core changes baseline's splitter, the equivalence can
+silently break and these pins would then test something production does not ship.
+**Re-run this exact check whenever the emitting set for NJ/ND/OK changes.**
+
+**Other artifacts, checked against the law:**
+
+- **G3-HEAL layer 2** already reads "our clean candidate is the one **PERSISTED**"
+  (§M18) — correctly scoped at the ruled altitude by its original author. **No
+  change**; its held RED stands.
+- **R1** now closes on persisted/asserted — already aligned after §M41, and the
+  amendment came from multiterm's own correction of their ledger.
+- **U-R13 / Q3 Part B**: the procedure written in §M40 (ingest through the real
+  pipeline, read the persisted `definition_text` for `Governmental body`) is
+  confirmed as **the correct instrument at the ruled altitude**. If it shows the
+  ORIGINAL Part B was right at persisted level, the correction follows this
+  panel's standing rule: **re-author with the history recorded, not a silent
+  flip.** Still open, still unrun.
+
+### Recorded at program level
+
+The §M43 polarity synthesis is now the program log's one-sentence root cause:
+**both panels treated baseline EMISSION as a proxy for baseline CORRECTNESS** —
+multiterm assumed emission where there was none, this panel warns against
+assuming correctness where there is emission, and **R6 is the third polarity: no
+emission read as nothing-there.**
+
+---
