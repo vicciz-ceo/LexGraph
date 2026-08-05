@@ -1,0 +1,392 @@
+{
+  "measurement": "G8 same-key persistence replay: ingest literal-backslash-n normalization -> Stage 0 -> profile dispatch -> Stage 2 -> scope-assignment stamping -> list-order persistence",
+  "command": "backend/backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g8_reverse_order.py --output docs/sprint/sprints/artifacts/2026-08-05-defs-core-follow-on-2-g8-structural-full.json",
+  "source_full_artifact": "2026-08-05-defs-core-follow-on-2-g8-structural-full.json",
+  "denominator": {
+    "rows": 2038247,
+    "candidates": 271261,
+    "same_key_later_candidates": 7363,
+    "same_key_collision_groups": 5220,
+    "firings": 1256,
+    "structural_same_canonical_term_continuation": 398,
+    "scope_equal_rank": 1256,
+    "structural_not_same_start_prefix": 247,
+    "structural_suffix_has_no_parseable_entry_boundary": 545,
+    "structural_near_alias_boundary": 30,
+    "structural_different_canonical_term_boundary": 31,
+    "structural_eligible": 31,
+    "structural_boundary_has_no_quoted_term_set": 5
+  },
+  "controls": {
+    "positive_ny_raw_rows_literal_newline": 40102,
+    "positive_ny_raw_rows_real_newline": 0,
+    "negative_ny_raw_fixture_candidate_count": 0,
+    "positive_ny_fixture_terms_after_ingest": [
+      "Equity shares",
+      "New shares or securities",
+      "Preemptive right",
+      "Unlimited dividend rights",
+      "Voting rights",
+      "Voting shares"
+    ],
+    "negative_ca_fixture_exact_one_literal_newline": 1
+  },
+  "wall_seconds": 58.872,
+  "proposed_us_profile_discriminator": "Later candidate cannot broaden scope; its text is an exact same-start prefix of the persisted text; the discarded suffix starts a parenthesized quoted U.S. definition entry; the complete leading quoted term-set, parsed with extract._parse_terms_and_qualifier, differs from the current sorted persistence key after canonical punctuation and conservative near-alias screening.",
+  "persistence_key_semantics": "pipeline.py keys a candidate by (article_id, tuple(sorted(candidate.terms))). The boundary check therefore compares the complete leading quoted term-set rather than just the first quote. If a profile currently emits only a subset of aliases from such a header, complete-set comparison is intentionally conservative and rejects rather than risking an identity mistake.",
+  "scope_characterization": "All 1,256 historic old-G8 firings had equal scope rank after real pipeline scope-assignment stamping. The new live-path scope-broadening RED demonstrates the generic predicate nevertheless permits a broader later candidate and must be removed.",
+  "eligible_exhaustive_judgment_method": "The Planner manually read the earlier text, later text, and discarded suffix for every one of the 31 mechanically eligible firings in the full artifact. Every suffix begins a distinct numbered quoted entry; no same-term continuation, punctuation alias, plural/typo near-alias, or ambiguous header remains in this eligible population.",
+  "eligible_exhaustive_judgment": [
+    {
+      "act_id": "STATE_AR_T26_C18_S1_S26-18-104",
+      "terms": [
+        "Partnership"
+      ],
+      "next_terms": [
+        "Partner"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T4_C88_S3_S4-88-302",
+      "terms": [
+        "Building materials"
+      ],
+      "next_terms": [
+        "Consumer food item"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T4_C46_S1_S4-46-101",
+      "terms": [
+        "Business"
+      ],
+      "next_terms": [
+        "Debtor in bankruptcy"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T15_C71_S15-71-110",
+      "terms": [
+        "Production facilities"
+      ],
+      "next_terms": [
+        "Production process"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T23_C64_S4_S23-64-402",
+      "terms": [
+        "Actuary"
+      ],
+      "next_terms": [
+        "Insurer"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T20_C21_S2_S20-21-203",
+      "terms": [
+        "General license"
+      ],
+      "next_terms": [
+        "Specific license"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T6_C17_S2_S6-17-208",
+      "terms": [
+        "Grievance"
+      ],
+      "next_terms": [
+        "Employee"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T23_C42_S1_S23-42-102",
+      "terms": [
+        "Sale"
+      ],
+      "next_terms": [
+        "Offer",
+        "offer to sell"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T4_C116_S4-116-102",
+      "terms": [
+        "Consumer"
+      ],
+      "next_terms": [
+        "Creditor"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T23_C99_S2_S23-99-203",
+      "terms": [
+        "Copayment"
+      ],
+      "next_terms": [
+        "Gatekeeper system"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T26_C57_S13_S26-57-1302",
+      "terms": [
+        "Brand family"
+      ],
+      "next_terms": [
+        "Cigarette"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T27_C25_S27-25-102",
+      "terms": [
+        "Car-sharing delivery period"
+      ],
+      "next_terms": [
+        "Car-sharing period"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T19_C8_S1_S19-8-101",
+      "terms": [
+        "Bank"
+      ],
+      "next_terms": [
+        "Public funds",
+        "funds"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T14_C138_S14-138-102",
+      "terms": [
+        "Lessee"
+      ],
+      "next_terms": [
+        "Other public body"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T11_C10_S6_S11-10-601",
+      "terms": [
+        "Affected group"
+      ],
+      "next_terms": [
+        "Sub-group"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T9_C30_S9-30-103",
+      "terms": [
+        "Prevention program"
+      ],
+      "next_terms": [
+        "Primary prevention"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T9_C30_S9-30-103",
+      "terms": [
+        "Primary prevention"
+      ],
+      "next_terms": [
+        "Secondary prevention"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T23_C86_S2_S23-86-202",
+      "terms": [
+        "Actuarial certification"
+      ],
+      "next_terms": [
+        "Base premium rate"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T20_C18_S1_S20-18-102",
+      "terms": [
+        "Fetal death"
+      ],
+      "next_terms": [
+        "Induced termination of pregnancy"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T23_C79_S1_S23-79-150",
+      "terms": [
+        "Healthcare plan"
+      ],
+      "next_terms": [
+        "Health carrier"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T6_C80_S6-80-102",
+      "terms": [
+        "Institution of higher education"
+      ],
+      "next_terms": [
+        "Statement of selective service status"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T20_C32_S20-32-101",
+      "terms": [
+        "On-site"
+      ],
+      "next_terms": [
+        "Adjacent"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_AR_T9_C11_S4_S9-11-401",
+      "terms": [
+        "Premarital agreement"
+      ],
+      "next_terms": [
+        "Property"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T62_C6_S62-6-102",
+      "terms": [
+        "Contractor"
+      ],
+      "next_terms": [
+        "normal architectural and engineering services"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T8_C34_S8-34-101",
+      "terms": [
+        "Substantial gainful activity"
+      ],
+      "next_terms": [
+        "Significant duties"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T39_C11_S39-11-302",
+      "terms": [
+        "Intentional"
+      ],
+      "next_terms": [
+        "Knowing"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T47_C2_S47-2-105",
+      "terms": [
+        "Goods"
+      ],
+      "next_terms": [
+        "future goods.",
+        "Lot"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T47_C2_S47-2-104",
+      "terms": [
+        "Merchant"
+      ],
+      "next_terms": [
+        "Financing agency"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T6_C18_S6-18-101",
+      "terms": [
+        "City,"
+      ],
+      "next_terms": [
+        "county election commission"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T6_C18_S6-18-101",
+      "terms": [
+        "City,"
+      ],
+      "next_terms": [
+        "This charter"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    },
+    {
+      "act_id": "STATE_TN_T56_C11_S56-11-202",
+      "terms": [
+        "Health maintenance organization"
+      ],
+      "next_terms": [
+        "Insurance group,"
+      ],
+      "classification": "IMPROVING",
+      "reason": "The shorter text is the exact prefix ending before a separately numbered, quoted definition entry for the listed distinct term-set."
+    }
+  ],
+  "judgment_totals": {
+    "improving": 31,
+    "degrading": 0,
+    "deferred_not_shipped": 31
+  },
+  "disposition": "Do NOT embed this U.S. entry grammar in jurisdiction-neutral pipeline.py. Per the Phase-14 manager ruling, remove generic G8 containment replacement and restore safe first-wins. The 31 beneficial U.S. trims are evidence for a future additive profile-owned candidate-quality/entry-boundary seam (core-3/follow-up), not a current production behavior.",
+  "supersedes": "The prior 745-unambiguous claim is retired. It omitted real pipeline scope stamping and treated any strict substring as safe. This full replay observes 1,256 old G8 firings; only 31 are structurally beneficial under the proposed U.S.-only discriminator, while the real Occurrence and Virtual currency REDs establish the generic predicate is unsafe."
+}
