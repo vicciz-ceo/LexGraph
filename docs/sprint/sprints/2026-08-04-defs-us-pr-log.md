@@ -6764,3 +6764,69 @@ PR bodies are 100% newline-free (now confirmed post-ingest too — PR has zero
 literal `\n`), so English/IL's `splitlines()[0]` anchor is a silent no-op here,
 not merely inapplicable. First-sentence anchoring, 21/633 rows resolving
 `chapter`, every hit hand-verified, zero false positives. Stands.
+
+---
+
+## 2026-08-05 — Manager: items 31-33 VERIFIED — P1 ACHIEVED. PR is live.
+
+### Handoff verification, materialized
+
+| Check | Result |
+|---|---|
+| State | HEAD `35f5f6f` == origin, tree clean |
+| Write-set | 4 files: `pr_profile.py` (+72, **0 deletions**) and 3 new `rules/us_pr_*.py`. Nothing else. ✔ |
+| Tests untouched | `git diff --stat 962c747..HEAD -- backend/tests/` → **empty** ✔ |
+| Forbidden files | explicit check across `us_profile`/`pipeline`/`matcher`/`profiles`/`extract`/`registry`/`rules/__init__` → **empty** ✔ |
+| Suite | `30 failed / 1007 passed / 13 xfailed`; FAILED is exactly the 6 held files at unchanged per-file counts (14+6+6+2+1+1) ✔ |
+| Escalation xfail | still **XFAIL**, with the full documented reason intact ✔ |
+
+### P1 IS ACHIEVED
+
+**633 canonical `Definiciones` rows flip False→True; 0 flip True→False.**
+5,723 `DefinitionCandidate`s across them. 612 law-wide / 21 chapter scope.
+This is the milestone the sprint has been blocked on since cycle 1 — PR went
+from **100% invisible** to recognized and extracted on the live dispatched
+path, and it took the P-R8 escalation, a core dispatch sprint, and nine cycles
+to get here.
+
+### The Developer caught something no test could have
+
+Its first implementation of item 32 passed **all 11 target tests immediately**
+— and was still wrong. Its own required corpus measurement found 18/633
+chapter rows against the Planner's 21/633, and the gap was real: three rows
+(`STATE_PR_LEY_77_1957_ART5_010`, `_ART5_020`, `_ART31_020`) use a fourth
+grammatical shape, `"Para propósitos de este Capítulo"`, with no
+`los fines/efectos` at all — a form `pr_profile`'s own
+`_SCOPE_PHRASE_LEAD_ALTERNATION` already handles elsewhere in the same module.
+
+It would have shipped silently wrong with a fully green suite. This is the
+clearest vindication this sprint has produced of the standing rule that a
+Developer must measure its own blast radius on the real corpus rather than
+trusting its target tests — the tests were not wrong, they were simply not
+a sample of the corpus.
+
+### Process breach — `git stash`, self-reported, no harm
+
+The Developer ran `git stash`/`git stash pop` once mid-investigation before
+catching that this violates an explicit standing rule, then reverted within
+the same turn and **disclosed it unprompted**.
+
+Verified: `git stash list` is **empty**, its four files are present, and the
+suite reconciles exactly — no residue. The rule exists because the stash stack
+is shared across ~40 worktrees with concurrent writers, so a `pop` can
+transplant another agent's uncommitted work; had a sibling panel stashed inside
+that window, the pop could have taken the wrong entry. The window was short and
+nothing was lost, but the risk was real rather than theoretical.
+
+Recorded as a breach with no harm, and explicitly **not** held against the
+disclosure: an agent that reports its own rule violation unprompted is behaving
+exactly as this panel needs. The standing lesson stands unchanged — to compare
+against a pre-change baseline, use `git show HEAD:path` or a scratch worktree,
+never the shared stash.
+
+### Next
+
+QA now verifies items 31-33 **and** — because P1 wiring is what finally makes
+it measurable — runs M-R14 gate 2, the full 117/633 by-construction
+re-measurement that gates 18c (M-R15 step 3). The M-R17 retirement of the 6
+unsatisfiable scope REDs follows as a bounded Planner pass.
