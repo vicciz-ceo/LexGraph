@@ -1,20 +1,20 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: qa-fail
-current_role: developer
+status: review
+current_role: qa
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:developer"
-locked_at: "2026-08-05T20:56:45Z"
-last_agent: "/root/markers_panel_manager/qa_final_pd2"
-last_updated: "2026-08-05T20:56:45Z"
+locked_by: "codex:qa"
+locked_at: "2026-08-05T21:03:38Z"
+last_agent: "/root/markers_panel_manager/developer_pd2_scope_fix"
+last_updated: "2026-08-05T21:03:38Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 2
 completed_items: 1
-dev_complete_items: 0
-qa_cycles: 1
+dev_complete_items: 1
+qa_cycles: 2
 lint: null
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -193,17 +193,13 @@ actual corpus provenance before this cycle can enter independent QA:
    Planner later performs only a bounded corpus search for genuine global-limit
    harm; absent a real row plus terminal-notes negative control, retire P-D1
    and amend M38. Phrase-specific Roman stops are forbidden here.
-2. **P-D2 — QA FAIL, return to Developer [U1/U4].**
-   **[QA-FAIL: 672 non-MN rows changed; expected explicit MN-only opt-in/default
-   byte preservation.]** The real MN row, negative guard, and both U-R13
-   altitudes remain green, but QA's 21-file differential found the shared
-   default engine changed 3,757 rows overall (672 outside MN). The sampled
-   non-MN captures/cleanups are genuine and ledgered rather than false positives;
-   the defect is unowned default-scope expansion. The QA RED freezes a real FED
-   row's pre-P-D2 default behavior and re-authors the MN unit pin to require
-   explicit qualifier/comma/Subd opt-ins. Developer must enable those only from
-   the US-MN sibling rule; the existing MN persisted live test remains the
-   call-path acceptance pin. **M57 QA bounce:** the parked two-file Developer
+2. **P-D2 — DEV COMPLETE; final QA cycle 2 [U1/U4].** The corrected two-file
+   implementation at `b2e94d5` makes qualifier/comma/Subd behavior explicit
+   default-off options and enables them only from the US-MN sibling rule. Its
+   exact 21-file comparison is zero-delta for all 788,766 shared-default rows and
+   zero for non-MN production; final QA must reproduce this independently. The
+   existing MN persisted live test remains the call-path acceptance pin.
+   **M57 QA bounce history:** the parked two-file Developer
    WIP satisfies the original scope REDs but its MN differential found 226
    retained-text changes that were not pure Subd truncations. A real definition
    ending in the genuine numeric citation fragment `72.` was shortened before a
@@ -223,8 +219,12 @@ actual corpus provenance before this cycle can enter independent QA:
    that excludes while independently extracting Subd. 4a, retaining the `72.`
    control. M61 proved 68,753/68,753 labels are numeric or numeric plus one
    lowercase letter, with maximum three digits and zero outside shapes, so
-   Developer may widen only the explicit opt-in hard stop to
-   `\d{1,3}[a-z]?`; defaults and generic heading grammar stay fixed.
+   Developer widened only the explicit opt-in hard stop to
+   `\d{1,3}[a-z]?`; defaults and generic heading grammar stay fixed. Developer's
+   final MN classification is 51 additions (33 relative-shape + 18 manually clean
+   ordinary), 19 comma-paired removals, and 9,385 strict numeric/lettered Subd
+   truncations with zero residual outliers. Final QA must independently reproduce
+   all counts, all 18 verdicts, and the full 68,753-label census.
 3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
    Q3 Part B now names the persisted `Governmental body` value (idiom retained)
    as canonical; the direct stripped value is explicitly an internal

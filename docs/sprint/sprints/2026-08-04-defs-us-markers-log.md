@@ -7,6 +7,45 @@ to the director).
 
 ---
 
+## M63 — P-D2 corrected Developer gate PASS; final QA cycle 2 (2026-08-05)
+
+Developer delivered pushed commit `b2e94d5e2269017916e66c7b5c41952f10733bc6`.
+Manager read the complete `b6f46b8...b2e94d5` diff: exactly the two owned
+production rule files, 54 insertions/19 deletions, and no test/doc/fixture change.
+The shared quote engine now exposes three keyword-only, default-false options;
+only the US-MN sibling caller enables all three. The relative-qualifier idiom
+regex is separate from the unchanged default idiom regex. MN Subd stops are
+collected only under the explicit option, with the census-authorized suffix
+`\d{1,3}[a-z]?`. Existing trailing-marker cleanup remains general, bypassed only
+when the selected end is one of those opted-in MN hard stops, preserving genuine
+numeric content such as terminal `72.`.
+
+Manager independently reproduced the four-file P-D2 suite as **5 passed**. The
+MN persisted live path, both U-R13 altitude assertions, and terminal-notes control
+also passed; the same focused command retained only the named TX Q3 Part-A hold
+(7 passed / 1 expected failure). Developer's five-file historical replay was
+10 passed plus exactly the two named inherited holds: FED core-3 Roman sibling
+and TX Q3 Part-A.
+
+Developer's fresh exact corpus evidence: 788,766 rows across 21 jurisdictions
+with production NY normalization, zero shared-default delta everywhere, and
+zero non-MN production delta across 761,019 rows. MN production: 1,108 headings,
+909 changed rows, 51 additions split 33 relative-shape plus 18 ordinary, all 18
+manually inspected as clean real-Subd-bounded definitions; 19 removed keys all
+paired to comma-normalized replacements; 9,385 retained-text changes all strict
+numeric/lettered Subd truncations; zero residual outliers. Full backend:
+894 passed / 25 named inherited holds. Frontend: 165 passed; typecheck passed.
+
+Role transition: P-D2 returns to Dev Complete and enters independent final QA
+cycle 2. Contract changes to `status: review`, `current_role: qa`, and lock
+`codex:qa`; QA must independently reproduce the 68,753-label census, all four
+distinct RED-to-green attributions, exact default/production differentials, all
+18 ordinary-addition verdicts, removal pairs, retained-text classification,
+historical holds, and full backend/frontend/typecheck. The merge slot remains
+shut until core-2 merges; no combined G3-HEAL claim is authorized here.
+
+---
+
 ## M62 — M61 census/lettered RED accepted; Developer resumes (2026-08-05)
 
 Manager read the complete `bcc529c...3bf4402` QA diff: one byte-pinned real MN
