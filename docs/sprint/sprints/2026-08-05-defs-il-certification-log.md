@@ -1412,3 +1412,99 @@ tried and disproven, and why. No other file touched.
   both named tests are specific to the `::-` splitter). If a future
   cycle finds a markup-quote defect in sub-shape 1, this same
   `_is_markup_quote_only` helper is directly reusable.
+
+---
+
+## 2026-08-05 — M37: C4's first fix ACCEPTED — and the Developer discarded a passing fix because the corpus disagreed with the tests
+
+### Boundaries (verified BY ME)
+
+Guard diff (`backend/tests` + the four frozen modules) → **empty**. One
+production file touched, **277 lines** (under the gate). Suite
+**`3 failed, 856 passed`** — the `'ltr'` RED green, its sanity control
+green, D-1b's E6 `::-` test still green, both containment REDs still RED.
+Lint PASS. Merged to `claude/defs-il-certification`; the parent stays at
+its reviewed tip, as the M36 split requires.
+
+### The part that matters more than the fix
+
+The Developer's **first** attempt was a section-wide guard: suppress the
+`::-` splitter whenever the body contains any `:-` line. It closed the
+RED, kept E6 and the sanity control green, and reproduced **the exact
+`3 failed, 856 passed` I had predicted in its brief.** By every signal
+this harness normally uses, it was done.
+
+It then ran the corpus A/B its brief mandated, and the corpus disagreed:
+**33 articles changed, 112 candidates lost, only 8 of them `'ltr'`.** The
+other **104 were genuine defined terms across 32 real laws** — `חוק הגנת
+הצרכן`, `חוק ניירות ערך`, `חוק עידוד התעשיה`, `פקודת התעבורה` and 28
+more — nested `::-` sub-definitions that the "buggy" splitter was, as a
+side effect, correctly recovering, because baseline's frozen
+`_NESTED_MARKER_RE` requires a comma where those preambles end in a dash.
+
+**It discarded its own working fix rather than ship a silent 104-term
+precision-for-recall trade, and did not escalate a trade it had not yet
+tried to avoid.** That is exactly P-R2 applied at the right moment, by
+the person best placed to see it. Had it stopped at green, this panel
+would have traded 104 real terms for 8 spurious ones and every test would
+have agreed it was an improvement.
+
+This is the fourth time this program has produced a green suite over an
+unclosed or newly-broken class, and the **first time the agent caught it
+itself before reporting**. The corpus-A/B requirement earned its cost in
+one use.
+
+### What shipped
+
+`_is_markup_quote_only` — a **per-line** filter, not a section-wide
+guard. A `::-` line is rejected only when it has at least one quoted span
+AND *every* span's opening quote is immediately preceded by an
+HTML/wiki attribute-assignment token. It reuses the `_HTML_ATTR_RE`
+pattern already established and named (`wiki_table_markup_attribute`) by
+`c1_denominator.py`, so it is general to any attribute rather than an
+`'ltr'` blacklist — which is what I required. It decides only which
+blocks the rule contributes; it strips and rewrites nothing.
+
+Note its own reported subtlety: the filter must operate on quoted SPANS,
+not raw `"` characters, because a closing quote is never itself preceded
+by `attr=`. Its first coding pass got that wrong and it corrected it
+before reporting. The module docstring now documents **both** the shipped
+rule and the discarded attempt with the reason the discard was correct,
+so a future reader does not re-derive and re-try the wrong guard.
+
+### My own independent A/B — reproduces its three measurements exactly
+
+I did not accept the numbers. Own script, both worktrees, full corpus:
+
+```
+                              PRE-fix    POST-fix
+definitions-heading articles    4,785       4,785   (population unchanged)
+candidate rows                 40,930      40,922
+```
+
+Diffed the two candidate sets by `(file, article, sorted terms)`:
+
+```
+lost                8      gained            0
+lost WITHOUT 'ltr'  0      files affected    1
+```
+
+All 8 losses are `'ltr'` rows in the single `צו המועצות המקומיות
+(מועצה מקומית תעשייתית נאות חובב)` article — including the seven-term
+row. **Zero gained anywhere, zero genuine terms lost anywhere.** The
+32-file regression from the discarded attempt is entirely absent.
+
+**The program's first over-capture defect is closed**, and closed without
+a markup blacklist.
+
+### Honest gaps carried (the Developer's, which I endorse)
+
+1. `_is_markup_quote_only` is scoped to `_split_double_colon_dash_entries`
+   only; `_split_marker_less_prose` (sub-shape 1) was **not** audited for
+   the same defect class. No evidence it has one, and no sweep was run
+   against it. **Routed to C4's queue** — the same union-with-baseline
+   mechanism applies to it in principle.
+2. `test_c2_every_span_carries_exactly_one_cluster_id` remains RED,
+   unrelated: it reads the pinned pre-computed manifest, identical
+   failure content before and after. Flagged so the count is not
+   mysterious.
