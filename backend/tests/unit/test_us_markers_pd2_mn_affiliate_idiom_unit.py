@@ -35,7 +35,14 @@ def test_real_mn_relative_idioms_emit_the_four_named_clean_entries():
     below is a distinct entry in the real text and must end at its own Subd.
     marker; this does not assert anything about the separate core marker work.
     """
-    entries = dict(extract_quote_anchored_entries(_mn_row()["text"]))
+    entries = dict(
+        extract_quote_anchored_entries(
+            _mn_row()["text"],
+            allow_relative_qualifiers=True,
+            clean_trailing_term_commas=True,
+            stop_at_mn_subd_headers=True,
+        )
+    )
 
     assert entries["Affiliate"] == (
         "a person that directly or indirectly controls, is controlled by, or is under common "

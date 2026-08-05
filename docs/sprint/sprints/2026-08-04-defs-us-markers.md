@@ -1,20 +1,21 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: dev-complete
-current_role: qa
+status: qa-fail
+current_role: developer
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "codex:qa"
 locked_at: "2026-08-05T20:01:27Z"
-last_agent: "/root/markers_panel_manager/planner_pd1_corpus_audit"
-last_updated: "2026-08-05T20:01:27Z"
+last_agent: "/root/markers_panel_manager/qa_final_pd2"
+last_updated: "2026-08-05T20:21:27Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 2
 completed_items: 1
-dev_complete_items: 1
-qa_cycles: 0
+dev_complete_items: 0
+qa_cycles: 1
+lint: "PASS 383 2026-08-05T20:22:24Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -192,9 +193,17 @@ actual corpus provenance before this cycle can enter independent QA:
    Planner later performs only a bounded corpus search for genuine global-limit
    harm; absent a real row plus terminal-notes negative control, retire P-D1
    and amend M38. Phrase-specific Roman stops are forbidden here.
-2. **P-D2 — MOVED TO DEV COMPLETE [U1/U4].** Narrow relative-idiom support
-   is implemented in the panel-owned engine; manager verified the real persisted
-   MN row, negative guard, and both U-R13 altitudes green. See Dev Complete.
+2. **P-D2 — QA FAIL, return to Developer [U1/U4].**
+   **[QA-FAIL: 672 non-MN rows changed; expected explicit MN-only opt-in/default
+   byte preservation.]** The real MN row, negative guard, and both U-R13
+   altitudes remain green, but QA's 21-file differential found the shared
+   default engine changed 3,757 rows overall (672 outside MN). The sampled
+   non-MN captures/cleanups are genuine and ledgered rather than false positives;
+   the defect is unowned default-scope expansion. The QA RED freezes a real FED
+   row's pre-P-D2 default behavior and re-authors the MN unit pin to require
+   explicit qualifier/comma/Subd opt-ins. Developer must enable those only from
+   the US-MN sibling rule; the existing MN persisted live test remains the
+   call-path acceptance pin.
 3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
    Q3 Part B now names the persisted `Governmental body` value (idiom retained)
    as canonical; the direct stripped value is explicitly an internal
@@ -336,11 +345,6 @@ names its gate(s).
 
 ## Dev Complete
 
-- **P-D2 — MN Affiliate relative-idiom gate.** Developer `98143f7`, integrated
-  as `d81e3eb`; only `backend/app/definition_links/rules/us_markers_boundary.py`
-  changed (11 insertions, 3 deletions). Manager probe: P-D2 unit+persisted live
-  plus both U-R13 altitudes = 5 passed.
-
 - **P-D1 — RETIRED after corpus-oracle audit (M54).** The inherited
   single-global-ceiling attribution is unproven: all 52 reachable
   first-stop/later-quote+idiom candidates are terminal annotations or amendment
@@ -352,11 +356,28 @@ names its gate(s).
 
 - **P-T1 — U-R13 persisted-altitude oracle correction.** Complete (M44/M49).
 
+## QA Notes
+
+2026-08-05T20:21:27Z — **P-D2 FAIL (QA cycle 1).** The original P-D2
+unit+persisted-live REDs reproduce as 2 failures/1 negative-control pass on
+detached pre-fix `9f8f533` (the actual `Affiliate` swallow is 7,767 chars), and
+the integrated five-file historical replay is 10 passed/2 named held REDs
+(FED core-3 Roman sibling and TX Q3 Part-A). `98143f7` and merge `d81e3eb`
+exist; its full `9f8f533...98143f7` production diff is one file with no P-D1
+global/Roman code. Yet the 21 reachable registered-marker statute files,
+NY-normalized at the ingest boundary, differ in 3,757/788,766 rows: 3,085 MN
+and 672 non-MN. The 1,993 added keys, 263 removed keys, and 9,760 altered
+definition texts exceed the all-rows manual-review threshold. Bounded FED/FL/
+WA/DC samples are genuine definitions or comma cleanup, not false positives;
+they remain ledgered. QA's new provenance-recorded FED RED therefore requires
+the shared default to stay byte-for-byte pre-P-D2 and re-authors the MN unit
+for explicit opt-ins. Full backend: 891 passed/25 named holds, no P-D2 failure
+outside the new scope RED. Frontend: 165 passed; typecheck passed. No HTTP/E2E
+wrapper is needed beyond real ingest/persistence for this parser path.
+
 ## Context Dump
 
-P-D2 is Dev Complete and P-T1 is complete. P-D1 is retired by M54: its
-synthetic post-notes oracle contradicted the terminal-notes rule, and the
-bounded 21-jurisdiction corpus audit found no real operative post-stop
-definition. The real `USC_T8_C12_S1101` boundary failure is held for core-3's
-structural sibling-marker work. No production changes occurred in this Planner
-pass. Core-2 remains unmerged; G3-HEAL stays pending.
+P-D2 is QA-fail: return it to Developer for explicit MN-only opt-ins, with the
+new provenance-recorded FED default-scope RED. P-T1 remains complete. P-D1 is
+retired by M54; the FED Roman sibling is a core-3 held RED. Core-2 remains
+unmerged; do not claim G3-HEAL or merge/rebase this panel.

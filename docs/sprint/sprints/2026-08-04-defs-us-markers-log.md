@@ -7,6 +7,53 @@ to the director).
 
 ---
 
+## QA final P-D2 — scope FAIL; MN opt-in required (2026-08-05)
+
+Fresh independent QA checked the expected qa3 head `95a1caa`, then installed
+an isolated backend editable venv and frontend dependencies in qa3. The
+five-file historical replay collected 12 tests: 10 passed, with only the named
+held REDs `test_core3_held_real_pipeline_stops_before_roman_structural_sibling`
+and `test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub`.
+P-D2's unit/live/negative checks passed on the integrated tree, and both U-R13
+altitudes passed. Terminal `USC_T33_C11_S511` remained terminal; its post-notes
+`"Secretary" means` commentary was not emitted.
+
+For RED provenance, QA created detached `9f8f533` worktree with its own
+editable venv (which imported that worktree's `app` path). The original MN unit
+and persisted-live tests failed there while the narrow negative passed; the
+pre-fix `Affiliate` output measured exactly 7,767 chars. `98143f7` and merge
+`d81e3eb` are ancestors of qa3. QA independently read the complete one-file
+`9f8f533...98143f7` production diff: only relative qualifier, trailing-comma
+cleanup, and MN Subd boundary additions—no P-D1 global-limit/Roman code.
+
+QA then compared pre/post quote-engine emissions over all 21 M54-reachable
+statute files using production NY literal-`\\n` normalization: 788,766 rows;
+3,757 changed rows (3,085 MN, 672 non-MN); 1,993 added term keys, 263 removed
+keys, and 9,760 shared keys with changed definition text. This exceeded the
+mandatory all-changed-row inspection threshold, so QA stopped rather than
+claiming precision. Bounded samples were genuine and ledgered: FED
+`USC_T38_C17_S1712A` adds `family member`; FL `STATE_FL_TXXX_C409_PIII_S409.909`
+cleans `FTE,` to `FTE`; WA `STATE_WA_T62A_C1_S1-201` cleans comma terms and
+adds real `Delivery`/`Holder`; DC `STATE_DC_T26_C11A_S26-1151.01` adds real
+`Subsidiary`. No sample was a false-positive claim.
+
+Program ruling: fail P-D2 for shared default-scope expansion, not for false
+law text. QA added a byte-verbatim FED fixture and RED that freezes the default
+engine's pre-P-D2 empty result on that genuine definition, plus re-authored the
+MN direct-engine unit pin for explicit qualifier/comma/Subd options. RED tail:
+the FED default currently emits `('family member', 'an individual who—')`; the
+MN unit currently raises unexpected-keyword `allow_relative_qualifiers`. The
+existing MN persisted live test remains green and is the required opt-in
+call-path acceptance. No production path was edited.
+
+Authoritative backend result: 891 passed / 25 named inherited holds, none
+P-D2 outside the new scope RED. Frontend: 25 files/165 tests passed (known
+React `act` warnings); typecheck passed. Contract now routes P-D2 to
+`qa-fail`/Developer, cycle 1; P-T1 remains completed. Core-2 remains unmerged
+and no combined-tree/G3-HEAL claim is made.
+
+---
+
 ## M53 — P-D2 Developer gate PASS; P-D1 WIP absent; Planner audit lock (2026-08-05)
 
 Developer first disclosed and removed its uncommitted P-D1 experiment, restoring
