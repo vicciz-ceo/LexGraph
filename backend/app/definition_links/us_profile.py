@@ -634,10 +634,62 @@ _QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # (`"Immediate and urgent necessity", in accordance with Section 5 ...,
 #  means (i) ...`) -- the bounded, non-greedy `{0,200}?` gap covers both
 # without unbounded backtracking.
+#
+# G12 (sprint 2026-08-05-defs-core-follow-on-2, director ruling
+# D-INCLUDES): adds `shall include` and `includes` -- these two forms
+# EXACTLY, not a broader `include`-family (bare `include`, no trailing
+# `-s`, deliberately stays unrecognized -- it is not one of D-INCLUDES's
+# named forms). This regex is consumed solely by
+# `_extract_inline_quoted_definitions` (the placeholder-heading fallback
+# path); the primary `"(N)"`-block splitter (`_split_into_numbered_
+# blocks`/`_leading_quote_candidate`) never reads it, so that path is
+# untouched. Boundary and emission both fall out of this ONE change: the
+# same `entries`-list index-slicing logic in
+# `_extract_inline_quoted_definitions` already uses "does this quote's
+# gap match the idiom regex" to decide both where the PRECEDING entry's
+# `definition_text` stops and where the new entry's own candidate begins
+# -- there is no separate boundary mechanism to also update. Measured
+# corpus-wide (2,117 fallback-eligible rows: CA 442, GA 3, IL 1,672): of
+# 11,960 quoted-term occurrences, 9,677 recognized today, 10,170 once
+# widened -- +493 newly-recognized entries across 329 rows. See
+# `_preceded_by_references_to` immediately below for the mandatory
+# targeted guard D-INCLUDES also requires alongside this widening (the
+# PA construction-clause shape, `References to "X" shall include Y`,
+# which is not itself a definition).
 _MEANS_IDIOM_GAP_RE = re.compile(
-    r'^[^"“”]{0,200}?\b(?:means|shall mean|has the meaning)\b:?\s*',
+    r'^[^"“”]{0,200}?\b(?:means|shall mean|has the meaning|shall include|includes)\b:?\s*',
     re.IGNORECASE,
 )
+
+# G12 mandatory guard (director ruling D-INCLUDES): a quoted span
+# immediately preceded (within a small bounded, whitespace-tolerant
+# lookback window) by "References to"/"Reference to" (case-insensitive)
+# is a construction/interpretation clause about how OTHER text in the
+# subchapter should be read (real PA shape: `References to "other
+# enterprises" shall include employee benefit plans ...`), not a `"X"
+# means/includes Y`-shaped definition -- suppressed from starting an
+# entry boundary at all, same effect as if no idiom had matched.
+#
+# Deliberately a LITERAL TEXTUAL lookback, not idiom-absence and not any
+# broader construction-clause heuristic: D-INCLUDES explicitly measured
+# and rejected tightened guards as pure recall loss (32-56% of true
+# definitions lost for no measured precision gain). This guard's own
+# trigger rate in the 2,117-row fallback-eligible population is 0 of the
+# 493 newly-recognized entries (none sit within 25 chars of "References
+# to") -- it is nonetheless mandatory per the ruling's program-wide
+# framing, not something to narrow further or drop because it doesn't
+# currently fire.
+_REFERENCES_TO_RE = re.compile(r"References?\s+to\s*$", re.IGNORECASE)
+_REFERENCES_TO_LOOKBACK = 25
+
+
+def _preceded_by_references_to(text: str, quote_start: int) -> bool:
+    """True when `text[:quote_start]` ends (within a small bounded lookback
+    window) in "References to"/"Reference to" (case-insensitive) --
+    see `_REFERENCES_TO_RE` above for what this guards against and why
+    it is a literal textual check rather than a heuristic."""
+    window_start = max(0, quote_start - _REFERENCES_TO_LOOKBACK)
+    return bool(_REFERENCES_TO_RE.search(text[window_start:quote_start]))
 
 
 def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[DefinitionCandidate]:
@@ -663,9 +715,17 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
     definition prose is correctly left alone. Each entry runs from its own
     term through to the START of the next recognized entry (or end of
     text).
+
+    G12 (director ruling D-INCLUDES): a quoted span immediately preceded
+    by "References to"/"Reference to" (`_preceded_by_references_to`) is
+    skipped before the idiom check even runs -- the real PA construction-
+    clause shape (`References to "X" shall include Y`) describes how
+    OTHER text should be read, not a definition of "X" itself.
     """
     entries: list[tuple[str, int, int]] = []
     for term_match in _QUOTE_TERM_RE.finditer(text):
+        if _preceded_by_references_to(text, term_match.start()):
+            continue
         gap = text[term_match.end() : term_match.end() + 200]
         means_match = _MEANS_IDIOM_GAP_RE.match(gap)
         if means_match is None:
