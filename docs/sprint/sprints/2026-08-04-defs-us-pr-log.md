@@ -7140,3 +7140,408 @@ One bounded Planner pass covering: the exhaustive trigger enumeration + RED
 tests for every shape it finds, and the **M-R17** retirement of the 6
 unsatisfiable cycle-4 scope REDs. Then a Developer applies the closed
 vocabulary.
+
+---
+
+## 2026-08-05 — Planner: cycle-12, M-R17 + M-R18 (one bounded pass)
+
+### Handoff verification, materialized
+
+Read the contract in full and the log's last two entries (QA cycle-11,
+Manager ruling M-R18) before touching anything. State verified first: HEAD
+`7b91004` == origin, tree clean, suite `30 failed / 1007 passed / 13
+xfailed` reproduced exactly, matching the contract. Canary: worktree venv's
+`app.__file__` resolves inside this worktree, not main. All measurement via
+own fresh scripts (scratchpad, prefixed `pr_p12_`, never reading a sibling
+panel's file per P-R9).
+
+### M-R18 job 1 — chapter-scope vocabulary, exhaustive corpus enumeration
+
+**Method.** Read the live path end to end before measuring anything, to
+avoid re-deriving it wrong (the trap class this program has hit repeatedly):
+`pipeline.py`'s Stage-1 loop constructs `matcher_article.body` as
+`strip_wikilinks(profile.normalize_for_parsing(raw_body))`, where `raw_body
+= span.quote_text` (itself `ingest_us_statutes.py`'s literal-`\n`-unescaped
+parquet `text` column) and, critically, `profile.normalize_for_parsing` for
+`get_profile("US-PR")` (a `USProfile` instance) is `us_profile.py:805`'s
+free function -- curly-quote collapse ONLY -- NOT `pr_profile.py`'s own
+same-named free function (dead code, never reached since `PRProfile` is
+never instantiated). `determine_scope` is called ONLY for canonical
+(Definitions-heading) articles; canonical-row classification mirrors
+`pipeline.py:237-259` exactly (`is_definitions_heading` then, on failure,
+`derive_heading_from_body` + re-check) via the REAL bound profile methods,
+not reimplemented. Built a script (`pr_p12_sweep.py`) replicating this
+5-step pipeline over the full 23,636-row parquet in memory (no DB needed)
+and cross-checked: **633 canonical rows**, exact match to QA cycle-11's
+independently-verified figure -- strong sanity check the mirroring is
+correct before trusting anything downstream of it.
+
+Swept for `\b(este|esta)\s+(UNIT)\b` where UNIT ∈ {Capítulo, Artículo, Ley,
+Código, Título, Subtítulo, Sección} (the brief's named list) -- this is the
+ONLY assumption the sweep makes (that a scope-setting phrase names its unit
+word directly after a demonstrative), deliberately NOT seeded from
+`_PR_CHAPTER_SCOPE_TRIGGER_RE`'s own preposition/noun alternatives (P-R7).
+33,721 raw corpus-wide hits. Restricted to the 633 canonical rows' TRUE
+first sentence -- the real `pr_profile._sentence_containing(body, 0)`, not
+an approximation (a first pass using a 70-char lookback window was WRONG --
+verified against real examples, it let deep mid-sentence cross-references
+into the "first sentence" bucket for any row whose actual first sentence
+ran longer than 70 chars; discarded, redone with the real function): **399
+hits**.
+
+**Capítulo: 31 hits, 21 already `"chapter"`.** Of the other 10, individually
+hand-read against the FULL body text (not just the matched substring):
+
+- **6 = the already-known 5th shape** ("Para/A fines/efectos de este
+  Capítulo", no "los") -- `STATE_PR_LEY_20_2017_ART2_03/_ART3_03/_ART4_03/
+  _ART5_03`, `STATE_PR_LEY_77_1957_ART32_020/_ART53_020`. Exact same 6
+  act_ids as QA cycle-11's own finding -- independently reproduced by a
+  from-scratch sweep that never read QA's script or list.
+- **1 = an ANCHORING gap, not vocabulary** -- `STATE_PR_LEY_77_1957_
+  ART23_010` opens "Este Capítulo se conocerá como la 'Ley de Seguro de
+  Préstamos Hipotecarios'... Para los fines de este capítulo: (1)...". The
+  genuine, ALREADY-recognized trigger phrase is in the body's SECOND
+  sentence; the first is a real, complete short-title clause that happens
+  to mention "Este Capítulo" as its own subject. Same character of miss as
+  the two prior shapes (mechanism doesn't reach a real trigger), but the
+  broken mechanism is the ANCHOR (which sentence), not the ALTERNATION
+  (which phrases) -- fixing it needs different code. Kept OUT of the
+  vocabulary-closure file on purpose; own test file, own escalation, see
+  below.
+- **3 = incidental**, verified by full-body read: `STATE_PR_RENTAS_
+  SEC2041_03` ("...deducciones... en el Subcapítulo 2 de este Capítulo" --
+  cross-reference to an internal subdivision, not a scope declaration);
+  `STATE_PR_LEY_77_1957_ART36_010` ("...de acuerdo con este capítulo" is
+  the tail of a TERM's own definition clause, not a section preamble);
+  `STATE_PR_MUNICIPAL_ART7_100` ("A los efectos de los Artículos 7.100 a
+  7.103 de este Capítulo" scopes 4 specific articles, narrower than the
+  whole chapter -- forcing `"chapter"` here would over-broaden; single
+  occurrence, named not silently dropped).
+
+The `"según/como se usa(n)/emplea(n) en este Capítulo"` family (7 of the 21
+already-"chapter" rows, e.g. `STATE_PR_LEY_77_1957_ART39_050`: "Según se
+emplean en este Capítulo: (1)...") is verified ALREADY correctly handled --
+initially looked like a 6th shape, but isolating the OWN matched phrase
+(not the whole first sentence) against `_PR_CHAPTER_SCOPE_TRIGGER_RE` shows
+it matches by design, not luck: the phrase ends in the literal substring
+"en este Capítulo", which the existing unanchored third branch (`En\s+este
+\s+Capítulo`, plain `.search`) already catches regardless of what precedes
+it. Confirmed by direct regex test, not inferred. Not a gap.
+
+**Ley (324 hits) and Código (20 hits): EXCLUDED, deliberately, not merely
+unexamined.** Overwhelmingly genuine ("a los fines/efectos de esta Ley/
+este Código"), but their semantic scope (the whole document) already
+equals `determine_scope`'s own default ("law-wide") -- verified 0/324 and
+0/20 mis-scoped either way (the 1 Ley-row and 2 Código-rows that DO show
+`current_determine_scope == "chapter"` are confirmed, by reading the full
+first sentence, to be COINCIDENTAL co-occurrence with an already-recognized
+Capítulo trigger later in the same long sentence, not caused by the Ley/
+Código mention itself). Adding a Ley/Código trigger would be vacuous by
+construction -- this is exactly the "declare vacuous greens" discipline
+applied BEFORE writing a pointless test, not after.
+
+**Artículo (7 hits) and Sección (4 hits) in the canonical/chapter context:
+EXCLUDED.** All either a mid-body cross-reference to a subsection of the
+SAME canonical article/section ("según se define en el inciso (b) de este
+Artículo") or tautological self-reference ("el significado adjudicado en
+esta Sección" = defined right here, in the row itself). Neither changes
+chapter-vs-law-wide; canonical sections never self-scope to `"local"` by
+design (0/635, established cycle 1). No gap in the chapter context --
+Sección's REAL gap is on the article-scope side, see job 5 below.
+
+**Título (2 hits) and Subtítulo (11 hits) -- own investigation, then
+Subcapítulo (found by accident, swept separately, 6 more hits): a genuine
+finding with structural, not vocabulary-level, implications.** Both same
+grammatical family as Capítulo ("para/a (los) fines/efectos/propósitos de
+este X"), unambiguously genuine on hand-read (e.g. `STATE_PR_RENTAS_
+SEC3010_01`: "A los efectos de este Subtítulo, los siguientes términos
+tendrán el significado..."; `STATE_PR_AMBIENTAL_ART51`: "Para fines de
+este título las palabras..."). 2 of the 11 Subtítulo hits are themselves
+incidental cross-references, but their CONTEXT ("el Subcapítulo A del
+Capítulo 11 de este Subtítulo") revealed a 4th real structural unit
+(Subcapítulo) not on the brief's named list -- swept separately, 6 more
+genuine canonical-first-sentence hits (`STATE_PR_RENTAS_SEC6092_12`,
+`STATE_PR_LEY_77_1957_ART21_250`, `STATE_PR_RENTAS_SEC2022_01`,
+`STATE_PR_RENTAS_SEC1082_01`x2, `STATE_PR_RENTAS_SEC1115_09`).
+
+Before concluding this needs a fix, checked why `determine_scope`'s 2-way
+contract (chapter/law-wide) can't just absorb these as `"chapter"`:
+verified, via the parquet's OWN `chapter` column, that EVERY PR title/code
+contributing to the 21 currently-"chapter" rows has exactly ONE distinct
+`chapter` value across its entire row population (i.e. `chapter` ==
+the code's own name, not a real sub-code identifier) -- `Código de Seguros
+de Puerto Rico`, `Código de Rentas Internas de Puerto Rico (2011)`, `Código
+de Incentivos de Puerto Rico (2019)`, `Ley de la Comisión de Juegos del
+Gobierno de Puerto Rico`, `Ley de la Autoridad Metropolitana de Autobuses`
+-- 1 distinct value each. Only `Código Civil de Puerto Rico (2020)` has
+real chapter granularity (7 distinct values), and it is not among the 21.
+Cross-checked against `matcher._in_scope` (`matcher.py:169-170`): the
+`"chapter"` branch is `article.chapter == definition.source_chapter`, a
+direct value comparison. **Conclusion, verified not inferred: the
+ALREADY-SHIPPED `"chapter"` scope kind is behaviorally IDENTICAL to
+`"law-wide"` for 100% (21/21) of its real current population** -- not a
+correctness bug (no false links result; both restrict to "same document",
+which is what law-wide already means), but the feature is not currently
+delivering the finer restriction its name promises, for lack of a data
+source with that granularity. Separately verified the fix is NOT
+structurally hard: `_in_scope` already has a fully generic branch for any
+OTHER registered scope kind (`matcher.py:179-190`, matched against
+`article.structural_units`/`ScopeUnit`), and `StructuralUnitRule` already
+exists in the registry for exactly this purpose -- but no PR rule
+populates it, and neither the parquet's `chapter` column nor its
+`breadcrumb` JSON (verified: 3 levels only, code/part/article, `title_
+number` is null for 100% of PR rows) carries Subtítulo/Capítulo/
+Subcapítulo granularity today; it would need deriving from `section_number`
+digit-position convention (a real derivation, not free) or elsewhere.
+**Not fixed here -- a genuine recall/precision trade-off with no home in
+the existing contract, escalated per D-Q1, full counts above.**
+
+### M-R18 job 5 — article-scope trigger audit (the manager's own ask: "the
+same question should be asked of the article-scope trigger set")
+
+**Method.** `extract_local_scope_definitions` runs on the 23,003
+NON-canonical rows, UNANCHORED (`_LOCAL_TRIGGER_RE`/`_LOCAL_TRIGGER_
+UNQUOTED_RE` both use `.finditer` on the whole footer-stripped body, no
+first-sentence anchor -- confirmed by direct read before measuring, not
+assumed). Same broad `este/esta`+UNIT sweep restricted to {Artículo,
+Sección}, non-canonical rows only, unanchored: 5,098 raw hits. Restricted
+to the SAME broad grammatical family already confirmed genuine for
+Capítulo: **247 non-canonical bodies** contain ≥1 such phrase.
+
+First pass computed an "already captured" flag via a re-derived regex
+search -- caught myself before trusting it: `extract_local_definitions`
+strips page-break footers (`_PAGE_BREAK_FOOTER_RE`) BEFORE searching, which
+my own flag had not applied, exactly the class of input-fidelity trap this
+sprint's own notes warn about (curly quotes, pre-ingest text). Redid it
+calling the REAL `pr_profile.extract_local_definitions`/`extract_adhoc_
+definitions` FUNCTIONS directly, not a re-derived pattern. Result:
+**229 of the 247 bodies produce ZERO candidates today**, despite a
+grammatically genuine trigger phrase being present -- already ~38x the
+chapter-scope gap's row count before any further characterization.
+
+Simulated a fix widening ONLY the phrase alternation (`(?:A|Para)\s+(?:los
+\s+)?(?:fines|efectos|prop[oó]sitos)\s+de\s+(?:este|esta)\s+(?:Artículo|
+Sección)`), reusing the REAL, unmodified capture-group tails (copied
+verbatim from `pr_profile.py`, not reimplemented): **+11 rows / +12
+candidates**. Hand-reading a diverse sample of the STILL-zero rows surfaced
+a THIRD lead-in shape neither shipped option covers: `"el término "`
+directly before an opening quote (e.g. `STATE_PR_RENTAS_SEC1115_10`:
+'Para propósitos de esta sección, el término "año permitido" significa...'
+-- "el término " is distinct from the 2 shipped lead-ins, "se define "/"la
+frase ", which both apply to an UNQUOTED continuation, not a quote).
+Adding it as a third quoted lead-in option: **+56 more rows**. **Combined,
+pure vocabulary-and-lead-in fix: 67 of the 229 rows (≈29%).**
+
+**Sección is the single biggest component, and was entirely unsupported --
+`_LOCAL_TRIGGER_PHRASE_ALTERNATION` names only "Artículo".** Confirmed
+genuine by ground-truthing against the `act_id` numbering convention: PR's
+SEC-numbered laws (`Código de Rentas Internas`, `Código de Incentivos`, and
+several plain `Ley`s that number sections rather than articles) use "esta
+Sección" exactly the way ART-numbered laws use "este Artículo" (e.g.
+`STATE_PR_LEY_83_1963_SEC3`: '"Para efectos de esta Sección, "unidad" será
+aquel artificio..."'). This answers the brief's own question ("check
+whether... Sección deserve[s] the same treatment") empirically: yes, for
+the article-scope trigger specifically (not the chapter one, where Sección
+was excluded above).
+
+**162 of the 229 rows remain uncaptured even after the vocabulary+lead-in
+fix.** Hand-read a diverse ~26-row sample spanning every shape bucket (not
+just the top few) to characterize, not just count, the residue -- two
+different things, not one:
+
+1. A genuinely different STRUCTURAL shape: a trigger phrase introducing a
+   whole colon-delimited, numbered MULTI-TERM list, i.e. a mini-canonical
+   -section embedded inside an ordinary article (`STATE_PR_RENTAS_
+   SEC1052_04`: "(a) Definiciones.- Para fines de esta sección los
+   siguientes términos... (1)...(2)..."; also `STATE_PR_MUNICIPAL_
+   ART1_017`, `STATE_PR_RENTAS_SEC1114_10`, `STATE_PR_RENTAS_SEC3050_04`).
+   The single-inline-clause shape `_LOCAL_TRIGGER_RE`/`_LOCAL_TRIGGER_
+   UNQUOTED_RE` are built for cannot represent this at all -- would need
+   something closer to the canonical extractor's own marker-based
+   splitting. A real fix, but a DESIGN decision, not a vocabulary tweak.
+2. Genuinely NOT a definition: the trigger phrase introduces a PROCEDURAL
+   or substantive rule, no term being defined at all (`STATE_PR_LEY_
+   171_2018_SEC31`: "A los fines de este Artículo, el Departamento
+   establecerá mediante reglamento, el procedimiento..."; `STATE_PR_
+   PENAL_ART138`: "...no se considerará como defensa el sexo..."). Zero
+   candidates is CORRECT here -- expanding vocabulary would not and should
+   not capture these.
+
+No further exact split of the 162 between these two classes was measured
+(bounded-pass discipline -- would need per-row structural classification,
+itself a judgement call the brief says to escalate, not force). Named on
+the residual ledger with full evidence.
+
+### RED tests added (all proven RED on the live path before writing this
+entry, via `get_profile("US-PR")`, never the bare function)
+
+- `backend/tests/integration/test_pr_profile_chapter_scope_vocabulary_
+  m_r18.py` -- 2 real-row tests (`STATE_PR_LEY_20_2017_ART2_03`,
+  `STATE_PR_LEY_77_1957_ART32_020`) + 1 parametrized synthetic test, 4
+  cases (the 2 corpus-attested no-"los" variants plus their "A"-prefix
+  symmetric partners, not yet observed in the corpus but the same
+  mechanism -- closing the CLASS, not just the instances on file, per
+  P-R7's own spirit). 6 assertions total, all RED via `AttributeError`-free
+  `!= "chapter"` failures (confirmed each one's `determine_scope` result
+  before asserting the target, not just trusting the assertion to fail).
+- `backend/tests/integration/test_pr_profile_chapter_scope_anchoring_gap_
+  m_r18.py` -- 1 real-row test (`STATE_PR_LEY_77_1957_ART23_010`), with a
+  fixture-sanity assertion proving the genuine trigger is NOT in the first
+  sentence (so the test cannot vacuously pass by accident). Deliberately
+  kept OUT of the vocabulary file -- own module docstring explains why.
+- `backend/tests/integration/test_pr_profile_article_scope_vocabulary_
+  m_r18.py` -- 4 real-row tests (`STATE_PR_LEY_83_1963_SEC3`, `STATE_PR_
+  RENTAS_SEC1081_02`, `STATE_PR_LEY_77_1957_ART40_050`, `STATE_PR_LEY_
+  77_1957_ART6_140`) covering the Sección gap, the Sección+el-término
+  compound gap, the Artículo preposition/"los" gap in isolation, and a
+  second Artículo+el-término compound, through `get_profile("US-PR").
+  extract_local_scope_definitions` (the profile-level dispatch method,
+  the article-scope analog of job 1's `determine_scope` instruction) --
+  never `pr_profile.extract_local_definitions` directly. Plus a doubly-
+  parametrized synthetic test, 8 preposition phrases x 2 unit words = 16
+  cases, full combinatorial closure.
+
+**Verify-your-own-probes finding, worth recording:** 2 of the 16
+combinatorial cases (`"Para los fines de este Artículo"` / `"Para los
+efectos de este Artículo"`) came back GREEN, not RED as designed. Traced
+before accepting it: `"Para"` ends in the letter "a", and the shipped
+phrase `"A los fines de este Artículo"` is matched case-insensitively
+as a literal substring starting at that trailing "a" -- i.e. "par[A los
+fines de este Artículo]" is an accidental but real substring hit, not a
+bug in the test. Left in (asserting the correct TARGET behavior, which
+these 2 cases already exhibit by coincidence today and will exhibit by
+design once the real fix ships) rather than removed, with this note so it
+is not mistaken for a flaw in the test's own logic.
+
+Full suite after all additions, before the M-R17 retirement:
+`55 failed / 1007 passed / 13 xfailed` (30 pre-existing + 25 new RED).
+
+### M-R17 — 6 unsatisfiable scope REDs retired
+
+Mechanism: `pytest.mark.skip` (module-level `pytestmark`), NOT deletion,
+NOT `xfail`. Test bodies byte-untouched (no assertion edited) -- only the
+module docstring is rewritten (original preserved verbatim below a
+divider, for provenance) and a skip marker added. Reasoning for choosing
+skip over the sprint's own inversion precedent (`test_documented_
+residual_..._live`, M-R13): that precedent inverted an assertion that
+became FALSE under an overruled decision, to a still-meaningful (if
+currently vacuous) regression guard for a scenario that WILL become live
+later. These 6 have no such future -- `PRProfile.determine_scope` will
+never exist under the settled seam, so there is no "opposite" assertion to
+invert to, and no future ruling reinstates it (the ruling that retired
+them already says so explicitly). `xfail` would misrepresent them as
+"might start passing" -- false by construction. `skip`, with the full
+reasoning attached in the docstring, is discoverable in-place (a future
+`grep -rn PRProfile backend/tests/` reader sees WHY immediately, no git
+archaeology) and cannot be mistaken for an open defect -- the exact
+misleading-permanently-red-artifact class P-R8 taught this panel to
+distrust, from the opposite direction (mistaking "retired" for "still
+open" is just as costly as the reverse). Full per-test mapping to the
+live cycle-9 replacement tests is in the file's own rewritten docstring.
+
+Verified before and after: `hasattr(PRProfile(code="US-PR"),
+"determine_scope")` is `False`; `grep -rn "PRProfile(" backend/app/` has
+zero hits outside `pr_profile.py`'s own module; `get_profile("US-PR")` is
+a `USProfile` instance (`type(get_profile("US-PR")).__name__ ==
+"USProfile"`). All three re-confirmed live, not taken on the ruling's word.
+
+### Fixtures -- byte-verified
+
+`pr_sample_rows_cycle12.json`, 7 real rows (all 24 original parquet
+columns, values unmodified), sha256 of the `text` field compared against a
+FRESH, independent `pyarrow.parquet.read_table` of the pinned snapshot
+(`301000fc3465374ee0f23c3c6953a8a861e95cad`) in a separate process --
+**all 7 byte-exact**, plus a full field-by-field dict comparison (not just
+`text`) came back clean for all 24 columns on all 7 rows.
+
+### Contract lint
+
+`387/400` lines, PASS on all 7 checks (length, QA-Notes, Completed-entry,
+move-integrity, timestamps, Context-Dump<=10, status/total_items). Freed
+budget by compressing 3 now-fully-discharged sections (`## M-R12`, the
+now-superseded 5th-shape escalation note, `## M-R14 ENTRY CRITERIA`) to
+short pointers rather than trimming anything still-open -- verified each
+compressed section's content is preserved either verbatim here in the log
+or as an accurate one-line summary, not silently dropped.
+
+### Suite tail, held/xfail partition reconciled
+
+Final: `49 failed / 1009 passed / 6 skipped / 13 xfailed`. Reconciliation,
+verified by diffing the FAILED/XFAIL line lists against this cycle's own
+captured baseline (not eyeballed):
+
+- **24 of the 30 baseline FAILED** (the five non-`scope_cycle4` cycle-4
+  files: `bare_term_heading_cycle4` 6, `cycle4_marker_gate_and_residue` 1,
+  `derived_heading_definitions_cycle4` 2, `footer_artifact_cycle4` 1,
+  `ordinary_misses_cycle4` 14) -- **byte-for-byte identical** FAILED line
+  list before/after (`diff` empty). Untouched, as constrained.
+- **6 of the 30 baseline FAILED** (`test_pr_profile_scope_cycle4.py`) --
+  now SKIPPED (M-R17).
+- **+25 new FAILED** (the M-R18 RED tests: 6 chapter-vocabulary + 1
+  anchoring-gap + 18 article-vocabulary).
+- **13 xfailed** -- **byte-for-byte identical** XFAIL line list
+  before/after (`diff` empty). Untouched, as constrained. Includes the
+  6-case `test_pr_profile_scope.py` (cycle-1, targets the OTHER dead
+  interface, `determine_chapter_scope` -- correctly left alone, not part
+  of M-R17's scope) and the "escalation xfail"
+  (`test_pr_profile_canonical_extraction_live_cycle9.py`, the 21-row
+  baseline-collision defect) -- confirmed still XFAIL, not touched.
+- **+2 new PASSED** (2 of the 16 combinatorial article-scope cases,
+  explained above -- accidental substring coincidence, not a test bug).
+
+`24 + 6(new-red-from-M-R18-that-are-really-part-of-30-still) `... arithmetic
+spelled out plainly: `30 (baseline failed) - 6 (retired) + 25 (new) = 49`.
+`1007 (baseline passed) + 2 (accidental) = 1009`. `0 + 6 (retired) = 6
+skipped`. `13 (baseline xfailed) + 0 = 13`. All four match the observed
+tail exactly.
+
+Frontend untouched (no `frontend/` file read or written this cycle) --
+`npm --prefix frontend run test`/`typecheck` not re-run; noted under "could
+not verify" below rather than silently assumed clean.
+
+### What I could NOT verify
+
+- The EXACT split of the 162 article-scope "still zero" rows between the
+  multi-term-list structural class and the genuinely-incidental class --
+  hand-sampled ~26 rows across every shape bucket (both classes
+  confirmed real and substantial), not exhaustively classified all 162
+  (bounded-pass discipline; would itself be a judgement call, escalated
+  rather than forced).
+- Corpus-wide prevalence of the Subcapítulo scope-kind idiom beyond the
+  6 canonical-first-sentence hits measured (found by accident via
+  Subtítulo's incidental cross-references, then swept on its own for the
+  canonical/first-sentence population only -- its own non-canonical/
+  article-scope-equivalent population, mirroring job 5's method, was not
+  audited; flagged, not chased, same discipline as QA cycle-11's own "18
+  raw hits, not narrowed further" note).
+- Frontend test/typecheck re-run (no frontend files touched this cycle;
+  reasoned as low-risk, not empirically re-confirmed).
+- Whether `section_number`'s own digit convention (e.g. "1010.01",
+  "3010.01") reliably encodes Subtítulo/Capítulo membership across ALL
+  SEC-numbered PR laws, or only the tax code -- named as a POSSIBLE
+  derivation source for the Título/Subtítulo escalation, not verified as
+  a working one; that design question belongs to whoever picks up the
+  escalation, not guessed at here.
+
+### Pushed
+
+Branch `claude/defs-us-pr`. This entry + the contract update (Residual
+ledger: 4 new/updated entries; `## M-R12`/`## M-R14`/the superseded 5th-
+shape section compressed; new `## M-R17` section; Context Dump refreshed;
+frontmatter `last_agent`/`lint`/`last_updated`). 3 new test files (25 RED
+assertions), 1 retired test file (6 tests -> skip), 1 new fixture file (7
+byte-verified real rows). SHA recorded in the commit; `git log -1
+--format=%H` after commit. No file under `backend/app/` touched (write-set
+respected).
+
+### Next
+
+Manager/director rules on the 3 escalations (chapter-scope anchoring gap;
+Título/Subtítulo/Subcapítulo scope-kind gap; the shipped `"chapter"` kind's
+verified degeneracy). A Developer applies the closed chapter+article
+vocabulary (widen `_PR_CHAPTER_SCOPE_TRIGGER_RE`'s "los" to optional;
+widen `_LOCAL_TRIGGER_PHRASE_ALTERNATION` to both prepositions/both unit
+words/"los"-optional, and add "el término " as a third quoted lead-in) --
+all 25 RED assertions should flip GREEN with no other production code
+changes, per this cycle's own simulation. QA re-verifies live, independent
+of this cycle's own scripts, per this program's standing discipline.
