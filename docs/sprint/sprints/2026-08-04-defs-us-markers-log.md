@@ -7,6 +7,36 @@ to the director).
 
 ---
 
+## M62 — M61 census/lettered RED accepted; Developer resumes (2026-08-05)
+
+Manager read the complete `bcc529c...3bf4402` QA diff: one byte-pinned real MN
+fixture, one focused unit test, and one append-only census/RED log entry; zero
+production or contract edits. The census covered every MN text row and twice
+counted **68,753** literal `§ Subd.` labels: 61,968 numeric plus 6,785 numeric/
+one-lowercase-letter, zero missing/outside shapes, maximum three digits, zero
+uppercase or multi-letter suffixes. The single no-space prefix occurrence still
+has an authorized numeric label token and does not authorize prefix widening.
+The corpus therefore supports exactly `\d{1,3}[a-z]?` for the suffix token only.
+
+Manager reproduced the integrated focused state: **4 failed / 1 passed**, with
+four independent failure attributions preserved: FED default-scope expansion,
+missing explicit MN kwargs, real terminal `72.` truncation, and real
+`§ Subd. 4a. Enterprise risk.` leakage into `under common control with`. The
+lettered test independently extracts the exact Enterprise-risk definition before
+asserting exclusion from the preceding candidate. This satisfies the second
+RED-before-green gate.
+
+Role transition: lock changed from `codex:qa` to `codex:developer`; existing
+Developer `/root/markers_panel_manager/developer_pd2_scope_fix` resumes after a
+tests/docs-only fast-forward. Authorized implementation is limited to widening
+the explicit opt-in MN hard-stop suffix from numeric to
+`\d{1,3}[a-z]?`, while retaining the narrow numeric-tail cleanup bypass and
+leaving defaults/prefix/generic heading grammar unchanged. The exact full
+differential and exhaustive 51-addition, 19-removal, and retained-text
+classifications must rerun; any residual bounces again.
+
+---
+
 ## M60 — P-D2 second QA bounce for real lettered MN Subd label (2026-08-05)
 
 Developer stopped uncommitted during the mandatory exhaustive inspection of
