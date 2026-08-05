@@ -61,20 +61,17 @@ against this row for this re-authoring: `extract_quote_anchored_entries`
 now returns `'assigned by Section 552.003.'` for "Governmental body" --
 the citation tail is fully retained.
 
-**What is NOT retained, and must not be expected to be: the idiom itself.**
-The original Part B expectation (`'has the meaning assigned by Section
-552.003.'`, idiom included) contradicted the engine's own universal
-contract: `_TIGHT_IDIOM_RE` (this module's own idiom gate, matched
-immediately after the quoted term) always consumes the idiom phrase
-itself as part of finding the boundary, so `definition_text` begins AFTER
-it -- confirmed independently by `test_us_markers_ext_a_ok_gapidiom.py`,
-whose real-row expectation for OK's "person" begins `"any individual,"`
-with `"shall mean"` already stripped, not retained. Part B is re-authored
-below to pin the REAL, verified contract: citation tail preserved, idiom
-stripped -- not to re-litigate whether the idiom should be stripped (that
-is a separate, unraised design question, out of scope here).
+**M44/M49 correction — Part B's canonical contract is persisted.** The
+original direct-engine finding remains a legitimate *internal own-emission*
+guard: `_TIGHT_IDIOM_RE` consumes `"has the meaning"`, so this module emits
+`'assigned by Section 552.003.'`. But M44 makes persisted/asserted output the
+program contract, and M49 independently measured the real pipeline's one
+persisted `Definition` as `'has the meaning assigned by Section 552.003.'`.
+Part B therefore keeps both altitudes explicitly labelled below: first the
+internal engine-emission guard, then the canonical persisted contract. This
+preserves the history rather than silently treating either value as the other.
 
-**The masking finding stands, unchanged, and is still worth guarding**:
+**Why the two altitudes differ on this row:**
 `pipeline.py`'s idempotent-by-key persistence loop enumerates
 `baseline_blocks` before `extra_blocks`, and baseline ALSO produces a
 (correct, untruncated, idiom-RETAINED -- baseline is a different code path
@@ -194,16 +191,10 @@ def test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub
         )
 
 
-def test_part_b_our_own_engine_preserves_citation_tail_and_strips_the_idiom():
-    """Part B, re-authored per RULING U-R13 (sprint log §M22/§M23 item 2):
-    the original expectation (idiom RETAINED) contradicted the engine's own
-    universal idiom-stripping contract, corroborated independently by
-    `test_us_markers_ext_a_ok_gapidiom.py` (real OK row, expected text
-    starts `"any individual,"` with `"shall mean"` already stripped).
-
-    This pins the REAL, currently-live contract for our own
-    `extract_quote_anchored_entries`, called directly on this row's real
-    body: the trailing citation number (`"552.003."`) must survive --
+def test_part_b_internal_own_emission_guard_preserves_citation_tail_and_strips_idiom():
+    """Internal own-emission guard only, not the user-facing Part-B contract.
+    Direct `extract_quote_anchored_entries` on this real body must retain the
+    trailing citation number (`"552.003."`) while stripping its matched idiom:
     `_TRAILING_MARKER_CHAIN_RE`'s `(?<![\\d.])` guard exists precisely so a
     real `"NNN.NNN."` citation is never mistaken for a marker-chain
     fragment -- and the defining idiom (`"has the meaning"`) must NOT
@@ -226,17 +217,15 @@ def test_part_b_our_own_engine_preserves_citation_tail_and_strips_the_idiom():
     assert text == "assigned by Section 552.003.", f"got {text!r}"
 
 
-def test_part_b_masking_confirmed_todays_real_pipeline_happens_to_be_fine_here(
+def test_part_b_persisted_contract_retains_idiom_on_the_real_pipeline(
     db_session, matter_with_users
 ):
-    """NOT a RED -- a documentation/regression guard proving the masking
-    mechanism claimed in this file's module docstring: on THIS row,
+    """Canonical Part-B persisted contract under M44/M49. On THIS row,
     baseline's own (correct) "Governmental body" candidate wins the
-    persistence-layer collision against our engine's (truncated) one,
+    persistence-layer collision against our engine's idiom-stripped one,
     because `pipeline.py` enumerates baseline blocks first. This passing
-    today is NOT evidence Part B is safe -- see the module docstring for
-    why the masking cannot be relied on in genuine zero-candidate rescue
-    rows, which is this rule's entire reason to exist."""
+    assertion is the value users consume; the direct-engine test above is
+    intentionally a separately labelled own-emission mechanism guard."""
     row = _load_row()
     ingest_us_statute_rows(
         db_session,
