@@ -63,11 +63,25 @@ UnitPath = tuple[UnitStep, ...]
 @dataclass(frozen=True)
 class RuleContext:
     """Passed to a `ScopeTriggerRule.extract` call (M5). `unit_path` is the
-    v2.2 shape (replaces v2's `structural_units` field of the same role)."""
+    v2.2 shape (replaces v2's `structural_units` field of the same role).
+
+    `resolve_unit_path` (G5, sprint 2026-08-05-defs-core-follow-on-2):
+    optional, defaulted `None` -- a BOUND resolver a rule may call with ITS
+    OWN match offset (not known until the rule's own regex finds it, one
+    call after this `ctx` is built) to get the real `UnitPath` AT that
+    position. `unit_path` itself stays the static, pre-match, whole-body
+    path (correctly `()` -- no position exists yet at `ctx` construction
+    time); `resolve_unit_path`, when supplied, is byte-identical to calling
+    the owning profile's own `resolve_unit_path(article, offset)` directly
+    for the same body+offset -- zero duplicated logic, reuses the SAME
+    production code path. Defaulted (not required) so every existing
+    `RuleContext(...)` construction with only 3 kwargs keeps working
+    unchanged."""
 
     article_number: str
     chapter: str | None
     unit_path: UnitPath
+    resolve_unit_path: Callable[[int], UnitPath] | None = None
 
 
 @dataclass(frozen=True)
@@ -172,6 +186,21 @@ class StructuralUnitRule:
 
 
 @dataclass(frozen=True)
+class ScopeAssignment:
+    """A concrete (kind, value) scope stamp (G6, sprint
+    2026-08-05-defs-core-follow-on-2, seam v2.8) -- what a `ScopeKindRule`'s
+    `detect_value` returns to override the article's own narrow, self-
+    referential default. `kind` is a provenance/display + dispatch label,
+    same status as `ScopeUnit.kind`/`UnitStep.kind`. `value` may be a bare
+    string (an ordinary single-target scope) or a tuple of strings (M9's
+    enumerated/ranged shape, e.g. AK's 9-member chapter range or KY's
+    2-member article enumeration)."""
+
+    kind: str
+    value: str | tuple[str, ...] | None
+
+
+@dataclass(frozen=True)
 class ScopeKindRule:
     """Detection kind behind `determine_scope` (sprint
     2026-08-04-defs-core-dispatch, manager ruling M-D2). `determine_scope`
@@ -183,10 +212,21 @@ class ScopeKindRule:
     exactly one scope kind, so merging two rules' answers would be
     meaningless. Baseline still wins whenever it matches (never
     overridden), protecting every jurisdiction's own already-working
-    trigger phrases."""
+    trigger phrases.
+
+    `detect_value` (G6, optional, defaulted `None`): called ONLY on the
+    rule that already won `detect`'s own dispatch for a given body_text
+    (never a second, independently-selected rule) -- see
+    `JurisdictionProfile.determine_scope_assignments`. Returns ONE
+    `ScopeAssignment`, a TUPLE of co-equal assignments (a body naming more
+    than one simultaneous scope, e.g. TN's "this part and Section
+    6-51-301"), or `None` (decline to supply a value -- NOT an error).
+    `None` (the default) preserves today's behavior exactly -- no existing
+    `ScopeKindRule(...)` construction anywhere supplies this field."""
 
     jurisdiction_codes: tuple[str, ...]
     detect: Callable[[str], str | None]
+    detect_value: Callable[[str], "ScopeAssignment | tuple[ScopeAssignment, ...] | None"] | None = None
 
 
 @dataclass(frozen=True)
@@ -283,3 +323,20 @@ def register_scope_kind_rule(rule: ScopeKindRule) -> None:
 
 def scope_kind_rules_for(code: str) -> list[ScopeKindRule]:
     return [r for r in _scope_kind_rules if _matches(r.jurisdiction_codes, code)]
+
+
+def default_scope_assignment(
+    scope: str, *, article_number: str, chapter: str | None
+) -> ScopeAssignment:
+    """The narrow, self-referential default `ScopeAssignment` for a given
+    `determine_scope` kind (G6, seam v2.8 §3 step 1) -- shared by both
+    `JurisdictionProfile.determine_scope_assignments` implementations so
+    the default can never drift between them. NEVER a broadening default
+    (M9's standing rule): the article's own chapter for `"chapter"`, the
+    article's own number for `"local"`, `None` for anything else
+    (including `"law-wide"`)."""
+    if scope == "chapter":
+        return ScopeAssignment(kind="chapter", value=chapter)
+    if scope == "local":
+        return ScopeAssignment(kind="local", value=article_number)
+    return ScopeAssignment(kind=scope, value=None)
