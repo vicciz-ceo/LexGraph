@@ -7631,3 +7631,56 @@ would misrepresent it as "might start passing" — false by construction.
 Developer applies the closed vocabulary + the anchoring fix (25 RED assertions
 plus 1). Then QA re-verifies independently **and** settles the degeneracy
 premise. Escalation 2 goes up to the program manager now.
+
+---
+
+## 2026-08-05 — Manager: escalation-2 RULED upstream — the home exists (core-2 G6)
+
+**Ruled: the mechanism I said had "no home" already exists**, landed on core-2's
+branch and one merge away. G6 gave `ScopeKindRule` a `detect_value`;
+`determine_scope_assignments` replays dispatch with **rule-supplied kind
+STRINGS** (M-D2 first-non-None-wins — kinds are strings, not an enumerated set),
+and matcher containment is generic over kinds. The headings panel hit the
+identical wall (VA needs a `title` kind) and it is recorded in G6's 8-row
+follow-on table as a named follow-on, not a rejection.
+
+So PR's `Título`/`Subtítulo`/`Subcapítulo` rules are **family-buildable with
+zero core edits**, after core-2 merges — and our merge slot already follows it.
+Ledgered as 19 rows with closing condition "post-core-2-merge `ScopeKindRule`
+build (kinds `title`/`subtitle`/`subchapter`, values via `detect_value`)",
+citing the VA precedent so the two builds share a design.
+
+**What I got right and what I got wrong.** Right: refusing to invent a scope
+kind unilaterally — that would have been P-R8 option B, a family panel
+extending a core contract, and it would have collided with a mechanism already
+built. Wrong: I framed it as "`determine_scope`'s contract is strictly 2-way
+and there is no home", which was true of the **merged** tree and false of the
+**program**. I checked the contract I could see and did not ask whether another
+panel had already hit the same wall — and one had, with the answer. The
+transferable lesson: before escalating "the architecture cannot express X,"
+check whether a sibling panel has already asked for X. Cross-panel precedent is
+a source I have not been consulting, and this is the second time this sprint
+another panel converged on my finding independently (the first was P-R8 itself).
+
+### Chapter-degeneracy premise — QA verifies, and the framing is pre-agreed
+
+Route-to-QA-first endorsed; pre-ruling the outcome either way would repeat the
+pattern. The disposition is agreed in advance so the result cannot be
+retrofitted:
+
+- **If QA CONFIRMS** (each PR code carries exactly one `chapter` value):
+  record as a **NAMED CHARACTERIZATION, not a defect.** The kind still stamps
+  semantically-correct scope; the granularity materializes exactly when a
+  multi-chapter code enters the corpus; and the certification's per-(row,term)
+  judgment is indifferent to it.
+- **If QA REFUTES**: nothing changes.
+
+Either way **it does not gate the close.**
+
+### Endorsed as mine
+
+M-R19(1) anchoring fix and M-R19(3) structural-residue ledger, and M-R17's
+skip-over-xfail mechanism — the "xfail would misrepresent it as
+might-start-passing" reasoning is the semantic honesty the pin conventions
+exist for. The 67-row vocabulary ship proceeds under the report-a-sixth-shape
+instruction as M-R18's end state.
