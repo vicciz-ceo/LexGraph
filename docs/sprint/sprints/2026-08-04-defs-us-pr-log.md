@@ -7545,3 +7545,89 @@ words/"los"-optional, and add "el término " as a third quoted lead-in) --
 all 25 RED assertions should flip GREEN with no other production code
 changes, per this cycle's own simulation. QA re-verifies live, independent
 of this cycle's own scripts, per this program's standing discipline.
+
+---
+
+## 2026-08-06 — Manager: M-R17/M-R18 VERIFIED; rulings on the 3 escalations (M-R19)
+
+### Handoff verification
+
+HEAD `7a893fb` == origin, tree clean, stash empty, `git diff --stat 7b91004..HEAD
+-- backend/app/` → **empty**. Suite `49 failed / 1009 passed / 6 skipped /
+13 xfailed`, reconciling exactly as reported (30 − 6 retired + 25 new = 49).
+
+Outstanding work. Three things I want on the record:
+
+- The enumeration was **not seeded from the existing regex** (P-R7 honored on
+  the exact axis that matters — the mechanism whose blind spots were being
+  measured), and it reproduced the 633 canonical-row count independently
+  before trusting anything downstream.
+- It discarded its own first method twice — a 70-char window approximation for
+  first-sentence anchoring, and a re-derived article-scope regex that skipped
+  the footer-strip the real function applies — **before** using either. That is
+  the probe-validation discipline this panel has had to learn the hard way.
+- It reported 2 combinatorial cases coming back GREEN instead of RED, traced
+  the cause (`"Para"` ends in `a`, so the shipped `"A los fines…"` matches
+  case-insensitively from that trailing letter), and flagged it rather than
+  quietly accepting a convenient result.
+
+### The finding that reframes the cycle
+
+**The article-scope gap is ~38x the chapter-scope gap that started M-R18.**
+229 of 247 genuinely-triggered non-canonical rows produce **zero** candidates
+today; `Sección` as a unit word was **100% unsupported** despite PR's
+SEC-numbered codes using `"esta Sección"` exactly as ART-numbered laws use
+`"este Artículo"`. M-R18 was opened over 6 rows and uncovered a defect two
+orders of magnitude larger. That is the argument for closing classes by
+measurement rather than patching discoveries, made better than I made it.
+
+### Ruling M-R19 — the three escalations
+
+**(1) Chapter-scope anchoring gap (1 row) — FIX NOW.** Cheap, RED-tested,
+mechanically distinct from vocabulary (which sentence, not which phrase). The
+Planner was right to keep it out of "the closed vocabulary" rather than
+misrepresent what closes it. Goes into the same Developer pass, labelled as
+anchoring.
+
+**(2) Título/Subtítulo/Subcapítulo + the `chapter`-degeneracy claim —
+ESCALATED ONWARD, not ruled here.** Two reasons, and the second is mine:
+
+- It is a scope-MODEL question. `determine_scope`'s contract is strictly
+  2-way (`chapter`/`law-wide`); there is no home for a third structural layer.
+  Inventing a local scope kind would be a family panel unilaterally extending
+  a core contract — the same shape as P-R8 option B, which we rejected. It
+  belongs with core/D-UNITS.
+- **The degeneracy premise is not yet independently verified.** The claim —
+  that the shipped `chapter` kind is behaviorally degenerate to `law-wide` for
+  100% of its 21-row population — is load-bearing for how urgent this is. I
+  attempted a spot-check and **my probe was too coarse to test it**: I grouped
+  `act_id`s on a 3-token prefix, which lumps every `STATE_PR_LEY_*` law into
+  one bucket (1,610 distinct chapter values) rather than per-code. It neither
+  confirms nor refutes. Recorded rather than glossed, and routed to QA for
+  independent verification before anyone acts on it. This panel has now twice
+  had a load-bearing premise fail on inspection (the inertness claim, the
+  61/208 split); a third is not going to be ruled on unverified.
+
+**(3) Article-scope 162-row structural residue — LEDGERED, future cycle.** A
+multi-term colon-list shape the current single-clause regexes cannot represent
+at all. That is a design decision (how to split), adjacent to items 19-24, not
+a vocabulary tweak, and it should not be bolted onto a vocabulary pass.
+
+**The 67 closeable article-scope rows SHIP** as part of the closed vocabulary —
+that is the measured, in-scope win and it is the largest single recall
+improvement available to this panel right now.
+
+### M-R17 retirement — mechanism endorsed
+
+`pytest.mark.skip` over deletion or xfail, with bodies byte-untouched and the
+original docstring preserved below a divider. The reasoning is correct and
+better than the inversion precedent it declined to follow: the cycle-5
+inversion worked because that test had a meaningful opposite to assert;
+`PRProfile.determine_scope` will never exist under the settled seam, so xfail
+would misrepresent it as "might start passing" — false by construction.
+
+### Next
+
+Developer applies the closed vocabulary + the anchoring fix (25 RED assertions
+plus 1). Then QA re-verifies independently **and** settles the degeneracy
+premise. Escalation 2 goes up to the program manager now.
