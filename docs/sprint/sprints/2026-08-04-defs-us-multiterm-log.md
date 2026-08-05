@@ -2463,3 +2463,68 @@ narrowing self-verifying.
 Credit where due: the Planner's probe was real diligence and its disclosure is
 why I caught this in one pass instead of at QA. The gap is that a probe run
 once is not a guard that runs forever.
+
+---
+
+## 2026-08-05 — E3 narrowing VERIFIED + post-narrow measurement (manager)
+
+### Verification of `abe5127`
+
+Single file, single production hunk, **zero test edits**. The regex change is
+exactly as specified — `means|shall mean` DELETED, the two `has the meaning …`
+cross-reference forms kept, `[\s,]{0,5}` gap kept, `_APPOSITION_RE` untouched.
+The Developer also left an 18-line inline comment recording E3, the corpus
+measurements and R3 — so a future reader cannot re-broaden this regex without
+meeting the reasoning. Suite **4 failed / 790 passed**; the 4 failures are
+exactly the VT/SD boundary REDs; the OR test is GREEN including the `"Taken"`
+exclusion guard.
+
+### Post-narrow measurement — mine, real corpus, SAME seed as the pre-run
+
+```
+POST-NARROW: sampled=79,500  rows firing=280 (0.35%)  candidates=492
+duplicate-term rows: 17/280 (6.1%)
+top fire-rates: dc 5.93%, or 3.13%, tx 1.27%, pr 1.20%, md 1.00%,
+                federal 1.00%, de 1.00%, wv 0.33%
+```
+
+| | pre-narrow | post-narrow |
+|---|---|---|
+| rows firing | 7,055 (8.87%) | **280 (0.35%)** |
+| candidates | 35,337 | **492** |
+| duplicate-term rows | 10.8% | **6.1%** |
+
+**0.35% measured against 0.35% projected** — the stop-if-far-off condition is
+satisfied exactly, on the same seed and population. Fire-rate sits inside F6's
+mandated "~1-2 per 300" (0.33-0.67%). The family-1 colonization is closed.
+
+### M-R14 — duplicates PERSIST; the held fix is now due, scoped to appositions
+
+6.1% of the remaining 280 rows still emit the SAME term more than once:
+
+```
+STATE_DC_T50_C14_S50-1401.01   5 terms, 3 distinct   dup: 'BOP'
+STATE_DC_T7_C20_S7-2051        5 terms, 4 distinct   dup: 'OSSE'
+STATE_DE_T18_C35_SIV_S3578     2 terms, 1 distinct   dup: 'ASAM'
+STATE_MD_Agab_T25_S14_S25-1401 13 terms, 11 distinct dup: 'Applications for Local Licenses'
+```
+
+Every example is an ACRONYM/short-title apposition (`("BOP")`, `("OSSE")`,
+`("ASAM")`) repeated at several points in one body — so the duplication comes
+from the **apposition path**, NOT the cross-reference path the narrowing
+touched. That is why narrowing reduced it (10.8% -> 6.1%) without curing it.
+
+Impact: duplicate `DefinitionCandidate`s for one term in one article become
+duplicate `Definition` rows (persist dedup key is `(article_id,
+sorted(terms))`, which does NOT collapse repeats emitted as separate
+candidates), and a later mention can draw more than one `USES_DEFINITION`
+assertion — the same hazard class as ledger R1, but this one is OURS, not
+markers'.
+
+**Ruling M-R14, and I am NOT short-cutting it:** the fix is production code,
+so red-before-green applies. **Planner first** — vendor one real duplicating
+row and author a RED test pinning "one term, one candidate" — **then
+Developer** dedupes within the apposition path. My own M-R13 lesson applies
+directly: a measurement I ran once is not a guard that runs forever, and a
+dedup fix with no test is that same mistake. The corpus numbers above are
+evidence, not a substitute for a suite guard.
