@@ -2871,3 +2871,63 @@ the Developer reported it against its own interest rather than letting a 36/36
 number stand. QA cycle 3 must MEASURE this class rather than accept 1/36 as
 its size; it is a D-Q1 recall-vs-precision item and does not get settled inside
 the panel.
+
+---
+
+## 2026-08-05 — Manager: reconciliations integrated; delivery contract made
+VERIFIABLE after an agent correctly refused an unverifiable instruction
+
+### Process fix — the refusal was right, so I changed the mechanism
+
+The reconciliation analyst REFUSED my chat instruction to route its report to a
+raw agent id, treating it as a possible lure. It was wrong that the id was
+malformed; it was **right to refuse an unverifiable delivery address supplied
+only in chat**. A second panel hit the same refusal independently.
+
+That is the instinct this program wants, so the durable fix is mine, not
+theirs: the delivery contract is now a **committed artifact** —
+`docs/sprint/sprints/2026-08-04-defs-us-scoped-inline.md`, section "Report
+delivery contract", naming the manager id in reviewable sprint history
+alongside the gates agents were already briefed against. Every future brief
+points there, and agents are told: if the committed id and the briefed id
+DISAGREE, do not send — report the discrepancy. Asking an agent to trust
+harder was the wrong answer; giving it something checkable is the right one.
+
+Also fixed pre-existing contract-lint failures found while doing this
+(non-ISO timestamps, `total_items: 0` under `status: in_progress`,
+`qa_cycles` stale at 1). **`contract_lint.sh` now PASSES at 320 lines** — these
+would have blocked sprint close.
+
+### Reconciliation 1 — the D-S15 before-figure
+
+QA cycle 2's **15,282 / 44.3%** reproduces as the correct BEFORE figure. Pass
+7's **6,472 / 19.4%** does NOT hold as an innermost measurement — high
+confidence it was outermost-scored over roughly half its population, though the
+script was not preserved, so the MECHANISM is a hypothesis while the DIRECTION
+is solid. Recorded that way deliberately rather than as a clean story.
+
+**Clean decision-number going forward: D-S15 rescue set = 2,937 of 12,634
+(23.2%).** That is what should be quoted; the 19.4% is retired and the 44.3%
+is a population figure, not the rescue rate.
+
+### Reconciliation 2 — S-R17 residue, and a scope caveat that gates the split
+
+Residue = **2,306 rows / 4,042 (row,term) pairs**, **superseding BOTH 714 and
+167** — both were too low, in the same direction, for the same reason
+(narrower detection vocabularies). 35/35 hand-sampled genuine; the USC
+quoted-bill contamination class was characterized and excluded by a scoped
+per-line detector; calibrated against all 8 of the exemplars I had verified by
+hand, including the "Bill" poisoning rows.
+
+**But the number is broader than the question it would answer.** The 2,306
+spans IL's embedded-caption shape and marker-chains, while the markers-panel
+ownership split was scoped to the AL numbered-list shape. **An ownership split
+priced against the wrong population is worse than one priced against an
+acknowledged-uncertain number.** Ordered a narrow-slice re-tabulation: the AL
+shape alone, with the other shapes counted SEPARATELY rather than merged back
+into one headline, and each shape stating whether the hand-sample evidence
+actually covers it (the 35/35 was drawn from the combined population and may
+not speak to every slice equally).
+
+Three successive attempts at this residue have now been overturned. Nothing
+sizes the split until the narrow slice lands.
