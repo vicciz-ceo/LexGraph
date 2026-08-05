@@ -34,39 +34,57 @@ TOGETHER with its lettered children as ONE block, so multiterm's
 redirect text. Not yet built on this branch -- pinned here as the
 un-fixed baseline it must be judged against.
 
-**Part B -- a genuinely NEW finding, not previously named anywhere in this
-sprint's log: OUR OWN `us_markers_boundary.py` engine has a real, live
-truncation bug on this SAME row**, unrelated to the 4 degenerate terms
-above. `"Governmental body" has the meaning assigned by Section 552.003.`
--- our engine (`extract_quote_anchored_entries`, called directly) captures
-this as `'assigned by Section'`, silently dropping `' 552.003.'`.
+**Part B -- originally a NEW finding (QA1 Q3): OUR OWN
+`us_markers_boundary.py` engine had a real, live truncation bug on this
+SAME row**, unrelated to the 4 degenerate terms above.
+`"Governmental body" has the meaning assigned by Section 552.003.` --
+our engine (`extract_quote_anchored_entries`, called directly) used to
+capture this as `'assigned by Section'`, silently dropping `' 552.003.'`.
 
-Root cause: `_TRAILING_MARKER_CHAIN_RE = re.compile(r"(?:\\s*(?:\\([\\w]{1,4}\\)|
-\\d{1,3}\\.)\\s*)+$")` is meant to strip a NEXT ENTRY's leaked marker
-fragment off the end of a captured definition (its own docstring's
-examples: SC's "Municipality" ending in a literal `"(2)"`; AZ's "Qualified
-higher education expenses" ending in a literal `"13."`). But a real
-statutory citation of the shape `"NNN.NNN."` (e.g. "552.003.") is
-INDISTINGUISHABLE to this regex from two back-to-back digit-dot marker
-tokens ("552." then "003."), so the whole citation gets stripped as if it
-were marker-chain noise, together with the space before it.
+Root cause (as originally diagnosed): `_TRAILING_MARKER_CHAIN_RE` is meant
+to strip a NEXT ENTRY's leaked marker fragment off the end of a captured
+definition (its own docstring's examples: SC's "Municipality" ending in a
+literal `"(2)"`; AZ's "Qualified higher education expenses" ending in a
+literal `"13."`). A real statutory citation of the shape `"NNN.NNN."`
+(e.g. "552.003.") was, without a guard, INDISTINGUISHABLE from two
+back-to-back digit-dot marker tokens ("552." then "003."), so the whole
+citation got stripped as if it were marker-chain noise.
 
-**This defect is currently MASKED on this exact row, not absent**:
-`pipeline.py`'s idempotent-by-key persistence loop (see this pass's Q1
-finding) enumerates `baseline_blocks` before `extra_blocks`, and baseline
-ALSO produces a (correct, untruncated) "Governmental body" candidate for
-this row -- baseline wins the collision, so today's real persisted output
-for THIS specific row is accidentally fine. Confirmed live in the third
-test below. **This is exactly backwards from a safety net**: this
-sprint's own rule module exists precisely to cover jurisdictions/rows
-where baseline yields ZERO candidates (VA 97.2%, WA 98.8%, FED 83.3%
-zero-candidate today) -- in every one of those genuine rescue rows there
-is no baseline candidate to mask this bug behind. Any real VA/WA/FED/UT/
-TX/SC/AZ row whose definition legitimately ends in a citation shaped
-`NNN.NNN.` and has NO baseline candidate for the same term would silently
-lose that citation today. Pinned at the engine level (the level where it
-is genuinely unmasked) and flagged to the manager as a new defect in
-shipped family-3 code, not a baseline/pipeline issue like Q1/Q2.
+**RULING U-R13 (sprint log §M22): this defect IS NOW FIXED.**
+`_TRAILING_MARKER_CHAIN_RE` in `us_markers_boundary.py` now carries a
+`(?<![\d.])` guard immediately before each digit-dot token specifically so
+a dotted citation number like `552.003.` is never partially or wholly
+consumed as marker-chain noise (see that module's own docstring, "the
+`_TRAILING_MARKER_CHAIN_RE` strips a marker fragment..." bullet, which
+names this exact TX row as its worked example). Re-measured directly
+against this row for this re-authoring: `extract_quote_anchored_entries`
+now returns `'assigned by Section 552.003.'` for "Governmental body" --
+the citation tail is fully retained.
+
+**What is NOT retained, and must not be expected to be: the idiom itself.**
+The original Part B expectation (`'has the meaning assigned by Section
+552.003.'`, idiom included) contradicted the engine's own universal
+contract: `_TIGHT_IDIOM_RE` (this module's own idiom gate, matched
+immediately after the quoted term) always consumes the idiom phrase
+itself as part of finding the boundary, so `definition_text` begins AFTER
+it -- confirmed independently by `test_us_markers_ext_a_ok_gapidiom.py`,
+whose real-row expectation for OK's "person" begins `"any individual,"`
+with `"shall mean"` already stripped, not retained. Part B is re-authored
+below to pin the REAL, verified contract: citation tail preserved, idiom
+stripped -- not to re-litigate whether the idiom should be stripped (that
+is a separate, unraised design question, out of scope here).
+
+**The masking finding stands, unchanged, and is still worth guarding**:
+`pipeline.py`'s idempotent-by-key persistence loop enumerates
+`baseline_blocks` before `extra_blocks`, and baseline ALSO produces a
+(correct, untruncated, idiom-RETAINED -- baseline is a different code path
+with a different contract) "Governmental body" candidate for this row --
+baseline wins the collision, so today's real persisted output for THIS
+specific row shows the full idiom. Confirmed live in the third test below,
+unchanged by this re-authoring. In a genuine zero-baseline-candidate
+rescue row (VA/WA/FED-shaped), only our engine's own output would be
+persisted -- which is exactly why Part B pins our engine directly rather
+than relying on the pipeline-level masking test to catch a regression.
 
 Row vendored verbatim, byte-verified against `us_tx_statutes.parquet` this
 pass.
@@ -176,20 +194,36 @@ def test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub
         )
 
 
-def test_part_b_red_our_own_engine_truncates_governmental_body_citation_tail():
-    """The Part-B RED (NEW finding, engine-level): our own
+def test_part_b_our_own_engine_preserves_citation_tail_and_strips_the_idiom():
+    """Part B, re-authored per RULING U-R13 (sprint log §M22/§M23 item 2):
+    the original expectation (idiom RETAINED) contradicted the engine's own
+    universal idiom-stripping contract, corroborated independently by
+    `test_us_markers_ext_a_ok_gapidiom.py` (real OK row, expected text
+    starts `"any individual,"` with `"shall mean"` already stripped).
+
+    This pins the REAL, currently-live contract for our own
     `extract_quote_anchored_entries`, called directly on this row's real
-    body, must not drop the trailing citation number from "Governmental
-    body"'s real definition. Currently truncates to `'assigned by
-    Section'`, losing `' 552.003.'` -- `_TRAILING_MARKER_CHAIN_RE`
-    mis-reads a real `"NNN.NNN."` citation as a marker-chain fragment."""
+    body: the trailing citation number (`"552.003."`) must survive --
+    `_TRAILING_MARKER_CHAIN_RE`'s `(?<![\\d.])` guard exists precisely so a
+    real `"NNN.NNN."` citation is never mistaken for a marker-chain
+    fragment -- and the defining idiom (`"has the meaning"`) must NOT
+    survive, exactly like every other idiom-anchored capture this engine
+    produces. Both halves are asserted explicitly (not just the exact
+    string) so a future regression in either direction fails loudly with
+    its own message rather than a bare string diff."""
     row = _load_row()
     entries = dict(extract_quote_anchored_entries(row["text"]))
     assert "Governmental body" in entries
-    assert entries["Governmental body"] == "has the meaning assigned by Section 552.003.", (
-        f"our own engine's candidate for 'Governmental body' is truncated: "
-        f"{entries['Governmental body']!r}"
+    text = entries["Governmental body"]
+    assert "552.003" in text, (
+        f"the real citation tail was dropped -- regression of the original "
+        f"Part-B truncation defect, now fixed: {text!r}"
     )
+    assert "has the meaning" not in text, (
+        f"the idiom was NOT stripped -- contradicts the engine's own universal "
+        f"idiom-stripping contract (corroborated by ext_a_ok_gapidiom): {text!r}"
+    )
+    assert text == "assigned by Section 552.003.", f"got {text!r}"
 
 
 def test_part_b_masking_confirmed_todays_real_pipeline_happens_to_be_fine_here(
