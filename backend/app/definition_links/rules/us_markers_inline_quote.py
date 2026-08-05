@@ -14,12 +14,19 @@ IS reached by the current `_extract_inline_quoted_definitions` once its
 gate is removed, but not CLEANLY (a literal next-entry marker/amendment-
 annotation leak, per `## P2`).
 
-Registers ONE `EntrySplitterRule`, scoped to the 7 codes actually verified
+Registers ONE `EntrySplitterRule`, scoped to the codes actually verified
 against real vendored rows this sprint -- not a blanket `"US-*"` -- so no
 untested jurisdiction's baseline-working extraction can be perturbed by
 this module (see `us_markers_boundary.py`'s own docstring for the exact
 defects each guard in the shared engine closes, evidenced against these
-same rows)."""
+same rows).
+
+Phase-2 (sprint 2026-08-04-defs-us-markers, Developer C): NJ, MI, ND, NY,
+and OK added to the wave-1 seven (VA/WA/FED/UT/TX/SC/AZ). Same shared
+engine, same guards -- these five jurisdictions' quote-anchored bodies were
+measured to hit the identical family-3 shape, with zero-yield rates
+NJ 99.7%, MI 38.8%, ND 99.7%, NY 79.9% (post-ingest text, ruling U-R11),
+OK 94.4% before this change (manager sweep, `## M22`/phase-2 log)."""
 
 from __future__ import annotations
 
@@ -29,7 +36,20 @@ from app.definition_links.rules.us_markers_boundary import (
     extract_quote_anchored_entries,
 )
 
-_JURISDICTIONS = ("US-VA", "US-WA", "US-FED", "US-UT", "US-TX", "US-SC", "US-AZ")
+_JURISDICTIONS = (
+    "US-VA",
+    "US-WA",
+    "US-FED",
+    "US-UT",
+    "US-TX",
+    "US-SC",
+    "US-AZ",
+    "US-NJ",
+    "US-MI",
+    "US-ND",
+    "US-NY",
+    "US-OK",
+)
 
 
 def _split(text: str) -> list[str]:
