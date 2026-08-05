@@ -120,37 +120,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _is_tighter_containment(candidate_text: str, persisted_text: str) -> bool:
-    """G8 (sprint 2026-08-05-defs-core-follow-on-2) collision-preference
-    criterion, per the Planner's containment-update design.
-
-    Stage 2 persists candidates in list order; several candidates can
-    legitimately share one `(article_id, sorted(terms))` key -- most
-    commonly baseline colliding with ITSELF (the same term extracted
-    twice from duplicated/reformatted source text, no registered rule
-    needed), but also baseline colliding with a registered rule's own
-    candidate. Whichever candidate is enumerated FIRST used to win
-    unconditionally, even when a later candidate for the same key is
-    objectively cleaner.
-
-    This narrow, symmetric (order-independent) check is what "objectively
-    cleaner" means here: a strict, byte-exact SUBSTRING relationship,
-    where the shorter text is missing nothing but a structurally separate
-    neighbor's own leaked marker+quote. Deliberately NOT "shorter wins"
-    (rejected -- the corpus scan showed that criterion is unreliable) and
-    NOT a length-sanity threshold (rejected -- not principled, tuned to
-    too few rows). Any pair without this exact containment relationship
-    (the corpus's "ambiguous" population) returns False here and is left
-    exactly as before -- first-seen still wins, baseline-first is
-    unchanged for everything outside this narrow case.
-    """
-    return (
-        candidate_text != persisted_text
-        and len(candidate_text) < len(persisted_text)
-        and candidate_text in persisted_text
-    )
-
-
 def run_definition_linking(
     session: Session, *, matter_id: str, triggered_by_user_id: str
 ) -> dict:
@@ -371,21 +340,6 @@ def run_definition_linking(
             created_definitions.append(
                 {"id": definition_row.id, "terms": list(candidate.terms), "scope": candidate.scope}
             )
-        elif _is_tighter_containment(candidate.definition_text, definition_row.definition_text):
-            # G8: a same-key candidate arriving later can still IMPROVE the
-            # already-persisted row -- but only via the narrow containment
-            # criterion above, never by mere ordering or length alone. This
-            # is pre-seeded rows' only update path too (`definitions_by_key`
-            # is seeded from `existing_definitions` above), which is
-            # deliberate: a bad `definition_text` persisted by a prior run
-            # must not stay sticky forever once a cleaner candidate for the
-            # same key is produced by a later run. `scope`/`qualifier` are
-            # replaced together with `definition_text` so the persisted row
-            # never ends up mixing fields from two different candidates.
-            definition_row.definition_text = candidate.definition_text
-            definition_row.scope = candidate.scope
-            definition_row.qualifier = candidate.qualifier
-            session.flush()
         resolved.append((candidate, definition_row, owning_art))
 
     # Existing (system_generated) assertion identity tuples, for
