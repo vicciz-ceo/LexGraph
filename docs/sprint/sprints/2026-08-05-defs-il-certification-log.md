@@ -955,3 +955,122 @@ certification_ltr_markup_overcapture_live.py`, its fixture (`צו
    union interacting with embedded markup) is diagnostic, not a fix
    proposal -- deliberately, per M33-4's own instruction that a Developer
    decides the mechanism.
+
+---
+
+## 2026-08-05 — M34: Planner round 2 ACCEPTED and merged. It corrected my ruling 3, and found ~100 corpus files the pipeline cannot see at all.
+
+### Boundaries + integrity (verified BY ME)
+
+`git diff --name-status HEAD~1 HEAD -- backend/app` → **empty**. Suite
+**`4 failed, 855 passed`** (845 + 6 unit + 3 heading + 1 sanity control
+all new-passing, +1 new RED); the 2 containment REDs unchanged. Two merge
+conflicts, both concurrent-authorship: log (both kept in order) and the
+`.sha256` pin (took the Planner's fresh re-pin). **Pin verified by me
+against the regenerated file**: `9f8c2209…` matches, **93,509 rows** —
+the post-correction count, not a stale copy.
+
+### Ruling 2 verified — and the correction mattered ~4x more than its own size
+
+```
+word-internal   91,611 (33.1%) -> 89,515 (32.3%)
+eligible       185,204        -> 187,300
+odd-parity      1,676         ->    282   (-83%, exactly its round-1 prediction)
+paired spans   91,764         -> 93,509
+production_captured  54.1%    ->  62.8%   (+9,110 spans)
+```
+
+A 2,096-character fix moved 9,110 spans. Traced by the Planner and it is
+the right explanation: a mid-article misclassification does not merely
+lose its own character, it **inverts open/close parity for every
+downstream eligible quote in that article**. Worth remembering — a small
+predicate error in a paired-delimiter scan is never locally bounded.
+
+### MY RULING 3 WAS WRONG, and the Planner checked rather than complied
+
+I ruled the heading population "the honest home for residual (5)
+`אכרזה זאת`." **It is not, and it cannot be.** The marker line is
+`@ (תיקון: תשפ"ג) : באכרזה זאת, "..." - ...` — no article number between
+`@` and `(תיקון`, so it matches neither `_ARTICLE_MARKER_RE` nor
+`_BARE_ARTICLE_MARKER_RE`. `sections.parse_articles` returns **zero
+Article objects for that entire file** — there is no `.heading` for a
+heading population to contain. Confirmed live by me.
+
+That is the second ruling of mine this sprint that a briefed agent
+checked instead of following. Both times the instruction to correct me
+was the thing that worked.
+
+### The finding underneath it — measured independently by me, and it refines theirs
+
+The Planner reported "121 whole files (2.0%)". My own count, requiring
+the file to actually CONTAIN `@`-markers (otherwise a file with no
+articles is legitimately articleless, not stranded):
+
+```
+corpus files                                   6,133
+files WITH @-markers yielding ZERO Articles      100  (1.6%)
+@-lines stranded inside them                   1,090
+```
+
+**100, not 121** — theirs appears to include ~21 genuinely
+article-free files. Either way this is the largest structural blind spot
+the program has found: whole laws the pipeline never parses into a single
+article, so no definition rule of any kind can ever run on them. The
+worst cases are not marginal documents:
+
+```
+223 @-lines  תקנות הדיון בבתי-הדין הרבניים בישראל
+187 @-lines  הודעות על קביעת חבר בני אדם ... פטור ממס
+171 @-lines  قانون الأحوال الشخصية للطائفة الدرزية في إسرائيل
+ 84 @-lines  نظام أصول المحاكمات أمام المحاكم الدرزية
+```
+
+Two of them are the Druze personal-status and procedure laws, in Arabic
+script — **entire bodies of Israeli religious-courts law invisible to the
+product**. This is a `sections.py` (FROZEN) gap, structurally the same
+class as M20's breadcrumb blocker, and it belongs to core, not to this
+panel. Cluster `numberless_at_marker_zero_article_files` PROPOSED; the
+Planner pinned the correction in a test so a future `sections.py` fix
+flips it rather than leaving it green for the wrong reason.
+
+### Ruling 4 — the `'ltr'` root cause is an interaction bug, and our QA sample could not have caught it
+
+Traced precisely: `"תחום המועצה"` is ONE multi-line `:-` block with
+`::-`-prefixed continuation lines. Baseline parses it correctly as one
+candidate. **D-1b's `::-` `EntrySplitterRule` then treats each
+continuation line as its own block**, and the union (by design, for
+recall) re-parses 8 lines carrying `<span dir="ltr">` markup into
+spurious candidates. Persisted as 2 `Definition` rows, not 8, because
+`pipeline.py`'s `(article, sorted(terms))` dedup collapses the seven
+single-`'ltr'` rows — which reconciles exactly with the 8 candidates I
+measured in M33.
+
+**Honest note on our own process:** QA cycle 4's seeded sample of D-1b's
+population returned 0/110 errors, and I recorded that as its measured
+error rate. It was measured correctly — but its population was the
+marker-less-prose articles, **not** the `::-`/`:-` union interaction,
+which is where the over-capture actually lives. A clean sample of the
+wrong population is not evidence about the right one. That is precisely
+the failure mode whole-population classification exists to remove, and it
+is the strongest single vindication of D-CERT this program has produced.
+
+### Judgment I want repeated
+
+Asked to grow the cluster set, the Planner **measured the unassigned
+composition first** (81.6% in ORDINARY articles, not the
+definitions-heading ones it expected) and then **declined to invent a
+cluster for the mixed remainder**, on the explicit grounds that doing so
+would repeat the coarse-laundering it was praised for refusing in round
+1 — handing over a measured starting point instead. It also flagged that
+~24% of its sampled remainder are artifacts of its OWN sequential-pairing
+construction rather than real corpus content. Refusing to convert an
+unmeasured remainder into a clean-looking bucket is the whole discipline.
+
+### Open
+
+Unassigned 28,967 → 21,579 (23.1%), from the vav fix and a small markup
+widening — **not** from clusters targeting it, which the Planner states
+plainly. `class_c_local_scope_under_claims` and the cross-path/position-0
+clusters still cannot be real predicates without mention/containment-level
+data the current row shape does not carry — a manifest-shape question for
+round 3.
