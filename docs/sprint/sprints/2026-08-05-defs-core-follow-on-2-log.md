@@ -1464,6 +1464,79 @@ whether G11's ~39,955-row recall win ships this cycle or defers with its
 
 ---
 
+## Phase 9 — two G8 items from the markers panel: manager rulings (2026-08-05)
+
+### Item 2 — G8's coverage: CONFIRMED same-key only; class-D RE-ROUTED
+
+**Manager-verified in code**, not inferred. `pipeline.py`'s persistence loop
+keys on `(owning_art.id, tuple(sorted(candidate.terms)))`. The
+containment-update `elif` fires only when `definitions_by_key.get(key)`
+returns an existing row — i.e. **same article AND same term set**.
+
+**Cross-term containment produces a DIFFERENT key**, so it hits the
+`definition_row is None` branch and simply creates a new row. **G8's
+mechanism structurally never fires on it.**
+
+**Ruling: G8 covers same-term key collisions ONLY.** Nothing in this
+sprint's records ever claimed cross-term coverage (the G8 items, the
+Phase-2 verification entry, and the merge protocol all describe same-key
+collisions), so nothing here needs correcting — but the routing assumption
+did exist upstream and is now explicitly withdrawn. **Class-D (one term's
+text swallowed inside ANOTHER term's `definition_text`) is re-routed to
+core-follow-on-3's boundary work.** It is an extraction-boundary problem,
+not a persistence-preference problem, and it must not wait on a gate that
+cannot close it.
+
+### Item 1 — the named falsifier has a real row class: SPLIT ruling
+
+Markers found exactly the row class plan4 named as its own falsifier: a
+degenerate 6-char baseline candidate (`"means:"`) persists first and a
+correct 941-char candidate can never displace it, because
+`_is_tighter_containment` only replaces when the NEW text is a strict
+SUBSTRING of the old — so a longer-better candidate never wins.
+
+**This vindicates the manager's Phase-2 QA attack point #1**, recorded when
+G8 merged: *"the criterion prefers the shorter text whenever it is strictly
+contained... WRONG if the longer text is a legitimately fuller definition...
+Under an absolute zero-miss bar that is a recall loss, not a cleanup."* The
+assumption was flagged as unproven; markers supplied the disproving row.
+
+The ruling SPLITS, because the report describes one failure mode and the
+manager found a second that is materially different:
+
+**(1a) Improvement-suppression (OBSERVED) → NAMED LIMITATION, routed to
+core-follow-on-3.** Option (b), not (a). Reasons:
+- **Zero-regression holds for this ordering.** First-wins is today's shipped
+  behavior; the degenerate candidate would win without G8 too. G8 neither
+  created nor worsened it — this is a capture-quality gap, not new damage.
+- **Amending needs a measured FP side** (program law: every fix carries a
+  measured before/after; D-Q1 requires conflicts escalate with data). That
+  measurement does not exist and is a Planner cycle.
+- **A "degenerate-short" guard reintroduces exactly what plan4 rejected with
+  data** — it measured and rejected length thresholds as unprincipled and
+  tuned to too few rows. Re-adding one unmeasured, late, in shared
+  persistence, in the sprint that merges FIRST, is the wrong risk.
+- **Design steer recorded for core-3 so it does not start cold:** prefer a
+  *semantic emptiness* test over a char-count threshold — a
+  `definition_text` consisting of nothing but the defining idiom itself
+  (`"means:"`) carries no definitional content, which is principled in a way
+  a length cutoff is not. To be measured, not assumed.
+
+**(1b) Reverse-order displacement (MANAGER-IDENTIFIED, UNVERIFIED) →
+MANDATORY QA CHECK BEFORE MERGE.** Not in the markers report. If the good
+941-char candidate is persisted FIRST and the degenerate `"means:"` arrives
+SECOND, then `_is_tighter_containment("means:", <941 chars>)` evaluates:
+`!=` ✓, `len <` ✓, and **`"means:" in <941 chars>`** — which is plausible
+whenever the long text contains that literal substring. If so, **G8 would
+REPLACE a good definition with a 6-char degenerate one.**
+
+That is **new damage introduced by G8**, not pre-existing behavior, and it is
+therefore a **merge blocker if it fires** — categorically different from
+(1a). **QA must test this ordering explicitly on the real corpus. If it
+occurs, G8's criterion must be amended BEFORE merge, not routed to core-3.**
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which

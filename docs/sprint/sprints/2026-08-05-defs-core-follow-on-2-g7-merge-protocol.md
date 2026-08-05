@@ -321,6 +321,42 @@ non-monotonic depth case (depth-4 before depth-3) exists in this sprint's own
 different-VALUED unit (סימן א' vs סימן ב') and ABSENT unit (no חלק ancestor
 at all). Both must be exercised.
 
+## G8 — MERGE BLOCKER CHECK plus a named limitation (added 2026-08-05)
+
+**BLOCKER CHECK — must run before G8 merges.** G8's containment-update
+replaces a persisted `definition_text` when a later same-key candidate is a
+strict SUBSTRING of it. The observed failure mode is a degenerate candidate
+persisting FIRST and blocking a better one (see limitation below). **The
+UNVERIFIED reverse ordering is the dangerous one:** if a good long candidate
+persists first and a degenerate short one (e.g. `"means:"`) arrives second,
+`_is_tighter_containment` evaluates `!=` ✓, `len <` ✓, and
+`"means:" in <long text>` — plausible whenever the long text contains that
+literal substring — and **G8 would REPLACE the good definition with the
+6-char degenerate one.**
+
+That would be **new damage introduced by G8**, not pre-existing behavior.
+**Pass condition: measure on the real corpus whether any same-key pair
+exhibits this ordering. If any does, G8's criterion must be AMENDED BEFORE
+MERGE** — this does not route to a follow-on.
+
+**NAMED LIMITATION (accepted, routed to core-follow-on-3).** In the OBSERVED
+ordering, a degenerate 6-char candidate persisted first cannot be displaced
+by a correct 941-char one, because replacement requires the new text to be a
+strict substring of the old. Accepted for this sprint on zero-regression
+grounds: first-wins is today's shipped behavior, so G8 neither created nor
+worsened it — it is improvement-suppression, not damage. Part of the
+1,308-row "ambiguous" group deliberately left untouched is therefore
+quality-inverted. Design steer for core-3: prefer a *semantic emptiness*
+test (a `definition_text` that is nothing but the defining idiom) over a
+char-count threshold, which plan4 already measured and rejected.
+
+**G8 COVERAGE, stated precisely so nothing waits on it:** G8 keys on
+`(article_id, sorted(terms))` and fires ONLY on same-article/same-term-set
+collisions. **Cross-term containment** (one term's text swallowed inside
+ANOTHER term's `definition_text`) yields a different key and creates a new
+row — **G8 structurally cannot close it.** The markers panel's class-D is
+re-routed to core-follow-on-3's boundary work.
+
 ## Open questions for the program manager (both G3-related)
 
 **Q-G3-A — Is `_extract_inline_quoted_definitions` in G3's scope?**
