@@ -6084,3 +6084,41 @@ QA cycle-8's method, not from the majority.
    code is outside both QA's and my write-set — I write none of it).
 2. Residual ledger updated with the 233-vs-235 open item.
 3. M-R15 step 1a CLOSED. Next: step 2, P1 canonical wiring.
+
+---
+
+## 2026-08-05 — Manager: comment settled (30736e8); M-R15 step 1 CLOSED; opening step 2 (P1 canonical wiring)
+
+Comment correction verified materialized: `git diff 7f293c2..30736e8` over
+`pr_profile.py` filtered to non-comment lines returns **nothing** — comment-only,
+confirmed independently of the agent's claim. The compiled regex is
+byte-identical (`r"^((?:[^.]|\.(?!-)){1,100}?)\s*\.?\s*(?:[–—]|(?<=\s)-)\s*"`).
+Suite unchanged: `30 failed / 989 passed / 13 xfailed`.
+
+**M-R15 step 1 (gate 1) is CLOSED.** The narrowing is in production, the split
+is settled at 44/191 with its error origin named, precision is requalified on
+an uncontaminated frame, and the code comment now carries the settled record
+plus the one open, immaterial variance.
+
+### Opening step 2 — P1 canonical wiring
+
+This is the item the whole sprint was blocked on: registering the Spanish
+`HeadingRule` so PR's ~529 canonical `Definiciones` sections are recognized on
+the live path, plus the canonical extraction path behind it, plus a
+`ScopeKindRule` for `A los fines de este Capítulo` (P3's chapter half, whose
+6 REDs have been held since cycle 4).
+
+Two things I am making explicit in the brief because they are easy to miss:
+
+1. **This is the commit that makes `_UNQUOTED_TERM_DASH_RE` live for the first
+   time.** Registering a PR `TermClauseRule`/`EntrySplitterRule` that routes
+   through `pr_profile`'s block parser is precisely what takes that regex off
+   dead code. It is now narrowed (M-R14 gate 1, settled) — so this cycle is its
+   first real exercise, and the ~33-53% retained precision becomes a live
+   number rather than a projected one. That must be measured, not assumed.
+2. **The 117/633 by-construction re-measurement runs AFTER this lands, not
+   before** (M-R15). It is not part of this cycle; it is the gate on 18c that
+   this cycle finally makes measurable.
+
+Items 19-24 stay held and sequence behind P1 on their own merits — deliberately
+not bundled, to keep this cycle verifiable.
