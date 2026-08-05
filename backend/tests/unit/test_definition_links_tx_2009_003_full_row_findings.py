@@ -68,6 +68,49 @@ conflated:
    interaction) is never mistaken for also fixing R1 (markers' own,
    differently-owned mechanism), and vice versa.
 
+**Planner cycle-P5 amendment -- program arbitration re-scopes the
+`Governmental body` pin (item 1 above).** A cross-panel dispute landed: the
+markers panel's own rule legitimately emits a SECOND `Governmental body`
+candidate on this exact row, via a DIFFERENT mechanism than the one item 1
+above traces (markers' own rule, not this sprint's `_parse_block`). The
+program manager arbitrated a proposed blanket rule ("a rule must stay
+silent where baseline already emitted that term") and VACATED it: measured
+counter-evidence on three real WA rows showed BASELINE's own candidate is
+the one that is wrong there (a 6,500-10,800-char swallow of the whole
+section, confirmed live: `STATE_WA_T82_C04_S065` yields exactly one
+candidate whose `definition_text` is 10,838 chars) while a second/duplicate
+candidate from another rule is the clean, correct fix -- the OPPOSITE
+polarity from this TX row, where baseline's own candidate is the correct
+one. Correctness varies per row, so no emission-layer rule ("stay silent
+when a term already exists elsewhere") can resolve this in general; it
+settles at the preference/quality layer instead (core's G8), not here.
+
+Consequence for this file: item 1's original pin (`counts["Governmental
+body"] == 1` over the FULL cross-panel union of candidates) encoded exactly
+the rejected emission-layer theory, and would go RED the moment markers'
+work merges -- for a reason that is NOT a defect in anything this sprint
+owns. This sprint's own actual hazard was never "how many raw candidates
+exist across every panel's rules" -- it was always (a) whether THIS
+sprint's own rule (`rules/us_inline_parenthetical.py`'s `TermClauseRule` /
+`_parse_block`) double-emits the term (the real, original M-R18 defect,
+confirmed live this cycle to have produced a second candidate with a
+corrupt ~400-char `definition_text` before its guard fix landed -- see the
+re-scoped `test_tx_governmental_body_captured_exactly_once_through_full_
+dispatch` below for the live verification), and (b) whether a real
+downstream mention ends up with more than one `USES_DEFINITION` assertion
+or a corrupt persisted `definition_text` (the actual user-visible
+consequence, now pinned separately, at the correct altitude, in
+`backend/tests/integration/test_definition_links_tx_2009_003_governmental_
+body_outcome.py`, following the established `db_session`/`matter_with_
+users` live-ingest pattern from `test_multiterm_f5_shared_clause.py`).
+Neither of those two pins asserts anything about what a DIFFERENT,
+independently-correct rule owned by another panel legitimately contributes
+-- both stay green today and (verified live, this cycle) stay green after
+markers' merge, since the real persist-layer `(article_id, sorted(terms))`
+first-wins dedup (`pipeline.py`, unmodified, not this sprint's to touch)
+keeps baseline's correct candidate for this specific row regardless of how
+many total raw candidates any panel's rules produce.
+
 Live-path discipline: every test below drives the REAL, current
 `USProfile.extract_definitions_from_section` method via `get_profile(...)`
 on the real, full, unmodified fixture row -- never an excerpt, never the
@@ -114,19 +157,118 @@ def _term_counts() -> Counter:
 
 
 def test_tx_governmental_body_captured_exactly_once_through_full_dispatch():
-    """M-R18 (new). See module docstring, item 1, for the full root-cause
-    trace (leading-quote guard's per-block comparison never sees a term
-    reappearing inside the EntrySplitterRule's own whole-text
-    contribution)."""
-    counts = _term_counts()
-    assert counts["Governmental body"] == 1, (
-        f'"Governmental body" was captured {counts["Governmental body"]} times through the '
-        f"full, real dispatching path -- expected exactly 1. Ruling M-R18: the finding-4 "
-        f"leading-quote guard (rules/us_inline_parenthetical.py's _parse_block) cannot "
-        f"suppress this, because the duplicate comes from the TX-scoped parent-redirect "
-        f"EntrySplitterRule's whole-text block, whose OWN leading token is 'In this "
-        f"chapter:' (not a quote), so the guard's per-block comparison never fires. All "
-        f"term counts: {dict(counts)!r}"
+    """M-R18, RE-SCOPED (Planner cycle-P5, program arbitration -- see the
+    module docstring's cycle-P5 amendment for the full history and why).
+
+    **What changed.** This test used to assert `counts["Governmental
+    body"] == 1` over the FULL union of every registered rule's candidates
+    for this row (baseline + every panel's TermClauseRule). That pin
+    encoded an emission-layer theory ("a rule must stay silent where
+    baseline already emitted that term") the program manager has since
+    VACATED (measured counter-evidence: on three real WA rows, baseline's
+    OWN candidate is the wrong one -- a 6,500-10,838-char swallow -- while
+    a second/duplicate candidate from another rule is the correct fix, the
+    opposite polarity from this TX row). A blanket count-over-the-union
+    assertion would go RED the moment the markers panel's independently
+    correct rule merges and legitimately contributes its own second
+    `Governmental body` candidate here -- for a reason that is NOT a
+    defect this sprint owns.
+
+    **What this test now pins instead.** Exactly what THIS sprint's own
+    M-R18 guard controls: whether OUR OWN rule
+    (`rules/us_inline_parenthetical.py`'s `TermClauseRule` / `_parse_block`)
+    double-emits `"Governmental body"` on this row -- and nothing about
+    what any OTHER panel's independently-registered rule legitimately
+    contributes. Isolated via the PUBLIC rule registry
+    (`registry.entry_splitter_rules_for` / `registry.term_clause_rules_for`
+    -- never a private import of `_parse_block`/`_split_into_numbered_
+    blocks`; no other test in this sprint imports either directly, per the
+    same live-path discipline `test_definition_links_m_r23_hyphen_marker_
+    recall_regression.py`'s own docstring states explicitly), then calling
+    `rule.parse(block)` -- the EXACT SAME callable and call shape
+    `USProfile.extract_definitions_from_section` itself uses internally
+    (`for block in all_blocks: for rule in registry.term_clause_rules_for(
+    self.code): candidates.extend(rule.parse(block))`) -- filtered to the
+    ONE registered rule whose `.parse` lives in this sprint's own module.
+    This is "running the real registered rule", not reaching past the
+    seam: the callable is fetched via the same public lookup function
+    production itself calls, and invoked identically.
+
+    Scoped to blocks a registered `EntrySplitterRule` contributes (not
+    baseline's own per-entry blocks) because that whole-text contribution
+    is the SOLE mechanism M-R18's own root cause names (module docstring
+    item 1): our rule's guard against re-emitting a term baseline already
+    owns is proven correct for baseline's OWN per-block splits since
+    M-R16 (a different, already-separately-tested guard path,
+    `test_definition_links_leading_quote_guard.py`) -- conflating that
+    unrelated path into this pin would violate this same file's own
+    "don't fold two defects into one test" discipline.
+
+    **Why `== 0`, not `<= 1` (SEEDING PRINCIPLE deviation, evidence
+    below).** The sprint manager's own framing proposed pinning "at most
+    one" candidate from our rule. Measured live, this cycle, by
+    temporarily reproducing the pre-fix guard (disabling the mid-block
+    `_ENTRY_LEADING_QUOTE_RE` scan that IS the M-R18 fix, leaving only the
+    position-0-only check that predates it): our rule's own contribution
+    to `"Governmental body"` from the EntrySplitterRule block was exactly
+    **1** even in the ORIGINAL, unfixed defect state -- one extra
+    candidate whose `definition_text` was a corrupt ~400-char run-on
+    (`_cross_reference_candidates`' own fallback window,
+    `definition_start + 400`, with no next recognized entry to bound it),
+    exactly matching this file's module docstring's "a corrupt 400-char
+    `definition_text`" description of the original hazard. An `<= 1`
+    assertion would therefore have been GREEN in BOTH the pre-fix defect
+    state (1) and today's fixed state (0) -- it would NOT have caught the
+    original M-R18 regression. `== 0` is the tight version that is RED
+    pre-fix and GREEN today (confirmed both ways, live, this cycle), so it
+    is what this test asserts. Baseline's own unconditional per-block
+    candidate for this term is a completely separate mechanism (not part
+    of "our rule's own contribution") and is unaffected either way -- see
+    the sibling outcome-level pin
+    (`backend/tests/integration/test_definition_links_tx_2009_003_
+    governmental_body_outcome.py`) for confirmation the real end-to-end
+    persisted behavior is correct."""
+    from app.definition_links.rules import registry
+    from app.definition_links.rules import us_inline_parenthetical
+
+    row = _load_rows()["STATE_TX_Cgv_C2009_S2009.003"]
+    text = row["text"]
+
+    extra_blocks: list[str] = []
+    for rule in registry.entry_splitter_rules_for("US-TX"):
+        extra_blocks.extend(rule.split(text))
+    assert extra_blocks, (
+        "precondition failed -- expected at least one EntrySplitterRule-contributed block for "
+        "this real row under US-TX (the TX-scoped parent-redirect EntrySplitterRule's "
+        "whole-text contribution is the exact mechanism M-R18's root cause traces to); if this "
+        "is empty, the assertion below would pass vacuously without exercising anything."
+    )
+
+    our_rules = [
+        rule
+        for rule in registry.term_clause_rules_for("US-TX")
+        if rule.parse.__module__ == us_inline_parenthetical.__name__
+    ]
+    assert len(our_rules) == 1, (
+        f"precondition failed -- expected exactly one registered TermClauseRule owned by "
+        f"rules/us_inline_parenthetical.py (this module's own M-R18 guard lives in its "
+        f"_parse_block); found {len(our_rules)}. If this is not 1, the isolation below is not "
+        f"measuring what this test claims to measure."
+    )
+    our_rule = our_rules[0]
+
+    our_candidates = [c for block in extra_blocks for c in our_rule.parse(block)]
+    governmental_body = [c for c in our_candidates if c.terms == ("Governmental body",)]
+    assert len(governmental_body) == 0, (
+        f'expected OUR OWN rule (rules/us_inline_parenthetical.py\'s TermClauseRule / '
+        f'_parse_block) to contribute ZERO candidates for "Governmental body" from any block '
+        f"a registered EntrySplitterRule hands it for this row -- baseline's own per-block "
+        f"leading-quote pass already captures this term correctly from ITS OWN separate block "
+        f"(unconditionally, unaffected by any TermClauseRule), and the M-R18 guard's whole job "
+        f"is to stop our rule's unfiltered cross-reference scan from re-discovering the same "
+        f"term when it runs across the SAME text embedded a second time inside a whole-text "
+        f"EntrySplitterRule contribution. Got {len(governmental_body)}: "
+        f"{[c.definition_text[:120] for c in governmental_body]!r}"
     )
 
 
