@@ -1,20 +1,20 @@
 ---
 id: "2026-08-05-defs-core-follow-on-2"
-status: qa-fail
-current_role: planner
+status: dev-complete
+current_role: qa
 branch: claude/defs-core-follow-on-2
 worktree: /Users/nerya/LexGraph-wt/defs-core-follow-on-2
-locked_by: "codex:planner"
-locked_at: "2026-08-05T21:16:54Z"
-last_agent: "/root/core2_g9_migration_test_planner"
-last_updated: "2026-08-05T21:16:54Z"
+locked_by: "/root/core2_final_qa2"
+locked_at: "2026-08-05T21:44:38Z"
+last_agent: "/root/core2_final_qa2"
+last_updated: "2026-08-05T21:44:38Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
 completed_items: 0
-dev_complete_items: 0
-qa_cycles: 2
+dev_complete_items: 1
+qa_cycles: 3
 previous_sprint: "2026-08-04-defs-core-dispatch"
 prd_sections: []
 design_sections:
@@ -99,10 +99,14 @@ coordinate timing with the program manager.
 
 ## Next Steps
 
-- Planner: add a durable automated G9 migration contract covering
-  upgrade → downgrade → upgrade against a seeded pre-migration Article row,
-  including nullable/default-safe `heading_breadcrumbs` behavior and mutation
-  proof. Production code and migration files are frozen.
+- QA: independently verify the G9 migration test executes real DDL, mutation
+  sensitivity is credible, all prior release evidence still holds, and the
+  complete release gate passes from the integrated tree.
+
+## Dev Complete
+
+- G9 migration regression contract executes upgrade → downgrade → upgrade on
+  a seeded pre-G9 Article row and pins nullable/NULL/default-safe behavior.
 
 ## Context Dump
 

@@ -3083,3 +3083,26 @@ backend/.venv/bin/pytest backend/tests -q
 The 18 warnings are five existing Starlette deprecations for
 `HTTP_422_UNPROCESSABLE_ENTITY` (four test groups plus
 `routers/workspace.py`); none originates in this migration contract.
+
+---
+
+## Phase 24 — G9 contract accepted; QA cycle 3 dispatch (2026-08-06)
+
+Manager review of Planner commit `993afd6` confirmed an exact two-file
+tests/docs diff, clean worktree/remote equality, no production or migration
+change, and an independent focused pass (**1 passed**). The commit was merged
+to the integration branch at `3de0192`.
+
+Fresh QA work is assigned to **`/root/core2_final_qa2`**, GPT-5.6 Terra /
+high. The collaboration runtime's fixed task-tree ceiling requires reuse of
+the prior QA task, but role separation is preserved: this agent remains QA,
+did not author the G9 test, and has never written this sprint's production.
+Its prior FAIL is the baseline it must close, not evidence of PASS.
+
+QA cycle 3 must start from the exact committed dispatch tip, verify current
+`main` containment and contract/pointer lint, inspect the G9 test and execute
+real migration DDL independently, attack upgrade and downgrade sensitivity
+without committing mutations, rerun focused G4/G8/G9 and exact artifact
+reconciliations, run full backend/frontend/typecheck, inspect the full
+main...HEAD diff/risk classes, and return a docs-only PASS/FAIL verdict. Any
+failure stops the release; QA may not edit production or tests.
