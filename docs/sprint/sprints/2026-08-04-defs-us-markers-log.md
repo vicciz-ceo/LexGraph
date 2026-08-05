@@ -4912,3 +4912,71 @@ of ours moves. Recorded because they had published the 1 — and because
 "stride-sample undercounts a rare shape" is worth remembering.
 
 ---
+
+## M46 — NY RATE RECONCILED across trees; a program-record contradiction averted (2026-08-05)
+
+Multiterm conceded finding D independently (their M-R27) — re-running the same
+measurement with the ingest transform as the only difference gave raw
+**1,479/1,479 (100%)** vs post-ingest **1,245/1,479 (84.2%)**, so 234 sections
+capture fine once normalised and their "total loss" framing was a probe artifact.
+They also accepted that "reproduces on the pre-sprint function" was evidence FOR
+the trap, not against it — the fix never lived in that function, so of course it
+reproduced.
+
+**But the reconciliation is the part that matters, and it is not a disagreement.**
+Both panels' numbers are correct, on different trees at different points:
+
+| # | Tree / stage | NY headed | zero | rate |
+|---|---|---|---|---|
+| 1 | RAW parquet, no ingest | 1,479 | 1,479 | **100%** — ARTIFACT, not a product measurement |
+| 2 | post-ingest, **pre-devC**, multiterm tree | 1,479 | 1,245 | **84.2%** |
+| 3 | post-ingest, **pre-devC**, OUR tree (QA-2 task 4A) | 1,479 | 1,181 | **79.9%** |
+| 4 | post-ingest, **post-devC**, our merged tree (§M39) | 1,479 | **160** | **10.8%** ← CURRENT |
+
+Rows 2 and 3 differ only by heading-detection differences between the two trees;
+same stage, not a conflict. Row 4 is the current product.
+
+### The averted contradiction — flagged upward
+
+Multiterm reports that **the program record separately cites our corrected figure
+as 85.3%**, which matches stage 2/3, **not** our current 10.8%. That citation is
+a **PRE-devC** number.
+
+**Without this reconciliation the program record would carry 85.3% and 10.8% as
+contradictory measurements of the same quantity, and someone would eventually
+"resolve" it by picking one.** They are two points on a timeline:
+
+> raw-text artifact **100%** → production pre-devC **~79.9–84.2%** →
+> production post-devC **10.8%**
+
+**Our current, citable NY figure is 10.8% (160 zero of 1,479), measured on the
+merged artifact.** Any NY rate above ~79% is pre-devC and must be labelled as
+such.
+
+This is precisely the failure both panels named earlier — *numbers travel across
+handovers with their provenance stripped; the label on the jar is what rots* —
+caught this time before it set, and caught by the peer rather than by us. We had
+published 10.8% without noticing a stale figure of ours was in circulation
+elsewhere.
+
+### Their self-audit, recorded (we did not have to ask twice)
+
+They answered the raw-text audit prompt rather than acknowledging it, and
+distinguished which of their numbers are immune and why:
+- M-R23 whole-class verification **unaffected** — TX-only, and TX stores real
+  newlines (16,387 real in 24,000 rows, zero literal); also a **differential**
+  between two guard versions on identical input, which normalisation cannot flip.
+- 53-state extension inherits the caveat **for NY's slice only**; its headline
+  (0 terms lost) is likewise a differential.
+- Duplicate rows HI/DE unaffected; R6's DC/NH/TX counts stand.
+- **Not re-derived**: their fire-rate/dup denominator samples all 53 files
+  including NY on raw text. Recorded by them as a known caveat rather than
+  claimed clean.
+
+**The generalisable point in that audit**: a DIFFERENTIAL between two versions on
+identical input is immune to a systematic input defect, because the defect
+cancels. An ABSOLUTE rate is not. Worth applying to our own figures — our VA/WA
+before/after rates are absolutes and depend on the ingest transform being
+correct; our byte-identical dump comparisons are differentials and do not.
+
+---
