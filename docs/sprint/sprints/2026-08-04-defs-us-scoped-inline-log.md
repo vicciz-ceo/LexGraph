@@ -3342,7 +3342,6 @@ than either of my two earlier versions. Adopted with attribution.
 
 ---
 
-<<<<<<< HEAD
 ## 2026-08-05 — Manager: discriminator ruled to CORE with our evidence; QA
 cycle 3 launched with the five-label census riding along
 
@@ -3399,7 +3398,6 @@ Marked explicitly as an **ANCILLARY deliverable, NOT a gate**: it must not
 influence any U1-U6 verdict, and QA is told to drop it without penalty if it
 would compromise gate work. A favour for a partner panel does not get to
 dilute an independent verification pass.
-=======
 ## 2026-08-05 — QA (cycle 3, independent verification pass)
 
 Workspace verified at `085efe0`. Baseline reproduced exactly: **854 passed, 1
@@ -3706,7 +3704,6 @@ this sprint has routed rather than resolved.
 
 Commit: 3 test/fixture files + this log entry only; zero implementation
 touched. Final SHA `63c7cea85e9c1c482630addc7162568b1b6523b6`.
->>>>>>> claude/defs-us-scoped-inline-qa2
 
 ---
 
