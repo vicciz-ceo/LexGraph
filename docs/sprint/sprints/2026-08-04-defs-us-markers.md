@@ -7,7 +7,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-markers
 locked_by: "codex:developer"
 locked_at: "2026-08-05T19:37:06Z"
 last_agent: "/root/markers_panel_manager/planner_red_u_r13"
-last_updated: "2026-08-05T19:37:06Z"
+last_updated: "2026-08-05T19:42:29Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -185,13 +185,13 @@ planner pass 1`.
 The sprint is in Developer implementation, with P-T1 complete and P-D1/P-D2
 RED at both unit and persisted-live altitudes:
 
-1. **P-D1 — FED per-entry trailing-annotation boundary [U1/U-R1].** In
-   `us_markers_boundary.py`, replace the single global trailing-stop ceiling
-   with per-entry lawful annotation boundaries; do not take core-3 marker work.
-   Live acceptance: `test_us_markers_pd1_fed_trailing_annotations_live.py`
-   persists `serious criminal offense` through its own `(1)`–`(3)` clause only.
-   Unit acceptance: later entries survive an earlier annotation; substantive
-   `references in text`/citation words remain definition content.
+1. **P-D1 — PLANNER BOUNCE; no Developer action [M52].** The synthetic
+   post-`Editorial Notes` entry oracle is invalid because terminal notes must
+   remain terminal. The real `USC_T8_C12_S1101` failure needs a boundary before
+   Roman `(i)`, so it routes to core-3 structural sibling-marker work. A fresh
+   Planner later performs only a bounded corpus search for genuine global-limit
+   harm; absent a real row plus terminal-notes negative control, retire P-D1
+   and amend M38. Phrase-specific Roman stops are forbidden here.
 2. **P-D2 — MN Affiliate relative-idiom gate [U1/U4].** Add a narrow MN
    handling path for `"X," when used in reference to…, means` without broadening
    quote matching globally. Live acceptance:

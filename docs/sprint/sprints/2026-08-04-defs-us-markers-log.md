@@ -7,6 +7,35 @@ to the director).
 
 ---
 
+## M52 — P-D1 oracle bounced; real FED row routed to core-3 (2026-08-05)
+
+Developer reproduced the Planner's P-D1 unit GREEN after an uncommitted
+per-entry annotation change, but the persisted FED RED remained: the capture
+crosses Roman sibling `(i) With respect …` **before any annotation marker**.
+Satisfying that row would require classifying a structural sibling marker. The
+Developer proposed a narrow phrase-specific guard and stopped; the manager
+rejected it as core-3 scope.
+
+Manager source/oracle audit then disproved the synthetic unit's premise. The
+old global ceiling intentionally stops all quote scanning at the first terminal
+`Editorial Notes`/`Pub. L.` tail. The synthetic test placed `"Later term"`
+after `Editorial Notes` inside `Historical material` and demanded capture,
+which would parse commentary as operative law. Program-manager ruling:
+
+- synthetic P-D1 post-notes oracle is invalid and must be re-authored/removed
+  by a fresh Planner;
+- `USC_T8_C12_S1101` `(i)` swallow routes to core-3 structural sibling-marker
+  work, not this Developer;
+- Developer removes only its own uncommitted P-D1 WIP and continues P-D2 alone;
+- after Developer exits, a fresh Planner performs a bounded corpus search for
+  genuine single-global-limit harm, with a negative control that terminal notes
+  stay terminal. No real row means P-D1 retires and M38 is amended.
+
+No P-D1 code was committed or pushed; devD remains at `9f8f533`. No production
+leak occurred; main contains only pre-existing `.claude/settings.json`.
+
+---
+
 ## M51 — Planner gate independently verified; Developer lock acquired (2026-08-05)
 
 The manager read the complete `b8bc238...3bab5f3` diff from a materialized
