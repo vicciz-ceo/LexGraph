@@ -3770,3 +3770,40 @@ That this panel supplied one of the two polarities from its own defect, found
 by corpus kill-experiment rather than by the suite, is the part worth keeping:
 the general rule was derivable only because both failure directions were
 measured on real rows.
+
+### M-R26 addendum — the complement measurement (markers, §M42/§M43 @ `ae8b43b`)
+
+I measured baseline's half on their WA rows; they ran the complement I could
+not (their rule is not on this branch). Together the two halves are the whole
+picture:
+
+```
+                        row_len   TOTAL cands   >4000 chars   baseline's share
+STATE_WA_T82_C04_S065    10,856        31            1        1 (the 10,838 swallow)
+STATE_WA_T43_C88_S020     6,545        27            1        1 (the  6,515 swallow)
+STATE_WA_T82_C04_S192     8,885        12            1        1 (the  8,769 swallow)
+```
+
+Baseline's single candidate is essentially the entire row; all 30 / 26 / 11
+clean definitions on those rows are theirs. "Baseline already emitted this
+term" is true there and almost maximally misleading.
+
+**R6 is the same root at a third polarity**, which is how it was found: a
+hyphen-suffixed marker is invisible to baseline's tokenizer, so baseline emits
+NOTHING, so anything reasoning from baseline's emission concludes there is
+nothing to capture. Three polarities of one error inside one cycle:
+
+| Polarity | Panel | Wrong inference | Damage |
+|---|---|---|---|
+| emission assumed where none exists | multiterm (M-R18/M-R23) | "marker+quote => baseline captured it" | F6's only capture destroyed, up to 91 TX sections |
+| correctness assumed where emission exists | markers (WA rows) | "baseline emitted it => defer to it" | would delete the only clean capture |
+| absence inferred from silence | both (R6) | "baseline emitted nothing => nothing is there" | plain-`means` hyphen entries missed outright |
+
+**Neither error was findable by inspection.** Both needed a measurement
+designed to fail — mine a corpus kill-experiment, theirs a per-row candidate
+census. That is the transferable lesson, and it is stronger than either
+panel's individual finding: in this architecture, a claim about what baseline
+does is not verifiable by reading baseline.
+
+Markers requires nothing back. R6 stays theirs; they re-derive before quoting
+any number, and credit the find to this panel's Planner.
