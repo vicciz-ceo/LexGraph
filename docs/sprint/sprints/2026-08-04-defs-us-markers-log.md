@@ -35,6 +35,15 @@ Stale-pin sweep covered every repository test root case-insensitively. The sole
 re-point was Q3 Part-B naming/docstrings/assertion altitude; no pre-existing
 P-D1/P-D2 pin exists to turn into a Developer-uneditable failure.
 
+### Containment incident — resolved before RED commits
+
+A workdir-insensitive nested `apply_patch` briefly created the new fixture as
+an untracked file in the main checkout. It was byte-identical to the isolated
+copy. The panel manager verified provenance and removed only that exact main
+artifact; pre-existing `.claude/settings.json` was untouched. Before each
+remaining commit the Planner checks both worktree statuses; the only sprint
+artifacts now live under `claude/defs-us-markers-planD`.
+
 ---
 
 ## M49 — U-R13 independently established at PERSISTED altitude (2026-08-05)

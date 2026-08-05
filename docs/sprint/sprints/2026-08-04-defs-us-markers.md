@@ -212,6 +212,12 @@ No existing stale pin for P-D1/P-D2 was found; their tests are new, distinct
 REDs. No API/E2E test was added because real ingest + pipeline + persistence
 is the live acceptance path for these parser defects.
 
+Containment incident (resolved): a workdir-insensitive nested `apply_patch`
+briefly created the byte-identical new fixture as an untracked main-checkout
+path. The manager verified it and removed that exact artifact; `.claude/settings.json`
+remained untouched. Dual-status checks now confirm all sprint artifacts are in
+`claude/defs-us-markers-planD` only.
+
 R6 and the named core-3 debts remain ledgered only; this panel does not absorb
 shared-core work. NY's current post-devC figure remains 160/1,479 = 10.8% and
 all NY corpus probes must preserve ingest-time literal-`\\n` normalization.
