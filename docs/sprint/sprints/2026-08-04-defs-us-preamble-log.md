@@ -5004,3 +5004,20 @@ extraction/P-FP RED beside CO and D-MT-E1, not a Developer acceptance gate.
 The superseded 20-item historical contract is preserved without loss at shared
 commit `7d87d08` and in the cited D1–D6 / M-R historical entries above; this
 compact current contract carries only the bounded Developer handoff.
+
+### M-R82 — Developer cycle-9 roster and write lock
+
+Before dispatch, the manager committed the canonical child identity
+`/root/markers_panel_manager/developer_option_c`, model `gpt-5.6-terra`,
+reasoning effort `medium`, and Developer brief v3.1. The isolated branch is
+`claude/defs-us-preamble-dev9` at expected HEAD `bf3f974`; its worktree is
+`/Users/nerya/LexGraph-wt/defs-us-preamble-dev9`.
+
+The production write lock is limited to
+`backend/app/definition_links/rules/us_body_preamble.py` and, only for the
+required <=300-line split,
+`backend/app/definition_links/rules/us_body_preamble_b1.py`. All tests,
+fixtures, sprint docs, `us_profile.py`, shared extraction/reference-edge code,
+and `_B1_FORWARDING_PHRASES` are read-only. The Developer owns the four B1
+causal fixes, the M-R53 comment correction, and behavior-preserving module
+split; held T35 and forwarding/CO debts are not Developer gates.
