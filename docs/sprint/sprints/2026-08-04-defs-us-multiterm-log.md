@@ -3647,3 +3647,72 @@ probe was handed to** — record it as the intended direction of that rule.
   (entry-marker mismatch) mechanism, not ours. Size unmeasured by us.
 - **R1 amended:** now pinned by THREE "exactly once" tests plus one
   differently-shaped residual pin, not four (M-R19 item 4 superseded).
+
+---
+
+## 2026-08-05 — M-R25: cross-panel exchange with the markers phase-3 manager
+
+Their message was verified before being acted on (they invited exactly that):
+markers branch @ `0f5d4ea`, `4daca3e` confirmed an ancestor, §M25 present at
+line 3282 of their log. Their measurement of TX `2009.003` matches my own
+independent probe — all four degenerate rows still produced. **R1 is open and
+is theirs.**
+
+### I was asked two questions and got one of my own answers wrong
+
+**Q: does R1 close on PRODUCED or PERSISTED?** My ledger said "produced".
+**That is wrong and I have amended it.** R1's recorded hazard is a DOUBLE
+ASSERTION; a candidate that never persists cannot draw an assertion, so
+"produced" is the wrong altitude for the hazard as written. It was inherited
+shorthand, and it survived only because nobody had asked. The markers manager
+asked instead of inheriting it — the same discipline this panel keeps being
+improved by.
+
+No practical let-off today: the degenerate row's terms tuple
+`('contested case',)` differs from F5's combined `('contested case','party',
+'person','rule')`, so the persist key differs and BOTH persist. The hazard is
+live on either reading; only the closing CONDITION changes.
+
+**Q: how should the pin be phrased?** Neither of their two options, and not
+mine alone either — **jointly tracked, two pins at two altitudes**, so neither
+panel encodes the other's theory:
+- markers pins the degenerate PRODUCTION at its own length-based class-B
+  altitude, coherent with the 15 siblings core-3 will close as a group;
+- this panel pins the ASSERTION outcome (a mention of `contested case` draws
+  exactly ONE `USES_DEFINITION`), which is our hazard stated as an observable
+  and survives whatever shape core-3's fix takes.
+
+### A "benign" cross-panel note that is NOT benign for us — flagged to them
+
+They reported the candidate count moving 8 -> 9 on their branch (a second
+`Governmental body` candidate, idiom-stripped 28 chars alongside baseline's
+idiom-retained 44) and assessed it benign because the two collide at the
+persist layer. True at the persist layer; **false at ours.**
+
+`test_tx_governmental_body_captured_exactly_once_through_full_dispatch`
+asserts `counts["Governmental body"] == 1` at the CANDIDATE level. It exists
+because this cycle fixed a double-emit of that exact term (M-R18). **When
+markers merges, that test sees 2 and fails.** Raised to them now so it lands
+as a known merge interaction rather than a mystery failure in whichever slot
+merges second. My position, for the program manager to arbitrate: by M-R12 the
+duplicate emission is the thing to suppress, not the pin — baseline already
+captures that term correctly, and I fixed the mirror-image case on my own side
+this cycle rather than relax the assertion. Deliberately not ruled from here:
+it is their module and my probe is one row.
+
+### Answered their U-R13 persisted-idiom question for our side
+
+Nothing in this panel branches on idiom presence in `definition_text`; our
+rules only produce it (F6 strips the idiom, baseline retains it — consistent
+with their measurement). The only exposure is test expectations, and the
+M-R23 pins assert the stripped form at CANDIDATE level against F6's own
+output, so first-wins persistence never reaches them. Supported their raising
+the persisted-value semantics to the program manager.
+
+### R6 routed to them with data
+
+Sent them residual R6 (baseline cannot open a block at a hyphen-suffixed
+marker; cross-reference entries are rescued by F6, plain-`means` entries are
+MISSED outright; 111 occurrences / 91 TX sections, zero in 8 other states) as
+an entry-marker-mismatch item, sized honestly as "the shape occurs 111 times",
+with the genuine-miss count explicitly NOT claimed.
