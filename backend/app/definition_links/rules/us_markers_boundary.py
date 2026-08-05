@@ -14,8 +14,10 @@ REAL defect confirmed live against a real vendored row (see the sprint log
 - `_TIGHT_IDIOM_RE` requires the defining idiom (means/shall mean/has the
   meaning) to sit essentially IMMEDIATELY after a quoted term's closing
   quote (only a short punctuation/marker/"and its variants" gap is
-  tolerated) -- NOT merely "means" appearing anywhere within an unbounded
-  lookahead window, which is exactly the bug that collapsed
+  tolerated), except for a bounded statutory relative qualifier ("when
+  used in reference to ...", "when used to indicate ...", or "with
+  respect to ...") ending in a comma -- never merely "means" appearing
+  anywhere within an unbounded lookahead window, which is exactly the bug that collapsed
   `STATE_VA_T4.1_SII_C6_S4.1-600`'s `"sell"` (inside `"Sale" and "sell"
   includes ... by any means.`) to a 1-char definition: the word "means"
   legitimately appears later in that sentence ("by any means") but is not
@@ -151,6 +153,8 @@ _LEADING_QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # later in an unrelated sentence never qualifies.
 _TIGHT_IDIOM_RE = re.compile(
     r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
+    r'(?:(?:when used (?:in reference to|to indicate)|with respect to)\s+'
+    r'[^.\n]{1,300}?,\s*)?'
     r'(?:means|shall mean|has the meaning)\b:?\s*',
     re.IGNORECASE,
 )
@@ -164,6 +168,9 @@ _DIGIT_DOT_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*\d{1,3}\.[ \t]+")
 # the SAME line-anchored shape as `_DIGIT_DOT_MARKER_RE`, for the
 # letter-dot convention rather than digit-dot.
 _LETTER_DOT_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*[A-Z]\.[ \t]+")
+# Minnesota's statutory subsection headings bound the preceding definition
+# even when the following heading does not itself contain a recognized idiom.
+_MN_SUBD_HEADER_RE = re.compile(r"(?:^|\n\n)§\s*Subd\.\s+\d{1,3}\.\s+")
 _AFTER_MARKER_UPPER_OR_QUOTE_RE = re.compile(r'^[A-Z"“]')
 _QUOTE_WITHIN_LOOKAHEAD_RE = re.compile(r'^[^.\n"“]{0,40}["“]')
 # See this module's own docstring, "The list-introducer exclusion".
@@ -210,7 +217,7 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
         idiom_m = _TIGHT_IDIOM_RE.match(text, m.end(), limit)
         if idiom_m is None:
             continue
-        term = m.group(1).strip()
+        term = m.group(1).strip().removesuffix(",").rstrip()
         if not term:
             continue
         starts.append((m.start(), term, idiom_m.end()))
@@ -238,6 +245,7 @@ def extract_quote_anchored_entries(text: str) -> list[tuple[str, str]]:
                 continue
             if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[m.end() : m.end() + 1]):
                 hard_stops.append(m.start())
+    hard_stops.extend(m.start() for m in _MN_SUBD_HEADER_RE.finditer(text))
 
     entries: list[tuple[str, str]] = []
     for idx, (_qstart, term, dstart) in enumerate(starts):
