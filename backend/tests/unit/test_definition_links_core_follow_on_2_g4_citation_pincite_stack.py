@@ -222,4 +222,3 @@ def test_tx_external_section_citation_does_not_relabel_the_open_subsection(core_
     )
     assert path[1].kind == "digit"
     assert path[1].value == "1"
-

@@ -2897,3 +2897,64 @@ fresh Planner owns only the remediation design and RED evidence.
 Planner may edit tests, vendored fixtures, measurement evidence, and sprint
 records only. Production code remains forbidden until a separately spawned
 Developer receives an accepted two-sided design.
+
+---
+
+## Phase 19 — QA cycle 1 final disposition and G4 newline Planner delivery (2026-08-05)
+
+### Independent QA final disposition (read-only `/root/core2_final_qa`)
+
+QA inspected read-only HEAD `eaf41b3` and returned **FAIL** with three
+release-evidence blockers:
+
+- **P1 / G4:** cross-newline citation ambiguity leaves real DC entry `(3)`
+  at stale path `(2)`.
+- **P2 / G8 evidence:** `measure_g8_reverse_order.py` imported the removed
+  production `_is_tighter_containment`, and its recorded command used the
+  anomalous `backend/backend/.venv` path.
+- **P3 / hygiene:** blank EOF line in
+  `test_definition_links_core_follow_on_2_g4_citation_pincite_stack.py`
+  failed `git diff --check main...HEAD`.
+
+Passing evidence at that same QA point: backend **840**, frontend **165**,
+typecheck clean, G8 **8**, gate-focused **62**, IL/profile/persistence **96**,
+and migration upgrade/downgrade/upgrade round-trip. G7: headed/zero values
+and GA before `2/28,154` stayed exact; the rescue counts had drifted upward
+because G12 widened the forced fallback, while the preamble panel's
+23,617/27,209/2,794 obligations remain merged-tree-only.
+
+### Planner plan11 delivery
+
+Planner `/root/core2_g4_newline_planner` independently reproduced the DC
+regression and both full-corpus populations over the exact 53-file,
+2,038,247-row statute denominator. Committed evidence is in
+`artifacts/2026-08-05-defs-core-follow-on-2-g4-newline-design.md`, the
+adjacent summary/full JSON, and `measure_g4_newline_context.py`.
+
+Binding design recommendation: **only `Section`/lone-`§` plus a
+parenthesized token** may use the cross-line exception. The exhaustive
+production-surface scan covers all four citation branches, both token forms,
+and arbitrary `str.isspace()` gaps: 747 occurrences / 501 rows = 691 genuine,
+6 citation continuations, and 50 nonstructural tokens. The changed surface is
+613 = 607 genuine / 6 continuation with zero audit errors and 585 actual path
+deltas. Bare-code, full-USC, period, structural, and same-line behavior stay
+unchanged; 37 bare-code and 47 period genuine entries are named recall debt.
+Structural full surface is 3,056 / 2,369 with proposal delta zero; blanket
+newline handling changes 2,874 paths across 2,246 rows. The original
+exact-one-LF parenthesized subset remains 1,221 / 835 = 16 genuine / 1,205
+continuations.
+
+Planner-owned RED/controls: byte-verified full DC live+unit row, AK
+`Section 32\n\n(F)` positive, NY/OK year and chained-`of this act`
+negatives, KS bare-code year/table and HI commentary/period negatives, plus
+the soft-wrapped paragraph control. No test imports the private context
+helper, so the Developer's required signature change is not stale-pinned.
+The combined targeted run is exact **3 failed / 12 passed**: only the DC
+unit/live and AK positive assertions are RED; every harmful-broadening and
+existing same-line control is green.
+
+The QA evidence blockers in Planner scope were repaired without production
+edits: G8's runner now carries the exact retired three-clause predicate as a
+clearly labeled historical simulation and uses the normal repo-root venv
+command; the blank EOF was removed; G7's current rescue counts and G12 cause
+are recorded while merged-tree-only obligations remain intact.

@@ -1,6 +1,6 @@
 {
   "measurement": "G8 same-key persistence replay: ingest literal-backslash-n normalization -> Stage 0 -> profile dispatch -> Stage 2 -> scope-assignment stamping -> list-order persistence",
-  "command": "backend/backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g8_reverse_order.py --output docs/sprint/sprints/artifacts/2026-08-05-defs-core-follow-on-2-g8-structural-full.json",
+  "command": "backend/.venv/bin/python docs/sprint/sprints/artifacts/measure_g8_reverse_order.py --output docs/sprint/sprints/artifacts/2026-08-05-defs-core-follow-on-2-g8-structural-full.json",
   "source_full_artifact": "2026-08-05-defs-core-follow-on-2-g8-structural-full.json",
   "denominator": {
     "rows": 2038247,
@@ -31,7 +31,7 @@
     ],
     "negative_ca_fixture_exact_one_literal_newline": 1
   },
-  "wall_seconds": 58.872,
+  "wall_seconds": 87.363,
   "proposed_us_profile_discriminator": "Later candidate cannot broaden scope; its text is an exact same-start prefix of the persisted text; the discarded suffix starts a parenthesized quoted U.S. definition entry; the complete leading quoted term-set, parsed with extract._parse_terms_and_qualifier, differs from the current sorted persistence key after canonical punctuation and conservative near-alias screening.",
   "persistence_key_semantics": "pipeline.py keys a candidate by (article_id, tuple(sorted(candidate.terms))). The boundary check therefore compares the complete leading quoted term-set rather than just the first quote. If a profile currently emits only a subset of aliases from such a header, complete-set comparison is intentionally conservative and rejects rather than risking an identity mistake.",
   "scope_characterization": "All 1,256 historic old-G8 firings had equal scope rank after real pipeline scope-assignment stamping. The new live-path scope-broadening RED demonstrates the generic predicate nevertheless permits a broader later candidate and must be removed.",

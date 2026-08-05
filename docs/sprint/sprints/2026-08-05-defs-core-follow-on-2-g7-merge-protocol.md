@@ -53,17 +53,22 @@ functions in `backend/app/definition_links/us_profile.py`.
 `registry.heading_rules_for("US-DC")`, `entry_splitter_rules_for("US-DC")`,
 `term_clause_rules_for("US-DC")` all return `[]` on the sprint branch (the
 same zero-rule state the original measurement was taken in). Re-run against
-the follow-on-2 tree reproduced **all 7 states exactly**:
+the final follow-on-2 tree reproduced every headed/zero denominator exactly.
+The rescue column moved upward because G12 widened only the forced inline
+fallback's defining idioms (`shall include` / `includes`); it does not alter
+the ordinary zero/headed computation (`heading_was_derived=False`). The
+current exact rescue counts are therefore the intended post-G12 values, not
+a denominator regression:
 
 ```
 Jur        total    headed    zero       %  rescue   %resc
-va         33856      1096    1065    97.2    1025    96.2
-wa         51498      1800    1778    98.8    1682    94.6
-wv         25460      1068     297    27.8     263    88.6
-wi         18158       541      62    11.5      42    67.7
-wy         10219       495      56    11.3      25    44.6
-federal    54853      1920    1600    83.3    1477    92.3
-dc         23694      1216     332    27.3     114    34.3
+va         33856      1096    1065    97.2    1041    97.7
+wa         51498      1800    1778    98.8    1709    96.1
+wv         25460      1068     297    27.8     271    91.2
+wi         18158       541      62    11.5      45    72.6
+wy         10219       495      56    11.3      27    48.2
+federal    54853      1920    1600    83.3    1541    96.3
+dc         23694      1216     332    27.3     122    36.7
 ```
 
 **P-R7 signal-agnostic? NO.** The denominator is built from the capture

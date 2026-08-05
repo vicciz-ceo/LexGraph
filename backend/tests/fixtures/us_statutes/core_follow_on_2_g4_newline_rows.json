@@ -1,0 +1,90 @@
+[
+  {
+    "act_id": "STATE_DC_T4_C2_S4-204.52",
+    "section_number": "4-204.52",
+    "section_title": "§ 4-204.52. Definitions.",
+    "chapter": "2",
+    "text": "For the purposes of this part, the term:\n(1) “District” shall mean the District of Columbia.\n(1A) “Foster care and adoption assistance” means the programs authorized by Part E of Title IV of the Social Security Act, approved June 17, 1980 (94 Stat. 501; 42 U.S.C. § 670 et seq.).\n(2) “Fund” shall mean the Medicaid and Special Education Reform Fund established by § 4-204.53\n(3) “Medicaid” means the medical assistance programs authorized by title XIX of the Social Security Act, approved July 30, 1965 (79 Stat. 343; 42 U.S.C. § 1396 et seq.), or by § 1-307.02 , and administered by the Department of Health.\n(4) “Medicare” means the health insurance programs authorized by title XVIII of the Social Security Act, approved July 30, 1965 (79 Stat. 290; 42 U.S.C. § 1395 et seq.).\n(5) “Special Education” means services provided under § 38-2501 to students who are classified as having a disability, as defined in section 101(a)(1) of the Individuals with Disabilities Education Act, approved April 13, 1970 (84 Stat. 175; 20 U.S.C. § 1401(a)(1)), or in section 7(8) of the Rehabilitation Act of 1973, approved September 26, 1973 (87 Stat. 359; 29 U. S.C. § 706(8)).",
+    "fixture_kind": "full_ingest_normalized_row",
+    "source_file": "us_dc_statutes.parquet",
+    "source_text_sha256": "a28333a0c110625605df4774fabfd476e6f8a9f6e58574984a4f6cd74b6080b7"
+  },
+  {
+    "act_id": "STATE_NY_AEXC_A19-G_T1_S501-E",
+    "section_number": "501-E",
+    "section_title": "Interstate compact for juveniles",
+    "chapter": "",
+    "text": "safe return of juveniles who have run away from home and in doing so\nhave left their state of residence. The compacting states also recognize\nthat congress, by enacting the Crime Control Act, 4 U.S.C. Section 112\n(1965), has authorized and encouraged compacts for cooperative efforts\nand mutual assistance in the prevention of crime. It is the purpose of\nthis compact, through means of joint and cooperative action among the",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ny_statutes.parquet",
+    "source_text_sha256": "fdb79e47bb9f41852c5c45936d445b2c8fcc2701dcf95bb1edc6efcf271251a7",
+    "source_excerpt_offset": 784
+  },
+  {
+    "act_id": "STATE_NY_AUDC_A19_S1906-A",
+    "section_number": "1906-A",
+    "section_title": "Costs in a summary proceeding",
+    "chapter": "",
+    "text": "respondent, the sum of five dollars for securing the affidavit that the\nrespondent is not in military service, required by the statutes of the\nUnited States; plus, as disbursements, the fees paid pursuant to § 1911\n(a) (1) of this act. Such costs shall be exclusive in such proceeding\nand shall constitute the sum to be awarded as costs by the judgment\npursuant to § 747 of the real property actions and proceedings law,\nexcept insofar as additional costs may be imposed pursuant to",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ny_statutes.parquet",
+    "source_text_sha256": "2047f3c0b6644b4c3b0ec3b59757cf5f6a9c224144ac1e8749f21ea14c800445",
+    "source_excerpt_offset": 316
+  },
+  {
+    "act_id": "STATE_NY_ACPL_P2_TI_A210_S210.35",
+    "section_number": "210.35",
+    "section_title": "Motion to dismiss indictment; defective grand jury proceeding",
+    "chapter": "",
+    "text": "§ 210.35  Motion to dismiss indictment; defective grand jury proceeding.\n  A grand jury proceeding is defective within the meaning of paragraph\n(c) of subdivision one of section 210.20 when:\n  1.  The grand jury was illegally constituted; or\n  2.  The proceeding is conducted before fewer than sixteen grand\njurors; or\n  3.  Fewer than twelve grand jurors concur in the finding of the",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ny_statutes.parquet",
+    "source_text_sha256": "07291869a60be2e5b0654b26fbdbe718ef5d2563936c44b1a7a4e37b144bb68e",
+    "source_excerpt_offset": 0
+  },
+  {
+    "act_id": "STATE_OK_T10A_S10A-2-9-102",
+    "section_number": "10A-2-9-102",
+    "section_title": "Purpose",
+    "chapter": "",
+    "text": "Congress, by enacting the Crime Control Act, 4 U.S.C. Section 112\n\n(1965), has authorized and encouraged compacts for cooperative\n\nefforts and mutual assistance in the prevention of crime.\n\nB. It is the purpose of this compact, through means of joint\n\nand cooperative action among the compacting states to:\n\n1. Ensure that the adjudicated juveniles and status offenders\n\nsubject to this compact are provided adequate supervision and\n\nOklahoma Statutes - Title 10A. Children and Juvenile Code Page 469",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ok_statutes.parquet",
+    "source_text_sha256": "ff9be351c62c719b99ecdfff3440ae9eb41a45436930d3eceac0195e419f5af1",
+    "source_excerpt_offset": 646
+  },
+  {
+    "fixture_id": "ak_section_word_parenthesized",
+    "act_id": "STATE_AK_T41_C41.23_S41.23.500",
+    "section_number": "41.23.500",
+    "section_title": "Establishment of recreation rivers and recreation river corridors.",
+    "chapter": "41.23",
+    "text": "(E) Township 19 North, Range 8 West, Seward Meridian Section 19: W1/2, W1/2E1/2\n\nSection 29: W1/2W1/2\n\nSection 30\n\nSection 31: E1/2, E1/2W1/2\n\nSection 32\n\n(F) Township 19 North, Range 9 West, Seward Meridian Sections 3  4\n\nSections 9  10\n\nSection 13: S1/2\n\nSection 14: S1/2\n\nSections 15  16\n\nSection 22: N1/2\n\nSection 23: N1/2\n\nSection 24;\n\nSection 35 (2) Kroto Creek and Moose Creek State Recreation River (A) Township 19 North, Range 6 West, Seward Meridian Section 2: SW1/4\n\nSection 3\n\nSection 10: E1/2\n\nSection 11\n\nSection 14\n\nSection 15: E1/2E1/2\n\nSection 22: E1/2E1/2\n\nSection 23\n\nSection 25: that portion west of the easternmost bank of the Susitna River\n\nSection 26\n\nSection 27: E1/2E1/2\n\n",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ak_statutes.parquet",
+    "source_text_sha256": "8b539da584f18432069c69437590ee5bcd3015e025b8c5c28a8a8b1a681d5c0c",
+    "source_excerpt_offset": 1525
+  },
+  {
+    "act_id": "STATE_HI_D5_T37_C704_S704-400",
+    "section_number": "704-400",
+    "section_title": "Physical or mental disease, disorder, or defect excluding penal responsibility.",
+    "chapter": "704",
+    "text": "manifested only by repeated penal or otherwise anti-social conduct. [L 1972, c 9, pt of §1; gen ch 1993]\n\nCOMMENTARY ON §704-400\n\nI. Physical and Mental Diseases, Disorders, and Defects.\n\nPerhaps the most vexing problem in the penal law is determining when individuals shall not be held responsible for their conduct because at the time of the conduct they suffered from a disease, disorder, or defect which was related in some way to the conduct. The law has traditionally dealt with this problem in two more or less distinct areas.\n\nAs chapter 702 has pointed out, a voluntary act or a voluntary omission is the sine qua non of penal liability. In ",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_hi_statutes.parquet",
+    "source_text_sha256": "0e521fbd7e6be6b5ed028e35b5f5352938035a993f93181ad15a0a4a8be61dc6",
+    "source_excerpt_offset": 438
+  },
+  {
+    "act_id": "STATE_KS_C94_A0_S94-00",
+    "section_number": "94-00",
+    "section_title": "94-00 -",
+    "chapter": "94",
+    "text": " Kansas constitution, relating to the transportation of a person from the state for any offense committed within the state, and corruption of the blood. L. 1972, ch. 389; S.C.R. 75. Adopted November 7, 1972: For, 366,207; against, 231,221\n\nBR\n\n12\n\n1972.\n\nA proposition to amend the Kansas constitution by revising article 3, relating to the judiciary. L. 1972, ch. 392; H.C.R. 1018. Adopted November 7, 1972: For, 349,264; against, 211,026\n\n3\n\n1974.\n\nA proposition to amend the Kansas constitution by revising article 5, relating to suffrage. L. 1974, ch. 462; S.C.R. 77. Adopted August 6, 1974: For, 183,002; against, 85,796\n\n5\n\n1974.\n\nA proposition",
+    "fixture_kind": "byte_verified_ingest_normalized_excerpt",
+    "source_file": "us_ks_statutes.parquet",
+    "source_text_sha256": "6235cb52286fbfa883d0c6a892eb4eec35894e9d68713c16a8e96ef6610c9123",
+    "source_excerpt_offset": 20383
+  }
+]
