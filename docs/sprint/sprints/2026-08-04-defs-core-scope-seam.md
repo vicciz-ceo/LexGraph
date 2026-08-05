@@ -1975,3 +1975,128 @@ positive_live_us`, `test_g10_term_clause_rule_scope_threading_live_il`), both
 currently failing with `TypeError: TermClauseRule.__init__() got an
 unexpected keyword argument 'parse_scoped'`; 3 GREEN-today anchors (the
 confirmed-bug pin and two backward-compat proofs) must stay green throughout.
+
+
+---
+
+## Seam spec v2.10 (published) — correction to v2.8 §8, row 7 (TN): baseline
+precedence blocks TN's own real wording; blast radius measured (sprint
+2026-08-05-defs-core-follow-on-2, gate G6, dev4 escalation)
+
+Append-only, same convention as v2.5–v2.9 — v2.8's text stays verbatim
+above; where this section disagrees with v2.8 §8's row 7, v2.10 wins.
+
+### What v2.8 §8 claimed, and what was wrong with it
+
+Row 7 (`STATE_TN_T6_C51_S6-51-101`) was marked **"Yes — live-path dispatch
+proven."** That test (`test_g6_scope_kind_rule_can_supply_two_coequal_
+assignments_tn_dual_scope_shaped`) used TN's own real wording verbatim
+("As used in this part and Section 6-51-301...") as its probe body and
+failed at its own precondition when actually run against the real,
+unmodified `determine_scope` — not merely a fixture typo, a genuine
+dispatch-order fact this Planner had not checked before writing "proven."
+
+### The mechanism, verified directly
+
+`_US_CHAPTER_SCOPE_TRIGGERS` (`us_profile.py:1113-1118`) contains the plain
+substring `"in this part"`. TN's real first line — "As used **in this
+part** and Section 6-51-301..." — contains that substring. `determine_
+scope`'s baseline check (`us_profile.py:1121-1126`) runs FIRST and returns
+`"chapter"` immediately whenever any trigger matches, `USProfile.determine_
+scope`'s own dispatch never even reaches the registered-rule loop when
+baseline already returns `"chapter"` (`"baseline ... wins whenever it
+already detects chapter — never overridden"`). So a registered `ScopeKindRule`
+for TN's own body is structurally unreachable today, by the SAME precedence
+rule that protects the 7 already-working US states — this is the design
+working as intended, applied to a row it was not designed with in mind.
+
+### Blast radius — measured, not estimated
+
+`determine_scope(text)` called directly against the REAL corpus `text`
+column for all 8 U2 rows this seam's §8 table covers (`backend/.venv/bin/
+python3` + `pyarrow`, this session):
+
+| act_id | `determine_scope(real text)` | Baseline blocks a registered rule? |
+|---|---|---|
+| `STATE_AK_T13_C13.06_S13.06.050` | `law-wide` | No |
+| `STATE_CT_T12_C202_S12-35b` | `law-wide` | No |
+| `STATE_KY_TIII_C17_S17.185` | `law-wide` | No |
+| `STATE_KY_TXIII_C156_S156.106` | `law-wide` | No |
+| `STATE_KY_TXI_C139_S139.486` | `law-wide` | No |
+| `STATE_KY_TXXI_C246_S246.420` | `law-wide` | No |
+| `STATE_TN_T6_C51_S6-51-101` | **`chapter`** | **Yes** |
+| `STATE_VA_T8.01_C1_S8.01-2` | `law-wide` | No |
+
+**1 of 8 (12.5%), and it is exactly the row already named as needing the
+multi-assignment mechanism.** Not a structural hole across the gate's
+deliverable — but not nothing either: TN's own real wording specifically is
+blocked, and this seam does not yet offer a path around it.
+
+### Row 7's corrected status
+
+`test_g6_scope_kind_rule_can_supply_two_coequal_assignments_tn_dual_scope_
+shaped` now uses a body SHAPED like TN's real dual declaration (a
+part-level container plus a specific named cross-reference section) but
+phrased to avoid the literal baseline-trigger substring — verified
+`determine_scope` returns `"law-wide"` on this body, leaving the registered
+rule genuinely reachable, and the multi-assignment fan-out mechanism is
+proven live through the real dispatch loop. **This proves the MECHANISM a
+family panel would build against. It does NOT prove TN's own real wording
+is expressible today** — that specific gap is now an open item, not a
+silent claim.
+
+**Corrected row 7:** `"chapter"` won at baseline for TN's real wording;
+mechanism proven generically; TN's OWN real row needs one of the three
+options below before it is live-path provable — **Partial** (mechanism:
+yes; this exact real row: not yet).
+
+### Three options, assessed, none implemented here (Planner's write-set
+does not include a ruling)
+
+- **(a) Re-author away from TN entirely.** Cheapest, but there is no OTHER
+  real row among these 8 demonstrating genuine dual-KIND scope — TN is the
+  only named example. Doing this converts row 7 from "partially proven,
+  gap disclosed" to "unproven, gap hidden" for the one row the gate's own
+  text names by name. Not recommended as the FULL answer, though the
+  mechanism-only synthetic body (already adopted above) is the honest
+  partial version of this option.
+- **(b) Narrow `_US_CHAPTER_SCOPE_TRIGGERS`.** Core-owned, jurisdiction-
+  agnostic, high blast radius (every US row whose first line says "in this
+  part" for a genuinely chapter-equivalent scope depends on this trigger
+  staying exactly as broad as it is); no corpus-wide measurement of what
+  would break was done, because doing this without one would be guessing
+  at a shared-module edit outside this gate. Not recommended without that
+  measurement, and not this Planner's to run unilaterally given the risk.
+- **(c) Decouple KIND-dispatch from VALUE-dispatch in `determine_scope_
+  assignments`: consult a registered rule's `detect_value` even when
+  baseline already won the KIND, gated on that SAME rule's own `detect()`
+  also firing (non-`None`) for the body — never an unconditional override.**
+  Verified this is architecturally clean: `determine_scope_assignments`'s
+  output is what `pipeline.py` actually stamps onto candidates; `scope=`
+  passed into `extract_definitions_from_section` only seeds an initial,
+  already-overridden default (§4), so a rule's assignments differing in
+  KIND from what `determine_scope` returned creates no internal
+  inconsistency. Risk, stated honestly: this is a genuine, if narrow,
+  precedence change — a family panel's future rule could, in principle,
+  supply assignments for an already-correctly-baseline-classified body,
+  which the current "baseline never overridden" framing does not
+  contemplate for the VALUE question (it was written for the KIND
+  question). **Honest limit, as the manager's own framing anticipated:**
+  even under (c), a rule consulted this way is still gated on agreeing
+  with baseline's OWN kind (`"chapter"` for TN) to be reachable at all —
+  it can supply a richer VALUE for that kind, but getting TN's true
+  `"part"` + `"local"` TWO-KIND split specifically would still need the
+  rule's `detect()` to fire in the value-consultation loop independently
+  of baseline's kind, which is a bigger behavioral change than "richer
+  value, same kind." **This needs a ruling and, if adopted, a seam version
+  bump (v2.11) before any Developer implements it — escalated, not
+  decided here.**
+
+**This Planner's lean, offered not imposed:** (c), gated on rule-agrees-
+with-baseline's-kind (the narrower, lower-risk sub-variant), is the most
+principled of the three — it changes nothing for the 7 already-working
+states or any currently-registered rule (none exist with `detect_value`
+yet), and only activates once a family panel deliberately opts in by
+registering one. But it is a real precedence change to a shipped
+mechanism and the director/program manager should rule on it, not this
+Planner.

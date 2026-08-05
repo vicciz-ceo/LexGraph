@@ -191,17 +191,56 @@ def test_g6_scope_kind_rule_declining_a_value_falls_back_to_the_narrow_default_n
 
 
 def test_g6_scope_kind_rule_can_supply_two_coequal_assignments_tn_dual_scope_shaped():
-    """TN-shaped proof: `STATE_TN_T6_C51_S6-51-101`'s real body ("As used
-    in this part and Section 6-51-301, unless the context otherwise
-    requires: (1) 'Larger' and 'smaller' ...") declares TWO co-equal
-    scopes for the SAME set of terms simultaneously -- a "part"-level
-    container scope AND a specific named "local" cross-reference. One
-    `DefinitionCandidate` has exactly one `.scope`, so this needs the
-    seam's multi-assignment fan-out: `detect_value` may return a TUPLE of
-    `ScopeAssignment`s, not just one. `pipeline.py` fans this out into TWO
-    `DefinitionCandidate` copies (one per assignment) -- resolved by the
-    ALREADY-SHIPPED M10 tie-class (both survive, both get an assertion),
-    not a new mechanism this Planner invented."""
+    """TN-shaped MECHANISM proof: `STATE_TN_T6_C51_S6-51-101`'s real body
+    ("As used in this part and Section 6-51-301, unless the context
+    otherwise requires: (1) 'Larger' and 'smaller' ...") declares TWO
+    co-equal scopes for the SAME set of terms simultaneously -- a
+    "part"-level container scope AND a specific named "local"
+    cross-reference. One `DefinitionCandidate` has exactly one `.scope`,
+    so this needs the seam's multi-assignment fan-out: `detect_value` may
+    return a TUPLE of `ScopeAssignment`s, not just one. `pipeline.py` fans
+    this out into TWO `DefinitionCandidate` copies (one per assignment) --
+    resolved by the ALREADY-SHIPPED M10 tie-class (both survive, both get
+    an assertion), not a new mechanism this Planner invented.
+
+    **Correction (dev4 escalation, verified in code, not re-derived from
+    the report alone).** TN's OWN real wording is NOT usable verbatim
+    here: it literally contains "in this part" as a substring of "used
+    **in this part** and Section...", which is one of `_US_CHAPTER_SCOPE_
+    TRIGGERS` (`us_profile.py:1113-1118`). `determine_scope`'s baseline
+    check runs FIRST and short-circuits to `"chapter"` before any
+    registered `ScopeKindRule.detect` is even called (confirmed:
+    `determine_scope(<TN's real text>) == "chapter"`, directly, on this
+    exact real corpus string) -- so a probe rule can never even be
+    consulted for TN's own literal wording under the current, correct-as-
+    designed baseline-first precedence (the same precedence that protects
+    the 7 already-working states from being silently overridden).
+
+    **Blast radius, measured against all 8 U2 rows' real corpus text
+    (`determine_scope` called directly on each row's real `text` column,
+    this session):** exactly **1 of 8** (TN) trips a baseline trigger;
+    the other 7 (AK, CT, KY x4, VA) fall through to `"law-wide"` and
+    leave the registered-rule path open, as designed. This is a narrow,
+    single-row limitation, not a structural hole across the deliverable
+    -- but it IS real, and it means TN's own real wording specifically is
+    not yet live-path provable through the dispatch chain as designed.
+    Escalated to the sprint manager (options: re-author away from TN and
+    accept an unproven real row for #7; narrow the baseline trigger,
+    rejected as high-blast-radius core-owned surgery; or decouple KIND
+    from VALUE consultation so a registered rule's `detect_value` can be
+    reached even when baseline already won the KIND -- a seam-version-
+    bump decision, not this Planner's to make unilaterally).
+
+    **What THIS test proves in the meantime, honestly:** the multi-
+    assignment fan-out MECHANISM itself -- `detect_value` returning a
+    tuple of co-equal `ScopeAssignment`s, both surviving unchanged through
+    `determine_scope_assignments` -- using a body SHAPED like TN's real
+    dual declaration (a part-level container plus a specific named
+    cross-reference) but phrased to avoid the literal baseline-trigger
+    substring, so the registered rule is actually reachable. This proves
+    the mechanism the Developer must implement; it does NOT claim TN's
+    own real wording is live-path provable today (see the escalation
+    above for that gap)."""
     profile = get_profile(_US_CODE)
     marker = "ZZZ_G6_DUAL_SCOPE_PROOF_US"
 
@@ -220,9 +259,24 @@ def test_g6_scope_kind_rule_can_supply_two_coequal_assignments_tn_dual_scope_sha
         )
     )
 
-    body = f"{marker} As used in this part and Section 6-51-301, unless the context otherwise requires:"
+    # Same dual-scope SHAPE as TN's real row (a part-level container PLUS
+    # a specific named cross-reference section), phrased to avoid the
+    # literal "in this part"/"in this chapter"/"for purposes of this
+    # part"/"for purposes of this chapter" baseline substrings -- verified
+    # directly: determine_scope() on this exact string returns "law-wide"
+    # (baseline declines), leaving the registered rule reachable, unlike
+    # TN's own real wording (see docstring correction above).
+    body = (
+        f"{marker} As applicable throughout Part Six and additionally "
+        "under Section 6-51-301, unless the context otherwise requires:"
+    )
     scope = profile.determine_scope(body)
-    assert scope == "part", f"precondition: probe rule must win the KIND dispatch; got {scope!r}"
+    assert scope == "part", (
+        f"precondition: baseline must decline (this body avoids its "
+        f"trigger substrings) so the registered rule actually wins the "
+        f"KIND dispatch for real, through determine_scope's own live "
+        f"loop -- not simulated; got {scope!r}"
+    )
 
     assignments = profile.determine_scope_assignments(
         body, scope=scope, article_number="6-51-101", chapter="51"

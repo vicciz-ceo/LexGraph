@@ -1483,3 +1483,106 @@ above (2 × G5 dispatch, 5 × G6 dispatch, 1 × G6 live-path); zero
 collateral damage to the pre-existing suite. The 2 intentionally-GREEN
 tests (G5's static-field invariant, G6's positive control) are included
 in the 772 passed and are load-bearing regression guards, not filler.
+
+---
+
+## Planner response to dev4's 2 escalated fixtures (post-merge of
+`claude/defs-core-follow-on-2` @ `4c2d526`, relayed by the manager)
+
+dev4 turned 6 of 8 REDs green and escalated 2, both confirmed by the
+manager to be fixture defects rather than implementation gaps (one of
+which also exposed a real, narrow dispatch-precedence limitation). Both
+addressed below; full reasoning also recorded in seam doc **v2.10**.
+
+### Item 1 — KY live-path test: fixed, no production change needed
+
+Confirmed the manager's diagnosis: my original fixture ingested through
+`ingest_wiki_law` (the IL/wiki-marker path), whose `_ARTICLE_MARKER_RE`
+requires a pure digit run and truncated the real dotted KY number
+`"156.106"` to `"156"`. Confirmed independently, by direct read of
+`ingest_us_statutes.py`'s own module docstring and a `grep` for
+`parse_articles`'s call sites, that **real US statute ingestion never
+touches `_ARTICLE_MARKER_RE` at all** — `ingest_us_statute_rows` maps each
+already-parsed row dict directly to one `Article`, storing `section_number`
+verbatim. `_ARTICLE_MARKER_RE` correctly stays untouched.
+
+**Fix:** `test_definition_links_g6_scope_value_seam_live.py` rewritten to
+ingest through `ingest_us_statute_rows` (the production US path) with the
+real KY row-dict shape (`act_id`/`section_number`/`section_title`/`chapter`/
+`text`), so the real dotted article numbers `"156.106"`/`"161.605"`/
+`"139.486"` persist exactly — more production-faithful than the original
+version, not a workaround. Both tests (`before_the_fix` positive control,
+`after_the_fix`) pass.
+
+**One additional, previously-latent defect found and fixed while doing
+this:** the original test's `after_the_fix` assertion read `a["subject_
+entity_id"]` from `result["created_assertions"]`'s own dicts, but
+`pipeline.py`'s `_create_assertion` never puts `subject_entity_id` into
+that dict (confirmed by direct read, `pipeline.py:448-456`) — this was
+masked before the merge because the test failed earlier, at the
+`ImportError`, before ever reaching that line. Fixed by querying the
+persisted `Assertion` rows by id instead. Not part of dev4's report; found
+independently while re-running the corrected test, disclosed here rather
+than silently folded in.
+
+### Item 2 — TN dual-scope: real, narrow limitation; measured, not guessed
+
+**Blast radius, measured (not estimated):** `determine_scope(text)` run
+directly against the real corpus `text` column for all 8 U2 rows this
+gate's §8 table covers. **Exactly 1 of 8 (TN) trips a baseline chapter
+trigger** (`"in this part"` is a literal substring of TN's real first line,
+"As used **in this part** and Section 6-51-301..."); the other 7 (AK, CT,
+KY ×4, VA) correctly fall through to `"law-wide"` and leave the
+registered-rule path open. Full per-row table in seam v2.10. **This is a
+single-row limitation, not a structural hole across the deliverable** —
+but it is real: TN's own real wording is genuinely blocked from reaching a
+registered `ScopeKindRule` by the same baseline-first precedence that
+protects the 7 already-working states, applied here to a row it wasn't
+designed with in mind.
+
+**Options assessed (full reasoning in seam v2.10); none implemented,
+per the explicit instruction not to decide (b)/(c) unilaterally:**
+
+1. **(a) Re-author away from TN.** Rejected as the FULL answer — no other
+   real row among the 8 demonstrates genuine dual-KIND scope; doing this
+   alone would hide the gap rather than disclose it. Adopted in PART: the
+   dispatch-proof unit test now uses a body shaped like TN's real
+   declaration but phrased to avoid the literal trigger substring, so the
+   MECHANISM is proven live while the real-row gap stays visible rather
+   than silently papered over.
+2. **(b) Narrow `_US_CHAPTER_SCOPE_TRIGGERS`.** Not recommended — core-
+   owned, jurisdiction-agnostic, high blast radius, no corpus-wide
+   measurement of what currently-correct rows would break; not this
+   Planner's to run unilaterally.
+3. **(c) Decouple KIND-dispatch from VALUE-dispatch**, gated on the SAME
+   rule's own `detect()` also firing (never an unconditional override).
+   Verified architecturally clean (assignments fully override whatever
+   `scope=` was seeded with, so a mismatch is not internally
+   inconsistent) but is a genuine, if narrow, precedence change --
+   inert today (zero registered `detect_value` consumers exist), live
+   risk only once family panels opt in. Honest limit: even under (c),
+   TN's TRUE two-kind (`"part"` + `"local"`) split needs the rule's
+   `detect()` to fire independently of baseline's own `"chapter"`
+   verdict in the value-consultation loop — getting a richer VALUE for
+   baseline's OWN kind is the smaller, safer version of (c); getting a
+   genuinely DIFFERENT kind is the bigger version and was not
+   distinguished clearly enough in the original ask. **This Planner's
+   lean: (c), narrow/gated variant, is the most principled option, but
+   needs a program-level ruling and a seam version bump (v2.11) if
+   adopted — escalated, not decided here.**
+
+Test corrected (mechanism-proof, non-baseline-tripping body, full
+disclosure in its own docstring) and green: `test_g6_scope_kind_rule_can_
+supply_two_coequal_assignments_tn_dual_scope_shaped`. Seam v2.8 §8 row 7
+verdict corrected from "Yes" to "Partial" in seam v2.10 (append-only —
+v2.8's original text is untouched).
+
+### Full-suite state after both fixes
+
+`backend/.venv/bin/pytest tests/ -q` (post-merge of `claude/defs-core-
+follow-on-2` @ `4c2d526`): **815 passed, 3 failed** — the 3 failures
+(`test_definition_links_g10_term_clause_scope_threading.py` ×2,
+`test_us_core_g1_ms_padding_strip_red.py` ×1) belong to gates G10/G1,
+outside this Planner's write-set (G5/G6), untouched and unexamined beyond
+confirming they are not caused by anything in this response. All of this
+Planner's own G5/G6 tests pass, including both items dev4 escalated.

@@ -27,11 +27,32 @@ value ever reaches a `Definition` FROM THE REAL DEFINITIONS-SECTION
 EXTRACTION PATH (`determine_scope` -> `extract_definitions_from_section`
 -> pipeline stamping), not just from a hand-built `DefinitionCandidate`.
 
-**One disclosed adaptation, not a fabrication.** The real row's own quoted
-term is NOT leading in its numbered block (`(1) For purposes of ...,
-"critical shortage area" means ...`) -- `us_profile._LEADING_QUOTE_RE`
-requires the quote to open the block (`(N) "Term" means ...`), so
-extracting THIS row's real word order needs a new `TermClauseRule`/
+**Ingestion path -- corrected after a dev-cycle escalation (dev4, via
+manager relay).** The first version of this file ingested through
+`ingest_wiki_law` (the ISRAELI wiki-marker path, `@ N. <heading>`), whose
+`sections._ARTICLE_MARKER_RE` is `^@\\s+(?P<number>\\d+[א-ת]*)\\.\\s*...` --
+a pure digit run. Real KY article numbers are dotted (`"156.106"`), so
+that regex truncated `@ 156.106.` to number `"156"` and leaked `".106"`
+into the heading -- a WIKI-INGESTION-PATH artifact, not a production
+defect: `ingest_us_statutes.py`'s own module docstring states plainly that
+real US rows are "already-parsed row dicts rather than raw wiki-marker
+text, so there is no `parse_articles` call: each row maps directly to one
+Article" -- confirmed by grep, `parse_articles` is called only from
+`ingest.py` (the IL/wiki path). **US statutes never touch
+`_ARTICLE_MARKER_RE` in production**, so the earlier failure was a
+test-harness artifact, not a seam or `sections.py` defect -- `_ARTICLE_
+MARKER_RE` is correctly left untouched. This file now ingests through
+`ingest_us_statute_rows` (`app.definition_links.ingest_us_statutes`), the
+SAME row-dict path real US parquet ingestion uses: `Article.number = str
+(row["section_number"])`, stored verbatim, no marker regex involved -- so
+the real dotted number `"156.106"` persists exactly, and this file is now
+MORE production-faithful than the original version, not less.
+
+**One remaining disclosed adaptation, not a fabrication.** The real row's
+own quoted term is NOT leading in its numbered block (`(1) For purposes
+of ..., "critical shortage area" means ...`) -- `us_profile._LEADING_
+QUOTE_RE` requires the quote to open the block (`(N) "Term" means ...`),
+so extracting THIS row's real word order needs a new `TermClauseRule`/
 `EntrySplitterRule` recognizing the "For purposes of X" preamble shape --
 that is explicitly the headings/markers panel's OWN later work (per this
 gate's own text: "the headings panel builds the rules LATER on their
@@ -44,26 +65,25 @@ unmodified `_LEADING_QUOTE_RE` splitter so this file tests the SCOPE seam
 in isolation, not entry-splitting (a different, already-tracked gap).
 
 **Design under test:** `pipeline.py`'s Definitions-SECTION stamping loop
-calls the new `profile.determine_scope_assignments(...)` (gate G6) and
-fans out one `DefinitionCandidate` copy per returned `ScopeAssignment`
--- see `test_definition_links_g6_scope_value_seam.py`'s module docstring
-for the full design. This file proves that wiring reaches the REAL
-`run_definition_linking` path end to end.
+calls `profile.determine_scope_assignments(...)` (gate G6) and fans out
+one `DefinitionCandidate` copy per returned `ScopeAssignment` -- see
+`test_definition_links_g6_scope_value_seam.py`'s module docstring for the
+full design. This file proves that wiring reaches the REAL
+`run_definition_linking` path end to end, on the production US ingestion
+path.
 
 **RED signal:** `test_...before_the_fix_...` is a POSITIVE CONTROL (P-R10)
--- it is expected to PASS TODAY, on unmodified `main`, and documents the
-live bug this gate fixes: a KY-156.106-shaped section with no scope-value
-seam defaults to `"law-wide"` (`determine_scope`'s baseline default) and
-therefore WRONGLY links a mention in an uninvolved KY article
+-- it is expected to PASS regardless of whether G6 has landed, and
+documents the live bug this gate fixes: a KY-156.106-shaped section with
+no scope-value seam defaults to `"law-wide"` (`determine_scope`'s baseline
+default) and therefore WRONGLY links a mention in an uninvolved KY article
 (`139.486`, itself one of the OTHER 8 U2 rows, reused here deliberately
 as a real, uninvolved KY article number -- same technique
 `test_definition_links_matcher_u2_scope_cycle5.py` uses). The FIXED test,
 `test_...after_the_fix_...`, registers a probe `ScopeKindRule` supplying
-the real enumerated value and is expected to FAIL on unmodified `main`
-with `TypeError: ScopeKindRule.__init__() got an unexpected keyword
-argument 'detect_value'` (the field does not exist yet) -- and, once that
-type error is fixed, would still fail on today's pipeline.py (no fan-out
-consumer) until the Developer's stamping-loop change lands too.
+the real enumerated value; once `ScopeAssignment`/`detect_value`/
+`determine_scope_assignments`/the pipeline fan-out all exist, it asserts
+the enumerated co-target links and the uninvolved article does not.
 """
 
 from __future__ import annotations
@@ -73,7 +93,7 @@ def _ky_156_106_body() -> str:
     # Real KY_156.106 words (verified against the live corpus this
     # session), scope clause moved to the END of the sentence so the
     # quoted term is LEADING in its numbered block (see module docstring
-    # "One disclosed adaptation").
+    # "One remaining disclosed adaptation").
     return (
         '(1) "critical shortage area" means a lack of certified teachers in '
         "particular subject areas, in grade levels, or in geographic "
@@ -83,35 +103,65 @@ def _ky_156_106_body() -> str:
     )
 
 
+def _ky_rows() -> list[dict]:
+    """Three row dicts in the REAL `vaquill/open-us-law` schema
+    (`act_id, section_number, section_title, text, chapter`) --
+    `ingest_us_statute_rows` stores `section_number` verbatim as
+    `Article.number` (no marker-regex parsing), so the real dotted KY
+    numbers survive exactly. `act_id`s are shaped like the real dataset's
+    own convention but are not claimed to be byte-identical rows for
+    161.605/139.486 (only 156.106's own text is the byte-verified real
+    row; the other two are synthetic MENTION bodies, same technique
+    `test_definition_links_matcher_u2_scope_cycle5.py` uses for its own
+    member/non-member fixture articles)."""
+    return [
+        {
+            "act_id": "STATE_KY_TXIII_C156_S156.106",
+            "section_number": "156.106",
+            "section_title": "Definitions for section and KRS 161.605",
+            "chapter": "156",
+            "text": _ky_156_106_body(),
+        },
+        {
+            "act_id": "STATE_KY_TXVI_C161_S161.605",
+            "section_number": "161.605",
+            "section_title": "Appointment of retired teachers and administrators",
+            "chapter": "161",
+            "text": (
+                "A critical shortage area shall be identified by the board "
+                "annually under this section."
+            ),
+        },
+        {
+            "act_id": "STATE_KY_TXI_C139_S139.486",
+            "section_number": "139.486",
+            "section_title": "Sale, use, storage, or consumption of industrial machinery",
+            "chapter": "139",
+            "text": (
+                "This section addresses a critical shortage area only in "
+                "passing and is NOT one of the two sections the definition names."
+            ),
+        },
+    ]
+
+
 def test_g6_ky_156_106_shaped_section_before_the_fix_wrongly_links_an_uninvolved_ky_article(
     db_session, matter_with_users
 ):
-    """POSITIVE CONTROL (P-R10), expected GREEN on unmodified `main` --
-    proves the bug this gate fixes is real and live, not a theoretical
-    gap. Uses jurisdiction `"US-VA"` (an otherwise-untouched code in this
-    file, so no probe rule registered by the OTHER test below can leak in
-    via the no-reset-between-tests registry discipline)."""
-    from app.definition_links.ingest import ingest_wiki_law
+    """POSITIVE CONTROL (P-R10) -- documents the live bug this gate fixes,
+    through the PRODUCTION US ingestion path (`ingest_us_statute_rows`,
+    real dotted KY numbers). No `ScopeKindRule` registered here."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
 
     m = matter_with_users
-    wiki_text = (
-        "@ 1. Definitions for section and KRS 161.605\n"
-        f"{_ky_156_106_body()}\n"
-        "@ 2. Appointment of retired teachers and administrators\n"
-        "A critical shortage area shall be identified by the board "
-        "annually under this section.\n"
-        "@ 3. Sale, use, storage, or consumption of industrial machinery\n"
-        "This section addresses a critical shortage area only in "
-        "passing and is NOT one of the two sections the definition names."
-    )
-    ingest_wiki_law(
+    ingest_us_statute_rows(
         db_session,
         repository_id=m["repository_id"],
         matter_id=m["matter_id"],
         title="Test KY 156.106-shaped Statute (before fix)",
-        wiki_text=wiki_text,
-        jurisdiction="US-VA",
+        rows=_ky_rows(),
+        jurisdiction="US-KY",
     )
 
     result = run_definition_linking(
@@ -133,15 +183,18 @@ def test_g6_ky_156_106_shaped_section_before_the_fix_wrongly_links_an_uninvolved
 def test_g6_ky_156_106_shaped_section_after_the_fix_links_only_the_two_named_sections(
     db_session, matter_with_users
 ):
-    """The seam-fixed behavior: a registered `ScopeKindRule` recognizes
-    the real "for purposes of this section and KRS 161.605" phrase and
-    supplies the real two-member enumerated value. Article `156.106.161605`
-    (renamed to fit this fixture's own article numbers -- see below) and
-    `161.605` must link; the uninvolved `139.486`-shaped article must not.
-    """
-    from app.definition_links.ingest import ingest_wiki_law
+    """The seam-fixed behavior, through the PRODUCTION US ingestion path:
+    a registered `ScopeKindRule` recognizes the real "for purposes of this
+    section and KRS 161.605" phrase and supplies the real two-member
+    enumerated value (real KY article numbers, not renumbered). Article
+    `161.605` must link; the uninvolved `139.486` must not."""
+    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
-    from app.definition_links.rules.registry import ScopeAssignment, ScopeKindRule, register_scope_kind_rule
+    from app.definition_links.rules.registry import (
+        ScopeAssignment,
+        ScopeKindRule,
+        register_scope_kind_rule,
+    )
 
     def _detect(body_text: str):
         return "local" if "KRS 161.605" in body_text else None
@@ -154,36 +207,35 @@ def test_g6_ky_156_106_shaped_section_after_the_fix_links_only_the_two_named_sec
     )
 
     m = matter_with_users
-    wiki_text = (
-        "@ 156.106. Definitions for section and KRS 161.605\n"
-        f"{_ky_156_106_body()}\n"
-        "@ 161.605. Appointment of retired teachers and administrators\n"
-        "A critical shortage area shall be identified by the board "
-        "annually under this section.\n"
-        "@ 139.486. Sale, use, storage, or consumption of industrial machinery\n"
-        "This section addresses a critical shortage area only in "
-        "passing and is NOT one of the two sections the definition names."
-    )
-    ingest_wiki_law(
+    ingest_us_statute_rows(
         db_session,
         repository_id=m["repository_id"],
         matter_id=m["matter_id"],
         title="Test KY 156.106-shaped Statute (after fix)",
-        wiki_text=wiki_text,
+        rows=_ky_rows(),
         jurisdiction="US-KY",
     )
 
     result = run_definition_linking(
         db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
     )
-    uses_edges = [
-        a for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
-    ]
-    linked_articles = {a["subject_entity_id"] for a in uses_edges}
+    uses_edge_ids = {
+        a["id"] for a in result["created_assertions"] if a["assertion_type"] == "USES_DEFINITION"
+    }
 
     from sqlalchemy import select
 
     from app.models.article import Article
+    from app.models.assertion import Assertion
+
+    # `created_assertions`' own dicts (pipeline.py's `_create_assertion`)
+    # do not carry `subject_entity_id` -- fetch the persisted rows instead.
+    linked_articles = {
+        row.subject_entity_id
+        for row in db_session.execute(
+            select(Assertion).where(Assertion.id.in_(uses_edge_ids))
+        ).scalars()
+    }
 
     articles_by_id = {
         row.id: row.number
