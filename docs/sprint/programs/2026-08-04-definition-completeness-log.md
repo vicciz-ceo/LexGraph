@@ -87,6 +87,22 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (P-ALT: contract altitude ruled): Three independent arrivals
+  at "which altitude is the contract" (multiterm's M-R18 pin, markers'
+  M40 persisted-idiom observation, U-R13's engine-vs-persisted framing)
+  RULED as program law: THE PROGRAM'S CONTRACT ALTITUDE IS THE
+  PERSISTED/ASSERTED LAYER — what D-CERT certifies and users consume.
+  Candidate/extraction behavior is internal mechanism; candidate-level
+  pins are legitimate only for a single module's OWN emission. "The
+  captured definition" in any test/ruling/ledger condition means the
+  PERSISTED one unless explicitly scoped narrower. G8's preference
+  applies at the persist layer by design. Root-cause sentence for the
+  cycle's twin defects, recorded verbatim from the panels: both treated
+  BASELINE EMISSION as a proxy for BASELINE CORRECTNESS, with opposite
+  polarities (and R6 as the third polarity: no emission read as
+  nothing-there). Neither error was findable by inspection; both needed a
+  measurement designed to fail.
+
 - 2026-08-05 (arbitration reversed on evidence + IL at review): My default
   suppress-the-duplicate ruling on the markers/multiterm candidate
   interaction was VACATED by markers' measured counter-evidence: on the
