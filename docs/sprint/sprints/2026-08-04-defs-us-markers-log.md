@@ -3950,3 +3950,177 @@ population BEFORE consuming scoped-inline's 22 specimens. Noted by the program
 manager as the right order.
 
 ---
+
+## M34 — RULING U-R16: U-R14 is VACATED; my own verification error named (2026-08-05)
+
+### The finding that held devC is REFUTED, on source text
+
+QA cycle 2 classified all 75 extra terms. **No class-C (spurious) population
+exists — zero.** I verified the crux myself against the raw fixture rather than
+accepting it. `STATE_NJ_T58_C22_S22-3`, verbatim:
+
+```
+(k) "Water supply facility" or "facility" means and refers to the real
+property and the plans, structures, machinery and equipment ...
+```
+
+**`'facility'` is a genuine second alias, defined in the same sentence as
+`'Water supply facility'`.** It is not a fragment. **RULING U-R16: U-R14 is
+VACATED** — the precision-regression theory that held devC unmerged had no
+factual basis.
+
+### My own error, stated plainly
+
+In §M26 I tabulated U-R14 as "**CONFIRMED**, with control". That was an
+overclaim, and the control I ran does not support the label I gave it:
+
+- **What I actually established**: the extra term `'facility'` appears under
+  devC and not under the sprint branch (28 pass / 13 fail). That is an
+  ATTRIBUTION control — it proves the term is caused by devC's widening.
+- **What I labelled it**: confirmation that the term is SPURIOUS. Attribution
+  and spuriousness are different claims, and no probe I ran addressed the second.
+
+Worse, in the *same commit* I authored U-R15 rule 1 — "capitalisation is NOT
+evidence... decided on SOURCE-TEXT evidence, never on capitalisation" — and then
+failed to apply it to the inherited claim I was carrying forward. I wrote the
+rule that would have caught this and did not run it against the one claim already
+in my hands. **Reading a fixture row would have taken thirty seconds.**
+
+This is the program's "probe arguments are part of the claim" lesson landing on
+me: my probe answered a narrower question than the word "CONFIRMED" implied. It
+is also the third consecutive holder of this panel to mis-call this same defect —
+Developer C generalised from one real example, my predecessor generalised from
+one counter-example, and I ratified the second without testing it. §M26's table
+row for U-R14 is **superseded by this section**.
+
+### devC disposition: CLEARED of the precision charge
+
+- **No class-C.** Nothing spurious ships.
+- **Zero terms lost**, and retained-term text is **byte-identical — structurally
+  guaranteed**, not sampled. QA read the mechanism: `pipeline.py:275-310` keys
+  persistence on `(article_id, sorted(terms))`, first-created wins and is never
+  overwritten, and `us_profile.py:1338-1352` concatenates
+  `all_blocks = baseline_blocks + extra_blocks`, so baseline's candidate for any
+  colliding term name is always created first. This also closes the §M26
+  never-executed-text-assertion gap.
+- **The real population is class A + class D**: 49 of the 75 extras are ND terms
+  **never captured in any form before** (bare `1.`/`2.` digit-dot markers the
+  baseline splitter cannot split on) — stale pins, not duplication, and
+  explicitly NOT routed to G8. The rest are genuine sub-definitions carved out of
+  an unchanged swallow blob.
+
+### Class B is real — and most of it is NOT ours to fix
+
+QA found genuine boundary defects on newly-captured terms: NJ `facility`
+(missing `means ` prefix, truncated tail), OK `gallon` → `"one"`, ND `Franchise`
+losing 2 of 3 clauses, and citation-tail truncations on NJ `Between merchants`,
+NJ `Commercial unit`, ND `Commissioner`/`Rule` and three nd:78 terms
+(`...chapters 57-06 and 57-`).
+
+**Those citation-tail truncations and OK `gallon`'s parenthesised-`(1)`
+mis-split ARE the citation-vs-marker ambiguity that §M33 scoped to CORE** as the
+core-follow-on-3 anchor. They are not this panel's to fix, and per M33 we build
+no discriminator meanwhile. They are documented, routed, and pinned — not
+repaired here. That convergence is corroboration for M33's core-level framing:
+the same ambiguity surfaced again, unprompted, in a completely separate
+investigation.
+
+### Two further corrections to inherited claims
+
+- **M24's NJ `Cost` within-run duplicate: REFUTED.** The live pipeline creates
+  exactly ONE `Cost` row (1,267 chars). The "1,267 vs 1,257" pair existed only in
+  `extract_definitions_from_section()`'s raw output — a layer BEFORE persistence
+  dedup — and never reaches the database. **Methodological warning recorded: the
+  sweep script measures pre-persistence, so duplicate-looking output there does
+  not imply duplicate rows.** Anyone quoting that script's duplicate counts must
+  say which layer they measured.
+- **G8 is quality-blind, and that is a NEW finding for core-2.** Because the
+  dedup is purely order-based, baseline wins even when its candidate is worse:
+  OK `Area of operation` keeps a degenerate 6-char `"means:"` while a correct
+  941-char candidate is discarded. **G8 can suppress a quality IMPROVEMENT, not
+  merely prevent a duplicate.** Routed to core-2 with the act_id.
+
+### Merge sequencing for devC (NOT merged yet)
+
+1. Planner re-pins the 13 stale guards — term LISTS only, which are correct.
+2. Planner authors REDs for the class-B boundary defects. **The defects are not
+   baked into the re-pinned expectations**; a re-pin that swallowed a known
+   truncation would launder a defect into an accepted baseline.
+3. devC merges after (1)+(2). Class-B REDs stay red, routed to core-3.
+
+---
+
+## M35 — RULING U-R17: Planner tasks 1 and 2 ACCEPTED; task 3 BOUNCED (2026-08-05)
+
+Planner (`a2aefc18406e12b97`, branch `claude/defs-us-markers-planC`). Write set
+verified by me: `git diff --stat c22d6b0..HEAD -- backend/app/` is **empty** —
+zero production code touched, 4 test/fixture files only. Suite reproduced by me
+at **15 failed, 881 passed** exactly as reported.
+
+### Task 1 — AZ oracle (U-R12): ACCEPTED
+
+New oracle `(?:^|\s)\d{1,3}\.\s*$`. I re-ran its four controls myself and added
+four of my own that were not in the brief:
+
+| input | old | new |
+|---|---|---|
+| `…section 15-1873.` (real citation) | True (bug) | **False** |
+| `…district. 2.` (genuine leak) | True | **True** |
+| `…district.` (clean) | False | False |
+| `…section 15-1` (truncated) | False | False |
+| **my extra**: `2.` (leak at string start) | True | **True** |
+| **my extra**: `see 15-1873.` (hyphenated) | True | **False** |
+| **my extra**: `a rate of 1.5.` (decimal) | True | **False** |
+| **my extra**: `…revenue code.\n\n13.` (AZ swallow) | True | **True** |
+
+It holds on the leak-at-start case (which `(?:^|\s)` was needed for) and
+correctly rejects decimals, which nobody specified. The standalone positive
+control exercising the regex directly is the right anti-rot measure.
+
+### Task 2 — Q3 Part B (U-R13): ACCEPTED
+
+Green; Planner measured the engine's real output before writing the expectation
+rather than encoding my description of it, which is the correct order.
+
+### Task 3 — colon-idiom RED: BOUNCED, and the proof is decisive
+
+The tests call `extract_quote_anchored_entries(row["text"])` **directly on raw
+fixture text**. Production does not. `ingest_us_statutes.py:237` applies
+`text = text.replace("\\n", "\n")` (the M14/I8 fix) BEFORE text reaches
+extraction. I ran both paths on the Planner's own two fixture rows:
+
+| row / term | RAW (the test's path) | NORMALIZED (production's path) |
+|---|---|---|
+| `STATE_NY_AISC_A55_S5501` → `Hospital` | len **2**, `'\n'` — the pinned collapse | len **381**, `'(1) Any facility defined as a hospital under section tw…'` — **CORRECT** |
+| `STATE_NY_ALFN_A1_S2.00` → `chief fiscal officer` | len **2**, `'\n'` | **term absent entirely** (26 entries vs 27) |
+
+**Row 1's defect does not exist on the production path.** Row 2's term is MISSING
+under production — a real defect, but a *different* one than "collapses to a
+degenerate 2-char definition". Both REDs are invalid as written; one pins a
+non-defect, the other pins the wrong defect.
+
+This is **ruling U-R11 / §M15 recurring**: "the NY target number is measured on
+text production never sees." The Planner's own honest note contains the
+premise — it said the direct call was "the only way to reach this code path live
+for NY today", since NY is not yet in `_JURISDICTIONS`. That is true, and the
+correct conclusion from it is that **NY cannot carry a live-path test for this
+today**, not that a non-live-path test is acceptable. When devC merges, NY joins
+the tuple and the live path opens.
+
+**Not a criticism of the Planner's diligence** — it self-reported the direct-call
+choice, documented the mechanism, and flagged its own inability to reproduce
+M22's MN/ME counts. That transparency is exactly why this was catchable.
+
+### M22's colon-idiom counts are now UNREPRODUCED
+
+The Planner scanned the full real MN (27,747 rows) and ME (25,316 rows) corpora
+and found **zero** instances of M22's stated `means:`/`:` shape; MN/ME store real
+newline bytes so NY's literal-`\n` mechanism cannot fire there. Combined with the
+above, M22's "~16 MN / 3 ME / 13 NY" is **not currently reproducible as stated**.
+
+**Ruling: the colon-idiom defect must be re-derived on the LIVE path before
+anyone pins it.** It is not declared non-existent — Developer B observed
+something real — but its shape, mechanism and counts are all unconfirmed, and the
+NY portion is now explained as a raw-text artifact. Re-queued, not closed.
+
+---
