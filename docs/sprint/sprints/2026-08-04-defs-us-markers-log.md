@@ -7,6 +7,34 @@ to the director).
 
 ---
 
+## M53 — P-D2 Developer gate PASS; P-D1 WIP absent; Planner audit lock (2026-08-05)
+
+Developer first disclosed and removed its uncommitted P-D1 experiment, restoring
+the sole source file exactly to devD HEAD before P-D2 work. The manager then read
+the complete `9f8f533...98143f7` production diff: exactly one file,
+`us_markers_boundary.py`, with 11 insertions/3 deletions. It contains only the
+bounded relative qualifier, trailing-comma term cleanup, and Minnesota `§ Subd.`
+local boundary. **No P-D1 global-limit change and no Roman/`With respect` stop
+residue exists.** Main containment remains clean except the user's pre-existing
+`.claude/settings.json`.
+
+Manager live probe on the integrated tree: P-D2 unit + real persisted MN path +
+both explicitly-labelled U-R13 altitudes = **5 passed / 3 deselected**. P-D1
+still yields exactly its two bounced failures and two passing controls, proving
+P-D2 did not accidentally absorb it. Developer full backend: 890 passed / 26
+named inherited failures, zero P-D2; frontend/typecheck were not runnable because
+this worktree has no installed frontend dependencies. The implementation merged
+without conflict as `d81e3eb`; P-D2 moves to Dev Complete.
+
+Role transition: `status: planning`, `current_role: planner`, lock changed from
+`codex:developer` to `codex:planner`. Next role delivery record committed before
+handshake: `/root/markers_panel_manager/planner_pd1_corpus_audit`; model/effort
+`gpt-5.6-terra/high` — fresh Planner must arbitrate corpus evidence and repair or
+retire a load-bearing RED oracle. Haiku considered: no because Planner is always
+high effort and the task determines whether an inherited defect exists at all.
+
+---
+
 ## M52 — P-D1 oracle bounced; real FED row routed to core-3 (2026-08-05)
 
 Developer reproduced the Planner's P-D1 unit GREEN after an uncommitted

@@ -1,19 +1,19 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: planned
-current_role: developer
+status: planning
+current_role: planner
 branch: claude/defs-us-markers
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers
-locked_by: "codex:developer"
-locked_at: "2026-08-05T19:37:06Z"
-last_agent: "/root/markers_panel_manager/planner_red_u_r13"
-last_updated: "2026-08-05T19:42:29Z"
+locked_by: "codex:planner"
+locked_at: "2026-08-05T19:46:13Z"
+last_agent: "/root/markers_panel_manager/developer_pd1_pd2"
+last_updated: "2026-08-05T19:46:13Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
 completed_items: 1
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
@@ -181,9 +181,9 @@ planner pass 1`.
 
 ## Next Steps
 
-**CURRENT continuation phase (M47–M51, supersedes the stale blocked label).**
-The sprint is in Developer implementation, with P-T1 complete and P-D1/P-D2
-RED at both unit and persisted-live altitudes:
+**CURRENT continuation phase (M47–M53, supersedes the stale blocked label).**
+P-D2 is Dev Complete and P-T1 is complete. A fresh Planner now audits P-D1's
+actual corpus provenance before this cycle can enter independent QA:
 
 1. **P-D1 — PLANNER BOUNCE; no Developer action [M52].** The synthetic
    post-`Editorial Notes` entry oracle is invalid because terminal notes must
@@ -192,12 +192,9 @@ RED at both unit and persisted-live altitudes:
    Planner later performs only a bounded corpus search for genuine global-limit
    harm; absent a real row plus terminal-notes negative control, retire P-D1
    and amend M38. Phrase-specific Roman stops are forbidden here.
-2. **P-D2 — MN Affiliate relative-idiom gate [U1/U4].** Add a narrow MN
-   handling path for `"X," when used in reference to…, means` without broadening
-   quote matching globally. Live acceptance:
-   `test_us_markers_pd2_mn_affiliate_idiom_live.py` persists Affiliate,
-   Announcement date, Associate, and Consummation date separately and cleanly.
-   Unit acceptance requires the exact real idiom and rejects non-defining prose.
+2. **P-D2 — MOVED TO DEV COMPLETE [U1/U4].** Narrow relative-idiom support
+   is implemented in the panel-owned engine; manager verified the real persisted
+   MN row, negative guard, and both U-R13 altitudes green. See Dev Complete.
 3. **P-T1 — U-R13 persisted-altitude oracle correction [M44/M49].** COMPLETE:
    Q3 Part B now names the persisted `Governmental body` value (idiom retained)
    as canonical; the direct stripped value is explicitly an internal
@@ -339,7 +336,10 @@ names its gate(s).
 
 ## Dev Complete
 
-_None._
+- **P-D2 — MN Affiliate relative-idiom gate.** Developer `98143f7`, integrated
+  as `d81e3eb`; only `backend/app/definition_links/rules/us_markers_boundary.py`
+  changed (11 insertions, 3 deletions). Manager probe: P-D2 unit+persisted live
+  plus both U-R13 altitudes = 5 passed; P-D1 invalid/core-3 REDs remain red.
 
 ## Completed
 
@@ -347,6 +347,9 @@ _None._
 
 ## Context Dump
 
-New sprint. Planner: read program doc + dossier §2 family 3 + §6 addendum
-(findings #1, per-jurisdiction detail), re-confirm examples live, author RED
-tests. Largest-impact sprint in the program — plan waves accordingly.
+P-D2 is merged/Dev Complete; P-T1 is complete. P-D1's synthetic post-notes
+oracle is invalid and `USC_T8_C12_S1101` routes to core-3. Fresh Planner must
+search boundedly for a REAL row harmed by the global annotation ceiling and
+pair it with a terminal-notes negative control. If none exists, remove/retire
+P-D1's invalid REDs and amend M38's attribution. No production changes in this
+Planner pass. Core-2 remains unmerged; G3-HEAL stays pending.
