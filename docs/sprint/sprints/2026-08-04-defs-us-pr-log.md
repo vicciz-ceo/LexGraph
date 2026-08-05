@@ -8131,3 +8131,94 @@ findings; frontmatter `last_agent`/`lint`/`last_updated`). No file under
 `backend/app/` left modified (all 3 mutation rounds reverted and reconfirmed
 clean before this commit). SHA recorded via `git log -1 --format=%H` after
 commit.
+
+---
+
+## 2026-08-05 — Manager: QA cycle-14 VERIFIED; ruling M-R20
+
+### Verification
+
+HEAD `2b192dd` == origin, tree clean, `git diff --stat edbe164..HEAD -- backend/`
+→ **empty** (docs-only). Suite `24 failed / 1034 passed / 6 skipped / 13 xfailed`
+unchanged. Blast radius independently confirmed (+7 chapter, +65 article), and
+QA's mutation round-3 result — **exactly 18 failed / 2 passed** on the
+article-alternation revert — reproduces the documented accidental-substring
+split bit for bit. That is a strong signal the test suite means what it says.
+
+### Ruling M-R20(a) — LexJuris footer family: FIX NOW
+
+I re-measured it myself rather than accept the count, and it is **larger** than
+reported:
+
+```
+rows containing the artifact ................ 524   (QA: 453)
+of which _PAGE_BREAK_FOOTER_RE strips ......... 0   (QA: 0)  <- agrees
+canonical rows carrying it ................... 14   (QA: 12)
+canonical rows with it INSIDE a live
+  definition_text (shipping corrupt TODAY) .... 6   (QA: 5)
+```
+
+QA measured within this cycle's touched populations; I swept all canonical rows.
+Same defect, wider than first stated — which is the right direction to be wrong
+in. `_PAGE_BREAK_FOOTER_RE` recognizes only the `ogp.pr.gov` shape; the
+`LexJuris de Puerto Rico ©NNNN www.LexJuris.net N` family is a second
+publisher's page-break artifact, pre-existing and unrelated to this cycle's
+vocabulary work.
+
+**In our write-set, same class as the cycle-6 footer fix, 6 rows shipping
+corrupt text today. Fix it.** And this time **enumerate the footer families
+from the corpus** rather than adding a second literal — two publishers are
+already known, and discovering a third by accident later is the exact pattern
+M-R18 was written to stop.
+
+### Ruling M-R20(b) — the abbreviation-period class: CHARACTERIZE, do not patch a third instance
+
+`STATE_PR_LEY_249_2008_ART5` captures as `"significará: i."` — near-empty, and
+it **passes the Developer's own defining-verb heuristic**, which is exactly why
+QA's orthogonal checks (where the span ends, what sits in the middle) found what
+a single heuristic could not.
+
+This is the **third** instance of one mechanism: a non-greedy capture
+terminating at an abbreviation's period — cycle 6's `Rev.`, M-R19(1)'s
+`[Nota: …] Art.`, now an enumerator `i.`. Per the M-R18 precedent, **a third
+instance is a class, not a bug**. Characterize it corpus-wide (which
+abbreviation shapes terminate captures, how many rows, which are genuine) and
+decide once, rather than adding a third literal exception.
+
+### Ruling M-R20(c) — anchoring gate: fix the `\b`, ledger the coincidence
+
+Two distinct findings, different severities:
+
+- **`_LAW_TITLE_NAMING_CUE_RE` has no leading `\b`**, so `"reconocida como"`
+  matches `"conocida como"`. An unambiguous bug, cheap to fix. **Fix now.**
+- **The gate fires on 13/633 rows, only 1 of which has a genuine sentence-2
+  trigger.** The other 12 are inert *because sentence 2 does not happen to also
+  match* — a corpus-composition coincidence, not a structural guarantee, as QA
+  correctly framed it. No live defect, so not urgent; but a latent fragility
+  that a corpus update could activate. **Ledger it** with QA's specific
+  diagnosis (7-9 are cross-references citing a *different* law's short title,
+  a common PR citation idiom). Tightening the gate to require self-reference is
+  the candidate fix; it is a precision change needing its own measurement, not
+  a bolt-on.
+
+### M-R20(d) — degeneracy CONFIRMED, and the pre-agreed framing applies
+
+All 6 contributing law codes carry exactly 1 distinct `chapter` value
+corpus-wide; Código Civil (7 values) is correctly not among them. QA went past
+the data column to `matcher._in_scope` and showed the `chapter` comparison is
+structurally identical to `law-wide`'s unconditional `True` for this data shape
+— a mechanism-level proof, not a count.
+
+Per the framing agreed **before** the result was known: **a named
+characterization, not a defect.** The kind stamps semantically-correct scope;
+the granularity materializes when a multi-chapter code enters the corpus;
+per-(row,term) correctness is indifferent. **Does not gate the close.**
+
+Recording that the pre-agreement did its job — the disposition was fixed while
+the outcome was still unknown, so nothing was retrofitted to a result.
+
+### Next
+
+Planner: RED tests for the LexJuris footer family (corpus-enumerated, not
+literal-by-literal) and the `\b` fix, plus the abbreviation-period class
+characterization. Then a bounded Developer pass.
