@@ -71,6 +71,81 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (mega-wave: D-INCLUDES + 4 core-2 planners + markers QA1 +
+  scoped-inline QA2 bounce + IL handoff + seam defect): Director ruled
+  D-INCLUDES (recorded in program doc). CORE-2: all four Planners landed —
+  plan1 @ 6455318 (G2 8 REDs; before/after prototype 8.4%→0.64% corpus,
+  ME 81→0.2%, AZ 69.7→0.2%; G4 scale proxy 42%/34% PROVISIONAL; SC
+  "or"-chain hazard named), plan2 @ 6abe042 (G3 content-marker design with
+  both-sides sampling: narrow 13.54%/extended 24.62% of 27,051 last
+  entries contaminated; G1 2 REDs + 5,423/242,193=2.24% padded terms
+  [NC 55%, WY 61.6%, NM 79.8%]; DC 27.3% PROVEN unreachable by G3 —
+  202/332 quoteless + 130/332 blocked by "The term " lead-in before quote;
+  sibling _extract_inline_quoted_definitions has identical defect, IL
+  71.4% contamination), plan3 @ 65c6336 (G5 reframed as bound-resolver
+  field; G6 seam v2.8 additive detect_value/ScopeAssignment/
+  determine_scope_assignments; 8 REDs; 10-row table corrected to 8 — NJ/UT
+  not value cases), plan4 @ f27299c (G8: baseline collides with ITSELF —
+  AR corpus duplication artifact; 2,282 rows/34 jurisdictions; 745
+  containment-unambiguous vs 2,307 benign vs 1,308 ambiguous;
+  design=strict-substring UPDATE path, ordering-flip and length-threshold
+  REJECTED with data; G3-independence proven structurally 0/4,360).
+  Markers manager sized collisions independently: 213 severe (TN 146/FED
+  51), worst discarded improvement 163,875 chars (USC_T5_C83_S8331); TX
+  labeled unclassified not counted. PROGRAM RULINGS: Q-G3-A = YES, sibling
+  in G3 scope (one shared termination helper), CONDITIONAL on a sampled
+  both-sides check for the fallback population before building; Q-G3-B =
+  DC de-linked from G3 (merge-protocol pass condition amended: G3 proves
+  FED RED green + corpus last-entry contamination near-zero; DC's real
+  shapes routed — "The term" lead-in = markers TermClauseRule family
+  [QA1 Q7 NC/DC shape], quoteless = unquoted family); G9 CANDIDATE added
+  (IL M20 breadcrumbs data source: pipeline.py:212 hardcodes (),
+  sections.py:138 len==2 gate; 2 committed REDs on claude/defs-il); G10
+  CANDIDATE added (multiterm escalation, proven from source:
+  TermClauseRule.parse receives block string only, us_profile.py:1351
+  drops the scope the dispatcher HAS → every panel's TermClauseRules stamp
+  law-wide; silent wrong-scope winner confirmed on real IN row; fix =
+  thread scope to parse, seam version bump) — core-2 manager has
+  accept/defer authority per gate with reasons. CORE-FOLLOW-ON-3
+  accumulator opened: AZ bare-digit-dot sibling-swallow, WA mid-paragraph
+  markers, MI spaced "( l )" markers, CT "Term:" convention + "Cited."
+  annotations, AL nested-sub-list mis-split (markers QA1 Q2). MARKERS:
+  QA1 PASS @ b294091 (6 defects pinned; Q3 = NEW bug in markers' OWN
+  _TRAILING_MARKER_CHAIN_RE stripping NNN.NNN. citations, 1,842/144,706 =
+  1.27%, TX 4.50% — most consequential, theirs to fix; Q4 ceiling: 1,308
+  dropped, VA ~3,020-char row proven genuine; Q5 WA row: extraction
+  PROVEN clean when driven directly — gap is 100% recognition-side →
+  REROUTED to headings [supersedes the H-R1 markers routing, with
+  evidence]; Q7 family-scoped miss 1.4% lower bound + NC/DC lead-in shape
+  named); PA1 @ 25eebf6 (28 guard pins; 83–96% of five guard states'
+  zero-yield is the SAME quote-anchored convention — tuple extension not
+  new modules; 8 REDs); PB1 @ dfd5473 (NM/MN/ME/OH collapse into
+  inline-quote family with 3 new boundary defects; NV = 2 stacked cheap
+  gaps ~95%; NH/HI join, MA/PA need dedicated modules; 6 REDs).
+  SCOPED-INLINE: QA cycle 2 BOUNCE @ 162f987 (U4 FAIL: 6 new
+  in-vocabulary misses pinned RED — "the term(s)" before quote 12,189
+  hits/52 states, shall-include 6,926/50 [now AUTHORIZED under D-INCLUDES
+  with the References-to guard], and-chain, GA "this Code section" 1,299
+  rows, boilerplate-connector break 2,113, second-entry drop; U6 honest
+  number = 314,139 distinct not 359,437 raw; S-R12 census 34,972 events 0
+  disagreements; D-S15 live: 4,034 recovered/143 regressed/1,924 genuine
+  under-links remain; item-5 population DISCREPANCY disclosed 15,282/44.3%
+  vs planner's 6,472/19.4% — reconcile in cycle 3; S-R17 residue now
+  uncertain BOTH directions, 167-vs-714 both contaminated — fresh look
+  ordered before the ownership split is sized). MULTITERM: QA cycle 1
+  found the G10 seam defect (held findings 1-2 correctly); proceeds with
+  findings 3/4/5 (as-defined-in 2,813 occ = largest; DC parent 289;
+  AL nested-clause) + U-R10 narrowing; qa_cycles 1. IL: phase-2 manager
+  clean exit @ 64932d7 (13 REDs; D-1a/b planners verified+merged; M20
+  breadcrumbs → G9; M21 הכרזה spelling variant folded into D-1a; class-C
+  law-wide-default design risk flagged for Developer+QA) — phase-3
+  manager to be spawned for serialized Developers + QA cycle 4 +
+  certification contract. PREAMBLE: Planner @ bf4fdcf (per-shape corpus
+  table: shape 1 = 31,048 total/29,678 uncaptured; shape 2 CORRECTED to
+  #2 at 17,477; ~59,900 matches Q-D2's 59,461 within 1%; 20 REDs with
+  rule-identity attribution; FP remedy = extend _B1_FORWARDING_PHRASES to
+  the widened branch, never a gate) — manager to verify + spawn Developer.
+
 - 2026-08-05 (Q1 second finding → core-2 scope): markers QA attributed all
   3 WA >5,000-char definitions to BASELINE via kill control (family-3
   blinded: baseline alone emits the swallow; markers' engine alone emits

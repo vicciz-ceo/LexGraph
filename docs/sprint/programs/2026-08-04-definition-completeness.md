@@ -217,6 +217,27 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   LINE, never the entry grammar) is program law for the certification
   builds.
 
+- **D-INCLUDES (2026-08-05): the `includes` defining-verb class is CAPTURED
+  with the naive quoted-term anchor, program-wide.** Measurement (respawned
+  scout, artifacts headings_scout1/2_* in session scratchpad): 50,528
+  anchor occurrences / 32,199 rows corpus-wide; 100/100 hand-read
+  occurrences definitional across two independent seeds (one-sided 95%
+  upper bound 3.6% FP; adversarial outlier probes also all definitional);
+  tightened guards measured to cost 32–56% of TRUE definitions for no
+  measured precision gain — rejected. Consequences: "includes"/"shall
+  include" variants join the program-wide defining-verb vocabulary; each
+  family panel widens its OWN rules red-first. The PA construction-clause
+  protection ("References to \"X\" shall include Y") is preserved by a
+  TARGETED guard — suppress only when the quote is preceded by "References
+  to" (measured: 22 construction-clause rows protected vs 4,729 genuine
+  recall rows, scoped-inline QA2 item 11) — never by idiom-absence; panels
+  whose pins relied on the absence mechanism re-author them to assert the
+  guard. Known recall limits of the naive anchor, enumerated not hidden:
+  non-adjacent "includes" (colon+numbered-list between term and verb) and
+  unquoted defined terms (2 control misses, both characterized);
+  Massachusetts has ZERO anchor occurrences corpus-wide (flagged for
+  follow-up: drafting convention vs corpus artifact).
+
 ## Program rulings added during execution
 
 - **D-DF (director, 2026-08-04): the "defined for" heading rule ships
