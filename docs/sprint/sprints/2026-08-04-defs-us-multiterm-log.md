@@ -2412,3 +2412,54 @@ re-applies the identical narrowing → **I** re-measure fire-rate (~0.35%
 projected; if far off, stop) and dup rate on the narrowed population with my
 own corpus tooling (the Developer has no parquet — known limitation, do not
 ask it to) → QA + U4.
+
+---
+
+## 2026-08-05 — M-R13: the OR amendment is correct but NOT load-bearing
+
+Manager verification of `467e67a`. Good: only the one test file changed;
+`git diff --stat b0df752..467e67a -- backend/app/` is EMPTY (production
+byte-identical, as instructed); docstring carries the full E3 chain and the R3
+pointer; the Planner proved non-vacuousness with a direct extractor probe and
+disclosed honestly that the test is green under BOTH regimes.
+
+**But the assertion is containment, not the set assertion I specified.**
+
+```python
+for term in ("Enforcement officer", "Food establishment", "Vehicle", "Wildlife"):
+    assert term in all_terms
+```
+
+The docstring says "expects EXACTLY the 4 ... 'Taken' is intentionally absent
+from the assertion below" — and that is true of the ASSERTION LIST, but the
+assertion does not enforce exactness. `"Taken"` can still be captured and this
+test passes. My brief said "assert the specific term set, not a count or
+`>=`"; membership-of-4 is the `>=` I ruled out. The Planner's own observation
+(green both ways) IS the symptom; the remedy is the set assertion, not a
+one-off probe.
+
+**Measured, so this is not a style preference:**
+```
+captured TODAY (un-narrowed): ['Enforcement officer', 'Food establishment',
+                               'Taken', 'Vehicle', 'Wildlife']
+"Taken" captured today? True
+```
+
+**Why it matters — two concrete failures the current test permits:**
+1. **No regression guard on the family boundary.** If `_IDIOM_GAP_RE` is ever
+   re-broadened, F6 silently re-colonizes family 1 (the 8.87% fire-rate
+   condition) and NOT ONE TEST FAILS. E3 exists to prevent exactly that.
+2. **R3's handoff integrity depends on us NOT capturing `"Taken"`.** Once
+   scoped-inline implements family 1, if F6 still claims it we double-capture
+   the same term across two panels — the collision E3 was ruled to end.
+
+**Ruling M-R13:** the Planner adds an exclusion assertion —
+`assert "Taken" not in all_terms` — with a comment tying it to R3 and E3.
+Measured consequence: **RED now, GREEN after the Developer narrows.** That
+restores the red-before-green proof my brief expected, moves the load-bearing
+evidence from a transient probe INTO the suite permanently, and makes the
+narrowing self-verifying.
+
+Credit where due: the Planner's probe was real diligence and its disclosure is
+why I caught this in one pass instead of at QA. The gap is that a probe run
+once is not a guard that runs forever.
