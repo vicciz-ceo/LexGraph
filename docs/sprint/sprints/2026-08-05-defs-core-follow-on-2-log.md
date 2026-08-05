@@ -1194,6 +1194,81 @@ exercise; this only removes the cost of a gap if one exists.
 
 ---
 
+## Phase 7 — G5+G6 delivered with 2 escalations; both verified, resolving differently
+
+dev4 delivered **6 of 8 REDs green** and escalated 2, correctly refusing to
+edit tests or touch out-of-gate production code. Merged @ `4c2d526`:
+production code only (`registry.py`, `profiles.py`, `us_profile.py`,
+`pipeline.py`), **195 insertions / 7 deletions, 0 test files touched**.
+
+**G5 green at BOTH sites.** `RuleContext` gains a defaulted
+`resolve_unit_path` bound-resolver; both construction sites bind it as a
+closure over the profile's OWN resolver and compute the static `unit_path`
+via the same call instead of a bare `()` — so zero logic is duplicated and
+`ctx.unit_path` tracks the resolver's None-contract instead of going stale.
+
+**G6 consumed on the live path.** New `ScopeAssignment`; `ScopeKindRule`
+gains optional `detect_value`; `determine_scope_assignments` on both profiles
+**replays `determine_scope`'s dispatch exactly** so the winning rule can never
+drift from what `determine_scope` itself picked; `pipeline.py` fans out one
+candidate per assignment. **Anti-broadening is structurally enforced** — the
+only two producers of a returned `ScopeAssignment` are the narrow-by-
+construction default helper and a rule's own explicit `detect_value`; there is
+no third implicit path. That RED is green.
+
+### Escalation #2 (KY dotted numbers) — FIXTURE artifact, NOT a production defect
+
+Manager-verified and **closed without any production change**.
+`_ARTICLE_MARKER_RE` (`^@\s+(?P<number>\d+[א-ת]*)\.\s*...`) truncates
+`156.106` → `156`. But `ingest_us_statutes.py`'s own docstring states US rows
+are *"already-parsed row dicts rather than raw wiki-marker text, **so there is
+no `parse_articles` call**"*, and grep confirms `parse_articles` is called
+ONLY from `ingest.py` (the IL/wiki path).
+
+**US statutes never touch that regex in production.** The fixture simulated a
+US row through the IL ingestion path. dev4 was right to refuse to widen a
+jurisdiction-agnostic core regex — and right that it was out of mandate — but
+**no follow-on gate is needed either**, which is the part worth recording:
+the instinct to open one would have manufactured a wide-blast-radius change
+for a phantom production defect. Routed to plan3 to re-author via the
+`ingest_us_statutes` row-dict path, preserving real-KY fidelity.
+
+### Escalation #1 (TN dual-scope) — a REAL seam limitation; §8's claim is unproven
+
+Manager-verified in code:
+- `_US_CHAPTER_SCOPE_TRIGGERS` (us_profile.py:1112-1117) contains the plain
+  substring **`"in this part"`**.
+- `determine_scope` (us_profile.py:1120-1125) returns `"chapter"` the instant
+  ANY trigger is a substring of the first non-blank line.
+- `USProfile.determine_scope`'s own docstring: baseline *"wins whenever it
+  already detects `chapter` — never overridden."*
+
+TN's real text *"As used in **this part** and Section 6-51-301..."* trips it,
+so the rule loop never runs and the test's own precondition fails before the
+seam is exercised.
+
+**The consequence is larger than one fixture: a registered `ScopeKindRule`
+can never refine ANY body whose first line trips a baseline chapter trigger.**
+Seam v2.8 §8 row 7 asserts "Yes — live-path dispatch proven," which cannot
+have been run against the real unmodified baseline.
+
+**Ordered to plan3: MEASURE FIRST** — how many of the 8 U2 rows trip a
+baseline trigger? That number decides whether this is one bad fixture or a
+structural hole in G6's deliverable. Then recommend among: (a) re-author the
+TN fixture to a non-tripping real row (cheapest; papers over the hole if the
+blast radius is wide); (b) narrow the baseline trigger (out of gate,
+core-owned, risks the 7-states guarantee — manager default is NO);
+(c) **decouple KIND from VALUE** — let `determine_scope_assignments` consult
+`detect_value` even when baseline won the KIND, since the 7-states guarantee
+governs the KIND and baseline has no opinion on the VALUE. Honest limit of
+(c), stated in the brief: it yields TN a value but leaves its kind
+`"chapter"`, so it may only partially express a genuine dual-KIND scope.
+**plan3 may not implement (b) or (c) unilaterally** — both change shipped
+dispatch semantics and (c) needs a seam version bump. Escalated to the
+program manager because it bears on what v2.8 promised.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
