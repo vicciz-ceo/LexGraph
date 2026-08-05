@@ -75,62 +75,68 @@ OUTSIDE this denominator by construction, because it is outside what
 for why this is reported as a scope boundary of the denominator rather
 than silently absorbed.
 
-## Reproduction (this script's own output, not inherited)
+## Reproduction -- ROUND 2 (post-M33-2, the vav-conjunction fix APPLIED)
 
     files                                6,133
     articles (sections.parse_articles)  128,234
     raw quote chars (article bodies)    276,815
-    word-internal (cluster 1)            91,611   (33.1%)
-    eligible                            185,204
-    naive eligible/2 estimate           ~92,602    <- matches M31 EXACTLY
-    ACTUAL paired candidate spans        91,764    <- this script's own
-                                                       `paired_candidate_
-                                                       spans`, see below
+    word-internal (cluster 1, REFINED)   89,515   (32.3%)
+    eligible                            187,300
+    unpaired_trailing_quotes                282   (was 1,676 pre-fix)
+    ACTUAL paired candidate spans        93,509   (was 91,764 pre-fix)
 
-The first five rows are an EXACT match to the panel manager's M31
-post-QA-cycle-4 correction (the normalized-text re-measurement), not
-merely "within 3 spans" -- the earlier 0.07% deltas in the sprint log
-(M19-EXT vs M23) were between two RAW-text measurements, both superseded
-by M31's normalization fix; there is no residual delta left to explain
-once both derivations are run on production-normalized text with the
-same body-only scope.
+The first three rows (files/articles/raw quote chars) are UNCHANGED from
+Round 1 and still an EXACT match to the panel manager's M31 post-QA-
+cycle-4 correction -- the vav-conjunction fix changes how quote
+CHARACTERS are CLASSIFIED (word-internal vs eligible), never how many
+of them exist. **The delta from Round 1's own reported figures (91,611
+word-internal / 91,764 spans) is fully explained, not absorbed:** see
+"The vav-conjunction correction, APPLIED" below for the exact mechanism
+and the independent confirmation that it is a correction, not merely a
+different number.
 
-The LAST row is where this script goes one step further than the naive
-`eligible / 2` arithmetic (91,764, not ~92,602) -- see the very next
-section for why, and why that delta IS explained, not absorbed.
+## The vav-conjunction correction, APPLIED (ruling M33-2, panel manager)
 
-## A measured refinement candidate to cluster 1 itself -- reported, NOT
-## applied (see the sprint log's C1 section for the full derivation)
+Round 1 of this sprint measured `unpaired_trailing_quotes` -- articles
+whose ELIGIBLE quote count is odd, so the last eligible quote cannot be
+paired (dropped, counted, never silently mis-paired with the next
+article's first quote) -- at 1,676 of 128,234 articles (1.3%), and
+traced that symptom to a genuine FALSE POSITIVE in cluster 1's ORIGINAL
+predicate: a quote immediately preceded by a bare, standalone vav
+conjunction ("ו", itself preceded by whitespace/start -- e.g. `"רכב"
+ו"דרך"`, "car AND road", two real terms joined without a space before
+the second quote) satisfied "Hebrew letter both sides" and was
+classified word-internal, even though it is a genuine term-OPENING
+delimiter, not an abbreviation marker. Round 1 measured this at 2,096 of
+91,611 word-internal-classified quotes (2.3%), 1,004 files, and reported
+it as a CANDIDATE correction without applying it (cluster 1 was the
+contract's own stated template; changing it unilaterally was not a
+Planner's call to make).
 
-Cluster 1's predicate, exactly as the contract states it, is applied
-UNCHANGED by this script (`clusters.is_word_internal_quote`). But this
-script also reports a diagnostic pairing anomaly: `unpaired_trailing_
-quotes` -- articles whose ELIGIBLE quote count is odd, so the last one
-cannot be paired at all (dropped, counted, never silently mis-paired
-with the next article). Measured: 1,676 of 128,234 articles (1.3%).
+**Round 2: the panel manager independently re-verified this finding
+(not accepted on report -- their own direct probe of `"רכב" ו"דרך"`
+reproduced the exact same `prev='ו' next='ד' word_internal=True` result)
+and ruled it APPLIED** (`docs/sprint/sprints/2026-08-05-defs-il-
+certification-log.md`, M33, ruling 2). `clusters.is_word_internal_quote`
+now takes a third character of context (`char_before_prev`) and excludes
+the standalone-vav-conjunction case directly -- see that function's own
+docstring for the full predicate. This script's `vav_conjunction_
+correction` summary block is now an AUDIT count (2,096 corrections
+applied, 1,004 files), not a candidate report -- the `word_internal`/
+`eligible`/`paired_candidate_spans` figures above already reflect it.
 
-Tracing that symptom (not assumed, hand-verified against real corpus
-text) found a genuine FALSE POSITIVE in cluster 1's own predicate: a
-quote immediately preceded by a bare, standalone vav conjunction ("ו",
-itself preceded by whitespace/start -- e.g. `"רכב" ו"דרך"`, "car AND
-road", two real terms joined without a space before the second quote)
-satisfies "Hebrew letter both sides" and is classified word-internal,
-even though it is a genuine term-OPENING delimiter, not an abbreviation
-marker. Measured corpus-wide (`vav_conjunction_false_positive_candidate`
-below, a REPORTED diagnostic, not folded into `word_internal`): 2,096 of
-the 91,611 word-internal-classified quotes (2.3%), across 1,004 files.
-Correcting for it (a small additional scan, not applied to this script's
-own bucketing) drops odd-parity articles from 1,676 to 282 -- an 83%
-reduction, strong independent confirmation this is the dominant root
-cause of the pairing anomaly, not noise -- and raises the naive
-eligible/2 span estimate from ~92,602 to ~93,650 (+1.1%).
+**Independent confirmation this is a correction, not merely a
+different number** (both measured before AND after applying, not
+assumed): `unpaired_trailing_quotes` drops from 1,676 to 282 (-83%) --
+the dominant, though not sole, root cause of the pairing anomaly. The
+residual 282 odd-parity articles are NOT further root-caused this round
+(honest gap, carried forward).
 
-This is reported as a CANDIDATE correction to cluster 1's own contract-
-specified predicate, not applied unilaterally: cluster 1 is the
-contract's own stated template, and changing it is a methodology change
-the panel manager should confirm, not something a Planner silently
-substitutes. See `clusters.py`'s `PROPOSED_CLUSTERS` entry
-`vav_conjunction_word_internal_false_positive` and the sprint log.
+The refined predicate carries its OWN committed unit test, per the
+ruling's explicit instruction: `backend/tests/unit/
+test_certification_clusters_word_internal_quote.py` pins the `"רכב"
+ו"דרך"` case (and its own negative controls -- a vav that is NOT
+standalone, e.g. mid-word, must still be classified word-internal).
 
 ## Production-captured cross-check (for the span manifest's own
 ## `production_captured` column, used by clusters 2+, NOT by C1 itself)
@@ -179,12 +185,12 @@ from app.definition_links import sections  # noqa: E402
 from app.definition_links.normalize import strip_wikilinks  # noqa: E402
 from app.definition_links.profiles import get_profile  # noqa: E402
 
-from clusters import is_vav_conjunction_false_positive, is_word_internal_quote  # noqa: E402
+from clusters import is_hebrew_letter, is_word_internal_quote  # noqa: E402
 
 _DEFAULT_CORPUS_DIR = pathlib.Path("/Users/nerya/AI for others/israeli-laws-wiki/data/laws")
 _DEFAULT_OUT_DIR = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "certification"
 
-# Found THIS round (not inherited), by hand-reading a sample of the 16% of
+# Found Round 1 (not inherited), by hand-reading a sample of the 16% of
 # spans whose term_text has no Hebrew letter at all: MediaWiki table
 # markup (`{| ... ! width="200px" | ... !! width="100px" | ...`) uses `"`
 # as an HTML-attribute delimiter, which this script's signal-agnostic
@@ -194,7 +200,16 @@ _DEFAULT_OUT_DIR = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "c
 # ONLY that span-manifest feature column, never cluster 1's own
 # word-internal bucketing (a markup attribute quote is never word-internal
 # in the first place -- its neighbors are `=`/digits/letters like "px").
-_HTML_ATTR_RE = re.compile(r"[A-Za-z][A-Za-z-]*=$")
+# Round 2 widening (small, precisely measured, not guessed): MediaWiki's
+# own `{{=}}` template-escape for a literal `=` inside a template
+# parameter (`<div style{{=}}"padding: 5px 30px; ...">`, used when a raw
+# `=` would otherwise be misparsed as a template named-parameter
+# separator) is the SAME phenomenon, just a different literal token
+# immediately before the quote. Measured before widening: 5 quote
+# characters / 1 file (`תקנות התעבורה`) -- tiny, but the SAME mechanical
+# category, not a new one; folded into this one regex rather than a
+# second near-duplicate cluster.
+_HTML_ATTR_RE = re.compile(r"[A-Za-z][A-Za-z-]*(?:=|\{\{=\}\})$")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -241,8 +256,12 @@ def derive(corpus_dir: pathlib.Path) -> tuple[dict, list[dict]]:
     total_eligible = 0
     total_articles = 0
     unpaired_trailing_quotes = 0
-    vav_false_positive_candidates = 0
-    vav_false_positive_files: set[str] = set()
+    # Audit count, per M33-2: how many characters cluster 1's ORIGINAL
+    # (pre-M33) predicate would have wrongly disposed as word-internal,
+    # now correctly classified eligible -- kept for auditability/history,
+    # not because anything downstream still branches on the old behavior.
+    vav_conjunction_corrections_applied = 0
+    vav_conjunction_correction_files: set[str] = set()
     html_attribute_spans = 0
     html_attribute_files: set[str] = set()
     span_rows: list[dict] = []
@@ -264,18 +283,18 @@ def derive(corpus_dir: pathlib.Path) -> tuple[dict, list[dict]]:
                 total_quotes += 1
                 prev_ch = body_norm[i - 1] if i > 0 else ""
                 next_ch = body_norm[i + 1] if i < n - 1 else ""
-                if is_word_internal_quote(prev_ch, next_ch):
+                before_prev_ch = body_norm[i - 2] if i - 2 >= 0 else ""
+                if is_word_internal_quote(prev_ch, next_ch, before_prev_ch):
                     total_word_internal += 1
-                    # Diagnostic only (reported, never applied to cluster
-                    # 1's own bucketing this round -- see this module's
-                    # docstring, "A measured refinement candidate").
-                    before_prev_ch = body_norm[i - 2] if i - 2 >= 0 else ""
-                    if is_vav_conjunction_false_positive(prev_ch, before_prev_ch):
-                        vav_false_positive_candidates += 1
-                        vav_false_positive_files.add(fp.name)
                 else:
                     total_eligible += 1
                     eligible_positions.append(i)
+                    # Audit only -- both neighbors are Hebrew letters (the
+                    # ORIGINAL predicate's own trigger condition) but the
+                    # REFINED predicate above correctly let it through.
+                    if is_hebrew_letter(prev_ch) and is_hebrew_letter(next_ch):
+                        vav_conjunction_corrections_applied += 1
+                        vav_conjunction_correction_files.add(fp.name)
 
             if len(eligible_positions) % 2 == 1:
                 unpaired_trailing_quotes += 1
@@ -323,18 +342,23 @@ def derive(corpus_dir: pathlib.Path) -> tuple[dict, list[dict]]:
         "eligible": total_eligible,
         "unpaired_trailing_quotes": unpaired_trailing_quotes,
         "paired_candidate_spans": len(span_rows),
-        "vav_conjunction_false_positive_candidate": {
-            "note": "Diagnostic only -- NOT subtracted from word_internal "
-            "above, NOT added to eligible/paired_candidate_spans above. A "
-            "measured candidate refinement to cluster 1's own predicate, "
-            "reported for the panel manager to confirm or reject (see "
-            "this module's docstring).",
-            "count": vav_false_positive_candidates,
-            "files": len(vav_false_positive_files),
-            "pct_of_word_internal": round(
-                vav_false_positive_candidates / total_word_internal * 100, 1
+        "vav_conjunction_correction": {
+            "note": "M33-2 (panel manager): APPLIED, not a diagnostic "
+            "candidate -- word_internal/eligible/paired_candidate_spans "
+            "above already reflect this correction. This block is an "
+            "AUDIT count only: how many characters the ORIGINAL (pre-M33) "
+            "predicate would have wrongly disposed as word-internal, now "
+            "correctly classified eligible by the refined "
+            "clusters.is_word_internal_quote.",
+            "corrections_applied": vav_conjunction_corrections_applied,
+            "files": len(vav_conjunction_correction_files),
+            "pct_of_original_word_internal_estimate": round(
+                vav_conjunction_corrections_applied
+                / (total_word_internal + vav_conjunction_corrections_applied)
+                * 100,
+                1,
             )
-            if total_word_internal
+            if (total_word_internal + vav_conjunction_corrections_applied)
             else 0.0,
         },
         "wiki_table_markup_attribute_spans": {

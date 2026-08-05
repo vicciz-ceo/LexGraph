@@ -1,0 +1,16 @@
+9f8c220997fdba05d7099e11e5c5fdc2760e58a340422ae0dd557e26229887da  c1_span_population.jsonl
+rows: 93509
+Integrity pin for C5: QA re-runs backend/tests/certification/c1_denominator.py
+and compares this checksum against the regenerated population.
+The population jsonl IS committed and MUST stay committed: the C2 test reads it
+as its vendored manifest, which is what keeps that test from reading the corpus
+(program standing constraint). M33 briefly ruled otherwise on repo-hygiene
+grounds; that ruling was wrong and was reversed the same session -- see the
+sprint log's M33 entry, ruling 5.
+STATUS (Round 2, M33-2 applied): this pin is FRESH, not stale. It reflects the
+manifest POST the vav-conjunction predicate correction (clusters.
+is_word_internal_quote now takes char_before_prev and excludes the standalone
+vav-conjunction case) -- row count moved 91,764 -> 93,509 as a direct,
+explained consequence (see c1_denominator.py's own docstring, "The
+vav-conjunction correction, APPLIED"). Re-pin this file again, in the same
+commit, whenever c1_denominator.py's own predicates or method change.

@@ -1,0 +1,35 @@
+{
+  "files": 6133,
+  "articles_with_nonempty_heading_and_a_quote_char": 55348,
+  "raw_quote_chars_in_headings": 112536,
+  "by_codepoint": {
+    "U+0022": 105536,
+    "U+05F4": 6943,
+    "U+201C": 0,
+    "U+201D": 57
+  },
+  "word_internal": 111799,
+  "word_internal_pct": 99.3,
+  "eligible": 737,
+  "unpaired_trailing_quotes": 31,
+  "paired_candidate_spans": 353,
+  "numberless_at_marker_diagnostic": {
+    "note": "A `sections.py` (frozen) marker gap, distinct from the already-known bare-@-with-nothing-after-it case (P-E3, fixed by _BARE_ARTICLE_MARKER_RE) -- '@ (תיקון...) : ...'-shaped lines match neither marker regex. Explains why the אכרזה זאת residual is NOT reachable by this script's own heading population either: its file produces zero Article objects, so there is no .heading to scan at all.",
+    "numberless_at_lines": 21498,
+    "files_with_a_numberless_at_line": 1646,
+    "files_with_zero_articles_total": 121,
+    "zero_article_files_sample": [
+      "איחוד דברי-המלך במועצה בעניין הנתינות הארצישראלית.wiki",
+      "אישור כללי בדבר תשלומי מעבידים לקרן פנסיה ולקופת ביטוח במקום פיצויי פיטורים.wiki",
+      "אכרזה על ארגון יציג של זכאים לפי חוק משפחות חיילים שנספו במערכה (תגמולים ושיקום).wiki",
+      "אכרזת הפיקוח על מצרכים ושירותים (בית ארעי למגורים ובית למגורים צמוד קרקע).wiki",
+      "אכרזת הפיקוח על מצרכים ושירותים (גז טבעי).wiki",
+      "אכרזת הפיקוח על מצרכים ושירותים (תחנות דלק).wiki",
+      "אמות מידה לקביעת סכום ההשתתפות המיוחד בהוצאות התקציב של המועצות הדתיות לשנת 2024.wiki",
+      "אמות מידה לקביעת סכום ההשתתפות המיוחד בהוצאות התקציב של המועצות הדתיות לשנת 2025.wiki",
+      "אמות מידה לקביעת סכום ההשתתפות המיוחד בהוצאות התקציב של המועצות הדתיות לשנת 2026.wiki",
+      "הודעה בדבר הגדלת תקופת השירות (6).wiki"
+    ]
+  },
+  "wall_time_seconds": 4.1
+}

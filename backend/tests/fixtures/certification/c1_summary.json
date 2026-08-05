@@ -2,22 +2,22 @@
   "files": 6133,
   "articles": 128234,
   "raw_quote_chars": 276815,
-  "word_internal": 91611,
-  "word_internal_pct": 33.1,
-  "eligible": 185204,
-  "unpaired_trailing_quotes": 1676,
-  "paired_candidate_spans": 91764,
-  "vav_conjunction_false_positive_candidate": {
-    "note": "Diagnostic only -- NOT subtracted from word_internal above, NOT added to eligible/paired_candidate_spans above. A measured candidate refinement to cluster 1's own predicate, reported for the panel manager to confirm or reject (see this module's docstring).",
-    "count": 2096,
+  "word_internal": 89515,
+  "word_internal_pct": 32.3,
+  "eligible": 187300,
+  "unpaired_trailing_quotes": 282,
+  "paired_candidate_spans": 93509,
+  "vav_conjunction_correction": {
+    "note": "M33-2 (panel manager): APPLIED, not a diagnostic candidate -- word_internal/eligible/paired_candidate_spans above already reflect this correction. This block is an AUDIT count only: how many characters the ORIGINAL (pre-M33) predicate would have wrongly disposed as word-internal, now correctly classified eligible by the refined clusters.is_word_internal_quote.",
+    "corrections_applied": 2096,
     "files": 1004,
-    "pct_of_word_internal": 2.3
+    "pct_of_original_word_internal_estimate": 2.3
   },
   "wiki_table_markup_attribute_spans": {
     "note": "MediaWiki table markup ('! width=\"200px\" | ...') uses `\"` as an HTML-attribute delimiter -- counted as raw quote characters by this signal-agnostic scan (correctly, per M18) but never Hebrew legal-drafting text. Cluster 'wiki_table_markup_attribute' (clusters.py) disposes these spans as proven-not-a-definition using this same feature.",
-    "spans": 13041,
-    "files": 244,
-    "pct_of_paired_spans": 14.2
+    "spans": 13061,
+    "files": 248,
+    "pct_of_paired_spans": 14.0
   },
-  "wall_time_seconds": 35.4
+  "wall_time_seconds": 36.7
 }

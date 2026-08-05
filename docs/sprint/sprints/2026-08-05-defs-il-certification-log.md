@@ -573,3 +573,262 @@ deterministic.
    permanent named exception.
 4. Decide the routing for the `'ltr'` production over-capture bug (Job
    1/4) -- C4's fix loop, or a direct escalation outside this sprint.
+
+---
+
+## 2026-08-05 -- Round 2 -- Planner (same session), responding to ruling M33
+
+Panel manager merged Round 1 (`aa62dda`) and independently re-verified
+both load-bearing claims before ruling (the vav-conjunction FP on
+`"רכב" ו"דרך"`, byte-identical to my own probe; the `'ltr'` bug's true
+size, 19 candidates / 8 spurious, one article). Five rulings (M33), in
+priority order: (1) two-level model CONFIRMED; (2) apply the vav
+correction, re-run, re-pin, own unit test; (3) headings get a separately-
+measured population; (4) author the `'ltr'` RED first; (5) the manager's
+own hygiene reversal (32MB population stays committed) -- no action
+needed from me, already resolved in my favor.
+
+Continued in the SAME worktree/branch (`defs-il-cert-plan1`,
+`claude/defs-il-certification`), on top of my own `8fde401` -- did not
+merge the panel manager's `claude/defs-il` tip into this branch (M14:
+the panel manager merges, not me); read the amended contract and M33 via
+`git show` against the shared object database instead, never altering
+my own branch's history to do so.
+
+### Ruling 2 -- vav-conjunction correction APPLIED
+
+`clusters.is_word_internal_quote` now takes a third character of context
+(`char_before_prev`) and excludes the standalone-vav-conjunction case
+directly, per the ruling's own text. New dedicated unit test:
+`backend/tests/unit/test_certification_clusters_word_internal_quote.py`
+(6 tests) -- pins the `"רכב" ו"דרך"` case byte-for-byte (harvests the
+real quote positions from the string, asserts they match the claimed
+`(prev, next, before)` tuple before testing the predicate, so a future
+edit to the test string cannot silently drift), a start-of-text variant,
+a NEGATIVE control (a vav that genuinely IS part of a longer word must
+stay word-internal -- the ruling's own "cuts both ways" concern), the
+unaffected original case, the base Hebrew-letter gate, and totality.
+
+**Re-ran `c1_denominator.py` (not a patch) and the delta is explained,
+not absorbed, per the ruling's own instruction:**
+
+```
+                        Round 1 (pre-fix)   Round 2 (post-fix)   delta
+word-internal (cl. 1)        91,611 (33.1%)   89,515 (32.3%)    -2,096
+eligible                       185,204          187,300         +2,096
+unpaired_trailing_quotes         1,676              282           -83%
+paired candidate spans          91,764           93,509         +1,745
+```
+
+The span-count delta (+1,745) is LARGER than the raw character
+correction (2,096 reclassified chars would naively predict ~+1,048
+spans, half of 2,096) -- traced, not left as a discrepancy: fixing the
+predicate doesn't just add the 2,096 directly-corrected characters as
+new eligible spans, it also RE-ALIGNS the open/close PARITY of every
+downstream eligible quote in the same article for the rest of that
+article's sequential pairing. One mid-article misclassification was
+silently shifting which quotes played "opener" vs "closer" for
+everything after it. This is also the most direct evidence for WHY the
+fix mattered beyond its own raw count:
+
+```
+                        Round 1   Round 2   delta
+production_captured      49,640    58,750   +9,110  (54.1% -> 62.8%)
+wiki_table_markup_attr   13,041    13,061      +20  (unaffected, ~flat)
+interp._laws_never_reached  131       134       +3
+unassigned                28,967    21,579  -7,388  (31.6% -> 23.1%)
+double_assigned               15        15        0  (the 'ltr' bug,
+                                                        unrelated to vav)
+```
+
+`production_captured` jumped nearly +9,000 -- almost 4x the 2,096 raw
+correction -- because correct pairing recovered many DOWNSTREAM spans in
+affected articles that were previously misaligned, not just the vav
+quotes themselves. Re-pinned `c1_span_population.sha256` in the same
+commit as the regenerated manifest, replacing the "STALE" marker the
+panel manager's own file carried (`git show` read only, never merged
+into my branch -- I authored my own copy with fresh content matching the
+same convention).
+
+### Ruling 3 -- heading population, separately measured
+
+New script: `backend/tests/certification/c1_heading_denominator.py`.
+Scans `Article.heading` text RAW (not normalized -- confirmed by
+exhaustive grep that heading text never reaches `normalize_for_parsing`
+anywhere in production, unlike body text), checking all four quote
+codepoints individually (re-applying M23's own lesson fresh, since raw
+heading text cannot be assumed single-codepoint the way normalized body
+text can). Reuses the SAME refined `is_word_internal_quote` (codepoint-
+agnostic by construction -- it only inspects neighbors).
+
+```
+raw quote chars in headings   112,536
+  by codepoint: U+0022 105,536 / U+05F4 6,943 / U+201C 0 / U+201D 57
+word-internal                 111,799  (99.3% -- headings are almost
+                                         entirely abbreviation noise,
+                                         e.g. "(תיקון: תש"ף)")
+eligible                          737
+paired candidate spans            353
+```
+
+New cluster (`clusters.HEADING_CLUSTERS`): `heading_quoted_span_
+unreached` -- matches ALL 353 rows, verified `production_captured=False`
+by the SAME exhaustive-grep method Round 1 used for the body population
+(`art.heading` is used ONLY as a boolean match target for `is_
+definitions_heading`, never scanned for content, anywhere in
+`backend/app/definition_links`). New test: `test_definition_links_il_
+certification_c2_heading_span_exhaustiveness.py` -- **GREEN**, and its
+own docstring states explicitly why a green mechanical test here is not
+a weaker standard than the RED body test (a uniform, verified fact, not
+underinvestigated differentiation).
+
+**A correction to ruling M33-3's own framing, found while building
+this** (verified against the real file, not assumed, before reporting):
+the panel manager's ruling named this heading population "the honest
+home for residual (5) `אכרזה זאת`". Checked directly -- it is not. The
+real marker line is `@ (תיקון: תשפ"ג) : באכרזה זאת, "..." - ...`, which
+has NO number between `@` and `(תיקון`, so it matches NEITHER
+`sections._ARTICLE_MARKER_RE` NOR `_BARE_ARTICLE_MARKER_RE`.
+`sections.parse_articles` on the real file returns **ZERO Article
+objects** -- there is no `.heading` string for this population to
+contain in the first place. Measured the true scope of this gap rather
+than leaving it as one anecdote: **21,498 `@`-prefixed lines / 1,646
+files** match neither marker regex corpus-wide, and **121 whole files
+(2.0% of the corpus) end up with ZERO articles** as a result -- a
+`sections.py` (frozen) gap, distinct from the already-fixed bare-`@`
+case (P-E3/M8(a)), closer in shape to M20's סימן/חלק breadcrumb blocker
+than to anything a rule-module-only file can address. New PROPOSED
+cluster: `numberless_at_marker_zero_article_files`. New test in the
+heading-population file pins the correction itself
+(`test_akraza_zot_file_is_confirmed_absent_from_this_population`) so a
+future fix to `sections.py` is expected to flip it, not silently leave
+it green for the wrong reason.
+
+### Ruling 4 -- the `'ltr'` over-capture RED, authored
+
+New fixture (real, byte-verified before AND after vendoring): `צו
+המועצות המקומיות (מועצה מקומית תעשייתית נאות חובב)_art1_excerpt.wiki`
+(article 1 in full, 44 lines). New test file: `test_definition_links_il_
+certification_ltr_markup_overcapture_live.py`, using the real pipeline
+(`ingest_wiki_law` + `run_definition_linking`), matching this suite's
+`_live.py` convention.
+
+**Root cause traced precisely** (not merely "markup confuses the
+parser" -- read in full in the test file's own docstring): the article
+defines `"תחום המועצה"` as ONE multi-line `:-` entry whose continuation
+lines are `::-`-prefixed land-block rows; baseline correctly treats the
+whole thing as one block. But a registered `EntrySplitterRule` (the
+D-1b `::-`-list-shape class) ALSO treats each `::-` line as its own
+independent block, and `extract_definitions_from_section` UNIONS
+baseline's blocks with every splitter's blocks (by design, for zero-miss
+recall). Most per-line re-parses correctly produce nothing (no quoted
+span in a plain `גוש 39774 - ...` line). But 8 lines contain `<span
+dir="ltr">NNNNNN_N</span>` markup (forcing LTR digit rendering inside
+RTL text -- a typographic device, unrelated to legal drafting), and
+`dir="ltr"` itself is a genuine `"..."`-quoted span `extract._QUOTE_RE`
+cannot distinguish from a legal-drafting quote. Two tests: the RED itself
+(zero `'ltr'`-bearing `Definition` rows expected; today produces 2,
+correctly deduped from the 8 originally-spurious candidates by
+`pipeline.py`'s own `(article, sorted(terms))` idempotency key -- 7
+single-`'ltr'` candidates collapse to 1 row, plus the 1 seven-`'ltr'`-
+tuple row = 2 distinct rows, exactly reconciling with the panel
+manager's own "8 spurious" candidate-level count); and a sanity control
+(all 11 genuine terms, including `"תחום המועצה"`'s own definition_text,
+survive) -- confirmed GREEN today, so it stays green through whatever
+fix a Developer builds, not a second RED.
+
+**A factual correction to my OWN Round 1 test docstring, caught while
+writing this file:** `test_definition_links_il_certification_c2_span_
+exhaustiveness.py`'s own module docstring named the WRONG law for this
+bug (`חוק זכיון ים המלח` -- an unrelated law, actually the complement
+scout's own unquoted-definitions finding). Fixed in place this round;
+the panel manager's own M33 text had the correct law throughout, so only
+my own artifact needed the correction.
+
+### Priority 4 -- growing the cluster set
+
+Measured the composition of the remaining 21,579 unassigned spans before
+adding anything further: 81.6% (17,614) sit in ORDINARY articles, only
+18.4% (3,970) in definitions-heading ones -- the opposite of what I
+expected going in, and a useful correction to my own prior assumption
+that class-(d)'s numbered-subitem shape would dominate the remainder.
+
+Found and closed one small, precise gap while investigating: MediaWiki's
+own `{{=}}` template-escape for a literal `=` inside a style attribute
+(`<div style{{=}}"padding: ...">`) is the SAME `wiki_table_markup_
+attribute` phenomenon Round 1 already named, just a different literal
+token before the quote. Measured before widening (5 quote chars / 1
+file) -- folded into the existing regex rather than a near-duplicate
+cluster.
+
+**Honest stop point, stated plainly rather than padded with a weak
+cluster to look more complete:** a random sample of 25 unassigned
+"ordinary article" spans shows a genuinely MIXED population -- plausible
+short real terms (~60% of the sample, by eye), self-citations of a law's
+own title in quotes (~12%), spans that are pairing artifacts of THIS
+denominator's own simple sequential-pairing construction rather than
+real corpus phenomena at all (~24%, e.g. a span whose text is a whole
+clause fragment starting mid-sentence), and residual markup (~4%). This
+is an INFORMAL, eye-classified estimate on a small sample -- explicitly
+NOT a C3-grade hand-verified measurement, and not proposed as one. No
+new cluster was added for any of these without the same falsifiable-
+predicate discipline Round 1 held to; inventing a coarse "ordinary
+article, plausible-length term" cluster now would repeat exactly the
+laundering the panel manager praised Round 1 for refusing. Handing this
+off as a measured STARTING POINT for whoever continues C4's cluster
+growth, not as a finished characterization.
+
+### Suite, lint, boundaries -- Round 2 final verification
+
+```
+backend/.venv/bin/pytest backend/tests -q
+-> 4 failed, 855 passed, 18 warnings
+```
+
+855 = 845 (Round 1 end state) + 6 (new word-internal-quote unit tests)
++ 3 (new heading-population tests, all green) + 1 (the `'ltr'` sanity
+control, green). 4 failed = 3 (Round 1: C2 body backbone RED + 2
+pre-existing core-blocked containment REDs, all still red for the same
+reasons, re-verified) + 1 new (`'ltr'` RED). `git diff --name-status
+HEAD -- backend/app` empty throughout. `git diff --name-status HEAD --
+backend/tests/integration/test_definition_links_il_siman_chelek_
+containment_live.py` empty -- still read-only, still untouched.
+
+### Files -- Round 2 (modified + new)
+
+Modified: `c1_denominator.py` (refined predicate call sites, applied-not-
+diagnostic reporting, widened markup regex), `clusters.py` (refined
+predicate, HEADING_CLUSTERS, corrected `akraza_zot_heading_embedded`
+entry, new `numberless_at_marker_zero_article_files` entry),
+`c1_span_population.jsonl` + `c1_summary.json` (regenerated),
+`test_definition_links_il_certification_c2_span_exhaustiveness.py` (pin
+93,509, corrected the wrong-law docstring bug, ruling references).
+
+New: `c1_heading_denominator.py`, `c1_heading_span_population.jsonl` +
+`.sha256` + `c1_heading_summary.json`, `test_definition_links_il_
+certification_c2_heading_span_exhaustiveness.py`, `test_certification_
+clusters_word_internal_quote.py`, `test_definition_links_il_
+certification_ltr_markup_overcapture_live.py`, its fixture (`צו
+המועצות המקומיות (מועצה מקומית תעשייתית נאות חובב)_art1_excerpt.wiki`),
+`c1_span_population.sha256`.
+
+### Honest gaps -- Round 2
+
+1. The 282 residual odd-parity articles (post-vav-fix) are not further
+   root-caused -- carried forward exactly as Round 1 left them.
+2. The "other" 132/331 entry_marker complement-scout lines are still not
+   characterized (Round 1's own gap, untouched this round).
+3. The unassigned-population characterization above (60/12/24/4%) is
+   explicitly informal and sample-size-small (n=25) -- a lead, not a
+   measurement.
+4. Did not attempt `class_c_local_scope_under_claims` or `cross_path_
+   separator_divergence_and_position_zero_anchor` as real clusters --
+   both need containment/mention-level data this manifest's row shape
+   does not carry, named as PROPOSED with that limitation stated
+   already in Round 1, unchanged this round.
+5. Did not re-verify core-2's G9 status (parent residual 4) -- still out
+   of scope for this Planner's own session.
+6. The `'ltr'` RED test's own root-cause trace (the EntrySplitterRule
+   union interacting with embedded markup) is diagnostic, not a fix
+   proposal -- deliberately, per M33-4's own instruction that a Developer
+   decides the mechanism.

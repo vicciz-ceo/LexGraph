@@ -18,19 +18,37 @@ own docstring states for the same reason: no test may read or download
 the real corpus). This test reads only the committed, vendored OUTPUT of
 that script -- the same relationship every other `_live.py` integration
 test in this suite has to its own vendored `.wiki` excerpt fixtures,
-just at corpus scale (91,764 rows) instead of a handful of hand-picked
-files.
+just at corpus scale (93,509 rows) instead of a handful of hand-picked
+files. **Integrity pin:** `backend/tests/fixtures/certification/
+c1_span_population.sha256` -- QA re-runs the script and diffs the hash
+(C5), independent of this test's own row-count pin below.
+
+## ROUND 2 (M33-2): the population count changed, and the delta is
+## explained here, not silently re-pinned
+
+`c1_denominator.py`'s cluster-1 predicate was refined (ruling M33-2 --
+the standalone-vav-conjunction false positive, e.g. `"רכב" ו"דרך"`, is no
+longer misclassified word-internal). Re-running the script after that
+fix changes the population from 91,764 (Round 1) to **93,509** (Round 2)
+-- MORE eligible characters means MORE candidate spans, not fewer, which
+is the expected direction (the fix REMOVES a false exclusion, it does
+not add one). See `c1_denominator.py`'s own docstring, "The vav-
+conjunction correction, APPLIED", for the full mechanism and the
+independent confirmation (the unrelated `unpaired_trailing_quotes`
+diagnostic dropped 83%, 1,676 -> 282 articles). The refined predicate
+also has its own dedicated unit test:
+`backend/tests/unit/test_certification_clusters_word_internal_quote.py`.
 
 ## Why this is the FULL population, not a sample
 
 C2's own text is explicit: "Sampling does not substitute for it: C2 is
 over the whole population, always." This test iterates every row in the
-manifest -- currently 91,764, the real, whole, re-derived candidate-span
-population (see `c1_denominator.py`'s own docstring for why this is
-91,764 rather than the naive eligible/2 estimate of ~92,602 -- 1,676
-articles have an odd eligible-quote count, and this script's PER-ARTICLE
-pairing correctly declines to force a cross-article pairing rather than
-silently manufacturing a bogus span).
+manifest -- currently 93,509, the real, whole, re-derived candidate-span
+population (see `c1_denominator.py`'s own docstring for why this is not
+the naive eligible/2 estimate -- 282 articles still have an odd
+eligible-quote count, and this script's PER-ARTICLE pairing correctly
+declines to force a cross-article pairing rather than silently
+manufacturing a bogus span).
 
 ## A resolution of an ambiguity in the contract's own text, applied here
 
@@ -45,9 +63,8 @@ exhaustive; falsifying it would require finding a character for which
 `is_word_internal_quote` raises or returns something other than a
 boolean, which its own implementation makes impossible). Level 1 (span
 level, clusters 2+) is what THIS test iterates, matching C2's own
-"~92,600-row population" wording literally. This resolution is flagged
-for the panel manager to confirm or correct, not asserted as obviously
-right.
+"~92,600-row population" wording literally. **RULED (M33-1): CONFIRMED
+as this Planner originally resolved it** -- no longer an open question.
 
 ## Expected RED, and why
 
@@ -55,12 +72,15 @@ The cluster set is incomplete by construction this round (Job 3's own
 instruction: "propose the initial cluster set... do not attempt all
 20-40"). Three span-level clusters are implemented today
 (`wiki_table_markup_attribute`, `production_captured`,
-`interpretation_laws_never_reached`); six more are PROPOSED but not
-implemented (`clusters.PROPOSED_CLUSTERS`). This test is RED because a
-large number of rows -- genuinely uncaptured spans that do not yet match
-any implemented predicate -- are correctly UNASSIGNED, and because a
-small number of rows are DOUBLE-assigned (see below, a genuine finding,
-not a test bug).
+`interpretation_laws_never_reached`); seven more are PROPOSED but not
+implemented (`clusters.PROPOSED_CLUSTERS`) -- Round 2 removed one
+(the vav-conjunction refinement, now APPLIED to cluster 1 itself, not a
+span-level proposal) and added one (`numberless_at_marker_zero_article_
+files`, found while building the heading population). This test is RED
+because a large number of rows -- genuinely uncaptured spans that do not
+yet match any implemented predicate -- are correctly UNASSIGNED, and
+because a small number of rows are DOUBLE-assigned (see below, a genuine
+finding, not a test bug).
 """
 
 from __future__ import annotations
@@ -97,23 +117,27 @@ def _load_rows() -> list[dict]:
 def test_manifest_is_the_real_whole_population_not_a_sample():
     """Sanity gate on the fixture itself, so a truncated or stale manifest
     fails loudly here rather than silently passing a smaller population
-    below. 91,764 is `c1_denominator.py`'s own measured, reproduced
-    output (see its docstring) -- an exact pin, not a range, so any
-    future re-run that changes this number must update this pin
-    deliberately (C5: QA re-runs and diffs, this is the diff target)."""
+    below. 93,509 is `c1_denominator.py`'s own measured, reproduced
+    output POST the M33-2 vav-conjunction fix (Round 1's own pin was
+    91,764, pre-fix -- see this file's own module docstring, "ROUND 2",
+    for why the delta is expected and explained, not absorbed) -- an
+    exact pin, not a range, so any future re-run that changes this
+    number must update this pin deliberately (C5: QA re-runs and diffs,
+    this is the diff target)."""
     rows = _load_rows()
-    assert len(rows) == 91764, (
+    assert len(rows) == 93509, (
         f"expected the full re-derived candidate-span population "
-        f"(91,764 rows, c1_denominator.py's own measured output); got "
-        f"{len(rows)}. Either the manifest is stale/truncated, or the "
-        f"corpus/production extraction changed -- re-run c1_denominator.py "
-        f"and confirm the new count deliberately before updating this pin."
+        f"(93,509 rows, c1_denominator.py's own measured output, post-"
+        f"M33-2); got {len(rows)}. Either the manifest is stale/"
+        f"truncated, or the corpus/production extraction/cluster-1 "
+        f"predicate changed -- re-run c1_denominator.py and confirm the "
+        f"new count deliberately before updating this pin."
     )
 
 
 def test_c2_every_span_carries_exactly_one_cluster_id():
     """THE BACKBONE TEST. Runs every registered span-level cluster
-    predicate (`clusters.SPAN_CLUSTERS`) over the FULL 91,764-row
+    predicate (`clusters.SPAN_CLUSTERS`) over the FULL 93,509-row
     population and asserts zero unassigned, zero double-assigned.
 
     Expected RED this round, for TWO distinct, both genuinely informative
@@ -128,15 +152,23 @@ def test_c2_every_span_carries_exactly_one_cluster_id():
        number): a handful of spans match BOTH `wiki_table_markup_
        attribute` and `production_captured` -- a genuine, real
        precision bug in the shipped product this classification pass
-       found (not a bug in this test): `חוק זכיון ים המלח`'s own
-       real, unmodified `HebrewProfile` dispatch produces a spurious
-       `DefinitionCandidate(terms=('ltr', ...))` sourced from `dir="ltr"`
-       HTML-table markup embedded in a הגדרות-heading article's body,
-       so the markup value 'ltr' is BOTH correctly flagged as markup by
-       this classification AND genuinely present in production's own
-       captured terms. See the sprint log's C2 section for the full
-       trace (`_production_captured_terms` reproduction, live, this
-       session).
+       found (not a bug in this test). CORRECTED in Round 2 -- this
+       docstring named the WRONG law in its first version (`חוק זכיון ים
+       המלח`, which is unrelated -- that law is the complement scout's
+       own unquoted-definitions finding). The real source, confirmed by
+       BOTH this Planner and independently by the panel manager: `צו
+       המועצות המקומיות (מועצה מקומית תעשייתית נאות חובב)` art.1
+       (heading `הגדרות`, a real definitions-heading article). Its real,
+       unmodified `HebrewProfile` dispatch produces **19 candidates, 8
+       of them spurious** -- including one `DefinitionCandidate` carrying
+       **seven** `'ltr'` terms at once (`dir="ltr"` HTML-table markup
+       swallowed as if it were a defined term, with leftover `<span>`
+       tag fragments captured as the "qualifier"). The 15 double-
+       assigned spans in THIS test's own count understate the bug's true
+       size -- they count only spans that also happen to be markup-
+       flagged; the panel manager's own live re-run of the real dispatch
+       is the more complete measurement. See the sprint log's Round-2
+       entry for the full trace.
     """
     rows = _load_rows()
 
