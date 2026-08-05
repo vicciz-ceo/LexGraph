@@ -2958,3 +2958,24 @@ edits: G8's runner now carries the exact retired three-clause predicate as a
 clearly labeled historical simulation and uses the normal repo-root venv
 command; the blank EOF was removed; G7's current rescue counts and G12 cause
 are recorded while merged-tree-only obligations remain intact.
+
+---
+
+## Phase 20 — G4 cross-newline Developer dispatch (2026-08-05)
+
+Planner delivery `c4646f2` was manager-reviewed and merged to the shared
+integration branch at `3585d64`. The diff contains only tests, byte-pinned
+fixtures, rerunnable artifacts, and sprint records; zero production paths.
+The accepted changed surface is the exhaustive 613-case
+`Section`/lone-`§` + parenthesized population: 607 genuine entries, six
+continuations, zero audit errors, and 585 actual path deltas. Bare-code,
+full-USC, period, structural-word, same-line, and chain behavior are frozen.
+
+| Role | Scope | Model/effort | Haiku considered | Branch / worktree | agentId | State |
+|---|---|---|---|---|---|---|
+| Developer | implement the accepted G4 newline discriminator in `us_profile.py` only | GPT-5.6 Terra / medium | yes; not selected because no Haiku model is available and this changes a shared resolver with two-sided corpus constraints | `claude/defs-core-follow-on-2-dev10` / `/Users/nerya/LexGraph-wt/defs-core-follow-on-2-dev10` | `/root/core2_g4_newline_developer` | READY; identifier committed before START |
+
+Developer write-set is exactly
+`backend/app/definition_links/us_profile.py`. Tests, fixtures, artifacts, and
+sprint records are forbidden. The implementation must follow the committed
+G4 design artifact and stop rather than widening any retained recall debt.
