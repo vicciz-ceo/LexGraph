@@ -116,8 +116,26 @@ _QUOTE_TERM_RE = re.compile(r'[“"]([^”"]{1,200})[”"]')
 # this section, and means ...` (an unrelated synthetic fixture in
 # `test_definition_links_pipeline_cd_i10_scope_level_semantics_live.py`)
 # has "means" ~58 characters after its own unrelated quoted term.
+#
+# Ruling E3 (program manager, corpus-measured; sprint log Residual ledger
+# R3): the bare "means"/"shall mean" alternatives are DELETED here, not
+# just gap-tightened. A plain quoted-term-then-"means" idiom inside an
+# ORDINARY (non-Definitions) body is family 1's ("As used in this
+# section:" scoped-inline) own mechanism, an active sibling sprint --
+# keeping it here caused two panels to independently emit overlapping
+# rows for the same corpus population (measured: 8.87% of sampled rows
+# firing, 10.8% duplicate-term rows), corrupting both panels' U6
+# before/after measurement. F6's own, non-overlapping remit is the
+# CROSS-REFERENCE idiom specifically ("has the meaning given that term
+# in <citation>" / "has the meaning assigned by <citation>") -- kept
+# below, unchanged. One consequence, tracked as Residual ledger R3, not
+# silently absorbed: OR's real row `STATE_OR_T41_C496_S496.716` defines
+# 5 terms, 4 by cross-reference (still captured below) and one
+# ("Taken") by plain "means" -- "Taken" is deliberately NOT captured by
+# this rule anymore; it is family 1's to pick up, closing only on their
+# own live proof against this exact row.
 _IDIOM_GAP_RE = re.compile(
-    r"^[\s,]{0,5}\b(?:means|shall mean|has the meaning given that term in"
+    r"^[\s,]{0,5}\b(?:has the meaning given that term in"
     r"|has the meaning assigned by)\b:?\s*",
     re.IGNORECASE,
 )
