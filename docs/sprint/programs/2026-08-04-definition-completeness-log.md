@@ -71,6 +71,25 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (Q1 second finding → core-2 scope): markers QA attributed all
+  3 WA >5,000-char definitions to BASELINE via kill control (family-3
+  blinded: baseline alone emits the swallow; markers' engine alone emits
+  the same terms at 303/188/105 chars, zero >=5,000) — G3 healing
+  prediction holds for all 3. BUT one layer deeper: a SECOND distinct
+  defect in pipeline.py's Stage-2 persistence (~line 275-310):
+  `all_blocks = baseline_blocks + extra_blocks` + first-candidate-wins on
+  key (article_id, sorted(terms)) means baseline's bad candidate WINS the
+  collision and the rule's clean candidate is silently discarded —
+  confirmed on the real ingest→run_definition_linking path. G3 fixing the
+  splitter alone may not fix the WIN (depends whether baseline stops
+  emitting vs merely shrinks). RULED into core-2 scope: either fold into
+  G3's acceptance (no baseline bad-candidate survives collision against a
+  cleaner same-term rule candidate on the evidence rows) or a named G8
+  with its own RED — core-2 manager's design call, tracking non-optional.
+  Evidence: test_us_markers_qa_q1_wa_newline_collapse_swallow.py on
+  claude/defs-us-markers (3 diagnostic passes + 1 load-bearing RED on real
+  persisted output).
+
 - 2026-08-05 (markers phase-2 verification + U-R10 ruling): markers @
   cf0aa88 — inherited claims verified with kill-controls (blinding the
   registry returns exactly the pre-build rates: rules load-bearing, not
