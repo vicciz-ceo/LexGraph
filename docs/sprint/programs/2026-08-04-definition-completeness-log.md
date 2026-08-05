@@ -45,6 +45,10 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-05 markers phase-3 manager (opus, fresh after phase-2 handover
   @ c6732e3; runs U-R14 disposition + QA cycle 2 + merge readiness):
   a5c69b8e918e550cf
+- 2026-08-05 preamble phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean park @ 8ad3052; runs P-FP option-(c) cycle:
+  Planner exclusion-reversal + Developer M-R53-blocking + QA
+  definition-granularity re-measure): ac822b0047bde31cb
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
