@@ -868,10 +868,70 @@ def extract_definitions_from_section(text: str, *, scope: str) -> list[Definitio
 # item 26) both share a leading preposition/noun with one branch above but
 # name a different noun (`Ley`/`Artículo`, never `Capítulo`), so neither
 # collides with this pattern.
+#
+# M-R18 cycle-12 (Planner exhaustive corpus sweep, "stop discovering
+# trigger shapes one at a time") / M-R19 ruling: closes the 5th
+# chapter-scope shape -- the SAME "A/Para ... de este Capítulo" family as
+# branch 1 above, but with "los" DROPPED (`STATE_PR_LEY_20_2017_ART2_03`:
+# "Para fines de este Capítulo: ..."; 6 real canonical rows total --
+# `_ART2_03/_ART3_03/_ART4_03/_ART5_03`, `STATE_PR_LEY_77_1957_
+# ART32_020/_ART53_020`). Fix: make "los" OPTIONAL in branch 1 rather than
+# add a parallel no-"los" branch -- this closes the whole CLASS (both the
+# 2 corpus-attested no-"los" phrasings AND their "A"-prefix symmetric
+# partners, not yet observed in the corpus but the same mechanism, per
+# P-R7's "close the class, not just the instances on file"), proven by
+# `test_pr_profile_chapter_scope_vocabulary_m_r18.py`'s 2 real-row tests
+# plus its 4-case parametrized synthetic test. Branches 2/3 are
+# deliberately UNCHANGED -- the closed-vocabulary ruling scoped this fix
+# to branch 1 only ("Para propósitos de este Capítulo" never took "los" to
+# begin with; "En este Capítulo" has no preposition/"los" position at all).
 _PR_CHAPTER_SCOPE_TRIGGER_RE = re.compile(
-    r"(?:A|Para)\s+los\s+(?:fines|efectos)\s+de\s+este\s+Capítulo"
+    r"(?:A|Para)\s+(?:los\s+)?(?:fines|efectos)\s+de\s+este\s+Capítulo"
     r"|Para\s+prop[oó]sitos\s+de\s+este\s+Capítulo"
     r"|En\s+este\s+Capítulo",
+    re.IGNORECASE,
+)
+
+
+def _second_sentence(body: str) -> str:
+    """`body`'s own SECOND sentence (same `.`/`!`/`?`+whitespace boundary
+    convention as `_sentence_containing`), or `""` when `body` has only one
+    sentence. A small, explicit sibling of `_sentence_containing` -- not a
+    generalized "first N sentences" window -- built for `detect_pr_chapter_
+    scope`'s M-R19(1) anchoring fix below, see that function's docstring."""
+    first_boundary = _SENTENCE_END_RE.search(body)
+    if first_boundary is None:
+        return ""
+    return _sentence_containing(body, first_boundary.end())
+
+
+# M-R19(1) anchoring fix: the GATE for when a second-sentence check is even
+# attempted (see `detect_pr_chapter_scope` below). Reuses
+# `_LAW_TITLE_NAMING_CUE_RE`'s own past-participle vocabulary ("conocido/a
+# como", "denominado/a") -- the SAME idiom family, not a fresh one -- plus
+# the future-tense/modal forms the one real corpus row this gap was
+# measured against actually uses (`STATE_PR_LEY_77_1957_ART23_010`: "se
+# conocerá como"/"podrá citarse como"), which the past-participle-only
+# constant does not cover. This is NOT a general "does sentence 1 mention
+# naming" check -- it is this Developer's own corpus-measured guard against
+# exactly the over-triggering an earlier, UNGATED "always also check
+# sentence 2" draft produced: measured against the real 633-row canonical
+# population, that draft flipped 12 rows to `"chapter"`, not the expected
+# 7 (the 6 vocabulary rows plus this one) -- 3 were confirmed-genuine false
+# positives (a trigger-shaped phrase sitting INSIDE one entry's own
+# definition text, e.g. `STATE_PR_INCENTIVOS_SEC1020_07`, or a row the
+# Planner's own job-1 sweep already hand-verified and excluded for the SAME
+# reason one sentence earlier, `STATE_PR_LEY_77_1957_ART36_010`), and a
+# 4th (`STATE_PR_LEY_26_1941_ART81`) was only reachable by an unrelated
+# accident (a "[Nota: ...]" editorial bracket's own internal "Art."
+# abbreviation being mis-split as a sentence boundary). Gating on THIS
+# clause shape -- present only for the one row the fix targets -- reduces
+# the 12-row draft to exactly 1 (see the sprint log's blast-radius entry
+# for the full 6-row-by-6-row disposition of every candidate this
+# Developer's own measurement surfaced).
+_SHORT_TITLE_NAMING_CLAUSE_RE = re.compile(
+    r"se\s+conocer[aá]\s+como|podr[aá]\s+citarse\s+como|se\s+citar[aá]\s+como|"
+    + _LAW_TITLE_NAMING_CUE_RE.pattern,
     re.IGNORECASE,
 )
 
@@ -885,9 +945,38 @@ def detect_pr_chapter_scope(body_text: str) -> str | None:
     (not re-implemented) by `rules/us_pr_canonical_extraction.py`'s
     `TermClauseRule` to independently re-derive a canonical section's
     scope from the same body text (item 33) -- that seam has no `scope`
-    parameter to receive `pipeline.py`'s own separately-computed value."""
+    parameter to receive `pipeline.py`'s own separately-computed value.
+
+    M-R19(1) anchoring fix (Planner cycle-12 finding, manager ruling
+    M-R19, "cheap, RED-tested, mechanically distinct from vocabulary"):
+    when the FIRST sentence has no trigger AND is ITSELF recognized as a
+    complete short-title/citation-naming clause, also try the SECOND
+    sentence before giving up. Needed because a genuine, already-
+    recognized trigger phrase can be pushed there by a short-title clause
+    that mentions the SAME unit word as its own grammatical subject
+    (`STATE_PR_LEY_77_1957_ART23_010`: "Este Capítulo se conocerá como la
+    'Ley de Seguro de Préstamos Hipotecarios'... Para los fines de este
+    capítulo: (1)..." -- the trigger is in sentence 2, not sentence 1).
+    This is an ANCHORING fix (WHICH SENTENCE is examined) -- mechanically
+    distinct from the trigger-alternation widening above (WHICH PHRASES
+    are recognized within it); no new TRIGGER vocabulary is added here,
+    only a gate on when a second sentence is even consulted.
+
+    The gate is required, not optional polish: an earlier, UNGATED "always
+    also try sentence 2" draft was corpus-measured (this Developer's own
+    blast-radius pass) to over-trigger -- see `_SHORT_TITLE_NAMING_CLAUSE_
+    RE`'s own comment for the exact 12-vs-7 finding and its row-by-row
+    disposition. Gating on the short-title-clause shape narrows the second-
+    sentence check to precisely the ONE row this fix targets, reproducing
+    the ORIGINAL reason this function anchors on a sentence at all rather
+    than searching the whole body (an unanchored search over-triggers, 28
+    canonical rows hit vs. 21 genuine, see the module comment above)."""
     first_sentence = _sentence_containing(body_text, 0)
     if _PR_CHAPTER_SCOPE_TRIGGER_RE.search(first_sentence):
+        return "chapter"
+    if _SHORT_TITLE_NAMING_CLAUSE_RE.search(
+        first_sentence
+    ) and _PR_CHAPTER_SCOPE_TRIGGER_RE.search(_second_sentence(body_text)):
         return "chapter"
     return None
 
@@ -927,11 +1016,68 @@ def detect_pr_chapter_scope(body_text: str) -> str | None:
 #   frase X <idiom>" shape, and the pre-existing no-lead-in shape), the
 #   definition clause is captured starting immediately after the quote,
 #   unchanged from before.
+#
+# M-R18 cycle-12 (Planner exhaustive corpus sweep of the article-scope
+# trigger set, "the same question should be asked of the article-scope
+# trigger set") / M-R19 ruling: widens the trigger alternation to the full
+# genuine cross-product measured against the real corpus -- both
+# prepositions (A/Para), "los" optional (the SAME preposition/"los" gap
+# already closed for Capítulo above, e.g. `STATE_PR_LEY_77_1957_ART40_050`:
+# "Para efectos de este Artículo..."), all THREE scope nouns (fines/
+# efectos/propósitos), and a SECOND unit word, Sección -- gender-agreement
+# correct (`este Artículo` vs. `esta Sección`; a blind este/esta x
+# Artículo/Sección cross product would accept ungrammatical combinations
+# the real corpus never uses, so the two nouns are paired with their own
+# demonstrative rather than cross-produced). `Sección` was 100%
+# UNSUPPORTED before this fix despite PR's SEC-numbered codes (Código de
+# Rentas Internas, Código de Incentivos, several plain `Ley`s that number
+# sections rather than articles) using "esta Sección" exactly the way
+# ART-numbered laws use "este Artículo" (`STATE_PR_LEY_83_1963_SEC3`:
+# '"Para efectos de esta Sección, "unidad" será..."') -- the single
+# largest component of the measured gap. Planner-measured (simulated,
+# panel log): 247 non-canonical bodies contain a genuine trigger of this
+# grammatical family beyond the 3 previously-shipped phrasings, 229 of
+# which produced zero candidates, closing ~67 via this widening plus the
+# "el término" lead-in immediately below. This Developer's OWN
+# re-measurement against the real, SHIPPED code (not a simulation) finds
+# the same 247-row population and the SAME residual -- 162 rows still
+# zero-candidate after this fix, exactly matching the Planner's predicted
+# end state -- but 65, not 67, newly closed: this Developer's direct
+# measurement of the PRE-fix code (`git show`, not re-derived) found 20
+# of the 247 already producing >=1 candidate before this fix, not the 18
+# the Planner's simulation implied (247-229) -- a small, traced
+# discrepancy in the Planner's own "229" baseline, not a shortfall of
+# this widening (which reaches the identical, independently-reproduced
+# 162-row residual either way). See
+# `test_pr_profile_article_scope_vocabulary_m_r18.py` and the sprint
+# log's M-R18 Planner entry / this Developer's blast-radius entry for the
+# full derivation. The remaining 162 rows are a documented, escalated
+# residual (a different, multi-term structural shape existing patterns
+# cannot represent, or genuinely not a definition) -- NOT addressed by
+# this vocabulary fix; see the sprint contract's Residual ledger. Hand-
+# checking a diverse sample of the 65 newly-closed rows (all 80 resulting
+# candidates, not just a sample) found 79/80 genuine (a defining verb
+# immediately opens the captured definition text); the one exception,
+# `STATE_PR_RENTAS_SEC1102_01`, is a "reading substitution" idiom ("el
+# término X según se usa en Y deberá leerse Z") that shares the "el
+# término "+quote SHAPE this cycle's third lead-in targets without being
+# a fresh definition -- a small, named precision cost of that lead-in,
+# not fixed here (out of this fix's specified scope; a further
+# disambiguation heuristic would be a new, unreviewed precision guard,
+# not a vocabulary-closure change).
 _LOCAL_TRIGGER_PHRASE_ALTERNATION = (
-    r"(?:A los fines de este Artículo|A los efectos de este Artículo"
-    r"|Para propósitos de este Artículo)"
+    r"(?:A|Para)\s+(?:los\s+)?(?:fines|efectos|prop[oó]sitos)\s+de\s+"
+    r"(?:este\s+Artículo|esta\s+Sección)"
 )
-_LOCAL_TRIGGER_LEAD_IN_RE = r"(?:se\s+define\s+|la\s+frase\s+)?"
+# Third lead-in, "el término " (M-R18/M-R19, same closure as above): a
+# quoted term can also follow the trigger via "el término "X" <idiom>"
+# (`STATE_PR_RENTAS_SEC1081_02`: "...el término "Cuenta de Retiro
+# Individual" significará..."), distinct from the two already-shipped
+# lead-ins -- "se define "/"la frase " both apply to an UNQUOTED
+# continuation immediately after the phrase, not a directly-following
+# quote. `t[eé]rmino` mirrors `_LOCAL_TRIGGER_UNQUOTED_RE`'s own existing
+# accent-flexible spelling below (reused, not a new vocabulary choice).
+_LOCAL_TRIGGER_LEAD_IN_RE = r"(?:se\s+define\s+|la\s+frase\s+|el\s+t[eé]rmino\s+)?"
 _LOCAL_TRIGGER_RE = re.compile(
     _LOCAL_TRIGGER_PHRASE_ALTERNATION
     + r"\s*,?\s*"
