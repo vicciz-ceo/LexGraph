@@ -6430,3 +6430,35 @@ nobody thinks to grep for "articles with no preamble".
 2. It did not check whether `או`/`ו-` also affect the quote-first or
    class-C heading-embedded shapes — out of its brief, flagged for D-2.
 3. The 29 unreached lines are named, not fixed.
+
+---
+
+## 2026-08-05 — Separator Developer spawned (agentId `a069e2917062cb701`)
+
+Model/effort: **Sonnet/medium** — small, precisely-specified fix against
+3 written REDs with the precision analysis already done; Haiku
+considered: **no**, because the change touches `parse_entry`, a shared
+parser every IL list-shape rule now depends on, and a careless widening
+is a precision regression. Worktree `defs-il-dev3`, branch
+`claude/defs-il-dev-sep` off `e376fb1`, own venv verified, baseline
+`5 failed, 840 passed` reproduced. Sole writer — no concurrent agent.
+
+Briefed with the CORRECTED numbers (20 lines / 13 files, explicitly told
+NOT to use my superseded 230), and with the precision constraint stated
+as a **premise it must not invalidate**: the `או` widening is safe only
+because `parse_entry` finds the split dash FIRST and reads terms solely
+from the pre-dash header, so the 13 real corpus files whose DEFINITION
+TEXT contains `או`-joined quotes are untouched. Extend `_TERM_SEP_RE`'s
+alternation; do not touch `_find_dash_marker` or the header slice — and
+if it finds itself doing so, escalate, because that would invalidate an
+analysis done against real corpus data.
+
+**Told explicitly that green REDs are necessary but not sufficient**, and
+required to do its own corpus-scale A/B: (1) how many entry lines change
+parse pre/post fix, cross-checked against the Planner's 20 — a much
+larger number is a finding to report, not to smooth over; (2) confirm the
+13-file definition-text-quotes population is byte-unchanged. Both cycles
+so far shipped green tests alongside an unclosed class (M25's `או` gap,
+M28's 3-fixtures-vs-489-articles reach) and I caught both by probing at
+corpus scale. Pushing that habit down into the Developer rather than
+relying on my catching it a third time.
