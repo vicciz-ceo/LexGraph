@@ -1991,8 +1991,12 @@ solely for the Phase-13 G8 reverse-order displacement measurement. No code or
 test change is authorized unless a degrading firing is found and escalated to
 the manager for a RED-first amendment cycle.
 
-Agent roster entry is added immediately after spawn, before any result is
-accepted.
+Agent roster (committed before START): Planner G8 reverse-order measurement
+→ canonical Codex task `/root/core2_g8_planner`; model/effort
+`gpt-5.6-terra/high`; Haiku considered: no (Planner role plus exhaustive
+real-corpus classification). The Codex collaboration runtime exposes the
+canonical task name, not a raw session id, so that committed canonical name
+is the delivery identifier briefed back to the agent.
 
 ---
 
