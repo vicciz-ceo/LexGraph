@@ -215,10 +215,10 @@ _B2_SEARCH_WINDOW = 600
 # respectively ascribed to them in this section, except ...:"`. Gap bounds
 # (120 / 60 chars) are set above this one real row's own measured gaps (86
 # / 13 chars) with margin, the same discipline B1's own `_COLON_WINDOW` was
-# set under -- verified corpus-wide (every fixture file under `backend/
-# tests/fixtures/us_statutes/`) that this exact phrase shape occurs in
-# ONLY this one real row, so it cannot newly capture any other fixture in
-# this sprint. Deliberately does NOT require an immediately-following
+# set under. The one-row result is fixture-only, not a corpus-wide uniqueness
+# claim. M-R53's em-dash measurement is separately reconciled as 1,788
+# whole-body rows / 984 operationally captured rows. Deliberately does NOT
+# require an immediately-following
 # colon (unlike the original B2 pattern above) -- the real row's own colon
 # sits 129 chars after "ascribed to them", behind an "except in those
 # instances..." carve-out clause, so anchoring on it would just reintroduce
@@ -242,143 +242,16 @@ register_body_preamble_rule(
     BodyPreambleRule(jurisdiction_codes=("US-*",), derive_heading=_b2_words_have_meanings_indicated)
 )
 
-# --- Rule 4: B1 -- "As used in"/"For purposes of this <unit>" + colon- ----
-# --- introduced term list, or a single quoted term + "means" --------------
-#
-# Scout S3's naming; GA's own convention (D1: 1,222/1,224 real rows), and
-# -- confirmed empirically against the real fixture rows, not merely the
-# build target's own illustrative "the term:" phrasing -- the SAME shared
-# shape that covers the 40-state long tail (DE/ID/KS/LA/OK/SC/VA/WV/IL),
-# FEDERAL, DC, NY, MS's ORIGINAL "the term:" convention, MS's SECOND
-# convention ("...unless the context requires otherwise, the following
-# terms shall have the meanings ascribed herein:", scout S4, 845 MS rows),
-# and SD's single-quoted-term convention ("the term "blighted area"
-# means..."). Live measurement (this sprint's log) found real rows whose
-# intro clause reaches its own colon with NO "the term" wording at all
-# (KS's `"As used in this section:"`, LA's `"For the purposes of this
-# Section:"`, MS's second-convention row `"For purposes of this chapter:"`)
-# -- i.e. the build target's own B1 test selection already requires a
-# broader trigger than its illustrative "the term:" phrase describes, so
-# this rule is written against the REAL rows (verified byte-for-byte), not
-# the paraphrase; the build target's separately-named "MS second
-# convention" rule turned out, once measured, to be the SAME shape as
-# this one (see the sprint log) and is not implemented as a second rule.
-#
-# Two branches, both anchored on the SAME trigger phrase (`As used in this
-# <unit>`/`For (the) purposes of this <unit>`), tried at EVERY occurrence
-# of the trigger in the body (`finditer`, not just the first):
-#
-#   (a) COLON-LIST: a colon appears within a short, bounded window
-#       (`_COLON_WINDOW` chars) after the trigger -- the filler text
-#       between the trigger and that colon (`"the term"`, `"unless the
-#       context requires otherwise, the following terms shall have the
-#       meanings ascribed herein"`, or nothing at all) must NOT contain any
-#       of `_FORWARDING_PHRASES` -- the exact hazard class scout S3's
-#       catalogue and QA's own forwarding-reference addition both target
-#       (CO/MT/IN/DC: `"the term "X" shall be as defined in ..."` /
-#       `"has the meaning provided in ..."` / `"has the same meaning as set
-#       forth in ..."` / `"shall not include ..."`; the QA MS row: `"the
-#       term "political subdivision" shall have the same meaning as
-#       provided under ..."` -- verified live: this exact row never even
-#       reaches a colon within the window, so it is excluded on window
-#       grounds alone, the forwarding-phrase filter is the second line of
-#       defense). `_COLON_WINDOW` (160) was measured, not guessed: every
-#       real positive row's own colon falls within 128 chars of the
-#       trigger (MS's own longest filler); SD's real administrative
-#       negative row (`STATE_SD_T32_C36_S32-36-5`) has an UNRELATED colon
-#       (its own trailing `"Source: SL 1972..."` citation note) at 231
-#       chars -- outside the window, so it is excluded by window size
-#       alone, without needing to rely on the phrase filter for that row.
-#   (b) QUOTE+MEANS: `"...this <unit>, the term "X" means"` (SD's real
-#       shape) -- a single quoted term immediately (no forwarding phrase
-#       can appear between the anchor and "means") followed by a genuine
-#       defining verb. This is what lets SD's real row through even though
-#       its own colon (introducing an unrelated list of blight-condition
-#       clauses, not separate defined terms) falls far outside the window.
-#
-# `US-*`: this shared trigger/colon shape was measured across 9+ states in
-# this sprint's own B1 matrix, not just GA -- see
-# `test_us_body_preamble_b1_colon_list_matrix_red.py`.
-_B1_TRIGGER_RE = re.compile(
-    r"(?:As used in|For (?:the )?purposes of|In) this\s+[A-Za-z][A-Za-z0-9 .\-]{0,30}",
-    re.IGNORECASE,
+from app.definition_links.rules.us_body_preamble_b1 import (
+    _B1_COLON_WINDOW,
+    _B1_FORWARDING_PHRASES,
+    _B1_LOOKAHEAD,
+    _B1_QUOTE_MEANS_RE,
+    _B1_TRIGGER_RE,
+    _b1_colon_list_branch,
+    _b1_quote_means_branch,
+    _b1_trigger_colon_or_quote_means,
 )
-_B1_LOOKAHEAD = 250
-_B1_COLON_WINDOW = 160
-_B1_FORWARDING_PHRASES = (
-    "shall be as defined in",
-    "shall have the same meaning as",
-    "has the same meaning as",
-    "has the meaning provided in",
-    "has the meaning found in",
-    "has the meaning stated in",
-    "shall not include",
-    "does not impair",
-)
-# Shapes 2 + 6 (combined per the sprint's own overlap ruling -- stacking
-# them as two independent edits risks one widening's anchoring silently
-# breaking the other's): shape 2 (KS's real `"As used in this act "state
-# agency" means"` -- no "the term", no comma at all) makes the literal "the
-# term" OPTIONAL; shape 6 (TN's real `"As used in this section, unless the
-# context otherwise requires, "veteran" means"`) tolerates ONE short
-# comma-bounded qualifier clause between the trigger and the quote. Both
-# land in the SAME leading `(?P<gap>...)` group so a single combined regex
-# handles: no comma at all (KS), a bare leading comma with no qualifier and
-# no "the term" (never seen, but not excluded), a leading comma + "the
-# term" (SD, the pre-existing case), and a leading comma + qualifier clause
-# + comma (TN) -- with or without "the term" following. The qualifier
-# clause itself excludes quote characters and commas (so it can never
-# swallow past a REAL quoted term into a second one) and is capped at 60
-# chars ("short", per the build target's own wording).
-_B1_QUOTE_MEANS_RE = re.compile(
-    r'^(?P<gap>(?:,\s*(?:[^"“”,\n]{1,60},\s*)?)?(?:the term\s+)?)'
-    r'["“](?P<term>[^"”]{1,150})["”]\s*(?:means|shall mean)\b',
-    re.IGNORECASE,
-)
-
-
-def _b1_colon_list_branch(after: str) -> bool:
-    window = after[:_B1_COLON_WINDOW]
-    # Shape 3 (FEDERAL's real `"In this section—"` row,
-    # `USC_T27_C6_S122a`): an em dash immediately after the trigger's unit
-    # name plays the exact same "list follows" role a colon does elsewhere
-    # in this same corpus -- verified corpus-wide (every fixture file under
-    # `backend/tests/fixtures/us_statutes/`) that this exact
-    # trigger-immediately-followed-by-em-dash shape occurs in ONLY this one
-    # real row, so treating it as an intro exactly like a colon at position
-    # 0 (empty filler, nothing to forwarding-phrase-check) cannot newly
-    # capture any other fixture in this sprint.
-    if window[:1] == "—":
-        return True
-    colon_index = window.find(":")
-    if colon_index == -1:
-        return False
-    filler = window[:colon_index].lower()
-    return not any(phrase in filler for phrase in _B1_FORWARDING_PHRASES)
-
-
-def _b1_quote_means_branch(after: str) -> bool:
-    # D3 finding, folded into the shape 2/6 widening per the manager's
-    # pre-decided FP remedy (M-R50): every measured false positive from
-    # widening this branch was a forwarding-phrase pointer, so
-    # `_B1_FORWARDING_PHRASES` is applied to the "gap" text (whatever the
-    # widened regex matched between the trigger and the quoted term) --
-    # the same discipline `_b1_colon_list_branch` already applies to its
-    # own filler text, just on the newly-widened branch instead of a new
-    # gate.
-    match = _B1_QUOTE_MEANS_RE.match(after)
-    if match is None:
-        return False
-    gap = match.group("gap").lower()
-    return not any(phrase in gap for phrase in _B1_FORWARDING_PHRASES)
-
-
-def _b1_trigger_colon_or_quote_means(body: str) -> str | None:
-    for trigger_match in _B1_TRIGGER_RE.finditer(body):
-        after = body[trigger_match.end() : trigger_match.end() + _B1_LOOKAHEAD]
-        if _b1_colon_list_branch(after) or _b1_quote_means_branch(after):
-            return "Definitions"
-    return None
 
 
 register_body_preamble_rule(
