@@ -39,6 +39,9 @@ Internal orchestration records. Not auto-loaded; not director-facing.
 - 2026-08-05 IL phase-3 manager (opus, fresh after phase-2 clean exit @
   64932d7; runs D-1 serialized Developers + QA cycle 4 + certification
   contract draft): a18597f9be6c49ed6
+- 2026-08-05 multiterm phase-2 manager (opus, fresh after predecessor
+  context-exhausted clean exit @ af0d548; runs M-R17/M-R18/rule-rename
+  Developer pass + re-measure + QA cycle 2): ad9cf6f6c6a351c50
 
 ## Wave 3 checkpoint (2026-08-04, post-P-R8 repair + implementation wave)
 
