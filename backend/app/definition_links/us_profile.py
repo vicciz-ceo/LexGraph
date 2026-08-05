@@ -1665,6 +1665,12 @@ class USProfile:
         EVERY block (baseline or rule-contributed) is run through
         baseline's own per-block leading-quote parser AND every registered
         `TermClauseRule.parse` -- zero-miss, no rule suppresses another.
+        (Sprint 2026-08-05-defs-core-follow-on-2, gate G10, seam v2.9: a
+        rule offering `parse_scoped` is dispatched with a `TermClauseContext`
+        carrying this method's own `scope` instead, so the rule sees the
+        section's real determined scope rather than being forced to guess
+        or hardcode one -- `parse` itself is unchanged and still the
+        dispatch target for every rule that does not opt in.)
         The `heading_was_derived` inline-quoted fallback still runs last,
         only when the union above produced nothing, preserving the exact
         "zero-risk for the 7 already-working states" guarantee (baseline-
@@ -1685,7 +1691,12 @@ class USProfile:
                 candidates.append(candidate)
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):
-                candidates.extend(rule.parse(block))
+                if rule.parse_scoped is not None:
+                    candidates.extend(
+                        rule.parse_scoped(block, registry.TermClauseContext(scope=scope))
+                    )
+                else:
+                    candidates.extend(rule.parse(block))
 
         if not candidates and heading_was_derived:
             candidates = _extract_inline_quoted_definitions(text, scope=scope)

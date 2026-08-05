@@ -212,6 +212,13 @@ class HebrewProfile:
         # another. Baseline-only behavior (no rules registered) is
         # byte-identical to calling `extract.extract_definitions_from_
         # section` directly, since that is exactly what this reduces to.
+        #
+        # Sprint 2026-08-05-defs-core-follow-on-2, gate G10, seam v2.9: a
+        # rule offering `parse_scoped` is dispatched with a
+        # `TermClauseContext` carrying this method's own `scope` instead
+        # of `parse(block)` -- mirrors USProfile's identical dispatch
+        # shape, since registry.py's `TermClauseRule` is shared by both
+        # jurisdictions. `parse` itself is unchanged.
         baseline_blocks = extract._split_into_blocks(text)
         extra_blocks: list[str] = []
         for rule in registry.entry_splitter_rules_for(self.code):
@@ -223,7 +230,12 @@ class HebrewProfile:
             candidates.extend(extract._parse_block(block, scope=scope, parent_term=None))
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):
-                candidates.extend(rule.parse(block))
+                if rule.parse_scoped is not None:
+                    candidates.extend(
+                        rule.parse_scoped(block, registry.TermClauseContext(scope=scope))
+                    )
+                else:
+                    candidates.extend(rule.parse(block))
         return candidates
 
     # --- Sprint 2026-08-04-defs-core-scope (gates C1-C3, seam spec) -----

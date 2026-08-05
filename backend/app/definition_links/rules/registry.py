@@ -150,12 +150,41 @@ class EntrySplitterRule:
 
 
 @dataclass(frozen=True)
+class TermClauseContext:
+    """Passed to a `TermClauseRule.parse_scoped` call (sprint
+    2026-08-05-defs-core-follow-on-2, gate G10, seam v2.9). Carries the
+    section-level scope KIND the dispatcher already computed via
+    `determine_scope` before ever reaching `extract_definitions_from_
+    section` -- the exact value baseline's own `_leading_quote_candidate(
+    block, scope=scope)` already receives at the same call site. One field
+    today, deliberately minimal: `extract_definitions_from_section` itself
+    holds nothing more at its own `TermClauseRule` dispatch point (no
+    chapter value, no article number -- v2.8/G6 threads those separately,
+    for the Definitions-SECTION VALUE question, an independent seam). A
+    frozen dataclass rather than a bare `str` so a future field never
+    forces a second signature break -- the same reasoning that produced
+    `RuleContext`/`StructuralContext` (M5/M11)."""
+
+    scope: str
+
+
+@dataclass(frozen=True)
 class TermClauseRule:
     """Union kind: every matching rule's candidates are kept for a given
     entry block."""
 
     jurisdiction_codes: tuple[str, ...]
     parse: Callable[[str], list[DefinitionCandidate]]
+    # NEW (G10, seam v2.9). Optional companion, defaulted None -- same
+    # "additive companion callable" convention v2.8 established for
+    # ScopeKindRule.detect_value alongside the unchanged detect.
+    # Dispatched INSTEAD OF `parse` when present (never both for the same
+    # rule+block -- one winner, no double-counting). `None` (the default)
+    # preserves today's exact call shape, `parse(block)`, so every
+    # existing `TermClauseRule(...)` construction -- across every
+    # family-panel branch shipping BEFORE this gate -- keeps working
+    # completely untouched.
+    parse_scoped: Callable[[str, TermClauseContext], list[DefinitionCandidate]] | None = None
 
 
 @dataclass(frozen=True)
