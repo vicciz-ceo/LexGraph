@@ -1,4 +1,4 @@
-"""P-D1 live RED for `USC_T8_C12_S1101`.
+"""Held core-3 RED for `USC_T8_C12_S1101`'s Roman structural sibling.
 
 The fixture is a byte-verbatim excerpt of the real corpus row, with source
 revision, full-row SHA-256, and offsets recorded beside the row.  This is the
@@ -20,7 +20,7 @@ FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
     / "fixtures"
     / "us_statutes"
-    / "us_markers_pd1_pd2_real_row_excerpts.json"
+    / "us_markers_core3_pd2_real_row_excerpts.json"
 )
 
 
@@ -32,7 +32,7 @@ def _load_fed_row() -> dict:
     )
 
 
-def test_fed_fixture_is_a_provenanced_verbatim_real_row_excerpt():
+def test_core3_fed_fixture_is_a_provenanced_verbatim_real_row_excerpt():
     row = _load_fed_row()
     provenance = row["_fixture_provenance"]
     assert provenance["source"] == "vaquill/open-us-law"
@@ -40,10 +40,12 @@ def test_fed_fixture_is_a_provenanced_verbatim_real_row_excerpt():
     assert row["section_title"] == "Definitions"
 
 
-def test_real_pipeline_persists_serious_criminal_offense_at_its_own_boundary(
+def test_core3_held_real_pipeline_stops_before_roman_structural_sibling(
     db_session, matter_with_users
 ):
-    """The real FED term ends after its enumerated offense clause.  It must
+    """HELD RED — core-3 owns classification of the Roman sibling `(i)`.
+
+    The real FED term ends after its enumerated offense clause.  It must
     retain the in-definition section citation and `(1)`--`(3)` list, but not
     swallow the next `(i) With respect ...` provision or later annotation
     material.  This deliberately does not prescribe the core-3 generic marker
@@ -53,7 +55,7 @@ def test_real_pipeline_persists_serious_criminal_offense_at_its_own_boundary(
         db_session,
         repository_id=matter_with_users["repository_id"],
         matter_id=matter_with_users["matter_id"],
-        title="P-D1 real FED trailing-annotation excerpt",
+        title="core-3 real FED structural-sibling excerpt",
         rows=[{key: value for key, value in row.items() if not key.startswith("_")}],
         jurisdiction="US-FED",
     )

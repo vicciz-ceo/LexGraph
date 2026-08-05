@@ -1,30 +1,46 @@
-"""P-D1 unit RED: FED trailing annotations must be bounded per entry.
+"""Terminal-notes negative control for the US markers boundary engine.
 
-The integration companion uses the real `USC_T8_C12_S1101` excerpt.  These
-small mechanism cases isolate the panel-owned `TRAILING_STOP_RE` defect: one
-global first match must not erase a later lawful entry, and annotation words
-inside an actual definition must not be treated as a trailing note heading.
+`USC_T33_C11_S511` is a compact, provenance-recorded real statute row.  Its
+terminal ``Editorial Notes`` amendment history repeats quoted, defining-looking
+language.  That commentary must never become a statutory definition.
 """
 
-from app.definition_links.rules.us_markers_boundary import extract_quote_anchored_entries
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from app.definition_links.rules.us_markers_boundary import TRAILING_STOP_RE, extract_quote_anchored_entries
 
 
-def test_trailing_annotation_ceiling_is_recomputed_for_each_later_entry():
-    """A first Editorial Notes block closes the first entry only; a later
-    References in Text block must close the later entry rather than hiding it.
-    The current one-global `TRAILING_STOP_RE.search(text)` ceiling never even
-    examines ``Later term``."""
-    text = (
-        '"Earlier term" means the first lawful definition.\n\n'
-        'Editorial Notes\n\nHistorical material.\n\n'
-        '"Later term" means the second lawful definition.\n\n'
-        'References in Text\n\nHistorical material.'
-    )
+FIXTURE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "us_statutes"
+    / "us_markers_terminal_notes_real_row.json"
+)
 
-    assert dict(extract_quote_anchored_entries(text)) == {
-        "Earlier term": "the first lawful definition.",
-        "Later term": "the second lawful definition.",
-    }
+
+def _terminal_notes_row() -> dict:
+    return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def test_real_terminal_notes_stop_before_amendment_history_commentary():
+    """The first terminal annotation is a terminal boundary, not an entry
+    separator.  The post-notes amendment history contains ``"Secretary"
+    means ...`` language, but emits no definition from the quote engine."""
+    row = _terminal_notes_row()
+    text = row["text"]
+    stop = TRAILING_STOP_RE.search(text)
+
+    assert row["act_id"] == "USC_T33_C11_S511"
+    assert stop is not None and stop.group() == "Editorial Notes"
+    # The amendment prose is deliberately definition-like, but is outside
+    # the operative section and is not emitted as an entry.
+    assert '"Secretary" means the Secretary of Transportation' in text[stop.end() :]
+    entries = dict(extract_quote_anchored_entries(text))
+    assert list(entries) == ["bridge", "bridge owner", "Secretary"]
+    assert all("Secretary of Transportation" not in definition for definition in entries.values())
 
 
 def test_annotation_words_and_citations_inside_a_definition_are_not_global_stops():

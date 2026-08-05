@@ -14,7 +14,7 @@ FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
     / "fixtures"
     / "us_statutes"
-    / "us_markers_pd1_pd2_real_row_excerpts.json"
+    / "us_markers_core3_pd2_real_row_excerpts.json"
 )
 
 
