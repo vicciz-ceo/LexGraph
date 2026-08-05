@@ -2881,3 +2881,59 @@ work. If discovery does not descend into packages, the Developer must fall back
 to a real `us_heading_variants.py` importing private sibling modules — and must
 NOT edit core discovery (U3). Stale `__pycache__` and a coexisting old module
 are called out as things that could mask the check.
+
+---
+
+## 2026-08-05 — Manager verification of dev cycle 5; contradictory pin routed
+
+### Verification — every Developer claim re-run independently
+
+| Check | Result |
+|---|---|
+| Shared modules touched | **0**. Only the 8 paths under `rules/us_heading_variants/` (old single module deleted; **no stale coexistence**) |
+| Test/fixture edits | **0** — role separation held |
+| Style gate | package is 7 files, **all under 300 lines** (max 202). The 479-line breach is CLOSED |
+| Suite (manager-run) | **859 passed / 1 failed**; the sole failure is the contradictory pre-existing pin |
+| **Auto-discovery (the dead-dispatch risk flagged pre-emptively)** | **PROVEN SAFE.** Fresh interpreter, `__pycache__` cleared, NO direct import of the package: `heading_rules_for("US-CT")` → exactly **3** rules IN ORDER `[unconditional/None, defined_for/defines_in_body, defined_qualifier/defines_qualifier_in_body]`; `heading_rules_for("IL")` → **0** |
+| Discovery positive control | CT `Sec. 36a-3. Other defined terms.`, ID `18-111A FELONY DEFINED FURTHER.`, MI `"Creditor process" defined and explained.` — all **baseline=False, live=True**. The REGISTRY path does the work, not baseline. |
+| Recall | manager re-measured **through the LIVE profile call** (stronger than re-deriving from predicates: it also proves the third registration is CONSULTED, not merely registered) — **21,080 / 22,228 = 94.8353%, +76** vs pre-cycle-5 21,004. Reproduces the Developer's figures exactly. |
+| P-R10 | pinned 83,303 / 22,228 reproduced FIRST, before trusting the new number |
+
+The package-vs-module dead-dispatch risk the manager raised mid-build turned
+out to be **not** realised — but it was the right call to force the proof: a
+fully green suite would not have detected it, because the tests import the
+package directly. The evidence now exists rather than being assumed.
+
+Top movers this cycle: NV 8,881, IN 1,790, MI 1,597, SD 847, WA 591, MO 569.
+
+Merged to the panel branch at `e80b642`.
+
+### The one open item — a genuine test contradiction, correctly reported
+
+`test_pointer_table_heading_not_reachable_via_existing_rules` (a baseline-green
+PIN, not one of the 37 REDs) asserts
+`matches_heading_variant_unconditional(...) is False` for CT
+`Sec. 36a-3. Other defined terms.` and CO `5-1-303. Index of definitions in
+code` — the **literal same strings** on which item 12's required positive tests
+assert `is True`. Same function, same inputs, opposite expectations; **no
+implementation can satisfy both.** Manager read both tests and confirmed.
+
+The Developer implemented item 12 as specified and left **both tests
+byte-untouched** — the correct call, because tests are the Planner's.
+
+The pin's own docstring dates it: it verified behaviour "against the CURRENTLY
+SHIPPED module, before this item's fix". Its purpose was to prove the
+pointer-table shape was a genuinely NEW gap rather than something items 10/11
+would incidentally close — thereby justifying item 12. **Item 12 closed exactly
+that gap, so the pin now asserts the absence of a capability the panel
+deliberately built.**
+
+Routed to a Planner (`ab1889ccd765a00d6`, Sonnet/high per P-R6; Haiku
+considered: no — role-forbidden and this is a judgment call about test intent).
+Instruction binds the panel's **remove-not-flip precedent**: a naive inversion
+is forbidden, because it would silently rewrite history and merely duplicate
+the positive test. Either RETIRE it while recording what it proved, why it was
+right when written, and what made it obsolete — or RE-AUTHOR it to pin the
+narrower still-true property (that capture comes from item 12's dedicated
+predicate rather than an accidental widening of R-MID/R-VERB), which would be
+strictly stronger than either the old pin or an inversion.
