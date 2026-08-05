@@ -24,6 +24,31 @@ step of a multi-level path to stamp -- cannot confound this file's
 verdict either way. Planner pass 7's Task A report has the multi-level
 counterexample from this SAME state (`STATE_SC_T12_C6_A9_S12-6-1170`)
 that makes S-R15 an escalation, not a fixture for this file.
+
+FIXED (Planner pass 8, Task 2): `test_subsection_scope_does_not_link_a_
+different_subsection_south_carolina` (originally about the "school
+employee" term) had a factually wrong premise -- it called the term's
+one out-of-quote mention "in subsection (A)" and asserted it must NOT
+link. Checking the row's own text: `(A)` begins at offset 0, `(B)` at
+307, `(C)` at 1197; the definition's trigger is at 709, INSIDE `(B)`
+(`For purposes of this subsection, a "school employee" is a person
+employed...`); the mention the old test called "in subsection (A)" is at
+offset 334 -- 27 characters AFTER `(B)` begins, in `(B)`'s own opening
+clause (`(B) If a public or private school employee, a person...`). The
+mention is in the SAME subsection as the definition and SHOULD link.
+
+Director ruling D-S15 does NOT fix this test, because it cannot: this
+row is single-level (no nesting under `(A)`/`(B)`/(C)`), so innermost and
+outermost resolve to the identical step -- verified directly against the
+real matcher, both policies agree here. "Fixing" the old assertion to
+pass as written would have meant teaching the rule to under-link a
+mention sitting inside its own definition's subsection, the exact
+silent-miss failure mode this whole family exists to eliminate. Renamed
+and re-authored below to assert what the row actually says; the genuine
+"different top-level subsection" (direction 2) proof for THIS state now
+lives in `test_us_scoped_inline_pipeline_subsection_outermost_live.py`
+(multi-level `STATE_SC_T12_C6_A9_S12-6-1170`), since a single-level row
+can never distinguish the two policies.
 """
 
 from __future__ import annotations
@@ -158,13 +183,19 @@ def test_subsection_scope_links_both_directions_live_south_carolina(
     )
 
 
-def test_subsection_scope_does_not_link_a_different_subsection_south_carolina(
+def test_subsection_scope_links_a_same_subsection_mention_south_carolina_school_employee(
     db_session, matter_with_users
 ):
-    """Negative direction, same row, a DIFFERENT term: "school employee" is
-    defined in subsection `(B)` and mentioned exactly ONCE elsewhere, in
-    subsection `(A)` (before `(B)` even starts) -- no truncation needed,
-    the real body already isolates this direction on its own."""
+    """FIXED (Planner pass 8, Task 2 -- see module docstring for the full
+    story): same row, a DIFFERENT term, "school employee". Its one
+    out-of-quote mention (offset 334) sits 27 characters AFTER subsection
+    `(B)` begins (offset 307) -- the SAME subsection as the definition's
+    own trigger (offset 709), not "subsection (A)" as the test this
+    replaces incorrectly claimed. It must link.
+
+    Ground-truthed against the real, unmodified text below (never trusted
+    from a docstring): the mention's offset must fall AFTER `(B)`'s own
+    marker and BEFORE `(C)`'s."""
     from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
     from app.definition_links.pipeline import run_definition_linking
     from app.models.definition import Definition
@@ -173,16 +204,24 @@ def test_subsection_scope_does_not_link_a_different_subsection_south_carolina(
     row = _row()
     text = row["text"]
     assert text.count("school employee") == 2, (
-        "fixture must carry exactly the definition plus one out-of-subsection mention -- "
+        "fixture must carry exactly the definition plus one same-subsection mention -- "
         "ground truth missing, test cannot prove anything"
     )
     assert '"school employee" is a person' in text, "the defining quoted entry must be present"
+
+    b_start = text.index("(B)")
+    c_start = text.index("(C)")
+    mention_offset = text.index("school employee")
+    assert b_start < mention_offset < c_start, (
+        "the mention of 'school employee' must sit inside subsection (B), the SAME subsection "
+        "as its own definition -- ground truth missing, test cannot prove anything"
+    )
 
     ingest_us_statute_rows(
         db_session,
         repository_id=m["repository_id"],
         matter_id=m["matter_id"],
-        title="South Carolina Code (subsection-scope agreement proof, negative direction)",
+        title="South Carolina Code (subsection-scope agreement proof, same-subsection direction)",
         rows=[_clean(row)],
         jurisdiction="US-SC",
     )
@@ -198,7 +237,8 @@ def test_subsection_scope_does_not_link_a_different_subsection_south_carolina(
     assert definition_row.scope == "subsection"
 
     uses_edges = _uses_edges(result, db_session, definition_id)
-    assert not uses_edges, (
-        f"a mention of 'school employee' in subsection (A), a DIFFERENT subsection than the "
-        f"one defining it, got a USES_DEFINITION edge anyway: {uses_edges!r}"
+    assert uses_edges, (
+        "a mention of 'school employee' inside its OWN defining subsection (B) got no "
+        "USES_DEFINITION edge -- our stamped scope_value/scope_unit_kind disagree with core's "
+        "resolve_unit_path even though this row is byte-verified single-level"
     )

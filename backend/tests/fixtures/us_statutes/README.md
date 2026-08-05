@@ -438,3 +438,66 @@ in `test_us_scoped_inline_rules_negative_controls.py`:
   scope) is silently dropped today, which is exactly why it works as an
   isolation vehicle: unlike the PA row, this row's idiom ("means") IS
   recognized, so nothing downstream masks a marker-adjacency regression.
+
+## `us_scoped_inline_subsection_outermost_rows.json` — Planner pass 8, Task 3, director ruling D-S15 (2026-08-05)
+
+2 REAL rows (full original columns, values unmodified), independently
+byte-verified across 2 separate fetches from `us_sc_statutes.parquet` /
+`us_wa_statutes.parquet`, used by
+`test_us_scoped_inline_pipeline_subsection_outermost_live.py` and its
+Washington sibling (`..._outermost_digit_live.py`) to pin D-S15's
+outermost subsection-scope policy on genuinely MULTI-LEVEL rows (a
+single-level row cannot distinguish innermost from outermost — see the
+`us_scoped_inline_subsection_agreement_rows.json` section above for the
+mis-authored single-level SC test this replaces as the direction-2 proof
+for that state):
+
+- **`STATE_SC_T12_C6_A9_S12-6-1170`** — upper_alpha-outermost (Ohio-style)
+  ladder, `(A)(1)..(4)`. Item `(2)` defines `"retirement income"` "as used
+  in this subsection"; items `(1)` and `(3)` genuinely reuse the term
+  (item `(4)` has no reuse of this term but itself says "this
+  subsection", self-proving the subsection is `(A)` and spans all 4
+  items). `resolve_unit_path` confirmed byte-clean at every offset this
+  fixture's tests touch (0 through 1141) — the first citation-shaped
+  token in the row (a `"(A)"` cross-reference inside subsection `(B)`)
+  sits at offset 1664, well past them.
+- **`STATE_WA_T18_C104_S065`** — digit-outermost (Oregon-style) ladder,
+  `(1)(2)(a)(b)(3)`. Item `(2)(b)` defines `"construction has been
+  substantially completed"` "For purposes of this subsection"; item
+  `(2)(a)` genuinely reuses the term twice. Same corruption check: the
+  marker sequence up to the last offset used (721) is `(1)@0, (2)@281,
+  (a)@349, (b)@516` only — no citation-shaped token precedes any of them
+  (the row's one real citation, `"Subsection (2) of this section"` inside
+  item `(3)`, sits at offset 866).
+
+Both rows' full `resolve_unit_path` results were verified directly
+(`SimpleNamespace(body=...)`, per this sprint's own "useful tools" note)
+against the real, unmodified text before being selected — neither is
+corrupted by the pin-cite stack-corruption class Task 1 found on the
+Oregon row this fixture's tests replace as the direction-2 proof.
+
+## `us_scoped_inline_subsection_inverted_convention_rows.json` — Planner pass 8, Task 4, director ruling D-S15 condition 1 (2026-08-05)
+
+3 REAL rows (full original columns, values unmodified), independently
+byte-verified across 2 separate fetches from `us_sd_statutes.parquet` /
+`us_vt_statutes.parquet` / `us_ny_statutes.parquet`, used by
+`test_us_scoped_inline_subsection_inverted_convention_named_limitation.py`
+to record — as a named, accepted limitation, NOT fixed by this sprint —
+the 3 states (of 53) whose OWN cross-reference vocabulary uses
+"subsection" for a unit NESTED BELOW something else, the inverse of
+D-S15's measured 48/53-jurisdiction default:
+
+- **`STATE_SD_T58_C5A_S58-5A-4`** (South Dakota) — "...the information
+  required by subsection (a) of this subdivision;".
+- **`STATE_VT_T24_C60_S1992`** (Vermont) — "Notwithstanding subsection (A)
+  of this subdivision (2),".
+- **`STATE_NY_AGMU_A15_S507`** (New York) — "...of subsection (c) of this
+  subdivision..." — carries the same pre-existing literal `\n` corpus
+  artifact already documented above (M14); unrelated to, and not spanned
+  by, the phrase this fixture's tests check for.
+
+None of the three quoted phrases sits inside an
+`extract_us_scoped_inline_definitions` trigger — all three are ordinary
+cross-reference prose, not definition entries — so this fixture is
+evidence for the named limitation's continued existence in the corpus,
+not live-path pipeline material.

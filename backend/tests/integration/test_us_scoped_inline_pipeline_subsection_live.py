@@ -15,18 +15,19 @@ its job (forced the revert to happen, not ossify) and continuing to mark
 now-genuinely-passing assertions `xfail` would hide a real regression if
 either direction ever broke again.
 
-S-R15 (OPEN, not resolved by this file): WHICH step of the resolved path
-to stamp as `scope_unit_kind` is a named policy question. This row's own
-defining clause happens to be `(2)(a)(A)(c)`, 4 levels deep with the SAME
-level reused for both directions below, so it does not by itself prove the
-innermost-step interim generalizes -- see Planner pass 7's Task A report
-for real corpus rows (South Carolina) where it does not.
+S-R15 (then OPEN, now RULED -- see director ruling D-S15 below): WHICH step
+of the resolved path to stamp as `scope_unit_kind` was a named policy
+question. This row's own defining clause happens to be `(2)(a)(A)(c)`, 4
+levels deep with the SAME level reused for both directions below, so it
+never by itself proved the innermost-step interim generalized -- Planner
+pass 7's Task A report found real corpus rows (South Carolina) where it
+does not, which is what drove the D-S15 escalation.
 
 `test_us_scoped_inline_pipeline_live.py`'s U2 both-directions proofs cover
 `scope="local"` and `scope="chapter"` only. `scope="subsection"` was never
 proven on the live path -- only STAMPED (that file's own
 `test_a_scope_unit_not_yet_enforced_by_matcher_is_still_stamped_faithfully`).
-This file closes that coverage gap.
+This file closes that coverage gap for DIRECTION 1 only (see below).
 
 The risk (S-R10): `us_scoped_inline._subsection_label` derives the defining
 subsection's label with its OWN regex (a paragraph-initial-marker
@@ -53,23 +54,50 @@ already-known annotation defect). The row's own real text defines
 `"number of years of membership"` via `"(c) As used in this subsection,
 ... means ..."` nested inside subsection `(2)`, and NATURALLY (no
 invented prose) reuses the same phrase twice more later in that SAME `(c)`
-clause, and ALSO uses it twice earlier inside sibling clauses
-`(2)(a)(A)`/`(2)(a)(B)` -- a different subsection of the very same
-article, before the definition even appears. Both directions' raw
-material already exist in one unmodified row; ground-truthed below via
-`re.finditer` on the real text, never hard-coded offsets.
+clause -- direction 1, kept below.
 
-The "different subsection, same article" direction needs the SAME
-article's body to carry ONLY the out-of-subsection mentions, with no
-in-subsection reuse alongside them -- otherwise a single surviving
-`USES_DEFINITION` assertion (Stage 3's dedup key is `(subject, object,
-proposition)`, not per-mention) cannot be attributed to either direction.
-`test_...different_subsection_does_not_link` therefore ingests the SAME
-real row's text MECHANICALLY TRUNCATED right after the defining sentence
-ends -- every remaining character is a real, verbatim substring of the
-vendored row, nothing invented -- which drops the two later in-subsection
-reuses while keeping the two earlier out-of-subsection ones and the
-definition itself intact.
+REMOVED (Planner pass 8, Task 1, director ruling D-S15): the second
+direction this file used to carry --
+`test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_
+subsection`, which called the row's own earlier `(2)(a)(A)`/`(2)(a)(B)`
+mentions "a DIFFERENT subsection" and asserted they must NOT link.
+
+That premise is factually wrong under D-S15. Reading the row's own raw
+markers: the definition at `(c)` (offset 3401 in the normalized body) sits
+inside top-level subsection `(2)` (marker at offset 1262); the mentions at
+offsets 2046/2344 (`(2)(a)(A)`/`(2)(a)(B)`) are in the SAME top-level
+subsection `(2)`, merely a different PARAGRAPH one level down. Under
+D-S15 (`"this subsection"` scopes to the OUTERMOST subdivision) those
+mentions SHOULD link, so the old assertion (`assert not uses_edges`) was
+pinning an under-link as though it were correct behavior.
+
+Simply flipping the assertion to `assert uses_edges` was rejected, not
+attempted: this row's OWN `resolve_unit_path` result is independently
+corrupted at exactly the offsets this proof would need. Core's resolver
+returns top-level `digit '1'` for the trigger (offset 3405) because it
+latches onto the CITATION `"under subsection (1) of this section"`
+(offset ~1735) instead of the real structural marker `(2)` -- a pin-cite
+stack-corruption defect, routed to core, not ours to fix. Because that
+SAME citation precedes both the trigger and the two out-of-subsection
+mentions in the raw text, all three coincidentally resolve to the same
+bogus `'1'` -- so a flipped assertion would have passed, but for the WRONG
+reason (a corrupted core resolver, not correct outermost semantics), which
+would have baked a core defect into this suite as though it demonstrated
+D-S15 correctness.
+
+Chose option (a) from the pass-8 brief: re-author the direction-2 proof
+onto a row whose resolver path is NOT corrupted, rather than (b) keep
+Oregon with a corruption caveat. The genuine "same top-level subsection,
+different paragraph, must link" proof (D-S15's whole point) now lives in
+`test_us_scoped_inline_pipeline_subsection_outermost_live.py` (South
+Carolina, upper_alpha-outermost ladder) and its digit-outermost sibling
+(Washington) -- both byte-verified free of this corruption class, both
+independently reproducing the manager's own S-R15-verdict harness result
+on real, unmodified corpus text. Direction 1 below is UNAFFECTED by any
+of this (it only proves "an in-subsection reuse links", true regardless
+of which step is stamped, and regardless of the corruption, since trigger
+and in-subsection mention share whatever step gets resolved) and is kept
+exactly as before.
 """
 
 from __future__ import annotations
@@ -166,67 +194,10 @@ def test_subsection_scoped_definition_links_a_mention_inside_its_own_subsection(
     )
 
 
-def test_subsection_scoped_definition_does_not_link_a_mention_in_a_different_subsection(
-    db_session, matter_with_users
-):
-    """Direction 2 of gate U2 for `scope="subsection"`: a mention of the
-    SAME term inside a DIFFERENT subsection of the SAME article (the real
-    row's own `(2)(a)(A)`/`(2)(a)(B)` clauses, both BEFORE the `(2)(c)`
-    definition) must NOT get a `USES_DEFINITION` edge.
-
-    Ingests the real row's text mechanically truncated right after
-    `_DEFINING_SENTENCE_END` -- every character kept is a real, verbatim
-    substring of the vendored row (no invented prose) -- which drops the
-    two LATER in-subsection reuses this file's other test exercises,
-    isolating this direction: the only candidate "reuse" mentions left in
-    this body are the two out-of-subsection ones, so any created
-    `USES_DEFINITION` edge would be directly attributable to one of them.
-    """
-    from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
-    from app.definition_links.pipeline import run_definition_linking
-    from app.models.definition import Definition
-
-    m = matter_with_users
-    row = _row()
-    text = row["text"]
-    def_end = text.index(_DEFINING_SENTENCE_END) + len(_DEFINING_SENTENCE_END)
-    truncated_text = text[:def_end]
-
-    out_of_subsection_offsets = [
-        match.start() for match in re.finditer(re.escape(_TERM), truncated_text) if match.start() < def_end
-    ]
-    # 2 out-of-subsection reuses plus the definition's own quoted entry.
-    assert len(out_of_subsection_offsets) >= 3, (
-        "truncation must keep the real row's own 2 out-of-subsection mentions plus the "
-        "definition's own entry -- ground truth missing, test cannot prove anything"
-    )
-
-    truncated_row = dict(row)
-    truncated_row["act_id"] = "STATE_OR_T22_C238_S238.300_SUBSECTION_ISOLATION_TRUNCATED"
-    truncated_row["text"] = truncated_text
-
-    ingest_us_statute_rows(
-        db_session,
-        repository_id=m["repository_id"],
-        matter_id=m["matter_id"],
-        title="Oregon Revised Statutes (subsection-scope live agreement proof, out-of-subsection direction)",
-        rows=[_clean(truncated_row)],
-        jurisdiction="US-OR",
-    )
-
-    result = run_definition_linking(
-        db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"]
-    )
-
-    nym_defs = [d for d in result["created_definitions"] if _TERM in d["terms"]]
-    assert nym_defs, "the real Oregon subsection-scoped definition was never captured from the truncated body"
-    definition_id = nym_defs[0]["id"]
-    definition_row = db_session.get(Definition, definition_id)
-    assert definition_row.scope == "subsection"
-
-    uses_edges = _uses_edges(result, db_session, definition_id)
-    assert not uses_edges, (
-        "a mention of 'number of years of membership' in a DIFFERENT subsection of the "
-        f"SAME article got a USES_DEFINITION edge anyway: {uses_edges!r} -- a subsection-"
-        "scoped definition must never link a mention outside its own subsection"
-    )
+# Direction 2 (a mention in a genuinely different top-level subsection must
+# NOT link) used to live here, on this same Oregon row. REMOVED, Planner
+# pass 8, Task 1, per director ruling D-S15 -- see the module docstring
+# above for why this row cannot supply that proof (its own resolved path is
+# pin-cite-corrupted at the relevant offsets) and where the real proof now
+# lives (`test_us_scoped_inline_pipeline_subsection_outermost_live.py` and
+# its Washington sibling).
