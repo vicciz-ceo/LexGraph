@@ -92,12 +92,22 @@ def _load_rows() -> dict[str, dict]:
     return {r["act_id"]: r for r in rows}
 
 
-def _term_counts() -> Counter:
+def _candidates() -> list:
+    """The raw candidate list (not flattened to a term Counter) -- added by
+    the Planner's cycle-P3 amendment (see `test_tx_rule_entry_term_
+    boundary_excludes_trailing_period` and its new sibling
+    `test_tx_rule_degenerate_trailing_period_row_residual_r1_blocked_on_
+    markers` below) so a test can identify a SPECIFIC candidate by its
+    `.terms` shape, not merely ask whether a spelling appears anywhere in
+    the flattened population."""
     row = _load_rows()["STATE_TX_Cgv_C2009_S2009.003"]
     profile = get_profile("US-TX")
     scope = profile.determine_scope(row["text"])
-    candidates = profile.extract_definitions_from_section(row["text"], scope=scope)
-    return Counter(t for c in candidates for t in c.terms)
+    return profile.extract_definitions_from_section(row["text"], scope=scope)
+
+
+def _term_counts() -> Counter:
+    return Counter(t for c in _candidates() for t in c.terms)
 
 
 # --- M-R18: guard defeated by the TX EntrySplitterRule's whole-text block -
@@ -227,8 +237,8 @@ def test_tx_rule_entry_term_boundary_excludes_trailing_period():
     for the SAME reason on MT's `"owns,"`.
 
     **CONFLICT this test's own fix would have created, RESOLVED via
-    ruling M-R19 item 3 (coordinated Planner amendment, this same
-    commit):** THREE tests elsewhere in this sprint's OWN
+    ruling M-R19 item 3 (coordinated Planner amendment, commit
+    `64e1634`):** THREE tests elsewhere in this sprint's OWN
     already-committed suite PREVIOUSLY REQUIRED `"rule."` (WITH the
     trailing period) to be the correctly-captured term, and were GREEN
     only because of it:
@@ -240,28 +250,110 @@ def test_tx_rule_entry_term_boundary_excludes_trailing_period():
         test_tx_parent_clause_redirect_list_2009_003`
       - `test_multiterm_f5_shared_clause.py::
         test_tx_parent_clause_redirect_list_2002_001`
-    All three were re-run live (2026-08-05) and confirmed PASSING at the
-    time, each depending on `"rule."` (with the period) appearing in the
-    extracted/persisted terms. Rather than leaving that coordination gap
-    for a future change, this commit amends all three (plus this file's
-    own dedup pin above and `test_definition_links_entry_splitter_
-    scope_and_length_bound.py`'s `_TX_REDIRECT_TERMS` tuple) to expect
-    bare `"rule"` in the SAME change as this note, so the suite is never
-    left internally inconsistent. Each of those now goes RED
-    (red-before-green, production still emits `"rule."` until the
-    Developer's fix lands) rather than GREEN-for-the-wrong-reason; they
-    are expected to turn GREEN together with this test once that fix
-    lands. Zero production edits were made to achieve this -- test-only
-    coordination, per this task's scope."""
-    counts = _term_counts()
-    assert "rule" in counts, (
-        f'expected the bare term "rule" (no trailing period) to be captured -- the period '
-        f"in the real row's own `(D) \"rule.\"` is the enclosing sentence's own terminal "
-        f"punctuation, not part of the defined word. Got term counts: {dict(counts)!r} -- "
-        f'"rule" (bare) is ABSENT; only "rule." (with the period) is ever produced today.'
+    All three were amended in that same commit (plus this file's own
+    dedup pin and `test_definition_links_entry_splitter_scope_and_
+    length_bound.py`'s `_TX_REDIRECT_TERMS` tuple) to expect bare
+    `"rule"`, so the suite was never left internally inconsistent.
+
+    **Planner cycle-P3 amendment (this commit) -- second half split out.**
+    This test previously ALSO asserted `"rule." not in counts` (the full
+    population never contains the period-bearing spelling at all). That
+    half is UNSATISFIABLE within this panel's authority: baseline's own
+    per-block splitter (`_leading_quote_candidate` / `_LEADING_QUOTE_RE`
+    in `app/definition_links/us_profile.py`) independently emits a
+    degenerate 1-term candidate `("rule.",)` from the SAME `(D) "rule."`
+    block -- `us_profile.py` is a SHARED module (its own header: "serves
+    every US-*/US-FED jurisdiction code, not a per-state fork") and gate
+    U3 ("rules ship as registry modules; ZERO shared-module edits")
+    forbids this sprint from touching it. That degenerate row is
+    Residual ledger R1, owned by markers (ruling M-R5), and does not
+    close until markers' entry-boundary work removes it -- see the new
+    `test_tx_rule_degenerate_trailing_period_row_residual_r1_blocked_on_
+    markers` below, which now carries that half as its own live,
+    still-RED pin (not merely a docstring note) so the requirement stays
+    ACTIVELY monitored rather than silently dropped.
+
+    What THIS test keeps and tightens is the half that is actually this
+    panel's own zero-miss guarantee: not just "bare `rule` appears
+    somewhere in the flattened term population" (which the now-inert
+    degenerate row could never satisfy anyway, so that alone would be a
+    weak check), but that it is F5's own combined parent-redirect
+    candidate specifically -- the one whose `.terms` is the 4-tuple --
+    that carries it. That is the candidate a real downstream mention of
+    "rule" actually resolves through."""
+    candidates = _candidates()
+    combined = [c for c in candidates if len(c.terms) == 4]
+    assert len(combined) == 1, (
+        f"expected exactly ONE combined 4-term parent-redirect candidate (F5's own "
+        f"`_parent_redirect_candidates`) among the full row's candidates; found "
+        f"{len(combined)}. All candidate term-tuples: {[c.terms for c in candidates]!r}"
     )
+    assert combined[0].terms == ("contested case", "party", "person", "rule"), (
+        f'expected F5\'s combined parent-redirect candidate to carry the bare term "rule" '
+        f"(no trailing period) as its 4th term -- the period in the real row's own "
+        f'`(D) "rule."` is the enclosing sentence\'s own terminal punctuation, not part of '
+        f"the defined word. Got: {combined[0].terms!r}"
+    )
+
+
+# --- Residual ledger R1 (rule.-shaped row): split out, still blocked ------
+
+
+def test_tx_rule_degenerate_trailing_period_row_residual_r1_blocked_on_markers():
+    """Residual ledger R1 (pre-existing, owned by markers per ruling M-R5
+    -- see module docstring item 2 and the sibling `contested_case`/
+    `party`/`person` dedup tests above for the shared root cause). SPLIT
+    OUT (Planner cycle-P3) from `test_tx_rule_entry_term_boundary_
+    excludes_trailing_period` above, which used to assert this same
+    condition as its second half (`"rule." not in counts`) until the
+    Developer's term-boundary fix made that shared test internally
+    self-contradictory: after the fix, bare `"rule"` and period-bearing
+    `"rule."` are two DIFFERENT strings that no longer collide in a flat
+    `Counter`, so the two concerns needed two tests to stay honest about
+    which one is satisfiable and which is not.
+
+    (a) **The row still exists.** `USProfile.extract_definitions_from_
+    section`'s baseline per-block pass (`_leading_quote_candidate`,
+    driven by `_LEADING_QUOTE_RE = re.compile(r'^[“"]([^”"]+)[”"]')`
+    in `app/definition_links/us_profile.py`) captures the real row's
+    `(D) "rule."` block verbatim, period included, producing a degenerate
+    1-term candidate `("rule.",)` with an empty `definition_text` --
+    confirmed live (Planner, this cycle) alongside F5's own correct
+    4-term combined candidate from the SAME block.
+
+    (b) **It is markers-owned, not this sprint's.** `us_profile.py` is a
+    SHARED module used by every `US-*`/`US-FED` jurisdiction, and gate U3
+    ("rules ship as registry modules; ZERO shared-module edits") forbids
+    this sprint from editing it. Residual ledger R1 already names this
+    exact row (`STATE_TX_Cgv_C2009_S2009.003`) and mechanism, owned by
+    markers under ruling M-R5, alongside its three siblings
+    (`contested case`/`party`/`person`) pinned above in this same file.
+
+    (c) **It is INERT, not harmful, today.** Before the Developer's
+    term-boundary fix, NO candidate anywhere carried bare `"rule"` --
+    F5's own combined candidate also said `"rule."` -- so a real
+    downstream mention of the word "rule" matched NOTHING (a genuine
+    zero-miss defect). After that fix (pinned by the sibling test above),
+    F5's combined candidate carries bare `"rule"` and the mention
+    resolves correctly; this degenerate `"rule."`-spelled row can never
+    match real prose (nothing in running text is spelled with a literal
+    trailing period fused to the word) -- it is pure noise, not a miss.
+
+    (d) **Closing condition.** This assertion becomes satisfiable again
+    -- and should be flipped from `not in` back to a positive check, or
+    simply deleted once confirmed structurally impossible -- only when
+    markers' entry-boundary work lands and the degenerate per-block rows
+    stop being produced for this row (ledger R1's own documented closing
+    condition, unchanged by this amendment). Until then this test is
+    EXPECTED to stay RED; that RED is the pin, not a bug in this test."""
+    counts = _term_counts()
     assert "rule." not in counts, (
-        f'"rule." (with the trailing period baked into the term string) must not be the '
-        f"captured term -- it will never match a real downstream mention of the word "
-        f"\"rule\" in running prose. Got term counts: {dict(counts)!r}"
+        f'"rule." (with the trailing period baked into the term string) is still produced '
+        f"by baseline's own per-block splitter in the SHARED `us_profile.py` module "
+        f"(gate U3 forbids this sprint from editing it) -- Residual ledger R1, owned by "
+        f"markers (ruling M-R5), closing only when their entry-boundary work removes the "
+        f"degenerate per-block rows. It is inert (cannot match real prose) now that F5's "
+        f'own combined candidate correctly carries bare "rule" (see the sibling '
+        f"boundary test above), so this is a precision/noise residual, not a zero-miss "
+        f"defect. Got term counts: {dict(counts)!r}"
     )
