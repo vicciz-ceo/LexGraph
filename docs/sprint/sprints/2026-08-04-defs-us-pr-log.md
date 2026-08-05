@@ -6008,3 +6008,79 @@ $ backend/.venv/bin/pytest backend/tests -q
 
 Branch `claude/defs-us-pr`, docs-only commit (this log entry + the
 contract correction) follows.
+
+---
+
+## 2026-08-05 — Manager: QA cycle-8 arbitration VERIFIED; ruling M-R16 settles the split
+
+### Handoff verification, materialized
+
+HEAD `c3b56a2` == origin, tree clean. Diff is **docs-only** (log + contract);
+`git diff --stat d0ea57a..HEAD -- backend/` → **empty**, so no test, fixture
+or production file was touched. Suite unchanged: `30 failed / 989 passed /
+13 xfailed`. QA stayed inside its write-set and reported the production
+comment text for routing rather than editing it — correct.
+
+### Ruling M-R16 — the split is SETTLED at 44 rejected / 191 retained
+
+**Adopted.** The reject count `44` is now confirmed by **five independent
+derivations**, the fifth being QA cycle-8's from-scratch script with
+byte-verified regex reconstruction from git blobs. The Planner's `61/208` is
+withdrawn as arithmetically impossible.
+
+**The +17 origin is CONFIRMED, not merely plausible.** QA measured the
+pre-existing typographic-dash defect population directly: `|B| = 17`, and
+`A ∩ B = 0` — disjoint from the 235-row population, exactly as the hypothesis
+required. Then `44 + 17 = 61` and `191 + 17 = 208`, landing on both reported
+figures exactly. That same 17-row set was the Planner's own "bonus validation"
+check; it was counted into BOTH buckets when it belongs in neither. This is a
+named mechanism, not a shrug.
+
+I record that I generated this hypothesis from bare arithmetic (61−44 = 17,
+208−191 = 17) and explicitly labelled it unverified because my own probe had
+just failed. QA did the work that turned it into a finding. The lesson I want
+kept: an arithmetic coincidence is a *lead*; the disjointness proof (`A ∩ B =
+0`) is what made it a *cause*.
+
+### Precision: requalified, and it survives
+
+The original ~41-53% was sampled from the contaminated 208-row frame (8.2%
+contamination). QA drew a **fresh** n=45 sample from its own uncontaminated
+retained population and hand-classified every row: **33.3% strict / 53.3%
+lenient**. The original estimate substantively transfers. QA's reasoning that
+this is sampling variance rather than a contamination signature is sound and I
+accept it: contamination-driven correction would push precision UP after
+cleaning, not down — so the direction of the strict-side movement argues
+against contamination being the driver.
+
+**Narrow-vs-drop is unchanged.** No director escalation under D-Q1.
+
+### Open item — the 233-vs-235 gap, and why I am NOT settling it by majority
+
+QA cycle-8's own population measured **233**, not the triple-corroborated
+**235**. It flagged this rather than forcing a match, which is exactly right.
+
+I am not dismissing it as outvoted. QA cycle-8 validated its splitter with a
+**full-corpus zero-mismatch cross-check against production's own
+`extract_definitions_from_section`** across 23,636 rows × 2 regex states —
+a stronger documented validation than any of the three runs that produced 235,
+none of which recorded an equivalent fidelity proof. Three agreeing scripts
+can share a common methodological assumption; a zero-mismatch proof against
+the real dispatch path is different evidence in kind. So the honest position
+is that **235 may be 2 too high**, not that QA is wrong.
+
+Why I am not spending a cycle on it: it is **immaterial to every decision
+made**. The disputed quantity was the split, and `reject = 44` is invariant
+across all five derivations; the 2-row gap is confined to the "brand-new"
+sub-count (211 vs 213) with "reclassified" matching exactly (22 = 22), and
+both genuine anchor rows are present and retained under every measurement.
+Recorded on the residual ledger as open, with the note that the lone dissenter
+carries the stronger validation — so whoever reopens it should start from
+QA cycle-8's method, not from the majority.
+
+### Actions
+
+1. Comment correction in `pr_profile.py` routed to a Developer (production
+   code is outside both QA's and my write-set — I write none of it).
+2. Residual ledger updated with the 233-vs-235 open item.
+3. M-R15 step 1a CLOSED. Next: step 2, P1 canonical wiring.
