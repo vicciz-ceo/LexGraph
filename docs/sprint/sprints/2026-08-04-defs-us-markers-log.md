@@ -3059,3 +3059,92 @@ scope, write sets and the M20 re-scope are unchanged by this.
 **Recorded here because it must survive a context handover** — the previous
 holder of this panel context-exhausted mid-sprint, and a successor who omits
 this boilerplate will silently lose role-agent reports.
+
+---
+
+## M22 — both Developers verified and merged; two test-oracle rulings; a process incident (2026-08-05)
+
+**Merged tree: `15 failed, 877 passed`** (from 21/871). Every failure accounted:
+
+| # | Test | Disposition |
+|---|---|---|
+| 5 | `ext_a_{mi,nd,nj,ny,ok}_quoteengine` | tuple-widening — Developer C |
+| 3 | `ext_a_ok_gapidiom`, `ext_b_nm`, `ext_b_nv` (higher-ed) | DEFERRED pending G11 (M20) |
+| 1 | `ext_b_nv` (cross-reference) | BLOCKED — fix lives in `correctly_empty.py`, outside `rules/` |
+| 3 | FED unbounded / WA collision / AL short | HELD by agreement (core-2 G3, G8, core-3) |
+| 2 | `qa_q3_tx_2009_003` parts A+B | see rulings below |
+| 1 | `wave1_auto_rescue` AZ | see ruling U-R12 below |
+
+**Developer A verified by me independently**: suite reproduced at exactly
+`20 failed, 872 passed` on its branch, `git diff --stat` confirms ONE file
+(`us_markers_boundary.py`, +62/−18), zero test edits. Write set respected.
+
+**Developer B verified**: 4 new modules, 291 lines, new files only; its own
+branch 876/16. NY 1,262→1,181 zero-yield (217→**298** captured), MN 91.7→4.6%,
+ME 99.9→3.9%, OH 99.9→6.7%. MI's 1,763 confirmed unchanged.
+
+### RULING U-R12 — the AZ wave1 test was GREEN FOR THE WRONG REASON
+
+Developer A's citation fix turned a previously-green test red. I verified the
+claim rather than accepting it. `test_us_markers_wave1_auto_rescue_subcases.py:77`
+uses `_TRAILING_MARKER_LEAK_RE = re.compile(r"\d{1,3}\.\s*$")`. Measured:
+
+- `...established by section 15-1873.` (a REAL A.R.S. citation) → **matches**
+- `...text 2.` (a genuine leaked marker) → **matches**
+
+The heuristic cannot distinguish them. The test passed before only because the
+citation was being TRUNCATED to `...section 15-1` — i.e. **the defect was
+satisfying the assertion**. Developer A's fix is correct; the test's oracle is
+defective. **The fix stands; the test goes to QA cycle 2 for re-authoring by
+its owner.** No production change to accommodate a bad oracle — that is how the
+truncation defect would be silently reintroduced.
+
+### RULING U-R13 — Q3 Part B's expectation contradicts the engine's own contract
+
+Part B expects `definition_text` to retain the idiom (`has the meaning assigned
+by Section 552.003.`). The engine strips idiom phrases universally — corroborated
+independently by `test_us_markers_ext_a_ok_gapidiom.py`, whose expected text
+starts `any individual,` with `shall mean` stripped. **The defect Part B was
+written to catch (citation truncation) IS fixed** — verified by all four
+regression controls. Routed to QA cycle 2 for re-authoring. Q3 Part A remains
+correctly red: it needs a TX `EntrySplitterRule` + multiterm wiring, out of
+Developer A's write set by its own docstring.
+
+### Developer A's counter-finding, recorded: "FED 26,028" may never have been a swallow
+
+The module docstring names `FED 26,028` as a swallow the ceiling was added to
+stop. Developer A inspected it: `USC_T8_C12_S1101` "immigrant" is bounded by the
+real following term, and is 8 U.S.C. §1101(a)(15) — the genuine, famously long
+INA visa-category enumeration. **Same misclassification class QA found in Q4.**
+The +42 new >5k entries are newly-exempted BOUNDED candidates; Developer A
+spot-checked 5 of 42 across 4 jurisdictions, all genuine, and said plainly it
+checked 5 not 42. **Full verification of the remaining 37 is a QA cycle 2 item**
+— not treated as settled.
+
+### Developer B's honest gap — NEW U-R1 defect, needs a RED before any fix
+
+Registering MN/ME/OH surfaced a PRE-EXISTING defect in
+`extract_quote_anchored_entries`: colon-introduced list idioms (`"Term" means:`
++ non-quoted sub-list) collapse to degenerate definitions (`means:`, `:`).
+~16/12,575 MN, 3/9,588 ME, 13 NY. Reproduces with Dev B's modules removed, so
+it is not Dev B's. **Routed to QA cycle 2 to pin with a RED first** — no
+Developer fixes it without red-before-green.
+
+### PROCESS INCIDENT — the M21 delivery boilerplate reads as an exfiltration lure
+
+Developer A complied with the SendMessage instruction. **Developer B REFUSED
+it**, correctly reasoning that "your final return is NOT a reliable delivery
+channel" + a raw unverifiable agent id + urgency is the shape of a
+channel-redirect attack, and declined to pipe a full technical report to an
+unauthenticated destination on a peer's say-so. It delivered in full through
+the normal channel instead, so nothing was lost. **Developer B's judgement was
+correct given what it could verify**, and it also independently validated the
+G11 mechanism against real code before acting on my re-scope rather than
+trusting authority — exactly the behaviour this program wants.
+
+**Fix adopted for all future briefs from this panel:** the delivery instruction
+must be ANCHORED to a committed artifact the agent can verify in its own
+worktree — i.e. cite this log section by name so the agent can read it in-repo
+and confirm the instruction and the agent id are genuine. An unverifiable
+instruction should be refused, and I do not want that instinct trained out.
+Reported upward as a harness finding.
