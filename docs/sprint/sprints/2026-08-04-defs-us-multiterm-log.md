@@ -3716,3 +3716,57 @@ marker; cross-reference entries are rescued by F6, plain-`means` entries are
 MISSED outright; 111 occurrences / 91 TX sections, zero in 8 other states) as
 an entry-marker-mismatch item, sized honestly as "the shape occurs 111 times",
 with the genuine-miss count explicitly NOT claimed.
+
+---
+
+## 2026-08-05 — M-R26: G8 altitude CONFIRMED persist-layer; two-altitude design closed
+
+Program manager, authoritative, recorded here so no panel re-litigates it:
+
+> **G8 is PERSIST-LAYER by design.** Its shipped mechanism is the update path
+> in `pipeline.py`'s Stage-2 persistence loop (containment-based replacement on
+> key collision). **It never touches candidate emission.**
+
+### What this settles
+
+The caveat I raised to the markers manager and the program manager — that
+"a G8 fix satisfies your pin either way" holds ONLY if G8 resolves at candidate
+level — was correct, and the answer is that it does NOT. Two candidates for
+`Governmental body` genuinely DO coexist at extraction time on TX `2009.003`
+after markers merges. Any assertion of "exactly one candidate" over the
+cross-panel union is therefore permanently unsatisfiable by design, not
+pending — exactly the trap the M-R23 `rule.` episode taught this panel to
+detect (an assertion that can never pass is worse than a failing one, because
+it looks like unfinished work forever).
+
+### The two-altitude design, as it now stands
+
+| Altitude | Pin | Owner | Satisfied by |
+|---|---|---|---|
+| Our rule's own emission | our `TermClauseRule` contributes <= 1 candidate for the term on this row | this panel | our M-R18 guard (already fixed + M-R23-narrowed) |
+| Persisted / asserted outcome | one mention -> exactly one `USES_DEFINITION`, correct persisted `definition_text` | this panel | G8's containment-based preference |
+| Degenerate production | markers' length-based class-B pin | markers | core-follow-on-3's boundary discriminator |
+
+No panel encodes another's theory; each pin fails only for its own owner's
+reason. The re-scope now in flight (Planner `plan-p5`) implements the first two
+rows of that table.
+
+### The finding going into the program record
+
+Recorded by the program manager as the one-sentence statement of why the
+preference layer is the only sound resolution point:
+
+> **Both panels treated baseline EMISSION as a proxy for baseline
+> CORRECTNESS, with opposite polarities.** Multiterm's M-R18 guard assumed
+> baseline HAD captured a term wherever a marker+quote appeared — false for
+> hyphen-suffixed markers, and it destroyed F6's only capture across up to 91
+> TX sections (M-R23). Markers' counter-case is the inverse: baseline HAD
+> emitted the term, but as a 10,838-char whole-section swallow, so deferring to
+> it would delete the only clean capture. Same wrong proxy, opposite
+> directions, and neither is fixable at the emission layer — only where the two
+> candidates can be COMPARED.
+
+That this panel supplied one of the two polarities from its own defect, found
+by corpus kill-experiment rather than by the suite, is the part worth keeping:
+the general rule was derivable only because both failure directions were
+measured on real rows.
