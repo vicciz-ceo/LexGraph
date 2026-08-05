@@ -3003,3 +3003,42 @@ rather than letting my fix look stronger than it is: committing the id defeats
 a chat-only lure, not an attacker who already controls the branch. Treating it
 as corroboration while keeping the plain-text return as the authoritative
 channel is exactly the right posture.
+
+---
+
+## 2026-08-05 — Manager: S-R17 split handed to the markers panel directly
+
+Program confirmed my recommendation. Coordinated peer-to-peer with the markers
+phase-3 manager (`a5c69b8e918e550cf`) rather than through the program manager.
+
+Handed over: **1,675 rows / 3,394 (row,term) pairs** as the sole pricing basis;
+the IL embedded-caption bucket (618) excluded pending a shape-validity check,
+with the citation-tail-misparse reasoning spelled out and the "not an Illinois
+quirk" correction stated explicitly (477/618 IL, eight other states); the 19-row
+marker-chain bucket left unpriced on its analyst's own thin-coverage flag.
+
+Written for a manager with none of my context, so it carries the things that
+are easy to lose in a handoff and expensive to rediscover:
+
+- **The inherited tension, with the escalation path named.** `_MARKER_QUOTE_RE`
+  and `test_marker_quote_adjacency_gate_is_load_bearing_alabama` stay
+  byte-untouched; the work is additive for exactly that reason. If their
+  classification piece ever implies widening that gate, they escalate — it is a
+  D-Q1 director call, not a regex tweak.
+- **The "in general" poisoning trap** in their half (144/3,963 occurrences,
+  94 rows), stated as a poisoning mode rather than a precision cost.
+- **Eight reproducible act_ids I verified personally**, labelled by what each
+  one demonstrates — including the three that are ALREADY F3-rescued and
+  therefore nobody's miss (among them `STATE_AL_T13A_C11_S13A-11-1`, the row
+  that motivated the entire item), and the `William G. "Bill" Bankhead, Jr.`
+  row where a naive capture takes "Bill" as a defined term.
+- **The dual-path methodology note as program law**, since it will bite any
+  census they run: checking only heading-rescue left 33% false positives here
+  (1,145 of 6,097 rows already captured via an unrelated trigger elsewhere in
+  the same body).
+- **Verify-me-first instructions** pointing at the committed delivery contract,
+  including its honest limit — corroboration against a chat-only lure, not
+  proof against a branch-writer.
+
+Offered a re-cut on request rather than a re-census; the artifacts exist and a
+different slice is cheap.
