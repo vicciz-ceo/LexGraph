@@ -17,7 +17,15 @@ duplicates a term changes the set) plus one full `definition_text` pin per
 row (a content-fidelity spot check, not exhaustive -- rows here carry up
 to 16 terms; pinning every
 one's full text would bloat this file past the 300-line convention for
-marginal extra protection over the term-set check)."""
+marginal extra protection over the term-set check).
+
+**Re-pinned 2026-08-05 (phase-3 Planner, U-R17/M35 work order item 1)**:
+Developer C's US-OK registration surfaces genuine new terms on 3 of this
+file's rows, verified against source (U-R16 vacated the spurious theory).
+ONE is class-B (`## M37`'s closed list: 'gallon', truncated to the 3-char
+stub `"one"`) -- pinned for PRESENCE only here; its defective text is
+pinned separately, RED, in
+`test_us_markers_c5guard_class_b_boundary_defects.py`, not baked in."""
 
 from __future__ import annotations
 
@@ -75,7 +83,10 @@ def test_c5_guard_state_ok_t3_s3_65_1v1(db_session, matter_with_users):
     """STATE_OK_T3_S3-65.1v1: pins 9 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_OK_T3_S3-65.1v1")
-    assert sorted(by_term) == ['Air navigation facility', 'Airport', 'Airport hazard', 'Helipad', 'Heliport', 'Municipality', 'Person', 'VTOL aircraft', 'Vertiport'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): devC's US-OK registration adds
+    # one genuine new term ('Municipal'), verified against source, not
+    # class-B.
+    assert sorted(by_term) == ['Air navigation facility', 'Airport', 'Airport hazard', 'Helipad', 'Heliport', 'Municipal', 'Municipality', 'Person', 'VTOL aircraft', 'Vertiport'], f"got {sorted(by_term)!r}"
     spot = by_term['Air navigation facility']
     assert spot.definition_text.strip() == 'means any facility - other than\n\none owned and operated by the United States - used in, available for\n\nuse in, or designed for use in, aid of air navigation, including any\n\nstructures, mechanisms, lights, beacons, markers, communicating\n\nsystems, or other instrumentalities, or devices used or useful as an\n\naid, or constituting an advantage or convenience, to the safe taking\n\noff, navigation, and landing of aircraft, or the safe and efficient\n\noperation or maintenance of an airport, and any combination of any\n\nor all of such facilities.', (
         f"content-fidelity spot check failed for 'Air navigation facility': got {spot.definition_text!r}"
@@ -85,7 +96,16 @@ def test_c5_guard_state_ok_t63_s63_1054(db_session, matter_with_users):
     """STATE_OK_T63_S63-1054: pins 16 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_OK_T63_S63-1054")
-    assert sorted(by_term) == ['Area of operation', 'Authority', 'Bonds', 'City', 'Clerk', 'Federal government', 'Governing body', 'Housing project', 'Major disaster', 'Mayor', 'Obligee of an authority', 'Persons engaged in national defense activities', 'Persons of low income', 'Real property', 'Slum', 'State public body'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): devC's US-OK registration adds
+    # 2 genuine new terms ('County', 'project'), verified against source,
+    # neither class-B. NOTE (out of this Planner's scope, recorded for
+    # completeness): M34 separately found baseline's OWN pre-existing
+    # 'Area of operation' candidate is a degenerate 6-char "means:" capture,
+    # discarded by G8's quality-blind first-wins dedup in favor of a correct
+    # 941-char one -- a core-2 G8 defect, not a class-A/B question for this
+    # file (baseline created 'Area of operation' before this widening and
+    # continues to win the collision either way).
+    assert sorted(by_term) == ['Area of operation', 'Authority', 'Bonds', 'City', 'Clerk', 'County', 'Federal government', 'Governing body', 'Housing project', 'Major disaster', 'Mayor', 'Obligee of an authority', 'Persons engaged in national defense activities', 'Persons of low income', 'Real property', 'Slum', 'State public body', 'project'], f"got {sorted(by_term)!r}"
     spot = by_term['Persons of low income']
     assert spot.definition_text.strip() == 'shall mean persons or families who\n\nlack the amount of income which is necessary (as determined by the\n\nauthority undertaking the housing project) to enable them, without\n\nfinancial assistance, to live in decent, safe and sanitary\n\ndwellings, without overcrowding, however, the local housing\n\nauthority shall not exceed the guidelines in establishing incomes\n\nset forth by the Department of Housing and Urban Development.', (
         f"content-fidelity spot check failed for 'Persons of low income': got {spot.definition_text!r}"
@@ -115,7 +135,12 @@ def test_c5_guard_state_ok_t68_s68_701(db_session, matter_with_users):
     """STATE_OK_T68_S68-701: pins 1 term(s) as currently captured by baseline
     alone. Regression guard -- not a target."""
     by_term = _run(db_session, matter_with_users, "STATE_OK_T68_S68-701")
-    assert sorted(by_term) == ['Commission'], f"got {sorted(by_term)!r}"
+    # Re-pinned per U-R16/U-R17 (M34/M35/M37): devC's US-OK registration adds
+    # 9 genuine new terms, verified against source. ONE is class-B (`## M37`'s
+    # closed list: 'gallon', truncated to the 3-char stub "one") -- pinned
+    # for PRESENCE only here; its defective text is pinned separately, RED,
+    # in `test_us_markers_c5guard_class_b_boundary_defects.py`, not baked in.
+    assert sorted(by_term) == ['Commission', 'Tax Commission', 'fuel', 'gallon', 'person', 'public highway', 'special fuel dealer', 'special fuel user', 'use', 'vehicle'], f"got {sorted(by_term)!r}"
     spot = by_term['Commission']
     assert spot.definition_text.strip() == 'or "Tax Commission" means the Oklahoma Tax\n\nCommission.\n\nOklahoma Statutes - Title 68. Revenue and Taxation Page 336\n\n(d) The term "special fuel" or "fuel" means and includes all\n\ncombustible gases and liquids, including liquefied gases, which\n\nexist in the gaseous state at a temperature of sixty (60) degrees\n\nFahrenheit and at a pressure of fourteen and seven-tenths (14.7)\n\npounds per square inch absolute, but the term does not include\n\ncompressed natural gas subject to the levy of tax pursuant to\n\nparagraph 3 of subsection A of Section 500.4 of this title or\n\nliquefied natural gas subject to the levy of tax pursuant to\n\nparagraph 4 of subsection A of Section 500.4 of this title.\n\n(e) The term "use" shall mean and include the following: (1)\n\nthe delivery or placing of special fuel into the fuel supply tank or\n\ntanks of any motor vehicle in this state for use in whole or in part\n\nto propel such vehicle on the public highways of this state; (2) the\n\nconsumption on the public highways of Oklahoma of any special fuel\n\nimported into this state in the fuel supply tank or tanks of any\n\nmotor vehicle using the public highways of this state for commercial\n\npurposes; (3) the consumption of special fuel in any type of motor\n\nvehicle on the public highways of this state for any purpose by any\n\nperson who refuses to divulge the source of such fuel.\n\n(f) The term "public highway" means and includes every road,\n\nhighway, street, way or place within this state, of whatever nature,\n\ngenerally open to the use of the public as a matter of right for the\n\npurposes of vehicular travel, including a toll highway, and\n\nincluding streets and alleys of any town or city, notwithstanding\n\nthat the same may be temporarily closed for the purpose of\n\nconstruction, reconstruction, maintenance, or repair.\n\n(g) The term "gallon" means one (1) United States standard\n\ngallon at a temperature of sixty (60) degrees Fahrenheit.\n\n(h) The term "special fuel dealer" shall mean any person\n\nengaged in the business of handling special fuel who delivers any\n\npart thereof into the fuel supply tank or tanks of any motor\n\nvehicle.\n\n(i) The term "special fuel user" shall mean and include any\n\nperson other than a special fuel dealer, who uses special fuel in\n\nthis state, within the meanings of the word "use" as defined in this\n\nact, and shall include any person who consumes special fuel to\n\npropel a motor vehicle upon the public highways of this state when\n\nsuch special fuel has been purchased or obtained from any source\n\nfree from the payment to this state of the tax levied by this act.', (
         f"content-fidelity spot check failed for 'Commission': got {spot.definition_text!r}"
