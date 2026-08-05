@@ -6310,3 +6310,123 @@ containment (M20, untouched) + 3 new REDs this session). `836` passed
 unchanged from the post-D-1a baseline. `bash scripts/contract_lint.sh
 2026-08-04-defs-il` -> **PASS 398**. `git diff --name-status HEAD --
 backend/app` -> empty, verified.
+
+---
+
+## 2026-08-05 — M29: separator Planner ACCEPTED and merged; it corrected me by an order of magnitude; ruling on the 300-line gate
+
+### Boundaries (verified BY ME)
+
+`git diff --name-status <fork>...ab38588 -- backend/app` → **empty**. Only
+additions under `backend/tests` (3 fixtures + 1 test module) + log append;
+zero existing tests edited; containment test untouched. **All 3 fixtures
+independently byte-verified BY ME** as verbatim substrings of their real
+corpus source files (`קובץ החלטות מועצת מקרקעי ישראל`, `חוק הפסיכולוגים`,
+`פקודת מס הכנסה`) — not taken on report. Post-merge suite, my own run:
+**`5 failed, 840 passed`** (3 new separator REDs + the 2 core-blocked
+containment REDs; D-1b's 4 E6 confirmed green after the merge). Lint
+PASS 398.
+
+### It corrected me, which is what I asked for
+
+My M25 lead was **230 lines / 160 files**. I flagged it as an upper
+bound; the Planner did the work and the decision-relevant number is
+**20 lines / 13 files** — an order of magnitude smaller:
+
+```
+או:   243 entry lines corpus-wide
+      -20 no real split dash (different phenomenon)
+      -181 inside הגדרות-headed articles (frozen path, ALREADY CORRECT)
+      -26 ordinary articles never reached by the list-shape scan at all
+      = 16 lines / 9 files actually reaching the buggy path
+ו- :  37 total -> 4 REACHED / 4 files
+ו  :  1 line corpus-wide, and it is inside a הגדרות article
+      => ZERO live gap, not merely "negligible"
+```
+
+All 20 live-reconfirmed against `extract_local_scope_definitions`: term 1
+captured, term 2+ silently missing. This is the M18 discipline working as
+intended — my number counted the SHAPE, the Planner's counts the shape
+*that reaches the broken code path*. Recording the correction prominently
+because the 230 is already in this log at M25 and must not be the number
+anyone carries forward.
+
+### The cross-check I asked for, answered plainly
+
+D-1a's own sweep script (still in the shared scratchpad) uses
+`re.fullmatch(r'[,\s]*(?:או|ו)?[\s]*', gap)` for gap-validation — which
+**does match `או`**. So `או`-joined entries were inside D-1a's reported
+392 confirmed-missing lines. But its separator breakdown only tested for
+comma and direct-prefix `ו"`, so `או`-only pairs fell into no bucket:
+**83 + 203 + 72 = 358, against its own reported 392 — an unexplained 34.**
+
+Conclusion, stated plainly as I asked for: **D-1a's own 392/963/207
+headline was not fully closed by the fix that shipped against it.** That
+is not a fault in D-1a's work — it was honestly scoped, precision-argued,
+and shipped zero regressions — but the headline number and the delivered
+closure were not the same thing, and only a cross-check caught it. This
+is the second time in this cycle that a green test suite coexisted with
+an unclosed class (see M28's 3-fixtures-vs-489-articles finding). Both go
+into D-2's rationale.
+
+### FP analysis — my specific concern was verified, not assumed
+
+I asked whether `או` between two quoted spans could capture a
+non-definitional second "term", specifically for an entry whose
+DEFINITION TEXT contains quoted phrases. The Planner found **13 real
+corpus files** with exactly that shape, e.g. `תקנות ביטוח בריאות ממלכתי`:
+`"כירורגיה גדולה" - כירורגיה שאינה "כירורגיה זעירה", "כירורגיה קטנה"
+או "כירורגיה בינונית";` — three or/comma-joined quotes, all AFTER the
+dash. Traced `_find_dash_marker` on that exact line: the header is
+`"כירורגיה גדולה"` alone and the dash follows immediately, so the three
+post-dash quotes never enter the header string. **Safe by construction**,
+provided any `או` widening extends `_TERM_SEP_RE`'s alternation and does
+NOT touch the dash-then-header boundary. No escalation — a real risk,
+checked against real data, and closed.
+
+Hand-read all 20 confirmed gap lines (not a sample): every one a genuine
+Hebrew drafting convention (near-synonyms, or canonical-name + alias
+sharing one definition). Zero non-definitional captures.
+
+### RULING — the 300-line style gate is scoped to PRODUCTION files
+
+The Planner's test module is 326 lines and it flagged the gate rather
+than silently assuming an exemption. Correct instinct, and it is right on
+the merits. Measured by me just now:
+
+```
+test files (IL definitions area)      production rule files
+  1154, 440, 439, 419, 350, 273         285 (registry.py), 242, 187, ...
+```
+
+Every prior `_live.py` integration module in this area is already well
+over 300, and every log entry invoking the gate names a *rule file*.
+**Ruling: the gate governs production modules, where it exists to stop
+one file accumulating unrelated responsibilities. Test modules are bound
+by fixture-provenance and one-assertion-per-reason discipline instead,
+not a line count** — splitting a test file to hit 300 would scatter a
+single coherent RED story across modules for no benefit. 326 lines is
+accepted. Flagging rather than assuming was the right call and I want
+that behaviour repeated.
+
+### NEW finding carried to the certification (not this sprint's work)
+
+The Planner's exclusion arithmetic surfaced something bigger than the gap
+it was chartered to measure: **29 ordinary-article entry lines are never
+reached by any list-shape rule at all** (missing/malformed preamble
+line) — and this is not a scattered tail. **`חוק הפרשנות` art.3 and
+`פקודת הפרשנות` art.1 have their ENTIRE definitions lists unreached
+today**, every entry, not merely the multi-term ones. Those are the
+Interpretation Laws — the statutes whose whole function is defining terms
+used across the corpus. A pre-existing gap, out of this bundle's scope,
+**named here and routed to D-2's cluster set**; it is exactly the kind of
+high-value miss a signal-driven forward sweep never trips over, because
+nobody thinks to grep for "articles with no preamble".
+
+### Honest gaps I inherit and endorse
+
+1. The Planner did not reconcile its 16/4 against D-1a's unexplained 34
+   line-by-line (same conclusion, different granularity).
+2. It did not check whether `או`/`ו-` also affect the quote-first or
+   class-C heading-embedded shapes — out of its brief, flagged for D-2.
+3. The 29 unreached lines are named, not fixed.
