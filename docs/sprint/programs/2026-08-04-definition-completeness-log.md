@@ -83,6 +83,36 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (endgame batch: G8 rulings, U-R14 vacated, R6, M-R23 closed):
+  CORE-2 ruled the two routed G8 items: cross-term coverage assumption
+  WITHDRAWN (persistence keys make class-D structurally unreachable by G8
+  — re-routed to core-3 boundary work); improvement-suppression accepted
+  as named limitation → core-3 with a semantic-emptiness design steer (not
+  a length threshold); AND the manager found the un-reported MIRROR mode —
+  reverse ordering lets G8 replace a good 941-char definition with a
+  degenerate "means:" — ruled a MANDATORY pre-merge corpus check (amend
+  before merge if any real row exhibits it; new-damage class, not
+  follow-on). MARKERS vacated U-R14 (the 'facility' term is a genuine
+  same-sentence alias; three consecutive panel holders mis-called it, each
+  error named; devC cleared, sequenced behind re-pins with
+  no-defect-baked-in constraint); bounced a Planner task on the
+  raw-vs-normalized trap (U-R11 recurring); refuted M24's NJ Cost
+  duplicate (pre-persistence only). MULTITERM closed M-R23 with
+  whole-class verification (all 122,535 TX rows: 0 terms lost, guard
+  changes exactly ONE row — the designed dedup); the regression was ~45x
+  the sampled estimate (111 occ / 91 TX sections — TX-specific (9-a)
+  insertion convention); NEW R6 routed: baseline cannot open a block at
+  hyphen-suffixed markers, so `(4-a) "Distributor" means…` entries are
+  missed OUTRIGHT, TX-wide — zero-miss breach in core-owned marker
+  vocabulary → CORE-3 accumulator (family-3-adjacent; markers informed
+  peer-to-peer). Core-3 accumulator now: citation-vs-marker discriminator
+  (ANCHOR, context-API constraint binding, UCC template evidence),
+  truncation-class trigger classification, item/subitem vocabulary,
+  AZ bare-digit-dot, WA mid-paragraph, MI spaced markers, CT conventions,
+  G8 improvement-suppression, class-D cross-term containment, TN
+  kind/value decoupling (1-of-8), hyphen-suffixed markers (R6), 309-line
+  split.
+
 - 2026-08-05 (truncation class ruled + preamble certification withheld):
   SCOPED-INLINE escalated the trigger-region truncation class with full
   verification: mechanism predates the sprint (two-commit proof at
