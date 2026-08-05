@@ -89,6 +89,48 @@ union (unconditional, `body_confirms=None` if shipped as its own
 registered `HeadingRule`, or simply added to the existing union -- the
 Developer's choice, not pinned here).
 
+### Planner note (plan6) -- premise update for the item-12 negative pin
+
+`test_pointer_table_heading_not_reachable_via_existing_rules`, as
+originally written, asserted `matches_heading_variant_unconditional`/
+`matches_heading_variant` themselves returned `False` for the CT/CO
+pointer-table headings, to prove item 12 was closing a genuinely NEW gap
+rather than something already reachable pre-cycle-5. That was correct and
+necessary WHEN WRITTEN -- it was a snapshot taken deliberately against
+"the CURRENTLY SHIPPED module, before this item's fix" (its own docstring's
+words), i.e. against cycle 4, to justify that item 12 was warranted rather
+than redundant with items 10/11.
+
+Item 12 has since landed (this cycle) and, exactly as this module's own
+docstring above specifies, folded `matches_pointer_table_heading` directly
+into BOTH union functions' bodies (see `__init__.py`). The union functions
+now correctly return `True` for these headings -- proven by
+`test_pointer_table_heading_recognized_unconditionally` above, item 12's
+own REQUIRED RED test, now green. The old pin's literal assertion (`False`
+at the union level) therefore asserts the absence of a capability the
+panel deliberately built, directly contradicting the sibling test on the
+same two inputs. Flipping it to `True` would only duplicate that sibling
+test.
+
+What the pin was REALLY protecting -- that the pointer-table shape is not
+reachable via R-MID's preposition-guarded tail-token check or via
+R-VERB-bare/extended's `defined`-ending checks, i.e. that it is a
+genuinely NEW heading shape requiring its own dedicated predicate
+(R-POINTER) rather than an accidental side effect of an existing rule's
+connector whitelist widening to swallow it -- is still true today and
+still worth guarding. `test_pointer_table_heading_not_reachable_via_
+existing_rules` is therefore RE-AUTHORED (not removed, not inverted) below
+to assert that narrower, still-true property directly at the MECHANISM
+level: it calls `rule_mid`, `rule_verb_bare`, `rule_verb_extended`, and
+`rule_verb_extended_unconditional` individually (not the union) and pins
+them at `False` for both headings, verified live against the shipped
+cycle-5 module. This is strictly stronger than either the old pin or a
+naive inversion: it pins WHICH mechanism does the capturing (R-POINTER
+alone), so a future widening of R-MID or R-VERB-extended that accidentally
+started matching these headings independently would be caught here, even
+though the union-level result would stay `True` either way and give no
+signal.
+
 ## Item 13 -- `defined (qualifier)` / `defined to [verb]` (7 rows)
 
 A parenthetical or the connector word `to` immediately after `defined` is
@@ -415,31 +457,58 @@ def test_pointer_table_heading_recognized_unconditionally(act_id, reason):
     assert matches_heading_variant(row["section_title"]) is True
 
 
-def test_pointer_table_heading_not_reachable_via_existing_rules():
-    """Proves this is a genuinely NEW heading shape, not a connector-
-    whitelist gap items 10/11 would also close -- neither the existing
-    R-MID preposition-guarded mid-token check nor R-VERB-bare/extended
-    fire on either sub-family today (verified against the CURRENTLY
-    SHIPPED module, before this item's fix)."""
+def test_pointer_table_capture_is_via_dedicated_predicate_not_existing_rules():
+    """RE-AUTHORED (plan6) from `test_pointer_table_heading_not_reachable_
+    via_existing_rules` -- see this module's docstring, section "Planner
+    note (plan6) -- premise update for the item-12 negative pin", for the
+    full history of why the original union-level assertion (`matches_
+    heading_variant_unconditional(...) is False`) went stale the moment
+    item 12 landed and folded `matches_pointer_table_heading` into that
+    same union: it now directly contradicts `test_pointer_table_heading_
+    recognized_unconditionally` above on the identical two inputs, so it
+    could not simply be flipped to `True` either -- that would only
+    duplicate the positive test.
+
+    What survives is the NARROWER, still-true, non-redundant claim: the
+    pointer-table shape is captured SPECIFICALLY by R-POINTER
+    (`matches_pointer_table_heading`), not by any accidental widening of
+    R-MID's preposition-guarded tail-token check or R-VERB-bare/extended's
+    `defined`-ending checks. Pinned here at the MECHANISM level, by calling
+    those rule functions directly rather than the union, verified live
+    against the shipped cycle-5 module (both return `False` for both
+    headings today)."""
     from app.definition_links.rules.us_heading_variants import (
-        matches_heading_variant,
-        matches_heading_variant_unconditional,
+        rule_mid,
+        rule_verb_bare,
+        rule_verb_extended,
+        rule_verb_extended_unconditional,
     )
 
     rows = _pointer_rows()
     other_defined_terms = rows["STATE_CT_T36a_C664_S36a-3"]["section_title"]
     index_of_definitions = rows["STATE_CO_T5_A1_P3_S5-1-303"]["section_title"]
 
-    # "Other defined terms." -- last tail token is "terms", not "defined";
-    # R-VERB-bare/extended cannot fire on it.
-    assert matches_heading_variant_unconditional(other_defined_terms) is False
-    assert matches_heading_variant(other_defined_terms) is False
-
-    # "Index of definitions in code" -- "definitions" IS a mid tail token,
-    # but immediately preceded by "of" -- the SAME preposition-exclusion
-    # guard that protects the D-HG 245-row cluster suppresses it here too.
-    assert matches_heading_variant_unconditional(index_of_definitions) is False
-    assert matches_heading_variant(index_of_definitions) is False
+    for heading in (other_defined_terms, index_of_definitions):
+        # "Other defined terms." -- last tail token is "terms", not
+        # "defined"; "Index of definitions in code" -- "definitions" IS a
+        # mid tail token, but immediately preceded by "of" -- the SAME
+        # preposition-exclusion guard that protects the D-HG 245-row
+        # cluster suppresses it here too. Neither sub-family reaches
+        # R-MID or R-VERB-bare/extended independently of R-POINTER.
+        assert rule_mid(heading) is False, (
+            f"{heading!r}: R-MID's preposition-guarded tail-token check must "
+            "not independently fire on the pointer-table shape"
+        )
+        assert rule_verb_bare(heading) is False, (
+            f"{heading!r}: last tail token is not exactly 'defined'"
+        )
+        assert rule_verb_extended(heading) is False, (
+            f"{heading!r}: R-VERB-extended's connector whitelist must not "
+            "independently fire on the pointer-table shape"
+        )
+        assert rule_verb_extended_unconditional(heading) is False, (
+            f"{heading!r}: same, unconditional variant"
+        )
 
 
 # === Item 13 -- `defined (qualifier)` / `defined to [verb]`, GATED ==========
