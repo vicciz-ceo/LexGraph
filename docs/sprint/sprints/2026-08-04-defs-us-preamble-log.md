@@ -4833,10 +4833,12 @@ and recovered the predecessor Planner's clean committed work at `a72c6a3` on
 now pushed byte-for-byte to `origin`; it is **one commit on each side** of the
 shared branch and must be reviewed/reconciled, not recreated.
 
-Fresh sub-manager: **`/root/preamble_cycle9_manager`**, GPT-5.6 Sol / high.
-Sol/high is the cheapest fit for succession arbitration across P-FP,
+Fresh preamble assignment: **`/root/markers_panel_manager`**, GPT-5.6 Sol /
+high, reused only after its separate markers panel closed and released its
+QA. Sol/high is the cheapest fit for succession arbitration across P-FP,
 D-MT-E1, D-INCLUDES, the stale 444-line contract, and a recovered Planner
-artifact; it does not authorize the manager to write code or tests.
+artifact; the reused task name does not change its manager-only role or
+authorize it to write code or tests.
 
 The manager must first read the program handoff, program rulings, this
 contract/log tail, and the complete `a72c6a3` diff against its own fork point

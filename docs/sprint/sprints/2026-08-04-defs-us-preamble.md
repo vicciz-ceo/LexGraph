@@ -5,9 +5,9 @@ blocked_on: null   # P-FP ruled; option-(c) cycle ready to run — spawn Planner
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "/root/preamble_cycle9_manager"
+locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:38:56Z"
-last_agent: "/root/preamble_cycle9_manager"
+last_agent: "/root/markers_panel_manager"
 last_updated: "2026-08-05T21:38:56Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
