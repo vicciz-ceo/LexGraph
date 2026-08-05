@@ -3775,3 +3775,73 @@ the director, not to me.
   absolute. Escalated, not decided — correct call by QA.
 - **D-S15 after-measurement**: 2,165 rescued / 131 regressed (~16.5:1), 1,378
   still unlinked under both policies.
+
+---
+
+## 2026-08-05 — Manager: Developer cycle 6 ACCEPTED; escalation 1 RULED (b),
+NOT (a); escalation 2 folded into the existing ledger
+
+Merged at `c35f89b`. Suite **856 passed, 1 failed, 1 xfailed** — the single
+failure is the NY test, RED for the escalated corpus reason, not a bad fix.
+Fixes 1 and 2 GREEN. Precision gates verified untouched (`entries.py` has zero
+diff lines; all 5 isolating/guard tests pass).
+
+### Escalation 1 — RULED (b), route upstream. NOT (a).
+
+**I verified the claim myself before ruling on it**, 400-row probes per file:
+
+| file | rows with real newline (0x0a) | rows with literal `\n` (0x5c 0x6e) |
+|---|---|---|
+| `us_ny_statutes.parquet` | **0** | **400** |
+| `us_ky_statutes.parquet` | 400 | 0 |
+| `us_ca_statutes.parquet` | 203 | 0 |
+
+New York stores line-wraps as the two-character ESCAPE `\n` rather than a
+newline byte, in 100% of sampled rows, uniquely among 53 files.
+
+**The Developer offered (a) accept-as-quirk or (b) route upstream, and leaned
+(a)/(b). I rule (b), and I want the reason on record because (a) is the
+tempting answer.** This is not an R18-style browser-faithful limitation. R18
+accepted behavior that was *correct for its input*. This is an INGESTION
+ENCODING DEFECT: every rule in the program that depends on whitespace
+structure in NY text is reading a string where the line breaks are not line
+breaks. That is not this family's quirk to absorb — it blinds **every** panel
+to **all of New York**, silently, and each panel would rediscover it
+separately as a mysterious per-state recall hole. Accepting it here would
+convert a single shared fix into five duplicated investigations.
+
+Routed to the program manager as a **shared normalization item upstream of all
+rule families**, with the probe above as evidence. Scope note for whoever takes
+it: the fix belongs at ingestion/normalization, not in any family's regexes —
+a family-local tolerance (option c) would be the worst outcome, since it makes
+the corpus defect invisible while leaving four other panels broken.
+
+Our NY test stays RED and is the right kind of RED: it fails because the data
+is wrong, and it will go green when the data is fixed.
+
+### Escalation 2 — no new ruling needed; folded into the existing ledger
+
+Finding 1's whitespace tolerance widens WHICH phrases reach the
+already-escalated truncation mechanism — the same shape as GA's "Code section"
+widening in cycle 5, on a mechanism proven byte-present in the rule's original
+authorship commit and already `xfail`-pinned and ruled SHIP net-positive.
+Cost/benefit is the same order as the ruled precedent: **+4,894 distinct pairs
+gained, 15 lost across 5 rows** (KY/ND/OK). Accepted under the standing
+ruling; the 5 act_ids join the named residual ledger rather than triggering a
+fresh decision.
+
+### The disclosure that matters most in this report
+
+The Developer's first TWO attempts at fix 2's self-match guard each caused a
+REAL regression — one silently dropped `USC_T10_C53_S1058`, the other
+suppressed CA's legitimate "has the meaning given in this section:" idiom —
+and **neither was caught by the 858-test suite. Both were caught only by
+re-running the full-corpus measurement before reporting.**
+
+That is the sharpest evidence this sprint has produced about the limits of its
+own regression net: a suite that passed at every intermediate stage while two
+distinct real regressions were live. It argues that corpus-delta measurement is
+not a reporting nicety but part of the actual verification loop for this rule
+family, and it belongs in the close-out as a standing practice rather than as
+one Developer's diligence. Recorded with credit — a two-strikes-before-landing
+history disclosed voluntarily is worth more than a clean narrative.
