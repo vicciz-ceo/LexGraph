@@ -3330,3 +3330,32 @@ for end-to-end scope correctness.
 Every brief this manager issues carries, verbatim, the SendMessage delivery
 instruction addressed to this manager's raw agentId `ad9cf6f6c6a351c50`
 (program log, HARNESS ADJUSTMENT entry).
+
+### M-R20 spawns (recorded per program law)
+
+Two role agents spawned in PARALLEL, commit-before-spawn at `bf3948e`, each in
+its OWN worktree with its OWN backend venv, git identity verified as the
+noreply address in both:
+
+| Role | agentId | Worktree / branch | Write-set |
+|---|---|---|---|
+| Developer (Sonnet/medium) | `a8cec3bb4ae612dc1` | `/Users/nerya/LexGraph-wt/defs-us-multiterm-dev-p2` / `claude/defs-us-multiterm-dev-p2` | the 2 rule modules ONLY |
+| Planner (Sonnet/high) | `a51a7d90d533c0a22` | `/Users/nerya/LexGraph-wt/defs-us-multiterm-plan-p2` / `claude/defs-us-multiterm-plan-p2` | the `rule.` test sites ONLY |
+
+Write-sets are disjoint by construction, so parallel execution cannot collide
+and the merge is conflict-free. Both briefs carry the verbatim SendMessage
+delivery instruction to this manager's raw agentId, and both are seeded with
+"if your derivation disagrees with mine, yours wins — bring evidence."
+
+Model justifications (P-R6): Planner Sonnet/high — mandated always for the
+role, and the task's core is an adversarial re-enumeration whose whole value
+is catching what a careful prior derivation missed; Haiku considered and
+rejected. Developer Sonnet/medium — mandated for the role; three interacting
+production fixes under an asymmetric correctness criterion where the obvious
+fix is provably wrong; Haiku considered and rejected (policy allows it only
+for bounded mechanical changes).
+
+**Deliberate positive control:** both agents independently derive the complete
+list of `rule.` hard-coding sites from disjoint starting points. M-R19 found a
+4th site a careful derivation had missed; if the two lists disagree now, the
+disagreement is itself the finding.
