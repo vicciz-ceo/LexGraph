@@ -1652,3 +1652,48 @@ merged tree.**
 **Consequence for QA, relayed to the in-flight QA agent:** "WA's 3 remaining
 >5,000-char definitions" is a MARKERS-BRANCH number. On the merged tree it is
 currently 7. QA audits the 3 as briefed; the other 4 belong to this ruling.
+
+---
+
+## M15 — the NY target number is measured on text production never sees (2026-08-05)
+
+Caught before the Planner built anything on it, via the raw-vs-normalized arm
+of P-R10. Core's I8 fix for the NY literal-`\n` blackout is a single line **at
+the INGEST layer** (`ingest_us_statutes.py`: `text = text.replace("\\n", "\n")`).
+The parquet corpus is NOT rewritten — it still contains literal two-character
+`\n` sequences. So any sweep that reads parquet and calls the profile directly
+(mine included, twice) measures NY on a text shape **production never sees**.
+
+Measured both ways:
+
+| basis | NY headed | NY zero-yield | rate |
+|---|---|---|---|
+| raw parquet (what M12 and my V5/M14 used) | 1,479 | **1,479** | 100.0% |
+| post-ingest, production-faithful | 1,479 | **1,262** | **85.3%** |
+
+**217 NY rows are already captured by existing rules** once the ingest
+normalization production performs is applied. NY's real extension target is
+**1,262, not 1,479**, and NY is not a 100% total gap — it is 85.3%.
+
+**Scope of the effect — I scanned all 53 files, not just NY.** Exactly two
+jurisdictions carry literal `\n`: **NY 40,102/40,102** (matching core's own
+manager-verified count) and **CA 21/161,429**. CA's 21 independently match
+core's recorded I8 residual ("CA's 21 rows verified by CONTENT, not row
+count"), which corroborates this probe against a measurement I did not make.
+No other jurisdiction is affected, so no other number in M13/M14 moves.
+
+**Revised figures on production-faithful text** (direct-title basis):
+- ten commissioned jurisdictions: **12,724** (was 12,941; NY −217)
+- total uncovered residual: **19,061** (was 19,278)
+- corpus-wide zero-yield: **20,855** (was 21,072)
+- all-shapes basis moves by at most a further 21 rows (CA); not separately
+  measured, stated as a bound rather than a figure.
+
+**Binding constraint on the extension, recorded as ruling U-R11.** Any NY rule
+MUST be prototyped and fixture-built against **post-ingest text**
+(`text.replace("\\n", "\n")` applied first). A rule prototyped against raw
+parquet NY text would be shaped for line structure that does not exist in
+production — the failure mode that passes its own fixture test and is dead on
+the live path, which is precisely the class this program has been bitten by
+three times (P-R8, P-R10). Fixtures for NY are byte-verified AFTER the
+transform, and the fixture must record that it is post-ingest.
