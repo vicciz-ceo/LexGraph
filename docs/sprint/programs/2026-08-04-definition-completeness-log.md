@@ -87,6 +87,27 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (liveness probe recovers three dead agents — core-2 fully
+  green): The status-check probe found plan2 DEAD (128-byte output, ~4h
+  stale, ZERO sibling-sample commits — its "running" status was a
+  phantom); dev5 and dev6 ALSO dead but with COMPLETED, COMMITTED work
+  stranded (8bf4750 G10, 832d79b G9 — reports never arrived). Manager
+  recovered by verifying commits directly, merged both, respawned the
+  sibling measurement as plan9 against CURRENT code (material: G12's
+  idiom widening changed the sibling's entry set since the gap was
+  flagged). CORE-2 NOW 830 PASSED / 0 FAILED — first fully green state;
+  TEN gates integrated (G1,G2,G3-main,G4,G5,G6,G8,G9,G10,G12); G11 rides
+  on plan9 alone. Near-miss recorded as generalizable law: the manager
+  nearly reported a clean Developer for role violation because it diffed
+  against a SIBLING branch that forked earlier — diff a Developer against
+  ITS OWN fork point, never a sibling. PR panel probe likewise found its
+  Developer dead with verified work UNCOMMITTED (one death from loss);
+  manager verified + committed as ops with authorship attributed (harness-
+  sanctioned), QA arbitration running with a reproduce-235-first
+  precondition. Program lesson: silent agent death produces phantom
+  "running" status — liveness probes on long-quiet critical-path agents
+  are part of the manager job, not paranoia.
+
 - 2026-08-05 (IL certification round 2 — whole-file-invisible class found):
   Round 2 merged @ 1bfe413. Vav predicate corrected and re-pinned: 93,509
   spans, measured production capture 54.1%->62.8% — the parity insight
