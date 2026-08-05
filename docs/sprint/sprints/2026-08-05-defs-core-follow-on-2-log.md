@@ -1144,6 +1144,56 @@ path only; the IL סימן/חלק rule modules remain the IL panel's own work.
 
 ---
 
+## Phase 6b — condition-4 amendment CONFIRMED (program manager, 2026-08-05)
+
+The corrected G9 acceptance split is ratified. The original condition
+**conflated "G9 works" with "the combined cross-panel chain works"**; the
+positive-control probe (throwaway `StructuralUnitRule` + throwaway
+`scope_value` stamp) is the correct isolation of what THIS sprint's merge
+can actually promise, and IL's two REDs are rightly the end-to-end evidence
+for the combined result **on the IL panel's own schedule**.
+
+**Binding: do NOT hold this sprint's merge for the IL panel's queue.**
+
+Both hardenings ratified: the **kind-not-depth** correctness constraint and
+the **two-negative-shapes** (different-VALUED unit vs ABSENT unit)
+requirement. Recorded rationale worth keeping for future panels: the
+reversed-nesting fixture — חלק below סימן with perfectly monotonic depths —
+is a textbook case of **why the convention table is not the data**. The same
+principle already bit this program once (the dispatch sprint's erratum:
+panels declare `scope_unit_kind` from their OWN measured convention, never
+the illustrative table).
+
+### Cross-panel coordination with `2026-08-04-defs-il` — CLOSED
+
+Confirmed by the IL panel manager (`a18597f9be6c49ed6`), no open items:
+
+1. **Sequencing:** the IL-side work (`StructuralUnitRule` deriving units from
+   breadcrumbs + the `scope_value` amendment to
+   `il_siman_chelek_scope_triggers.py`) lands **after their cycle-4 QA**, not
+   before. They have a D-1b Developer and a separator Planner in flight and
+   declined to commit a window before QA reports — correct call, and the same
+   guess-versus-measure discipline this harness exists to enforce. They will
+   ping with a concrete window; **this sprint's merge does not wait on it.**
+2. **Boundary recorded identically on both sides:** seam and data path ours;
+   IL סימן/חלק rule modules and the `scope_value` amendment theirs; we are
+   neither building them nor fencing them out.
+3. **Shape confirmed compatible** with both their fixtures: ordered
+   `(depth, heading_text)`, depth-2 `.chapter` byte-identical under a
+   positive-control pin, deeper entries appended. Their
+   `source_chapter=ctx.chapter` chapter-containment tests are green today and
+   are the regression surface they would most regret losing — which is why
+   the `.chapter` pin is the one this sprint protects hardest.
+
+**Fallback recorded (offered, not requested):** if this sprint's own fixtures
+turn out to cover only ONE of the two negative discriminator shapes, IL's two
+REDs cover the pair between them — **סימן = different-VALUED unit, חלק =
+ABSENT unit**. So once G9 lands, running theirs supplies that coverage without
+authoring a third fixture here. dev6 still reports which shapes our fixtures
+exercise; this only removes the cost of a gap if one exists.
+
+---
+
 # Appendix A — Planner record: plan3 (G5, G6)
 
 Authored by Planner plan3 on `claude/defs-core-follow-on-2-plan3`, which
