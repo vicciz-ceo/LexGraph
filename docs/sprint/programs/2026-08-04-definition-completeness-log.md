@@ -87,6 +87,29 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-05 (core-2 blocks its OWN merge — G13 opened): the pre-merge
+  false-truncation check found 28/6,647 changed rows are COMPLETE DROPS,
+  28/28 exhaustively verified as false truncations of real definitions
+  across 11 states (538-char TX "candidate for foster care", 854-char FL
+  "volunteer", one row where the DEFINED TERM ITSELF is "Superfund
+  Amendments and Reauthorization Act of 1986") — all damage G3-main
+  INTRODUCED (pre-G3, last entries ran to end-of-text; nothing truncated).
+  Blocked under the drop-is-worse-than-contamination standard the manager
+  had twice applied when cheap — "applying that standard only when it's
+  cheap would make it worthless." Manager's own generic-token hypothesis
+  REFUTED by the data: 'Pub. L.' (which it called specific) drives 21/28;
+  the flagged generic tokens caused ZERO drops; real mechanism =
+  inline act citations sharing a line with content, where line-granularity
+  wipes instead of trims. G13: targeted positional restriction of
+  'Pub. L.'/'Amendments' (line-start or standalone parenthetical — the
+  D-INCLUDES/G12 targeted-literal shape); broad marker-set narrowing
+  REJECTED (other markers: zero drops, 96.7% genuine). Acceptance: drops
+  to zero, 58/60 preserved, FED RED green at 493 chars. CAVEAT on record:
+  G3's certified 27,051/24.62% is NOT byte-reproducible (script never
+  committed; re-measure 24,952/26.64%) — directionally sound only; plan9
+  refused to force reconciliation and validated its own method three ways
+  exactly. Merge queue waits on G13 alone.
+
 - 2026-08-05 (G3-sibling NO-GO — G11 defers; one pre-merge blocker left):
   plan9's measurement (best-evidenced of the sprint: three P-R10 anchors
   exact against post-G12 code, correctly discriminating the pre-widening
