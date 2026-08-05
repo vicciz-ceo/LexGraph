@@ -7366,3 +7366,73 @@ the same recommendation independently and correctly left the call to me.
 
 **I4 is NOT cleanly passed** — that is a director-visible bar and I am
 escalating the residual for acceptance rather than declaring it met.
+
+---
+
+## 2026-08-05 — M32: program-manager RULING recorded; parent -> `review`; certification Planner spawned
+
+### Ruling (recorded verbatim in effect, contract updated)
+
+Close **ACCEPTED as shaped** — decidable at the program-manager level
+because it is what the director's D-CERT ruling prescribes. Parent closes
+on **I1/I2/I3/I5 passed + I4 recorded as NOT-cleanly-passed**, six-item
+residual routed into `2026-08-05-defs-il-certification`, each item ending
+there as fixed-in-C4's-loop or director-named in the final enumeration.
+Recording I4 as anything cleaner would have been the overclaim I declined
+to make; a fifth forward-sweep round would use the method D-CERT
+explicitly replaces. **Cycle 5 remains unconsumed** as the bounce reserve
+through merge. Merge slot queued after core-2 -> markers -> preamble; the
+program manager runs the checklist when our turn arrives — nothing for us
+to do but keep the branch clean.
+
+My normalization correction to the program manager's own signed-off
+prescription was **accepted**: cluster 1 is evaluated on NORMALIZED text,
+and the four-codepoint table is retained as **ingest-layer documentation**
+rather than as four predicates. The denominator's robustness to within 3
+spans is the number that matters.
+
+### Actions taken
+
+1. **Parent contract flipped to `status: review`**, `current_role:
+   manager`, cycle-4 gate status and the director-visible enumerated
+   residual in place, ruling recorded. Recompressed 434 -> **397 lines**
+   to fit the 400-line lint budget: superseded cycle-3 gate verdicts,
+   historical M1-M5 Phase-A/B sequencing rulings, and the recon
+   per-class counts were moved out of the contract — **all of it is
+   retained in this log**, which is the durable record. Lint **PASS 397**.
+2. **Certification Planner spawned** — agentId `a8337edd0505b73e7`,
+   Sonnet/high (Planners are always high; this one owns a denominator and
+   cluster model the whole sprint rests on; Haiku considered: no).
+   Worktree `defs-il-cert-plan1`, branch `claude/defs-il-certification`,
+   **branched off the parent tip `a27698d`, not `main`** — deliberately,
+   because the certification must measure the capture behaviour this
+   panel actually shipped. Own venv verified; baseline `2 failed, 843
+   passed` reproduced by me before spawning.
+
+### What the Planner was told, and why
+
+Its brief leads with the **normalization lesson stated as my own error,
+twice made**: M28's 23% undercount and M23's wrong per-codepoint
+prescription. It is told the ~92,600 is robust but must be **re-derived
+on normalized text rather than inherited** — "do not inherit my number;
+verify it. That habit is the entire point of this sprint."
+
+Scoped to **planning only** this round: C1 denominator script
+(signal-agnostic, normalized, including `הגדרות`-headed articles); the
+complement scout for unquoted definitional constructions (with the
+explicit note that using trigger vocabulary as a *probe of the
+complement* does not violate M18); the cluster model with **executable
+predicates, not prose**; the C2 backbone exhaustiveness/disjointness test
+authored RED; and the parent's six residuals seeded as initial clusters —
+with item 4 flagged as carrying a **closing condition, not a permanent
+block**, plus the M27 reminder that its closure needs an IL-side
+`scope_value` fix that is ours, not core-2's.
+
+Told, as every brief this cycle has been: **do not report a number you
+did not measure yourself, and correct me if I am wrong.** That
+instruction has now been taken up four times — the 230->20 estimate, the
+raw-vs-normalized undercount, the certification-contract fix, and the
+maqaf non-class — and improved the result every time. The program manager
+has made those four self-corrections, together with this sprint's
+**98-additions / 0-modifications** test discipline, the close-out standard
+for the remaining panels.
