@@ -2931,3 +2931,75 @@ not speak to every slice equally).
 
 Three successive attempts at this residue have now been overturned. Nothing
 sizes the split until the narrow slice lands.
+
+---
+
+## 2026-08-05 — Manager: S-R17 narrow slice lands; the split should be priced
+at 1,675 rows, and 27% of the residue may not belong in this class at all
+
+### The three shapes, separately counted (sum 2,306, overlap 6 rows)
+
+| shape | rows | (row,term) pairs | hand-sample coverage |
+|---|---|---|---|
+| **NARROW — the AL `(N) LABEL. "X" means` shape the split was scoped to** | **1,675** | **3,394** | good (24/35 sampled) |
+| IL embedded-caption | 618 | 621 | good (9/35) |
+| marker-chain (`(1) (A) "Term" means`) | 19 | 31 | **THIN (2/35)** |
+
+**Price the markers-panel ownership split at 1,675 rows / 3,394 pairs.** Both
+superseded figures stay superseded: the narrow slice alone is still 2.3-4.8x
+larger than either 714 or 167, so no prior number survives even after the
+re-cut removes the broader shapes.
+
+### The finding I care most about: 27% of the residue may be a PARSING
+ARTIFACT, not a drafting convention
+
+The IL embedded-caption bucket (618 rows, 26.8% of the residue) is described as
+a **citation-number-tail artifact** — the "marker" is `340.` extracted out of a
+section number like `3.340.`, in single-definition sections with **no real
+list**. If that holds, these rows are not instances of the `(N) LABEL.`
+convention at all; our detector is seeing a fragment of a citation as a list
+marker. Capturing them through a numbered-list rule would be building on a
+misparse, and they likely need a different mechanism entirely.
+
+Also: this shape is **not IL-exclusive** — IL is 477 of 618 (77%), with
+AZ/CO/FL/ID/KS/MO/NJ/NY making up the rest. Any routing decision framed as
+"an Illinois quirk" would be wrong.
+
+**Recommendation upward**: size the split on the narrow 1,675 only; route the
+IL-caption bucket for a *shape validity* check before anyone prices it; treat
+the 19-row marker-chain bucket as too thin and too fuzzy at its boundary to
+price at all this cycle (its own analyst flagged lower precision confidence and
+one boundary case that could sit in either bucket).
+
+### A methodology correction that explains the whole 714 / 167 / 2,306 mess
+
+Checking only the heading-rescue path left **33% false positives** — 1,145 of
+6,097 clean-hit rows were ALREADY captured today by the real extractor via an
+unrelated trigger *elsewhere in the same body*. The analyst caught this
+mid-build and corrected by checking BOTH real capture paths.
+
+That single omission is enough to explain why three successive attempts at this
+number disagreed, and it generalizes: **"is this row already captured?" is not
+answered by the heading gate alone.** Any future miss census in this program
+must check every live capture path, not just the obvious one. Recorded as a
+standing methodology note.
+
+### Reconciliation 1 closed with a sharper cause than the standing hypothesis
+
+The F3-filtering explanation — the program's standing hypothesis — accounts for
+only ~11% of candidate volume (17,337 naive → 15,427 gated). Real, but NOT the
+dominant cause. Pass 7's 19.4% sits almost exactly on the measured OUTERMOST
+rates (18.6-19.7%) with counts within 1-2.5% of half the distinct-outer
+figures: high confidence it was outermost-scored and mislabeled, medium
+confidence on the half-corpus mechanism (script not preserved). Good discipline
+by the analyst: it declined to promote a plausible mechanism to a certain one.
+
+### Honest limit of my own delivery fix, raised by the analyst and accepted
+
+It verified the committed delivery contract, then noted that a git-branch
+artifact is **corroboration, not an out-of-band root of trust** — a branch is
+writable by whoever can write the branch. That is correct and I am recording it
+rather than letting my fix look stronger than it is: committing the id defeats
+a chat-only lure, not an attacker who already controls the branch. Treating it
+as corroboration while keeping the plain-text return as the authoritative
+channel is exactly the right posture.
