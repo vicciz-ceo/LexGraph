@@ -3148,3 +3148,54 @@ worktree — i.e. cite this log section by name so the agent can read it in-repo
 and confirm the instruction and the agent id are genuine. An unverifiable
 instruction should be refused, and I do not want that instinct trained out.
 Reported upward as a harness finding.
+
+## M23 — Developer C dispatched; QA cycle 2 queue (handover-critical) (2026-08-05)
+
+**Developer C** (Sonnet/medium, agentId `a6398a5a4b8a873e0`, branch
+`claude/defs-us-markers-devC`, base `9ec6d48`): tuple-widening only — add
+`US-NJ/MI/ND/NY/OK` to `us_markers_inline_quote.py::_JURISDICTIONS`, turning
+the 5 `*_quoteengine` REDs green. Write set is that ONE file.
+
+**A role error of mine, corrected.** In M19 I wrote that "the manager applies
+the [tuple-widening] list after Developer A lands". That would have been the
+manager writing production code, which this harness forbids. It is a Developer
+task and is dispatched as one. Recorded so the mistake is not repeated by a
+successor reading M19 alone.
+
+Its brief carries the ANCHORED delivery instruction (M22 fix): it is told to
+verify §M21/§M22 in the committed log before trusting the brief, including the
+reporting channel, and to STOP if the repo contradicts the brief.
+
+### QA CYCLE 2 QUEUE — everything routed there, in priority order
+
+1. **Re-author `wave1_auto_rescue` AZ test** (U-R12): its
+   `_TRAILING_MARKER_LEAK_RE` cannot distinguish a real citation from a leaked
+   marker; it was green because the truncation defect satisfied it.
+2. **Re-author `qa_q3_tx_2009_003` Part B** (U-R13): expects idiom retained,
+   contradicting the engine's universal idiom-stripping contract.
+3. **Pin the colon-idiom degenerate-definition defect with a RED**
+   (`"Term" means:` + sub-list → `means:` / `:`), ~16 MN / 3 ME / 13 NY,
+   pre-existing in `extract_quote_anchored_entries`. No fix before a RED.
+4. **Verify the remaining 37 of Developer A's 42 newly-exempted >5,000-char
+   candidates** — 5 were spot-checked and genuine; 37 are unverified.
+5. **Re-check the "FED 26,028 is a swallow" claim in the module docstring** —
+   Developer A's evidence says it is the genuine INA §1101(a)(15) enumeration,
+   the same misclassification class QA found in Q4. If confirmed, the docstring
+   is wrong and should be corrected by its owner.
+6. **P-R7 signal-agnostic denominator re-run** across the newly-covered states.
+7. **G3-HEAL two-layer post-merge re-check** (M18) — still pending core-2.
+
+### OPEN ITEMS NOT OWNED BY QA
+
+- **3 REDs deferred pending G11's measurement** (`ok_gapidiom`, `ext_b_nm`,
+  `ext_b_nv` higher-ed). Note Developer B's finding: NM and NV's higher-ed test
+  are ALSO resolvable by tuple-widening — G11 and registration are two
+  independent, non-exclusive paths. Re-size after G11 lands.
+- **`ext_b_nv` cross-reference** — fix lives in `correctly_empty.py`, outside
+  `rules/`. Needs a write-set ruling before anyone builds it.
+- **`qa_q3` Part A** — needs a TX `EntrySplitterRule` + multiterm wiring
+  (cross-panel, M-R8).
+- **DC's 20 unclassified rows** (M19) — named-unclassified, not absorbed.
+- **NE extraction** — still blocked until preamble merges.
+- **S-R17 boilerplate-label helper** — not yet built; coordinate with
+  scoped-inline when it is.
