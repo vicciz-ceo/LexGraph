@@ -2787,3 +2787,87 @@ trade recall for precision on its own authority (D-Q1).
 - The Planner checked every other negative control for idiom-absence
   dependence and found none — a clean negative result, recorded so cycle 3
   need not redo it.
+
+---
+
+## 2026-08-05 — Manager: Developer cycle 5 verified + ACCEPTED; two escalations
+RULED; one NEW defect class escalated upward
+
+Branch `claude/defs-us-scoped-inline-dev5` @ `e93b52c`, merged with pass 9 at
+sprint `57a8068`. Suite: **2 failed, 852 passed** — all 6 QA cycle-2 REDs
+GREEN; the 2 failures are Escalation 1, not defects.
+
+### Verified by me, not accepted on report
+
+- **Fence**: three rule files only. The new `us_scoped_inline_entries.py` (229
+  lines) has no `register_*` call and no registry import — sanctioned-overflow
+  conditions met. Line counts 296 / 238 / 229, all under gate.
+- **Both load-bearing precision gates**: I diffed them against `ce37b86`
+  myself. `_leading_events` **byte-identical**; `_MARKER_RE`/`_MARKER_QUOTE_RE`
+  **byte-identical**. The Developer's claim holds under independent check —
+  which matters because a green suite is not evidence here, as QA proved twice.
+- **Pass 9's guard pin went GREEN against the Developer's REAL guard.** That
+  empirically closes the Planner's own honest gap #3 (its pin was built on a
+  simulated guard of its own design). The simulation did not drift from the
+  shipped mechanism.
+- The Developer answered my time-sensitive PA warning directly:
+  `STATE_PA_T15_C17_S1748` / `S5748` both **OLD=[] NEW=[]**, because finding
+  5's tolerance is anchored to the literal "unless the context" phrase rather
+  than generic filler. The false-positive risk I routed did not materialize.
+
+### ESCALATION 1 — RULED: option (a), the Planner repairs it
+
+Two coupling tests use `shall include` as their synthetic example of an
+"unrecognized idiom". D-INCLUDES made it recognized, so the example is stale
+and both fail. The general coupling claim they pin is still true; only the
+vocabulary example died. The Developer correctly did NOT touch them (hard
+fence) and correctly refused to guess.
+
+Ruling: **(a)** — Planner pass 10 repairs them. Role separation holds, and this
+is the same D-INCLUDES collision class as the PA pin, just a second casualty.
+I additionally required the repaired tests to be **rot-resistant**: they must
+fail loudly if their new placeholder idiom ever becomes recognized, and the
+Planner must PROVE the placeholder is unrecognized against the shipped
+`_IDIOM_RE` rather than assuming. The vocabulary grew twice this sprint;
+intuition about what is "obviously unrecognized" is exactly what rotted here.
+
+### ESCALATION 2 — RULED: SHIP finding 4, PIN the regression, ESCALATE the
+root cause upward
+
+Georgia "Code section": **3,605 distinct terms gained across 1,527 rows vs 116
+lost across 12 rows** (31:1). Reverting is not an option — finding 4 is a
+mandatory QA cycle-2 RED.
+
+But 116 lost terms are a real, measured, NEW miss under the absolute zero-miss
+bar, and "net positive" does not make a miss disappear. So: ship, and Planner
+pass 10 pins the clearest affected row as a **self-alarming** regression
+tripwire (the S-R11 `xfail(strict=True)` pattern is the precedent) so it cannot
+dissolve into a merged branch.
+
+**The part that goes upward**: the Developer reports the root cause is
+PRE-EXISTING — a mid-document carve-out clause (`For purposes of this …, the
+term shall not mean/include X`) creates a spurious trigger event that TRUNCATES
+an earlier, correctly-spanning trigger's region — and reproduces on unmodified
+code with plain `"section"` wording. If true, this is not a Georgia footnote
+but a **program-wide zero-miss class** that predates this sprint and affects
+every state, and it needs a decision above this panel. I have told pass 10 to
+VERIFY that claim rather than accept it, and to probe multi-state scale, since
+it is the load-bearing premise of the escalation.
+
+### NEW false-positive class — reported, not hidden, routed to QA cycle 3
+
+The Developer's own 36-row hand sample found **1 likely false positive**
+(≈2.8%, versus cycle 2's measured 0%): `STATE_NE_C48_S48-101`, terms
+`('arising out of employment', 'in the course of employment')`, where the
+captured "definition" is **judicial case-annotation commentary**, not the
+legislature's own defining clause. Mechanism: finding 3's new `and`
+chain-separator joins the two quotes, then the PRE-EXISTING bare-comma-fallback
+idiom (the D11/Missouri convention) accepts the following commentary as a
+definition.
+
+This is a genuinely new FP surface created by an interaction — chain-widening ×
+pre-existing comma-fallback — not by either mechanism alone. Credit where due:
+the Developer reported it against its own interest rather than letting a 36/36
+number stand. QA cycle 3 must MEASURE this class rather than accept 1/36 as
+its size; it is a D-Q1 recall-vs-precision item and does not get settled inside
+the panel.
