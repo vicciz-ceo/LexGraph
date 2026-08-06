@@ -5879,3 +5879,29 @@ dispatch commit containing this entry. QA may write only tests; production,
 artifacts, fixtures, and shared sprint docs are read-only. It must independently
 reproduce 21/21, the 979/23 ledger, frontend/typecheck, the 17-key WA-only corpus
 measurement, default/registration/gate discrimination, and no new failures.
+
+---
+
+## M70 — Independent G3-HEAL PASS and main merge (2026-08-06)
+
+Fresh QA certified `ba91fee` without adding tests: the Planner's two seam pins
+plus the persisted WA, AR G8, and real MI controls exhaust the ruled behavior.
+Detached pre-fix reproduced **18 passed / 3 failed** for the intended WA
+swallow and absent API; current focused is **21 passed**. Independent backend
+is **979 passed / 23 named residual failures / 18 warnings**; frontend is
+**165 passed** with six known `act` warnings; typecheck is clean. The vendored
+FED G3 gate is green.
+
+QA reran all corpus variants. Default: 2,038,247 rows, 472,562 candidates,
+1,683 priority rows, exactly 17 changed persisted keys, all WA, with all 17
+judgments read and semantically equal to the committed artifact. Rejected
+all-inline one-block: 99 (AZ2/FED2/NJ4/NY15/SC17/TX1/UT41/WA17). Rejected
+WA+MI always-priority: 12,774 (WA17/MI12,757). Root independently inspected
+the generated JSON and reran G7: headed denominators remain exact; combined
+zeros are VA48/WA116/WV297/WI62/WY56/FED139/DC331.
+
+Root merged exact QA tip `79d8c4e` to main as `7208dcf`, verified second-parent
+byte equality, pushed main, and reran the focused gate in the main checkout:
+**21 passed**. The director's pre-existing `.claude/settings.json` remains the
+only untracked main-checkout path. The 23 named residuals remain explicit for
+later panels/certification; none was relabeled complete by this merge.

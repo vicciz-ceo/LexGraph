@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: dev-complete
-current_role: qa
+status: done
+current_role: planner
 branch: claude/defs-us-markers-core2-integration
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers-core2-integration
-locked_by: "/root/markers_g3_heal_qa"
-locked_at: "2026-08-05T22:42:36Z"
-last_agent: "/root/markers_g3_heal_developer"
-last_updated: "2026-08-05T22:42:36Z"
+locked_by: null
+locked_at: null
+last_agent: "/root/markers_g3_heal_qa"
+last_updated: "2026-08-06T22:25:07Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
-completed_items: 2
-dev_complete_items: 1
-qa_cycles: 2
-lint: "PASS 400 2026-08-05T22:42:36Z"
+completed_items: 3
+dev_complete_items: 0
+qa_cycles: 3
+lint: "PASS 391 2026-08-06T22:25:51Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -358,7 +358,7 @@ names its gate(s).
 
 ## Dev Complete
 
-- **P-G3H** — Developer `ba91fee`; manager gate 21/21, backend 979/23 named holds, frontend 165, typecheck clean.
+_None._
 
 ## Completed
 
@@ -367,8 +367,16 @@ names its gate(s).
 - **P-D2 — MN-only qualifier/comma/Subd repair.** Independent final QA cycle 2
   passed at `b2e94d5` with exact full-corpus and live-path evidence (M64).
 - **P-T1 — U-R13 persisted-altitude oracle correction.** Complete (M44/M49).
+- **P-G3H — WA-only source ordering.** QA PASS at `79d8c4e`; merged to main
+  at `7208dcf` with 21/21 focused and the 17-key corpus ledger exact (M70).
 
 ## QA Notes
+
+2026-08-06T22:20:00Z — **P-G3H PASS (QA cycle 3).** Detached pre-fix is
+18 passed/3 intended REDs; current focused is 21 passed. Backend is 979/23
+named holds; frontend 165; typecheck clean. All-53 replay is 17 WA-only
+changes; rejected scopes reproduce 99 and 12,774. G7 headed denominators are
+exact and combined zeros are VA48/WA116/WV297/WI62/WY56/FED139/DC331.
 
 2026-08-05T21:36:00Z — **P-D2 PASS (QA cycle 2).** Detached pre-fix provenance
 reproduced four distinct RED attributions; current focused state is 5 passed.
@@ -378,23 +386,6 @@ headings, 909 changed rows, 51 additions (33 relative-shape/18 ordinary), 19
 comma-paired removals, and 9,385 strict Subd truncations; all 18 ordinary were
 manually clean. Backend 894 passed/25 named holds; frontend 165; typecheck pass.
 
-2026-08-05T20:21:27Z — **P-D2 FAIL (QA cycle 1).** The original P-D2
-unit+persisted-live REDs reproduce as 2 failures/1 negative-control pass on
-detached pre-fix `9f8f533` (the actual `Affiliate` swallow is 7,767 chars), and
-the integrated five-file historical replay is 10 passed/2 named held REDs
-(FED core-3 Roman sibling and TX Q3 Part-A). `98143f7` and merge `d81e3eb`
-exist; its full `9f8f533...98143f7` production diff is one file with no P-D1
-global/Roman code. Yet the 21 reachable registered-marker statute files,
-NY-normalized at the ingest boundary, differ in 3,757/788,766 rows: 3,085 MN
-and 672 non-MN. The 1,993 added keys, 263 removed keys, and 9,760 altered
-definition texts exceed the all-rows manual-review threshold. Bounded FED/FL/
-WA/DC samples are genuine definitions or comma cleanup, not false positives;
-they remain ledgered. QA's new provenance-recorded FED RED therefore requires
-the shared default to stay byte-for-byte pre-P-D2 and re-authors the MN unit
-for explicit opt-ins. Full backend: 891 passed/25 named holds, no P-D2 failure
-outside the new scope RED. Frontend: 165 passed; typecheck passed. No HTTP/E2E
-wrapper is needed beyond real ingest/persistence for this parser path.
-
 ## Context Dump
 
-P-D2/P-T1 are complete and P-D1 retired. P-G3H blocks the combined branch: follow M65's source-order contract, never generic containment; MI C5 pins G3 History-tail removal; FED Roman sibling/TX Part-A remain holds.
+Merged to main at `7208dcf`; 23 named residuals remain for later panels/certification, including FED Roman sibling and TX Part-A.

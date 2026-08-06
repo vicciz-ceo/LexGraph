@@ -87,6 +87,21 @@ verbatim during the merge) — no tampering; recorded closed.
 
 ## Events
 
+- 2026-08-06 (MARKERS MERGED — second queue slot closed): Exact independent
+  QA tip `79d8c4e` merged to `main` at `7208dcf` and pushed. Root materialized
+  the final 92-file / 1,325,670-byte diff (SHA256 `975408ef535067342b36e2217d3ca18ac6d20b1c5577cd92fbea99e9edaaca21`),
+  re-read every production hunk added after the prior full marker review, and
+  found no network/auth/env/persistence/migration expansion. RED provenance is
+  18 pass/3 intended fail; current combined focused is 21/21. Manager and QA
+  independently reproduced backend **979 pass / 23 named residual fail / 18
+  warnings**, frontend **165 pass**, and clean typecheck. All-53 G3-HEAL is
+  2,038,247 rows / 472,562 candidates / 1,683 WA priority rows / exactly 17
+  reviewed WA-only changes; rejected broad forms reproduce 99 and 12,774.
+  G7 headed denominators stayed exact; combined zero-yield is VA48, WA116,
+  WV297, WI62, WY56, FED139, DC331, all no worse than core baseline. Main
+  focused smoke is 21/21. Preamble is now the active merge slot; its G8 local-
+  scope dispatch repair remains RED-first and outside this merge.
+
 - 2026-08-06 (CORE-2 MERGED — merge queue opened): Exact QA-reviewed tip
   `2139bac` merged to `main` at `d783052`. Program-manager checklist:
   current-main containment true; 55-file name/full three-dot diff materialized
