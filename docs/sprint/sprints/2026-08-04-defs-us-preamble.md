@@ -12,7 +12,7 @@ last_updated: "2026-08-06T22:34:48Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 5
+total_items: 6
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -75,22 +75,27 @@ for this sprint.
    chapter B1 preamble stays chapter-scoped; and a distinct section term
    survives. Core G8 reverse-order safety must remain green.
 
-5. **Combined markers/preamble correction.** On the exact merged tree,
-   NE `STATE_NE_C43_S43-3329` and `STATE_NE_C44_S44-5003`, SD
-   `STATE_SD_T54_C14_S54-14-12.1`, and FED `USC_T43_C35_S1742a` are release
-   blockers, not accepted holds. Planner must independently separate
-   recognition from extraction for NE/SD, prove all three through live
-   ingest-to-link with clean text and correct scope, and identify the minimum
-   jurisdiction-scoped BodyPreambleRule versus EntrySplitter/TermClause
-   ownership. FED must retain the distinct `eligible`, `good Samaritan
-   search-and-recovery mission`, and `Secretary` candidates when registered
-   output is only partial. Any proposed union seam requires all-53-file
-   persisted key/text/scope measurement and judgment; G11's measured 202-row
-   swallow risk forbids assuming a global fallback union is safe. Planner
-   writes tests/docs only, escalates architectural forks, and proposes
-   nonoverlapping Developer write sets; split this into two items if production
-   ownership diverges. Acceptance keeps G8 11, markers G3H 21, Option-C 5,
-   G9, the exact 23-marker-plus-T35 hold ledger, and every existing RED intact.
+5. **NE/SD recognition, unquoted extraction, and scope.** Release-blocker
+   rows `STATE_NE_C43_S43-3329`, `STATE_NE_C44_S44-5003`, and
+   `STATE_SD_T54_C14_S54-14-12.1` need independent raw recognition and raw
+   extraction gates plus a live persisted `(term, definition_text, scope)`
+   gate. Add only exact `US-NE`/`US-SD` BodyPreambleRule and extraction
+   conventions (no `US-*`); SD's “For the purposes of this chapter” must be
+   chapter-scoped via a `US-SD` scope rule. Preamble Developer owns
+   `us_body_preamble.py`; markers Developer owns one new NE/SD rule module.
+   All-53-file persisted-output measurement and every changed-key judgment are
+   required before development; acceptance preserves the existing ledgers/gates.
+
+6. **FED partial-union preservation.** `USC_T43_C35_S1742a` must persist
+   exactly the clean, law-wide `eligible`, `good Samaritan search-and-recovery
+   mission`, and `Secretary` tuples. Registered US-FED output must not suppress
+   a distinct derived inline candidate. Developer may change only
+   `backend/app/definition_links/us_profile.py`, with an explicit US-FED plus
+   derived-heading guard and first-key preservation; no global fallback union.
+   Measure the exact proposal across all 53 files at persisted
+   `(row,key,definition_text,scope)` altitude and classify every changed key.
+   Acceptance keeps G8 11, markers G3H 21, Option-C 5, G9, the exact
+   23-marker-plus-T35 hold ledger, and every existing RED intact.
 
 ## Held dependencies / non-gates
 
