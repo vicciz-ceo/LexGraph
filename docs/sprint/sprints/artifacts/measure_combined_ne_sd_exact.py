@@ -226,7 +226,9 @@ def main() -> int:
                 # new exact splitters, even when its heading is explicitly
                 # Definitions. It is therefore provably unchanged; count it
                 # but avoid replaying the unrelated registered stream.
-                quick_body = get_profile(code).normalize_for_parsing(row["text"].replace("\\n", "\n"))
+                quick_body, _ = strip_wikilinks(
+                    get_profile(code).normalize_for_parsing(row["text"].replace("\\n", "\n"))
+                )
                 if _mode(code, quick_body) is None:
                     continue
                 before, after, mode = _row_delta(row, code)
