@@ -5342,7 +5342,7 @@ changed tuples, both `USC_T43_C35_S1742a`: new clean `eligible` and corrected
 reports 2,038,247 rows / 53 files / 1,972,661 guarded rows and **17** new
 reviewed tuples (12 C43, 4 C44, 1 SD), each with machine and human judgment.
 The compact rejected-summary preserves the two rejected blast-radius outcomes
-and SHA-256 identities without committing their 23MB/3.6MB ledgers. Docs
+without committing their 23MB/3.6MB ledgers or claiming unverifiable hashes. Docs
 updated: contract, sprint log, RED test, and measurement artifacts. Developer
 must use the current focused RED command, apply an in-memory rule mutation to
 prove the trusted FED control fails under a broadened guard and restores after
@@ -5357,3 +5357,28 @@ SHA-256 over only sorted persisted tuple facts: `file`, `jurisdiction`,
 excludes corpus paths, elapsed time, and machine/human annotations. The
 reproducible verifier checks both stored hashes and asserts the compact
 rejection summary makes no unverifiable full-ledger-hash claim.
+
+### M-R96 — Planner accepted; two disjoint Developer rosters
+
+Planner final tip `72dfcbd` passed root/manager design audit and was
+fast-forwarded to shared. Manager independently reproduced the focused
+**11 failed / 2 passed** pre-fix gate, exact artifact hashes, contract lint,
+and clean diff. The rejected profile append and broad structural parser remain
+explicitly rejected; only the two exact proposals are authorized.
+
+Two Developers start from the same committed roster tip and may run in
+parallel because their production writes do not overlap. Preamble Developer
+`/root/markers_panel_manager/developer_ne_sd_recognition`, Terra/medium,
+branch `claude/defs-us-preamble-ne-sd-recognition-dev`, worktree
+`/Users/nerya/LexGraph-wt/defs-us-preamble-ne-sd-recognition-dev`, may edit
+only `backend/app/definition_links/rules/us_body_preamble.py`. Markers
+Developer `/root/markers_panel_manager/developer_exact_splitters`,
+Terra/medium, branch `claude/defs-us-preamble-exact-splitters-dev`, worktree
+`/Users/nerya/LexGraph-wt/defs-us-preamble-exact-splitters-dev`, may add only
+`us_markers_ne_sd_unquoted.py` and `us_markers_fed_good_samaritan.py`.
+Haiku is rejected for both: these changes alter live cross-panel recognition,
+scope, candidate ordering, and persisted boundaries. Tests, fixtures,
+artifacts, sprint docs, registry/profile/pipeline/persistence, and every other
+production file are read-only. Each Developer must prove its owned RED subset
+green, keep the other half expected-red until combined, run the named green
+gates, commit/push cleanly, and return exact production diffs for root audit.

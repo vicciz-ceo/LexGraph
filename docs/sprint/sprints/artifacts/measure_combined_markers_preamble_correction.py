@@ -11,7 +11,7 @@ three US-FED alternatives over every 53-file corpus row:
   not already emitted by registered extraction;
 * ``structural_rule``: the historical broad US-FED numbered-label replay,
   restricted to body-derived sections; it is retained as a rejected lower
-  bound with a reproducible ledger hash, not a full callable-seam result;
+  bound without claiming an uncommitted full-ledger hash or callable-seam result;
 * ``structural_rule_exact``: the same parser but only when the three
   evidenced Good-Samaritan terms are all present, testing the narrowest
   jurisdiction-and-shape rule that the EntrySplitter API can express;
@@ -24,8 +24,8 @@ written in full for human classification; the script never declares text
 quality from a length heuristic.
 
 The historical CLI alias ``profile_union`` remains accepted solely to reproduce
-the rejected full-ledger SHA recorded in the compact evidence; it is not an
-accepted architecture or developer seam.
+the rejected counterfactual semantics; it is not an accepted architecture or
+Developer seam, and the compact summary intentionally claims no full-ledger hash.
 """
 
 from __future__ import annotations

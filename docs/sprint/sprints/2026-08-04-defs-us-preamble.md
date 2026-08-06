@@ -2,13 +2,13 @@
 id: "2026-08-04-defs-us-preamble"
 status: planned
 blocked_on: null
-current_role: planner
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
-last_agent: "/root/markers_panel_manager/planner_combined_correction"
-last_updated: "2026-08-06T22:34:48Z"
+last_agent: "/root/markers_panel_manager/developer_exact_splitters"
+last_updated: "2026-08-06T23:08:31Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 168 2026-08-06T22:35:31Z"
+lint: "PASS 177 2026-08-06T23:08:52Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -174,4 +174,4 @@ No external pins remain and no production signature/class/CSS rename occurred.
 6. M-R53 comments are corrected and the B1 facade is 259 lines.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
 8. Item 4's `pipeline.py` local-before-section canonicalization is integrated.
-9. QA is blocked at 1068/28; item 5 must remove four extras without expanding 24 holds.
+9. QA is blocked at 1068/28; items 5–6 must remove four extras without expanding 24 holds.
