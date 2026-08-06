@@ -269,6 +269,21 @@ def run_definition_linking(
                 used_body_derived_heading = True
 
         if is_definitions_section:
+            # G8: body-derived headings can also contain ordinary local-scope
+            # definitions.  Keep the registered local candidates first, then
+            # add only non-colliding section candidates so a later, broader
+            # section candidate cannot reach persistence or Stage 3.
+            local_candidate_keys: set[tuple[str, ...]] = set()
+            if used_body_derived_heading:
+                for candidate in profile.extract_local_scope_definitions(
+                    matcher_article.body, article_number=art.number, chapter=art.chapter
+                ):
+                    candidate_key = tuple(sorted(candidate.terms))
+                    if candidate_key in local_candidate_keys:
+                        continue
+                    local_candidate_keys.add(candidate_key)
+                    all_candidates.append((candidate, art))
+
             scope = profile.determine_scope(matcher_article.body)
             section_candidates = profile.extract_definitions_from_section(
                 matcher_article.body, scope=scope, heading_was_derived=used_body_derived_heading
@@ -290,6 +305,11 @@ def run_definition_linking(
                 chapter=art.chapter,
             )
             for candidate in section_candidates:
+                if used_body_derived_heading:
+                    candidate_key = tuple(sorted(candidate.terms))
+                    if candidate_key in local_candidate_keys:
+                        continue
+                    local_candidate_keys.add(candidate_key)
                 for assignment in assignments:
                     stamped = replace(candidate, scope=assignment.kind)
                     if assignment.kind == "chapter":
