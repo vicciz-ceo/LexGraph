@@ -5347,3 +5347,13 @@ updated: contract, sprint log, RED test, and measurement artifacts. Developer
 must use the current focused RED command, apply an in-memory rule mutation to
 prove the trusted FED control fails under a broadened guard and restores after
 removal, then rerun the named green gates and authoritative combined ledger.
+
+### M-R95 — Hash projection correction
+
+The compact rejection summary no longer presents a hash for an uncommitted,
+timed full ledger. Both committed exact ledgers now carry a self-verifying
+SHA-256 over only sorted persisted tuple facts: `file`, `jurisdiction`,
+`act_id`, `derived_heading`, `terms`, `before`, and `after`. It deliberately
+excludes corpus paths, elapsed time, and machine/human annotations. The
+reproducible verifier checks both stored hashes and asserts the compact
+rejection summary makes no unverifiable full-ledger-hash claim.

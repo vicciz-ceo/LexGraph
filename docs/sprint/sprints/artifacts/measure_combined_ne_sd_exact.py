@@ -13,6 +13,7 @@ match the reviewed ledger below or the instrument fails.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import time
 from dataclasses import replace
@@ -137,6 +138,33 @@ def _winner_map(candidates):
     return winners
 
 
+def _canonical_changed_ledger_sha256(result: dict) -> str:
+    """Hash only stable persisted core tuples, excluding judgments/timing."""
+    projection = {
+        "changed_persisted_keys": sorted(
+            [
+                {
+                    field: item.get(field)
+                    for field in (
+                        "file",
+                        "jurisdiction",
+                        "act_id",
+                        "derived_heading",
+                        "terms",
+                        "before",
+                        "after",
+                    )
+                }
+                for item in result["changed_persisted_keys"]
+            ],
+            key=lambda item: json.dumps(item, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+        )
+    }
+    return hashlib.sha256(
+        json.dumps(projection, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 def _row_delta(row: dict, code: str):
     profile = get_profile(code)
     body, _ = strip_wikilinks(profile.normalize_for_parsing(row["text"].replace("\\n", "\n")))
@@ -230,6 +258,7 @@ def main() -> int:
         "proposal": "US-NE literal C43/C44 BodyPreamble shapes + source-bound unquoted splitter; US-SD literal preamble + chapter scope + term clause",
         "changed_persisted_keys": changed, "wall_seconds": round(time.monotonic() - started, 3),
     }
+    result["canonical_changed_ledger_sha256"] = _canonical_changed_ledger_sha256(result)
     output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({"rows": rows, "guarded": guarded, "changed": len(changed), "wall_seconds": result["wall_seconds"]}))
 

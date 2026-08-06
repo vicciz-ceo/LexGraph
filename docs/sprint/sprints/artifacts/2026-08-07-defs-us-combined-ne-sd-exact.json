@@ -261,5 +261,6 @@
       "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
     }
   ],
-  "wall_seconds": 0.533
+  "wall_seconds": 0.526,
+  "canonical_changed_ledger_sha256": "768069fabbb1474785f0145c9677c41fdbcc3d8ec6cc1de59335796d08638a25"
 }

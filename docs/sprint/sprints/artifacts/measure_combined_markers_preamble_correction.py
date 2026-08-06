@@ -194,14 +194,24 @@ def _winner_map(stream):
 
 
 def _canonical_changed_ledger_sha256(result: dict) -> str:
-    """Hash the deterministic evidence projection, never elapsed time/path."""
+    """Hash only persisted core tuples, never annotations, timing, or paths."""
     projection = {
-        "proposal": result["proposal"],
-        "altitude": result["altitude"],
-        "denominator": result["denominator"],
-        "by_jurisdiction": result["by_jurisdiction"],
         "changed_persisted_keys": sorted(
-            result["changed_persisted_keys"],
+            [
+                {
+                    field: item.get(field)
+                    for field in (
+                        "file",
+                        "jurisdiction",
+                        "act_id",
+                        "derived_heading",
+                        "terms",
+                        "before",
+                        "after",
+                    )
+                }
+                for item in result["changed_persisted_keys"]
+            ],
             key=lambda item: json.dumps(item, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
         ),
     }

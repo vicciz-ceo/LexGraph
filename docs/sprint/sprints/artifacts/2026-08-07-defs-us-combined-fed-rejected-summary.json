@@ -18,7 +18,6 @@
       "USC_T12_C13_S1715k: amendment fragment ', inserted after fifth sentence' added as a term",
       "USC_T43_C35_S1742a: eligible itself runs through the next '(2)' label without an additional boundary seam"
     ],
-    "canonical_changed_ledger_sha256": "63c99b0d64301cdec5f70d3c72ab17bfaf1db51115b7eb19cb30b07e35710883",
     "full_ledger_committed": false
   },
   "rejected_broad_structural_rule": {
@@ -30,7 +29,6 @@
       "USC_T7_C54_S2148: resale added",
       "USC_T43_C35_S1742a: Secretary becomes clean, but this benefit does not justify the 1,645-key blast radius"
     ],
-    "canonical_changed_ledger_sha256": "d98a63acbd09e7c05e30c9e062de26615bb60775c5d1ee37a118984c3d4d1cec",
     "full_ledger_committed": false
   }
 }
