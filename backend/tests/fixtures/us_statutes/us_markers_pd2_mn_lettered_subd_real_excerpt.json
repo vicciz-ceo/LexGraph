@@ -1,0 +1,27 @@
+{
+  "act_id": "STATE_MN_P59A_79A_C60D_S60D.15",
+  "citation": "Minn. Stat. § 60D.15",
+  "citation_short": "Minn. Stat. § 60D.15",
+  "state": "mn",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "chapter": "60D",
+  "section_number": "60D.15",
+  "section_title": "§ 60D.15 DEFINITIONS.",
+  "source_url": "https://www.revisor.mn.gov/statutes/cite/60D.15",
+  "year": 2026,
+  "text": "\"under common control with,\" means the possession, direct or indirect, of the power to direct or cause the direction of the management and policies of a person, whether through the ownership of voting securities, by contract other than a commercial contract for goods or nonmanagement services, or otherwise, unless the power is the result of an official position with or corporate office held by the person. Control is presumed to exist if any person, directly or indirectly, owns, controls, holds with the power to vote, or holds proxies representing, ten percent or more of the voting securities of any other person. This presumption may be rebutted by a showing made in the manner provided by section 60D.19, subdivision 11 , that control does not exist in fact. The commissioner may determine, after furnishing all persons in interest notice and opportunity to be heard and making specific findings of fact to support the determination, that control exists in fact, notwithstanding the absence of a presumption to that effect.\n\n§ Subd. 4a. Enterprise risk. \"Enterprise risk\" means an activity, circumstance, event, or series of events involving one or more affiliates of an insurer that, if not remedied promptly, is likely to have a material adverse effect upon the financial condition or liquidity of the insurer or its insurance holding company system as a whole, including, but not limited to, anything that would cause the insurer's risk-based capital to fall into company action level as set forth in sections 60A.50 to 60A.696 or would cause the insurer to be in hazardous financial condition in accordance with the standards of section 60G.20 .",
+  "_fixture_provenance": {
+    "source": "vaquill/open-us-law",
+    "dataset_revision": "108806d5ab017581806d46122dfec04dcbfc2db8",
+    "local_snapshot": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+    "source_file": "us_mn_statutes.parquet",
+    "act_id": "STATE_MN_P59A_79A_C60D_S60D.15",
+    "text_is_verbatim_excerpt": true,
+    "source_full_text_sha256": "0f4460067492d79c31b9c0c44ee0306012f0616f943fd4200ed304828c534ab5",
+    "excerpt_text_sha256": "1d055549e01f0dd882271a31c8c0dc68d7162638222516f738855dcb599a2065",
+    "excerpt_start_offset": 666,
+    "excerpt_end_offset": 2323,
+    "offset_unit": "Unicode code points"
+  }
+}

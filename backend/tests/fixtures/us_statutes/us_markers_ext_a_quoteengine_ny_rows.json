@@ -1,0 +1,28 @@
+[
+ {
+  "act_id": "STATE_NY_AACA_TP_A40_S40.03",
+  "citation": "N.Y. ACA Law § 40.03",
+  "citation_short": "N.Y. ACA Law § 40.03",
+  "state": "ny",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "title_number": null,
+  "title_name": "New York Code",
+  "chapter": "",
+  "chapter_name": null,
+  "section_number": "40.03",
+  "section_title": "Definitions",
+  "breadcrumb": "[{\"type\": \"act\", \"num\": \"ACA\", \"label\": \"Act ACA\", \"name\": \"\"}, {\"type\": \"title\", \"num\": \"P\", \"label\": \"Title P\", \"name\": \"\"}, {\"type\": \"article\", \"num\": \"40\", \"label\": \"Article 40\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"40.03\", \"label\": \"Section 40.03\", \"name\": \"\"}]",
+  "display_path": "New York Code / Act ACA / Title P / Article 40 / Section 40.03",
+  "act_status": "in_force",
+  "text": "§ 40.03. Definitions. When used or referred to in this title, unless\\notherwise specified, the following terms shall have the following\\nmeaning:\\n  1. \"Trust\" shall mean the trust created by section 40.05 of this\\ntitle.\\n  2. \"Board\" shall mean the board of the trust created by section 40.05\\nof this title.\\n  3. \"Board of regents\" shall mean the board of regents of the\\nuniversity of the state of New York.\\n",
+  "word_count": 65,
+  "source_url": "https://www.nysenate.gov/legislation/laws/ACA/40.03",
+  "last_amended_year": null,
+  "subsection_count": 0,
+  "cross_references_usc": "[]",
+  "cross_references_cfr": "[]",
+  "public_laws_referenced": "[]",
+  "year": 2026
+ }
+]

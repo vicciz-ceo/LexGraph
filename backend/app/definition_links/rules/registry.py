@@ -147,6 +147,7 @@ class EntrySplitterRule:
 
     jurisdiction_codes: tuple[str, ...]
     split: Callable[[str], list[str]]
+    priority_before_single_baseline: bool = False
 
 
 @dataclass(frozen=True)
