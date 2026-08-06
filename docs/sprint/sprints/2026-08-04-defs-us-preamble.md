@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planned
+status: review
 blocked_on: null
-current_role: developer
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
-last_agent: "/root/markers_panel_manager/developer_exact_splitters"
-last_updated: "2026-08-06T23:08:31Z"
+last_agent: "/root/markers_panel_manager"
+last_updated: "2026-08-06T23:25:02Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 6
 qa_cycles: 0
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 177 2026-08-06T23:08:52Z"
+lint: "PASS 188 2026-08-06T23:25:42Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -38,6 +38,8 @@ targeted `References to` guard are now main-contained, shipped, and read-only
 for this sprint.
 
 ## Next Steps
+
+## Dev Complete
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -154,6 +156,15 @@ for this sprint.
 - Full-corpus forwarding-filter measurement is recorded in M-R79; Option A
   holds filters unchanged because the required tuple preservation is shared
   extraction/reference-edge work, not a safe B1-only change.
+- Integrated tip `4fa9e7b368801757039091646e06a832620a3a2c` contains both
+  root-accepted Developer tips. The combined correction is **13 passed**; G8
+  scope/collision is **11 passed**; markers G3H is **21 passed**; Option-C plus
+  G9 is **6 passed**. Root independently reproduced the 13/13 combined gate.
+- Authoritative backend is **1085 passed / 24 failed / 18 warnings**. The 24
+  failures are exactly the accepted ledger: 23 marker residuals plus held T35;
+  the former NE x2, SD, and FED `eligible` release blockers are green.
+- Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. The
+  shared worktree is clean and local/remote tips match.
 
 ## Stale-pin sweep
 
@@ -174,4 +185,4 @@ No external pins remain and no production signature/class/CSS rename occurred.
 6. M-R53 comments are corrected and the B1 facade is 259 lines.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
 8. Item 4's `pipeline.py` local-before-section canonicalization is integrated.
-9. QA is blocked at 1068/28; items 5–6 must remove four extras without expanding 24 holds.
+9. Items 5–6 removed the extras without expanding 24 holds; QA starts at `4fa9e7b`.

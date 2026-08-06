@@ -5384,3 +5384,23 @@ artifacts, sprint docs, registry/profile/pipeline/persistence, and every other
 production file are read-only. Each Developer must prove its owned RED subset
 green, keep the other half expected-red until combined, run the named green
 gates, commit/push cleanly, and return exact production diffs for root audit.
+
+### M-R97 — Combined integration accepted; QA handoff
+
+Root accepted Preamble Developer tip
+`19911846d07a99d9be50840157675b8900525147` and Markers Developer tip
+`2ee07c9df9c9459bed9c8c2450f974e55dcdd9ae`. Both are ancestors of the clean
+shared integration tip `4fa9e7b368801757039091646e06a832620a3a2c`, which
+matches its remote. Manager and root independently reproduced the combined
+live-path correction at **13 passed**. Manager also reproduced G8
+scope/collision **11 passed**, markers G3H **21 passed**, Option-C plus G9
+**6 passed**, frontend **165 passed**, and TypeScript type-checking clean.
+
+The authoritative backend result is **1085 passed / 24 failed / 18 warnings**.
+Every failure belongs to the accepted hold ledger: T35 shared-extraction debt;
+the 16 C5Guard class-B boundary cases; FED Roman structural sibling; OK gap
+idiom; NM; two NV cases; AL nested numbered list; and TX Part-A. The former
+NE x2, SD, and FED `eligible` release blockers are green, with no unexpected
+regressions. All six contract items move to Dev Complete; status is `review`
+and current role is `qa`. Root owns resuming the already-created fresh QA
+agent after this bookkeeping commit lands.
