@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: review
+status: planning
 blocked_on: null
-current_role: qa
+current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "/root/markers_panel_manager"
-locked_at: "2026-08-05T21:44:41Z"
+locked_by: null
+locked_at: null
 last_agent: "/root/markers_panel_manager"
-last_updated: "2026-08-06T23:25:02Z"
+last_updated: "2026-08-06T23:32:33Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 6
+total_items: 7
 completed_items: 0
 dev_complete_items: 6
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 188 2026-08-06T23:25:42Z"
+lint: "PASS 217 2026-08-06T23:32:58Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -38,6 +38,22 @@ targeted `References to` guard are now main-contained, shipped, and read-only
 for this sprint.
 
 ## Next Steps
+
+7. **Permanent Q-D1/G7 certification infrastructure.** Planner owns one
+   bounded, repo-tracked certification item and may change only measurement
+   harnesses, their regression/contract checks, generated evidence artifacts,
+   and sprint docs; production code is read-only. Replace the lost
+   scratchpad-only `qa_d1_measure.py`, `qa_d2_independent_denominator.py`, and
+   `qa_d3_crosscheck.py` flow with a reproducible clean-checkout entrypoint
+   that independently certifies binding G7/Q-D1 across all 53 files. It must
+   pin the input snapshot and integration SHA, cross-check the denominator,
+   emit deterministic/hash-verifiable evidence, and report P-FP at persisted
+   definition granularity `(row, term, definition_text, scope)` rather than an
+   approximate recognition-only proxy. Acceptance: a fresh QA can rerun the
+   committed harness from documented commands, reproduce the evidence and
+   hashes, and make the G7 pass/fail decision without session scratchpads. The
+   existing `measure_fp_after_widening.py` remains explicitly approximate and
+   non-gating; it cannot satisfy this item.
 
 ## Dev Complete
 
@@ -165,6 +181,11 @@ for this sprint.
   the former NE x2, SD, and FED `eligible` release blockers are green.
 - Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. The
   shared worktree is clean and local/remote tips match.
+- QA cycle 1 completed the focused, backend, frontend, all-53 exact-seam/hash,
+  and broad-mutation gates at `ea0565059072d807a5f8564537917ca59b499a3f`.
+  Binding G7 remains uncertified because its three independent QA measurement
+  scripts were scratchpad-only and are gone; the committed widening measure is
+  documented as approximate/non-gating and cannot substitute for Q-D1.
 
 ## Stale-pin sweep
 
@@ -175,14 +196,22 @@ The sole stale held-G12 name was repointed in the owned Option-C file; the stale
 FED debt-pin/capture-test names were repointed in their owned integration file.
 No external pins remain and no production signature/class/CSS rename occurred.
 
+## QA Notes
+
+- 2026-08-06T23:32:33Z — QA cycle 1 escalated after completing every focused,
+  backend, frontend, all-53 seam/hash, and broad-mutation gate. G7 could not be
+  independently certified: `qa_d1_measure.py`,
+  `qa_d2_independent_denominator.py`, and `qa_d3_crosscheck.py` were ephemeral
+  scratchpads and are unavailable. `measure_fp_after_widening.py` is explicitly
+  approximate/non-gating. No production regression was reported.
+
 ## Context Dump
 
-1. The four B1 causal gates are green; T35 is a separate held extraction RED.
-2. Item 4 owns the shared B1-derived local-scope dispatch regression.
-3. Keep forwarding tuples and name D-MT-E1 reference edges as core-held.
-4. PA must make the real bounded B1 call return `Definitions`, not just shorten a regex.
-5. Preserve the four paired full ingest+link guards.
-6. M-R53 comments are corrected and the B1 facade is 259 lines.
-7. Main-contained G12 is shipped integration evidence, not a held dependency.
-8. Item 4's `pipeline.py` local-before-section canonicalization is integrated.
-9. Items 5–6 removed the extras without expanding 24 holds; QA starts at `4fa9e7b`.
+1. Items 1–6 remain Dev Complete; QA found no new production regression.
+2. QA completed every focused/backend/frontend and exact-seam/hash gate.
+3. Binding G7 is not certified because three independent scripts were ephemeral.
+4. The committed widening measurement is approximate and remains non-gating.
+5. Item 7 is one Planner-owned permanent Q-D1/G7 certification harness.
+6. Evidence must be reproducible from a clean checkout across all 53 files.
+7. P-FP must be measured at persisted definition granularity, with cross-checks.
+8. Production code is read-only for item 7; root owns the next Planner dispatch.

@@ -5404,3 +5404,24 @@ NE x2, SD, and FED `eligible` release blockers are green, with no unexpected
 regressions. All six contract items move to Dev Complete; status is `review`
 and current role is `qa`. Root owns resuming the already-created fresh QA
 agent after this bookkeeping commit lands.
+
+### M-R98 — QA escalation reopens bounded G7 certification planning
+
+QA evaluated shared tip `ea0565059072d807a5f8564537917ca59b499a3f` and
+completed the focused, authoritative backend, frontend, all-53 exact-seam and
+hash verification, plus the broad-mutation controls. It reported no new
+production regression, but could not independently certify binding G7/Q-D1.
+The three independent programs used during the earlier QA investigation —
+`qa_d1_measure.py`, `qa_d2_independent_denominator.py`, and
+`qa_d3_crosscheck.py` — existed only in a session scratchpad and are gone.
+The committed `measure_fp_after_widening.py` states that it is approximate and
+non-gating, so it cannot replace the missing definition-granularity proof.
+
+The six implementation items remain Dev Complete. One bounded item 7 reopens
+planning: commit a permanent, clean-checkout-reproducible Q-D1/G7 harness and
+deterministic/hash-verifiable P-FP evidence at persisted `(row, term,
+definition_text, scope)` granularity across all 53 files, with an independent
+denominator/cross-check and documented rerun command. Production code is not
+authorized. Frontmatter returns to `status: planning`, `current_role: planner`,
+`total_items: 7`, `dev_complete_items: 6`, and `qa_cycles: 1`; the manager lock
+is released. Root owns spawning the Planner after this commit is pushed.
