@@ -7,12 +7,12 @@ branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
-last_agent: "/root/markers_panel_manager/planner_g8_scope"
-last_updated: "2026-08-06T22:23:01Z"
+last_agent: "/root/markers_panel_manager/planner_combined_correction"
+last_updated: "2026-08-06T22:34:48Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 4
+total_items: 5
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 151 2026-08-06T22:12:53Z"
+lint: "PASS 168 2026-08-06T22:35:31Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -75,6 +75,23 @@ for this sprint.
    chapter B1 preamble stays chapter-scoped; and a distinct section term
    survives. Core G8 reverse-order safety must remain green.
 
+5. **Combined markers/preamble correction.** On the exact merged tree,
+   NE `STATE_NE_C43_S43-3329` and `STATE_NE_C44_S44-5003`, SD
+   `STATE_SD_T54_C14_S54-14-12.1`, and FED `USC_T43_C35_S1742a` are release
+   blockers, not accepted holds. Planner must independently separate
+   recognition from extraction for NE/SD, prove all three through live
+   ingest-to-link with clean text and correct scope, and identify the minimum
+   jurisdiction-scoped BodyPreambleRule versus EntrySplitter/TermClause
+   ownership. FED must retain the distinct `eligible`, `good Samaritan
+   search-and-recovery mission`, and `Secretary` candidates when registered
+   output is only partial. Any proposed union seam requires all-53-file
+   persisted key/text/scope measurement and judgment; G11's measured 202-row
+   swallow risk forbids assuming a global fallback union is safe. Planner
+   writes tests/docs only, escalates architectural forks, and proposes
+   nonoverlapping Developer write sets; split this into two items if production
+   ownership diverges. Acceptance keeps G8 11, markers G3H 21, Option-C 5,
+   G9, the exact 23-marker-plus-T35 hold ledger, and every existing RED intact.
+
 ## Held dependencies / non-gates
 
 - **Forwarding filter ledger (Option A):** retain every live forwarding filter.
@@ -104,8 +121,8 @@ for this sprint.
   `STATE_PA_T15_C57_S5749` via `_preceded_by_references_to` while retaining and
   emitting genuine USC `"United States" includes ...`. This is main-contained
   integration evidence, not a future held dependency or B1 Developer gate.
-- Existing NE/SD unquoted markers dependencies are inherited and expected in
-  the full backend baseline; they are unrelated to these Developer items.
+- NE/SD are no longer accepted inherited dependencies: the merged markers
+  tree did not ship rules for them, and item 5 must close their live misses.
 
 ## Evidence
 
@@ -147,5 +164,5 @@ No external pins remain and no production signature/class/CSS rename occurred.
 5. Preserve the four paired full ingest+link guards.
 6. M-R53 comments are corrected and the B1 facade is 259 lines.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
-8. Final QA waits for item 4: `pipeline.py` only, derived-branch local-before-
-   section canonicalization before `all_candidates`/`resolved`; no suppression/relabel.
+8. Item 4's `pipeline.py` local-before-section canonicalization is integrated.
+9. QA is blocked at 1068/28; item 5 must remove four extras without expanding 24 holds.

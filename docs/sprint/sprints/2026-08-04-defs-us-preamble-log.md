@@ -5274,3 +5274,36 @@ The six-name stale-pin sweep over every repo-profile test root has zero hits;
 contract lint passes at 151 lines with a 10-line Context Dump, Python compile
 validation passes, and `git diff --check` is clean. No production, fixture,
 older test, or unrelated document changed.
+
+### M-R93 — Combined-tree gate blocks QA; correction Planner roster
+
+Root accepted production commit `62d258f` and delivery `f23e081` after an
+independent exact-diff audit. The manager fast-forwarded the shared branch to
+that delivery, then merged current `origin/main` at `be4370b` without rebasing;
+the pushed combined merge is `6056f3c`. G8 is **11 passed**, markers G3H is
+**21 passed**, Option-C is **5 passed**, G9 migration is **1 passed**, and the
+paired defining-verb command is exactly **1 held-T35 failed / 15 passed**.
+
+The authoritative combined backend is **1068 passed / 28 failed / 19
+warnings**. Twenty-three failures exactly match the accepted markers ledger
+and one is T35. Four extras block QA: NE `STATE_NE_C43_S43-3329`, NE
+`STATE_NE_C44_S44-5003`, SD `STATE_SD_T54_C14_S54-14-12.1`, and FED
+`USC_T43_C35_S1742a`'s missing `eligible`. Direct registry/profile evidence
+shows no NE/SD EntrySplitter/TermClause rule shipped and no heading derives;
+the merged `us_markers_unquoted_terms.py` covers only AL/NC/DC. FED is a real
+partial-union miss: the derived inline fallback emits `eligible`, but the
+registered FED splitter emits only the other two terms; because registered
+output is nonempty, the profile skips the fallback and loses the distinct
+candidate. Root ruled that none may be added to the hold ledger.
+
+Canonical Planner: `/root/markers_panel_manager/planner_combined_correction`,
+**Terra / high**; Haiku rejected because this requires cross-panel
+recognition/extraction design plus persisted all-corpus union measurement.
+Branch `claude/defs-us-preamble-combined-plan`, worktree
+`/Users/nerya/LexGraph-wt/defs-us-preamble-combined-plan`. Planner writes only
+tests and this sprint's docs/artifacts; all production, fixtures, and existing
+tests are locked read-only. It must build discriminating live REDs, measure
+every proposed FED seam over all 53 files at persisted key/text/scope altitude
+with judgments, preserve the exact 24-hold ledger and named green gates, split
+production ownership/write sets before Developer dispatch, and return its
+commit for root audit. QA remains blocked.
