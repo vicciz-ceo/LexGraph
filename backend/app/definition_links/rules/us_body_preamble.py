@@ -26,24 +26,14 @@ is returned instead -- it still satisfies `is_definitions_heading`'s
 first-word rule, which is all the pipeline checks). Once a heading is
 accepted, `pipeline.py`'s existing, UNEDITED `extract_definitions_from_
 section` (falling back to `_extract_inline_quoted_definitions` when the
-heading was body-derived) does the actual entry parsing -- this file's job
-is recognition only, never extraction.
-
-**`scope_unit_kind` -- not applicable here** (per the sprint brief's M-D3
-erratum caveat): `BodyPreambleRule` (`registry.py`) has exactly two fields,
-`jurisdiction_codes` and `derive_heading: Callable[[str], str | None]` --
-there is no `scope_unit_kind` field on this dataclass, and `derive_heading`
-returns only a heading string, never a scope/unit-kind value. Confirmed by
-reading the dataclass definition directly, not inferred from the seam
-doc's illustrative table -- nothing in this file declares or needs
-`scope_unit_kind`.
+heading was body-derived) does the actual entry parsing. The rules below
+recognize headings only, except the exact SD `ScopeKindRule` noted there.
 
 **Registration order is precedence** (first-non-`None`-wins, M-R27):
 precise, jurisdiction-scoped shapes are registered BEFORE the broad `US-*`
 catch-alls, so a future broader rule can never silently starve a
-state-specific one -- California's own wide-window variant and Nebraska's
-"named code" idiom go first, then the two `US-*` idioms (B2 before B1,
-narrower phrase before the more general trigger+colon shape).
+state-specific one -- California, Nebraska, and South Dakota go first, then
+the two `US-*` idioms (B2 before B1).
 
 **Hazard/false-positive discipline** (gate U5, this family's documented
 known risk): the trigger vocabulary these rules key on ("As used in this
@@ -62,7 +52,12 @@ from __future__ import annotations
 
 import re
 
-from app.definition_links.rules.registry import BodyPreambleRule, ScopeKindRule, register_body_preamble_rule, register_scope_kind_rule
+from app.definition_links.rules.registry import (
+    BodyPreambleRule,
+    ScopeKindRule,
+    register_body_preamble_rule,
+    register_scope_kind_rule,
+)
 
 # --- Rule 1: California, wide-window "...Definitions...apply/govern"  -----
 #
@@ -119,14 +114,8 @@ register_body_preamble_rule(
 # neither idiom below reaches it), anchored at the START of the body
 # (allowing one short leading parenthetical aside, e.g. `"(UTC 103) "`).
 # Only fires when a quoted term appears shortly after the intro clause's
-# own colon -- NE's OTHER, unquoted convention (`"For purposes of the
-# <Act>: (1) Health insurance plan means ..."`, no quote marks anywhere)
-# is a genuine, disclosed, cross-sprint dependency on
-# `2026-08-04-defs-us-markers` (neither `extract_definitions_from_section`
-# nor the inline-quote fallback can parse an unquoted entry today, verified
-# live) -- this rule deliberately does NOT fire for that shape, since even
-# a correct heading cannot make it extract. Scoped to `US-NE`: this exact
-# "named code" phrasing was only measured on Nebraska this sprint.
+# own colon. Exact unquoted NE recognition follows below; its extraction is
+# supplied by the separate markers rule. Scoped to `US-NE` only.
 _NE_NAMED_CODE_INTRO_RE = re.compile(
     r"^(?:\([^)]{0,40}\)\s*)?(?:In the|For purposes of the)\s+[^:\n]{1,100}:",
     re.IGNORECASE,
@@ -152,7 +141,7 @@ _NE_SECTIONS_DEFINITIONS_PREAMBLE_RE = re.compile(
     re.IGNORECASE,
 )
 _NE_HEARING_AID_ACT_PREAMBLE_RE = re.compile(
-    r"^For purposes of the Children of Nebraska Hearing Aid Act\s*:",
+    r"^For purposes of the Children of Nebraska Hearing Aid Act:\s*\n\s*\(1\)",
     re.IGNORECASE,
 )
 
@@ -163,11 +152,13 @@ def _ne_exact_unquoted_definitions_preamble(body: str) -> str | None:
     return None
 
 
-register_body_preamble_rule(BodyPreambleRule(jurisdiction_codes=("US-NE",), derive_heading=_ne_exact_unquoted_definitions_preamble))
+register_body_preamble_rule(
+    BodyPreambleRule(jurisdiction_codes=("US-NE",), derive_heading=_ne_exact_unquoted_definitions_preamble)
+)
 
 # --- Rule 2aa: South Dakota's exact chapter-local term preamble -----------
 _SD_LOAN_PROCESSOR_PREAMBLE_RE = re.compile(
-    r"^For the purposes of this chapter, the term, loan processor or underwriter, means\b",
+    r"^For the purposes of this chapter, the term,\s+loan processor or underwriter,\s+means\s+",
     re.IGNORECASE,
 )
 
@@ -180,8 +171,12 @@ def _sd_loan_processor_chapter_scope(body: str) -> str | None:
     return "chapter" if _SD_LOAN_PROCESSOR_PREAMBLE_RE.match(body) else None
 
 
-register_body_preamble_rule(BodyPreambleRule(jurisdiction_codes=("US-SD",), derive_heading=_sd_loan_processor_preamble))
-register_scope_kind_rule(ScopeKindRule(jurisdiction_codes=("US-SD",), detect=_sd_loan_processor_chapter_scope))
+register_body_preamble_rule(
+    BodyPreambleRule(jurisdiction_codes=("US-SD",), derive_heading=_sd_loan_processor_preamble)
+)
+register_scope_kind_rule(
+    ScopeKindRule(jurisdiction_codes=("US-SD",), detect=_sd_loan_processor_chapter_scope)
+)
 
 # --- Rule 2b: Named-Act "As used in the <Act/Code>" + quoted term + -------
 # --- means/also means ------------------------------------------------------
