@@ -62,7 +62,7 @@ from __future__ import annotations
 
 import re
 
-from app.definition_links.rules.registry import BodyPreambleRule, register_body_preamble_rule
+from app.definition_links.rules.registry import BodyPreambleRule, ScopeKindRule, register_body_preamble_rule, register_scope_kind_rule
 
 # --- Rule 1: California, wide-window "...Definitions...apply/govern"  -----
 #
@@ -145,6 +145,43 @@ def _ne_named_code_quoted_list(body: str) -> str | None:
 register_body_preamble_rule(
     BodyPreambleRule(jurisdiction_codes=("US-NE",), derive_heading=_ne_named_code_quoted_list)
 )
+
+# --- Rule 2a: Nebraska's exact unquoted statutory preambles ---------------
+_NE_SECTIONS_DEFINITIONS_PREAMBLE_RE = re.compile(
+    r"^For purposes of sections 43-3328 to 43-3339\s*,\s*the following definitions apply:",
+    re.IGNORECASE,
+)
+_NE_HEARING_AID_ACT_PREAMBLE_RE = re.compile(
+    r"^For purposes of the Children of Nebraska Hearing Aid Act\s*:",
+    re.IGNORECASE,
+)
+
+
+def _ne_exact_unquoted_definitions_preamble(body: str) -> str | None:
+    if _NE_SECTIONS_DEFINITIONS_PREAMBLE_RE.match(body) or _NE_HEARING_AID_ACT_PREAMBLE_RE.match(body):
+        return "Definitions"
+    return None
+
+
+register_body_preamble_rule(BodyPreambleRule(jurisdiction_codes=("US-NE",), derive_heading=_ne_exact_unquoted_definitions_preamble))
+
+# --- Rule 2aa: South Dakota's exact chapter-local term preamble -----------
+_SD_LOAN_PROCESSOR_PREAMBLE_RE = re.compile(
+    r"^For the purposes of this chapter, the term, loan processor or underwriter, means\b",
+    re.IGNORECASE,
+)
+
+
+def _sd_loan_processor_preamble(body: str) -> str | None:
+    return "Definitions" if _SD_LOAN_PROCESSOR_PREAMBLE_RE.match(body) else None
+
+
+def _sd_loan_processor_chapter_scope(body: str) -> str | None:
+    return "chapter" if _SD_LOAN_PROCESSOR_PREAMBLE_RE.match(body) else None
+
+
+register_body_preamble_rule(BodyPreambleRule(jurisdiction_codes=("US-SD",), derive_heading=_sd_loan_processor_preamble))
+register_scope_kind_rule(ScopeKindRule(jurisdiction_codes=("US-SD",), detect=_sd_loan_processor_chapter_scope))
 
 # --- Rule 2b: Named-Act "As used in the <Act/Code>" + quoted term + -------
 # --- means/also means ------------------------------------------------------
