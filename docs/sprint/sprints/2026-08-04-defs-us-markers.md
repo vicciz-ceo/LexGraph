@@ -1,21 +1,21 @@
 ---
 id: "2026-08-04-defs-us-markers"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/defs-us-markers-core2-integration
 worktree: /Users/nerya/LexGraph-wt/defs-us-markers-core2-integration
-locked_by: "/root/markers_g3_heal_developer"
-locked_at: "2026-08-05T22:34:06Z"
-last_agent: "/root"
-last_updated: "2026-08-05T22:34:06Z"
+locked_by: "/root/markers_g3_heal_qa"
+locked_at: "2026-08-05T22:42:36Z"
+last_agent: "/root/markers_g3_heal_developer"
+last_updated: "2026-08-05T22:42:36Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
 completed_items: 2
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 2
-lint: "PASS 400 2026-08-05T22:34:06Z"
+lint: "PASS 400 2026-08-05T22:42:36Z"
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
@@ -358,7 +358,7 @@ names its gate(s).
 
 ## Dev Complete
 
-_None._
+- **P-G3H** — Developer `ba91fee`; manager gate 21/21, backend 979/23 named holds, frontend 165, typecheck clean.
 
 ## Completed
 

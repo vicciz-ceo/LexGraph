@@ -5850,3 +5850,32 @@ other production file are read-only. The Developer implements only P-G3H,
 runs the committed four-file focused command to GREEN, then one authoritative
 combined evaluator; it commits and pushes its own branch and escalates rather
 than editing a test or widening the seam.
+
+---
+
+## M69 — G3-HEAL Developer integration and fresh QA dispatch (2026-08-06)
+
+Developer `ba91fee51ebd89a65aeda2cb1c995ef0cfd6c80d` was fast-forwarded
+exactly onto the combined integration branch and pushed. Manager review read
+the complete 64-line production diff: only `EntrySplitterRule`'s additive
+default-false field, the exact WA/non-WA registration split, and the guarded
+source ordering in `USProfile` changed. No tests/docs/persistence/migrations;
+risk grep was empty; main containment and remote equality pass.
+
+Manager live gate is **21 passed / 0 failed**. Authoritative combined backend
+is **979 passed / 23 failed / 18 warnings**: the failures reconcile exactly to
+the named marker ledger (16 class-B boundary debts; FED Roman sibling; OK gap
+idiom; NM; two NV; AL nested list; TX Part-A). Relative to the prior combined
+972/27 run, the three MI stale pins and WA persisted swallow are green.
+Frontend is **165 passed** with six known non-failing React `act` warnings;
+typecheck is clean.
+
+Fresh QA roster: `/root/markers_g3_heal_qa`, Terra/high — independent combined
+parser/persistence certification and the all-53 corpus ledger require QA-tier
+judgment. Haiku considered: no. Branch
+`claude/defs-us-markers-g3-heal-qa`, worktree
+`/Users/nerya/LexGraph-wt/defs-us-markers-g3-heal-qa`, forked from the exact
+dispatch commit containing this entry. QA may write only tests; production,
+artifacts, fixtures, and shared sprint docs are read-only. It must independently
+reproduce 21/21, the 979/23 ledger, frontend/typecheck, the 17-key WA-only corpus
+measurement, default/registration/gate discrimination, and no new failures.
