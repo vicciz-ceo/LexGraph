@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "/root/markers_panel_manager"
 locked_at: "2026-08-05T21:44:41Z"
 last_agent: "/root/markers_panel_manager/planner_g8_scope"
-last_updated: "2026-08-05T22:37:18Z"
+last_updated: "2026-08-06T22:12:53Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: PASS
+lint: "PASS 151 2026-08-06T22:12:53Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -62,10 +62,18 @@ for this sprint.
 4. **G8 shared local-scope dispatch repair.** A B1-derived heading must not
    turn ordinary `As used in this section` definitions from a clean local
    candidate into a trailing `law-wide` candidate. Planner first owns a new
-   live ingest-to-link RED plus two-sided local/chapter and B1 controls; shared
-   production scope and the exact write set require manager acceptance before
-   Developer dispatch. Core G8 reverse-order safety must remain green, and
-   neither suppressing B1 nor globally relabeling scopes is acceptable.
+   live ingest-to-link RED plus two-sided local/chapter and B1 controls. The
+   accepted shared seam is `pipeline.py` only: only for a body-derived
+   Definitions heading, emit registered local-scope candidates first, retain
+   their first candidate per sorted-term key, then append existing
+   definitions-section candidates only for keys not already owned. This
+   preserves B1 and non-colliding section entries while preventing a later
+   same-key law-wide candidate from entering persistence or Stage 3 linking.
+   Registry order remains the local-candidate order; do not change generic G8
+   persistence, profiles/registry APIs, or IL. Acceptance: clean local text
+   and scope persist; an outside article gains no law-wide edge; a real GA
+   chapter B1 preamble stays chapter-scoped; and a distinct section term
+   survives. Core G8 reverse-order safety must remain green.
 
 ## Held dependencies / non-gates
 
@@ -125,10 +133,10 @@ for this sprint.
 
 Searched every repo-profile root (`backend/tests/unit`, `backend/tests/integration`,
 `backend/tests/e2e`, `frontend/src/components/__tests__`) case-insensitively
-for the five replaced cycle-9 test names. The sole stale held-G12 name was
-repointed in the owned Option-C file; the stale FED debt-pin/capture-test names
-were repointed in their owned integration file. No external pins remain and no
-production signature/class/CSS rename occurred.
+for the six superseded cycle-8/9 Option-C and held-G12 test names: zero hits.
+The sole stale held-G12 name was repointed in the owned Option-C file; the stale
+FED debt-pin/capture-test names were repointed in their owned integration file.
+No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
@@ -139,4 +147,5 @@ production signature/class/CSS rename occurred.
 5. Preserve the four paired full ingest+link guards.
 6. M-R53 comments are corrected and the B1 facade is 259 lines.
 7. Main-contained G12 is shipped integration evidence, not a held dependency.
-8. Final QA waits for item 4; do not suppress B1 or relabel all scopes.
+8. Final QA waits for item 4: `pipeline.py` only, derived-branch local-before-
+   section canonicalization before `all_candidates`/`resolved`; no suppression/relabel.

@@ -5125,3 +5125,70 @@ non-local/chapter preamble control retain intended scope; the suite rejects
 both B1 suppression and global scope relabeling; and all repo-profile roots
 receive a stale-pin sweep. Any architectural fork must escalate before a
 Developer or production write set is commissioned.
+
+### M-R88 — G8 local dispatch fork ruled; ordered-key canonicalization planned
+
+Planner reproduced the exact live failure in a new, separate integration file:
+the constructed ordinary US-GA row is deliberately test scaffolding, not a
+corpus claim. Its real B1 recognizer and `USProfile.derive_heading_from_body`
+both return `Definitions`; the derived branch calls `determine_scope`, which
+returns `law-wide`, and persists `Scope probe` with the trailing `Editorial
+Notes` text. Direct profile evidence from the identical bytes proves the
+otherwise-mutually-exclusive local path yields `Scope probe`, text `a small
+mechanical device with a handle`, and `scope=local`.
+
+The architectural fork was escalated before a production choice. Manager
+rejected local-only dispatch (it suppresses B1 section extraction) and a new
+profile/registry API (unnecessary shared/IL blast radius), accepting a narrow
+pipeline-only candidate union. A naive union was then rejected: Stage 3 keeps
+every `(candidate, persisted Definition)` in `resolved`; a later law-wide
+same-key candidate can therefore link an outside article to the Definition
+persisted local. The accepted exact rule is limited to the body-derived branch:
+obtain registered local candidates in registry order, retain the first for
+each `tuple(sorted(candidate.terms))` key, then append existing section
+candidates only when their key is not already owned. Thus a same-key broad
+candidate reaches neither `all_candidates`, `resolved`, nor link generation;
+every non-colliding B1 section candidate remains. No generic persistence/G8
+preference, profile/registry, IL, or B1 recognizer behavior changes.
+
+The new live RED proves all of: B1 and derived-heading recognition stay live;
+the local persisted text/scope are exact; an outside article receives no
+`USES_DEFINITION` edge; and a section-only `Section companion` term survives
+alongside local `Scope probe`. Its real control reuses byte-exact
+`STATE_GA_T7_C8_S7-8-1`, confirms B1-derived `Definitions`, and remains
+`chapter`; it defeats global local relabeling. B1 suppression defeats both
+recognition controls; local-only dispatch defeats `Section companion`.
+
+Exclusive Developer production write set: `backend/app/definition_links/pipeline.py`.
+The Planner applied that exact ordered-key code only to an in-memory copy of
+`pipeline.run_definition_linking`, ran the new file plus the entire core G8
+file (**11 passed**), then restored the original callable and verified no
+`pipeline.py` diff. This proves the refined implementation produces one local
+`Scope probe`, no outside edge, the non-colliding companion, the real chapter
+control, and all eight core G8 cases; the direct naive append-all replay still
+reintroduces the one outside edge. T35 and NE/SD remain held dependencies;
+Option-C's real positives and paired ingest/link guards remain required green
+evidence.
+
+### M-R89 — G8 Planner pre-development inventory and stale sweep
+
+Focused pre-fix inventory is intentionally not presented as a green suite:
+the new dispatch file is **2 failed / 1 passed** (load-bearing local/trailing
+RED and the local-plus-distinct-section union RED; real GA chapter control
+green). Existing core G8 is **1 failed / 7 passed**: its named integrated
+scope-broadening probe is the inherited same shared-dispatch RED, while all
+other safety controls, including both real reverse-order/complete-definition
+tests, are green. It was neither modified nor suppressed. The direct naive
+union replay (`local + law-wide same-key candidates`) produces exactly the
+outside `Scope probe` edge, proving the required Stage-3 guard is not
+theoretical and leaving no retained runtime mutation.
+
+Real Option-C positives are **5 passed**. Paired defining-verb plus Option-C
+evidence is **1 held-T35 failed / 15 passed**; T35 and inherited NE/SD remain
+named dependencies, not this repair. A case-insensitive stale-name sweep over
+`backend/tests/unit`, `backend/tests/integration`, `backend/tests/e2e`, and
+`frontend/src/components/__tests__` found zero instances of all six replaced
+cycle-8/9 Option-C and held-G12 test names. Contract lint passes at 151 lines
+with a 10-line Context Dump; `git diff --check` and Python compile validation
+are clean. No project ruff configuration/dependency exists, so no unavailable
+linter was represented as run.
