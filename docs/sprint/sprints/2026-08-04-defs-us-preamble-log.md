@@ -5192,3 +5192,23 @@ cycle-8/9 Option-C and held-G12 test names. Contract lint passes at 151 lines
 with a 10-line Context Dump; `git diff --check` and Python compile validation
 are clean. No project ruff configuration/dependency exists, so no unavailable
 linter was represented as run.
+
+### M-R90 — G8 scope Developer roster and exclusive production lock
+
+Root independently audited and accepted Planner commit `24d34c0`; the manager
+fast-forwarded it to the shared sprint branch before implementation dispatch.
+The committed Developer identity is
+`/root/markers_panel_manager/developer_g8_scope`, model `gpt-5.6-terra`, medium
+reasoning, Developer brief v3.1. Haiku is rejected because this edits shared
+Stage-2/Stage-3 dispatch and must preserve scope/link semantics. Its isolated
+branch/worktree are `claude/defs-us-preamble-g8-scope-dev` and
+`/Users/nerya/LexGraph-wt/defs-us-preamble-g8-scope-dev`.
+
+The exclusive production write lock is
+`backend/app/definition_links/pipeline.py`. Tests, fixtures, sprint docs,
+profiles, registry, B1 modules, and generic persistence are read-only. The only
+authorized change is body-derived-heading ordered key canonicalization before
+`all_candidates`/`resolved`: registered local candidates first, first per
+`tuple(sorted(candidate.terms))`, followed by existing section candidates only
+for unseen keys. Ordinary/non-derived and IL paths must stay byte-for-byte.
+Any green-pin break or alternate seam is a mandatory stop/escalation.
