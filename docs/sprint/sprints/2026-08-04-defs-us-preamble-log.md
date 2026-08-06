@@ -5212,3 +5212,29 @@ authorized change is body-derived-heading ordered key canonicalization before
 `tuple(sorted(candidate.terms))`, followed by existing section candidates only
 for unseen keys. Ordinary/non-derived and IL paths must stay byte-for-byte.
 Any green-pin break or alternate seam is a mandatory stop/escalation.
+
+### M-R91 — Full-suite registry accumulation bounces two Planner assertions
+
+Developer production commit `62d258f` is pushed but not integrated. Its
+focused evidence is new plus core G8 **11 passed**, profile/scope/persistence/
+IL **40 passed**, Option-C **5 passed**, and combined **1 held-T35 failed / 15
+passed**; the diff is the exclusive `pipeline.py` file, 20 insertions. Frontend
+is 165 passed and typecheck passes.
+
+The authoritative full backend is **938 passed / 6 failed**. Four failures are
+the declared T35 plus NE/SD dependencies. The two extras occur before the live
+pipeline assertions: full-suite collection/execution has already registered
+the older `test_definition_links_pipeline_scope_seam.py` US-wildcard proof
+rule, so direct `extract_local_scope_definitions` diagnostics contain two
+byte-identical `Scope probe` candidates. Focused collection has only one. The
+accepted production design intentionally canonicalizes such ordered duplicate
+keys; therefore an exact raw list cardinality in the new Planner test is a
+global-registry-order trap, not a production regression.
+
+Planner `/root/markers_panel_manager/planner_g8_scope` resumes with production
+read-only to replace only those two precondition assertions with presence/
+content checks that tolerate identical accumulated rule outputs while still
+requiring the live pipeline to canonicalize. It must reproduce the full-order
+registry state explicitly, keep pre-fix live RED semantics, and prove the
+focused/full-order post-fix result before the Developer commit can be audited
+for integration.
