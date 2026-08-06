@@ -1,0 +1,28 @@
+[
+ {
+  "act_id": "STATE_NY_ADEA_A6_S80",
+  "citation": "N.Y. DEA Law § 80",
+  "citation_short": "N.Y. DEA Law § 80",
+  "state": "ny",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "title_number": null,
+  "title_name": "New York Code",
+  "chapter": "",
+  "chapter_name": null,
+  "section_number": "80",
+  "section_title": "Definitions",
+  "breadcrumb": "[{\"type\": \"act\", \"num\": \"DEA\", \"label\": \"Act DEA\", \"name\": \"\"}, {\"type\": \"article\", \"num\": \"6\", \"label\": \"Article 6\", \"name\": \"\"}, {\"type\": \"section\", \"num\": \"80\", \"label\": \"Section 80\", \"name\": \"\"}]",
+  "display_path": "New York Code / Act DEA / Article 6 / Section 80",
+  "act_status": "in_force",
+  "text": "§ 80. Definitions. As used in this article the following terms shall\\nmean and include:\\n  1. \"Highway.\" Any private or public highway, street, way, waterway, or\\nother place used for travel.\\n  2. \"Commissioner.\" The state commissioner of transportation.\\n",
+  "word_count": 36,
+  "source_url": "https://www.nysenate.gov/legislation/laws/DEA/80",
+  "last_amended_year": null,
+  "subsection_count": 0,
+  "cross_references_usc": "[]",
+  "cross_references_cfr": "[]",
+  "public_laws_referenced": "[]",
+  "year": 2026
+ }
+]

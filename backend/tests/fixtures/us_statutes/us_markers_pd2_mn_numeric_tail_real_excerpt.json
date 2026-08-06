@@ -1,0 +1,27 @@
+{
+  "act_id": "STATE_MN_P216_217_C216B_S216B.68",
+  "citation": "Minn. Stat. § 216B.68",
+  "citation_short": "Minn. Stat. § 216B.68",
+  "state": "mn",
+  "jurisdiction": "US",
+  "document_type": "statute",
+  "chapter": "216B",
+  "section_number": "216B.68",
+  "section_title": "§ 216B.68 DEFINITIONS; MERCURY EMISSIONS REDUCTION.",
+  "source_url": "https://www.revisor.mn.gov/statutes/cite/216B.68",
+  "year": 2026,
+  "text": "§ Subd. 4. Federal mercury regulations. \"Federal mercury regulations\" means the federal Clean Air Mercury Rule as of January 1, 2006, published in Code of Federal Regulations, title 40, parts 60, 63, 70, and 72.\n\n§ Subd. 5. Mercury emissions reduction. \"Mercury emissions reduction\" means the amount of mercury reduced from the emissions of a targeted or supplemental unit, relative to the emissions baseline from that unit established under section 216B.681, expressed as a percentage.",
+  "_fixture_provenance": {
+    "source": "vaquill/open-us-law",
+    "dataset_revision": "108806d5ab017581806d46122dfec04dcbfc2db8",
+    "local_snapshot": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+    "source_file": "us_mn_statutes.parquet",
+    "act_id": "STATE_MN_P216_217_C216B_S216B.68",
+    "text_is_verbatim_excerpt": true,
+    "source_full_text_sha256": "43e0982e95d77c159db556f11d6c0a8096bdb1057f18837cc0eccc89b590b11e",
+    "excerpt_text_sha256": "4f64d2c9e71463abb4de6495afcde36fb0c126dfc923855b4b800488f8d152be",
+    "excerpt_start_offset": 465,
+    "excerpt_end_offset": 951,
+    "offset_unit": "Unicode code points"
+  }
+}
