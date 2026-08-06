@@ -5325,6 +5325,8 @@ Accepted ownership is disjoint. Preamble Developer changes only existing
 NE/SD recognizers and the exact US-SD chapter scope spelling. Markers Developer
 adds only `us_markers_ne_sd_unquoted.py` (the reviewed NE/SD source-bound
 entries) and `us_markers_fed_good_samaritan.py` (one US-FED priority splitter).
+The NE/SD module uses exact `EntrySplitterRule`s only, with no
+`TermClauseRule`; the preamble module alone owns recognition and SD scope.
 The FED splitter's real callable guard is jurisdiction plus body shape—not
 heading provenance, which an EntrySplitterRule cannot receive: body begins
 `(a) Definitions` then `In this section:`, contains exactly the three reviewed

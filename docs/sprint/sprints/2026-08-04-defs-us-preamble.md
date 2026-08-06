@@ -90,8 +90,8 @@ for this sprint.
    exactly the clean, law-wide `eligible`, `good Samaritan search-and-recovery
    mission`, and `Secretary` tuples. Markers Developer owns only two new,
    non-overlapping modules:
-   `backend/app/definition_links/rules/us_markers_ne_sd_unquoted.py` and
-   `backend/app/definition_links/rules/us_markers_fed_good_samaritan.py`.
+   `us_markers_ne_sd_unquoted.py` (exact source-bound `EntrySplitterRule`s
+   only; no `TermClauseRule`) and `us_markers_fed_good_samaritan.py`.
    The FED rule is a US-FED-only `(a) Definitions` / `In this section:` exact
    shape: it requires exactly the three reviewed labels and
    terminates before top-level `(b)`. It is one priority EntrySplitter stream,

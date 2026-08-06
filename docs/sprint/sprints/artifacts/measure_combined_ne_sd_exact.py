@@ -257,7 +257,7 @@ def main() -> int:
     result = {
         "files": len(files), "rows": rows, "jurisdiction_guarded_rows": guarded,
         "altitude": "G8 local-first/same-key suppression plus persisted (act_id, sorted terms, text, scope)",
-        "proposal": "US-NE literal C43/C44 BodyPreamble shapes + source-bound unquoted splitter; US-SD literal preamble + chapter scope + term clause",
+        "proposal": "US-NE literal C43/C44 BodyPreamble shapes + exact source-bound EntrySplitter; US-SD literal preamble + chapter scope + exact source-bound EntrySplitter; no TermClauseRule",
         "changed_persisted_keys": changed, "wall_seconds": round(time.monotonic() - started, 3),
     }
     result["canonical_changed_ledger_sha256"] = _canonical_changed_ledger_sha256(result)
