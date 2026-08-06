@@ -5212,3 +5212,65 @@ authorized change is body-derived-heading ordered key canonicalization before
 `tuple(sorted(candidate.terms))`, followed by existing section candidates only
 for unseen keys. Ordinary/non-derived and IL paths must stay byte-for-byte.
 Any green-pin break or alternate seam is a mandatory stop/escalation.
+
+### M-R91 — Full-suite registry accumulation bounces two Planner assertions
+
+Developer production commit `62d258f` is pushed but not integrated. Its
+focused evidence is new plus core G8 **11 passed**, profile/scope/persistence/
+IL **40 passed**, Option-C **5 passed**, and combined **1 held-T35 failed / 15
+passed**; the diff is the exclusive `pipeline.py` file, 20 insertions. Frontend
+is 165 passed and typecheck passes.
+
+The authoritative full backend is **938 passed / 6 failed**. Four failures are
+the declared T35 plus NE/SD dependencies. The two extras occur before the live
+pipeline assertions: full-suite collection/execution has already registered
+the older `test_definition_links_pipeline_scope_seam.py` US-wildcard proof
+rule, so direct `extract_local_scope_definitions` diagnostics contain two
+byte-identical `Scope probe` candidates. Focused collection has only one. The
+accepted production design intentionally canonicalizes such ordered duplicate
+keys; therefore an exact raw list cardinality in the new Planner test is a
+global-registry-order trap, not a production regression.
+
+Planner `/root/markers_panel_manager/planner_g8_scope` resumes with production
+read-only to replace only those two precondition assertions with presence/
+content checks that tolerate identical accumulated rule outputs while still
+requiring the live pipeline to canonicalize. It must reproduce the full-order
+registry state explicitly, keep pre-fix live RED semantics, and prove the
+focused/full-order post-fix result before the Developer commit can be audited
+for integration.
+
+### M-R92 — Raw registry-union preconditions corrected without weakening live gates
+
+Planner resumed at exact `3139a54` with production, fixtures, and every older
+test read-only. The two direct raw-local diagnostics in the new G8 file no
+longer require list cardinality one. The primary diagnostic requires at least
+one `Scope probe` and proves every matching candidate is exactly the clean
+`("local", "a small mechanical device with a handle")` tuple. The subset
+diagnostic requires `Scope probe`, permits duplicate identical keys, rejects
+every unexpected local-path term, and proves every raw candidate has that same
+clean local content/scope. Exact-one persisted-row, clean/local persistence,
+zero outside edge, and distinct `Section companion` live expectations are
+unchanged.
+
+Using the plan9-local Python 3.13 venv with `PYTHONPATH` pinned to this exact
+worktree (and `app.__file__` proven under it), the pre-production-fix isolated
+new file is **2 failed / 1 passed**. The failures now reach only the intended
+live assertions: `test_b1_derived_local_definition_persists_clean_and_local_
+through_live_ingest_linking` gets persisted `law-wide` instead of `local`, and
+`test_b1_local_candidate_precedes_but_does_not_suppress_distinct_section_
+candidate` persists only `Section companion`, missing `Scope probe`; the real
+GA chapter control passes.
+
+The full-order surrogate lists `test_definition_links_pipeline_scope_seam.py`
+first and is **2 failed / 12 passed**: all eleven older seam tests and the GA
+chapter control pass, while exactly those same two new live assertions remain
+RED. Thus accumulated duplicate US-wildcard scope-trigger candidates no longer
+fail a Planner precondition. Core G8 is unchanged at **1 failed / 7 passed**;
+only `test_real_pipeline_never_replaces_a_narrower_definition_with_a_broader_
+scope_candidate` is the expected pre-fix RED, with all reverse-order and
+complete-definition controls green. No post-fix full-suite claim is made;
+Developer must rerun authoritative evidence after this amendment is integrated.
+The six-name stale-pin sweep over every repo-profile test root has zero hits;
+contract lint passes at 151 lines with a 10-line Context Dump, Python compile
+validation passes, and `git diff --check` is clean. No production, fixture,
+older test, or unrelated document changed.

@@ -109,9 +109,14 @@ def test_b1_derived_local_definition_persists_clean_and_local_through_live_inges
     assert [(candidate.scope, candidate.definition_text) for candidate in section_candidates] == [
         ("law-wide", f"{_CLEAN_LOCAL_TEXT}.\n{_TRAILING_NOTES}")
     ]
-    assert [(candidate.scope, candidate.definition_text) for candidate in local_candidates] == [
-        ("local", _CLEAN_LOCAL_TEXT)
+    scope_probe_candidates = [
+        candidate for candidate in local_candidates if candidate.terms == (_LOCAL_TERM,)
     ]
+    assert scope_probe_candidates, "raw local-rule union must contain Scope probe"
+    assert all(
+        (candidate.scope, candidate.definition_text) == ("local", _CLEAN_LOCAL_TEXT)
+        for candidate in scope_probe_candidates
+    ), "every raw Scope-probe candidate must be the identical clean local tuple"
 
     ingest_result, result, definitions = _run_rows(
         db_session,
@@ -154,11 +159,20 @@ def test_b1_local_candidate_precedes_but_does_not_suppress_distinct_section_cand
     assert profile.derive_heading_from_body(
         _LOCAL_SUBSET_ROW["section_title"], _LOCAL_SUBSET_ROW["text"]
     ) == "Definitions"
-    assert [candidate.terms for candidate in profile.extract_local_scope_definitions(
+    local_candidates = profile.extract_local_scope_definitions(
         _LOCAL_SUBSET_ROW["text"],
         article_number=_LOCAL_SUBSET_ROW["section_number"],
         chapter=_LOCAL_SUBSET_ROW["chapter"],
-    )] == [(_LOCAL_TERM,)]
+    )
+    assert local_candidates, "raw local-rule union must contain Scope probe"
+    assert {candidate.terms for candidate in local_candidates} == {(_LOCAL_TERM,)}, (
+        "raw local-rule union may duplicate the identical Scope-probe key but must not "
+        "introduce any other term"
+    )
+    assert all(
+        (candidate.scope, candidate.definition_text) == ("local", _CLEAN_LOCAL_TEXT)
+        for candidate in local_candidates
+    ), "duplicate raw Scope-probe candidates must remain byte-identical clean local tuples"
     assert [candidate.terms for candidate in profile.extract_definitions_from_section(
         _LOCAL_SUBSET_ROW["text"], scope="law-wide", heading_was_derived=True
     )] == [("Section companion",)]
