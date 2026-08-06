@@ -5290,11 +5290,10 @@ and one is T35. Four extras block QA: NE `STATE_NE_C43_S43-3329`, NE
 `STATE_NE_C44_S44-5003`, SD `STATE_SD_T54_C14_S54-14-12.1`, and FED
 `USC_T43_C35_S1742a`'s missing `eligible`. Direct registry/profile evidence
 shows no NE/SD EntrySplitter/TermClause rule shipped and no heading derives;
-the merged `us_markers_unquoted_terms.py` covers only AL/NC/DC. FED is a real
-partial-union miss: the derived inline fallback emits `eligible`, but the
-registered FED splitter emits only the other two terms; because registered
-output is nonempty, the profile skips the fallback and loses the distinct
-candidate. Root ruled that none may be added to the hold ledger.
+the merged `us_markers_unquoted_terms.py` covers only AL/NC/DC. FED has an
+incomplete registered stream: the current splitter emits only the other two
+terms, while an independently inspected fallback proves `eligible` is a real
+source key. Root ruled that none may be added to the hold ledger.
 
 Canonical Planner: `/root/markers_panel_manager/planner_combined_correction`,
 **Terra / high**; Haiku rejected because this requires cross-panel
@@ -5307,3 +5306,44 @@ every proposed FED seam over all 53 files at persisted key/text/scope altitude
 with judgments, preserve the exact 24-hold ledger and named green gates, split
 production ownership/write sets before Developer dispatch, and return its
 commit for root audit. QA remains blocked.
+
+### M-R94 — Combined markers/preamble correction plan and exact replay
+
+Planner added `test_us_combined_markers_preamble_correction_red.py` using only
+vendored rows. It separates raw body recognition, SD chapter scope, raw
+registered extraction, and live persisted `(term, text, scope)` assertions.
+The NE/SD source oracle checks every intended output: 12 C43 terms, four C44
+terms, and SD's single term, including the C43 `Support` verb boundary. FED
+requires exactly `eligible`, `good Samaritan search-and-recovery mission`, and
+clean `Secretary`; its held-green trust-area control rejects a generic
+numbered-label parser. Pre-fix focused result is **11 failed / 2 passed**:
+the eleven independent release-blocker gates are RED and both FED root-cause /
+overbreadth controls are green.
+
+Accepted ownership is disjoint. Preamble Developer changes only existing
+`backend/app/definition_links/rules/us_body_preamble.py` for the three literal
+NE/SD recognizers and the exact US-SD chapter scope spelling. Markers Developer
+adds only `us_markers_ne_sd_unquoted.py` (the reviewed NE/SD source-bound
+entries) and `us_markers_fed_good_samaritan.py` (one US-FED priority splitter).
+The FED splitter's real callable guard is jurisdiction plus body shape—not
+heading provenance, which an EntrySplitterRule cannot receive: body begins
+`(a) Definitions` then `In this section:`, contains exactly the three reviewed
+labels, and stops before top-level `(b)`. No profile fallback append or shared
+profile edit is authorized.
+
+Two reproducible all-53 persisted-output instruments now model the actual
+callable seams including G8 local-first/first-key behavior. Non-target files
+are counted from immutable parquet metadata behind the exact jurisdiction
+guards; every target-jurisdiction row is examined, with nonmatching literal
+prefixes proven unchanged before expensive replay. FED exact replay reports
+2,038,247 rows / 53 files / 1,983,394 jurisdiction-guarded rows and **two**
+changed tuples, both `USC_T43_C35_S1742a`: new clean `eligible` and corrected
+`Secretary` boundary; Good-Samaritan is explicitly unchanged. NE/SD replay
+reports 2,038,247 rows / 53 files / 1,972,661 guarded rows and **17** new
+reviewed tuples (12 C43, 4 C44, 1 SD), each with machine and human judgment.
+The compact rejected-summary preserves the two rejected blast-radius outcomes
+and SHA-256 identities without committing their 23MB/3.6MB ledgers. Docs
+updated: contract, sprint log, RED test, and measurement artifacts. Developer
+must use the current focused RED command, apply an in-memory rule mutation to
+prove the trusted FED control fails under a broadened guard and restores after
+removal, then rerun the named green gates and authoritative combined ledger.

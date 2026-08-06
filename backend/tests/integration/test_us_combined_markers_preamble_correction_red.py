@@ -1,5 +1,5 @@
 """Combined release-blocker REDs: NE/SD body recognition + unquoted
-extraction, and the FED partial-union/boundary case.
+extraction, and the FED exact-splitter/boundary case.
 
 All rows are existing byte-vendored statutory fixtures.  The NE/SD gates are
 deliberately split into recognition, scope, extraction, and persisted-live
@@ -19,7 +19,7 @@ import pytest
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
 from app.definition_links.profiles import get_profile
-from app.definition_links.us_profile import _extract_inline_quoted_definitions
+from app.definition_links.us_profile import _extract_inline_quoted_definitions, _leading_quote_candidate
 from app.models.definition import Definition
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes"
@@ -40,6 +40,21 @@ _NE_C43_TERMS = {
 }
 _NE_C44_TERMS = {"Health insurance plan", "Hearing aid", "Hearing impairment", "Insured child"}
 _FED_TERMS = {"eligible", "good Samaritan search-and-recovery mission", "Secretary"}
+_NE_C43_ORDER = (
+    "Account",
+    "Authorized attorney",
+    "Child support",
+    "Department",
+    "Financial institution",
+    "Match",
+    "Medical support",
+    "Obligor",
+    "Payor",
+    "Spousal support",
+    "Support",
+    "Support order",
+)
+_NE_C44_ORDER = ("Health insurance plan", "Hearing aid", "Hearing impairment", "Insured child")
 
 
 def _rows() -> dict[str, dict]:
@@ -71,6 +86,50 @@ def _live_definitions(db_session, matter_with_users, *, row: dict, jurisdiction:
         triggered_by_user_id=matter_with_users["contributor_id"],
     )
     return [db_session.get(Definition, item["id"]) for item in result["created_definitions"]]
+
+
+def _numbered_unquoted_source_oracle(row: dict, ordered_terms: tuple[str, ...]) -> dict[str, str]:
+    """Independent, complete ground truth for a real numbered source body.
+
+    This intentionally follows the row's literal, externally-vendored entry
+    boundaries rather than the production splitters' grammar: every expected
+    term begins at its fixed ``(N) term`` source marker and ends at the next
+    fixed source marker (or the real ``Laws`` tail).  It therefore judges every
+    persisted tuple without copying a proposed extraction regex into the test.
+    """
+    text = row["text"]
+    expected: dict[str, str] = {}
+    for index, term in enumerate(ordered_terms, start=1):
+        start_token = f"({index}) {term} "
+        start = text.find(start_token)
+        assert start >= 0, f"fixture drift: missing source entry {start_token!r}"
+        definition_start = start + len(start_token)
+        if term == "Support":
+            # C43's term is ``Support`` even though its source sentence reads
+            # "Support in the definitions of ... means".  The intervening
+            # qualifier establishes the defined-term context, not its
+            # definition text; use the literal source verb boundary.
+            definition_start = text.find("means", definition_start)
+            assert definition_start > start, "fixture drift: missing C43 Support defining verb"
+        if index < len(ordered_terms):
+            end_token = f"\n\n({index + 1}) {ordered_terms[index]} "
+        else:
+            end_token = "\n\nLaws"
+        end = text.find(end_token, definition_start)
+        assert end > definition_start, f"fixture drift: missing source boundary {end_token!r}"
+        expected[term] = text[definition_start:end].strip()
+    return expected
+
+
+def _sd_source_oracle(row: dict) -> dict[str, str]:
+    term = "loan processor or underwriter"
+    start_token = f"the term, {term}, "
+    start = row["text"].find(start_token)
+    assert start >= 0, f"fixture drift: missing source term {term!r}"
+    definition_start = start + len(start_token)
+    end = row["text"].find("\n\nNo individual engaging solely", definition_start)
+    assert end > definition_start, "fixture drift: missing SD next-provision boundary"
+    return {term: row["text"][definition_start:end].strip()}
 
 
 @pytest.mark.parametrize(
@@ -114,7 +173,7 @@ def test_ne_sd_raw_unquoted_extraction_is_independently_required(
     act_id, jurisdiction, scope, expected_terms
 ):
     """A recognizer-only change must not pass.  This drives the profile's
-    real registered extraction union directly and proves the exact unquoted
+    real registered extraction dispatch directly and proves the exact unquoted
     term population required from the future jurisdiction-scoped rule.
     """
     row = _rows()[act_id]
@@ -147,41 +206,38 @@ def test_ne_sd_live_persisted_rows_are_complete_clean_and_correctly_scoped(
     assert set(by_term) == expected_terms
     assert {definition.scope for definition in definitions} == {expected_scope}
 
-    if act_id == "STATE_NE_C43_S43-3329":
-        account = by_term["Account"].definition_text
-        assert account.startswith("means a demand deposit account")
-        assert account.endswith("money-market mutual fund account;")
-        assert "Authorized attorney" not in account
-    elif act_id == "STATE_NE_C44_S44-5003":
-        plan = by_term["Health insurance plan"].definition_text
-        assert plan.startswith("means a plan which includes dependent coverage")
-        assert plan.endswith("other limited-benefit coverage;")
-        assert "Hearing aid means" not in plan
-        insured_child = by_term["Insured child"].definition_text
-        assert insured_child.endswith("less than nineteen years of age.")
-        assert "Laws 2019" not in insured_child
-    else:
-        loan_processor = by_term["loan processor or underwriter"].definition_text
-        assert loan_processor.startswith("means any individual who performs clerical or support duties")
-        assert loan_processor.endswith("person exempt according to this chapter.")
-        assert "No individual engaging solely" not in loan_processor
+    row = _rows()[act_id]
+    expected_texts = (
+        _numbered_unquoted_source_oracle(row, _NE_C43_ORDER)
+        if act_id == "STATE_NE_C43_S43-3329"
+        else _numbered_unquoted_source_oracle(row, _NE_C44_ORDER)
+        if act_id == "STATE_NE_C44_S44-5003"
+        else _sd_source_oracle(row)
+    )
+    assert {term: definition.definition_text for term, definition in by_term.items()} == expected_texts
 
 
-def test_fed_partial_union_precondition_has_a_distinct_inline_candidate():
+def test_fed_existing_splitter_precondition_is_partial_before_exact_repair():
     """Current root cause, held green across the future repair: the real
     derived section has nonempty registered output without ``eligible``, while
     the existing inline fallback independently emits it.  A global fallback
     union is neither implied nor permitted by this evidence.
     """
+    from app.definition_links.rules.us_markers_inline_quote import _split as existing_fed_split
+
     row = _rows()["USC_T43_C35_S1742a"]
     profile = get_profile("US-FED")
     body = profile.normalize_for_parsing(row["text"])
     assert profile.derive_heading_from_body(row["section_title"], body) == "Definitions"
+    # Probe the existing ordinary splitter directly. Calling the public
+    # profile method would become a stale pre-fix assertion once the new
+    # priority exact splitter supplies ``eligible``. This preserves the
+    # root-cause fact: the existing splitter's own emitted stream is partial.
     registered_terms = {
         term
-        for candidate in profile.extract_definitions_from_section(
-            body, scope="law-wide", heading_was_derived=True
-        )
+        for block in existing_fed_split(body)
+        for candidate in [_leading_quote_candidate(block, scope="law-wide")]
+        if candidate is not None
         for term in candidate.terms
     }
     inline_terms = {
@@ -191,11 +247,10 @@ def test_fed_partial_union_precondition_has_a_distinct_inline_candidate():
     assert _FED_TERMS <= inline_terms
 
 
-def test_fed_live_partial_union_preserves_exact_clean_three_term_result(db_session, matter_with_users):
-    """The profile union must add only the missing valid key, preserve
-    first-key registered candidates, and coexist with the US-FED structural
-    splitter that keeps Secretary inside subsection (a).  This rejects an
-    ``eligible``-only patch and an unsafe duplicate/long-tail fallback.
+def test_fed_live_exact_splitter_preserves_clean_three_term_result(db_session, matter_with_users):
+    """One exact US-FED priority EntrySplitter must emit all three clean
+    terms and stop Secretary inside subsection (a). This rejects an
+    ``eligible``-only patch and any broad duplicate/long-tail parser.
     """
     definitions = _live_definitions(
         db_session,
@@ -219,3 +274,29 @@ def test_fed_live_partial_union_preserves_exact_clean_three_term_result(db_sessi
         "the Secretary or the Secretary of Agriculture, as applicable."
     )
     assert "(b) Process" not in by_term["Secretary"].definition_text
+
+
+def test_fed_exact_good_samaritan_rule_does_not_widen_to_trust_area_structural_shape(
+    db_session, matter_with_users
+):
+    """Held-green mutation control for the accepted FED rule's exact guard.
+
+    The same broad ``(N) Label`` + ``The term`` parser that repairs §1742a
+    would replace this real registered ``substantially underserved trust
+    area`` winner (1,852 chars) with a 172-char candidate.  That is a
+    behavior change outside the three-term Good-Samaritan evidence, even if
+    shorter text looks attractive.  The exact rule must leave this existing
+    persisted tuple byte-for-byte untouched.
+    """
+    definitions = _live_definitions(
+        db_session,
+        matter_with_users,
+        row=_rows()["USC_T7_C31_S936f"],
+        jurisdiction="US-FED",
+    )
+    by_term = {term: definition for definition in definitions for term in definition.terms}
+    assert {"eligible program", "substantially underserved trust area"} <= set(by_term)
+    trust_area = by_term["substantially underserved trust area"]
+    assert trust_area.scope == "law-wide"
+    assert len(trust_area.definition_text) == 1852
+    assert "(b) Initiative" in trust_area.definition_text

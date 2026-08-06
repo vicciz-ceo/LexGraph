@@ -75,27 +75,31 @@ for this sprint.
    chapter B1 preamble stays chapter-scoped; and a distinct section term
    survives. Core G8 reverse-order safety must remain green.
 
-5. **NE/SD recognition, unquoted extraction, and scope.** Release-blocker
+5. **NE/SD recognition and scope.** Release-blocker
    rows `STATE_NE_C43_S43-3329`, `STATE_NE_C44_S44-5003`, and
    `STATE_SD_T54_C14_S54-14-12.1` need independent raw recognition and raw
    extraction gates plus a live persisted `(term, definition_text, scope)`
-   gate. Add only exact `US-NE`/`US-SD` BodyPreambleRule and extraction
-   conventions (no `US-*`); SD's “For the purposes of this chapter” must be
-   chapter-scoped via a `US-SD` scope rule. Preamble Developer owns
-   `us_body_preamble.py`; markers Developer owns one new NE/SD rule module.
-   All-53-file persisted-output measurement and every changed-key judgment are
-   required before development; acceptance preserves the existing ledgers/gates.
+   gate. Add only the exact `US-NE`/`US-SD` BodyPreambleRule conventions (no
+   `US-*`); SD's “For the purposes of this chapter” must be chapter-scoped via
+   a `US-SD` scope rule. Preamble Developer owns only
+   `backend/app/definition_links/rules/us_body_preamble.py`. The all-53-file
+   persisted-output measurement and every changed-key judgment are required
+   before development; acceptance preserves the existing ledgers/gates.
 
-6. **FED partial-union preservation.** `USC_T43_C35_S1742a` must persist
+6. **Exact markers splitters.** `USC_T43_C35_S1742a` must persist
    exactly the clean, law-wide `eligible`, `good Samaritan search-and-recovery
-   mission`, and `Secretary` tuples. Registered US-FED output must not suppress
-   a distinct derived inline candidate. Developer may change only
-   `backend/app/definition_links/us_profile.py`, with an explicit US-FED plus
-   derived-heading guard and first-key preservation; no global fallback union.
-   Measure the exact proposal across all 53 files at persisted
-   `(row,key,definition_text,scope)` altitude and classify every changed key.
-   Acceptance keeps G8 11, markers G3H 21, Option-C 5, G9, the exact
-   23-marker-plus-T35 hold ledger, and every existing RED intact.
+   mission`, and `Secretary` tuples. Markers Developer owns only two new,
+   non-overlapping modules:
+   `backend/app/definition_links/rules/us_markers_ne_sd_unquoted.py` and
+   `backend/app/definition_links/rules/us_markers_fed_good_samaritan.py`.
+   The FED rule is a US-FED-only `(a) Definitions` / `In this section:` exact
+   shape: it requires exactly the three reviewed labels and
+   terminates before top-level `(b)`. It is one priority EntrySplitter stream,
+   not a profile fallback append or global parser. Measure both exact proposals
+   across all 53 files at persisted `(row,key,definition_text,scope)` altitude
+   and classify every changed key. Acceptance keeps G8 11, markers G3H 21,
+   Option-C 5, G9, the exact 23-marker-plus-T35 hold ledger, and every
+   existing RED intact.
 
 ## Held dependencies / non-gates
 

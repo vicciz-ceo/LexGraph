@@ -1,0 +1,265 @@
+{
+  "files": 53,
+  "rows": 2038247,
+  "jurisdiction_guarded_rows": 1972661,
+  "altitude": "G8 local-first/same-key suppression plus persisted (act_id, sorted terms, text, scope)",
+  "proposal": "US-NE literal C43/C44 BodyPreamble shapes + source-bound unquoted splitter; US-SD literal preamble + chapter scope + term clause",
+  "changed_persisted_keys": [
+    {
+      "act_id": "STATE_NE_C44_S44-5003",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c44",
+      "terms": [
+        "Health insurance plan"
+      ],
+      "before": null,
+      "after": {
+        "text": "means a plan which includes dependent coverage for an insured child and which is delivered, issued for delivery, renewed, extended, or modified in this state. Health insurance plan includes any such group or individual sickness and accident insurance policy, health maintenance organization contract, subscriber contract, employee medical, surgical, or hospital care benefit plan, or self-funded employee benefit plan to the extent not preempted by federal law. Health insurance plan also includes any policy, contract, or plan offered or administered by the state or its political subdivisions. Health insurance plan does not include a group health plan offered by a small employer as defined in section 44-5260 or a policy providing coverage for a specified disease, accident-only coverage, hospital indemnity coverage, disability income coverage, Medicare supplement coverage, long-term care coverage, or other limited-benefit coverage;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C44_S44-5003",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c44",
+      "terms": [
+        "Hearing aid"
+      ],
+      "before": null,
+      "after": {
+        "text": "means an ear level or bone conduction hearing device intended to aid or improve the sense of hearing for a person with a hearing impairment. The term includes all parts, replacement parts, parts for repair, tubing, and ear molds;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C44_S44-5003",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c44",
+      "terms": [
+        "Hearing impairment"
+      ],
+      "before": null,
+      "after": {
+        "text": "means a hearing impairment diagnosed by an otolaryngologist with an auditory assessment completed by a licensed audiologist; and",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C44_S44-5003",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c44",
+      "terms": [
+        "Insured child"
+      ],
+      "before": null,
+      "after": {
+        "text": "means an individual who is covered by a health insurance plan and less than nineteen years of age.",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Account"
+      ],
+      "before": null,
+      "after": {
+        "text": "means a demand deposit account, checking or negotiable withdrawal order account, savings account, time deposit account, or money-market mutual fund account;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Authorized attorney"
+      ],
+      "before": null,
+      "after": {
+        "text": "has the same meaning as found in section 43-1704 ;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Child support"
+      ],
+      "before": null,
+      "after": {
+        "text": "has the same meaning as found in section 43-1705 ;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Department"
+      ],
+      "before": null,
+      "after": {
+        "text": "means the Department of Health and Human Services and if the department designates, includes a county attorney or authorized attorney;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Financial institution"
+      ],
+      "before": null,
+      "after": {
+        "text": "means every federal or state commercial or savings bank, including savings and loan associations and cooperative banks, federal or state chartered credit unions, benefit associations, insurance companies, safe deposit companies, any money-market mutual fund as defined in section 851(a) of the Internal Revenue Code that seeks to maintain a constant net asset value of one dollar in accordance with 17 C.F.R. 270.2a-7, any broker, brokerage firm, trust company, or unit investment trust, or any other similar entity doing business or authorized to do business in the State of Nebraska;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Match"
+      ],
+      "before": null,
+      "after": {
+        "text": "means a comparison by automated or other means by name and social security number of a list of obligors provided to a financial institution by the department and a list of depositors of any financial institution;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Medical support"
+      ],
+      "before": null,
+      "after": {
+        "text": "has the same meaning as found in section 43-512 ;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Obligor"
+      ],
+      "before": null,
+      "after": {
+        "text": "means a person who owes a duty of support pursuant to a support order;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Payor"
+      ],
+      "before": null,
+      "after": {
+        "text": "includes a person, partnership, limited partnership, limited liability partnership, limited liability company, corporation, or other entity doing business or authorized to do business in the State of Nebraska, including a financial institution, or a department or an agency of state, county, or city government;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Spousal support"
+      ],
+      "before": null,
+      "after": {
+        "text": "has the same meaning as found in section 43-1715 ;",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Support"
+      ],
+      "before": null,
+      "after": {
+        "text": "means providing necessary shelter, food, clothing, care, medical support, medical attention, education expenses, or funeral expenses or any other reasonable and necessary expense; and",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_NE_C43_S43-3329",
+      "jurisdiction": "US-NE",
+      "mode": "ne_c43",
+      "terms": [
+        "Support order"
+      ],
+      "before": null,
+      "after": {
+        "text": "has the same meaning as found in section 43-1717 .",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    },
+    {
+      "act_id": "STATE_SD_T54_C14_S54-14-12.1",
+      "jurisdiction": "US-SD",
+      "mode": "sd",
+      "terms": [
+        "loan processor or underwriter"
+      ],
+      "before": null,
+      "after": {
+        "text": "means any individual who performs clerical or support duties as an employee at the direction of and subject to the supervision and instruction of a person licensed according to this chapter, or a person exempt according to this chapter. Clerical or support duties subsequent to the receipt of an application include the receipt, collection, distribution, and analysis of information common for the processing or underwriting of a mortgage loan; and communicating with a consumer to obtain the information necessary for the processing or underwriting of a loan, to the extent that the communication does not include offering or negotiating loan rates or terms, or counseling consumers about mortgage loan rates or terms.",
+        "scope": "chapter"
+      },
+      "machine_judgment": "new persisted key from exact jurisdiction+shape rule",
+      "human_judgment": "genuine source entry; text bounded at next reviewed source entry/tail"
+    }
+  ],
+  "wall_seconds": 0.533
+}

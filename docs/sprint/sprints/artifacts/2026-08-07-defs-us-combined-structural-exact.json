@@ -1,0 +1,68 @@
+{
+  "corpus": "/Users/nerya/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad",
+  "files": 53,
+  "proposal": "structural_rule_exact",
+  "altitude": "pipeline-equivalent persisted first winner: (act_id, sorted terms, definition_text, scope)",
+  "denominator": {
+    "rows": 2038247,
+    "jurisdiction_guarded_rows": 1983394,
+    "changed_persisted_keys": 2
+  },
+  "by_jurisdiction": {
+    "US-FED": {
+      "changed_persisted_keys": 2
+    }
+  },
+  "accepted_rule": {
+    "shape": "US-FED-only body begins '(a) Definitions\\n\\nIn this section:'; exactly eligible, good Samaritan search-and-recovery mission, and Secretary labels; end before top-level (b); callable in explicit or body-derived Definitions sections",
+    "implementation_seam": "one priority EntrySplitterRule; no profile fallback append"
+  },
+  "unchanged_reviewed_key": {
+    "act_id": "USC_T43_C35_S1742a",
+    "term": "good Samaritan search-and-recovery mission",
+    "machine_judgment": "unchanged persisted winner under accepted exact rule",
+    "human_judgment": "genuine source definition already clean; preserve its existing exact text and law-wide scope"
+  },
+  "changed_persisted_keys": [
+    {
+      "file": "us_federal_statutes.parquet",
+      "jurisdiction": "US-FED",
+      "act_id": "USC_T43_C35_S1742a",
+      "derived_heading": true,
+      "terms": [
+        "Secretary"
+      ],
+      "before": {
+        "source": "registered",
+        "text": "the Secretary or the Secretary of Agriculture, as applicable.\n\n(b) Process",
+        "scope": "law-wide"
+      },
+      "after": {
+        "source": "proposed_fed_structural",
+        "text": "the Secretary or the Secretary of Agriculture, as applicable.",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "existing persisted key with corrected source boundary",
+      "human_judgment": "genuine Secretary definition; remove only the next top-level '(b) Process' heading while preserving law-wide scope"
+    },
+    {
+      "file": "us_federal_statutes.parquet",
+      "jurisdiction": "US-FED",
+      "act_id": "USC_T43_C35_S1742a",
+      "derived_heading": true,
+      "terms": [
+        "eligible"
+      ],
+      "before": null,
+      "after": {
+        "source": "proposed_fed_structural",
+        "text": "that the organization or individual, respectively, is—\n\n(A) acting in a not-for-profit capacity; and\n\n(B) composed entirely of members who, at the time of the good Samaritan search-and-recovery mission, have attained the age of majority under the law of the State where the mission takes place.",
+        "scope": "law-wide"
+      },
+      "machine_judgment": "new persisted key from the accepted exact splitter",
+      "human_judgment": "genuine eligible definition; text is bounded at the next reviewed numbered definition and retains law-wide scope"
+    }
+  ],
+  "wall_seconds": 3.614,
+  "canonical_changed_ledger_sha256": "de8f27466ecb1e0f6cbfebb3f23c810c49e128873d91ed6fb08176bca51f00ed"
+}
