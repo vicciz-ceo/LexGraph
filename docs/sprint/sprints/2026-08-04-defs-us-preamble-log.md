@@ -5616,3 +5616,8 @@ The accepted non-timing deterministic hash design, Q-D3 coverage checks,
 source-retrieval helper, production read-only boundary, D-PFP-400 rubric, and
 GA-after `>=2794` / total `new_primary >=23617` gates remain unchanged. Sprint
 state stays `planning` / `planner` under the existing Planner lock.
+
+Planner roster entry: canonical task `/root/g7_finalizer_microfix`,
+`gpt-5.6-terra / low`; Haiku considered: yes and would qualify, but it is not
+callable here. This bounded M-R102 correction changes only contract tests,
+certification validators/finalizer, and the fresh-QA command documentation.

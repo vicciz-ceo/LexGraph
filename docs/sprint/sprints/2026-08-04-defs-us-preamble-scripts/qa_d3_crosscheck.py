@@ -42,7 +42,20 @@ def validate_qd2_accounting(
     keys = [_candidate_key(record) for record in candidates]
     _assert(len(keys) == len(set(keys)), "Q-D2 candidate ledger has duplicate stable rows")
     counted = Counter(record["jurisdiction"] for record in candidates)
-    captured = Counter(record["jurisdiction"] for record in candidates if record.get("captured") is True)
+    captured: Counter[str] = Counter()
+    quoted: Counter[str] = Counter()
+    unquoted: Counter[str] = Counter()
+    allowed_components = {"quoted_broad_verb", "unquoted_broad_verb"}
+    for record in candidates:
+        jurisdiction = record["jurisdiction"]
+        _assert(type(record.get("captured")) is bool, "Q-D2 candidate captured must be boolean")
+        components = record.get("components")
+        _assert(isinstance(components, list) and components, "Q-D2 candidate components must be a nonempty list")
+        _assert(set(components) <= allowed_components and len(components) == len(set(components)), "Q-D2 candidate components are invalid")
+        captured[jurisdiction] += int(record["captured"])
+        quoted[jurisdiction] += int("quoted_broad_verb" in components)
+        unquoted[jurisdiction] += int("unquoted_broad_verb" in components)
+    _assert(set(counted) == set(states), "Q-D2 candidate ledger jurisdictions disagree with summary")
     for jurisdiction, state in states.items():
         for field in ("candidate_rows", "already_captured", "uncaptured", "quoted_broad_verb", "unquoted_broad_verb"):
             _assert(field in state and isinstance(state[field], int), f"Q-D2 missing {field} for {jurisdiction}")
@@ -50,6 +63,8 @@ def validate_qd2_accounting(
         _assert(state["candidate_rows"] == counted[jurisdiction], f"Q-D2 ledger count disagreement for {jurisdiction}")
         _assert(state["already_captured"] == captured[jurisdiction], f"Q-D2 captured count disagreement for {jurisdiction}")
         _assert(state["uncaptured"] == state["candidate_rows"] - state["already_captured"], f"Q-D2 uncaptured count disagreement for {jurisdiction}")
+        _assert(state["quoted_broad_verb"] == quoted[jurisdiction], f"Q-D2 quoted component count disagreement for {jurisdiction}")
+        _assert(state["unquoted_broad_verb"] == unquoted[jurisdiction], f"Q-D2 unquoted component count disagreement for {jurisdiction}")
     for field in ("candidate_rows", "already_captured", "uncaptured", "quoted_broad_verb", "unquoted_broad_verb"):
         _assert(totals.get(field) == sum(state[field] for state in states.values()), f"Q-D2 per-state sum disagreement for {field}")
     _assert(totals["candidate_rows"] == totals["already_captured"] + totals["uncaptured"], "Q-D2 total candidate partition disagreement")

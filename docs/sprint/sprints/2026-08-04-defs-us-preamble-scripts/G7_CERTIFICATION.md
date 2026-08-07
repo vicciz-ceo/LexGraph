@@ -105,12 +105,17 @@ uniqueness, fallback-only population membership, and informational status.
    /Users/nerya/LexGraph/backend/.venv/bin/python \
      docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/qa_finalize_adjudication.py \
      --sample /absolute/fresh-output-directory/dpfp400_sample.jsonl \
+     --qd1-summary /absolute/fresh-output-directory/qd1_summary.json \
      --ledger /absolute/qa-owned-reviewed-ledger.jsonl \
      --verdict /absolute/qa-owned-dpfp400-verdict.json
    ```
 
-The finalizer does not rewrite a ledger. It emits a canonical QA-owned verdict
-with sample/ledger hashes, count, false/ambiguous counts and one-sided bound;
-it exits 0/PASS only at zero false and zero ambiguous. Malformed, unreviewed,
-identity-mismatched, false, or ambiguous ledgers fail closed. Planner leaves
-its committed ledger unreviewed and makes no P-FP PASS claim.
+The finalizer does not rewrite a ledger. It first verifies the supplied Q-D1
+summary hash, pinned snapshot/integration identity, and D-PFP-400 population,
+count, and canonical sample hash; this pinned panel is exactly 400 rows. It
+emits a canonical QA-owned verdict with Q-D1 identity, sample/ledger hashes,
+count, false/ambiguous counts and one-sided bound; its `summary_hash` is
+independently recomputable. It exits 0/PASS only at zero false and zero
+ambiguous. Malformed, unreviewed, identity-mismatched, false, or ambiguous
+ledgers fail closed. Planner leaves its committed ledger unreviewed and makes
+no P-FP PASS claim.
