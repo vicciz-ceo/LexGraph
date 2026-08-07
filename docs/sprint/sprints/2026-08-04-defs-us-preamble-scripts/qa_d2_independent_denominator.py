@@ -50,26 +50,29 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
     for path in files:
         jurisdiction = jurisdiction_for(path)
         counts = defaultdict(int)
-        table = pq.read_table(path, columns=["act_id", "section_title", "text", "chapter", "section_number"])
-        for index, row in enumerate(table.to_pylist()):
-            # The ORIGINAL heading gate is purposely bare and signal-agnostic
-            # with respect to post-preamble recognition.
-            if is_definitions_heading(row["section_title"] or ""):
-                continue
-            components = _candidate_components(row["text"] or "")
-            if not components:
-                continue
-            counts["candidate_rows"] += 1
-            for component in components:
-                counts[component] += 1
-            captured = bool(capture_row(
-                jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=True
-            ))
-            counts["already_captured" if captured else "uncaptured"] += 1
-            candidates.append({
-                "jurisdiction": jurisdiction, "source_file": path.name, "source_row": index,
-                "source_row_id": row["act_id"], "components": components, "captured": captured,
-            })
+        parquet = pq.ParquetFile(path)
+        index = 0
+        for batch in parquet.iter_batches(
+            columns=["act_id", "section_title", "text", "chapter", "section_number"], batch_size=2_048
+        ):
+            for row in batch.to_pylist():
+                # The ORIGINAL heading gate is purposely bare and signal-agnostic
+                # with respect to post-preamble recognition.
+                if not is_definitions_heading(row["section_title"] or ""):
+                    components = _candidate_components(row["text"] or "")
+                    if components:
+                        counts["candidate_rows"] += 1
+                        for component in components:
+                            counts[component] += 1
+                        captured = bool(capture_row(
+                            jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=True
+                        ))
+                        counts["already_captured" if captured else "uncaptured"] += 1
+                        candidates.append({
+                            "jurisdiction": jurisdiction, "source_file": path.name, "source_row": index,
+                            "source_row_id": row["act_id"], "components": components, "captured": captured,
+                        })
+                index += 1
         states[jurisdiction] = dict(counts)
     total = defaultdict(int)
     for state in states.values():

@@ -151,18 +151,23 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
         after_rows: dict[int, str] = {}
         before_tuples: set[tuple[str, str, str, str, str]] = set()
         after_tuples: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
-        table = pq.read_table(path, columns=["act_id", "section_title", "text", "chapter", "section_number"])
-        for index, row in enumerate(table.to_pylist()):
-            before = capture_row(jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=False)
-            after = capture_row(jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=True)
-            if before:
-                before_rows.add(index)
-            if after:
-                after_rows[index] = after[0].route
-            before_tuples.update(tuple_key(item.record()) for item in before)
-            for item in after:
-                record = item.record()
-                after_tuples.setdefault(tuple_key(record), record)
+        parquet = pq.ParquetFile(path)
+        index = 0
+        for batch in parquet.iter_batches(
+            columns=["act_id", "section_title", "text", "chapter", "section_number"], batch_size=2_048
+        ):
+            for row in batch.to_pylist():
+                before = capture_row(jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=False)
+                after = capture_row(jurisdiction=jurisdiction, source_file=path.name, source_row=index, row=row, after=True)
+                if before:
+                    before_rows.add(index)
+                if after:
+                    after_rows[index] = after[0].route
+                before_tuples.update(tuple_key(item.record()) for item in before)
+                for item in after:
+                    record = item.record()
+                    after_tuples.setdefault(tuple_key(record), record)
+                index += 1
         new_rows = set(after_rows) - before_rows
         primary = sum(after_rows[index] == "primary" for index in new_rows)
         fallback = sum(after_rows[index] == "fallback" for index in new_rows)
