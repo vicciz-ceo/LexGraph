@@ -5621,3 +5621,35 @@ Planner roster entry: canonical task `/root/g7_finalizer_microfix`,
 `gpt-5.6-terra / low`; Haiku considered: yes and would qualify, but it is not
 callable here. This bounded M-R102 correction changes only contract tests,
 certification validators/finalizer, and the fresh-QA command documentation.
+
+### M-R103 — root accepts Item 7 certification infrastructure for QA
+
+Root accepts integrated Planner tip
+`d0cecf285853fc6a16d784096d3532c920a85351`. The complete Item-7 commit
+chain is `377bb796d2d2abd10ff745c477dba7abada2a292`,
+`b188b6b3b29c435654c9a5ded59dea675d48b710`,
+`157b0ccdcce5f576cfe4cbcd241c1ce12366a244`,
+`6935abf9372ee14404737b66d17071e48e2a44e2`,
+`ca9dcd780aed25daf169ac8808418fa6c121bbb0`,
+`2364972e55d6960d19a2862601b17c89a42d0657`,
+`30da878b9255d8d3e5c0d3a1b1d647b39519acb2`,
+`53559619ff91e90c951fb5920e48169c959b2b75`,
+`6f7ee18ca8dac37f7ef34a08afcc4b74f6d16105`, and the accepted tip.
+
+Root's cumulative audit found only tests, certification scripts/evidence, and
+sprint docs; `backend/app` is unchanged from the accepted integration. Root
+read the full hardening/micro diffs, found the risk grep empty, reproduced the
+focused **11/11**, and accepted Python compilation, diff cleanliness, evidence
+line counts and hash verification. M-R102 is closed: the finalizer requires and
+verifies the matching Q-D1 summary, exact 400-row sample/count/hash, and a
+non-self-referential canonical verdict hash; Q-D3 recomputes and validates
+quoted/unquoted component rows and summaries.
+
+Accepted deterministic all-53 evidence remains Q-D1
+`7269d7e02b44e08f3bb15048787a97c485e0adf3fde7c5f4c79dd70663f3a799`, Q-D2
+`6138b58fafed100132c0aceb5830e38cc38ec7c6714bd0bbaf4f4b7421168e35`, and
+Q-D3 `9ccb06cf78f8904e30338094fd600fc2bc42d8ccd8541c9eaa6ce2c8316a6725`.
+The 400-row Planner ledger remains unreviewed: this is acceptance for fresh QA,
+not a D-PFP-400 PASS. All seven items move to Dev Complete; state becomes
+`dev-complete` / `qa`, `dev_complete_items: 7`, `qa_cycles: 1`, under a fresh
+`claude-code:qa` lock. QA owns independent source adjudication and finalization.

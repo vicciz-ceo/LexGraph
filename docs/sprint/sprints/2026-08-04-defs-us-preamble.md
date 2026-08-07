@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planning
+status: dev-complete
 blocked_on: null
-current_role: planner
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "claude-code:planner"
-locked_at: "2026-08-07T00:04:43Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-08-07T00:56:59Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-08-07T01:02:44Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-08-07T01:02:44Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 1
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 313 2026-08-07T00:57:29Z"
+lint: "PASS 285 2026-08-07T01:03:27Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -79,61 +79,33 @@ of that ruling; full history is in the append-only log. It remains provisional.
 
 ### M-R102 — hardening WIP still not QA-ready
 
-Planner tip `53559619ff91e90c951fb5920e48169c959b2b75` remains
-unaccepted planning progress. Root reproduced focused **11/11**, but these
-three bounded loopholes block QA:
+Root rejected `5355961` for exact-sample binding, self-referential verdict
+hashing, and trusted component totals. Planner closed all three at `d0cecf2`;
+full rejection/correction detail remains in the append-only log.
 
-1. Finalizer must require the matching Q-D1 summary, verify its certification
-   hash plus snapshot/integration identity, `sample_hash`, `population_count`,
-   and `sample_count == min(400,population_count)`, then verify actual sample
-   length/hash. This panel's sample must be exactly 400. Add REDs for a
-   truncated sample and sample-hash mismatch; the current one-row green is
-   explicitly invalid.
-2. Replace self-referential `verdict_hash = certification_hash(verdict)`:
-   shared payload exclusion covers `summary_hash`, not `verdict_hash`. Use a
-   normal `summary_hash` or a dedicated explicit verdict payload, and add a
-   verifier regression that recomputes the stored verdict hash.
-3. Q-D3 must recompute each jurisdiction's quoted/unquoted component counts
-   from candidate-ledger rows, require components nonempty/allowed and
-   `captured` boolean, then compare recomputed state/total component counts.
-   Add a mutation RED; current Q-D3 trusts those component totals.
+### M-R103 — Item 7 accepted for fresh QA
 
-Preserve the accepted deterministic-hash design, existing Q-D3 coverage,
-source helper, production read-only boundary, D-PFP-400, and both G7 gates.
+Root accepts cumulative Planner certification tip
+`d0cecf285853fc6a16d784096d3532c920a85351`. The cumulative diff is confined
+to tests, certification scripts/evidence, and sprint docs; `backend/app` is
+unchanged. Root read hardening/micro diffs, found the risk grep empty, and
+reproduced focused **11/11**, Python compile/diff checks, and evidence hashes.
+The finalizer binds the verified exact 400 sample; Q-D3 recomputes component
+rows. Item 7 is Dev Complete, not QA-passed: fresh QA still owns source
+adjudication and the canonical verdict.
 
 ## Next Steps
 
-7. **Permanent Q-D1/G7 certification infrastructure.** Planner owns one
-   bounded, repo-tracked certification item and may change only measurement
-   harnesses, their regression/contract checks, generated evidence artifacts,
-   and sprint docs; production code is read-only. Replace the lost
-   scratchpad-only `qa_d1_measure.py`, `qa_d2_independent_denominator.py`, and
-   `qa_d3_crosscheck.py` flow with a reproducible clean-checkout entrypoint
-   that independently certifies binding G7/Q-D1 across all 53 files. It must
-   pin the input snapshot and integration SHA, cross-check the denominator,
-   emit deterministic/hash-verifiable evidence, and implement D-PFP-400
-   exactly. Acceptance: a fresh QA can rerun the committed harness from
-   documented commands, reproduce the population/sample hashes and complete
-   ledger, independently adjudicate the deterministic sample, and certify all
-   binding D-PFP-400 and G7 thresholds without session scratchpads. The
-   existing `measure_fp_after_widening.py` remains explicitly approximate and
-   non-gating; it cannot satisfy this item.
-
-   **M-R101 correction record (Planner, still provisional):** certification
-   hashes use the explicit payload excluding `run_metadata`; Q-D1/Q-D2 timing
-   is reported only there and focused regression proves duration-invariance.
-   Q-D2 writes a temporary canonical candidate ledger and Q-D3 validates its
-   hash/count/uniqueness, per-state accounting and candidate partition without
-   treating quoted/unquoted components as disjoint. Q-D3 also rejects mutated
-   D-PFP sample, raw-ledger and informational byte-ledger identity/coverage
-   artifacts. A separate `qa_finalize_adjudication.py` validates a QA-owned
-   reviewed copy fail-closed and exits 0 only at zero false/ambiguous rows; it
-   never rewrites the raw Planner ledger. Fresh-QA commands, source retrieval
-   by stable locator/hash, and the QA finalizer are in `G7_CERTIFICATION.md`.
-   Exact all-53 regeneration is recorded in M-R101's append-only log update;
-   evidence remains unreviewed and no P-FP PASS or QA transition is claimed.
-
 ## Dev Complete
+
+7. **Permanent Q-D1/G7 certification infrastructure — root accepted.**
+   Commits: `377bb796`, `b188b6b3`, `157b0ccd`, `6935abf9`, `ca9dcd78`,
+   `2364972e`, `30da878b`, `53559619`, `6f7ee18c`, `d0cecf28` (accepted tip
+   `d0cecf285853fc6a16d784096d3532c920a85351`). Root: focused 11/11,
+   production unchanged, finalizer exact-400-bound, Q-D3 row recomputation.
+   Evidence: Q-D1 `7269d7e02b44e08f3bb15048787a97c485e0adf3fde7c5f4c79dd70663f3a799`;
+   Q-D2 `6138b58fafed100132c0aceb5830e38cc38ec7c6714bd0bbaf4f4b7421168e35`;
+   Q-D3 `9ccb06cf78f8904e30338094fd600fc2bc42d8ccd8541c9eaa6ce2c8316a6725`.
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -304,10 +276,10 @@ No external pins remain and no production signature/class/CSS rename occurred.
 ## Context Dump
 
 1. Items 1–6 remain Dev Complete; QA found no new production regression.
-2. Hardening WIP `5355961` is provisional/unaccepted; remain planning/planner.
-3. Root reproduced current focused 11/11 but rejected the QA transition.
-4. Finalizer must bind the exact 400 sample to verified matching Q-D1 summary.
-5. Verdict hashing must be non-self-referential and independently verifiable.
-6. Q-D3 must recompute/validate quoted-unquoted components from ledger rows.
-7. Add the named truncated/hash/component mutation REDs before correction.
-8. Preserve production read-only, D-PFP-400, G7 gates, coverage, source helper.
+2. Root accepted Item 7 tip `d0cecf2`; all seven items are Dev Complete.
+3. Root reproduced focused 11/11, compile/diff, hashes, and production isolation.
+4. Q-D1/Q-D2/Q-D3 hashes are `7269d7e0` / `6138b58f` / `9ccb06cf`.
+5. Fresh QA must rerun all-53 certification and independently adjudicate 400.
+6. QA must retrieve sources, review immutable ledger, then finalize fail-closed.
+7. D-PFP-400 passes only at 0 false and 0 ambiguous; no corpus-zero claim.
+8. Production stays read-only; held ledger and all prior gates remain binding.
