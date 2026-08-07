@@ -5584,3 +5584,35 @@ fresh-QA generation, source-retrieval, adjudication, and finalization steps
 are documented in `G7_CERTIFICATION.md`. QA-owned reviewed ledgers/verdicts do
 not overwrite Planner raw evidence; this remains `planning` / `planner`, with
 no QA/P-FP PASS claim. `measure_fp_after_widening.py` remains non-gating.
+
+### M-R102 — root rejects hardening WIP for three remaining loopholes
+
+Shared hardening tip `53559619ff91e90c951fb5920e48169c959b2b75` remains
+unaccepted planning progress. Root independently reproduced the current focused
+**11/11**, but that green set includes a finalizer test using only one sample
+row and therefore does not prove D-PFP-400. No QA transition is authorized.
+
+1. The finalizer must take the matching Q-D1 summary as required input and
+   verify its certification hash, pinned snapshot/integration identity,
+   `sample_hash`, `population_count`, and
+   `sample_count == min(400,population_count)`. It must then require the actual
+   sample length and canonical hash to match. For this final panel the result is
+   exactly 400 rows. Add REDs for a truncated sample and sample-hash mismatch;
+   the current one-row green path must fail closed.
+2. The finalizer writes `verdict_hash = certification_hash(verdict)`, while the
+   shared `certification_payload` excludes `summary_hash`, not `verdict_hash`.
+   Once stored, that makes the verdict self-referential/non-verifiable. Use the
+   normal `summary_hash` convention or define a dedicated explicit verdict
+   payload, then add a verifier regression that recomputes and matches the
+   stored canonical verdict hash.
+3. Q-D3 must independently recompute quoted/unquoted component counts from
+   every candidate-ledger row per jurisdiction, validate components are
+   nonempty and allowed and `captured` is boolean, and compare those recomputed
+   counts to per-state and total summaries. Current code recomputes only
+   candidate/captured counts and trusts component totals. Add a component
+   mutation RED that the current path rejects only after this correction.
+
+The accepted non-timing deterministic hash design, Q-D3 coverage checks,
+source-retrieval helper, production read-only boundary, D-PFP-400 rubric, and
+GA-after `>=2794` / total `new_primary >=23617` gates remain unchanged. Sprint
+state stays `planning` / `planner` under the existing Planner lock.

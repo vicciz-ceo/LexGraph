@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "claude-code:planner"
 locked_at: "2026-08-07T00:04:43Z"
 last_agent: "claude-code:planner"
-last_updated: "2026-08-07T00:38:11Z"
+last_updated: "2026-08-07T00:56:59Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 308 2026-08-07T00:54:29Z"
+lint: "PASS 313 2026-08-07T00:57:29Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -71,30 +71,35 @@ read-only.
 
 ## Manager rulings
 
-### M-R101 — Planner WIP is provisional; QA transition rejected
+### M-R101 — prior Planner rejection (superseded by M-R102)
 
-Planner tip `ca9dcd780aed25daf169ac8808418fa6c121bbb0` is unaccepted
-planning progress. Root independently verified focused **7/7**, Python
-compile/diff cleanliness, and the current evidence line counts/hashes, but
-rejected a QA transition until all corrections below land:
+Root rejected `ca9dcd7` for duration-dependent hashes and incomplete
+fail-closed finalizer/Q-D3/workflow guarantees. WIP `5355961` addresses much
+of that ruling; full history is in the append-only log. It remains provisional.
 
-1. Remove `elapsed_seconds` from Q-D1/Q-D2 certification hashes. Keep timing
-   only in explicitly non-hashed run metadata, add a duration-independence
-   regression, and regenerate exact artifacts/hashes.
-2. Add a fail-closed QA finalizer: immutable one-to-one sample/400-row reviewed
-   ledger identity, nonempty adjudicator and explicit false/ambiguous decisions,
-   calculated counts/bound, separate canonical QA verdict, exit 0 only for
-   0 false + 0 ambiguous, nonzero otherwise. Never reset a reviewed ledger;
-   Planner evidence stays unreviewed and separate from the QA-owned verdict.
-3. Strengthen independent Q-D3 checks: Q-D2 state/total accounting and
-   `candidate_rows=captured+uncaptured`; sample `min(400,population)` plus all
-   jurisdiction/route/family coverage; immutable sample/unreviewed-ledger
-   identity; byte-ledger count, uniqueness, fallback-only status, and population
-   membership. A temporary candidate ledger/hash is allowed. Add mutation and
-   fail-closed tests for every path.
-4. Document fresh QA's exact generate → retrieve source → adjudicate → finalize
-   workflow. Preserve production read-only, D-PFP-400, both G7 thresholds, and
-   label all current WIP evidence provisional until these gates pass.
+### M-R102 — hardening WIP still not QA-ready
+
+Planner tip `53559619ff91e90c951fb5920e48169c959b2b75` remains
+unaccepted planning progress. Root reproduced focused **11/11**, but these
+three bounded loopholes block QA:
+
+1. Finalizer must require the matching Q-D1 summary, verify its certification
+   hash plus snapshot/integration identity, `sample_hash`, `population_count`,
+   and `sample_count == min(400,population_count)`, then verify actual sample
+   length/hash. This panel's sample must be exactly 400. Add REDs for a
+   truncated sample and sample-hash mismatch; the current one-row green is
+   explicitly invalid.
+2. Replace self-referential `verdict_hash = certification_hash(verdict)`:
+   shared payload exclusion covers `summary_hash`, not `verdict_hash`. Use a
+   normal `summary_hash` or a dedicated explicit verdict payload, and add a
+   verifier regression that recomputes the stored verdict hash.
+3. Q-D3 must recompute each jurisdiction's quoted/unquoted component counts
+   from candidate-ledger rows, require components nonempty/allowed and
+   `captured` boolean, then compare recomputed state/total component counts.
+   Add a mutation RED; current Q-D3 trusts those component totals.
+
+Preserve the accepted deterministic-hash design, existing Q-D3 coverage,
+source helper, production read-only boundary, D-PFP-400, and both G7 gates.
 
 ## Next Steps
 
@@ -299,10 +304,10 @@ No external pins remain and no production signature/class/CSS rename occurred.
 ## Context Dump
 
 1. Items 1–6 remain Dev Complete; QA found no new production regression.
-2. Item 7 WIP `ca9dcd7` is provisional/unaccepted; remain planning/planner.
-3. Root reproduced focused 7/7, compile/diff clean, and current artifact hashes.
-4. Q-D1/Q-D2 hashes must exclude timing and prove duration independence.
-5. A fail-closed immutable QA adjudication finalizer/verdict is mandatory.
-6. Q-D3 needs independent accounting, identity, coverage, and byte-ledger checks.
-7. Document the fresh-QA generate → source → adjudicate → finalize workflow.
-8. Production stays read-only; D-PFP-400 and both G7 thresholds remain binding.
+2. Hardening WIP `5355961` is provisional/unaccepted; remain planning/planner.
+3. Root reproduced current focused 11/11 but rejected the QA transition.
+4. Finalizer must bind the exact 400 sample to verified matching Q-D1 summary.
+5. Verdict hashing must be non-self-referential and independently verifiable.
+6. Q-D3 must recompute/validate quoted-unquoted components from ledger rows.
+7. Add the named truncated/hash/component mutation REDs before correction.
+8. Preserve production read-only, D-PFP-400, G7 gates, coverage, source helper.
