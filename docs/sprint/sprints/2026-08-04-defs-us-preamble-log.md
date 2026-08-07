@@ -5425,3 +5425,35 @@ denominator/cross-check and documented rerun command. Production code is not
 authorized. Frontmatter returns to `status: planning`, `current_role: planner`,
 `total_items: 7`, `dev_complete_items: 6`, and `qa_cycles: 1`; the manager lock
 is released. Root owns spawning the Planner after this commit is pushed.
+
+### M-R99 / D-PFP-400 — director resolves the strict P-FP gate
+
+The director's sprint-harness instruction “fix this” approves the manager's
+recommended strict gate. D-PFP-400 defines the population as all definitions
+newly persisted/captured by the final preamble panel versus the documented
+BEFORE path on the same pinned 53-file snapshot. Identity is stable
+`(jurisdiction, source file/row id, term, definition_text, scope)`, evaluated
+through live persistence/dedup semantics; forwarding remains genuine under
+D-MT-E1.
+
+Planner must commit a deterministic SHA-256-ranked sample of 400 unique tuples,
+or the whole population if smaller, seeded by pinned corpus snapshot plus
+integration SHA. The sample is jurisdiction-balanced and extraction-route /
+registered-rule-family stratified, covers every non-empty jurisdiction, live
+route, and registered panel family, exhausts undersized strata, then fills
+remaining seats proportionally by deterministic hash order. Because coverage
+dimensions overlap, Planner must document the exact conflict-free allocation
+algorithm before generating evidence.
+
+Fresh QA independently adjudicates every sampled tuple against source. A false
+capture means the row does not genuinely define/forward the term or the text is
+not the defining statement. Genuine-definition boundary overrun is recorded
+separately in the informational byte-quality ledger, never silently relabeled
+P-FP. One false capture or one unresolved/ambiguous adjudication blocks merge;
+PASS is 0/400 false and 0 ambiguous. Committed evidence must include the sample,
+complete ledger, canonical population/sample hashes, and the one-sided 95%
+upper bound (`1 - 0.05^(1/400)`, about 0.75% at 0/400) without a corpus-zero
+claim. Existing G7 gates remain GA-after `>=2794` and total
+`new_primary >=23617`; `new_fallback` and byte quality remain informational.
+Production is read-only. This binding ruling resolves the earlier Planner
+escalation; sprint state remains unlocked `planning` / `planner`.

@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "/root/markers_panel_manager"
-last_updated: "2026-08-06T23:32:33Z"
+last_updated: "2026-08-07T00:03:09Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 217 2026-08-06T23:32:58Z"
+lint: "PASS 252 2026-08-07T00:03:40Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -37,6 +37,38 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 targeted `References to` guard are now main-contained, shipped, and read-only
 for this sprint.
 
+### D-PFP-400 — strict definition-level false-capture gate (binding)
+
+The director approved this manager recommendation with “fix this.” The
+population is every definition newly persisted/captured by the final preamble
+panel versus the documented BEFORE path on the same pinned 53-file snapshot,
+at stable `(jurisdiction, source file/row id, term, definition_text, scope)`
+granularity and using live persistence/dedup semantics. Forwarding definitions
+remain genuine under D-MT-E1.
+
+The evidence sample is 400 unique population tuples, or the whole population
+when smaller. Ranking is deterministic SHA-256 seeded by the pinned corpus
+snapshot plus integration SHA. Sampling must be jurisdiction-balanced and
+stratified by extraction route and registered panel rule family: include every
+non-empty jurisdiction, every live extraction route, and every registered
+panel rule family; take all members of strata smaller than their allocation,
+then fill remaining seats proportionally in deterministic hash order. Before
+generating evidence, Planner must document the exact conflict-free allocation
+algorithm for overlapping coverage requirements.
+
+Fresh QA independently adjudicates every sampled tuple against its source. A
+false capture means the row does not genuinely define or forward that term, or
+the captured text is not the defining statement. Boundary overrun on an
+otherwise genuine definition goes into a separate informational byte-quality
+ledger and is not relabeled P-FP. PASS requires **0 false captures and 0
+unresolved/ambiguous adjudications**; one false or ambiguous tuple blocks
+merge. Commit the canonical sample, complete adjudication ledger, population
+and sample canonical hashes, and the one-sided 95% upper bound (at 0/400,
+`1 - 0.05^(1/400)`, about **0.75%**) without claiming corpus-wide zero.
+G7 still requires GA-after `>=2794` and total `new_primary >=23617`;
+`new_fallback` and byte quality remain informational. Production code is
+read-only.
+
 ## Next Steps
 
 7. **Permanent Q-D1/G7 certification infrastructure.** Planner owns one
@@ -47,11 +79,11 @@ for this sprint.
    `qa_d3_crosscheck.py` flow with a reproducible clean-checkout entrypoint
    that independently certifies binding G7/Q-D1 across all 53 files. It must
    pin the input snapshot and integration SHA, cross-check the denominator,
-   emit deterministic/hash-verifiable evidence, and report P-FP at persisted
-   definition granularity `(row, term, definition_text, scope)` rather than an
-   approximate recognition-only proxy. Acceptance: a fresh QA can rerun the
-   committed harness from documented commands, reproduce the evidence and
-   hashes, and make the G7 pass/fail decision without session scratchpads. The
+   emit deterministic/hash-verifiable evidence, and implement D-PFP-400
+   exactly. Acceptance: a fresh QA can rerun the committed harness from
+   documented commands, reproduce the population/sample hashes and complete
+   ledger, independently adjudicate the deterministic sample, and certify all
+   binding D-PFP-400 and G7 thresholds without session scratchpads. The
    existing `measure_fp_after_widening.py` remains explicitly approximate and
    non-gating; it cannot satisfy this item.
 
@@ -186,6 +218,9 @@ for this sprint.
   Binding G7 remains uncertified because its three independent QA measurement
   scripts were scratchpad-only and are gone; the committed widening measure is
   documented as approximate/non-gating and cannot substitute for Q-D1.
+- The earlier Planner uncertainty is resolved by binding ruling D-PFP-400;
+  sampling, adjudication, merge-blocking thresholds, confidence reporting, and
+  preserved G7 volume gates are no longer open design choices.
 
 ## Stale-pin sweep
 
@@ -212,6 +247,6 @@ No external pins remain and no production signature/class/CSS rename occurred.
 3. Binding G7 is not certified because three independent scripts were ephemeral.
 4. The committed widening measurement is approximate and remains non-gating.
 5. Item 7 is one Planner-owned permanent Q-D1/G7 certification harness.
-6. Evidence must be reproducible from a clean checkout across all 53 files.
-7. P-FP must be measured at persisted definition granularity, with cross-checks.
+6. D-PFP-400 resolves the sampling/adjudication escalation and is binding.
+7. Evidence must be clean-checkout reproducible across all 53 pinned files.
 8. Production code is read-only for item 7; root owns the next Planner dispatch.
