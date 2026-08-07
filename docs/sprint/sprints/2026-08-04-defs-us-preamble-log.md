@@ -5713,3 +5713,12 @@ Binding repair gates:
 Contract returns from `qa-fail` / `developer` to `planning` / `planner`, keeps
 `qa_cycles: 2`, items 1–6 Dev Complete, and Item 7 in Next Steps under a fresh
 Planner lock. Root owns the later Planner spawn.
+
+### M-R104 remediation Planner roster
+
+Planner canonical task: `/root/hi_pfp_repair_planner`; model/effort:
+`gpt-5.6-terra / high`. Haiku was considered and rejected: this pass requires
+architectural seam selection, source-level false-family classification, and a
+persisted-output all-corpus mutation audit rather than a bounded fixture or
+pin repair. Production remains read-only; this entry records only roster and
+authority before the first evidence write.

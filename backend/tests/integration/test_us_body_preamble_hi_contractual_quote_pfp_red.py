@@ -32,19 +32,65 @@ def _row() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_hi_contractual_quoted_policy_clause_is_not_a_raw_profile_definition():
-    """The real US-HI profile/registry extraction must retain genuine coverage only."""
-    row = _row()
+def _genuine_quoted_list_row(*, large: bool = False) -> dict:
+    """A source-faithful B1 list control, including a real ``; and`` list.
+
+    The Hawaii failure is not permission to suppress a jurisdiction, a long
+    body, a quote, or a semicolon connector.  These are actual definition
+    shapes: each quoted term is immediately followed by its defining verb;
+    the second definition has a semicolon/list as part of its own substance.
+    ``large`` simulates the concatenated-source-row size hazard without
+    vendoring a multi-megabyte test fixture.
+    """
+    text = (
+        "As used in this chapter, the term:\n"
+        '(1) "genuine coverage" means coverage issued under this chapter.\n\n'
+        '(2) "covered services" shall include: (A) hospital care; and (B) physician care.\n'
+    )
+    if large:
+        text += "\n" + ("Operative insurance text that defines no quoted term. " * 20_000)
+    return {
+        "act_id": "TESTONLY_HI_GENUINE_QUOTED_LIST_LARGE" if large else "TESTONLY_HI_GENUINE_QUOTED_LIST",
+        "section_number": "431:15-304-control",
+        "section_title": ":15-304 Actions by and against rehabilitator.",
+        "chapter": "431",
+        "text": text,
+    }
+
+
+def _raw_by_term(row: dict) -> dict[str, str]:
     profile = get_profile("US-HI")
     assert profile.derive_heading_from_body(row["section_title"], row["text"]) == "Definitions"
     raw = profile.extract_definitions_from_section(
         row["text"], scope="law-wide", heading_was_derived=True
     )
-    raw_by_term = {term: candidate.definition_text for candidate in raw for term in candidate.terms}
+    return {term: candidate.definition_text for candidate in raw for term in candidate.terms}
+
+
+def test_hi_contractual_quoted_policy_clause_is_not_a_raw_profile_definition():
+    """The real US-HI profile/registry extraction must retain genuine coverage only."""
+    row = _row()
+    raw_by_term = _raw_by_term(row)
     assert raw_by_term["genuine coverage"] == "means coverage issued under this chapter."
     assert PSEUDO_TERM not in raw_by_term, (
         "P-FP: the Hawaii contractual clause is a quoted policy provision, not a definition term"
     )
+
+
+def test_hi_body_derived_genuine_quoted_and_semicolon_list_definitions_remain_raw_profile_candidates():
+    """A quote and ``; and`` inside a genuine B1 definition must survive."""
+    raw_by_term = _raw_by_term(_genuine_quoted_list_row())
+
+    assert raw_by_term["genuine coverage"] == "means coverage issued under this chapter."
+    assert raw_by_term["covered services"] == "shall include: (A) hospital care; and (B) physician care."
+
+
+def test_large_hawaii_body_with_genuine_quoted_definitions_is_not_suppressed():
+    """The repair is not a Hawaii or large-body exclusion."""
+    raw_by_term = _raw_by_term(_genuine_quoted_list_row(large=True))
+
+    assert raw_by_term["genuine coverage"] == "means coverage issued under this chapter."
+    assert raw_by_term["covered services"].startswith("shall include:")
 
 
 def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_term(
@@ -74,4 +120,32 @@ def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_te
     assert PSEUDO_TERM not in by_term, (
         "P-FP: the Hawaii contractual clause is a quoted policy provision, not a term definition; "
         "live pipeline persisted the pseudo-definition"
+    )
+
+
+def test_hi_genuine_quoted_semicolon_list_definitions_remain_persisted(
+    db_session, matter_with_users
+):
+    """The live ingest-to-persistence flow preserves both-sided controls."""
+    row = _genuine_quoted_list_row()
+    matter = matter_with_users
+    ingest_us_statute_rows(
+        db_session,
+        repository_id=matter["repository_id"],
+        matter_id=matter["matter_id"],
+        title="US-HI genuine quoted-list preservation control",
+        rows=[row],
+        jurisdiction="US-HI",
+    )
+    result = run_definition_linking(
+        db_session,
+        matter_id=matter["matter_id"],
+        triggered_by_user_id=matter["contributor_id"],
+    )
+    definitions = [db_session.get(Definition, item["id"]) for item in result["created_definitions"]]
+    by_term = {term: definition for definition in definitions for term in definition.terms}
+
+    assert by_term["genuine coverage"].definition_text == "means coverage issued under this chapter."
+    assert by_term["covered services"].definition_text == (
+        "shall include: (A) hospital care; and (B) physician care."
     )
