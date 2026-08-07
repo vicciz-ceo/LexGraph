@@ -5771,6 +5771,22 @@ fail-closed; a candidate that already changes genuine HI output cannot proceed
 to Developer. The shard artifact is external at
 `/tmp/mr104-b1-span-shards/shards/us_hi_statutes.parquet.json`.
 
+### M-R104 provenance-routing API contradiction
+
+The manager-required `Confirmer` preservation probe is a validated section
+`§490:5-102 Definitions. (a) As used in this article:`. Its own section
+extracts the genuine `Confirmer -> means a nominated person ...` tuple, but
+the existing independent non-B1 routes cannot prove it: raw
+`is_definitions_heading` returns false for the `§`-prefixed heading and bare
+`derive_heading_from_body("Placeholder", section)` returns `None`; profile
+recognition succeeds only through B1. Therefore the new positive-provenance
+rule (“outside B1 span only with independent non-B1 route”) requires removing
+this source-genuine tuple, directly conflicting with its mandated GREEN
+preservation. Preserving it requires making heading recognition section-aware
+for all validated source sections (option 2) or treating B1 recognition in
+each section as independent provenance (which broadens B1 beyond the approved
+trigger-owned span). Neither is provenance-aware routing on the present API.
+
 ### M-R104 remediation — source adjudication of the 17 counterexamples
 
 Each of the 17 initially unclassified changed keys was retrieved from the
