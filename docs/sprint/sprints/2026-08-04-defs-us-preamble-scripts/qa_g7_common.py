@@ -191,11 +191,14 @@ def capture_row(*, jurisdiction: str, source_file: str, source_row: int, row: di
     raw_body = row["text"] or ""
     body, _ = strip_wikilinks(profile.normalize_for_parsing(raw_body))
     if after:
-        recognized = profile.is_definitions_heading(heading, body)
+        # Q-D1's ratified comparison deliberately holds heading recognition
+        # constant.  The AFTER delta is the profile's live body-preamble
+        # registry dispatch, not a later HeadingRule panel's independent gain.
+        recognized = legacy_is_heading(heading)
         derived = False
         if not recognized:
             derived_heading = profile.derive_heading_from_body(heading, body)
-            recognized = derived_heading is not None and profile.is_definitions_heading(derived_heading, body)
+            recognized = derived_heading is not None and legacy_is_heading(derived_heading)
             derived = recognized
         if not recognized:
             return []
