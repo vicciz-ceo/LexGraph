@@ -5500,3 +5500,37 @@ fresh QA, not Planner, must adjudicate it. The 0/400 one-sided 95% bound is
 byte ledger is 50 rows, hash
 `dc1fe46464d9c510f61fd0f6d555c23371f6f5bf61a9ebc36172fd0d4cbfd586`.
 Stale-pin sweep: none (no rename). Manager retains status/role integration.
+
+### M-R101 — root rejects QA transition; Planner corrections required
+
+Shared Planner WIP `ca9dcd780aed25daf169ac8808418fa6c121bbb0` remains
+unaccepted planning progress. Root independently reproduced the focused 7/7
+contract suite, Python compilation/diff cleanliness, and current evidence line
+counts/hashes. Those checks establish coherent WIP, not a certifiable QA
+handoff. Status/current role remain `planning` / `planner`, the existing
+`claude-code:planner` lock stays active, and production remains read-only.
+
+1. Q-D1 and Q-D2 currently hash `elapsed_seconds`, making certification hashes
+   depend on machine/run duration. Move timing to explicitly non-hashed run
+   metadata, add a regression proving different durations yield identical
+   certification hashes, then regenerate every affected exact artifact/hash.
+2. Add a documented fail-closed QA adjudication finalizer. It must validate
+   that all 400 reviewed ledger rows match the sample one-to-one and immutably,
+   require a nonempty adjudicator plus explicit false/ambiguous decisions,
+   calculate counts and the confidence bound, and emit a separate canonical
+   QA-owned verdict. PASS/exit 0 is legal only at zero false and zero ambiguous;
+   otherwise verdict is FAIL/nonzero. Never reset a reviewed ledger. Planner's
+   generated evidence stays unreviewed and distinct from the QA verdict.
+3. Strengthen Q-D3 independently: validate Q-D2 per-state and total accounting,
+   including `candidate_rows=captured+uncaptured`, with a temporary candidate
+   ledger/hash if needed. Assert sample count `min(400,population)`, coverage
+   of every non-empty jurisdiction/route/rule family, immutable one-to-one
+   sample/unreviewed-ledger identity, and byte-ledger count, uniqueness,
+   fallback-only status, and population membership. Add mutation/fail-closed
+   regression tests for every validation path.
+4. Document the exact clean-checkout fresh-QA workflow: generate evidence,
+   retrieve each source, adjudicate every sampled tuple, then finalize.
+5. Preserve D-PFP-400's rubric, GA-after `>=2794`, total
+   `new_primary >=23617`, informational-only `new_fallback`/byte quality, and
+   current evidence marked provisional. No QA transition is authorized until
+   all corrections are committed, regenerated, and independently auditable.

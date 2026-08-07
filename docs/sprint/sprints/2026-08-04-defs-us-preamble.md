@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "claude-code:planner"
 locked_at: "2026-08-07T00:04:43Z"
 last_agent: "claude-code:planner"
-last_updated: "2026-08-07T00:04:43Z"
+last_updated: "2026-08-07T00:38:11Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 252 2026-08-07T00:04:54Z"
+lint: "PASS 294 2026-08-07T00:38:35Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -68,6 +68,33 @@ and sample canonical hashes, and the one-sided 95% upper bound (at 0/400,
 G7 still requires GA-after `>=2794` and total `new_primary >=23617`;
 `new_fallback` and byte quality remain informational. Production code is
 read-only.
+
+## Manager rulings
+
+### M-R101 — Planner WIP is provisional; QA transition rejected
+
+Planner tip `ca9dcd780aed25daf169ac8808418fa6c121bbb0` is unaccepted
+planning progress. Root independently verified focused **7/7**, Python
+compile/diff cleanliness, and the current evidence line counts/hashes, but
+rejected a QA transition until all corrections below land:
+
+1. Remove `elapsed_seconds` from Q-D1/Q-D2 certification hashes. Keep timing
+   only in explicitly non-hashed run metadata, add a duration-independence
+   regression, and regenerate exact artifacts/hashes.
+2. Add a fail-closed QA finalizer: immutable one-to-one sample/400-row reviewed
+   ledger identity, nonempty adjudicator and explicit false/ambiguous decisions,
+   calculated counts/bound, separate canonical QA verdict, exit 0 only for
+   0 false + 0 ambiguous, nonzero otherwise. Never reset a reviewed ledger;
+   Planner evidence stays unreviewed and separate from the QA-owned verdict.
+3. Strengthen independent Q-D3 checks: Q-D2 state/total accounting and
+   `candidate_rows=captured+uncaptured`; sample `min(400,population)` plus all
+   jurisdiction/route/family coverage; immutable sample/unreviewed-ledger
+   identity; byte-ledger count, uniqueness, fallback-only status, and population
+   membership. A temporary candidate ledger/hash is allowed. Add mutation and
+   fail-closed tests for every path.
+4. Document fresh QA's exact generate → retrieve source → adjudicate → finalize
+   workflow. Preserve production read-only, D-PFP-400, both G7 thresholds, and
+   label all current WIP evidence provisional until these gates pass.
 
 ## Next Steps
 
@@ -239,7 +266,8 @@ No external pins remain and no production signature/class/CSS rename occurred.
   `qa_d2_independent_denominator.py`, and `qa_d3_crosscheck.py` were ephemeral
   scratchpads and are unavailable. `measure_fp_after_widening.py` is explicitly
   approximate/non-gating. No production regression was reported.
-- 2026-08-07 — Planner Item 7: permanent Q-D1 → Q-D2 → Q-D3 entrypoint
+- 2026-08-07 — PROVISIONAL/UNACCEPTED Planner Item 7 evidence at `ca9dcd7`:
+  permanent Q-D1 → Q-D2 → Q-D3 entrypoint
   committed; it pins snapshot `301000fc…`, integration `4fa9e7b…`, 53 files,
   and 2,038,247 rows. Q-D1: before 29,698, after 156,322, new 126,624,
   primary 78,925, fallback 47,699, GA 2 → 3,093: both G7 gates pass.
@@ -257,10 +285,10 @@ No external pins remain and no production signature/class/CSS rename occurred.
 ## Context Dump
 
 1. Items 1–6 remain Dev Complete; QA found no new production regression.
-2. QA completed every focused/backend/frontend and exact-seam/hash gate.
-3. Binding G7 is not certified because three independent scripts were ephemeral.
-4. The committed widening measurement is approximate and remains non-gating.
-5. Item 7 is one Planner-owned permanent Q-D1/G7 certification harness.
-6. D-PFP-400 resolves the sampling/adjudication escalation and is binding.
-7. Evidence must be clean-checkout reproducible across all 53 pinned files.
-8. Production code is read-only for item 7; root owns the next Planner dispatch.
+2. Item 7 WIP `ca9dcd7` is provisional/unaccepted; remain planning/planner.
+3. Root reproduced focused 7/7, compile/diff clean, and current artifact hashes.
+4. Q-D1/Q-D2 hashes must exclude timing and prove duration independence.
+5. A fail-closed immutable QA adjudication finalizer/verdict is mandatory.
+6. Q-D3 needs independent accounting, identity, coverage, and byte-ledger checks.
+7. Document the fresh-QA generate → source → adjudicate → finalize workflow.
+8. Production stays read-only; D-PFP-400 and both G7 thresholds remain binding.
