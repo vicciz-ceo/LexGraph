@@ -1,14 +1,14 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: qa-fail
+status: planning
 blocked_on: null
-current_role: developer
+current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: null
-locked_at: null
-last_agent: "claude-code:qa"
-last_updated: "2026-08-07T01:16:01Z"
+locked_by: "claude-code:planner"
+locked_at: "2026-08-07T01:19:33Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-08-07T01:19:33Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 280 2026-08-07T01:16:44Z"
+lint: "PASS 305 2026-08-07T01:20:36Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -94,11 +94,32 @@ The finalizer binds the verified exact 400 sample; Q-D3 recomputes component
 rows. Item 7 is Dev Complete, not QA-passed: fresh QA still owns source
 adjudication and the canonical verdict.
 
+### M-R104 — source finding accepted; narrow remediation requires planning
+
+Root accepts QA-FAIL tip `42cdf298655845635c9e3bf32857efd72da30ee5`:
+the cumulative QA diff is tests/fixture/docs only; root read it fully,
+source-verified pinned `STATE_HI_D2_T24_C431_S431` (`2ff51dc5…`), reproduced
+the 2,404,155-character live capture with 37 tuples including the 529-character
+indemnity pseudo-term / `; and`, and reproduced the corrected test at exactly
+two REDs (direct profile plus live persistence) with no broken-state assertion.
+
+Repair gates are binding: no blanket HI, large-row, quote, or `; and`
+suppression; preserve the genuine same-body definition. Planner must identify
+the exact production seam, source-triage the deterministic sample, and add
+two-sided RED controls for every distinct verified false family found. Before
+Developer, runtime-measure every proposed guard across all 53 files at
+persisted tuple altitude and classify every changed key; preserve prior G7 and
+all ledgers; define the exact minimal Developer write set. Planner may not edit
+production.
+
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
-   Repair the shared extraction path without losing a genuine same-body definition. QA RED:
-   `test_us_body_preamble_hi_contractual_quote_pfp_red.py` (live US-HI profile/registry/persistence path).
+   Root accepted source and RED provenance at `42cdf298`: exactly two current
+   failures, direct profile and live persistence. Planner must satisfy M-R104:
+   exact seam, source-family triage/two-sided REDs, all-53 persisted-output
+   measurement and changed-key classification, prior-gate preservation, and
+   minimal Developer write set. Production is read-only during planning.
 
 ## Dev Complete
 
@@ -274,7 +295,11 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; item 7 is QA-FAIL and returns to Developer.
-2. Exact HI source false capture is source-verified; current live RED preserves genuine coverage.
-3. D-PFP-400 cannot pass with this one false capture; do not claim corpus-wide zero.
-4. Production stays read-only in QA; Developer must repair extraction and regenerate certification.
+1. Items 1–6 remain Dev Complete; Item 7 is replanned before Developer.
+2. Root accepts the HI finding and exactly two corrected REDs at `42cdf298`.
+3. Identify the exact narrow production seam; never use a blanket suppression.
+4. Preserve genuine same-body definitions with controls per verified false family.
+5. Measure proposed guards all-53 at persisted tuple altitude; classify all keys.
+6. Preserve G7 and every ledger; define a minimal Developer write set.
+7. D-PFP-400 cannot pass with this false capture; no corpus-zero claim.
+8. Production is read-only during planning; root owns the Planner spawn.

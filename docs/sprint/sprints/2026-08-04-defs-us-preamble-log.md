@@ -5676,3 +5676,40 @@ the same B1 body retains genuine `genuine coverage`. Current tail is one RED:
 finalizer adverse-decision regression (`7b00e54`, 13 passed). Remaining 400
 adjudications, fresh all-53 run, and broad suites are intentionally skipped
 fail-fast; production was not changed. Item 7 returns to Next Steps as QA-FAIL.
+
+### M-R104 — root accepts QA source finding and reopens safe planning
+
+Root accepts integrated QA-FAIL tip
+`42cdf298655845635c9e3bf32857efd72da30ee5`. The cumulative QA diff is confined
+to tests, fixture, and sprint docs; root read the complete diff. Root
+independently retrieved pinned `STATE_HI_D2_T24_C431_S431` at source hash
+`2ff51dc5277bfcc5cad660a68a79da4b9544b05b84d036af2f19e07f37c2da42`,
+reproduced the 2,404,155-character live capture with 37 tuples, and confirmed
+the 529-character quoted indemnity pseudo-term whose captured definition is
+`; and`. The source does not define or forward that term.
+
+Root also reproduced the corrected QA test file at exactly two expected
+failures: direct profile extraction and live persistence. Both demand absence
+of the pseudo-definition while preserving the genuine same-body definition;
+neither asserts the pre-fix broken state. This satisfies RED provenance and
+authorizes a new Planner cycle, not a Developer shortcut.
+
+Binding repair gates:
+
+1. No blanket jurisdiction (`US-HI`), large-row, quoted-text, or `; and`
+   suppression. The genuine definition in the same body must remain captured.
+2. Planner must locate and document the exact production seam before defining
+   implementation ownership.
+3. Planner must source-triage the deterministic D-PFP sample and add two-sided
+   RED controls for every distinct source-verified false-capture family found,
+   with genuine neighboring/same-body definitions protected.
+4. Every proposed guard must be runtime-measured across the pinned 53 files at
+   persisted `(jurisdiction, source row, term, definition_text, scope)`
+   altitude. Planner must classify every changed key before Developer dispatch.
+5. Preserve Q-D1/Q-D2/Q-D3, D-PFP sample/raw/byte ledgers, G7 thresholds, held
+   failures, and prior focused gates. Define the exact minimal Developer write
+   set; production remains read-only during planning.
+
+Contract returns from `qa-fail` / `developer` to `planning` / `planner`, keeps
+`qa_cycles: 2`, items 1–6 Dev Complete, and Item 7 in Next Steps under a fresh
+Planner lock. Root owns the later Planner spawn.
