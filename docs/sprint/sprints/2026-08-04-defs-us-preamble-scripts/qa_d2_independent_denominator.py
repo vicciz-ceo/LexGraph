@@ -17,8 +17,8 @@ import pyarrow.parquet as pq
 
 from qa_g7_common import (
     EXPECTED_FILE_COUNT, EXPECTED_ROW_COUNT, INTEGRATION_SHA, SNAPSHOT_ID,
-    CertificationError, capture_row, jurisdiction_for, sha256_value,
-    validate_corpus, validate_integration, write_json,
+    CertificationError, capture_row, certification_hash, certification_payload,
+    jurisdiction_for, validate_corpus, validate_integration, write_json, write_jsonl,
 )
 
 # Deliberately unrelated to body-preamble intro phrases.  These broad raw-text
@@ -73,22 +73,28 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
                             "source_row_id": row["act_id"], "components": components, "captured": captured,
                         })
                 index += 1
-        states[jurisdiction] = dict(counts)
+        states[jurisdiction] = {
+            field: counts[field]
+            for field in ("candidate_rows", "already_captured", "uncaptured", "quoted_broad_verb", "unquoted_broad_verb")
+        }
     total = defaultdict(int)
     for state in states.values():
         for key, value in state.items():
             total[key] += value
     if rows != EXPECTED_ROW_COUNT or len(states) != EXPECTED_FILE_COUNT:
         raise CertificationError("D2 did not independently cover the full fixed census")
+    candidates = sorted(candidates, key=lambda item: (item["jurisdiction"], item["source_file"], item["source_row"]))
+    out.mkdir(parents=True, exist_ok=True)
+    candidate_ledger_hash = write_jsonl(out / "qd2_candidate_ledger.jsonl", candidates)
     result = {
         "schema": "lexgraph.g7.qd2.v1", "snapshot_id": SNAPSHOT_ID, "integration_sha": INTEGRATION_SHA,
         "files": EXPECTED_FILE_COUNT, "rows": rows, "per_jurisdiction": {k: states[k] for k in sorted(states)},
         "totals": dict(sorted(total.items())),
         "method": {"original_heading_must_fail_bare_detector": True, "window_chars": 600, "components": ["quoted_broad_verb", "unquoted_broad_verb"], "signal_agnostic_denominator": True},
-        "candidate_population_hash": sha256_value(sorted(candidates, key=lambda r: (r["source_file"], r["source_row"]))),
-        "elapsed_seconds": round(time.monotonic() - started, 3),
+        "candidate_ledger_count": len(candidates), "candidate_ledger_hash": candidate_ledger_hash,
+        "run_metadata": {"elapsed_seconds": round(time.monotonic() - started, 3)},
     }
-    result["summary_hash"] = sha256_value(result)
+    result["summary_hash"] = certification_hash(result)
     write_json(out / "qd2_summary.json", result)
     return result
 

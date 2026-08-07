@@ -141,12 +141,14 @@ def test_qd3_fail_closed_validators_reject_accounting_identity_coverage_and_byte
     ):
         with pytest.raises(Exception):
             mutator()
-    states = {"US-AA": {"candidate_rows": 1, "already_captured": 1, "uncaptured": 0}}
+    states = {"US-AA": {"candidate_rows": 1, "already_captured": 1, "uncaptured": 0,
+                          "quoted_broad_verb": 1, "unquoted_broad_verb": 0}}
     candidates = [{"jurisdiction": "US-AA", "source_file": "us_aa_statutes.parquet", "source_row": 1,
                    "source_row_id": "A", "components": ["quoted_broad_verb"], "captured": True}]
     d3.validate_qd2_accounting(states, states["US-AA"], candidates)
     with pytest.raises(Exception):
-        d3.validate_qd2_accounting({"US-AA": {"candidate_rows": 1, "already_captured": 0, "uncaptured": 0}}, states["US-AA"], candidates)
+        d3.validate_qd2_accounting({"US-AA": {"candidate_rows": 1, "already_captured": 0, "uncaptured": 0,
+                                                 "quoted_broad_verb": 1, "unquoted_broad_verb": 0}}, states["US-AA"], candidates)
 
 
 def test_g7_qa_finalizer_is_separate_fail_closed_and_never_rewrites_ledger(tmp_path):
@@ -170,8 +172,9 @@ def test_g7_qa_finalizer_is_separate_fail_closed_and_never_rewrites_ledger(tmp_p
     assert ledger_path.read_bytes() == before
     bad = deepcopy(ledger)
     bad[0]["ambiguous"] = True
+    ledger_path.write_text("\n".join(json.dumps(row) for row in bad) + "\n")
     with pytest.raises(Exception):
-        finalizer.validate_reviewed_ledger(sample, bad)
+        finalizer.finalize(sample_path, ledger_path, tmp_path / "second-verdict.json")
 
 
 def test_g7_source_retrieval_helper_is_a_committed_qa_entrypoint():

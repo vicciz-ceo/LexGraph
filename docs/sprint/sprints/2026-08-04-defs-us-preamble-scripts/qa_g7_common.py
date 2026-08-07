@@ -40,6 +40,20 @@ def sha256_value(value: Any) -> str:
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
+def certification_payload(value: dict[str, Any]) -> dict[str, Any]:
+    """Return the signed certification schema, deliberately excluding runtime data.
+
+    Every run-variant value belongs under ``run_metadata``.  That field and the
+    self-referential ``summary_hash`` are the only unsigned top-level fields;
+    Q-D3 uses this same explicit projection rather than a nearby ad-hoc hash.
+    """
+    return {key: item for key, item in value.items() if key not in {"run_metadata", "summary_hash"}}
+
+
+def certification_hash(value: dict[str, Any]) -> str:
+    return sha256_value(certification_payload(value))
+
+
 def jsonl_hash(records: Iterable[dict[str, Any]]) -> str:
     digest = hashlib.sha256()
     for record in records:

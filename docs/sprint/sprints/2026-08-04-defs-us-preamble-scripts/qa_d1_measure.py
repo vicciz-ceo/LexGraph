@@ -18,8 +18,8 @@ import pyarrow.parquet as pq
 
 from qa_g7_common import (
     EXPECTED_FILE_COUNT, EXPECTED_ROW_COUNT, INTEGRATION_SHA, SNAPSHOT_ID,
-    CertificationError, canonical_bytes, capture_row, jurisdiction_for, jsonl_hash,
-    sha256_value, sort_records, tuple_key, validate_corpus, validate_integration,
+    CertificationError, canonical_bytes, capture_row, certification_hash, certification_payload,
+    jurisdiction_for, jsonl_hash, sort_records, tuple_key, validate_corpus, validate_integration,
     read_json, write_json, write_jsonl,
 )
 
@@ -159,7 +159,7 @@ def materialize_review_ledger(out: Path) -> dict[str, Any]:
     summary = read_json(out / "qd1_summary.json")
     summary["dpfp400"]["adjudication_ledger_count"] = len(ledger)
     summary["dpfp400"]["adjudication_ledger_hash"] = ledger_hash
-    summary["summary_hash"] = sha256_value({key: value for key, value in summary.items() if key != "summary_hash"})
+    summary["summary_hash"] = certification_hash(summary)
     write_json(out / "qd1_summary.json", summary)
     return summary
 
@@ -245,9 +245,9 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
         "totals": totals, "gates": {"ga_after_min": 2794, "new_primary_min": 23617, "ga_after_pass": per_state["US-GA"]["after"] >= 2794, "new_primary_pass": totals["new_primary"] >= 23617},
         "dpfp400": {"population_count": len(population), "population_hash": population_hash, "sample_count": len(sample), "sample_hash": sample_hash, "adjudication_ledger_count": len(adjudication), "adjudication_ledger_hash": adjudication_hash, "allocation": allocation, "one_sided_95_zero_event_upper_bound": 1 - 0.05 ** (1 / len(sample)), "qa_status": "unreviewed_no_pfp_pass_claim"},
         "byte_quality": {"route": "new_fallback", "ledger_count": len(ledger), "ledger_hash": ledger_hash, "status": "informational_unreviewed"},
-        "elapsed_seconds": round(time.monotonic() - started, 3),
+        "run_metadata": {"elapsed_seconds": round(time.monotonic() - started, 3)},
     }
-    result["summary_hash"] = sha256_value(result)
+    result["summary_hash"] = certification_hash(result)
     write_json(out / "qd1_summary.json", result)
     return result
 
