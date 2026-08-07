@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: dev-complete
+status: qa-fail
 blocked_on: null
-current_role: qa
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "claude-code:qa"
-locked_at: "2026-08-07T01:02:44Z"
+locked_by: null
+locked_at: null
 last_agent: "claude-code:qa"
-last_updated: "2026-08-07T01:02:44Z"
+last_updated: "2026-08-07T01:16:01Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 7
-qa_cycles: 1
+dev_complete_items: 6
+qa_cycles: 2
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 285 2026-08-07T01:03:27Z"
+lint: "PASS 280 2026-08-07T01:16:44Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -96,16 +96,11 @@ adjudication and the canonical verdict.
 
 ## Next Steps
 
-## Dev Complete
+7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
+   Repair the shared extraction path without losing a genuine same-body definition. QA RED:
+   `test_us_body_preamble_hi_contractual_quote_pfp_red.py` (live US-HI profile/registry/persistence path).
 
-7. **Permanent Q-D1/G7 certification infrastructure — root accepted.**
-   Commits: `377bb796`, `b188b6b3`, `157b0ccd`, `6935abf9`, `ca9dcd78`,
-   `2364972e`, `30da878b`, `53559619`, `6f7ee18c`, `d0cecf28` (accepted tip
-   `d0cecf285853fc6a16d784096d3532c920a85351`). Root: focused 11/11,
-   production unchanged, finalizer exact-400-bound, Q-D3 row recomputation.
-   Evidence: Q-D1 `7269d7e02b44e08f3bb15048787a97c485e0adf3fde7c5f4c79dd70663f3a799`;
-   Q-D2 `6138b58fafed100132c0aceb5830e38cc38ec7c6714bd0bbaf4f4b7421168e35`;
-   Q-D3 `9ccb06cf78f8904e30338094fd600fc2bc42d8ccd8541c9eaa6ce2c8316a6725`.
+## Dev Complete
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -272,14 +267,14 @@ No external pins remain and no production signature/class/CSS rename occurred.
 - Exact commands/all hashes: `...-scripts/G7_CERTIFICATION.md`; compact
   evidence: `...-scripts/g7-certification-evidence/`. RED was 3 failed;
   focused green is 7 passed. Stale-pin sweep: none. Production read-only.
+- 2026-08-07T01:16:01Z — QA cycle 2 FAIL: pinned `STATE_HI_D2_T24_C431_S431`
+  (`us_hi_statutes.parquet:5`, `2ff51dc5…`) is a 2,404,155-byte concatenation;
+  live B1 emits its 529-char quoted indemnity provision as a term with `; and`.
+  Root reproduced; remaining 400 review/all-53/full suites skipped fail-fast. New live RED is committed.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; QA found no new production regression.
-2. Root accepted Item 7 tip `d0cecf2`; all seven items are Dev Complete.
-3. Root reproduced focused 11/11, compile/diff, hashes, and production isolation.
-4. Q-D1/Q-D2/Q-D3 hashes are `7269d7e0` / `6138b58f` / `9ccb06cf`.
-5. Fresh QA must rerun all-53 certification and independently adjudicate 400.
-6. QA must retrieve sources, review immutable ledger, then finalize fail-closed.
-7. D-PFP-400 passes only at 0 false and 0 ambiguous; no corpus-zero claim.
-8. Production stays read-only; held ledger and all prior gates remain binding.
+1. Items 1–6 remain Dev Complete; item 7 is QA-FAIL and returns to Developer.
+2. Exact HI source false capture is source-verified; current live RED preserves genuine coverage.
+3. D-PFP-400 cannot pass with this one false capture; do not claim corpus-wide zero.
+4. Production stays read-only in QA; Developer must repair extraction and regenerate certification.

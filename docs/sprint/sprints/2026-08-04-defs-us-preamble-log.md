@@ -5653,3 +5653,26 @@ The 400-row Planner ledger remains unreviewed: this is acceptance for fresh QA,
 not a D-PFP-400 PASS. All seven items move to Dev Complete; state becomes
 `dev-complete` / `qa`, `dev_complete_items: 7`, `qa_cycles: 1`, under a fresh
 `claude-code:qa` lock. QA owns independent source adjudication and finalization.
+
+### QA cycle 2 — D-PFP-400 fail-fast: exact Hawaii contractual clause is a false capture
+
+QA roster: canonical task `/root/preamble_g7_final_qa`, `gpt-5.6-terra / high`;
+Haiku rejected because the binding source-level adjudication is merge-blocking.
+Root independently retrieved pinned `STATE_HI_D2_T24_C431_S431` from
+`us_hi_statutes.parquet:5`, SHA-256
+`2ff51dc5277bfcc5cad660a68a79da4b9544b05b84d036af2f19e07f37c2da42`.
+The 2,404,155-character concatenated source row has a genuine B1 trigger but
+also the quoted contractual policy provision beginning `If any indemnity of
+this policy ...`; the live US-HI registry/profile/persistence path emits it as
+a 529-character term with definition text `; and`, plus similar one-character
+contractual pseudo-definitions. This is not a definition or forwarding
+statement, so it is a binding D-PFP false capture.
+
+QA added `test_us_body_preamble_hi_contractual_quote_pfp_red.py` with a compact
+source-faithful fixture: it proves current raw/profile output and live
+persistence produce the bad tuple, requires it absent after repair, and proves
+the same B1 body retains genuine `genuine coverage`. Current tail is one RED:
+`P-FP ... live pipeline persisted '; and' for it`. QA also committed the
+finalizer adverse-decision regression (`7b00e54`, 13 passed). Remaining 400
+adjudications, fresh all-53 run, and broad suites are intentionally skipped
+fail-fast; production was not changed. Item 7 returns to Next Steps as QA-FAIL.
