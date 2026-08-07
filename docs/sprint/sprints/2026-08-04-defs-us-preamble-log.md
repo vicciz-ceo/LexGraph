@@ -5534,3 +5534,53 @@ handoff. Status/current role remain `planning` / `planner`, the existing
    `new_primary >=23617`, informational-only `new_fallback`/byte quality, and
    current evidence marked provisional. No QA transition is authorized until
    all corrections are committed, regenerated, and independently auditable.
+
+### M-R101 correction pass — deterministic certification + QA-owned finalizer
+
+Planner roster entry: canonical task `/root/g7_cert_hardening_planner`,
+`gpt-5.6-terra / high`; Haiku considered: no, because deterministic
+certification and fail-closed human-adjudication finalization change multiple
+interacting proof invariants. The write set remains tests, certification
+scripts/evidence, and sprint docs only; `backend/app` is read-only from pinned
+integration `4fa9e7b368801757039091646e06a832620a3a2c`.
+
+RED preceded harness work: focused contract run was **7 passed, 4 failed**
+(missing non-hashed certification schema/validators, QA finalizer, and source
+retriever). The RED test batch was committed/pushed before script changes.
+After hardening, focused evidence tests are **11 passed**. The regression uses
+otherwise-identical durations and proves equal Q-D1/Q-D2 certification hashes;
+elapsed durations now live only under unsigned `run_metadata`. Q-D3 verifies
+the same explicit payload schema for Q-D1/Q-D2 and its own emitted result.
+
+The exact all-53 chain was run once from the documented entrypoint. Q-D1:
+2,038,247 rows; before 29,698; after 156,322; new 126,624; primary 78,925;
+fallback 47,699; GA-after 3,093. It passes GA `>=2,794` and primary
+`>=23,617`; Q-D1 signed hash
+`7269d7e02b44e08f3bb15048787a97c485e0adf3fde7c5f4c79dd70663f3a799`
+(runtime 459.768 seconds is non-certifying). Q-D2 candidate ledger is 99,877,
+hash `1f59a7d9a72b703f1cd6adff5e064a51a4386662b4c8de4d98a0f5be97d9d44b`;
+its independent totals are 57,094 captured / 42,783 uncaptured (95,830 quoted,
+4,170 unquoted may overlap), signed hash
+`6138b58fafed100132c0aceb5830e38cc38ec7c6714bd0bbaf4f4b7421168e35`.
+Q-D3 validates candidate/state accounting, D-PFP membership/coverage/raw
+ledger and byte-ledger invariants and passes with signed hash
+`9ccb06cf78f8904e30338094fd600fc2bc42d8ccd8541c9eaa6ce2c8316a6725`.
+
+D-PFP remains Planner-unreviewed: population 480,372
+`08ca7a33ce7212d52bc31c4c00f3a81082b270a0f36c6b412c7b3905dceb1d02`,
+sample 400 `880cdec847874ac1937cbe5693df1e4121506b7acb6fc164d2fd343742b94daa`,
+raw ledger 400 `5e0e5bc23d8878ba9557aa83f07111917e640f939daf257291b45c26d6763c5f`,
+and informational fallback byte ledger 50
+`dc1fe46464d9c510f61fd0f6d555c23371f6f5bf61a9ebc36172fd0d4cbfd586`.
+The one-sided 95% zero-event bound is 0.7461%, not a corpus-zero claim.
+
+`qa_finalize_adjudication.py` is a separate QA entrypoint: it validates exact
+one-to-one immutable sample/ledger fields, source hashes, reviewed status,
+nonempty adjudicator and boolean false/ambiguous decisions; it writes a
+QA-owned verdict and fails for malformed/unreviewed/mismatched or nonzero
+false/ambiguous results without rewriting a ledger. `qa_retrieve_source.py`
+retrieves every tuple by pinned parquet stable locator and source hash. Exact
+fresh-QA generation, source-retrieval, adjudication, and finalization steps
+are documented in `G7_CERTIFICATION.md`. QA-owned reviewed ledgers/verdicts do
+not overwrite Planner raw evidence; this remains `planning` / `planner`, with
+no QA/P-FP PASS claim. `measure_fp_after_widening.py` remains non-gating.

@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 294 2026-08-07T00:38:35Z"
+lint: "PASS 308 2026-08-07T00:54:29Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -113,6 +113,20 @@ rejected a QA transition until all corrections below land:
    binding D-PFP-400 and G7 thresholds without session scratchpads. The
    existing `measure_fp_after_widening.py` remains explicitly approximate and
    non-gating; it cannot satisfy this item.
+
+   **M-R101 correction record (Planner, still provisional):** certification
+   hashes use the explicit payload excluding `run_metadata`; Q-D1/Q-D2 timing
+   is reported only there and focused regression proves duration-invariance.
+   Q-D2 writes a temporary canonical candidate ledger and Q-D3 validates its
+   hash/count/uniqueness, per-state accounting and candidate partition without
+   treating quoted/unquoted components as disjoint. Q-D3 also rejects mutated
+   D-PFP sample, raw-ledger and informational byte-ledger identity/coverage
+   artifacts. A separate `qa_finalize_adjudication.py` validates a QA-owned
+   reviewed copy fail-closed and exits 0 only at zero false/ambiguous rows; it
+   never rewrites the raw Planner ledger. Fresh-QA commands, source retrieval
+   by stable locator/hash, and the QA finalizer are in `G7_CERTIFICATION.md`.
+   Exact all-53 regeneration is recorded in M-R101's append-only log update;
+   evidence remains unreviewed and no P-FP PASS or QA transition is claimed.
 
 ## Dev Complete
 

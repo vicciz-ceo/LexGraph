@@ -31,9 +31,18 @@ at least 23,617.  `new_fallback` is informational.
 
 Q-D2 opens the files itself and builds the ratified broad quoted/unquoted
 defining-verb denominator without importing Q-D1, its helpers, or its result.
-Q-D3 reads only Q-D1/Q-D2 canonical artifacts and fails closed on identity,
-census, sums, partitions, gates, tuple uniqueness, population/sample/ledger
-hashes, and sample membership.
+It emits a temporary canonical candidate ledger keyed by stable
+`(jurisdiction, source_file, source_row)` plus its count/hash. Q-D3 reads only
+canonical artifacts and fails closed on candidate uniqueness/count/hash,
+per-state and total sums, and `candidate_rows = already_captured + uncaptured`.
+Quoted and unquoted components may overlap and are not a partition.
+
+The Q-D1/Q-D2/Q-D3 `summary_hash` is SHA-256 over an explicit canonical
+certification payload: every top-level field except `summary_hash` and
+`run_metadata`. Runtime duration is diagnostic-only `run_metadata`, never
+certifying. A QA rerun therefore must reproduce exact certification hashes
+despite different elapsed durations; Q-D3 verifies Q-D1/Q-D2 with this same
+explicit schema.
 
 ## D-PFP-400 sample allocation
 
@@ -61,3 +70,47 @@ otherwise genuine definition belongs only in the informational fallback byte
 ledger.  The sample starts `unreviewed`; this harness never claims P-FP PASS.
 At 0 events in 400 the reported one-sided upper 95% bound is
 `1 - 0.05^(1/400)` (about 0.75%), not a corpus-wide zero claim.
+
+Q-D3 independently requires sample count `min(400, population_count)`, sample
+uniqueness/membership and coverage of every non-empty jurisdiction, route, and
+rule family. It requires the Planner's unreviewed ledger to be a one-to-one
+immutable projection of the sample (including tuple/source/rule/route and
+source-row hash) and byte-ledger count `min(50, fallback_population_count)`,
+uniqueness, fallback-only population membership, and informational status.
+
+## Exact clean-QA workflow
+
+1. Run the entrypoint into a new outside-repository directory and compare its
+   Q-D1/Q-D2/Q-D3 `summary_hash` values with committed compact evidence. Any
+   mismatch fails; elapsed duration may differ only under `run_metadata`.
+2. Copy the generated `dpfp400_adjudication_ledger.jsonl` to a QA-owned path.
+   Do not overwrite Planner raw evidence. Retrieve each source row by its
+   committed stable locator and source hash:
+
+   ```sh
+   /Users/nerya/LexGraph/backend/.venv/bin/python \
+     docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/qa_retrieve_source.py \
+     --snapshot /Users/nerya/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad \
+     --source-file "$SOURCE_FILE" --source-row "$SOURCE_ROW" \
+     --source-row-id "$SOURCE_ROW_ID" --source-row-sha256 "$SOURCE_ROW_SHA256"
+   ```
+
+3. QA preserves all immutable fields and sets each copied row to
+   `qa_status: reviewed`, a nonempty `adjudicator`, and boolean
+   `false_capture`/`ambiguous`. Boundary observations stay in the separately
+   reported informational byte ledger.
+4. Finalize the QA-owned copy (never the Planner ledger):
+
+   ```sh
+   /Users/nerya/LexGraph/backend/.venv/bin/python \
+     docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/qa_finalize_adjudication.py \
+     --sample /absolute/fresh-output-directory/dpfp400_sample.jsonl \
+     --ledger /absolute/qa-owned-reviewed-ledger.jsonl \
+     --verdict /absolute/qa-owned-dpfp400-verdict.json
+   ```
+
+The finalizer does not rewrite a ledger. It emits a canonical QA-owned verdict
+with sample/ledger hashes, count, false/ambiguous counts and one-sided bound;
+it exits 0/PASS only at zero false and zero ambiguous. Malformed, unreviewed,
+identity-mismatched, false, or ambiguous ledgers fail closed. Planner leaves
+its committed ledger unreviewed and makes no P-FP PASS claim.
