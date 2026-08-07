@@ -32,23 +32,26 @@ def _row() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_term(
-    db_session, matter_with_users
-):
-    """The real US-HI profile/registry/pipeline path must retain genuine coverage only."""
+def test_hi_contractual_quoted_policy_clause_is_not_a_raw_profile_definition():
+    """The real US-HI profile/registry extraction must retain genuine coverage only."""
     row = _row()
     profile = get_profile("US-HI")
     assert profile.derive_heading_from_body(row["section_title"], row["text"]) == "Definitions"
-
-    # Proven current defect through the production profile, before persistence:
-    # the exact source-faithful quoted clause becomes a 529-character term with
-    # the contractual list connector as its supposed definition.
     raw = profile.extract_definitions_from_section(
         row["text"], scope="law-wide", heading_was_derived=True
     )
     raw_by_term = {term: candidate.definition_text for candidate in raw for term in candidate.terms}
-    assert raw_by_term[PSEUDO_TERM] == "; and"
     assert raw_by_term["genuine coverage"] == "means coverage issued under this chapter."
+    assert PSEUDO_TERM not in raw_by_term, (
+        "P-FP: the Hawaii contractual clause is a quoted policy provision, not a definition term"
+    )
+
+
+def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_term(
+    db_session, matter_with_users
+):
+    """The live US-HI ingest-to-persistence path must retain genuine coverage only."""
+    row = _row()
 
     matter = matter_with_users
     ingest_us_statute_rows(
@@ -70,5 +73,5 @@ def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_te
     assert by_term["genuine coverage"].definition_text == "means coverage issued under this chapter."
     assert PSEUDO_TERM not in by_term, (
         "P-FP: the Hawaii contractual clause is a quoted policy provision, not a term definition; "
-        f"live pipeline persisted {by_term[PSEUDO_TERM].definition_text!r} for it"
+        "live pipeline persisted the pseudo-definition"
     )
