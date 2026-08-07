@@ -146,6 +146,15 @@ def test_qd3_fail_closed_validators_reject_accounting_identity_coverage_and_byte
     candidates = [{"jurisdiction": "US-AA", "source_file": "us_aa_statutes.parquet", "source_row": 1,
                    "source_row_id": "A", "components": ["quoted_broad_verb"], "captured": True}]
     d3.validate_qd2_accounting(states, states["US-AA"], candidates)
+    for mutated in (
+        [{**candidates[0], "components": ["unquoted_broad_verb"]}],
+        [{**candidates[0], "components": []}],
+        [{**candidates[0], "components": ["unknown"]}],
+        [{**candidates[0], "components": ["quoted_broad_verb", "quoted_broad_verb"]}],
+        [{**candidates[0], "captured": 1}],
+    ):
+        with pytest.raises(Exception):
+            d3.validate_qd2_accounting(states, states["US-AA"], mutated)
     with pytest.raises(Exception):
         d3.validate_qd2_accounting({"US-AA": {"candidate_rows": 1, "already_captured": 0, "uncaptured": 0,
                                                  "quoted_broad_verb": 1, "unquoted_broad_verb": 0}}, states["US-AA"], candidates)
@@ -155,26 +164,46 @@ def test_g7_qa_finalizer_is_separate_fail_closed_and_never_rewrites_ledger(tmp_p
     finalizer_path = SCRIPTS / "qa_finalize_adjudication.py"
     assert finalizer_path.is_file()
     finalizer = _load("qa_finalize_adjudication.py")
+    common = _load("qa_g7_common.py")
     sample = [{
-        "jurisdiction": "US-AA", "source_file": "us_aa_statutes.parquet", "source_row": 1,
-        "source_row_id": "A", "term": "Term", "definition_text": "Term means X.", "scope": "law-wide",
-        "scope_value": None, "route": "primary", "rule_family": "r", "source_row_sha256": "hash",
-        "section_number": "1", "chapter": None,
-    }]
-    ledger = [{**sample[0], "qa_status": "reviewed", "false_capture": False, "ambiguous": False,
-               "adjudicator": "QA reviewer", "source_location": {"file": "us_aa_statutes.parquet", "row": 1, "act_id": "A"}}]
-    sample_path, ledger_path = tmp_path / "sample.jsonl", tmp_path / "ledger.jsonl"
+        "jurisdiction": "US-AA", "source_file": "us_aa_statutes.parquet", "source_row": i,
+        "source_row_id": f"A-{i}", "term": f"Term {i}", "definition_text": f"Term {i} means X.",
+        "scope": "law-wide", "scope_value": None, "route": "primary", "rule_family": "r",
+        "source_row_sha256": f"hash-{i}", "section_number": str(i), "chapter": None,
+    } for i in range(400)]
+    ledger = [{**row, "qa_status": "reviewed", "false_capture": False, "ambiguous": False,
+               "adjudicator": "QA reviewer", "source_location": {"file": "us_aa_statutes.parquet", "row": row["source_row"], "act_id": row["source_row_id"]}}
+              for row in sample]
+    sample_path, ledger_path, qd1_path = tmp_path / "sample.jsonl", tmp_path / "ledger.jsonl", tmp_path / "qd1_summary.json"
     sample_path.write_text("\n".join(json.dumps(row) for row in sample) + "\n")
     ledger_path.write_text("\n".join(json.dumps(row) for row in ledger) + "\n")
+    qd1 = {
+        "schema": "lexgraph.g7.qd1.v1", "snapshot_id": common.SNAPSHOT_ID,
+        "integration_sha": common.INTEGRATION_SHA,
+        "dpfp400": {"population_count": 480_372, "sample_count": 400, "sample_hash": common.jsonl_hash(sample)},
+    }
+    qd1["summary_hash"] = common.certification_hash(qd1)
+    qd1_path.write_text(json.dumps(qd1))
     before = ledger_path.read_bytes()
-    verdict = finalizer.finalize(sample_path, ledger_path, tmp_path / "verdict.json")
+    verdict_path = tmp_path / "verdict.json"
+    verdict = finalizer.finalize(sample_path, ledger_path, qd1_path, verdict_path)
     assert verdict["status"] == "PASS"
+    assert verdict["summary_hash"] == common.certification_hash(verdict)
     assert ledger_path.read_bytes() == before
+    truncated_path = tmp_path / "truncated.jsonl"
+    truncated_path.write_text("\n".join(json.dumps(row) for row in sample[:-1]) + "\n")
+    with pytest.raises(common.CertificationError):
+        finalizer.finalize(truncated_path, ledger_path, qd1_path, tmp_path / "truncated-verdict.json")
+    qd1["dpfp400"]["sample_hash"] = "not-the-verified-sample"
+    qd1["summary_hash"] = common.certification_hash(qd1)
+    qd1_path.write_text(json.dumps(qd1))
+    with pytest.raises(common.CertificationError):
+        finalizer.finalize(sample_path, ledger_path, qd1_path, tmp_path / "mismatched-verdict.json")
     bad = deepcopy(ledger)
     bad[0]["ambiguous"] = True
     ledger_path.write_text("\n".join(json.dumps(row) for row in bad) + "\n")
     with pytest.raises(Exception):
-        finalizer.finalize(sample_path, ledger_path, tmp_path / "second-verdict.json")
+        finalizer.finalize(sample_path, ledger_path, qd1_path, tmp_path / "second-verdict.json")
 
 
 def test_g7_source_retrieval_helper_is_a_committed_qa_entrypoint():
