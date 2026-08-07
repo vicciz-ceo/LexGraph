@@ -5,10 +5,10 @@ blocked_on: null
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: null
-locked_at: null
-last_agent: "/root/markers_panel_manager"
-last_updated: "2026-08-07T00:03:09Z"
+locked_by: "claude-code:planner"
+locked_at: "2026-08-07T00:04:43Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-08-07T00:04:43Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 252 2026-08-07T00:03:40Z"
+lint: "PASS 252 2026-08-07T00:04:54Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
