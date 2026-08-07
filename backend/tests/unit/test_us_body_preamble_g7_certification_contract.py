@@ -206,6 +206,42 @@ def test_g7_qa_finalizer_is_separate_fail_closed_and_never_rewrites_ledger(tmp_p
         finalizer.finalize(sample_path, ledger_path, qd1_path, tmp_path / "second-verdict.json")
 
 
+@pytest.mark.parametrize("decision", ("false_capture", "ambiguous"))
+def test_g7_qa_finalizer_rejects_a_reviewed_adverse_decision_against_a_valid_qd1_binding(tmp_path, decision):
+    """An adverse QA decision, not a stale Q-D1 hash, must make the verdict fail."""
+    finalizer = _load("qa_finalize_adjudication.py")
+    common = _load("qa_g7_common.py")
+    sample = [{
+        "jurisdiction": "US-AA", "source_file": "us_aa_statutes.parquet", "source_row": i,
+        "source_row_id": f"A-{i}", "term": f"Term {i}", "definition_text": f"Term {i} means X.",
+        "scope": "law-wide", "scope_value": None, "route": "primary", "rule_family": "r",
+        "source_row_sha256": f"hash-{i}", "section_number": str(i), "chapter": None,
+    } for i in range(400)]
+    ledger = [{**row, "qa_status": "reviewed", "false_capture": False, "ambiguous": False,
+               "adjudicator": "QA reviewer", "source_location": {"file": row["source_file"], "row": row["source_row"], "act_id": row["source_row_id"]}}
+              for row in sample]
+    ledger[0][decision] = True
+    sample_path, ledger_path, qd1_path, verdict_path = (
+        tmp_path / "sample.jsonl", tmp_path / "ledger.jsonl", tmp_path / "qd1_summary.json", tmp_path / "verdict.json"
+    )
+    sample_path.write_text("\n".join(json.dumps(row) for row in sample) + "\n")
+    ledger_path.write_text("\n".join(json.dumps(row) for row in ledger) + "\n")
+    qd1 = {
+        "schema": "lexgraph.g7.qd1.v1", "snapshot_id": common.SNAPSHOT_ID,
+        "integration_sha": common.INTEGRATION_SHA,
+        "dpfp400": {"population_count": 480_372, "sample_count": 400, "sample_hash": common.jsonl_hash(sample)},
+    }
+    qd1["summary_hash"] = common.certification_hash(qd1)
+    qd1_path.write_text(json.dumps(qd1))
+    with pytest.raises(common.CertificationError, match="QA adjudication FAIL"):
+        finalizer.finalize(sample_path, ledger_path, qd1_path, verdict_path)
+    verdict = json.loads(verdict_path.read_text())
+    assert verdict["status"] == "FAIL"
+    assert verdict["false_capture_count"] == int(decision == "false_capture")
+    assert verdict["ambiguous_count"] == int(decision == "ambiguous")
+    assert verdict["summary_hash"] == common.certification_hash(verdict)
+
+
 def test_g7_source_retrieval_helper_is_a_committed_qa_entrypoint():
     helper = SCRIPTS / "qa_retrieve_source.py"
     assert helper.is_file()
