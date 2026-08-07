@@ -91,7 +91,22 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
     before_count = after_count = 0
     removed: list[dict[str, Any]] = []
     added: list[dict[str, Any]] = []
-    USProfile.extract_definitions_from_section = proposed
+    audited_rejections: list[tuple[str, ...]] = []
+
+    def audited(self, text: str, *, scope: str, heading_was_derived: bool = False):
+        """Keep production output while recording whether the guard can fire.
+
+        A second full extraction is unnecessary when no emitted candidate can
+        satisfy the proposal.  If it can fire, the row alone is replayed with
+        ``proposed`` below, preserving an exact before/after persisted result
+        for every changed source row.
+        """
+        candidates = original(self, text, scope=scope, heading_was_derived=heading_was_derived)
+        if heading_was_derived:
+            audited_rejections.extend(candidate.terms for candidate in candidates if _is_proposed_connector_pseudo(candidate))
+        return candidates
+
+    USProfile.extract_definitions_from_section = audited
     try:
         with (
             (out / "before_persisted_tuples.jsonl").open("wb") as before_tuples,
@@ -107,20 +122,24 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
                     columns=["act_id", "section_title", "text", "chapter", "section_number"], batch_size=2_048
                 ):
                     for row in batch.to_pylist():
-                        # Temporarily restore current production for the BEFORE
-                        # call; the immediately following AFTER call is the
-                        # proposal.  Both invoke the live profile/registry and
-                        # persistence first-wins seam via ``capture_row``.
-                        USProfile.extract_definitions_from_section = original
+                        audited_rejections.clear()
                         before = [item.record() for item in capture_row(
                             jurisdiction=jurisdiction, source_file=path.name,
                             source_row=index, row=row, after=True,
                         )]
-                        USProfile.extract_definitions_from_section = proposed
-                        after = [item.record() for item in capture_row(
-                            jurisdiction=jurisdiction, source_file=path.name,
-                            source_row=index, row=row, after=True,
-                        )]
+                        # The guard only removes candidates.  Replaying the
+                        # handful of rows where the audited live emission says
+                        # it can fire also catches a first-wins collision that
+                        # might reveal a later candidate; all other rows are
+                        # byte-identical by construction.
+                        after = before
+                        if audited_rejections:
+                            USProfile.extract_definitions_from_section = proposed
+                            after = [item.record() for item in capture_row(
+                                jurisdiction=jurisdiction, source_file=path.name,
+                                source_row=index, row=row, after=True,
+                            )]
+                            USProfile.extract_definitions_from_section = audited
                         before_by_key = {tuple_key(record): record for record in before}
                         after_by_key = {tuple_key(record): record for record in after}
                         removed.extend(before_by_key[key] for key in before_by_key.keys() - after_by_key.keys())

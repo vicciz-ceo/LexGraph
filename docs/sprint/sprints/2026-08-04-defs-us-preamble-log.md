@@ -5722,3 +5722,22 @@ architectural seam selection, source-level false-family classification, and a
 persisted-output all-corpus mutation audit rather than a bounded fixture or
 pin repair. Production remains read-only; this entry records only roster and
 authority before the first evidence write.
+
+### M-R104 remediation — failed-closed proposed connector guard
+
+The Planner ran the proposed runtime-only, body-derived guard over the pinned
+53-file / 2,038,247-row snapshot at the live profile/registry/persisted-key
+altitude. Its predicate was deliberately not jurisdiction-specific: one quoted
+term of at least 151 characters whose emitted definition was exactly `;`,
+`; and`, or `; or`. The exact before/after tuple and key ledgers are external
+to the worktree at `/tmp/lexgraph-mr104-hi-connector-guard-final/`.
+
+The probe removed **33** persisted keys: the **16** source-verified Hawaii
+insurance-policy connector stubs, plus **17 unclassified** keys (AR 1, FED 2,
+ID 2, TX 12). The extra rows include quoted loan/disclosure, Federal review,
+Idaho utility-estimate, and Texas tax-budget boilerplate. They were not
+source-adjudicated in this pass and cannot be assumed false; therefore the
+candidate guard is rejected fail-closed. No Developer write set, Q-D1/D-PFP
+mutation claim, or contract transition is authorized from this probe. The
+current two HI absence REDs and three preservation controls remain the valid
+evidence; production is unchanged.
