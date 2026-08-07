@@ -5758,6 +5758,19 @@ an optional `BodyPreambleRule.derive_span` contract, B1’s inclusive/exclusive
 section span, and delimiter-free decline/legacy fallback; existing rules must
 remain heading-only compatible.
 
+### M-R104 option-1 shard rejection
+
+The resumable runtime-only shard runner was executed against the complete HI
+file (`16,446` rows) with content-addressed source/config metadata. The
+source-section-only proposal changed **647** persisted keys (2,423 before /
+2,112 after). This is immediately disqualifying: the changed ledger includes
+`Confirmer -> means a nominated person ...` from
+`STATE_HI_D2_T27_C490_S490`, a source-apparent genuine definition, and other
+unadjudicated losses. The all-53 merge and Q-D1/D-PFP derivation were stopped
+fail-closed; a candidate that already changes genuine HI output cannot proceed
+to Developer. The shard artifact is external at
+`/tmp/mr104-b1-span-shards/shards/us_hi_statutes.parquet.json`.
+
 ### M-R104 remediation — source adjudication of the 17 counterexamples
 
 Each of the 17 initially unclassified changed keys was retrieved from the
