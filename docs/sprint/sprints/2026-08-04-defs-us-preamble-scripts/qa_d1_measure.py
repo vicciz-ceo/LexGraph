@@ -20,7 +20,7 @@ from qa_g7_common import (
     EXPECTED_FILE_COUNT, EXPECTED_ROW_COUNT, INTEGRATION_SHA, SNAPSHOT_ID,
     CertificationError, canonical_bytes, capture_row, jurisdiction_for, jsonl_hash,
     sha256_value, sort_records, tuple_key, validate_corpus, validate_integration,
-    write_json, write_jsonl,
+    read_json, write_json, write_jsonl,
 )
 
 SAMPLE_SIZE = 400
@@ -139,6 +139,50 @@ def _byte_quality_ledger(population: list[dict[str, Any]]) -> list[dict[str, Any
     } for r in selected]
 
 
+def _adjudication_ledger(sample: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A complete, deliberately unadjudicated QA ledger for all sample tuples."""
+    return [{
+        **record,
+        "qa_status": "unreviewed",
+        "false_capture": None,
+        "ambiguous": None,
+        "adjudicator": None,
+        "source_location": {"file": record["source_file"], "row": record["source_row"], "act_id": record["source_row_id"]},
+    } for record in sample]
+
+
+def materialize_review_ledger(out: Path) -> dict[str, Any]:
+    """Create/update the QA-owned ledger without recomputing corpus evidence."""
+    sample = [__import__("json").loads(line) for line in (out / "dpfp400_sample.jsonl").read_text().splitlines() if line]
+    ledger = _adjudication_ledger(sample)
+    ledger_hash = write_jsonl(out / "dpfp400_adjudication_ledger.jsonl", ledger)
+    summary = read_json(out / "qd1_summary.json")
+    summary["dpfp400"]["adjudication_ledger_count"] = len(ledger)
+    summary["dpfp400"]["adjudication_ledger_hash"] = ledger_hash
+    summary["summary_hash"] = sha256_value({key: value for key, value in summary.items() if key != "summary_hash"})
+    write_json(out / "qd1_summary.json", summary)
+    return summary
+
+
+def export_compact_evidence(out: Path, evidence: Path) -> None:
+    """Emit only reviewable summaries/sample/ledgers, never the full population."""
+    materialize_review_ledger(out)
+    evidence.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "qd1_summary.json", "qd2_summary.json", "qd3_crosscheck.json",
+        "dpfp400_sample.jsonl", "dpfp400_adjudication_ledger.jsonl",
+        "new_fallback_byte_quality_ledger.jsonl",
+    ):
+        source = out / name
+        if not source.is_file():
+            raise CertificationError(f"cannot export missing evidence {source}")
+        if name.endswith(".jsonl"):
+            records = [__import__("json").loads(line) for line in source.read_text().splitlines() if line]
+            write_jsonl(evidence / name, records)
+        else:
+            write_json(evidence / name, read_json(source))
+
+
 def measure(snapshot: Path, out: Path) -> dict[str, Any]:
     validate_integration()
     files, rows, file_rows = validate_corpus(snapshot)
@@ -188,16 +232,18 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
     population = sort_records({tuple_key(record): record for record in population}.values())
     sample, allocation = _allocate_sample(population)
     ledger = _byte_quality_ledger(population)
+    adjudication = _adjudication_ledger(sample)
     out.mkdir(parents=True, exist_ok=True)
     population_hash = jsonl_hash(population)
     sample_hash = write_jsonl(out / "dpfp400_sample.jsonl", sample)
     ledger_hash = write_jsonl(out / "new_fallback_byte_quality_ledger.jsonl", ledger)
+    adjudication_hash = write_jsonl(out / "dpfp400_adjudication_ledger.jsonl", adjudication)
     write_jsonl(out / "dpfp400_population.jsonl", population)
     result = {
         "schema": "lexgraph.g7.qd1.v1", "snapshot_id": SNAPSHOT_ID, "integration_sha": INTEGRATION_SHA,
         "files": EXPECTED_FILE_COUNT, "rows": rows, "per_jurisdiction": {k: per_state[k] for k in sorted(per_state)},
         "totals": totals, "gates": {"ga_after_min": 2794, "new_primary_min": 23617, "ga_after_pass": per_state["US-GA"]["after"] >= 2794, "new_primary_pass": totals["new_primary"] >= 23617},
-        "dpfp400": {"population_count": len(population), "population_hash": population_hash, "sample_count": len(sample), "sample_hash": sample_hash, "allocation": allocation, "one_sided_95_zero_event_upper_bound": 1 - 0.05 ** (1 / len(sample)), "qa_status": "unreviewed_no_pfp_pass_claim"},
+        "dpfp400": {"population_count": len(population), "population_hash": population_hash, "sample_count": len(sample), "sample_hash": sample_hash, "adjudication_ledger_count": len(adjudication), "adjudication_ledger_hash": adjudication_hash, "allocation": allocation, "one_sided_95_zero_event_upper_bound": 1 - 0.05 ** (1 / len(sample)), "qa_status": "unreviewed_no_pfp_pass_claim"},
         "byte_quality": {"route": "new_fallback", "ledger_count": len(ledger), "ledger_hash": ledger_hash, "status": "informational_unreviewed"},
         "elapsed_seconds": round(time.monotonic() - started, 3),
     }

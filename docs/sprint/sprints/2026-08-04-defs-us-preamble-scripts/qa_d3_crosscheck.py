@@ -30,6 +30,7 @@ def crosscheck(out: Path) -> dict[str, Any]:
     d2 = read_json(out / "qd2_summary.json")
     population = _read_jsonl(out / "dpfp400_population.jsonl")
     sample = _read_jsonl(out / "dpfp400_sample.jsonl")
+    adjudication = _read_jsonl(out / "dpfp400_adjudication_ledger.jsonl")
     ledger = _read_jsonl(out / "new_fallback_byte_quality_ledger.jsonl")
     for artifact in (d1, d2):
         _assert(artifact.get("snapshot_id") == SNAPSHOT_ID, "snapshot identity disagreement")
@@ -58,6 +59,9 @@ def crosscheck(out: Path) -> dict[str, Any]:
     _assert(len(sample) == d1["dpfp400"]["sample_count"], "sample count disagreement")
     _assert(set(tuple_key(record) for record in sample) <= set(keys), "sample contains a non-population tuple")
     _assert(len({tuple_key(record) for record in sample}) == len(sample), "sample tuples are not unique")
+    _assert(len(adjudication) == d1["dpfp400"]["adjudication_ledger_count"], "adjudication ledger count disagreement")
+    _assert(jsonl_hash(adjudication) == d1["dpfp400"]["adjudication_ledger_hash"], "adjudication ledger hash disagreement")
+    _assert(all(item.get("qa_status") == "unreviewed" for item in adjudication), "Planner evidence must remain unadjudicated")
     _assert(jsonl_hash(ledger) == d1["byte_quality"]["ledger_hash"], "byte-quality ledger hash disagreement")
     _assert(all(item.get("informational_only") is True for item in ledger), "byte ledger is not explicitly informational")
     result = {

@@ -239,6 +239,20 @@ No external pins remain and no production signature/class/CSS rename occurred.
   `qa_d2_independent_denominator.py`, and `qa_d3_crosscheck.py` were ephemeral
   scratchpads and are unavailable. `measure_fp_after_widening.py` is explicitly
   approximate/non-gating. No production regression was reported.
+- 2026-08-07 — Planner Item 7: permanent Q-D1 → Q-D2 → Q-D3 entrypoint
+  committed; it pins snapshot `301000fc…`, integration `4fa9e7b…`, 53 files,
+  and 2,038,247 rows. Q-D1: before 29,698, after 156,322, new 126,624,
+  primary 78,925, fallback 47,699, GA 2 → 3,093: both G7 gates pass.
+- Q-D2: 99,877 candidates (57,094 captured / 42,783 uncaptured; quoted
+  95,830, unquoted 4,170). Q-D3 PASS:
+  `7e8eeafd85f41d00151174a9a0b9f4d319495abfcd84d5cdaf4b0ef57fb228d5`.
+- D-PFP-400: 480,372 tuples (`08ca7a33…`); deterministic 400 sample
+  (`880cdec8…`), 54 coverage seats then Hamilton allocation. All 400 ledger
+  rows are `unreviewed`; Planner makes no P-FP PASS claim. 0/400 upper 95%
+  bound is 0.7461%. Informational fallback byte ledger: 50 (`dc1fe464…`).
+- Exact commands/all hashes: `...-scripts/G7_CERTIFICATION.md`; compact
+  evidence: `...-scripts/g7-certification-evidence/`. RED was 3 failed;
+  focused green is 7 passed. Stale-pin sweep: none. Production read-only.
 
 ## Context Dump
 

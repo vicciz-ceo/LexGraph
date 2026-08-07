@@ -5457,3 +5457,46 @@ claim. Existing G7 gates remain GA-after `>=2794` and total
 `new_primary >=23617`; `new_fallback` and byte quality remain informational.
 Production is read-only. This binding ruling resolves the earlier Planner
 escalation; sprint state remains unlocked `planning` / `planner`.
+
+### M-R100 — Item 7 Planner roster and permanent certification repair
+
+Planner roster entry: canonical task `/root/g7_pfp400_planner`,
+`gpt-5.6-terra / high`; Haiku considered: no, because this work reconstructs
+independent corpus-wide measurement paths and a fail-closed sample contract.
+The Planner changed only test-estate scripts/tests, generated compact evidence,
+and sprint docs; `backend/app` remains unchanged from integration
+`4fa9e7b368801757039091646e06a832620a3a2c`.
+
+The permanent clean-checkout entrypoint is
+`docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/run_g7_certification.py`.
+It validates snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`, exactly 53
+statute files / 2,038,247 rows, and the pinned integration. Q-D1 invokes live
+normalization/profile/registry/extraction and pipeline first-wins dedup
+semantics; Q-D2 owns a fresh raw broad-term denominator and imports neither
+Q-D1 nor its result; Q-D3 reads canonical artifacts only and fails closed on
+all identities, sums, partitions, gates, tuple uniqueness and hashes.
+
+RED first: commit `377bb79` added the permanent entrypoint contract; focused
+run was 3 failed because all lost scripts/entrypoint were absent. Harness and
+compact evidence followed; focused contract suite is 7 passed. The all-53 run
+used the exact documented command. Q-D1 elapsed 456.417 s, result:
+2,038,247 rows, before 29,698, after 156,322, new 126,624, primary 78,925,
+fallback 47,699; GA 2 → 3,093. G7 passes (GA >=2,794; primary >=23,617).
+Q-D1 summary hash `3d60772e774ebb448d49cf9e593964eef3ddf3c9afabbda6d6a56ed28b79ced2`.
+Q-D2 elapsed 94.676 s: 99,877 independent candidates, 57,094 captured,
+42,783 uncaptured, 95,830 quoted and 4,170 unquoted; hash
+`1b6e29b07b044f365167ad40a221f2922bf8b3f98ed78960f457a323314f09a3`.
+Q-D3 PASS hash `7e8eeafd85f41d00151174a9a0b9f4d319495abfcd84d5cdaf4b0ef57fb228d5`.
+
+D-PFP-400: population 480,372, hash
+`08ca7a33ce7212d52bc31c4c00f3a81082b270a0f36c6b412c7b3905dceb1d02`; sample
+400, hash `880cdec847874ac1937cbe5693df1e4121506b7acb6fc164d2fd343742b94daa`.
+The documented conflict-free procedure covers every non-empty jurisdiction,
+route and family (54 mandatory SHA-ranked set-cover seats), then fills with
+proportional Hamilton allocation. The 400-row adjudication ledger is
+unreviewed (hash `5e0e5bc23d8878ba9557aa83f07111917e640f939daf257291b45c26d6763c5f`):
+fresh QA, not Planner, must adjudicate it. The 0/400 one-sided 95% bound is
+0.7461%, never a corpus-zero claim. The independent informational fallback
+byte ledger is 50 rows, hash
+`dc1fe46464d9c510f61fd0f6d555c23371f6f5bf61a9ebc36172fd0d4cbfd586`.
+Stale-pin sweep: none (no rename). Manager retains status/role integration.
