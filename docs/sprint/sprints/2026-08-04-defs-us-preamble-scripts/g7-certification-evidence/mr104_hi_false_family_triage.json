@@ -1,0 +1,54 @@
+{
+  "schema": "lexgraph.mr104.hi-false-family-triage.v1",
+  "snapshot_id": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+  "sample": {
+    "path": "dpfp400_sample.jsonl",
+    "count": 400,
+    "triage_signal": "term length descending plus definition-text length ascending",
+    "confirmed_false_capture_count": 1,
+    "confirmed_false_capture": {
+      "jurisdiction": "US-HI",
+      "source_file": "us_hi_statutes.parquet",
+      "source_row": 5,
+      "source_row_id": "STATE_HI_D2_T24_C431_S431",
+      "source_row_sha256": "2ff51dc5277bfcc5cad660a68a79da4b9544b05b84d036af2f19e07f37c2da42",
+      "term_characters": 529,
+      "definition_text": "; and"
+    },
+    "nearby_short_definition_source_checks": [
+      "STATE_AZ_T27_C6_A1_S1205: person -> 1. A natural person.",
+      "STATE_ME_T24-A_C57_S4353: State -> ascribed in section 7.",
+      "STATE_MD_Agsp_T21_S7_S21-701: Public employee -> means an individual who:.",
+      "STATE_WY_T40_C14_S40-14-142: Agreement -> W.S. 40-14-140(a)(iii).",
+      "STATE_WA_T19_C370_S010: Music licensing agency -> a performing rights society.",
+      "USC_T15_C41_S1602: Commission -> the Federal Trade Commission."
+    ],
+    "result": "No second confirmed family was found in the deterministic 400 sample. The Hawaii sample tuple is the only implausibly long clause-like term paired with punctuation-only output."
+  },
+  "source_family": {
+    "name": "body-derived quoted insurance-contract clause with connector-only remainder",
+    "mechanism": "A B1-derived heading makes the ordinary numbered-block splitter scan the concatenated body. Its leading-quote parser accepts a quoted clause without checking that the post-quote text is defining; policy-template clauses become terms and a following list connector becomes definition_text.",
+    "real_source_live_tuple_count": 37,
+    "confirmed_connector_stub_members": 16,
+    "connector_values": {
+      ";": 11,
+      "; and": 4,
+      "; or": 1
+    },
+    "term_length_range": [165, 1575],
+    "classification": "All 16 connector-stub members are quoted insurance-policy provisions, not definitions or forwarding statements. They are one source/mechanism family; the sampled 529-character indemnity member is its mandatory regression pin.",
+    "genuine_same_body_controls": [
+      "Controlled business -> means insurance procured ...",
+      "Resident relative -> means a person ...",
+      "Confidential information -> means: ..."
+    ]
+  },
+  "repair_boundary": {
+    "not_a_family": [
+      "legitimate short definition text in other sampled rows",
+      "quoted terms with means/includes/shall-include defining idioms",
+      "semicolon/list content that belongs to an otherwise genuine definition"
+    ],
+    "candidate_probe": "body-derived only; one term of at least 151 characters; definition text exactly one of ;, ; and, ; or"
+  }
+}
