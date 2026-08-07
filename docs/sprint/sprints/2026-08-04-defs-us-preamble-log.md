@@ -5741,3 +5741,29 @@ candidate guard is rejected fail-closed. No Developer write set, Q-D1/D-PFP
 mutation claim, or contract transition is authorized from this probe. The
 current two HI absence REDs and three preservation controls remain the valid
 evidence; production is unchanged.
+
+### M-R104 remediation — source adjudication of the 17 counterexamples
+
+Each of the 17 initially unclassified changed keys was retrieved from the
+pinned source row and is a false capture, not a definition or forwarding
+statement. AR `STATE_AR_T23_C81_S8_S23-81-810` is a quoted life-insurance
+applicant certification (1); FED `USC_T50_C44_S3001` and
+`USC_T22_C83_S7601` are quoted review/report clauses (2); ID
+`STATE_ID_T48_C18_S48-1805` contains two mandated estimate/tax notices (2);
+and four TX county/college budget-cover statutes contain three quoted tax
+boilerplate alternatives each (12): `STATE_TX_Clg_C111_S111.068`,
+`STATE_TX_Clg_C111_S111.039`, `STATE_TX_Clg_C111_S111.008`, and
+`STATE_TX_Clg_C102_S102.007`.
+
+This establishes one broad *failure mechanism*, not a safe generic filter:
+an unrelated B1 trigger elsewhere in a body makes the whole-body numbered
+quote splitter accept quoted operative/list text and assign its following
+connector as a definition. The rows demonstrate that raw length, quote
+presence, list punctuation, all-caps, sentence capitalization, policy
+vocabulary, or jurisdiction cannot distinguish false content from future
+genuine quoted/list definitions. A safe repair needs occurrence-local B1
+ownership (the trigger's bounded definitions span/entry range) rather than a
+post-extraction candidate heuristic. Current `BodyPreambleRule` returns only
+an undifferentiated heading string and `USProfile`/`pipeline` subsequently
+extract from the entire body, so no minimal isolated Planner-approved write
+surface exists at this seam. The rejected guard remains permanently rejected.
