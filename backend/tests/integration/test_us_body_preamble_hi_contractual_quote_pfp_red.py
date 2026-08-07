@@ -58,6 +58,21 @@ def _genuine_quoted_list_row(*, large: bool = False) -> dict:
     }
 
 
+def _delimiter_free_genuine_b1_row() -> dict:
+    """No validated source-section marker: legacy full-body extraction applies."""
+    return {
+        "act_id": "TESTONLY_B1_DELIMITER_FREE_GENUINE",
+        "section_number": "test-delimiter-free",
+        "section_title": "Placeholder",
+        "chapter": "test",
+        "text": (
+            "As used in this chapter, the term:\n"
+            '(1) "first genuine term" means the first genuine definition.\n\n'
+            '(2) "second genuine term" means the second genuine definition.'
+        ),
+    }
+
+
 def _raw_by_term(row: dict) -> dict[str, str]:
     profile = get_profile("US-HI")
     assert profile.derive_heading_from_body(row["section_title"], row["text"]) == "Definitions"
@@ -91,6 +106,16 @@ def test_large_hawaii_body_with_genuine_quoted_definitions_is_not_suppressed():
 
     assert raw_by_term["genuine coverage"] == "means coverage issued under this chapter."
     assert raw_by_term["covered services"].startswith("shall include:")
+
+
+def test_delimiter_free_b1_body_preserves_legacy_full_body_genuine_definitions():
+    """No section enclosure must not activate the new bounded-span behavior."""
+    raw_by_term = _raw_by_term(_delimiter_free_genuine_b1_row())
+
+    assert raw_by_term == {
+        "first genuine term": "means the first genuine definition.",
+        "second genuine term": "means the second genuine definition.",
+    }
 
 
 def test_hi_contractual_quoted_policy_clause_is_not_persisted_as_a_definition_term(

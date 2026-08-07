@@ -5742,6 +5742,22 @@ mutation claim, or contract transition is authorized from this probe. The
 current two HI absence REDs and three preservation controls remain the valid
 evidence; production is unchanged.
 
+### M-R104 manager span semantics
+
+Manager ruling: the semantic unit is a validated source statute section inside
+a raw row that may concatenate sections. A B1 span may activate only when
+validated source-section markers enclose its winning trigger; it starts at
+that marker and ends at the next validated marker. No list marker, blank
+paragraph, quote syntax, punctuation, length, or jurisdiction is a boundary.
+Without a validated enclosure/boundary, full-body legacy behavior remains.
+The HI fixture now models the source-faithful cross-section concatenation:
+the genuine definition is in the trigger-owned section and the policy
+quotation is in the next section. “Same body” in M-R104 means same raw
+record, not necessarily the same source section. Planner-added REDs require
+an optional `BodyPreambleRule.derive_span` contract, B1’s inclusive/exclusive
+section span, and delimiter-free decline/legacy fallback; existing rules must
+remain heading-only compatible.
+
 ### M-R104 remediation — source adjudication of the 17 counterexamples
 
 Each of the 17 initially unclassified changed keys was retrieved from the
