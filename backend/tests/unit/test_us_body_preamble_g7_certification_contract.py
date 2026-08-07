@@ -8,6 +8,7 @@ recreate the scratchpad-only Q-D1/Q-D2/Q-D3 failure.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 
@@ -17,6 +18,8 @@ SCRIPTS = ROOT / "docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts"
 
 def _load(name: str):
     path = SCRIPTS / name
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))
     spec = importlib.util.spec_from_file_location(path.stem, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
