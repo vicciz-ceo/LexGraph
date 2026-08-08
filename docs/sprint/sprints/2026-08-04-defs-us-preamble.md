@@ -6,9 +6,9 @@ current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
-locked_at: "2026-08-08T20:13:37Z"
+locked_at: "2026-08-08T21:34:32Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T20:13:37Z"
+last_updated: "2026-08-08T21:34:32Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 339 2026-08-08T20:34:53Z"
+lint: "PASS 352 2026-08-08T21:35:03Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -141,19 +141,32 @@ every all-53 persisted delta before Developer. Scope/provenance must remain
 source-faithful; no production file outside the four-file boundary is allowed
 without a new escalation.
 
+### M-R107 — generic slice rejected; future-law structural gate
+
+Root accepts the Planner's all-53 rejection: a generic B1 start slice changes
+11,283 persisted keys, including 9,058 unexplained keys, and is not authorized
+for Developer. Replanning must separate AR/ID false-trigger recognition from
+TX's valid later quote-and-defining-verb occurrence, measure each proposal
+independently, and combine them only after every union delta is adjudicated.
+
+The director requires future enacted laws to work without another code change.
+No solution may key on known row IDs, hashes, section numbers, terms, dates,
+titles, or exact sentences. It must use reusable statutory structure and ship
+novel-law direct plus live-persistence controls whose identifiers, terms, and
+wording are absent from the pinned corpus fixtures. Jurisdiction-specific
+drafting grammar is allowed only when structural and source-supported. Before
+Developer, every all-53 delta must be classified; zero unexplained is binding.
+
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
-   Carry only B1's qualifying `extraction_start` through `registry.py`,
-   `us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py`; baseline and
-   non-B1 rules remain heading-only compatible. AR/ID operative quotes before
-   their B1 occurrence must not persist; TX's later `debt obligation` must
-   persist with exact text/scope. RED: `backend/tests/unit/test_us_body_preamble_b1_occurrence_local_profile_red.py`
-   and `backend/tests/integration/test_us_body_preamble_b1_occurrence_local_persistence_red.py`
-   via `/Users/nerya/LexGraph/backend/.venv/bin/python -m pytest <both> -q` (six REDs).
-   Before Developer: runtime-monkeypatch the proposal across all 53 files at
-   persisted tuple altitude; classify every delta, separately report HI/FED
-   source-held keys, preserve G7/ledgers, and do not claim D-PFP readiness.
+   Replan under M-R107 as separate structural proposals: AR/ID false-trigger
+   grammar and TX valid later definition occurrence. Preserve the six direct/
+   persistence REDs and add novel-law metamorphic controls with unseen IDs,
+   terms, and wording; no corpus allowlist. Measure each proposal and their
+   union across all 53 files at persisted tuple altitude with zero unexplained
+   deltas, separately reporting HI/FED source-held keys. Preserve G7/ledgers;
+   define the minimal Developer surface only after safe measurement.
 
 ## Dev Complete
 
@@ -332,8 +345,8 @@ No external pins remain and no production signature/class/CSS rename occurred.
 1. Items 1–6 remain Dev Complete; Item 7 is replanned before Developer.
 2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
 3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
-4. M-R106 authorizes only the four-file occurrence metadata boundary.
-5. Preserve genuine later same-row definitions with two-sided controls.
-6. Measure all 53 at persisted tuple altitude; classify every changed key.
-7. Preserve G7/ledgers; final D-PFP waits for a corrected pinned manifest.
-8. Production is read-only during planning; root owns role dispatch.
+4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.
+5. Split AR/ID trigger grammar from TX later-definition extraction.
+6. Future-law tests must use unseen IDs, terms, and wording; no allowlists.
+7. All-53 union requires zero unexplained deltas; preserve G7/ledgers.
+8. Production is read-only during planning; final D-PFP remains source-held.

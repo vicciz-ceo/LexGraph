@@ -5785,3 +5785,20 @@ real RED but the full-row output uses a different route/key shape. No
 Developer write set or planned/developer transition is safe. Stale-pin sweep
 across unit/integration/e2e/frontend roots for the rejected span/cross-section
 names found zero hits. HI/FED remain source-held, not repaired.
+
+### M-R107 — root verification and future-enacted-law requirement
+
+Root read the complete `4932e58...f929312` Planner diff: three source-faithful
+fixture rows, two RED modules, one runtime-only measurement script/summary,
+and sprint docs; no production file changed and the risk grep was empty. Root
+independently reran the direct plus live-persistence command and reproduced
+exactly six assertion REDs (AR/ID/TX at both altitudes) in 0.12 seconds.
+
+The generic occurrence-start proposal is rejected, not forwarded to Developer:
+11,283 changed persisted keys for 14 known ID/TX corrections, 2,211 HI/FED
+source-held changes, and 9,058 unexplained changes. The next Planner must test
+AR/ID trigger recognition separately from TX occurrence-local extraction, then
+measure their union. Director's new binding requirement is future enacted-law
+coverage: no row/term/text/date allowlists; add novel identifiers, novel terms,
+and changed statutory wording through both the direct and real persistence
+paths. Every all-53 delta must be classified before Developer dispatch.
