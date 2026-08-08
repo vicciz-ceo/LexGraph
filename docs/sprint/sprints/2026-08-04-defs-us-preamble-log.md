@@ -5946,3 +5946,32 @@ and source-adjudicate merge-blocking corpus deltas. A fresh Planner is cheaper
 than replaying the prior agent again: its findings, rejected prototypes, REDs,
 and exact boundary are committed; it explicitly could not implement the group
 simulator. The fresh brief starts at `c6e38dc`, production read-only.
+
+## 2026-08-09 — M-R112 rejects positive qualification; default-preserve probe
+
+Fresh Planner expanded the novel-law estate and built a runtime-only clause-
+group simulator. Root independently reproduced **20 intended RED / 6 controls**
+on current production and **26/26 green** under the simulator (the self-check
+requires `PYTHONPATH=.:backend`). The simulator is nevertheless rejected: its
+first direct Alaska probe removes genuine `proceeds` from
+`STATE_AK_T34_C34.77_S34.77.120`. The current candidate's definition text is a
+substantive death-benefit description, proving once more that positive lexical
+qualification cannot safely enumerate statutory drafting.
+
+Root inspected current live candidates for the downstream false rows. AR's
+quoted policy notice has definition text exactly `; and`; ID's two notices have
+`; and` and `;`; TX's three budget notices have `;`, `; or`, and `;`. TX's real
+`debt obligation` retains a substantive public-security definition. This
+supports a narrower, future-law-compatible hypothesis: preserve every candidate
+by default and remove only B1-derived entries whose post-term definition text
+contains no substantive content after stripping structural punctuation,
+markers, and coordination tokens. B1 dispatch is suppressed only if that
+filtered stream is empty. No defining-verb vocabulary is involved.
+
+The superseded shard artifact reported 34,015 additions because the driver
+compared against the wrong baseline; it was not committed. The corrected driver
+and RED WIP are preserved as a manager-authorized dead-agent handoff, but their
+positive clause-group logic is historical evidence to replace, not an accepted
+implementation. New Planner must prototype the default-preserve gate, add an
+unseen-law control whose genuine definition uses wording absent from every
+relation vocabulary, rerun shard 0, then all 53 only after zero genuine loss.

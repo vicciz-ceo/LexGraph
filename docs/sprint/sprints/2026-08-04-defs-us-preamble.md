@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T22:10:04Z"
+last_updated: "2026-08-08T22:27:26Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T22:10:24Z"
+lint: "PASS 400 2026-08-08T22:28:15Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,13 +188,13 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R111 — single-candidate predicates rejected; clause groups authorized
+### M-R112 — positive grammars rejected; default-preserve gate commissioned
 
-The first 1/8 shard removes genuine multi-alias, ellipted, forwarding, copular,
-and exclusion definitions, so per-candidate predicates are rejected. Planner
-may model bounded B1-only clause groups that union independently valid groups,
-preserve source-supported definition/reference/exclusion and colon-list forms.
-Novel-law REDs and a fresh complete zero-loss all-53 measurement remain required.
+The clause-group allow-grammar passes focused tests but removes genuine AK
+`proceeds`; it is rejected. Known false entries have only punctuation/
+coordination after the quoted text, while genuine candidates remain substantive.
+Planner must measure a B1-only default-preserve substantive-text gate with no
+relation allowlist/non-B1 change; novel-law REDs and all-53 zero-loss remain required.
 
 ## Next Steps
 
@@ -211,10 +211,10 @@ Novel-law REDs and a fresh complete zero-loss all-53 measurement remain required
    must distinguish statutory-unit grammar from ordinary prose without removing
    genuine definitions; preserve independently valid earlier candidates instead
    of slicing the whole body at TX's qualifying quote. The next candidate is a
-   B1-only bounded clause-group model: group aliases/ellipted terms with their
-   source-backed definition/reference/exclusion or colon-list relationship and
-   union independently valid groups. It must reject operative quotations while
-   retaining every genuine earlier/later group; non-B1 extraction is unchanged.
+   B1-only default-preserve gate: retain every emitted candidate unless its
+   definition text normalizes to no substantive content after structural
+   delimiters/coordinators; suppress B1 dispatch only when none remain. No
+   relation lexicon, body slice, or non-B1 extraction change is allowed.
 
 ## Dev Complete
 
