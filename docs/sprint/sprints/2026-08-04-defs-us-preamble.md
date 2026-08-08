@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 335 2026-08-08T20:14:18Z"
+lint: "PASS 339 2026-08-08T20:34:53Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
