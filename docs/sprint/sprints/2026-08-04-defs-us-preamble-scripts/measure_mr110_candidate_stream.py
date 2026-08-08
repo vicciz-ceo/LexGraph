@@ -212,7 +212,7 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
     for group in groups:
         start, end = group.relationship_span
         definition_text = text[start:end].strip()
-        if group.colon_list:
+        if group.colon_list or len(group.term_spans) == 1:
             idiom = re.match(r"(?:means?|shall\s+mean|includes?|shall\s+include)\b:?\s*", definition_text, re.I)
             if idiom is not None:
                 definition_text = definition_text[idiom.end():]
@@ -224,13 +224,13 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
 
 
 def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch):
-    """Keep all current-B1 candidates, or only group-owned candidates on an additive dispatch."""
-    group_terms = {term for group in match.clause_groups for term, _, _ in group.term_spans}
+    """Keep the complete stream only when the original B1 rule dispatched."""
+    if not match.baseline_eligible:
+        return []
     return [
         candidate
         for candidate in candidates
         if candidate_has_substantive_local_payload(text, candidate)
-        and (match.baseline_eligible or any(term in group_terms for term in candidate.terms))
     ]
 
 
