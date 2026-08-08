@@ -5765,3 +5765,23 @@ unchanged. Planner must decide the test-backed representation, protect scope
 and provenance, prove RED at direct plus persisted altitude, and measure every
 all-53 changed key before any Developer dispatch. Same Planner resumes at
 Terra/high; Haiku remains ineligible for merge-blocking architecture tests.
+
+### M-R106 Planner measurement — occurrence-start proposal rejected fail-closed
+
+Source-faithful RED fixtures pin AR `STATE_AR_T23_C81_S8_S23-81-810`
+(`30dba1ba…`), ID `STATE_ID_T48_C18_S48-1805` (`453189c6…`), and TX
+`STATE_TX_Clg_C111_S111.068` (`ea204e87…`); they produce six real REDs, three
+direct profile and three ingest-to-persistence. TX requires its later `debt
+obligation -> means an issued public security ...` tuple and law-wide scope.
+
+The runtime-only B1 `extraction_start` proposal retained full-body scope and
+provenance, replayed all 53/2,038,247 pinned rows through Q-D1's first-wins
+persisted tuple adapter, and wrote the complete external changed-key ledger.
+It changed 11,283 keys (732,411 -> 723,440): downstream ID 2/TX 12, HI-held
+38, FED-held 2,173, and **9,058 unclassified**. The committed summary hash is
+`688cd19b…`; the generic start slice therefore fails closed and is rejected.
+AR's expected key did not occur because its compact source reproduction is a
+real RED but the full-row output uses a different route/key shape. No
+Developer write set or planned/developer transition is safe. Stale-pin sweep
+across unit/integration/e2e/frontend roots for the rejected span/cross-section
+names found zero hits. HI/FED remain source-held, not repaired.
