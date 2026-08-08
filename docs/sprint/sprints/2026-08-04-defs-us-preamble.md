@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T22:35:42Z"
+last_updated: "2026-08-08T22:53:37Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T22:36:31Z"
+lint: "PASS 400 2026-08-08T22:54:11Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R113 — term-local default preservation and additive union clarified
+### M-R114 — shared trailing relations govern bounded quoted-term lists
 
-Classify substance from each quote's bounded local source payload, not an
-overrun candidate's later text. Keep every substantive baseline candidate and
-its exact text; groups may add missing terms but never supersede a same-term
-baseline. Keep dispatch for a nonempty union; no relation allowlist/non-B1 change; all-53 zero-loss remains required.
+A bounded quoted-term list may share a relation after its last entry. Filter
+non-substantive baseline tuples, preserve every substantive same-term tuple,
+then add the shared relation only for missing listed terms. The relation must
+structurally govern the list; no row identity, body slice, or non-B1 change. All-53 zero-loss remains required.
 
 ## Next Steps
 
@@ -212,9 +212,9 @@ baseline. Keep dispatch for a nonempty union; no relation allowlist/non-B1 chang
    of slicing the whole body at TX's qualifying quote. The next candidate is a
    B1-only default-preserve gate: use a bounded term-local source payload to
    reject punctuation/coordination-only pseudo-entries despite later overrun;
-   retain each substantive baseline tuple unchanged, then add only missing
-   group terms. Suppress dispatch only when the union is empty. No relation
-   allowlist, body slice, same-term supersession, or non-B1 change is allowed.
+   retain each substantive baseline tuple unchanged, then add missing terms
+   from bounded lists whose shared trailing relation governs those terms.
+   Suppress dispatch only when the union is empty; non-B1 remains unchanged.
 
 ## Dev Complete
 

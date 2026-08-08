@@ -6007,3 +6007,23 @@ Root independently verified the pinned snapshot exists at
 including `us_ak_statutes.parquet`; the Planner's unavailable-corpus statement
 was a path-discovery miss, not an external blocker. Canonical focused commands
 must use `PYTHONPATH=.` where the integration module imports `backend.tests`.
+
+### M-R114 — Indiana shared-relation list ruling
+
+Planner's Indiana measurement found two genuine `works` removals at
+`STATE_IN_T8_A1.5_C3_S8-1.5-3-8.2` and `...8.3`. The full source says:
+`As used in this section: (1) "utility"; and (2) "works"; have the meaning
+set forth for those terms ...`. The phrase `those terms` unambiguously governs
+both quoted list entries. Therefore the current `utility -> ; and` tuple is a
+false/malformed tuple, not proof that `utility` is not defined; both `utility`
+and `works` are genuine forwarding definitions under D-MT-E1.
+
+Manager authorizes a bounded shared-trailing-relation group. Apply the default-
+preserve filter first: the non-substantive `utility` baseline drops, while the
+substantive existing `works` tuple stays byte-identical. Then additive grouping
+may supply the shared forwarding definition to missing list terms, including
+`utility`; it may not replace the retained `works` tuple. The group must be
+linked by source structure (bounded quoted/list markers and a trailing relation
+whose grammar refers to the listed terms), never row identity. Planner must add
+novel direct plus live-persistence coverage for this semicolon/list-marker form,
+rerun Indiana, and require zero genuine removals before continuing all 53.
