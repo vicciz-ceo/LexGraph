@@ -6,9 +6,9 @@ current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
-locked_at: "2026-08-08T21:35:33Z"
+locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T21:35:33Z"
+last_updated: "2026-08-08T21:46:17Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 360 2026-08-08T21:35:47Z"
+lint: "PASS 376 2026-08-08T21:46:43Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -165,6 +165,17 @@ no genuine definition, so that assertion pins the defect and would block a
 safe structural-trigger correction. Planner must split the expectations: AR/
 ID may correctly produce no derived heading, while TX must retain its valid
 later definition path. No Developer may receive the current test unchanged.
+
+### M-R109 — corrected REDs accepted; measurement phase required
+
+Root accepts the corrected source/future-law tests and independently reproduced
+10 intended REDs plus 4 controls. Planner now owns runtime-only A/B/union
+measurement: A narrows only `In this` to source-supported statutory-unit
+grammar; B carries an exact quote start only for a legal-unit quote-plus-
+defining-verb occurrence. The rejected generic trigger slice stays forbidden.
+Planner must build persisted-delta ledgers, adjudicate every key, and either
+produce a zero-unexplained Developer contract or escalate with the smallest
+remaining unsafe family and evidence.
 
 ## Next Steps
 

@@ -5837,3 +5837,18 @@ continuations are led by `section` (99,165), `chapter` (38,387), `subsection`
 (49) and `disclosure` (11). This confirms the defect is grammar, not source-row
 identity. The census alone is not an all-53 persisted-delta adjudication; Item
 7 stays `planning/planner` pending separate A/B/union ledgers.
+
+### M-R109 — root accepts RED repair and commissions persisted measurement
+
+Root read the complete `42b2a3e...ad45ff6` diff: four test modules plus sprint
+docs, no production changes. Root reran all source and future-law controls and
+reproduced exactly **10 intended failures / 4 passes** in 0.18 seconds. AR/ID
+now correctly require no false dispatch; TX and the novel TX analogue retain
+their later genuine definitions; the novel GA colon-list control is green.
+
+The raw continuation census is useful but is not the required safety proof.
+Planner is resumed to build three runtime-only persisted ledgers: A restricts
+only `In this` using a source-supported semantic class of statutory units; B
+uses quote-local extraction only for a legal-unit quote-plus-defining-verb
+occurrence; union applies both. Each key must be adjudicated, HI/FED separated,
+and no Developer is authorized until the union has zero unexplained deltas.
