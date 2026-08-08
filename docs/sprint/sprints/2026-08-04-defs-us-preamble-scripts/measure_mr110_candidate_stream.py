@@ -14,8 +14,11 @@ from qa_g7_common import SNAPSHOT_ID, capture_row, jurisdiction_for, tuple_key, 
 
 
 def _qualified(text, candidates):
-    """Keep unquoted candidates; a quoted term needs its own defining verb."""
-    from app.definition_links.us_profile import _MEANS_IDIOM_GAP_RE, _QUOTE_TERM_RE
+    """Keep unquoted candidates; quoted aliases need a bounded positive clause."""
+    from app.definition_links.us_profile import _QUOTE_TERM_RE
+    relationship = re.compile(
+        r"\b(?:means?|shall\s+mean|includes?|shall\s+include|refers?\s+to|shall\s+refer\s+to|"
+        r"(?:has|have|shall\s+have)\s+(?:the\s+same\s+)?meaning|is|are|shall\s+be)\b", re.I)
     accepted = []
     for candidate in candidates:
         term = candidate.terms[0]
@@ -24,7 +27,8 @@ def _qualified(text, candidates):
         for match in _QUOTE_TERM_RE.finditer(text):
             if match.group(1).strip() == term:
                 quoted = True
-                defining |= bool(_MEANS_IDIOM_GAP_RE.match(text[match.end():match.end()+200]))
+                # One candidate can name aliases before its governing clause.
+                defining |= bool(relationship.search(text[match.end():match.end()+300]))
         if not quoted or defining:
             accepted.append(candidate)
     return accepted
