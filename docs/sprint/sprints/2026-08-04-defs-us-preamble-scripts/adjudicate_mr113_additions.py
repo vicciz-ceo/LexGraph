@@ -78,6 +78,16 @@ def _source_rows(path: Path, wanted: set[str]) -> dict[str, str]:
     return rows
 
 
+def _source_rows_from_snapshot(snapshot: Path, changed: list[dict]) -> dict[str, str]:
+    by_file: dict[str, set[str]] = {}
+    for row in changed:
+        by_file.setdefault(row["source_file"], set()).add(row["source_row_id"])
+    rows: dict[str, str] = {}
+    for filename, wanted in sorted(by_file.items()):
+        rows.update(_source_rows(snapshot / filename, wanted))
+    return rows
+
+
 def _quoted_term_span(body: str, term: str):
     needle = term.strip().rstrip(".,;:")
     if not needle:
@@ -89,13 +99,20 @@ def _quoted_term_span(body: str, term: str):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--changed", type=Path, required=True)
-    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--snapshot", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--label", default="de_additions")
     args = parser.parse_args()
     measure = _load_measure()
     changed = [json.loads(line) for line in args.changed.read_text().splitlines() if line]
-    source = _source_rows(args.source, {row["source_row_id"] for row in changed})
+    if (args.source is None) == (args.snapshot is None):
+        parser.error("provide exactly one of --source or --snapshot")
+    source = (
+        _source_rows(args.source, {row["source_row_id"] for row in changed})
+        if args.source is not None
+        else _source_rows_from_snapshot(args.snapshot, changed)
+    )
     ledger = []
     additions = [row for row in changed if row["change"] == "added"]
     removals = [row for row in changed if row["change"] == "removed"]
@@ -168,7 +185,7 @@ def main() -> int:
     summary = {
         "schema": "lexgraph.mr113.changed-key-adjudication.v2",
         "changed_ledger_sha256": sha256_value(changed),
-        "source_file": args.source.name,
+        "source_file": args.source.name if args.source is not None else "all snapshot source files",
         "source_row_count": len({row["source_row_id"] for row in ledger}),
         "addition_count": len(additions),
         "removal_count": len(removals),
