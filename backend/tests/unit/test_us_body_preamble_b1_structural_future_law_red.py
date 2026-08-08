@@ -125,6 +125,26 @@ CASES = (
         "definition_text": "denotes a secure, time-stamped emergency transmission.",
     },
     {
+        "name": "numbered_alias_list_uses_shared_trailing_forwarding_relation",
+        "jurisdiction": "US-OR",
+        "section_title": "9.742 Novel shared terms.",
+        "text": 'As used in this Act: (1) "alpha"; and (2) "beta"; have the meaning set forth in Section 9.741.',
+        "heading": "Definitions",
+        "false_terms": (),
+        "term": "alpha",
+        "definition_text": "have the meaning set forth in Section 9.741.",
+        "additional_terms": {
+            "beta": "have the meaning set forth in Section 9.741.",
+        },
+    },
+    {
+        "name": "numbered_quoted_duty_list_has_no_shared_definition_relation",
+        "jurisdiction": "US-OR",
+        "section_title": "9.743 Novel duty list.",
+        "text": 'As used in this Act: (1) "alpha"; and (2) "beta"; the department shall publish both notices.',
+        "heading": None,
+    },
+    {
         "name": "operative_duty_and_bare_citation_do_not_form_a_group",
         "jurisdiction": "US-OH",
         "section_title": "3912.441 Notice requirement.",

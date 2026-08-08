@@ -41,6 +41,7 @@ class ClauseGroup:
     term_spans: tuple[tuple[str, int, int], ...]
     relationship_span: tuple[int, int]
     colon_list: bool = False
+    shared_trailing_relation: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,16 @@ _RELATION = re.compile(
 _CLAUSE_BOUNDARY = re.compile(r"[;\n]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.?!])(?:\s|$)")
 _NUMBERED_COLON_ENTRY = re.compile(r'\(\s*\d+[A-Za-z]?\s*\)\s*["“]([^"”]{1,200})["”]')
+# A constrained list shape for a relation that follows, rather than appears
+# next to, its aliases.  Direct adjacency after the final list semicolon plus
+# a forwarding relation makes the relationship structural; a numbered duty
+# list cannot inherit an ordinary operative sentence.
+_SHARED_TRAILING_LIST = re.compile(
+    r"(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)\s*[\"“][^\"”]{1,200}[\"”]\s*;\s*(?:(?:and|or)\s*)?){2,})"
+    r"(?P<relation>(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?(?:meaning|definition)"
+    r"(?:\s+(?:set\s+forth|provided|given|found|prescribed))?\b[^;\n]{0,300})",
+    re.IGNORECASE,
+)
 _MAX_GROUP = 600
 _COLON_INTRO_WINDOW = 160
 _COORDINATION = frozenset({"and", "or"})
@@ -80,7 +91,7 @@ def has_substantive_definition_text(definition_text: str) -> bool:
     return any(word.casefold() not in _COORDINATION for word in _WORD.findall(residual))
 
 
-def candidate_has_substantive_local_payload(text: str, candidate) -> bool:
+def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[ClauseGroup, ...] = ()) -> bool:
     """Classify each quoted entry at its bounded local source boundary.
 
     The first semicolon or newline after the matching quote ends the payload;
@@ -105,7 +116,18 @@ def candidate_has_substantive_local_payload(text: str, candidate) -> bool:
             tail = text[quote.end() : quote.end() + _MAX_GROUP]
             boundary = tail.find(";")
             payloads.append(tail[:boundary] if boundary >= 0 else tail)
-    return any(has_substantive_definition_text(payload) for payload in payloads)
+    if any(has_substantive_definition_text(payload) for payload in payloads):
+        return True
+    # The final quoted member of a structurally bounded alias list directly
+    # precedes its shared relation.  Preserve that existing baseline tuple
+    # byte-for-byte; earlier aliases are added from the shared relation only
+    # when absent after malformed local tuples are filtered.
+    final_shared_terms = {
+        group.term_spans[-1][0].casefold()
+        for group in groups
+        if group.shared_trailing_relation and group.term_spans
+    }
+    return any(term.strip().rstrip(".,;:").casefold() in final_shared_terms for term in candidate.terms)
 
 
 def _group_end(body: str, start: int) -> int:
@@ -177,7 +199,23 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
         if colon < 0:
             continue
         list_start = trigger.end() + colon + 1
-        for entry in _NUMBERED_COLON_ENTRY.finditer(body, list_start, min(len(body), list_start + _MAX_GROUP)):
+        list_end = min(len(body), list_start + _MAX_GROUP)
+        for shared in _SHARED_TRAILING_LIST.finditer(body, list_start, list_end):
+            entries = tuple(
+                (entry.group(1).strip(), entry.start(1), entry.end(1))
+                for entry in _NUMBERED_COLON_ENTRY.finditer(body, shared.start("entries"), shared.end("entries"))
+                if entry.group(1).strip()
+            )
+            if len(entries) < 2:
+                continue
+            groups.append(
+                ClauseGroup(
+                    term_spans=entries,
+                    relationship_span=(shared.start("relation"), _group_end(body, shared.start("relation"))),
+                    shared_trailing_relation=True,
+                )
+            )
+        for entry in _NUMBERED_COLON_ENTRY.finditer(body, list_start, list_end):
             end = _group_end(body, entry.end())
             payload = body[entry.end() : end]
             if not has_substantive_definition_text(payload):
@@ -190,8 +228,12 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
             )
     # A duplicate can arise from a nested regex alternative; preserve source
     # order but make union deterministic.
-    seen: set[tuple[tuple[tuple[str, int, int], ...], tuple[int, int], bool]] = set()
-    return tuple(g for g in groups if not ((key := (g.term_spans, g.relationship_span, g.colon_list)) in seen or seen.add(key)))
+    seen: set[tuple[tuple[tuple[str, int, int], ...], tuple[int, int], bool, bool]] = set()
+    return tuple(
+        g
+        for g in groups
+        if not ((key := (g.term_spans, g.relationship_span, g.colon_list, g.shared_trailing_relation)) in seen or seen.add(key))
+    )
 
 
 def _b1_default_preserve_match(body: str) -> BodyPreambleMatch | None:
@@ -230,7 +272,7 @@ def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMat
     return [
         candidate
         for candidate in candidates
-        if candidate_has_substantive_local_payload(text, candidate)
+        if candidate_has_substantive_local_payload(text, candidate, match.clause_groups)
     ]
 
 
@@ -302,7 +344,7 @@ def default_preserve_runtime_patch():
         return [
             candidate
             for candidate in original
-            if candidate_has_substantive_local_payload(article_body, candidate)
+            if candidate_has_substantive_local_payload(article_body, candidate, match.clause_groups)
         ]
 
     registry.body_preamble_rules_for = rules_for

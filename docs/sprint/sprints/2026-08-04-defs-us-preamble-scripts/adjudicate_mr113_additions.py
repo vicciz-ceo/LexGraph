@@ -1,4 +1,4 @@
-"""Create a source-span adjudication ledger for M-R113 changed-key evidence."""
+"""Create a source-span adjudication ledger for changed-key evidence."""
 from __future__ import annotations
 
 import argparse
@@ -78,19 +78,28 @@ def _source_rows(path: Path, wanted: set[str]) -> dict[str, str]:
     return rows
 
 
+def _quoted_term_span(body: str, term: str):
+    needle = term.strip().rstrip(".,;:")
+    if not needle:
+        return None
+    match = re.search(r'["“]\s*' + re.escape(needle) + r'[.,;:]*\s*["”]', body, re.I)
+    return None if match is None else (match.start(), match.end())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--changed", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--label", default="de_additions")
     args = parser.parse_args()
     measure = _load_measure()
     changed = [json.loads(line) for line in args.changed.read_text().splitlines() if line]
-    if any(row["change"] != "added" for row in changed):
-        raise RuntimeError("M-R113 DE adjudication requires zero removals")
     source = _source_rows(args.source, {row["source_row_id"] for row in changed})
     ledger = []
-    for row in changed:
+    additions = [row for row in changed if row["change"] == "added"]
+    removals = [row for row in changed if row["change"] == "removed"]
+    for row in additions:
         body = source[row["source_row_id"]]
         matches = []
         for group in measure.discover_clause_groups(body):
@@ -117,6 +126,7 @@ def main() -> int:
         start, end, terms, relation = canonical
         ledger.append(
             {
+                "change": "added",
                 "adjudication": "genuine_missing_term",
                 "alias_index": terms.index(row["term"]),
                 "definition_text": row["definition_text"],
@@ -131,23 +141,46 @@ def main() -> int:
                 "term": row["term"],
             }
         )
-    ledger.sort(key=lambda row: (row["source_row_id"], row["governing_span"], row["alias_index"], row["term"]))
-    family_counts = Counter((row["shape"], row["group_term_count"]) for row in ledger)
+    for row in removals:
+        body = source[row["source_row_id"]]
+        quote_span = _quoted_term_span(body, row["term"])
+        if quote_span is None:
+            raise RuntimeError(f"UNCLASSIFIED REMOVAL {row['source_row_id']} {row['term']!r}")
+        if row["term_local_substantive"] or measure.has_substantive_definition_text(row["definition_text"]):
+            raise RuntimeError(f"GENUINE LOSS {row['source_row_id']} {row['term']!r}")
+        start, end = quote_span
+        ledger.append(
+            {
+                "change": "removed",
+                "adjudication": "malformed_non_substantive_tuple",
+                "definition_text": row["definition_text"],
+                "governing_clause": body[start : min(len(body), end + 120)].strip(),
+                "governing_span": [start, end],
+                "normalization": "curly_quotes+en_spaces+whitespace",
+                "source_row_id": row["source_row_id"],
+                "term": row["term"],
+            }
+        )
+    ledger.sort(key=lambda row: (row["source_row_id"], row["governing_span"], row.get("alias_index", -1), row["term"]))
+    family_counts = Counter(
+        (row.get("shape", row["adjudication"]), row.get("group_term_count", 0)) for row in ledger
+    )
     summary = {
-        "schema": "lexgraph.mr113.de-additions-adjudication.v1",
+        "schema": "lexgraph.mr113.changed-key-adjudication.v2",
         "changed_ledger_sha256": sha256_value(changed),
         "source_file": args.source.name,
         "source_row_count": len({row["source_row_id"] for row in ledger}),
-        "addition_count": len(ledger),
-        "removal_count": 0,
+        "addition_count": len(additions),
+        "removal_count": len(removals),
         "false_count": 0,
         "ambiguous_count": 0,
         "unclassified_count": 0,
+        "genuine_loss_count": 0,
         "family_counts": {f"{shape}:{size}": count for (shape, size), count in sorted(family_counts.items())},
-        "ledger_sha256": write_jsonl(args.out / "de_additions_adjudication.jsonl", ledger),
+        "ledger_sha256": write_jsonl(args.out / f"{args.label}_adjudication.jsonl", ledger),
     }
     summary["summary_sha256"] = sha256_value({key: value for key, value in summary.items() if key != "summary_sha256"})
-    write_json(args.out / "de_additions_summary.json", summary)
+    write_json(args.out / f"{args.label}_summary.json", summary)
     print(json.dumps(summary, sort_keys=True))
     return 0
 

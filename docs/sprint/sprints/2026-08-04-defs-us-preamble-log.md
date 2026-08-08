@@ -6027,3 +6027,22 @@ linked by source structure (bounded quoted/list markers and a trailing relation
 whose grammar refers to the listed terms), never row identity. Planner must add
 novel direct plus live-persistence coverage for this semicolon/list-marker form,
 rerun Indiana, and require zero genuine removals before continuing all 53.
+
+### M-R114 — Planner source adjudication clears Indiana continuation gate
+
+The runtime-only prototype adds a structural numbered-list form: two or more
+bounded quoted/list-marker entries followed immediately by a forwarding
+relationship. It has no jurisdiction, row, title, or term allowlist. The new
+novel direct and persistence cases cover both `alpha`/`beta` forwarding and a
+quoted duty-list negative; all four focused files are **32/32 green** under
+the runtime patch. The unpatched suite remains RED by design because
+production is read-only.
+
+The corrected `us_in_statutes.parquet` shard `16/53` ledger has 3,365
+additions and two removals. Every changed key is source-adjudicated in
+`mr114/in-v1/in_mr114_adjudication.jsonl`: the removals are only the two
+non-substantive `utility -> ; and` tuples, while both established `works`
+definition texts remain byte-identical. The summary has zero genuine losses,
+ambiguities, and unclassified records. Indiana is safe to continue to the
+remaining corpus shards; this remains planning evidence, not a production
+authorization.
