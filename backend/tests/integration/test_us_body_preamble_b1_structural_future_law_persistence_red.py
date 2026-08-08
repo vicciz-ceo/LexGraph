@@ -45,3 +45,8 @@ def test_b1_future_law_structure_at_live_persistence_altitude(case, db_session, 
     assert definition is not None
     assert definition.definition_text == case["definition_text"]
     assert definition.scope == "law-wide"
+    for term, definition_text in case.get("additional_terms", {}).items():
+        prior = by_term.get(term)
+        assert prior is not None
+        assert prior.definition_text == definition_text
+        assert prior.scope == "law-wide"

@@ -202,7 +202,11 @@ live-persistence gate remains binding; no corpus-identity exception is allowed.
    occurrence/candidate metadata only for its structural B1 branch. `In this`
    must distinguish statutory-unit grammar from ordinary prose without removing
    genuine definitions; preserve independently valid earlier candidates instead
-   of slicing the whole body at TX's qualifying quote.
+   of slicing the whole body at TX's qualifying quote. The next candidate is a
+   B1-only strict candidate predicate: a quoted entry must itself have a
+   bounded `means`/`shall mean`/`includes`/`shall include` relationship. This
+   rejects operative quotations while retaining every independently valid
+   earlier/later definition; it is not a heading rejection or body slice.
 
 ## Dev Complete
 

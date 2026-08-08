@@ -26,7 +26,8 @@ CASES = (
         "name": "later_quote_definition_skips_earlier_operative_quote",
         "jurisdiction": "US-TX",
         "section_title": "§ 401.927. MUNICIPAL REPORT.",
-        "text": '(A) "This notice changes a revenue estimate."; (B) "This notice preserves the estimate.";\n'
+        "text": 'In this section, "prelude bond" means an earlier independently defined obligation.\n'
+        '(A) "This notice changes a revenue estimate."; (B) "This notice preserves the estimate.";\n'
         '(d) In this section, "harbor instrument" means a security secured by municipal revenue.',
         "heading": "Definitions",
         "false_terms": (
@@ -35,6 +36,9 @@ CASES = (
         ),
         "term": "harbor instrument",
         "definition_text": "means a security secured by municipal revenue.",
+        "additional_terms": {
+            "prelude bond": "means an earlier independently defined obligation.",
+        },
     },
     {
         "name": "colon_list_legal_unit_remains_genuine",
@@ -68,3 +72,6 @@ def test_b1_future_law_structure_at_direct_profile_altitude(case):
     assert candidate is not None
     assert candidate.definition_text == case["definition_text"]
     assert candidate.scope == "law-wide"
+    for term, definition_text in case.get("additional_terms", {}).items():
+        assert by_term.get(term) is not None
+        assert by_term[term].definition_text == definition_text

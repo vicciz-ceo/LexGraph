@@ -5877,3 +5877,21 @@ Planner resume roster entry (2026-08-08T21:57:19Z): canonical task
 `/root/preamble_structural_planner`; `gpt-5.6-terra` / high. Haiku considered:
 no, because this is the same mid-measurement context and requires source-level
 arbitration plus merge-blocking RED design, not bounded discovery.
+
+### M-R110 family finding — reject candidates, not headings or bodies
+
+The A ledger's largest removed groups are genuine definition syntax: CT
+`In this` rows retain terms such as `USDA means ...` (35 keys in one row), ME
+`Vehicle ...` (30), KY `Temporary In-Person ...` (29), MN `Utility
+corporation ...` (28), and CA `Unique identifier means ...` (26). Thus a
+statutory-unit heading grammar cannot be the correction. B loses independent
+earlier definitions for the same reason: quote-local body slicing treats an
+occurrence as a document boundary when it is only one candidate boundary.
+
+The smallest reusable structural family is instead B1-derived candidate
+selection: each quoted candidate must have its own bounded defining relationship
+(`means`, `shall mean`, `includes`, or `shall include`). This excludes AR/ID
+operative/disclosure quotations lacking that relation; it preserves an earlier
+genuine candidate and TX's later quote-plus-verb candidate without row, term,
+or jurisdiction identity. Future-law controls now include an independently
+valid earlier definition before the operative quotations and later definition.
