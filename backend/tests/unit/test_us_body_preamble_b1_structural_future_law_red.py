@@ -81,6 +81,13 @@ CASES = (
         "heading": None,
     },
     {
+        "name": "quoted_definition_index_is_not_a_numbered_list",
+        "jurisdiction": "US-CO",
+        "section_title": "5-1-901 Novel index.",
+        "text": 'Definitions in this Act:\n\n"alpha" section 9.741 (1)\n\n"beta" section 9.741 (2)',
+        "heading": None,
+    },
+    {
         "name": "operative_duty_and_bare_citation_do_not_form_a_group",
         "jurisdiction": "US-OH",
         "section_title": "3912.441 Notice requirement.",

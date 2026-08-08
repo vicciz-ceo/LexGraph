@@ -57,14 +57,14 @@ class BodyPreambleMatch:
 _CLAUSE_BOUNDARY = re.compile(r"[;\n]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.?!])(?:\s|$)")
 _MATCHED_NUMBERED_ENTRY = re.compile(
-    r'\(\s*\d+[A-Za-z]?\s*\)\s*(?:"(?P<straight>[^"]{1,200})"|“(?P<curly>[^”]{1,200})”)'
+    r'\(\s*\d+[A-Za-z]?\s*\)[ \t]*(?:"(?P<straight>[^"]{1,200})"|“(?P<curly>[^”]{1,200})”)'
 )
 # The only additive shape: at least two numbered entries, each with a matched
 # quote delimiter, followed immediately by a forwarding relation that names
 # the plural antecedent.  It intentionally excludes generic aliases,
 # descriptive copulas, exclusions, citations, and unmatched source quotes.
 _SHARED_TRAILING_LIST = re.compile(
-    r"(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)\s*(?:\"[^\"]{1,200}\"|“[^”]{1,200}”)\s*;\s*(?:(?:and|or)\s*)?){2,})"
+    r"(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)[ \t]*(?:\"[^\"]{1,200}\"|“[^”]{1,200}”)\s*;\s*(?:(?:and|or)\s*)?){2,})"
     r"(?P<relation>(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?(?:meaning|definition)"
     r"(?:\s+(?:set\s+forth|provided|given|found|prescribed))?\s+(?:for\s+)?those\s+terms\b[^;\n]{0,300})",
     re.IGNORECASE,
