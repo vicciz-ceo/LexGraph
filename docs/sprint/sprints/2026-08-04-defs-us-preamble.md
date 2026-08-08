@@ -144,12 +144,16 @@ without a new escalation.
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
-   Root accepted source and RED provenance at `42cdf298`: exactly two current
-   failures, direct profile and live persistence. Under M-R105/M-R106, plan the
-   AR/ID/TX occurrence-local metadata repair with source-faithful two-sided
-   REDs, all-53 persisted-output measurement and changed-key classification,
-   and prior-gate preservation. HI/FED remain held pending corrected source.
-   Production is read-only during planning.
+   Carry only B1's qualifying `extraction_start` through `registry.py`,
+   `us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py`; baseline and
+   non-B1 rules remain heading-only compatible. AR/ID operative quotes before
+   their B1 occurrence must not persist; TX's later `debt obligation` must
+   persist with exact text/scope. RED: `backend/tests/unit/test_us_body_preamble_b1_occurrence_local_red.py`
+   and `backend/tests/integration/test_us_body_preamble_b1_occurrence_local_red.py`
+   via `../LexGraph/backend/.venv/bin/python -m pytest <both> -q` (six REDs).
+   Before Developer: runtime-monkeypatch the proposal across all 53 files at
+   persisted tuple altitude; classify every delta, separately report HI/FED
+   source-held keys, preserve G7/ledgers, and do not claim D-PFP readiness.
 
 ## Dev Complete
 
