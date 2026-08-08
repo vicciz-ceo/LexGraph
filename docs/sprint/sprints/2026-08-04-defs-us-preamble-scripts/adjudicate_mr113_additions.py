@@ -1,0 +1,156 @@
+"""Create a source-span adjudication ledger for M-R113 changed-key evidence."""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+import pyarrow.parquet as pq
+
+SCRIPTS = Path(__file__).resolve().parent
+ROOT = SCRIPTS.parents[3]
+sys.path[:0] = [str(ROOT), str(SCRIPTS), str(ROOT / "backend")]
+from qa_g7_common import canonical_bytes, sha256_value, write_json, write_jsonl
+
+
+def _load_measure() -> object:
+    path = SCRIPTS / "measure_mr110_candidate_stream.py"
+    spec = importlib.util.spec_from_file_location("mr113_measure", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _norm(value: str) -> str:
+    return " ".join(value.replace("“", '"').replace("”", '"').replace("\u2002", " ").split())
+
+
+def _shape(relation: str) -> str:
+    lower = relation.casefold()
+    if "not include" in lower or "exclude" in lower:
+        return "negative"
+    if "meaning" in lower or "definition" in lower:
+        return "forward"
+    if lower.startswith(("is ", "are ", "shall be ")):
+        return "copular"
+    if lower.startswith(("refers to", "refer to", "shall refer")):
+        return "reference"
+    return "direct"
+
+
+def _direct_quote_match(body: str, term: str, definition_text: str):
+    """Map a baseline-normalized quoted definition when no group emitted it."""
+    needle = term.strip().rstrip(".,;:")
+    if not needle:
+        return None
+    pattern = re.compile(r'["“]\s*' + re.escape(needle) + r'[.,;:]*\s*["”]\s*', re.I)
+    for quote in pattern.finditer(body):
+        tail = body[quote.end() : quote.end() + 1600]
+        for boundary in (tail.find(";"), tail.find(".")):
+            if boundary < 0:
+                continue
+            payload = tail[: boundary + 1].strip()
+            normalized_payload = _norm(payload).rstrip(".")
+            normalized_definition = _norm(definition_text).rstrip(".")
+            normalized_without_idiom = re.sub(
+                r"^(?:means?|shall mean|includes?|shall include)\s*", "", normalized_payload, flags=re.I
+            )
+            if normalized_payload == normalized_definition or normalized_without_idiom == normalized_definition:
+                return quote.end(), quote.end() + boundary + 1, payload
+    return None
+
+
+def _source_rows(path: Path, wanted: set[str]) -> dict[str, str]:
+    rows: dict[str, str] = {}
+    for batch in pq.ParquetFile(path).iter_batches(columns=["act_id", "text"], batch_size=4096):
+        for row in batch.to_pylist():
+            if str(row["act_id"]) in wanted:
+                rows[str(row["act_id"])] = row["text"] or ""
+    if rows.keys() != wanted:
+        raise RuntimeError(f"missing source rows: {sorted(wanted - rows.keys())[:5]}")
+    return rows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--changed", type=Path, required=True)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    args = parser.parse_args()
+    measure = _load_measure()
+    changed = [json.loads(line) for line in args.changed.read_text().splitlines() if line]
+    if any(row["change"] != "added" for row in changed):
+        raise RuntimeError("M-R113 DE adjudication requires zero removals")
+    source = _source_rows(args.source, {row["source_row_id"] for row in changed})
+    ledger = []
+    for row in changed:
+        body = source[row["source_row_id"]]
+        matches = []
+        for group in measure.discover_clause_groups(body):
+            terms = tuple(term for term, _, _ in group.term_spans)
+            if row["term"] not in terms:
+                continue
+            for candidate in measure._group_candidates(body, (group,), row["scope"]):
+                if candidate.terms != (row["term"],) or _norm(candidate.definition_text) != _norm(row["definition_text"]):
+                    continue
+                start, end = group.relationship_span
+                matches.append((start, end, terms, body[start:end].strip()))
+        if not matches:
+            direct = _direct_quote_match(body, row["term"], row["definition_text"])
+            if direct is None:
+                raise RuntimeError(f"UNCLASSIFIED {row['source_row_id']} {row['term']!r}")
+            start, end, relation = direct
+            matches = [(start, end, (row["term"],), relation)]
+        # Repeated equivalent groups are not ambiguous: each span is emitted
+        # and the first source-order span is the canonical governing span.
+        matches.sort()
+        canonical = matches[0]
+        if any(_norm(item[3]) != _norm(canonical[3]) for item in matches[1:]):
+            raise RuntimeError(f"AMBIGUOUS {row['source_row_id']} {row['term']!r}")
+        start, end, terms, relation = canonical
+        ledger.append(
+            {
+                "adjudication": "genuine_missing_term",
+                "alias_index": terms.index(row["term"]),
+                "definition_text": row["definition_text"],
+                "governing_clause": relation,
+                "governing_span": [start, end],
+                "group_term_count": len(terms),
+                "group_terms": list(terms),
+                "normalization": "curly_quotes+en_spaces+whitespace",
+                "repeated_equivalent_spans": [[item[0], item[1]] for item in matches],
+                "shape": _shape(relation),
+                "source_row_id": row["source_row_id"],
+                "term": row["term"],
+            }
+        )
+    ledger.sort(key=lambda row: (row["source_row_id"], row["governing_span"], row["alias_index"], row["term"]))
+    family_counts = Counter((row["shape"], row["group_term_count"]) for row in ledger)
+    summary = {
+        "schema": "lexgraph.mr113.de-additions-adjudication.v1",
+        "changed_ledger_sha256": sha256_value(changed),
+        "source_file": args.source.name,
+        "source_row_count": len({row["source_row_id"] for row in ledger}),
+        "addition_count": len(ledger),
+        "removal_count": 0,
+        "false_count": 0,
+        "ambiguous_count": 0,
+        "unclassified_count": 0,
+        "family_counts": {f"{shape}:{size}": count for (shape, size), count in sorted(family_counts.items())},
+        "ledger_sha256": write_jsonl(args.out / "de_additions_adjudication.jsonl", ledger),
+    }
+    summary["summary_sha256"] = sha256_value({key: value for key, value in summary.items() if key != "summary_sha256"})
+    write_json(args.out / "de_additions_summary.json", summary)
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
