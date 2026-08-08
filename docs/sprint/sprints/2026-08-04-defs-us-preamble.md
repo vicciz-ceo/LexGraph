@@ -5,10 +5,10 @@ blocked_on: null
 current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "claude-code:planner"
-locked_at: "2026-08-07T01:19:33Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-08-07T01:19:33Z"
+locked_by: "codex:planner"
+locked_at: "2026-08-08T20:00:59Z"
+last_agent: "codex:manager"
+last_updated: "2026-08-08T20:00:59Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 305 2026-08-07T01:20:36Z"
+lint: "PASS 322 2026-08-08T20:01:56Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -112,14 +112,31 @@ persisted tuple altitude and classify every changed key; preserve prior G7 and
 all ledgers; define the exact minimal Developer write set. Planner may not edit
 production.
 
+### M-R105 — cross-repo source boundary accepted
+
+The director authorized the upstream repair. `Vaquill-AI/open-us-law` draft
+PR #4 is QA-approved at `4a627571c3263a510b73528f696182ec40454c90`, but no
+corrected versioned Hugging Face snapshot exists yet. The dataset target is
+`https://huggingface.co/datasets/vaquill/open-us-law`; a draft PR is not a
+published corpus revision.
+
+Source ownership is now binding: HI 16 and FED 2 are upstream identity/source-
+segmentation defects and remain held; AR 1, ID 2, and TX 12 are downstream
+LexGraph occurrence-local B1 extraction defects. Planner may plan and RED-test
+only the downstream family now. It must preserve genuine later same-row
+definitions and may not quarantine or discard upstream-invalid rows. Final
+all-53/D-PFP certification remains blocked until a corrected, versioned
+upstream manifest is published and pinned.
+
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
    Root accepted source and RED provenance at `42cdf298`: exactly two current
-   failures, direct profile and live persistence. Planner must satisfy M-R104:
-   exact seam, source-family triage/two-sided REDs, all-53 persisted-output
-   measurement and changed-key classification, prior-gate preservation, and
-   minimal Developer write set. Production is read-only during planning.
+   failures, direct profile and live persistence. Under M-R105, plan only the
+   AR/ID/TX occurrence-local repair with source-faithful two-sided REDs, all-53
+   persisted-output measurement and changed-key classification, prior-gate
+   preservation, and a minimal Developer write set. HI/FED remain held pending
+   a corrected pinned source snapshot. Production is read-only during planning.
 
 ## Dev Complete
 
@@ -296,10 +313,10 @@ No external pins remain and no production signature/class/CSS rename occurred.
 ## Context Dump
 
 1. Items 1–6 remain Dev Complete; Item 7 is replanned before Developer.
-2. Root accepts the HI finding and exactly two corrected REDs at `42cdf298`.
-3. Identify the exact narrow production seam; never use a blanket suppression.
-4. Preserve genuine same-body definitions with controls per verified false family.
-5. Measure proposed guards all-53 at persisted tuple altitude; classify all keys.
-6. Preserve G7 and every ledger; define a minimal Developer write set.
-7. D-PFP-400 cannot pass with this false capture; no corpus-zero claim.
-8. Production is read-only during planning; root owns the Planner spawn.
+2. Upstream open-us-law PR #4 is QA-approved at `4a62757`, not published.
+3. HI 16/FED 2 are upstream-held; AR 1/ID 2/TX 12 are LexGraph-owned.
+4. Plan occurrence-local B1 repair only; never use blanket suppression.
+5. Preserve genuine later same-row definitions with two-sided controls.
+6. Measure all 53 at persisted tuple altitude; classify every changed key.
+7. Preserve G7/ledgers; final D-PFP waits for a corrected pinned manifest.
+8. Production is read-only during planning; root owns role dispatch.

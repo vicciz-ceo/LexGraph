@@ -5713,3 +5713,25 @@ Binding repair gates:
 Contract returns from `qa-fail` / `developer` to `planning` / `planner`, keeps
 `qa_cycles: 2`, items 1–6 Dev Complete, and Item 7 in Next Steps under a fresh
 Planner lock. Root owns the later Planner spawn.
+
+## 2026-08-08 — M-R105 cross-repo source boundary and Planner resumption
+
+The director authorized cross-repo repair and supplied the external dataset
+target `https://huggingface.co/datasets/vaquill/open-us-law`. The upstream
+`Vaquill-AI/open-us-law` source-integrity sprint passed independent QA at
+`4a627571c3263a510b73528f696182ec40454c90`: 26 tests run, 25 passed, one
+opt-in live test skipped; the live GovInfo typed-body probe passed in the
+preceding QA cycle. Draft PR #4 is open at
+`https://github.com/Vaquill-AI/open-us-law/pull/4`. No Hugging Face upload or
+publication occurred, and the upstream sprint remains in review pending the
+director's explicit close decision.
+
+The verified split is HI 16/FED 2 upstream versus AR 1/ID 2/TX 12 downstream.
+HI lost colon-bearing identifiers in its scraper; FED admitted untyped USC
+editorial material. The remaining 15 captures arise inside LexGraph's B1
+occurrence/extraction path. Final all-53/D-PFP evidence therefore cannot use
+the current pinned snapshot as corrected evidence. Planner is authorized to
+define only the downstream occurrence-local repair; it must keep the genuine
+later TX definition and must not suppress, quarantine, or silently discard
+source-invalid HI/FED records. Manager replaced the stale 2026-08-07 Planner
+lock after verifying no shared-branch commit followed its timestamp.
