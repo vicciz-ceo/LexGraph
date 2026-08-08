@@ -5895,3 +5895,25 @@ operative/disclosure quotations lacking that relation; it preserves an earlier
 genuine candidate and TX's later quote-plus-verb candidate without row, term,
 or jurisdiction identity. Future-law controls now include an independently
 valid earlier definition before the operative quotations and later definition.
+
+## 2026-08-09 — M-R111 four-verb predicate rejected on first corpus shard
+
+The optimized runtime harness scanned the deterministic first 1/8 corpus shard:
+21,824 current B1-winning rows and 504 persisted deltas. It found an immediate
+genuine-loss counterexample at `US-DE / STATE_DE_T15_C31_SI_S3114`: `Primary
+residence` and `primary residential address` are aliases in one definition, so
+the defining `means` follows the later quoted alias rather than the first.
+Per-first-quote filtering therefore drops a genuine definition. Additional
+genuine families use definition-by-reference (`shall have the same meaning`,
+`shall refer`) and exclusion clauses (`does not include`). A family label does
+not convert those losses into acceptable deltas; the four-verb proposal fails.
+
+Manager authorizes Planner to widen only the reusable candidate grammar, not
+the corpus identity surface: group quoted aliases inside one bounded clause and
+recognize source-supported definition, forwarding/reference, and exclusion
+relations. Reuse the existing extractor/B1 forwarding vocabulary where it is
+semantically applicable; leave unquoted/colon-list candidates intact. Add
+novel direct and real-persistence controls for aliases, reference definitions,
+and exclusions before remeasurement. This is preservation of existing genuine
+definitions and the director's future-law gate, not an allowlist or a waiver of
+zero-loss all-53 evidence.
