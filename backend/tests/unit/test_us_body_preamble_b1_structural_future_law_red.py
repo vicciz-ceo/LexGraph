@@ -35,9 +35,9 @@ CASES = (
             "This notice preserves the estimate.",
         ),
         "term": "harbor instrument",
-        "definition_text": "means a security secured by municipal revenue.",
+        "definition_text": "a security secured by municipal revenue.",
         "additional_terms": {
-            "prelude bond": "means an earlier independently defined obligation.",
+            "prelude bond": "an earlier independently defined obligation.",
         },
     },
     {
@@ -59,7 +59,7 @@ CASES = (
         "heading": "Definitions",
         "false_terms": (),
         "term": "plain conduit",
-        "definition_text": "means a described conduit.",
+        "definition_text": "a described conduit.",
         "additional_terms": {
             "quartz relay": "shall have the same meaning as in Section 402.117;",
             "relay certificate": "shall have the same meaning as in Section 402.117;",
@@ -113,6 +113,16 @@ CASES = (
         "false_terms": (),
         "term": "winter conveyance",
         "definition_text": "does not include a manually propelled sled;",
+    },
+    {
+        "name": "numbered_colon_list_preserves_unlisted_relation_word",
+        "jurisdiction": "US-ME",
+        "section_title": "14-742 Novel signal vocabulary.",
+        "text": 'For purposes of this Act: (1) "cobalt signal" denotes a secure, time-stamped emergency transmission.',
+        "heading": "Definitions",
+        "false_terms": (),
+        "term": "cobalt signal",
+        "definition_text": "denotes a secure, time-stamped emergency transmission.",
     },
     {
         "name": "operative_duty_and_bare_citation_do_not_form_a_group",

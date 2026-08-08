@@ -1,10 +1,11 @@
-"""Runtime-only B1 clause-group prototype for M-R111.
+"""Runtime-only M-R113 default-preserve + additive-groups B1 prototype.
 
 This deliberately patches the proposed additive seam, never production:
 registry returns a ``BodyPreambleMatch``-shaped value for B1, B1 discovers
 bounded clause groups, ``USProfile`` carries the match into extraction, and
-the pipeline's profile resolver sees that patched profile.  Legacy rules still
-return headings and non-B1 paths are byte-for-byte delegated to production.
+the pipeline's profile resolver sees that patched profile.  A bounded
+term-local payload classifies malformed B1 candidates; substantive baseline
+candidates retain their exact current text and groups add only missing terms.
 """
 from __future__ import annotations
 
@@ -12,17 +13,18 @@ import argparse
 import contextlib
 import hashlib
 import json
-import multiprocessing
 import re
 import sys
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
 import pyarrow.parquet as pq
 
 SCRIPTS = Path(__file__).resolve().parent
+ROOT = SCRIPTS.parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(SCRIPTS))
 from qa_g7_common import SNAPSHOT_ID, capture_row, jurisdiction_for, tuple_key, validate_corpus, write_json, write_jsonl
 
@@ -53,15 +55,56 @@ _RELATION = re.compile(
     r"shall\s+have\s+the\s+(?:same\s+)?(?:meaning|definition)(?:\s+(?:set\s+forth|provided|given|found|prescribed))?(?:\s+(?:in|under|by|at))?|"
     r"(?:has|have)\s+the\s+(?:same\s+)?(?:meaning|definition)(?:\s+(?:set\s+forth|provided|given|found|prescribed))?(?:\s+(?:in|under|by|at))?|"
     r"(?:means?|shall\s+mean|includes?|shall\s+include|does\s+not\s+include|shall\s+not\s+include|"
-    r"expressly\s+excludes?|excludes?|refers?\s+to|shall\s+refer\s+to|is|are|shall\s+be|"
+    r"expressly\s+excludes?|excludes?|refers?\s+to|shall\s+refer\s+to|"
+    r"(?:is|are|shall\s+be)\s+(?:a|an|any|the|defined|deemed)\b|"
     r"(?:meaning|definition)\s+(?:given|assigned|ascribed|provided|prescribed|found)(?:\s+(?:in|under|to))?)"
     r")\b",
     re.IGNORECASE,
 )
 _CLAUSE_BOUNDARY = re.compile(r"[;\n]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.?!])(?:\s|$)")
+_NUMBERED_COLON_ENTRY = re.compile(r'\(\s*\d+[A-Za-z]?\s*\)\s*["“]([^"”]{1,200})["”]')
 _MAX_GROUP = 600
 _COLON_INTRO_WINDOW = 160
+_COORDINATION = frozenset({"and", "or"})
+_STRUCTURAL_MARKER = re.compile(
+    r"(?:\(\s*(?:\d+|[a-z]+)\s*\)|\[\s*(?:\d+|[a-z]+)\s*\]|\d+)", re.IGNORECASE
+)
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def has_substantive_definition_text(definition_text: str) -> bool:
+    """Normalize a local payload without vocabulary or corpus exceptions."""
+    residual = _STRUCTURAL_MARKER.sub(" ", definition_text)
+    return any(word.casefold() not in _COORDINATION for word in _WORD.findall(residual))
+
+
+def candidate_has_substantive_local_payload(text: str, candidate) -> bool:
+    """Classify each quoted entry at its bounded local source boundary.
+
+    The first semicolon or newline after the matching quote ends the payload;
+    no candidate is body-sliced or rewritten.  A missing source quote fails
+    open to the existing candidate text, preserving uncertain baseline data.
+    """
+    payloads: list[str] = []
+    for term in candidate.terms:
+        normalized_term = term.strip().rstrip(".,;:")
+        if not normalized_term:
+            return has_substantive_definition_text(candidate.definition_text)
+        quotes = list(
+            re.finditer(
+                r'["“]\s*' + re.escape(normalized_term) + r'[.,;:]*\s*["”]',
+                text,
+                re.IGNORECASE,
+            )
+        )
+        if not quotes:
+            return has_substantive_definition_text(candidate.definition_text)
+        for quote in quotes:
+            tail = text[quote.end() : quote.end() + _MAX_GROUP]
+            boundary = tail.find(";")
+            payloads.append(tail[:boundary] if boundary >= 0 else tail)
+    return any(has_substantive_definition_text(payload) for payload in payloads)
 
 
 def _group_end(body: str, start: int) -> int:
@@ -116,20 +159,48 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
             re.search(r"(?:As\s+used|For\s+(?:the\s+)?purposes?\s+of|In\s+this)[^;\n]{0,160}:\s*(?:\([^)]{1,12}\)\s*)?$", intro, re.I)
         )
         groups.append(ClauseGroup(term_spans=terms, relationship_span=(relation.start(), end), colon_list=colon_list))
+    # A numbered B1 colon-list entry is structurally self-contained.  Its
+    # payload is deliberately relation-neutral: default preservation must not
+    # require a future drafter to use a known defining verb.
+    from app.definition_links.rules.us_body_preamble_b1 import (
+        _B1_LOOKAHEAD,
+        _B1_TRIGGER_RE,
+        _b1_colon_list_branch,
+    )
+
+    for trigger in _B1_TRIGGER_RE.finditer(body):
+        after = body[trigger.end() : trigger.end() + _B1_LOOKAHEAD]
+        if not _b1_colon_list_branch(after):
+            continue
+        colon = after.find(":")
+        if colon < 0:
+            continue
+        list_start = trigger.end() + colon + 1
+        for entry in _NUMBERED_COLON_ENTRY.finditer(body, list_start, min(len(body), list_start + _MAX_GROUP)):
+            end = _group_end(body, entry.end())
+            payload = body[entry.end() : end]
+            if not has_substantive_definition_text(payload):
+                continue
+            groups.append(
+                ClauseGroup(
+                    term_spans=((entry.group(1).strip(), entry.start(1), entry.end(1)),),
+                    relationship_span=(entry.end(), end),
+                )
+            )
     # A duplicate can arise from a nested regex alternative; preserve source
     # order but make union deterministic.
     seen: set[tuple[tuple[tuple[str, int, int], ...], tuple[int, int], bool]] = set()
     return tuple(g for g in groups if not ((key := (g.term_spans, g.relationship_span, g.colon_list)) in seen or seen.add(key)))
 
 
-def _b1_clause_group_match(body: str) -> BodyPreambleMatch | None:
-    """B1 recognition requires both its existing intro and one valid group."""
-    from app.definition_links.rules.us_body_preamble_b1 import _B1_TRIGGER_RE
+def _b1_default_preserve_match(body: str) -> BodyPreambleMatch | None:
+    """Keep original B1 recognition eligible; groups can only add dispatch."""
+    from app.definition_links.rules.us_body_preamble_b1 import _B1_TRIGGER_RE, _b1_trigger_colon_or_quote_means
 
-    if not _B1_TRIGGER_RE.search(body):
-        return None
     groups = discover_clause_groups(body)
-    return BodyPreambleMatch("Definitions", groups) if groups else None
+    if _b1_trigger_colon_or_quote_means(body) is None and not (_B1_TRIGGER_RE.search(body) and groups):
+        return None
+    return BodyPreambleMatch("Definitions", groups)
 
 
 def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
@@ -151,7 +222,7 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
 
 
 @contextlib.contextmanager
-def clause_group_runtime_patch():
+def default_preserve_runtime_patch():
     """Patch and restore the four proposed layers deterministically."""
     from app.definition_links import pipeline
     from app.definition_links.rules import registry
@@ -163,7 +234,6 @@ def clause_group_runtime_patch():
     original_derive = USProfile.derive_heading_from_body
     original_extract = USProfile.extract_definitions_from_section
     original_extract_local = USProfile.extract_local_scope_definitions
-    original_pipeline_get_profile = pipeline.get_profile
     # The production resolver may materialize equivalent profile instances;
     # body text is the immutable carrier key that survives all four layers.
     matches: dict[str, BodyPreambleMatch] = {}
@@ -171,7 +241,7 @@ def clause_group_runtime_patch():
     def rules_for(code: str):
         rules = original_rules_for(code)
         return [
-            BodyPreambleRule(rule.jurisdiction_codes, _b1_clause_group_match)
+            BodyPreambleRule(rule.jurisdiction_codes, _b1_default_preserve_match)
             if rule.derive_heading is _b1_trigger_colon_or_quote_means
             else rule
             for rule in rules
@@ -186,6 +256,16 @@ def clause_group_runtime_patch():
             if value is None:
                 continue
             if isinstance(value, BodyPreambleMatch):
+                scope = self.determine_scope(body)
+                baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
+                preserved = [
+                    candidate
+                    for candidate in baseline_candidates
+                    if candidate_has_substantive_local_payload(body, candidate)
+                ]
+                additions = _group_candidates(body, value.clause_groups, scope)
+                if not preserved and not additions:
+                    return None
                 matches[body] = value
                 return value.heading
             return value
@@ -195,47 +275,38 @@ def clause_group_runtime_patch():
         match = matches.get(text)
         if match is None or not heading_was_derived:
             return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
-        # Drop every quoted whole-body candidate (the false operative/citation
-        # population) and replace it with bounded group evidence.  Unquoted
-        # candidates remain delegated unchanged.
-        baseline = original_extract(self, text, scope=scope, heading_was_derived=False)
-        quoted_terms = {quote.group(1).strip() for quote in _QUOTE.finditer(text)}
-        baseline = [
+        baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
+        preserved = [
             candidate
             for candidate in baseline
-            if all(term not in quoted_terms for term in candidate.terms)
+            if candidate_has_substantive_local_payload(text, candidate)
         ]
-        return baseline + _group_candidates(text, match.clause_groups, scope)
+        present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
+        additions = [
+            candidate
+            for candidate in _group_candidates(text, match.clause_groups, scope)
+            if tuple(sorted(candidate.terms)) not in present_terms
+        ]
+        return preserved + additions
 
     def extract_local(self, article_body: str, *, article_number: str, chapter=None):
-        # Pipeline normally asks for local candidates first.  Preserve its
-        # exact candidate text/order for valid groups (including the current
-        # source-faithful ``means`` text), while suppressing only quoted terms
-        # that are not group evidence.  Missing aliases are added later by the
-        # section side and deduped by the real pipeline identity.
         match = matches.get(article_body)
         original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter)
         if match is None:
             return original
-        accepted_terms = {term for group in match.clause_groups for term, _, _ in group.term_spans}
-        quoted_terms = {quote.group(1).strip() for quote in _QUOTE.finditer(article_body)}
         return [
             candidate
             for candidate in original
-            if all(term not in quoted_terms or term in accepted_terms for term in candidate.terms)
+            if candidate_has_substantive_local_payload(article_body, candidate)
         ]
 
     registry.body_preamble_rules_for = rules_for
     USProfile.derive_heading_from_body = derive
     USProfile.extract_definitions_from_section = extract
     USProfile.extract_local_scope_definitions = extract_local
-    # ``_profile_for_document`` is a closure inside the real pipeline.  Its
-    # imported resolver is therefore the pipeline layer's patch point.
-    pipeline.get_profile = lambda code: original_pipeline_get_profile(code)
     try:
         yield
     finally:
-        pipeline.get_profile = original_pipeline_get_profile
         USProfile.extract_definitions_from_section = original_extract
         USProfile.extract_local_scope_definitions = original_extract_local
         USProfile.derive_heading_from_body = original_derive
@@ -263,10 +334,17 @@ def _current_b1_winner(code: str, heading: str, body: str) -> bool:
     return False
 
 
+def _prototype_b1_member(code: str, heading: str, body: str) -> bool:
+    """Current B1 rows plus genuinely additive group-dispatch rows."""
+    from app.definition_links.us_profile import derive_heading_from_body
+
+    return derive_heading_from_body(heading, body) is None and _b1_default_preserve_match(body) is not None
+
+
 def _file(path_text: str):
     path = Path(path_text)
     code = jurisdiction_for(path)
-    before, after, members, selected = [], [], [], []
+    before, after, current_members, evaluated_members, selected = [], [], [], [], []
     # Current production is the baseline.  ``capture_row(after=True)`` is
     # intentional here: it exercises today's registered B1 pipeline, before
     # the runtime patch exists, rather than the pre-B1 legacy baseline.
@@ -278,12 +356,20 @@ def _file(path_text: str):
         for row_index, row in enumerate(batch.to_pylist()):
             source_row = batch_index * 4096 + row_index
             body, heading = row["text"] or "", row["section_title"] or ""
-            if not _current_b1_winner(code, heading, body):
+            current_b1 = _current_b1_winner(code, heading, body)
+            if not current_b1 and not _prototype_b1_member(code, heading, body):
                 continue
             selected.append((source_row, row))
-            members.append({"source_file": path.name, "source_row": source_row, "source_row_id": str(row["act_id"] or f"{path.name}:{source_row}")})
+            member = {
+                "source_file": path.name,
+                "source_row": source_row,
+                "source_row_id": str(row["act_id"] or f"{path.name}:{source_row}"),
+            }
+            evaluated_members.append(member)
+            if current_b1:
+                current_members.append(member)
             before.extend(x.record() for x in capture_row(jurisdiction=code, source_file=path.name, source_row=source_row, row=row, after=True))
-    with clause_group_runtime_patch():
+    with default_preserve_runtime_patch():
         for source_row, row in selected:
             after.extend(x.record() for x in capture_row(jurisdiction=code, source_file=path.name, source_row=source_row, row=row, after=True))
     baseline = {tuple_key(x): x for x in before}
@@ -292,13 +378,24 @@ def _file(path_text: str):
     for change, left, right in (("removed", baseline, proposed), ("added", proposed, baseline)):
         for key in left.keys() - right.keys():
             row = left[key]
-            classification = "source_held_hi" if row["jurisdiction"] == "US-HI" else "source_held_fed" if row["jurisdiction"] == "US-FED" else "needs_source_adjudication"
-            changes.append({"change": change, "classification": classification, **row})
-    return changes, members
+            changes.append(
+                {
+                    "change": change,
+                    "term_local_substantive": has_substantive_definition_text(row["definition_text"]),
+                    "classification": "needs_source_adjudication",
+                    **row,
+                }
+            )
+    return changes, current_members, evaluated_members
 
 
 def _run_self_check() -> int:
-    """Run direct and real persistence controls under the runtime prototype."""
+    """Run direct and persistence controls under the prototype.
+
+    Canonical invocation: ``PYTHONPATH=. backend/.venv/bin/python
+    docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/
+    measure_mr110_candidate_stream.py --self-check``.
+    """
     import pytest
 
     tests = [
@@ -307,8 +404,8 @@ def _run_self_check() -> int:
         "backend/tests/unit/test_us_body_preamble_b1_structural_future_law_red.py",
         "backend/tests/integration/test_us_body_preamble_b1_structural_future_law_persistence_red.py",
     ]
-    with clause_group_runtime_patch():
-        return pytest.main(["-q", *tests])
+    with default_preserve_runtime_patch():
+        return pytest.main(["-q", *[str(ROOT / test) for test in tests]])
 
 
 def main() -> int:
@@ -325,21 +422,31 @@ def main() -> int:
         parser.error("--snapshot and --out are required unless --self-check")
     files, rows, _ = validate_corpus(args.snapshot)
     chosen = files[args.shard :: args.shards]
-    with ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("fork")) as pool:
-        parts = list(pool.map(_file, map(str, chosen)))
-    changed = [row for part, _ in parts for row in part]
-    members = [row for _, part in parts for row in part]
+    # Deliberately foreground and sequential: each shard is independently
+    # reviewable, and macOS fork workers can hide import failures from the
+    # evidence command's documented stdout/stderr contract.
+    parts = [_file(str(path)) for path in chosen]
+    changed = [row for part, _, _ in parts for row in part]
+    current_members = [row for _, part, _ in parts for row in part]
+    evaluated_members = [row for _, _, part in parts for row in part]
     changed.sort(key=lambda row: (tuple_key(row), row["change"]))
-    members.sort(key=lambda row: (row["source_file"], row["source_row"]))
+    current_members.sort(key=lambda row: (row["source_file"], row["source_row"]))
+    evaluated_members.sort(key=lambda row: (row["source_file"], row["source_row"]))
     args.out.mkdir(parents=True, exist_ok=True)
     result = {
-        "schema": "lexgraph.mr111.clause-group.v1",
+        "schema": "lexgraph.mr113.default-preserve-additive-groups.v1",
         "snapshot_id": SNAPSHOT_ID,
         "files": len(files),
         "rows": rows,
         "shard": [args.shard, args.shards],
-        "b1_winner_row_count": len(members),
-        "b1_winner_membership_sha256": write_jsonl(args.out / "b1_winner_rows.jsonl", members),
+        "current_b1_winner_row_count": len(current_members),
+        "current_b1_winner_membership_sha256": write_jsonl(
+            args.out / "current_b1_winner_rows.jsonl", current_members
+        ),
+        "evaluated_b1_row_count": len(evaluated_members),
+        "evaluated_b1_membership_sha256": write_jsonl(
+            args.out / "evaluated_b1_rows.jsonl", evaluated_members
+        ),
         "changed_key_count": len(changed),
         "classification_totals": dict(sorted(Counter(row["classification"] for row in changed).items())),
         "ledger_sha256": write_jsonl(args.out / "changed.jsonl", changed),
