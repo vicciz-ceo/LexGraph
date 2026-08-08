@@ -40,7 +40,7 @@ CASES = (
         "name": "colon_list_legal_unit_remains_genuine",
         "jurisdiction": "US-GA",
         "section_title": "14-99-314 Novel relay requirement",
-        "text": 'For purposes of this chapter: (1) "sunset relay" means a licensed communication device.',
+        "text": 'For purposes of this Act: (1) "sunset relay" means a licensed communication device.',
         "heading": "Definitions",
         "false_terms": (),
         "term": "sunset relay",
