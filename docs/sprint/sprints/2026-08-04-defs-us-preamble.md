@@ -6,9 +6,9 @@ current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
-locked_at: "2026-08-08T20:00:59Z"
+locked_at: "2026-08-08T20:13:37Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T20:00:59Z"
+last_updated: "2026-08-08T20:13:37Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 322 2026-08-08T20:01:56Z"
+lint: "PASS 335 2026-08-08T20:14:18Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -112,31 +112,44 @@ persisted tuple altitude and classify every changed key; preserve prior G7 and
 all ledgers; define the exact minimal Developer write set. Planner may not edit
 production.
 
-### M-R105 — cross-repo source boundary accepted
+### M-R105 — corrected external-source boundary
 
-The director authorized the upstream repair. `Vaquill-AI/open-us-law` draft
-PR #4 is QA-approved at `4a627571c3263a510b73528f696182ec40454c90`, but no
-corrected versioned Hugging Face snapshot exists yet. The dataset target is
-`https://huggingface.co/datasets/vaquill/open-us-law`; a draft PR is not a
-published corpus revision.
+The director clarified that `Vaquill-AI/open-us-law` is external. Upstream PR
+#4 was retracted and is closed. Work may continue only on the authorized
+`vicciz-ceo/open-us-law` fork; no upstream PR or Hugging Face publication is
+authorized without a new explicit instruction. Fork QA at `4a627571…` remains
+technical evidence, not an external release.
 
-Source ownership is now binding: HI 16 and FED 2 are upstream identity/source-
-segmentation defects and remain held; AR 1, ID 2, and TX 12 are downstream
-LexGraph occurrence-local B1 extraction defects. Planner may plan and RED-test
-only the downstream family now. It must preserve genuine later same-row
-definitions and may not quarantine or discard upstream-invalid rows. Final
-all-53/D-PFP certification remains blocked until a corrected, versioned
-upstream manifest is published and pinned.
+The verified technical split remains HI 16/FED 2 source defects versus AR 1,
+ID 2, and TX 12 LexGraph extraction defects. Planner may plan the downstream
+family now but may not quarantine source-invalid rows. Final all-53/D-PFP
+certification remains held until a corrected, versioned manifest is available.
+
+### M-R106 — occurrence metadata seam authorized
+
+Root accepts the Planner escalation: B1 currently returns only a heading, so
+the live pipeline forgets where the qualifying definition passage starts and
+extracts from the whole row. A narrow cross-layer metadata contract is
+authorized across `registry.py`, `us_body_preamble_b1.py`, `us_profile.py`,
+and `pipeline.py`. It may carry the qualifying occurrence/start into extraction
+only for the registered B1 path; existing baseline and non-B1 rules must remain
+backward-compatible.
+
+Planner must RED-prove direct and persisted behavior, including AR/ID/TX false
+text before the occurrence and TX's genuine later definition, then classify
+every all-53 persisted delta before Developer. Scope/provenance must remain
+source-faithful; no production file outside the four-file boundary is allowed
+without a new escalation.
 
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
    Root accepted source and RED provenance at `42cdf298`: exactly two current
-   failures, direct profile and live persistence. Under M-R105, plan only the
-   AR/ID/TX occurrence-local repair with source-faithful two-sided REDs, all-53
-   persisted-output measurement and changed-key classification, prior-gate
-   preservation, and a minimal Developer write set. HI/FED remain held pending
-   a corrected pinned source snapshot. Production is read-only during planning.
+   failures, direct profile and live persistence. Under M-R105/M-R106, plan the
+   AR/ID/TX occurrence-local metadata repair with source-faithful two-sided
+   REDs, all-53 persisted-output measurement and changed-key classification,
+   and prior-gate preservation. HI/FED remain held pending corrected source.
+   Production is read-only during planning.
 
 ## Dev Complete
 
@@ -313,9 +326,9 @@ No external pins remain and no production signature/class/CSS rename occurred.
 ## Context Dump
 
 1. Items 1–6 remain Dev Complete; Item 7 is replanned before Developer.
-2. Upstream open-us-law PR #4 is QA-approved at `4a62757`, not published.
-3. HI 16/FED 2 are upstream-held; AR 1/ID 2/TX 12 are LexGraph-owned.
-4. Plan occurrence-local B1 repair only; never use blanket suppression.
+2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
+3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
+4. M-R106 authorizes only the four-file occurrence metadata boundary.
 5. Preserve genuine later same-row definitions with two-sided controls.
 6. Measure all 53 at persisted tuple altitude; classify every changed key.
 7. Preserve G7/ledgers; final D-PFP waits for a corrected pinned manifest.

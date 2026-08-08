@@ -5741,3 +5741,27 @@ Planner roster entry (2026-08-08T20:03:22Z): canonical task
 no, because Planner owns merge-blocking safety tests and source-level
 occurrence reasoning. The brief limits this pass to AR/ID/TX and requires a
 formal report only; HI/FED remain upstream-held.
+
+## 2026-08-08 — M-R105 correction and M-R106 escalation ruling
+
+Director correction: `Vaquill-AI/open-us-law` is external. PR #4 was retracted
+and verified closed. The director permits work on a fork; the existing
+`vicciz-ceo/open-us-law` fork may retain the QA-approved technical branch, but
+no new upstream PR or write to the external Hugging Face dataset is authorized.
+The earlier M-R105 wording that described upstream authorization is void.
+
+Planner `/root/preamble_downstream_planner` stopped before all writes and
+escalated that occurrence-local extraction cannot fit the current interface:
+`BodyPreambleRule.derive_heading`, `USProfile.derive_heading_from_body`, and
+the Stage-2 pipeline preserve only a heading/boolean, then extraction receives
+the entire row. Source evidence places AR/ID false text before the qualifying
+occurrence and TX's genuine `debt obligation` definition after it.
+
+Root read the live four hand-offs and accepts the diagnosis. M-R106 authorizes
+only a backward-compatible metadata contract across `registry.py`,
+`us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py`, carrying the B1
+occurrence/start to the extraction call while leaving baseline/non-B1 paths
+unchanged. Planner must decide the test-backed representation, protect scope
+and provenance, prove RED at direct plus persisted altitude, and measure every
+all-53 changed key before any Developer dispatch. Same Planner resumes at
+Terra/high; Haiku remains ineligible for merge-blocking architecture tests.
