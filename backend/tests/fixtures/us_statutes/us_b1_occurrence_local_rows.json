@@ -1,0 +1,31 @@
+{
+  "STATE_AR_T23_C81_S8_S23-81-810": {
+    "jurisdiction": "US-AR",
+    "act_id": "STATE_AR_T23_C81_S8_S23-81-810",
+    "section_number": "23-81-810",
+    "chapter": "81",
+    "section_title": "Disclosure to insurer",
+    "false_terms": ["My loan arrangement for this policy provides funds sufficient to pay for some or all of the premiums, costs, and expenses associated with obtaining and maintaining my life insurance policy, but I have not entered into any agreement by which I am to receive consideration in exchange for procuring this policy."],
+    "text": "(c) If the financing does not violate § 23-81-813 in this manner, the insurance carrier:\n(B) \"My loan arrangement for this policy provides funds sufficient to pay for some or all of the premiums, costs, and expenses associated with obtaining and maintaining my life insurance policy, but I have not entered into any agreement by which I am to receive consideration in exchange for procuring this policy.\"; and"
+  },
+  "STATE_ID_T48_C18_S48-1805": {
+    "jurisdiction": "US-ID",
+    "act_id": "STATE_ID_T48_C18_S48-1805",
+    "section_number": "48-1805",
+    "chapter": "18",
+    "section_title": "48-1805 CONTENTS OF DISCLOSURE STATEMENT FOR ANY SOLAR AGREEMENT.",
+    "false_terms": ["THIS IS AN ESTIMATE. UTILITY RATES MAY GO UP OR DOWN AND ACTUAL SAVINGS, IF ANY, MAY VARY. HISTORICAL DATA IS NOT NECESSARILY REPRESENTATIVE OF FUTURE RESULTS. FOR FURTHER INFORMATION REGARDING RATES, CONTACT YOUR LOCAL UTILITY OR THE IDAHO PUBLIC UTILITIES COMMISSION.", "TAX AND OTHER FEDERAL, STATE, AND LOCAL INCENTIVES VARY AS TO REFUNDABILITY AND ARE SUBJECT TO CHANGE OR TERMINATION BY LEGISLATIVE OR REGULATORY ACTION, WHICH MAY IMPACT SAVINGS ESTIMATES. CONSULT A TAX PROFESSIONAL FOR MORE INFORMATION."],
+    "text": "(i) \"THIS IS AN ESTIMATE. UTILITY RATES MAY GO UP OR DOWN AND ACTUAL SAVINGS, IF ANY, MAY VARY. HISTORICAL DATA IS NOT NECESSARILY REPRESENTATIVE OF FUTURE RESULTS. FOR FURTHER INFORMATION REGARDING RATES, CONTACT YOUR LOCAL UTILITY OR THE IDAHO PUBLIC UTILITIES COMMISSION.\"; and\n(ii) \"TAX AND OTHER FEDERAL, STATE, AND LOCAL INCENTIVES VARY AS TO REFUNDABILITY AND ARE SUBJECT TO CHANGE OR TERMINATION BY LEGISLATIVE OR REGULATORY ACTION, WHICH MAY IMPACT SAVINGS ESTIMATES. CONSULT A TAX PROFESSIONAL FOR MORE INFORMATION.\";\n(12) A statement: \"NO EMPLOYEE OR REPRESENTATIVE OF [name of solar retailer] IS AUTHORIZED TO MAKE ANY PROMISE TO YOU THAT IS NOT CONTAINED IN THIS DISCLOSURE STATEMENT CONCERNING COST SAVINGS, TAX BENEFITS, OR GOVERNMENT OR UTILITY INCENTIVES. YOU SHOULD NOT RELY UPON ANY PROMISE OR ESTIMATE THAT IS NOT INCLUDED IN THIS DISCLOSURE STATEMENT.\";\n(13) A statement with substantially the following form and content:"
+  },
+  "STATE_TX_Clg_C111_S111.068": {
+    "jurisdiction": "US-TX",
+    "act_id": "STATE_TX_Clg_C111_S111.068",
+    "section_number": "111.068",
+    "chapter": "111",
+    "section_title": "§ 111.068. ADOPTION OF BUDGET.",
+    "false_terms": ["This budget will raise more revenue from property taxes than last year's budget by an amount.", "This budget will raise less revenue from property taxes than last year's budget by an amount.", "This budget will raise the same amount of revenue from property taxes as last year's budget."],
+    "genuine_term": "debt obligation",
+    "genuine_definition_text": "means an issued public security as defined by Section 1201.002, Government Code, secured by property taxes.",
+    "text": "(A) \"This budget will raise more revenue from property taxes than last year's budget by an amount.\";\n(B) \"This budget will raise less revenue from property taxes than last year's budget by an amount.\"; or\n(C) \"This budget will raise the same amount of revenue from property taxes as last year's budget.\";\n(4) the total amount of county debt obligations.\n(d) In this section, \"debt obligation\" means an issued public security as defined by Section 1201.002, Government Code, secured by property taxes."
+  }
+}

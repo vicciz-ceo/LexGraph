@@ -148,8 +148,8 @@ without a new escalation.
    `us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py`; baseline and
    non-B1 rules remain heading-only compatible. AR/ID operative quotes before
    their B1 occurrence must not persist; TX's later `debt obligation` must
-   persist with exact text/scope. RED: `backend/tests/unit/test_us_body_preamble_b1_occurrence_local_red.py`
-   and `backend/tests/integration/test_us_body_preamble_b1_occurrence_local_red.py`
+   persist with exact text/scope. RED: `backend/tests/unit/test_us_body_preamble_b1_occurrence_local_profile_red.py`
+   and `backend/tests/integration/test_us_body_preamble_b1_occurrence_local_persistence_red.py`
    via `../LexGraph/backend/.venv/bin/python -m pytest <both> -q` (six REDs).
    Before Developer: runtime-monkeypatch the proposal across all 53 files at
    persisted tuple altitude; classify every delta, separately report HI/FED
