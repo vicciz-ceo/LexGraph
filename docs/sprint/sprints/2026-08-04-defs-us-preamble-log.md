@@ -6028,6 +6028,34 @@ whose grammar refers to the listed terms), never row identity. Planner must add
 novel direct plus live-persistence coverage for this semicolon/list-marker form,
 rerun Indiana, and require zero genuine removals before continuing all 53.
 
+### M-R115 — all-53 broad-addition rejection and scope narrowing
+
+The M-R114 runtime prototype completed all 53 files / 2,038,247 rows but changed
+61,053 persisted keys. Fail-closed adjudication caught an invalid addition at
+`STATE_GA_T40_C1_S40-1-8`: mismatched curly/apostrophe quote punctuation caused
+the parser to fabricate the term `Present regulations ' means ... (3)`.
+One invalid addition is sufficient to reject the entire broad additive parser;
+the full ledger hash is `669cba29…` and remains blocked evidence, not a basis
+for implementation.
+
+Manager narrows Item 7 to the source-proven repair. Preserve every substantive
+current B1 candidate; suppress only a quote entry whose bounded local payload is
+non-substantive. The sole additive branch may repair a fully matched, bounded
+quoted/list-marker sequence when a trailing relationship explicitly refers
+back to the plural list (`those terms` or a source-adjudicated grammatical
+equivalent). It filters a malformed listed tuple and re-adds that missing term
+with the shared relationship, while leaving substantive same-term candidates
+unchanged. It must reject mixed/unmatched quote delimiters.
+
+The broad alias/copular/descriptive expansion and its exploratory controls move
+to held follow-on work; they are not allowed to force 61,053 changes into this
+false-capture repair. The director's future-enacted-law gate remains binding:
+novel direct and real-persistence controls must prove punctuation-only prose is
+removed, a substantive unknown-relation colon-list definition is retained, and
+an unseen plural-anaphora shared list is repaired without known identities.
+Planner must disable all other group additions and rerun all 53 from current
+production baseline with zero genuine loss, false addition, or ambiguity.
+
 ### M-R114 — Planner source adjudication clears Indiana continuation gate
 
 The runtime-only prototype adds a structural numbered-list form: two or more

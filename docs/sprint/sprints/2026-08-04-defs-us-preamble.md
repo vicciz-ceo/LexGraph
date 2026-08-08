@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T22:53:37Z"
+last_updated: "2026-08-08T23:27:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T22:54:11Z"
+lint: "PASS 400 2026-08-08T23:27:28Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R114 — shared trailing relations govern bounded quoted-term lists
+### M-R115 — broad additive grouping rejected; narrow plural list only
 
-A bounded quoted-term list may share a relation after its last entry. Filter
-non-substantive baseline tuples, preserve every substantive same-term tuple,
-then add the shared relation only for missing listed terms. The relation must
-structurally govern the list; no row identity, body slice, or non-B1 change. All-53 zero-loss remains required.
+The broad additive parser changes 61,053 keys and fabricates a GA term from
+mismatched quotes; it is rejected. Keep default preservation and only repair a
+matched, bounded list whose trailing relation explicitly governs plural listed
+terms. Broader discovery controls are held; unseen-law live REDs and all-53 zero-loss remain required.
 
 ## Next Steps
 
@@ -212,9 +212,9 @@ structurally govern the list; no row identity, body slice, or non-B1 change. All
    of slicing the whole body at TX's qualifying quote. The next candidate is a
    B1-only default-preserve gate: use a bounded term-local source payload to
    reject punctuation/coordination-only pseudo-entries despite later overrun;
-   retain each substantive baseline tuple unchanged, then add missing terms
-   from bounded lists whose shared trailing relation governs those terms.
-   Suppress dispatch only when the union is empty; non-B1 remains unchanged.
+   retain each substantive baseline tuple unchanged, then repair only matched
+   bounded lists with explicit plural anaphora (`those terms` or equivalent).
+   No generic additions; suppress only for an empty union; leave non-B1 unchanged.
 
 ## Dev Complete
 
