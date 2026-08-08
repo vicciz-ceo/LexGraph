@@ -24,7 +24,8 @@ def _qualified(text, candidates):
         r"(?:has|have|shall\s+have)\s+(?:the\s+same\s+)?meaning|is|are|shall\s+be|"
         r"(?:same\s+)?definition\s+set\s+forth|set\s+forth\s+in|"
         r"(?:meaning|definition)\s+given(?:\s+(?:in|under|to))?|given(?:\s+(?:in|under|to))?|"
-        r"(?:assigned|ascribed|provided)\s+(?:in|to))\b", re.I)
+        r"(?:assigned|ascribed|provided|found|prescribed)\s+(?:in|to|under)|"
+        r"meaning\s+(?:insurance|defined|found|given)|(?:describes|require(?:s)?))\b", re.I)
     accepted = []
     for candidate in candidates:
         term = candidate.terms[0]
