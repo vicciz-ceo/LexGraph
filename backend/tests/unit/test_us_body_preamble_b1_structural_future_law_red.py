@@ -50,6 +50,22 @@ CASES = (
         "term": "sunset relay",
         "definition_text": "a licensed communication device.",
     },
+    {
+        "name": "clause_group_alias_forwarding_and_exclusion",
+        "jurisdiction": "US-TX",
+        "section_title": "§ 402.118. NOVEL GROUPS.",
+        "text": 'In this section, "quartz relay" or "relay certificate" shall have the same meaning as in Section 402.117; '
+        '"harbor notice" expressly excludes a filing receipt; "plain conduit" means a described conduit.',
+        "heading": "Definitions",
+        "false_terms": (),
+        "term": "plain conduit",
+        "definition_text": "means a described conduit.",
+        "additional_terms": {
+            "quartz relay": "or \"relay certificate\" shall have the same meaning as in Section 402.117;",
+            "relay certificate": "shall have the same meaning as in Section 402.117;",
+            "harbor notice": "expressly excludes a filing receipt;",
+        },
+    },
 )
 
 
