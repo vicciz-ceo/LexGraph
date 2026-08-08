@@ -5917,3 +5917,24 @@ novel direct and real-persistence controls for aliases, reference definitions,
 and exclusions before remeasurement. This is preservation of existing genuine
 definitions and the director's future-law gate, not an allowlist or a waiver of
 zero-loss all-53 evidence.
+
+### M-R111 clause-group escalation ruling
+
+Successive shard-0 refinements reduced removals from 504 to 22 but proved that
+lexical widening is insufficient. Genuine counterexamples include IN `works`,
+whose definition relation is ellipted across multiple term entries; NJ `turf`,
+a bare descriptive definition; VT `Deliberations`, an exclusion/list
+definition with a lowercase continuation; and VT `Electric vehicle supply
+equipment`, whose same-meaning relation follows a later alias. The residual
+false families remain ordinary prohibitions/duties, construction clauses, bare
+quoted citations, punctuation fragments, and notices.
+
+Manager rejects all per-first-quote and single-candidate predicates. Planner is
+authorized to prototype bounded B1-only clause groups: recognize related term
+and alias spans together with their shared definition/reference/exclusion or
+colon-list relationship, union every independently valid group in the body,
+and pass only that evidence through the M-R106 metadata seam. This is not a body
+slice and must not alter non-B1 extraction. Novel direct and live-persistence
+tests must include ellipsis, aliases, forwarding/reference, descriptive and
+negative/list definitions, plus intervening operative quotations. Full all-53
+zero-genuine-loss measurement remains mandatory before Developer.

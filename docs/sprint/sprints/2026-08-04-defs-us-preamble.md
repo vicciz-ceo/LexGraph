@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T22:04:03Z"
+last_updated: "2026-08-08T22:10:04Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T22:04:25Z"
+lint: "PASS 400 2026-08-08T22:10:24Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R111 — four-verb predicate rejected; alias grammar authorized
+### M-R111 — single-candidate predicates rejected; clause groups authorized
 
-The first 1/8 shard removes genuine multi-alias and forwarding definitions, so
-the per-first-quote/four-verb predicate is rejected. Planner may model a bounded
-candidate grammar that groups quoted aliases and recognizes source-supported
-definition, reference, and exclusion relations while preserving colon lists.
+The first 1/8 shard removes genuine multi-alias, ellipted, forwarding, copular,
+and exclusion definitions, so per-candidate predicates are rejected. Planner
+may model bounded B1-only clause groups that union independently valid groups,
+preserve source-supported definition/reference/exclusion and colon-list forms.
 Novel-law REDs and a fresh complete zero-loss all-53 measurement remain required.
 
 ## Next Steps
@@ -211,10 +211,10 @@ Novel-law REDs and a fresh complete zero-loss all-53 measurement remain required
    must distinguish statutory-unit grammar from ordinary prose without removing
    genuine definitions; preserve independently valid earlier candidates instead
    of slicing the whole body at TX's qualifying quote. The next candidate is a
-   B1-only bounded grammar over complete candidate clauses: group aliases and
-   recognize source-backed definition/reference/exclusion relations, not only
-   four immediate verbs. It must reject operative quotations while retaining
-   every independently valid earlier/later definition and colon-list entry.
+   B1-only bounded clause-group model: group aliases/ellipted terms with their
+   source-backed definition/reference/exclusion or colon-list relationship and
+   union independently valid groups. It must reject operative quotations while
+   retaining every genuine earlier/later group; non-B1 extraction is unchanged.
 
 ## Dev Complete
 
