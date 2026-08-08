@@ -5735,3 +5735,9 @@ define only the downstream occurrence-local repair; it must keep the genuine
 later TX definition and must not suppress, quarantine, or silently discard
 source-invalid HI/FED records. Manager replaced the stale 2026-08-07 Planner
 lock after verifying no shared-branch commit followed its timestamp.
+
+Planner roster entry (2026-08-08T20:03:22Z): canonical task
+`/root/preamble_downstream_planner`; `gpt-5.6-terra` / high. Haiku considered:
+no, because Planner owns merge-blocking safety tests and source-level
+occurrence reasoning. The brief limits this pass to AR/ID/TX and requires a
+formal report only; HI/FED remain upstream-held.
