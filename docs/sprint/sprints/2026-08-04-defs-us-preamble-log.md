@@ -5808,3 +5808,9 @@ requires `derive_heading_from_body(...) == "Definitions"` for AR and ID even
 though both fixtures contain only operative/disclosure text. A correct trigger-
 grammar fix may return `None`, so this is a broken-state pin. M-R108 requires
 separate AR/ID no-dispatch expectations and TX valid-dispatch preservation.
+
+Planner roster entry (2026-08-08T21:36:41Z): canonical task
+`/root/preamble_structural_planner`; `gpt-5.6-terra` / high. Haiku considered:
+no, because this Planner owns future-law REDs and corpus-wide structural
+arbitration. Brief requires separate AR/ID and TX proposals, novel unseen-law
+controls, zero unexplained all-53 union deltas, and a formal report only.
