@@ -47,6 +47,7 @@ class ClauseGroup:
 class BodyPreambleMatch:
     heading: str
     clause_groups: tuple[ClauseGroup, ...] = ()
+    baseline_eligible: bool = False
 
 
 _QUOTE = re.compile(r'["“]([^"”]{1,200})["”]')
@@ -198,9 +199,10 @@ def _b1_default_preserve_match(body: str) -> BodyPreambleMatch | None:
     from app.definition_links.rules.us_body_preamble_b1 import _B1_TRIGGER_RE, _b1_trigger_colon_or_quote_means
 
     groups = discover_clause_groups(body)
-    if _b1_trigger_colon_or_quote_means(body) is None and not (_B1_TRIGGER_RE.search(body) and groups):
+    original_b1 = _b1_trigger_colon_or_quote_means(body) is not None
+    if not original_b1 and not (_B1_TRIGGER_RE.search(body) and groups):
         return None
-    return BodyPreambleMatch("Definitions", groups)
+    return BodyPreambleMatch("Definitions", groups, baseline_eligible=original_b1)
 
 
 def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
@@ -219,6 +221,17 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
         for term, _, _ in group.term_spans:
             candidates.append(DefinitionCandidate(terms=(term,), definition_text=definition_text, scope=scope))
     return candidates
+
+
+def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch):
+    """Keep all current-B1 candidates, or only group-owned candidates on an additive dispatch."""
+    group_terms = {term for group in match.clause_groups for term, _, _ in group.term_spans}
+    return [
+        candidate
+        for candidate in candidates
+        if candidate_has_substantive_local_payload(text, candidate)
+        and (match.baseline_eligible or any(term in group_terms for term in candidate.terms))
+    ]
 
 
 @contextlib.contextmanager
@@ -258,11 +271,7 @@ def default_preserve_runtime_patch():
             if isinstance(value, BodyPreambleMatch):
                 scope = self.determine_scope(body)
                 baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
-                preserved = [
-                    candidate
-                    for candidate in baseline_candidates
-                    if candidate_has_substantive_local_payload(body, candidate)
-                ]
+                preserved = _preserved_baseline_candidates(body, baseline_candidates, value)
                 additions = _group_candidates(body, value.clause_groups, scope)
                 if not preserved and not additions:
                     return None
@@ -276,11 +285,7 @@ def default_preserve_runtime_patch():
         if match is None or not heading_was_derived:
             return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
         baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
-        preserved = [
-            candidate
-            for candidate in baseline
-            if candidate_has_substantive_local_payload(text, candidate)
-        ]
+        preserved = _preserved_baseline_candidates(text, baseline, match)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
             candidate
