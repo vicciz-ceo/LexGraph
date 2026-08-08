@@ -6,9 +6,9 @@ current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
-locked_at: "2026-08-08T21:34:32Z"
+locked_at: "2026-08-08T21:35:33Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T21:34:32Z"
+last_updated: "2026-08-08T21:35:33Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 352 2026-08-08T21:35:03Z"
+lint: "PASS 360 2026-08-08T21:35:47Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -157,16 +157,24 @@ wording are absent from the pinned corpus fixtures. Jurisdiction-specific
 drafting grammar is allowed only when structural and source-supported. Before
 Developer, every all-53 delta must be classified; zero unexplained is binding.
 
+### M-R108 — AR/ID broken-dispatch assertion rejected
+
+Root rejects the shared direct RED's unconditional `derive_heading ==
+"Definitions"` assertion for AR/ID: those fixtures contain operative text but
+no genuine definition, so that assertion pins the defect and would block a
+safe structural-trigger correction. Planner must split the expectations: AR/
+ID may correctly produce no derived heading, while TX must retain its valid
+later definition path. No Developer may receive the current test unchanged.
+
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
-   Replan under M-R107 as separate structural proposals: AR/ID false-trigger
-   grammar and TX valid later definition occurrence. Preserve the six direct/
-   persistence REDs and add novel-law metamorphic controls with unseen IDs,
-   terms, and wording; no corpus allowlist. Measure each proposal and their
-   union across all 53 files at persisted tuple altitude with zero unexplained
-   deltas, separately reporting HI/FED source-held keys. Preserve G7/ledgers;
-   define the minimal Developer surface only after safe measurement.
+   Replan under M-R107/M-R108 as separate structural proposals: AR/ID false-
+   trigger grammar and TX valid later definition occurrence. Correct the AR/ID
+   direct broken-dispatch assertion, retain source-faithful persistence REDs,
+   and add novel-law controls with unseen IDs, terms, and wording; no corpus
+   allowlist. Measure each proposal and their all-53 union with zero unexplained
+   deltas, separately report HI/FED, and preserve G7/ledgers.
 
 ## Dev Complete
 
@@ -346,7 +354,7 @@ No external pins remain and no production signature/class/CSS rename occurred.
 2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
 3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
 4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.
-5. Split AR/ID trigger grammar from TX later-definition extraction.
-6. Future-law tests must use unseen IDs, terms, and wording; no allowlists.
+5. Fix the AR/ID broken-heading test; TX must retain valid dispatch.
+6. Future-law tests use unseen IDs, terms, and wording; no allowlists.
 7. All-53 union requires zero unexplained deltas; preserve G7/ledgers.
 8. Production is read-only during planning; final D-PFP remains source-held.

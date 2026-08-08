@@ -5802,3 +5802,9 @@ measure their union. Director's new binding requirement is future enacted-law
 coverage: no row/term/text/date allowlists; add novel identifiers, novel terms,
 and changed statutory wording through both the direct and real persistence
 paths. Every all-53 delta must be classified before Developer dispatch.
+
+Root also rejects one Planner assertion before reuse: the direct profile RED
+requires `derive_heading_from_body(...) == "Definitions"` for AR and ID even
+though both fixtures contain only operative/disclosure text. A correct trigger-
+grammar fix may return `None`, so this is a broken-state pin. M-R108 requires
+separate AR/ID no-dispatch expectations and TX valid-dispatch preservation.
