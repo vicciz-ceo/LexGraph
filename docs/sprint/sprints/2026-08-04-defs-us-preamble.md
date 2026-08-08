@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T22:27:26Z"
+last_updated: "2026-08-08T22:35:42Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T22:28:15Z"
+lint: "PASS 400 2026-08-08T22:36:31Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,13 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R112 — positive grammars rejected; default-preserve gate commissioned
+### M-R113 — term-local default preservation and additive union clarified
 
-The clause-group allow-grammar passes focused tests but removes genuine AK
-`proceeds`; it is rejected. Known false entries have only punctuation/
-coordination after the quoted text, while genuine candidates remain substantive.
-Planner must measure a B1-only default-preserve substantive-text gate with no
-relation allowlist/non-B1 change; novel-law REDs and all-53 zero-loss remain required.
+Classify substance from each quote's bounded local source payload, not an
+overrun candidate's later text. Keep every substantive baseline candidate and
+its exact text; groups may add missing terms but never supersede a same-term
+baseline. Keep dispatch for a nonempty union; no relation allowlist/non-B1 change; all-53 zero-loss remains required.
 
 ## Next Steps
 
@@ -211,10 +210,11 @@ relation allowlist/non-B1 change; novel-law REDs and all-53 zero-loss remain req
    must distinguish statutory-unit grammar from ordinary prose without removing
    genuine definitions; preserve independently valid earlier candidates instead
    of slicing the whole body at TX's qualifying quote. The next candidate is a
-   B1-only default-preserve gate: retain every emitted candidate unless its
-   definition text normalizes to no substantive content after structural
-   delimiters/coordinators; suppress B1 dispatch only when none remain. No
-   relation lexicon, body slice, or non-B1 extraction change is allowed.
+   B1-only default-preserve gate: use a bounded term-local source payload to
+   reject punctuation/coordination-only pseudo-entries despite later overrun;
+   retain each substantive baseline tuple unchanged, then add only missing
+   group terms. Suppress dispatch only when the union is empty. No relation
+   allowlist, body slice, same-term supersession, or non-B1 change is allowed.
 
 ## Dev Complete
 

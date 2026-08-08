@@ -5982,3 +5982,28 @@ no, because the Planner must prove a cross-layer default-preserve rule and
 source-adjudicate every persisted delta. This is a fresh bounded hypothesis;
 the prior Planner exited and its useful tests/evidence are committed at
 `cf07966`, so replaying its large clause-grammar context would be wasteful.
+
+### M-R113 — manager resolves default-preserve test conflict
+
+Planner found that a TX false quote's current persistence candidate can overrun
+into later substantive text even though the quote's own direct candidate has
+only `;`/`; or`. M-R112 is clarified: determine substance from the quoted
+term's own bounded local source payload, before unrelated later content, but do
+not rewrite a retained candidate's persisted definition text. A punctuation/
+coordination-only local payload is removable; an AK-like substantive payload is
+preserved exactly even if its relationship vocabulary is unknown.
+
+Additive grouping may create missing alias/ellipted terms, but it may not
+replace or reorder an existing same-term baseline candidate. Tests that demand
+a different same-term normalization (`means a ...` versus the established
+`a ...`) must be corrected by Planner to the source-faithful existing route,
+not force production replacement. Original B1 recognition remains eligible;
+after collecting/filtering current candidates plus safe additions, dispatch is
+suppressed only if the union is empty. This permits the unlisted-relation
+colon-list control without putting that relation into a positive allowlist.
+
+Root independently verified the pinned snapshot exists at
+`/Users/nerya/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad`
+including `us_ak_statutes.parquet`; the Planner's unavailable-corpus statement
+was a path-discovery miss, not an external blocker. Canonical focused commands
+must use `PYTHONPATH=.` where the integration module imports `backend.tests`.
