@@ -5975,3 +5975,10 @@ positive clause-group logic is historical evidence to replace, not an accepted
 implementation. New Planner must prototype the default-preserve gate, add an
 unseen-law control whose genuine definition uses wording absent from every
 relation vocabulary, rerun shard 0, then all 53 only after zero genuine loss.
+
+Fresh Planner dispatch (2026-08-08T22:28:31Z): planned canonical task
+`/root/preamble_substantive_planner`; `gpt-5.6-terra` / high. Haiku considered:
+no, because the Planner must prove a cross-layer default-preserve rule and
+source-adjudicate every persisted delta. This is a fresh bounded hypothesis;
+the prior Planner exited and its useful tests/evidence are committed at
+`cf07966`, so replaying its large clause-grammar context would be wasteful.
