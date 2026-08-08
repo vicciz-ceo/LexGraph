@@ -17,8 +17,14 @@ def _qualified(text, candidates):
     """Keep unquoted candidates; quoted aliases need a bounded positive clause."""
     from app.definition_links.us_profile import _QUOTE_TERM_RE
     relationship = re.compile(
-        r"\b(?:means?|shall\s+mean|includes?|shall\s+include|refers?\s+to|shall\s+refer\s+to|"
+        r"\b(?:means?|shall\s+mean|includes|shall\s+include|refers?\s+to|shall\s+refer\s+to|"
         r"(?:has|have|shall\s+have)\s+(?:the\s+same\s+)?meaning|is|are|shall\s+be)\b", re.I)
+    relationship = re.compile(
+        r"\b(?:means?|shall\s+mean|includes?|shall\s+include|refers?\s+to|shall\s+refer\s+to|"
+        r"(?:has|have|shall\s+have)\s+(?:the\s+same\s+)?meaning|is|are|shall\s+be|"
+        r"(?:same\s+)?definition\s+set\s+forth|set\s+forth\s+in|"
+        r"(?:meaning|definition)\s+given(?:\s+(?:in|under|to))?|given(?:\s+(?:in|under|to))?|"
+        r"(?:assigned|ascribed|provided)\s+(?:in|to))\b", re.I)
     accepted = []
     for candidate in candidates:
         term = candidate.terms[0]
