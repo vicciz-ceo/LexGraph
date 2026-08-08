@@ -127,20 +127,23 @@ def main() -> int:
                 if candidate.terms != (row["term"],) or _norm(candidate.definition_text) != _norm(row["definition_text"]):
                     continue
                 start, end = group.relationship_span
-                matches.append((start, end, terms, body[start:end].strip()))
+                matches.append((start, end, terms, body[start:end].strip(), candidate.definition_text))
         if not matches:
             direct = _direct_quote_match(body, row["term"], row["definition_text"])
             if direct is None:
                 raise RuntimeError(f"UNCLASSIFIED {row['source_row_id']} {row['term']!r}")
             start, end, relation = direct
-            matches = [(start, end, (row["term"],), relation)]
+            matches = [(start, end, (row["term"],), relation, row["definition_text"])]
         # Repeated equivalent groups are not ambiguous: each span is emitted
         # and the first source-order span is the canonical governing span.
         matches.sort()
         canonical = matches[0]
-        if any(_norm(item[3]) != _norm(canonical[3]) for item in matches[1:]):
+        # Repeated source editions can differ only in a stripped defining
+        # idiom (``means`` / ``shall mean``).  Candidate-normalized text, not
+        # that harmless spelling variation, determines equivalence.
+        if any(_norm(item[4]) != _norm(canonical[4]) for item in matches[1:]):
             raise RuntimeError(f"AMBIGUOUS {row['source_row_id']} {row['term']!r}")
-        start, end, terms, relation = canonical
+        start, end, terms, relation, _ = canonical
         ledger.append(
             {
                 "change": "added",

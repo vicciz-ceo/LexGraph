@@ -6046,3 +6046,17 @@ definition texts remain byte-identical. The summary has zero genuine losses,
 ambiguities, and unclassified records. Indiana is safe to continue to the
 remaining corpus shards; this remains planning evidence, not a production
 authorization.
+
+### M-R114 — all-53 certification blocks on malformed Georgia quote
+
+The runtime-only all-53 measurement completed on the pinned 53-file,
+2,038,247-row snapshot with **61,053 changed keys** (ledger
+`669cba29d29e39220b384cbaa1700a597ba44bd8dc6025976bda37150ba98e79`).
+Source adjudication first normalized a harmless repeated-source `shall mean` /
+`means` spelling difference, then failed closed on an actual malformed-source
+addition: `STATE_GA_T40_C1_S40-1-8` emits the invalid term `Present
+regulations ' means ... (3)` from `(3) “ Present regulations ' means ...`.
+This is an unclassified candidate, not an acceptable corpus delta. The full
+ledger, summary, error trace, and exact source report are retained under
+`mr114/all-v1`; no production mutation is authorized and all-53 certification
+remains blocked pending a fresh structural remedy.
