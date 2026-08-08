@@ -5938,3 +5938,11 @@ slice and must not alter non-B1 extraction. Novel direct and live-persistence
 tests must include ellipsis, aliases, forwarding/reference, descriptive and
 negative/list definitions, plus intervening operative quotations. Full all-53
 zero-genuine-loss measurement remains mandatory before Developer.
+
+Fresh Planner dispatch (2026-08-08T22:11:53Z): planned canonical task
+`/root/preamble_clause_group_planner`; `gpt-5.6-terra` / high. Haiku considered:
+no, because the runtime prototype must mirror a cross-layer clause-group seam
+and source-adjudicate merge-blocking corpus deltas. A fresh Planner is cheaper
+than replaying the prior agent again: its findings, rejected prototypes, REDs,
+and exact boundary are committed; it explicitly could not implement the group
+simulator. The fresh brief starts at `c6e38dc`, production read-only.
