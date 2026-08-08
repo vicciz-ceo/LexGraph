@@ -6056,6 +6056,21 @@ an unseen plural-anaphora shared list is repaired without known identities.
 Planner must disable all other group additions and rerun all 53 from current
 production baseline with zero genuine loss, false addition, or ambiguity.
 
+### M-R115 — Planner re-scopes binding RED estate
+
+The binding future-law file now retains ordinary-prose negatives, the
+earlier-genuine/intervening-operative/later-genuine control, structural
+numbered-colon preservation including unknown `denotes`, and the matched
+plural-anaphora forwarding plus duty-list negative at direct and persistence
+altitudes. The exploratory `clause_group_alias_forwarding_and_exclusion`,
+`multi_aliases_share_a_later_reference_relation`,
+`ellipted_terms_share_one_later_relation`,
+`bare_descriptive_copular_clause_is_a_definition`, and
+`negative_colon_list_clause_is_a_definition` cases are held follow-on
+findings. They are removed rather than xfailed and no longer impose a generic
+group-discovery Developer obligation; the stale-pin sweep finds none outside
+historical evidence.
+
 ### M-R114 — Planner source adjudication clears Indiana continuation gate
 
 The runtime-only prototype adds a structural numbered-list form: two or more

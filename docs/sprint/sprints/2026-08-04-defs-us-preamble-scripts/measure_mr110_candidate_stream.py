@@ -1,11 +1,12 @@
-"""Runtime-only M-R113 default-preserve + additive-groups B1 prototype.
+"""Runtime-only M-R115 default-preserve + plural-list B1 prototype.
 
 This deliberately patches the proposed additive seam, never production:
 registry returns a ``BodyPreambleMatch``-shaped value for B1, B1 discovers
-bounded clause groups, ``USProfile`` carries the match into extraction, and
-the pipeline's profile resolver sees that patched profile.  A bounded
-term-local payload classifies malformed B1 candidates; substantive baseline
-candidates retain their exact current text and groups add only missing terms.
+one bounded plural-anaphora list, ``USProfile`` carries the match into
+extraction, and the pipeline's profile resolver sees that patched profile. A
+bounded term-local payload classifies malformed B1 candidates; substantive
+baseline candidates retain their exact current text and the list adds only a
+missing term.
 """
 from __future__ import annotations
 
@@ -31,11 +32,12 @@ from qa_g7_common import SNAPSHOT_ID, capture_row, jurisdiction_for, tuple_key, 
 
 @dataclass(frozen=True)
 class ClauseGroup:
-    """One bounded relationship plus every quoted alias it governs.
+    """One matched numbered list plus its explicit shared relationship.
 
     The production equivalent belongs in ``registry.py`` as additive evidence
     on a B1-only ``BodyPreambleMatch``.  Spans are body offsets; no group is a
-    body boundary and all independently valid groups are unioned.
+    body boundary.  This runtime prototype deliberately carries no generic
+    clause/alias/citation discovery.
     """
 
     term_spans: tuple[tuple[str, int, int], ...]
@@ -48,32 +50,23 @@ class ClauseGroup:
 class BodyPreambleMatch:
     heading: str
     clause_groups: tuple[ClauseGroup, ...] = ()
+    baseline_entries: tuple[ClauseGroup, ...] = ()
     baseline_eligible: bool = False
 
 
-_QUOTE = re.compile(r'["“]([^"”]{1,200})["”]')
-_RELATION = re.compile(
-    r"\b(?:"
-    r"shall\s+have\s+the\s+(?:same\s+)?(?:meaning|definition)(?:\s+(?:set\s+forth|provided|given|found|prescribed))?(?:\s+(?:in|under|by|at))?|"
-    r"(?:has|have)\s+the\s+(?:same\s+)?(?:meaning|definition)(?:\s+(?:set\s+forth|provided|given|found|prescribed))?(?:\s+(?:in|under|by|at))?|"
-    r"(?:means?|shall\s+mean|includes?|shall\s+include|does\s+not\s+include|shall\s+not\s+include|"
-    r"expressly\s+excludes?|excludes?|refers?\s+to|shall\s+refer\s+to|"
-    r"(?:is|are|shall\s+be)\s+(?:a|an|any|the|defined|deemed)\b|"
-    r"(?:meaning|definition)\s+(?:given|assigned|ascribed|provided|prescribed|found)(?:\s+(?:in|under|to))?)"
-    r")\b",
-    re.IGNORECASE,
-)
 _CLAUSE_BOUNDARY = re.compile(r"[;\n]")
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.?!])(?:\s|$)")
-_NUMBERED_COLON_ENTRY = re.compile(r'\(\s*\d+[A-Za-z]?\s*\)\s*["“]([^"”]{1,200})["”]')
-# A constrained list shape for a relation that follows, rather than appears
-# next to, its aliases.  Direct adjacency after the final list semicolon plus
-# a forwarding relation makes the relationship structural; a numbered duty
-# list cannot inherit an ordinary operative sentence.
+_MATCHED_NUMBERED_ENTRY = re.compile(
+    r'\(\s*\d+[A-Za-z]?\s*\)\s*(?:"(?P<straight>[^"]{1,200})"|“(?P<curly>[^”]{1,200})”)'
+)
+# The only additive shape: at least two numbered entries, each with a matched
+# quote delimiter, followed immediately by a forwarding relation that names
+# the plural antecedent.  It intentionally excludes generic aliases,
+# descriptive copulas, exclusions, citations, and unmatched source quotes.
 _SHARED_TRAILING_LIST = re.compile(
-    r"(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)\s*[\"“][^\"”]{1,200}[\"”]\s*;\s*(?:(?:and|or)\s*)?){2,})"
+    r"(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)\s*(?:\"[^\"]{1,200}\"|“[^”]{1,200}”)\s*;\s*(?:(?:and|or)\s*)?){2,})"
     r"(?P<relation>(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?(?:meaning|definition)"
-    r"(?:\s+(?:set\s+forth|provided|given|found|prescribed))?\b[^;\n]{0,300})",
+    r"(?:\s+(?:set\s+forth|provided|given|found|prescribed))?\s+(?:for\s+)?those\s+terms\b[^;\n]{0,300})",
     re.IGNORECASE,
 )
 _MAX_GROUP = 600
@@ -142,49 +135,8 @@ def _group_end(body: str, start: int) -> int:
 
 
 def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
-    """Find syntactically self-contained quoted B1 definition groups.
-
-    A relation owns every quote since the closest prior clause boundary.  That
-    makes aliases and ellipses one group, while a quote in an earlier operative
-    sentence cannot be inherited by a later relation.  The parser accepts the
-    existing forwarding/exclusion vocabulary plus descriptive copulas; it does
-    not use jurisdiction, title, term, or corpus identity.
-    """
+    """Find only an explicit matched quoted/list-marker plural relationship."""
     groups: list[ClauseGroup] = []
-    for relation in _RELATION.finditer(body):
-        before = body[max(0, relation.start() - _MAX_GROUP): relation.start()]
-        boundary = max(before.rfind(";"), before.rfind("\n"), before.rfind(":"))
-        clause_start = relation.start() - len(before) + boundary + 1
-        quote_matches = list(_QUOTE.finditer(body, clause_start, relation.start()))
-        if not quote_matches:
-            continue
-        # Reject narrative quotations intermixed with an otherwise unrelated
-        # relation: aliases may be comma/and/or separated, not prose clauses.
-        cursor = quote_matches[0].start()
-        valid = True
-        for quote in quote_matches:
-            bridge = body[cursor:quote.start()]
-            if bridge and not re.fullmatch(r"[\s,]*(?:(?:and|or)\s*)?", bridge, re.I):
-                valid = False
-                break
-            cursor = quote.end()
-        if not valid:
-            continue
-        bridge = body[cursor:relation.start()]
-        if not re.fullmatch(r"[\s,]*(?:(?:and|or)\s*)?", bridge, re.I):
-            continue
-        terms = tuple((m.group(1).strip(), m.start(), m.end()) for m in quote_matches if m.group(1).strip())
-        if not terms:
-            continue
-        end = _group_end(body, relation.start())
-        intro = body[max(0, quote_matches[0].start() - _COLON_INTRO_WINDOW): quote_matches[0].start()]
-        colon_list = bool(
-            re.search(r"(?:As\s+used|For\s+(?:the\s+)?purposes?\s+of|In\s+this)[^;\n]{0,160}:\s*(?:\([^)]{1,12}\)\s*)?$", intro, re.I)
-        )
-        groups.append(ClauseGroup(term_spans=terms, relationship_span=(relation.start(), end), colon_list=colon_list))
-    # A numbered B1 colon-list entry is structurally self-contained.  Its
-    # payload is deliberately relation-neutral: default preservation must not
-    # require a future drafter to use a known defining verb.
     from app.definition_links.rules.us_body_preamble_b1 import (
         _B1_LOOKAHEAD,
         _B1_TRIGGER_RE,
@@ -201,29 +153,20 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
         list_start = trigger.end() + colon + 1
         list_end = min(len(body), list_start + _MAX_GROUP)
         for shared in _SHARED_TRAILING_LIST.finditer(body, list_start, list_end):
-            entries = tuple(
-                (entry.group(1).strip(), entry.start(1), entry.end(1))
-                for entry in _NUMBERED_COLON_ENTRY.finditer(body, shared.start("entries"), shared.end("entries"))
-                if entry.group(1).strip()
-            )
+            entries = []
+            for entry in _MATCHED_NUMBERED_ENTRY.finditer(body, shared.start("entries"), shared.end("entries")):
+                name = entry.group("straight") or entry.group("curly")
+                start = entry.start("straight") if entry.group("straight") is not None else entry.start("curly")
+                end = entry.end("straight") if entry.group("straight") is not None else entry.end("curly")
+                if name.strip():
+                    entries.append((name.strip(), start, end))
             if len(entries) < 2:
                 continue
             groups.append(
                 ClauseGroup(
-                    term_spans=entries,
+                    term_spans=tuple(entries),
                     relationship_span=(shared.start("relation"), _group_end(body, shared.start("relation"))),
                     shared_trailing_relation=True,
-                )
-            )
-        for entry in _NUMBERED_COLON_ENTRY.finditer(body, list_start, list_end):
-            end = _group_end(body, entry.end())
-            payload = body[entry.end() : end]
-            if not has_substantive_definition_text(payload):
-                continue
-            groups.append(
-                ClauseGroup(
-                    term_spans=((entry.group(1).strip(), entry.start(1), entry.end(1)),),
-                    relationship_span=(entry.end(), end),
                 )
             )
     # A duplicate can arise from a nested regex alternative; preserve source
@@ -236,15 +179,50 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
     )
 
 
+def discover_numbered_colon_entries(body: str) -> tuple[ClauseGroup, ...]:
+    """Capture substantive matched B1 list entries without relation vocabulary."""
+    from app.definition_links.rules.us_body_preamble_b1 import _B1_LOOKAHEAD, _B1_TRIGGER_RE, _b1_colon_list_branch
+
+    entries: list[ClauseGroup] = []
+    for trigger in _B1_TRIGGER_RE.finditer(body):
+        after = body[trigger.end() : trigger.end() + _B1_LOOKAHEAD]
+        if not _b1_colon_list_branch(after):
+            continue
+        colon = after.find(":")
+        if colon < 0:
+            continue
+        list_start = trigger.end() + colon + 1
+        list_end = min(len(body), list_start + _MAX_GROUP)
+        for entry in _MATCHED_NUMBERED_ENTRY.finditer(body, list_start, list_end):
+            term = entry.group("straight") or entry.group("curly")
+            term_end = entry.end("straight") if entry.group("straight") is not None else entry.end("curly")
+            quote_end = entry.end()
+            payload_end = _group_end(body, quote_end)
+            if term.strip() and has_substantive_definition_text(body[quote_end:payload_end]):
+                entries.append(
+                    ClauseGroup(
+                        term_spans=((term.strip(), entry.start("straight") if entry.group("straight") is not None else entry.start("curly"), term_end),),
+                        relationship_span=(quote_end, payload_end),
+                    )
+                )
+    return tuple(entries)
+
+
 def _b1_default_preserve_match(body: str) -> BodyPreambleMatch | None:
-    """Keep original B1 recognition eligible; groups can only add dispatch."""
-    from app.definition_links.rules.us_body_preamble_b1 import _B1_TRIGGER_RE, _b1_trigger_colon_or_quote_means
+    """Keep existing B1 and structural numbered-colon dispatch eligible."""
+    from app.definition_links.rules.us_body_preamble_b1 import (
+        _B1_TRIGGER_RE,
+        _b1_trigger_colon_or_quote_means,
+    )
 
     groups = discover_clause_groups(body)
+    baseline_entries = discover_numbered_colon_entries(body)
     original_b1 = _b1_trigger_colon_or_quote_means(body) is not None
-    if not original_b1 and not (_B1_TRIGGER_RE.search(body) and groups):
+    if not original_b1 and not baseline_entries and not groups:
         return None
-    return BodyPreambleMatch("Definitions", groups, baseline_eligible=original_b1)
+    return BodyPreambleMatch(
+        "Definitions", groups, baseline_entries=baseline_entries, baseline_eligible=original_b1 or bool(baseline_entries)
+    )
 
 
 def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
@@ -265,14 +243,20 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
     return candidates
 
 
-def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch):
+def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch, scope: str):
     """Keep the complete stream only when the original B1 rule dispatched."""
     if not match.baseline_eligible:
         return []
-    return [
+    preserved = [
         candidate
         for candidate in candidates
         if candidate_has_substantive_local_payload(text, candidate, match.clause_groups)
+    ]
+    present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
+    return preserved + [
+        candidate
+        for candidate in _group_candidates(text, match.baseline_entries, scope)
+        if tuple(sorted(candidate.terms)) not in present_terms
     ]
 
 
@@ -313,7 +297,7 @@ def default_preserve_runtime_patch():
             if isinstance(value, BodyPreambleMatch):
                 scope = self.determine_scope(body)
                 baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
-                preserved = _preserved_baseline_candidates(body, baseline_candidates, value)
+                preserved = _preserved_baseline_candidates(body, baseline_candidates, value, scope)
                 additions = _group_candidates(body, value.clause_groups, scope)
                 if not preserved and not additions:
                     return None
@@ -327,7 +311,7 @@ def default_preserve_runtime_patch():
         if match is None or not heading_was_derived:
             return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
         baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
-        preserved = _preserved_baseline_candidates(text, baseline, match)
+        preserved = _preserved_baseline_candidates(text, baseline, match, scope)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
             candidate
