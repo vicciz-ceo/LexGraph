@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T21:46:17Z"
+last_updated: "2026-08-08T21:57:19Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 376 2026-08-08T21:46:43Z"
+lint: "PASS 388 2026-08-08T21:57:42Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -177,6 +177,17 @@ Planner must build persisted-delta ledgers, adjudicate every key, and either
 produce a zero-unexplained Developer contract or escalate with the smallest
 remaining unsafe family and evidence.
 
+### M-R110 — first structural prototypes rejected; candidate refinement required
+
+A's labels are mechanical, not source adjudication: it changes 2,260 persisted
+keys, including 2,240 non-held keys and apparent genuine definitions. B is
+incomplete and its quote-start slice also removes apparent genuine definitions.
+Neither prototype or their union is authorized for Developer. Planner must
+classify distinct trigger/candidate families against source, refine at candidate
+altitude rather than truncate a whole body, then rerun complete A/B/union
+measurement with zero unexplained keys. M-R107's unseen-future-law direct and
+live-persistence gate remains binding; no corpus-identity exception is allowed.
+
 ## Next Steps
 
 7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
@@ -186,11 +197,12 @@ remaining unsafe family and evidence.
    and add novel-law controls with unseen IDs, terms, and wording; no corpus
    allowlist. Measure each proposal and their all-53 union with zero unexplained
    deltas, separately report HI/FED, and preserve G7/ledgers. The proposed
-   metadata contract is a backward-compatible `BodyPreambleMatch` result:
+   metadata contract may use a backward-compatible `BodyPreambleMatch` result:
    legacy/non-B1 rules continue returning a heading string, while B1 may carry
-   an extraction start only for its legal-unit quote-and-defining-verb branch.
-   `In this` must accept statutory structural-unit grammar, not prose nouns;
-   TX's start is the qualifying quote, not a generic B1 trigger slice.
+   occurrence/candidate metadata only for its structural B1 branch. `In this`
+   must distinguish statutory-unit grammar from ordinary prose without removing
+   genuine definitions; preserve independently valid earlier candidates instead
+   of slicing the whole body at TX's qualifying quote.
 
 ## Dev Complete
 

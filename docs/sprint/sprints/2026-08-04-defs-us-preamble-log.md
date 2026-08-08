@@ -5852,3 +5852,28 @@ only `In this` using a source-supported semantic class of statutory units; B
 uses quote-local extraction only for a legal-unit quote-plus-defining-verb
 occurrence; union applies both. Each key must be adjudicated, HI/FED separated,
 and no Developer is authorized until the union has zero unexplained deltas.
+
+## 2026-08-09 — M-R110 rejects first A/B prototypes and resumes Planner
+
+Planner evidence at `8959b4d` leaves production unchanged. A completed all
+four shards across 53 files / 2,038,247 rows and changed 2,260 persisted keys:
+2,240 mechanically labeled non-held removals, 8 HI-held, and 12 FED-held. Those
+labels encode which runtime proposal fired, not source adjudication; inspected
+examples include apparent genuine definitions, so A cannot advance. B evidence
+is partial and likewise contains apparent genuine-definition removals because
+body truncation discards independent candidates before a later qualifying
+quote. Completed post-exit B shard evidence is preserved as manager-authorized
+dead-agent WIP; it is diagnostic, not acceptance evidence.
+
+M-R110 requires occurrence/candidate-level structural refinement: group and
+source-adjudicate each distinct syntax family, keep independently genuine
+definitions, reject operative quotations that lack a defining relationship,
+and only then rerun complete A/B/union persisted measurements. The binding
+future-enacted-law controls remain direct plus real persistence with unseen
+identifiers, terms, and wording; no term, row, jurisdiction, date, title,
+section, hash, or exact-text allowlist may satisfy the gate.
+
+Planner resume roster entry (2026-08-08T21:57:19Z): canonical task
+`/root/preamble_structural_planner`; `gpt-5.6-terra` / high. Haiku considered:
+no, because this is the same mid-measurement context and requires source-level
+arbitration plus merge-blocking RED design, not bounded discovery.
