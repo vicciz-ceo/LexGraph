@@ -174,7 +174,12 @@ later definition path. No Developer may receive the current test unchanged.
    direct broken-dispatch assertion, retain source-faithful persistence REDs,
    and add novel-law controls with unseen IDs, terms, and wording; no corpus
    allowlist. Measure each proposal and their all-53 union with zero unexplained
-   deltas, separately report HI/FED, and preserve G7/ledgers.
+   deltas, separately report HI/FED, and preserve G7/ledgers. The proposed
+   metadata contract is a backward-compatible `BodyPreambleMatch` result:
+   legacy/non-B1 rules continue returning a heading string, while B1 may carry
+   an extraction start only for its legal-unit quote-and-defining-verb branch.
+   `In this` must accept statutory structural-unit grammar, not prose nouns;
+   TX's start is the qualifying quote, not a generic B1 trigger slice.
 
 ## Dev Complete
 

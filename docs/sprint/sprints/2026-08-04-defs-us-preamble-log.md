@@ -5814,3 +5814,26 @@ Planner roster entry (2026-08-08T21:36:41Z): canonical task
 no, because this Planner owns future-law REDs and corpus-wide structural
 arbitration. Brief requires separate AR/ID and TX proposals, novel unseen-law
 controls, zero unexplained all-53 union deltas, and a formal report only.
+
+## 2026-08-09 — M-R108 RED repair and structural census
+
+The source-faithful direct RED no longer asserts a broken `Definitions`
+dispatch for AR/ID. It now requires no derived heading for the AR `in this
+manner` and ID `IN THIS DISCLOSURE STATEMENT` prose paths. TX remains a
+separate positive: its later `In this section, "debt obligation" means` clause
+must persist with its exact text and law-wide scope while the earlier budget
+quotations do not. The same split is covered through real ingest/persistence.
+
+New future-law direct and persistence controls use absent identifiers, terms,
+definition prose, and earlier quotations. They include two negative ordinary
+prose forms, a positive later legal-unit quote-and-verb form, and a positive
+legal-unit colon-list form. The fixture sweep for all novel strings is zero.
+
+The full pinned 53-file raw B1-continuation census found 259,876 qualifying
+current trigger occurrences and 574 first-token continuations. Structural
+continuations are led by `section` (99,165), `chapter` (38,387), `subsection`
+(18,159), `article` (11,691), `act` (8,294), `part` (7,802), and `subchapter`
+(6,738); current acceptance also includes ordinary prose, including `manner`
+(49) and `disclosure` (11). This confirms the defect is grammar, not source-row
+identity. The census alone is not an all-53 persisted-delta adjudication; Item
+7 stays `planning/planner` pending separate A/B/union ledgers.

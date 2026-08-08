@@ -15,10 +15,19 @@ ROWS = json.loads(
 )
 
 
-@pytest.mark.parametrize("row_id", tuple(ROWS))
-def test_b1_extracts_from_its_qualifying_occurrence_not_the_start_of_the_row(row_id):
-    """Source-faithful AR/ID/TX text before B1 must never become a term."""
+@pytest.mark.parametrize(
+    "row_id", ("STATE_AR_T23_C81_S8_S23-81-810", "STATE_ID_T48_C18_S48-1805")
+)
+def test_b1_rejects_non_structural_in_this_prose(row_id):
+    """A colon after ordinary prose is not a definitions preamble."""
     row = ROWS[row_id]
+    profile = get_profile(row["jurisdiction"])
+    assert profile.derive_heading_from_body(row["section_title"], row["text"]) is None
+
+
+def test_b1_keeps_tx_later_quote_and_defining_verb_occurrence_local():
+    """Only TX's later legal-unit quote-and-verb clause is a definition."""
+    row = ROWS["STATE_TX_Clg_C111_S111.068"]
     profile = get_profile(row["jurisdiction"])
     assert profile.derive_heading_from_body(row["section_title"], row["text"]) == "Definitions"
     candidates = profile.extract_definitions_from_section(
