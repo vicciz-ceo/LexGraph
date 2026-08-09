@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
+import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -41,9 +43,55 @@ def test_g7_canonical_harness_entrypoints_are_committed():
 def test_g7_harness_uses_live_production_seam_not_approximate_measure():
     """The acceptance path must never delegate to the non-gating helper."""
     d1 = _load("qa_d1_measure.py")
-    assert d1.INTEGRATION_SHA == "4fa9e7b368801757039091646e06a832620a3a2c"
+    common = _load("qa_g7_common.py")
+    # Pin the INVARIANT, not a literal SHA. The old literal made every
+    # legitimate re-pin fail this test, which is how it came to assert a SHA
+    # (4fa9e7b) that predated two production changes while
+    # ``validate_integration`` fail-closed on every real certification run.
+    assert d1.INTEGRATION_SHA == common.INTEGRATION_SHA
+    assert re.fullmatch(r"[0-9a-f]{40}", common.INTEGRATION_SHA)
     assert "measure_fp_after_widening" not in (SCRIPTS / "qa_d1_measure.py").read_text()
     assert callable(d1.measure)
+
+
+def test_g7_integration_pin_is_ancestral_and_production_is_frozen_after_it():
+    """A stale pin disables certification silently; make that loud in the evaluator.
+
+    ``validate_integration`` already fail-closes at run time, but only for
+    whoever runs certification. The preamble sprint spent a QA cycle's worth of
+    surprise on a pin that predated two production changes, so the ordinary
+    evaluator asserts it too.
+    """
+    common = _load("qa_g7_common.py")
+    subprocess.run(
+        ["git", "-C", str(ROOT), "merge-base", "--is-ancestor", common.INTEGRATION_SHA, "HEAD"],
+        check=True, capture_output=True,
+    )
+    changed = subprocess.run(
+        ["git", "-C", str(ROOT), "diff", "--name-only",
+         f"{common.INTEGRATION_SHA}..HEAD", "--", "backend/app"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    assert changed == "", (
+        f"production changed after pinned integration {common.INTEGRATION_SHA}: {changed}. "
+        "Every G7/D-PFP-400 run now fail-closes instead of measuring this tree. "
+        "Either re-pin INTEGRATION_SHA and regenerate the certification evidence, "
+        "or retire this sprint-scoped contract if the preamble sprint has closed."
+    )
+
+
+def test_g7_committed_evidence_was_generated_against_the_current_pin():
+    """Evidence produced under a superseded pin is void, not merely old."""
+    common = _load("qa_g7_common.py")
+    evidence = SCRIPTS / "g7-certification-evidence" / "qd1_summary.json"
+    if not evidence.is_file():
+        pytest.skip("no committed G7 evidence to check")
+    recorded = json.loads(evidence.read_text()).get("integration_sha")
+    assert recorded == common.INTEGRATION_SHA, (
+        f"committed G7 evidence was generated against {recorded} but the harness "
+        f"now pins {common.INTEGRATION_SHA}; the sample rank is seeded by the "
+        "integration SHA, so the population, sample and hashes must be regenerated."
+    )
 
 
 def test_g7_harness_declares_fail_closed_snapshot_contract():
