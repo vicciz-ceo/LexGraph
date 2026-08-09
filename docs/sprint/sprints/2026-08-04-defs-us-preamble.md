@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: review
-blocked_on: null
+blocked_on: "item 7 D-PFP-400 blocks on shared-extraction defects (M-R125)"
 current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "claude:program-manager"
-last_updated: "2026-08-09T20:30:39Z"
+last_updated: "2026-08-09T21:31:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 7
+dev_complete_items: 6
 qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 359 2026-08-09T20:32:38Z"
+lint: "PASS 396 2026-08-09T21:30:42Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -85,24 +85,16 @@ the `vicciz-ceo` fork is authorized, no upstream PR or Hugging Face publication
 must stay backward-compatible for non-B1 rules (M-R106); no blanket HI,
 large-row, quote, or `; and` suppression (M-R104).
 
-### M-R121 — bounded certificate superseded by full-prototype evidence
+### M-R121 / M-R122 — projected 556 superseded by the first executed run
 
-M-R121's 556-key projection was independently byte-reconciled but never run
-over the full normalized population. Its semantics remain binding; its ledger
-is superseded where M-R122's raw-source inventory proves a conflict.
-
-### M-R122 — provisional full normalized runtime-prototype correction
-
-The reproducible persisted-record runner now applies the prototype over all
-193,830 B1 winners (`851e85…6af5a`) against archived `5753e11` (592,694
-records, `f065d8ee…b3f8`). All 207 c2-versus-M-R121 mismatches are classified:
-188 certified removals contradict explicit raw-source relations (185 post-
-quote, 3 pre-quote aliases); the remaining 14 missing and 5 extra removals are
-one generic quote-direction defect. The corrected certificate is **368 = 364
-removals + 4 additions**, SHA-256 `49a9d3f7…0933d`, with zero unexplained.
-Production remains frozen at `c2a8717`; no identity exceptions are authorized.
-The sole additional prototype/c2 mismatch is duplicate group discovery under
-overlapping triggers; it has zero corpus impact but is pinned for future laws.
+M-R121's 556-key projection was byte-reconciled but never run ("No all-53 run
+was made"). The first full normalized prototype run over all 193,830 B1 winners
+exposed 207 mismatches and classified every one: 188 certified removals
+contradict explicit raw-source relations (185 post-quote, 3 pre-quote aliases);
+the other 14 missing and 5 extra share one quote-direction defect. M-R122's
+corrected 368-key certificate stood until M-R124's executed 345. Binding
+semantics survive: no identity/jurisdiction exceptions, and duplicate group
+discovery under overlapping triggers is pinned for future laws.
 
 ### M-R123 — M-R122 accepted, ported, and executed; the certificate is CLOSED
 
@@ -126,8 +118,13 @@ baseline (`f065d8ee…96b3f8`): **368 changed = 364 removed + 4 added**,
 actual hash == certified hash == `49a9d3f7…00933d`, missing 0, extra 0. The
 ported production output is byte-identical to the Planner prototype.
 
-**No further re-adjudication of the 207 keys or the 368-key certificate is
-authorized.** The certificate is executed evidence now, not a projection.
+**No further re-adjudication of the 207 keys is authorized.** The 368-key
+certificate is superseded by M-R124's executed 345-key certificate. It retains
+exactly one legitimate use — PORT FIDELITY, proving production reproduced the
+Planner prototype byte-for-byte — and may never again be cited as a
+correctness gate: it was regenerated from the run it certifies, so
+`certified_sha256 == changed_sha256` by construction and it cannot fail on
+semantics.
 
 **Binding, and the reason this sprint circled: a changed-key certificate is
 valid only when it was EMITTED BY an executed full-population run of the exact
@@ -156,25 +153,71 @@ predates `c2a8717`, so every D-PFP-400 certification run fail-closed on
 `941661b…`. The pin also seeds the D-PFP-400 sample rank, so the previously
 recorded population/sample hashes are void and regenerated.
 
+### M-R124 — deletion-side gate added; digit-enumerator repair; 345 executed
+
+Nobody had ever screened the REMOVAL side against source. Screening all 364
+certified removals found 26 whose quoted term is immediately followed by an
+explicit defining relation, none of them in the 207-key inventory. Cause:
+`_POST_RELATION` accepted `(1)`, `[1]` and `a.` but not `1.`, so the
+AZ/IN/KY/MD/NV/WI `"term": 1. Means …` convention was deleted while the
+identical `(1) means` convention was kept — inside single rows (KY 139.5325
+dropped only "Entertainment event" of five; WI 95.72 only "Dead animal" of six;
+NV 370.054 only "Vapor product"). That contradicted required semantics #4.
+
+One character class fixed it. The re-executed all-53 run gives **345 = 341
+removals + 4 additions**, `db52f060…bb1778`, missing 0, **extra_actual 0** —
+which proves the new delta is a strict SUBSET of the old 368: 23 removals
+recovered, zero new changes. Membership unchanged; records 592,334 → 592,357.
+
+**NEW BINDING GATE, replacing the tautological certificate: zero certified
+removals may carry an adjacent explicit defining relation.** 26 → 3, and 2 of
+the 3 are Indiana plural-repair tuples the 4 additions replace. Named residual,
+deliberately unfixed: `STATE_IN_T5_A28_C28_S5-28-28-3` "loan": (1) **refers
+to** … — that verb is absent from the vocabulary. One token would close it;
+widening again mid-acceptance would invalidate the run that just certified the
+change. 1 record of 592,357, owned by the next cycle.
+
+### M-R125 — D-PFP-400 FAILS, and it cannot be closed by this panel
+
+A pre-QA dry run adjudicated all 400 regenerated tuples against pinned source
+(8 independent auditors, 0 id mismatches): **314 genuine / 83 overrun /
+2 false captures / 1 ambiguous → FAIL** (PASS needs 0 and 0). All three
+blockers were re-verified by the manager in the shipped record set.
+
+Every blocking family is **shared extraction, not B1** — the panel cannot fix
+any of them inside its authorized write set:
+
+- wrong definiendum: `USC_T33_C36_S2319` captured a notes heading plus its
+  Pub. L. credit line as the term (818 records, 0.170%);
+- wrong definiens start: `STATE_IL_C735_A5_S2-1704` "healing art" fired on the
+  NOUN *means* in "by spiritual means", persisting a bare fragment;
+- truncated-definiens undercapture: `STATE_NJ_T30_C1AA_S1AA-2` cut to 49 chars
+  ending on "which" (floor 2,367 records, 0.49%) — a shape the D-PFP-400
+  taxonomy has no bucket for, so it blocks like a false capture until ruled.
+
+Plus a governance defect: `new_fallback_byte_quality_ledger.jsonl` stamps
+`informational_only=true` on 50 rows that are all `qa_boundary_status:
+unreviewed`, and BOTH confirmed false captures sit in it — the producer is
+claiming the director's overrun carve-out instead of QA adjudicating it.
+
+**RULING.** Item 7 is re-scoped: D-PFP-400 gates a component this panel does
+not own, so no number of preamble cycles can close it. The three families
+become named items for shared extraction (core follow-on) with the counts
+above. Under P-R13 the panel's feature work merges on its own gates; item 7
+blocks only itself. Escalated to the director for the undercapture bucket
+ruling and the informational-stamp governance question.
+
 ## Next Steps
 
-_None. All 7 items are Dev Complete; QA cycle 5 owns the sprint verdict._
-
-QA independently reruns the focused trio, the full evaluator, and the single
-all-53 acceptance (production, **not** `--prototype`), then adjudicates the
-regenerated D-PFP-400 sample. QA does NOT re-open the 207-key inventory or the
-368-key certificate: disagreement with a closed, executed certificate is an
-escalation to the program manager with source evidence, never a new ledger.
+7. **[BLOCKED — not this panel's to close]** D-PFP-400 stays open pending the
+   shared-extraction items in M-R125 and a director ruling on the undercapture
+   bucket. QA cycle 5 verifies items 1–6 plus the B1 corrections: focused trio,
+   full evaluator, and the single all-53 acceptance (production, **not**
+   `--prototype`) against `mr124/expected_changed.jsonl`, plus the new
+   deletion-side relation screen. QA does NOT re-open the 207-key inventory or
+   author a replacement ledger; disagreement escalates with source evidence.
 
 ## Dev Complete
-
-7. **D-PFP-400 certification + M-R122 source correction.** Certification
-   entrypoint Q-D1 → Q-D2 → Q-D3 and the D-PFP-400 sampler are permanent and
-   re-pinned to integration `941661b`. The one-file B1 correction is ported and
-   executed: focused 54/54, legacy 13/13, prototype 86/86, module 295 lines,
-   and the single all-53 acceptance at exactly 368 = 364 + 4 with
-   `49a9d3f7…00933d`, missing 0, extra 0. Adjudication of the regenerated
-   400-tuple sample is QA-owned and outstanding.
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -302,14 +345,8 @@ escalation to the program manager with source evidence, never a new ledger.
 - Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. Prior
   cycles recorded this gate as unrunnable because the worktree had no
   `frontend/node_modules`; `npm ci` was run there and it now executes locally.
-- QA cycle 1 completed the focused, backend, frontend, all-53 exact-seam/hash,
-  and broad-mutation gates at `ea0565059072d807a5f8564537917ca59b499a3f`.
-  Binding G7 remains uncertified because its three independent QA measurement
-  scripts were scratchpad-only and are gone; the committed widening measure is
-  documented as approximate/non-gating and cannot substitute for Q-D1.
-- The earlier Planner uncertainty is resolved by binding ruling D-PFP-400;
-  sampling, adjudication, merge-blocking thresholds, confidence reporting, and
-  preserved G7 volume gates are no longer open design choices.
+- QA cycle 1's G7 hold is closed: the certification entrypoint is permanent,
+  committed, re-pinned to HEAD, and re-executed (PASS, all three stages).
 
 ## Stale-pin sweep
 
@@ -349,11 +386,11 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. All 7 items are Dev Complete at `941661b`; QA cycle 5 owns the verdict.
-2. The 368-key certificate is EXECUTED and CLOSED — do not re-adjudicate it.
+1. Items 1-6 + B1 corrections are Dev Complete at `00b5b5c`; item 7 is BLOCKED.
+2. Certificate is `mr124/expected_changed.jsonl`: 345 = 341 + 4, `db52f060…`.
 3. A certificate is valid only if an executed full-population run emitted it.
-4. Membership 193,830 / `851e85…6af5a`; records 592,334 / `9e6e0196…22ca8`.
-5. Only outstanding work is QA's D-PFP-400 sample adjudication.
-6. `INTEGRATION_SHA` is re-pinned to `941661b`; old G7 sample hashes are void.
-7. Pre-quote alias mis-bodied tuples are named held shared-extraction debt.
-8. Escalate a disputed closed certificate; never author a replacement ledger.
+4. Deletion-side gate: zero certified removals may carry an adjacent relation.
+5. D-PFP-400 FAILS on 3 shared-extraction defects this panel cannot fix.
+6. `INTEGRATION_SHA` tracks HEAD; regenerate G7 whenever `backend/app` moves.
+7. Named residuals: IN "loan"/refers-to; 818 wrong-term; 2,367 undercapture.
+8. Escalate a disputed executed certificate; never author a replacement.

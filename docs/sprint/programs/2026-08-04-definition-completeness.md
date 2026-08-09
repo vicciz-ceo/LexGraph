@@ -338,6 +338,34 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   preamble panel held 858 lines of merge-ready recall work behind a 0.06%
   delta audit for four days.
 
+- **P-R14 — a gate may not be owned by a component the panel cannot edit
+  (program manager, 2026-08-09, binding).** The preamble panel's D-PFP-400 gate
+  fails on three defect families that all live in shared extraction
+  (`us_profile.py` term construction and boundary logic) and are marked
+  `fixable_in_b1: false`: wrong definiendum (a statutory-notes heading plus its
+  Pub. L. credit line captured as the term — 818 records, 0.170%), wrong
+  definiens start (extraction firing on the NOUN "means" in "by spiritual
+  means"), and truncated-definiens undercapture (a 49-character stub ending on
+  "which" — floor 2,367 records, 0.49%, a shape the taxonomy has no bucket for).
+  No number of preamble cycles could close a gate whose failures the panel is
+  forbidden to touch. Before a certification item is accepted, its owner must
+  state which component produces the measured population and confirm the panel
+  can edit it; otherwise the gate belongs to that component's panel. Corollary
+  on carve-outs: the producer may not self-apply a director carve-out — the
+  new-fallback byte-quality ledger stamped `informational_only=true` on 50 rows
+  that were all `qa_boundary_status: unreviewed`, and both confirmed false
+  captures were members. Only QA adjudication converts a row to informational.
+- **P-R15 — screen the DELETION side (program manager, 2026-08-09, binding).**
+  Certificates were only ever checked for what they added. Screening the
+  preamble's 364 certified removals against source found 26 whose quoted term
+  is immediately followed by an explicit defining relation — all genuine
+  definitions, none in any adjudication inventory, caused by an enumerator
+  alternation that took `(1)` and `a.` but not `1.`. Every certificate now
+  carries a deletion-side gate: zero certified removals may carry an adjacent
+  explicit defining relation, permitting an intervening colon, newline and
+  enumerator. This is the implementable form of ABSOLUTE ZERO-MISS; before it,
+  the recall bar had no gate at all.
+
 ## Core QA cycle 1 verdict (2026-08-04)
 
 **Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on

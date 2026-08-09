@@ -6400,3 +6400,73 @@ certification attempt — QA cycle 5 would have burned the last cycle on a stale
 pin without measuring anything. Re-pinned to `941661b`. Because the pin also
 seeds the D-PFP-400 sample rank, the recorded population/sample hashes
 (`08ca7a33…` / `880cdec8…`) are void and the certification was regenerated.
+
+## 2026-08-09 — M-R124 deletion-side gate; M-R125 D-PFP-400 FAIL and re-scope
+
+M-R124. The certificate's REMOVAL side had never been screened against source
+in this sprint's entire history. A mechanical screen of all 364 certified
+removals — does the real parquet text carry an explicit defining relation
+adjacent to the quoted term, permitting an intervening colon, newline and
+enumerator — returned 26 suspects, and zero of the 26 appeared in the 207-key
+inventory. All 26 were genuine definitions.
+
+Cause: `_POST_RELATION`'s enumerator alternation admitted `(1)`, `[1]` and
+`a.` but not `1.`. The AZ/IN/KY/MD/NV/WI convention `"term": 1. Means …` was
+therefore deleted while the semantically identical `(1) means` convention was
+preserved, and the split is visible inside single rows — KY 139.5325 kept
+Facility operator / Qualifying attraction / Sponsoring entity / Venue and
+dropped only "Entertainment event"; WI 95.72 kept five siblings and dropped
+only "Dead animal"; NV 370.054 kept "component" and dropped "Vapor product".
+This contradicted the module's own required semantics #4, which bind it to
+preserve colon/enumerated subject-before-means shapes, so the repair is
+in-contract, not scope expansion.
+
+`[A-Za-z]\.` → `[A-Za-z0-9]{1,3}\.`, one character class. Re-executed all-53:
+membership unchanged 193,830 / `851e85dc…6af5a`; records 592,334 → 592,357;
+delta **345 = 341 removals + 4 additions**, `db52f060…bb1778`, missing 0, and
+**extra_actual 0**, which proves the new delta is a strict subset of the old
+368 — 23 removals recovered and zero new changes, verified rather than assumed.
+Certificate re-pointed to `mr124/expected_changed.jsonl`.
+
+The screen is now a binding gate the old certificate never had: zero certified
+removals may carry an adjacent explicit defining relation. It fell 26 → 3, and
+2 of the 3 are the Indiana plural-repair tuples that the 4 additions replace.
+The one real residual is `STATE_IN_T5_A28_C28_S5-28-28-3` "loan": (1) refers
+to …, because "refers to" is not in the defining-verb vocabulary. Left unfixed
+deliberately: one token would close it, but widening the vocabulary again
+mid-acceptance would invalidate the run that had just certified the change, and
+it is 1 record of 592,357. This is the hard stop working as intended.
+
+M-R125. A pre-QA dry run adjudicated all 400 regenerated D-PFP-400 tuples
+against pinned source with eight independent auditors and zero id mismatches:
+**314 genuine / 83 overrun / 2 false captures / 1 ambiguous — FAIL**, since
+PASS requires 0 and 0. The manager re-verified all three blockers directly in
+the shipped record set rather than trusting the reports:
+
+- `USC_T33_C36_S2319` — the captured term is a 130-character statutory-notes
+  heading plus its Pub. L. credit line, and the 4,699-character body is the
+  definiens of a different term ("covered project"). Corpus screen: 818
+  records (0.170%) carry a term containing a newline, a Statutes-at-Large
+  credit or a trailing colon.
+- `STATE_IL_C735_A5_S2-1704` "healing art" — extraction fired on the NOUN
+  "means" inside "by spiritual means through prayer", persisting the bare
+  fragment "through prayer in accord with … (Source: P.A. 84-7.)".
+- `STATE_NJ_T30_C1AA_S1AA-2` "developmental disability" — truncated to the
+  49-character stub "a. A severe, chronic disability of a person which".
+  Undercapture is the mirror of the director's overrun carve-out and has no
+  bucket in the taxonomy, so it blocks like a false capture. Floor 2,367
+  records (0.49%).
+
+Governance defect found in passing: `new_fallback_byte_quality_ledger.jsonl`
+stamps `informational_only=true` on 50 rows that are every one
+`qa_boundary_status: unreviewed`, and BOTH confirmed false captures are
+members. The producer is claiming the director's overrun carve-out for rows QA
+has never adjudicated.
+
+Every blocking family is shared extraction — term construction and boundary
+logic in `us_profile.py` — and `fixable_in_b1` is false for all of them. That
+is the deepest root cause of the whole loop: **D-PFP-400 gates this panel on a
+component the panel is forbidden to edit**, so no number of preamble cycles
+could ever have closed it. Item 7 is re-scoped accordingly; the three families
+become named shared-extraction items, and under P-R13 the panel's feature work
+merges on its own gates.

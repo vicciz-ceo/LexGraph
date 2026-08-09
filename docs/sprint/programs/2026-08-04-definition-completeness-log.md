@@ -908,3 +908,39 @@ verbatim during the merge) — no tampering; recorded closed.
   cycle from the safety valve, so the non-convergence dynamic is program-wide,
   not a preamble quirk. 6,371 lines of production code across those five
   branches are unmerged and untouched since 2026-08-05.
+
+- 2026-08-09 (same session, continued): the deletion side had never been
+  screened, and D-PFP-400 turned out to be unclosable by the panel that owns
+  it. Two further findings, both from executed measurement.
+  P-R15 / M-R124: a mechanical screen of all 364 certified REMOVALS against
+  pinned source found 26 whose quoted term is immediately followed by an
+  explicit defining relation — every one a genuine definition, and none in any
+  adjudication inventory, because every prior audit had looked only at what the
+  change ADDED. Cause was a single missing character class: `_POST_RELATION`
+  admitted `(1)`, `[1]` and `a.` but not `1.`, so the AZ/IN/KY/MD/NV/WI
+  convention `"term": 1. Means …` was deleted while the identical `(1) means`
+  convention was preserved — visibly splitting single rows (KY 139.5325 kept
+  four sibling terms and dropped only "Entertainment event"; WI 95.72 kept five
+  and dropped only "Dead animal"). Repaired; the re-executed all-53 run gives
+  345 = 341 removals + 4 additions, `db52f060…bb1778`, missing 0 and
+  extra_actual 0 — the zero proving the new delta is a strict SUBSET of the old
+  368, i.e. 23 recovered and nothing new. Q-D1 `new_definition_tuples` rose
+  480,011 → 480,034, matching. The screen is now a standing gate.
+  P-R14 / M-R125: a pre-QA dry run adjudicated all 400 regenerated D-PFP-400
+  tuples against source (8 independent auditors, 0 id mismatches) and returned
+  314 genuine / 83 overrun / 2 false captures / 1 ambiguous = FAIL. Every
+  blocking family is shared extraction (`us_profile.py` term construction and
+  boundary logic), `fixable_in_b1: false`: wrong definiendum (a notes heading
+  plus its Pub. L. credit line captured as the term, 818 records / 0.170%),
+  wrong definiens start (firing on the NOUN "means" in "by spiritual means"),
+  and truncated-definiens undercapture (a 49-character stub ending on "which",
+  floor 2,367 / 0.49%, a shape the taxonomy has no bucket for). So the gate
+  measures a component the panel may not edit — no number of preamble cycles
+  could have closed it. Item 7 re-scoped; families routed to shared extraction;
+  feature work merges under P-R13. Governance defect recorded: the
+  new-fallback byte-quality ledger self-stamps `informational_only=true` on 50
+  rows that are all `qa_boundary_status: unreviewed`, and both confirmed false
+  captures are members — the producer claiming the director's carve-out.
+  TWO DIRECTOR QUESTIONS, the only open asks: (1) is truncated-definiens
+  undercapture informational like overrun, or a false capture (~2,367 records)?
+  (2) confirm only QA adjudication may convert a row to informational.

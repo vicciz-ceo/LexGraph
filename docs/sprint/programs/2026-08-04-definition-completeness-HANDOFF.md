@@ -31,62 +31,94 @@ item blocks only itself) in the program doc.
 ## Preamble sprint: state now
 
 - Worktree `/Users/nerya/LexGraph-wt/defs-us-preamble`, branch
-  `claude/defs-us-preamble`. Production tip `941661b`.
-- All 7 items Dev Complete. `status: review`, `current_role: qa`,
-  `qa_cycles: 4`. QA cycle 5 owns the verdict.
-- The one-file M-R122 port is landed: `us_body_preamble_b1.py` only,
-  physical-line-start continuation opener + source-order group dedup,
-  295 lines.
+  `claude/defs-us-preamble`. Production tip `00b5b5c`.
+- Items 1-6 plus the B1 corrections are Dev Complete. **Item 7 (D-PFP-400) is
+  BLOCKED and is not this panel's to close — see below.**
+- Two production corrections landed, each proven by an executed full-corpus
+  run: `941661b` (physical-line-start continuation opener + source-order group
+  dedup) and `00b5b5c` (digit-enumerator recognition). Module 298 lines.
 - Gates reproduced by the program manager: focused direct+persistence
   **54 passed** (was 5F/49P), legacy raw provenance **13 passed**, runtime
-  prototype **86 passed**, backend **1199 passed / 24 failed** (exactly the
-  accepted 23-marker + held-T35 ledger; zero new failures), frontend
-  **165 passed** + `tsc --noEmit` clean.
-- Single all-53 acceptance over 53 files / 2,038,247 rows: members 193,830 /
-  `851e85dc…6af5a`, records 592,334 / `9e6e0196…22ca8`, archived `5753e11`
-  baseline 592,694 / `f065d8ee…96b3f8`, and **368 changed = 364 removed + 4
-  added**, actual hash == certified hash == `49a9d3f7…00933d`, missing 0,
-  extra 0. The ported production output is byte-identical to the prototype.
+  prototype **86 passed**, backend **24F / 1201P** (exactly the accepted
+  23-marker + held-T35 ledger, zero new failures), frontend **165 passed** +
+  `tsc --noEmit` clean.
+- Executed all-53 acceptance: members 193,830 / `851e85dc…6af5a`, records
+  592,357, archived `5753e11` baseline 592,694 / `f065d8ee…96b3f8`, and
+  **345 changed = 341 removed + 4 added**, actual == certified ==
+  `db52f060…bb1778`, missing 0, extra 0. Certificate:
+  `mr118/qa/mr124/expected_changed.jsonl`.
+
+### Item 7 is blocked on a component this panel cannot edit
+
+A pre-QA dry run adjudicated all 400 regenerated D-PFP-400 tuples against
+pinned source (8 independent auditors, 0 id mismatches): **314 genuine /
+83 overrun / 2 false captures / 1 ambiguous — FAIL**. All three blockers were
+re-verified directly in the shipped record set, and every one is a **shared
+extraction** defect (`us_profile.py` term construction and boundary logic),
+marked `fixable_in_b1: false`:
+
+| Family | Example | Corpus size |
+|---|---|---|
+| wrong definiendum (heading + Pub. L. credit line as term) | `USC_T33_C36_S2319` | 818 (0.170%) |
+| wrong definiens start (fired on the noun "means") | `STATE_IL_C735_A5_S2-1704` | — |
+| truncated-definiens undercapture (49-char stub) | `STATE_NJ_T30_C1AA_S1AA-2` | floor 2,367 (0.49%) |
+| right term, wrong body (pre-quote alias) | `STATE_CO_T25_A3.5_P1_S25-3.5-108` | 490 (0.083%) |
+
+This is the deepest root cause of the whole loop: **D-PFP-400 gates the
+preamble panel on a component the panel is forbidden to touch**, so no number
+of preamble cycles could ever close it (program ruling P-R14). The families
+become named shared-extraction items; under P-R13 the panel's feature work
+merges on its own gates.
+
+Two director questions are open and are the only things needing your input:
+1. Truncated-definiens **undercapture** has no bucket in the D-PFP-400
+   taxonomy. It is the mirror of the overrun carve-out. Informational like
+   overrun, or a false capture? It governs ~2,367 records.
+2. `new_fallback_byte_quality_ledger.jsonl` stamps `informational_only=true`
+   on 50 rows that are all `qa_boundary_status: unreviewed`, and both
+   confirmed false captures are members. The producer is claiming your overrun
+   carve-out for rows QA never adjudicated. Confirm that only QA adjudication
+   may convert a row to informational.
 
 ### What QA cycle 5 must and must not do
 
 MUST: rerun the focused trio, the full evaluator, and the single all-53
-acceptance against **production** (no `--prototype`); then adjudicate the
-regenerated D-PFP-400 400-tuple sample against source.
+acceptance against **production** (no `--prototype`) using
+`mr124/expected_changed.jsonl`, plus the deletion-side relation screen.
 
-MUST NOT: re-open the 207-key inventory or the 368-key certificate. It is
-executed evidence, independently re-adjudicated by four auditors (207/207
-excerpt-integrity checks, 205 agreements). Disagreement with a closed
-certificate is an escalation to the program manager with source evidence —
-never a replacement ledger.
+MUST NOT: re-open the 207-key inventory or author a replacement ledger.
+Disagreement with an executed certificate escalates to the program manager
+with source evidence.
 
 ### Traps already cleared (do not rediscover them)
 
-- `qa_g7_common.INTEGRATION_SHA` was pinned at `4fa9e7b…`, predating
-  `c2a8717`, so `validate_integration()` fail-closed on every D-PFP-400 run.
-  Re-pinned to `941661b`. The pin seeds the sample rank, so the old
-  population/sample hashes (`08ca7a33…`, `880cdec8…`) are void.
+- `qa_g7_common.INTEGRATION_SHA` was pinned at `4fa9e7b…`, predating two
+  production changes, so `validate_integration()` fail-closed on every
+  D-PFP-400 run without measuring anything. It now tracks HEAD, and the
+  evaluator asserts the invariant (ancestral, production frozen after it,
+  committed evidence generated under the same pin). **Re-pin and regenerate
+  whenever `backend/app` moves.**
 - The worktree had no `frontend/node_modules`, which is why earlier cycles
   recorded the frontend gate as unrunnable. `npm ci` has been run there.
-- The main venv at `/Users/nerya/LexGraph/backend/.venv` resolves worktree
-  code correctly when invoked with `PYTHONPATH=.:backend` from the worktree
-  root — verified, `app` imports from the worktree. Measurements were not
-  poisoned by this.
+- The main venv at `/Users/nerya/LexGraph/backend/.venv` resolves worktree code
+  correctly with `PYTHONPATH=.:backend` from the worktree root — verified.
+  Measurements were not poisoned by this.
 
-### Named residual — pre-quote alias mis-bodied tuples
+### Named residuals, quantified
 
-A third failure class M-R122's two-bucket taxonomy could not express: right
-term, wrong body. Where the only preserving evidence is a PRE-quote alias, the
-definiens sits before the quote while shared extraction harvests after it.
-Verified in the acceptance record set for all three inventory members: CO
-`25-3.5-108` "state report", NM `73-7-1` "assessment of benefits." and
-"assessments for construction.".
-
-These are **not** in the 368-key certificate — they are unchanged pre-existing
-baseline behavior. Preserving them is correct at B1 altitude: rejecting a
-genuinely coined term because the extractor mis-bodies it is exactly M-R121's
-rule, which deletes 185 real definitions. Owner is shared extraction +
-D-MT-E1, alongside the CO wrong-tuple control and T35.
+- `STATE_IN_T5_A28_C28_S5-28-28-3` "loan": (1) **refers to** … is still
+  removed; that verb is absent from the defining-verb vocabulary. One token
+  closes it; deliberately deferred so it cannot invalidate the executed run.
+- Deletion-side screen stands at 3 of 341 removals, 2 of which are the Indiana
+  plural-repair tuples that the 4 additions replace.
+- The physical-line-start rule is **formatting-bound, not structure-bound**: it
+  depends on the scraper preserving paragraph breaks. Nine jurisdictions
+  (NH/SC/PR/NY/UT/OH/IL/WA/NJ) have effectively no newlines, so suppression is
+  inert there. Zero realized impact on the pinned corpus — the executed run
+  lands exactly on 345 — but "works for future enacted laws" holds only for
+  laws ingested with newlines intact.
+- Boundary overrun runs at 83/400 = 20.8% of sampled tuples. Non-blocking
+  under the director's carve-out, but it is the dominant byte-quality cost.
 
 ## Program state: read each contract from its OWN branch
 
