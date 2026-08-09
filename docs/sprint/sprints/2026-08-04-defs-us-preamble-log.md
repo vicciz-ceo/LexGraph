@@ -6076,6 +6076,22 @@ must delete the generic synthesis code, adjust that fixture, prove focused
 current RED/runtime green, and rerun all 53. Any evaluated-row count above the
 current-winner count is an automatic harness failure before adjudication.
 
+### M-R116 — Planner binds current-winner-only runtime evidence
+
+The runtime prototype now patches only an already current-B1-winning body:
+there is no group-only dispatch, generic numbered-colon synthesis, or expanded
+evaluated population. The all-53 harness compares evaluated membership directly
+with current B1 winners and fails before writing a proposed ledger unless the
+ratified count and hash are exactly 193,827 and
+`362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`.
+
+The future `denotes` control now uses the established newline numbered-entry
+shape and is a current direct/persistence preservation control. Current focused
+status is **14 intended RED / 10 controls**; the runtime patch is **24/24
+green**. The explicit plural-anaphora list remains a true repair RED. A direct
+FED discriminator for `USC_T49_C53_S5307` is current-equal (zero candidates on
+each side) and produces no fabricated amendment term.
+
 ### M-R115 — Planner re-scopes binding RED estate
 
 The binding future-law file now retains ordinary-prose negatives, the

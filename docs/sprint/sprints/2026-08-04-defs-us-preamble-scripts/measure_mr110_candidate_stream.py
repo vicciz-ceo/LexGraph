@@ -27,7 +27,7 @@ ROOT = SCRIPTS.parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(SCRIPTS))
-from qa_g7_common import SNAPSHOT_ID, capture_row, jurisdiction_for, tuple_key, validate_corpus, write_json, write_jsonl
+from qa_g7_common import canonical_bytes, SNAPSHOT_ID, capture_row, jurisdiction_for, tuple_key, validate_corpus, write_json, write_jsonl
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,6 @@ class ClauseGroup:
 class BodyPreambleMatch:
     heading: str
     clause_groups: tuple[ClauseGroup, ...] = ()
-    baseline_entries: tuple[ClauseGroup, ...] = ()
     baseline_eligible: bool = False
 
 
@@ -179,50 +178,14 @@ def discover_clause_groups(body: str) -> tuple[ClauseGroup, ...]:
     )
 
 
-def discover_numbered_colon_entries(body: str) -> tuple[ClauseGroup, ...]:
-    """Capture substantive matched B1 list entries without relation vocabulary."""
-    from app.definition_links.rules.us_body_preamble_b1 import _B1_LOOKAHEAD, _B1_TRIGGER_RE, _b1_colon_list_branch
-
-    entries: list[ClauseGroup] = []
-    for trigger in _B1_TRIGGER_RE.finditer(body):
-        after = body[trigger.end() : trigger.end() + _B1_LOOKAHEAD]
-        if not _b1_colon_list_branch(after):
-            continue
-        colon = after.find(":")
-        if colon < 0:
-            continue
-        list_start = trigger.end() + colon + 1
-        list_end = min(len(body), list_start + _MAX_GROUP)
-        for entry in _MATCHED_NUMBERED_ENTRY.finditer(body, list_start, list_end):
-            term = entry.group("straight") or entry.group("curly")
-            term_end = entry.end("straight") if entry.group("straight") is not None else entry.end("curly")
-            quote_end = entry.end()
-            payload_end = _group_end(body, quote_end)
-            if term.strip() and has_substantive_definition_text(body[quote_end:payload_end]):
-                entries.append(
-                    ClauseGroup(
-                        term_spans=((term.strip(), entry.start("straight") if entry.group("straight") is not None else entry.start("curly"), term_end),),
-                        relationship_span=(quote_end, payload_end),
-                    )
-                )
-    return tuple(entries)
-
-
 def _b1_default_preserve_match(body: str) -> BodyPreambleMatch | None:
-    """Keep existing B1 and structural numbered-colon dispatch eligible."""
-    from app.definition_links.rules.us_body_preamble_b1 import (
-        _B1_TRIGGER_RE,
-        _b1_trigger_colon_or_quote_means,
-    )
+    """Patch only a row already won by the current B1 rule."""
+    from app.definition_links.rules.us_body_preamble_b1 import _b1_trigger_colon_or_quote_means
 
-    groups = discover_clause_groups(body)
-    baseline_entries = discover_numbered_colon_entries(body)
     original_b1 = _b1_trigger_colon_or_quote_means(body) is not None
-    if not original_b1 and not baseline_entries and not groups:
+    if not original_b1:
         return None
-    return BodyPreambleMatch(
-        "Definitions", groups, baseline_entries=baseline_entries, baseline_eligible=original_b1 or bool(baseline_entries)
-    )
+    return BodyPreambleMatch("Definitions", discover_clause_groups(body), baseline_eligible=True)
 
 
 def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
@@ -243,7 +206,7 @@ def _group_candidates(text: str, groups: tuple[ClauseGroup, ...], scope: str):
     return candidates
 
 
-def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch, scope: str):
+def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMatch):
     """Keep the complete stream only when the original B1 rule dispatched."""
     if not match.baseline_eligible:
         return []
@@ -252,12 +215,7 @@ def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMat
         for candidate in candidates
         if candidate_has_substantive_local_payload(text, candidate, match.clause_groups)
     ]
-    present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
-    return preserved + [
-        candidate
-        for candidate in _group_candidates(text, match.baseline_entries, scope)
-        if tuple(sorted(candidate.terms)) not in present_terms
-    ]
+    return preserved
 
 
 @contextlib.contextmanager
@@ -297,7 +255,7 @@ def default_preserve_runtime_patch():
             if isinstance(value, BodyPreambleMatch):
                 scope = self.determine_scope(body)
                 baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
-                preserved = _preserved_baseline_candidates(body, baseline_candidates, value, scope)
+                preserved = _preserved_baseline_candidates(body, baseline_candidates, value)
                 additions = _group_candidates(body, value.clause_groups, scope)
                 if not preserved and not additions:
                     return None
@@ -311,7 +269,7 @@ def default_preserve_runtime_patch():
         if match is None or not heading_was_derived:
             return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
         baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
-        preserved = _preserved_baseline_candidates(text, baseline, match, scope)
+        preserved = _preserved_baseline_candidates(text, baseline, match)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
             candidate
@@ -365,13 +323,6 @@ def _current_b1_winner(code: str, heading: str, body: str) -> bool:
     return False
 
 
-def _prototype_b1_member(code: str, heading: str, body: str) -> bool:
-    """Current B1 rows plus genuinely additive group-dispatch rows."""
-    from app.definition_links.us_profile import derive_heading_from_body
-
-    return derive_heading_from_body(heading, body) is None and _b1_default_preserve_match(body) is not None
-
-
 def _file(path_text: str):
     path = Path(path_text)
     code = jurisdiction_for(path)
@@ -388,7 +339,7 @@ def _file(path_text: str):
             source_row = batch_index * 4096 + row_index
             body, heading = row["text"] or "", row["section_title"] or ""
             current_b1 = _current_b1_winner(code, heading, body)
-            if not current_b1 and not _prototype_b1_member(code, heading, body):
+            if not current_b1:
                 continue
             selected.append((source_row, row))
             member = {
@@ -397,8 +348,7 @@ def _file(path_text: str):
                 "source_row_id": str(row["act_id"] or f"{path.name}:{source_row}"),
             }
             evaluated_members.append(member)
-            if current_b1:
-                current_members.append(member)
+            current_members.append(member)
             before.extend(x.record() for x in capture_row(jurisdiction=code, source_file=path.name, source_row=source_row, row=row, after=True))
     with default_preserve_runtime_patch():
         for source_row, row in selected:
@@ -418,6 +368,10 @@ def _file(path_text: str):
                 }
             )
     return changes, current_members, evaluated_members
+
+
+_EXPECTED_CURRENT_B1_COUNT = 193827
+_EXPECTED_CURRENT_B1_SHA256 = "362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d"
 
 
 def _run_self_check() -> int:
@@ -463,6 +417,17 @@ def main() -> int:
     changed.sort(key=lambda row: (tuple_key(row), row["change"]))
     current_members.sort(key=lambda row: (row["source_file"], row["source_row"]))
     evaluated_members.sort(key=lambda row: (row["source_file"], row["source_row"]))
+    if evaluated_members != current_members:
+        raise RuntimeError("evaluated B1 membership differs from the current B1-winner population")
+    current_digest = hashlib.sha256()
+    for member in current_members:
+        current_digest.update(canonical_bytes(member))
+        current_digest.update(b"\n")
+    current_sha256 = current_digest.hexdigest()
+    if len(current_members) != _EXPECTED_CURRENT_B1_COUNT or current_sha256 != _EXPECTED_CURRENT_B1_SHA256:
+        raise RuntimeError(
+            f"current B1 membership drift: count={len(current_members)} hash={current_sha256}"
+        )
     args.out.mkdir(parents=True, exist_ok=True)
     result = {
         "schema": "lexgraph.mr113.default-preserve-additive-groups.v1",
