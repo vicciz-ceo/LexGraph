@@ -7,8 +7,8 @@ branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:qa"
-last_updated: "2026-08-09T02:37:57Z"
+last_agent: "codex:planner"
+last_updated: "2026-08-09T02:43:55Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 398 2026-08-09T02:38:23Z"
+lint: "PASS 398 2026-08-09T02:43:50Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,21 +188,21 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R118 — raw-source B1 preservation is Developer-ready
+### M-R118 — raw-source B1 preservation; selector correction required
 
-Raw source, not parser normalization, governs destructive B1 evidence: filter only when raw has a valid exact term occurrence and every bounded payload is non-substantive; otherwise preserve the current tuple byte-for-byte.
-All 53 pinned files evaluated exactly 193,827 current B1 winners (`362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`); 636 deltas adjudicate to 634 valid removals and two authorized plural forwards, with zero loss/addition/ambiguity/unclassified.
-Production write set is B1-only raw provenance plus the shared preservation filter at derived-heading, local, and section routes; retain the explicit plural-list branch and leave non-B1/first-wins behavior unchanged. Recognition-only B2 outcomes with zero persisted candidates are non-gating.
-Future-law direct and persistence controls remain binding; no identifiers, corpus rows, terms, or source allowlists. Evidence and the exact Developer contract are in [`mr118/DEVELOPER_READY.md`](2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md).
+The registered B1 winner population is frozen at the pre-fix 53-file census: 193,827 rows, SHA-256 `362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`. Current production instead selects 132,752 (`f21ffd…b1de9b`), including rejection of certified AK probe `STATE_AK_T10_C10.50_S10.50.690`; candidate delta adjudication remains blocked.
+The Developer write set is exactly four files: (1) `backend/app/definition_links/rules/us_body_preamble_b1.py` restores `_b1_trigger_colon_or_quote_means` to its `5753e11` syntactic membership byte-for-byte—no legal-unit or substantive lexical guard may decide B1 recognition—while retaining raw-evidence helpers; (2) `backend/app/definition_links/us_profile.py` carries a US-only `BodyPreambleMatch(str)` only after the registered B1 callable wins, preserves ordinary string equality/direct API behavior, and applies raw filtering after baseline candidate generation on both local and section routes; (3) `backend/app/definition_links/pipeline.py` passes raw source and B1 metadata only for that capability, keeps every non-B1 call shape unchanged, and unions baseline/local/section candidates in the existing local-first de-dup order; (4) `backend/tests/unit/test_mr118_qa_raw_provenance.py` pins the selector controls.
+Raw source, not parser normalization, governs destructive B1 evidence: filter only when raw has a valid exact term occurrence and every bounded payload is non-substantive; otherwise preserve the current tuple byte-for-byte. Keep the explicit plural-list repair but add only a missing term after the filtered baseline/local/section union. No global mutable normalization map, source allowlist, generic dispatch, or fifth production file is authorized.
+Future-law direct and persistence controls remain binding. Evidence and the correction handoff are in [`mr118/DEVELOPER_READY.md`](2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md).
 
 ## Next Steps
 
-7. **[QA-FAIL: corpus membership mismatch]** Expected the real 53-file
-   production B1 winner census to be 193,827 with hash `362b…ae08d`. Actual:
-   132,752 with hash `f21ffd…b1de9b`; certified member
-   `STATE_AK_T10_C10.50_S10.50.690` is not a B1 winner in current production.
-   Reconcile the binding membership contract before rerunning delta/adjudication;
-   do not use a prototype or source allowlist to waive the mismatch.
+7. **[QA-FAIL: corpus membership mismatch]** Restore the pre-fix registered B1
+   selector before candidate qualification: 193,827 / `362b…ae08d`, not
+   132,752 / `f21ffd…b1de9b`; AK probe `STATE_AK_T10_C10.50_S10.50.690` must
+   win B1. The new legal-unit and substantive-quote guards caused this 61,075-row
+   regression. Then carry raw only through the B1 capability seam, filter the
+   baseline/local/section union, and rerun membership before delta/adjudication.
 
 ## Dev Complete
 
@@ -388,7 +388,7 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 is Developer-ready under M-R118.
+1. Items 1–6 remain Dev Complete; Item 7 needs the M-R118 selector correction.
 2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
 3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
 4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.definition_links.profiles import get_profile
+from app.definition_links.rules.us_body_preamble_b1 import _b1_trigger_colon_or_quote_means
 
 
 CASES = (
@@ -49,6 +50,25 @@ CASES = (
         "unique_terms": ("aether relay", "boreal signal"),
     },
 )
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        # The M-R118 certified selector is the pre-raw-filter B1 grammar.
+        # Do not move a legal-unit vocabulary decision into recognition: the
+        # post-selection raw evidence seam decides candidate eligibility.
+        'In this disclosure statement, "notice" means a posted notice.',
+        # Likewise, B1's historical colon branch did not require a quoted
+        # substantive candidate before recording the B1 winner.  A body may
+        # legitimately reach the post-selection seam with zero candidates.
+        "As used in this Act: the following items govern this program.",
+    ),
+    ids=("in_this_descriptive_unit", "as_used_colon_without_quoted_candidate"),
+)
+def test_mr118_b1_selector_preserves_pre_fix_membership(body):
+    """B1 selection is syntactic and precedes raw candidate qualification."""
+    assert _b1_trigger_colon_or_quote_means(body) == "Definitions"
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])

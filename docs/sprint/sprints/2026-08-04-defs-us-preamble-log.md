@@ -6209,3 +6209,27 @@ threads raw-source metadata only through an explicit live B1 winner. The Hebrew
 live regression passed, as did all 11 QA provenance checks and the original
 32-case focused gate. One full backend pass was run with `PYTHONPATH=.:backend`;
 fresh QA owns remaining acceptance and corpus measurement.
+
+## 2026-08-09 — M-R118 selector-census correction handoff
+
+QA's production-only census at `020e09f` is dispositive before delta work:
+the registered B1 winner set is 132,752 (`f21ffd…b1de9b`), not the certified
+193,827 (`362b…ae08d`), and certified member
+`STATE_AK_T10_C10.50_S10.50.690` is no longer a B1 winner. The causal diff
+from `5753e11` places a closed legal-unit vocabulary and a substantive-quote
+requirement inside `_b1_trigger_colon_or_quote_means`; each narrows selection
+before any candidate exists. Direct baseline/current controls confirm the
+drift: `In this disclosure statement, "notice" means …` and `As used in this
+Act: the following items …` were B1 before and are `None` now, while the
+ordinary quoted colon control remains B1.
+
+Developer must restore B1 selection byte-for-byte first, then apply raw-only
+candidate eligibility at the US B1 capability seam. The exact authorized set
+is B1 recognizer, `USProfile`, pipeline, and the Planner-owned unit pin—three
+production files, no fifth production file. The carrier must remain a `str`
+for direct API compatibility; raw metadata goes only to an actual B1 winner;
+local candidates precede section candidates; filtering and plural repair occur
+after baseline generation. No global normalization state, allowlist, or new
+dispatch is authorized. Runtime all-53 remeasurement is intentionally deferred
+until selection is repaired; the focused runtime prototype could not start in
+this worktree because its `pyarrow` dependency/venv is absent.
