@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-08T23:27:00Z"
+last_updated: "2026-08-09T00:12:04Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-08T23:27:28Z"
+lint: "PASS 400 2026-08-09T00:12:34Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R115 — broad additive grouping rejected; narrow plural list only
+### M-R116 — no new dispatch; measure current B1 winners only
 
-The broad additive parser changes 61,053 keys and fabricates a GA term from
-mismatched quotes; it is rejected. Keep default preservation and only repair a
-matched, bounded list whose trailing relation explicitly governs plural listed
-terms. Broader discovery controls are held; unseen-law live REDs and all-53 zero-loss remain required.
+Generic numbered-colon synthesis still fabricates FED editorial text; reject it.
+The proposal may only narrow today's B1 winners, plus repair an explicit plural-
+anaphora list inside that same population. Unknown-relation future controls use
+already-supported numbered-list structure. No new dispatch; all-53 zero-loss remains required.
 
 ## Next Steps
 
@@ -214,7 +214,7 @@ terms. Broader discovery controls are held; unseen-law live REDs and all-53 zero
    reject punctuation/coordination-only pseudo-entries despite later overrun;
    retain each substantive baseline tuple unchanged, then repair only matched
    bounded lists with explicit plural anaphora (`those terms` or equivalent).
-   No generic additions; suppress only for an empty union; leave non-B1 unchanged.
+   Evaluate only current B1 winners; no new dispatch/generic additions or non-B1 change.
 
 ## Dev Complete
 

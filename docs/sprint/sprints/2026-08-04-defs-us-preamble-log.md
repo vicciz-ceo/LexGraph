@@ -6056,6 +6056,26 @@ an unseen plural-anaphora shared list is repaired without known identities.
 Planner must disable all other group additions and rerun all 53 from current
 production baseline with zero genuine loss, false addition, or ambiguity.
 
+### M-R116 — all-v2 rejects generic numbered-colon synthesis
+
+The narrowed all-v2 run reduced the blast radius to 1,848 keys (1,682 added,
+166 removed; ledger `5f5d0b38…`) but still fabricated a term from FED
+legislative-history text at `USC_T49_C53_S5307`. The prototype's
+`discover_numbered_colon_entries` and group-only dispatch evaluated 1,650 rows
+beyond the 193,827 current B1 winners. That expansion—not the conservative
+punctuation filter—created the false addition. M-R116 rejects both generic
+numbered-colon synthesis and every proposal-only dispatch row.
+
+Next measurement must evaluate exactly the current B1-winner membership and
+hash, never its 195,477-row expanded set. Keep the explicit matched/plural-
+anaphora repair only when it occurs inside a current B1-winning row. The
+unlisted-relation future-law control must use a numbered entry on a new line
+after an already recognized B1 colon intro, matching the established splitter;
+it is a preservation control and need not create a new dispatch branch. Planner
+must delete the generic synthesis code, adjust that fixture, prove focused
+current RED/runtime green, and rerun all 53. Any evaluated-row count above the
+current-winner count is an automatic harness failure before adjudication.
+
 ### M-R115 — Planner re-scopes binding RED estate
 
 The binding future-law file now retains ordinary-prose negatives, the
