@@ -55,24 +55,44 @@ _B1_DIRECT_QUOTE_MEANS_RE = re.compile(
     re.IGNORECASE,
 )
 
-_B1_PLURAL_LIST_RE = re.compile(
-    r'(?P<list>(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*'
-    r'(?:(?:and|or)\s+)?(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*)'
-    r'(?P<relation>have\s+the\s+meaning\s+(?:set\s+forth|provided|specified)'
-    r'[^\n]{0,180}?\bthose\s+terms\b[^\n]{0,180})',
-    re.IGNORECASE | re.DOTALL,
+_MATCHED_ENTRY = re.compile(
+    r'\(\s*\d+[A-Za-z]?\s*\)[ \t]*(?:"(?P<s>[^"]{1,200})"|“(?P<c>[^”]{1,200})”)'
 )
-_B1_VALID_QUOTED_TERM_RE = re.compile(
-    r'"(?P<straight>[^"]+)"|“(?P<curly>[^”]+)”'
-)
-_B1_CONTINUED_DEFINING_VERB_RE = re.compile(
-    r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", re.IGNORECASE
-)
-_B1_COORDINATION_ONLY_RE = re.compile(
-    r"^[\s;,:()\[\]{}\d]*(?:(?:\([A-Za-z0-9]+\)|\b(?:and|or)\b)"
-    r"[\s;,:()\[\]{}\d]*)*$",
+_SHARED_LIST = re.compile(
+    r'(?P<entries>(?:\(\s*\d+[A-Za-z]?\s*\)[ \t]*(?:"[^"]{1,200}"|“[^”]{1,200}”)\s*;\s*(?:(?:and|or)\s*)?){2,})'
+    r'(?P<relation>(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?(?:meaning|definition)'
+    r'(?:\s+(?:set\s+forth|provided|given|found|prescribed))?\s+(?:for\s+)?those\s+terms\b[^;\n]{0,300})',
     re.IGNORECASE,
 )
+_MARKER = re.compile(r'(?:\(\s*(?:\d+|[a-z]+)\s*\)|\[\s*(?:\d+|[a-z]+)\s*\]|\d+)', re.I)
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+_HISTORY = re.compile(r"^\s*\[(?:L|Acts?)\s+\d{4}\b", re.I)
+_POST_RELATION = re.compile(
+    r'^[\s:;,.\-–—]*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\]|[A-Za-z]\.)\s*)*'
+    r'(?:[^;.\n]{1,160}?,\s*)?(?:means|shall\s+mean|includes|shall\s+include|'
+    r'(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning|'
+    r'the\s+meaning\s+(?:given|provided|set\s+forth|specified|prescribed))\b', re.I)
+_ENUM_RELATION = re.compile(
+    r'^[\s\-–—]*:\s*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])\s*)'
+    r'[^;.\n]{0,160}?\b(?:means|shall\s+mean|includes|shall\s+include|'
+    r'(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning)\b', re.I)
+_ALIAS_VERB = r'(?:referred\s+to|known|designated|established|maintained)'
+_ALIAS_INTRO = re.compile(
+    rf'(?:(?:is|are|(?:may|shall)\s+be|in\s+[^.;:\n()]{{1,100}})\s+)?'
+    rf'(?:commonly\s+)?{_ALIAS_VERB}(?:\s+in\s+[^.;:\n]{{0,100}})?\s+as(?:\s+the)?\s*$', re.I)
+_ALIAS_LIST = re.compile(
+    r'(?:shall|may)\s+be\s+(?:known|referred\s+to)\s+as\s+the\s*[\-–—:]\s*'
+    r'(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])\s*(?:"[^"]{1,200}"|“[^”]{1,200}”)\s*[;,]?\s*(?:and|or)?\s*)*'
+    r'(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])?\s*$', re.I)
+_RECIPROCAL = re.compile(
+    rf'\b{_ALIAS_VERB}\s*,?\s*respectively\s*,?\s*as\s*'
+    r'(?:(?:"[^"]{1,200}"|“[^”]{1,200}”)\s*(?:,\s*)?(?:(?:and|or)\s*)?)*$', re.I)
+_FORWARDING = re.compile(
+    r'(?:the\s+following\s+definitions?\s+in\s+(?:other\s+)?[^:.;\n]{0,100}\s+apply\s+to\s+this\s+[^:.;\n]{0,50}|'
+    r'definitions?\s+in\s+other\s+[^:.;\n]{0,100}\s+applying\s+to\s+this\s+[^:.;\n]{0,100}\s+(?:include|are)|'
+    r'the\s+following\s+terms?\s+(?:shall\s+)?have\s+the\s+(?:same\s+)?meaning\s+as\s+'
+    r'(?:provided|set\s+forth|specified)\s+in\s+[^:.;\n]{0,100})\s*:', re.I)
+_MAX_LOCAL = 600
 
 
 def _b1_colon_list_branch(after: str) -> bool:
@@ -124,60 +144,136 @@ def is_b1_rule(derive_heading) -> bool:
     return derive_heading is _b1_trigger_colon_or_quote_means
 
 
-def _bounded_local_payload(raw_source: str, start: int) -> str:
-    """Bound raw evidence at the first semicolon or substantive newline."""
-    cursor = start
-    while cursor < len(raw_source):
-        semicolon = raw_source.find(";", cursor)
-        newline_positions = [raw_source.find("\n", cursor), raw_source.find("\r", cursor)]
-        newline = min(position for position in newline_positions if position != -1) if any(
-            position != -1 for position in newline_positions
-        ) else -1
-        if semicolon != -1 and (newline == -1 or semicolon < newline):
-            return raw_source[start:semicolon]
-        if newline == -1:
-            return raw_source[start:]
-        if not _B1_CONTINUED_DEFINING_VERB_RE.match(raw_source, newline + 1):
-            return raw_source[start:newline]
-        cursor = newline + 1
-    return raw_source[start:]
+def _normalized_term(term: str) -> str:
+    return re.sub(r"\s+", " ", term.strip().rstrip(".,;:"))
 
 
-def _raw_payloads_for_term(raw_source: str, term: str) -> list[str]:
-    """Return payloads immediately following exact, valid raw quoted terms.
+def _quote_occurrences(text: str, term: str):
+    emitted = re.sub(r"\s+", " ", term.strip())
+    if not emitted:
+        return ()
 
-    A normalized quote can help discover a candidate, but only matching raw
-    delimiters count as evidence for removing it.  The next quoted term (or
-    end of source) bounds the payload, preventing a later real definition
-    from being attributed to an earlier list entry.
-    """
-    payloads: list[str] = []
-    for match in _B1_VALID_QUOTED_TERM_RE.finditer(raw_source):
-        matched_term = match.group("straight") or match.group("curly")
-        if matched_term.strip() != term:
+    def matches(value: str, terminal: str):
+        pattern = r"\s+".join(re.escape(part) for part in value.split())
+        return tuple(re.finditer(rf'(?:(?:"\s*{pattern}{terminal}\s*")|(?:“\s*{pattern}{terminal}\s*”))', text, re.I))
+
+    exact = matches(emitted, "")
+    tolerant = matches(_normalized_term(emitted), r"[.,;:]*")
+    spans = {match.span() for match in exact}
+
+    def continuation(match) -> bool:
+        if text[match.start()] != '"':
+            return False
+        previous = text.rfind('"', max(0, match.start() - 6000), match.start())
+        return previous >= 0 and re.match(
+            r'\s*\([A-Za-z0-9]+\)\s+', text[previous + 1 : match.start()]
+        ) is not None
+
+    return tuple(match for match in exact + tuple(m for m in tolerant if m.span() not in spans) if not continuation(match))
+
+
+def _exact_occurrence(text: str, term: str, quote) -> bool:
+    emitted = re.sub(r"\s+", " ", term.strip()).casefold()
+    raw = re.sub(r"\s+", " ", text[quote.start() + 1 : quote.end() - 1].strip()).casefold()
+    return emitted == raw
+
+
+def _bounded_payload(text: str, quote_end: int) -> str:
+    tail = text[quote_end : quote_end + _MAX_LOCAL]
+    semicolon, newline = tail.find(";"), tail.find("\n")
+    bounds = [semicolon] if semicolon >= 0 else []
+    if newline >= 0:
+        wrapped = not tail[:newline].strip() and re.match(
+            r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", tail[newline:], re.I
+        )
+        if not wrapped:
+            bounds.append(newline)
+    return tail[: min(bounds)] if bounds else tail
+
+
+def _substantive(payload: str) -> bool:
+    if _HISTORY.match(payload):
+        return False
+    residual = _MARKER.sub(" ", payload)
+    return any(word.casefold() not in {"and", "or"} for word in _WORD.findall(residual))
+
+
+def _pre_relation(text: str, start: int) -> bool:
+    lookback = text[max(0, start - _MAX_LOCAL) : start]
+    sentence = re.split(r"[.;\n]", lookback)[-1]
+    if _ALIAS_INTRO.search(sentence) or _ALIAS_LIST.search(lookback) or _RECIPROCAL.search(lookback):
+        return True
+    return _FORWARDING.search(text[max(0, start - 6000) : start]) is not None
+
+
+def _groups(text: str):
+    groups = []
+    for trigger in _B1_TRIGGER_RE.finditer(text):
+        after = text[trigger.end() : trigger.end() + _B1_LOOKAHEAD]
+        colon = after.find(":")
+        if colon < 0 or not _b1_colon_list_branch(after):
             continue
-        payloads.append(_bounded_local_payload(raw_source, match.end()))
-    return payloads
+        start = trigger.end() + colon + 1
+        for shared in _SHARED_LIST.finditer(text, start, min(len(text), start + _MAX_LOCAL)):
+            terms = []
+            for entry in _MATCHED_ENTRY.finditer(text, shared.start("entries"), shared.end("entries")):
+                name = entry.group("s") or entry.group("c")
+                span = entry.span("s") if entry.group("s") is not None else entry.span("c")
+                if name.strip():
+                    terms.append((name.strip(), *span))
+            if len(terms) >= 2:
+                relation_start = shared.start("relation")
+                tail = text[relation_start : relation_start + _MAX_LOCAL]
+                ends = [m.start() + 1 for m in re.finditer(r"[;\n]", tail)]
+                sentence = re.search(r"(?<=[.?!])(?:\s|$)", tail)
+                if sentence:
+                    ends.append(sentence.start() + 1)
+                relation_end = relation_start + (min(ends) if ends else len(tail))
+                groups.append((tuple(terms), (relation_start, relation_end)))
+    return tuple(groups)
+
+
+def _owned(term: str, quote, groups) -> bool:
+    normalized = _normalized_term(term).casefold()
+    return any(
+        normalized == _normalized_term(group_term).casefold()
+        and quote.start() <= start and end <= quote.end()
+        for terms, _ in groups for group_term, start, end in terms
+    )
+
+
+def _candidate_is_substantive(text: str, candidate, groups) -> bool:
+    for term in candidate.terms:
+        quotes = _quote_occurrences(text, term)
+        if not quotes:
+            return True
+        has_exact = any(_exact_occurrence(text, term, quote) for quote in quotes)
+        for quote in quotes:
+            if _owned(term, quote, groups):
+                continue
+            tail = text[quote.end() : quote.end() + _MAX_LOCAL]
+            if _POST_RELATION.match(tail) or _ENUM_RELATION.match(tail) or _pre_relation(text, quote.start()):
+                return True
+            if has_exact and not _exact_occurrence(text, term, quote):
+                continue
+            if _substantive(_bounded_payload(text, quote.end())):
+                return True
+    return False
 
 
 def preserve_substantive_b1_candidates(candidates, raw_source: str):
-    """Default-preserve B1 candidates unless raw evidence proves a pseudo-entry."""
-    kept = []
+    groups, kept, seen = _groups(raw_source), [], set()
     for candidate in candidates:
-        payloads = [payload for term in candidate.terms for payload in _raw_payloads_for_term(raw_source, term)]
-        if not payloads or any(not _B1_COORDINATION_ONLY_RE.fullmatch(payload) for payload in payloads):
+        key = tuple(sorted(candidate.terms))
+        if key not in seen and _candidate_is_substantive(raw_source, candidate, groups):
+            seen.add(key)
             kept.append(candidate)
     return kept
 
 
 def plural_anaphora_repairs(raw_source: str, *, scope: str, candidate_factory):
-    """Repair only a fully matched quoted list with its explicit plural relation."""
     repairs = []
-    for match in _B1_PLURAL_LIST_RE.finditer(raw_source):
-        terms = [
-            (quote.group("straight") or quote.group("curly")).strip()
-            for quote in _B1_VALID_QUOTED_TERM_RE.finditer(match.group("list"))
-        ]
-        relation = match.group("relation").strip()
-        repairs.extend(candidate_factory(term, relation, scope) for term in terms if term)
+    for terms, (start, end) in _groups(raw_source):
+        relation = raw_source[start:end].strip()
+        repairs.extend(candidate_factory(term, relation, scope) for term, _, _ in terms)
     return repairs
