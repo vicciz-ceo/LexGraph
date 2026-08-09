@@ -8,7 +8,7 @@ from app.definition_links.ingest_us_statutes import _derive_article_id, ingest_u
 from app.definition_links.pipeline import run_definition_linking
 from app.models.definition import Definition
 
-from backend.tests.unit.test_us_body_preamble_b1_structural_future_law_red import CASES
+from tests.unit.test_us_body_preamble_b1_structural_future_law_red import CASES
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])

@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: dev-complete
+status: qa-fail
 blocked_on: null
-current_role: qa
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:developer"
-last_updated: "2026-08-09T02:00:00Z"
+last_agent: "codex:qa"
+last_updated: "2026-08-09T02:12:37Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 7
-qa_cycles: 2
+dev_complete_items: 6
+qa_cycles: 3
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 391 2026-08-09T02:00:00Z"
+lint: "PASS 400 2026-08-09T02:12:43Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -197,11 +197,14 @@ Future-law direct and persistence controls remain binding; no identifiers, corpu
 
 ## Next Steps
 
-## Dev Complete
+7. **[QA-FAIL: M-R118 breaks non-B1 live persistence]** Expected every
+   profile, including IL/Hebrew, to retain the existing real pipeline path.
+   Actual: `HebrewProfile.extract_definitions_from_section()` rejects the new
+   `raw_source` keyword from `pipeline.py`. Preserve the B1-only seam without
+   passing B1 metadata to non-B1 profiles; the committed QA live Hebrew RED
+   must turn green before any corpus certification is rerun.
 
-7. **M-R118 B1 raw-source preservation.** Raw exact matched occurrences now
-   default-preserve substantive candidates, remove punctuation/list-marker-only
-   entries, and repair only explicit plural-anaphora forwarding lists.
+## Dev Complete
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -346,6 +349,12 @@ FED debt-pin/capture-test names were repointed in their owned integration file.
 No external pins remain and no production signature/class/CSS rename occurred.
 
 ## QA Notes
+
+- 2026-08-09T02:12:37Z (codex:qa): **M-R118 FAIL.** Focused B1 suite: 32/32;
+  new raw-provenance controls: 10/10 green. Full evaluator reached 1,166
+  backend tests but broad non-B1 failures trace to `pipeline.py:296` passing
+  B1-only keywords to `HebrewProfile`; QA live Hebrew persistence RED is
+  committed. All-53 equivalence is blocked until this regression is repaired.
 
 ## Evaluation Notes
 
