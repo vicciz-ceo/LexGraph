@@ -76,8 +76,12 @@ _B1_PLURAL_LIST_RE = re.compile(
     r'[^\n]{0,180}?\bthose\s+terms\b[^\n]{0,180})',
     re.IGNORECASE | re.DOTALL,
 )
-_B1_VALID_QUOTED_TERM_RE = re.compile(r'(["“])(?P<term>[^"”]{1,150})(["”])')
-_B1_LIST_MARKER_RE = re.compile(r"\n\s*\([A-Za-z0-9]+\)")
+_B1_VALID_QUOTED_TERM_RE = re.compile(
+    r'"(?P<straight>[^"]{1,150})"|“(?P<curly>[^”]{1,150})”'
+)
+_B1_CONTINUED_DEFINING_VERB_RE = re.compile(
+    r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", re.IGNORECASE
+)
 _B1_COORDINATION_ONLY_RE = re.compile(
     r"^[\s;,:()\[\]{}\d]*(?:(?:\([A-Za-z0-9]+\)|\b(?:and|or)\b)"
     r"[\s;,:()\[\]{}\d]*)*$",
@@ -141,6 +145,30 @@ def is_b1_derived_body(body: str) -> bool:
     return _b1_trigger_colon_or_quote_means(body) is not None
 
 
+def is_b1_rule(derive_heading) -> bool:
+    """Explicit identity marker for B1's registered body-preamble callable."""
+    return derive_heading is _b1_trigger_colon_or_quote_means
+
+
+def _bounded_local_payload(raw_source: str, start: int) -> str:
+    """Bound raw evidence at the first semicolon or substantive newline."""
+    cursor = start
+    while cursor < len(raw_source):
+        semicolon = raw_source.find(";", cursor)
+        newline_positions = [raw_source.find("\n", cursor), raw_source.find("\r", cursor)]
+        newline = min(position for position in newline_positions if position != -1) if any(
+            position != -1 for position in newline_positions
+        ) else -1
+        if semicolon != -1 and (newline == -1 or semicolon < newline):
+            return raw_source[start:semicolon]
+        if newline == -1:
+            return raw_source[start:]
+        if not _B1_CONTINUED_DEFINING_VERB_RE.match(raw_source, newline + 1):
+            return raw_source[start:newline]
+        cursor = newline + 1
+    return raw_source[start:]
+
+
 def _raw_payloads_for_term(raw_source: str, term: str) -> list[str]:
     """Return payloads immediately following exact, valid raw quoted terms.
 
@@ -150,15 +178,11 @@ def _raw_payloads_for_term(raw_source: str, term: str) -> list[str]:
     from being attributed to an earlier list entry.
     """
     payloads: list[str] = []
-    matches = list(_B1_VALID_QUOTED_TERM_RE.finditer(raw_source))
-    for index, match in enumerate(matches):
-        if match.group("term").strip() != term or match.group(1) != match.group(3):
+    for match in _B1_VALID_QUOTED_TERM_RE.finditer(raw_source):
+        matched_term = match.group("straight") or match.group("curly")
+        if matched_term.strip() != term:
             continue
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(raw_source)
-        marker = _B1_LIST_MARKER_RE.search(raw_source, match.end(), end)
-        if marker is not None:
-            end = marker.start()
-        payloads.append(raw_source[match.end() : end])
+        payloads.append(_bounded_local_payload(raw_source, match.end()))
     return payloads
 
 
@@ -176,7 +200,10 @@ def plural_anaphora_repairs(raw_source: str, *, scope: str, candidate_factory):
     """Repair only a fully matched quoted list with its explicit plural relation."""
     repairs = []
     for match in _B1_PLURAL_LIST_RE.finditer(raw_source):
-        terms = [quote.group("term").strip() for quote in _B1_VALID_QUOTED_TERM_RE.finditer(match.group("list"))]
+        terms = [
+            (quote.group("straight") or quote.group("curly")).strip()
+            for quote in _B1_VALID_QUOTED_TERM_RE.finditer(match.group("list"))
+        ]
         relation = match.group("relation").strip()
         repairs.extend(candidate_factory(term, relation, scope) for term in terms if term)
     return repairs

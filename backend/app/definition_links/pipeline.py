@@ -262,6 +262,7 @@ def run_definition_linking(
         # completely untouched, so the 7 states already working off
         # `section_title` are byte-for-byte unaffected.
         used_body_derived_heading = False
+        b1_winner = False
         if not is_definitions_section:
             derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
             if derived_heading is not None and profile.is_definitions_heading(
@@ -269,6 +270,7 @@ def run_definition_linking(
             ):
                 is_definitions_section = True
                 used_body_derived_heading = True
+                b1_winner = bool(getattr(derived_heading, "b1_winner", False))
 
         if is_definitions_section:
             # G8: body-derived headings can also contain ordinary local-scope
@@ -282,7 +284,7 @@ def run_definition_linking(
                     article_number=art.number,
                     chapter=art.chapter,
                     raw_source=raw_bodies[art.id],
-                    b1_derived=True,
+                    b1_winner=b1_winner,
                 ):
                     candidate_key = tuple(sorted(candidate.terms))
                     if candidate_key in local_candidate_keys:
@@ -296,6 +298,7 @@ def run_definition_linking(
                 scope=scope,
                 heading_was_derived=used_body_derived_heading,
                 raw_source=raw_bodies[art.id],
+                b1_winner=b1_winner,
             )
             # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
             # `determine_scope_assignments` replaces the old bare

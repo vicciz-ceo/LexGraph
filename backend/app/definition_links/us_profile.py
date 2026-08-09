@@ -1705,6 +1705,15 @@ def resolve_unit_path(article, char_offset: int | None = None):
     return tuple(stack)
 
 
+class BodyPreambleMatch(str):
+    """A derived heading carrying the registered rule that won dispatch."""
+
+    def __new__(cls, heading: str, *, b1_winner: bool = False):
+        instance = super().__new__(cls, heading)
+        instance.b1_winner = b1_winner
+        return instance
+
+
 @dataclass(frozen=True)
 class USProfile:
     """The `"US-*"`/`"US-FED"` profile family -- ONE instance serves every
@@ -1768,7 +1777,8 @@ class USProfile:
         return [matched for _, _, matched in found]
 
     def extract_definitions_from_section(
-        self, text: str, *, scope: str, heading_was_derived: bool = False, raw_source: str | None = None
+        self, text: str, *, scope: str, heading_was_derived: bool = False, raw_source: str | None = None,
+        b1_winner: bool | None = None
     ) -> list[DefinitionCandidate]:
         """Sprint 2026-08-04-defs-core-dispatch, item I3: `EntrySplitterRule`/
         `TermClauseRule` are UNION kinds -- baseline's own numbered blocks
@@ -1821,22 +1831,30 @@ class USProfile:
             candidates = _extract_inline_quoted_definitions(text, scope=scope)
         if heading_was_derived:
             from app.definition_links.rules.us_body_preamble_b1 import (
-                is_b1_derived_body,
+                is_b1_rule,
                 plural_anaphora_repairs,
                 preserve_substantive_b1_candidates,
             )
 
             raw = raw_source if raw_source is not None else text
-            if is_b1_derived_body(text):
+            if b1_winner is None:
+                for rule in registry.body_preamble_rules_for(self.code):
+                    if rule.derive_heading(text) is not None:
+                        b1_winner = is_b1_rule(rule.derive_heading)
+                        break
+            if b1_winner:
                 candidates = preserve_substantive_b1_candidates(candidates, raw)
+                retained_terms = {term for candidate in candidates for term in candidate.terms}
                 candidates.extend(
-                    plural_anaphora_repairs(
+                    repair
+                    for repair in plural_anaphora_repairs(
                         raw,
                         scope=scope,
                         candidate_factory=lambda term, definition_text, candidate_scope: DefinitionCandidate(
                             terms=(term,), definition_text=definition_text, scope=candidate_scope
                         ),
                     )
+                    if all(term not in retained_terms for term in repair.terms)
                 )
         return candidates
 
@@ -1918,12 +1936,16 @@ class USProfile:
         for rule in registry.body_preamble_rules_for(self.code):
             derived = rule.derive_heading(body)
             if derived is not None:
+                from app.definition_links.rules.us_body_preamble_b1 import is_b1_rule
+
+                if is_b1_rule(rule.derive_heading):
+                    return BodyPreambleMatch(derived, b1_winner=True)
                 return derived
         return None
 
     def extract_local_scope_definitions(
         self, article_body: str, *, article_number: str, chapter: str | None = None,
-        raw_source: str | None = None, b1_derived: bool = False
+        raw_source: str | None = None, b1_winner: bool = False
     ) -> list[DefinitionCandidate]:
         """Unions candidates from every registered `ScopeTriggerRule` for
         this profile's own code (initially the one core-authored proof
@@ -1963,7 +1985,7 @@ class USProfile:
                 if candidate.source_article_number is None:
                     candidate.source_article_number = article_number
                 candidates.append(candidate)
-        if b1_derived:
+        if b1_winner:
             from app.definition_links.rules.us_body_preamble_b1 import preserve_substantive_b1_candidates
 
             candidates = preserve_substantive_b1_candidates(
