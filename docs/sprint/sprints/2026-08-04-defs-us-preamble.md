@@ -1,14 +1,14 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planning
+status: planned
 blocked_on: null
-current_role: planner
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
-locked_by: "codex:planner"
-locked_at: "2026-08-08T21:46:17Z"
+locked_by: null
+locked_at: null
 last_agent: "codex:manager"
-last_updated: "2026-08-09T00:33:31Z"
+last_updated: "2026-08-09T01:50:27Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-09T00:33:48Z"
+lint: "PASS 400 2026-08-09T01:50:27Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
