@@ -179,15 +179,13 @@ def run_definition_linking(
         return profile
 
     skipped_degraded_article_ids: list[str] = []
-    raw_bodies: dict[str, str] = {}
-    live_articles: list[tuple[Article, MatcherArticle]] = []
+    live_articles: list[tuple[Article, MatcherArticle, str]] = []
     for art in articles_orm:
         span = session.get(SourceSpan, art.source_span_id)
         raw_body = span.quote_text if span is not None else ""
         if is_bidi_degraded(raw_body):
             skipped_degraded_article_ids.append(art.id)
             continue
-        raw_bodies[art.id] = raw_body
         profile = _profile_for_document(art.document_id)
         normalized = profile.normalize_for_parsing(raw_body)
         stripped_body, _hints = strip_wikilinks(normalized)
@@ -238,13 +236,14 @@ def run_definition_linking(
                     chapter=art.chapter,
                     structural_units=structural_units,
                 ),
+                raw_body,
             )
         )
 
     # Stage 2: extract every DefinitionCandidate, tagged with its owning
     # (ORM) article for provenance/persistence.
     all_candidates: list[tuple[DefinitionCandidate, Article]] = []
-    for art, matcher_article in live_articles:
+    for art, matcher_article, raw_body in live_articles:
         profile = _profile_for_document(art.document_id)
         is_definitions_section = profile.is_definitions_heading(art.heading, matcher_article.body)
 
@@ -264,7 +263,17 @@ def run_definition_linking(
         used_body_derived_heading = False
         b1_winner = False
         if not is_definitions_section:
-            derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
+            derive_body_preamble_match = getattr(profile, "derive_body_preamble_match", None)
+            if callable(derive_body_preamble_match):
+                derived_heading = derive_body_preamble_match(
+                    art.heading,
+                    matcher_article.body,
+                    raw_source=raw_body,
+                    article_number=art.number,
+                    chapter=art.chapter,
+                )
+            else:
+                derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
             if derived_heading is not None and profile.is_definitions_heading(
                 derived_heading, matcher_article.body
             ):
@@ -284,7 +293,7 @@ def run_definition_linking(
                         matcher_article.body,
                         article_number=art.number,
                         chapter=art.chapter,
-                        raw_source=raw_bodies[art.id],
+                        raw_source=raw_body,
                         b1_winner=True,
                     )
                 else:
@@ -304,7 +313,7 @@ def run_definition_linking(
                     matcher_article.body,
                     scope=scope,
                     heading_was_derived=True,
-                    raw_source=raw_bodies[art.id],
+                    raw_source=raw_body,
                     b1_winner=True,
                 )
             else:
@@ -472,7 +481,7 @@ def run_definition_linking(
         candidates_by_document[owning_art.document_id].append((candidate, definition_row))
 
     articles_by_document: dict[str, list[tuple[Article, MatcherArticle]]] = defaultdict(list)
-    for art, matcher_article in live_articles:
+    for art, matcher_article, _raw_body in live_articles:
         articles_by_document[art.document_id].append((art, matcher_article))
 
     for document_id, doc_articles in articles_by_document.items():

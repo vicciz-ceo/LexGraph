@@ -55,20 +55,6 @@ _B1_DIRECT_QUOTE_MEANS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# "In this" is a statutory introduction only when its object is a legal
-# unit.  Ordinary prose such as "in this manner" and "in this disclosure
-# statement" may still contain quoted notices, but is not a definitions
-# preamble.  Keep this vocabulary deliberately closed: it describes the
-# grammatical role of the words following ``this``, not a jurisdiction or
-# corpus-specific spelling.
-_B1_LEGAL_UNIT_RE = re.compile(
-    r"^(?:section|chapter|article|act|title|part|subsection|statute|code)\b",
-    re.IGNORECASE,
-)
-_B1_SUBSTANTIVE_QUOTE_RE = re.compile(
-    r'["“][^"”]{1,150}["”]\s*(?:means|shall mean|includes|shall include|denotes)\b',
-    re.IGNORECASE,
-)
 _B1_PLURAL_LIST_RE = re.compile(
     r'(?P<list>(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*'
     r'(?:(?:and|or)\s+)?(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*)'
@@ -77,7 +63,7 @@ _B1_PLURAL_LIST_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _B1_VALID_QUOTED_TERM_RE = re.compile(
-    r'"(?P<straight>[^"]{1,150})"|“(?P<curly>[^”]{1,150})”'
+    r'"(?P<straight>[^"]+)"|“(?P<curly>[^”]+)”'
 )
 _B1_CONTINUED_DEFINING_VERB_RE = re.compile(
     r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", re.IGNORECASE
@@ -123,20 +109,8 @@ def _b1_trigger_colon_or_quote_means(body: str) -> str | None:
         return "Definitions"
     for trigger_match in _B1_TRIGGER_RE.finditer(body):
         after = body[trigger_match.end() : trigger_match.end() + _B1_LOOKAHEAD]
-        trigger = trigger_match.group(0)
-        if trigger.lower().startswith("in this") and not _B1_LEGAL_UNIT_RE.match(
-            trigger[7:].lstrip()
-        ):
-            continue
-        if _b1_quote_means_branch(after):
+        if _b1_colon_list_branch(after) or _b1_quote_means_branch(after):
             return "Definitions"
-        if _b1_colon_list_branch(after):
-            if trigger.lower().startswith("as used in") and not (
-                _B1_SUBSTANTIVE_QUOTE_RE.search(after) or _B1_PLURAL_LIST_RE.search(after)
-            ):
-                continue
-            if '"' in after or '“' in after:
-                return "Definitions"
     return None
 
 

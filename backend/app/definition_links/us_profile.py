@@ -1917,7 +1917,33 @@ class USProfile:
                 return (default,)
         return (default,)
 
-    def derive_heading_from_body(self, heading: str, body: str) -> str | None:
+    def derive_body_preamble_match(
+        self,
+        heading: str,
+        body: str,
+        *,
+        raw_source: str,
+        article_number: str,
+        chapter: str | None,
+    ) -> str | None:
+        """B1-capable pipeline entrypoint carrying raw source without widening other profiles."""
+        return self.derive_heading_from_body(
+            heading,
+            body,
+            raw_source=raw_source,
+            article_number=article_number,
+            chapter=chapter,
+        )
+
+    def derive_heading_from_body(
+        self,
+        heading: str,
+        body: str,
+        *,
+        raw_source: str | None = None,
+        article_number: str = "",
+        chapter: str | None = None,
+    ) -> str | None:
         """Baseline (the bare `derive_heading_from_body` function above,
         unchanged -- still gated on `_is_placeholder_heading`, which is
         what keeps the 7 already-working states and CA/IL[state]/GA
@@ -1939,6 +1965,24 @@ class USProfile:
                 from app.definition_links.rules.us_body_preamble_b1 import is_b1_rule
 
                 if is_b1_rule(rule.derive_heading):
+                    raw = raw_source if raw_source is not None else body
+                    scope = self.determine_scope(body)
+                    local_candidates = self.extract_local_scope_definitions(
+                        body,
+                        article_number=article_number,
+                        chapter=chapter,
+                        raw_source=raw,
+                        b1_winner=True,
+                    )
+                    section_candidates = self.extract_definitions_from_section(
+                        body,
+                        scope=scope,
+                        heading_was_derived=True,
+                        raw_source=raw,
+                        b1_winner=True,
+                    )
+                    if not local_candidates and not section_candidates:
+                        return None
                     return BodyPreambleMatch(derived, b1_winner=True)
                 return derived
         return None
