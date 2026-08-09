@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "codex:planner"
-last_updated: "2026-08-09T02:43:55Z"
+last_updated: "2026-08-09T03:01:43Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 398 2026-08-09T02:43:50Z"
+lint: "PASS 398 2026-08-09T03:01:43Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,21 +188,21 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R118 — raw-source B1 preservation; selector correction required
+### M-R118 — raw-source B1 preservation; census harness corrected
 
-The registered B1 winner population is frozen at the pre-fix 53-file census: 193,827 rows, SHA-256 `362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`. Current production instead selects 132,752 (`f21ffd…b1de9b`), including rejection of certified AK probe `STATE_AK_T10_C10.50_S10.50.690`; candidate delta adjudication remains blocked.
-The Developer write set is exactly four files: (1) `backend/app/definition_links/rules/us_body_preamble_b1.py` restores `_b1_trigger_colon_or_quote_means` to its `5753e11` syntactic membership byte-for-byte—no legal-unit or substantive lexical guard may decide B1 recognition—while retaining raw-evidence helpers; (2) `backend/app/definition_links/us_profile.py` carries a US-only `BodyPreambleMatch(str)` only after the registered B1 callable wins, preserves ordinary string equality/direct API behavior, and applies raw filtering after baseline candidate generation on both local and section routes; (3) `backend/app/definition_links/pipeline.py` passes raw source and B1 metadata only for that capability, keeps every non-B1 call shape unchanged, and unions baseline/local/section candidates in the existing local-first de-dup order; (4) `backend/tests/unit/test_mr118_qa_raw_provenance.py` pins the selector controls.
-Raw source, not parser normalization, governs destructive B1 evidence: filter only when raw has a valid exact term occurrence and every bounded payload is non-substantive; otherwise preserve the current tuple byte-for-byte. Keep the explicit plural-list repair but add only a missing term after the filtered baseline/local/section union. No global mutable normalization map, source allowlist, generic dispatch, or fifth production file is authorized.
-Future-law direct and persistence controls remain binding. Evidence and the correction handoff are in [`mr118/DEVELOPER_READY.md`](2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md).
+The registered B1 winner population remains frozen at the pre-fix 53-file census: 193,827 rows, SHA-256 `362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`.
+WIP `9e8d77f` restores a selector byte-identical to `5753e11`; its apparent 193,830 count was a QA harness input mismatch, not row numbering or a production selector change. Both stable keys identify the same three normalized-only extras: `STATE_CA_Cgov_T2_D3_P2_C6_A2_S12534`, `STATE_CA_Cbpc_D3_C9_A3_S7050`, and `STATE_OR_T23_C248_S248.355`.
+Membership must use persisted raw `row["text"]`, exactly as the committed certification did; parser normalization remains candidate-capture-only because it repairs malformed curly quote bytes into a B1-recognizable form. Raw source also governs destructive B1 evidence: filter only after winner selection when valid exact-term payload evidence proves every payload non-substantive; keep plural repair missing-term-only after the local/section union.
+No global mutable normalization map, source allowlist, generic dispatch, or fifth production file is authorized. Future-law direct and persistence controls remain binding.
 
 ## Next Steps
 
-7. **[QA-FAIL: corpus membership mismatch]** Restore the pre-fix registered B1
-   selector before candidate qualification: 193,827 / `362b…ae08d`, not
-   132,752 / `f21ffd…b1de9b`; AK probe `STATE_AK_T10_C10.50_S10.50.690` must
-   win B1. The new legal-unit and substantive-quote guards caused this 61,075-row
-   regression. Then carry raw only through the B1 capability seam, filter the
-   baseline/local/section union, and rerun membership before delta/adjudication.
+7. **[QA-FAIL: census harness mismatch]** Re-run membership with persisted raw
+   body selection, then confirm 193,827 / `362b…ae08d` before any delta work.
+   The normalized-only CA/CA/OR three-row surplus is a measurement artifact;
+   stable row coordinates and `source_row_id` agree, and the WIP B1 selector is
+   byte-identical to `5753e11`. Do not change production or waive the raw
+   membership contract; only normalized candidate capture follows selection.
 
 ## Dev Complete
 
@@ -388,7 +388,7 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 needs the M-R118 selector correction.
+1. Items 1–6 remain Dev Complete; Item 7 awaits raw-selector QA remeasurement.
 2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
 3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
 4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.

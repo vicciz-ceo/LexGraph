@@ -78,6 +78,28 @@ def member(path: Path, row_number: int, row: dict) -> dict:
     }
 
 
+def registered_b1_winner(*, legacy_derive, registry, b1_rule, jurisdiction_code: str, heading: str, raw_source: str) -> bool:
+    """Measure the certified registered selector on persisted source bytes.
+
+    M-R118's committed member file was produced by the pre-fix harness with
+    ``row[\"text\"]``.  Parser normalization belongs to candidate capture, not
+    to this frozen registry-membership comparison: it can repair malformed
+    quote bytes and therefore create normalized-only B1 matches.
+    """
+    if legacy_derive(heading, raw_source) is not None:
+        return False
+    winner = next(
+        (
+            rule.derive_heading
+            for rule in registry._body_preamble_rules
+            if registry._matches(rule.jurisdiction_codes, jurisdiction_code)
+            and rule.derive_heading(raw_source) is not None
+        ),
+        None,
+    )
+    return winner is b1_rule
+
+
 def capture(profile, body: str, raw: str, row: dict, *, current: bool) -> list[tuple[tuple[str, ...], object]]:
     heading = row["section_title"] or ""
     recognized = profile.is_definitions_heading(heading, body)
@@ -133,15 +155,14 @@ def measure(args: argparse.Namespace) -> None:
                 raw = row["text"] or ""
                 body, _ = strip_wikilinks(profile.normalize_for_parsing(raw))
                 if args.current:
-                    if legacy_derive(row["section_title"] or "", body) is not None:
-                        continue
-                    winner = next(
-                        (rule.derive_heading for rule in registry._body_preamble_rules
-                         if registry._matches(rule.jurisdiction_codes, jurisdiction(path))
-                         and rule.derive_heading(body) is not None),
-                        None,
-                    )
-                    if winner is not b1_rule:
+                    if not registered_b1_winner(
+                        legacy_derive=legacy_derive,
+                        registry=registry,
+                        b1_rule=b1_rule,
+                        jurisdiction_code=jurisdiction(path),
+                        heading=row["section_title"] or "",
+                        raw_source=raw,
+                    ):
                         continue
                     members.append(member(path, row_number, row))
                 elif (path.name, row_number) not in selected:

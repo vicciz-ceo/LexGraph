@@ -6233,3 +6233,20 @@ after baseline generation. No global normalization state, allowlist, or new
 dispatch is authorized. Runtime all-53 remeasurement is intentionally deferred
 until selection is repaired; the focused runtime prototype could not start in
 this worktree because its `pyarrow` dependency/venv is absent.
+
+## 2026-08-09 — M-R118 census input correction
+
+The WIP B1 selector is byte-identical to `5753e11`; both coordinate and
+`source_row_id` set comparisons show three extras and no missing rows, so this
+is not parquet enumeration drift. The QA script selected its census after
+`normalize_for_parsing`, while the committed 193,827-member harness selected
+raw `row["text"]`. Normalization repairs the malformed `”` close quote in CA
+`12534` and `7050` and the Oregon interstate-agreement list, producing exactly
+the three normalized-only B1 matches. For all three, raw has no free legacy or
+registered winner; normalized B1 is the first and only winner (index 6).
+
+QA now selects membership on raw persisted source and normalizes only for
+candidate capture. A bounded six-row probe against the committed member file
+passes: AK, CA, and OR certified members are raw winners; the three extras are
+raw non-winners and normalized winners. No production change is authorized;
+rerun the raw membership census before delta/adjudication.
