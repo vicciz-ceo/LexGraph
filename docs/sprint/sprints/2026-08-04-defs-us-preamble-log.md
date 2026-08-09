@@ -6191,3 +6191,13 @@ This is an unclassified candidate, not an acceptable corpus delta. The full
 ledger, summary, error trace, and exact source report are retained under
 `mr114/all-v1`; no production mutation is authorized and all-53 certification
 remains blocked pending a fresh structural remedy.
+## 2026-08-09 — M-R118 Developer completion checkpoint
+
+Developer resumed from Planner correction `5f7a538` and completed the bounded
+B1 coordination/list-marker raw-payload repair. Focused direct and persistence
+runtime gate is 32 passed. The authoritative backend command stopped during
+collection at Planner-owned `test_us_body_preamble_b1_structural_future_law_persistence_red.py`
+(`ModuleNotFoundError: backend`); frontend test and typecheck separately stopped
+because `vitest` and `tsc` are unavailable in the local frontend installation.
+No tests or Planner artifacts were changed. Contract moves Item 7 to Dev Complete
+and hands QA the independent verdict.

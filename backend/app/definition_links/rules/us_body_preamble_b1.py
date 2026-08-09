@@ -77,9 +77,10 @@ _B1_PLURAL_LIST_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _B1_VALID_QUOTED_TERM_RE = re.compile(r'(["“])(?P<term>[^"”]{1,150})(["”])')
+_B1_LIST_MARKER_RE = re.compile(r"\n\s*\([A-Za-z0-9]+\)")
 _B1_COORDINATION_ONLY_RE = re.compile(
-    r"^[\s;,:()\[\]{}\d]*(?:\([A-Za-z0-9]+\)[\s;,:()\[\]{}\d]*)?"
-    r"(?:(?:and|or)\b[\s;,:()\[\]{}\d]*)?$",
+    r"^[\s;,:()\[\]{}\d]*(?:(?:\([A-Za-z0-9]+\)|\b(?:and|or)\b)"
+    r"[\s;,:()\[\]{}\d]*)*$",
     re.IGNORECASE,
 )
 
@@ -154,6 +155,9 @@ def _raw_payloads_for_term(raw_source: str, term: str) -> list[str]:
         if match.group("term").strip() != term or match.group(1) != match.group(3):
             continue
         end = matches[index + 1].start() if index + 1 < len(matches) else len(raw_source)
+        marker = _B1_LIST_MARKER_RE.search(raw_source, match.end(), end)
+        if marker is not None:
+            end = marker.start()
         payloads.append(raw_source[match.end() : end])
     return payloads
 

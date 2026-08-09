@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planned
+status: dev-complete
 blocked_on: null
-current_role: developer
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:manager"
-last_updated: "2026-08-09T01:50:27Z"
+last_agent: "codex:developer"
+last_updated: "2026-08-09T02:00:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 2
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-09T01:50:27Z"
+lint: "PASS 391 2026-08-09T02:00:00Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -197,26 +197,11 @@ Future-law direct and persistence controls remain binding; no identifiers, corpu
 
 ## Next Steps
 
-7. **[QA-FAIL: exact HI contractual clause false capture; expected no pseudo-definition, actual 529-char term + '; and']**
-   Replan under M-R107/M-R108 as separate structural proposals: AR/ID false-
-   trigger grammar and TX valid later definition occurrence. Correct the AR/ID
-   direct broken-dispatch assertion, retain source-faithful persistence REDs,
-   and add novel-law controls with unseen IDs, terms, and wording; no corpus
-   allowlist. Measure each proposal and their all-53 union with zero unexplained
-   deltas, separately report HI/FED, and preserve G7/ledgers. The proposed
-   metadata contract may use a backward-compatible `BodyPreambleMatch` result:
-   legacy/non-B1 rules continue returning a heading string, while B1 may carry
-   occurrence/candidate metadata only for its structural B1 branch. `In this`
-   must distinguish statutory-unit grammar from ordinary prose without removing
-   genuine definitions; preserve independently valid earlier candidates instead
-   of slicing the whole body at TX's qualifying quote. The next candidate is a
-   B1-only default-preserve gate: use a bounded term-local source payload to
-   reject punctuation/coordination-only pseudo-entries only when every exact
-   quoted occurrence is empty; retain substantive tuples, then repair matched
-   bounded lists with explicit plural anaphora (`those terms` or equivalent).
-   Evaluate only current B1 winners; no new dispatch/generic additions or non-B1 change.
-
 ## Dev Complete
+
+7. **M-R118 B1 raw-source preservation.** Raw exact matched occurrences now
+   default-preserve substantive candidates, remove punctuation/list-marker-only
+   entries, and repair only explicit plural-anaphora forwarding lists.
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -361,6 +346,12 @@ FED debt-pin/capture-test names were repointed in their owned integration file.
 No external pins remain and no production signature/class/CSS rename occurred.
 
 ## QA Notes
+
+## Evaluation Notes
+
+- 2026-08-09 — M-R118 focused runtime gate: 32 passed. Authoritative backend
+  stopped in collection at the Planner-owned `backend` import; frontend test
+  and typecheck each stopped because local frontend dependencies are absent.
 
 - 2026-08-06T23:32:33Z — QA cycle 1 escalated after completing every focused,
   backend, frontend, all-53 seam/hash, and broad-mutation gate. G7 could not be
