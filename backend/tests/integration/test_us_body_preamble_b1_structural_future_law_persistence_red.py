@@ -39,6 +39,9 @@ def test_b1_future_law_structure_at_live_persistence_altitude(case, db_session, 
 
     for false_term in case.get("false_terms", ()):
         assert false_term not in by_term
+    if case.get("expected_empty_candidates"):
+        assert not by_term
+        return
     if case["heading"] is None:
         assert not by_term
         return

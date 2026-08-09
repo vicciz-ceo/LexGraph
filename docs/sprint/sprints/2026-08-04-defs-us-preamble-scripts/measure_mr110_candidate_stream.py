@@ -322,12 +322,12 @@ def default_preserve_runtime_patch():
             return value
         return None
 
-    def extract(self, text: str, *, scope: str, heading_was_derived=False):
+    def extract(self, text: str, *, scope: str, heading_was_derived=False, raw_source=None):
         match = matches.get(text)
         if match is None or not heading_was_derived:
-            return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
-        baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
-        preserved = _preserved_baseline_candidates(source_view(text), baseline, match)
+            return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived, raw_source=raw_source)
+        baseline = original_extract(self, text, scope=scope, heading_was_derived=True, raw_source=raw_source)
+        preserved = _preserved_baseline_candidates(raw_source or source_view(text), baseline, match)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
             candidate
@@ -336,15 +336,15 @@ def default_preserve_runtime_patch():
         ]
         return preserved + additions
 
-    def extract_local(self, article_body: str, *, article_number: str, chapter=None):
+    def extract_local(self, article_body: str, *, article_number: str, chapter=None, raw_source=None, b1_derived=False):
         match = matches.get(article_body)
-        original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter)
+        original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter, raw_source=raw_source, b1_derived=b1_derived)
         if match is None:
             return original
         return [
             candidate
             for candidate in original
-            if candidate_has_substantive_local_payload(source_view(article_body), candidate, match.clause_groups)
+            if candidate_has_substantive_local_payload(raw_source or source_view(article_body), candidate, match.clause_groups)
         ]
 
     registry.body_preamble_rules_for = rules_for

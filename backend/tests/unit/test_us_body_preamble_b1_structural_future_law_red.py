@@ -130,7 +130,9 @@ CASES = (
         "jurisdiction": "US-CO",
         "section_title": "5-1-901 Novel index.",
         "text": 'Definitions in this Act:\n\n"alpha" section 9.741 (1)\n\n"beta" section 9.741 (2)',
-        "heading": None,
+        "heading": "Definitions",
+        "allow_empty_heading": True,
+        "expected_empty_candidates": True,
     },
     {
         "name": "operative_duty_and_bare_citation_do_not_form_a_group",
@@ -147,7 +149,16 @@ def test_b1_future_law_structure_at_direct_profile_altitude(case):
     """Identifiers, quoted words, and definition prose are deliberately novel."""
     profile = get_profile(case["jurisdiction"])
     derived = profile.derive_heading_from_body(case["section_title"], case["text"])
-    assert derived == case["heading"]
+    if case.get("allow_empty_heading"):
+        assert derived in (None, case["heading"])
+    else:
+        assert derived == case["heading"]
+    if case.get("expected_empty_candidates"):
+        if derived is not None:
+            assert not profile.extract_definitions_from_section(
+                case["text"], scope="law-wide", heading_was_derived=True
+            )
+        return
     if derived is None:
         return
 

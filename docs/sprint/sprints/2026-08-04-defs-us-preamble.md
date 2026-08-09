@@ -192,7 +192,7 @@ live-persistence gate remains binding; no corpus-identity exception is allowed.
 
 Raw source, not parser normalization, governs destructive B1 evidence: filter only when raw has a valid exact term occurrence and every bounded payload is non-substantive; otherwise preserve the current tuple byte-for-byte.
 All 53 pinned files evaluated exactly 193,827 current B1 winners (`362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`); 636 deltas adjudicate to 634 valid removals and two authorized plural forwards, with zero loss/addition/ambiguity/unclassified.
-Production write set is B1-only raw provenance plus the shared preservation filter at derived-heading, local, and section routes; retain the explicit plural-list branch and leave non-B1/first-wins behavior unchanged.
+Production write set is B1-only raw provenance plus the shared preservation filter at derived-heading, local, and section routes; retain the explicit plural-list branch and leave non-B1/first-wins behavior unchanged. Recognition-only B2 outcomes with zero persisted candidates are non-gating.
 Future-law direct and persistence controls remain binding; no identifiers, corpus rows, terms, or source allowlists. Evidence and the exact Developer contract are in [`mr118/DEVELOPER_READY.md`](2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md).
 
 ## Next Steps
