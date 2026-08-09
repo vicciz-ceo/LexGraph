@@ -61,6 +61,18 @@ CASES = (
         "definition_text": "denotes a secure, time-stamped emergency transmission.",
     },
     {
+        "name": "repeated_quoted_term_keeps_later_genuine_definition",
+        "jurisdiction": "US-NV",
+        "section_title": "23-9-812 Novel marker.",
+        "text": '(a) The board shall post: (1) "ember relay"; and (2) "daily bulletin";\n'
+        '(e) As used in this section, "ember relay"\nmeans a certified emergency marker.',
+        "heading": "Definitions",
+        "false_terms": ("daily bulletin",),
+        "term": "ember relay",
+        "definition_text": "a certified emergency marker.",
+        "persistence_scope": "local",
+    },
+    {
         "name": "numbered_alias_list_uses_shared_trailing_forwarding_relation",
         "jurisdiction": "US-OR",
         "section_title": "9.742 Novel shared terms.",
@@ -115,7 +127,7 @@ def test_b1_future_law_structure_at_direct_profile_altitude(case):
     candidate = by_term.get(case["term"])
     assert candidate is not None
     assert candidate.definition_text == case["definition_text"]
-    assert candidate.scope == "law-wide"
+    assert candidate.scope == case.get("scope", "law-wide")
     for term, definition_text in case.get("additional_terms", {}).items():
         assert by_term.get(term) is not None
         assert by_term[term].definition_text == definition_text

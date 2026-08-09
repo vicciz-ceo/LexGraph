@@ -83,33 +83,69 @@ def has_substantive_definition_text(definition_text: str) -> bool:
     return any(word.casefold() not in _COORDINATION for word in _WORD.findall(residual))
 
 
-def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[ClauseGroup, ...] = ()) -> bool:
-    """Classify each quoted entry at its bounded local source boundary.
+def _normalized_production_term(term: str) -> str:
+    """Use the candidate's production spelling, minus boundary punctuation."""
+    return re.sub(r"\s+", " ", term.strip().rstrip(".,;:"))
 
-    The first semicolon or newline after the matching quote ends the payload;
-    no candidate is body-sliced or rewritten.  A missing source quote fails
-    open to the existing candidate text, preserving uncertain baseline data.
+
+def _matched_quote_occurrences(text: str, term: str):
+    """Yield exact, delimiter-matched quote occurrences for one emitted term."""
+    normalized_term = _normalized_production_term(term)
+    if not normalized_term:
+        return ()
+    # The term must fill a pair of the same quote delimiters.  This avoids
+    # treating an unmatched source quote as evidence for a different entry.
+    normalized_pattern = re.escape(normalized_term).replace(r"\ ", r"\s+")
+    return re.finditer(
+        rf'(?:"\s*{normalized_pattern}[.,;:]*\s*"|“\s*{normalized_pattern}[.,;:]*\s*”)',
+        text,
+        re.IGNORECASE,
+    )
+
+
+def _bounded_local_payload(text: str, quote_end: int) -> str:
+    """Return the source-local payload without crossing a list boundary.
+
+    A physically wrapped direct relation (``"term"`` followed by ``means``)
+    remains one local occurrence.  Any other newline is a source boundary, so
+    an ensuing numbered/subsection clause cannot lend its payload to the quote.
     """
-    payloads: list[str] = []
-    for term in candidate.terms:
-        normalized_term = term.strip().rstrip(".,;:")
-        if not normalized_term:
-            return has_substantive_definition_text(candidate.definition_text)
-        quotes = list(
-            re.finditer(
-                r'["“]\s*' + re.escape(normalized_term) + r'[.,;:]*\s*["”]',
-                text,
-                re.IGNORECASE,
-            )
+    tail = text[quote_end : quote_end + _MAX_GROUP]
+    semicolon = tail.find(";")
+    newline = tail.find("\n")
+    boundaries = [index for index in (semicolon,) if index >= 0]
+    if newline >= 0:
+        before_newline = tail[:newline]
+        after_newline = tail[newline:]
+        wrapped_relation = not before_newline.strip() and re.match(
+            r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", after_newline, re.I
         )
+        if not wrapped_relation:
+            boundaries.append(newline)
+    return tail[: min(boundaries)] if boundaries else tail
+
+
+def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[ClauseGroup, ...] = ()) -> bool:
+    """Preserve a candidate if any exact quoted occurrence is substantive.
+
+    Every occurrence is matched with like quote delimiters and normalized from
+    the existing production term.  The first semicolon or newline bounds each
+    payload.  A missing source quote fails open to the existing candidate text,
+    preserving uncertain baseline data.
+    """
+    for term in candidate.terms:
+        normalized_term = _normalized_production_term(term)
+        if not normalized_term:
+            return True
+        quotes = tuple(_matched_quote_occurrences(text, normalized_term))
         if not quotes:
-            return has_substantive_definition_text(candidate.definition_text)
+            # No matched delimiters means the source cannot establish the
+            # M-R117 all-occurrence condition (for example, malformed quote
+            # encoding). Preserve the current tuple rather than infer a loss.
+            return True
         for quote in quotes:
-            tail = text[quote.end() : quote.end() + _MAX_GROUP]
-            boundary = tail.find(";")
-            payloads.append(tail[:boundary] if boundary >= 0 else tail)
-    if any(has_substantive_definition_text(payload) for payload in payloads):
-        return True
+            if has_substantive_definition_text(_bounded_local_payload(text, quote.end())):
+                return True
     # The final quoted member of a structurally bounded alias list directly
     # precedes its shared relation.  Preserve that existing baseline tuple
     # byte-for-byte; earlier aliases are added from the shared relation only
@@ -119,7 +155,7 @@ def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[
         for group in groups
         if group.shared_trailing_relation and group.term_spans
     }
-    return any(term.strip().rstrip(".,;:").casefold() in final_shared_terms for term in candidate.terms)
+    return any(_normalized_production_term(term).casefold() in final_shared_terms for term in candidate.terms)
 
 
 def _group_end(body: str, start: int) -> int:
@@ -231,9 +267,22 @@ def default_preserve_runtime_patch():
     original_derive = USProfile.derive_heading_from_body
     original_extract = USProfile.extract_definitions_from_section
     original_extract_local = USProfile.extract_local_scope_definitions
+    original_normalize = USProfile.normalize_for_parsing
     # The production resolver may materialize equivalent profile instances;
     # body text is the immutable carrier key that survives all four layers.
     matches: dict[str, BodyPreambleMatch] = {}
+    raw_source_by_parser_body: dict[str, str] = {}
+
+    def normalize_for_parsing(self, text: str):
+        normalized = original_normalize(self, text)
+        raw_source_by_parser_body[normalized] = text
+        return normalized
+
+    def source_view(parser_body: str) -> str:
+        # Parser normalization may repair malformed delimiters. It may help
+        # discovery, but only the raw source can justify removing a current
+        # B1 tuple.
+        return raw_source_by_parser_body.get(parser_body, parser_body)
 
     def rules_for(code: str):
         rules = original_rules_for(code)
@@ -255,9 +304,18 @@ def default_preserve_runtime_patch():
             if isinstance(value, BodyPreambleMatch):
                 scope = self.determine_scope(body)
                 baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
-                preserved = _preserved_baseline_candidates(body, baseline_candidates, value)
+                raw_body = source_view(body)
+                preserved = _preserved_baseline_candidates(raw_body, baseline_candidates, value)
+                # Some direct B1 tuples are emitted only through the existing
+                # local extractor.  They are still current B1 candidates and
+                # must take the same all-occurrence preservation path before
+                # this B1-only prototype may suppress derived recognition.
+                local_candidates = original_extract_local(
+                    self, body, article_number="", chapter=None
+                )
+                preserved_local = _preserved_baseline_candidates(raw_body, local_candidates, value)
                 additions = _group_candidates(body, value.clause_groups, scope)
-                if not preserved and not additions:
+                if not preserved and not preserved_local and not additions:
                     return None
                 matches[body] = value
                 return value.heading
@@ -269,7 +327,7 @@ def default_preserve_runtime_patch():
         if match is None or not heading_was_derived:
             return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived)
         baseline = original_extract(self, text, scope=scope, heading_was_derived=True)
-        preserved = _preserved_baseline_candidates(text, baseline, match)
+        preserved = _preserved_baseline_candidates(source_view(text), baseline, match)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
             candidate
@@ -286,16 +344,18 @@ def default_preserve_runtime_patch():
         return [
             candidate
             for candidate in original
-            if candidate_has_substantive_local_payload(article_body, candidate, match.clause_groups)
+            if candidate_has_substantive_local_payload(source_view(article_body), candidate, match.clause_groups)
         ]
 
     registry.body_preamble_rules_for = rules_for
+    USProfile.normalize_for_parsing = normalize_for_parsing
     USProfile.derive_heading_from_body = derive
     USProfile.extract_definitions_from_section = extract
     USProfile.extract_local_scope_definitions = extract_local
     try:
         yield
     finally:
+        USProfile.normalize_for_parsing = original_normalize
         USProfile.extract_definitions_from_section = original_extract
         USProfile.extract_local_scope_definitions = original_extract_local
         USProfile.derive_heading_from_body = original_derive

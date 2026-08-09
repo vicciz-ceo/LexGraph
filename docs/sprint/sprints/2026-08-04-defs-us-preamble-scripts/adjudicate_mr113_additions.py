@@ -8,6 +8,7 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import pyarrow.parquet as pq
 
@@ -88,12 +89,20 @@ def _source_rows_from_snapshot(snapshot: Path, changed: list[dict]) -> dict[str,
     return rows
 
 
-def _quoted_term_span(body: str, term: str):
-    needle = term.strip().rstrip(".,;:")
-    if not needle:
-        return None
-    match = re.search(r'["“]\s*' + re.escape(needle) + r'[.,;:]*\s*["”]', body, re.I)
-    return None if match is None else (match.start(), match.end())
+def _removal_occurrences(measure, body: str, term: str):
+    """Return all exact, delimiter-matched occurrences for removal evidence."""
+    return tuple(measure._matched_quote_occurrences(body, term))
+
+
+def _is_direct_source_definition(measure, body: str, term: str, definition_text: str) -> bool:
+    """Recognize a source-faithful direct B1 relation across line wrapping."""
+    for quote in _removal_occurrences(measure, body, term):
+        tail = body[quote.end() : quote.end() + 1600]
+        if not re.match(r"\s*(?:means|shall\s+mean|includes|shall\s+include)\b", tail, re.I):
+            continue
+        if _direct_quote_match(body[quote.start() :], term, definition_text) is not None:
+            return True
+    return False
 
 
 def main() -> int:
@@ -163,19 +172,28 @@ def main() -> int:
         )
     for row in removals:
         body = source[row["source_row_id"]]
-        quote_span = _quoted_term_span(body, row["term"])
-        if quote_span is None:
+        occurrences = _removal_occurrences(measure, body, row["term"])
+        if not occurrences:
             raise RuntimeError(f"UNCLASSIFIED REMOVAL {row['source_row_id']} {row['term']!r}")
-        if row["term_local_substantive"] or measure.has_substantive_definition_text(row["definition_text"]):
+        candidate = SimpleNamespace(terms=(row["term"],), definition_text=row["definition_text"])
+        # A loss remains genuine if any exact occurrence has a substantive
+        # bounded payload.  Also retain the independent source-faithful
+        # direct match: it catches a valid definition whose formatting places
+        # its defining text across a local line boundary.
+        direct_source_definition = measure.has_substantive_definition_text(
+            row["definition_text"]
+        ) and _is_direct_source_definition(measure, body, row["term"], row["definition_text"])
+        if measure.candidate_has_substantive_local_payload(body, candidate) or direct_source_definition:
             raise RuntimeError(f"GENUINE LOSS {row['source_row_id']} {row['term']!r}")
-        start, end = quote_span
+        start, end = occurrences[0].span()
         ledger.append(
             {
                 "change": "removed",
-                "adjudication": "malformed_non_substantive_tuple",
+                "adjudication": "all_matched_quote_occurrences_non_substantive",
                 "definition_text": row["definition_text"],
                 "governing_clause": body[start : min(len(body), end + 120)].strip(),
                 "governing_span": [start, end],
+                "matched_quote_occurrence_spans": [[match.start(), match.end()] for match in occurrences],
                 "normalization": "curly_quotes+en_spaces+whitespace",
                 "source_row_id": row["source_row_id"],
                 "term": row["term"],
