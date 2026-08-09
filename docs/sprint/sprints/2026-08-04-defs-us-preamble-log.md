@@ -6259,8 +6259,9 @@ CA/OR tuples from the three normalized-only rows because raw quote pairs are
 invalid. An archived `5753e11` baseline over that same population differs from
 WIP by 534 keys (530 removed, 4 added; `a7dcd…2183e`), not certified 636;
 113 certified removals are missing and 11 keys are unexpected. This is a
-fail-closed production-semantic mismatch. Compact durable paths/hashes are in
-`mr118/qa/mr119/manifest.json`; large temporary streams are intentionally not
+fail-closed production-semantic mismatch. Compact historical counts/hashes are
+in `mr118/qa/mr119/manifest.json`; its machine-local `path` fields are
+non-binding and may be stale, and large streams are intentionally not
 committed. Production remains read-only pending exhaustive family review.
 
 ## 2026-08-09 — M-R120 exhaustive source-truth Developer handoff
@@ -6321,3 +6322,18 @@ both direct and persistence altitude: unpatched production is intentionally
 raw-source control is 13/13. No all-53 run was made. Production remains
 untouched; Developer may edit only `us_body_preamble_b1.py` and must satisfy
 the focused gates before the single all-53 acceptance measurement.
+
+## 2026-08-09 — M-R121 durable baseline recipe correction
+
+The Developer handoff incorrectly hard-coded a machine-local prior-run baseline
+path. The all-53 recipe now creates one explicit temporary root with current,
+archived-source, baseline-output, and comparison subdirectories; exports commit
+`5753e11` with `git archive`; and measures that archived production tree against
+the current run's exact `members.jsonl`.
+
+Before comparison, the recipe requires 592,694 baseline records and byte
+SHA-256 `f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8`.
+Failed checks retain the printed temporary root for inspection; only after a
+successful comparison and summary display does the recipe remove that root. No
+large baseline artifact is committed. Production, tests, certificate, counts,
+and contract wording remain unchanged.

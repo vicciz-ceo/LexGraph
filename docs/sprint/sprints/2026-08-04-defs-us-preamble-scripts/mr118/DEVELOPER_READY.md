@@ -105,23 +105,68 @@ After the focused gates pass, run current production once and compare it to the
 pinned archived baseline and certificate:
 
 ```bash
+(
+set -euo pipefail
+
+MR121_REPO=$(git rev-parse --show-toplevel)
+cd "$MR121_REPO"
+git cat-file -e '5753e11^{commit}'
+
+MR121_PYTHON=/Users/nerya/LexGraph/backend/.venv/bin/python
+MR121_MEASURE=docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/measure_actual_production.py
+MR121_CERT=docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/mr121/expected_changed.jsonl
 MR121_SNAPSHOT=/Users/nerya/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad
-MR121_CURRENT=$(mktemp -d /tmp/mr121-current.XXXXXX)
-MR121_COMPARE=$(mktemp -d /tmp/mr121-compare.XXXXXX)
 
-PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python \
-  docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/measure_actual_production.py \
-  --snapshot "$MR121_SNAPSHOT" --source-root "$PWD" --out "$MR121_CURRENT" --current
+MR121_RUN=$(mktemp -d /tmp/mr121-acceptance.XXXXXX)
+MR121_CURRENT="$MR121_RUN/current"
+MR121_BASELINE_SRC="$MR121_RUN/source-5753e11"
+MR121_BASELINE_OUT="$MR121_RUN/baseline"
+MR121_COMPARE="$MR121_RUN/compare"
+mkdir -p "$MR121_CURRENT" "$MR121_BASELINE_SRC" \
+  "$MR121_BASELINE_OUT" "$MR121_COMPARE"
+printf 'M-R121 artifacts: %s\n' "$MR121_RUN"
 
-PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python \
-  docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/measure_actual_production.py \
+git archive 5753e11 | tar -x -C "$MR121_BASELINE_SRC"
+
+PYTHONPATH=.:backend "$MR121_PYTHON" "$MR121_MEASURE" \
+  --snapshot "$MR121_SNAPSHOT" --source-root "$MR121_REPO" \
+  --out "$MR121_CURRENT" --current
+
+PYTHONPATH=.:backend "$MR121_PYTHON" "$MR121_MEASURE" \
+  --snapshot "$MR121_SNAPSHOT" --source-root "$MR121_BASELINE_SRC" \
+  --members "$MR121_CURRENT/members.jsonl" --out "$MR121_BASELINE_OUT"
+
+MR121_BASELINE_COUNT=$(
+  wc -l < "$MR121_BASELINE_OUT/records.jsonl" | tr -d '[:space:]'
+)
+MR121_BASELINE_SHA256=$(
+  shasum -a 256 "$MR121_BASELINE_OUT/records.jsonl" | awk '{print $1}'
+)
+test "$MR121_BASELINE_COUNT" = 592694
+test "$MR121_BASELINE_SHA256" = \
+  f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8
+
+PYTHONPATH=.:backend "$MR121_PYTHON" "$MR121_MEASURE" \
   --compare --out "$MR121_COMPARE" \
-  --baseline /var/folders/ky/rzc26slx7190hq_8thqq09g40000gn/T/mr119baseline.Xu46b621Gx/records.jsonl \
+  --baseline "$MR121_BASELINE_OUT/records.jsonl" \
   --current-records "$MR121_CURRENT/records.jsonl" \
-  --certified docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/mr121/expected_changed.jsonl
+  --certified "$MR121_CERT"
+
+cat "$MR121_CURRENT/summary.json"
+cat "$MR121_BASELINE_OUT/summary.json"
+cat "$MR121_COMPARE/summary.json"
+
+rm -rf -- "$MR121_RUN"
+)
 ```
 
+The printed `MR121_RUN` directory retains all current, baseline, and comparison
+artifacts if any check fails. Successful comparison displays all three
+summaries, then removes only that explicit temporary root.
 The current run must reproduce 193,830 members and the pinned membership hash.
+The archived baseline run must reproduce 592,694 records and the pinned
+`f065d8ee…b3f8` records hash before comparison; it must use the current run's
+exact `members.jsonl`, not a separately selected population.
 The comparison must report exactly 556 changed, 552 removed, 4 added, zero
 missing, zero extra, and equal actual/certificate hashes of
 `17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a`.
