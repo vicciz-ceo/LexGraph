@@ -6076,6 +6076,26 @@ must delete the generic synthesis code, adjust that fixture, prove focused
 current RED/runtime green, and rerun all 53. Any evaluated-row count above the
 current-winner count is an automatic harness failure before adjudication.
 
+### M-R117 — repeated-term occurrence ruling
+
+M-R116 correctly held evaluated membership to the exact 193,827 current B1
+winners (hash `362b...`) and reduced the all-53 delta to 168 keys, but
+adjudication found a genuine loss at `STATE_AR_T5_C64_S4_S5-64-411`.
+`recreation center` appears first inside ordinary statutory text and later in
+the direct clause `(e) As used in this section, "recreation center" means ...`.
+The runtime classifier inspected the earlier quote occurrence and incorrectly
+treated the candidate as locally empty, ignoring the later defining occurrence.
+
+Manager authorizes conservative any-occurrence semantics: enumerate every exact
+matched quote occurrence for the candidate term using matched delimiters. If any
+occurrence has substantive bounded local payload, preserve the existing tuple
+byte-for-byte. Remove only when every occurrence is non-substantive and the term
+is not repaired by the explicit M-R114 plural-list branch. This is reusable for
+future laws and cannot lower recall relative to first-occurrence selection.
+Planner must add novel direct and persistence controls with the same quoted term
+first used in operative prose and later genuinely defined, rerun the focused
+prototype, then all 53 with the exact current-winner membership gate.
+
 ### M-R116 — Planner binds current-winner-only runtime evidence
 
 The runtime prototype now patches only an already current-B1-winning body:

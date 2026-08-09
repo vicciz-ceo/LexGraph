@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: "codex:planner"
 locked_at: "2026-08-08T21:46:17Z"
 last_agent: "codex:manager"
-last_updated: "2026-08-09T00:12:04Z"
+last_updated: "2026-08-09T00:33:31Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-09T00:12:34Z"
+lint: "PASS 400 2026-08-09T00:33:48Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R116 — no new dispatch; measure current B1 winners only
+### M-R117 — repeated quoted terms use any substantive local occurrence
 
-Generic numbered-colon synthesis still fabricates FED editorial text; reject it.
-The proposal may only narrow today's B1 winners, plus repair an explicit plural-
-anaphora list inside that same population. Unknown-relation future controls use
-already-supported numbered-list structure. No new dispatch; all-53 zero-loss remains required.
+First-occurrence classification removes real AR `recreation center`, whose term
+appears earlier in a list and later in a direct definition. Preserve a candidate
+when any exact quoted occurrence has substantive local payload; remove it only
+when all occurrences are empty and no shared-list repair applies. All-53 zero-loss remains required.
 
 ## Next Steps
 
@@ -211,8 +211,8 @@ already-supported numbered-list structure. No new dispatch; all-53 zero-loss rem
    genuine definitions; preserve independently valid earlier candidates instead
    of slicing the whole body at TX's qualifying quote. The next candidate is a
    B1-only default-preserve gate: use a bounded term-local source payload to
-   reject punctuation/coordination-only pseudo-entries despite later overrun;
-   retain each substantive baseline tuple unchanged, then repair only matched
+   reject punctuation/coordination-only pseudo-entries only when every exact
+   quoted occurrence is empty; retain substantive tuples, then repair matched
    bounded lists with explicit plural anaphora (`those terms` or equivalent).
    Evaluate only current B1 winners; no new dispatch/generic additions or non-B1 change.
 
