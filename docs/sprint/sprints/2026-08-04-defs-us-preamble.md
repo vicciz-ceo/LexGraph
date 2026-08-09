@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: qa-fail
+status: dev-complete
 blocked_on: null
-current_role: developer
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:qa"
-last_updated: "2026-08-09T02:12:37Z"
+last_agent: "codex:developer"
+last_updated: "2026-08-09T02:15:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 3
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-09T02:12:43Z"
+lint: "PASS 399 2026-08-09T02:15:00Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -358,9 +358,8 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Evaluation Notes
 
-- 2026-08-09 — M-R118 focused runtime gate: 32 passed. Authoritative backend
-  stopped in collection at the Planner-owned `backend` import; frontend test
-  and typecheck each stopped because local frontend dependencies are absent.
+- 2026-08-09 — QA non-B1 call-shape regression repaired. Hebrew live RED,
+  11 QA provenance controls, and original focused gate are green (32 passed).
 
 - 2026-08-06T23:32:33Z — QA cycle 1 escalated after completing every focused,
   backend, frontend, all-53 seam/hash, and broad-mutation gate. G7 could not be

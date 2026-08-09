@@ -6201,3 +6201,11 @@ collection at Planner-owned `test_us_body_preamble_b1_structural_future_law_pers
 because `vitest` and `tsc` are unavailable in the local frontend installation.
 No tests or Planner artifacts were changed. Contract moves Item 7 to Dev Complete
 and hands QA the independent verdict.
+
+## 2026-08-09 — M-R118 QA-fail Developer repair
+
+Developer preserved legacy profile call shapes for every non-B1 winner and
+threads raw-source metadata only through an explicit live B1 winner. The Hebrew
+live regression passed, as did all 11 QA provenance checks and the original
+32-case focused gate. One full backend pass was run with `PYTHONPATH=.:backend`;
+fresh QA owns remaining acceptance and corpus measurement.

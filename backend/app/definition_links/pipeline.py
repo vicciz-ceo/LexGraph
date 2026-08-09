@@ -279,13 +279,19 @@ def run_definition_linking(
             # section candidate cannot reach persistence or Stage 3.
             local_candidate_keys: set[tuple[str, ...]] = set()
             if used_body_derived_heading:
-                for candidate in profile.extract_local_scope_definitions(
-                    matcher_article.body,
-                    article_number=art.number,
-                    chapter=art.chapter,
-                    raw_source=raw_bodies[art.id],
-                    b1_winner=b1_winner,
-                ):
+                if b1_winner:
+                    local_candidates = profile.extract_local_scope_definitions(
+                        matcher_article.body,
+                        article_number=art.number,
+                        chapter=art.chapter,
+                        raw_source=raw_bodies[art.id],
+                        b1_winner=True,
+                    )
+                else:
+                    local_candidates = profile.extract_local_scope_definitions(
+                        matcher_article.body, article_number=art.number, chapter=art.chapter
+                    )
+                for candidate in local_candidates:
                     candidate_key = tuple(sorted(candidate.terms))
                     if candidate_key in local_candidate_keys:
                         continue
@@ -293,13 +299,20 @@ def run_definition_linking(
                     all_candidates.append((candidate, art))
 
             scope = profile.determine_scope(matcher_article.body)
-            section_candidates = profile.extract_definitions_from_section(
-                matcher_article.body,
-                scope=scope,
-                heading_was_derived=used_body_derived_heading,
-                raw_source=raw_bodies[art.id],
-                b1_winner=b1_winner,
-            )
+            if b1_winner:
+                section_candidates = profile.extract_definitions_from_section(
+                    matcher_article.body,
+                    scope=scope,
+                    heading_was_derived=True,
+                    raw_source=raw_bodies[art.id],
+                    b1_winner=True,
+                )
+            else:
+                section_candidates = profile.extract_definitions_from_section(
+                    matcher_article.body,
+                    scope=scope,
+                    heading_was_derived=used_body_derived_heading,
+                )
             # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
             # `determine_scope_assignments` replaces the old bare
             # `candidate.source_chapter = art.chapter if scope == "chapter"
