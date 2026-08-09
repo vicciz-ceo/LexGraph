@@ -6250,3 +6250,15 @@ candidate capture. A bounded six-row probe against the committed member file
 passes: AK, CA, and OR certified members are raw winners; the three extras are
 raw non-winners and normalized winners. No production change is authorized;
 rerun the raw membership census before delta/adjudication.
+
+## 2026-08-09 — M-R119 live-normalized fail-closed checkpoint
+
+Manager binds membership to the live normalized/stripped parser body, not raw
+source. Actual WIP census is 193,830 (`851e85…6af5a`) and preserves the ten
+CA/OR tuples from the three normalized-only rows because raw quote pairs are
+invalid. An archived `5753e11` baseline over that same population differs from
+WIP by 534 keys (530 removed, 4 added; `a7dcd…2183e`), not certified 636;
+113 certified removals are missing and 11 keys are unexpected. This is a
+fail-closed production-semantic mismatch. Compact durable paths/hashes are in
+`mr118/qa/mr119/manifest.json`; large temporary streams are intentionally not
+committed. Production remains read-only pending exhaustive family review.

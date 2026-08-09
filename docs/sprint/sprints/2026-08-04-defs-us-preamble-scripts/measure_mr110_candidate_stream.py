@@ -261,6 +261,7 @@ def default_preserve_runtime_patch():
     from app.definition_links.rules import registry
     from app.definition_links.rules.registry import BodyPreambleRule
     from app.definition_links.rules.us_body_preamble_b1 import _b1_trigger_colon_or_quote_means
+    from app.definition_links.us_profile import BodyPreambleMatch as ProductionBodyPreambleMatch
     from app.definition_links.us_profile import USProfile, derive_heading_from_body
 
     original_rules_for = registry.body_preamble_rules_for
@@ -293,7 +294,7 @@ def default_preserve_runtime_patch():
             for rule in rules
         ]
 
-    def derive(self, heading: str, body: str):
+    def derive(self, heading: str, body: str, *, raw_source=None, article_number="", chapter=None):
         baseline = derive_heading_from_body(heading, body)
         if baseline is not None:
             return baseline
@@ -303,30 +304,32 @@ def default_preserve_runtime_patch():
                 continue
             if isinstance(value, BodyPreambleMatch):
                 scope = self.determine_scope(body)
-                baseline_candidates = original_extract(self, body, scope=scope, heading_was_derived=True)
-                raw_body = source_view(body)
+                baseline_candidates = original_extract(
+                    self, body, scope=scope, heading_was_derived=True, raw_source=raw_source, b1_winner=False
+                )
+                raw_body = raw_source or source_view(body)
                 preserved = _preserved_baseline_candidates(raw_body, baseline_candidates, value)
                 # Some direct B1 tuples are emitted only through the existing
                 # local extractor.  They are still current B1 candidates and
                 # must take the same all-occurrence preservation path before
                 # this B1-only prototype may suppress derived recognition.
                 local_candidates = original_extract_local(
-                    self, body, article_number="", chapter=None
+                    self, body, article_number=article_number, chapter=chapter, raw_source=raw_source, b1_winner=False
                 )
                 preserved_local = _preserved_baseline_candidates(raw_body, local_candidates, value)
                 additions = _group_candidates(body, value.clause_groups, scope)
                 if not preserved and not preserved_local and not additions:
                     return None
                 matches[body] = value
-                return value.heading
+                return ProductionBodyPreambleMatch(value.heading, b1_winner=True)
             return value
         return None
 
-    def extract(self, text: str, *, scope: str, heading_was_derived=False, raw_source=None):
+    def extract(self, text: str, *, scope: str, heading_was_derived=False, raw_source=None, b1_winner=None):
         match = matches.get(text)
         if match is None or not heading_was_derived:
-            return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived, raw_source=raw_source)
-        baseline = original_extract(self, text, scope=scope, heading_was_derived=True, raw_source=raw_source)
+            return original_extract(self, text, scope=scope, heading_was_derived=heading_was_derived, raw_source=raw_source, b1_winner=b1_winner)
+        baseline = original_extract(self, text, scope=scope, heading_was_derived=True, raw_source=raw_source, b1_winner=False)
         preserved = _preserved_baseline_candidates(raw_source or source_view(text), baseline, match)
         present_terms = {tuple(sorted(candidate.terms)) for candidate in preserved}
         additions = [
@@ -336,9 +339,9 @@ def default_preserve_runtime_patch():
         ]
         return preserved + additions
 
-    def extract_local(self, article_body: str, *, article_number: str, chapter=None, raw_source=None, b1_derived=False):
+    def extract_local(self, article_body: str, *, article_number: str, chapter=None, raw_source=None, b1_winner=False):
         match = matches.get(article_body)
-        original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter, raw_source=raw_source, b1_derived=b1_derived)
+        original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter, raw_source=raw_source, b1_winner=False)
         if match is None:
             return original
         return [
@@ -363,7 +366,7 @@ def default_preserve_runtime_patch():
 
 
 def _current_b1_winner(code: str, heading: str, body: str) -> bool:
-    """Exact current first-winner prefilter; prototype never expands it."""
+    """Exact live parser-body first-winner prefilter; prototype never expands it."""
     # Registration is import-time by design; make the production family
     # module explicit so a forked worker starts from the same registry state
     # as the real profile/pipeline imports.
@@ -397,7 +400,12 @@ def _file(path_text: str):
     ):
         for row_index, row in enumerate(batch.to_pylist()):
             source_row = batch_index * 4096 + row_index
-            body, heading = row["text"] or "", row["section_title"] or ""
+            raw_body, heading = row["text"] or "", row["section_title"] or ""
+            from app.definition_links.normalize import strip_wikilinks
+            from app.definition_links.profiles import get_profile
+
+            profile = get_profile(code)
+            body, _ = strip_wikilinks(profile.normalize_for_parsing(raw_body))
             current_b1 = _current_b1_winner(code, heading, body)
             if not current_b1:
                 continue
@@ -430,8 +438,8 @@ def _file(path_text: str):
     return changes, current_members, evaluated_members
 
 
-_EXPECTED_CURRENT_B1_COUNT = 193827
-_EXPECTED_CURRENT_B1_SHA256 = "362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d"
+_EXPECTED_CURRENT_B1_COUNT = 193830
+_EXPECTED_CURRENT_B1_SHA256 = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
 
 
 def _run_self_check() -> int:

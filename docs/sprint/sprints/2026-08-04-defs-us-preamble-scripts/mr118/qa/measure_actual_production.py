@@ -13,8 +13,8 @@ import pyarrow.parquet as pq
 
 EXPECTED_FILES = 53
 EXPECTED_ROWS = 2_038_247
-EXPECTED_MEMBERS = 193_827
-EXPECTED_MEMBERS_HASH = "362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d"
+EXPECTED_MEMBERS = 193_830
+EXPECTED_MEMBERS_HASH = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
 
 
 def canonical(value: object) -> bytes:
@@ -78,22 +78,16 @@ def member(path: Path, row_number: int, row: dict) -> dict:
     }
 
 
-def registered_b1_winner(*, legacy_derive, registry, b1_rule, jurisdiction_code: str, heading: str, raw_source: str) -> bool:
-    """Measure the certified registered selector on persisted source bytes.
-
-    M-R118's committed member file was produced by the pre-fix harness with
-    ``row[\"text\"]``.  Parser normalization belongs to candidate capture, not
-    to this frozen registry-membership comparison: it can repair malformed
-    quote bytes and therefore create normalized-only B1 matches.
-    """
-    if legacy_derive(heading, raw_source) is not None:
+def registered_b1_winner(*, legacy_derive, registry, b1_rule, jurisdiction_code: str, heading: str, parser_body: str) -> bool:
+    """Measure the live first winner on the normalized, stripped parser body."""
+    if legacy_derive(heading, parser_body) is not None:
         return False
     winner = next(
         (
             rule.derive_heading
             for rule in registry._body_preamble_rules
             if registry._matches(rule.jurisdiction_codes, jurisdiction_code)
-            and rule.derive_heading(raw_source) is not None
+            and rule.derive_heading(parser_body) is not None
         ),
         None,
     )
@@ -161,7 +155,7 @@ def measure(args: argparse.Namespace) -> None:
                         b1_rule=b1_rule,
                         jurisdiction_code=jurisdiction(path),
                         heading=row["section_title"] or "",
-                        raw_source=raw,
+                        parser_body=body,
                     ):
                         continue
                     members.append(member(path, row_number, row))
@@ -190,7 +184,7 @@ def measure(args: argparse.Namespace) -> None:
 
 def compare(args: argparse.Namespace) -> None:
     before = {key(row): row for row in (json.loads(line) for line in args.baseline.read_text().splitlines() if line)}
-    after = {key(row): row for row in (json.loads(line) for line in args.current.read_text().splitlines() if line)}
+    after = {key(row): row for row in (json.loads(line) for line in args.current_records.read_text().splitlines() if line)}
     changed = [{"change": "removed", **before[item]} for item in before.keys() - after.keys()]
     changed += [{"change": "added", **after[item]} for item in after.keys() - before.keys()]
     changed.sort(key=lambda row: (row["change"], key(row)))
@@ -215,12 +209,15 @@ def main() -> None:
     parser.add_argument("--source-root", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--current", action="store_true")
+    parser.add_argument("--current-records", type=Path)
     parser.add_argument("--members", type=Path)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--certified", type=Path)
     parser.add_argument("--compare", action="store_true")
     args = parser.parse_args()
     if args.compare:
+        if args.current_records is None:
+            parser.error("--compare requires --current-records")
         compare(args)
     else:
         if (args.current and args.members) or (not args.current and not args.members):
