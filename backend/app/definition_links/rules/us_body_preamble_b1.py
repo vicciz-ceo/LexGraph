@@ -162,12 +162,20 @@ def _quote_occurrences(text: str, term: str):
     spans = {match.span() for match in exact}
 
     def continuation(match) -> bool:
+        # Straight quotes carry no direction, so the nearest prior one is only an
+        # opening delimiter when it starts its own physical line and the gap after
+        # it begins the numbered marker. Visible text before that quote proves it
+        # closes an earlier span, and a closer must never hide the next
+        # independent occurrence.
         if text[match.start()] != '"':
             return False
         previous = text.rfind('"', max(0, match.start() - 6000), match.start())
-        return previous >= 0 and re.match(
-            r'\s*\([A-Za-z0-9]+\)\s+', text[previous + 1 : match.start()]
-        ) is not None
+        if previous < 0:
+            return False
+        line_start = max(text.rfind("\n", 0, previous), text.rfind("\r", 0, previous)) + 1
+        if text[line_start:previous].strip():
+            return False
+        return re.match(r'\s*\([A-Za-z0-9]+\)\s+', text[previous + 1 : match.start()]) is not None
 
     return tuple(match for match in exact + tuple(m for m in tolerant if m.span() not in spans) if not continuation(match))
 
@@ -230,7 +238,15 @@ def _groups(text: str):
                     ends.append(sentence.start() + 1)
                 relation_end = relation_start + (min(ends) if ends else len(tail))
                 groups.append((tuple(terms), (relation_start, relation_end)))
-    return tuple(groups)
+    # Overlapping triggers can rediscover one shared list, which would otherwise
+    # emit the same direct candidate twice. Keep the first discovery of each exact
+    # group and drop later identical ones; ordering and spans are untouched.
+    unique, seen = [], set()
+    for group in groups:
+        if group not in seen:
+            seen.add(group)
+            unique.append(group)
+    return tuple(unique)
 
 
 def _owned(term: str, quote, groups) -> bool:
