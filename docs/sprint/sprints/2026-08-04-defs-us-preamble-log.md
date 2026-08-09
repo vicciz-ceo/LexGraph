@@ -6092,6 +6092,24 @@ green**. The explicit plural-anaphora list remains a true repair RED. A direct
 FED discriminator for `USC_T49_C53_S5307` is current-equal (zero candidates on
 each side) and produces no fabricated amendment term.
 
+### M-R116 — all-53 winner-only proof blocks on a genuine Arkansas loss
+
+The full pinned 53-file run passed the required exact membership gate: current
+and evaluated B1 winners are both **193,827** rows with hash
+`362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`.
+It produced 168 changes, all marked for source adjudication. Fail-closed
+adjudication stopped at a genuine loss in
+`STATE_AR_T5_C64_S4_S5-64-411` (Ark. Code § 5-64-411): the direct source
+text `(e) As used in this section, "recreation center" means ...` loses its
+substantive definition. The local-payload filter observes the term's earlier
+facility-list occurrence instead of this later direct definition. This is a
+real baseline preservation defect, not a false-positive adjudication issue.
+
+The exact ledger, member lists, summary, failure trace, and source report are
+retained under `mr116/all-v1` and `mr116/ALL53_BLOCKED.md`. M-R116 allows no
+new general repair beyond its explicit shared plural-list relation, so no
+Developer transition or production mutation is authorized.
+
 ### M-R115 — Planner re-scopes binding RED estate
 
 The binding future-law file now retains ordinary-prose negatives, the

@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 209, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 170, in main
+    raise RuntimeError(f"GENUINE LOSS {row['source_row_id']} {row['term']!r}")
+RuntimeError: GENUINE LOSS STATE_AR_T5_C64_S4_S5-64-411 'recreation center'
