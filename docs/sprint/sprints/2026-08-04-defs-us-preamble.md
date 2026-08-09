@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: dev-complete
+status: qa-fail
 blocked_on: null
-current_role: qa
+current_role: developer
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:developer"
-last_updated: "2026-08-09T02:15:00Z"
+last_agent: "codex:qa"
+last_updated: "2026-08-09T02:37:57Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 7
-qa_cycles: 3
+dev_complete_items: 6
+qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 399 2026-08-09T02:15:00Z"
+lint: "PASS 398 2026-08-09T02:38:23Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -197,12 +197,12 @@ Future-law direct and persistence controls remain binding; no identifiers, corpu
 
 ## Next Steps
 
-7. **[QA-FAIL: M-R118 breaks non-B1 live persistence]** Expected every
-   profile, including IL/Hebrew, to retain the existing real pipeline path.
-   Actual: `HebrewProfile.extract_definitions_from_section()` rejects the new
-   `raw_source` keyword from `pipeline.py`. Preserve the B1-only seam without
-   passing B1 metadata to non-B1 profiles; the committed QA live Hebrew RED
-   must turn green before any corpus certification is rerun.
+7. **[QA-FAIL: corpus membership mismatch]** Expected the real 53-file
+   production B1 winner census to be 193,827 with hash `362b…ae08d`. Actual:
+   132,752 with hash `f21ffd…b1de9b`; certified member
+   `STATE_AK_T10_C10.50_S10.50.690` is not a B1 winner in current production.
+   Reconcile the binding membership contract before rerunning delta/adjudication;
+   do not use a prototype or source allowlist to waive the mismatch.
 
 ## Dev Complete
 
@@ -350,11 +350,10 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## QA Notes
 
-- 2026-08-09T02:12:37Z (codex:qa): **M-R118 FAIL.** Focused B1 suite: 32/32;
-  new raw-provenance controls: 10/10 green. Full evaluator reached 1,166
-  backend tests but broad non-B1 failures trace to `pipeline.py:296` passing
-  B1-only keywords to `HebrewProfile`; QA live Hebrew persistence RED is
-  committed. All-53 equivalence is blocked until this regression is repaired.
+- 2026-08-09T02:37:57Z (codex:qa): **M-R118 FAIL.** Hebrew RED, 11 QA controls,
+  and 32 focused controls are green. Actual production census is 132,752 B1
+  winners (`f21ffd…`), not the required 193,827 (`362b…`); delta/adjudication
+  is blocked. Evidence: `mr118/qa/cycle4_membership_mismatch.json`.
 
 ## Evaluation Notes
 

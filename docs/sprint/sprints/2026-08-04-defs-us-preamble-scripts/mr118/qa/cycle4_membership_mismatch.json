@@ -1,0 +1,15 @@
+{
+  "actual_members": 132752,
+  "actual_members_sha256": "f21ffd4696d35d26f379df238abbc56cfabfcfd2e1a2fc017ad3905f6cb1de9b",
+  "expected_members": 193827,
+  "expected_members_sha256": "362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d",
+  "files": 53,
+  "probe": {
+    "certified_member": "STATE_AK_T10_C10.50_S10.50.690",
+    "repository_current_b1_winner": false
+  },
+  "rows": 2038247,
+  "snapshot": "301000fc3465374ee0f23c3c6953a8a861e95cad",
+  "source_revision": "fe22f25818c78977ded46b5635e7907d849197d1",
+  "verdict": "fail_before_delta_comparison"
+}
