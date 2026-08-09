@@ -147,6 +147,38 @@ CASES = (
         },
     },
     {
+        "family": "R8_prior_closing_quote_is_not_a_continuation_opener",
+        "jurisdiction": "US-TX",
+        "text": 'As used in this section:\nThe plate bears the words "Cerulean Judge."\n\n(a) Administration continues.\n(b) In this section, "cerulean judge" means a magistrate elected by the county.',
+        "expected": {
+            "cerulean judge": "a magistrate elected by the county.",
+        },
+    },
+    {
+        "family": "R9_line_start_outer_quote_stays_fail_open",
+        "jurisdiction": "US-FED",
+        "text": 'As used in this section:\n"(0) A quoted statutory excerpt begins.\n(1) "cerulean sunset" means quoted language only.\n(2) Administration continues."',
+        "expected": {
+            "cerulean sunset": "means quoted language only.",
+        },
+    },
+    {
+        "family": "R10_same_group_seen_by_two_triggers_is_unique",
+        "jurisdiction": "US-IN",
+        "text": 'In this Act subsection alpha beta gamma delta. In this section:\n(1) "cerulean utility"; and\n(2) "cerulean works";\nhave the meaning set forth for those terms in section 8.1 of this chapter.',
+        "expected": {
+            "cerulean utility": "have the meaning set forth for those terms in section 8.1 of this chapter.",
+            "cerulean works": "have the meaning set forth for those terms in section 8.1 of this chapter.",
+        },
+        "unique": ("cerulean utility", "cerulean works"),
+    },
+    {
+        "family": "R11_prior_closer_must_expose_nondefinition_payload",
+        "jurisdiction": "US-CO",
+        "text": 'As used in this application: print "Cerulean notice."\n(1) "Did you file the cerulean report?"\n(2) Administration continues.',
+        "absent": ("Did you file the cerulean report?",),
+    },
+    {
         "family": "A_malformed_raw_delimiter_fails_open",
         "jurisdiction": "US-UT",
         "text": 'As used in this section:\n(1) “cerulean sunset clause“.\nNext provision.',

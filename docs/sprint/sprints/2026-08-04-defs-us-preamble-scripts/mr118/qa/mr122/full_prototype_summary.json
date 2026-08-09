@@ -1,0 +1,43 @@
+{
+  "archived_baseline": {
+    "commit": "5753e118cc9311a09b367731594de0f0920dd2c1",
+    "members": 193830,
+    "records": 592694,
+    "records_sha256": "f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8"
+  },
+  "certificate_comparison": {
+    "added": 4,
+    "changed": 368,
+    "changed_sha256": "49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d",
+    "extra_actual": 0,
+    "missing_certified": 0,
+    "removed": 364
+  },
+  "corpus": {
+    "files": 53,
+    "rows": 2038247,
+    "snapshot_id": "301000fc3465374ee0f23c3c6953a8a861e95cad"
+  },
+  "full_prototype": {
+    "members": 193830,
+    "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a",
+    "mode": "prototype",
+    "records": 592334,
+    "records_sha256": "9e6e01965084f16852d9066cd85a53f835419d67cc78d5b87ebc4a51d9322ca8"
+  },
+  "implementation_inputs": {
+    "production_b1_sha256": "c154e942e84a04e041bbc2e85defa01c1efd2569db6da95d945a6315e3c4a1da",
+    "production_checkpoint": "c2a871725221cd79fca89743d48feecf387bffee",
+    "prototype_sha256": "c65c57a887f5571f58981339cb3a9ec66df2ed4feef98b3b375ee18885d54e0f",
+    "runner_sha256": "35ac1c94ed506712b0c5c8918d53bb94cca5fa6b1dcbd030c08479ac74f9d2b5"
+  },
+  "schema": "lexgraph.mr122.full-prototype-summary.v1",
+  "source_audit": {
+    "certificate_invalid_explicit_relations": 188,
+    "inventory_records": 207,
+    "inventory_sha256": "707e6299a445a878e02302a0620735c87224804f5b7671321c87520106caad2c",
+    "quote_direction_definition_preserves": 5,
+    "quote_direction_nondefinition_removals": 14,
+    "unclassified": 0
+  }
+}

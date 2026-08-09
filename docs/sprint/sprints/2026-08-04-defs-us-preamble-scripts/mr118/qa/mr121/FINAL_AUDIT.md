@@ -1,5 +1,9 @@
 # M-R121 final independent audit and byte reconciliation
 
+> **Superseded by M-R122.** The first full normalized runtime-prototype run
+> invalidated 188 removal decisions with explicit raw-source relations. The
+> binding certificate is now 368 keys / `49a9d3f7…0933d`; see `../mr122/`.
+
 ## Binding result
 
 The independently composed M-R121 v2 ledger converges byte-for-byte with the separately generated reviewer v2 ledger.

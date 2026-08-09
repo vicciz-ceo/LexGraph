@@ -173,6 +173,12 @@ def _matched_quote_occurrences(text: str, term: str):
         previous = text.rfind('"', max(0, match.start() - _FORWARDING_LOOKBACK), match.start())
         if previous < 0:
             return False
+        # A continuation quote must itself open a quoted statutory line.  A
+        # quote after visible line content is a closer; treating it as an
+        # opener suppresses the next independent ``(marker) "term"`` pair.
+        line_start = max(text.rfind("\n", 0, previous), text.rfind("\r", 0, previous)) + 1
+        if text[line_start:previous].strip():
+            return False
         return re.match(r'\s*\([A-Za-z0-9]+\)\s+', text[previous + 1 : match.start()]) is not None
 
     return tuple(

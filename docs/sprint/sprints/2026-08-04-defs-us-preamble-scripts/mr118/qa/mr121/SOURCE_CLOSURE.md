@@ -1,5 +1,8 @@
 # M-R121 code-review adjudication v2
 
+> **Historical, superseded by M-R122.** This bounded closure was not a full
+> runtime-prototype proof. The complete 193,830-member audit is in `../mr122/`.
+
 Status: **PASS.** All 124 durable disputed keys and the complete 63-row closure are classified under uniform M-R121 semantics, with zero unclassified decisions or irreducible list ambiguities. Production remains untouched.
 
 ## Corrected bindings

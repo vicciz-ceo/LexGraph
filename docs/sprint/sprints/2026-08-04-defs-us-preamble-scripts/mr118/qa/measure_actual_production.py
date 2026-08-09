@@ -1,8 +1,9 @@
-"""Independent M-R121 current-vs-5753e11 production corpus measurement."""
+"""Independent M-R122 production/prototype-vs-5753e11 corpus measurement."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import sys
@@ -15,10 +16,10 @@ EXPECTED_FILES = 53
 EXPECTED_ROWS = 2_038_247
 EXPECTED_MEMBERS = 193_830
 EXPECTED_MEMBERS_HASH = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
-EXPECTED_CHANGED = 556
-EXPECTED_REMOVED = 552
+EXPECTED_CHANGED = 368
+EXPECTED_REMOVED = 364
 EXPECTED_ADDED = 4
-EXPECTED_CHANGED_HASH = "17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a"
+EXPECTED_CHANGED_HASH = "49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d"
 EXPECTED_BASELINE_HASH = "f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8"
 
 
@@ -96,6 +97,18 @@ def load_production(root: Path):
     from app.definition_links.us_profile import derive_heading_from_body
 
     return strip_wikilinks, get_profile, registry, _b1_trigger_colon_or_quote_means, derive_heading_from_body
+
+
+def prototype_context(enabled: bool):
+    """Apply the current planner prototype without modifying production."""
+    if not enabled:
+        return contextlib.nullcontext()
+    scripts = Path(__file__).resolve().parents[2]
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from measure_mr110_candidate_stream import default_preserve_runtime_patch
+
+    return default_preserve_runtime_patch()
 
 
 def member(path: Path, row_number: int, row: dict) -> dict:
@@ -179,41 +192,43 @@ def measure(args: argparse.Namespace) -> None:
         }
     members: list[dict] = []
     records: list[dict] = []
-    for path in files(args.snapshot):
-        profile = get_profile(jurisdiction(path))
-        for batch_number, batch in enumerate(pq.ParquetFile(path).iter_batches(
-            columns=["act_id", "section_title", "text", "chapter", "section_number"], batch_size=4096
-        )):
-            for offset, row in enumerate(batch.to_pylist()):
-                row_number = batch_number * 4096 + offset
-                raw = row["text"] or ""
-                body, _ = strip_wikilinks(profile.normalize_for_parsing(raw))
-                if args.current:
-                    if not registered_b1_winner(
-                        legacy_derive=legacy_derive,
-                        registry=registry,
-                        b1_rule=b1_rule,
-                        jurisdiction_code=jurisdiction(path),
-                        heading=row["section_title"] or "",
-                        parser_body=body,
-                    ):
+    with prototype_context(args.prototype):
+        for path in files(args.snapshot):
+            profile = get_profile(jurisdiction(path))
+            for batch_number, batch in enumerate(pq.ParquetFile(path).iter_batches(
+                columns=["act_id", "section_title", "text", "chapter", "section_number"], batch_size=4096
+            )):
+                for offset, row in enumerate(batch.to_pylist()):
+                    row_number = batch_number * 4096 + offset
+                    raw = row["text"] or ""
+                    body, _ = strip_wikilinks(profile.normalize_for_parsing(raw))
+                    if args.current:
+                        if not registered_b1_winner(
+                            legacy_derive=legacy_derive,
+                            registry=registry,
+                            b1_rule=b1_rule,
+                            jurisdiction_code=jurisdiction(path),
+                            heading=row["section_title"] or "",
+                            parser_body=body,
+                        ):
+                            continue
+                        members.append(member(path, row_number, row))
+                    elif (path.name, row_number) not in selected:
                         continue
-                    members.append(member(path, row_number, row))
-                elif (path.name, row_number) not in selected:
-                    continue
-                for _, candidate in capture(profile, body, raw, row, current=args.current):
-                    for term in candidate.terms:
-                        records.append({
-                            "jurisdiction": jurisdiction(path), "source_file": path.name,
-                            "source_row": row_number, "source_row_id": str(row["act_id"] or f"{path.name}:{row_number}"),
-                            "term": term, "definition_text": candidate.definition_text, "scope": candidate.scope,
-                        })
+                    for _, candidate in capture(profile, body, raw, row, current=args.current):
+                        for term in candidate.terms:
+                            records.append({
+                                "jurisdiction": jurisdiction(path), "source_file": path.name,
+                                "source_row": row_number, "source_row_id": str(row["act_id"] or f"{path.name}:{row_number}"),
+                                "term": term, "definition_text": candidate.definition_text, "scope": candidate.scope,
+                            })
     members.sort(key=lambda item: (item["source_file"], item["source_row"]))
     records.sort(key=key)
     args.out.mkdir(parents=True, exist_ok=True)
     membership_hash = write_jsonl(args.out / "members.jsonl", members) if args.current else None
     records_hash = write_jsonl(args.out / "records.jsonl", records)
-    summary = {"mode": "current" if args.current else "baseline", "files": EXPECTED_FILES,
+    mode = "prototype" if args.prototype else ("current" if args.current else "baseline")
+    summary = {"mode": mode, "files": EXPECTED_FILES,
                "rows": EXPECTED_ROWS, "members": len(members) if args.current else len(selected),
                "members_sha256": membership_hash, "records": len(records), "records_sha256": records_hash}
     if args.current and (len(members) != EXPECTED_MEMBERS or membership_hash != EXPECTED_MEMBERS_HASH):
@@ -251,7 +266,7 @@ def compare(args: argparse.Namespace) -> None:
         or certified_hash != EXPECTED_CHANGED_HASH
     ):
         raise RuntimeError(
-            "M-R121 certificate drift: "
+            "M-R122 certificate drift: "
             f"count={len(certified_rows)} removed={expected_removed} added={expected_added} "
             f"hash={certified_hash}"
         )
@@ -271,7 +286,7 @@ def compare(args: argparse.Namespace) -> None:
         or summary["missing_certified"]
         or summary["extra_actual"]
     ):
-        raise RuntimeError(f"M-R121 production delta mismatch: {summary}")
+        raise RuntimeError(f"M-R122 production delta mismatch: {summary}")
 
 
 def main() -> None:
@@ -280,6 +295,7 @@ def main() -> None:
     parser.add_argument("--source-root", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--current", action="store_true")
+    parser.add_argument("--prototype", action="store_true")
     parser.add_argument("--current-records", type=Path)
     parser.add_argument("--members", type=Path)
     parser.add_argument("--baseline", type=Path)
@@ -297,6 +313,8 @@ def main() -> None:
             parser.error(f"--compare requires {', '.join(missing)}")
         compare(args)
     else:
+        if args.prototype and not args.current:
+            parser.error("--prototype requires --current")
         if (args.current and args.members) or (not args.current and not args.members):
             parser.error("current run needs no --members; baseline run requires it")
         measure(args)

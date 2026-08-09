@@ -2,13 +2,13 @@
 id: "2026-08-04-defs-us-preamble"
 status: qa-fail
 blocked_on: null
-current_role: developer
+current_role: planner
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "codex:planner"
-last_updated: "2026-08-09T04:57:27Z"
+last_updated: "2026-08-09T19:52:12Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 400 2026-08-09T04:57:27Z"
+lint: "PASS 399 2026-08-09T19:52:12Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,23 +188,33 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R121 — uniform source truth supersedes M-R120
+### M-R121 — bounded certificate superseded by full-prototype evidence
 
-Live normalized/stripped B1 membership is 193,830 rows, SHA-256
-`851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`.
-Independent direction-aware audits converge byte-for-byte with zero
-unclassified. The corrected certificate is 556 keys (552 removals, 4 additions),
-SHA-256 `17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a`.
-Exact-payload precedence, normalized explicit relations, jurisdiction-neutral
-alias/forwarding, raw fail-open, and occurrence-owned plural repair bind.
+M-R121's 556-key projection was independently byte-reconciled but never run
+over the full normalized population. Its semantics remain binding; its ledger
+is superseded where M-R122's raw-source inventory proves a conflict.
+
+### M-R122 — provisional full normalized runtime-prototype correction
+
+The reproducible persisted-record runner now applies the prototype over all
+193,830 B1 winners (`851e85…6af5a`) against archived `5753e11` (592,694
+records, `f065d8ee…b3f8`). All 207 c2-versus-M-R121 mismatches are classified:
+188 certified removals contradict explicit raw-source relations (185 post-
+quote, 3 pre-quote aliases); the remaining 14 missing and 5 extra removals are
+one generic quote-direction defect. The corrected certificate is **368 = 364
+removals + 4 additions**, SHA-256 `49a9d3f7…0933d`, with zero unexplained.
+Production remains frozen at `c2a8717`; no identity exceptions are authorized.
+The sole additional prototype/c2 mismatch is duplicate group discovery under
+overlapping triggers; it has zero corpus impact but is pinned for future laws.
 
 ## Next Steps
 
-7. **[DEVELOPER-READY: M-R121]** Edit only `us_body_preamble_b1.py`; the paired
-   direct/persistence gate is 25 intended REDs and 21 controls now. Require
-   46/46, legacy 13/13, and runtime 78/78 before the single all-53 rerun; final
-   comparison must equal the 556-key certificate with zero missing/extra.
-   Commands and write boundaries bind in `mr118/DEVELOPER_READY.md`.
+7. **[PROVISIONAL PLANNER HANDOFF: M-R122]** Successor must independently
+   accept the source correction before Developer. Then edit only B1's module:
+   distinguish physical-line-start openers from visible closing quotes, and
+   source-order deduplicate identical plural groups. Require focused 54/54,
+   legacy 13/13, and runtime 86/86 before the all-53 rerun; require the exact
+   368-key certificate. Boundaries bind in `mr118/DEVELOPER_READY.md`.
 
 ## Dev Complete
 
@@ -350,24 +360,13 @@ The sole stale held-G12 name was repointed in the owned Option-C file; the stale
 FED debt-pin/capture-test names were repointed in their owned integration file.
 No external pins remain and no production signature/class/CSS rename occurred.
 
-## QA Notes
-
-- 2026-08-09T02:37:57Z (codex:qa): **M-R118 FAIL.** Hebrew RED, 11 QA controls,
-  and 32 focused controls are green. Actual production census is 132,752 B1
-  winners (`f21ffd…`), not the required 193,827 (`362b…`); delta/adjudication
-  is blocked. Evidence: `mr118/qa/cycle4_membership_mismatch.json`.
-
 ## Evaluation Notes
 
 - 2026-08-09 — QA non-B1 call-shape regression repaired. Hebrew live RED,
   11 QA provenance controls, and original focused gate are green (32 passed).
 
-- 2026-08-06T23:32:33Z — QA cycle 1 escalated after completing every focused,
-  backend, frontend, all-53 seam/hash, and broad-mutation gate. G7 could not be
-  independently certified: `qa_d1_measure.py`,
-  `qa_d2_independent_denominator.py`, and `qa_d3_crosscheck.py` were ephemeral
-  scratchpads and are unavailable. `measure_fp_after_widening.py` is explicitly
-  approximate/non-gating. No production regression was reported.
+- 2026-08-06 — QA cycle 1 completed broad gates but held G7 because its three
+  independent measurement scripts were unavailable; no regression reported.
 - 2026-08-07 — PROVISIONAL/UNACCEPTED Planner Item 7 evidence at `ca9dcd7`:
   permanent Q-D1 → Q-D2 → Q-D3 entrypoint
   committed; it pins snapshot `301000fc…`, integration `4fa9e7b…`, 53 files,
@@ -390,11 +389,11 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 is M-R121 Developer-ready.
+1. Items 1–6 remain Dev Complete; Item 7 is provisional M-R122 Planner WIP.
 2. Live normalized B1 membership is 193,830 / `851e85…6af5a`.
-3. Reviewed-key and same-row closure audit has zero unclassified.
-4. Corrected certificate is 556 = 552 removals + 4 additions.
+3. Full-prototype mismatch inventory has 207 decisions and zero unclassified.
+4. Corrected certificate is 368 = 364 removals + 4 additions.
 5. Developer may edit only `us_body_preamble_b1.py`.
 6. Novel direct/persistence tests use unseen terms and no allowlists.
-7. Run all 53 once only after focused 46/46, 13/13, and 78/78.
+7. Run all 53 once only after focused 54/54, 13/13, and 86/86.
 8. Final all-53 comparison requires zero missing and zero extra.

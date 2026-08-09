@@ -1,5 +1,8 @@
 # M-R121 independent state and same-row closure audit v2
 
+> **Historical, superseded by M-R122.** The binding all-53 source correction
+> and certificate are recorded in `../mr122/` and `expected_changed.jsonl`.
+
 ## Result
 
 This corrected audit supersedes the 97-record v1 decision set documented in the sprint history. It preserves the same exact keys in the same order and changes exactly one decision: West Virginia power-of-attorney item (5) is fail-open preservation because its raw quote delimiters do not match.

@@ -846,3 +846,23 @@ verbatim during the merge) — no tampering; recorded closed.
   6,133/6,133 ingested (37s); PR 0%→80.9% (5,594 terms, 0 FPs); headings
   91.4% of miss-pool recognized, 0 FPs corpus-wide; markers quantified
   ~34,017 real zero-yield misses corpus-wide.
+
+- 2026-08-09 (preamble M-R122 full normalized prototype correction):
+  production checkpoint `c2a8717` stayed frozen. Its all-53 acceptance output
+  was 359 changes (355 removals + 4 additions), 202 M-R121 keys missing and 5
+  extra. The reproducible runner now has `--prototype`; complete execution over
+  53 files / 2,038,247 rows selected the exact 193,830 B1 winners
+  (`851e85…6af5a`) and emitted 592,334 records (`9e6e0196…2ca8`) against the
+  `5753e11` 592,694-record baseline (`f065d8ee…b3f8`). Source audit classified
+  all 207 mismatches: 188 old certificate removals contradict explicit raw
+  relations (185 post-quote, 3 pre-quote aliases); the other 14 missing and 5
+  extra removals share one quote-direction defect. Under the certificate-change
+  exception, M-R121's 556 projection is superseded by **368 = 364 removals + 4
+  additions**, canonical SHA `49a9d3f7…0933d`; full prototype comparison has
+  zero missing/extra and byte `cmp=0`. A second c2/prototype mismatch—duplicate
+  plural groups under overlapping triggers—has zero corpus impact but a novel
+  future-law control. Proposed Developer scope remains one-file only
+  (`us_body_preamble_b1.py`):
+  physical-line-start continuation opener plus source-order exact-group dedup.
+  Focused c2 is 5F/49P; prototype is 86/86. Durable evidence is under
+  `mr118/qa/mr122/`; no source/identity/jurisdiction allowlist was introduced.
