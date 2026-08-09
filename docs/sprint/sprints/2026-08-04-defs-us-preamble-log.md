@@ -6071,6 +6071,20 @@ findings. They are removed rather than xfailed and no longer impose a generic
 group-discovery Developer obligation; the stale-pin sweep finds none outside
 historical evidence.
 
+### M-R115 — narrowed all-53 proof blocks generic numbered-colon synthesis
+
+The narrowed runtime proof is **24/24 green**, and all-53 changed-key volume
+falls from 61,053 to 1,848 (1,682 additions / 166 removals; ledger
+`5f5d0b38…`). The same-line list-marker correction eliminates Colorado's
+definition-index false addition, but fail-closed source adjudication finds a
+new US-FED false addition in `USC_T49_C53_S5307`: malformed legislative-history
+text becomes the term `. Subsec. (a)(2) ... inserted` and a spurious
+`Designated recipient` definition. This is a genuine structural overreach of
+generic numbered-colon baseline-entry synthesis, not an adjudication gap.
+HI and FED deltas are separately reported (25 and 23 respectively), and the
+FED failure blocks zero-false-addition certification. No Developer transition
+or production mutation is authorized.
+
 ### M-R114 — Planner source adjudication clears Indiana continuation gate
 
 The runtime-only prototype adds a structural numbered-list form: two or more

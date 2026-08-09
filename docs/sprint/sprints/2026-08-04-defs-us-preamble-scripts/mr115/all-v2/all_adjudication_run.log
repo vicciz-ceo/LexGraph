@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 209, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 134, in main
+    raise RuntimeError(f"UNCLASSIFIED {row['source_row_id']} {row['term']!r}")
+RuntimeError: UNCLASSIFIED USC_T49_C53_S5307 '.\n\nSubsec. (a)(2). Pub. L. 105–178, §3007(b)(3), inserted'
