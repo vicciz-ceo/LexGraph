@@ -55,6 +55,34 @@ _B1_DIRECT_QUOTE_MEANS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "In this" is a statutory introduction only when its object is a legal
+# unit.  Ordinary prose such as "in this manner" and "in this disclosure
+# statement" may still contain quoted notices, but is not a definitions
+# preamble.  Keep this vocabulary deliberately closed: it describes the
+# grammatical role of the words following ``this``, not a jurisdiction or
+# corpus-specific spelling.
+_B1_LEGAL_UNIT_RE = re.compile(
+    r"^(?:section|chapter|article|act|title|part|subsection|statute|code)\b",
+    re.IGNORECASE,
+)
+_B1_SUBSTANTIVE_QUOTE_RE = re.compile(
+    r'["“][^"”]{1,150}["”]\s*(?:means|shall mean|includes|shall include|denotes)\b',
+    re.IGNORECASE,
+)
+_B1_PLURAL_LIST_RE = re.compile(
+    r'(?P<list>(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*'
+    r'(?:(?:and|or)\s+)?(?:\(\d+\)\s*)?["“][^"”]{1,150}["”]\s*;\s*)'
+    r'(?P<relation>have\s+the\s+meaning\s+(?:set\s+forth|provided|specified)'
+    r'[^\n]{0,180}?\bthose\s+terms\b[^\n]{0,180})',
+    re.IGNORECASE | re.DOTALL,
+)
+_B1_VALID_QUOTED_TERM_RE = re.compile(r'(["“])(?P<term>[^"”]{1,150})(["”])')
+_B1_COORDINATION_ONLY_RE = re.compile(
+    r"^[\s;,:()\[\]{}\d]*(?:\([A-Za-z0-9]+\)[\s;,:()\[\]{}\d]*)?"
+    r"(?:(?:and|or)\b[\s;,:()\[\]{}\d]*)?$",
+    re.IGNORECASE,
+)
+
 
 def _b1_colon_list_branch(after: str) -> bool:
     window = after[:_B1_COLON_WINDOW]
@@ -90,6 +118,61 @@ def _b1_trigger_colon_or_quote_means(body: str) -> str | None:
         return "Definitions"
     for trigger_match in _B1_TRIGGER_RE.finditer(body):
         after = body[trigger_match.end() : trigger_match.end() + _B1_LOOKAHEAD]
-        if _b1_colon_list_branch(after) or _b1_quote_means_branch(after):
+        trigger = trigger_match.group(0)
+        if trigger.lower().startswith("in this") and not _B1_LEGAL_UNIT_RE.match(
+            trigger[7:].lstrip()
+        ):
+            continue
+        if _b1_quote_means_branch(after):
             return "Definitions"
+        if _b1_colon_list_branch(after):
+            if trigger.lower().startswith("as used in") and not (
+                _B1_SUBSTANTIVE_QUOTE_RE.search(after) or _B1_PLURAL_LIST_RE.search(after)
+            ):
+                continue
+            if '"' in after or '“' in after:
+                return "Definitions"
     return None
+
+
+def is_b1_derived_body(body: str) -> bool:
+    """Whether B1, rather than another body-preamble rule, recognizes body."""
+    return _b1_trigger_colon_or_quote_means(body) is not None
+
+
+def _raw_payloads_for_term(raw_source: str, term: str) -> list[str]:
+    """Return payloads immediately following exact, valid raw quoted terms.
+
+    A normalized quote can help discover a candidate, but only matching raw
+    delimiters count as evidence for removing it.  The next quoted term (or
+    end of source) bounds the payload, preventing a later real definition
+    from being attributed to an earlier list entry.
+    """
+    payloads: list[str] = []
+    matches = list(_B1_VALID_QUOTED_TERM_RE.finditer(raw_source))
+    for index, match in enumerate(matches):
+        if match.group("term").strip() != term or match.group(1) != match.group(3):
+            continue
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(raw_source)
+        payloads.append(raw_source[match.end() : end])
+    return payloads
+
+
+def preserve_substantive_b1_candidates(candidates, raw_source: str):
+    """Default-preserve B1 candidates unless raw evidence proves a pseudo-entry."""
+    kept = []
+    for candidate in candidates:
+        payloads = [payload for term in candidate.terms for payload in _raw_payloads_for_term(raw_source, term)]
+        if not payloads or any(not _B1_COORDINATION_ONLY_RE.fullmatch(payload) for payload in payloads):
+            kept.append(candidate)
+    return kept
+
+
+def plural_anaphora_repairs(raw_source: str, *, scope: str, candidate_factory):
+    """Repair only a fully matched quoted list with its explicit plural relation."""
+    repairs = []
+    for match in _B1_PLURAL_LIST_RE.finditer(raw_source):
+        terms = [quote.group("term").strip() for quote in _B1_VALID_QUOTED_TERM_RE.finditer(match.group("list"))]
+        relation = match.group("relation").strip()
+        repairs.extend(candidate_factory(term, relation, scope) for term in terms if term)
+    return repairs
