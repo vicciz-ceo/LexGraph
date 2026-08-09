@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
+from app.definition_links.ingest_us_statutes import _derive_article_id, ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
 from app.models.definition import Definition
 
@@ -15,14 +15,15 @@ from backend.tests.unit.test_us_body_preamble_b1_structural_future_law_red impor
 def test_b1_future_law_structure_at_live_persistence_altitude(case, db_session, matter_with_users):
     """The direct controls must hold after the pipeline's real dedup semantics."""
     matter = matter_with_users
+    act_id = case.get("source_row_id", f"FUTURE_{case['name'].upper()}")
     row = {
-        "act_id": f"FUTURE_{case['name'].upper()}",
+        "act_id": act_id,
         "section_number": case["section_title"].split()[0],
         "chapter": "future",
         "section_title": case["section_title"],
         "text": case["text"],
     }
-    ingest_us_statute_rows(
+    ingest_result = ingest_us_statute_rows(
         db_session,
         repository_id=matter["repository_id"],
         matter_id=matter["matter_id"],
@@ -43,6 +44,7 @@ def test_b1_future_law_structure_at_live_persistence_altitude(case, db_session, 
         return
     definition = by_term.get(case["term"])
     assert definition is not None
+    assert definition.article_id == _derive_article_id(ingest_result["document_id"], act_id)
     assert definition.definition_text == case["definition_text"]
     assert definition.scope == case.get("persistence_scope", case.get("scope", "law-wide"))
     for term, definition_text in case.get("additional_terms", {}).items():

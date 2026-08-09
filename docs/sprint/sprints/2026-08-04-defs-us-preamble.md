@@ -188,12 +188,12 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R117 — repeated quoted terms use any substantive local occurrence
+### M-R118 — raw-source B1 preservation is Developer-ready
 
-First-occurrence classification removes real AR `recreation center`, whose term
-appears earlier in a list and later in a direct definition. Preserve a candidate
-when any exact quoted occurrence has substantive local payload; remove it only
-when all occurrences are empty and no shared-list repair applies. All-53 zero-loss remains required.
+Raw source, not parser normalization, governs destructive B1 evidence: filter only when raw has a valid exact term occurrence and every bounded payload is non-substantive; otherwise preserve the current tuple byte-for-byte.
+All 53 pinned files evaluated exactly 193,827 current B1 winners (`362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`); 636 deltas adjudicate to 634 valid removals and two authorized plural forwards, with zero loss/addition/ambiguity/unclassified.
+Production write set is B1-only raw provenance plus the shared preservation filter at derived-heading, local, and section routes; retain the explicit plural-list branch and leave non-B1/first-wins behavior unchanged.
+Future-law direct and persistence controls remain binding; no identifiers, corpus rows, terms, or source allowlists. Evidence and the exact Developer contract are in [`mr118/DEVELOPER_READY.md`](2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md).
 
 ## Next Steps
 
@@ -390,7 +390,7 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 is replanned before Developer.
+1. Items 1–6 remain Dev Complete; Item 7 is Developer-ready under M-R118.
 2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
 3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
 4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.
