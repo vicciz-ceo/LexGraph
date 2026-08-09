@@ -67,8 +67,11 @@ _SHARED_LIST = re.compile(
 _MARKER = re.compile(r'(?:\(\s*(?:\d+|[a-z]+)\s*\)|\[\s*(?:\d+|[a-z]+)\s*\]|\d+)', re.I)
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _HISTORY = re.compile(r"^\s*\[(?:L|Acts?)\s+\d{4}\b", re.I)
+# Enumerators include digit-dot ("1. Means"), not just letter-dot and bracketed
+# forms: AZ/IN/KY/MD/NV/WI write `"term": 1. Means ...`, and admitting only
+# `[A-Za-z]\.` deleted those while keeping the `(1) means` convention next door.
 _POST_RELATION = re.compile(
-    r'^[\s:;,.\-–—]*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\]|[A-Za-z]\.)\s*)*'
+    r'^[\s:;,.\-–—]*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\]|[A-Za-z0-9]{1,3}\.)\s*)*'
     r'(?:[^;.\n]{1,160}?,\s*)?(?:means|shall\s+mean|includes|shall\s+include|'
     r'(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning|'
     r'the\s+meaning\s+(?:given|provided|set\s+forth|specified|prescribed))\b', re.I)

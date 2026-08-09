@@ -1,4 +1,8 @@
-"""Independent M-R122 production/prototype-vs-5753e11 corpus measurement."""
+"""Independent M-R124 production-vs-5753e11 corpus measurement.
+
+Constants below are the M-R124 EXECUTED delta, emitted by a full-population run
+of the implementation they certify (P-R11). They are never hand-authored.
+"""
 
 from __future__ import annotations
 
@@ -16,10 +20,10 @@ EXPECTED_FILES = 53
 EXPECTED_ROWS = 2_038_247
 EXPECTED_MEMBERS = 193_830
 EXPECTED_MEMBERS_HASH = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
-EXPECTED_CHANGED = 368
-EXPECTED_REMOVED = 364
+EXPECTED_CHANGED = 345
+EXPECTED_REMOVED = 341
 EXPECTED_ADDED = 4
-EXPECTED_CHANGED_HASH = "49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d"
+EXPECTED_CHANGED_HASH = "db52f060d60bbd200cc7d7e3af9fb61f1e9e5bf4c322539568ce6950ddbb1778"
 EXPECTED_BASELINE_HASH = "f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8"
 
 
@@ -266,7 +270,7 @@ def compare(args: argparse.Namespace) -> None:
         or certified_hash != EXPECTED_CHANGED_HASH
     ):
         raise RuntimeError(
-            "M-R122 certificate drift: "
+            "M-R124 certificate drift: "
             f"count={len(certified_rows)} removed={expected_removed} added={expected_added} "
             f"hash={certified_hash}"
         )
@@ -286,7 +290,7 @@ def compare(args: argparse.Namespace) -> None:
         or summary["missing_certified"]
         or summary["extra_actual"]
     ):
-        raise RuntimeError(f"M-R122 production delta mismatch: {summary}")
+        raise RuntimeError(f"M-R124 production delta mismatch: {summary}")
 
 
 def main() -> None:
