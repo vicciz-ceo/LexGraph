@@ -6262,3 +6262,62 @@ WIP by 534 keys (530 removed, 4 added; `a7dcd…2183e`), not certified 636;
 fail-closed production-semantic mismatch. Compact durable paths/hashes are in
 `mr118/qa/mr119/manifest.json`; large temporary streams are intentionally not
 committed. Production remains read-only pending exhaustive family review.
+
+## 2026-08-09 — M-R120 exhaustive source-truth Developer handoff
+
+Two independent read-only reviews classify all 124 disputed keys with zero
+unclassified. Of 113 old-certified removals absent from WIP, 57 now preserve
+source-backed tuples (56 genuine/forwarding definitions plus the malformed FED
+Sunset fail-open) and 56 remain required safe removals (state F1–F3 = 44;
+FED/DC non-definition contexts = 12). Of 11 WIP extras, seven are accepted
+(CA/DE/WV removals and IN two stale removals/two bounded additions) and four
+genuine removals are rejected (FED, GA, TX twice).
+
+The old 636-key certificate is superseded by `mr118/qa/mr120/expected_changed.jsonl`:
+586 keys = 582 removals + 4 additions, canonical SHA-256
+`150061d43bf655836472d35131521c71a9bbc1c593d5cf52e41fa2aad2f1e2e0`.
+The combined exact source ledger is 124 keys, SHA-256
+`23788a863777a5f1ad77b8cdc66d1be76072c127a60481b7c87cea6fde23af84`.
+The corrected comparison harness independently reproduces current WIP as 534
+keys with 56 certified missing and four actual extras; it now checks change
+direction and canonical certificate hash.
+
+Novel F1–F7 plus reviewer-A preservation/non-definition fixtures run at direct
+and persistence altitude. Current production is intentionally 18 failed / 14
+passed; the runtime-only corrected prototype is 64/64, and the prior raw-source
+QA control is 13/13. Production stayed read-only. Developer may edit only
+`us_body_preamble_b1.py`; exact semantics, commands, and the post-fix all-53
+gate are in `mr118/DEVELOPER_READY.md`. Do not rerun all 53 before that edit.
+
+## 2026-08-09 — M-R121 uniform source-truth freeze
+
+M-R120's 586-key proposal encoded identity-specific preservation choices that
+conflicted with its own generic source-truth rule. The Manager chose the generic
+rule uniformly: preserve structurally indistinguishable alias/name and
+forwarding relations in every jurisdiction, fail open on invalid raw delimiter
+evidence, and make no term, content, source, row, or jurisdiction exceptions.
+
+The independent closure audit classifies the 124 disputed decisions and every
+affected-row companion with zero unclassified or irreducibly ambiguous result.
+Its combined artifact has 296 records, SHA-256
+`d62b2ab9daf0fc9f6eabd486921005bdd2e336855596478914f0ef22676b6d95`;
+the corrected 97-record state control has SHA-256
+`1e766ce6d5f9a2d0d1feb22c872d640997aaee28456e0fb72cf0baa1a9b56d67`.
+
+The first two 557-count projections did not match bytes: one wrongly removed
+Colorado `Nebraska`, while the other wrongly removed the mixed-delimiter West
+Virginia form item. Generic reciprocal-designation preservation and raw
+fail-open exclude both. A separate 13-record source reconciliation drops the
+DC forwarding and federal alias removals held constant by the state-only audit.
+Both methods then emit byte-identical **556-key = 552-removal + 4-addition**
+ledgers, canonical SHA-256
+`17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a`.
+
+The pinned comparison verifies present WIP as 534 keys (530 removals,
+4 additions; canonical SHA-256 `a04b6095…634e`), with exactly 43 certified
+keys missing and 21 actual extras. Novel generic cases cover 23 families at
+both direct and persistence altitude: unpatched production is intentionally
+25 failed / 21 passed, the runtime prototype is 78/78, and the legacy
+raw-source control is 13/13. No all-53 run was made. Production remains
+untouched; Developer may edit only `us_body_preamble_b1.py` and must satisfy
+the focused gates before the single all-53 acceptance measurement.

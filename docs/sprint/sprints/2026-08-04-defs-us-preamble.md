@@ -8,7 +8,7 @@ worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "codex:planner"
-last_updated: "2026-08-09T03:01:43Z"
+last_updated: "2026-08-09T04:57:27Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -21,7 +21,7 @@ prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 398 2026-08-09T03:01:43Z"
+lint: "PASS 400 2026-08-09T04:57:27Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -188,21 +188,23 @@ altitude rather than truncate a whole body, then rerun complete A/B/union
 measurement with zero unexplained keys. M-R107's unseen-future-law direct and
 live-persistence gate remains binding; no corpus-identity exception is allowed.
 
-### M-R118 — raw-source B1 preservation; census harness corrected
+### M-R121 — uniform source truth supersedes M-R120
 
-The registered B1 winner population remains frozen at the pre-fix 53-file census: 193,827 rows, SHA-256 `362b863878533a6dd8bb876e25b300bd88bd2fe5d34aedca180a2e690b6ae08d`.
-WIP `9e8d77f` restores a selector byte-identical to `5753e11`; its apparent 193,830 count was a QA harness input mismatch, not row numbering or a production selector change. Both stable keys identify the same three normalized-only extras: `STATE_CA_Cgov_T2_D3_P2_C6_A2_S12534`, `STATE_CA_Cbpc_D3_C9_A3_S7050`, and `STATE_OR_T23_C248_S248.355`.
-Membership must use persisted raw `row["text"]`, exactly as the committed certification did; parser normalization remains candidate-capture-only because it repairs malformed curly quote bytes into a B1-recognizable form. Raw source also governs destructive B1 evidence: filter only after winner selection when valid exact-term payload evidence proves every payload non-substantive; keep plural repair missing-term-only after the local/section union.
-No global mutable normalization map, source allowlist, generic dispatch, or fifth production file is authorized. Future-law direct and persistence controls remain binding.
+Live normalized/stripped B1 membership is 193,830 rows, SHA-256
+`851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`.
+Independent direction-aware audits converge byte-for-byte with zero
+unclassified. The corrected certificate is 556 keys (552 removals, 4 additions),
+SHA-256 `17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a`.
+Exact-payload precedence, normalized explicit relations, jurisdiction-neutral
+alias/forwarding, raw fail-open, and occurrence-owned plural repair bind.
 
 ## Next Steps
 
-7. **[QA-FAIL: census harness mismatch]** Re-run membership with persisted raw
-   body selection, then confirm 193,827 / `362b…ae08d` before any delta work.
-   The normalized-only CA/CA/OR three-row surplus is a measurement artifact;
-   stable row coordinates and `source_row_id` agree, and the WIP B1 selector is
-   byte-identical to `5753e11`. Do not change production or waive the raw
-   membership contract; only normalized candidate capture follows selection.
+7. **[DEVELOPER-READY: M-R121]** Edit only `us_body_preamble_b1.py`; the paired
+   direct/persistence gate is 25 intended REDs and 21 controls now. Require
+   46/46, legacy 13/13, and runtime 78/78 before the single all-53 rerun; final
+   comparison must equal the 556-key certificate with zero missing/extra.
+   Commands and write boundaries bind in `mr118/DEVELOPER_READY.md`.
 
 ## Dev Complete
 
@@ -388,11 +390,11 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 awaits raw-selector QA remeasurement.
-2. Vaquill-AI PR #4 is retracted; fork evidence is not an external release.
-3. HI 16/FED 2 are source-held; AR 1/ID 2/TX 12 are LexGraph-owned.
-4. Generic occurrence slicing is rejected: 11,283 deltas, 9,058 unexplained.
-5. Fix the AR/ID broken-heading test; TX must retain valid dispatch.
-6. Future-law tests use unseen IDs, terms, and wording; no allowlists.
-7. All-53 union requires zero unexplained deltas; preserve G7/ledgers.
-8. Production is read-only during planning; final D-PFP remains source-held.
+1. Items 1–6 remain Dev Complete; Item 7 is M-R121 Developer-ready.
+2. Live normalized B1 membership is 193,830 / `851e85…6af5a`.
+3. Reviewed-key and same-row closure audit has zero unclassified.
+4. Corrected certificate is 556 = 552 removals + 4 additions.
+5. Developer may edit only `us_body_preamble_b1.py`.
+6. Novel direct/persistence tests use unseen terms and no allowlists.
+7. Run all 53 once only after focused 46/46, 13/13, and 78/78.
+8. Final all-53 comparison requires zero missing and zero extra.

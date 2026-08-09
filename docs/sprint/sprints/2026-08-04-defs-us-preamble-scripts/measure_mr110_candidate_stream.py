@@ -1,4 +1,4 @@
-"""Runtime-only M-R115 default-preserve + plural-list B1 prototype.
+"""Runtime-only M-R121 uniform source-truth + plural-list B1 prototype.
 
 This deliberately patches the proposed additive seam, never production:
 registry returns a ``BodyPreambleMatch``-shaped value for B1, B1 discovers
@@ -69,16 +69,61 @@ _SHARED_TRAILING_LIST = re.compile(
     re.IGNORECASE,
 )
 _MAX_GROUP = 600
+_FORWARDING_LOOKBACK = 6000
 _COLON_INTRO_WINDOW = 160
 _COORDINATION = frozenset({"and", "or"})
 _STRUCTURAL_MARKER = re.compile(
     r"(?:\(\s*(?:\d+|[a-z]+)\s*\)|\[\s*(?:\d+|[a-z]+)\s*\]|\d+)", re.IGNORECASE
 )
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
+_LEGISLATIVE_HISTORY_PREFIX = re.compile(r"^\s*\[(?:L|Acts?)\s+\d{4}\b", re.IGNORECASE)
+_DIRECT_POST_QUOTE_RELATION = re.compile(
+    r"^[\s:;,.\-–—]*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\]|[A-Za-z]\.)\s*)*"
+    r"(?:[^;.\n]{1,160}?,\s*)?"
+    r"(?:means|shall\s+mean|includes|shall\s+include|"
+    r"(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning|"
+    r"the\s+meaning\s+(?:given|provided|set\s+forth|specified|prescribed))\b",
+    re.IGNORECASE,
+)
+_ENUMERATED_POST_QUOTE_RELATION = re.compile(
+    r"^[\s\-–—]*:\s*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])\s*)"
+    r"[^;.\n]{0,160}?\b(?:means|shall\s+mean|includes|shall\s+include|"
+    r"(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning)\b",
+    re.IGNORECASE,
+)
+_ALIAS_NAME_VERB = r"(?:referred\s+to|known|designated|established|maintained)"
+_ALIAS_OR_NAME_INTRO = re.compile(
+    r"(?:(?:is|are|(?:may|shall)\s+be|in\s+[^.;:\n()]{1,100})\s+)?"
+    rf"(?:commonly\s+)?{_ALIAS_NAME_VERB}"
+    r"(?:\s+in\s+[^.;:\n]{0,100})?\s+as(?:\s+the)?\s*$",
+    re.IGNORECASE,
+)
+_ALIAS_LIST_INTRO = re.compile(
+    r"(?:shall|may)\s+be\s+(?:known|referred\s+to)\s+as\s+the\s*[\-–—:]\s*"
+    r"(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])\s*"
+    r"(?:\"[^\"]{1,200}\"|“[^”]{1,200}”)\s*[;,]?\s*(?:and|or)?\s*)*"
+    r"(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\])?\s*$",
+    re.IGNORECASE,
+)
+_RECIPROCAL_ALIAS_LIST_INTRO = re.compile(
+    rf"\b{_ALIAS_NAME_VERB}\s*,?\s*respectively\s*,?\s*as\s*"
+    r"(?:(?:\"[^\"]{1,200}\"|“[^”]{1,200}”)\s*"
+    r"(?:,\s*)?(?:(?:and|or)\s*)?)*$",
+    re.IGNORECASE,
+)
+_FORWARDING_INTRO = re.compile(
+    r"(?:the\s+following\s+definitions?\s+in\s+(?:other\s+)?[^:.;\n]{0,100}\s+apply\s+to\s+this\s+[^:.;\n]{0,50}|"
+    r"definitions?\s+in\s+other\s+[^:.;\n]{0,100}\s+applying\s+to\s+this\s+[^:.;\n]{0,100}\s+(?:include|are)|"
+    r"the\s+following\s+terms?\s+(?:shall\s+)?have\s+the\s+(?:same\s+)?meaning\s+as\s+"
+    r"(?:provided|set\s+forth|specified)\s+in\s+[^:.;\n]{0,100})\s*:",
+    re.IGNORECASE,
+)
 
 
 def has_substantive_definition_text(definition_text: str) -> bool:
     """Normalize a local payload without vocabulary or corpus exceptions."""
+    if _LEGISLATIVE_HISTORY_PREFIX.match(definition_text):
+        return False
     residual = _STRUCTURAL_MARKER.sub(" ", definition_text)
     return any(word.casefold() not in _COORDINATION for word in _WORD.findall(residual))
 
@@ -89,17 +134,69 @@ def _normalized_production_term(term: str) -> str:
 
 
 def _matched_quote_occurrences(text: str, term: str):
-    """Yield exact, delimiter-matched quote occurrences for one emitted term."""
-    normalized_term = _normalized_production_term(term)
-    if not normalized_term:
+    """Yield the best delimiter-matched raw occurrences for one emitted term.
+
+    Exact emitted punctuation is authoritative for payload classification.
+    Terminal-punctuation-tolerant occurrences remain available only to prove
+    an explicit relation; they cannot lend arbitrary trailing prose to a
+    dotted pseudo-entry.
+    """
+    emitted_term = re.sub(r"\s+", " ", term.strip())
+    if not emitted_term:
         return ()
-    # The term must fill a pair of the same quote delimiters.  This avoids
-    # treating an unmatched source quote as evidence for a different entry.
-    normalized_pattern = re.escape(normalized_term).replace(r"\ ", r"\s+")
-    return re.finditer(
-        rf'(?:"\s*{normalized_pattern}[.,;:]*\s*"|“\s*{normalized_pattern}[.,;:]*\s*”)',
-        text,
-        re.IGNORECASE,
+
+    def quoted(pattern: str, *, tolerant_terminal: bool):
+        terminal = r"[.,;:]*" if tolerant_terminal else ""
+        return tuple(re.finditer(
+            rf'(?:"\s*{pattern}{terminal}\s*"|“\s*{pattern}{terminal}\s*”)',
+            text,
+            re.IGNORECASE,
+        ))
+
+    exact_pattern = r"\s+".join(re.escape(part) for part in emitted_term.split())
+    exact = quoted(exact_pattern, tolerant_terminal=False)
+    normalized_term = _normalized_production_term(emitted_term)
+    normalized_pattern = r"\s+".join(re.escape(part) for part in normalized_term.split())
+    tolerant = quoted(normalized_pattern, tolerant_terminal=True)
+    exact_spans = {match.span() for match in exact}
+    matches = exact + tuple(match for match in tolerant if match.span() not in exact_spans)
+    # Straight quotes carry no intrinsic direction, and global parity is not
+    # reliable across a whole consolidated-code row. Reject only the bounded
+    # statutory continuation shape: the nearest prior quote opens a numbered
+    # paragraph and has no closer before this apparent opening quote. This is
+    # the federal Sunset malformed-source shape; ordinary independently
+    # quoted form provisions remain valid even if an earlier row fragment has
+    # unbalanced punctuation.
+    def is_continuation_opening(match) -> bool:
+        if text[match.start()] != '"':
+            return False
+        previous = text.rfind('"', max(0, match.start() - _FORWARDING_LOOKBACK), match.start())
+        if previous < 0:
+            return False
+        return re.match(r'\s*\([A-Za-z0-9]+\)\s+', text[previous + 1 : match.start()]) is not None
+
+    return tuple(
+        match
+        for match in matches
+        if not is_continuation_opening(match)
+    )
+
+
+def _occurrence_matches_emitted_term(text: str, term: str, quote) -> bool:
+    emitted = re.sub(r"\s+", " ", term.strip()).casefold()
+    raw_term = re.sub(r"\s+", " ", text[quote.start() + 1 : quote.end() - 1].strip()).casefold()
+    return emitted == raw_term
+
+
+def _group_owns_occurrence(term: str, quote, groups: tuple[ClauseGroup, ...]) -> bool:
+    """Return whether a matched plural group owns this exact quote occurrence."""
+    normalized = _normalized_production_term(term).casefold()
+    return any(
+        normalized == _normalized_production_term(group_term).casefold()
+        and quote.start() <= start
+        and end <= quote.end()
+        for group in groups
+        for group_term, start, end in group.term_spans
     )
 
 
@@ -125,6 +222,31 @@ def _bounded_local_payload(text: str, quote_end: int) -> str:
     return tail[: min(boundaries)] if boundaries else tail
 
 
+def _has_explicit_post_quote_relation(text: str, quote_end: int) -> bool:
+    """Recognize a direct verb through only punctuation/list structure."""
+    tail = text[quote_end : quote_end + _MAX_GROUP]
+    return (
+        _DIRECT_POST_QUOTE_RELATION.match(tail) is not None
+        or _ENUMERATED_POST_QUOTE_RELATION.match(tail) is not None
+    )
+
+
+def _has_explicit_pre_quote_relation(text: str, quote_start: int) -> bool:
+    """Recognize alias/name and indexed-list relations before the quote."""
+    lookback = text[max(0, quote_start - _MAX_GROUP) : quote_start]
+    sentence_tail = re.split(r"[.;\n]", lookback)[-1]
+    if _ALIAS_OR_NAME_INTRO.search(sentence_tail):
+        return True
+    if _ALIAS_LIST_INTRO.search(lookback):
+        return True
+    if _RECIPROCAL_ALIAS_LIST_INTRO.search(lookback):
+        return True
+    # Forwarding intros govern a bounded enumerated list, so the first
+    # relation can precede intervening markers and earlier quoted entries.
+    forwarding_lookback = text[max(0, quote_start - _FORWARDING_LOOKBACK) : quote_start]
+    return _FORWARDING_INTRO.search(forwarding_lookback) is not None
+
+
 def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[ClauseGroup, ...] = ()) -> bool:
     """Preserve a candidate if any exact quoted occurrence is substantive.
 
@@ -137,25 +259,28 @@ def candidate_has_substantive_local_payload(text: str, candidate, groups: tuple[
         normalized_term = _normalized_production_term(term)
         if not normalized_term:
             return True
-        quotes = tuple(_matched_quote_occurrences(text, normalized_term))
+        quotes = tuple(_matched_quote_occurrences(text, term))
         if not quotes:
             # No matched delimiters means the source cannot establish the
             # M-R117 all-occurrence condition (for example, malformed quote
             # encoding). Preserve the current tuple rather than infer a loss.
             return True
+        has_exact_occurrence = any(_occurrence_matches_emitted_term(text, term, quote) for quote in quotes)
         for quote in quotes:
+            # The shared relation repairs this occurrence itself. It must not
+            # preserve a stale baseline candidate, but any independent
+            # substantive occurrence of the same term still wins below.
+            if _group_owns_occurrence(term, quote, groups):
+                continue
+            if _has_explicit_post_quote_relation(text, quote.end()):
+                return True
+            if _has_explicit_pre_quote_relation(text, quote.start()):
+                return True
+            if has_exact_occurrence and not _occurrence_matches_emitted_term(text, term, quote):
+                continue
             if has_substantive_definition_text(_bounded_local_payload(text, quote.end())):
                 return True
-    # The final quoted member of a structurally bounded alias list directly
-    # precedes its shared relation.  Preserve that existing baseline tuple
-    # byte-for-byte; earlier aliases are added from the shared relation only
-    # when absent after malformed local tuples are filtered.
-    final_shared_terms = {
-        group.term_spans[-1][0].casefold()
-        for group in groups
-        if group.shared_trailing_relation and group.term_spans
-    }
-    return any(_normalized_production_term(term).casefold() in final_shared_terms for term in candidate.terms)
+    return False
 
 
 def _group_end(body: str, start: int) -> int:
@@ -246,11 +371,16 @@ def _preserved_baseline_candidates(text: str, candidates, match: BodyPreambleMat
     """Keep the complete stream only when the original B1 rule dispatched."""
     if not match.baseline_eligible:
         return []
-    preserved = [
-        candidate
-        for candidate in candidates
-        if candidate_has_substantive_local_payload(text, candidate, match.clause_groups)
-    ]
+    preserved = []
+    seen: set[tuple[str, ...]] = set()
+    for candidate in candidates:
+        key = tuple(sorted(candidate.terms))
+        if key in seen or not candidate_has_substantive_local_payload(
+            text, candidate, match.clause_groups
+        ):
+            continue
+        seen.add(key)
+        preserved.append(candidate)
     return preserved
 
 
@@ -344,11 +474,7 @@ def default_preserve_runtime_patch():
         original = original_extract_local(self, article_body, article_number=article_number, chapter=chapter, raw_source=raw_source, b1_winner=False)
         if match is None:
             return original
-        return [
-            candidate
-            for candidate in original
-            if candidate_has_substantive_local_payload(raw_source or source_view(article_body), candidate, match.clause_groups)
-        ]
+        return _preserved_baseline_candidates(raw_source or source_view(article_body), original, match)
 
     registry.body_preamble_rules_for = rules_for
     USProfile.normalize_for_parsing = normalize_for_parsing
@@ -445,7 +571,7 @@ _EXPECTED_CURRENT_B1_SHA256 = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d927428
 def _run_self_check() -> int:
     """Run direct and persistence controls under the prototype.
 
-    Canonical invocation: ``PYTHONPATH=. backend/.venv/bin/python
+    Canonical invocation: ``PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python
     docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/
     measure_mr110_candidate_stream.py --self-check``.
     """
@@ -456,6 +582,8 @@ def _run_self_check() -> int:
         "backend/tests/integration/test_us_body_preamble_b1_occurrence_local_persistence_red.py",
         "backend/tests/unit/test_us_body_preamble_b1_structural_future_law_red.py",
         "backend/tests/integration/test_us_body_preamble_b1_structural_future_law_persistence_red.py",
+        "backend/tests/unit/test_mr121_b1_source_truth_red.py",
+        "backend/tests/integration/test_mr121_b1_source_truth_persistence_red.py",
     ]
     with default_preserve_runtime_patch():
         return pytest.main(["-q", *[str(ROOT / test) for test in tests]])

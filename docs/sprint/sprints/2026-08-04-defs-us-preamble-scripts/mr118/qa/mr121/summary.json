@@ -1,0 +1,68 @@
+{
+  "schema": "lexgraph.mr121.uniform-source-truth-certificate.v2",
+  "source_adjudication": {
+    "records": 296,
+    "disputed_decisions": 124,
+    "old_baseline_closure_changes": 92,
+    "wip_to_runtime_changes": 64,
+    "outside_dispute_adjustments": 16,
+    "unclassified": 0,
+    "irreducible_ambiguities": 0,
+    "sha256": "d62b2ab9daf0fc9f6eabd486921005bdd2e336855596478914f0ef22676b6d95"
+  },
+  "independent_state_closure": {
+    "records": 97,
+    "reviewed_keys": 55,
+    "same_row_closure_keys": 42,
+    "state_only_projection": 569,
+    "irreducible_ambiguities": 0,
+    "sha256": "1e766ce6d5f9a2d0d1feb22c872d640997aaee28456e0fb72cf0baa1a9b56d67"
+  },
+  "cross_audit_reconciliation": {
+    "records": 13,
+    "preserve_drop_old_removal": 13,
+    "unclassified": 0,
+    "irreducible_ambiguities": 0,
+    "sha256": "dc713847b410749a4e7dc8f2725b685e084b6e919e14c3b80fe405c244fb9f16"
+  },
+  "archived_baseline": {
+    "records": 592694,
+    "sha256": "f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8"
+  },
+  "expected_changed": {
+    "count": 556,
+    "removed": 552,
+    "added": 4,
+    "sha256": "17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a",
+    "independent_cmp_exit": 0,
+    "direction_aware_set_differences": 0
+  },
+  "live_normalized_b1_membership": {
+    "count": 193830,
+    "sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
+  },
+  "wip_actual_delta": {
+    "count": 534,
+    "removed": 530,
+    "added": 4,
+    "canonical_sha256": "a04b609544f4d48ad114d6442534ef5aa75c2ecd06fdca024afcc3a7bbb6634e",
+    "missing_certified": 43,
+    "extra_actual": 21
+  },
+  "focused_evidence": {
+    "current_production": {
+      "failed": 25,
+      "passed": 21
+    },
+    "runtime_prototype": {
+      "passed": 78
+    },
+    "legacy_raw_provenance": {
+      "passed": 13
+    }
+  },
+  "production_app_modified": false,
+  "developer_write_set": [
+    "backend/app/definition_links/rules/us_body_preamble_b1.py"
+  ]
+}

@@ -1,4 +1,4 @@
-"""Independent M-R118 current-vs-5753e11 production corpus measurement."""
+"""Independent M-R121 current-vs-5753e11 production corpus measurement."""
 
 from __future__ import annotations
 
@@ -15,6 +15,11 @@ EXPECTED_FILES = 53
 EXPECTED_ROWS = 2_038_247
 EXPECTED_MEMBERS = 193_830
 EXPECTED_MEMBERS_HASH = "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a"
+EXPECTED_CHANGED = 556
+EXPECTED_REMOVED = 552
+EXPECTED_ADDED = 4
+EXPECTED_CHANGED_HASH = "17530d3a4b6621f16b896c9ad21e8ab88df8c4dd273fcf0f2b5d204402a95e5a"
+EXPECTED_BASELINE_HASH = "f065d8ee838effaba250ea13fb9c234904b3a63985893f0a921d856bc396b3f8"
 
 
 def canonical(value: object) -> bytes:
@@ -31,6 +36,14 @@ def write_jsonl(path: Path, rows: list[dict]) -> str:
     return digest.hexdigest()
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def key(row: dict) -> tuple[str, str, int, str, str, str]:
     return (
         row["jurisdiction"], row["source_file"], row["source_row"], row["term"],
@@ -40,6 +53,21 @@ def key(row: dict) -> tuple[str, str, int, str, str, str]:
 
 def key_record(row: dict) -> dict:
     return {"key": list(key(row))}
+
+
+def changed_key(row: dict) -> tuple[str, str, str, int, str, str, str, str]:
+    return (
+        row["change"], row["jurisdiction"], row["source_file"], row["source_row"],
+        row["source_row_id"], row["term"], row["definition_text"], row["scope"],
+    )
+
+
+def ledger_sort_key(row: dict) -> tuple[str, str, str, str, str, str]:
+    """Match ``qa_g7_common.tuple_key`` plus the change direction."""
+    return (
+        row["jurisdiction"], row["source_file"], str(row["source_row"]), row["term"],
+        row["definition_text"] + "\0" + row["scope"], row["change"],
+    )
 
 
 def files(snapshot: Path) -> list[Path]:
@@ -97,7 +125,19 @@ def registered_b1_winner(*, legacy_derive, registry, b1_rule, jurisdiction_code:
 def capture(profile, body: str, raw: str, row: dict, *, current: bool) -> list[tuple[tuple[str, ...], object]]:
     heading = row["section_title"] or ""
     recognized = profile.is_definitions_heading(heading, body)
-    derived = None if recognized else profile.derive_heading_from_body(heading, body)
+    derived = None
+    if not recognized:
+        derive_b1 = getattr(profile, "derive_body_preamble_match", None)
+        if current and callable(derive_b1):
+            derived = derive_b1(
+                heading,
+                body,
+                raw_source=raw,
+                article_number=row["section_number"] or "",
+                chapter=row["chapter"],
+            )
+        else:
+            derived = profile.derive_heading_from_body(heading, body)
     if not recognized and derived is None:
         return []
     b1_winner = bool(getattr(derived, "b1_winner", False))
@@ -183,24 +223,55 @@ def measure(args: argparse.Namespace) -> None:
 
 
 def compare(args: argparse.Namespace) -> None:
+    baseline_hash = file_sha256(args.baseline)
+    if baseline_hash != EXPECTED_BASELINE_HASH:
+        raise RuntimeError(f"baseline hash drift: {baseline_hash}")
     before = {key(row): row for row in (json.loads(line) for line in args.baseline.read_text().splitlines() if line)}
     after = {key(row): row for row in (json.loads(line) for line in args.current_records.read_text().splitlines() if line)}
     changed = [{"change": "removed", **before[item]} for item in before.keys() - after.keys()]
     changed += [{"change": "added", **after[item]} for item in after.keys() - before.keys()]
-    changed.sort(key=lambda row: (row["change"], key(row)))
+    changed.sort(key=ledger_sort_key)
     args.out.mkdir(parents=True, exist_ok=True)
     changed_hash = write_jsonl(args.out / "changed.jsonl", changed)
-    certified = {key(row) for row in (json.loads(line) for line in args.certified.read_text().splitlines() if line)}
-    actual = {key(row) for row in changed}
+    certified_rows = [
+        json.loads(line) for line in args.certified.read_text().splitlines() if line
+    ]
+    certified = {changed_key(row) for row in certified_rows}
+    actual = {changed_key(row) for row in changed}
+    certified_digest = hashlib.sha256()
+    for row in sorted(certified_rows, key=ledger_sort_key):
+        certified_digest.update(canonical(row) + b"\n")
+    certified_hash = certified_digest.hexdigest()
+    expected_removed = sum(row["change"] == "removed" for row in certified_rows)
+    expected_added = sum(row["change"] == "added" for row in certified_rows)
+    if (
+        len(certified_rows) != EXPECTED_CHANGED
+        or expected_removed != EXPECTED_REMOVED
+        or expected_added != EXPECTED_ADDED
+        or certified_hash != EXPECTED_CHANGED_HASH
+    ):
+        raise RuntimeError(
+            "M-R121 certificate drift: "
+            f"count={len(certified_rows)} removed={expected_removed} added={expected_added} "
+            f"hash={certified_hash}"
+        )
     summary = {"changed": len(changed), "removed": sum(row["change"] == "removed" for row in changed),
                "added": sum(row["change"] == "added" for row in changed), "changed_sha256": changed_hash,
+               "certified_sha256": certified_hash,
                "missing_certified": len(certified - actual), "extra_actual": len(actual - certified),
                "hi": sum(row["jurisdiction"] == "US-HI" for row in changed),
                "fed": sum(row["jurisdiction"] == "US-FED" for row in changed)}
     (args.out / "summary.json").write_text(json.dumps(summary, sort_keys=True) + "\n")
     print(json.dumps(summary, sort_keys=True))
-    if summary["changed"] != 636 or summary["removed"] != 634 or summary["added"] != 2 or summary["missing_certified"] or summary["extra_actual"]:
-        raise RuntimeError(f"M-R118 production delta mismatch: {summary}")
+    if (
+        summary["changed"] != EXPECTED_CHANGED
+        or summary["removed"] != EXPECTED_REMOVED
+        or summary["added"] != EXPECTED_ADDED
+        or summary["changed_sha256"] != summary["certified_sha256"]
+        or summary["missing_certified"]
+        or summary["extra_actual"]
+    ):
+        raise RuntimeError(f"M-R121 production delta mismatch: {summary}")
 
 
 def main() -> None:
@@ -216,8 +287,14 @@ def main() -> None:
     parser.add_argument("--compare", action="store_true")
     args = parser.parse_args()
     if args.compare:
-        if args.current_records is None:
-            parser.error("--compare requires --current-records")
+        required = {
+            "--baseline": args.baseline,
+            "--current-records": args.current_records,
+            "--certified": args.certified,
+        }
+        missing = [flag for flag, value in required.items() if value is None]
+        if missing:
+            parser.error(f"--compare requires {', '.join(missing)}")
         compare(args)
     else:
         if (args.current and args.members) or (not args.current and not args.members):
