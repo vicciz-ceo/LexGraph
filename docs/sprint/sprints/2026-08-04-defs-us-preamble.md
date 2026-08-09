@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: qa-fail
+status: review
 blocked_on: null
-current_role: planner
+current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "codex:planner"
-last_updated: "2026-08-09T19:52:12Z"
+last_agent: "claude:program-manager"
+last_updated: "2026-08-09T20:30:39Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 399 2026-08-09T19:52:12Z"
+lint: "PASS 359 2026-08-09T20:32:38Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -71,122 +71,19 @@ read-only.
 
 ## Manager rulings
 
-### M-R101 — prior Planner rejection (superseded by M-R102)
+### M-R101 – M-R120 — superseded ruling chain (detail lives in the log)
 
-Root rejected `ca9dcd7` for duration-dependent hashes and incomplete
-fail-closed finalizer/Q-D3/workflow guarantees. WIP `5355961` addresses much
-of that ruling; full history is in the append-only log. It remains provisional.
-
-### M-R102 — hardening WIP still not QA-ready
-
-Root rejected `5355961` for exact-sample binding, self-referential verdict
-hashing, and trusted component totals. Planner closed all three at `d0cecf2`;
-full rejection/correction detail remains in the append-only log.
-
-### M-R103 — Item 7 accepted for fresh QA
-
-Root accepts cumulative Planner certification tip
-`d0cecf285853fc6a16d784096d3532c920a85351`. The cumulative diff is confined
-to tests, certification scripts/evidence, and sprint docs; `backend/app` is
-unchanged. Root read hardening/micro diffs, found the risk grep empty, and
-reproduced focused **11/11**, Python compile/diff checks, and evidence hashes.
-The finalizer binds the verified exact 400 sample; Q-D3 recomputes component
-rows. Item 7 is Dev Complete, not QA-passed: fresh QA still owns source
-adjudication and the canonical verdict.
-
-### M-R104 — source finding accepted; narrow remediation requires planning
-
-Root accepts QA-FAIL tip `42cdf298655845635c9e3bf32857efd72da30ee5`:
-the cumulative QA diff is tests/fixture/docs only; root read it fully,
-source-verified pinned `STATE_HI_D2_T24_C431_S431` (`2ff51dc5…`), reproduced
-the 2,404,155-character live capture with 37 tuples including the 529-character
-indemnity pseudo-term / `; and`, and reproduced the corrected test at exactly
-two REDs (direct profile plus live persistence) with no broken-state assertion.
-
-Repair gates are binding: no blanket HI, large-row, quote, or `; and`
-suppression; preserve the genuine same-body definition. Planner must identify
-the exact production seam, source-triage the deterministic sample, and add
-two-sided RED controls for every distinct verified false family found. Before
-Developer, runtime-measure every proposed guard across all 53 files at
-persisted tuple altitude and classify every changed key; preserve prior G7 and
-all ledgers; define the exact minimal Developer write set. Planner may not edit
-production.
-
-### M-R105 — corrected external-source boundary
-
-The director clarified that `Vaquill-AI/open-us-law` is external. Upstream PR
-#4 was retracted and is closed. Work may continue only on the authorized
-`vicciz-ceo/open-us-law` fork; no upstream PR or Hugging Face publication is
-authorized without a new explicit instruction. Fork QA at `4a627571…` remains
-technical evidence, not an external release.
-
-The verified technical split remains HI 16/FED 2 source defects versus AR 1,
-ID 2, and TX 12 LexGraph extraction defects. Planner may plan the downstream
-family now but may not quarantine source-invalid rows. Final all-53/D-PFP
-certification remains held until a corrected, versioned manifest is available.
-
-### M-R106 — occurrence metadata seam authorized
-
-Root accepts the Planner escalation: B1 currently returns only a heading, so
-the live pipeline forgets where the qualifying definition passage starts and
-extracts from the whole row. A narrow cross-layer metadata contract is
-authorized across `registry.py`, `us_body_preamble_b1.py`, `us_profile.py`,
-and `pipeline.py`. It may carry the qualifying occurrence/start into extraction
-only for the registered B1 path; existing baseline and non-B1 rules must remain
-backward-compatible.
-
-Planner must RED-prove direct and persisted behavior, including AR/ID/TX false
-text before the occurrence and TX's genuine later definition, then classify
-every all-53 persisted delta before Developer. Scope/provenance must remain
-source-faithful; no production file outside the four-file boundary is allowed
-without a new escalation.
-
-### M-R107 — generic slice rejected; future-law structural gate
-
-Root accepts the Planner's all-53 rejection: a generic B1 start slice changes
-11,283 persisted keys, including 9,058 unexplained keys, and is not authorized
-for Developer. Replanning must separate AR/ID false-trigger recognition from
-TX's valid later quote-and-defining-verb occurrence, measure each proposal
-independently, and combine them only after every union delta is adjudicated.
-
-The director requires future enacted laws to work without another code change.
-No solution may key on known row IDs, hashes, section numbers, terms, dates,
-titles, or exact sentences. It must use reusable statutory structure and ship
-novel-law direct plus live-persistence controls whose identifiers, terms, and
-wording are absent from the pinned corpus fixtures. Jurisdiction-specific
-drafting grammar is allowed only when structural and source-supported. Before
-Developer, every all-53 delta must be classified; zero unexplained is binding.
-
-### M-R108 — AR/ID broken-dispatch assertion rejected
-
-Root rejects the shared direct RED's unconditional `derive_heading ==
-"Definitions"` assertion for AR/ID: those fixtures contain operative text but
-no genuine definition, so that assertion pins the defect and would block a
-safe structural-trigger correction. Planner must split the expectations: AR/
-ID may correctly produce no derived heading, while TX must retain its valid
-later definition path. No Developer may receive the current test unchanged.
-
-### M-R109 — corrected REDs accepted; measurement phase required
-
-Root accepts the corrected source/future-law tests and independently reproduced
-10 intended REDs plus 4 controls. Planner now owns runtime-only A/B/union
-measurement: A narrows only `In this` to source-supported statutory-unit
-grammar; B carries an exact quote start only for a legal-unit quote-plus-
-defining-verb occurrence. The rejected generic trigger slice stays forbidden.
-Planner must build persisted-delta ledgers, adjudicate every key, and either
-produce a zero-unexplained Developer contract or escalate with the smallest
-remaining unsafe family and evidence.
-
-### M-R110 — first structural prototypes rejected; candidate refinement required
-
-A's labels are mechanical, not source adjudication: it changes 2,260 persisted
-keys, including 2,240 non-held keys and apparent genuine definitions. B is
-incomplete and its quote-start slice also removes apparent genuine definitions.
-Neither prototype or their union is authorized for Developer. Planner must
-classify distinct trigger/candidate families against source, refine at candidate
-altitude rather than truncate a whole body, then rerun complete A/B/union
-measurement with zero unexplained keys. M-R107's unseen-future-law direct and
-live-persistence gate remains binding; no corpus-identity exception is allowed.
+Twenty reject/replan rounds between the Item-7 certification build and the
+first executed full-population measurement. Their binding residue is carried
+forward below and in M-R123; the complete text of each ruling stays in the
+append-only log. Constraints that survive unchanged: no row-ID/hash/section/
+term/date/title/exact-sentence keying and unseen-future-law direct plus
+live-persistence controls (M-R107); `Vaquill-AI/open-us-law` is external, only
+the `vicciz-ceo` fork is authorized, no upstream PR or Hugging Face publication
+(M-R105); the B1 occurrence-metadata seam across `registry.py`,
+`us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py` is authorized and
+must stay backward-compatible for non-B1 rules (M-R106); no blanket HI,
+large-row, quote, or `; and` suppression (M-R104).
 
 ### M-R121 — bounded certificate superseded by full-prototype evidence
 
@@ -207,16 +104,77 @@ Production remains frozen at `c2a8717`; no identity exceptions are authorized.
 The sole additional prototype/c2 mismatch is duplicate group discovery under
 overlapping triggers; it has zero corpus impact but is pinned for future laws.
 
+### M-R123 — M-R122 accepted, ported, and executed; the certificate is CLOSED
+
+The program manager accepted M-R122 on independent evidence, not on the
+outgoing Planner's summary. Four independent read-only auditors re-decided all
+207 disputed keys against the pinned parquet: **207/207 excerpt-integrity
+checks passed** (act_id, section_title, text SHA, span-exact excerpt, excerpt
+SHA) and **205 agreed**. The five genuine definitions current production
+deleted were source-read directly (PA `person in the position of a seller`,
+FED `city`, TX `county judge`, OK `natural deterioration`, KY `telehealth`).
+
+The Developer port landed at `941661b`: physical-line-start continuation
+opener plus source-order exact-group dedup, module 295 lines. Gates, all
+reproduced by the manager: focused direct+persistence 5F/49P → **54 passed**;
+legacy raw provenance **13 passed**; runtime prototype **86 passed**; backend
+**24 failed / 1199 passed**, exactly the accepted 23-marker + held-T35 ledger,
+zero new failures; frontend **165 passed** and typecheck clean. The single
+all-53 acceptance run reproduced 193,830 members (`851e85dc…6af5a`) and
+592,334 records (`9e6e0196…22ca8`) against the 592,694-record `5753e11`
+baseline (`f065d8ee…96b3f8`): **368 changed = 364 removed + 4 added**,
+actual hash == certified hash == `49a9d3f7…00933d`, missing 0, extra 0. The
+ported production output is byte-identical to the Planner prototype.
+
+**No further re-adjudication of the 207 keys or the 368-key certificate is
+authorized.** The certificate is executed evidence now, not a projection.
+
+**Binding, and the reason this sprint circled: a changed-key certificate is
+valid only when it was EMITTED BY an executed full-population run of the exact
+implementation it certifies.** Hand-authored expected-change ledgers are
+planning evidence, never gates. Adjudication decides whether each ACTUAL change
+is correct; it never predicts the change set. Four projected ledgers
+(636 → 586 → 556) were each superseded before this rule was applied; M-R121
+froze 556 with "No all-53 run was made" and was wrong on 188 keys.
+
+**Named residual — pre-quote alias mis-bodied tuples (NOT fixable in B1).**
+The audit found a third class M-R122's two-bucket taxonomy cannot express:
+right term, wrong body. Where the only preserving evidence is a PRE-quote
+alias, the definiens sits before the quote while shared extraction harvests
+after it, so a genuinely coined term is bound to unrelated text.
+Verified in the acceptance record set for all three inventory members
+(CO `25-3.5-108` "state report"; NM `73-7-1` "assessment of benefits." and
+"assessments for construction."). Preserving them is still correct at B1
+altitude — rejecting a genuinely coined term because the extractor mis-bodies
+it is exactly M-R121's rule that deletes 185 real definitions. This joins the
+existing held shared-extraction/P-FP debt beside the CO wrong-tuple control
+and T35, and is owned by shared extraction + D-MT-E1, not by this sprint.
+
+**G7 re-pin.** `qa_g7_common.INTEGRATION_SHA` still pinned `4fa9e7b…`, which
+predates `c2a8717`, so every D-PFP-400 certification run fail-closed on
+`validate_integration()` instead of measuring the tree under test. Re-pinned to
+`941661b…`. The pin also seeds the D-PFP-400 sample rank, so the previously
+recorded population/sample hashes are void and regenerated.
+
 ## Next Steps
 
-7. **[PROVISIONAL PLANNER HANDOFF: M-R122]** Successor must independently
-   accept the source correction before Developer. Then edit only B1's module:
-   distinguish physical-line-start openers from visible closing quotes, and
-   source-order deduplicate identical plural groups. Require focused 54/54,
-   legacy 13/13, and runtime 86/86 before the all-53 rerun; require the exact
-   368-key certificate. Boundaries bind in `mr118/DEVELOPER_READY.md`.
+_None. All 7 items are Dev Complete; QA cycle 5 owns the sprint verdict._
+
+QA independently reruns the focused trio, the full evaluator, and the single
+all-53 acceptance (production, **not** `--prototype`), then adjudicates the
+regenerated D-PFP-400 sample. QA does NOT re-open the 207-key inventory or the
+368-key certificate: disagreement with a closed, executed certificate is an
+escalation to the program manager with source evidence, never a new ledger.
 
 ## Dev Complete
+
+7. **D-PFP-400 certification + M-R122 source correction.** Certification
+   entrypoint Q-D1 → Q-D2 → Q-D3 and the D-PFP-400 sampler are permanent and
+   re-pinned to integration `941661b`. The one-file B1 correction is ported and
+   executed: focused 54/54, legacy 13/13, prototype 86/86, module 295 lines,
+   and the single all-53 acceptance at exactly 368 = 364 + 4 with
+   `49a9d3f7…00933d`, missing 0, extra 0. Adjudication of the regenerated
+   400-tuple sample is QA-owned and outstanding.
 
 1. **Four B1 causal fixes.** Allowed
    production surface: `backend/app/definition_links/rules/us_body_preamble.py`
@@ -337,11 +295,13 @@ overlapping triggers; it has zero corpus impact but is pinned for future laws.
   root-accepted Developer tips. The combined correction is **13 passed**; G8
   scope/collision is **11 passed**; markers G3H is **21 passed**; Option-C plus
   G9 is **6 passed**. Root independently reproduced the 13/13 combined gate.
-- Authoritative backend is **1085 passed / 24 failed / 18 warnings**. The 24
-  failures are exactly the accepted ledger: 23 marker residuals plus held T35;
-  the former NE x2, SD, and FED `eligible` release blockers are green.
-- Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. The
-  shared worktree is clean and local/remote tips match.
+- Authoritative backend at `941661b` is **1199 passed / 24 failed / 18
+  warnings**. The 24 failures are exactly the accepted ledger: 23 marker
+  residuals plus held T35; the former NE x2, SD, and FED `eligible` release
+  blockers are green. The M-R122 port adds zero new failures.
+- Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. Prior
+  cycles recorded this gate as unrunnable because the worktree had no
+  `frontend/node_modules`; `npm ci` was run there and it now executes locally.
 - QA cycle 1 completed the focused, backend, frontend, all-53 exact-seam/hash,
   and broad-mutation gates at `ea0565059072d807a5f8564537917ca59b499a3f`.
   Binding G7 remains uncertified because its three independent QA measurement
@@ -389,11 +349,11 @@ No external pins remain and no production signature/class/CSS rename occurred.
 
 ## Context Dump
 
-1. Items 1–6 remain Dev Complete; Item 7 is provisional M-R122 Planner WIP.
-2. Live normalized B1 membership is 193,830 / `851e85…6af5a`.
-3. Full-prototype mismatch inventory has 207 decisions and zero unclassified.
-4. Corrected certificate is 368 = 364 removals + 4 additions.
-5. Developer may edit only `us_body_preamble_b1.py`.
-6. Novel direct/persistence tests use unseen terms and no allowlists.
-7. Run all 53 once only after focused 54/54, 13/13, and 86/86.
-8. Final all-53 comparison requires zero missing and zero extra.
+1. All 7 items are Dev Complete at `941661b`; QA cycle 5 owns the verdict.
+2. The 368-key certificate is EXECUTED and CLOSED — do not re-adjudicate it.
+3. A certificate is valid only if an executed full-population run emitted it.
+4. Membership 193,830 / `851e85…6af5a`; records 592,334 / `9e6e0196…22ca8`.
+5. Only outstanding work is QA's D-PFP-400 sample adjudication.
+6. `INTEGRATION_SHA` is re-pinned to `941661b`; old G7 sample hashes are void.
+7. Pre-quote alias mis-bodied tuples are named held shared-extraction debt.
+8. Escalate a disputed closed certificate; never author a replacement ledger.

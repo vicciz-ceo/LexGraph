@@ -866,3 +866,45 @@ verbatim during the merge) — no tampering; recorded closed.
   physical-line-start continuation opener plus source-order exact-group dedup.
   Focused c2 is 5F/49P; prototype is 86/86. Durable evidence is under
   `mr118/qa/mr122/`; no source/identity/jurisdiction allowlist was introduced.
+
+- 2026-08-09 (director escalation: "we are circling"; program-manager
+  diagnosis, ruling, and fix). ROOT CAUSE, measured, not inferred: the preamble
+  panel's acceptance gate was self-referential. Item 7 required production to
+  reproduce a hand-authored expected-changed-key ledger exactly. Four such
+  ledgers were authored in ~24 hours — 636 → 586 → 556 → 368 — each superseded
+  by the next, because a ledger authored in advance cannot predict the tail of
+  a 592,334-record output; the tail is only discoverable by running. M-R121
+  froze 556 with the log line "No all-53 run was made"; the first full
+  execution disagreed on 207 keys, and 188 of those were the ledger's own error
+  and would have deleted 185 genuine definitions. Aggravator 1: the certificate
+  anchored at `5753e11`, a docs commit 167 commits ahead of main, so
+  intra-sprint churn scored as regression. Aggravator 2: the 5-cycle safety
+  valve never fired — 22 manager rulings (M-R101…M-R122) rejected and replanned
+  at Planner altitude, which does not increment `qa_cycles` (stuck at 4).
+  RULED: P-R11 (executed certificates only; adjudicate the ACTUAL delta to zero
+  residual, never predict it; anchor at main), P-R12 (six consecutive manager
+  rejections of one item without an intervening QA cycle is a hard stop and
+  escalates to the director), P-R13 (a certification item blocks only itself,
+  not the panel's independently gated feature work).
+  FIXED: the program manager took the M-R122 accept/reject itself rather than
+  handing it to another Planner — the handoff's own "independently accept or
+  reject" protocol was a re-entry into the loop. Four independent auditors
+  re-decided all 207 keys from the pinned parquet (207/207 excerpt-integrity,
+  205 agree); the one-file port landed at `941661b`; the single all-53
+  acceptance run reproduced 368 = 364 + 4 / `49a9d3f7…00933d` with missing 0,
+  extra 0, byte-identical to the prototype. Certificate CLOSED. Also unblocked
+  a stale `INTEGRATION_SHA` pin that would have fail-closed QA cycle 5's
+  D-PFP-400 run without measuring anything, and a missing worktree
+  `frontend/node_modules` that had made the frontend gate unrunnable.
+  NEW NAMED RESIDUAL: pre-quote alias mis-bodied tuples (right term, wrong
+  body) — a third class M-R122's taxonomy could not express; correct at B1
+  altitude, owned by shared extraction + D-MT-E1.
+  PROGRAM-WIDE OBSERVATION (contracts read from each panel's OWN branch;
+  the copies on other branches are stale and misleading): `defs-us-headings`
+  is **qa-certified 15/15 and unmerged since 2026-08-04**; `defs-il` is in
+  review at 8/12 with qa_cycles 4/5; `defs-us-pr` is in progress with 14 of 33
+  items dev-complete at qa_cycles 4/5; `defs-us-scoped-inline` is in developer
+  at 2/5; `defs-us-multiterm` is still planning at 0/11. Three panels sit one
+  cycle from the safety valve, so the non-convergence dynamic is program-wide,
+  not a preamble quirk. 6,371 lines of production code across those five
+  branches are unmerged and untouched since 2026-08-05.

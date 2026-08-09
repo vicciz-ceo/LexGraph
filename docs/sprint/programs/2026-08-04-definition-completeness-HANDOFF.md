@@ -1,163 +1,131 @@
-# HANDOFF — Claude Code / US body-preamble M-R122
+# HANDOFF — definition-completeness program
 
-Written 2026-08-09 by the outgoing Planner. This is a **provisional WIP
-handoff**, not a Developer-ready certification. Production was not edited.
+Rewritten 2026-08-09 by the program manager, replacing the M-R122 Planner
+handoff. That document is superseded: its central instruction — "independently
+accept or reject the source correction" by re-reviewing all 207 keys before any
+code may be written — was itself a re-entry into the loop the director
+escalated. The decision has now been taken and the certificate is closed.
 
-## Open this checkout
+## Read this first: why the preamble sprint circled
 
-- Worktree: `/Users/nerya/LexGraph-wt/defs-us-preamble`
-- Branch: `claude/defs-us-preamble`
-- Pre-handoff local SHA: `c2a871725221cd79fca89743d48feecf387bffee`
-- Pre-handoff remote SHA: `c2a871725221cd79fca89743d48feecf387bffee`
-- The pushed provisional WIP commit is the branch tip; verify with
-  `git rev-parse HEAD origin/claude/defs-us-preamble` after `git fetch`.
+The acceptance gate was self-referential. Item 7 required production to
+reproduce a **hand-authored** expected-changed-key ledger exactly, zero missing
+and zero extra. Four such ledgers were written in about 24 hours —
+636 → 586 → 556 → 368 — each superseded by the next, because a ledger authored
+in advance cannot predict the tail of a 592,334-record output. The tail is only
+discoverable by running. M-R121 froze its 556-key ledger with the log line
+"No all-53 run was made"; the first full execution disagreed on 207 keys, and
+**188 of those were the ledger's own error** — enforcing it would have deleted
+185 genuine statutory definitions.
 
-Do not work from `/Users/nerya/LexGraph`. That main checkout is read-only and
-contains the user's untracked `.claude/settings.json`; do not add, delete, or
-modify it.
+Two aggravators. The certificate anchored at `5753e11`, which is not `main` but
+a docs commit 167 commits ahead of it, so intra-sprint churn scored as
+regression. And the 5-cycle safety valve never fired: 22 manager rulings
+(M-R101…M-R122) rejected and replanned at Planner altitude, which does not
+increment `qa_cycles` — it sat at 4 the whole time.
 
-## Harness state
+Binding consequences are program rulings **P-R11** (executed certificates
+only), **P-R12** (rejection-count hard stop), and **P-R13** (a certification
+item blocks only itself) in the program doc.
 
-- Sprint: `2026-08-04-defs-us-preamble`
-- Current role: Planner; status: `qa-fail`; QA cycles: **4/5**.
-- Items 1–6 remain Dev Complete. Item 7 is provisional M-R122 evidence.
-- Successor must independently accept or reject the source correction before
-  spawning/acting as Developer. The next fresh QA is cycle 5; another failure
-  reaches the safety valve and must be blocked/escalated, not silently cycled.
-- Read, in order:
-  1. `docs/sprint/sprints/2026-08-04-defs-us-preamble.md`
-  2. `docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/DEVELOPER_READY.md`
-  3. `docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/mr122/FULL_PROTOTYPE_AUDIT.md`
-  4. `docs/sprint/sprints/2026-08-04-defs-core-scope-seam.md` v2.7/v2.6.
+## Preamble sprint: state now
 
-## Production checkpoint and failure
+- Worktree `/Users/nerya/LexGraph-wt/defs-us-preamble`, branch
+  `claude/defs-us-preamble`. Production tip `941661b`.
+- All 7 items Dev Complete. `status: review`, `current_role: qa`,
+  `qa_cycles: 4`. QA cycle 5 owns the verdict.
+- The one-file M-R122 port is landed: `us_body_preamble_b1.py` only,
+  physical-line-start continuation opener + source-order group dedup,
+  295 lines.
+- Gates reproduced by the program manager: focused direct+persistence
+  **54 passed** (was 5F/49P), legacy raw provenance **13 passed**, runtime
+  prototype **86 passed**, backend **1199 passed / 24 failed** (exactly the
+  accepted 23-marker + held-T35 ledger; zero new failures), frontend
+  **165 passed** + `tsc --noEmit` clean.
+- Single all-53 acceptance over 53 files / 2,038,247 rows: members 193,830 /
+  `851e85dc…6af5a`, records 592,334 / `9e6e0196…22ca8`, archived `5753e11`
+  baseline 592,694 / `f065d8ee…96b3f8`, and **368 changed = 364 removed + 4
+  added**, actual hash == certified hash == `49a9d3f7…00933d`, missing 0,
+  extra 0. The ported production output is byte-identical to the prototype.
 
-Production is frozen at `c2a8717`. The only production file in scope is
-`backend/app/definition_links/rules/us_body_preamble_b1.py` (279 lines, SHA
-`c154e942e84a04e041bbc2e85defa01c1efd2569db6da95d945a6315e3c4a1da`).
+### What QA cycle 5 must and must not do
 
-Its retained all-53 acceptance run passed population/baseline guards but failed
-the old certificate:
+MUST: rerun the focused trio, the full evaluator, and the single all-53
+acceptance against **production** (no `--prototype`); then adjudicate the
+regenerated D-PFP-400 400-tuple sample against source.
 
-- 193,830 normalized B1 winners / `851e85dc…6af5a`
-- 359 changes = 355 removals + 4 additions
-- 202 M-R121 certified changes missing; 5 production changes extra
-- artifacts: `/tmp/mr121-acceptance.XoddA3`
+MUST NOT: re-open the 207-key inventory or the 368-key certificate. It is
+executed evidence, independently re-adjudicated by four auditors (207/207
+excerpt-integrity checks, 205 agreements). Disagreement with a closed
+certificate is an escalation to the program manager with source evidence —
+never a replacement ledger.
 
-## Why M-R121's 556 certificate is invalid
+### Traps already cleared (do not rediscover them)
 
-The full 207-key raw-source audit has zero unclassified keys:
+- `qa_g7_common.INTEGRATION_SHA` was pinned at `4fa9e7b…`, predating
+  `c2a8717`, so `validate_integration()` fail-closed on every D-PFP-400 run.
+  Re-pinned to `941661b`. The pin seeds the sample rank, so the old
+  population/sample hashes (`08ca7a33…`, `880cdec8…`) are void.
+- The worktree had no `frontend/node_modules`, which is why earlier cycles
+  recorded the frontend gate as unrunnable. `npm ci` has been run there.
+- The main venv at `/Users/nerya/LexGraph/backend/.venv` resolves worktree
+  code correctly when invoked with `PYTHONPATH=.:backend` from the worktree
+  root — verified, `app` imports from the worktree. Measurements were not
+  poisoned by this.
 
-| Family | Keys | Binding source decision |
-|---|---:|---|
-| Explicit post-quote relation | 185 | preserve; old removal invalid |
-| Explicit pre-quote alias relation | 3 | preserve; old removal invalid |
-| Closing quote hid nondefinition | 14 | remove after quote-direction fix |
-| Closing quote hid genuine definition | 5 | preserve after quote-direction fix |
+### Named residual — pre-quote alias mis-bodied tuples
 
-The 188 explicit-relation removals contradict M-R121's own required semantics.
-This is new raw-source evidence under the stated certificate-change exception;
-forcing 556 would knowingly delete definitions. The provisional corrected
-certificate is **368 = 364 removals + 4 additions**, canonical SHA-256
-`49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d`.
+A third failure class M-R122's two-bucket taxonomy could not express: right
+term, wrong body. Where the only preserving evidence is a PRE-quote alias, the
+definiens sits before the quote while shared extraction harvests after it.
+Verified in the acceptance record set for all three inventory members: CO
+`25-3.5-108` "state report", NM `73-7-1` "assessment of benefits." and
+"assessments for construction.".
 
-Durable source ledger:
-`.../mr118/qa/mr122/mismatch_inventory.jsonl` — 207 rows, SHA
-`707e6299a445a878e02302a0620735c87224804f5b7671321c87520106caad2c`.
-Every row carries the full key, raw-row/excerpt hashes and text, old/corrected
-predicate evidence, and both production/certificate directions.
+These are **not** in the 368-key certificate — they are unchanged pre-existing
+baseline behavior. Preserving them is correct at B1 altitude: rejecting a
+genuinely coined term because the extractor mis-bodies it is exactly M-R121's
+rule, which deletes 185 real definitions. Owner is shared extraction +
+D-MT-E1, alongside the CO wrong-tuple control and T35.
 
-## Completed full-prototype proof
+## Program state: read each contract from its OWN branch
 
-The corrected runtime prototype completed over all 53 files / 2,038,247 rows;
-there is no active corpus process.
+The copies of other panels' contracts on this branch are stale from 2026-08-04
+and will tell you every panel is `planning` with 0 items. That is an artifact.
+Use `git show <branch>:docs/sprint/sprints/<id>.md`. Real state:
 
-- Prototype: 193,830 members / `851e85dc…6af5a`
-- Prototype records: 592,334 / `9e6e0196…2ca8`
-- Archived `5753e11` baseline: 592,694 / `f065d8ee…b3f8`
-- Delta: 368 = 364 removals + 4 additions / `49a9d3f7…0933d`
-- Certificate comparison: missing 0, extra 0, byte `cmp=0`
-- Complete artifacts: `/tmp/mr121-prototype-corrected.20260809`
-- Source-audit scratch: `/tmp/mr121-set-classification.rbq0Vj`
+| Sprint | Status | Items | QA cycles | Unmerged prod |
+|---|---|---|---|---|
+| `defs-us-headings` | **qa-certified** | 15/15 | 4 | 727 lines |
+| `defs-il` | review | 8/12 | 4 | 2,355 lines |
+| `defs-us-pr` | in_progress (planner) | 14 dev-complete / 33 | 4 | 1,857 lines |
+| `defs-us-scoped-inline` | in_progress (developer) | 0/1 | 2 | 796 lines |
+| `defs-us-multiterm` | planning | 0/11 | 2 | 636 lines |
 
-Durable proof is under `.../mr118/qa/mr122/`:
-`full_prototype_summary.json`, `full_prototype_changed.jsonl`,
-`certificate_correction_summary.json`, `mismatch_inventory.jsonl`, and
-`FULL_PROTOTYPE_AUDIT.md`. The full-prototype ledger and corrected certificate
-are byte-identical.
+All five branches were last touched 2026-08-05. **6,371 lines of production
+code sit unmerged.** `defs-us-headings` is QA-certified and has been waiting
+five days. Three panels sit one cycle from the safety valve, so the
+non-convergence dynamic is program-wide, not a preamble quirk — P-R12 applies
+to all of them.
 
-A redundant pre-fix prototype process was terminated after c2's retained run
-and the semantic comparison made it unnecessary. Its directory
-`/tmp/mr121-prototype.gvbybi` has no atomic result and is not evidence.
+Merged and done: `defs-core-scope` (@ `06d67d8`), `defs-core-dispatch`
+(@ `8524067`), `defs-core-follow-on-2` (@ `d783052`), `defs-us-markers`
+(@ `7208dcf`).
 
-## Exact proposed one-file correction
+## Ordered next actions
 
-After successor acceptance, edit only
-`backend/app/definition_links/rules/us_body_preamble_b1.py`:
-
-1. In `_quote_occurrences.continuation`, keep the 6,000-character nearest-prior
-   quote lookback. Treat that quote as an opening delimiter only when its
-   physical-line prefix since the last CR/LF is whitespace-only **and** the gap
-   after it starts the numbered marker. Visible content before the quote proves
-   it is a closer; it must not hide the next independent occurrence.
-2. At `_groups()` return, source-order deduplicate exact group tuples. Do not
-   alter matching, spans, relation text, or repair emission.
-
-The verbatim helper code and port boundaries are in `DEVELOPER_READY.md`.
-No other semantic mismatch exists. Group dedup changes zero pinned-corpus keys
-but prevents duplicate direct candidates in an unseen dual-trigger law.
-
-Never add source/row/term/hash/jurisdiction allowlists, identity exceptions, or
-exact-sentence matches. Future-law behavior is mandatory; R8–R11 use novel
-identifiers, terms, and wording.
-
-## Focused gates
-
-At c2, direct+persistence M-R121/M-R122 tests are intentionally **5 failed / 49
-passed**. The runtime prototype is **86/86**; legacy raw provenance is **13/13**.
-After the proposed one-file port require:
-
-1. focused direct+persistence **54/54**;
-2. legacy raw provenance **13/13**;
-3. runtime prototype self-check **86/86**;
-4. module `<=300` lines;
-5. one production all-53 run **without** `--prototype`, exactly 368/364/4,
-   `49a9d3f7…0933d`, missing 0, extra 0;
-6. then the appropriate full backend/evaluator gate and fresh QA cycle 5.
-
-Exact commands are in `mr118/DEVELOPER_READY.md`.
-
-## Reproducible archived baseline
-
-The runner is
-`mr118/qa/measure_actual_production.py`. The durable recipe:
-
-1. `git archive 5753e11 | tar -x -C "$BASELINE_SOURCE"` into a fresh temp root.
-2. Run current production (or Planner proof with `--prototype`) with
-   `--current`; this emits and validates `members.jsonl`.
-3. Run the archived source with that exact `--members` file; never reselect.
-4. Require baseline count 592,694 and SHA `f065d8ee…b3f8`.
-5. Run `--compare` against `mr121/expected_changed.jsonl`.
-
-Use the single fail-closed shell block in `DEVELOPER_READY.md`; it retains its
-temp root on failure and deletes only that explicit root on success.
-
-## Ordered resumption
-
-1. Fetch, open the worktree above, and confirm local/remote tips and clean tree.
-2. Verify `git diff c2a8717 -- backend/app` is empty.
-3. Independently review the 207-key ledger, especially all 188 certificate
-   invalidations, and accept/reject M-R122 explicitly at Planner altitude.
-4. If accepted, run the c2 focused gates, make only the exact one-file
-   Developer correction, and rerun gates in the order above.
-5. Commit Developer work separately. Spawn fresh QA cycle 5; QA independently
-   reruns production (not prototype), baseline guards, certificate comparison,
-   and the relevant full suite.
+1. Run QA cycle 5 on the preamble sprint under the scope above.
+2. Merge `defs-us-headings` — it is QA-certified and only waiting on a merge
+   slot, which P-R13 no longer justifies withholding.
+3. Resume `defs-il` (review, 8/12) and `defs-us-pr` (14/33), both at 4/5
+   cycles: before spawning, apply P-R12 and state what would close each item.
+4. Resume `defs-us-scoped-inline` and `defs-us-multiterm`.
+5. The program-close D-CERT integration QA builds its certificate under P-R11:
+   run first, adjudicate 100% of the actual delta, anchor at `main`.
 
 ## External repositories
 
-`Vaquill-AI/open-us-law` is external. Upstream PR #4 is closed/retracted. Only
-the authorized `vicciz-ceo/open-us-law` fork may ever be used, and no new fork
-write, upstream PR, or Hugging Face publication is authorized here. This
-handoff owns no open-us-law worktree and no upstream PR; do not create or touch
-one while resuming this LexGraph task.
+`Vaquill-AI/open-us-law` is external; upstream PR #4 is closed/retracted. Only
+the authorized `vicciz-ceo/open-us-law` fork may be used. No new fork write,
+upstream PR, or Hugging Face publication is authorized. This handoff owns no
+open-us-law worktree and no upstream PR; do not create or touch one.

@@ -112,7 +112,7 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 | `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | **MERGED to main @ 06d67d8** (2026-08-04): 11/11 items, 2 QA cycles, evaluator 700/0/165/tsc-clean, program-manager merge checklist run (containment probe, risk-classed diff read incl. full persistence hunks, own evaluator run). Authoritative seam = v2.5 in `2026-08-04-defs-core-scope-seam.md` — family panels MUST re-read it (they planned against v2.2-2.4) | **DONE** |
 | `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
 | `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
-| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **PROVISIONAL M-R122 PLANNER HANDOFF.** Full normalized runtime prototype: 193,830 B1 winners, exact 368=364/4 delta (`49a9d3f7…0933d`) versus archived `5753e11`, zero missing/extra. Raw-source audit invalidated 188 old removals with explicit relations and classified all 207 c2 mismatches. Successor must accept the source correction before the proposed one-file Developer pass (physical-line-start quote direction + source-order group dedup). Focused c2 5F/49P, prototype 86/86. | 3rd pending merge slot |
+| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **M-R122 ACCEPTED AND EXECUTED (M-R123, 2026-08-09).** Program manager took the accept/reject at program altitude after the director escalated non-convergence; four independent auditors re-decided all 207 keys from the pinned parquet (207/207 excerpt-integrity, 205 agree). One-file Developer port landed at `941661b`. Executed all-53 acceptance: 193,830 members / 592,334 records, **368 = 364 removals + 4 additions**, `49a9d3f7…00933d`, missing 0, extra 0, byte-identical to the prototype. Focused 54/54, legacy 13/13, prototype 86/86, backend 1199P/24F (accepted ledger, zero new), frontend 165 + tsc clean. Certificate CLOSED per P-R11. Named residual: pre-quote alias mis-bodied tuples → shared extraction + D-MT-E1. Outstanding: QA cycle 5's D-PFP-400 sample adjudication only. | 3rd pending merge slot |
 | `2026-08-04-defs-us-markers` | `claude/defs-us-markers-core2-integration` | **MERGED to main @ 7208dcf** (2026-08-06). Combined G3-HEAL QA PASS: 21 focused; backend 979 + 23 named residuals; frontend 165; typecheck clean. Exact full-corpus scope: 17 reviewed WA-only changes; rejected broad forms reproduce 99 and 12,774. G7 headed denominators exact; zero counts VA48/WA116/WV297/WI62/WY56/FED139/DC331. | **DONE — second merge slot** |
 | `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
 | `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
@@ -301,6 +301,42 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   option C (mis-scope via ScopeTriggerRule) rejected per the director's
   scoped-definitions constraint. Panels hold dead-kind items and work
   reachable subsets meanwhile. Evidence: claude/defs-us-pr @ 5b177b7.
+
+- **P-R11 — executed certificates only (program manager, 2026-08-09, binding
+  on every panel and on the D-CERT close).** A changed-key / expected-delta
+  certificate is valid ONLY when it was **emitted by an executed
+  full-population run of the exact implementation it certifies**. A ledger
+  authored by hand, by projection, or by extrapolating a sample is planning
+  evidence and MUST NOT be a gate. Adjudication decides whether each ACTUAL
+  change is correct; it never predicts the change set. Zero-residual
+  adjudication of 100% of the real delta is the bar — it is stricter than a
+  projected ledger, not weaker. Origin (measured): the preamble panel authored
+  four expected-change ledgers in ~24 hours — 636 → 586 → 556 → 368 — each
+  superseded by the next. M-R121 froze 556 with "No all-53 run was made"; the
+  first full execution disagreed on 207 keys and **188 were the ledger's own
+  error**, which would have deleted 185 genuine definitions. Corollary: a
+  regression certificate anchors at `main` or the sprint's merge-base, never
+  at an intra-sprint commit — the preamble certificate's `5753e11` anchor is a
+  docs commit 167 commits ahead of main, so intra-sprint churn scored as
+  regression. The preamble sprint keeps `5753e11` because its 368 changes are
+  executed and fully adjudicated; every new certificate uses `main`.
+- **P-R12 — the non-convergence valve counts rulings, not just QA cycles
+  (program manager, 2026-08-09, binding).** The 5-cycle safety valve exists to
+  force a director decision when a panel cannot converge. The preamble panel
+  ran **22 manager rulings (M-R101…M-R122)** of reject-and-replan while
+  `qa_cycles` stayed at 4, because rejections at Planner altitude do not
+  increment the counter — so the valve never fired and the panel ran for days.
+  From now on: **six consecutive manager rejections of the same item without a
+  QA cycle in between is a hard stop.** The manager escalates to the program
+  manager with the item, the rejection list, and what it would take to close;
+  the program manager relays to the director. Repeatedly re-measuring is not
+  progress.
+- **P-R13 — a panel's shipped work is not hostage to its certification item
+  (program manager, 2026-08-09).** Where a panel's feature items are Dev
+  Complete and independently gated, they may be certified and merged on their
+  own evidence; a certification/measurement item blocks only itself. The
+  preamble panel held 858 lines of merge-ready recall work behind a 0.06%
+  delta audit for four days.
 
 ## Core QA cycle 1 verdict (2026-08-04)
 

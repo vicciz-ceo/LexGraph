@@ -6337,3 +6337,66 @@ Failed checks retain the printed temporary root for inspection; only after a
 successful comparison and summary display does the recipe remove that root. No
 large baseline artifact is committed. Production, tests, certificate, counts,
 and contract wording remain unchanged.
+
+## 2026-08-09 — M-R123 program-manager acceptance, port, and certificate close
+
+The director escalated that this sprint had circled too long and instructed a
+diagnosis-and-fix pass. The program manager took the M-R122 accept/reject
+decision at program altitude rather than handing it to another Planner, because
+the handoff's own resumption protocol — "independently accept or reject the
+source correction" by re-reviewing all 207 keys — is itself a re-entry into the
+loop it was written to escape.
+
+INDEPENDENT ACCEPTANCE. Four read-only auditors re-decided disjoint quarters of
+the 207-key inventory straight from the pinned parquet, explicitly forbidden to
+trust the committed excerpts. Integrity: 207/207 rows reproduced on all five
+dimensions (act_id, section_title, sha256(text), span-exact excerpt bytes,
+sha256(excerpt)); zero tampering. Verdict: 205 agreements. The manager
+separately source-read the five genuine definitions current production deleted
+(PA `person in the position of a seller`, FED `city`, TX `county judge`,
+OK `natural deterioration`, KY `telehealth`) and a sample of the disputed
+preserve rows (CT `criminal justice agency`, NM `health care services` /
+`brain injury` / `insurer` — all canonical `"X": (1) means … (2) does not
+include …` constructions the 556 certificate would have deleted).
+
+DEVELOPER PORT. `941661b`, one file, +20/-4. `_quote_occurrences.continuation`
+now treats a nearest-prior straight quote as an opening delimiter only when its
+physical-line prefix since the last CR/LF is whitespace-only; `_groups()`
+returns source-order unique tuples. Module 295 lines.
+
+GATES, all reproduced by the manager. Focused direct+persistence 5F/49P →
+54 passed. Legacy raw provenance 13 passed. Runtime prototype self-check
+86 passed. Backend 1199 passed / 24 failed — exactly the accepted 23-marker +
+held-T35 ledger, zero new failures. Frontend 25 files / 165 tests passed,
+`tsc --noEmit` clean; the worktree had no `frontend/node_modules`, which is why
+earlier cycles recorded this gate as unrunnable, so `npm ci` was run there.
+Single all-53 acceptance over 53 files / 2,038,247 rows: members 193,830 /
+`851e85dc…6af5a` (unchanged, as required), records 592,334 /
+`9e6e0196…22ca8`, archived `5753e11` baseline 592,694 / `f065d8ee…96b3f8`
+validated before comparison, and **368 changed = 364 removed + 4 added**,
+actual hash == certified hash == `49a9d3f7…00933d`, missing 0, extra 0. The
+ported production record set is byte-identical to the Planner prototype's.
+Artifacts: `/tmp/mr122-acceptance.rATNpY`.
+
+THIRD FAILURE CLASS FOUND, AND WHY IT DOES NOT REOPEN THE CERTIFICATE. One
+auditor checked not just whether the term is coined but whether the persisted
+body matches, and found that all three `certificate_invalid.explicit_pre_quote_
+relation` rows bind a genuinely coined term to unrelated text: B1 always
+harvests after the quote, but a pre-quote alias puts the definiens before it.
+Confirmed in the acceptance record set — CO `25-3.5-108` "state report" gets
+the task force's phase-two-through-five duties; NM `73-7-1` "assessments for
+construction." gets "in their said report said map, plans and other
+specifications, and file the same with their report." M-R122's two-bucket
+taxonomy (certificate-fault vs code-fault) has no slot for right-term/wrong-
+body. It is nevertheless NOT a B1 defect: rejecting a genuinely coined term
+because the extractor mis-bodies it is precisely M-R121's rule, which deletes
+185 real definitions. Recorded as a named residual in the existing held
+shared-extraction/P-FP debt beside the CO wrong-tuple control and T35, owned by
+shared extraction + D-MT-E1.
+
+G7 RE-PIN. `qa_g7_common.INTEGRATION_SHA` was still `4fa9e7b…`, which predates
+`c2a8717`. `validate_integration()` therefore fail-closed on every D-PFP-400
+certification attempt — QA cycle 5 would have burned the last cycle on a stale
+pin without measuring anything. Re-pinned to `941661b`. Because the pin also
+seeds the D-PFP-400 sample rank, the recorded population/sample hashes
+(`08ca7a33…` / `880cdec8…`) are void and the certification was regenerated.

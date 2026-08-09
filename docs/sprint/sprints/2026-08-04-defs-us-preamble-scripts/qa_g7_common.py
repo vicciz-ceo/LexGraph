@@ -22,7 +22,13 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
-INTEGRATION_SHA = "4fa9e7b368801757039091646e06a832620a3a2c"
+# Re-pinned by M-R123 to the M-R122 Developer port. The prior pin
+# (4fa9e7b368801757039091646e06a832620a3a2c) predates the c2a8717 and 941661b
+# production changes, so every certification run fail-closed on
+# validate_integration() rather than measuring the tree under test. The
+# integration SHA also seeds the D-PFP-400 sample rank, so the sample and all
+# G7 hashes recorded against the old pin are void and must be regenerated.
+INTEGRATION_SHA = "941661b54895d836be0c92556dc873370d2550d1"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
