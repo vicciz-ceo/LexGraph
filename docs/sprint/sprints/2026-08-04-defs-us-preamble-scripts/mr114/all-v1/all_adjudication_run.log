@@ -1,7 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 209, in <module>
-    raise SystemExit(main())
-                     ~~~~^^
-  File "/Users/nerya/LexGraph-wt/defs-us-preamble/docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/adjudicate_mr113_additions.py", line 134, in main
-    raise RuntimeError(f"UNCLASSIFIED {row['source_row_id']} {row['term']!r}")
-RuntimeError: UNCLASSIFIED STATE_GA_T40_C1_S40-1-8 "Present regulations ' means the regulations promulgated under 49 C.F.R. in force and effect on January 1, 2023.\n\n(3)"
