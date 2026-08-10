@@ -5,13 +5,13 @@ current_role: developer
 branch: claude/green-the-suite
 locked_by: null
 locked_at: null
-last_agent: "claude-code:planner"
-last_updated: "2026-08-10T19:40:19Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-08-10T20:35:09Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
-lint: "PASS 157 2026-08-10T19:40:29Z"
+lint: "PASS 230 2026-08-10T20:34:56Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -142,11 +142,83 @@ cross-referenced, not stale. Result: **none**. Full detail: sprint log.
 
 ## Dev Complete
 
-_(empty)_
+_(empty — FX2/FX3 verification below found blockers; NOT moved here, see
+Escalation.)_
 
 ## Completed
 
 _(empty)_
+
+## Evaluation Notes — FX2/FX3 resumed verification (Developer, escalated, not shipped)
+
+HEAD verified at `58019fc` (the handoff commit; code diff unchanged, not
+redone). Verification found two blockers the handoff could not have known
+about — reporting the measurement per the brief's "escalate with the numbers
+instead of shipping it" instruction. FX2/FX3 are **NOT** moved to Dev
+Complete pending director triage.
+
+**Gate tests**: FX3 (NV) gate is GREEN. FX2 (NM) gate is still RED —
+`test_us_markers_ext_b_nm.py::test_real_pipeline_...end_to_end` fails on its
+own boundary-quality guard (`'fine art' in by_term["artist"].definition_text`),
+but the captured `artist` text is verified byte-correct against the real
+`STATE_NM_C13_A4B_S13-4B-2` source (ends cleanly at "...as a whole;", entry B
+never leaks in) — "fine art" is legitimately mentioned inside entry A's own
+prose ("...the rights of an artist with respect to the work of fine art as a
+whole"). The test's own substring guard has no way to distinguish that from a
+real swallow. This looks like a test-authoring defect, not an extraction
+defect — but no test file may be touched under this item's hard boundary.
+
+**Regression (new)**: `test_us_markers_g3_heal_priority_seam.py::
+test_priority_opt_in_is_additive_default_false_and_registration_is_exactly_wa_only`
+— previously GREEN, now RED. It pins the exact 11-code
+`_OTHER_INLINE_QUOTE_CODES` tuple via `mi_rules[0].jurisdiction_codes ==
+_OTHER_INLINE_QUOTE_CODES`; FX2/FX3's registration extends the live tuple to
+13 codes (+US-NM, +US-NV), breaking the exact-equality pin. Full suite:
+**3 failed** (FX1 unchanged + FX2 NM gate + this new regression), **979
+passed**, **20 xfailed, 0 xpass** — same headline count as the sprint's
+pre-FX2/FX3 baseline (`3 failed / 979 passed`), but the *set* of failures is
+different: NV's fix is real, but it was masked by a new regression at the
+same total.
+
+**Blast radius** (real `USProfile.extract_definitions_from_section` /
+`is_definitions_heading` / `determine_scope` called directly on post-ingest
+body text — `\n`-unescaped `row["text"]` — across the full pinned corpus,
+no DB; "before" simulated by suppressing only the NM/NV entries from
+`registry.entry_splitter_rules_for` in-process):
+- **NM** (`us_nm_statutes.parquet`, 34,455 rows, 1,625 Definitions-headed):
+  before 47 rows/341 defs → after 1,556 rows/12,979 defs. **+1,509 rows,
+  +12,638 definitions.** Matches the FX2 fixture docstring's own prior
+  measurement exactly (1,509 rescued, 69 residual zero-candidate = 1,578).
+- **NV** (`us_nv_statutes.parquet`, 48,190 rows, 1,262 Definitions-headed):
+  before 0/0 → after 337 rows/1,580 defs. **+337 rows, +1,580 definitions.**
+  Matches the FX3 fixture docstring's own prior measurement exactly.
+
+**Spot-check** (22 individual definitions inspected against real source
+text): **15 real / 7 artifact**, all 7 artifacts in 2 NV rows —
+`STATE_NV_T8_C104_S104.1201` (NV's UCC Article 1 general definitions) and
+`STATE_NV_T8_C104_S104.9102` (UCC Article 9). Root cause: NV's UCC drafting
+convention `"Term," except as used in "excluded-phrase," means ...` /
+`"Term," as distinguished from "other-term," means ...` double-quotes the
+excluded phrase; the shared engine's tight-idiom gate has no guard against
+this shape (unlike the existing `_preceded_by_references_to` guard for the
+PA "References to X" shape), so it captures the LAST quoted phrase before
+"means" as its own spurious entry carrying the PRECEDING term's real
+definition text, verbatim. Confirmed real terms **lost** under their correct
+name in these 2 rows: `Agreement`, `Contract`, `Party` (1201) and `Account`,
+`Accounting`, `Assignee`, `Record` (9102) — each replaced by a wrongly-named
+duplicate (`"contract ,"`, `"agreement ,"`, `"third party ,"`,
+`"statement of account"`, `"accounting for ,"`,
+`"assignee for benefit of creditors,"`, `"record owner,"`). NM shows the
+same English phrases ("except as used in", "as distinguished from") in 5
+newly-producing rows but never double-quotes the excluded phrase there —
+0 confirmed artifacts in NM. Rate: 7/1,580 (0.44%) of NV's new definitions,
+0/12,638 of NM's. Both jurisdictions' clean samples (15 checked, spanning
+1-77-candidate rows) matched source text verbatim.
+
+**Escalation** (see conversation for full detail; summary): both the new
+regression and the confirmed artifacts are real, evidenced findings, not
+noise — reported per this item's "STOP and escalate ... instead of shipping
+it" instruction rather than judged shippable unilaterally.
 
 ## Context Dump
 
