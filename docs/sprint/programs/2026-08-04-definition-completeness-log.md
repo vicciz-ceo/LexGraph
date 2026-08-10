@@ -1064,3 +1064,35 @@ verbatim during the merge) — no tampering; recorded closed.
   `db52f060…`, prototype self-check 86 passed, suite 24 failed / 1292 passed.
   Known cosmetic residue: `2026-08-04-defs-us-preamble-clause-package.md` and
   two seam docs still reference files now only in git history.
+
+- 2026-08-10 (D-MERGE trial: scoped-inline REJECTED at the gate, merge aborted).
+  Contract-vs-branch staleness re-checked for the other two panels first, per
+  P-R18: `defs-il`'s contract is 1 commit behind its head and `defs-us-pr`'s IS
+  its head, so unlike scoped-inline and multiterm those two are trustworthy.
+  Both are also further along than their Context Dumps read: IL's two "NEXT"
+  serialized Developer branches (`defs-il-dev-d1a` classes A/B/C green,
+  `defs-il-dev-d1b` 4 E6 REDs green) are ALREADY merged into `claude/defs-il`,
+  and PR's head commit is "QA cycle-14 verified; M-R20 rules the two new
+  findings" — the arbitration this manager was told was owed had been done.
+  MERGE TRIAL. Conflict probe: scoped-inline and multiterm each conflict only
+  on the append-only fixtures README; IL is clean. Merged scoped-inline alone,
+  union-resolved the README, ran the full suite: **40 failed / 1363 passed**
+  against a 24/1292 baseline — sixteen NEW failures, and the interference runs
+  BOTH ways:
+    - 12 preamble/B1 tests break under scoped-inline: mr118 raw-provenance x3,
+      mr121 source-truth x3 (incl. R8/R9, the quote-direction pins this sprint
+      shipped), b1 occurrence-local, b1 future-law persistence, defining-verb
+      narrowing, hazard catalogue x2, HI contractual-quote P-FP.
+    - 4 scoped-inline tests break under preamble: subsection-degrade x3
+      (Maine), subsection-outermost-negative (Alabama).
+  Two previously-failing accepted-ledger tests went GREEN, so the merge is not
+  purely destructive.
+  ROOT SHAPE: scoped-inline registers a `US-*` ScopeTriggerRule for the same
+  "As used in this section" bodies B1 recognizes as body-preambles. Both fire;
+  neither yields. This is a precedence/ownership question between two panels,
+  not a defect in either — exactly the class P-R17 exists to surface, and an
+  order of magnitude larger than the headings interaction (16 tests vs 2).
+  Merge ABORTED; branch restored to its certified state (clean tree, 24/1292,
+  head `2a6d30d`). PR #20 continues to carry only preamble+headings, which
+  remain fully certified. scoped-inline, multiterm and IL do NOT merge until the
+  precedence question is ruled with measurement behind it.
