@@ -42,13 +42,6 @@ def test_core3_fed_fixture_is_a_provenanced_verbatim_real_row_excerpt():
     assert row["section_title"] == "Definitions"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "capture-quality boundary overrun (anchor present, over-captures next "
-        "Roman-numeral sibling + Editorial Notes); see #22"
-    ),
-)
 def test_core3_held_real_pipeline_stops_before_roman_structural_sibling(
     db_session, matter_with_users
 ):
