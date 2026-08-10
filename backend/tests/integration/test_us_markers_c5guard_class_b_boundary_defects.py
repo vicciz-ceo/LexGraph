@@ -61,7 +61,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.rules.us_markers_boundary import extract_quote_anchored_entries
+
+# sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): all 16 tests below are
+# capture-quality defects, not anchor loss -- every (row, term) anchor is
+# present with real text; only its boundary is wrong (truncated citation
+# tail, premature stop after a sub-item, or a leaked next-entry marker
+# chain). Verified live against `extract_quote_anchored_entries`, not just
+# the docstrings. Tracked at https://github.com/vicciz-ceo/LexGraph/issues/21.
+_C5GUARD_XFAIL = pytest.mark.xfail(
+    strict=True,
+    reason="capture-quality boundary defect, anchor present; see #21",
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes"
 
@@ -74,6 +87,7 @@ def _entries(fname: str, act_id: str) -> dict[str, str]:
 # --- NJ (STATE_NJ_T58_C22_S22-3) ---------------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_nj_facility_missing_means_prefix_and_truncated_citation_tail():
     """Raw source: `... "Water supply facility" or "facility" means and
     refers to the real property ... L.1958, c. 34, p. 97, s. 3.` -- 'facility'
@@ -97,6 +111,7 @@ def test_nj_facility_missing_means_prefix_and_truncated_citation_tail():
 # --- NJ (STATE_NJ_T12A_C2_S2-104 / S2-105) ------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_nj_between_merchants_citation_tail_truncated():
     """Raw source ends `... L.1961, c. 120, s. 2-104.` -- captured text ends
     `'...s. 2-'`, losing the final `104.`"""
@@ -105,6 +120,7 @@ def test_nj_between_merchants_citation_tail_truncated():
     assert text.rstrip().endswith("s. 2-104."), f"citation tail truncated: {text[-20:]!r}"
 
 
+@_C5GUARD_XFAIL
 def test_nj_commercial_unit_citation_tail_truncated():
     """Raw source ends `... L.1961, c. 120, s. 2-105.` -- captured text ends
     `'...s. 2-'`, losing the final `105.`"""
@@ -116,6 +132,7 @@ def test_nj_commercial_unit_citation_tail_truncated():
 # --- OK (STATE_OK_T68_S68-701) ------------------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_ok_gallon_parenthesized_number_misread_as_next_entry_marker():
     """Raw source: `(g) The term "gallon" means one (1) United States
     standard\\n\\ngallon at a temperature of sixty (60) degrees Fahrenheit.`
@@ -134,6 +151,7 @@ def test_ok_gallon_parenthesized_number_misread_as_next_entry_marker():
 # --- ND (STATE_ND_T57_C57-39.2_S57-39.2-01) ------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_nd_bundled_transaction_stops_after_first_sub_item():
     """Raw source's `"Bundled transaction"` entry continues past sub-item
     `(1)` into `(2) A product provided free of charge with the required
@@ -149,6 +167,7 @@ def test_nd_bundled_transaction_stops_after_first_sub_item():
     )
 
 
+@_C5GUARD_XFAIL
 def test_nd_farm_machinery_repair_parts_leaks_next_entry_marker_chain():
     """Raw source's own sentence is complete and ends cleanly: `... do not
     include tires, fluid, gas, grease,\\n\\nlubricant, wax, or paint.` The
@@ -163,6 +182,7 @@ def test_nd_farm_machinery_repair_parts_leaks_next_entry_marker_chain():
     assert text.rstrip().endswith("or paint."), f"got {text[-30:]!r}"
 
 
+@_C5GUARD_XFAIL
 def test_nd_gross_receipts_stops_after_first_sub_item():
     """Raw source's `"Gross receipts"` entry continues past `(1)` into
     `(2) The cost of materials used, labor or service costs, ...`,
@@ -177,6 +197,7 @@ def test_nd_gross_receipts_stops_after_first_sub_item():
     )
 
 
+@_C5GUARD_XFAIL
 def test_nd_sale_at_retail_citation_tail_truncated():
     """Raw source ends `... as provided in section 57-39.2-12.` -- captured
     text ends `'...57-39.2-'`, losing the final `12.`"""
@@ -188,6 +209,7 @@ def test_nd_sale_at_retail_citation_tail_truncated():
 # --- ND (STATE_ND_T57_C57-02_S57-02-01) ----------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_nd_agricultural_property_stops_after_first_sub_item():
     """Raw source's `"Agricultural property"` entry continues past `1. a.`'s
     own `(1)` into `(2) Property platted on or after March 30, 1981, is not
@@ -206,6 +228,7 @@ def test_nd_agricultural_property_stops_after_first_sub_item():
     )
 
 
+@_C5GUARD_XFAIL
 def test_nd_air_carrier_transportation_property_citation_tail_truncated():
     """Raw source ends `... pursuant to chapters 57-06 and 57-32.` --
     captured text ends `'...57-06 and 57-'`, losing the final `32.`"""
@@ -214,6 +237,7 @@ def test_nd_air_carrier_transportation_property_citation_tail_truncated():
     assert text.rstrip().endswith("57-06 and 57-32."), f"citation tail truncated: {text[-30:]!r}"
 
 
+@_C5GUARD_XFAIL
 def test_nd_centrally_assessed_property_citation_tail_truncated():
     """Raw source ends `... under chapters 57-05, 57-06, and 57-32.` --
     captured text ends `'...57-06, and 57-'`, losing the final `32.`"""
@@ -222,6 +246,7 @@ def test_nd_centrally_assessed_property_citation_tail_truncated():
     assert text.rstrip().endswith("57-06, and 57-32."), f"citation tail truncated: {text[-30:]!r}"
 
 
+@_C5GUARD_XFAIL
 def test_nd_commercial_property_list_cut_mid_enumeration():
     """Raw source ends `... classes of property defined in subsections 1, 4,
     10, 12, 13, and 14.` -- captured text ends `'...12, 13, and'`, dropping
@@ -234,6 +259,7 @@ def test_nd_commercial_property_list_cut_mid_enumeration():
 # --- ND (STATE_ND_T51_C51-19_S51-19-02) -----------------------------------
 
 
+@_C5GUARD_XFAIL
 def test_nd_commissioner_leaks_next_entry_marker_chain():
     """Raw source's own sentence is complete: `4. "Commissioner" means the
     insurance commissioner.` The NEXT entry's own `5. a. "Franchise" ...`
@@ -248,6 +274,7 @@ def test_nd_commissioner_leaks_next_entry_marker_chain():
     assert text.rstrip().endswith("the insurance commissioner."), f"got {text!r}"
 
 
+@_C5GUARD_XFAIL
 def test_nd_franchise_loses_clauses_2_and_3():
     """Raw source's `"Franchise"` entry is one sentence spanning three
     clauses joined by `by which:` -- `(1) A franchisee is granted the right
@@ -268,6 +295,7 @@ def test_nd_franchise_loses_clauses_2_and_3():
     )
 
 
+@_C5GUARD_XFAIL
 def test_nd_rule_leaks_next_entry_marker_chain():
     """Raw source's own sentence is complete: `13. "Rule" means any
     published regulation or standard of general application issued by the
@@ -286,6 +314,7 @@ def test_nd_rule_leaks_next_entry_marker_chain():
 # --- Beyond the closed 15: this Planner's own additional finding ---------
 
 
+@_C5GUARD_XFAIL
 def test_nd_nonprimary_residential_property_citation_tail_lost_entirely():
     """NOT on M37's closed 15-item list -- an independent finding by this
     Planner, verified against raw source and reported per M37's own

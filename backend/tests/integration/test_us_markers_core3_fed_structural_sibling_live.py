@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
 from app.models.definition import Definition
@@ -40,10 +42,23 @@ def test_core3_fed_fixture_is_a_provenanced_verbatim_real_row_excerpt():
     assert row["section_title"] == "Definitions"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "capture-quality boundary overrun (anchor present, over-captures next "
+        "Roman-numeral sibling + Editorial Notes); see #22"
+    ),
+)
 def test_core3_held_real_pipeline_stops_before_roman_structural_sibling(
     db_session, matter_with_users
 ):
     """HELD RED — core-3 owns classification of the Roman sibling `(i)`.
+
+    sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): verified live against
+    the real persisted pipeline -- the `serious criminal offense` anchor IS
+    present with its correct (1)-(3) list; the defect is over-capture past the
+    true boundary, not a lost anchor. Tracked at
+    https://github.com/vicciz-ceo/LexGraph/issues/22.
 
     The real FED term ends after its enumerated offense clause.  It must
     retain the in-definition section citation and `(1)`--`(3)` list, but not

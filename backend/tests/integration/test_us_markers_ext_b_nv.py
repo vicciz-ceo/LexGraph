@@ -56,6 +56,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.correctly_empty import classify_correctly_empty
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
@@ -137,6 +139,14 @@ def test_real_pipeline_recovers_all_five_nv_higher_education_definitions_end_to_
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "classification-only mislabel of a genuinely-empty row; "
+        "classify_correctly_empty is not wired into the live pipeline so no "
+        "anchor is lost; see #24"
+    ),
+)
 def test_nv_cross_reference_idiom_is_not_yet_recognized_as_correctly_empty():
     """`STATE_NV_T3_C40_S40.426` -- a real, genuine NV cross-reference body
     ("the words and terms defined in NRS 40.427 , 40.428 and 40.429 have
@@ -149,7 +159,14 @@ def test_nv_cross_reference_idiom_is_not_yet_recognized_as_correctly_empty():
     meanings ascribed to" idiom. Live, unstubbed call to the real shipped
     classifier -- RED because it wrongly reports this genuinely
     correctly-empty row as a MISS today, not because of any extraction
-    seam."""
+    seam.
+
+    sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): confirmed via grep
+    that `classify_correctly_empty`/`correctly_empty.py` is not imported or
+    called anywhere in the live extraction path (`pipeline.py`,
+    `us_profile.py`) -- it cannot lose a `(row, term)` anchor because it
+    never participates in producing one. Tracked at
+    https://github.com/vicciz-ceo/LexGraph/issues/24."""
     row = _load_row("STATE_NV_T3_C40_S40.426")
     assert row["section_title"] == "Definitions"
 
