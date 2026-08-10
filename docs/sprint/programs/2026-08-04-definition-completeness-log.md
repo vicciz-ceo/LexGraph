@@ -1039,3 +1039,28 @@ verbatim during the merge) — no tampering; recorded closed.
   Wave-1 spawn roster (role -> agentId): developer/scoped-inline ->
   afc259eb64ecf0eba; developer/multiterm -> a9688163a3cc83572. Both Sonnet
   medium, own worktrees, own branches, no shared-file write set.
+
+- 2026-08-10 (wave 1 result). BOTH Developers escalated that their dispatch was
+  already satisfied, and the manager independently confirmed both on their own
+  branches. scoped-inline: `us_scoped_inline.py` + two helper modules shipped
+  and registered, named tests 17 passed, branch head `21e0c45` "pass 12
+  accepted, suite fully green (857/0/1)". multiterm: the M-R17/M-R18 pins are
+  green, branch head `1c0c8cd` "M-R30 — phase-2 end state, review-ready", suite
+  14 failed / 815 passed with all 14 classified and owned (13 cross-panel, 1
+  deliberately deferred). Neither agent wrote code; both stopped and asked,
+  which is the correct behaviour. Recorded as P-R18: panel state comes from the
+  branch, not the contract. Both also independently confirmed P-R8 is resolved —
+  `entry_splitter_rules_for`/`term_clause_rules_for` dispatch live from
+  `us_profile.py:1340,1350` via `pipeline.py:263` — so multiterm's BLOCKED
+  banner was stale, as suspected.
+  PR #20 narrowed on director instruction from 1,692,780 inserted lines to
+  22,138 (135 files; backend 13,286, docs 8,852). Removed: 8 per-row corpus
+  dumps of ~194k lines each from superseded rounds, superseded certificates
+  mr119/mr121/mr123, a stale shape measurement, the two panel process logs, and
+  a clause-routing data package. Kept: the certification harness, the current
+  G7 evidence, the 345-key certificate with its acceptance and screen summaries,
+  and the 207-key M-R122 inventory. Gates re-verified after each cut —
+  certification contract 16 passed, certificate still 345 = 341 + 4 at
+  `db52f060…`, prototype self-check 86 passed, suite 24 failed / 1292 passed.
+  Known cosmetic residue: `2026-08-04-defs-us-preamble-clause-package.md` and
+  two seam docs still reference files now only in git history.

@@ -448,6 +448,28 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   (592,357 records, `49140dde…`, 345 = 341 + 4, `db52f060…`) and the
   deletion-side screen returns the same 3 Indiana rows.
 
+- **P-R18 — derive panel state from the BRANCH, never from the contract
+  (program manager, 2026-08-10, binding).** Both wave-1 Developers returned
+  `ESCALATION: the work you dispatched is already done`, and both were right.
+  `defs-us-scoped-inline`'s contract still read `current_role: developer`,
+  `qa_cycles: 2`, `Dev Complete: _None_`, while its branch head reads "pass 12
+  accepted, suite fully green (857/0/1)" with the Phase A module shipped across
+  three files and 7 commits of fix cycles behind it. `defs-us-multiterm`'s
+  Context Dump still said "NEXT: Developer fixes M-R17 + M-R18" while its branch
+  had run 100+ commits past that point through M-R30 ("phase-2 end state,
+  review-ready"), including a recall regression found and fixed inside the very
+  M-R18 guard the dispatch asked for. Both contracts froze at an early commit
+  and the panels kept working; every reader downstream — the recon agent, the
+  manager, the briefs — inherited the stale picture and concluded work was owed.
+  Before dispatching any role agent, establish state from `git log`, the module
+  files, and an actual suite run on that panel's own branch; treat the contract
+  as a claim to verify, not a source of truth. This is the same failure family
+  as the stale `INTEGRATION_SHA` (P-R16) and the hand-authored certificate
+  (P-R11): an artifact that looks authoritative while describing something that
+  is no longer there. Corollary: a role agent that finds its dispatch already
+  satisfied must escalate rather than invent work — both did, correctly, and
+  neither wrote a line of code.
+
 ## Core QA cycle 1 verdict (2026-08-04)
 
 **Bounce — 8/9 items PASS under mutation-test rigor; C1 FAILS on
