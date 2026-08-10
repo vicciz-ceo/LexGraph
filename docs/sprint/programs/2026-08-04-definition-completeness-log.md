@@ -1363,3 +1363,21 @@ verbatim during the merge) — no tampering; recorded closed.
   queue, because a red baseline is what makes every downstream measurement
   ambiguous. The `sprint contract lint` failure is in scope too — the contract is
   over its size budget and the harness's own lint gate has been failing unread.
+
+- 2026-08-10 (D-GREEN-TRIAGE, director's answer on how to reach green).
+  **Split the 23 by the director's own two standing rulings, per test, with
+  evidence:**
+  - A defect that LOSES a definition or a term is FIXED now. D-RECALL-FP already
+    says a miss is the expensive defect; leaving one marked would be marking the
+    expensive class as acceptable.
+  - A defect that only degrades CAPTURE QUALITY — a truncated citation tail, a
+    stub where fuller text existed, a boundary overrun — becomes
+    `pytest.mark.xfail(strict=True)` with a tracked GitHub issue. D-MAP already
+    classes byte-quality as informational, so this marks it at the altitude the
+    director already ruled for it, and `strict=True` means the suite fails loudly
+    if the defect is ever silently fixed.
+  The triage verdict per test must cite which of the two it is and why. "Looks
+  minor" is not a verdict; losing vs not-losing an anchor is.
+  Forbidden, restated because it is the obvious cheat: no deletions, no weakened
+  assertions, no broad `skip`, no non-strict `xfail`. Every commit claiming to
+  green the suite gets a manager diff read against those four.
