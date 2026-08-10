@@ -1198,3 +1198,83 @@ verbatim during the merge) — no tampering; recorded closed.
   floor on severity rather than an exact count of non-terminating cases; and
   `b1_result_before_timeout` is null on all 230 (a reporting-fidelity bug the
   agent self-reported), which does not affect the attribution field.
+
+- 2026-08-10 (PRECEDENCE RULED, with measurement behind it. Three defects, not
+  one, and the blocker is none of the things this manager first named.)
+
+  **P-R19's root cause: hypothesis KILLED, real cause found.** This manager
+  reported `_US_PERIOD_UNIT_MARKER_RE` as the "likely" cause of the 3,000x
+  blowup and tasked a bisector to prove or kill it. It killed it. Neutralizing
+  that regex alone changes nothing (3.41s -> 3.37s), and it matches 0, 2 and 0
+  tokens on the three federal rows — there was essentially nothing for it to
+  widen. cProfile put 99% of runtime (3.401s of 3.438s) in 6,800 `re.search`
+  calls, all from **`_citation_or_xref_context` (us_profile.py:1488-1530)**, the
+  G4 citation/cross-reference discriminator: called once per surviving marker
+  token from inside `resolve_unit_path`'s loop, each call firing up to five
+  UNANCHORED `pattern.search(body, 0, trimmed_end)` probes, so every probe scans
+  from document position 0. Neutralize that instead and the rows return in
+  0.02s/0.04s — the scoped-inline-alone baseline. Growth curve across five body
+  sizes holds `time / (tokens x offset)` constant at 3.5-4.2e-8 over a 200x
+  range while `time/tokens^2` and `time/offset^2` each drift ~3x: **O(M*N), not
+  exponential backtracking.**
+  **P-R20 (binding) — the performance blocker is a CORE defect ALREADY ON MAIN,
+  and it is neither panel's.** Manager-verified: `_citation_or_xref_context`
+  appears 5x in `git show main:...us_profile.py` and 5x on this branch, and
+  **0x on the scoped-inline branch**, which simply forked before
+  `defs-core-follow-on-2` (G4) merged. Merging scoped-inline does not introduce
+  the defect — it EXPOSES latent quadratic work already shipped, because
+  scoped-inline drives `resolve_unit_path` per candidate where B1 calls it four
+  times. Consequences: (a) this blocks EVERY remaining panel merge — multiterm,
+  IL and PR all sit behind the same seam — not just scoped-inline; (b) main is
+  already carrying it for any caller that walks many marker tokens over a large
+  body; (c) it routes to CORE, ahead of the panel queue. Fix surface named by
+  the bisector: the five suffix patterns all have bounded maximum match length,
+  so probe a fixed-size window immediately before `trimmed_end` instead of the
+  whole document prefix — O(document position) becomes O(1) per token, and
+  `resolve_unit_path` goes O(M*N) -> O(M). Explicitly do NOT bundle the G2
+  ladder-defer logic (lines 1665-1672) or the period regex into that change:
+  those are the separate Family C causes and conflating them merges two
+  unrelated rulings.
+
+  **P-R21 (binding) — under D-MAP the merged tree is ALREADY anchor-optimal, so
+  precedence is a QUALITY ruling, not a recall ruling.** Anchor adjudication ran
+  the real production pipeline over a 120-row sample stratified across all 52
+  jurisdictions holding contested rows (allocation proportional to sqrt of each
+  jurisdiction's contested count, seed 20260810):
+
+    configuration          anchors  correct  phantom  lost vs best
+    b1 alone                   560      560        0            10
+    scoped-inline alone        462      462        0           108
+    merged as-is               570      570        0             0
+    union_both (SIMULATED)     570      570        0             0
+
+  Every anchor either panel finds alone survives into the merge: the term-key
+  collision at pipeline.py:364-369 changes which candidate's SCOPE and
+  DEFINITION_TEXT survive, but never drops the TERM, because the winner carries
+  the same term key. So the 12 preamble-side failures are defects on the
+  scope/definition_text axis, which D-MAP classes informational — NOT anchor
+  losses. Neither panel can stand alone: B1 alone forfeits 10 anchors,
+  scoped-inline alone forfeits 108 (19% of the correct anchors in this
+  contested population) despite 857/857 of its own tests passing. That last
+  number is the sharpest argument yet for P-R18 and P-R17 — a fully green panel
+  suite says nothing about corpus behaviour.
+  RULED: **specificity_order** — when two registered rules claim the same
+  (article, term), the candidate carrying the more specific resolved scope wins
+  the key, instead of whichever was inserted first. It closes all 10 Family A
+  failures, costs zero anchors (recall is already maximal), and generalizes to a
+  fourth panel, which insertion order cannot. `b1_wins` scores identically on
+  today's evidence but only because B1 happens to be the more specific side in
+  all 10 cases; it is not a general rule and is rejected for that reason.
+
+  **The three defects are separable and must be routed separately.**
+    1. PERF — G4 discriminator, core, already on main. Blocks every merge. CORE.
+    2. FAMILY A (10) — term-key collision, pipeline.py:364-369. Ruled above.
+    3. FAMILY C (4) — bisector confirms `also_explains_family_c: false`. Two
+       distinct causes: G2 ladder-selection defer (Maine x3) and the period
+       marker regex (Alabama). Preamble-side core changes side-effecting
+       scoped-inline's resolver; the P-R17 gate-flip shape, not precedence.
+    4. FAMILY B (2) — scoped-inline has no forwarding-phrase exclusion, and B1's
+       guard never runs because it is gated on b1_winner. Scoped-inline's item.
+  MERGE ORDER: core perf fix -> re-time the merged tree against the 230
+  pathological rows -> specificity_order -> Families B and C -> re-run the all-53
+  certificate. PR #20 stays preamble+headings only until that sequence completes.
