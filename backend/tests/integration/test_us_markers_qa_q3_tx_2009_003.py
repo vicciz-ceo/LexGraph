@@ -152,13 +152,6 @@ def test_part_a_the_4_baseline_degenerate_terms_still_reproduce_on_this_build():
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "capture-quality stub (anchor present, truncated to trailing "
-        "punctuation instead of the parent redirect clause); see #23"
-    ),
-)
 def test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub(
     db_session, matter_with_users
 ):

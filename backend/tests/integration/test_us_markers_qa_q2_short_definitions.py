@@ -178,13 +178,6 @@ def test_genuine_short_definitions_stay_captured_correctly(db_session, matter_wi
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "capture-quality stub (anchor present, truncated to 'means:'/':' "
-        "fragment before the nested list); see #23"
-    ),
-)
 def test_al_nested_numbered_list_definitions_are_not_truncated_to_the_colon(
     db_session, matter_with_users
 ):
