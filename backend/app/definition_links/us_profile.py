@@ -327,17 +327,51 @@ def _strip_marker_chain_before_quote(line: str) -> str | None:
     return rest
 
 
-def _entry_start_remainder(line: str) -> str | None:
+# Issue #23 (sprint 2026-08-10-green-the-suite, item 1): mirrors
+# `us_markers_boundary.py`'s own already-proven "list-introducer exclusion"
+# (see that module's docstring) -- a bare digit marker is never a hard
+# entry boundary when the text immediately before it (skipping only
+# whitespace/blank lines) ends in `:` or an em dash `—`, because that
+# punctuation itself says "the following IS this clause's own content",
+# not a new sibling entry. Deliberately narrower than the sibling engine's
+# version: it gates ONLY the unconditional bare-digit FALLBACK below, never
+# `_strip_marker_chain_before_quote`'s own quote-anchored path. A marker
+# immediately followed by its own quote (e.g. TX's `(A) "contested case";`
+# nested under a `(4) ... Section 2001.003:` redirect clause) is a real
+# defined-term anchor of its own and must keep opening its own block --
+# suppressing it here would merge it into the still-quote-less parent block
+# and delete the term's own anchor entirely (the ORIGINAL AL/TX defect this
+# item closes was already "term survives, content lost"; a naive universal
+# suppression would regress that to "term lost too"). That shape -- an
+# orphaned, colon-terminated introducer immediately followed by its own
+# quote-anchored lettered children (TX's `(4) The following terms have the
+# meanings assigned by Section 2001.003:` then `(A) "contested case";`) --
+# was deliberately left UNFIXED after a real, later-withdrawn attempt; see
+# the comment above `_split_into_numbered_blocks` for why (a real MI
+# corpus row this item's own blast-radius measurement found is marker-
+# structurally identical but semantically opposite, and no marker-KIND-only
+# signal separates the two).
+_LIST_INTRODUCER_TAIL_RE = re.compile(r"[:—]\s*$")
+
+
+def _entry_start_remainder(line: str, *, preceded_by_list_introducer: bool = False) -> str | None:
     """Return the remainder of `line` with its leading entry marker(s)
     stripped if `line` starts a new definition entry, else `None`. Tries
-    the (quote-anchored) marker-chain rule first; falls back to the
-    original unconditional bare-digit-marker rule so a later bare
-    "(N)" still closes out an open block even with no quote right after
-    it (see the rationale comment above `_MARKER_TOKEN_RE`).
+    the (quote-anchored) marker-chain rule first -- ALWAYS, regardless of
+    `preceded_by_list_introducer` (see the comment above
+    `_LIST_INTRODUCER_TAIL_RE` for why); falls back to the original
+    unconditional bare-digit-marker rule so a later bare "(N)" still closes
+    out an open block even with no quote right after it (see the rationale
+    comment above `_MARKER_TOKEN_RE`) -- UNLESS `preceded_by_list_
+    introducer` is True, in which case this bare digit marker is this
+    entry's own nested-list content (issue #23), not a boundary, and the
+    caller folds it into whatever block is currently open instead.
     """
     chain_remainder = _strip_marker_chain_before_quote(line)
     if chain_remainder is not None:
         return chain_remainder
+    if preceded_by_list_introducer:
+        return None
     digit_match = _BARE_DIGIT_MARKER_RE.match(line)
     if digit_match is not None:
         return line[digit_match.end() :]
@@ -492,18 +526,72 @@ def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
     return end
 
 
+# Issue #23 continued -- TX's OWN mirror-image shape (an orphaned
+# DIGIT-marked introducer clause, no leading quote of its own, immediately
+# followed by its own LETTER-marked quote-anchored children: `(4) The
+# following terms have the meanings assigned by Section 2001.003:` then
+# `(A) "contested case";` / `(B) "party";` / ...) was DELIBERATELY NOT
+# fixed here, after a real attempt. The natural fix -- fold the orphan's
+# own redirect text forward into each following quote-anchored child --
+# was implemented and then WITHDRAWN once this item's own mandated
+# corpus-wide blast-radius measurement (see the Developer report) found it
+# corrupting real, already-complete, unrelated MI definitions:
+# `STATE_MI_C206_AAct-281-of-1967_S206.278`'s subsections `(1)`-`(7)` are
+# ordinary numbered provisions and `(8) As used in this section:` is
+# followed by `(a) "Board" means...`, `(b) "Michigan strategic fund"
+# means...`, etc. -- MARKER-STRUCTURALLY IDENTICAL to TX's own shape (an
+# adjacent digit run ending in an orphaned, colon-terminated digit block,
+# followed by lettered quote-anchored children), but semantically the
+# OPPOSITE: TX's `(4)` genuinely redirects to external Section 2001.003
+# (its children have NO meaning without it); MI's `(8)` is ordinary
+# "as used in this section" boilerplate in front of terms that are ALREADY
+# fully self-contained -- folding it forward only appends noise. No
+# purely marker-KIND/position signal (the only kind M-R107 permits) was
+# found that tells these two real shapes apart; every version tried either
+# missed MI (a whole-document "digit exists somewhere" check) or still hit
+# it (a same-run "immediately adjacent digit sibling" check -- MI's `(8)`
+# sits directly after digit-marked `(7)`, exactly like TX's `(4)` after
+# `(3)`). Escalated rather than shipped: see the Developer report's
+# ESCALATION section. `test_us_markers_qa_q3_tx_2009_003.py::test_part_a_
+# red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub`
+# remains RED; AL's own fix above (`_entry_start_remainder`'s bare-digit
+# suppression) is unaffected and does not share this ambiguity -- it only
+# ever folds a nested list INTO its own already-open quote-anchored
+# parent, never fans a redirect out to separate sibling candidates.
+
+
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
     current: list[str] | None = None
+    prev_nonblank = ""
     for line in lines:
-        new_entry_start = _entry_start_remainder(line)
+        # Issue #23 correction (MI/PA blast-radius finding): suppression
+        # only ever makes sense when there is an ALREADY-OPEN block for
+        # the marker to fold forward into (AL's "(1)" right after "(a)
+        # "Acquire" means:" -- `current` is that quote-anchored block).
+        # With no open block yet (a bare digit marker is the very FIRST
+        # thing seen, e.g. PA's own `"For the purposes of this
+        # subchapter:\n\n(1) References to ..."` construction-clause
+        # preamble), suppressing it doesn't fold it into anything -- it
+        # just SILENTLY DROPS the line with nowhere to go, which is a
+        # regression of its own (real PA guard: `_split_into_numbered_
+        # blocks` must still yield that row's 3 real digit-marked blocks,
+        # even though none of them carries a leading quote either way).
+        preceded_by_list_introducer = current is not None and bool(
+            _LIST_INTRODUCER_TAIL_RE.search(prev_nonblank)
+        )
+        new_entry_start = _entry_start_remainder(
+            line, preceded_by_list_introducer=preceded_by_list_introducer
+        )
         if new_entry_start is not None:
             if current is not None:
                 blocks.append(current)
             current = [new_entry_start]
         elif current is not None:
             current.append(line)
+        if line.strip():
+            prev_nonblank = line
     if current is not None:
         blocks.append(current)
     joined = ["\n".join(b) for b in blocks]
