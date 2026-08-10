@@ -1,19 +1,19 @@
 ---
 id: "2026-08-10-core-g4-discriminator-perf"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/core-g4-discriminator-perf
 locked_by: null
 locked_at: null
-last_agent: "claude-code:developer"
+last_agent: "claude-code:qa"
 last_updated: "2026-08-10"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "cd /Users/nerya/LexGraph-wt/core-g4-perf && PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
-completed_items: 0
-dev_complete_items: 1
-qa_cycles: 0
+completed_items: 1
+dev_complete_items: 0
+qa_cycles: 1
 previous_sprint: "2026-08-04-defs-us-preamble"
 prd_sections: []
 design_sections:
@@ -215,17 +215,21 @@ the contract and repo-profile.md if a value there is stale"):**
 
 ## Dev Complete
 
-- [x] **Item 1 (DEV COMPLETE, commit `4c0ff01`) -- bound the G4
-  discriminator's five suffix-regex probes to a fixed 512-char lookback
-  window.** `_citation_or_xref_context` (`us_profile.py:1488-1552`) now
-  calls each of the five suffix regexes as `PATTERN.search(body,
-  max(0, trimmed_end - _SUFFIX_PROBE_WINDOW), trimmed_end)` instead of
-  `PATTERN.search(body, 0, trimmed_end)` -- `pos` is no longer the literal
-  constant `0`. Only the call site and a new module-level
-  `_SUFFIX_PROBE_WINDOW = 512` constant changed; matching semantics,
-  branch order, and the five patterns themselves are untouched, as is
-  everything outside `_citation_or_xref_context` (G2 ladder-defer logic at
-  1665-1672 and `_US_PERIOD_UNIT_MARKER_RE` not touched).
+_(empty -- Item 1 moved to Completed after QA PASS, see below)_
+
+## Completed
+
+- [x] **Item 1 (COMPLETED, commit `4c0ff01`, QA-verified 2026-08-10) --
+  bound the G4 discriminator's five suffix-regex probes to a fixed
+  512-char lookback window.** `_citation_or_xref_context`
+  (`us_profile.py:1488-1552`) now calls each of the five suffix regexes as
+  `PATTERN.search(body, max(0, trimmed_end - _SUFFIX_PROBE_WINDOW),
+  trimmed_end)` instead of `PATTERN.search(body, 0, trimmed_end)` -- `pos`
+  is no longer the literal constant `0`. Only the call site and a new
+  module-level `_SUFFIX_PROBE_WINDOW = 512` constant changed; matching
+  semantics, branch order, and the five patterns themselves are untouched,
+  as is everything outside `_citation_or_xref_context` (G2 ladder-defer
+  logic at 1665-1672 and `_US_PERIOD_UNIT_MARKER_RE` not touched).
 
   **Window derivation (512 chars), not copied from any test constant:**
   `_STRUCTURAL_UNIT_WORD_SUFFIX_RE` is a closed, finite word alternation
@@ -252,12 +256,9 @@ the contract and repo-profile.md if a value there is stale"):**
   comment and docstring update). No test file touched. Sprint contract
   updated in this same pass.
 
-  See Evaluation Notes below for the before/after suite numbers and the
-  measured timing improvement.
-
-## Completed
-
-_(empty)_
+  See Evaluation Notes below for the before/after suite numbers, the
+  measured timing improvement, and the QA Verification Notes for
+  independent gate-by-gate confirmation.
 
 ## Evaluation Notes
 
@@ -287,6 +288,136 @@ the speedup alongside the RED tests' work-count assertions.
 Full suite wall time also dropped, 45.10s -> 23.27s, consistent with other
 tests in the suite that drive `resolve_unit_path` over non-trivial bodies
 also benefiting, though this was not individually attributed per-test.
+
+## QA Verification Notes (2026-08-10, PASS)
+
+Independently verified all five gates against this branch (`3f4b980`) and the
+merged probe tree `/Users/nerya/LexGraph-wt/probe-precedence-a` @ `baf184d`
+(preamble + scoped-inline + this fix). Nothing in `backend/app/**` was
+touched by this pass; two new test files were added (see below).
+
+**Gate 1 (behavior identical) -- PASS, dominant margin.** Ran the 6
+committed acceptance tests (5 RED-turned-GREEN + the equivalence guard):
+all green. Beyond that: scanned the ENTIRE pinned corpus (105 parquet
+files, 2,046,009 rows -- every statute and constitution row, not a sample)
+for the longest REAL match of each of the five suffix patterns
+(`_STRUCTURAL_UNIT_WORD_SUFFIX_RE`, `_FULL_USC_CITATION_SUFFIX_RE`,
+`_SECTION_CITATION_SUFFIX_RE`, `_LONE_SECTION_CITATION_SUFFIX_RE`,
+`_BARE_STATE_CODE_CITATION_SUFFIX_RE`, `\Z` stripped so the search finds
+the match content anywhere, not just where it happens to anchor). Longest
+real match found anywhere in the corpus: **24 characters** (a
+`bare_state_code`-shaped match with odd whitespace). Full-U.S.C. citations
+topped out at 22 chars (`"42 U.S.C. §12131-12165"`). `_SUFFIX_PROBE_WINDOW`
+(512) has a **21x+ margin** over the worst real citation in the entire
+corpus -- no real row anywhere can have a citation clipped by the window.
+Zero matches exceeded the window (`count_over_window: 0` for all five
+patterns).
+
+**Gate 2 (230 pathological rows complete) -- 228/230 comfortably fast,
+2/230 slow-but-finite (escalated, not a fail).** Loaded all 230 rows named
+in the handed-off `precedence_d3_pathological_rows.jsonl` directly from the
+pinned corpus by `act_id` match (all 230 found), and ran each through the
+real Stage2/Stage3 mirror (`precedence_m2_stage2.extract_row_definitions`,
+byte-identical call sequence to `pipeline.py`) against the merged+fix tree,
+one row per isolated worker process (persistent worker over a pipe,
+killed and respawned on a per-row deadline -- per this program's own
+SIGALRM-can't-bound-a-runaway-regex lesson). At a 15s per-row deadline:
+**228/230 complete, most in well under 1s** (median ~0.4s; slowest of the
+228 was 7.8s). **2/230 exceeded 15s**: `USC_T42_C7_S1395ww` (839,700
+bytes) and `STATE_HI_D2_T24_C431_S431` (2,404,155 bytes) -- the 3rd- and
+**1st**-largest bodies in the entire 230-row set (median body_len 128,960;
+next-largest below these two is 873,879 and it completed in 5.4s). Given a
+generous 60s ceiling, both DO complete: 24.7s and 30.5s respectively --
+neither hangs. cProfile on both shows `_citation_or_xref_context` is still
+the dominant cost (13.5s and 14.7s of the totals), but NOT because any
+individual probe is unbounded: 372,402 and 414,790 discriminator calls
+respectively (i.e. that many candidate marker tokens in one document),
+each now paying only the bounded ~512-char-window cost -- O(1) per call,
+confirmed -- but the sheer per-document token count on these two extreme
+outliers still sums to double-digit seconds. This is categorically
+different from the pre-fix defect (O(position), unbounded, would never
+terminate): it is O(tokens x window) with an unusually large token count,
+a separate scaling axis the sprint's own scope note explicitly excludes
+("the lookback window, and only the lookback window"). **Escalating, not
+failing on this**: 1 of the 2 (30.5s) is a hair over the 30s cap the
+contract's own "Measured evidence" table used, on the single largest
+document in the 230-row set (19x the median, and 10.6x the largest body
+the contract's own evidence table cited). Recommend the Planner/manager
+decide whether a follow-up item (bounding total per-document discriminator
+work, not just per-probe window) is warranted -- out of THIS item's scope
+as written.
+
+**Gate 3 (lost anchors recovered) -- PASS, 4,097-ish -> 0 on the actual
+denominator verified.** Ran the same base-vs-cmp anchor-diff methodology
+the manager's own M2 screen used
+(`precedence_m2_anchor_diff.py`, unmodified), with: base = preamble-alone
+tree (`defs-us-preamble` @ `e410bf0`, no G4 defect, all 230 rows complete
+natively) and cmp = merged+fix tree's ACTUAL completed output for all 230
+rows (the 228 fast completions plus the 2 slow-but-completed stragglers
+above -- no `pathological_total_loss` stand-ins used, since all 230 now
+produce a real result). Result: **`genuine_anchor_losses: 0`** across all
+230 rows (1,162 raw anchor-tuples were removed, but all 1,162 survive
+under the term-presence check -- the term is still there, sometimes
+reattached to a different scoped-inline-derived text/scope, which is
+expected: scoped-inline can now finish and contribute its own refined
+candidates instead of being blocked entirely). Cross-checked with a
+**300-row representative control sample** (random sample of
+`precedence_m2_candidate_rows.jsonl`, i.e. already-completing, non-
+pathological rows that already exercise the G4 discriminator) run through
+the same two trees: also **`genuine_anchor_losses: 0`** -- no new
+regression introduced elsewhere by the fix. **Denominator stated
+explicitly, not extrapolated**: 230 (100% of the handed-off pathological
+list) + 300 control = 530 of 2,038,247 corpus rows measured directly; this
+is not a full corpus re-screen.
+
+**Data-provenance note (does not affect the PASS verdict):** the handed-off
+`precedence_d3_pathological_rows.jsonl` (230 rows, all `timed_out_in:
+"scoped_inline"`) is NOT the same row set as this program's own
+`precedence_m2_pathological_rows.jsonl` (279 rows) that generated the
+cited "4,097 genuine anchor losses" figure -- 36 of the 230 handed-off rows
+are absent from the 279-row set entirely, and only 3,508 of the 4,097
+losses trace structurally to the 230-row set (the other 589 trace to 72
+rows in the 279-set not present in the 230-list). This looks like two
+different measurement passes from earlier in the program, not a defect in
+this pass. QA measured directly against the exact 230-row denominator
+handed off in this brief (0 losses) rather than trying to reconcile the two
+historical lists -- flagged here per P-R11 (report the real delta, don't
+paper over a discrepancy in inherited data).
+
+**Gate 4 (no regression) -- PASS.** Full `backend/tests` run (independently,
+not trusting the Developer's numbers): **23 failed / 985 passed** before
+QA's own additions, same 23 test names as the Developer's reported
+baseline (all `test_us_markers_*`, none touching `us_profile.py`'s G4
+code). After adding QA's 2 new regression tests: **23 failed / 987
+passed**, same 23 names, both new tests green. Zero xpass.
+
+**Gate 5 (anti-gaming) -- PASS, verified by mutation, not inspection.** Two
+mutations applied directly to `us_profile.py` (never committed, reverted
+via `git checkout` immediately after each, worktree confirmed clean before
+and after): (1) reverting `probe_start` to always `0` (simulating a silent
+revert to unbounded lookback) correctly turned all 5 of the Developer's
+window/work-count tests RED (equivalence guard correctly stayed GREEN --
+behavior is genuinely unchanged, only speed regresses); (2) shrinking
+`_SUFFIX_PROBE_WINDOW` to 5 (simulating a window too small to catch real
+citations) correctly turned the equivalence guard RED immediately (`GATE 1
+VIOLATION` on the `chain_continuation_or_connector` case). Both non-vacuity
+guards (`assert windows, "expected at least one suffix-regex probe to
+run"`) are present in every window-recording test and are load-bearing,
+not decorative -- confirmed they fire real recorded windows, not an empty
+list, in every passing run.
+
+**Regression tests added (QA's own, on top of the Planner's three files):**
+`backend/tests/unit/test_definition_links_core_g4_perf_qa_window_regression.py`
+-- two tests: (a) a TIGHTER independent ceiling (1024 chars vs the
+Planner's 4096) that catches a moderate silent widening (e.g. to 2000
+chars) the Planner's own looser bound would miss -- verified by mutation;
+(b) a corpus-grounded floor check using a synthetic ~60-char realistic
+full-U.S.C. citation (M-R107 compliant -- no literal corpus content, just
+the same pattern shape) placed immediately before a marker token at both a
+near and a ~200,000-char-deep far position, asserting the citation is
+still recognized as citation context at both -- catches the window being
+shrunk below what real citations need. Both mutation-tested to confirm
+they fail on the two directions they claim to guard against.
 
 ## Context Dump
 
