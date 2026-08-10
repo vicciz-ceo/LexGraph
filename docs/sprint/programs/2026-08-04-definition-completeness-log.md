@@ -1153,3 +1153,48 @@ verbatim during the merge) — no tampering; recorded closed.
   question alone. Any ruling that resolves precedence (Families A and B) without
   scoping the period-marker widening still ships a tree that cannot complete a
   full-corpus run.
+
+- 2026-08-10 (contested census complete: 53/53 files, all 2,038,247 rows).
+  Manager-verified from the artifacts, not from the agent's prose: the summary
+  reports `complete: true`, and the arithmetic closes exactly —
+  2,038,017 classified + 230 pathological = 2,038,247. The contested JSONL line
+  count equals `cells.both` to the row.
+
+    cell                  rows        share
+    both (contested)   114,979        5.64%
+    b1_only             82,831        4.06%
+    scoped_inline_only  12,643        0.62%
+    neither          1,827,564       89.67%
+
+  **Of the 127,622 rows scoped-inline fires on, 90.1% are already claimed by B1;
+  only 12,643 (9.9%) are unique to it.** Precedence order therefore decides the
+  disposition of 114,979 rows, and scoped-inline's marginal recall contribution
+  over B1 is 12,643 rows — real, and the reason D-RECALL-FP does not permit
+  simply dropping the panel. Spread is wide: US-RI has zero contested rows;
+  US-GA and US-VA run ~77% contested; AK/MA/PR/RI have
+  `scoped_inline_only == 0`, i.e. B1 already covers everything scoped-inline
+  finds there.
+  **P-R19 quantified. 230 pathological rows across 21 jurisdictions, and the
+  attribution is unanimous: `timed_out_in == "scoped_inline"` on all 230, zero
+  in B1** (verified by field count over the JSONL, not taken on report). B1
+  completed on every one — provable from the two-stage worker protocol, since
+  reaching a scoped-inline timeout requires the B1 result to have been returned
+  first. Not a federal quirk: US-FED 154, US-TN 22, US-GA 8, US-NY 6, US-HI 5,
+  then FL/IA/MA/MD/MS/OK/UT at 3 each, down to single rows in DC/KS/MT/NJ.
+  Size distribution min 56,311 / median 128,960 / max 2,404,155 chars, with 39
+  rows above 250k. Worst: `STATE_HI_D2_T24_C431_S431` (2.4M),
+  `USC_T42_C7_S1395ww` (839k), `USC_T42_C7_S1396a` (768k).
+  Because the slowdown exists in neither panel alone, each of those 230 rows is
+  a row THE MERGED TREE FAILS TO PRODUCE ANYTHING FOR. Under D-RECALL-FP that is
+  the expensive defect, not the cheap one.
+  TWO METHOD FACTS WORTH KEEPING. (1) `signal.alarm`/SIGALRM CANNOT bound a
+  pathological `re` match: CPython runs it as one uninterruptible C call and does
+  not deliver the signal until it returns — the earlier guard sat 7+ minutes past
+  its own 0.5s cap without recording a timeout. Only process-level kill works.
+  (2) Isolate with ONE persistent worker over a pipe, deadline enforced on the
+  RESPONSE, killed and replaced only on timeout: 230 restarts corpus-wide instead
+  of 1,768 per-row forks. Agent-reported caveats, accepted: the 2.5s cap means
+  rows needing 2.5-30s of legitimate compute land in `pathological`, so 230 is a
+  floor on severity rather than an exact count of non-terminating cases; and
+  `b1_result_before_timeout` is null on all 230 (a reporting-fidelity bug the
+  agent self-reported), which does not affect the attribution field.
