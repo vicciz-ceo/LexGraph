@@ -101,7 +101,16 @@ def validate_dpfp_artifacts(
     for record in byte_ledger:
         source = fallback[tuple_key(record)]
         _assert(record.get("source_row_sha256") == source["source_row_sha256"], "byte ledger source-row hash changed")
-        _assert(record.get("informational_only") is True, "byte ledger is not explicitly informational")
+        # This used to assert ``informational_only is True`` -- the crosscheck
+        # enforcing the producer's own unmeasured verdict, one layer above the
+        # producer that emitted it. Per the director, only QA adjudication makes
+        # a row informational, so the invariant is the opposite: the queue must
+        # arrive unreviewed and carry NO verdict at all.
+        _assert(record.get("qa_boundary_status") == "unreviewed", "byte ledger row is not unreviewed")
+        _assert(
+            not {"informational_only", "false_capture", "qa_status", "is_overrun"} & set(record),
+            "byte ledger row carries a QA verdict the producer never measured",
+        )
 
 
 def crosscheck(out: Path) -> dict[str, Any]:

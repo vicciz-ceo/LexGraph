@@ -260,6 +260,40 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   genuinely defining "foreign person"/"Syria" by forwarding reference;
   exactly one of six flagged rows was true definition-level garbage).
 
+- **D-MAP (director, 2026-08-10): the product is a MAP of where definitions
+  are, not a mirror of their text.** Verbatim intent: "we intend to give AI lex
+  maps… It may have to read the definition, but it'll know where to find it
+  easily without having to read the whole lexis corpus… the most crucial part
+  is mapping where *is* a definition." Consequences, binding on every panel and
+  on the D-CERT close: the blocking defect is a wrong or missing **anchor** —
+  the `(row, term)` pair that says a definition lives here. Body quality is
+  informational byte quality, and that now covers three previously-contested
+  families: boundary **overrun** (already carved out), **undercapture** (a
+  correct anchor whose text is severed early), and **wrong body** (a correct
+  anchor whose text is unrelated). A phantom or wrong **term** is NOT byte
+  quality — it puts a definition that does not exist onto the map, and it is
+  the one family that stays blocking.
+- **D-RECALL-FP (director, 2026-08-10): prefer a small false-positive rate over
+  a large miss on terms and references.** Verbatim: "that's why we'd like to
+  have a small portion of false positive than a large miss on terms and
+  references." This supersedes the zero-false-capture emphasis of D-PFP-400.
+  A change that strictly increases anchor recall is not blocked by a small,
+  measured, named phantom-anchor rate; residual phantoms convert to tracked
+  debt with an owner. Panels still measure and report both sides — the ruling
+  sets the trade, it does not excuse leaving either unmeasured.
+- **Restated D-PFP-400 under D-MAP/D-RECALL-FP (program manager, 2026-08-10).**
+  The 400-tuple sample is adjudicated at ANCHOR granularity: is `(row, term)` a
+  real definition location? Re-reading the completed dry run under this rule
+  gives **399 of 400 anchors correct and 1 phantom** (the FED notes-heading
+  term), versus 2 false + 1 ambiguous under the old body-text rule — the IL
+  fragment and the NJ 49-character stub both have correct anchors. Corpus-wide
+  phantom-anchor rate: **944 records confirmed by structural signature**
+  (multi-line terms 402, trailing lead-in `:`/`—` 526, over-200-character
+  terms 16) out of 592,357 = **0.159%**, concentrated in FED 550 and OK 262,
+  plus a 179-record citation/entry-text family whose sample reads
+  predominantly phantom. The deletion-side screen (P-R15) is now the PRIMARY
+  gate, because under D-RECALL-FP a miss is the expensive defect.
+
 ## Program rulings added during execution
 
 - **D-DF (director, 2026-08-04): the "defined for" heading rule ships

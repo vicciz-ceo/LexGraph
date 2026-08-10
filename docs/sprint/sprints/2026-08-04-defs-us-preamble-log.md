@@ -6470,3 +6470,67 @@ component the panel is forbidden to edit**, so no number of preamble cycles
 could ever have closed it. Item 7 is re-scoped accordingly; the three families
 become named shared-extraction items, and under P-R13 the panel's feature work
 merges on its own gates.
+
+## 2026-08-10 — D-MAP / D-RECALL-FP received; M-R125 restated at anchor altitude
+
+The director rejected the framing of the M-R125 escalation rather than the
+evidence. Verbatim intent: "we intend to give AI lex maps… It may have to read
+the definition, but it'll know where to find it easily without having to read
+the whole lexis corpus… the most crucial part is mapping where *is* a
+definition", and "that's why we'd like to have a small portion of false
+positive than a large miss on terms and references."
+
+Recorded as program rulings D-MAP and D-RECALL-FP. Consequence for this sprint:
+the D-PFP-400 sample is adjudicated at ANCHOR granularity — is `(row, term)` a
+real definition location — not at body-text granularity. Re-reading the
+completed dry run under that rule turns 2 false + 1 ambiguous into **399 correct
+anchors and 1 phantom**: the IL "healing art" fragment and the NJ 49-character
+stub both anchor correctly and become byte quality, while the FED
+notes-heading-plus-Pub.-L.-credit-line term remains a phantom that would put a
+nonexistent definition on the map.
+
+The phantom-anchor family was then measured corpus-wide over the 592,357
+persisted records rather than inferred from the sample: **944 records / 0.159%**
+by structural signature — multi-line terms 402, trailing lead-in `:`/`—` 526,
+over-200-character terms 16 — concentrated in FED 550 and OK 262, plus a
+179-record citation/entry-text family whose deterministic sample reads
+predominantly phantom (whole enumerated entries such as
+`(5) Recreation area.—The term 'Recreation Area' means…` and headings such as
+`SEC. 205. ANNUAL REPORTING REQUIREMENT.` captured as definienda). An earlier
+broad screen also flagged 246 rows as multi-sentence prose; that rule fires on
+ordinary abbreviations ("I.C.C. Class C common fireworks", "Dr. Martin Luther
+King, Jr. Day.") and is discarded as unreliable rather than quietly counted.
+
+Under D-RECALL-FP that 0.159% is named tracked debt, not a merge blocker:
+relative to `main` neither B1 module exists, so this branch strictly increases
+anchor recall. Item 7 returns to Dev Complete and the deletion-side screen
+(P-R15) becomes the primary gate, since a miss is now the expensive defect.
+
+BYTE-QUALITY GOVERNANCE FIXED, not deferred. `_byte_quality_ledger` stamped
+`informational_only=True` on every row it emitted while marking the same row
+`qa_boundary_status: "unreviewed"` — two contradictory claims in one object,
+and the first was a literal rather than a measurement: nothing inspected the
+text, the bounds or the byte count. Membership was `route == "fallback"` plus
+position in a SHA rank seeded by the integration SHA, so re-pinning replaced
+**all 50 rows, zero overlap across two pins** — proof the flag was never a
+property of the row. Both confirmed false captures had carried it. The producer
+now emits evidence and `qa_boundary_status` only; the summary status is
+`unreviewed_queue_no_informational_claim`; and a new contract test fails if any
+QA verdict field (`informational_only`, `false_capture`, `qa_status`,
+`is_overrun`) appears on an unreviewed row. It was committed RED against the
+old evidence and goes green on the regenerated artifacts.
+
+NJ UNDERCAPTURE — measured, and NOT the cheap fix it looked like. The director
+authorized fixing it "if capturing the whole definition is easy". Traced: the
+full 865-character definiens is ALREADY produced by
+`_extract_inline_quoted_definitions`; the 49-character stub wins because a
+shared `EntrySplitterRule` registered across ELEVEN jurisdictions
+(VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK) takes precedence. The bare
+`extract_definitions_from_section` returns nothing for this row — the row has
+zero newlines, so the line-based `_split_into_numbered_blocks` yields 0 blocks —
+and the inline fallback that would produce the full text is gated behind
+`heading_was_derived=True`, which is False here because NJ carries a real
+heading ("Definition of developmental disability."). So the repair is a
+precedence/merge decision across 11 live jurisdictions, covered by the merged
+markers G3-HEAL gate, not a local tweak. It belongs to the named core boundary
+follow-on, and under D-MAP its anchor is already correct.

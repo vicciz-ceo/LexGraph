@@ -1,27 +1,27 @@
 ---
 id: "2026-08-04-defs-us-preamble"
 status: review
-blocked_on: "item 7 D-PFP-400 blocks on shared-extraction defects (M-R125)"
+blocked_on: null
 current_role: qa
 branch: claude/defs-us-preamble
 worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
 last_agent: "claude:program-manager"
-last_updated: "2026-08-09T21:31:00Z"
+last_updated: "2026-08-10T07:19:33Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 7
 completed_items: 0
-dev_complete_items: 6
+dev_complete_items: 7
 qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
-lint: "PASS 396 2026-08-09T21:30:42Z"
+lint: "PASS 394 2026-08-10T07:19:33Z"
 ---
 
 # Sprint: US body-preamble P-FP correction
@@ -37,37 +37,28 @@ core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
 targeted `References to` guard are now main-contained, shipped, and read-only
 for this sprint.
 
-### D-PFP-400 — strict definition-level false-capture gate (binding)
+### D-PFP-400 — false-capture gate (RESTATED at anchor granularity)
 
-The director approved this manager recommendation with “fix this.” The
-population is every definition newly persisted/captured by the final preamble
-panel versus the documented BEFORE path on the same pinned 53-file snapshot,
-at stable `(jurisdiction, source file/row id, term, definition_text, scope)`
-granularity and using live persistence/dedup semantics. Forwarding definitions
-remain genuine under D-MT-E1.
+Original form: the population is every definition newly persisted by the final
+preamble panel versus the documented BEFORE path on the pinned 53-file
+snapshot, at `(jurisdiction, source file/row id, term, definition_text, scope)`
+granularity under live persistence/dedup. The evidence sample is 400 tuples,
+ranked by SHA-256 seeded by the snapshot plus integration SHA, jurisdiction-
+balanced and stratified by extraction route and registered rule family, with
+coverage seats first and Hamilton allocation for the remainder. Fresh QA
+adjudicates every sampled tuple against source. Commit the canonical sample,
+the complete adjudication ledger, population and sample hashes, and the
+one-sided 95% upper bound without claiming corpus-wide zero. G7 still requires
+GA-after `>=2794` and `new_primary >=23617`.
 
-The evidence sample is 400 unique population tuples, or the whole population
-when smaller. Ranking is deterministic SHA-256 seeded by the pinned corpus
-snapshot plus integration SHA. Sampling must be jurisdiction-balanced and
-stratified by extraction route and registered panel rule family: include every
-non-empty jurisdiction, every live extraction route, and every registered
-panel rule family; take all members of strata smaller than their allocation,
-then fill remaining seats proportionally in deterministic hash order. Before
-generating evidence, Planner must document the exact conflict-free allocation
-algorithm for overlapping coverage requirements.
-
-Fresh QA independently adjudicates every sampled tuple against its source. A
-false capture means the row does not genuinely define or forward that term, or
-the captured text is not the defining statement. Boundary overrun on an
-otherwise genuine definition goes into a separate informational byte-quality
-ledger and is not relabeled P-FP. PASS requires **0 false captures and 0
-unresolved/ambiguous adjudications**; one false or ambiguous tuple blocks
-merge. Commit the canonical sample, complete adjudication ledger, population
-and sample canonical hashes, and the one-sided 95% upper bound (at 0/400,
-`1 - 0.05^(1/400)`, about **0.75%**) without claiming corpus-wide zero.
-G7 still requires GA-after `>=2794` and total `new_primary >=23617`;
-`new_fallback` and byte quality remain informational. Production code is
-read-only.
+**Restated 2026-08-10 under D-MAP and D-RECALL-FP (see M-R125).** Adjudication
+is at ANCHOR granularity: is `(row, term)` a real definition location? Body
+defects — overrun, undercapture, wrong body — are informational byte quality
+and never block. A phantom or wrong TERM stays blocking, but under D-RECALL-FP
+a small, measured, named phantom rate is tracked debt rather than a merge
+blocker when anchor recall strictly increases versus `main`. The old
+"0 false captures and 0 ambiguous, one tuple blocks merge" threshold no longer
+governs; the deletion-side screen (P-R15) is the primary gate.
 
 ## Manager rulings
 
@@ -134,18 +125,12 @@ is correct; it never predicts the change set. Four projected ledgers
 (636 → 586 → 556) were each superseded before this rule was applied; M-R121
 froze 556 with "No all-53 run was made" and was wrong on 188 keys.
 
-**Named residual — pre-quote alias mis-bodied tuples (NOT fixable in B1).**
-The audit found a third class M-R122's two-bucket taxonomy cannot express:
-right term, wrong body. Where the only preserving evidence is a PRE-quote
-alias, the definiens sits before the quote while shared extraction harvests
-after it, so a genuinely coined term is bound to unrelated text.
-Verified in the acceptance record set for all three inventory members
-(CO `25-3.5-108` "state report"; NM `73-7-1` "assessment of benefits." and
-"assessments for construction."). Preserving them is still correct at B1
-altitude — rejecting a genuinely coined term because the extractor mis-bodies
-it is exactly M-R121's rule that deletes 185 real definitions. This joins the
-existing held shared-extraction/P-FP debt beside the CO wrong-tuple control
-and T35, and is owned by shared extraction + D-MT-E1, not by this sprint.
+**Named residual — pre-quote alias mis-bodied tuples (490, 0.083%).** Right
+term, wrong body: where the only preserving evidence is a PRE-quote alias, the
+definiens sits before the quote while shared extraction harvests after it.
+Verified for all three inventory members. Preserving them is correct at B1
+altitude, and under D-MAP the anchor is right and the body is byte quality;
+owned by shared extraction + D-MT-E1, not by this sprint.
 
 **G7 re-pin.** `qa_g7_common.INTEGRATION_SHA` still pinned `4fa9e7b…`, which
 predates `c2a8717`, so every D-PFP-400 certification run fail-closed on
@@ -177,45 +162,58 @@ to** … — that verb is absent from the vocabulary. One token would close it;
 widening again mid-acceptance would invalidate the run that just certified the
 change. 1 record of 592,357, owned by the next cycle.
 
-### M-R125 — D-PFP-400 FAILS, and it cannot be closed by this panel
+### M-R125 — D-PFP-400 restated at ANCHOR granularity (D-MAP, D-RECALL-FP)
 
 A pre-QA dry run adjudicated all 400 regenerated tuples against pinned source
-(8 independent auditors, 0 id mismatches): **314 genuine / 83 overrun /
-2 false captures / 1 ambiguous → FAIL** (PASS needs 0 and 0). All three
-blockers were re-verified by the manager in the shipped record set.
+(8 independent auditors, 0 id mismatches). Under the OLD body-text rule it read
+314 genuine / 83 overrun / 2 false / 1 ambiguous = FAIL, and all three blockers
+were shared-extraction defects this panel cannot edit (P-R14).
 
-Every blocking family is **shared extraction, not B1** — the panel cannot fix
-any of them inside its authorized write set:
+The director then ruled **D-MAP** (the product is a map of WHERE definitions
+are; body quality is informational) and **D-RECALL-FP** (prefer a small
+false-positive rate over a large miss). Re-read at anchor granularity — is
+`(row, term)` a real definition location? — the same 400 give **399 correct
+anchors and 1 phantom**. The IL fragment and the NJ 49-character stub both have
+correct anchors and become byte quality; only the FED notes-heading term is a
+phantom that puts a nonexistent definition on the map.
 
-- wrong definiendum: `USC_T33_C36_S2319` captured a notes heading plus its
-  Pub. L. credit line as the term (818 records, 0.170%);
-- wrong definiens start: `STATE_IL_C735_A5_S2-1704` "healing art" fired on the
-  NOUN *means* in "by spiritual means", persisting a bare fragment;
-- truncated-definiens undercapture: `STATE_NJ_T30_C1AA_S1AA-2` cut to 49 chars
-  ending on "which" (floor 2,367 records, 0.49%) — a shape the D-PFP-400
-  taxonomy has no bucket for, so it blocks like a false capture until ruled.
+Corpus-wide phantom-anchor rate: **944 records / 0.159%** confirmed by
+structural signature (multi-line 402, trailing lead-in `:`/`—` 526,
+over-200-char 16), concentrated in FED 550 and OK 262, plus a 179-record
+citation/entry-text family that samples predominantly phantom. Named as
+tracked shared-extraction debt with an owner, not a merge blocker: relative to
+`main` neither B1 module exists, so this branch strictly increases anchor
+recall, which is exactly the trade D-RECALL-FP makes. The **deletion-side
+screen (P-R15) is now the primary gate**, since a miss is the expensive defect.
 
-Plus a governance defect: `new_fallback_byte_quality_ledger.jsonl` stamps
-`informational_only=true` on 50 rows that are all `qa_boundary_status:
-unreviewed`, and BOTH confirmed false captures sit in it — the producer is
-claiming the director's overrun carve-out instead of QA adjudicating it.
+Governance, fixed here rather than deferred: the byte-quality producer stamped
+`informational_only=True` on every emitted row while marking the same row
+`qa_boundary_status: unreviewed`. Nothing measured it — membership was route
+plus a SHA rank seeded by the integration SHA, and re-pinning replaced **all
+50 rows (zero overlap across two pins)**, proving the flag was never a property
+of the row. Two confirmed false captures carried it. Per the director the
+producer now emits evidence and status only; a new contract test fails if any
+QA verdict field appears on an unreviewed row.
 
-**RULING.** Item 7 is re-scoped: D-PFP-400 gates a component this panel does
-not own, so no number of preamble cycles can close it. The three families
-become named items for shared extraction (core follow-on) with the counts
-above. Under P-R13 the panel's feature work merges on its own gates; item 7
-blocks only itself. Escalated to the director for the undercapture bucket
-ruling and the informational-stamp governance question.
+Byte-quality families, all informational under D-MAP and all owned by shared
+extraction: overrun 83/400 = 20.8%; undercapture floor 2,367 (0.49%); wrong
+body 490 (0.083%). The NJ undercapture is NOT a cheap fix — the full
+865-character definiens is already produced by `_extract_inline_quoted_
+definitions`, but a truncating candidate from a shared `EntrySplitterRule`
+registered across 11 jurisdictions (VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK) wins the
+precedence race. Changing that reshapes every numbered definitions section in
+those 11 jurisdictions and belongs to the named core boundary follow-on.
 
 ## Next Steps
 
-7. **[BLOCKED — not this panel's to close]** D-PFP-400 stays open pending the
-   shared-extraction items in M-R125 and a director ruling on the undercapture
-   bucket. QA cycle 5 verifies items 1–6 plus the B1 corrections: focused trio,
-   full evaluator, and the single all-53 acceptance (production, **not**
-   `--prototype`) against `mr124/expected_changed.jsonl`, plus the new
-   deletion-side relation screen. QA does NOT re-open the 207-key inventory or
-   author a replacement ledger; disagreement escalates with source evidence.
+_None. All 7 items are Dev Complete; QA cycle 5 owns the sprint verdict._
+
+QA reruns the focused trio, the full evaluator, the single all-53 acceptance
+against **production** (not `--prototype`) using `mr124/expected_changed.jsonl`,
+and the deletion-side relation screen, then adjudicates the regenerated
+D-PFP-400 sample **at anchor granularity** per M-R125. QA does NOT re-open the
+207-key inventory or author a replacement ledger; disagreement with an executed
+certificate escalates to the program manager with source evidence.
 
 ## Dev Complete
 

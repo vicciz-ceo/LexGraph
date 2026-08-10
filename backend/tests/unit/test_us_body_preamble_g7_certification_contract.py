@@ -80,6 +80,31 @@ def test_g7_integration_pin_is_ancestral_and_production_is_frozen_after_it():
     )
 
 
+def test_g7_producer_never_asserts_a_qa_verdict_on_unreviewed_rows():
+    """A queue may not stamp itself with the verdict QA has not yet given.
+
+    The byte-quality ledger used to emit ``informational_only=True`` on every
+    row while simultaneously marking it ``qa_boundary_status='unreviewed'``.
+    Nothing measured it -- membership was route plus SHA rank, and re-pinning
+    replaced all 50 rows -- yet two confirmed D-PFP-400 false captures carried
+    the flag. Only QA adjudication may convert a row to informational.
+    """
+    ledger = SCRIPTS / "g7-certification-evidence" / "new_fallback_byte_quality_ledger.jsonl"
+    if not ledger.is_file():
+        pytest.skip("no committed byte-quality ledger to check")
+    rows = [json.loads(line) for line in ledger.read_text().splitlines() if line]
+    assert rows, "byte-quality ledger is empty"
+    verdict_fields = {"informational_only", "false_capture", "qa_status", "is_overrun"}
+    for row in rows:
+        leaked = verdict_fields & set(row)
+        assert not leaked, (
+            f"producer asserted QA verdict field(s) {sorted(leaked)} on "
+            f"{row.get('source_row_id')}; the producer emits evidence and "
+            "qa_boundary_status only."
+        )
+        assert row["qa_boundary_status"] == "unreviewed"
+
+
 def test_g7_committed_evidence_was_generated_against_the_current_pin():
     """Evidence produced under a superseded pin is void, not merely old."""
     common = _load("qa_g7_common.py")
@@ -180,12 +205,17 @@ def test_qd3_fail_closed_validators_reject_accounting_identity_coverage_and_byte
         "jurisdiction", "source_file", "source_row", "source_row_id", "term", "definition_text",
         "scope", "source_row_sha256",
     )} | {"claimed_definition_bytes": 13, "source_location": {"file": "us_aa_statutes.parquet", "row": 1, "act_id": "A"},
-          "qa_boundary_status": "unreviewed", "informational_only": True}]
+          "qa_boundary_status": "unreviewed"}]
     d3.validate_dpfp_artifacts(population, sample, unreviewed, byte, expected_sample_count=1)
     for mutator in (
         lambda: d3.validate_dpfp_artifacts(population, sample + sample, unreviewed, byte, expected_sample_count=1),
         lambda: d3.validate_dpfp_artifacts(population, sample, [{**unreviewed[0], "route": "primary"}], byte, expected_sample_count=1),
-        lambda: d3.validate_dpfp_artifacts(population, sample, unreviewed, [{**byte[0], "informational_only": False}], expected_sample_count=1),
+        # The byte-ledger mutation now asserts the CORRECTED invariant: a queue
+        # row must arrive unreviewed and carry no verdict. Previously this
+        # mutation flipped ``informational_only`` to False and expected
+        # rejection, i.e. Q-D3 enforced the producer's own unmeasured claim.
+        lambda: d3.validate_dpfp_artifacts(population, sample, unreviewed, [{**byte[0], "qa_boundary_status": "reviewed"}], expected_sample_count=1),
+        lambda: d3.validate_dpfp_artifacts(population, sample, unreviewed, [{**byte[0], "informational_only": True}], expected_sample_count=1),
     ):
         with pytest.raises(Exception):
             mutator()

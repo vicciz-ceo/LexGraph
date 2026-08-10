@@ -124,10 +124,21 @@ def _allocate_sample(population: list[dict[str, Any]]) -> tuple[list[dict[str, A
 
 
 def _byte_quality_ledger(population: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Separate deterministic informational review list for fallback bytes."""
+    """Deterministic QUEUE of fallback rows for QA boundary review.
+
+    This is a queue, not a verdict.  It previously stamped every row
+    ``informational_only=True`` alongside ``qa_boundary_status="unreviewed"``
+    -- two contradictory claims in one object, and the first of them was a
+    literal, not a measurement: nothing here inspects the text, the bounds or
+    the byte count to decide whether a row is a boundary-quality issue rather
+    than a false capture.  Membership is only ``route == "fallback"`` plus
+    position in a SHA rank seeded by the integration SHA, so re-pinning
+    replaced all 50 rows (measured: zero overlap across two pins) -- proof the
+    flag was never a property of the row.  Two confirmed D-PFP-400 false
+    captures carried it.  Per the director, only QA adjudication may mark a row
+    informational; the producer emits status and evidence only.
+    """
     fallback = [record for record in population if record["route"] == "fallback"]
-    # A compact, reproducible 50-row slice retains bounds, hashes and claimed
-    # bytes.  QA judges contamination; this never claims the sibling defect is fixed.
     selected = sorted(fallback, key=_rank)[: min(50, len(fallback))]
     return [{
         "jurisdiction": r["jurisdiction"], "source_file": r["source_file"],
@@ -135,7 +146,7 @@ def _byte_quality_ledger(population: list[dict[str, Any]]) -> list[dict[str, Any
         "term": r["term"], "definition_text": r["definition_text"], "scope": r["scope"],
         "source_row_sha256": r["source_row_sha256"], "claimed_definition_bytes": len(r["definition_text"].encode()),
         "source_location": {"file": r["source_file"], "row": r["source_row"], "act_id": r["source_row_id"]},
-        "qa_boundary_status": "unreviewed", "informational_only": True,
+        "qa_boundary_status": "unreviewed",
     } for r in selected]
 
 
@@ -244,7 +255,7 @@ def measure(snapshot: Path, out: Path) -> dict[str, Any]:
         "files": EXPECTED_FILE_COUNT, "rows": rows, "per_jurisdiction": {k: per_state[k] for k in sorted(per_state)},
         "totals": totals, "gates": {"ga_after_min": 2794, "new_primary_min": 23617, "ga_after_pass": per_state["US-GA"]["after"] >= 2794, "new_primary_pass": totals["new_primary"] >= 23617},
         "dpfp400": {"population_count": len(population), "population_hash": population_hash, "sample_count": len(sample), "sample_hash": sample_hash, "adjudication_ledger_count": len(adjudication), "adjudication_ledger_hash": adjudication_hash, "allocation": allocation, "one_sided_95_zero_event_upper_bound": 1 - 0.05 ** (1 / len(sample)), "qa_status": "unreviewed_no_pfp_pass_claim"},
-        "byte_quality": {"route": "new_fallback", "ledger_count": len(ledger), "ledger_hash": ledger_hash, "status": "informational_unreviewed"},
+        "byte_quality": {"route": "new_fallback", "ledger_count": len(ledger), "ledger_hash": ledger_hash, "status": "unreviewed_queue_no_informational_claim"},
         "run_metadata": {"elapsed_seconds": round(time.monotonic() - started, 3)},
     }
     result["summary_hash"] = certification_hash(result)

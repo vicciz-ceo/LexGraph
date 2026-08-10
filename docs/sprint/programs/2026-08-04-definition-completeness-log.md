@@ -944,3 +944,35 @@ verbatim during the merge) — no tampering; recorded closed.
   TWO DIRECTOR QUESTIONS, the only open asks: (1) is truncated-definiens
   undercapture informational like overrun, or a false capture (~2,367 records)?
   (2) confirm only QA adjudication may convert a row to informational.
+
+- 2026-08-10 (director rulings D-MAP + D-RECALL-FP, program-wide). The director
+  reframed the escalation rather than answering it inside the old taxonomy: the
+  product is a MAP of where definitions live, not a mirror of their text, and a
+  small false-positive rate is preferred to a large miss on terms and
+  references. Both recorded verbatim in the program doc.
+  Consequences, applied and measured, not asserted: D-PFP-400 is adjudicated at
+  ANCHOR granularity, so the completed 400-tuple dry run re-reads as 399 correct
+  anchors / 1 phantom instead of 2 false + 1 ambiguous; body defects (overrun
+  83/400, undercapture floor 2,367, wrong body 490) are informational; the
+  phantom-anchor family is 944 records / 0.159% of 592,357 by structural
+  signature (FED 550, OK 262) plus a 179-record citation/entry-text family that
+  samples predominantly phantom. A 246-row "multi-sentence prose" screen was
+  discarded as unreliable — it fires on ordinary abbreviations — rather than
+  counted. Under D-RECALL-FP the 0.159% is named tracked debt and not a merge
+  blocker, since relative to main neither B1 module exists and the branch
+  strictly increases anchor recall. P-R15's deletion-side screen becomes the
+  PRIMARY gate: a miss is now the expensive defect.
+  Governance closed: the byte-quality producer no longer stamps
+  `informational_only=True` on rows it has not measured. That flag was a literal
+  emitted alongside `qa_boundary_status: "unreviewed"`, membership was route
+  plus a SHA rank seeded by the integration SHA, and re-pinning replaced all 50
+  rows with zero overlap — it was never a property of the row, and both
+  confirmed false captures carried it. Producer now emits evidence and status
+  only; a contract test fails on any QA verdict field appearing on an unreviewed
+  row. Only QA adjudication converts a row to informational.
+  NJ undercapture assessed against the director's "fix it if easy" condition and
+  declined with evidence: the full 865-character definiens is already produced
+  by `_extract_inline_quoted_definitions`, but a shared `EntrySplitterRule`
+  registered across 11 jurisdictions wins precedence, so the repair reshapes
+  every numbered definitions section in VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK. Routed
+  to the named core boundary follow-on.

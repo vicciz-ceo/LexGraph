@@ -48,37 +48,36 @@ item blocks only itself) in the program doc.
   `db52f060…bb1778`, missing 0, extra 0. Certificate:
   `mr118/qa/mr124/expected_changed.jsonl`.
 
-### Item 7 is blocked on a component this panel cannot edit
+### Item 7: D-PFP-400 restated at anchor granularity — no longer blocked
 
-A pre-QA dry run adjudicated all 400 regenerated D-PFP-400 tuples against
-pinned source (8 independent auditors, 0 id mismatches): **314 genuine /
-83 overrun / 2 false captures / 1 ambiguous — FAIL**. All three blockers were
-re-verified directly in the shipped record set, and every one is a **shared
-extraction** defect (`us_profile.py` term construction and boundary logic),
-marked `fixable_in_b1: false`:
+A pre-QA dry run adjudicated all 400 regenerated tuples against pinned source
+(8 independent auditors, 0 id mismatches). Under the original body-text rule it
+read 314 genuine / 83 overrun / 2 false / 1 ambiguous = FAIL, and all three
+blockers were shared-extraction defects this panel cannot edit (P-R14).
 
-| Family | Example | Corpus size |
+The director then ruled **D-MAP** (the product is a map of WHERE definitions
+are; an AI consumer can read the section once pointed at it) and
+**D-RECALL-FP** (prefer a small false-positive rate over a large miss on terms
+and references). Re-read at ANCHOR granularity — is `(row, term)` a real
+definition location? — the same 400 give **399 correct anchors / 1 phantom**.
+
+| Family | Under D-MAP | Size |
 |---|---|---|
-| wrong definiendum (heading + Pub. L. credit line as term) | `USC_T33_C36_S2319` | 818 (0.170%) |
-| wrong definiens start (fired on the noun "means") | `STATE_IL_C735_A5_S2-1704` | — |
-| truncated-definiens undercapture (49-char stub) | `STATE_NJ_T30_C1AA_S1AA-2` | floor 2,367 (0.49%) |
-| right term, wrong body (pre-quote alias) | `STATE_CO_T25_A3.5_P1_S25-3.5-108` | 490 (0.083%) |
+| phantom / wrong TERM (heading + Pub. L. credit as definiendum) | **blocking** | 944 = 0.159%, + 179 citation family |
+| undercapture (49-char stub) | informational | floor 2,367 (0.49%) |
+| wrong body (pre-quote alias) | informational | 490 (0.083%) |
+| boundary overrun | informational | 83/400 = 20.8% |
 
-This is the deepest root cause of the whole loop: **D-PFP-400 gates the
-preamble panel on a component the panel is forbidden to touch**, so no number
-of preamble cycles could ever close it (program ruling P-R14). The families
-become named shared-extraction items; under P-R13 the panel's feature work
-merges on its own gates.
+Under D-RECALL-FP the 0.159% phantom rate is **named tracked debt, not a merge
+blocker**: relative to `main` neither B1 module exists, so this branch strictly
+increases anchor recall. Item 7 is Dev Complete again. The **deletion-side
+screen (P-R15) is now the primary gate**, because a miss is the expensive
+defect.
 
-Two director questions are open and are the only things needing your input:
-1. Truncated-definiens **undercapture** has no bucket in the D-PFP-400
-   taxonomy. It is the mirror of the overrun carve-out. Informational like
-   overrun, or a false capture? It governs ~2,367 records.
-2. `new_fallback_byte_quality_ledger.jsonl` stamps `informational_only=true`
-   on 50 rows that are all `qa_boundary_status: unreviewed`, and both
-   confirmed false captures are members. The producer is claiming your overrun
-   carve-out for rows QA never adjudicated. Confirm that only QA adjudication
-   may convert a row to informational.
+Both director questions from the previous handoff are now answered and closed:
+undercapture is informational (D-MAP), and only QA adjudication may convert a
+row to informational — the producer no longer self-stamps `informational_only`,
+and a contract test enforces it.
 
 ### What QA cycle 5 must and must not do
 
