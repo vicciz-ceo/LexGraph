@@ -1105,3 +1105,51 @@ verbatim during the merge) — no tampering; recorded closed.
   head `2a6d30d`). PR #20 continues to carry only preamble+headings, which
   remain fully certified. scoped-inline, multiterm and IL do NOT merge until the
   precedence question is ruled with measurement behind it.
+
+- 2026-08-10 (P-R19 discovered: the merge creates a PERFORMANCE defect that
+  neither panel has alone, and no test suite can see it).
+  Found while diagnosing a stalled census agent, not by any planned gate. The
+  agent's corpus scan sat on `us_federal_statutes.parquet` at 99.4% CPU for 11
+  minutes; a process sample put 2,539 of 2,540 stack frames inside a single
+  `_sre_SRE_Pattern_search`. Catastrophic backtracking, not slowness.
+  MANAGER ERROR, CORRECTED BY THE AGENT: this manager first ruled the harness at
+  fault for feeding whole parquet rows to rules that "only ever see article
+  bodies," and instructed a rewrite. The agent pushed back with a citation, which
+  this manager then verified: `ingest_us_statutes.py:9` — the US statutes ingest
+  has NO `parse_articles` call and maps one parquet row to exactly ONE Article
+  (unlike `ingest_wiki_law`). Whole-row input was correct all along. Recorded
+  because the correction ran the right way round: a spawned agent refused a
+  manager instruction on cited evidence, per the escalation rule.
+  THE CONTRADICTION THAT FOUND THE REAL DEFECT. Taking the pathology at face
+  value contradicted scoped-inline's own log, which records a full-corpus scan of
+  all 53 files / 2,038,135 rows in 271.7s. A single 128-second row cannot coexist
+  with that total. P-R10 applied to this manager's own conclusion.
+  DECISIVE MEASUREMENT (`scratchpad/mgr_si_perf_probe.py`, same function, same
+  three federal rows, 30s cap, both raw and normalized input):
+
+    act_id             bytes    scoped-inline alone   merged tree
+    USC_T17_C1_S115    150,551  0.02s (0 defs)        4.07s      ~200x
+    USC_T26_C1_S72     187,145  0.04s (16 defs)       >30s       ~3,000x
+    USC_T42_C7_S405    225,928  0.02s (3 defs)        >30s       ~1,400x
+
+  Raw and normalized inputs time identically, so normalization is not the
+  variable — the merged code is. NEITHER PANEL HAS THIS ALONE.
+  LIKELY MECHANISM, one root cause with two symptoms: preamble-only
+  `_US_PERIOD_UNIT_MARKER_RE` (us_profile.py:1319; `grep -c` returns 0 on the
+  scoped-inline tree) widens the shared marker-token stream that scoped-inline's
+  own subsection resolver walks. That is the SAME change the failure taxonomy
+  independently isolated as the cause of the four wrong-scope failures (Maine
+  snowmobile-trail degrade x3, Alabama outermost-negative). Wrong values on small
+  inputs; catastrophic backtracking on large ones.
+  **P-R19 (binding): cross-panel interference can be a PERFORMANCE defect, and
+  the test estate is structurally blind to it.** Both panels' fixtures are small,
+  so every timing stays in milliseconds while real statutory rows take minutes.
+  The merged suite went green on time and red only on values. Every future
+  co-firing merge probe must therefore time the merged tree against the largest
+  real rows in the corpus, not only run the suite. A suite that passes proves
+  nothing about tractability on the corpus.
+  CONSEQUENCE FOR THE MERGE: this is a second blocker, independent of the
+  precedence question and higher priority. Family C is no longer a correctness
+  question alone. Any ruling that resolves precedence (Families A and B) without
+  scoping the period-marker widening still ships a tree that cannot complete a
+  full-corpus run.
