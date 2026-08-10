@@ -1,16 +1,17 @@
 ---
 id: "2026-08-10-green-the-suite"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/green-the-suite
-locked_by: "claude-code:planner"
-locked_at: "2026-08-10T19:40:00Z"
-last_agent: "claude-code:program-manager"
-last_updated: "2026-08-10"
+locked_by: null
+locked_at: null
+last_agent: "claude-code:planner"
+last_updated: "2026-08-10T19:40:19Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 3
+lint: "PASS 157 2026-08-10T19:40:29Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -91,7 +92,53 @@ but **that is a hypothesis, not the triage** — verify each by running the row.
 
 ## Next Steps
 
-_(Planner fills this in.)_
+### FX1 — OK gap-idiom: bridge the interposed clause between quoted term and "shall mean" (US-OK)
+
+`extract_quote_anchored_entries`'s tight-idiom gate (`us_markers_boundary.py`)
+requires "means"/"shall mean" essentially immediately after a term's closing
+quote, so it does not bridge OK's real `The term "person" as used in this
+act shall mean ...` idiom (a clause interposed between subject and verb).
+Verified live: today's real pipeline creates 0 `Definition` rows for
+`STATE_OK_T47_S47-157.5` (anchor `person` entirely absent). Fix: a narrow,
+scoped rule for this shape (same pattern as `us_markers_tn_idiom.py`'s TN
+gap-bridge), not a corpus-wide loosening of the shared tight gate (false
+positive risk, U-R1).
+Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_a_ok_gapidiom.py::test_real_pipeline_recovers_ok_gap_idiom_definition -q`
+
+### FX2 — Register US-NM in `us_markers_inline_quote.py`'s `_JURISDICTIONS`
+
+NM's dominant convention (lettered `A. "term" means ...` runs) is already
+correctly parsed by the shipped `extract_quote_anchored_entries` engine when
+simulated — NM is simply absent from the tuple wiring it into the live
+pipeline. Verified live: today's real pipeline creates 0 `Definition` rows
+for `STATE_NM_C13_A4B_S13-4B-2` (all 5 real terms absent). Registration-only
+fix; re-verify against the fully-clean bucket before widening further (the
+mixed means/includes bucket is out of scope here).
+Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_b_nm.py::test_real_pipeline_recovers_all_five_nm_lettered_definitions_end_to_end -q`
+
+### FX3 — Register US-NV in `us_markers_inline_quote.py`'s `_JURISDICTIONS`
+
+NV's dominant convention (bare digit-dot markers, curly-quoted terms with
+internal padding spaces) is already correctly parsed by the shipped engine
+when simulated — NV is absent from the same tuple as FX2. Verified live:
+today's real pipeline creates 0 `Definition` rows for
+`STATE_NV_T34_C396_S396.005` (all 5 real terms absent). Registration-only
+fix. (NV's separate cross-reference classifier gap is tracked as XFAIL issue
+#24, not part of this item.)
+Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_b_nv.py::test_real_pipeline_recovers_all_five_nv_higher_education_definitions_end_to_end -q`
+
+## Stale-pin sweep
+
+Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
+`backend/tests/e2e/`, `frontend/src/components/__tests__/*.test.tsx`. This
+sprint changes no production code and no assertions — only adds
+`xfail(strict=True)` to 20 already-RED tests, leaving 3 RED as FIX gates —
+so there is no behavior change that could strand a pin. `grep -rlE` for the
+23 tests' own node ids and fixed row/term names hits only the tests' own
+files plus the sibling GREEN c5guard regression-guard files, which already
+document (in their own header comments) that these exact terms' defective
+captures are pinned separately, RED, elsewhere — already correctly
+cross-referenced, not stale. Result: **none**. Full detail: sprint log.
 
 ## Dev Complete
 
