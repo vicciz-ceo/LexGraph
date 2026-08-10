@@ -144,6 +144,43 @@ REAL defect confirmed live against a real vendored row (see the sprint log
   `USC_T15_C12_S431`, `STATE_SC_T5_C1_S5-1-20`, `STATE_TN_T50_C2_
   S50-2-115` -- so no entry can swallow commentary appended after the
   operative text.
+- `_EXCLUSION_CLAUSE_BRIDGE_RE` (issue #25, sprint 2026-08-10-green-the-
+  suite) bridges the gap between a term's own closing quote and its own
+  idiom ACROSS a `"Term," (as distinguished from|except as used in)
+  "excluded phrase[s]," means ...` disambiguation aside -- NV UCC's own
+  convention, confirmed live on `STATE_NV_T8_C104_S104.1201`/`...
+  S104.9102` (Agreement/Contract/Party/Account/Accounting/Assignee/
+  Record). Without this bridge, the tight gate skips the OUTER term (no
+  idiom immediately after its own quote) and instead matches the INNER
+  excluded quote (immediately followed by `," means`), capturing the real
+  term's own definition text under the excluded phrase's WRONG name and
+  losing the real term entirely -- an anchor LOSS, not a mere quality
+  defect. Unlike `allow_relative_qualifiers`, this bridge is always on
+  (not opt-in): its trigger is a specific, narrow phrase pair immediately
+  followed by a QUOTED exclusion, structurally distinct from -- and far
+  narrower than -- the "means somewhere later in the sentence" shape
+  ruling U-R1 guards against, so it is safe as a default across every
+  caller. Every quote consumed as part of a successful bridge is recorded
+  in `excluded_spans` and skipped by the main loop, so the excluded
+  phrase(s) never separately qualify as their own definiendum -- the
+  actual fix, not just an addition alongside the old defect (see
+  `extract_quote_anchored_entries`'s own loop).
+- `trailing_stop_limit`/`compute_hard_stops`/`close_entries` are
+  `extract_quote_anchored_entries`'s own three phases (trim to the
+  trailing-stop limit; find marker hard-stops; close each `starts` entry
+  against them) factored out as their own reusable functions (sprint
+  2026-08-10-green-the-suite, item FX1) so a sibling rule module with its
+  OWN idiom-recognition regex -- a quote-to-idiom gap shape this module's
+  own tight gate structurally cannot bridge without corpus-wide risk (see
+  `_TIGHT_IDIOM_RE`'s own entry above) -- still gets this module's
+  already-proven boundary-closing behavior (hard-stop markers,
+  `MAX_CLEAN_DEFINITION_LENGTH`'s unbounded-only ceiling,
+  `_TRAILING_MARKER_CHAIN_RE`) instead of reinventing a weaker version of
+  it. `us_markers_ok_gapidiom.py` (OK's `"X" as used in this <act|
+  chapter|...>  <means|shall mean|has the meaning>` gap-idiom shape) is
+  the first such caller. `extract_quote_anchored_entries` itself is
+  unchanged in behavior -- it now simply calls these three phases in
+  sequence rather than inlining them.
 """
 
 from __future__ import annotations
@@ -168,6 +205,30 @@ _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE = re.compile(
     r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
     r'(?:(?:when used (?:in reference to|to indicate)|with respect to)\s+'
     r'[^.\n]{1,300}?,\s*)?'
+    r'(?:means|shall mean|has the meaning)\b:?\s*',
+    re.IGNORECASE,
+)
+
+# Issue #25 (NV UCC): `"Term," (as distinguished from|except as used in)
+# "excluded phrase[, "phrase2", ... and "phraseN"]," means ...` -- a bounded,
+# always-on bridge (unlike `allow_relative_qualifiers`, not opt-in) between a
+# term's own closing quote and its own idiom, ONLY across this specific,
+# recognizable disambiguation phrase pair immediately followed by at least
+# one quoted exclusion. `[^.\n]{0,400}?` (lazy) deliberately excludes
+# periods/newlines from the bridged span so an unrelated sentence boundary
+# can never be silently swallowed -- confirmed against both real NV UCC rows
+# (`STATE_NV_T8_C104_S104.1201`, `STATE_NV_T8_C104_S104.9102`), including
+# `"Account"`'s own 7-quote exclusion list interspersed with non-quoted
+# annotation text (`"commodity account" in paragraph (o), ...`) and
+# `"Record"`'s `and`-joined final pair. Deliberately does NOT match
+# `"Original debtor" means, except as used in subsection 3 of NRS
+# 104.9310, ...` (idiom precedes the clause, and the clause names an
+# unquoted subsection, not a quoted phrase) -- that shape is unaffected
+# because the tight/relative-qualifier gate above already matches it
+# directly (its own "means" sits immediately after the quote).
+_EXCLUSION_CLAUSE_BRIDGE_RE = re.compile(
+    r'[,;:]?\s*(?:as distinguished from|except as used in)\s+'
+    r'["“][^.\n]{0,400}?["”]\s*'
     r'(?:means|shall mean|has the meaning)\b:?\s*',
     re.IGNORECASE,
 )
@@ -216,39 +277,41 @@ TRAILING_STOP_RE = re.compile(
 )
 
 
-def extract_quote_anchored_entries(
-    text: str,
-    *,
-    allow_relative_qualifiers: bool = False,
-    clean_trailing_term_commas: bool = False,
-    stop_at_mn_subd_headers: bool = False,
-) -> list[tuple[str, str]]:
-    """`text` (an already-mojibake-repaired, if applicable, section/article
-    body) -> `[(term, definition_text), ...]`, each boundary-clean per this
-    module's docstring. Pure text in, pure data out -- callers (this
-    package's other rule modules) decide how to wrap the result for their
-    own registered rule kind."""
+def trailing_stop_limit(text: str) -> int:
+    """The offset `extract_quote_anchored_entries` itself trims `text` to
+    before doing anything else (the first non-operative annotation tail, if
+    any -- see `TRAILING_STOP_RE`'s own docstring entry). Exposed so a
+    sibling rule module with its OWN idiom-recognition regex (a quote-to-
+    idiom gap shape this module's own tight gate does not reach, e.g. OK's
+    `us_markers_ok_gapidiom.py`) can compute the identical working `limit`
+    before calling `compute_hard_stops`/`close_entries` below, rather than
+    re-deriving (or forgetting to derive) it independently."""
     stop = TRAILING_STOP_RE.search(text)
-    limit = stop.start() if stop else len(text)
-    idiom_re = (
-        _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE
-        if allow_relative_qualifiers
-        else _TIGHT_IDIOM_RE
-    )
+    return stop.start() if stop else len(text)
 
-    starts: list[tuple[int, str, int]] = []
-    for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
-        idiom_m = idiom_re.match(text, m.end(), limit)
-        if idiom_m is None:
-            continue
-        term = m.group(1).strip()
-        if clean_trailing_term_commas:
-            term = term.removesuffix(",").rstrip()
-        if not term:
-            continue
-        starts.append((m.start(), term, idiom_m.end()))
 
+def compute_hard_stops(
+    text: str, limit: int, *, stop_at_mn_subd_headers: bool = False
+) -> tuple[list[int], set[int], set[int]]:
+    """The marker hard-stop detection this module's own docstring
+    documents (`_DIGIT_MARKER_RE`/`_LETTER_MARKER_RE`/`_DIGIT_DOT_MARKER_RE`/
+    `_LETTER_DOT_MARKER_RE`, the list-introducer exclusion, and the MN
+    `Subd.` opt-in) -- factored out of `extract_quote_anchored_entries` so a
+    sibling rule with its own idiom regex (its OWN `starts` list, a
+    different quote-to-idiom gap shape) still gets the exact same, already-
+    proven-against-the-corpus boundary-closing behavior via `close_entries`
+    below, rather than reinventing a weaker version of it. Returns
+    `(hard_stops, mn_subd_stops, digit_based_stops)` -- `mn_subd_stops` is
+    the subset of `hard_stops` that are MN `Subd.` header offsets
+    specifically (needed by `close_entries` to decide whether `_TRAILING_
+    MARKER_CHAIN_RE` applies at a given boundary, per this module's own
+    existing behavior); `digit_based_stops` (issue #25) is the subset from
+    `_DIGIT_MARKER_RE`/`_DIGIT_DOT_MARKER_RE` specifically, as opposed to
+    the letter-marker patterns -- see `close_entries`'s own `skip_digit_
+    hard_stops_for` for why the two marker families need to be
+    distinguishable rather than treated as one undifferentiated set."""
     hard_stops: list[int] = []
+    digit_based_stops: set[int] = set()
     for m in _DIGIT_MARKER_RE.finditer(text, 0, limit):
         if _preceded_by_list_introducer(text, m.start()):
             continue
@@ -260,6 +323,7 @@ def extract_quote_anchored_entries(
             chain_end = chain_m.end()
         if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[chain_end : chain_end + 1]):
             hard_stops.append(m.start())
+            digit_based_stops.add(m.start())
     for m in _LETTER_MARKER_RE.finditer(text, 0, limit):
         if _preceded_by_list_introducer(text, m.start()):
             continue
@@ -271,16 +335,79 @@ def extract_quote_anchored_entries(
                 continue
             if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[m.end() : m.end() + 1]):
                 hard_stops.append(m.start())
+                if pattern is _DIGIT_DOT_MARKER_RE:
+                    digit_based_stops.add(m.start())
     mn_subd_stops: set[int] = set()
     if stop_at_mn_subd_headers:
         mn_subd_stops.update(m.start() for m in _MN_SUBD_HEADER_RE.finditer(text))
         hard_stops.extend(mn_subd_stops)
+    return hard_stops, mn_subd_stops, digit_based_stops
 
+
+def close_entries(
+    text: str,
+    limit: int,
+    starts: list[tuple[int, str, int]],
+    hard_stops: list[int],
+    mn_subd_stops: set[int] | None = None,
+    *,
+    skip_digit_hard_stops_for: frozenset[int] = frozenset(),
+    digit_based_stops: frozenset[int] = frozenset(),
+) -> list[tuple[str, str]]:
+    """Given `starts` (`(term_quote_start, term, definition_start)` tuples,
+    IN TEXT ORDER -- the shape `extract_quote_anchored_entries`'s own
+    quote+idiom loop produces, and the shape a sibling rule's OWN idiom
+    regex must produce to reuse this), close each entry's boundary using
+    `hard_stops`/`mn_subd_stops` from `compute_hard_stops` above. Factored
+    out of `extract_quote_anchored_entries` unchanged -- see that function
+    for the full boundary-closing rationale (bounded-vs-unbounded,
+    `MAX_CLEAN_DEFINITION_LENGTH`, `_TRAILING_MARKER_CHAIN_RE`).
+
+    `skip_digit_hard_stops_for`/`digit_based_stops` (issue #25, additive,
+    both default empty -- every existing caller's behavior is unchanged): a
+    set of `definition_start` offsets to close IGNORING `digit_based_stops`
+    specifically (a paren-digit or bare-digit-dot marker, e.g. `"(2)"` or
+    `"2. "`), while still respecting every OTHER hard-stop (letter markers,
+    MN `Subd.` headers) exactly as before. `extract_quote_anchored_entries`
+    passes its own exclusion-bridge-matched entries here (see `_EXCLUSION_
+    CLAUSE_BRIDGE_RE`): a bridged entry's OWN body may contain a genuine
+    internal DIGIT enumeration (`STATE_NV_T8_C104_S104.9102`'s
+    `"Accounting"` -- `means a record: (1) Signed by a secured party; (2)
+    Indicating ...; and (3) Identifying ...`), and digit-marker hard-stop
+    detection cannot tell that "(2)"/"(3)" continue the SAME colon-
+    introduced list from a genuine sibling entry marker (the exact
+    citation-vs-marker ambiguity issue #21 scopes to core-follow-on-3, not
+    this module -- see `close_entries`'s own module docstring entry).
+    Narrowed to DIGIT markers only (not letter markers too) after corpus
+    self-verification caught a real regression in an earlier, broader
+    draft that skipped every hard-stop kind for a bridged entry:
+    `STATE_NV_T8_C104_S104.1201`'s `"Contract"` is followed by `(m)
+    "Creditor" includes ...`, `(n) "Defendant" includes ...`, and `(o)
+    "Delivery" ... means ...` -- none captured as their own `starts` entry
+    (`"includes"` is not a recognized idiom; `"Delivery"`'s own relative-
+    qualifier gap is a SEPARATE, unrelated shape this rule does not
+    bridge) -- so with ALL hard-stops skipped, `"Contract"` ran past its
+    own real one-sentence definition straight through all three unrelated
+    entries to the next actually-captured term, `"Document of title"`.
+    NV's own convention keeps digit markers to internal enumeration and
+    letter markers to top-level entries in both fixture rows, so
+    preserving letter-marker hard-stops for bridged entries while skipping
+    only digit-marker ones is correct for both real defects at once,
+    verified directly against both rows (every one of the 7 named terms
+    -- Agreement/Contract/Party/Account/Accounting/Assignee/Record --
+    closes at its own real boundary, no swallowed neighbour, no truncated
+    internal list)."""
+    mn_subd_stops = mn_subd_stops or set()
     entries: list[tuple[str, str]] = []
     for idx, (_qstart, term, dstart) in enumerate(starts):
         has_next_term = idx + 1 < len(starts)
         next_start = starts[idx + 1][0] if has_next_term else limit
-        candidate_stops = [hs for hs in hard_stops if dstart < hs < next_start]
+        if dstart in skip_digit_hard_stops_for:
+            candidate_stops = [
+                hs for hs in hard_stops if dstart < hs < next_start and hs not in digit_based_stops
+            ]
+        else:
+            candidate_stops = [hs for hs in hard_stops if dstart < hs < next_start]
         end = min([next_start, *candidate_stops])
         # A candidate is structurally BOUNDED when something REAL closes
         # it -- an explicit marker hard-stop, or a genuine subsequent
@@ -306,6 +433,64 @@ def extract_quote_anchored_entries(
             continue
         entries.append((term, definition_text))
     return entries
+
+
+def extract_quote_anchored_entries(
+    text: str,
+    *,
+    allow_relative_qualifiers: bool = False,
+    clean_trailing_term_commas: bool = False,
+    stop_at_mn_subd_headers: bool = False,
+) -> list[tuple[str, str]]:
+    """`text` (an already-mojibake-repaired, if applicable, section/article
+    body) -> `[(term, definition_text), ...]`, each boundary-clean per this
+    module's docstring. Pure text in, pure data out -- callers (this
+    package's other rule modules) decide how to wrap the result for their
+    own registered rule kind."""
+    limit = trailing_stop_limit(text)
+    idiom_re = (
+        _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE
+        if allow_relative_qualifiers
+        else _TIGHT_IDIOM_RE
+    )
+
+    starts: list[tuple[int, str, int]] = []
+    excluded_spans: list[tuple[int, int]] = []
+    bridged_dstarts: set[int] = set()
+    for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
+        if any(span_start <= m.start() < span_end for span_start, span_end in excluded_spans):
+            continue
+        idiom_m = idiom_re.match(text, m.end(), limit)
+        bridged_exclusion = False
+        if idiom_m is None:
+            bridge_m = _EXCLUSION_CLAUSE_BRIDGE_RE.match(text, m.end(), limit)
+            if bridge_m is not None:
+                idiom_m = bridge_m
+                bridged_exclusion = True
+                excluded_spans.append((m.end(), bridge_m.end()))
+        if idiom_m is None:
+            continue
+        term = m.group(1).strip()
+        if clean_trailing_term_commas or bridged_exclusion:
+            term = term.removesuffix(",").rstrip()
+        if not term:
+            continue
+        if bridged_exclusion:
+            bridged_dstarts.add(idiom_m.end())
+        starts.append((m.start(), term, idiom_m.end()))
+
+    hard_stops, mn_subd_stops, digit_based_stops = compute_hard_stops(
+        text, limit, stop_at_mn_subd_headers=stop_at_mn_subd_headers
+    )
+    return close_entries(
+        text,
+        limit,
+        starts,
+        hard_stops,
+        mn_subd_stops,
+        skip_digit_hard_stops_for=frozenset(bridged_dstarts),
+        digit_based_stops=frozenset(digit_based_stops),
+    )
 
 
 def entries_to_quoted_blocks(entries: list[tuple[str, str]]) -> list[str]:
