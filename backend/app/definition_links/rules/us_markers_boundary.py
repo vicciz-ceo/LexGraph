@@ -144,6 +144,22 @@ REAL defect confirmed live against a real vendored row (see the sprint log
   `USC_T15_C12_S431`, `STATE_SC_T5_C1_S5-1-20`, `STATE_TN_T50_C2_
   S50-2-115` -- so no entry can swallow commentary appended after the
   operative text.
+- `trailing_stop_limit`/`compute_hard_stops`/`close_entries` are
+  `extract_quote_anchored_entries`'s own three phases (trim to the
+  trailing-stop limit; find marker hard-stops; close each `starts` entry
+  against them) factored out as their own reusable functions (sprint
+  2026-08-10-green-the-suite, item FX1) so a sibling rule module with its
+  OWN idiom-recognition regex -- a quote-to-idiom gap shape this module's
+  own tight gate structurally cannot bridge without corpus-wide risk (see
+  `_TIGHT_IDIOM_RE`'s own entry above) -- still gets this module's
+  already-proven boundary-closing behavior (hard-stop markers,
+  `MAX_CLEAN_DEFINITION_LENGTH`'s unbounded-only ceiling,
+  `_TRAILING_MARKER_CHAIN_RE`) instead of reinventing a weaker version of
+  it. `us_markers_ok_gapidiom.py` (OK's `"X" as used in this <act|
+  chapter|...>  <means|shall mean|has the meaning>` gap-idiom shape) is
+  the first such caller. `extract_quote_anchored_entries` itself is
+  unchanged in behavior -- it now simply calls these three phases in
+  sequence rather than inlining them.
 """
 
 from __future__ import annotations
@@ -216,38 +232,34 @@ TRAILING_STOP_RE = re.compile(
 )
 
 
-def extract_quote_anchored_entries(
-    text: str,
-    *,
-    allow_relative_qualifiers: bool = False,
-    clean_trailing_term_commas: bool = False,
-    stop_at_mn_subd_headers: bool = False,
-) -> list[tuple[str, str]]:
-    """`text` (an already-mojibake-repaired, if applicable, section/article
-    body) -> `[(term, definition_text), ...]`, each boundary-clean per this
-    module's docstring. Pure text in, pure data out -- callers (this
-    package's other rule modules) decide how to wrap the result for their
-    own registered rule kind."""
+def trailing_stop_limit(text: str) -> int:
+    """The offset `extract_quote_anchored_entries` itself trims `text` to
+    before doing anything else (the first non-operative annotation tail, if
+    any -- see `TRAILING_STOP_RE`'s own docstring entry). Exposed so a
+    sibling rule module with its OWN idiom-recognition regex (a quote-to-
+    idiom gap shape this module's own tight gate does not reach, e.g. OK's
+    `us_markers_ok_gapidiom.py`) can compute the identical working `limit`
+    before calling `compute_hard_stops`/`close_entries` below, rather than
+    re-deriving (or forgetting to derive) it independently."""
     stop = TRAILING_STOP_RE.search(text)
-    limit = stop.start() if stop else len(text)
-    idiom_re = (
-        _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE
-        if allow_relative_qualifiers
-        else _TIGHT_IDIOM_RE
-    )
+    return stop.start() if stop else len(text)
 
-    starts: list[tuple[int, str, int]] = []
-    for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
-        idiom_m = idiom_re.match(text, m.end(), limit)
-        if idiom_m is None:
-            continue
-        term = m.group(1).strip()
-        if clean_trailing_term_commas:
-            term = term.removesuffix(",").rstrip()
-        if not term:
-            continue
-        starts.append((m.start(), term, idiom_m.end()))
 
+def compute_hard_stops(
+    text: str, limit: int, *, stop_at_mn_subd_headers: bool = False
+) -> tuple[list[int], set[int]]:
+    """The marker hard-stop detection this module's own docstring
+    documents (`_DIGIT_MARKER_RE`/`_LETTER_MARKER_RE`/`_DIGIT_DOT_MARKER_RE`/
+    `_LETTER_DOT_MARKER_RE`, the list-introducer exclusion, and the MN
+    `Subd.` opt-in) -- factored out of `extract_quote_anchored_entries` so a
+    sibling rule with its own idiom regex (its OWN `starts` list, a
+    different quote-to-idiom gap shape) still gets the exact same, already-
+    proven-against-the-corpus boundary-closing behavior via `close_entries`
+    below, rather than reinventing a weaker version of it. Returns
+    `(hard_stops, mn_subd_stops)` -- `mn_subd_stops` is the subset of
+    `hard_stops` that are MN `Subd.` header offsets specifically (needed by
+    `close_entries` to decide whether `_TRAILING_MARKER_CHAIN_RE` applies at
+    a given boundary, per this module's own existing behavior)."""
     hard_stops: list[int] = []
     for m in _DIGIT_MARKER_RE.finditer(text, 0, limit):
         if _preceded_by_list_introducer(text, m.start()):
@@ -275,7 +287,25 @@ def extract_quote_anchored_entries(
     if stop_at_mn_subd_headers:
         mn_subd_stops.update(m.start() for m in _MN_SUBD_HEADER_RE.finditer(text))
         hard_stops.extend(mn_subd_stops)
+    return hard_stops, mn_subd_stops
 
+
+def close_entries(
+    text: str,
+    limit: int,
+    starts: list[tuple[int, str, int]],
+    hard_stops: list[int],
+    mn_subd_stops: set[int] | None = None,
+) -> list[tuple[str, str]]:
+    """Given `starts` (`(term_quote_start, term, definition_start)` tuples,
+    IN TEXT ORDER -- the shape `extract_quote_anchored_entries`'s own
+    quote+idiom loop produces, and the shape a sibling rule's OWN idiom
+    regex must produce to reuse this), close each entry's boundary using
+    `hard_stops`/`mn_subd_stops` from `compute_hard_stops` above. Factored
+    out of `extract_quote_anchored_entries` unchanged -- see that function
+    for the full boundary-closing rationale (bounded-vs-unbounded,
+    `MAX_CLEAN_DEFINITION_LENGTH`, `_TRAILING_MARKER_CHAIN_RE`)."""
+    mn_subd_stops = mn_subd_stops or set()
     entries: list[tuple[str, str]] = []
     for idx, (_qstart, term, dstart) in enumerate(starts):
         has_next_term = idx + 1 < len(starts)
@@ -306,6 +336,43 @@ def extract_quote_anchored_entries(
             continue
         entries.append((term, definition_text))
     return entries
+
+
+def extract_quote_anchored_entries(
+    text: str,
+    *,
+    allow_relative_qualifiers: bool = False,
+    clean_trailing_term_commas: bool = False,
+    stop_at_mn_subd_headers: bool = False,
+) -> list[tuple[str, str]]:
+    """`text` (an already-mojibake-repaired, if applicable, section/article
+    body) -> `[(term, definition_text), ...]`, each boundary-clean per this
+    module's docstring. Pure text in, pure data out -- callers (this
+    package's other rule modules) decide how to wrap the result for their
+    own registered rule kind."""
+    limit = trailing_stop_limit(text)
+    idiom_re = (
+        _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE
+        if allow_relative_qualifiers
+        else _TIGHT_IDIOM_RE
+    )
+
+    starts: list[tuple[int, str, int]] = []
+    for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
+        idiom_m = idiom_re.match(text, m.end(), limit)
+        if idiom_m is None:
+            continue
+        term = m.group(1).strip()
+        if clean_trailing_term_commas:
+            term = term.removesuffix(",").rstrip()
+        if not term:
+            continue
+        starts.append((m.start(), term, idiom_m.end()))
+
+    hard_stops, mn_subd_stops = compute_hard_stops(
+        text, limit, stop_at_mn_subd_headers=stop_at_mn_subd_headers
+    )
+    return close_entries(text, limit, starts, hard_stops, mn_subd_stops)
 
 
 def entries_to_quoted_blocks(entries: list[tuple[str, str]]) -> list[str]:
