@@ -205,3 +205,47 @@ contracts fail:
   applies, and `last_updated` is rewritten to a full ISO-8601 timestamp.
   `locked_at` is left as originally recorded (a legitimate historical lock
   time); by commit time it is no longer in the future.
+
+## Archived: FX2/FX3 resumed verification (Developer, escalated, not shipped at the time)
+
+Moved here from the contract body by the second-pass Planner to stay inside
+the size budget. HEAD verified at `58019fc` (the handoff commit; code diff
+unchanged, not redone). Verification found two blockers the handoff could
+not have known about.
+
+**Gate tests**: FX3 (NV) gate GREEN. FX2 (NM) gate RED on its own boundary
+guard (`'fine art' in by_term["artist"].definition_text`), but the captured
+`artist` text is verified byte-correct against real
+`STATE_NM_C13_A4B_S13-4B-2` source -- "fine art" is legitimately mentioned
+inside entry A's own prose. Test-authoring defect, not an extraction defect.
+
+**Regression (new, at the time)**: `test_us_markers_g3_heal_priority_seam.py`
+pinned the exact 11-code `_OTHER_INLINE_QUOTE_CODES` tuple; FX2/FX3's
+registration extends it to 13 (+NM, +NV), breaking the exact-equality pin.
+
+**Blast radius** (real `USProfile.extract_definitions_from_section` /
+`is_definitions_heading` / `determine_scope` on post-ingest body text, full
+pinned corpus, no DB): NM (`us_nm_statutes.parquet`, 34,455 rows, 1,625
+Definitions-headed): before 47 rows/341 defs -> after 1,556 rows/12,979
+defs (+1,509 rows, +12,638 defs). NV (`us_nv_statutes.parquet`, 48,190
+rows, 1,262 Definitions-headed): before 0/0 -> after 337 rows/1,580 defs
+(+337 rows, +1,580 defs).
+
+**Spot-check** (22 definitions inspected against real source): 15 real / 7
+artifact, all 7 in 2 NV UCC rows (`STATE_NV_T8_C104_S104.1201`,
+`STATE_NV_T8_C104_S104.9102`). Root cause: NV's UCC drafting convention
+`"Term," except as used in "excluded-phrase," means ...` / `"Term," as
+distinguished from "other-term," means ...` double-quotes the excluded
+phrase; the engine captures the LAST quoted phrase before "means" as its
+own spurious entry carrying the PRECEDING term's real definition text.
+Confirmed real terms lost: Agreement, Contract, Party (1201); Account,
+Accounting, Assignee, Record (9102). Rate: 7/1,580 (0.44%) of NV's new
+definitions, 0/12,638 of NM's. This spot-check finding became issue #25.
+
+**Resolution** (between this entry and HEAD `523c22f`): the director/manager
+adjudicated the escalation -- `test_us_markers_g3_heal_priority_seam.py`'s
+stale pin was re-pointed to the 13-code tuple, and NM's test-authoring
+defect (naive `'fine art' in ...` substring guard) was replaced with a
+correct check, both in commit `523c22f`. FX2 and FX3 gates are now GREEN
+(re-verified by the second-pass Planner); the artifact this verification
+found is tracked separately as issue #25, not part of FX2/FX3's own scope.
