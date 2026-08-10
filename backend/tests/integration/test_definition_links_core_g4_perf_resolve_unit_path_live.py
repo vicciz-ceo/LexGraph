@@ -88,6 +88,18 @@ class _WindowRecorder:
         self.windows.append((pos, endpos))
         return self._pattern.search(string, pos, endpos)
 
+    def match(self, string, pos=0, endpos=None):
+        if endpos is None:
+            endpos = len(string)
+        self.windows.append((pos, endpos))
+        return self._pattern.match(string, pos, endpos)
+
+    def fullmatch(self, string, pos=0, endpos=None):
+        if endpos is None:
+            endpos = len(string)
+        self.windows.append((pos, endpos))
+        return self._pattern.fullmatch(string, pos, endpos)
+
 
 def _many_marker_tokens_body() -> str:
     """A realistic-shaped body: plain filler prose (no citation/structural
@@ -172,6 +184,9 @@ def test_resolve_unit_path_total_probe_work_grows_linearly_not_quadratically_wit
     full_work = _total_probe_work(full_body)
     half_work = _total_probe_work(half_body)
 
+    assert full_work > 0, "expected at least some discriminator probe work on full body"
+    assert half_work > 0, "expected at least some discriminator probe work on half body"
+
     # A bounded (O(1)-per-token) lookback gives each token roughly the SAME
     # probe budget, so halving the token count should roughly halve total
     # work -- generously, no more than a 3x reduction (vs. the ~4x this
@@ -218,6 +233,7 @@ def test_pathological_federal_row_probe_window_stays_bounded():
             setattr(us_profile, name, pattern)
 
     windows = [w for recorder in recorders.values() for w in recorder.windows]
+    assert windows, "expected at least one suffix-regex probe to run at the last marker token"
     oversized = [w for w in windows if (w[1] - w[0]) > _MAX_SANE_WINDOW]
     assert not oversized, (
         f"real evidenced row USC_T17_C1_S115 (150,551 bytes, contract-measured "

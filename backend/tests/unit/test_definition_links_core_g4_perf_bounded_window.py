@@ -84,6 +84,18 @@ class _WindowRecorder:
         self.windows.append((pos, endpos))
         return self._pattern.search(string, pos, endpos)
 
+    def match(self, string, pos=0, endpos=None):
+        if endpos is None:
+            endpos = len(string)
+        self.windows.append((pos, endpos))
+        return self._pattern.match(string, pos, endpos)
+
+    def fullmatch(self, string, pos=0, endpos=None):
+        if endpos is None:
+            endpos = len(string)
+        self.windows.append((pos, endpos))
+        return self._pattern.fullmatch(string, pos, endpos)
+
 
 def _recorded_windows(body: str, token_start: int) -> list[tuple[int, int]]:
     """Call the REAL, unpatched `_citation_or_xref_context` for `token_start`
@@ -135,6 +147,9 @@ def test_citation_or_xref_context_probe_window_does_not_grow_between_a_near_and_
 
     near_windows = _recorded_windows(body, near_start)
     far_windows = _recorded_windows(body, far_start)
+
+    assert near_windows, "expected at least one suffix-regex probe to run at near position"
+    assert far_windows, "expected at least one suffix-regex probe to run at far position"
 
     near_max = max((w[1] - w[0] for w in near_windows), default=0)
     far_max = max((w[1] - w[0] for w in far_windows), default=0)
