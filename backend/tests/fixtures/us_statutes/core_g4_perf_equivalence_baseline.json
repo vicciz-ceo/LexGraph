@@ -1,0 +1,460 @@
+{
+  "chain_continuation_or_connector": {
+    "paths": {
+      "clause follows": [
+        {
+          "kind": "upper_alpha",
+          "value": "C"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "upper_alpha",
+          "value": "C"
+        }
+      ],
+      "without reopening any entry": [
+        {
+          "kind": "upper_alpha",
+          "value": "B"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 3,
+        "rejected": false,
+        "start": 0,
+        "token": "A"
+      },
+      {
+        "end": 24,
+        "rejected": false,
+        "start": 21,
+        "token": "B"
+      },
+      {
+        "end": 56,
+        "rejected": true,
+        "start": 53,
+        "token": "1"
+      },
+      {
+        "end": 59,
+        "rejected": false,
+        "start": 56,
+        "token": "a"
+      },
+      {
+        "end": 66,
+        "rejected": false,
+        "start": 63,
+        "token": "1"
+      },
+      {
+        "end": 69,
+        "rejected": false,
+        "start": 66,
+        "token": "b"
+      },
+      {
+        "end": 118,
+        "rejected": false,
+        "start": 115,
+        "token": "C"
+      }
+    ]
+  },
+  "digit_ladder_with_rejections": {
+    "paths": {
+      "a first item": [
+        {
+          "kind": "digit",
+          "value": "1"
+        },
+        {
+          "kind": "lower_alpha",
+          "value": "i"
+        }
+      ],
+      "a second item": [
+        {
+          "kind": "digit",
+          "value": "1"
+        },
+        {
+          "kind": "lower_alpha",
+          "value": "i"
+        }
+      ],
+      "begins here": [
+        {
+          "kind": "digit",
+          "value": "2"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "digit",
+          "value": "2"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 2,
+        "rejected": false,
+        "start": 0,
+        "token": "1"
+      },
+      {
+        "end": 75,
+        "rejected": false,
+        "start": 72,
+        "token": "a"
+      },
+      {
+        "end": 107,
+        "rejected": true,
+        "start": 104,
+        "token": "1"
+      },
+      {
+        "end": 150,
+        "rejected": false,
+        "start": 147,
+        "token": "b"
+      },
+      {
+        "end": 185,
+        "rejected": false,
+        "start": 182,
+        "token": "i"
+      },
+      {
+        "end": 207,
+        "rejected": false,
+        "start": 203,
+        "token": "ii"
+      },
+      {
+        "end": 226,
+        "rejected": false,
+        "start": 223,
+        "token": "2"
+      }
+    ]
+  },
+  "lone_section_and_ladder_deferral": {
+    "paths": {
+      "before a real clause": [
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ],
+      "citation above": [
+        {
+          "kind": "digit",
+          "value": "1"
+        },
+        {
+          "kind": "lower_alpha",
+          "value": "a"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "digit",
+          "value": "1"
+        },
+        {
+          "kind": "lower_alpha",
+          "value": "a"
+        }
+      ],
+      "entry follows": [
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 5,
+        "rejected": false,
+        "start": 0,
+        "token": "NEW"
+      },
+      {
+        "end": 58,
+        "rejected": false,
+        "start": 56,
+        "token": "1"
+      },
+      {
+        "end": 116,
+        "rejected": true,
+        "start": 113,
+        "token": "a"
+      },
+      {
+        "end": 174,
+        "rejected": false,
+        "start": 171,
+        "token": "a"
+      }
+    ]
+  },
+  "lower_alpha_ladder_full_usc_citation": {
+    "paths": {
+      "a first sub-item": [
+        {
+          "kind": "lower_alpha",
+          "value": "b"
+        },
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "lower_alpha",
+          "value": "c"
+        }
+      ],
+      "second sub-item": [
+        {
+          "kind": "lower_alpha",
+          "value": "b"
+        },
+        {
+          "kind": "digit",
+          "value": "2"
+        }
+      ],
+      "top level": [
+        {
+          "kind": "lower_alpha",
+          "value": "c"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 3,
+        "rejected": false,
+        "start": 0,
+        "token": "a"
+      },
+      {
+        "end": 55,
+        "rejected": true,
+        "start": 51,
+        "token": "13"
+      },
+      {
+        "end": 76,
+        "rejected": false,
+        "start": 73,
+        "token": "b"
+      },
+      {
+        "end": 102,
+        "rejected": false,
+        "start": 99,
+        "token": "1"
+      },
+      {
+        "end": 127,
+        "rejected": false,
+        "start": 124,
+        "token": "2"
+      },
+      {
+        "end": 150,
+        "rejected": false,
+        "start": 147,
+        "token": "c"
+      }
+    ]
+  },
+  "newline_exception_positive_and_negative": {
+    "paths": {
+      "clause follows": [
+        {
+          "kind": "upper_alpha",
+          "value": "G"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "upper_alpha",
+          "value": "G"
+        }
+      ],
+      "stays rejected": [
+        {
+          "kind": "upper_alpha",
+          "value": "F"
+        }
+      ],
+      "top-level entry": [
+        {
+          "kind": "upper_alpha",
+          "value": "F"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 15,
+        "rejected": false,
+        "start": 12,
+        "token": "F"
+      },
+      {
+        "end": 83,
+        "rejected": true,
+        "start": 77,
+        "token": "1965"
+      },
+      {
+        "end": 133,
+        "rejected": false,
+        "start": 130,
+        "token": "G"
+      }
+    ]
+  },
+  "structural_word_forward_and_backward_context": {
+    "paths": {
+      "controls when both conflict": [
+        {
+          "kind": "lower_alpha",
+          "value": "a"
+        }
+      ],
+      "end_of_body": [
+        {
+          "kind": "lower_alpha",
+          "value": "b"
+        },
+        {
+          "kind": "digit",
+          "value": "2"
+        }
+      ],
+      "primary": [
+        {
+          "kind": "lower_alpha",
+          "value": "b"
+        },
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ],
+      "secondary": [
+        {
+          "kind": "lower_alpha",
+          "value": "b"
+        },
+        {
+          "kind": "digit",
+          "value": "2"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 3,
+        "rejected": false,
+        "start": 0,
+        "token": "a"
+      },
+      {
+        "end": 17,
+        "rejected": true,
+        "start": 14,
+        "token": "b"
+      },
+      {
+        "end": 69,
+        "rejected": false,
+        "start": 66,
+        "token": "b"
+      },
+      {
+        "end": 115,
+        "rejected": false,
+        "start": 112,
+        "token": "1"
+      },
+      {
+        "end": 131,
+        "rejected": false,
+        "start": 128,
+        "token": "2"
+      }
+    ]
+  },
+  "upper_alpha_ladder_bare_state_code": {
+    "paths": {
+      "end_of_body": [
+        {
+          "kind": "upper_alpha",
+          "value": "B"
+        },
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ],
+      "external reference": [
+        {
+          "kind": "upper_alpha",
+          "value": "A"
+        }
+      ],
+      "one sub-item": [
+        {
+          "kind": "upper_alpha",
+          "value": "B"
+        },
+        {
+          "kind": "digit",
+          "value": "1"
+        }
+      ]
+    },
+    "token_verdicts": [
+      {
+        "end": 3,
+        "rejected": false,
+        "start": 0,
+        "token": "A"
+      },
+      {
+        "end": 40,
+        "rejected": true,
+        "start": 37,
+        "token": "b"
+      },
+      {
+        "end": 70,
+        "rejected": false,
+        "start": 67,
+        "token": "B"
+      },
+      {
+        "end": 96,
+        "rejected": false,
+        "start": 93,
+        "token": "1"
+      }
+    ]
+  }
+}
