@@ -246,6 +246,24 @@ def run_definition_linking(
     for art, matcher_article, raw_body in live_articles:
         profile = _profile_for_document(art.document_id)
         is_definitions_section = profile.is_definitions_heading(art.heading, matcher_article.body)
+        # A heading recognized only by a REGISTERED HeadingRule (verb-form
+        # `"X" defined`, compound/mid-token headings) is in exactly the
+        # position `heading_was_derived` was created for: the heading is a
+        # reliable signal, but the body is inline prose the `(N)`-block
+        # splitter cannot parse, so the inline-quoted fallback must stay
+        # reachable. Without this, recognizing such a heading REMOVES its
+        # definitions -- measured on SD `11-9-10` ("Blighted area defined"),
+        # which went 1 -> 0 the moment a heading rule started matching it.
+        # `profile.is_definitions_heading` tries the baseline literal check
+        # first and only then registered rules, so comparing against the
+        # baseline isolates the rule-recognized class exactly and leaves the
+        # 7 states already working off `section_title` byte-for-byte alone.
+        rule_only = getattr(profile, "heading_recognized_only_by_rule", None)
+        recognized_by_registered_rule = bool(
+            is_definitions_section
+            and callable(rule_only)
+            and rule_only(art.heading, matcher_article.body)
+        )
 
         # Wave 6 (ruling R12): CA/IL/GA leave a bare placeholder in
         # `section_title` (`Article.heading`), so the check above always
@@ -320,7 +338,7 @@ def run_definition_linking(
                 section_candidates = profile.extract_definitions_from_section(
                     matcher_article.body,
                     scope=scope,
-                    heading_was_derived=used_body_derived_heading,
+                    heading_was_derived=used_body_derived_heading or recognized_by_registered_rule,
                 )
             # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
             # `determine_scope_assignments` replaces the old bare

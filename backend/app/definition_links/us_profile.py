@@ -1747,6 +1747,26 @@ class USProfile:
                 return True
         return False
 
+    def heading_recognized_only_by_rule(self, heading: str, body: str = "") -> bool:
+        """True when ONLY a registered `HeadingRule` recognizes this heading.
+
+        The baseline literal check is authoritative when it fires, so this is
+        false for the 7 states already working off `section_title` -- their
+        behavior stays byte-for-byte unchanged. It is true for the class
+        registered rules add (verb-form `"X" defined`, compound/mid-token
+        headings), where the heading is a reliable signal but the body is
+        inline prose the `(N)`-block splitter cannot parse. `pipeline.py` uses
+        it to keep the inline-quoted fallback reachable for that class.
+        """
+        from app.definition_links.rules import registry
+
+        if is_definitions_heading(heading):
+            return False
+        return any(
+            rule.matches(heading) and (rule.body_confirms is None or rule.body_confirms(body))
+            for rule in registry.heading_rules_for(self.code)
+        )
+
     def normalize_for_parsing(self, text: str) -> str:
         return normalize_for_parsing(text)
 

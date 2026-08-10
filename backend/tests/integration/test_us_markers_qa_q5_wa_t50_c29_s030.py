@@ -137,18 +137,24 @@ def test_extraction_layer_directly_yields_the_heading_implied_term(db_session, m
     )
 
 
-def test_real_full_pipeline_still_creates_zero_definitions_today_recognition_gap_confirmed(
+def test_real_full_pipeline_now_creates_the_definition_recognition_gap_closed(
     db_session, matter_with_users
 ):
-    """NOT a RED on the extraction layer (see the previous test) -- proves
-    the OTHER half of this row's story: through the REAL, UNMODIFIED
-    end-to-end pipeline (`run_definition_linking`, which gates on
-    `is_definitions_heading`/`derive_heading_from_body` before ever calling
-    `extract_definitions_from_section`), this row creates ZERO Definition
-    rows today. The gap is entirely on the RECOGNITION side (headings
-    panel's H-R1/Q-C), not the extraction side (this sprint's) -- this test
-    documents that boundary precisely so neither panel over- or
-    under-claims ownership."""
+    """The other half of this row's story, now CLOSED.
+
+    This pinned the recognition gap: through the real, unmodified end-to-end
+    pipeline this row used to create ZERO Definition rows, because
+    `run_definition_linking` gates on `is_definitions_heading` /
+    `derive_heading_from_body` before it ever calls
+    `extract_definitions_from_section`. Extraction was never the blocker (see
+    the previous test); recognition was, and it belonged to the headings
+    panel (H-R1/Q-C).
+
+    Merging `claude/defs-us-headings` closed it: a registered `HeadingRule`
+    now matches this heading, and the pipeline keeps the inline-quoted
+    fallback reachable for rule-recognized headings, so the row yields its
+    definition end-to-end. Re-authored per this test's own instruction --
+    Q-C's acceptance condition is met at BOTH layers."""
     row = _load_row()
     ingest_us_statute_rows(
         db_session,
@@ -164,10 +170,12 @@ def test_real_full_pipeline_still_creates_zero_definitions_today_recognition_gap
         triggered_by_user_id=matter_with_users["contributor_id"],
     )
     definitions = [db_session.get(Definition, d["id"]) for d in result["created_definitions"]]
-    assert definitions == [], (
-        f"expected ZERO definitions from the real end-to-end pipeline today (recognition "
-        f"gap unresolved) -- got {[(d.terms, d.definition_text) for d in definitions]!r}. "
-        "If this now creates definitions, recognition has been fixed and this test (and "
-        "the extraction-layer test above) together prove Q-C's acceptance condition is "
-        "fully met end-to-end -- update this test's assertion and notify the manager."
+    found_terms = {term for d in definitions for term in d.terms}
+    assert IMPLIED_TERM in found_terms, (
+        f"the recognition gap has REOPENED -- expected the heading-implied term "
+        f"{IMPLIED_TERM!r} from the real end-to-end pipeline, got "
+        f"{[(d.terms, d.definition_text) for d in definitions]!r}. Either a registered "
+        "HeadingRule stopped matching this heading, or the inline-quoted fallback stopped "
+        "being reachable for rule-recognized headings (pipeline.py, "
+        "`recognized_by_registered_rule`)."
     )
