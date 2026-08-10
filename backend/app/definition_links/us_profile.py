@@ -1485,26 +1485,72 @@ def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str]]:
     return tokens
 
 
+# Every probe below is a suffix pattern anchored with `\Z` at `trimmed_end`,
+# so a match can never start earlier than `trimmed_end - _SUFFIX_PROBE_
+# WINDOW` chars back without the window being provably too small. Derived
+# from the five patterns themselves (see each pattern's definition above),
+# not guessed, and not copied from any test's own headroom constant:
+#
+#   - `_STRUCTURAL_UNIT_WORD_SUFFIX_RE`: a closed, finite alternation over
+#     `_STRUCTURAL_UNIT_WORDS` with no quantifier -- its longest member,
+#     "subdivision", is 11 characters. Fully bounded already.
+#   - `_FULL_USC_CITATION_SUFFIX_RE`
+#     (`\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*\Z`), the longest of the four
+#     citation-suffix patterns: literal "U.S.C." (6 chars) + "§" (1 char) =
+#     7 fixed characters, plus four variable spans that are only ever a
+#     *citation's own* digits/whitespace in real statute text (never
+#     document-spanning prose) -- a leading title number (real US Code
+#     titles run 1-54, so 2 digits; budgeted 4), three whitespace runs
+#     between literal tokens (ordinarily one space each; budgeted 8 apiece
+#     for stray formatting), and the trailing numeric pin-cite chain
+#     (real citations chain at most a handful of dot/hyphen-separated
+#     numeric components, e.g. "115-6-2" or "522.13"; budgeted 10
+#     components x 5 chars = 50). Sum: 4 + 8 + 6 + 8 + 1 + 8 + 50 = 85.
+#   - `_SECTION_CITATION_SUFFIX_RE`, `_LONE_SECTION_CITATION_SUFFIX_RE`,
+#     `_BARE_STATE_CODE_CITATION_SUFFIX_RE` are each a strict subset of the
+#     full-U.S.C. pattern's shape (shorter literal prefix, same bounded
+#     digit-chain tail), so none exceeds 85 either.
+#
+# 85 chars is therefore a proven upper bound on every real citation shape
+# these five patterns recognize -- corroborated independently by the sprint
+# contract's own measurement ("a full-U.S.C. cite is the longest, well
+# under 100 chars") and by the RED tests' 4096-char ceiling (~40x that same
+# ~100-char figure). `_SUFFIX_PROBE_WINDOW` below is set to 512: ~6x this
+# derived 85-char bound and ~5x the contract's independently measured
+# ~100-char figure, generous headroom for formatting irregularities the
+# corpus has not yet been observed to contain, while staying 8x under the
+# RED tests' 4096-char ceiling and orders of magnitude below real document
+# sizes -- so every probe's cost becomes a small O(1) constant instead of
+# O(document position).
+_SUFFIX_PROBE_WINDOW = 512
+
+
 def _citation_or_xref_context(body: str, token_start: int) -> tuple[str | None, int]:
     """Return the immediate context identity and its whitespace-trimmed end.
 
     Structural words and the four citation suffix branches remain distinct so
     G4's measured cross-newline exception can be limited to `Section` and
-    lone-`§` citations.  Uses `search(body, 0, trimmed_end)` (endpos, not a
-    slice) so `\\Z` anchors at `trimmed_end` without copying `body`.
+    lone-`§` citations.  Uses `search(body, probe_start, trimmed_end)`
+    (endpos, not a slice) so `\\Z` anchors at `trimmed_end` without copying
+    `body`; `probe_start` is bounded to `_SUFFIX_PROBE_WINDOW` chars back
+    from `trimmed_end` since every probe pattern is a suffix match that can
+    never legitimately start further back than that (see
+    `_SUFFIX_PROBE_WINDOW`'s own comment for the derivation) -- this bounds
+    each probe's cost to O(1) instead of O(`trimmed_end`).
     """
     trimmed_end = token_start
     while trimmed_end > 0 and body[trimmed_end - 1].isspace():
         trimmed_end -= 1
-    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, 0, trimmed_end):
+    probe_start = max(0, trimmed_end - _SUFFIX_PROBE_WINDOW)
+    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "structural", trimmed_end
-    if _FULL_USC_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _FULL_USC_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "full_usc", trimmed_end
-    if _SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _SECTION_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "section", trimmed_end
-    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "lone_section", trimmed_end
-    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "bare_state_code", trimmed_end
     return None, trimmed_end
 
