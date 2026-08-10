@@ -305,7 +305,12 @@ def run_definition_linking(
             # add only non-colliding section candidates so a later, broader
             # section candidate cannot reach persistence or Stage 3.
             local_candidate_keys: set[tuple[str, ...]] = set()
-            if used_body_derived_heading:
+            # Same reason as the section-extraction gate below: a heading
+            # recognized only by a registered rule must not lose the ordinary
+            # local-scope definitions its body carries. Measured on a Kansas
+            # verb-form heading row, where recognizing the heading dropped four
+            # locally-scoped terms the baseline captured.
+            if used_body_derived_heading or recognized_by_registered_rule:
                 if b1_winner:
                     local_candidates = profile.extract_local_scope_definitions(
                         matcher_article.body,

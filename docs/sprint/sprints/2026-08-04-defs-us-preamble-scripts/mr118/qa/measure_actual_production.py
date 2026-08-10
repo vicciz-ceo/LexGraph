@@ -142,6 +142,15 @@ def registered_b1_winner(*, legacy_derive, registry, b1_rule, jurisdiction_code:
 def capture(profile, body: str, raw: str, row: dict, *, current: bool) -> list[tuple[tuple[str, ...], object]]:
     heading = row["section_title"] or ""
     recognized = profile.is_definitions_heading(heading, body)
+    # Mirror pipeline.py: a heading recognized ONLY by a registered HeadingRule
+    # keeps the inline-quoted fallback reachable. Without this the harness
+    # measures a different program than the one that ships -- it reported a
+    # 3,311-record net LOSS on the merged headings tree purely because it
+    # modelled the pre-fix behaviour.
+    rule_only = getattr(profile, "heading_recognized_only_by_rule", None)
+    recognized_by_registered_rule = bool(
+        current and recognized and callable(rule_only) and rule_only(heading, body)
+    )
     derived = None
     if not recognized:
         derive_b1 = getattr(profile, "derive_body_preamble_match", None)
@@ -171,10 +180,11 @@ def capture(profile, body: str, raw: str, row: dict, *, current: bool) -> list[t
             profile.extract_local_scope_definitions(
                 body, article_number=row["section_number"] or "", chapter=row["chapter"],
             )
-            if derived is not None else []
+            if (derived is not None or recognized_by_registered_rule) else []
         )
         section = profile.extract_definitions_from_section(
-            body, scope=scope, heading_was_derived=derived is not None,
+            body, scope=scope,
+            heading_was_derived=(derived is not None) or recognized_by_registered_rule,
         )
     seen: set[tuple[str, ...]] = set()
     ordered: list[tuple[tuple[str, ...], object]] = []
