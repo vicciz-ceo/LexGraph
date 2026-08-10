@@ -1319,3 +1319,47 @@ verbatim during the merge) — no tampering; recorded closed.
   expectation the thing that is wrong; (2) only then pick the structural rule
   that yields it; (3) confirm it against all 16 failures by running them, never
   by argument (P-R11).
+
+- 2026-08-10 (DIRECTOR STANDARD D-GREEN, and a finding this manager should have
+  surfaced days ago: **CI has been RED on `main` since at least 2026-08-05**).
+
+  Director: "all the tests in the test suite represent the final stage of the
+  repo and the CI turns green." Binding, program-wide, from now on.
+  WHAT THIS MANAGER HAS BEEN DOING WRONG. Every status report in this program
+  has quoted the backend suite as "24 failed / 1292 passed — exactly the accepted
+  23-marker + held-T35 ledger, zero new failures" and treated that as a PASS. It
+  is not a pass. It is a red build, and the "accepted ledger" framing made a
+  broken CI look like bookkeeping.
+  THE ACTUAL STATE, verified now rather than assumed:
+  - `main` @ `be4370b`, run locally: **23 failed / 979 passed.**
+  - `main`'s CI on GitHub: the last FIVE runs are `failure` (be4370b, 6cdf7c7,
+    71e3a4a, 62972b5) or `cancelled` (7208dcf, the markers merge itself). The
+    repo has not had a green main since before 2026-08-05.
+  - PR #20 checks: `backend (py3.12)` FAIL, `backend (py3.13)` FAIL,
+    `sprint contract lint` FAIL, `frontend (typecheck + vitest)` PASS.
+  - `.github/workflows/ci.yml` runs on push to `main` and on every
+    `pull_request`, so this has been visible on every PR the program opened.
+  ROOT OF IT: the 23 are RED tests deliberately committed by the markers panel
+  as known-defect markers and merged to main at `7208dcf`. Committing a red test
+  to mark a defect is a reasonable local move; merging it to `main` converts the
+  suite from a gate into a noticeboard, and every subsequent panel inherited a
+  baseline it could not distinguish its own regressions from. P-R17 and P-R18
+  both cost real time for exactly this reason — a signal that is always red
+  carries no information.
+  **D-GREEN (binding). No branch merges to `main` while its CI is red, and
+  `main`'s own CI must be restored to green.** Two legitimate resolutions per
+  failing test, chosen per test with evidence:
+    (a) FIX the defect so the test passes; or
+    (b) RE-AUTHOR the test to assert what the code correctly does today, with
+        the unfixed gap tracked as a sprint item or a GitHub issue.
+  A third mechanism is acceptable where the defect is real but deferred:
+  `pytest.mark.xfail(strict=True)` with an issue link — it keeps the defect
+  visible, keeps CI green, and FAILS LOUDLY if the behavior is silently fixed.
+  **Forbidden:** deleting tests, weakening assertions, broad `skip`, or
+  non-strict `xfail` to manufacture green. The anti-gaming diff check applies —
+  any commit claiming to green the suite gets a manager diff read, and a hunk
+  that weakens an assertion is rejected.
+  SEQUENCING CONSEQUENCE: D-GREEN sits AHEAD of P-R20's core perf fix in the
+  queue, because a red baseline is what makes every downstream measurement
+  ambiguous. The `sprint contract lint` failure is in scope too — the contract is
+  over its size budget and the harness's own lint gate has been failing unread.
