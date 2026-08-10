@@ -1085,8 +1085,17 @@ verbatim during the merge) — no tampering; recorded closed.
       narrowing, hazard catalogue x2, HI contractual-quote P-FP.
     - 4 scoped-inline tests break under preamble: subsection-degrade x3
       (Maine), subsection-outermost-negative (Alabama).
-  Two previously-failing accepted-ledger tests went GREEN, so the merge is not
-  purely destructive.
+  CORRECTION (same day, on re-running all three suites and taking the actual set
+  difference rather than inferring from the tallies): **zero** previously-failing
+  tests go green under the merge. The earlier "two went green" line was read off
+  the passed/failed counts, not off the failure names, and was wrong — the merged
+  tree is 41 failed / 1362 passed with `-p no:randomly`, the preamble baseline is
+  24 failed / 1292 passed, scoped-inline alone is 857 passed / 0 failed, and the
+  set difference is 17 net-new of which one is the g7 integration-pin probe
+  artifact (production moved after the pin on a throwaway merge branch). Sixteen
+  real net-new failures, 12 + 4 as listed. The interaction IS purely destructive
+  on the test estate. P-R11's lesson generalizes: read the executed names, never
+  infer a delta from a summary line.
   ROOT SHAPE: scoped-inline registers a `US-*` ScopeTriggerRule for the same
   "As used in this section" bodies B1 recognizes as body-preambles. Both fire;
   neither yields. This is a precedence/ownership question between two panels,
