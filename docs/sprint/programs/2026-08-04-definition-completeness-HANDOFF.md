@@ -127,21 +127,41 @@ Use `git show <branch>:docs/sprint/sprints/<id>.md`. Real state:
 
 | Sprint | Status | Items | QA cycles | Unmerged prod |
 |---|---|---|---|---|
-| `defs-us-headings` | **qa-certified** | 15/15 | 4 | 727 lines |
+| `defs-us-headings` | **merged into this branch @ `cdfa699`, in PR #20** | 15/15 | 4 | — |
 | `defs-il` | review | 8/12 | 4 | 2,355 lines |
 | `defs-us-pr` | in_progress (planner) | 14 dev-complete / 33 | 4 | 1,857 lines |
 | `defs-us-scoped-inline` | in_progress (developer) | 0/1 | 2 | 796 lines |
 | `defs-us-multiterm` | planning | 0/11 | 2 | 636 lines |
 
-All five branches were last touched 2026-08-05. **6,371 lines of production
-code sit unmerged.** `defs-us-headings` is QA-certified and has been waiting
-five days. Three panels sit one cycle from the safety valve, so the
-non-convergence dynamic is program-wide, not a preamble quirk — P-R12 applies
-to all of them.
+The four remaining branches were last touched 2026-08-05 and hold **5,644
+lines** of unmerged production. Three panels sit one cycle from the safety
+valve, so P-R12 applies to all of them.
+
+### Read this before merging any two panels (P-R17)
+
+Merging headings into preamble registered 3 `US-*` HeadingRules that had NEVER
+registered before — nothing imported the package until `rules/__init__.py`'s
+`pkgutil` auto-discovery reached it. Recognition then preempted the
+body-preamble derived path and silently switched off two separately-gated
+extractors: the inline-quoted fallback (SD `11-9-10`, 1 -> 0 definitions) and
+local-scope extraction (KS `46-225`, 5 -> 1 tuples). **Neither panel could see
+it — each half is inert without the other**, and the interaction lands on
+`main` when the SECOND branch merges, so sequenced single-panel PRs only defer
+it. Measure co-firing panels on the MERGED tree before either merges.
+
+Two more traps this exposed, both now ruled:
+
+- **P-R16** — `measure_actual_production.capture()` REIMPLEMENTS pipeline
+  Stage 2 rather than calling it. After a pipeline fix it kept modelling the
+  old program and reported a 3,311-record net loss that did not exist. If you
+  change the pipeline, mirror it into the harness or the numbers are fiction.
+- Decompose removals at ANCHOR granularity before reacting. The first
+  corrected run showed 1,170 removals; 826 were remove+add pairs on the same
+  `(row, term)` — text changed, definition kept. Genuine anchor losses: 8.
 
 Merged and done: `defs-core-scope` (@ `06d67d8`), `defs-core-dispatch`
 (@ `8524067`), `defs-core-follow-on-2` (@ `d783052`), `defs-us-markers`
-(@ `7208dcf`).
+(@ `7208dcf`), `defs-us-headings` (in PR #20).
 
 ## Ordered next actions
 

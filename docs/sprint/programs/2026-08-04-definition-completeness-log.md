@@ -976,3 +976,37 @@ verbatim during the merge) — no tampering; recorded closed.
   registered across 11 jurisdictions wins precedence, so the repair reshapes
   every numbered definitions section in VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK. Routed
   to the named core boundary follow-on.
+
+- 2026-08-10 (director: include headings in PR #20). Merged `claude/defs-us-headings`
+  (qa-certified 15/15, unmerged since 2026-08-04) into `claude/defs-us-preamble`.
+  It adds only new files — the `us_heading_variants/` package, 727 lines across
+  7 modules — and touches no shared production file; the single merge conflict
+  was a fixtures README where both branches appended docs, resolved as a union.
+  TWO CROSS-PANEL REGRESSIONS, invisible to either panel alone (P-R17). Nothing
+  imported the headings package until `rules/__init__.py`'s `pkgutil`
+  auto-discovery reached it on merge, so its 3 `US-*` HeadingRules had never
+  registered. Registering them made heading recognition PREEMPT the
+  body-preamble derived path, and two separately-gated extractors went dark:
+  the inline-quoted fallback (SD `11-9-10`: 1 -> 0 definitions) and local-scope
+  extraction (KS `46-225`: 5 -> 1 persisted tuples, 4 lost at `local` scope).
+  Both fixed symmetrically behind `USProfile.heading_recognized_only_by_rule`,
+  which reports the class where the baseline literal check says no and a
+  registered rule says yes — baseline positives untouched, so the 7
+  `section_title` states stay byte-for-byte identical.
+  A THIRD defect in the instrument (P-R16): `measure_actual_production.capture()`
+  reimplements pipeline Stage 2 instead of calling it, so it kept modelling the
+  pre-fix behaviour and reported a 3,311-record net LOSS the live pipeline did
+  not have, while the suite driving the real `run_definition_linking` stayed
+  green. Both gates mirrored into the harness.
+  DECOMPOSITION THAT PREVENTED A WRONG CALL: the first corrected run showed
+  1,170 removals, which reads as catastrophic under D-RECALL-FP. At anchor
+  granularity 826 of them were remove+add pairs on the SAME `(row, term)` —
+  text changed, anchor kept, byte quality under D-MAP — leaving 8 genuine
+  anchor losses, of which 6 were the local-gate defect, 1 is issue #19 and 1 a
+  Colorado row. The raw count overstated the harm by two orders of magnitude.
+  FINAL STATE: the combined tree is certificate-IDENTICAL to preamble alone —
+  592,357 records / `49140dde…`, delta 345 = 341 removals + 4 additions /
+  `db52f060…`, missing 0, extra 0 — and the deletion-side screen returns the
+  same 3 Indiana rows (2 plural-repair replacements + issue #19). Headings
+  therefore costs nothing inside the B1-winner population; its own recall gains
+  sit in rows outside that population and are not measured by this harness.

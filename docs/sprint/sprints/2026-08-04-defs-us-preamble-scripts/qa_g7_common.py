@@ -28,7 +28,7 @@ SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
 # validate_integration() rather than measuring the tree under test. The
 # integration SHA also seeds the D-PFP-400 sample rank, so the sample and all
 # G7 hashes recorded against the old pin are void and must be regenerated.
-INTEGRATION_SHA = "00b5b5cec67cd1f26a912b12c4fed95318799584"
+INTEGRATION_SHA = "a4bd37daf1a7da43863c65bc27f67b280e3f1d19"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")

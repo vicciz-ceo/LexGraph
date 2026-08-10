@@ -114,7 +114,7 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 | `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
 | `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **M-R122 ACCEPTED AND EXECUTED (M-R123, 2026-08-09).** Program manager took the accept/reject at program altitude after the director escalated non-convergence; four independent auditors re-decided all 207 keys from the pinned parquet (207/207 excerpt-integrity, 205 agree). One-file Developer port landed at `941661b`. Executed all-53 acceptance: 193,830 members / 592,334 records, **368 = 364 removals + 4 additions**, `49a9d3f7…00933d`, missing 0, extra 0, byte-identical to the prototype. Focused 54/54, legacy 13/13, prototype 86/86, backend 1199P/24F (accepted ledger, zero new), frontend 165 + tsc clean. Certificate CLOSED per P-R11. Named residual: pre-quote alias mis-bodied tuples → shared extraction + D-MT-E1. Outstanding: QA cycle 5's D-PFP-400 sample adjudication only. | 3rd pending merge slot |
 | `2026-08-04-defs-us-markers` | `claude/defs-us-markers-core2-integration` | **MERGED to main @ 7208dcf** (2026-08-06). Combined G3-HEAL QA PASS: 21 focused; backend 979 + 23 named residuals; frontend 165; typecheck clean. Exact full-corpus scope: 17 reviewed WA-only changes; rejected broad forms reproduce 99 and 12,774. G7 headed denominators exact; zero counts VA48/WA116/WV297/WI62/WY56/FED139/DC331. | **DONE — second merge slot** |
-| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
+| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | **QA-CERTIFIED 15/15 (4 QA cycles) and MERGED into `claude/defs-us-preamble` @ `cdfa699`** (2026-08-10) — ships in PR #20. 727 lines, all new files (`us_heading_variants/` package), no shared-file edits. Its 3 `US-*` HeadingRules had never actually registered before the merge; registering them exposed the P-R17 recognition-preempts-derivation interaction, fixed in the same branch. Post-fix the combined tree is certificate-identical to preamble alone. | **DONE — in PR #20** |
 | `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
 | `2026-08-04-defs-us-pr` | `claude/defs-us-pr` | NEW: Puerto Rico Spanish-language rules — Definiciones headings, significa / A los fines de / se entenderá por idioms, Spanish scope phrases; ~529 sections 100% missed today | 2+ (after core) |
 | `2026-08-04-defs-core-dispatch` | `claude/defs-core-dispatch` | **MERGED to main @ 8524067** (2026-08-04): 11 items, QA PASS (770/0/165/tsc, program-manager checklist run). P-R8 CLOSED — all 7 rule kinds live + mutation-proven on both profiles; level-aware containment (M-D3/v2.7 + erratum: panels declare scope_unit_kind from their OWN measured convention, never the illustrative table); 3-ladder resolver (federal/digit/upper-alpha outermost); Maine annotation + citation fixes | **DONE** |
@@ -399,6 +399,36 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   explicit defining relation, permitting an intervening colon, newline and
   enumerator. This is the implementable form of ABSOLUTE ZERO-MISS; before it,
   the recall bar had no gate at all.
+
+- **P-R16 — a measurement harness may not reimplement the path it measures
+  (program manager, 2026-08-10, binding).** `measure_actual_production.capture()`
+  is a hand-copy of pipeline Stage 2 rather than a call into it. When the
+  pipeline gained a seam fix, the harness kept modelling the old program and
+  reported a **3,311-record net loss that the live pipeline did not have**,
+  while the test suite driving the real `run_definition_linking` stayed green.
+  A reimplementing harness is a second source of truth that drifts silently and
+  invalidates every number it has ever produced the moment production moves.
+  Every measurement harness must either call the real entry point, or carry an
+  equivalence assertion against it that fails when the two diverge. Same failure
+  family as the stale `INTEGRATION_SHA`: an instrument that looks authoritative
+  while measuring something else.
+- **P-R17 — cross-panel interactions are only findable on the merged tree
+  (program manager, 2026-08-10).** Merging the qa-certified headings panel into
+  the preamble branch registered 3 `US-*` HeadingRules that had never been
+  registered at all (nothing imported the package until `rules/__init__.py`'s
+  `pkgutil` auto-discovery reached it). Recognition then PREEMPTED the
+  body-preamble derived path, and two separately-gated extractors went dark:
+  the inline-quoted fallback (SD `11-9-10`, 1 -> 0 definitions) and
+  local-scope extraction (KS `46-225`, 5 -> 1 tuples, 4 lost at `local` scope).
+  Neither panel could see it: each half is inert without the other. Because the
+  interaction lands on `main` when the SECOND of two branches merges, sequenced
+  single-panel PRs only defer it. Panels whose rules can co-fire are measured on
+  the merged tree BEFORE either merges. Fixed symmetrically behind
+  `USProfile.heading_recognized_only_by_rule`; baseline-recognized headings are
+  untouched, so the 7 `section_title` states stay byte-for-byte identical.
+  Post-fix the combined tree is certificate-IDENTICAL to preamble alone
+  (592,357 records, `49140dde…`, 345 = 341 + 4, `db52f060…`) and the
+  deletion-side screen returns the same 3 Indiana rows.
 
 ## Core QA cycle 1 verdict (2026-08-04)
 
