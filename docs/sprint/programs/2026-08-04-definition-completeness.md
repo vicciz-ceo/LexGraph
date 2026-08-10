@@ -294,6 +294,24 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   predominantly phantom. The deletion-side screen (P-R15) is now the PRIMARY
   gate, because under D-RECALL-FP a miss is the expensive defect.
 
+- **D-CYCLES (director, 2026-08-10): the QA-cycle budget is RAISED to 8 for
+  `defs-il` and `defs-us-pr`; every item runs to completion.** Both sat at 4 of
+  5 with 4 and 19 items open, so the harness valve would have stopped them
+  before the work could close. Chosen over shipping-certified-and-deferring:
+  the director wants full coverage, not a smaller certified core. The valve is
+  not removed — it moves to 8, and P-R12's six-consecutive-rejection hard stop
+  still applies underneath it, so a panel that cannot converge still escalates
+  rather than grinding. `defs-us-scoped-inline` and `defs-us-multiterm` stay at
+  the standard 5; they are at 2.
+- **D-MERGE (director, 2026-08-10): panels land PROGRESSIVELY into the
+  PR #20 branch, each re-measured on the merged tree as it certifies.** Chosen
+  under P-R17: all four remaining panels register rules into the same shared
+  registry, and the headings merge proved co-firing panels break each other
+  invisibly (SD 1 -> 0, KS 5 -> 1) with the damage only visible on the merged
+  tree. Separate per-panel PRs would surface those interactions on `main`,
+  after review, where they are hardest to attribute. Cost accepted: a full
+  all-53 acceptance run plus G7 regeneration per panel added.
+
 ## Program rulings added during execution
 
 - **D-DF (director, 2026-08-04): the "defined for" heading rule ships
