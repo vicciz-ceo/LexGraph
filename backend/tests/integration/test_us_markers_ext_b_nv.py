@@ -139,14 +139,6 @@ def test_real_pipeline_recovers_all_five_nv_higher_education_definitions_end_to_
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "classification-only mislabel of a genuinely-empty row; "
-        "classify_correctly_empty is not wired into the live pipeline so no "
-        "anchor is lost; see #24"
-    ),
-)
 def test_nv_cross_reference_idiom_is_not_yet_recognized_as_correctly_empty():
     """`STATE_NV_T3_C40_S40.426` -- a real, genuine NV cross-reference body
     ("the words and terms defined in NRS 40.427 , 40.428 and 40.429 have
