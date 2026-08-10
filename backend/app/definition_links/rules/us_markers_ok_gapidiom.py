@@ -105,7 +105,7 @@ def _split(text: str) -> list[str]:
             continue
         starts.append((m.start(), term, m.end()))
 
-    hard_stops, mn_subd_stops = compute_hard_stops(text, limit)
+    hard_stops, mn_subd_stops, _digit_based_stops = compute_hard_stops(text, limit)
     entries = close_entries(text, limit, starts, hard_stops, mn_subd_stops)
     return entries_to_quoted_blocks(entries)
 
