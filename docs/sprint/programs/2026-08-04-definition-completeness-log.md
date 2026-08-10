@@ -1278,3 +1278,44 @@ verbatim during the merge) — no tampering; recorded closed.
   MERGE ORDER: core perf fix -> re-time the merged tree against the 230
   pathological rows -> specificity_order -> Families B and C -> re-run the all-53
   certificate. PR #20 stays preamble+headings only until that sequence completes.
+
+- 2026-08-10 (P-R21 WITHDRAWN — the independent panel refuted this manager's own
+  ruling, and verification confirmed the refutation).
+
+  The judge panel deliberated WITHOUT being shown the ruling, deliberately, so
+  its verdict would be a check rather than a ratification. It earned that design.
+  **Three judges, three different answers, all medium confidence, each leaving
+  5-7 of the 16 failures unfixed:** minimal-change -> `b1_wins`; recall ->
+  `specificity_order`; seam-architecture -> `union_both`. No consensus is itself
+  the finding: no single discipline is clearly right on the present evidence.
+  **The refuter then killed the ruled option on mechanism, not opinion.**
+  `specificity_order` says the candidate with the more specific resolved scope
+  wins the term key. On the exact collisions it was ruled to fix — R5/R8/R9, the
+  HI guard and the MR118 trio, all bare "In this section," / "As used in this
+  chapter," triggers where unit != subsection — **both colliding candidates carry
+  `scope_unit_kind = None` and no resolved UnitPath. There is nothing to
+  compare.** Manager-verified in source rather than accepted on report:
+  `registry.default_scope_assignment` returns `ScopeAssignment(kind=scope,
+  value=None)` for anything that is not chapter or local, so B1's `law-wide`
+  candidate carries no path by construction (registry.py:358-372); and
+  scoped-inline's `_event_scope` returns `_SCOPE_BY_UNIT[unit], None, None` for
+  every non-subsection unit (us_scoped_inline.py:167-170). The ruled discipline
+  cannot execute on the cases it was ruled to decide.
+  A second problem the refuter's proposed repair exposes, recorded so the next
+  ruling does not walk into it: ranking the scope KIND label structurally
+  (subsection > local > chapter > law-wide) makes the comparison definite but
+  makes NARROWER win — and the failing tests demand `law-wide`, i.e. the BROADER
+  scope. So the repair as stated would keep the tests red. Whatever replaces
+  P-R21 must first settle the semantic question the tests already answer — which
+  scope is CORRECT for a bare "In this section," definiendum — and only then
+  choose a structural rule that produces it. This manager ruled a mechanism
+  before settling that, which is the error.
+  **STANDING: P-R20 is unchallenged and is now the only ruled item.** No judge
+  and no refuter disputed it, and M2's corpus-wide screen strengthened it — see
+  below. Core perf fix first, ahead of the panel queue, is unchanged.
+  **P-R21 is WITHDRAWN. Precedence is NOT ruled.** What settles it, in order:
+  (1) adjudicate the semantics of bare "In this section," against pinned source —
+  is the certified `law-wide` answer right, or is the preamble panel's own
+  expectation the thing that is wrong; (2) only then pick the structural rule
+  that yields it; (3) confirm it against all 16 failures by running them, never
+  by argument (P-R11).
