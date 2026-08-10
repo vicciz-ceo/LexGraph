@@ -327,17 +327,51 @@ def _strip_marker_chain_before_quote(line: str) -> str | None:
     return rest
 
 
-def _entry_start_remainder(line: str) -> str | None:
+# Issue #23 (sprint 2026-08-10-green-the-suite, item 1): mirrors
+# `us_markers_boundary.py`'s own already-proven "list-introducer exclusion"
+# (see that module's docstring) -- a bare digit marker is never a hard
+# entry boundary when the text immediately before it (skipping only
+# whitespace/blank lines) ends in `:` or an em dash `—`, because that
+# punctuation itself says "the following IS this clause's own content",
+# not a new sibling entry. Deliberately narrower than the sibling engine's
+# version: it gates ONLY the unconditional bare-digit FALLBACK below, never
+# `_strip_marker_chain_before_quote`'s own quote-anchored path. A marker
+# immediately followed by its own quote (e.g. TX's `(A) "contested case";`
+# nested under a `(4) ... Section 2001.003:` redirect clause) is a real
+# defined-term anchor of its own and must keep opening its own block --
+# suppressing it here would merge it into the still-quote-less parent block
+# and delete the term's own anchor entirely (the ORIGINAL AL/TX defect this
+# item closes was already "term survives, content lost"; a naive universal
+# suppression would regress that to "term lost too"). That shape -- an
+# orphaned, colon-terminated introducer immediately followed by its own
+# quote-anchored lettered children (TX's `(4) The following terms have the
+# meanings assigned by Section 2001.003:` then `(A) "contested case";`) --
+# was deliberately left UNFIXED after a real, later-withdrawn attempt; see
+# the comment above `_split_into_numbered_blocks` for why (a real MI
+# corpus row this item's own blast-radius measurement found is marker-
+# structurally identical but semantically opposite, and no marker-KIND-only
+# signal separates the two).
+_LIST_INTRODUCER_TAIL_RE = re.compile(r"[:—]\s*$")
+
+
+def _entry_start_remainder(line: str, *, preceded_by_list_introducer: bool = False) -> str | None:
     """Return the remainder of `line` with its leading entry marker(s)
     stripped if `line` starts a new definition entry, else `None`. Tries
-    the (quote-anchored) marker-chain rule first; falls back to the
-    original unconditional bare-digit-marker rule so a later bare
-    "(N)" still closes out an open block even with no quote right after
-    it (see the rationale comment above `_MARKER_TOKEN_RE`).
+    the (quote-anchored) marker-chain rule first -- ALWAYS, regardless of
+    `preceded_by_list_introducer` (see the comment above
+    `_LIST_INTRODUCER_TAIL_RE` for why); falls back to the original
+    unconditional bare-digit-marker rule so a later bare "(N)" still closes
+    out an open block even with no quote right after it (see the rationale
+    comment above `_MARKER_TOKEN_RE`) -- UNLESS `preceded_by_list_
+    introducer` is True, in which case this bare digit marker is this
+    entry's own nested-list content (issue #23), not a boundary, and the
+    caller folds it into whatever block is currently open instead.
     """
     chain_remainder = _strip_marker_chain_before_quote(line)
     if chain_remainder is not None:
         return chain_remainder
+    if preceded_by_list_introducer:
+        return None
     digit_match = _BARE_DIGIT_MARKER_RE.match(line)
     if digit_match is not None:
         return line[digit_match.end() :]
@@ -492,18 +526,72 @@ def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
     return end
 
 
+# Issue #23 continued -- TX's OWN mirror-image shape (an orphaned
+# DIGIT-marked introducer clause, no leading quote of its own, immediately
+# followed by its own LETTER-marked quote-anchored children: `(4) The
+# following terms have the meanings assigned by Section 2001.003:` then
+# `(A) "contested case";` / `(B) "party";` / ...) was DELIBERATELY NOT
+# fixed here, after a real attempt. The natural fix -- fold the orphan's
+# own redirect text forward into each following quote-anchored child --
+# was implemented and then WITHDRAWN once this item's own mandated
+# corpus-wide blast-radius measurement (see the Developer report) found it
+# corrupting real, already-complete, unrelated MI definitions:
+# `STATE_MI_C206_AAct-281-of-1967_S206.278`'s subsections `(1)`-`(7)` are
+# ordinary numbered provisions and `(8) As used in this section:` is
+# followed by `(a) "Board" means...`, `(b) "Michigan strategic fund"
+# means...`, etc. -- MARKER-STRUCTURALLY IDENTICAL to TX's own shape (an
+# adjacent digit run ending in an orphaned, colon-terminated digit block,
+# followed by lettered quote-anchored children), but semantically the
+# OPPOSITE: TX's `(4)` genuinely redirects to external Section 2001.003
+# (its children have NO meaning without it); MI's `(8)` is ordinary
+# "as used in this section" boilerplate in front of terms that are ALREADY
+# fully self-contained -- folding it forward only appends noise. No
+# purely marker-KIND/position signal (the only kind M-R107 permits) was
+# found that tells these two real shapes apart; every version tried either
+# missed MI (a whole-document "digit exists somewhere" check) or still hit
+# it (a same-run "immediately adjacent digit sibling" check -- MI's `(8)`
+# sits directly after digit-marked `(7)`, exactly like TX's `(4)` after
+# `(3)`). Escalated rather than shipped: see the Developer report's
+# ESCALATION section. `test_us_markers_qa_q3_tx_2009_003.py::test_part_a_
+# red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub`
+# remains RED; AL's own fix above (`_entry_start_remainder`'s bare-digit
+# suppression) is unaffected and does not share this ambiguity -- it only
+# ever folds a nested list INTO its own already-open quote-anchored
+# parent, never fans a redirect out to separate sibling candidates.
+
+
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
     current: list[str] | None = None
+    prev_nonblank = ""
     for line in lines:
-        new_entry_start = _entry_start_remainder(line)
+        # Issue #23 correction (MI/PA blast-radius finding): suppression
+        # only ever makes sense when there is an ALREADY-OPEN block for
+        # the marker to fold forward into (AL's "(1)" right after "(a)
+        # "Acquire" means:" -- `current` is that quote-anchored block).
+        # With no open block yet (a bare digit marker is the very FIRST
+        # thing seen, e.g. PA's own `"For the purposes of this
+        # subchapter:\n\n(1) References to ..."` construction-clause
+        # preamble), suppressing it doesn't fold it into anything -- it
+        # just SILENTLY DROPS the line with nowhere to go, which is a
+        # regression of its own (real PA guard: `_split_into_numbered_
+        # blocks` must still yield that row's 3 real digit-marked blocks,
+        # even though none of them carries a leading quote either way).
+        preceded_by_list_introducer = current is not None and bool(
+            _LIST_INTRODUCER_TAIL_RE.search(prev_nonblank)
+        )
+        new_entry_start = _entry_start_remainder(
+            line, preceded_by_list_introducer=preceded_by_list_introducer
+        )
         if new_entry_start is not None:
             if current is not None:
                 blocks.append(current)
             current = [new_entry_start]
         elif current is not None:
             current.append(line)
+        if line.strip():
+            prev_nonblank = line
     if current is not None:
         blocks.append(current)
     joined = ["\n".join(b) for b in blocks]
@@ -1751,6 +1839,283 @@ def resolve_unit_path(article, char_offset: int | None = None):
     return tuple(stack)
 
 
+# Issue #22 (sprint 2026-08-10-green-the-suite, item 2): FED's real
+# `USC_T8_C12_S1101` "serious criminal offense" over-captures the NEXT
+# structural sibling -- `(h) ... the term "serious criminal offense"
+# means-- (1) any felony; (2) ...; (3) ....` is correctly captured, but the
+# capture keeps going straight through `(i) With respect to each
+# nonimmigrant alien ...`, a completely different subsection at the SAME
+# nesting depth as `(h)` itself, plus trailing "Editorial Notes" apparatus.
+#
+# Root cause: whichever engine produced this candidate (baseline's own
+# `_split_into_numbered_blocks`, OR a registered `EntrySplitterRule` like
+# `us_markers_inline_quote.py`'s quote-anchored engine -- for THIS row it
+# is the latter, confirmed live) has no way to tell "(i)" apart from a
+# genuinely NESTED sub-item: at length 1, "i" shape-matches BOTH
+# `lower_alpha` (FED's own outermost per-subsection rung, same rung as
+# "(h)") AND `lower_roman` (a legitimately DEEPER rung, 3 levels under
+# `lower_alpha` per the federal ladder `resolve_unit_path` already uses --
+# see that ladder's own module comment). Only the document's own marker
+# HISTORY resolves the ambiguity: "(h)" already occupies the outermost
+# rung, so a later "(i)" that shape-matches that SAME rung is a SIBLING
+# popping the stack back to it, not a child. That is exactly
+# `resolve_unit_path`'s own stack-popping semantics -- reused here
+# read-only (never modified) rather than duplicated with different rules,
+# so this fix and the citation-window discriminator it calls into
+# (`_is_citation_or_xref_context`, QA-certified, sprint
+# claude/core-g4-discriminator-perf -- NOT touched or re-tuned here) never
+# drift apart.
+#
+# Deliberately a POST-PROCESSING refinement over the FINAL candidate text
+# (applied uniformly to every candidate in `USProfile.extract_definitions_
+# from_section` below, regardless of which engine produced it), not a
+# change to either engine's own boundary logic -- `us_markers_boundary.py`
+# and its sibling rule modules are owned by a concurrent sprint and out of
+# this file's scope; baseline's own last-block trailing-notes handling
+# (`_trailing_notes_boundary`) is untouched. A pure trim can only ever
+# SHORTEN a candidate's `definition_text`, never lengthen or reshape it,
+# and only fires when it can uniquely relocate that exact text inside the
+# section body -- the safest shape available for a fix applied blindly to
+# every candidate regardless of origin.
+_ANY_UNIT_MARKER_HINT_RE = re.compile(r"\([A-Za-z]+\)|(?:^|\n)[ \t]*[A-Za-z0-9]{1,2}\.[ \t]")
+
+# Supplementary to (never replacing or re-tuning) the certified
+# `_is_citation_or_xref_context` -- two independent real-FED-corpus gaps
+# in that function's own `_SECTION_CITATION_SUFFIX_RE`, both measured live
+# during this item's own mandated corpus scan (see the Developer report):
+#
+# 1. It requires a capital-S "Section" immediately before a marker to
+#    recognize it as citation context. Real USC prose routinely uses a
+#    lowercase in-sentence "section" instead -- this item's own FED
+#    fixture: `"(h) For purposes of section 1182(a)(2)(E) of this title,
+#    the term ..."` -- invisible to that check, which let the citation's
+#    own "(a)(2)(E)" pin-cite chain get misread as three genuine nested
+#    markers, corrupting the stack this trim depends on (cut "serious
+#    criminal offense" down to nothing but its own opening dash).
+# 2. It requires the section NUMBER itself to be pure digits
+#    (`\d+(?:[.\-]\d+)*`). Real USC section numbers routinely carry a
+#    trailing letter suffix from later-inserted sections (`1396a`, `77c`,
+#    `1437a`, `1395i–2`) -- invisible to EITHER capitalization, which
+#    let citations like `"section 1396a(n)(2)"` get misread the same way
+#    (cut "medicare cost-sharing" off mid-citation at "...1396a(n)").
+#
+# Both closed here, ADDITIVELY, as this function's own extra guard -- the
+# certified perf window itself (`_citation_or_xref_context`/`_is_citation_
+# or_xref_context`, sprint claude/core-g4-discriminator-perf) is not
+# touched.
+_CI_SECTION_CITATION_SUFFIX_RE = re.compile(
+    r"\bsection\s+\d+[a-z]{0,3}(?:[.\-–]\d+[a-z]{0,3})*\Z", re.IGNORECASE
+)
+
+
+def _is_extra_citation_context(text: str, token_start: int) -> bool:
+    trimmed_end = token_start
+    while trimmed_end > 0 and text[trimmed_end - 1].isspace():
+        trimmed_end -= 1
+    probe_start = max(0, trimmed_end - _SUFFIX_PROBE_WINDOW)
+    return bool(_CI_SECTION_CITATION_SUFFIX_RE.search(text, probe_start, trimmed_end))
+
+
+def _next_sequence_value(kind: str, value: str) -> str | None:
+    """The literal NEXT marker value after `value` (itself of KIND `kind`),
+    for the two kinds cheap and unambiguous to compute -- `digit` (plain
+    integer increment) and a single-char `lower_alpha`/`upper_alpha`
+    (next letter, `None` past "z"/"Z"). `None` for every other kind
+    (roman numerals need real numeral arithmetic, not attempted here) --
+    callers that get `None` back simply skip the extra check, per its own
+    call site's comment."""
+    if kind == "digit" and value.isdigit():
+        return str(int(value) + 1)
+    if kind in ("lower_alpha", "upper_alpha") and len(value) == 1:
+        nxt = chr(ord(value) + 1)
+        if kind == "lower_alpha" and nxt.islower():
+            return nxt
+        if kind == "upper_alpha" and nxt.isupper():
+            return nxt
+    return None
+
+
+def _trim_definition_at_structural_sibling(text: str, definition_text: str) -> str:
+    """If `definition_text` is a uniquely locatable, contiguous slice of
+    the full section `text`, AND this candidate has its own genuine LOCAL
+    opening marker (the marker, if any, that starts the PARAGRAPH
+    containing `definition_text`'s own start -- FED's real `"(h) For
+    purposes of ... the term \"serious criminal offense\" means--"`),
+    replay `resolve_unit_path`'s own marker-hierarchy classifier FROM that
+    opening marker (never from the start of `text`) to find a later
+    marker, still inside `definition_text`'s own span, that pops the
+    stack back to that opening marker's own rung -- a structural SIBLING
+    of the entry itself, not a nested sub-item of its own list -- and
+    truncate right before it. Returns `definition_text` UNCHANGED (never
+    longer, never reshaped) whenever it cannot be confidently located in
+    `text` (not found, or found more than once), carries no marker-shaped
+    token at all (cheap pre-filter), has no PARAGRAPH-ANCHORED opening
+    marker of its own, or no sibling is found within its own span.
+
+    The paragraph-anchor requirement is deliberate, not incidental: a
+    whole-document scan from offset 0 (tried first, then withdrawn -- see
+    the Developer report) mis-seeds on a document holding several
+    independent, parallel quoted-term definitions that each carry their
+    OWN internal `(i)/(ii)/...` sub-enumeration with no subsection
+    lettering of their own at all (real IL shape: `"Alternative retail
+    electric supplier"`, `"Base rates"`, `"Competitive service"` all sit
+    in one giant unlettered paragraph) -- an EARLIER, wholly unrelated
+    definition's own leftover marker state leaked onto a LATER one,
+    measured live emptying "Competitive service" down to nothing. A
+    candidate whose own paragraph does not itself open with a marker is
+    not FED's shape at all and is left untouched.
+    """
+    if not _ANY_UNIT_MARKER_HINT_RE.search(definition_text):
+        return definition_text
+    start = text.find(definition_text)
+    if start == -1 or text.find(definition_text, start + 1) != -1:
+        return definition_text
+    end = start + len(definition_text)
+
+    para_start = text.rfind("\n\n", 0, start)
+    para_start = 0 if para_start == -1 else para_start + 2
+    marker_probe_start = para_start
+    while marker_probe_start < start and text[marker_probe_start] in " \t":
+        marker_probe_start += 1
+    open_match = _MARKER_TOKEN_RE.match(text, marker_probe_start)
+    if open_match is None or open_match.end() > start:
+        return definition_text
+    open_token = open_match.group(0).strip().strip("()")
+    open_marker_form = "parenthesized" if text[marker_probe_start] == "(" else "period"
+    if _is_citation_or_xref_context(
+        text, marker_probe_start, open_match.end(), open_marker_form
+    ) or _is_extra_citation_context(text, marker_probe_start):
+        return definition_text
+
+    if _marker_matches_kind(open_token, "digit"):
+        ladder = _DIGIT_OUTERMOST_UNIT_PATH_LADDER
+    elif _marker_matches_kind(open_token, "upper_alpha"):
+        ladder = _OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER
+    elif _marker_matches_kind(open_token, "lower_alpha"):
+        ladder = _UNIT_PATH_LADDER
+    else:
+        return definition_text
+    stack: list[str] = [ladder[0]]
+
+    # Consume the REST of the opening marker CHAIN, if any (mirrors
+    # `_strip_marker_chain_before_quote`'s own "(d) (1)" chain philosophy,
+    # elsewhere in this module) -- a real FED row, `USC_T45_C9_S231`'s
+    # `"(b)(1) The term "employee" means (i) any individual..."`, opens
+    # with TWO adjacent marker tokens naming ONE combined position
+    # (subsection (b), paragraph (1)), not "(b)" followed by a separately
+    # NESTED "(1)" inside "employee"'s own content -- without this, the
+    # chain's own second token was indistinguishable from genuine
+    # within-content nesting and the roman items right after "means"
+    # looked, wrongly, like a rung-0 sibling (measured live: emptied
+    # "employee" down to nothing).
+    chain_end = open_match.end()
+    while True:
+        next_match = _MARKER_TOKEN_RE.match(text, chain_end)
+        if next_match is None or next_match.end() > start:
+            break
+        marker_form = "parenthesized" if text[chain_end] == "(" else "period"
+        if _is_citation_or_xref_context(
+            text, chain_end, next_match.end(), marker_form
+        ) or _is_extra_citation_context(text, chain_end):
+            break
+        next_token = next_match.group(0).strip().strip("()")
+        expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
+        if expected_kind is not None and _marker_matches_kind(next_token, expected_kind):
+            stack.append(expected_kind)
+        else:
+            matched_depth = next(
+                (i for i, kind in enumerate(stack) if _marker_matches_kind(next_token, kind)),
+                None,
+            )
+            if matched_depth is None:
+                break
+            stack = stack[: matched_depth + 1]
+        chain_end = next_match.end()
+
+    stack_len_at_start: int | None = None
+    last_rejected_end: int | None = None
+    for tok_start, tok_end, token in _iter_us_unit_marker_tokens(text):
+        if tok_start < chain_end:
+            continue
+        if tok_start >= end:
+            break
+        if last_rejected_end is not None and _CHAIN_CONNECTOR_GAP_RE.fullmatch(
+            text[last_rejected_end:tok_start]
+        ):
+            last_rejected_end = tok_end
+            continue
+        marker_form = "parenthesized" if text[tok_start] == "(" else "period"
+        if _is_citation_or_xref_context(
+            text, tok_start, tok_end, marker_form
+        ) or _is_extra_citation_context(text, tok_start):
+            last_rejected_end = tok_end
+            continue
+        last_rejected_end = None
+
+        if tok_start >= start and stack_len_at_start is None:
+            # How deep the stack already was, from the opening marker
+            # CHAIN alone, just before this candidate's own real content
+            # (past `start`) contributes anything of its own.
+            stack_len_at_start = len(stack)
+
+        expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
+        if expected_kind is not None and _marker_matches_kind(token, expected_kind):
+            stack.append(expected_kind)
+            continue
+        matched_depth = None
+        for i, kind in enumerate(stack):
+            if _marker_matches_kind(token, kind):
+                matched_depth = i
+                break
+        if matched_depth is None:
+            continue
+        # A single-char token (e.g. "i") is ambiguous between `lower_alpha`
+        # and `lower_roman` -- real FED rows measured BOTH real shapes for
+        # it: a genuine sibling popping back to the opening rung (this
+        # item's own gate, "(h)...(1)(2)(3)...(i) With respect..." -- a
+        # DIGIT rung was genuinely pushed WITHIN the entry's own content)
+        # and a genuine DEEPER roman-numeral list opening DIRECTLY under
+        # the entry's own rung with no intermediate rung at all (real FED
+        # row `USC_T5_C6_S601`'s own `"Specified agency heads"
+        # means:\n\n(i) the Attorney General;\n\n(ii) ...` -- measured
+        # live: without this guard, the trim emptied it down to its bare
+        # idiom). Only a pop back to the opening rung (`matched_depth ==
+        # 0`) AFTER the stack grew STRICTLY DEEPER than it already was at
+        # `start` (i.e. something real, like FED's own `(1)(2)(3)` digit
+        # list, was pushed by content INSIDE the entry, not merely by its
+        # own opening marker chain) is treated as a sibling; anything
+        # else cannot distinguish "sibling" from "first item of a
+        # legitimately deep list" at all, so it is left alone.
+        #
+        # `sequence_ok` closes a THIRD real shape, also found by this
+        # item's own corpus scan: `USC_T31_C38_S3801`'s `"obligation"` is
+        # item `(11)` of subsection (a)'s own digit list; a SEPARATE,
+        # SIBLING subsection `"(b) For purposes of paragraph (3) of
+        # subsection (a)--\n\n(1) each voucher, ..."` follows -- its OWN
+        # inner `(1)` shape-matches `digit` (the opening rung) and, having
+        # been genuinely pushed one level deeper by "(b)" first, passed
+        # the `len(stack) > stack_len_at_start` guard above too, cutting
+        # "obligation" off mid-subsection. `(1)` is nowhere near "(11)"'s
+        # own next real sibling ("(12)") -- for the two kinds cheap to
+        # verify (plain digit increment; next single letter), the popped-
+        # to token must be the LITERAL next value after the entry's own
+        # opening marker to count as its sibling. Kinds `_next_sequence_
+        # value` cannot compute (roman numerals) fall back to the guards
+        # above alone, unchanged.
+        next_expected = _next_sequence_value(ladder[0], open_token) if matched_depth == 0 else None
+        sequence_ok = next_expected is None or token == next_expected
+        if (
+            tok_start >= start
+            and matched_depth == 0
+            and stack_len_at_start is not None
+            and len(stack) > stack_len_at_start
+            and sequence_ok
+        ):
+            return definition_text[: tok_start - start].rstrip()
+        stack = stack[: matched_depth + 1]
+    return definition_text
+
+
 @dataclass(frozen=True)
 class USProfile:
     """The `"US-*"`/`"US-FED"` profile family -- ONE instance serves every
@@ -1865,6 +2230,34 @@ class USProfile:
 
         if not candidates and heading_was_derived:
             candidates = _extract_inline_quoted_definitions(text, scope=scope)
+
+        # Issue #22 (item 2): applied LAST, regardless of which engine
+        # above produced a given candidate -- see the trim function's own
+        # module-level comment for why this lives here as a
+        # post-processing refinement rather than inside any one engine.
+        # US-FED ONLY (this profile serves every "US-*" code, sprint
+        # 2026-08-02-us-state-law item 3): issue #22 and its own fixture
+        # are entirely about a federal row, and this item's own corpus
+        # measurement (see the Developer report) found the SAME marker
+        # shape -- an opening letter/digit marker, then a later marker at
+        # that same rung -- pinned as CORRECT, desired baseline capture by
+        # several unrelated `test_us_markers_c5guard_*.py` regression
+        # guards for MI/ND/NJ/OK ("Regression guard -- not a target"),
+        # each explicitly out of THIS item's scope and reserved for the
+        # still-RED, separately tracked `test_us_markers_c5guard_class_b_
+        # boundary_defects.py` family. No marker-structure-only signal
+        # found separates FED's real over-capture from those states' own
+        # pinned (if arguably also imperfect) captures -- scoping to the
+        # one jurisdiction this issue actually names is the safe
+        # boundary, not row/term-specific (M-R107 bars keying on rows/
+        # terms/sections/titles/sentences, not on jurisdiction code, which
+        # this profile's own architecture already dispatches everything
+        # else by, e.g. `resolve_unit_path`'s ladder selection).
+        if self.code == "US-FED":
+            for candidate in candidates:
+                candidate.definition_text = _trim_definition_at_structural_sibling(
+                    text, candidate.definition_text
+                )
         return candidates
 
     def detect_cross_law_derivations(
