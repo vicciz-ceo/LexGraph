@@ -1010,3 +1010,32 @@ verbatim during the merge) — no tampering; recorded closed.
   same 3 Indiana rows (2 plural-repair replacements + issue #19). Headings
   therefore costs nothing inside the B1-winner population; its own recall gains
   sit in rows outside that population and are not measured by this harness.
+
+- 2026-08-10 (harness resume, wave 1). Director rulings D-CYCLES (budget to 8
+  for IL and PR) and D-MERGE (progressive into the PR #20 branch, re-measured
+  per panel) recorded. Pointer retargeted off the stale
+  `2026-08-05-defs-core-follow-on-2` entry, which had merged at `d783052`.
+  ROLE RESOLUTION, read from each panel's OWN branch: `defs-il` owes two
+  SERIALIZED Developers (7 D-1a REDs committed, suite 13F/829P);
+  `defs-us-pr` owes MANAGER ARBITRATION on two escalations and has no Next
+  Steps section at all; `defs-us-scoped-inline` owes one Developer (Phase A,
+  fenced by S-R2 to a single new file); `defs-us-multiterm` owes one Developer
+  (M-R17 + M-R18, per its clean-exit dump) then a Planner for the coordinated
+  `rule`/`rule.` four-file change.
+  STALE BLOCKS IDENTIFIED: multiterm's contract still carries a BLOCKED banner
+  citing P-R8 (`TermClauseRule` dead on the live path) and a wait-for-markers
+  block on `EntrySplitterRule`. Both blocking sprints have since merged —
+  core-dispatch at `8524067`, markers at `7208dcf` — after these panels exited
+  on 2026-08-05. IL carries the same class of core-blocked item. Neither panel
+  was ever told. Both wave-1 Developer briefs carry an explicit stale-block
+  verification step and are forbidden from rebasing onto main on their own.
+  RECON FAILURE, recorded so it is not repeated: a Haiku read-only recon agent
+  reported writing a roster dossier to the scratchpad and returned a confident
+  per-panel summary. The file did not exist, and the summary was wrong on three
+  of four panels (it reported "0 open items / manager-arbitration" for IL and
+  multiterm, both of which actually owe Developers against committed REDs). The
+  manager re-derived the roster directly from the four contracts. Verify that a
+  delegated artifact exists before trusting the summary that claims it.
+  Wave-1 spawn roster (role -> agentId): developer/scoped-inline ->
+  afc259eb64ecf0eba; developer/multiterm -> a9688163a3cc83572. Both Sonnet
+  medium, own worktrees, own branches, no shared-file write set.
