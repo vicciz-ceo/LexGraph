@@ -249,3 +249,73 @@ defect (naive `'fine art' in ...` substring guard) was replaced with a
 correct check, both in commit `523c22f`. FX2 and FX3 gates are now GREEN
 (re-verified by the second-pass Planner); the artifact this verification
 found is tracked separately as issue #25, not part of FX2/FX3's own scope.
+
+## FX7 — `MAX_CLEAN_DEFINITION_LENGTH` scoping investigation, issue #27
+
+Director ruling: #21's discriminator improves 11,977 rows but costs 41 lost
+terms to the blanket 3,000-char ceiling in `us_markers_boundary.close_
+entries`; asked whether an entry the discriminator "deliberately closed by
+reaching the next captured quote with zero hard-stops" (known-closed) could
+be exempted from the ceiling regardless of length, since it is being
+misreported as unbounded.
+
+**Verified directly against `close_entries`'s own machinery, corpus-checked
+for all 41 real rows (manager/developer triage handed to this Planner:
+`mgr_lost_term_triage_result.json`, `devD_item21_blast_radius_result
+.json`)**: `bounded = bool(candidate_stops) or has_next_term` already grants
+an unconditional ceiling exemption to the "reaches next quote, zero
+hard-stops" shape (`has_next_term=True`) regardless of hard-stop count —
+that shape was never at risk from the ceiling, before or after #21.
+Re-derived `has_next_term`/`candidate_stops` structurally for all 41 lost
+`(act_id, term)` pairs against the real corpus rows: **41/41 have
+`has_next_term=False` and zero hard-stops** — the OTHER shape, "ran off the
+end of the text with nothing to close it," which this module's own
+docstring already names as the ceiling's intended target, not a
+discriminator-created false positive.
+
+Byte-verified two representative rows end to end: `STATE_NJ_T27_C1A_
+S1A-3.1`'s `"Department"` (true definition ~34 chars, `"the Department of
+Transportation."`) runs 10,319 chars into an entirely unrelated `"New
+Jersey tolling entity"` clause — that term's own idiom ("shall include")
+is outside `_TIGHT_IDIOM_RE`'s vocabulary, so it never becomes a `starts`
+entry and never bounds anything. `USC_T5_C75_S7511`'s `"furlough"` (true
+definition ~140 chars, one sentence) — the SMALLEST of the 41 overruns at
+3,017 chars — swallows an unrelated `"(b) ... (1) ... (2) ..."` Senate-
+appointment eligibility list. Both are the identical FED/TN/AZ "unbounded
+last entry" defect family the module docstring already documents, not new
+regressions from #21. (Neither row is committed as a test fixture — cited
+here as evidence only, per the QA1 Q4 fixture-vendoring norm and M-R107's
+instruction not to key a test to the 41 act_ids.)
+
+**Verdict: not buildable as framed.** The only signal available at the
+point `close_entries` decides `bounded` for a last-entry candidate is "no
+hard-stop found before end-of-text" — identical for a hypothetical
+genuinely-long-but-closed last entry and for a genuine swallow; no third
+signal exists in the data to tell them apart. Confirmed by direct
+experiment (not just argued): monkey-patching `close_entries` to treat
+every last-entry candidate as `bounded` (the only kind of widening that
+recovers the 41) does recover all 41, but simultaneously flips a synthetic
+GREEN safety case (a genuinely unbounded, marker-free, off-the-end-of-text
+entry) to wrongly survive — i.e. any fix broad enough to help is broad
+enough to break the guard's real purpose.
+
+Two tests added, both GREEN today (`backend/tests/integration/test_us_
+markers_fx7_ceiling_known_closed_scope.py`, synthetic marker-free fixtures
+per M-R107, not corpus-derived): `test_known_closed_by_next_term_already_
+survives_the_ceiling_regardless_of_length` proves the ONE real "known-
+closed" shape already works; `test_genuinely_unbounded_last_entry_still_
+dropped_by_the_ceiling` pins the guard's real purpose and is the concrete
+version of the "any recovery fix breaks this" argument above. No RED test
+exists to author — there is no code gap between "what the discriminator
+proves" and "what the ceiling currently does" for this shape. Full suite
+re-run: `2 failed, 1019 passed, 0 xfailed` (same 2 pre-existing failures,
+unchanged; +2 from this pass, both passing).
+
+Escalated to the director (see Planner report): the 41 are real capture
+defects (genuine swallows), but not ones the ceiling is wrongly punishing —
+recovering them needs either a genuinely new idiom-recognition capability
+(e.g. teaching `_TIGHT_IDIOM_RE` "shall include" so a real boundary is
+found, a materially larger change, likely its own item) or accepting them
+as an honest absence per ruling U-R1 ("captured cleanly, or not captured at
+all") rather than the previous, coincidentally-ceiling-exempt but silently
+wrong captures they replaced.

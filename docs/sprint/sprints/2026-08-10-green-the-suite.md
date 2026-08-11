@@ -6,12 +6,12 @@ branch: claude/green-the-suite
 locked_by: null
 locked_at: null
 last_agent: "claude-code:planner"
-last_updated: "2026-08-10T21:43:58Z"
+last_updated: "2026-08-11T22:48:35Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 6
-lint: "PASS 223 2026-08-10T21:45:15Z"
+total_items: 7
+lint: "PASS 236 2026-08-11T22:49:28Z"
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -65,8 +65,8 @@ plan` for file ownership and sequencing before any Developer is spawned.
 
 1. `main`'s CI goes green (backend py3.12/py3.13, frontend typecheck+vitest,
    contract lint).
-2. Every one of the 6 items below (FX1 + #21-#25) is either genuinely fixed
-   (test goes GREEN) or the director explicitly re-classifies it — no
+2. Every one of the 7 items below (FX1 + #21-#25 + FX7) is either genuinely
+   fixed (test goes GREEN) or the director explicitly re-classifies it — no
    re-marking as xfail without a fresh, argued reason.
 3. No regression: nothing passing today may start failing.
 4. Contract lint passes.
@@ -132,6 +132,19 @@ FIX-class per D-RECALL-FP (anchor loss, not quality). Fix: a guard in
 shape, so the excluded phrase is not treated as the definiendum. Same file
 as FX1 and #21 — sequence, do not parallelize.
 Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_c25_nv_ucc_except_as_used_in.py -q`
+
+### FX7 — issue #27: scope `MAX_CLEAN_DEFINITION_LENGTH` for discriminator-closed entries
+
+Investigated this pass, **not buildable as framed** — evidence, not opinion.
+All 41 of #21's lost terms have `has_next_term=False` + zero hard-stops (the
+"ran off the end of text" shape the ceiling already targets), not the
+"reaches next quote, zero hard-stops" shape the ruling named — that shape
+is *already* unconditionally exempt (`bounded = bool(candidate_stops) or
+has_next_term`). Byte-verified spot checks (NJ "Department", USC "furlough")
+show genuine swallows, not clean closures. Two GREEN tests pin the finding;
+no production fix exists to gate. Director decision needed — see Planner
+report Escalation.
+Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_fx7_ceiling_known_closed_scope.py -q`
 
 ## Parallelization plan
 
