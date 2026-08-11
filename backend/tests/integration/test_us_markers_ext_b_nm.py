@@ -38,6 +38,7 @@ linking`, both imported unmodified, same discipline as wave 1)."""
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
@@ -48,6 +49,36 @@ from app.models.definition import Definition
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes" / "us_markers_ext_b_nm.json"
 )
+
+# A bare substring check cannot tell "swallowed a neighbour's entry" apart
+# from "mentions the neighbour's term in ordinary prose" (NM's own "artist"
+# row legitimately says "...work of fine art..." twice). The structural
+# signal that actually distinguishes a swallow, generic across this whole
+# quote-anchored family (not keyed to any specific term, section number, or
+# sentence -- M-R107): a neighbour entry only ever begins its OWN captured
+# span at its quoted term immediately followed by its defining verb (the
+# same "tight idiom" shape `us_markers_boundary._TIGHT_IDIOM_RE` gates on).
+# If entry X's definition_text contains that exact construction for
+# neighbour Y, X's captured span ran past its own boundary and into Y's --
+# a real swallow. A bare mention of Y's term as prose never reproduces the
+# quote-plus-verb pair.
+_OPEN_QUOTE = '["“]'
+_CLOSE_QUOTE = '["”]'
+_DEFINING_VERB = r"(?:means|shall mean|has the meaning)\b"
+
+
+def _entry_opening_pattern(term: str) -> re.Pattern[str]:
+    """Regex for `term`'s own entry-opening construction: its quoted form
+    immediately (modulo trailing punctuation/a bracketed marker) followed
+    by the defining verb -- e.g. `"fine art" means`. Built fresh per term
+    at assertion time from whatever terms the pipeline actually returned,
+    never from a hardcoded term list."""
+    escaped = re.escape(term)
+    return re.compile(
+        rf"{_OPEN_QUOTE}\s*{escaped}\s*{_CLOSE_QUOTE}\s*[,;:]?\s*"
+        rf"(?:\([a-zA-Z]\)\s*)?{_DEFINING_VERB}",
+        re.IGNORECASE,
+    )
 
 
 def _load_row(act_id: str) -> dict:
@@ -102,11 +133,21 @@ def test_real_pipeline_recovers_all_five_nm_lettered_definitions_end_to_end(
     }, f"expected all 5 real NM terms, got {sorted(terms)!r}"
 
     by_term = {t: d for d in definitions for t in d.terms}
-    # boundary-quality guard (ruling U-R1): no entry may swallow the NEXT
-    # lettered entry's own quoted term into its own definition_text.
+    # boundary-quality guard (ruling U-R1): no entry may swallow a sibling
+    # entry's own opening construction (its quoted term immediately
+    # followed by its defining verb) into its own definition_text. A bare
+    # substring check is too weak here -- NM's real "artist" entry legally
+    # mentions the phrase "fine art" twice as ordinary prose, which a
+    # substring check cannot tell apart from an actual swallow.
     for other_term in terms:
-        assert other_term not in by_term["artist"].definition_text or other_term == "artist", (
-            f"{'artist'!r} illegally swallowed neighbour term {other_term!r}: "
+        if other_term == "artist":
+            continue
+        swallow_match = _entry_opening_pattern(other_term).search(
+            by_term["artist"].definition_text
+        )
+        assert swallow_match is None, (
+            f"{'artist'!r} illegally swallowed neighbour entry {other_term!r}'s own "
+            f"opening construction ({swallow_match.group(0)!r}): "
             f"{by_term['artist'].definition_text!r}"
         )
     assert 10 <= len(by_term["public view"].definition_text) <= 200, (

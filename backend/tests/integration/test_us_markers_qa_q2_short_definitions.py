@@ -68,6 +68,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
 from app.models.definition import Definition
@@ -183,20 +185,51 @@ def test_al_nested_numbered_list_definitions_are_not_truncated_to_the_colon(
     nested `(1)/(2)/(3)` list must not be silently truncated to a bare
     `"means:"`/`":"` fragment -- the persisted definition_text must at
     least contain the real first list-item content, proving the nested
-    list survived extraction."""
+    list survived extraction.
+
+    sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): verified live -- all
+    6 anchors ARE present (`term in by_term` holds for each); the defect is
+    a stub capture, not a lost anchor. Tracked at
+    https://github.com/vicciz-ceo/LexGraph/issues/23.
+
+    2026-08-10 (Planner, harness gap fix): `_DEGENERATE` has 6 terms but
+    only 2 distinct `act_id`/article rows (3 terms each). Ingest and
+    linking are both idempotent -- `Article` is keyed on
+    `(document.id, act_id)`, `Definition` on `(article_id, sorted terms)`
+    -- so re-ingesting the SAME row for a later term in the naive
+    per-term loop returned `created_definitions == []` (the article/
+    definitions already existed from the first touch), and the missing-
+    term assertion below failed on that later term for a reason entirely
+    unrelated to extraction. Fixed by ingesting each distinct row exactly
+    once and then asserting every one of its terms against that one
+    ingest's results -- this exercises all 6 terms instead of dying on
+    the first term of the second row."""
     rows = _load_rows()
+
+    expectations_by_act_id: dict[str, list[tuple[str, str, str]]] = {}
+    jurisdiction_by_act_id: dict[str, str] = {}
     for act_id, jurisdiction, term, degenerate_text, real_content_substring in _DEGENERATE:
+        jurisdiction_by_act_id[act_id] = jurisdiction
+        expectations_by_act_id.setdefault(act_id, []).append(
+            (term, degenerate_text, real_content_substring)
+        )
+
+    for act_id, expectations in expectations_by_act_id.items():
         definitions = _ingest_and_link(
-            db_session, matter_with_users, jurisdiction=jurisdiction, row=rows[act_id]
+            db_session,
+            matter_with_users,
+            jurisdiction=jurisdiction_by_act_id[act_id],
+            row=rows[act_id],
         )
         by_term = {t: d for d in definitions for t in d.terms}
-        assert term in by_term, f"{act_id}: {term!r} not captured at all -- got {sorted(by_term)!r}"
-        dtext = by_term[term].definition_text
-        assert dtext != degenerate_text, (
-            f"{act_id}: {term!r} is still truncated to the bare fragment {degenerate_text!r} -- "
-            "the nested numbered list that IS this term's real definition was dropped"
-        )
-        assert real_content_substring in dtext, (
-            f"{act_id}: {term!r}'s persisted definition_text does not contain the real "
-            f"nested-list content {real_content_substring!r}; got {dtext!r}"
-        )
+        for term, degenerate_text, real_content_substring in expectations:
+            assert term in by_term, f"{act_id}: {term!r} not captured at all -- got {sorted(by_term)!r}"
+            dtext = by_term[term].definition_text
+            assert dtext != degenerate_text, (
+                f"{act_id}: {term!r} is still truncated to the bare fragment {degenerate_text!r} -- "
+                "the nested numbered list that IS this term's real definition was dropped"
+            )
+            assert real_content_substring in dtext, (
+                f"{act_id}: {term!r}'s persisted definition_text does not contain the real "
+                f"nested-list content {real_content_substring!r}; got {dtext!r}"
+            )

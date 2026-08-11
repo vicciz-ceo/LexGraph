@@ -61,7 +61,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.rules.us_markers_boundary import extract_quote_anchored_entries
+
+# sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): all 16 tests below are
+# capture-quality defects, not anchor loss -- every (row, term) anchor is
+# present with real text; only its boundary is wrong (truncated citation
+# tail, premature stop after a sub-item, or a leaked next-entry marker
+# chain). Verified live against `extract_quote_anchored_entries`, not just
+# the docstrings. Tracked at https://github.com/vicciz-ceo/LexGraph/issues/21.
+#
+# sprint 2026-08-10-green-the-suite SECOND PASS (director: resolve, don't
+# just mark): _C5GUARD_XFAIL is no longer applied to any test below -- the
+# marker is removed to restore these 16 to RED, the red-before-green state
+# a Developer needs. Left defined (unused) rather than deleted so this
+# comment block and the marker's own history stay attached to one name.
+_C5GUARD_XFAIL = pytest.mark.xfail(
+    strict=True,
+    reason="capture-quality boundary defect, anchor present; see #21",
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "us_statutes"
 
