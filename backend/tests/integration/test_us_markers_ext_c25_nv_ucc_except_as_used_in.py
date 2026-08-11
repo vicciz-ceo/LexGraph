@@ -190,3 +190,75 @@ def test_nv_ucc_104_9102_real_terms_survive_except_as_used_in_disambiguation(
     _assert_real_terms_survive_disambiguation(
         db_session, matter_with_users, "STATE_NV_T8_C104_S104.9102"
     )
+
+
+# --- Regression coverage: the excluded-phrase artifact returning ----------
+#
+# green-the-suite QA cycle (anti-gaming/regression-coverage requirement):
+# `_assert_real_terms_survive_disambiguation` above only checks the REAL
+# term is present and correct -- it does not check that the EXCLUDED phrase
+# (the thing issue #25's own defect wrongly captured as its own spurious
+# entry) has actually stopped being captured. A future regression that
+# broke the bridge's own `excluded_spans` bookkeeping (see
+# `us_markers_boundary.extract_quote_anchored_entries`'s main loop) could
+# reintroduce the spurious entry ALONGSIDE the now-also-correct real term,
+# and the tests above would keep passing -- this guard closes that gap.
+_NORM_WS_RE = re.compile(r"\s+")
+
+
+def _excluded_phrases(text: str) -> list[str]:
+    """The exact excluded-phrase strings issue #25's own defect used to
+    capture as spurious entries: the LAST quoted phrase inside each
+    disambiguation clause's own excluded span, normalized/comma-stripped
+    the same way a real captured term would be. Derived structurally from
+    the row's own text (M-R107), not a hardcoded list."""
+    phrases = []
+    for m in _IDIOM_RE.finditer(text):
+        quotes = re.findall(r"“([^“”]+)”", m.group("excluded_span"))
+        if quotes:
+            phrases.append(_norm(quotes[-1]).removesuffix(",").strip())
+    return phrases
+
+
+def _assert_excluded_phrases_are_not_their_own_spurious_entries(
+    db_session, matter_with_users, act_id: str
+) -> None:
+    row = _load_row(act_id)
+    excluded = _excluded_phrases(row["text"])
+    assert excluded, f"{act_id}: structural parser found no excluded phrases to check"
+
+    definitions = _ingest_and_link(db_session, matter_with_users, act_id=act_id, row=row)
+    by_term = {t: d for d in definitions for t in d.terms}
+
+    for phrase in excluded:
+        assert phrase not in by_term, (
+            f"{act_id}: the excluded phrase {phrase!r} is captured as its OWN "
+            f"spurious entry ({by_term[phrase].definition_text!r}) -- the "
+            "except-as-used-in/as-distinguished-from bridge (issue #25) has "
+            "regressed and stopped consuming this exclusion clause"
+        )
+
+
+def test_nv_ucc_104_1201_excluded_phrases_are_not_their_own_spurious_entries(
+    db_session, matter_with_users
+):
+    """Regression guard: none of `STATE_NV_T8_C104_S104.1201`'s own excluded
+    phrases (`contract`, `agreement`, `third party` -- the exact artifacts
+    issue #25's defect used to produce) may reappear as their own top-level
+    `Definition` once the real term itself is also correctly captured."""
+    _assert_excluded_phrases_are_not_their_own_spurious_entries(
+        db_session, matter_with_users, "STATE_NV_T8_C104_S104.1201"
+    )
+
+
+def test_nv_ucc_104_9102_excluded_phrases_are_not_their_own_spurious_entries(
+    db_session, matter_with_users
+):
+    """Regression guard: none of `STATE_NV_T8_C104_S104.9102`'s own excluded
+    phrases (`statement of account`, `accounting for`, `assignee for
+    benefit of creditors`, `record owner`) may reappear as their own
+    top-level `Definition` once the real terms are also correctly
+    captured."""
+    _assert_excluded_phrases_are_not_their_own_spurious_entries(
+        db_session, matter_with_users, "STATE_NV_T8_C104_S104.9102"
+    )

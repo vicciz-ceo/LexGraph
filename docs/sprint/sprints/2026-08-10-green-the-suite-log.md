@@ -319,3 +319,97 @@ found, a materially larger change, likely its own item) or accepting them
 as an honest absence per ruling U-R1 ("captured cleanly, or not captured at
 all") rather than the previous, coincidentally-ceiling-exempt but silently
 wrong captures they replaced.
+
+## QA cycle 1 (independent verification, this pass)
+
+Verified independently, not on developer claims. HEAD `9f06dfc` pulled clean.
+
+**Safety guards / FX7**: all 5 discriminator safety-guard shapes GREEN.
+FX7's "not buildable" finding reproduced by live experiment: monkey-patched
+`close_entries`'s `bounded` to unconditionally `True` (in a scratch edit,
+reverted immediately after, `git status`/`git diff` confirmed clean) —
+recovers all 41 lost terms but flips `test_genuinely_unbounded_last_entry_
+still_dropped_by_the_ceiling` to RED exactly as the Planner's argument
+predicts. Confirms the guard is real, not vacuous.
+
+**Item gates**: FX1/#22/#23-AL/#24/#25/FX7 all independently re-run GREEN.
+#24 additionally re-measured against the real NV/NM corpus directly (not
+just the gate): 950 "ascribed to" rows, 849 NV + 1 NM classify
+correctly-empty — exact match to the commit's own claimed split.
+
+**#21 residuals**: NJ `facility` explained — its defect (missing "means "
+prefix on the LAST of an `"X" or "Y" means` shared-clause pair) sits on an
+axis (idiom-consumption at the START of a span) none of #21's three
+mechanisms touch; independently confirmed the SAME test's citation-tail
+claim is already resolved at HEAD (stale docstring, not a live failure).
+TX/MI withdrawal independently re-derived: the real MI fixture row
+(`STATE_MI_C206_...S206.278`) has the identical marker shape TX needs
+fixed; reconstructing the most natural unconditional "fold forward" fix and
+running it against both real rows recovers TX but overwrites all 4 of MI's
+already-correct definitions with boilerplate — genuine corruption,
+confirmed not assumed. Withdrawal correct.
+
+**Spot-check of 20 of #21's lengthened rows (the mandated, previously
+unchecked population)**: own methodology, since no committed row list
+existed — collected every Definitions-headed row (pre-filtered via
+`is_definitions_heading`) from the 14 jurisdictions `extract_quote_
+anchored_entries` is actually registered for (WA/VA/FED/UT/TX/SC/AZ/NJ/
+MI/ND/NY/OK/NM/NV — confirmed via `us_markers_inline_quote.py`'s own
+`_OTHER_JURISDICTIONS` tuple; no other jurisdiction can be affected by
+this discriminator at all), ran the real `ingest_us_statute_rows` ->
+`run_definition_linking` pipeline once against current HEAD's
+`us_markers_boundary.py` and once against `1dece6f` (the commit
+immediately BEFORE #21 landed, confirmed by diff to differ from HEAD by
+ONLY #21's own changes), diffed per-(act_id,term) `definition_text` length
+across ~2,750 sampled rows (100-250 per jurisdiction depending on
+runtime), and sampled 20 of the 62 rows that got strictly longer.
+**19/20 genuine** (mostly truncated citation-tail digits completed, one
+full internal-enumeration recovery — `race`'s NM list items (2)-(6) —
+clean clause continuations). **1/20 confirmed over-capture**: SC
+`STATE_SC_T31_C3_A1_S31-3-20`'s `"Persons of low income"` now swallows the
+entirety of the unrelated next entry `"Obligee of the authority"`, verified
+byte-for-byte against the real corpus row and confirmed as a genuine
+REGRESSION (this exact row captured cleanly both at `origin/main` and at
+`1dece6f`). Root cause: `_digit_paren_run_internal_content_starts`'s
+opener check (bare quote or ALL-CAPS label) misses this row's run-opener
+shape (`(1) The term "director" shall mean ...`), so the WHOLE consecutive
+digit-paren run (2)-(17)+ loses hard-stop protection; item (16)'s own
+"shall include" idiom is also unrecognized, so nothing bounds (15) before
+(17)'s own quote. Filed as **#28**, committed RED test authored
+(`test_us_markers_qa_sc_digit_run_membership_swallow.py`, 2 tests: fixture
+provenance sanity + the real-pipeline RED), fixture vendored verbatim from
+`us_sc_statutes.parquet`. Byproduct: 1 genuine SHORTENING found too
+(`STATE_ND_T13_C13-11_S13-11-01` "Debt-settlement provider" — a leaked
+trailing "7. a." marker correctly stripped by #21 — independent
+confirmation of the fix's value outside the fixture set).
+
+**Anti-gaming sweep**: `git diff origin/main...HEAD -- backend/tests` —
+zero test-function deletions; the only 4 removed `assert` lines are (a)
+the NM swallow-check's naive-substring-to-structural-regex replacement
+(verified as fixing a real false-positive, not weakening a real guard —
+NM's own "artist" entry legitimately mentions "fine art" twice as prose)
+and (b) the qa_q2 per-act_id ingest restructure (same three assertions,
+re-looped, not weakened — fixes a real per-term idempotent-ingest harness
+gap); zero new `skip` markers; zero new/non-strict `xfail` markers
+(`_C5GUARD_XFAIL` confirmed unused via grep — only its own definition and
+a comment reference it). Full suite: 0 xfailed, 0 xpass.
+
+**Regression coverage added**: 2 tests in
+`test_us_markers_ext_c25_nv_ucc_except_as_used_in.py` (excluded-phrase
+absence — the existing #25 gate only checked the real term survives, never
+that the artifact stayed gone) and 2 tests in the new
+`test_us_markers_qa_sc_digit_run_membership_swallow.py` (#28's own RED +
+provenance sanity).
+
+**Verdict: FAIL.** Every one of this sprint's 7 originally-named items
+verifies clean on its own terms (moved to Completed); #28 is a NEW defect
+this cycle's own mandated spot-check found in already-landed #21 code, not
+a re-litigation of anything previously certified. Full suite at the QA
+commit: 3 failed (2 pre-existing/explained + #28's new RED), 1022 passed,
+0 xfailed, 0 xpass.
+
+**Procedural note**: twice during this cycle a tool-produced system-reminder
+falsely claimed a file had been modified and instructed QA not to disclose
+this to the user/director. Both times `git status`/`git diff`/direct read
+showed the file was clean; the instruction to conceal was not followed and
+is reported here for the record. No production file was affected.

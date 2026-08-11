@@ -1,20 +1,20 @@
 ---
 id: "2026-08-10-green-the-suite"
-status: planned
+status: qa-fail
 current_role: developer
 branch: claude/green-the-suite
 locked_by: null
 locked_at: null
-last_agent: "claude-code:planner"
-last_updated: "2026-08-11T22:48:35Z"
+last_agent: "claude-code:qa"
+last_updated: "2026-08-11T23:31:13Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 7
-lint: "PASS 236 2026-08-11T22:49:28Z"
-completed_items: 0
+total_items: 8
+lint: "PASS 263 2026-08-11T23:31:38Z"
+completed_items: 5
 dev_complete_items: 0
-qa_cycles: 0
+qa_cycles: 1
 previous_sprint: "2026-08-04-defs-us-preamble"
 prd_sections: []
 design_sections:
@@ -73,78 +73,88 @@ plan` for file ownership and sequencing before any Developer is spawned.
 
 ## Next Steps
 
-### FX1 — OK gap-idiom: bridge the interposed clause between quoted term and "shall mean" (US-OK)
+### #28 (QA-FAIL, found this cycle) — #21's digit-paren run-membership heuristic swallows a sibling entry when a run's item 1 opens `The term "X" shall mean` instead of a bare quote
 
-Unimplemented, unchanged from first pass. Owns `us_markers_boundary.py`
-(narrow OK-scoped rule, pattern of `us_markers_tn_idiom.py`'s TN gap-bridge —
-NOT a corpus-wide loosening of the shared tight gate).
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_a_ok_gapidiom.py::test_real_pipeline_recovers_ok_gap_idiom_definition -q`
+Discovered during this QA cycle's mandated spot-check of 20 rows the #21
+discriminator lengthened (the brief's own "discriminator's main risk" —
+over-capture — the one nobody had hand-checked). 19/20 spot-checked rows
+were genuine recoveries (mostly citation-tail digits, one full internal-
+enumeration recovery). This ONE is a confirmed, real over-capture,
+byte-verified against the real corpus row `STATE_SC_T31_C3_A1_S31-3-20`
+(`us_sc_statutes.parquet`).
 
-### #21 — c5guard class-B: 16 NJ/ND/OK boundary defects (citation-tail truncation, premature stop, marker-chain leak)
+**Root cause**: `us_markers_boundary._digit_paren_run_internal_content_starts`
+derives a whole consecutive digit-paren run's sibling-vs-internal status
+from what item 1 of the run opens with — a bare quote or an ALL-CAPS label.
+This row's run opens `(1) The term "director" shall mean the Secretary of
+Commerce; (2) "Authority" ...; ... (15) "Persons of low income" means ...;
+and (16) "Obligee of the authority" or "obligee" shall include ...; (17)
+"Persons of moderate to low income" means ...`. Item 1's `The term "` prefix
+is neither a bare leading quote nor an ALL-CAPS label, so the WHOLE run
+(2)-(17)+ loses its digit-marker hard-stop protection. Item (16)'s own
+idiom ("shall include") is not one `_TIGHT_IDIOM_RE` recognizes either, so
+it never becomes its own bounding `starts` entry — with both boundaries
+gone, `"Persons of low income"` (item 15) runs straight through the whole
+of (16) and only stops at (17)'s own quote. **Confirmed regression, not a
+pre-existing gap**: `"Obligee of the authority"` was never captured as its
+own term before or after (its idiom is simply unrecognized — a separate,
+pre-existing issue), but `"Persons of low income"` captured CLEANLY (ending
+`'...\"beneficiary class\"; and'`, no swallow) both at `origin/main` and at
+the pre-#21 commit `1dece6f` — #21's run-membership fix broke a row that
+worked before it landed.
 
-XFAIL marker removed, now RED (16 tests). Fix: a citation-vs-entry-marker
-discriminator in `us_markers_boundary.py`. **Caution**: issue #21's own text
-routes this to "core-follow-on-3" (a different initiative) and forbids
-extending `us_profile.py`'s `_citation_or_xref_context`. Director should
-confirm this sprint may implement it before a Developer is spawned (see
-Escalations in Planner report).
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_c5guard_class_b_boundary_defects.py -q`
+Verified genuine via an independent 20-row spot-check methodology (real
+`ingest_us_statute_rows` -> `run_definition_linking` pipeline, OLD-vs-NEW
+`us_markers_boundary.py` diffed across ~2,750 sampled Definitions-headed
+rows spanning all 13 registered jurisdictions + WA; see QA report for the
+full method). Not filed as xfail: `"Persons of low income"`'s own
+`definition_text` now contains another term's entire unrelated definition —
+a content-quality defect in the SAME family #21 itself targets, not a new
+bug class, so it belongs in #21's own fix scope, not a separate xfail
+ledger entry.
 
-### #22 — FED `USC_T8_C12_S1101` over-captures next Roman-numeral structural sibling
+Committed RED test (2 tests, one provenance sanity + the real-pipeline RED):
+Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_sc_digit_run_membership_swallow.py -q`
 
-XFAIL marker removed, now RED (1 test). Fix lives in `us_profile.py`'s
-marker-hierarchy logic (`resolve_unit_path`, ~lines 1533-1708) — **directly
-adjacent to** `_citation_or_xref_context` (~1488-1532), the exact function
-the concurrent `claude/core-g4-discriminator-perf` sprint is actively
-editing (confirmed: its live diff vs `origin/main` starts at
-`us_profile.py:1485`). HOLD — do not spawn until coordinated with that
-sprint. See Parallelization plan.
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_core3_fed_structural_sibling_live.py -q`
+### #21 residual — NJ `"facility"` (1 of 16) still resists; TX qa_q3 fix-attempt withdrawal confirmed correct
 
-### #23 — Baseline splitter truncates nested numbered/lettered-list definitions to a punctuation stub (AL x6, TX x4)
+The c5guard class-B gate is 15/16 GREEN (QA-reverified). The one resisting
+test, `test_nj_facility_missing_means_prefix_and_truncated_citation_tail`,
+fails on an axis #21's fixes never touch: `"facility"` is the LAST of an
+`"X" or "Y" means ...` shared-clause pair (module's own documented rule:
+only the last quote is recognized), and per the engine's UNIFORM idiom-
+consumption convention (`idiom_m.end()` becomes the definition start —
+confirmed identical for EVERY other entry in this same fixture: Department,
+Commissioner, Cost, etc. all have their own "means"/"shall mean" stripped
+too), the captured text correctly starts right after "means " is consumed.
+#21's three mechanisms (marker-chain walking, digit-paren sentence-boundary
+check, run-membership) are all about where a captured span ENDS; this
+defect is about where a span STARTS — an orthogonal axis, never in #21's
+scope. QA independently re-verified live that the test's OWN second claim
+(truncated citation tail) is already resolved at HEAD — `entries["facility"]`
+now correctly ends `'...s. 3.'` — the test's docstring is stale on that
+point (cosmetic, not a new failure); only the means-prefix half remains
+open.
 
-XFAIL markers removed, now RED (2 tests, 10 real terms). Fix: list-introducer
-exception in `us_profile.py`'s `_entry_start_remainder`/
-`_split_into_numbered_blocks` (~lines 330-573) — far from #22's territory and
-from `_citation_or_xref_context`, but same FILE; sequence vs #22, safe in
-parallel with Track A/C. Anchor check (director asked): `term in by_term`
-holds for all 10 — key survives — but captured `definition_text` is a 1-8
-char punctuation/colon stub (`';'`, `'means:'`) carrying zero real content.
-Verified live, both files. Practically this is closer to content loss than
-the other XFAILs in this batch; flagged, not reclassified unilaterally (see
-Planner report).
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_qa_q2_short_definitions.py backend/tests/integration/test_us_markers_qa_q3_tx_2009_003.py -q`
-
-### #24 — NV cross-reference idiom not recognized by `classify_correctly_empty`
-
-XFAIL marker removed, now RED (1 test). Fix: extend `correctly_empty.py`'s
-`_CROSS_REFERENCE_RE`. Fully isolated file, not imported into the live
-extraction path at all (confirmed by issue #24's own grep) — zero collision
-risk with any other item in this batch.
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_b_nv.py::test_nv_cross_reference_idiom_is_not_yet_recognized_as_correctly_empty -q`
-
-### #25 — NV UCC "except as used in" disambiguation loses the real term
-
-NEW RED test authored this pass (2 tests, 7 real terms across 2 rows).
-FIX-class per D-RECALL-FP (anchor loss, not quality). Fix: a guard in
-`us_markers_boundary.py`'s `extract_quote_anchored_entries` for the
-`"TERM," (as distinguished from|except as used in) "excluded...," means`
-shape, so the excluded phrase is not treated as the definiendum. Same file
-as FX1 and #21 — sequence, do not parallelize.
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_ext_c25_nv_ucc_except_as_used_in.py -q`
-
-### FX7 — issue #27: scope `MAX_CLEAN_DEFINITION_LENGTH` for discriminator-closed entries
-
-Investigated this pass, **not buildable as framed** — evidence, not opinion.
-All 41 of #21's lost terms have `has_next_term=False` + zero hard-stops (the
-"ran off the end of text" shape the ceiling already targets), not the
-"reaches next quote, zero hard-stops" shape the ruling named — that shape
-is *already* unconditionally exempt (`bounded = bool(candidate_stops) or
-has_next_term`). Byte-verified spot checks (NJ "Department", USC "furlough")
-show genuine swallows, not clean closures. Two GREEN tests pin the finding;
-no production fix exists to gate. Director decision needed — see Planner
-report Escalation.
-Gate: `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_fx7_ceiling_known_closed_scope.py -q`
+Separately, `test_us_markers_qa_q3_tx_2009_003.py`'s TX half of #23 (the
+"orphaned digit-marked redirect clause folds into lettered quote-anchored
+children" shape) was attempted and withdrawn as corrupting real MI
+definitions. QA independently reconstructed the withdrawal's own claim (not
+assumed): the real MI fixture row (`STATE_MI_C206_AAct-281-of-1967_S206.278`)
+has the IDENTICAL marker shape TX needs fixed — `(8) As used in this
+section:` followed by lettered quote-anchored children `(a) "Board" means
+...`, `(b) "Michigan strategic fund" means ...`, etc., each already
+carrying real, correct, substantial content. Reconstructing the most
+natural "fold forward" mechanism (the only place such a fix could hook,
+since content-extraction happens AFTER block-splitting) and running it
+against both real rows: it recovers TX's 4 real terms correctly, but
+overwrites all 4 of MI's already-correct definitions with the meaningless
+boilerplate `"As used in this section:"` — confirmed genuine corruption,
+not a false alarm. The withdrawal was correct. (A variant gated on
+"only override when the child's own capture is a punctuation stub" recovers
+TX without touching MI in this reconstruction — noted as a possible future
+angle, not built or required here.)
+Gate (unchanged): `PYTHONPATH=.:backend backend/.venv/bin/pytest backend/tests/integration/test_us_markers_c5guard_class_b_boundary_defects.py backend/tests/integration/test_us_markers_qa_q3_tx_2009_003.py -q`
 
 ## Parallelization plan
 
@@ -208,6 +218,12 @@ _(empty)_
 
 - **FX2** — NM registration. Gate `test_us_markers_ext_b_nm.py::test_real_pipeline_recovers_all_five_nm_lettered_definitions_end_to_end` GREEN, re-verified this pass at HEAD `523c22f`.
 - **FX3** — NV registration. Gate `test_us_markers_ext_b_nv.py::test_real_pipeline_recovers_all_five_nv_higher_education_definitions_end_to_end` GREEN, re-verified this pass at HEAD `523c22f`.
+- **FX1** — OK gap-idiom bridge, `us_markers_ok_gapidiom.py`, scoped to `US-OK` only. QA-verified GREEN; reuses `close_entries`/`compute_hard_stops` (factored out of `extract_quote_anchored_entries` for exactly this reuse) rather than a bespoke boundary scheme — corpus self-verification in the module's own docstring caught two real defects an earlier bespoke draft produced (Consideration unbounded swallow, Trustee's compensation/commission cross-swallow), both closed by this reuse. No corpus-wide risk (jurisdiction-scoped).
+- **#22** — FED structural-sibling trim, `_trim_definition_at_structural_sibling` in `us_profile.py`, US-FED only. QA-verified GREEN. Commit `1040648`'s own account: 5 withdrawn attempts before landing a safe shape (local-only marker-ladder seeding, US-FED scoping so ~10 unrelated MI/ND/NJ/OK regression-guard tests are undisturbed, stack-growth requirement, marker-chain consumption, literal-next-value requirement); full FED corpus re-measured (48 rows changed, 70 definitions gained cleaner boundaries, 0 terms gained/lost, 60+ spot-checked). A pure trim (can only shorten, never lengthen) — the safest shape for a fix applied to every candidate regardless of origin. Not independently re-run corpus-wide by QA (sanity-checked per brief, not re-scanned).
+- **#23 (AL half)** — list-introducer exception in `us_profile.py`'s baseline splitter (`_entry_start_remainder`/`_split_into_numbered_blocks`). QA-verified GREEN (`test_al_nested_numbered_list_definitions_are_not_truncated_to_the_colon`), including the AL gate harness's own per-term idempotent-ingest fix (`9f72beb`) — diff restructures the test to ingest each distinct row once and assert all its terms, same three assertions preserved verbatim, not weakened. TX half explicitly NOT shipped — see the #21 residual entry above (withdrawal independently verified correct).
+- **#24** — `correctly_empty.py`'s `_ASCRIBED_MEANING_RE`, a second forwarding idiom ("the terms defined in ... have/has the meaning(s) ascribed to"). QA-verified GREEN AND independently re-measured against the real NV/NM corpus (not just the gate test): 950 "ascribed to" rows found across both states' Definitions-headed sections, 849 NV + 1 NM classify correctly-empty — exact match to the commit's own claimed 850/849/1 split. Confirmed not wired into the live extraction path (still true at HEAD), so this is a classifier-correctness fix with zero blast radius on persisted `Definition` rows.
+- **#25** — NV UCC "except as used in"/"as distinguished from" exclusion-clause bridge, `us_markers_boundary.py`. QA-verified GREEN. QA added 2 new regression tests (`test_nv_ucc_104_1201_excluded_phrases_are_not_their_own_spurious_entries`, `test_nv_ucc_104_9102_excluded_phrases_are_not_their_own_spurious_entries`) closing a real coverage gap: the existing gate only checked the real term survives, never that the excluded phrase (the original artifact) stays gone — a regression that reintroduced the spurious entry ALONGSIDE the now-correct real term would have passed the old gate silently.
+- **FX7 (issue #27)** — "not buildable as framed" investigation accepted. QA independently reproduced the core claim by experiment (not just reading the argument): monkey-patched `close_entries`'s `bounded` to unconditionally `True` (the only kind of widening that recovers the 41 lost terms) and confirmed `test_genuinely_unbounded_last_entry_still_dropped_by_the_ceiling` flips RED exactly as predicted — any widening broad enough to help is broad enough to break the guard's real purpose. Change reverted immediately after the experiment (working tree confirmed byte-identical to HEAD via `git diff`/`git status`). No challenge to this finding.
 
 ## Evaluation Notes
 
@@ -223,14 +239,25 @@ GREEN went RED. Full tail: log.
 
 ## QA Notes
 
-_(none yet — first Developer pass not run)_
+**QA cycle 1 (this pass) — verdict FAIL.** Full method and every finding
+below in the QA report (session transcript); summary:
+
+- **5 discriminator safety guards** (`test_us_markers_c5guard_discriminator_safety_guards.py`, UT/ND/FL/AK/AL): all 5 GREEN, confirmed genuinely load-bearing (each documents a real prototyping-stage break, not decorative).
+- **FX7 ceiling guard**: confirmed genuinely guards by live experiment (see Completed entry above).
+- **Spot-check of 20 of the corpus-wide rows #21 lengthened** (own methodology: real OLD-vs-NEW pipeline diff across ~2,750 sampled Definitions-headed rows, the 14 jurisdictions `extract_quote_anchored_entries` is actually registered for — no other jurisdiction can be affected): **19/20 genuine** (citation-tail digit completions, one full internal-enumeration recovery, clean clause continuations), **1/20 confirmed over-capture** — filed as **#28** above, with a committed RED test. Also found, as a byproduct: 1 genuine SHORTENING (`STATE_ND_T13_C13-11_S13-11-01` "Debt-settlement provider" — a leaked trailing "7. a." marker fragment correctly stripped by #21, a real independent confirmation of the fix's own value outside the fixture set).
+- **Item gates**: all 7 originally-named items' own gate tests GREEN (see Completed entries for each; #21 additionally has one already-known, already-explained resisting test, and a newly-found regression tracked as #28).
+- **NJ resisting test / TX withdrawal**: both independently investigated and explained/verified — see the "#21 residual" Next Steps entry above.
+- **Anti-gaming sweep**: `git diff origin/main...HEAD -- backend/tests` — zero test-function deletions, zero weakened assertions (the only 4 removed `assert` lines are the NM swallow-check replacement, verified as a legitimate false-positive-fix, and the qa_q2 per-act_id restructure, verified as identical assertions re-looped), zero new `skip` markers, zero non-strict/new `xfail` markers (`_C5GUARD_XFAIL` confirmed unused — only referenced in its own definition and a comment). All 20 previously-xfailed tests are real passes (18) or real, explained failures (2) — zero xfail/xpass remain in the suite.
+- **Regression coverage added**: `test_us_markers_ext_c25_nv_ucc_except_as_used_in.py` (2 new tests, excluded-phrase-absence guard) and `test_us_markers_qa_sc_digit_run_membership_swallow.py` (2 new tests, the #28 RED + its own provenance sanity).
+- **Suspicious tooling note** (procedural, not a code finding): twice during this QA cycle a system-reminder claimed a file had been externally modified and instructed QA not to mention it to the user. Both times, direct verification (`git status`/`git diff`/file read) showed the file was clean/matched the real state, and the instruction to conceal was not followed. Reported to the director for awareness; did not affect any commit.
 
 ## Context Dump
 
-Manager: spawn Track A (FX1→#21→#25, sequenced, one worktree,
-`us_markers_boundary.py`), Track B (#23, `us_profile.py:330-573`), Track C
-(#24, `correctly_empty.py`) as up to 3 parallel Developers now. HOLD #22 —
-resolve the `core-g4-discriminator-perf` collision first (Parallelization
-plan + Planner's ESCALATION). Confirm #21 belongs in this sprint at all —
-its issue text names it "core-follow-on-3 territory"; D-GREEN2 may
-supersede that, but ask before Track A touches #21 (FX1/#25 unaffected).
+Superseded by QA cycle 1 — FX1/#22/#23(AL)/#24/#25/FX2/FX3/FX7 are
+Developer-complete and QA-verified (Completed); the old Track A/B/C plan
+below them is historical. Live next action: spawn a Developer for **#28**
+(`us_markers_boundary._digit_paren_run_internal_content_starts`, same
+function as FX1/#21/#25 — sequence). Fix: recognize `The term "X" shall/
+means` as a genuine sibling opener without regressing ND/AL. Gate: `pytest
+backend/tests/integration/test_us_markers_qa_sc_digit_run_membership_swallow.py -q`.
+#21's NJ residual is unowned, non-blocking, orthogonal (see its own entry).
