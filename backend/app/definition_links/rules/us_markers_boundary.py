@@ -231,13 +231,27 @@ REAL defect confirmed live against a real vendored row (see the sprint log
     is not). If item 1 opens with neither (ordinary prose, e.g.
     `STATE_ND_T51_C51-19_S51-19-02`'s "(1) A franchisee is granted the
     right ..."), every STRICTLY CONSECUTIVE successor (2, 3, 4, ...)
-    inherits the "internal content" verdict and never hard-stops,
-    regardless of what individually follows it. Separately, the bare
-    dot-marker chain-walk (`_walk_glued_dot_marker_chain`) now traverses a
-    glued bare letter-dot sub-marker before its own after-check, so
-    `STATE_ND_T51_C51-19_S51-19-02`'s "5. a. "Franchise" means ..."/"14. a.
-    (1) "Sale" ..." shape hard-stops at "5."/"14." directly instead of
-    leaking the glued "N. a." fragment onto the PRECEDING entry.
+    inherits the "internal content" verdict as a FALLBACK ONLY (issue #28)
+    -- inheritance never overrides a successor's own direct evidence: a
+    successor whose own opener independently shows the same signal that
+    would have made item 1 itself read as genuine (a quote or an ALL-CAPS
+    label immediately after its marker) is judged on that evidence instead,
+    regardless of what individually precedes it. `STATE_SC_T31_C3_A1_
+    S31-3-20`'s item 1, "(1) The term "director" shall mean ...", is
+    ordinary prose (no bare leading quote), so the run defaults to
+    "internal" -- but item (16), "(16) "Obligee of the authority" or
+    "obligee" shall include ...", opens with its own quote right after the
+    marker and so keeps its hard-stop despite the inherited verdict, so it
+    is no longer swallowed whole into the preceding "Persons of low income"
+    entry (15). See `_digit_paren_run_internal_content_starts`'s own
+    docstring for the full account, including why a successor's own idiom
+    need not be one `_TIGHT_IDIOM_RE` recognizes ("shall include" is not)
+    for this override to apply. Separately, the bare dot-marker chain-walk
+    (`_walk_glued_dot_marker_chain`) now traverses a glued bare letter-dot
+    sub-marker before its own after-check, so `STATE_ND_T51_C51-19_
+    S51-19-02`'s "5. a. "Franchise" means ..."/"14. a. (1) "Sale" ..."
+    shape hard-stops at "5."/"14." directly instead of leaking the glued
+    "N. a." fragment onto the PRECEDING entry.
 """
 
 from __future__ import annotations
@@ -383,11 +397,28 @@ def _digit_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
     (`_ALL_CAPS_LABEL_OPEN_RE` -- AL's "(1) ACQUISITION." convention), the
     run is genuine sibling entries and every member is judged individually,
     unchanged. If item 1 opens with neither (ordinary prose, e.g. ND's
-    "(1) A franchisee is granted the right ..."), the entire run is that
-    ONE entry's own internal enumeration -- every STRICTLY CONSECUTIVE
-    successor (2, 3, 4, ...) inherits that verdict and must never hard-stop,
-    regardless of what individually follows it or what punctuation (comma,
-    semicolon, period) precedes it."""
+    "(1) A franchisee is granted the right ..."), every STRICTLY CONSECUTIVE
+    successor (2, 3, 4, ...) INHERITS that "internal content" verdict as a
+    fallback -- but inheritance never overrides a successor's OWN direct
+    evidence (issue #28): a successor whose own opener independently shows
+    the SAME signal that would have made a run's own item 1 read as
+    genuine -- a quoted term or an ALL-CAPS label immediately after its
+    marker -- is judged on that evidence instead of inheriting item 1's
+    verdict, whatever punctuation (comma, semicolon, period) precedes it.
+    South Carolina's `STATE_SC_T31_C3_A1_S31-3-20` is the confirmed corpus
+    case: item 1 opens with the prose `The term "director" shall mean ...`
+    (neither a bare quote nor an ALL-CAPS label), so the run defaults to
+    "internal" -- but item (16), `"Obligee of the authority" or "obligee"
+    shall include ...`, opens with its own quote directly after the marker.
+    Without this override (16) is swallowed whole into the preceding entry,
+    "Persons of low income" (15); an entry's own idiom does not have to be
+    one `_TIGHT_IDIOM_RE` recognizes ("shall include" is not) for its
+    marker to still count as direct evidence here -- exactly the same
+    "quote right after the marker is already a hard-stop-worthy signal on
+    its own merits" principle `compute_hard_stops`'s own digit-marker loop
+    already applies to every NON-suppressed digit marker (see UT's
+    "Insolvent", whose own next entry "Paid and delivered" hard-stops it
+    despite "does not include" being unrecognized too)."""
     suppressed: set[int] = set()
     run_active = False
     run_is_internal = False
@@ -400,7 +431,12 @@ def _digit_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
             continue
         if run_active and number == expected_number:
             if run_is_internal:
-                suppressed.add(m.start())
+                opener = text[m.end() : m.end() + 80]
+                has_own_direct_evidence = bool(
+                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                )
+                if not has_own_direct_evidence:
+                    suppressed.add(m.start())
             expected_number = number + 1
             continue
         run_active = False
