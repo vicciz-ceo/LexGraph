@@ -181,6 +181,63 @@ REAL defect confirmed live against a real vendored row (see the sprint log
   the first such caller. `extract_quote_anchored_entries` itself is
   unchanged in behavior -- it now simply calls these three phases in
   sequence rather than inlining them.
+- **The citation-vs-marker discriminator** (issue #21, sprint 2026-08-10-
+  green-the-suite) closes the NJ/ND/OK "class-B" boundary-defect cluster --
+  a mid-citation digit misread as a hard-stop, a genuine internal
+  enumeration misread as sibling entries, or a next entry's own marker
+  leaking onto the end of the preceding one -- with three narrow,
+  structural refinements to the machinery above, none of which key on a
+  jurisdiction, term, section number, date, or title (manager ruling
+  M-R107):
+  - **The trailing-marker-chain strip's own scope**: `_TRAILING_MARKER_
+    CHAIN_RE` now fires ONLY when an entry closes by reaching the next
+    captured quote with ZERO hard-stops found in between (`not
+    candidate_stops and has_next_term`). When a real hard-stop closed the
+    entry instead, the marker that triggered it already sits outside the
+    slice -- nothing genuine is left to strip, and stripping anyway risks
+    eating a real trailing citation number that merely LOOKS like a marker
+    token (`STATE_ND_T57_C57-02_S57-02-01`'s "...chapters 57-06 and
+    57-32." bounded by the real next "3." entry -- its own "32." is not
+    leaked debris). When there is no next term at all (a genuinely
+    unbounded last entry, e.g. `STATE_NJ_T58_C22_S22-3`'s "facility"), the
+    strip is equally out of scope -- it never had a "next entry's leaked
+    marker" to remove in the first place.
+  - **The digit-paren sentence/clause boundary requirement**
+    (`_preceded_by_sentence_or_clause_boundary`): the digit-paren
+    after-check's uppercase branch now additionally requires the marker
+    itself to sit at a sentence/clause break, not mid-sentence -- checked
+    by looking at the single character immediately before the marker
+    (skipping only whitespace): a lowercase letter means "still inside a
+    word" (`STATE_OK_T68_S68-701`'s "means one (1) United States standard
+    gallon" -- the `(1)` sits mid-quantity, "United" being capitalized is
+    coincidence, not a boundary), while anything else -- punctuation, the
+    start of the text, OR another marker glued immediately before it
+    (`USC_T8_C12_S1101`'s citation note "section (a)(15)(H)(i)", where
+    "(15)" sits directly against "(a)"'s own closing paren) -- is a real
+    boundary. The quote branch is unaffected (a quote immediately after a
+    marker is already a far stronger signal and needs no extra check --
+    `STATE_UT_T75B_S75B_1_301`'s "(5)" must keep hard-stopping regardless
+    of what precedes it).
+  - **The digit-paren run's membership** (`_digit_paren_run_internal_
+    content_starts`): a colon/dash-introduced digit-paren run's own item 1
+    decides, once, whether the WHOLE run is genuine sibling entries or one
+    entry's own internal enumeration -- derived from what item 1 itself
+    opens with, a quoted term or an ALL-CAPS label (`_ALL_CAPS_LABEL_OPEN_
+    RE`, a corpus finding: `STATE_AL_T1_C21_S22-21-260`'s "(1) ACQUISITION."
+    convention), never from the punctuation between later members
+    (semicolon vs period is not a reliable signal on its own --
+    `STATE_AK_T44_C44.42_S44.42.900`'s semicolon-joined TOP-LEVEL list
+    would be wrongly suppressed by a punctuation-based rule, and this one
+    is not). If item 1 opens with neither (ordinary prose, e.g.
+    `STATE_ND_T51_C51-19_S51-19-02`'s "(1) A franchisee is granted the
+    right ..."), every STRICTLY CONSECUTIVE successor (2, 3, 4, ...)
+    inherits the "internal content" verdict and never hard-stops,
+    regardless of what individually follows it. Separately, the bare
+    dot-marker chain-walk (`_walk_glued_dot_marker_chain`) now traverses a
+    glued bare letter-dot sub-marker before its own after-check, so
+    `STATE_ND_T51_C51-19_S51-19-02`'s "5. a. "Franchise" means ..."/"14. a.
+    (1) "Sale" ..." shape hard-stops at "5."/"14." directly instead of
+    leaking the glued "N. a." fragment onto the PRECEDING entry.
 """
 
 from __future__ import annotations
@@ -246,13 +303,116 @@ _LETTER_DOT_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*[A-Z]\.[ \t]+")
 # even when the following heading does not itself contain a recognized idiom.
 _MN_SUBD_HEADER_RE = re.compile(r"(?:^|\n\n)§\s*Subd\.\s+\d{1,3}[a-z]?\.\s+")
 _AFTER_MARKER_UPPER_OR_QUOTE_RE = re.compile(r'^[A-Z"“]')
+_AFTER_MARKER_QUOTE_RE = re.compile(r'^["“]')
+_AFTER_MARKER_UPPER_RE = re.compile(r"^[A-Z]")
 _QUOTE_WITHIN_LOOKAHEAD_RE = re.compile(r'^[^.\n"“]{0,40}["“]')
 # See this module's own docstring, "The list-introducer exclusion".
 _LIST_INTRODUCER_BEFORE_RE = re.compile(r"[:—]\s*$")
+# See this module's own docstring, "The digit-paren sentence/clause boundary
+# requirement" -- the uppercase branch of the digit-paren after-check is
+# only trustworthy when the marker itself sits at a sentence/clause break,
+# not mid-sentence (a bare quantity like "one (1) United States standard
+# gallon" is never a boundary just because "United" happens to be
+# capitalized). The one structural signal that reliably tells the two
+# apart, checked directly against a real FED citation-note regression this
+# guard was written to fix: a marker embedded IN a lowercase word ("one
+# (1)") is never a boundary, while a marker preceded by anything else --
+# punctuation (AL's "law.", AK's ";"), the start of the text, OR another
+# marker token glued immediately before it (`USC_T8_C12_S1101`'s citation
+# note "section (a)(15)(H)(i)" -- "(15)" sits directly against "(a)"'s own
+# closing paren, not inside a word) -- is. Checking the single character
+# immediately preceding the marker (skipping only whitespace) generalizes
+# correctly to both: a lowercase letter means "still inside a word/clause";
+# anything else (including a closing paren from a glued prior marker) does
+# not.
+_LOWERCASE_LETTER_BEFORE_RE = re.compile(r"[a-z]\s*$")
+# A bare single-letter-dot sub-marker (either case) glued onto a preceding
+# digit-dot marker with no other content between them (ND's "5. a. " /
+# "14. a. " shape) -- see this module's own docstring, "The dot-marker
+# chain-walk".
+_BARE_LETTER_DOT_SUBMARKER_RE = re.compile(r"[A-Za-z]\.[ \t]+")
+# See this module's own docstring, "The digit-paren run's membership".
+# A short run of uppercase letters/digits (plus the punctuation real
+# statutory ALL-CAPS labels use, e.g. AL's "STATE HEALTH PLANNING AND
+# DEVELOPMENT AGENCY (SHPDA).") terminated by a period, with NO lowercase
+# letters anywhere in the span -- what distinguishes a genuine ALL-CAPS
+# entry label from an ordinary capitalized sentence (which only capitalizes
+# its FIRST letter, not every letter up to the period).
+_ALL_CAPS_LABEL_OPEN_RE = re.compile(r"^[A-Z][A-Z0-9 ,/()'-]{0,78}\.")
 
 
 def _preceded_by_list_introducer(text: str, marker_start: int) -> bool:
     return bool(_LIST_INTRODUCER_BEFORE_RE.search(text[:marker_start]))
+
+
+def _preceded_by_sentence_or_clause_boundary(text: str, marker_start: int) -> bool:
+    before = text[:marker_start]
+    if not before.strip():
+        return True
+    return not _LOWERCASE_LETTER_BEFORE_RE.search(before)
+
+
+def _walk_glued_dot_marker_chain(text: str, pos: int, limit: int) -> int:
+    """Starting right after a `_DIGIT_DOT_MARKER_RE` match, walk forward
+    through any further GLUED marker tokens -- a bare single-letter-dot
+    sub-marker (ND's "5. a. "/"14. a. " shape) or a paren-wrapped token
+    (`_ANY_MARKER_TOKEN_RE`, ND's own "14. a. (1) " shape once the letter-dot
+    step lands right before it) -- before the caller does its own
+    after-marker check. Mirrors `_DIGIT_MARKER_RE`'s own glued-paren chain
+    walk, extended to the shapes a bare digit-dot marker chains into."""
+    while True:
+        letter_m = _BARE_LETTER_DOT_SUBMARKER_RE.match(text, pos, limit)
+        if letter_m is not None:
+            pos = letter_m.end()
+            continue
+        paren_m = _ANY_MARKER_TOKEN_RE.match(text, pos, limit)
+        if paren_m is not None:
+            pos = paren_m.end()
+            continue
+        break
+    return pos
+
+
+def _digit_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
+    """A digit-paren run's membership -- genuine sibling entries versus
+    internal enumeration content of ONE entry -- is derived from what its
+    own colon/dash-introduced item 1 opens with, not from the punctuation
+    between later members (semicolon vs period is not a reliable signal --
+    see AK's semicolon-joined TOP-LEVEL list, which must NOT be suppressed
+    this way). If item 1 opens with a quoted term or an ALL-CAPS label
+    (`_ALL_CAPS_LABEL_OPEN_RE` -- AL's "(1) ACQUISITION." convention), the
+    run is genuine sibling entries and every member is judged individually,
+    unchanged. If item 1 opens with neither (ordinary prose, e.g. ND's
+    "(1) A franchisee is granted the right ..."), the entire run is that
+    ONE entry's own internal enumeration -- every STRICTLY CONSECUTIVE
+    successor (2, 3, 4, ...) inherits that verdict and must never hard-stop,
+    regardless of what individually follows it or what punctuation (comma,
+    semicolon, period) precedes it."""
+    suppressed: set[int] = set()
+    run_active = False
+    run_is_internal = False
+    expected_number: int | None = None
+    for m in _DIGIT_MARKER_RE.finditer(text, 0, limit):
+        try:
+            number = int(m.group(0).strip("() \t"))
+        except ValueError:
+            run_active = False
+            continue
+        if run_active and number == expected_number:
+            if run_is_internal:
+                suppressed.add(m.start())
+            expected_number = number + 1
+            continue
+        run_active = False
+        if number == 1 and _preceded_by_list_introducer(text, m.start()):
+            opener = text[m.end() : m.end() + 80]
+            run_is_internal = not (
+                _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+            )
+            run_active = True
+            expected_number = 2
+    return suppressed
+
 
 _TRAILING_MARKER_CHAIN_RE = re.compile(
     r"(?:\s*(?:\([\w]{1,4}\)|(?<![\d.])\d{1,3}\.)\s*)+$"
@@ -312,7 +472,10 @@ def compute_hard_stops(
     distinguishable rather than treated as one undifferentiated set."""
     hard_stops: list[int] = []
     digit_based_stops: set[int] = set()
+    internal_content_starts = _digit_paren_run_internal_content_starts(text, limit)
     for m in _DIGIT_MARKER_RE.finditer(text, 0, limit):
+        if m.start() in internal_content_starts:
+            continue
         if _preceded_by_list_introducer(text, m.start()):
             continue
         chain_end = m.end()
@@ -321,7 +484,13 @@ def compute_hard_stops(
             if chain_m is None:
                 break
             chain_end = chain_m.end()
-        if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[chain_end : chain_end + 1]):
+        after = text[chain_end : chain_end + 1]
+        if _AFTER_MARKER_QUOTE_RE.match(after):
+            hard_stops.append(m.start())
+            digit_based_stops.add(m.start())
+        elif _AFTER_MARKER_UPPER_RE.match(after) and _preceded_by_sentence_or_clause_boundary(
+            text, m.start()
+        ):
             hard_stops.append(m.start())
             digit_based_stops.add(m.start())
     for m in _LETTER_MARKER_RE.finditer(text, 0, limit):
@@ -333,7 +502,10 @@ def compute_hard_stops(
         for m in pattern.finditer(text, 0, limit):
             if _preceded_by_list_introducer(text, m.start()):
                 continue
-            if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[m.end() : m.end() + 1]):
+            check_end = m.end()
+            if pattern is _DIGIT_DOT_MARKER_RE:
+                check_end = _walk_glued_dot_marker_chain(text, check_end, limit)
+            if _AFTER_MARKER_UPPER_OR_QUOTE_RE.match(text[check_end : check_end + 1]):
                 hard_stops.append(m.start())
                 if pattern is _DIGIT_DOT_MARKER_RE:
                     digit_based_stops.add(m.start())
@@ -424,7 +596,20 @@ def close_entries(
         # `"Seal" means` term, is exactly this shape).
         bounded = bool(candidate_stops) or has_next_term
         raw = text[dstart:end]
-        if end not in mn_subd_stops:
+        # The trailing-marker-chain strip fires ONLY when this entry closes
+        # by reaching the NEXT captured quote with ZERO hard-stops found
+        # first (`not candidate_stops and has_next_term`, i.e. `end ==
+        # next_start` for a genuine reason, not a marker). When a real
+        # hard-stop closed the entry instead, the marker that triggered it
+        # already sits OUTSIDE `raw` (the slice stops right before it) --
+        # there is no leaked fragment left to strip, and running the strip
+        # anyway risks eating a real trailing citation number that merely
+        # LOOKS like a marker token (`STATE_ND_T57_C57-02_S57-02-01`'s
+        # "...chapters 57-06 and 57-32." -- bounded by the real next "3."
+        # entry marker, its own "32." is not leaked debris and must
+        # survive). See this module's own docstring, "The trailing-marker-
+        # chain strip's own scope".
+        if not candidate_stops and has_next_term and end not in mn_subd_stops:
             raw = _TRAILING_MARKER_CHAIN_RE.sub("", raw)
         definition_text = raw.strip()
         if not definition_text:
