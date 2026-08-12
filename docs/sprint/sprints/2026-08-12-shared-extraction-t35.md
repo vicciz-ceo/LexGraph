@@ -14,6 +14,7 @@ total_items: 0
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
+lint: "PASS 111 2026-08-12T04:57:30Z"
 previous_sprint: "2026-08-10-green-the-suite"
 prd_sections: []
 design_sections:
@@ -96,11 +97,11 @@ _(Planner fills this in.)_
 
 ## Dev Complete
 
-_(empty)_
+_None._
 
 ## Completed
 
-_(empty)_
+_None._
 
 ## Context Dump
 
