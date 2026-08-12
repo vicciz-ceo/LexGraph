@@ -231,3 +231,7 @@ it (i.e., the fix commit itself, or later), and all G7 evidence under
 evidence/` regenerated. Skipping this makes `validate_integration()`
 fail-close on every subsequent G7/D-PFP-400 run without measuring
 anything -- the exact trap the program handoff already names.
+
+## Agent roster (manager bookkeeping, append-only)
+
+- planner → ad62ef5b860ca7578 (spawned 2026-08-12T10:26Z, exited clean @ f9961c9)

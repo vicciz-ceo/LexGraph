@@ -3,8 +3,8 @@ id: "2026-08-12-defs-b1-refers-to"
 status: planned
 current_role: developer
 branch: claude/defs-b1-refers-to
-locked_by: "claude-code:planner"
-locked_at: "2026-08-12T10:20:00Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-08-12T10:52:00Z"
 last_agent: "claude-code:planner"
 last_updated: "2026-08-12T10:46:00Z"
 program: "2026-08-04-definition-completeness"
