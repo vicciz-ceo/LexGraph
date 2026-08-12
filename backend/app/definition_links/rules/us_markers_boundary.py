@@ -353,6 +353,17 @@ _BARE_LETTER_DOT_SUBMARKER_RE = re.compile(r"[A-Za-z]\.[ \t]+")
 # entry label from an ordinary capitalized sentence (which only capitalizes
 # its FIRST letter, not every letter up to the period).
 _ALL_CAPS_LABEL_OPEN_RE = re.compile(r"^[A-Z][A-Z0-9 ,/()'-]{0,78}\.")
+# See this module's own docstring, "The compound-idiom prefix preservation".
+# `_TIGHT_IDIOM_RE` universally strips the matched idiom token from the
+# start of a captured entry -- correct, and relied on, for a SIMPLE idiom
+# ("means the ..."). A COMPOUND idiom (NJ's "means and refers to ...",
+# "means and includes ...", "shall mean and include ...") is two idiom
+# words joined by "and <verb>", and stripping only the first leaves a
+# dangling fragment ("and refers to ...") as the captured definition text
+# instead of the real sentence. This pattern recognizes that continuation
+# immediately after the idiom match so the whole compound idiom can be kept
+# instead of only its tail.
+_COMPOUND_IDIOM_CONTINUATION_RE = re.compile(r"and\s+[a-z]")
 
 
 def _preceded_by_list_introducer(text: str, marker_start: int) -> bool:
@@ -698,7 +709,12 @@ def extract_quote_anchored_entries(
             continue
         if bridged_exclusion:
             bridged_dstarts.add(idiom_m.end())
-        starts.append((m.start(), term, idiom_m.end()))
+        dstart = idiom_m.end()
+        if not bridged_exclusion and _COMPOUND_IDIOM_CONTINUATION_RE.match(
+            text, idiom_m.end(), idiom_m.end() + 40
+        ):
+            dstart = idiom_m.start()
+        starts.append((m.start(), term, dstart))
 
     hard_stops, mn_subd_stops, digit_based_stops = compute_hard_stops(
         text, limit, stop_at_mn_subd_headers=stop_at_mn_subd_headers
