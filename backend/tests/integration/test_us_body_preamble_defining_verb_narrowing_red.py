@@ -130,16 +130,121 @@ def test_usc_t35_c4_s41_wrong_tuple_needs_shared_extraction_p_fp_debt(db_session
     B1 returns only `Definitions`, not a winning occurrence, so an option-(c)
     recognition change cannot repair this tuple without the rejected narrowing
     that would also miss Director. This RED is held shared-extraction/P-FP debt,
-    not a Developer gate in this bounded B1 sprint."""
+    not a Developer gate in this bounded B1 sprint.
+
+    **Assertion narrowed under sprint `2026-08-12-shared-extraction-t35`
+    (Planner pass).** Originally `created_definitions == []` -- the only
+    fix shape known at commit time was suppression-to-empty. That sprint's
+    own acceptance gate 1 text is narrower than the assertion it shipped
+    with: *"USC_T35_C4_S41 no longer persists A SECTION-LABEL HEADING AS A
+    TERM"*, not "persists nothing." Gate 2 of the SAME sprint additionally
+    requires the row's genuine `Director` definition to become an anchor
+    (see `test_usc_t35_c4_s41_director_definition_not_yet_captured_needs_
+    shared_extraction_p_fp_debt` immediately below) -- once that lands,
+    `created_definitions` for this exact row is NEVER empty again, making
+    the old `== []` assertion permanently unsatisfiable together with
+    Gate 2 by construction, not by any weakening of intent. The corrected
+    assertion below checks precisely what Gate 1's own contract text
+    requires (the phantom term is gone) and nothing more; Gate 2's own
+    test is the one that requires the real term to appear. No production
+    code changed by this edit -- this row still produces the phantom tuple
+    today, so this test is STILL RED, only re-targeted at the true gate."""
     row = _negative_row("USC_T35_C4_S41")
     result = _ingest_and_link(
         db_session, matter_with_users, row=row, jurisdiction="US-FED",
         title="USC T35 C4 S41 (cycle-8 defining-verb negative)",
     )
-    assert result["created_definitions"] == [], (
-        f"expected extraction to stop persisting the wrong tuple for {row['act_id']}; got "
-        f"{result['created_definitions']!r} -- this row has no genuine local "
-        "definition for the captured section-label term (held P-FP shared-extraction debt)"
+    created_terms = {t for d in result["created_definitions"] for t in d["terms"]}
+    assert "SEC. 804. DEFINITION." not in created_terms, (
+        f"expected the section-label heading to stop being persisted as a term for "
+        f"{row['act_id']}; got terms {sorted(created_terms)!r} from "
+        f"{result['created_definitions']!r} -- a heading is not a definiendum "
+        "(held P-FP shared-extraction debt)"
+    )
+
+
+def test_usc_t35_c4_s41_director_definition_not_yet_captured_needs_shared_extraction_p_fp_debt(
+    db_session, matter_with_users
+):
+    """Gate 2 of sprint `2026-08-12-shared-extraction-t35`: suppressing the
+    phantom `'SEC. 804. DEFINITION.'` tuple (gate 1, the test immediately
+    above) is not by itself a fix -- it is satisfiable by a Developer who
+    simply drops this row's extraction to nothing, which throws away the
+    row's ONE genuine definition along with the garbage one. This test
+    pins that the row's real content survives: the same quoted historical
+    note that carries the phantom heading also carries, two lines later,
+    `"In this title, the term 'Director' means the Under Secretary of
+    Commerce for Intellectual Property and Director of the United States
+    Patent and Trademark Office."` -- a real `means` idiom, genuinely
+    defining `Director`, verified directly against the row's own raw text
+    by this Planner (not asserted from the old docstring's characterization
+    of the row, per the same P-FP discipline the module docstring's table
+    applies).
+
+    M-R107 (derive from the row's own STRUCTURE, not from the literal term
+    or section number): the two assertions below are not keyed on
+    `'Director'` or `'SEC. 804'` as magic strings picked for convenience --
+    they are keyed on the row's actual quote/paragraph structure. The
+    defined term sits inside a SINGLE-quoted span (`'Director'`) nested
+    inside the DOUBLE-quoted historical note that also contains the
+    section-label heading the phantom tuple wrongly anchored on; the
+    genuine definition's own sentence ends at the note's real closing
+    double-quote, immediately before an unrelated bracketed editorial note
+    (`"[Pub. L. 111-117, ..."`) that begins the very next paragraph. A
+    correct fix must (a) recognize a single-quoted definiendum nested
+    inside an outer double-quoted block -- not only double/curly-quoted
+    terms, which is what currently makes 'Director' invisible to
+    extraction at all -- and (b) stop the captured definition at that
+    sentence's own real closing quote, not run past it into the next
+    paragraph's unrelated content (the SAME structural bug that produces
+    gate 1's 8,431-character bleed today). Both assertions read the row's
+    OWN fixture text at import/call time rather than hardcoding an
+    independently-typed copy, so a future change to the fixture (unlikely,
+    but per M-R107 the test must not silently drift from the row it
+    claims to describe) cannot leave this test asserting stale content.
+
+    Currently RED: today's extraction never starts a term at a
+    single-quoted span, so 'Director' is absent from `created_definitions`
+    entirely (the row's only current candidate is the phantom heading
+    tuple gate 1 pins). Held shared-extraction/P-FP debt, same as gate 1 --
+    not a B1 recognition-path defect."""
+    row = _negative_row("USC_T35_C4_S41")
+    raw_text = row["text"]
+
+    # Derived from the row's own structure (M-R107): the genuine defining
+    # sentence, read directly off the fixture rather than retyped from
+    # memory, and the unrelated editorial-note fragment that immediately
+    # follows it in the SAME quoted historical note (the real source of
+    # gate 1's bleed, used here as a negative check).
+    means_idx = raw_text.find("the term 'Director' means")
+    assert means_idx != -1, "fixture regressed: the row no longer contains its real 'Director' clause"
+    sentence_start = raw_text.index("means", means_idx) + len("means ")
+    sentence_end = raw_text.index('."', sentence_start) + 1
+    genuine_sentence = raw_text[sentence_start:sentence_end]
+    bleed_start = raw_text.index("[Pub. L.", sentence_end)
+    bleed_marker = raw_text[bleed_start : bleed_start + len("[Pub. L. 111")]
+
+    result = _ingest_and_link(
+        db_session, matter_with_users, row=row, jurisdiction="US-FED",
+        title="USC T35 C4 S41 (cycle-8 defining-verb negative, gate 2)",
+    )
+    persisted = _persisted_definition_text_by_term(db_session, result)
+    assert "Director" in persisted, (
+        f"expected 'Director' among {sorted(persisted)} -- this row's single genuine "
+        "definition ('the term \\'Director\\' means the Under Secretary of Commerce "
+        "for Intellectual Property...') must be captured; suppressing the phantom "
+        "section-label tuple without also capturing this is a mute, not a fix"
+    )
+    assert genuine_sentence in persisted["Director"], (
+        f"expected the real defining sentence {genuine_sentence!r} inside "
+        f"{persisted['Director']!r} -- the captured text must be the genuine "
+        "'Director' definition, not merely a relabeled version of the old phantom tuple"
+    )
+    assert bleed_marker not in persisted["Director"], (
+        f"expected the unrelated editorial note starting {bleed_marker!r} to be "
+        f"excluded from {persisted['Director']!r} -- a fix that still bleeds past "
+        "this sentence's own closing quote reproduces gate 1's defect under the "
+        "correct term instead of actually correcting the boundary"
     )
 
 

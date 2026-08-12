@@ -992,6 +992,88 @@ def _preceded_by_references_to(text: str, quote_start: int) -> bool:
     return bool(_REFERENCES_TO_RE.search(text[window_start:quote_start]))
 
 
+# Shared-extraction sprint 2026-08-12-shared-extraction-t35 (root cause,
+# structural, not row-specific -- M-R107): real US statutory drafting, when
+# quoting a multi-paragraph block of text verbatim (a historical/session-law
+# note is the common case), re-opens a `"` at the start of EVERY paragraph
+# of the quoted block and closes only once, at the very end. `_QUOTE_TERM_RE`
+# has no notion of this -- it pairs an opening quote with whatever quote
+# character comes next, so the FIRST paragraph's re-opening `"` gets
+# consumed as if it were the real close of the block's OWN opening `"`,
+# turning the block's leading text (often a heading-shaped fragment) into a
+# spurious "definiendum" and leaving the block's real closing `"` to pair
+# with some unrelated LATER quote in the document -- the source of both the
+# phantom-term defect and the runaway definition-text bleed it produces.
+#
+# Structural signal used to detect this (not any literal heading/term/
+# section text): a quote character immediately preceded, within a small
+# bounded lookback window, by a blank line (a paragraph break) -- once any
+# horizontal whitespace and OTHER quote characters immediately before it
+# are stripped away -- is a per-paragraph re-opening quote, not a genuine
+# close, WHENEVER it is encountered while still inside an already-open
+# quoted span. The noise-stripping step is what lets this SAME check
+# recognize a nested shape too: real drafting sometimes quotes a numbered
+# sub-list INSIDE the outer block using single quotes for the sub-list's
+# own per-paragraph re-opens (`"<nbsp>'(iii) ...`) -- immediately after
+# the outer double-quote's own re-open, not immediately after a bare
+# newline -- and that inner re-open must be recognized as noise too, or a
+# nested single-quote scan (below) mistakes it for a genuine definiendum
+# delimiter and pairs it with the next unrelated apostrophe it finds
+# (confirmed against this exact shape in the real `USC_T35_C4_S41` body).
+_PARAGRAPH_START_LOOKBACK = 40
+_PARAGRAPH_BREAK_TAIL_RE = re.compile(r"\n[ \t]*\n[ \t]*\Z")
+_QUOTE_TAIL_NOISE_RE = re.compile(r'[ \t "“”\']*\Z')
+
+
+def _is_paragraph_start_quote(text: str, quote_pos: int) -> bool:
+    """True when the quote character at `text[quote_pos]` sits at the
+    start of a paragraph -- see the module note above for exactly what
+    that means and why noise-stripping is required to detect it at both
+    the outer and a nested inner quoting level."""
+    window_start = max(0, quote_pos - _PARAGRAPH_START_LOOKBACK)
+    window = text[window_start:quote_pos]
+    noise_match = _QUOTE_TAIL_NOISE_RE.search(window)
+    prefix = window[: noise_match.start()] if noise_match else window
+    return bool(_PARAGRAPH_BREAK_TAIL_RE.search(prefix))
+
+
+# Any double or curly quote character, used (unlike `_QUOTE_TERM_RE`) to
+# scan forward one character at a time rather than to pair adjacent quotes
+# -- needed to walk past an arbitrary run of per-paragraph re-opening
+# quotes to find a block's real close, however many paragraphs it spans.
+_DOUBLE_QUOTE_CHAR_RE = re.compile(r'["“”]')
+
+# A single-quoted definiendum, same bounded shape as `_QUOTE_TERM_RE`
+# (1-200 non-quote characters between delimiters) but for `'...'` rather
+# than `"..."`/`"..."` -- real US drafting nests a single-quoted term
+# inside a double-quoted block-quote (e.g. a quoted historical note whose
+# own body reads `"...the term 'X' means ...`), which is otherwise
+# entirely invisible to `_QUOTE_TERM_RE` (double/curly quotes only).
+# Deliberately NOT registered as a general-purpose scan across all of
+# `text` -- an apostrophe is far too common in ordinary prose ("the
+# cadet's appointment") to bound safely on its own; this is only ever
+# applied INSIDE an already-confirmed block-quote span below, where the
+# same idiom-gap guard (`_MEANS_IDIOM_GAP_RE`) that protects the ordinary
+# double-quote path also applies.
+_SINGLE_QUOTE_TERM_RE = re.compile(r"'([^'\"]{1,200})'")
+
+
+def _find_block_quote_close(text: str, after: int) -> int | None:
+    """Starting at or after `after`, scan forward for the first double/
+    curly quote character that is NOT itself a paragraph-reopening quote
+    (`_is_paragraph_start_quote`) -- the real close of a multi-paragraph
+    block quote, however many further per-paragraph re-opens it contains.
+    Returns `None` if the block never actually closes (degrades to "no
+    candidate from this branch", the same outcome an ordinary unterminated
+    quote already produces today)."""
+    for match in _DOUBLE_QUOTE_CHAR_RE.finditer(text, after):
+        pos = match.start()
+        if _is_paragraph_start_quote(text, pos):
+            continue
+        return pos
+    return None
+
+
 def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[DefinitionCandidate]:
     """Extract `(term, definition)` pairs from a placeholder-heading
     jurisdiction's Definitions-section body composed of inline `"Term"
@@ -1021,9 +1103,67 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
     skipped before the idiom check even runs -- the real PA construction-
     clause shape (`References to "X" shall include Y`) describes how
     OTHER text should be read, not a definition of "X" itself.
+
+    Shared-extraction sprint 2026-08-12-shared-extraction-t35: when
+    `_QUOTE_TERM_RE`'s own "closing" quote for a candidate is itself a
+    paragraph-reopening quote (`_is_paragraph_start_quote`), that pairing
+    is a mis-pairing, not a real term -- see the module note above
+    `_is_paragraph_start_quote`. Such a candidate is dropped (never
+    emitted as its own entry) and replaced by scanning INSIDE the block
+    quote's real span (through to its real close, `_find_block_quote_close`)
+    for a nested single-quoted definiendum instead
+    (`_SINGLE_QUOTE_TERM_RE`), under the exact same "References to" and
+    idiom-gap guards as the ordinary path, with its own captured
+    definition text hard-clipped at the block's real closing quote so it
+    can never bleed into the unrelated content that follows the block.
+    `last_block_close` guards against re-processing the SAME block twice
+    when it spans more than two paragraphs (each additional re-opening
+    quote would otherwise independently rediscover the same real close).
     """
-    entries: list[tuple[str, int, int]] = []
+    entries: list[tuple[str, int, int, int | None]] = []
+    last_block_close = -1
     for term_match in _QUOTE_TERM_RE.finditer(text):
+        if _is_paragraph_start_quote(text, term_match.end() - 1):
+            if term_match.start() < last_block_close:
+                continue  # already covered by an earlier re-open in this same block
+            block_close = _find_block_quote_close(text, term_match.end())
+            if block_close is None:
+                continue
+            last_block_close = block_close
+            inner_start, inner_end = term_match.start() + 1, block_close
+            for nested_match in _SINGLE_QUOTE_TERM_RE.finditer(text, inner_start, inner_end):
+                # Real drafting sometimes nests a QUOTED SUB-LIST inside
+                # the outer block, itself re-opening with a single quote
+                # at the start of each of ITS OWN paragraphs (e.g. `"
+                # '(iii) ...`, immediately after the outer `"`'s own
+                # re-open). Such an apostrophe is nested-block noise, not
+                # a definiendum delimiter -- pairing it with the next
+                # unrelated apostrophe (an ordinary possessive, most
+                # often) produces a sentence-fragment, not a term. Reject
+                # a nested match on EITHER side if that delimiter itself
+                # sits at the start of a paragraph.
+                if _is_paragraph_start_quote(text, nested_match.start()) or _is_paragraph_start_quote(
+                    text, nested_match.end() - 1
+                ):
+                    continue
+                if _preceded_by_references_to(text, nested_match.start()):
+                    continue
+                gap = text[nested_match.end() : min(nested_match.end() + 200, inner_end)]
+                means_match = _MEANS_IDIOM_GAP_RE.match(gap)
+                if means_match is None:
+                    continue
+                nested_term = nested_match.group(1).strip()
+                if not nested_term:
+                    continue
+                entries.append(
+                    (
+                        nested_term,
+                        nested_match.start(),
+                        nested_match.end() + means_match.end(),
+                        block_close,
+                    )
+                )
+            continue
         if _preceded_by_references_to(text, term_match.start()):
             continue
         gap = text[term_match.end() : term_match.end() + 200]
@@ -1033,11 +1173,13 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
         term = term_match.group(1).strip()
         if not term:
             continue
-        entries.append((term, term_match.start(), term_match.end() + means_match.end()))
+        entries.append((term, term_match.start(), term_match.end() + means_match.end(), None))
 
     candidates: list[DefinitionCandidate] = []
-    for index, (term, start, definition_start) in enumerate(entries):
+    for index, (term, start, definition_start, hard_end) in enumerate(entries):
         end = entries[index + 1][1] if index + 1 < len(entries) else len(text)
+        if hard_end is not None and hard_end < end:
+            end = hard_end
         definition_text = text[definition_start:end].strip()
         if not definition_text:
             continue
