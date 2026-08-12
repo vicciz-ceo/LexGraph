@@ -1,19 +1,19 @@
 {
-  "id": "2026-08-12-shared-extraction-t35",
+  "id": "2026-08-12-defs-b1-refers-to",
   "status": "planning",
   "current_role": "planner",
   "locked_by": "claude-code:planner",
-  "locked_at": "2026-08-12T03:00:00Z",
-  "last_agent": "claude-code:program-manager",
-  "last_updated": "2026-08-12T03:00:00Z",
-  "contract_path": "docs/sprint/sprints/2026-08-12-shared-extraction-t35.md",
+  "locked_at": "2026-08-12T10:20:00Z",
+  "last_agent": "claude-code:manager",
+  "last_updated": "2026-08-12T10:20:00Z",
+  "contract_path": "docs/sprint/sprints/2026-08-12-defs-b1-refers-to.md",
   "repo_profile": "docs/sprint/repo-profile.md",
   "program": "docs/sprint/programs/2026-08-04-definition-completeness.md",
-  "program_note": "Last failing test on PR #20. USC_T35_C4_S41 captures a section-label heading as a term (phantom, D-MAP blocking) with an 8,431-char bleed AND misses the row's real 'Director means' clause (miss, D-RECALL-FP expensive). Deferred by P-R14 as out-of-scope for the B1 panel; director directed a dedicated sprint. M-R64 hazard: a prior attempt at this class narrowed the capture window and dropped other genuine definitions -- gate 3 (nothing else lost, corpus-measured) is the binding constraint.",
+  "program_note": "Issue #19: B1 _POST_RELATION lacks 'refers to'; recovers the single genuine loss from the P-R15 deletion-side screen (STATE_IN_T5_A28_C28_S5-28-28-3 'loan'). Director-approved gates in the contract. Scope: _POST_RELATION only; sibling vocabularies need separate justification + measurement. Follow-up sprint after close: issue #27 (_TIGHT_IDIOM_RE widening), separately certified. #26 deferred to its own sprint. Predecessor t35 closed done 2026-08-12 (fix 4d0cfbc, QA f71e5c5, merged 5c3e751).",
   "total_items": 0,
   "completed_items": 0,
   "dev_complete_items": 0,
   "qa_cycles": 0,
-  "previous_sprint": "2026-08-10-green-the-suite",
-  "evaluator_command": "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
+  "previous_sprint": "2026-08-12-shared-extraction-t35",
+  "evaluator_command": "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 }
