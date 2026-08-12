@@ -345,12 +345,22 @@ def _strip_marker_chain_before_quote(line: str) -> str | None:
 # suppression would regress that to "term lost too"). That shape -- an
 # orphaned, colon-terminated introducer immediately followed by its own
 # quote-anchored lettered children (TX's `(4) The following terms have the
-# meanings assigned by Section 2001.003:` then `(A) "contested case";`) --
-# was deliberately left UNFIXED after a real, later-withdrawn attempt; see
-# the comment above `_split_into_numbered_blocks` for why (a real MI
-# corpus row this item's own blast-radius measurement found is marker-
-# structurally identical but semantically opposite, and no marker-KIND-only
-# signal separates the two).
+# meanings assigned by Section 2001.003:` then `(A) "contested case";`) is
+# STILL always split into its own sibling block here, unconditionally --
+# `_entry_start_remainder` itself never suppresses this path. A first,
+# naive fix that instead tried to suppress/merge at THIS level (fold the
+# orphan's redirect text forward into every following quote-anchored
+# child) was implemented and then WITHDRAWN once this item's own mandated
+# corpus-wide blast-radius measurement (see the Developer report) found it
+# corrupting real, already-complete, unrelated MI definitions -- a real MI
+# corpus row is marker-structurally identical to TX's shape but
+# semantically opposite, and no marker-KIND-only signal separates the two.
+# Track TX (PR#20): the actual fix lives one level up, as an ADDITIVE
+# post-processing pass in `_split_into_numbered_blocks` (see the comment
+# above `_PUNCTUATION_STUB_RE`) -- it never touches this function or this
+# split, it only optionally attaches the already-closed orphan's own text
+# to a SEPARATE, additional copy of a child block, and only when that
+# child's own capture turns out to carry no content of its own.
 _LIST_INTRODUCER_TAIL_RE = re.compile(r"[:—]\s*$")
 
 
@@ -530,40 +540,118 @@ def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
 # DIGIT-marked introducer clause, no leading quote of its own, immediately
 # followed by its own LETTER-marked quote-anchored children: `(4) The
 # following terms have the meanings assigned by Section 2001.003:` then
-# `(A) "contested case";` / `(B) "party";` / ...) was DELIBERATELY NOT
-# fixed here, after a real attempt. The natural fix -- fold the orphan's
-# own redirect text forward into each following quote-anchored child --
-# was implemented and then WITHDRAWN once this item's own mandated
-# corpus-wide blast-radius measurement (see the Developer report) found it
-# corrupting real, already-complete, unrelated MI definitions:
-# `STATE_MI_C206_AAct-281-of-1967_S206.278`'s subsections `(1)`-`(7)` are
-# ordinary numbered provisions and `(8) As used in this section:` is
-# followed by `(a) "Board" means...`, `(b) "Michigan strategic fund"
-# means...`, etc. -- MARKER-STRUCTURALLY IDENTICAL to TX's own shape (an
-# adjacent digit run ending in an orphaned, colon-terminated digit block,
-# followed by lettered quote-anchored children), but semantically the
-# OPPOSITE: TX's `(4)` genuinely redirects to external Section 2001.003
-# (its children have NO meaning without it); MI's `(8)` is ordinary
-# "as used in this section" boilerplate in front of terms that are ALREADY
-# fully self-contained -- folding it forward only appends noise. No
-# purely marker-KIND/position signal (the only kind M-R107 permits) was
-# found that tells these two real shapes apart; every version tried either
-# missed MI (a whole-document "digit exists somewhere" check) or still hit
-# it (a same-run "immediately adjacent digit sibling" check -- MI's `(8)`
-# sits directly after digit-marked `(7)`, exactly like TX's `(4)` after
-# `(3)`). Escalated rather than shipped: see the Developer report's
-# ESCALATION section. `test_us_markers_qa_q3_tx_2009_003.py::test_part_a_
-# red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub`
-# remains RED; AL's own fix above (`_entry_start_remainder`'s bare-digit
-# suppression) is unaffected and does not share this ambiguity -- it only
-# ever folds a nested list INTO its own already-open quote-anchored
-# parent, never fans a redirect out to separate sibling candidates.
+# `(A) "contested case";` / `(B) "party";` / ...). A first, naive fix --
+# fold the orphan's own redirect text forward into EVERY following quote-
+# anchored child, unconditionally -- was implemented and then WITHDRAWN
+# once this item's own mandated corpus-wide blast-radius measurement (see
+# the Developer report) found it corrupting real, already-complete,
+# unrelated MI definitions: `STATE_MI_C206_AAct-281-of-1967_S206.278`'s
+# subsections `(1)`-`(7)` are ordinary numbered provisions and `(8) As
+# used in this section:` is followed by `(a) "Board" means...`, `(b)
+# "Michigan strategic fund" means...`, etc. -- MARKER-STRUCTURALLY
+# IDENTICAL to TX's own shape (an adjacent digit run ending in an
+# orphaned, colon-terminated digit block, followed by lettered quote-
+# anchored children), but semantically the OPPOSITE: TX's `(4)` genuinely
+# redirects to external Section 2001.003 (its children have NO meaning
+# without it); MI's `(8)` is ordinary "as used in this section"
+# boilerplate in front of terms that are ALREADY fully self-contained --
+# folding it forward unconditionally only appends noise to MI. No purely
+# marker-KIND/position signal (the only kind M-R107 permits) tells these
+# two real shapes apart; every version tried either missed MI (a whole-
+# document "digit exists somewhere" check) or still hit it (a same-run
+# "immediately adjacent digit sibling" check -- MI's `(8)` sits directly
+# after digit-marked `(7)`, exactly like TX's `(4)` after `(3)`).
+#
+# Track TX (PR#20) safe variant, built and corpus-verified: fold forward
+# ONLY when the child's OWN captured content (the block text after its
+# own leading quoted term) is nothing but a punctuation artifact -- see
+# `_PUNCTUATION_STUB_RE`/`_child_definition_is_punctuation_stub` below.
+# This is a CONTENT-SHAPE signal (does the child's own capture carry any
+# information beyond list punctuation?), not a marker-KIND/position
+# signal, and it is keyed on NEITHER state: TX's 4 children each capture
+# only trailing list punctuation (`;`, `;`, `; and`, `` -- their real
+# content lives entirely in the parent redirect they were never attached
+# to), so all 4 qualify and fold. MI's children each capture a genuine
+# `means ...` sentence of their own, so NONE qualify -- `_child_
+# definition_is_punctuation_stub` returns False for every one of them and
+# the fold path never runs; MI is untouched. AL's own fix above (`_entry_
+# start_remainder`'s bare-digit suppression) is a different mechanism
+# entirely and is unaffected -- it only ever folds a nested list INTO its
+# own already-open quote-anchored parent, never fans a redirect out to
+# separate sibling candidates.
+#
+# The fold, when it fires, does not mutate the stub block in place -- it
+# INSERTS a second, folded-content sibling block immediately ahead of the
+# original, untouched stub block (see the expansion pass at the end of
+# `_split_into_numbered_blocks`). Both are parsed by the ordinary
+# `_leading_quote_candidate` path. Keeping the raw stub block intact
+# (rather than replacing it) means every existing direct caller of
+# `_split_into_numbered_blocks`/`extract_definitions_from_section` still
+# sees it exactly as before -- while `pipeline.py`'s `(article, terms)`-
+# keyed idempotent persistence, which always keeps whichever same-key
+# candidate it enumerates FIRST, ends up persisting the folded one,
+# because it is now the one enumerated first.
+_PUNCTUATION_STUB_RE = re.compile(r"^[\s;:,.]*(?:and|or)?[\s;:,.]*$", re.IGNORECASE)
+
+
+def _child_definition_is_punctuation_stub(block: str) -> bool:
+    """True when `block` (an already-built, stripped block string from
+    `_split_into_numbered_blocks`) opens with a quoted term whose OWN
+    captured definition -- everything after the closing quote -- carries
+    no information of its own: nothing but whitespace, list punctuation
+    (`;`, `:`, `,`, `.`), and/or a single trailing "and"/"or" connector.
+    False for a block with no leading quote at all (nothing to fold into)
+    or whose captured content contains any other real word -- see the
+    fold-eligibility comment above for why this, and only this, is the
+    signal that tells TX's shape apart from MI's."""
+    term_match = _LEADING_QUOTE_RE.match(block)
+    if term_match is None:
+        return False
+    remainder = block[term_match.end() :].strip()
+    return bool(_PUNCTUATION_STUB_RE.match(remainder))
+
+
+def _fold_orphan_parent_into_stub_child(block: str, parent_text: str) -> str:
+    """Return a NEW block string that inserts `parent_text` (an orphaned
+    introducer's own already-closed text) between `block`'s leading
+    quoted term and its own (punctuation-stub) captured content, so
+    re-parsing the result with `_leading_quote_candidate` yields the SAME
+    term with the parent's real redirect clause as its definition text
+    instead of bare punctuation. Returns `block` unchanged if it has no
+    leading quote, or if stripping `parent_text`'s own trailing list-
+    introducer punctuation (`_LIST_INTRODUCER_TAIL_RE`) leaves nothing
+    behind."""
+    term_match = _LEADING_QUOTE_RE.match(block)
+    if term_match is None:
+        return block
+    parent_clause = _LIST_INTRODUCER_TAIL_RE.sub("", parent_text).strip()
+    if not parent_clause:
+        return block
+    return f"{block[:term_match.end()]} {parent_clause}{block[term_match.end():]}"
 
 
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
+    # Track TX (PR#20): parallel to `blocks` -- for each block, either
+    # `None` (not fold-eligible) or the text of the orphaned introducer
+    # currently "in scope" for it (see below). Only ever consulted for a
+    # block that turns out, once fully built, to be a punctuation stub.
+    block_fold_sources: list[str | None] = []
     current: list[str] | None = None
+    current_opened_via_chain = False
+    current_block_fold_source: str | None = None
+    # The most recently closed orphaned introducer (no leading quote of
+    # its own, own text ends in `:`/`—`) still "in scope" -- persists
+    # across an entire RUN of quote-anchored chain-opened sibling blocks
+    # (TX's (A)-(D), MI's (a)-(d)), since only the FIRST of those siblings
+    # is itself immediately preceded by the introducer's own raw line;
+    # later siblings are preceded by an earlier SIBLING's line instead.
+    # Cleared the moment a bare-digit-fallback-opened block closes with no
+    # list-introducer tail of its own (an ordinary, unrelated numbered
+    # provision), so a later entry never inherits an earlier orphan's
+    # redirect text across such a boundary.
+    active_fold_source: str | None = None
     prev_nonblank = ""
     for line in lines:
         # Issue #23 correction (MI/PA blast-radius finding): suppression
@@ -587,13 +675,57 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
         if new_entry_start is not None:
             if current is not None:
                 blocks.append(current)
+                block_fold_sources.append(current_block_fold_source)
+                if not current_opened_via_chain:
+                    # The block just closed was opened via the bare-digit
+                    # FALLBACK path, so (by construction -- see
+                    # `_entry_start_remainder`) it has no leading quote of
+                    # its own. It becomes the new active fold source only
+                    # if it also ends in a list-introducer tail (a genuine
+                    # orphaned "the following ..." clause); otherwise it
+                    # is an ordinary numbered provision and clears
+                    # whatever fold source was previously in scope.
+                    #
+                    # Deliberately the block's OWN LAST non-blank raw line
+                    # (mirroring `prev_nonblank`'s own convention just
+                    # above), not its full accumulated multi-line text: a
+                    # real corpus-wide blast-radius finding (NM row
+                    # `STATE_NM_C61_A35_S61-35-2`) showed that when this
+                    # splitter's OWN unrelated marker gap (bare `"A."`/
+                    # `"C."`-style letter-period markers, which this
+                    # splitter's paren-only `_MARKER_TOKEN_RE` never
+                    # recognizes) lets several unrelated prior sentences
+                    # accumulate into one block before it finally reaches
+                    # a colon, using that whole accumulated blob as the
+                    # fold source pulled in all of that unrelated leading
+                    # text too. The introducer clause itself is always
+                    # its OWN last sentence right before the colon --
+                    # using just that line is byte-identical to using the
+                    # whole block on every genuine single-line introducer
+                    # (TX's `(4)`, MI's `(8)`/`(7)`), and correctly narrows
+                    # to just the real introducer sentence on NM's shape.
+                    last_nonblank_line = next(
+                        (ln.strip() for ln in reversed(current) if ln.strip()), ""
+                    )
+                    active_fold_source = (
+                        last_nonblank_line
+                        if _LIST_INTRODUCER_TAIL_RE.search(last_nonblank_line)
+                        else None
+                    )
+                # else: the block just closed was itself quote-anchored
+                # (a sibling entry, not an introducer) -- whatever fold
+                # source was already active stays active unchanged, so
+                # the NEXT sibling in the same run still sees it too.
             current = [new_entry_start]
+            current_opened_via_chain = bool(_LEADING_QUOTE_RE.match(new_entry_start))
+            current_block_fold_source = active_fold_source if current_opened_via_chain else None
         elif current is not None:
             current.append(line)
         if line.strip():
             prev_nonblank = line
     if current is not None:
         blocks.append(current)
+        block_fold_sources.append(current_block_fold_source)
     joined = ["\n".join(b) for b in blocks]
     if joined:
         # G3: only the LAST block has no natural next-entry boundary --
@@ -601,7 +733,23 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
         # START of the following recognized entry marker.
         last = joined[-1]
         joined[-1] = last[: _trailing_notes_boundary(last, 0, len(last))]
-    return [b.strip() for b in joined]
+    stripped = [b.strip() for b in joined]
+    # Track TX (PR#20) fold-forward expansion pass -- purely additive: a
+    # block with no fold source, or whose own capture is not a
+    # punctuation stub, passes through as the single entry it always was
+    # (byte-identical to before this pass for every such block, which is
+    # the overwhelming majority of the corpus). Only a fold-eligible stub
+    # gets a second, folded-content block inserted immediately ahead of
+    # its own untouched original -- see the comment above `_PUNCTUATION_
+    # STUB_RE` for why insertion order (folded first) is what makes the
+    # folded content win `pipeline.py`'s idempotent persistence.
+    result: list[str] = []
+    for index, block in enumerate(stripped):
+        fold_source = block_fold_sources[index]
+        if fold_source is not None and _child_definition_is_punctuation_stub(block):
+            result.append(_fold_orphan_parent_into_stub_child(block, fold_source))
+        result.append(block)
+    return result
 
 
 # --- Moved from pipeline.py verbatim (sprint 2026-08-04-defs-core-scope,
