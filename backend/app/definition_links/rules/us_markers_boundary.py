@@ -252,6 +252,31 @@ REAL defect confirmed live against a real vendored row (see the sprint log
     S51-19-02`'s "5. a. "Franchise" means ..."/"14. a. (1) "Sale" ..."
     shape hard-stops at "5."/"14." directly instead of leaking the glued
     "N. a." fragment onto the PRECEDING entry.
+- **The compound-idiom prefix preservation** (structural, per manager ruling
+  M-R107 -- no jurisdiction list, term, section number, date, or title):
+  the main loop above universally strips the matched idiom token from the
+  START of a captured entry -- correct, and relied on by other tests, for a
+  SIMPLE idiom (`"X" means the ...` -> `"the ..."`). A COMPOUND idiom --
+  two idiom words joined by "and <verb>" (NJ's `"facility" means and refers
+  to ...`, or `means and includes ...`/`shall mean and include ...`
+  elsewhere in the corpus) -- had only its first token stripped, leaving a
+  dangling fragment (`"and refers to ..."`) as the captured definition text
+  instead of the real sentence. `_COMPOUND_IDIOM_CONTINUATION_RE` detects
+  that continuation immediately after the idiom match (`idiom_m.end()`); when
+  it matches, `definition_start` is anchored at the idiom match's own START
+  instead of its END, so the whole compound idiom survives intact. This is
+  UNGATED -- it applies regardless of what precedes the quoted term -- per
+  corpus self-verification (2,045,897 rows; 2,092 rows carry a compound
+  idiom at all): an ungated check repairs 2,081 rows (3,100 text changes,
+  zero terms gained or lost), 8.5x a variant gated on the quote being
+  preceded by "or " (243 rows), for identical zero anchor risk -- confirmed
+  by spot-checking 20 repaired rows across nine states (AL, AR, CA, CT, DC,
+  DE, FL, GA, HI, NJ) directly against pinned corpus source. The check does
+  NOT apply to a bridged exclusion-clause entry (`_EXCLUSION_CLAUSE_BRIDGE_
+  RE`, issue #25): that idiom match already ends at its own bridge's real
+  idiom word with no separate prefix-stripping defect to fix, and the
+  bridge's own span accounting (`bridged_dstarts`) assumes `definition_
+  start == idiom_m.end()`.
 """
 
 from __future__ import annotations
