@@ -4,7 +4,7 @@ status: planned
 current_role: developer
 branch: claude/defs-b1-refers-to
 locked_by: "claude-code:developer"
-locked_at: "2026-08-12T10:52:00Z"
+locked_at: "2026-08-12T10:50:00Z"
 last_agent: "claude-code:planner"
 last_updated: "2026-08-12T10:46:00Z"
 program: "2026-08-04-definition-completeness"
@@ -14,7 +14,7 @@ total_items: 1
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 108 2026-08-12T10:30:17Z"
+lint: "PASS 151 2026-08-12T10:50:25Z"
 previous_sprint: "2026-08-12-shared-extraction-t35"
 prd_sections: []
 design_sections:
@@ -141,17 +141,11 @@ _None._
 
 ## Context Dump
 
-Sprint opened 2026-08-12 by the manager off main tip `ffcbd83` (all of
-PR #20 and the week's fixes merged; six related issues #21-#25/#28 closed
-today with evidence). Planner to author RED tests per gate 6 and define the
-single item per the mandate above.
-
-2026-08-12 (Planner pass, off `7af67d8`). Loss reproduced live against the
-real snapshot row and traced to its exact mechanism (see the log doc).
-Single item defined; 2 RED test files committed (5 parametrized cases
-proven RED for the right reason, 2 bounded negative controls proven GREEN
-today and must stay green). Baseline established: 1342 passed / 5 failed /
-1347 collected. Stale-pin sweep: none re-pointed. Gate-2/3 tooling located
-and exact commands recorded in the log doc — the Developer must run the
-all-53 acceptance and deletion-side re-screen themselves (P-R11: not run by
-this Planner). Handing off to Developer.
+Planner pass complete off `7af67d8` (loss reproduced live; mechanism in the
+log doc). One item; 2 RED test files committed at `f9961c9` — 5 cases RED
+for the right reason, 2 negative controls GREEN and must stay green.
+Baseline: 1342 passed / 5 failed / 1347 collected; gate-4 target 1347/0.
+Stale-pin sweep: none re-pointed. Gate-2 all-53 commands, gate-3 re-screen
+methodology, and the INTEGRATION_SHA re-pin step are in the log doc (P-R11:
+run, then adjudicate — no pre-authored ledger). Next: Developer implements
+the `_POST_RELATION` widening only, then hands to QA.
