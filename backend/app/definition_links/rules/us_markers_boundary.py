@@ -252,6 +252,31 @@ REAL defect confirmed live against a real vendored row (see the sprint log
     S51-19-02`'s "5. a. "Franchise" means ..."/"14. a. (1) "Sale" ..."
     shape hard-stops at "5."/"14." directly instead of leaking the glued
     "N. a." fragment onto the PRECEDING entry.
+- **The compound-idiom prefix preservation** (structural, per manager ruling
+  M-R107 -- no jurisdiction list, term, section number, date, or title):
+  the main loop above universally strips the matched idiom token from the
+  START of a captured entry -- correct, and relied on by other tests, for a
+  SIMPLE idiom (`"X" means the ...` -> `"the ..."`). A COMPOUND idiom --
+  two idiom words joined by "and <verb>" (NJ's `"facility" means and refers
+  to ...`, or `means and includes ...`/`shall mean and include ...`
+  elsewhere in the corpus) -- had only its first token stripped, leaving a
+  dangling fragment (`"and refers to ..."`) as the captured definition text
+  instead of the real sentence. `_COMPOUND_IDIOM_CONTINUATION_RE` detects
+  that continuation immediately after the idiom match (`idiom_m.end()`); when
+  it matches, `definition_start` is anchored at the idiom match's own START
+  instead of its END, so the whole compound idiom survives intact. This is
+  UNGATED -- it applies regardless of what precedes the quoted term -- per
+  corpus self-verification (2,045,897 rows; 2,092 rows carry a compound
+  idiom at all): an ungated check repairs 2,081 rows (3,100 text changes,
+  zero terms gained or lost), 8.5x a variant gated on the quote being
+  preceded by "or " (243 rows), for identical zero anchor risk -- confirmed
+  by spot-checking 20 repaired rows across nine states (AL, AR, CA, CT, DC,
+  DE, FL, GA, HI, NJ) directly against pinned corpus source. The check does
+  NOT apply to a bridged exclusion-clause entry (`_EXCLUSION_CLAUSE_BRIDGE_
+  RE`, issue #25): that idiom match already ends at its own bridge's real
+  idiom word with no separate prefix-stripping defect to fix, and the
+  bridge's own span accounting (`bridged_dstarts`) assumes `definition_
+  start == idiom_m.end()`.
 """
 
 from __future__ import annotations
@@ -353,6 +378,17 @@ _BARE_LETTER_DOT_SUBMARKER_RE = re.compile(r"[A-Za-z]\.[ \t]+")
 # entry label from an ordinary capitalized sentence (which only capitalizes
 # its FIRST letter, not every letter up to the period).
 _ALL_CAPS_LABEL_OPEN_RE = re.compile(r"^[A-Z][A-Z0-9 ,/()'-]{0,78}\.")
+# See this module's own docstring, "The compound-idiom prefix preservation".
+# `_TIGHT_IDIOM_RE` universally strips the matched idiom token from the
+# start of a captured entry -- correct, and relied on, for a SIMPLE idiom
+# ("means the ..."). A COMPOUND idiom (NJ's "means and refers to ...",
+# "means and includes ...", "shall mean and include ...") is two idiom
+# words joined by "and <verb>", and stripping only the first leaves a
+# dangling fragment ("and refers to ...") as the captured definition text
+# instead of the real sentence. This pattern recognizes that continuation
+# immediately after the idiom match so the whole compound idiom can be kept
+# instead of only its tail.
+_COMPOUND_IDIOM_CONTINUATION_RE = re.compile(r"and\s+[a-z]")
 
 
 def _preceded_by_list_introducer(text: str, marker_start: int) -> bool:
@@ -698,7 +734,12 @@ def extract_quote_anchored_entries(
             continue
         if bridged_exclusion:
             bridged_dstarts.add(idiom_m.end())
-        starts.append((m.start(), term, idiom_m.end()))
+        dstart = idiom_m.end()
+        if not bridged_exclusion and _COMPOUND_IDIOM_CONTINUATION_RE.match(
+            text, idiom_m.end(), idiom_m.end() + 40
+        ):
+            dstart = idiom_m.start()
+        starts.append((m.start(), term, dstart))
 
     hard_stops, mn_subd_stops, digit_based_stops = compute_hard_stops(
         text, limit, stop_at_mn_subd_headers=stop_at_mn_subd_headers
