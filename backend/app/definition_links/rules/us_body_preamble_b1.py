@@ -72,7 +72,7 @@ _HISTORY = re.compile(r"^\s*\[(?:L|Acts?)\s+\d{4}\b", re.I)
 # `[A-Za-z]\.` deleted those while keeping the `(1) means` convention next door.
 _POST_RELATION = re.compile(
     r'^[\s:;,.\-–—]*(?:(?:\([A-Za-z0-9]+\)|\[[A-Za-z0-9]+\]|[A-Za-z0-9]{1,3}\.)\s*)*'
-    r'(?:[^;.\n]{1,160}?,\s*)?(?:means|shall\s+mean|includes|shall\s+include|'
+    r'(?:[^;.\n]{1,160}?,\s*)?(?:means|shall\s+mean|includes|shall\s+include|refers?\s+to|'
     r'(?:has|have|shall\s+have)\s+the\s+(?:same\s+)?meaning|'
     r'the\s+meaning\s+(?:given|provided|set\s+forth|specified|prescribed))\b', re.I)
 _ENUM_RELATION = re.compile(
