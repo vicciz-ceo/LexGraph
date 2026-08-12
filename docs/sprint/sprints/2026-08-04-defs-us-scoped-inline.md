@@ -6,7 +6,7 @@ branch: claude/defs-us-scoped-inline
 locked_by: null
 locked_at: null
 last_agent: "claude-code:program-manager"
-last_updated: "2026-08-04"
+last_updated: "2026-08-04T00:00:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
