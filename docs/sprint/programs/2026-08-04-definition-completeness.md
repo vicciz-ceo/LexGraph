@@ -112,9 +112,9 @@ sprint. Highest-impact single fix: the no-marker inline-quote shape — FED
 | `2026-08-04-defs-core-scope` | `claude/defs-core-scope` | **MERGED to main @ 06d67d8** (2026-08-04): 11/11 items, 2 QA cycles, evaluator 700/0/165/tsc-clean, program-manager merge checklist run (containment probe, risk-classed diff read incl. full persistence hunks, own evaluator run). Authoritative seam = v2.5 in `2026-08-04-defs-core-scope-seam.md` — family panels MUST re-read it (they planned against v2.2-2.4) | **DONE** |
 | `2026-08-04-defs-il` | `claude/defs-il` | Full israeli-laws-wiki corpus (6,133 laws); 4 confirmed missed IL classes; scoped-assertion proof on real corpus | 2+ (after core) |
 | `2026-08-04-defs-us-scoped-inline` | `claude/defs-us-scoped-inline` | Family 1: "As used in / For purposes of this section…" scoped-inline defs, 0% captured everywhere — the English `extract_local_definitions` analog + scope stamping. Lead states: UT(34.6%), OH(47%), MO, ME, TN, VT, OR, RI, SC + all 36 first-round states | 2+ (after core) |
-| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **ACTIVE cycle 9 @ 7d87d08.** Contract lint repaired; recovered Planner artifact rejected pending a correction pass for weak tuple/occurrence assertions, missing live forwarding-filter measurement, and mutation proof. Production remains frozen. | 3rd pending merge slot |
+| `2026-08-04-defs-us-preamble` | `claude/defs-us-preamble` | **M-R122 ACCEPTED AND EXECUTED (M-R123, 2026-08-09).** Program manager took the accept/reject at program altitude after the director escalated non-convergence; four independent auditors re-decided all 207 keys from the pinned parquet (207/207 excerpt-integrity, 205 agree). One-file Developer port landed at `941661b`. Executed all-53 acceptance: 193,830 members / 592,334 records, **368 = 364 removals + 4 additions**, `49a9d3f7…00933d`, missing 0, extra 0, byte-identical to the prototype. Focused 54/54, legacy 13/13, prototype 86/86, backend 1199P/24F (accepted ledger, zero new), frontend 165 + tsc clean. Certificate CLOSED per P-R11. Named residual: pre-quote alias mis-bodied tuples → shared extraction + D-MT-E1. Outstanding: QA cycle 5's D-PFP-400 sample adjudication only. | 3rd pending merge slot |
 | `2026-08-04-defs-us-markers` | `claude/defs-us-markers-core2-integration` | **MERGED to main @ 7208dcf** (2026-08-06). Combined G3-HEAL QA PASS: 21 focused; backend 979 + 23 named residuals; frontend 165; typecheck clean. Exact full-corpus scope: 17 reviewed WA-only changes; rejected broad forms reproduce 99 and 12,774. G7 headed denominators exact; zero counts VA48/WA116/WV297/WI62/WY56/FED139/DC331. | **DONE — second merge slot** |
-| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | Family 4: compound/mid-token Definitions headings (MO/NV/NH/NY/MI/TN/SC/SD/PA/UT/TX) + NEW verb-form family `"X" defined` (VA/WA/WV/WI/WY/DC/FED, ~800 headings, 0% captured) | 2+ (after core) |
+| `2026-08-04-defs-us-headings` | `claude/defs-us-headings` | **QA-CERTIFIED 15/15 (4 QA cycles) and MERGED into `claude/defs-us-preamble` @ `cdfa699`** (2026-08-10) — ships in PR #20. 727 lines, all new files (`us_heading_variants/` package), no shared-file edits. Its 3 `US-*` HeadingRules had never actually registered before the merge; registering them exposed the P-R17 recognition-preempts-derivation interaction, fixed in the same branch. Post-fix the combined tree is certificate-identical to preamble alone. | **DONE — in PR #20** |
 | `2026-08-04-defs-us-multiterm` | `claude/defs-us-multiterm` | Families 5+6: multi-term shared-clause (MT/MI/ND/NY/OK/NH/VT/SD) + inline parentheticals ("Term") appositions (MI/MT/NH/ND/NY/OK/OR) | 2+ (after core) |
 | `2026-08-04-defs-us-pr` | `claude/defs-us-pr` | NEW: Puerto Rico Spanish-language rules — Definiciones headings, significa / A los fines de / se entenderá por idioms, Spanish scope phrases; ~529 sections 100% missed today | 2+ (after core) |
 | `2026-08-04-defs-core-dispatch` | `claude/defs-core-dispatch` | **MERGED to main @ 8524067** (2026-08-04): 11 items, QA PASS (770/0/165/tsc, program-manager checklist run). P-R8 CLOSED — all 7 rule kinds live + mutation-proven on both profiles; level-aware containment (M-D3/v2.7 + erratum: panels declare scope_unit_kind from their OWN measured convention, never the illustrative table); 3-ladder resolver (federal/digit/upper-alpha outermost); Maine annotation + citation fixes | **DONE** |
@@ -260,6 +260,58 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   genuinely defining "foreign person"/"Syria" by forwarding reference;
   exactly one of six flagged rows was true definition-level garbage).
 
+- **D-MAP (director, 2026-08-10): the product is a MAP of where definitions
+  are, not a mirror of their text.** Verbatim intent: "we intend to give AI lex
+  maps… It may have to read the definition, but it'll know where to find it
+  easily without having to read the whole lexis corpus… the most crucial part
+  is mapping where *is* a definition." Consequences, binding on every panel and
+  on the D-CERT close: the blocking defect is a wrong or missing **anchor** —
+  the `(row, term)` pair that says a definition lives here. Body quality is
+  informational byte quality, and that now covers three previously-contested
+  families: boundary **overrun** (already carved out), **undercapture** (a
+  correct anchor whose text is severed early), and **wrong body** (a correct
+  anchor whose text is unrelated). A phantom or wrong **term** is NOT byte
+  quality — it puts a definition that does not exist onto the map, and it is
+  the one family that stays blocking.
+- **D-RECALL-FP (director, 2026-08-10): prefer a small false-positive rate over
+  a large miss on terms and references.** Verbatim: "that's why we'd like to
+  have a small portion of false positive than a large miss on terms and
+  references." This supersedes the zero-false-capture emphasis of D-PFP-400.
+  A change that strictly increases anchor recall is not blocked by a small,
+  measured, named phantom-anchor rate; residual phantoms convert to tracked
+  debt with an owner. Panels still measure and report both sides — the ruling
+  sets the trade, it does not excuse leaving either unmeasured.
+- **Restated D-PFP-400 under D-MAP/D-RECALL-FP (program manager, 2026-08-10).**
+  The 400-tuple sample is adjudicated at ANCHOR granularity: is `(row, term)` a
+  real definition location? Re-reading the completed dry run under this rule
+  gives **399 of 400 anchors correct and 1 phantom** (the FED notes-heading
+  term), versus 2 false + 1 ambiguous under the old body-text rule — the IL
+  fragment and the NJ 49-character stub both have correct anchors. Corpus-wide
+  phantom-anchor rate: **944 records confirmed by structural signature**
+  (multi-line terms 402, trailing lead-in `:`/`—` 526, over-200-character
+  terms 16) out of 592,357 = **0.159%**, concentrated in FED 550 and OK 262,
+  plus a 179-record citation/entry-text family whose sample reads
+  predominantly phantom. The deletion-side screen (P-R15) is now the PRIMARY
+  gate, because under D-RECALL-FP a miss is the expensive defect.
+
+- **D-CYCLES (director, 2026-08-10): the QA-cycle budget is RAISED to 8 for
+  `defs-il` and `defs-us-pr`; every item runs to completion.** Both sat at 4 of
+  5 with 4 and 19 items open, so the harness valve would have stopped them
+  before the work could close. Chosen over shipping-certified-and-deferring:
+  the director wants full coverage, not a smaller certified core. The valve is
+  not removed — it moves to 8, and P-R12's six-consecutive-rejection hard stop
+  still applies underneath it, so a panel that cannot converge still escalates
+  rather than grinding. `defs-us-scoped-inline` and `defs-us-multiterm` stay at
+  the standard 5; they are at 2.
+- **D-MERGE (director, 2026-08-10): panels land PROGRESSIVELY into the
+  PR #20 branch, each re-measured on the merged tree as it certifies.** Chosen
+  under P-R17: all four remaining panels register rules into the same shared
+  registry, and the headings merge proved co-firing panels break each other
+  invisibly (SD 1 -> 0, KS 5 -> 1) with the damage only visible on the merged
+  tree. Separate per-panel PRs would surface those interactions on `main`,
+  after review, where they are hardest to attribute. Cost accepted: a full
+  all-53 acceptance run plus G7 regeneration per panel added.
+
 ## Program rulings added during execution
 
 - **D-DF (director, 2026-08-04): the "defined for" heading rule ships
@@ -301,6 +353,122 @@ IN/CO/KY/LA/DE/ID/NJ/MI/MT/ND/NY/OK.
   option C (mis-scope via ScopeTriggerRule) rejected per the director's
   scoped-definitions constraint. Panels hold dead-kind items and work
   reachable subsets meanwhile. Evidence: claude/defs-us-pr @ 5b177b7.
+
+- **P-R11 — executed certificates only (program manager, 2026-08-09, binding
+  on every panel and on the D-CERT close).** A changed-key / expected-delta
+  certificate is valid ONLY when it was **emitted by an executed
+  full-population run of the exact implementation it certifies**. A ledger
+  authored by hand, by projection, or by extrapolating a sample is planning
+  evidence and MUST NOT be a gate. Adjudication decides whether each ACTUAL
+  change is correct; it never predicts the change set. Zero-residual
+  adjudication of 100% of the real delta is the bar — it is stricter than a
+  projected ledger, not weaker. Origin (measured): the preamble panel authored
+  four expected-change ledgers in ~24 hours — 636 → 586 → 556 → 368 — each
+  superseded by the next. M-R121 froze 556 with "No all-53 run was made"; the
+  first full execution disagreed on 207 keys and **188 were the ledger's own
+  error**, which would have deleted 185 genuine definitions. Corollary: a
+  regression certificate anchors at `main` or the sprint's merge-base, never
+  at an intra-sprint commit — the preamble certificate's `5753e11` anchor is a
+  docs commit 167 commits ahead of main, so intra-sprint churn scored as
+  regression. The preamble sprint keeps `5753e11` because its 368 changes are
+  executed and fully adjudicated; every new certificate uses `main`.
+- **P-R12 — the non-convergence valve counts rulings, not just QA cycles
+  (program manager, 2026-08-09, binding).** The 5-cycle safety valve exists to
+  force a director decision when a panel cannot converge. The preamble panel
+  ran **22 manager rulings (M-R101…M-R122)** of reject-and-replan while
+  `qa_cycles` stayed at 4, because rejections at Planner altitude do not
+  increment the counter — so the valve never fired and the panel ran for days.
+  From now on: **six consecutive manager rejections of the same item without a
+  QA cycle in between is a hard stop.** The manager escalates to the program
+  manager with the item, the rejection list, and what it would take to close;
+  the program manager relays to the director. Repeatedly re-measuring is not
+  progress.
+- **P-R13 — a panel's shipped work is not hostage to its certification item
+  (program manager, 2026-08-09).** Where a panel's feature items are Dev
+  Complete and independently gated, they may be certified and merged on their
+  own evidence; a certification/measurement item blocks only itself. The
+  preamble panel held 858 lines of merge-ready recall work behind a 0.06%
+  delta audit for four days.
+
+- **P-R14 — a gate may not be owned by a component the panel cannot edit
+  (program manager, 2026-08-09, binding).** The preamble panel's D-PFP-400 gate
+  fails on three defect families that all live in shared extraction
+  (`us_profile.py` term construction and boundary logic) and are marked
+  `fixable_in_b1: false`: wrong definiendum (a statutory-notes heading plus its
+  Pub. L. credit line captured as the term — 818 records, 0.170%), wrong
+  definiens start (extraction firing on the NOUN "means" in "by spiritual
+  means"), and truncated-definiens undercapture (a 49-character stub ending on
+  "which" — floor 2,367 records, 0.49%, a shape the taxonomy has no bucket for).
+  No number of preamble cycles could close a gate whose failures the panel is
+  forbidden to touch. Before a certification item is accepted, its owner must
+  state which component produces the measured population and confirm the panel
+  can edit it; otherwise the gate belongs to that component's panel. Corollary
+  on carve-outs: the producer may not self-apply a director carve-out — the
+  new-fallback byte-quality ledger stamped `informational_only=true` on 50 rows
+  that were all `qa_boundary_status: unreviewed`, and both confirmed false
+  captures were members. Only QA adjudication converts a row to informational.
+- **P-R15 — screen the DELETION side (program manager, 2026-08-09, binding).**
+  Certificates were only ever checked for what they added. Screening the
+  preamble's 364 certified removals against source found 26 whose quoted term
+  is immediately followed by an explicit defining relation — all genuine
+  definitions, none in any adjudication inventory, caused by an enumerator
+  alternation that took `(1)` and `a.` but not `1.`. Every certificate now
+  carries a deletion-side gate: zero certified removals may carry an adjacent
+  explicit defining relation, permitting an intervening colon, newline and
+  enumerator. This is the implementable form of ABSOLUTE ZERO-MISS; before it,
+  the recall bar had no gate at all.
+
+- **P-R16 — a measurement harness may not reimplement the path it measures
+  (program manager, 2026-08-10, binding).** `measure_actual_production.capture()`
+  is a hand-copy of pipeline Stage 2 rather than a call into it. When the
+  pipeline gained a seam fix, the harness kept modelling the old program and
+  reported a **3,311-record net loss that the live pipeline did not have**,
+  while the test suite driving the real `run_definition_linking` stayed green.
+  A reimplementing harness is a second source of truth that drifts silently and
+  invalidates every number it has ever produced the moment production moves.
+  Every measurement harness must either call the real entry point, or carry an
+  equivalence assertion against it that fails when the two diverge. Same failure
+  family as the stale `INTEGRATION_SHA`: an instrument that looks authoritative
+  while measuring something else.
+- **P-R17 — cross-panel interactions are only findable on the merged tree
+  (program manager, 2026-08-10).** Merging the qa-certified headings panel into
+  the preamble branch registered 3 `US-*` HeadingRules that had never been
+  registered at all (nothing imported the package until `rules/__init__.py`'s
+  `pkgutil` auto-discovery reached it). Recognition then PREEMPTED the
+  body-preamble derived path, and two separately-gated extractors went dark:
+  the inline-quoted fallback (SD `11-9-10`, 1 -> 0 definitions) and
+  local-scope extraction (KS `46-225`, 5 -> 1 tuples, 4 lost at `local` scope).
+  Neither panel could see it: each half is inert without the other. Because the
+  interaction lands on `main` when the SECOND of two branches merges, sequenced
+  single-panel PRs only defer it. Panels whose rules can co-fire are measured on
+  the merged tree BEFORE either merges. Fixed symmetrically behind
+  `USProfile.heading_recognized_only_by_rule`; baseline-recognized headings are
+  untouched, so the 7 `section_title` states stay byte-for-byte identical.
+  Post-fix the combined tree is certificate-IDENTICAL to preamble alone
+  (592,357 records, `49140dde…`, 345 = 341 + 4, `db52f060…`) and the
+  deletion-side screen returns the same 3 Indiana rows.
+
+- **P-R18 — derive panel state from the BRANCH, never from the contract
+  (program manager, 2026-08-10, binding).** Both wave-1 Developers returned
+  `ESCALATION: the work you dispatched is already done`, and both were right.
+  `defs-us-scoped-inline`'s contract still read `current_role: developer`,
+  `qa_cycles: 2`, `Dev Complete: _None_`, while its branch head reads "pass 12
+  accepted, suite fully green (857/0/1)" with the Phase A module shipped across
+  three files and 7 commits of fix cycles behind it. `defs-us-multiterm`'s
+  Context Dump still said "NEXT: Developer fixes M-R17 + M-R18" while its branch
+  had run 100+ commits past that point through M-R30 ("phase-2 end state,
+  review-ready"), including a recall regression found and fixed inside the very
+  M-R18 guard the dispatch asked for. Both contracts froze at an early commit
+  and the panels kept working; every reader downstream — the recon agent, the
+  manager, the briefs — inherited the stale picture and concluded work was owed.
+  Before dispatching any role agent, establish state from `git log`, the module
+  files, and an actual suite run on that panel's own branch; treat the contract
+  as a claim to verify, not a source of truth. This is the same failure family
+  as the stale `INTEGRATION_SHA` (P-R16) and the hand-authored certificate
+  (P-R11): an artifact that looks authoritative while describing something that
+  is no longer there. Corollary: a role agent that finds its dispatch already
+  satisfied must escalate rather than invent work — both did, correctly, and
+  neither wrote a line of code.
 
 ## Core QA cycle 1 verdict (2026-08-04)
 

@@ -27,7 +27,13 @@ Classification is applied in priority order (first match wins):
   2. CROSS_REFERENCE -- the entire (whitespace-stripped) body, after
      removing an optional trailing `History: ...` amendment-citation
      annotation, is NOTHING BUT a single short sentence stating that the
-     definitions governing this text live in another citation.
+     definitions governing this text live in another citation. Two
+     structurally distinct forwarding idioms qualify: "the definitions in
+     <citation> apply/govern/are applicable" (`_CROSS_REFERENCE_RE`), and
+     "the terms defined in <citation> have/has the meaning(s) ascribed to
+     ..." (`_ASCRIBED_MEANING_RE`, item #24) -- both are pure forwarding
+     constructions with no local definiendum, just named from opposite
+     grammatical directions.
 
   3. otherwise -- NOT correctly empty: `is_correctly_empty=False`,
      `reason=None`. A real miss.
@@ -157,6 +163,47 @@ _CROSS_REFERENCE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A second, structurally distinct forwarding idiom (item #24, issue
+# https://github.com/vicciz-ceo/LexGraph/issues/24): instead of saying
+# "the definitions in <citation> apply here", this family says "the
+# terms defined in <citation> have the meaning(s) ascribed to [them] ...",
+# i.e. it names the forwarding relationship from the OTHER direction --
+# the terms (not "the definitions") are the grammatical subject, and the
+# verb is "have/has the meaning(s) ascribed to", not "apply/govern/are
+# applicable". Both idioms share the same load-bearing property this
+# module cares about: a pure forwarding construction with no local
+# definiendum -- the actual `"Term" means ...` content lives in the cited
+# section, not here. Per M-R107 this is derived from that STRUCTURE, not
+# from any one jurisdiction's exact wording: the anchor is the verb
+# phrase "have/has the meaning(s) ascribed to", not "NRS", section
+# numbers, or any other jurisdiction-specific token.
+#
+# A leading scope/context clause (e.g. "As used in <citation>, unless the
+# context otherwise requires,") commonly precedes the forwarding clause
+# itself -- unlike `_CROSS_REFERENCE_RE`, which is anchored to start
+# exactly at "(the )?definitions", this family allows an open-ended
+# leading span before the required "defined in ... have/has the
+# meaning(s) ascribed to" anchor, since the anchor phrase itself (not the
+# sentence's opening word) is what makes this a forwarding construction.
+# That leading span is bound by the SAME invariant the rest of this
+# module relies on (see the `_CROSS_REFERENCE_RE` comment block above):
+# a genuine scope/citation clause never contains a literal `"`, while
+# every real definition entry in this corpus opens with a quoted term --
+# so barring `"` (plus the same abbreviation-period allowance already
+# used for the citation and trailing spans below) keeps this leading span
+# from ever crossing into real defining content. The citation span
+# between "defined in" and the verb phrase, and the trailing span after
+# "ascribed to", reuse the exact same bars as `_CROSS_REFERENCE_RE`'s
+# citation/trailing groups for the same reason.
+_ASCRIBED_MEANING_RE = re.compile(
+    r'(?:[^".\n]|\.(?=\s*(?-i:[0-9a-z])))*?'
+    r"\bdefined\s+in\s+"
+    r'[^"\n]+?\s+'
+    r"ha(?:s|ve)\s+the\s+meanings?\s+ascribed\s+to\b"
+    r'(?:[^".\n]|\.(?=\s*(?-i:[0-9a-z])))*\.?\s*\Z',
+    re.IGNORECASE,
+)
+
 
 def _unwrap_terminal_candidate(stripped_body: str) -> str:
     """Peel one trailing period and one layer of `[...]` bracket-wrapping
@@ -188,7 +235,9 @@ def classify_correctly_empty(body_text: str) -> CorrectlyEmptyResult:
         return CorrectlyEmptyResult(is_correctly_empty=True, reason="terminal_status")
 
     without_history = _HISTORY_TAIL_RE.sub("", stripped).strip()
-    if _CROSS_REFERENCE_RE.fullmatch(without_history):
+    if _CROSS_REFERENCE_RE.fullmatch(without_history) or _ASCRIBED_MEANING_RE.fullmatch(
+        without_history
+    ):
         return CorrectlyEmptyResult(is_correctly_empty=True, reason="cross_reference")
 
     return CorrectlyEmptyResult(is_correctly_empty=False, reason=None)

@@ -179,7 +179,7 @@ def run_definition_linking(
         return profile
 
     skipped_degraded_article_ids: list[str] = []
-    live_articles: list[tuple[Article, MatcherArticle]] = []
+    live_articles: list[tuple[Article, MatcherArticle, str]] = []
     for art in articles_orm:
         span = session.get(SourceSpan, art.source_span_id)
         raw_body = span.quote_text if span is not None else ""
@@ -236,15 +236,34 @@ def run_definition_linking(
                     chapter=art.chapter,
                     structural_units=structural_units,
                 ),
+                raw_body,
             )
         )
 
     # Stage 2: extract every DefinitionCandidate, tagged with its owning
     # (ORM) article for provenance/persistence.
     all_candidates: list[tuple[DefinitionCandidate, Article]] = []
-    for art, matcher_article in live_articles:
+    for art, matcher_article, raw_body in live_articles:
         profile = _profile_for_document(art.document_id)
         is_definitions_section = profile.is_definitions_heading(art.heading, matcher_article.body)
+        # A heading recognized only by a REGISTERED HeadingRule (verb-form
+        # `"X" defined`, compound/mid-token headings) is in exactly the
+        # position `heading_was_derived` was created for: the heading is a
+        # reliable signal, but the body is inline prose the `(N)`-block
+        # splitter cannot parse, so the inline-quoted fallback must stay
+        # reachable. Without this, recognizing such a heading REMOVES its
+        # definitions -- measured on SD `11-9-10` ("Blighted area defined"),
+        # which went 1 -> 0 the moment a heading rule started matching it.
+        # `profile.is_definitions_heading` tries the baseline literal check
+        # first and only then registered rules, so comparing against the
+        # baseline isolates the rule-recognized class exactly and leaves the
+        # 7 states already working off `section_title` byte-for-byte alone.
+        rule_only = getattr(profile, "heading_recognized_only_by_rule", None)
+        recognized_by_registered_rule = bool(
+            is_definitions_section
+            and callable(rule_only)
+            and rule_only(art.heading, matcher_article.body)
+        )
 
         # Wave 6 (ruling R12): CA/IL/GA leave a bare placeholder in
         # `section_title` (`Article.heading`), so the check above always
@@ -260,19 +279,72 @@ def run_definition_linking(
         # completely untouched, so the 7 states already working off
         # `section_title` are byte-for-byte unaffected.
         used_body_derived_heading = False
+        b1_winner = False
         if not is_definitions_section:
-            derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
+            derive_body_preamble_match = getattr(profile, "derive_body_preamble_match", None)
+            if callable(derive_body_preamble_match):
+                derived_heading = derive_body_preamble_match(
+                    art.heading,
+                    matcher_article.body,
+                    raw_source=raw_body,
+                    article_number=art.number,
+                    chapter=art.chapter,
+                )
+            else:
+                derived_heading = profile.derive_heading_from_body(art.heading, matcher_article.body)
             if derived_heading is not None and profile.is_definitions_heading(
                 derived_heading, matcher_article.body
             ):
                 is_definitions_section = True
                 used_body_derived_heading = True
+                b1_winner = bool(getattr(derived_heading, "b1_winner", False))
 
         if is_definitions_section:
+            # G8: body-derived headings can also contain ordinary local-scope
+            # definitions.  Keep the registered local candidates first, then
+            # add only non-colliding section candidates so a later, broader
+            # section candidate cannot reach persistence or Stage 3.
+            local_candidate_keys: set[tuple[str, ...]] = set()
+            # Same reason as the section-extraction gate below: a heading
+            # recognized only by a registered rule must not lose the ordinary
+            # local-scope definitions its body carries. Measured on a Kansas
+            # verb-form heading row, where recognizing the heading dropped four
+            # locally-scoped terms the baseline captured.
+            if used_body_derived_heading or recognized_by_registered_rule:
+                if b1_winner:
+                    local_candidates = profile.extract_local_scope_definitions(
+                        matcher_article.body,
+                        article_number=art.number,
+                        chapter=art.chapter,
+                        raw_source=raw_body,
+                        b1_winner=True,
+                    )
+                else:
+                    local_candidates = profile.extract_local_scope_definitions(
+                        matcher_article.body, article_number=art.number, chapter=art.chapter
+                    )
+                for candidate in local_candidates:
+                    candidate_key = tuple(sorted(candidate.terms))
+                    if candidate_key in local_candidate_keys:
+                        continue
+                    local_candidate_keys.add(candidate_key)
+                    all_candidates.append((candidate, art))
+
             scope = profile.determine_scope(matcher_article.body)
-            section_candidates = profile.extract_definitions_from_section(
-                matcher_article.body, scope=scope, heading_was_derived=used_body_derived_heading
-            )
+            if b1_winner:
+                section_candidates = profile.extract_definitions_from_section(
+                    matcher_article.body,
+                    scope=scope,
+                    heading_was_derived=True,
+                    raw_source=raw_body,
+                    b1_winner=True,
+                )
+            else:
+                section_candidates = profile.extract_definitions_from_section(
+                    matcher_article.body,
+                    scope=scope,
+                    heading_was_derived=used_body_derived_heading or recognized_by_registered_rule,
+                )
             # G6 (sprint 2026-08-05-defs-core-follow-on-2, seam v2.8 §4):
             # `determine_scope_assignments` replaces the old bare
             # `candidate.source_chapter = art.chapter if scope == "chapter"
@@ -290,6 +362,11 @@ def run_definition_linking(
                 chapter=art.chapter,
             )
             for candidate in section_candidates:
+                if used_body_derived_heading:
+                    candidate_key = tuple(sorted(candidate.terms))
+                    if candidate_key in local_candidate_keys:
+                        continue
+                    local_candidate_keys.add(candidate_key)
                 for assignment in assignments:
                     stamped = replace(candidate, scope=assignment.kind)
                     if assignment.kind == "chapter":
@@ -427,7 +504,7 @@ def run_definition_linking(
         candidates_by_document[owning_art.document_id].append((candidate, definition_row))
 
     articles_by_document: dict[str, list[tuple[Article, MatcherArticle]]] = defaultdict(list)
-    for art, matcher_article in live_articles:
+    for art, matcher_article, _raw_body in live_articles:
         articles_by_document[art.document_id].append((art, matcher_article))
 
     for document_id, doc_articles in articles_by_document.items():

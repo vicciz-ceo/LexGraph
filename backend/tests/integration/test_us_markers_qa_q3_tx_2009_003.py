@@ -91,6 +91,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
 from app.definition_links.pipeline import run_definition_linking
 from app.definition_links.rules.us_markers_boundary import extract_quote_anchored_entries
@@ -156,7 +158,13 @@ def test_part_a_red_the_4_terms_should_carry_the_real_cross_reference_not_a_stub
     """The Part-A RED, at the real persisted-output level: through the
     REAL pipeline, each of these 4 terms' `Definition.definition_text`
     should reference the real parent redirect ("meanings assigned by
-    Section 2001.003") it is defined by -- not a bare punctuation stub."""
+    Section 2001.003") it is defined by -- not a bare punctuation stub.
+
+    sprint 2026-08-10-green-the-suite (D-GREEN-TRIAGE): verified live -- all
+    4 anchors ARE present; the defect is a punctuation-stub capture, not a
+    lost anchor. Same root-cause family as the AL nested-list stub (both are
+    `us_profile.py`'s baseline splitter missing a list-introducer exception).
+    Tracked at https://github.com/vicciz-ceo/LexGraph/issues/23."""
     row = _load_row()
     ingest_us_statute_rows(
         db_session,

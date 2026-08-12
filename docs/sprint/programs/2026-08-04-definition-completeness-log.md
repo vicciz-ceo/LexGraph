@@ -846,3 +846,538 @@ verbatim during the merge) — no tampering; recorded closed.
   6,133/6,133 ingested (37s); PR 0%→80.9% (5,594 terms, 0 FPs); headings
   91.4% of miss-pool recognized, 0 FPs corpus-wide; markers quantified
   ~34,017 real zero-yield misses corpus-wide.
+
+- 2026-08-09 (preamble M-R122 full normalized prototype correction):
+  production checkpoint `c2a8717` stayed frozen. Its all-53 acceptance output
+  was 359 changes (355 removals + 4 additions), 202 M-R121 keys missing and 5
+  extra. The reproducible runner now has `--prototype`; complete execution over
+  53 files / 2,038,247 rows selected the exact 193,830 B1 winners
+  (`851e85…6af5a`) and emitted 592,334 records (`9e6e0196…2ca8`) against the
+  `5753e11` 592,694-record baseline (`f065d8ee…b3f8`). Source audit classified
+  all 207 mismatches: 188 old certificate removals contradict explicit raw
+  relations (185 post-quote, 3 pre-quote aliases); the other 14 missing and 5
+  extra removals share one quote-direction defect. Under the certificate-change
+  exception, M-R121's 556 projection is superseded by **368 = 364 removals + 4
+  additions**, canonical SHA `49a9d3f7…0933d`; full prototype comparison has
+  zero missing/extra and byte `cmp=0`. A second c2/prototype mismatch—duplicate
+  plural groups under overlapping triggers—has zero corpus impact but a novel
+  future-law control. Proposed Developer scope remains one-file only
+  (`us_body_preamble_b1.py`):
+  physical-line-start continuation opener plus source-order exact-group dedup.
+  Focused c2 is 5F/49P; prototype is 86/86. Durable evidence is under
+  `mr118/qa/mr122/`; no source/identity/jurisdiction allowlist was introduced.
+
+- 2026-08-09 (director escalation: "we are circling"; program-manager
+  diagnosis, ruling, and fix). ROOT CAUSE, measured, not inferred: the preamble
+  panel's acceptance gate was self-referential. Item 7 required production to
+  reproduce a hand-authored expected-changed-key ledger exactly. Four such
+  ledgers were authored in ~24 hours — 636 → 586 → 556 → 368 — each superseded
+  by the next, because a ledger authored in advance cannot predict the tail of
+  a 592,334-record output; the tail is only discoverable by running. M-R121
+  froze 556 with the log line "No all-53 run was made"; the first full
+  execution disagreed on 207 keys, and 188 of those were the ledger's own error
+  and would have deleted 185 genuine definitions. Aggravator 1: the certificate
+  anchored at `5753e11`, a docs commit 167 commits ahead of main, so
+  intra-sprint churn scored as regression. Aggravator 2: the 5-cycle safety
+  valve never fired — 22 manager rulings (M-R101…M-R122) rejected and replanned
+  at Planner altitude, which does not increment `qa_cycles` (stuck at 4).
+  RULED: P-R11 (executed certificates only; adjudicate the ACTUAL delta to zero
+  residual, never predict it; anchor at main), P-R12 (six consecutive manager
+  rejections of one item without an intervening QA cycle is a hard stop and
+  escalates to the director), P-R13 (a certification item blocks only itself,
+  not the panel's independently gated feature work).
+  FIXED: the program manager took the M-R122 accept/reject itself rather than
+  handing it to another Planner — the handoff's own "independently accept or
+  reject" protocol was a re-entry into the loop. Four independent auditors
+  re-decided all 207 keys from the pinned parquet (207/207 excerpt-integrity,
+  205 agree); the one-file port landed at `941661b`; the single all-53
+  acceptance run reproduced 368 = 364 + 4 / `49a9d3f7…00933d` with missing 0,
+  extra 0, byte-identical to the prototype. Certificate CLOSED. Also unblocked
+  a stale `INTEGRATION_SHA` pin that would have fail-closed QA cycle 5's
+  D-PFP-400 run without measuring anything, and a missing worktree
+  `frontend/node_modules` that had made the frontend gate unrunnable.
+  NEW NAMED RESIDUAL: pre-quote alias mis-bodied tuples (right term, wrong
+  body) — a third class M-R122's taxonomy could not express; correct at B1
+  altitude, owned by shared extraction + D-MT-E1.
+  PROGRAM-WIDE OBSERVATION (contracts read from each panel's OWN branch;
+  the copies on other branches are stale and misleading): `defs-us-headings`
+  is **qa-certified 15/15 and unmerged since 2026-08-04**; `defs-il` is in
+  review at 8/12 with qa_cycles 4/5; `defs-us-pr` is in progress with 14 of 33
+  items dev-complete at qa_cycles 4/5; `defs-us-scoped-inline` is in developer
+  at 2/5; `defs-us-multiterm` is still planning at 0/11. Three panels sit one
+  cycle from the safety valve, so the non-convergence dynamic is program-wide,
+  not a preamble quirk. 6,371 lines of production code across those five
+  branches are unmerged and untouched since 2026-08-05.
+
+- 2026-08-09 (same session, continued): the deletion side had never been
+  screened, and D-PFP-400 turned out to be unclosable by the panel that owns
+  it. Two further findings, both from executed measurement.
+  P-R15 / M-R124: a mechanical screen of all 364 certified REMOVALS against
+  pinned source found 26 whose quoted term is immediately followed by an
+  explicit defining relation — every one a genuine definition, and none in any
+  adjudication inventory, because every prior audit had looked only at what the
+  change ADDED. Cause was a single missing character class: `_POST_RELATION`
+  admitted `(1)`, `[1]` and `a.` but not `1.`, so the AZ/IN/KY/MD/NV/WI
+  convention `"term": 1. Means …` was deleted while the identical `(1) means`
+  convention was preserved — visibly splitting single rows (KY 139.5325 kept
+  four sibling terms and dropped only "Entertainment event"; WI 95.72 kept five
+  and dropped only "Dead animal"). Repaired; the re-executed all-53 run gives
+  345 = 341 removals + 4 additions, `db52f060…bb1778`, missing 0 and
+  extra_actual 0 — the zero proving the new delta is a strict SUBSET of the old
+  368, i.e. 23 recovered and nothing new. Q-D1 `new_definition_tuples` rose
+  480,011 → 480,034, matching. The screen is now a standing gate.
+  P-R14 / M-R125: a pre-QA dry run adjudicated all 400 regenerated D-PFP-400
+  tuples against source (8 independent auditors, 0 id mismatches) and returned
+  314 genuine / 83 overrun / 2 false captures / 1 ambiguous = FAIL. Every
+  blocking family is shared extraction (`us_profile.py` term construction and
+  boundary logic), `fixable_in_b1: false`: wrong definiendum (a notes heading
+  plus its Pub. L. credit line captured as the term, 818 records / 0.170%),
+  wrong definiens start (firing on the NOUN "means" in "by spiritual means"),
+  and truncated-definiens undercapture (a 49-character stub ending on "which",
+  floor 2,367 / 0.49%, a shape the taxonomy has no bucket for). So the gate
+  measures a component the panel may not edit — no number of preamble cycles
+  could have closed it. Item 7 re-scoped; families routed to shared extraction;
+  feature work merges under P-R13. Governance defect recorded: the
+  new-fallback byte-quality ledger self-stamps `informational_only=true` on 50
+  rows that are all `qa_boundary_status: unreviewed`, and both confirmed false
+  captures are members — the producer claiming the director's carve-out.
+  TWO DIRECTOR QUESTIONS, the only open asks: (1) is truncated-definiens
+  undercapture informational like overrun, or a false capture (~2,367 records)?
+  (2) confirm only QA adjudication may convert a row to informational.
+
+- 2026-08-10 (director rulings D-MAP + D-RECALL-FP, program-wide). The director
+  reframed the escalation rather than answering it inside the old taxonomy: the
+  product is a MAP of where definitions live, not a mirror of their text, and a
+  small false-positive rate is preferred to a large miss on terms and
+  references. Both recorded verbatim in the program doc.
+  Consequences, applied and measured, not asserted: D-PFP-400 is adjudicated at
+  ANCHOR granularity, so the completed 400-tuple dry run re-reads as 399 correct
+  anchors / 1 phantom instead of 2 false + 1 ambiguous; body defects (overrun
+  83/400, undercapture floor 2,367, wrong body 490) are informational; the
+  phantom-anchor family is 944 records / 0.159% of 592,357 by structural
+  signature (FED 550, OK 262) plus a 179-record citation/entry-text family that
+  samples predominantly phantom. A 246-row "multi-sentence prose" screen was
+  discarded as unreliable — it fires on ordinary abbreviations — rather than
+  counted. Under D-RECALL-FP the 0.159% is named tracked debt and not a merge
+  blocker, since relative to main neither B1 module exists and the branch
+  strictly increases anchor recall. P-R15's deletion-side screen becomes the
+  PRIMARY gate: a miss is now the expensive defect.
+  Governance closed: the byte-quality producer no longer stamps
+  `informational_only=True` on rows it has not measured. That flag was a literal
+  emitted alongside `qa_boundary_status: "unreviewed"`, membership was route
+  plus a SHA rank seeded by the integration SHA, and re-pinning replaced all 50
+  rows with zero overlap — it was never a property of the row, and both
+  confirmed false captures carried it. Producer now emits evidence and status
+  only; a contract test fails on any QA verdict field appearing on an unreviewed
+  row. Only QA adjudication converts a row to informational.
+  NJ undercapture assessed against the director's "fix it if easy" condition and
+  declined with evidence: the full 865-character definiens is already produced
+  by `_extract_inline_quoted_definitions`, but a shared `EntrySplitterRule`
+  registered across 11 jurisdictions wins precedence, so the repair reshapes
+  every numbered definitions section in VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK. Routed
+  to the named core boundary follow-on.
+
+- 2026-08-10 (director: include headings in PR #20). Merged `claude/defs-us-headings`
+  (qa-certified 15/15, unmerged since 2026-08-04) into `claude/defs-us-preamble`.
+  It adds only new files — the `us_heading_variants/` package, 727 lines across
+  7 modules — and touches no shared production file; the single merge conflict
+  was a fixtures README where both branches appended docs, resolved as a union.
+  TWO CROSS-PANEL REGRESSIONS, invisible to either panel alone (P-R17). Nothing
+  imported the headings package until `rules/__init__.py`'s `pkgutil`
+  auto-discovery reached it on merge, so its 3 `US-*` HeadingRules had never
+  registered. Registering them made heading recognition PREEMPT the
+  body-preamble derived path, and two separately-gated extractors went dark:
+  the inline-quoted fallback (SD `11-9-10`: 1 -> 0 definitions) and local-scope
+  extraction (KS `46-225`: 5 -> 1 persisted tuples, 4 lost at `local` scope).
+  Both fixed symmetrically behind `USProfile.heading_recognized_only_by_rule`,
+  which reports the class where the baseline literal check says no and a
+  registered rule says yes — baseline positives untouched, so the 7
+  `section_title` states stay byte-for-byte identical.
+  A THIRD defect in the instrument (P-R16): `measure_actual_production.capture()`
+  reimplements pipeline Stage 2 instead of calling it, so it kept modelling the
+  pre-fix behaviour and reported a 3,311-record net LOSS the live pipeline did
+  not have, while the suite driving the real `run_definition_linking` stayed
+  green. Both gates mirrored into the harness.
+  DECOMPOSITION THAT PREVENTED A WRONG CALL: the first corrected run showed
+  1,170 removals, which reads as catastrophic under D-RECALL-FP. At anchor
+  granularity 826 of them were remove+add pairs on the SAME `(row, term)` —
+  text changed, anchor kept, byte quality under D-MAP — leaving 8 genuine
+  anchor losses, of which 6 were the local-gate defect, 1 is issue #19 and 1 a
+  Colorado row. The raw count overstated the harm by two orders of magnitude.
+  FINAL STATE: the combined tree is certificate-IDENTICAL to preamble alone —
+  592,357 records / `49140dde…`, delta 345 = 341 removals + 4 additions /
+  `db52f060…`, missing 0, extra 0 — and the deletion-side screen returns the
+  same 3 Indiana rows (2 plural-repair replacements + issue #19). Headings
+  therefore costs nothing inside the B1-winner population; its own recall gains
+  sit in rows outside that population and are not measured by this harness.
+
+- 2026-08-10 (harness resume, wave 1). Director rulings D-CYCLES (budget to 8
+  for IL and PR) and D-MERGE (progressive into the PR #20 branch, re-measured
+  per panel) recorded. Pointer retargeted off the stale
+  `2026-08-05-defs-core-follow-on-2` entry, which had merged at `d783052`.
+  ROLE RESOLUTION, read from each panel's OWN branch: `defs-il` owes two
+  SERIALIZED Developers (7 D-1a REDs committed, suite 13F/829P);
+  `defs-us-pr` owes MANAGER ARBITRATION on two escalations and has no Next
+  Steps section at all; `defs-us-scoped-inline` owes one Developer (Phase A,
+  fenced by S-R2 to a single new file); `defs-us-multiterm` owes one Developer
+  (M-R17 + M-R18, per its clean-exit dump) then a Planner for the coordinated
+  `rule`/`rule.` four-file change.
+  STALE BLOCKS IDENTIFIED: multiterm's contract still carries a BLOCKED banner
+  citing P-R8 (`TermClauseRule` dead on the live path) and a wait-for-markers
+  block on `EntrySplitterRule`. Both blocking sprints have since merged —
+  core-dispatch at `8524067`, markers at `7208dcf` — after these panels exited
+  on 2026-08-05. IL carries the same class of core-blocked item. Neither panel
+  was ever told. Both wave-1 Developer briefs carry an explicit stale-block
+  verification step and are forbidden from rebasing onto main on their own.
+  RECON FAILURE, recorded so it is not repeated: a Haiku read-only recon agent
+  reported writing a roster dossier to the scratchpad and returned a confident
+  per-panel summary. The file did not exist, and the summary was wrong on three
+  of four panels (it reported "0 open items / manager-arbitration" for IL and
+  multiterm, both of which actually owe Developers against committed REDs). The
+  manager re-derived the roster directly from the four contracts. Verify that a
+  delegated artifact exists before trusting the summary that claims it.
+  Wave-1 spawn roster (role -> agentId): developer/scoped-inline ->
+  afc259eb64ecf0eba; developer/multiterm -> a9688163a3cc83572. Both Sonnet
+  medium, own worktrees, own branches, no shared-file write set.
+
+- 2026-08-10 (wave 1 result). BOTH Developers escalated that their dispatch was
+  already satisfied, and the manager independently confirmed both on their own
+  branches. scoped-inline: `us_scoped_inline.py` + two helper modules shipped
+  and registered, named tests 17 passed, branch head `21e0c45` "pass 12
+  accepted, suite fully green (857/0/1)". multiterm: the M-R17/M-R18 pins are
+  green, branch head `1c0c8cd` "M-R30 — phase-2 end state, review-ready", suite
+  14 failed / 815 passed with all 14 classified and owned (13 cross-panel, 1
+  deliberately deferred). Neither agent wrote code; both stopped and asked,
+  which is the correct behaviour. Recorded as P-R18: panel state comes from the
+  branch, not the contract. Both also independently confirmed P-R8 is resolved —
+  `entry_splitter_rules_for`/`term_clause_rules_for` dispatch live from
+  `us_profile.py:1340,1350` via `pipeline.py:263` — so multiterm's BLOCKED
+  banner was stale, as suspected.
+  PR #20 narrowed on director instruction from 1,692,780 inserted lines to
+  22,138 (135 files; backend 13,286, docs 8,852). Removed: 8 per-row corpus
+  dumps of ~194k lines each from superseded rounds, superseded certificates
+  mr119/mr121/mr123, a stale shape measurement, the two panel process logs, and
+  a clause-routing data package. Kept: the certification harness, the current
+  G7 evidence, the 345-key certificate with its acceptance and screen summaries,
+  and the 207-key M-R122 inventory. Gates re-verified after each cut —
+  certification contract 16 passed, certificate still 345 = 341 + 4 at
+  `db52f060…`, prototype self-check 86 passed, suite 24 failed / 1292 passed.
+  Known cosmetic residue: `2026-08-04-defs-us-preamble-clause-package.md` and
+  two seam docs still reference files now only in git history.
+
+- 2026-08-10 (D-MERGE trial: scoped-inline REJECTED at the gate, merge aborted).
+  Contract-vs-branch staleness re-checked for the other two panels first, per
+  P-R18: `defs-il`'s contract is 1 commit behind its head and `defs-us-pr`'s IS
+  its head, so unlike scoped-inline and multiterm those two are trustworthy.
+  Both are also further along than their Context Dumps read: IL's two "NEXT"
+  serialized Developer branches (`defs-il-dev-d1a` classes A/B/C green,
+  `defs-il-dev-d1b` 4 E6 REDs green) are ALREADY merged into `claude/defs-il`,
+  and PR's head commit is "QA cycle-14 verified; M-R20 rules the two new
+  findings" — the arbitration this manager was told was owed had been done.
+  MERGE TRIAL. Conflict probe: scoped-inline and multiterm each conflict only
+  on the append-only fixtures README; IL is clean. Merged scoped-inline alone,
+  union-resolved the README, ran the full suite: **40 failed / 1363 passed**
+  against a 24/1292 baseline — sixteen NEW failures, and the interference runs
+  BOTH ways:
+    - 12 preamble/B1 tests break under scoped-inline: mr118 raw-provenance x3,
+      mr121 source-truth x3 (incl. R8/R9, the quote-direction pins this sprint
+      shipped), b1 occurrence-local, b1 future-law persistence, defining-verb
+      narrowing, hazard catalogue x2, HI contractual-quote P-FP.
+    - 4 scoped-inline tests break under preamble: subsection-degrade x3
+      (Maine), subsection-outermost-negative (Alabama).
+  CORRECTION (same day, on re-running all three suites and taking the actual set
+  difference rather than inferring from the tallies): **zero** previously-failing
+  tests go green under the merge. The earlier "two went green" line was read off
+  the passed/failed counts, not off the failure names, and was wrong — the merged
+  tree is 41 failed / 1362 passed with `-p no:randomly`, the preamble baseline is
+  24 failed / 1292 passed, scoped-inline alone is 857 passed / 0 failed, and the
+  set difference is 17 net-new of which one is the g7 integration-pin probe
+  artifact (production moved after the pin on a throwaway merge branch). Sixteen
+  real net-new failures, 12 + 4 as listed. The interaction IS purely destructive
+  on the test estate. P-R11's lesson generalizes: read the executed names, never
+  infer a delta from a summary line.
+  ROOT SHAPE: scoped-inline registers a `US-*` ScopeTriggerRule for the same
+  "As used in this section" bodies B1 recognizes as body-preambles. Both fire;
+  neither yields. This is a precedence/ownership question between two panels,
+  not a defect in either — exactly the class P-R17 exists to surface, and an
+  order of magnitude larger than the headings interaction (16 tests vs 2).
+  Merge ABORTED; branch restored to its certified state (clean tree, 24/1292,
+  head `2a6d30d`). PR #20 continues to carry only preamble+headings, which
+  remain fully certified. scoped-inline, multiterm and IL do NOT merge until the
+  precedence question is ruled with measurement behind it.
+
+- 2026-08-10 (P-R19 discovered: the merge creates a PERFORMANCE defect that
+  neither panel has alone, and no test suite can see it).
+  Found while diagnosing a stalled census agent, not by any planned gate. The
+  agent's corpus scan sat on `us_federal_statutes.parquet` at 99.4% CPU for 11
+  minutes; a process sample put 2,539 of 2,540 stack frames inside a single
+  `_sre_SRE_Pattern_search`. Catastrophic backtracking, not slowness.
+  MANAGER ERROR, CORRECTED BY THE AGENT: this manager first ruled the harness at
+  fault for feeding whole parquet rows to rules that "only ever see article
+  bodies," and instructed a rewrite. The agent pushed back with a citation, which
+  this manager then verified: `ingest_us_statutes.py:9` — the US statutes ingest
+  has NO `parse_articles` call and maps one parquet row to exactly ONE Article
+  (unlike `ingest_wiki_law`). Whole-row input was correct all along. Recorded
+  because the correction ran the right way round: a spawned agent refused a
+  manager instruction on cited evidence, per the escalation rule.
+  THE CONTRADICTION THAT FOUND THE REAL DEFECT. Taking the pathology at face
+  value contradicted scoped-inline's own log, which records a full-corpus scan of
+  all 53 files / 2,038,135 rows in 271.7s. A single 128-second row cannot coexist
+  with that total. P-R10 applied to this manager's own conclusion.
+  DECISIVE MEASUREMENT (`scratchpad/mgr_si_perf_probe.py`, same function, same
+  three federal rows, 30s cap, both raw and normalized input):
+
+    act_id             bytes    scoped-inline alone   merged tree
+    USC_T17_C1_S115    150,551  0.02s (0 defs)        4.07s      ~200x
+    USC_T26_C1_S72     187,145  0.04s (16 defs)       >30s       ~3,000x
+    USC_T42_C7_S405    225,928  0.02s (3 defs)        >30s       ~1,400x
+
+  Raw and normalized inputs time identically, so normalization is not the
+  variable — the merged code is. NEITHER PANEL HAS THIS ALONE.
+  LIKELY MECHANISM, one root cause with two symptoms: preamble-only
+  `_US_PERIOD_UNIT_MARKER_RE` (us_profile.py:1319; `grep -c` returns 0 on the
+  scoped-inline tree) widens the shared marker-token stream that scoped-inline's
+  own subsection resolver walks. That is the SAME change the failure taxonomy
+  independently isolated as the cause of the four wrong-scope failures (Maine
+  snowmobile-trail degrade x3, Alabama outermost-negative). Wrong values on small
+  inputs; catastrophic backtracking on large ones.
+  **P-R19 (binding): cross-panel interference can be a PERFORMANCE defect, and
+  the test estate is structurally blind to it.** Both panels' fixtures are small,
+  so every timing stays in milliseconds while real statutory rows take minutes.
+  The merged suite went green on time and red only on values. Every future
+  co-firing merge probe must therefore time the merged tree against the largest
+  real rows in the corpus, not only run the suite. A suite that passes proves
+  nothing about tractability on the corpus.
+  CONSEQUENCE FOR THE MERGE: this is a second blocker, independent of the
+  precedence question and higher priority. Family C is no longer a correctness
+  question alone. Any ruling that resolves precedence (Families A and B) without
+  scoping the period-marker widening still ships a tree that cannot complete a
+  full-corpus run.
+
+- 2026-08-10 (contested census complete: 53/53 files, all 2,038,247 rows).
+  Manager-verified from the artifacts, not from the agent's prose: the summary
+  reports `complete: true`, and the arithmetic closes exactly —
+  2,038,017 classified + 230 pathological = 2,038,247. The contested JSONL line
+  count equals `cells.both` to the row.
+
+    cell                  rows        share
+    both (contested)   114,979        5.64%
+    b1_only             82,831        4.06%
+    scoped_inline_only  12,643        0.62%
+    neither          1,827,564       89.67%
+
+  **Of the 127,622 rows scoped-inline fires on, 90.1% are already claimed by B1;
+  only 12,643 (9.9%) are unique to it.** Precedence order therefore decides the
+  disposition of 114,979 rows, and scoped-inline's marginal recall contribution
+  over B1 is 12,643 rows — real, and the reason D-RECALL-FP does not permit
+  simply dropping the panel. Spread is wide: US-RI has zero contested rows;
+  US-GA and US-VA run ~77% contested; AK/MA/PR/RI have
+  `scoped_inline_only == 0`, i.e. B1 already covers everything scoped-inline
+  finds there.
+  **P-R19 quantified. 230 pathological rows across 21 jurisdictions, and the
+  attribution is unanimous: `timed_out_in == "scoped_inline"` on all 230, zero
+  in B1** (verified by field count over the JSONL, not taken on report). B1
+  completed on every one — provable from the two-stage worker protocol, since
+  reaching a scoped-inline timeout requires the B1 result to have been returned
+  first. Not a federal quirk: US-FED 154, US-TN 22, US-GA 8, US-NY 6, US-HI 5,
+  then FL/IA/MA/MD/MS/OK/UT at 3 each, down to single rows in DC/KS/MT/NJ.
+  Size distribution min 56,311 / median 128,960 / max 2,404,155 chars, with 39
+  rows above 250k. Worst: `STATE_HI_D2_T24_C431_S431` (2.4M),
+  `USC_T42_C7_S1395ww` (839k), `USC_T42_C7_S1396a` (768k).
+  Because the slowdown exists in neither panel alone, each of those 230 rows is
+  a row THE MERGED TREE FAILS TO PRODUCE ANYTHING FOR. Under D-RECALL-FP that is
+  the expensive defect, not the cheap one.
+  TWO METHOD FACTS WORTH KEEPING. (1) `signal.alarm`/SIGALRM CANNOT bound a
+  pathological `re` match: CPython runs it as one uninterruptible C call and does
+  not deliver the signal until it returns — the earlier guard sat 7+ minutes past
+  its own 0.5s cap without recording a timeout. Only process-level kill works.
+  (2) Isolate with ONE persistent worker over a pipe, deadline enforced on the
+  RESPONSE, killed and replaced only on timeout: 230 restarts corpus-wide instead
+  of 1,768 per-row forks. Agent-reported caveats, accepted: the 2.5s cap means
+  rows needing 2.5-30s of legitimate compute land in `pathological`, so 230 is a
+  floor on severity rather than an exact count of non-terminating cases; and
+  `b1_result_before_timeout` is null on all 230 (a reporting-fidelity bug the
+  agent self-reported), which does not affect the attribution field.
+
+- 2026-08-10 (PRECEDENCE RULED, with measurement behind it. Three defects, not
+  one, and the blocker is none of the things this manager first named.)
+
+  **P-R19's root cause: hypothesis KILLED, real cause found.** This manager
+  reported `_US_PERIOD_UNIT_MARKER_RE` as the "likely" cause of the 3,000x
+  blowup and tasked a bisector to prove or kill it. It killed it. Neutralizing
+  that regex alone changes nothing (3.41s -> 3.37s), and it matches 0, 2 and 0
+  tokens on the three federal rows — there was essentially nothing for it to
+  widen. cProfile put 99% of runtime (3.401s of 3.438s) in 6,800 `re.search`
+  calls, all from **`_citation_or_xref_context` (us_profile.py:1488-1530)**, the
+  G4 citation/cross-reference discriminator: called once per surviving marker
+  token from inside `resolve_unit_path`'s loop, each call firing up to five
+  UNANCHORED `pattern.search(body, 0, trimmed_end)` probes, so every probe scans
+  from document position 0. Neutralize that instead and the rows return in
+  0.02s/0.04s — the scoped-inline-alone baseline. Growth curve across five body
+  sizes holds `time / (tokens x offset)` constant at 3.5-4.2e-8 over a 200x
+  range while `time/tokens^2` and `time/offset^2` each drift ~3x: **O(M*N), not
+  exponential backtracking.**
+  **P-R20 (binding) — the performance blocker is a CORE defect ALREADY ON MAIN,
+  and it is neither panel's.** Manager-verified: `_citation_or_xref_context`
+  appears 5x in `git show main:...us_profile.py` and 5x on this branch, and
+  **0x on the scoped-inline branch**, which simply forked before
+  `defs-core-follow-on-2` (G4) merged. Merging scoped-inline does not introduce
+  the defect — it EXPOSES latent quadratic work already shipped, because
+  scoped-inline drives `resolve_unit_path` per candidate where B1 calls it four
+  times. Consequences: (a) this blocks EVERY remaining panel merge — multiterm,
+  IL and PR all sit behind the same seam — not just scoped-inline; (b) main is
+  already carrying it for any caller that walks many marker tokens over a large
+  body; (c) it routes to CORE, ahead of the panel queue. Fix surface named by
+  the bisector: the five suffix patterns all have bounded maximum match length,
+  so probe a fixed-size window immediately before `trimmed_end` instead of the
+  whole document prefix — O(document position) becomes O(1) per token, and
+  `resolve_unit_path` goes O(M*N) -> O(M). Explicitly do NOT bundle the G2
+  ladder-defer logic (lines 1665-1672) or the period regex into that change:
+  those are the separate Family C causes and conflating them merges two
+  unrelated rulings.
+
+  **P-R21 (binding) — under D-MAP the merged tree is ALREADY anchor-optimal, so
+  precedence is a QUALITY ruling, not a recall ruling.** Anchor adjudication ran
+  the real production pipeline over a 120-row sample stratified across all 52
+  jurisdictions holding contested rows (allocation proportional to sqrt of each
+  jurisdiction's contested count, seed 20260810):
+
+    configuration          anchors  correct  phantom  lost vs best
+    b1 alone                   560      560        0            10
+    scoped-inline alone        462      462        0           108
+    merged as-is               570      570        0             0
+    union_both (SIMULATED)     570      570        0             0
+
+  Every anchor either panel finds alone survives into the merge: the term-key
+  collision at pipeline.py:364-369 changes which candidate's SCOPE and
+  DEFINITION_TEXT survive, but never drops the TERM, because the winner carries
+  the same term key. So the 12 preamble-side failures are defects on the
+  scope/definition_text axis, which D-MAP classes informational — NOT anchor
+  losses. Neither panel can stand alone: B1 alone forfeits 10 anchors,
+  scoped-inline alone forfeits 108 (19% of the correct anchors in this
+  contested population) despite 857/857 of its own tests passing. That last
+  number is the sharpest argument yet for P-R18 and P-R17 — a fully green panel
+  suite says nothing about corpus behaviour.
+  RULED: **specificity_order** — when two registered rules claim the same
+  (article, term), the candidate carrying the more specific resolved scope wins
+  the key, instead of whichever was inserted first. It closes all 10 Family A
+  failures, costs zero anchors (recall is already maximal), and generalizes to a
+  fourth panel, which insertion order cannot. `b1_wins` scores identically on
+  today's evidence but only because B1 happens to be the more specific side in
+  all 10 cases; it is not a general rule and is rejected for that reason.
+
+  **The three defects are separable and must be routed separately.**
+    1. PERF — G4 discriminator, core, already on main. Blocks every merge. CORE.
+    2. FAMILY A (10) — term-key collision, pipeline.py:364-369. Ruled above.
+    3. FAMILY C (4) — bisector confirms `also_explains_family_c: false`. Two
+       distinct causes: G2 ladder-selection defer (Maine x3) and the period
+       marker regex (Alabama). Preamble-side core changes side-effecting
+       scoped-inline's resolver; the P-R17 gate-flip shape, not precedence.
+    4. FAMILY B (2) — scoped-inline has no forwarding-phrase exclusion, and B1's
+       guard never runs because it is gated on b1_winner. Scoped-inline's item.
+  MERGE ORDER: core perf fix -> re-time the merged tree against the 230
+  pathological rows -> specificity_order -> Families B and C -> re-run the all-53
+  certificate. PR #20 stays preamble+headings only until that sequence completes.
+
+- 2026-08-10 (P-R21 WITHDRAWN — the independent panel refuted this manager's own
+  ruling, and verification confirmed the refutation).
+
+  The judge panel deliberated WITHOUT being shown the ruling, deliberately, so
+  its verdict would be a check rather than a ratification. It earned that design.
+  **Three judges, three different answers, all medium confidence, each leaving
+  5-7 of the 16 failures unfixed:** minimal-change -> `b1_wins`; recall ->
+  `specificity_order`; seam-architecture -> `union_both`. No consensus is itself
+  the finding: no single discipline is clearly right on the present evidence.
+  **The refuter then killed the ruled option on mechanism, not opinion.**
+  `specificity_order` says the candidate with the more specific resolved scope
+  wins the term key. On the exact collisions it was ruled to fix — R5/R8/R9, the
+  HI guard and the MR118 trio, all bare "In this section," / "As used in this
+  chapter," triggers where unit != subsection — **both colliding candidates carry
+  `scope_unit_kind = None` and no resolved UnitPath. There is nothing to
+  compare.** Manager-verified in source rather than accepted on report:
+  `registry.default_scope_assignment` returns `ScopeAssignment(kind=scope,
+  value=None)` for anything that is not chapter or local, so B1's `law-wide`
+  candidate carries no path by construction (registry.py:358-372); and
+  scoped-inline's `_event_scope` returns `_SCOPE_BY_UNIT[unit], None, None` for
+  every non-subsection unit (us_scoped_inline.py:167-170). The ruled discipline
+  cannot execute on the cases it was ruled to decide.
+  A second problem the refuter's proposed repair exposes, recorded so the next
+  ruling does not walk into it: ranking the scope KIND label structurally
+  (subsection > local > chapter > law-wide) makes the comparison definite but
+  makes NARROWER win — and the failing tests demand `law-wide`, i.e. the BROADER
+  scope. So the repair as stated would keep the tests red. Whatever replaces
+  P-R21 must first settle the semantic question the tests already answer — which
+  scope is CORRECT for a bare "In this section," definiendum — and only then
+  choose a structural rule that produces it. This manager ruled a mechanism
+  before settling that, which is the error.
+  **STANDING: P-R20 is unchallenged and is now the only ruled item.** No judge
+  and no refuter disputed it, and M2's corpus-wide screen strengthened it — see
+  below. Core perf fix first, ahead of the panel queue, is unchanged.
+  **P-R21 is WITHDRAWN. Precedence is NOT ruled.** What settles it, in order:
+  (1) adjudicate the semantics of bare "In this section," against pinned source —
+  is the certified `law-wide` answer right, or is the preamble panel's own
+  expectation the thing that is wrong; (2) only then pick the structural rule
+  that yields it; (3) confirm it against all 16 failures by running them, never
+  by argument (P-R11).
+
+- 2026-08-10 (DIRECTOR STANDARD D-GREEN, and a finding this manager should have
+  surfaced days ago: **CI has been RED on `main` since at least 2026-08-05**).
+
+  Director: "all the tests in the test suite represent the final stage of the
+  repo and the CI turns green." Binding, program-wide, from now on.
+  WHAT THIS MANAGER HAS BEEN DOING WRONG. Every status report in this program
+  has quoted the backend suite as "24 failed / 1292 passed — exactly the accepted
+  23-marker + held-T35 ledger, zero new failures" and treated that as a PASS. It
+  is not a pass. It is a red build, and the "accepted ledger" framing made a
+  broken CI look like bookkeeping.
+  THE ACTUAL STATE, verified now rather than assumed:
+  - `main` @ `be4370b`, run locally: **23 failed / 979 passed.**
+  - `main`'s CI on GitHub: the last FIVE runs are `failure` (be4370b, 6cdf7c7,
+    71e3a4a, 62972b5) or `cancelled` (7208dcf, the markers merge itself). The
+    repo has not had a green main since before 2026-08-05.
+  - PR #20 checks: `backend (py3.12)` FAIL, `backend (py3.13)` FAIL,
+    `sprint contract lint` FAIL, `frontend (typecheck + vitest)` PASS.
+  - `.github/workflows/ci.yml` runs on push to `main` and on every
+    `pull_request`, so this has been visible on every PR the program opened.
+  ROOT OF IT: the 23 are RED tests deliberately committed by the markers panel
+  as known-defect markers and merged to main at `7208dcf`. Committing a red test
+  to mark a defect is a reasonable local move; merging it to `main` converts the
+  suite from a gate into a noticeboard, and every subsequent panel inherited a
+  baseline it could not distinguish its own regressions from. P-R17 and P-R18
+  both cost real time for exactly this reason — a signal that is always red
+  carries no information.
+  **D-GREEN (binding). No branch merges to `main` while its CI is red, and
+  `main`'s own CI must be restored to green.** Two legitimate resolutions per
+  failing test, chosen per test with evidence:
+    (a) FIX the defect so the test passes; or
+    (b) RE-AUTHOR the test to assert what the code correctly does today, with
+        the unfixed gap tracked as a sprint item or a GitHub issue.
+  A third mechanism is acceptable where the defect is real but deferred:
+  `pytest.mark.xfail(strict=True)` with an issue link — it keeps the defect
+  visible, keeps CI green, and FAILS LOUDLY if the behavior is silently fixed.
+  **Forbidden:** deleting tests, weakening assertions, broad `skip`, or
+  non-strict `xfail` to manufacture green. The anti-gaming diff check applies —
+  any commit claiming to green the suite gets a manager diff read, and a hunk
+  that weakens an assertion is rejected.
+  SEQUENCING CONSEQUENCE: D-GREEN sits AHEAD of P-R20's core perf fix in the
+  queue, because a red baseline is what makes every downstream measurement
+  ambiguous. The `sprint contract lint` failure is in scope too — the contract is
+  over its size budget and the harness's own lint gate has been failing unread.
+
+- 2026-08-10 (D-GREEN-TRIAGE, director's answer on how to reach green).
+  **Split the 23 by the director's own two standing rulings, per test, with
+  evidence:**
+  - A defect that LOSES a definition or a term is FIXED now. D-RECALL-FP already
+    says a miss is the expensive defect; leaving one marked would be marking the
+    expensive class as acceptable.
+  - A defect that only degrades CAPTURE QUALITY — a truncated citation tail, a
+    stub where fuller text existed, a boundary overrun — becomes
+    `pytest.mark.xfail(strict=True)` with a tracked GitHub issue. D-MAP already
+    classes byte-quality as informational, so this marks it at the altitude the
+    director already ruled for it, and `strict=True` means the suite fails loudly
+    if the defect is ever silently fixed.
+  The triage verdict per test must cite which of the two it is and why. "Looks
+  minor" is not a verdict; losing vs not-losing an anchor is.
+  Forbidden, restated because it is the obvious cheat: no deletions, no weakened
+  assertions, no broad `skip`, no non-strict `xfail`. Every commit claiming to
+  green the suite gets a manager diff read against those four.

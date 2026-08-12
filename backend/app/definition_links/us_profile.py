@@ -327,17 +327,61 @@ def _strip_marker_chain_before_quote(line: str) -> str | None:
     return rest
 
 
-def _entry_start_remainder(line: str) -> str | None:
+# Issue #23 (sprint 2026-08-10-green-the-suite, item 1): mirrors
+# `us_markers_boundary.py`'s own already-proven "list-introducer exclusion"
+# (see that module's docstring) -- a bare digit marker is never a hard
+# entry boundary when the text immediately before it (skipping only
+# whitespace/blank lines) ends in `:` or an em dash `—`, because that
+# punctuation itself says "the following IS this clause's own content",
+# not a new sibling entry. Deliberately narrower than the sibling engine's
+# version: it gates ONLY the unconditional bare-digit FALLBACK below, never
+# `_strip_marker_chain_before_quote`'s own quote-anchored path. A marker
+# immediately followed by its own quote (e.g. TX's `(A) "contested case";`
+# nested under a `(4) ... Section 2001.003:` redirect clause) is a real
+# defined-term anchor of its own and must keep opening its own block --
+# suppressing it here would merge it into the still-quote-less parent block
+# and delete the term's own anchor entirely (the ORIGINAL AL/TX defect this
+# item closes was already "term survives, content lost"; a naive universal
+# suppression would regress that to "term lost too"). That shape -- an
+# orphaned, colon-terminated introducer immediately followed by its own
+# quote-anchored lettered children (TX's `(4) The following terms have the
+# meanings assigned by Section 2001.003:` then `(A) "contested case";`) is
+# STILL always split into its own sibling block here, unconditionally --
+# `_entry_start_remainder` itself never suppresses this path. A first,
+# naive fix that instead tried to suppress/merge at THIS level (fold the
+# orphan's redirect text forward into every following quote-anchored
+# child) was implemented and then WITHDRAWN once this item's own mandated
+# corpus-wide blast-radius measurement (see the Developer report) found it
+# corrupting real, already-complete, unrelated MI definitions -- a real MI
+# corpus row is marker-structurally identical to TX's shape but
+# semantically opposite, and no marker-KIND-only signal separates the two.
+# Track TX (PR#20): the actual fix lives one level up, as an ADDITIVE
+# post-processing pass in `_split_into_numbered_blocks` (see the comment
+# above `_PUNCTUATION_STUB_RE`) -- it never touches this function or this
+# split, it only optionally attaches the already-closed orphan's own text
+# to a SEPARATE, additional copy of a child block, and only when that
+# child's own capture turns out to carry no content of its own.
+_LIST_INTRODUCER_TAIL_RE = re.compile(r"[:—]\s*$")
+
+
+def _entry_start_remainder(line: str, *, preceded_by_list_introducer: bool = False) -> str | None:
     """Return the remainder of `line` with its leading entry marker(s)
     stripped if `line` starts a new definition entry, else `None`. Tries
-    the (quote-anchored) marker-chain rule first; falls back to the
-    original unconditional bare-digit-marker rule so a later bare
-    "(N)" still closes out an open block even with no quote right after
-    it (see the rationale comment above `_MARKER_TOKEN_RE`).
+    the (quote-anchored) marker-chain rule first -- ALWAYS, regardless of
+    `preceded_by_list_introducer` (see the comment above
+    `_LIST_INTRODUCER_TAIL_RE` for why); falls back to the original
+    unconditional bare-digit-marker rule so a later bare "(N)" still closes
+    out an open block even with no quote right after it (see the rationale
+    comment above `_MARKER_TOKEN_RE`) -- UNLESS `preceded_by_list_
+    introducer` is True, in which case this bare digit marker is this
+    entry's own nested-list content (issue #23), not a boundary, and the
+    caller folds it into whatever block is currently open instead.
     """
     chain_remainder = _strip_marker_chain_before_quote(line)
     if chain_remainder is not None:
         return chain_remainder
+    if preceded_by_list_introducer:
+        return None
     digit_match = _BARE_DIGIT_MARKER_RE.match(line)
     if digit_match is not None:
         return line[digit_match.end() :]
@@ -492,20 +536,196 @@ def _trailing_notes_boundary(text: str, start: int, end: int) -> int:
     return end
 
 
+# Issue #23 continued -- TX's OWN mirror-image shape (an orphaned
+# DIGIT-marked introducer clause, no leading quote of its own, immediately
+# followed by its own LETTER-marked quote-anchored children: `(4) The
+# following terms have the meanings assigned by Section 2001.003:` then
+# `(A) "contested case";` / `(B) "party";` / ...). A first, naive fix --
+# fold the orphan's own redirect text forward into EVERY following quote-
+# anchored child, unconditionally -- was implemented and then WITHDRAWN
+# once this item's own mandated corpus-wide blast-radius measurement (see
+# the Developer report) found it corrupting real, already-complete,
+# unrelated MI definitions: `STATE_MI_C206_AAct-281-of-1967_S206.278`'s
+# subsections `(1)`-`(7)` are ordinary numbered provisions and `(8) As
+# used in this section:` is followed by `(a) "Board" means...`, `(b)
+# "Michigan strategic fund" means...`, etc. -- MARKER-STRUCTURALLY
+# IDENTICAL to TX's own shape (an adjacent digit run ending in an
+# orphaned, colon-terminated digit block, followed by lettered quote-
+# anchored children), but semantically the OPPOSITE: TX's `(4)` genuinely
+# redirects to external Section 2001.003 (its children have NO meaning
+# without it); MI's `(8)` is ordinary "as used in this section"
+# boilerplate in front of terms that are ALREADY fully self-contained --
+# folding it forward unconditionally only appends noise to MI. No purely
+# marker-KIND/position signal (the only kind M-R107 permits) tells these
+# two real shapes apart; every version tried either missed MI (a whole-
+# document "digit exists somewhere" check) or still hit it (a same-run
+# "immediately adjacent digit sibling" check -- MI's `(8)` sits directly
+# after digit-marked `(7)`, exactly like TX's `(4)` after `(3)`).
+#
+# Track TX (PR#20) safe variant, built and corpus-verified: fold forward
+# ONLY when the child's OWN captured content (the block text after its
+# own leading quoted term) is nothing but a punctuation artifact -- see
+# `_PUNCTUATION_STUB_RE`/`_child_definition_is_punctuation_stub` below.
+# This is a CONTENT-SHAPE signal (does the child's own capture carry any
+# information beyond list punctuation?), not a marker-KIND/position
+# signal, and it is keyed on NEITHER state: TX's 4 children each capture
+# only trailing list punctuation (`;`, `;`, `; and`, `` -- their real
+# content lives entirely in the parent redirect they were never attached
+# to), so all 4 qualify and fold. MI's children each capture a genuine
+# `means ...` sentence of their own, so NONE qualify -- `_child_
+# definition_is_punctuation_stub` returns False for every one of them and
+# the fold path never runs; MI is untouched. AL's own fix above (`_entry_
+# start_remainder`'s bare-digit suppression) is a different mechanism
+# entirely and is unaffected -- it only ever folds a nested list INTO its
+# own already-open quote-anchored parent, never fans a redirect out to
+# separate sibling candidates.
+#
+# The fold, when it fires, does not mutate the stub block in place -- it
+# INSERTS a second, folded-content sibling block immediately ahead of the
+# original, untouched stub block (see the expansion pass at the end of
+# `_split_into_numbered_blocks`). Both are parsed by the ordinary
+# `_leading_quote_candidate` path. Keeping the raw stub block intact
+# (rather than replacing it) means every existing direct caller of
+# `_split_into_numbered_blocks`/`extract_definitions_from_section` still
+# sees it exactly as before -- while `pipeline.py`'s `(article, terms)`-
+# keyed idempotent persistence, which always keeps whichever same-key
+# candidate it enumerates FIRST, ends up persisting the folded one,
+# because it is now the one enumerated first.
+_PUNCTUATION_STUB_RE = re.compile(r"^[\s;:,.]*(?:and|or)?[\s;:,.]*$", re.IGNORECASE)
+
+
+def _child_definition_is_punctuation_stub(block: str) -> bool:
+    """True when `block` (an already-built, stripped block string from
+    `_split_into_numbered_blocks`) opens with a quoted term whose OWN
+    captured definition -- everything after the closing quote -- carries
+    no information of its own: nothing but whitespace, list punctuation
+    (`;`, `:`, `,`, `.`), and/or a single trailing "and"/"or" connector.
+    False for a block with no leading quote at all (nothing to fold into)
+    or whose captured content contains any other real word -- see the
+    fold-eligibility comment above for why this, and only this, is the
+    signal that tells TX's shape apart from MI's."""
+    term_match = _LEADING_QUOTE_RE.match(block)
+    if term_match is None:
+        return False
+    remainder = block[term_match.end() :].strip()
+    return bool(_PUNCTUATION_STUB_RE.match(remainder))
+
+
+def _fold_orphan_parent_into_stub_child(block: str, parent_text: str) -> str:
+    """Return a NEW block string that inserts `parent_text` (an orphaned
+    introducer's own already-closed text) between `block`'s leading
+    quoted term and its own (punctuation-stub) captured content, so
+    re-parsing the result with `_leading_quote_candidate` yields the SAME
+    term with the parent's real redirect clause as its definition text
+    instead of bare punctuation. Returns `block` unchanged if it has no
+    leading quote, or if stripping `parent_text`'s own trailing list-
+    introducer punctuation (`_LIST_INTRODUCER_TAIL_RE`) leaves nothing
+    behind."""
+    term_match = _LEADING_QUOTE_RE.match(block)
+    if term_match is None:
+        return block
+    parent_clause = _LIST_INTRODUCER_TAIL_RE.sub("", parent_text).strip()
+    if not parent_clause:
+        return block
+    return f"{block[:term_match.end()]} {parent_clause}{block[term_match.end():]}"
+
+
 def _split_into_numbered_blocks(text: str) -> list[str]:
     lines = text.split("\n")
     blocks: list[list[str]] = []
+    # Track TX (PR#20): parallel to `blocks` -- for each block, either
+    # `None` (not fold-eligible) or the text of the orphaned introducer
+    # currently "in scope" for it (see below). Only ever consulted for a
+    # block that turns out, once fully built, to be a punctuation stub.
+    block_fold_sources: list[str | None] = []
     current: list[str] | None = None
+    current_opened_via_chain = False
+    current_block_fold_source: str | None = None
+    # The most recently closed orphaned introducer (no leading quote of
+    # its own, own text ends in `:`/`—`) still "in scope" -- persists
+    # across an entire RUN of quote-anchored chain-opened sibling blocks
+    # (TX's (A)-(D), MI's (a)-(d)), since only the FIRST of those siblings
+    # is itself immediately preceded by the introducer's own raw line;
+    # later siblings are preceded by an earlier SIBLING's line instead.
+    # Cleared the moment a bare-digit-fallback-opened block closes with no
+    # list-introducer tail of its own (an ordinary, unrelated numbered
+    # provision), so a later entry never inherits an earlier orphan's
+    # redirect text across such a boundary.
+    active_fold_source: str | None = None
+    prev_nonblank = ""
     for line in lines:
-        new_entry_start = _entry_start_remainder(line)
+        # Issue #23 correction (MI/PA blast-radius finding): suppression
+        # only ever makes sense when there is an ALREADY-OPEN block for
+        # the marker to fold forward into (AL's "(1)" right after "(a)
+        # "Acquire" means:" -- `current` is that quote-anchored block).
+        # With no open block yet (a bare digit marker is the very FIRST
+        # thing seen, e.g. PA's own `"For the purposes of this
+        # subchapter:\n\n(1) References to ..."` construction-clause
+        # preamble), suppressing it doesn't fold it into anything -- it
+        # just SILENTLY DROPS the line with nowhere to go, which is a
+        # regression of its own (real PA guard: `_split_into_numbered_
+        # blocks` must still yield that row's 3 real digit-marked blocks,
+        # even though none of them carries a leading quote either way).
+        preceded_by_list_introducer = current is not None and bool(
+            _LIST_INTRODUCER_TAIL_RE.search(prev_nonblank)
+        )
+        new_entry_start = _entry_start_remainder(
+            line, preceded_by_list_introducer=preceded_by_list_introducer
+        )
         if new_entry_start is not None:
             if current is not None:
                 blocks.append(current)
+                block_fold_sources.append(current_block_fold_source)
+                if not current_opened_via_chain:
+                    # The block just closed was opened via the bare-digit
+                    # FALLBACK path, so (by construction -- see
+                    # `_entry_start_remainder`) it has no leading quote of
+                    # its own. It becomes the new active fold source only
+                    # if it also ends in a list-introducer tail (a genuine
+                    # orphaned "the following ..." clause); otherwise it
+                    # is an ordinary numbered provision and clears
+                    # whatever fold source was previously in scope.
+                    #
+                    # Deliberately the block's OWN LAST non-blank raw line
+                    # (mirroring `prev_nonblank`'s own convention just
+                    # above), not its full accumulated multi-line text: a
+                    # real corpus-wide blast-radius finding (NM row
+                    # `STATE_NM_C61_A35_S61-35-2`) showed that when this
+                    # splitter's OWN unrelated marker gap (bare `"A."`/
+                    # `"C."`-style letter-period markers, which this
+                    # splitter's paren-only `_MARKER_TOKEN_RE` never
+                    # recognizes) lets several unrelated prior sentences
+                    # accumulate into one block before it finally reaches
+                    # a colon, using that whole accumulated blob as the
+                    # fold source pulled in all of that unrelated leading
+                    # text too. The introducer clause itself is always
+                    # its OWN last sentence right before the colon --
+                    # using just that line is byte-identical to using the
+                    # whole block on every genuine single-line introducer
+                    # (TX's `(4)`, MI's `(8)`/`(7)`), and correctly narrows
+                    # to just the real introducer sentence on NM's shape.
+                    last_nonblank_line = next(
+                        (ln.strip() for ln in reversed(current) if ln.strip()), ""
+                    )
+                    active_fold_source = (
+                        last_nonblank_line
+                        if _LIST_INTRODUCER_TAIL_RE.search(last_nonblank_line)
+                        else None
+                    )
+                # else: the block just closed was itself quote-anchored
+                # (a sibling entry, not an introducer) -- whatever fold
+                # source was already active stays active unchanged, so
+                # the NEXT sibling in the same run still sees it too.
             current = [new_entry_start]
+            current_opened_via_chain = bool(_LEADING_QUOTE_RE.match(new_entry_start))
+            current_block_fold_source = active_fold_source if current_opened_via_chain else None
         elif current is not None:
             current.append(line)
+        if line.strip():
+            prev_nonblank = line
     if current is not None:
         blocks.append(current)
+        block_fold_sources.append(current_block_fold_source)
     joined = ["\n".join(b) for b in blocks]
     if joined:
         # G3: only the LAST block has no natural next-entry boundary --
@@ -513,7 +733,23 @@ def _split_into_numbered_blocks(text: str) -> list[str]:
         # START of the following recognized entry marker.
         last = joined[-1]
         joined[-1] = last[: _trailing_notes_boundary(last, 0, len(last))]
-    return [b.strip() for b in joined]
+    stripped = [b.strip() for b in joined]
+    # Track TX (PR#20) fold-forward expansion pass -- purely additive: a
+    # block with no fold source, or whose own capture is not a
+    # punctuation stub, passes through as the single entry it always was
+    # (byte-identical to before this pass for every such block, which is
+    # the overwhelming majority of the corpus). Only a fold-eligible stub
+    # gets a second, folded-content block inserted immediately ahead of
+    # its own untouched original -- see the comment above `_PUNCTUATION_
+    # STUB_RE` for why insertion order (folded first) is what makes the
+    # folded content win `pipeline.py`'s idempotent persistence.
+    result: list[str] = []
+    for index, block in enumerate(stripped):
+        fold_source = block_fold_sources[index]
+        if fold_source is not None and _child_definition_is_punctuation_stub(block):
+            result.append(_fold_orphan_parent_into_stub_child(block, fold_source))
+        result.append(block)
+    return result
 
 
 # --- Moved from pipeline.py verbatim (sprint 2026-08-04-defs-core-scope,
@@ -756,6 +992,88 @@ def _preceded_by_references_to(text: str, quote_start: int) -> bool:
     return bool(_REFERENCES_TO_RE.search(text[window_start:quote_start]))
 
 
+# Shared-extraction sprint 2026-08-12-shared-extraction-t35 (root cause,
+# structural, not row-specific -- M-R107): real US statutory drafting, when
+# quoting a multi-paragraph block of text verbatim (a historical/session-law
+# note is the common case), re-opens a `"` at the start of EVERY paragraph
+# of the quoted block and closes only once, at the very end. `_QUOTE_TERM_RE`
+# has no notion of this -- it pairs an opening quote with whatever quote
+# character comes next, so the FIRST paragraph's re-opening `"` gets
+# consumed as if it were the real close of the block's OWN opening `"`,
+# turning the block's leading text (often a heading-shaped fragment) into a
+# spurious "definiendum" and leaving the block's real closing `"` to pair
+# with some unrelated LATER quote in the document -- the source of both the
+# phantom-term defect and the runaway definition-text bleed it produces.
+#
+# Structural signal used to detect this (not any literal heading/term/
+# section text): a quote character immediately preceded, within a small
+# bounded lookback window, by a blank line (a paragraph break) -- once any
+# horizontal whitespace and OTHER quote characters immediately before it
+# are stripped away -- is a per-paragraph re-opening quote, not a genuine
+# close, WHENEVER it is encountered while still inside an already-open
+# quoted span. The noise-stripping step is what lets this SAME check
+# recognize a nested shape too: real drafting sometimes quotes a numbered
+# sub-list INSIDE the outer block using single quotes for the sub-list's
+# own per-paragraph re-opens (`"<nbsp>'(iii) ...`) -- immediately after
+# the outer double-quote's own re-open, not immediately after a bare
+# newline -- and that inner re-open must be recognized as noise too, or a
+# nested single-quote scan (below) mistakes it for a genuine definiendum
+# delimiter and pairs it with the next unrelated apostrophe it finds
+# (confirmed against this exact shape in the real `USC_T35_C4_S41` body).
+_PARAGRAPH_START_LOOKBACK = 40
+_PARAGRAPH_BREAK_TAIL_RE = re.compile(r"\n[ \t]*\n[ \t]*\Z")
+_QUOTE_TAIL_NOISE_RE = re.compile(r'[ \t "“”\']*\Z')
+
+
+def _is_paragraph_start_quote(text: str, quote_pos: int) -> bool:
+    """True when the quote character at `text[quote_pos]` sits at the
+    start of a paragraph -- see the module note above for exactly what
+    that means and why noise-stripping is required to detect it at both
+    the outer and a nested inner quoting level."""
+    window_start = max(0, quote_pos - _PARAGRAPH_START_LOOKBACK)
+    window = text[window_start:quote_pos]
+    noise_match = _QUOTE_TAIL_NOISE_RE.search(window)
+    prefix = window[: noise_match.start()] if noise_match else window
+    return bool(_PARAGRAPH_BREAK_TAIL_RE.search(prefix))
+
+
+# Any double or curly quote character, used (unlike `_QUOTE_TERM_RE`) to
+# scan forward one character at a time rather than to pair adjacent quotes
+# -- needed to walk past an arbitrary run of per-paragraph re-opening
+# quotes to find a block's real close, however many paragraphs it spans.
+_DOUBLE_QUOTE_CHAR_RE = re.compile(r'["“”]')
+
+# A single-quoted definiendum, same bounded shape as `_QUOTE_TERM_RE`
+# (1-200 non-quote characters between delimiters) but for `'...'` rather
+# than `"..."`/`"..."` -- real US drafting nests a single-quoted term
+# inside a double-quoted block-quote (e.g. a quoted historical note whose
+# own body reads `"...the term 'X' means ...`), which is otherwise
+# entirely invisible to `_QUOTE_TERM_RE` (double/curly quotes only).
+# Deliberately NOT registered as a general-purpose scan across all of
+# `text` -- an apostrophe is far too common in ordinary prose ("the
+# cadet's appointment") to bound safely on its own; this is only ever
+# applied INSIDE an already-confirmed block-quote span below, where the
+# same idiom-gap guard (`_MEANS_IDIOM_GAP_RE`) that protects the ordinary
+# double-quote path also applies.
+_SINGLE_QUOTE_TERM_RE = re.compile(r"'([^'\"]{1,200})'")
+
+
+def _find_block_quote_close(text: str, after: int) -> int | None:
+    """Starting at or after `after`, scan forward for the first double/
+    curly quote character that is NOT itself a paragraph-reopening quote
+    (`_is_paragraph_start_quote`) -- the real close of a multi-paragraph
+    block quote, however many further per-paragraph re-opens it contains.
+    Returns `None` if the block never actually closes (degrades to "no
+    candidate from this branch", the same outcome an ordinary unterminated
+    quote already produces today)."""
+    for match in _DOUBLE_QUOTE_CHAR_RE.finditer(text, after):
+        pos = match.start()
+        if _is_paragraph_start_quote(text, pos):
+            continue
+        return pos
+    return None
+
+
 def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[DefinitionCandidate]:
     """Extract `(term, definition)` pairs from a placeholder-heading
     jurisdiction's Definitions-section body composed of inline `"Term"
@@ -785,9 +1103,67 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
     skipped before the idiom check even runs -- the real PA construction-
     clause shape (`References to "X" shall include Y`) describes how
     OTHER text should be read, not a definition of "X" itself.
+
+    Shared-extraction sprint 2026-08-12-shared-extraction-t35: when
+    `_QUOTE_TERM_RE`'s own "closing" quote for a candidate is itself a
+    paragraph-reopening quote (`_is_paragraph_start_quote`), that pairing
+    is a mis-pairing, not a real term -- see the module note above
+    `_is_paragraph_start_quote`. Such a candidate is dropped (never
+    emitted as its own entry) and replaced by scanning INSIDE the block
+    quote's real span (through to its real close, `_find_block_quote_close`)
+    for a nested single-quoted definiendum instead
+    (`_SINGLE_QUOTE_TERM_RE`), under the exact same "References to" and
+    idiom-gap guards as the ordinary path, with its own captured
+    definition text hard-clipped at the block's real closing quote so it
+    can never bleed into the unrelated content that follows the block.
+    `last_block_close` guards against re-processing the SAME block twice
+    when it spans more than two paragraphs (each additional re-opening
+    quote would otherwise independently rediscover the same real close).
     """
-    entries: list[tuple[str, int, int]] = []
+    entries: list[tuple[str, int, int, int | None]] = []
+    last_block_close = -1
     for term_match in _QUOTE_TERM_RE.finditer(text):
+        if _is_paragraph_start_quote(text, term_match.end() - 1):
+            if term_match.start() < last_block_close:
+                continue  # already covered by an earlier re-open in this same block
+            block_close = _find_block_quote_close(text, term_match.end())
+            if block_close is None:
+                continue
+            last_block_close = block_close
+            inner_start, inner_end = term_match.start() + 1, block_close
+            for nested_match in _SINGLE_QUOTE_TERM_RE.finditer(text, inner_start, inner_end):
+                # Real drafting sometimes nests a QUOTED SUB-LIST inside
+                # the outer block, itself re-opening with a single quote
+                # at the start of each of ITS OWN paragraphs (e.g. `"
+                # '(iii) ...`, immediately after the outer `"`'s own
+                # re-open). Such an apostrophe is nested-block noise, not
+                # a definiendum delimiter -- pairing it with the next
+                # unrelated apostrophe (an ordinary possessive, most
+                # often) produces a sentence-fragment, not a term. Reject
+                # a nested match on EITHER side if that delimiter itself
+                # sits at the start of a paragraph.
+                if _is_paragraph_start_quote(text, nested_match.start()) or _is_paragraph_start_quote(
+                    text, nested_match.end() - 1
+                ):
+                    continue
+                if _preceded_by_references_to(text, nested_match.start()):
+                    continue
+                gap = text[nested_match.end() : min(nested_match.end() + 200, inner_end)]
+                means_match = _MEANS_IDIOM_GAP_RE.match(gap)
+                if means_match is None:
+                    continue
+                nested_term = nested_match.group(1).strip()
+                if not nested_term:
+                    continue
+                entries.append(
+                    (
+                        nested_term,
+                        nested_match.start(),
+                        nested_match.end() + means_match.end(),
+                        block_close,
+                    )
+                )
+            continue
         if _preceded_by_references_to(text, term_match.start()):
             continue
         gap = text[term_match.end() : term_match.end() + 200]
@@ -797,11 +1173,13 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
         term = term_match.group(1).strip()
         if not term:
             continue
-        entries.append((term, term_match.start(), term_match.end() + means_match.end()))
+        entries.append((term, term_match.start(), term_match.end() + means_match.end(), None))
 
     candidates: list[DefinitionCandidate] = []
-    for index, (term, start, definition_start) in enumerate(entries):
+    for index, (term, start, definition_start, hard_end) in enumerate(entries):
         end = entries[index + 1][1] if index + 1 < len(entries) else len(text)
+        if hard_end is not None and hard_end < end:
+            end = hard_end
         definition_text = text[definition_start:end].strip()
         if not definition_text:
             continue
@@ -1485,26 +1863,72 @@ def _iter_us_unit_marker_tokens(body: str) -> list[tuple[int, int, str]]:
     return tokens
 
 
+# Every probe below is a suffix pattern anchored with `\Z` at `trimmed_end`,
+# so a match can never start earlier than `trimmed_end - _SUFFIX_PROBE_
+# WINDOW` chars back without the window being provably too small. Derived
+# from the five patterns themselves (see each pattern's definition above),
+# not guessed, and not copied from any test's own headroom constant:
+#
+#   - `_STRUCTURAL_UNIT_WORD_SUFFIX_RE`: a closed, finite alternation over
+#     `_STRUCTURAL_UNIT_WORDS` with no quantifier -- its longest member,
+#     "subdivision", is 11 characters. Fully bounded already.
+#   - `_FULL_USC_CITATION_SUFFIX_RE`
+#     (`\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*\Z`), the longest of the four
+#     citation-suffix patterns: literal "U.S.C." (6 chars) + "§" (1 char) =
+#     7 fixed characters, plus four variable spans that are only ever a
+#     *citation's own* digits/whitespace in real statute text (never
+#     document-spanning prose) -- a leading title number (real US Code
+#     titles run 1-54, so 2 digits; budgeted 4), three whitespace runs
+#     between literal tokens (ordinarily one space each; budgeted 8 apiece
+#     for stray formatting), and the trailing numeric pin-cite chain
+#     (real citations chain at most a handful of dot/hyphen-separated
+#     numeric components, e.g. "115-6-2" or "522.13"; budgeted 10
+#     components x 5 chars = 50). Sum: 4 + 8 + 6 + 8 + 1 + 8 + 50 = 85.
+#   - `_SECTION_CITATION_SUFFIX_RE`, `_LONE_SECTION_CITATION_SUFFIX_RE`,
+#     `_BARE_STATE_CODE_CITATION_SUFFIX_RE` are each a strict subset of the
+#     full-U.S.C. pattern's shape (shorter literal prefix, same bounded
+#     digit-chain tail), so none exceeds 85 either.
+#
+# 85 chars is therefore a proven upper bound on every real citation shape
+# these five patterns recognize -- corroborated independently by the sprint
+# contract's own measurement ("a full-U.S.C. cite is the longest, well
+# under 100 chars") and by the RED tests' 4096-char ceiling (~40x that same
+# ~100-char figure). `_SUFFIX_PROBE_WINDOW` below is set to 512: ~6x this
+# derived 85-char bound and ~5x the contract's independently measured
+# ~100-char figure, generous headroom for formatting irregularities the
+# corpus has not yet been observed to contain, while staying 8x under the
+# RED tests' 4096-char ceiling and orders of magnitude below real document
+# sizes -- so every probe's cost becomes a small O(1) constant instead of
+# O(document position).
+_SUFFIX_PROBE_WINDOW = 512
+
+
 def _citation_or_xref_context(body: str, token_start: int) -> tuple[str | None, int]:
     """Return the immediate context identity and its whitespace-trimmed end.
 
     Structural words and the four citation suffix branches remain distinct so
     G4's measured cross-newline exception can be limited to `Section` and
-    lone-`§` citations.  Uses `search(body, 0, trimmed_end)` (endpos, not a
-    slice) so `\\Z` anchors at `trimmed_end` without copying `body`.
+    lone-`§` citations.  Uses `search(body, probe_start, trimmed_end)`
+    (endpos, not a slice) so `\\Z` anchors at `trimmed_end` without copying
+    `body`; `probe_start` is bounded to `_SUFFIX_PROBE_WINDOW` chars back
+    from `trimmed_end` since every probe pattern is a suffix match that can
+    never legitimately start further back than that (see
+    `_SUFFIX_PROBE_WINDOW`'s own comment for the derivation) -- this bounds
+    each probe's cost to O(1) instead of O(`trimmed_end`).
     """
     trimmed_end = token_start
     while trimmed_end > 0 and body[trimmed_end - 1].isspace():
         trimmed_end -= 1
-    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, 0, trimmed_end):
+    probe_start = max(0, trimmed_end - _SUFFIX_PROBE_WINDOW)
+    if _STRUCTURAL_UNIT_WORD_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "structural", trimmed_end
-    if _FULL_USC_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _FULL_USC_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "full_usc", trimmed_end
-    if _SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _SECTION_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "section", trimmed_end
-    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _LONE_SECTION_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "lone_section", trimmed_end
-    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, 0, trimmed_end):
+    if _BARE_STATE_CODE_CITATION_SUFFIX_RE.search(body, probe_start, trimmed_end):
         return "bare_state_code", trimmed_end
     return None, trimmed_end
 
@@ -1705,6 +2129,292 @@ def resolve_unit_path(article, char_offset: int | None = None):
     return tuple(stack)
 
 
+class BodyPreambleMatch(str):
+    """A derived heading carrying the registered rule that won dispatch."""
+
+    def __new__(cls, heading: str, *, b1_winner: bool = False):
+        instance = super().__new__(cls, heading)
+        instance.b1_winner = b1_winner
+        return instance
+
+
+# Issue #22 (sprint 2026-08-10-green-the-suite, item 2): FED's real
+# `USC_T8_C12_S1101` "serious criminal offense" over-captures the NEXT
+# structural sibling -- `(h) ... the term "serious criminal offense"
+# means-- (1) any felony; (2) ...; (3) ....` is correctly captured, but the
+# capture keeps going straight through `(i) With respect to each
+# nonimmigrant alien ...`, a completely different subsection at the SAME
+# nesting depth as `(h)` itself, plus trailing "Editorial Notes" apparatus.
+#
+# Root cause: whichever engine produced this candidate (baseline's own
+# `_split_into_numbered_blocks`, OR a registered `EntrySplitterRule` like
+# `us_markers_inline_quote.py`'s quote-anchored engine -- for THIS row it
+# is the latter, confirmed live) has no way to tell "(i)" apart from a
+# genuinely NESTED sub-item: at length 1, "i" shape-matches BOTH
+# `lower_alpha` (FED's own outermost per-subsection rung, same rung as
+# "(h)") AND `lower_roman` (a legitimately DEEPER rung, 3 levels under
+# `lower_alpha` per the federal ladder `resolve_unit_path` already uses --
+# see that ladder's own module comment). Only the document's own marker
+# HISTORY resolves the ambiguity: "(h)" already occupies the outermost
+# rung, so a later "(i)" that shape-matches that SAME rung is a SIBLING
+# popping the stack back to it, not a child. That is exactly
+# `resolve_unit_path`'s own stack-popping semantics -- reused here
+# read-only (never modified) rather than duplicated with different rules,
+# so this fix and the citation-window discriminator it calls into
+# (`_is_citation_or_xref_context`, QA-certified, sprint
+# claude/core-g4-discriminator-perf -- NOT touched or re-tuned here) never
+# drift apart.
+#
+# Deliberately a POST-PROCESSING refinement over the FINAL candidate text
+# (applied uniformly to every candidate in `USProfile.extract_definitions_
+# from_section` below, regardless of which engine produced it), not a
+# change to either engine's own boundary logic -- `us_markers_boundary.py`
+# and its sibling rule modules are owned by a concurrent sprint and out of
+# this file's scope; baseline's own last-block trailing-notes handling
+# (`_trailing_notes_boundary`) is untouched. A pure trim can only ever
+# SHORTEN a candidate's `definition_text`, never lengthen or reshape it,
+# and only fires when it can uniquely relocate that exact text inside the
+# section body -- the safest shape available for a fix applied blindly to
+# every candidate regardless of origin.
+_ANY_UNIT_MARKER_HINT_RE = re.compile(r"\([A-Za-z]+\)|(?:^|\n)[ \t]*[A-Za-z0-9]{1,2}\.[ \t]")
+
+# Supplementary to (never replacing or re-tuning) the certified
+# `_is_citation_or_xref_context` -- two independent real-FED-corpus gaps
+# in that function's own `_SECTION_CITATION_SUFFIX_RE`, both measured live
+# during this item's own mandated corpus scan (see the Developer report):
+#
+# 1. It requires a capital-S "Section" immediately before a marker to
+#    recognize it as citation context. Real USC prose routinely uses a
+#    lowercase in-sentence "section" instead -- this item's own FED
+#    fixture: `"(h) For purposes of section 1182(a)(2)(E) of this title,
+#    the term ..."` -- invisible to that check, which let the citation's
+#    own "(a)(2)(E)" pin-cite chain get misread as three genuine nested
+#    markers, corrupting the stack this trim depends on (cut "serious
+#    criminal offense" down to nothing but its own opening dash).
+# 2. It requires the section NUMBER itself to be pure digits
+#    (`\d+(?:[.\-]\d+)*`). Real USC section numbers routinely carry a
+#    trailing letter suffix from later-inserted sections (`1396a`, `77c`,
+#    `1437a`, `1395i–2`) -- invisible to EITHER capitalization, which
+#    let citations like `"section 1396a(n)(2)"` get misread the same way
+#    (cut "medicare cost-sharing" off mid-citation at "...1396a(n)").
+#
+# Both closed here, ADDITIVELY, as this function's own extra guard -- the
+# certified perf window itself (`_citation_or_xref_context`/`_is_citation_
+# or_xref_context`, sprint claude/core-g4-discriminator-perf) is not
+# touched.
+_CI_SECTION_CITATION_SUFFIX_RE = re.compile(
+    r"\bsection\s+\d+[a-z]{0,3}(?:[.\-–]\d+[a-z]{0,3})*\Z", re.IGNORECASE
+)
+
+
+def _is_extra_citation_context(text: str, token_start: int) -> bool:
+    trimmed_end = token_start
+    while trimmed_end > 0 and text[trimmed_end - 1].isspace():
+        trimmed_end -= 1
+    probe_start = max(0, trimmed_end - _SUFFIX_PROBE_WINDOW)
+    return bool(_CI_SECTION_CITATION_SUFFIX_RE.search(text, probe_start, trimmed_end))
+
+
+def _next_sequence_value(kind: str, value: str) -> str | None:
+    """The literal NEXT marker value after `value` (itself of KIND `kind`),
+    for the two kinds cheap and unambiguous to compute -- `digit` (plain
+    integer increment) and a single-char `lower_alpha`/`upper_alpha`
+    (next letter, `None` past "z"/"Z"). `None` for every other kind
+    (roman numerals need real numeral arithmetic, not attempted here) --
+    callers that get `None` back simply skip the extra check, per its own
+    call site's comment."""
+    if kind == "digit" and value.isdigit():
+        return str(int(value) + 1)
+    if kind in ("lower_alpha", "upper_alpha") and len(value) == 1:
+        nxt = chr(ord(value) + 1)
+        if kind == "lower_alpha" and nxt.islower():
+            return nxt
+        if kind == "upper_alpha" and nxt.isupper():
+            return nxt
+    return None
+
+
+def _trim_definition_at_structural_sibling(text: str, definition_text: str) -> str:
+    """If `definition_text` is a uniquely locatable, contiguous slice of
+    the full section `text`, AND this candidate has its own genuine LOCAL
+    opening marker (the marker, if any, that starts the PARAGRAPH
+    containing `definition_text`'s own start -- FED's real `"(h) For
+    purposes of ... the term \"serious criminal offense\" means--"`),
+    replay `resolve_unit_path`'s own marker-hierarchy classifier FROM that
+    opening marker (never from the start of `text`) to find a later
+    marker, still inside `definition_text`'s own span, that pops the
+    stack back to that opening marker's own rung -- a structural SIBLING
+    of the entry itself, not a nested sub-item of its own list -- and
+    truncate right before it. Returns `definition_text` UNCHANGED (never
+    longer, never reshaped) whenever it cannot be confidently located in
+    `text` (not found, or found more than once), carries no marker-shaped
+    token at all (cheap pre-filter), has no PARAGRAPH-ANCHORED opening
+    marker of its own, or no sibling is found within its own span.
+
+    The paragraph-anchor requirement is deliberate, not incidental: a
+    whole-document scan from offset 0 (tried first, then withdrawn -- see
+    the Developer report) mis-seeds on a document holding several
+    independent, parallel quoted-term definitions that each carry their
+    OWN internal `(i)/(ii)/...` sub-enumeration with no subsection
+    lettering of their own at all (real IL shape: `"Alternative retail
+    electric supplier"`, `"Base rates"`, `"Competitive service"` all sit
+    in one giant unlettered paragraph) -- an EARLIER, wholly unrelated
+    definition's own leftover marker state leaked onto a LATER one,
+    measured live emptying "Competitive service" down to nothing. A
+    candidate whose own paragraph does not itself open with a marker is
+    not FED's shape at all and is left untouched.
+    """
+    if not _ANY_UNIT_MARKER_HINT_RE.search(definition_text):
+        return definition_text
+    start = text.find(definition_text)
+    if start == -1 or text.find(definition_text, start + 1) != -1:
+        return definition_text
+    end = start + len(definition_text)
+
+    para_start = text.rfind("\n\n", 0, start)
+    para_start = 0 if para_start == -1 else para_start + 2
+    marker_probe_start = para_start
+    while marker_probe_start < start and text[marker_probe_start] in " \t":
+        marker_probe_start += 1
+    open_match = _MARKER_TOKEN_RE.match(text, marker_probe_start)
+    if open_match is None or open_match.end() > start:
+        return definition_text
+    open_token = open_match.group(0).strip().strip("()")
+    open_marker_form = "parenthesized" if text[marker_probe_start] == "(" else "period"
+    if _is_citation_or_xref_context(
+        text, marker_probe_start, open_match.end(), open_marker_form
+    ) or _is_extra_citation_context(text, marker_probe_start):
+        return definition_text
+
+    if _marker_matches_kind(open_token, "digit"):
+        ladder = _DIGIT_OUTERMOST_UNIT_PATH_LADDER
+    elif _marker_matches_kind(open_token, "upper_alpha"):
+        ladder = _OH_UPPER_ALPHA_OUTERMOST_UNIT_PATH_LADDER
+    elif _marker_matches_kind(open_token, "lower_alpha"):
+        ladder = _UNIT_PATH_LADDER
+    else:
+        return definition_text
+    stack: list[str] = [ladder[0]]
+
+    # Consume the REST of the opening marker CHAIN, if any (mirrors
+    # `_strip_marker_chain_before_quote`'s own "(d) (1)" chain philosophy,
+    # elsewhere in this module) -- a real FED row, `USC_T45_C9_S231`'s
+    # `"(b)(1) The term "employee" means (i) any individual..."`, opens
+    # with TWO adjacent marker tokens naming ONE combined position
+    # (subsection (b), paragraph (1)), not "(b)" followed by a separately
+    # NESTED "(1)" inside "employee"'s own content -- without this, the
+    # chain's own second token was indistinguishable from genuine
+    # within-content nesting and the roman items right after "means"
+    # looked, wrongly, like a rung-0 sibling (measured live: emptied
+    # "employee" down to nothing).
+    chain_end = open_match.end()
+    while True:
+        next_match = _MARKER_TOKEN_RE.match(text, chain_end)
+        if next_match is None or next_match.end() > start:
+            break
+        marker_form = "parenthesized" if text[chain_end] == "(" else "period"
+        if _is_citation_or_xref_context(
+            text, chain_end, next_match.end(), marker_form
+        ) or _is_extra_citation_context(text, chain_end):
+            break
+        next_token = next_match.group(0).strip().strip("()")
+        expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
+        if expected_kind is not None and _marker_matches_kind(next_token, expected_kind):
+            stack.append(expected_kind)
+        else:
+            matched_depth = next(
+                (i for i, kind in enumerate(stack) if _marker_matches_kind(next_token, kind)),
+                None,
+            )
+            if matched_depth is None:
+                break
+            stack = stack[: matched_depth + 1]
+        chain_end = next_match.end()
+
+    stack_len_at_start: int | None = None
+    last_rejected_end: int | None = None
+    for tok_start, tok_end, token in _iter_us_unit_marker_tokens(text):
+        if tok_start < chain_end:
+            continue
+        if tok_start >= end:
+            break
+        if last_rejected_end is not None and _CHAIN_CONNECTOR_GAP_RE.fullmatch(
+            text[last_rejected_end:tok_start]
+        ):
+            last_rejected_end = tok_end
+            continue
+        marker_form = "parenthesized" if text[tok_start] == "(" else "period"
+        if _is_citation_or_xref_context(
+            text, tok_start, tok_end, marker_form
+        ) or _is_extra_citation_context(text, tok_start):
+            last_rejected_end = tok_end
+            continue
+        last_rejected_end = None
+
+        if tok_start >= start and stack_len_at_start is None:
+            # How deep the stack already was, from the opening marker
+            # CHAIN alone, just before this candidate's own real content
+            # (past `start`) contributes anything of its own.
+            stack_len_at_start = len(stack)
+
+        expected_kind = ladder[len(stack)] if len(stack) < len(ladder) else None
+        if expected_kind is not None and _marker_matches_kind(token, expected_kind):
+            stack.append(expected_kind)
+            continue
+        matched_depth = None
+        for i, kind in enumerate(stack):
+            if _marker_matches_kind(token, kind):
+                matched_depth = i
+                break
+        if matched_depth is None:
+            continue
+        # A single-char token (e.g. "i") is ambiguous between `lower_alpha`
+        # and `lower_roman` -- real FED rows measured BOTH real shapes for
+        # it: a genuine sibling popping back to the opening rung (this
+        # item's own gate, "(h)...(1)(2)(3)...(i) With respect..." -- a
+        # DIGIT rung was genuinely pushed WITHIN the entry's own content)
+        # and a genuine DEEPER roman-numeral list opening DIRECTLY under
+        # the entry's own rung with no intermediate rung at all (real FED
+        # row `USC_T5_C6_S601`'s own `"Specified agency heads"
+        # means:\n\n(i) the Attorney General;\n\n(ii) ...` -- measured
+        # live: without this guard, the trim emptied it down to its bare
+        # idiom). Only a pop back to the opening rung (`matched_depth ==
+        # 0`) AFTER the stack grew STRICTLY DEEPER than it already was at
+        # `start` (i.e. something real, like FED's own `(1)(2)(3)` digit
+        # list, was pushed by content INSIDE the entry, not merely by its
+        # own opening marker chain) is treated as a sibling; anything
+        # else cannot distinguish "sibling" from "first item of a
+        # legitimately deep list" at all, so it is left alone.
+        #
+        # `sequence_ok` closes a THIRD real shape, also found by this
+        # item's own corpus scan: `USC_T31_C38_S3801`'s `"obligation"` is
+        # item `(11)` of subsection (a)'s own digit list; a SEPARATE,
+        # SIBLING subsection `"(b) For purposes of paragraph (3) of
+        # subsection (a)--\n\n(1) each voucher, ..."` follows -- its OWN
+        # inner `(1)` shape-matches `digit` (the opening rung) and, having
+        # been genuinely pushed one level deeper by "(b)" first, passed
+        # the `len(stack) > stack_len_at_start` guard above too, cutting
+        # "obligation" off mid-subsection. `(1)` is nowhere near "(11)"'s
+        # own next real sibling ("(12)") -- for the two kinds cheap to
+        # verify (plain digit increment; next single letter), the popped-
+        # to token must be the LITERAL next value after the entry's own
+        # opening marker to count as its sibling. Kinds `_next_sequence_
+        # value` cannot compute (roman numerals) fall back to the guards
+        # above alone, unchanged.
+        next_expected = _next_sequence_value(ladder[0], open_token) if matched_depth == 0 else None
+        sequence_ok = next_expected is None or token == next_expected
+        if (
+            tok_start >= start
+            and matched_depth == 0
+            and stack_len_at_start is not None
+            and len(stack) > stack_len_at_start
+            and sequence_ok
+        ):
+            return definition_text[: tok_start - start].rstrip()
+        stack = stack[: matched_depth + 1]
+    return definition_text
+
+
 @dataclass(frozen=True)
 class USProfile:
     """The `"US-*"`/`"US-FED"` profile family -- ONE instance serves every
@@ -1738,6 +2448,26 @@ class USProfile:
                 return True
         return False
 
+    def heading_recognized_only_by_rule(self, heading: str, body: str = "") -> bool:
+        """True when ONLY a registered `HeadingRule` recognizes this heading.
+
+        The baseline literal check is authoritative when it fires, so this is
+        false for the 7 states already working off `section_title` -- their
+        behavior stays byte-for-byte unchanged. It is true for the class
+        registered rules add (verb-form `"X" defined`, compound/mid-token
+        headings), where the heading is a reliable signal but the body is
+        inline prose the `(N)`-block splitter cannot parse. `pipeline.py` uses
+        it to keep the inline-quoted fallback reachable for that class.
+        """
+        from app.definition_links.rules import registry
+
+        if is_definitions_heading(heading):
+            return False
+        return any(
+            rule.matches(heading) and (rule.body_confirms is None or rule.body_confirms(body))
+            for rule in registry.heading_rules_for(self.code)
+        )
+
     def normalize_for_parsing(self, text: str) -> str:
         return normalize_for_parsing(text)
 
@@ -1768,7 +2498,8 @@ class USProfile:
         return [matched for _, _, matched in found]
 
     def extract_definitions_from_section(
-        self, text: str, *, scope: str, heading_was_derived: bool = False
+        self, text: str, *, scope: str, heading_was_derived: bool = False, raw_source: str | None = None,
+        b1_winner: bool | None = None
     ) -> list[DefinitionCandidate]:
         """Sprint 2026-08-04-defs-core-dispatch, item I3: `EntrySplitterRule`/
         `TermClauseRule` are UNION kinds -- baseline's own numbered blocks
@@ -1819,6 +2550,61 @@ class USProfile:
 
         if not candidates and heading_was_derived:
             candidates = _extract_inline_quoted_definitions(text, scope=scope)
+        if heading_was_derived:
+            from app.definition_links.rules.us_body_preamble_b1 import (
+                is_b1_rule,
+                plural_anaphora_repairs,
+                preserve_substantive_b1_candidates,
+            )
+
+            raw = raw_source if raw_source is not None else text
+            if b1_winner is None:
+                for rule in registry.body_preamble_rules_for(self.code):
+                    if rule.derive_heading(text) is not None:
+                        b1_winner = is_b1_rule(rule.derive_heading)
+                        break
+            if b1_winner:
+                candidates = preserve_substantive_b1_candidates(candidates, raw)
+                retained_terms = {term for candidate in candidates for term in candidate.terms}
+                candidates.extend(
+                    repair
+                    for repair in plural_anaphora_repairs(
+                        raw,
+                        scope=scope,
+                        candidate_factory=lambda term, definition_text, candidate_scope: DefinitionCandidate(
+                            terms=(term,), definition_text=definition_text, scope=candidate_scope
+                        ),
+                    )
+                    if all(term not in retained_terms for term in repair.terms)
+                )
+
+        # Issue #22 (item 2): applied LAST, regardless of which engine
+        # above produced a given candidate -- see the trim function's own
+        # module-level comment for why this lives here as a
+        # post-processing refinement rather than inside any one engine.
+        # US-FED ONLY (this profile serves every "US-*" code, sprint
+        # 2026-08-02-us-state-law item 3): issue #22 and its own fixture
+        # are entirely about a federal row, and this item's own corpus
+        # measurement (see the Developer report) found the SAME marker
+        # shape -- an opening letter/digit marker, then a later marker at
+        # that same rung -- pinned as CORRECT, desired baseline capture by
+        # several unrelated `test_us_markers_c5guard_*.py` regression
+        # guards for MI/ND/NJ/OK ("Regression guard -- not a target"),
+        # each explicitly out of THIS item's scope and reserved for the
+        # still-RED, separately tracked `test_us_markers_c5guard_class_b_
+        # boundary_defects.py` family. No marker-structure-only signal
+        # found separates FED's real over-capture from those states' own
+        # pinned (if arguably also imperfect) captures -- scoping to the
+        # one jurisdiction this issue actually names is the safe
+        # boundary, not row/term-specific (M-R107 bars keying on rows/
+        # terms/sections/titles/sentences, not on jurisdiction code, which
+        # this profile's own architecture already dispatches everything
+        # else by, e.g. `resolve_unit_path`'s ladder selection).
+        if self.code == "US-FED":
+            for candidate in candidates:
+                candidate.definition_text = _trim_definition_at_structural_sibling(
+                    text, candidate.definition_text
+                )
         return candidates
 
     def detect_cross_law_derivations(
@@ -1880,7 +2666,33 @@ class USProfile:
                 return (default,)
         return (default,)
 
-    def derive_heading_from_body(self, heading: str, body: str) -> str | None:
+    def derive_body_preamble_match(
+        self,
+        heading: str,
+        body: str,
+        *,
+        raw_source: str,
+        article_number: str,
+        chapter: str | None,
+    ) -> str | None:
+        """B1-capable pipeline entrypoint carrying raw source without widening other profiles."""
+        return self.derive_heading_from_body(
+            heading,
+            body,
+            raw_source=raw_source,
+            article_number=article_number,
+            chapter=chapter,
+        )
+
+    def derive_heading_from_body(
+        self,
+        heading: str,
+        body: str,
+        *,
+        raw_source: str | None = None,
+        article_number: str = "",
+        chapter: str | None = None,
+    ) -> str | None:
         """Baseline (the bare `derive_heading_from_body` function above,
         unchanged -- still gated on `_is_placeholder_heading`, which is
         what keeps the 7 already-working states and CA/IL[state]/GA
@@ -1899,11 +2711,34 @@ class USProfile:
         for rule in registry.body_preamble_rules_for(self.code):
             derived = rule.derive_heading(body)
             if derived is not None:
+                from app.definition_links.rules.us_body_preamble_b1 import is_b1_rule
+
+                if is_b1_rule(rule.derive_heading):
+                    raw = raw_source if raw_source is not None else body
+                    scope = self.determine_scope(body)
+                    local_candidates = self.extract_local_scope_definitions(
+                        body,
+                        article_number=article_number,
+                        chapter=chapter,
+                        raw_source=raw,
+                        b1_winner=True,
+                    )
+                    section_candidates = self.extract_definitions_from_section(
+                        body,
+                        scope=scope,
+                        heading_was_derived=True,
+                        raw_source=raw,
+                        b1_winner=True,
+                    )
+                    if not local_candidates and not section_candidates:
+                        return None
+                    return BodyPreambleMatch(derived, b1_winner=True)
                 return derived
         return None
 
     def extract_local_scope_definitions(
-        self, article_body: str, *, article_number: str, chapter: str | None = None
+        self, article_body: str, *, article_number: str, chapter: str | None = None,
+        raw_source: str | None = None, b1_winner: bool = False
     ) -> list[DefinitionCandidate]:
         """Unions candidates from every registered `ScopeTriggerRule` for
         this profile's own code (initially the one core-authored proof
@@ -1943,6 +2778,12 @@ class USProfile:
                 if candidate.source_article_number is None:
                     candidate.source_article_number = article_number
                 candidates.append(candidate)
+        if b1_winner:
+            from app.definition_links.rules.us_body_preamble_b1 import preserve_substantive_b1_candidates
+
+            candidates = preserve_substantive_b1_candidates(
+                candidates, raw_source if raw_source is not None else article_body
+            )
         return candidates
 
     def resolve_unit_path(self, article, char_offset: int | None = None):

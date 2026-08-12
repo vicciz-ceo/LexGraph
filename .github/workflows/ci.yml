@@ -28,6 +28,13 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history, not the default shallow clone: the G7 certification
+          # contract asserts its INTEGRATION_SHA pin is an ancestor of HEAD and
+          # that production is frozen after it. `git merge-base --is-ancestor`
+          # cannot resolve the pinned commit in a depth-1 checkout and exits
+          # 128, so the test failed in CI while passing locally.
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}

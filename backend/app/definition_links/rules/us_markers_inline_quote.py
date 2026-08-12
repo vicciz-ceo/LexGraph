@@ -26,7 +26,17 @@ and OK added to the wave-1 seven (VA/WA/FED/UT/TX/SC/AZ). Same shared
 engine, same guards -- these five jurisdictions' quote-anchored bodies were
 measured to hit the identical family-3 shape, with zero-yield rates
 NJ 99.7%, MI 38.8%, ND 99.7%, NY 79.9% (post-ingest text, ruling U-R11),
-OK 94.4% before this change (manager sweep, `## M22`/phase-2 log)."""
+OK 94.4% before this change (manager sweep, `## M22`/phase-2 log).
+
+FX2/FX3 (sprint 2026-08-10-green-the-suite): NM and NV registered.
+Registration-only fixes -- both jurisdictions' dominant quote-anchored
+convention (NM: lettered `A. "term" means ...` runs; NV: bare digit-dot
+markers, curly-quoted terms with internal padding spaces) was already
+parsed cleanly by the unmodified shared engine when simulated; each was
+simply absent from this tuple. Scoped to each state's fully-clean,
+means-family-only bucket per the sprint's FX2/FX3 items -- the mixed
+means/includes bucket on either state is explicitly out of scope and not
+addressed by this registration."""
 
 from __future__ import annotations
 
@@ -48,6 +58,8 @@ _OTHER_JURISDICTIONS = (
     "US-ND",
     "US-NY",
     "US-OK",
+    "US-NM",
+    "US-NV",
 )
 
 

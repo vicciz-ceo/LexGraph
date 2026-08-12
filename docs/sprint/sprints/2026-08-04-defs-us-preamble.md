@@ -1,88 +1,394 @@
 ---
 id: "2026-08-04-defs-us-preamble"
-status: planning
-current_role: planner
+status: review
+blocked_on: null
+current_role: qa
 branch: claude/defs-us-preamble
+worktree: /Users/nerya/LexGraph-wt/defs-us-preamble
 locked_by: null
 locked_at: null
-last_agent: "claude-code:program-manager"
-last_updated: "2026-08-04"
+last_agent: "claude:program-manager"
+last_updated: "2026-08-10T07:19:33Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 7
 completed_items: 0
-dev_complete_items: 0
-qa_cycles: 0
+dev_complete_items: 7
+qa_cycles: 4
 previous_sprint: "2026-08-02-us-state-law"
 prd_sections: []
 design_sections:
   - docs/sprint/programs/2026-08-04-definition-completeness.md
   - docs/sprint/programs/2026-08-04-definition-completeness-recon.md
+lint: "PASS 394 2026-08-10T07:19:33Z"
 ---
 
-# Sprint: US family 2 — body preambles without the word "Definitions"
+# Sprint: US body-preamble P-FP correction
 
-## Mandate
+## Governing decisions
 
-Capture definitions sections whose only signal is a body preamble that never
-uses the word "Definitions": GA's `"As used in this chapter, the term:"`
-(173/400 sampled instances missed; GA capture is 0), MD and NE (0% capture,
-no heading signal at all — strictly worse than GA), MS (0%), SD (dominant
-miss type: `"For the purposes of this chapter, the term, X, means…"` under
-term-name headings), plus low-volume instances in OR/PA/RI/SC/TN/TX/UT/VT.
-This is the family the prior sprint deliberately skipped to protect zero
-false positives — P-R2 escalation is EXPECTED here: bring the director real
-conflict examples rather than silently choosing recall or precision.
+P-FP measures a capture/extraction rule at persisted `(row, term,
+definition_text)` granularity. Forwarding definitions are genuine under
+D-MT-E1 and must remain captured. This sprint does **not** implement the
+second D-MT-E1 requirement: a definition-to-target reference edge remains a
+core shared dependency/held gate. D-INCLUDES authorizes B1 recognition of
+`includes`/`shall include`; core-2 G12's shared inline-extraction widening and
+targeted `References to` guard are now main-contained, shipped, and read-only
+for this sprint.
 
-## Acceptance gates (program manager-defined)
+### D-PFP-400 — false-capture gate (RESTATED at anchor granularity)
 
-- **U1 — Every preamble variant is captured**, with RED tests from real GA/
-  MD/NE/MS/SD rows before implementation.
-- **U2 — Scope is stamped correctly and enforced** for scoped preambles
-  ("As used in this chapter…" → chapter scope), live-path both directions,
-  built on the core seam.
-- **U3 — Rules ship as registry modules** per the core seam spec; zero edits
-  to shared modules.
-- **U4 — Zero-miss sweep (director bar)**: QA sweeps ALL 53 jurisdictions
-  for preamble signals; every hit captured or proven not-a-definition.
-- **U5 — Nothing regresses**: baseline states hold; all existing tests
-  green; false-positive risk is the KNOWN hazard of this family — any
-  precision/recall trade escalates per P-R2 with examples.
-- **U6 — Measured before/after** full-corpus capture-rate report (GA must
-  move from 5/28,154; report the new number honestly).
+Original form: the population is every definition newly persisted by the final
+preamble panel versus the documented BEFORE path on the pinned 53-file
+snapshot, at `(jurisdiction, source file/row id, term, definition_text, scope)`
+granularity under live persistence/dedup. The evidence sample is 400 tuples,
+ranked by SHA-256 seeded by the snapshot plus integration SHA, jurisdiction-
+balanced and stratified by extraction route and registered rule family, with
+coverage seats first and Hamilton allocation for the remainder. Fresh QA
+adjudicates every sampled tuple against source. Commit the canonical sample,
+the complete adjudication ledger, population and sample hashes, and the
+one-sided 95% upper bound without claiming corpus-wide zero. G7 still requires
+GA-after `>=2794` and `new_primary >=23617`.
 
-## Coordination
+**Restated 2026-08-10 under D-MAP and D-RECALL-FP (see M-R125).** Adjudication
+is at ANCHOR granularity: is `(row, term)` a real definition location? Body
+defects — overrun, undercapture, wrong body — are informational byte quality
+and never block. A phantom or wrong TERM stays blocking, but under D-RECALL-FP
+a small, measured, named phantom rate is tracked debt rather than a merge
+blocker when anchor recall strictly increases versus `main`. The old
+"0 false captures and 0 ambiguous, one tuple blocks merge" threshold no longer
+governs; the deletion-side screen (P-R15) is the primary gate.
 
-Core sprint owns scope plumbing + registry; read its published `## Seam
-spec` from branch `claude/defs-core-scope`; merge after core. Registry
-registrations are append-only. Out-of-family misses are reported to the
-program manager for routing. Overlap warning: preamble detection feeds the
-scoped-inline family (a preamble is often also a scope trigger) — the
-boundary is: THIS sprint owns recognizing a definitions-bearing BLOCK with
-no heading signal; the scoped-inline sprint owns scope-trigger parsing
-inside otherwise-ordinary sections. Ambiguous cases escalate to the program
-manager rather than being claimed by both panels.
+## Manager rulings
 
-## Standing constraints
+### M-R101 – M-R120 — superseded ruling chain (detail lives in the log)
 
-All program standing constraints apply (program doc): CodeGraph first;
-red-before-green live-path tests; Planner owns tests; QA independent; no
-test downloads the corpus; absolute zero-miss bar; P-R2.
+Twenty reject/replan rounds between the Item-7 certification build and the
+first executed full-population measurement. Their binding residue is carried
+forward below and in M-R123; the complete text of each ruling stays in the
+append-only log. Constraints that survive unchanged: no row-ID/hash/section/
+term/date/title/exact-sentence keying and unseen-future-law direct plus
+live-persistence controls (M-R107); `Vaquill-AI/open-us-law` is external, only
+the `vicciz-ceo` fork is authorized, no upstream PR or Hugging Face publication
+(M-R105); the B1 occurrence-metadata seam across `registry.py`,
+`us_body_preamble_b1.py`, `us_profile.py`, and `pipeline.py` is authorized and
+must stay backward-compatible for non-B1 rules (M-R106); no blanket HI,
+large-row, quote, or `; and` suppression (M-R104).
+
+### M-R121 / M-R122 — projected 556 superseded by the first executed run
+
+M-R121's 556-key projection was byte-reconciled but never run ("No all-53 run
+was made"). The first full normalized prototype run over all 193,830 B1 winners
+exposed 207 mismatches and classified every one: 188 certified removals
+contradict explicit raw-source relations (185 post-quote, 3 pre-quote aliases);
+the other 14 missing and 5 extra share one quote-direction defect. M-R122's
+corrected 368-key certificate stood until M-R124's executed 345. Binding
+semantics survive: no identity/jurisdiction exceptions, and duplicate group
+discovery under overlapping triggers is pinned for future laws.
+
+### M-R123 — M-R122 accepted, ported, and executed; the certificate is CLOSED
+
+The program manager accepted M-R122 on independent evidence, not on the
+outgoing Planner's summary. Four independent read-only auditors re-decided all
+207 disputed keys against the pinned parquet: **207/207 excerpt-integrity
+checks passed** (act_id, section_title, text SHA, span-exact excerpt, excerpt
+SHA) and **205 agreed**. The five genuine definitions current production
+deleted were source-read directly (PA `person in the position of a seller`,
+FED `city`, TX `county judge`, OK `natural deterioration`, KY `telehealth`).
+
+The Developer port landed at `941661b`: physical-line-start continuation
+opener plus source-order exact-group dedup, module 295 lines. Gates, all
+reproduced by the manager: focused direct+persistence 5F/49P → **54 passed**;
+legacy raw provenance **13 passed**; runtime prototype **86 passed**; backend
+**24 failed / 1199 passed**, exactly the accepted 23-marker + held-T35 ledger,
+zero new failures; frontend **165 passed** and typecheck clean. The single
+all-53 acceptance run reproduced 193,830 members (`851e85dc…6af5a`) and
+592,334 records (`9e6e0196…22ca8`) against the 592,694-record `5753e11`
+baseline (`f065d8ee…96b3f8`): **368 changed = 364 removed + 4 added**,
+actual hash == certified hash == `49a9d3f7…00933d`, missing 0, extra 0. The
+ported production output is byte-identical to the Planner prototype.
+
+**No further re-adjudication of the 207 keys is authorized.** The 368-key
+certificate is superseded by M-R124's executed 345-key certificate. It retains
+exactly one legitimate use — PORT FIDELITY, proving production reproduced the
+Planner prototype byte-for-byte — and may never again be cited as a
+correctness gate: it was regenerated from the run it certifies, so
+`certified_sha256 == changed_sha256` by construction and it cannot fail on
+semantics.
+
+**Binding, and the reason this sprint circled: a changed-key certificate is
+valid only when it was EMITTED BY an executed full-population run of the exact
+implementation it certifies.** Hand-authored expected-change ledgers are
+planning evidence, never gates. Adjudication decides whether each ACTUAL change
+is correct; it never predicts the change set. Four projected ledgers
+(636 → 586 → 556) were each superseded before this rule was applied; M-R121
+froze 556 with "No all-53 run was made" and was wrong on 188 keys.
+
+**Named residual — pre-quote alias mis-bodied tuples (490, 0.083%).** Right
+term, wrong body: where the only preserving evidence is a PRE-quote alias, the
+definiens sits before the quote while shared extraction harvests after it.
+Verified for all three inventory members. Preserving them is correct at B1
+altitude, and under D-MAP the anchor is right and the body is byte quality;
+owned by shared extraction + D-MT-E1, not by this sprint.
+
+**G7 re-pin.** `qa_g7_common.INTEGRATION_SHA` still pinned `4fa9e7b…`, which
+predates `c2a8717`, so every D-PFP-400 certification run fail-closed on
+`validate_integration()` instead of measuring the tree under test. Re-pinned to
+`941661b…`. The pin also seeds the D-PFP-400 sample rank, so the previously
+recorded population/sample hashes are void and regenerated.
+
+### M-R124 — deletion-side gate added; digit-enumerator repair; 345 executed
+
+Nobody had ever screened the REMOVAL side against source. Screening all 364
+certified removals found 26 whose quoted term is immediately followed by an
+explicit defining relation, none of them in the 207-key inventory. Cause:
+`_POST_RELATION` accepted `(1)`, `[1]` and `a.` but not `1.`, so the
+AZ/IN/KY/MD/NV/WI `"term": 1. Means …` convention was deleted while the
+identical `(1) means` convention was kept — inside single rows (KY 139.5325
+dropped only "Entertainment event" of five; WI 95.72 only "Dead animal" of six;
+NV 370.054 only "Vapor product"). That contradicted required semantics #4.
+
+One character class fixed it. The re-executed all-53 run gives **345 = 341
+removals + 4 additions**, `db52f060…bb1778`, missing 0, **extra_actual 0** —
+which proves the new delta is a strict SUBSET of the old 368: 23 removals
+recovered, zero new changes. Membership unchanged; records 592,334 → 592,357.
+
+**NEW BINDING GATE, replacing the tautological certificate: zero certified
+removals may carry an adjacent explicit defining relation.** 26 → 3, and 2 of
+the 3 are Indiana plural-repair tuples the 4 additions replace. Named residual,
+deliberately unfixed: `STATE_IN_T5_A28_C28_S5-28-28-3` "loan": (1) **refers
+to** … — that verb is absent from the vocabulary. One token would close it;
+widening again mid-acceptance would invalidate the run that just certified the
+change. 1 record of 592,357, owned by the next cycle.
+
+### M-R125 — D-PFP-400 restated at ANCHOR granularity (D-MAP, D-RECALL-FP)
+
+A pre-QA dry run adjudicated all 400 regenerated tuples against pinned source
+(8 independent auditors, 0 id mismatches). Under the OLD body-text rule it read
+314 genuine / 83 overrun / 2 false / 1 ambiguous = FAIL, and all three blockers
+were shared-extraction defects this panel cannot edit (P-R14).
+
+The director then ruled **D-MAP** (the product is a map of WHERE definitions
+are; body quality is informational) and **D-RECALL-FP** (prefer a small
+false-positive rate over a large miss). Re-read at anchor granularity — is
+`(row, term)` a real definition location? — the same 400 give **399 correct
+anchors and 1 phantom**. The IL fragment and the NJ 49-character stub both have
+correct anchors and become byte quality; only the FED notes-heading term is a
+phantom that puts a nonexistent definition on the map.
+
+Corpus-wide phantom-anchor rate: **944 records / 0.159%** confirmed by
+structural signature (multi-line 402, trailing lead-in `:`/`—` 526,
+over-200-char 16), concentrated in FED 550 and OK 262, plus a 179-record
+citation/entry-text family that samples predominantly phantom. Named as
+tracked shared-extraction debt with an owner, not a merge blocker: relative to
+`main` neither B1 module exists, so this branch strictly increases anchor
+recall, which is exactly the trade D-RECALL-FP makes. The **deletion-side
+screen (P-R15) is now the primary gate**, since a miss is the expensive defect.
+
+Governance, fixed here rather than deferred: the byte-quality producer stamped
+`informational_only=True` on every emitted row while marking the same row
+`qa_boundary_status: unreviewed`. Nothing measured it — membership was route
+plus a SHA rank seeded by the integration SHA, and re-pinning replaced **all
+50 rows (zero overlap across two pins)**, proving the flag was never a property
+of the row. Two confirmed false captures carried it. Per the director the
+producer now emits evidence and status only; a new contract test fails if any
+QA verdict field appears on an unreviewed row.
+
+Byte-quality families, all informational under D-MAP and all owned by shared
+extraction: overrun 83/400 = 20.8%; undercapture floor 2,367 (0.49%); wrong
+body 490 (0.083%). The NJ undercapture is NOT a cheap fix — the full
+865-character definiens is already produced by `_extract_inline_quoted_
+definitions`, but a truncating candidate from a shared `EntrySplitterRule`
+registered across 11 jurisdictions (VA/FED/UT/TX/SC/AZ/NJ/MI/ND/NY/OK) wins the
+precedence race. Changing that reshapes every numbered definitions section in
+those 11 jurisdictions and belongs to the named core boundary follow-on.
 
 ## Next Steps
 
-_Planner defines items._
+_None. All 7 items are Dev Complete; QA cycle 5 owns the sprint verdict._
+
+QA reruns the focused trio, the full evaluator, the single all-53 acceptance
+against **production** (not `--prototype`) using `mr124/expected_changed.jsonl`,
+and the deletion-side relation screen, then adjudicates the regenerated
+D-PFP-400 sample **at anchor granularity** per M-R125. QA does NOT re-open the
+207-key inventory or author a replacement ledger; disagreement with an executed
+certificate escalates to the program manager with source evidence.
 
 ## Dev Complete
 
-_None._
+1. **Four B1 causal fixes.** Allowed
+   production surface: `backend/app/definition_links/rules/us_body_preamble.py`
+   and, only if needed for the mandated <=300-line split,
+   `backend/app/definition_links/rules/us_body_preamble_b1.py` (new).
+   Preserve all five re-adjudicated genuine tuples. Make the real B1 call
+   site recognize the bounded PA greedy-tail, USC `includes`, AR singular
+   `purpose`, and OH intervening-divisions occurrences. Do not edit shared
+   extraction or remove/change `_B1_FORWARDING_PHRASES`. Acceptance: the four
+   REDs in `test_us_body_preamble_option_c_root_cause_red.py` go green; their paired
+   full ingest+link guards remain green.
 
-## Completed
+2. **M-R53 production-comment correction.** Remove the false corpus-wide
+   uniqueness claim in `us_body_preamble.py` without changing runtime
+   behavior. Acceptance: the focused test command retains exactly the four
+   causal REDs before item 1 lands.
 
-_None._
+3. **Bounded B1 module split.** Split `us_body_preamble.py` from 386 to at
+   most 300 lines without changing registration order or behavior. Acceptance:
+   `wc -l` is `<=300` and all B1 integration tests retain their outcomes.
+
+4. **G8 shared local-scope dispatch repair.** A B1-derived heading must not
+   turn ordinary `As used in this section` definitions from a clean local
+   candidate into a trailing `law-wide` candidate. Planner first owns a new
+   live ingest-to-link RED plus two-sided local/chapter and B1 controls. The
+   accepted shared seam is `pipeline.py` only: only for a body-derived
+   Definitions heading, emit registered local-scope candidates first, retain
+   their first candidate per sorted-term key, then append existing
+   definitions-section candidates only for keys not already owned. This
+   preserves B1 and non-colliding section entries while preventing a later
+   same-key law-wide candidate from entering persistence or Stage 3 linking.
+   Registry order remains the local-candidate order; do not change generic G8
+   persistence, profiles/registry APIs, or IL. Acceptance: clean local text
+   and scope persist; an outside article gains no law-wide edge; a real GA
+   chapter B1 preamble stays chapter-scoped; and a distinct section term
+   survives. Core G8 reverse-order safety must remain green.
+
+5. **NE/SD recognition and scope.** Release-blocker
+   rows `STATE_NE_C43_S43-3329`, `STATE_NE_C44_S44-5003`, and
+   `STATE_SD_T54_C14_S54-14-12.1` need independent raw recognition and raw
+   extraction gates plus a live persisted `(term, definition_text, scope)`
+   gate. Add only the exact `US-NE`/`US-SD` BodyPreambleRule conventions (no
+   `US-*`); SD's “For the purposes of this chapter” must be chapter-scoped via
+   a `US-SD` scope rule. Preamble Developer owns only
+   `backend/app/definition_links/rules/us_body_preamble.py`. The all-53-file
+   persisted-output measurement and every changed-key judgment are required
+   before development; acceptance preserves the existing ledgers/gates.
+
+6. **Exact markers splitters.** `USC_T43_C35_S1742a` must persist
+   exactly the clean, law-wide `eligible`, `good Samaritan search-and-recovery
+   mission`, and `Secretary` tuples. Markers Developer owns only two new,
+   non-overlapping modules:
+   `us_markers_ne_sd_unquoted.py` (exact source-bound `EntrySplitterRule`s
+   only; no `TermClauseRule`) and `us_markers_fed_good_samaritan.py`.
+   The FED rule is a US-FED-only `(a) Definitions` / `In this section:` exact
+   shape: it requires exactly the three reviewed labels and
+   terminates before top-level `(b)`. It is one priority EntrySplitter stream,
+   not a profile fallback append or global parser. Measure both exact proposals
+   across all 53 files at persisted `(row,key,definition_text,scope)` altitude
+   and classify every changed key. Acceptance keeps G8 11, markers G3H 21,
+   Option-C 5, G9, the exact 23-marker-plus-T35 hold ledger, and every
+   existing RED intact.
+
+## Held dependencies / non-gates
+
+- **Forwarding filter ledger (Option A):** retain every live forwarding filter.
+  Full snapshot `301000fc…` scanned 105 parquet files / 2,046,009 rows at
+  B1's actual filler/gap: `shall be as defined in` 12 hits/8 newly recognized;
+  `shall have the same meaning as` 99/71; `has the same meaning as` 152/117;
+  `has the meaning provided in` 17/14; `has the meaning found in` 0/0; `has
+  the meaning stated in` 46/41. Therefore five of six observed forwarding
+  phrases have nonzero current-corpus deltas; the 0/0 phrase is not load-bearing
+  in this snapshot. Hazards: `shall not include` 182/74; `does not impair` 1/0.
+  The 251 forwarding candidates and 74 exclusion candidates are HELD debt, not
+  an authorization to remove filters.
+- **CO wrong-tuple control:** `STATE_CO_T15_A11_P7_S15-11-701` proves that a
+  B1-only removal would hand a forwarding-plus-exception body to the current
+  extractor, which persists the exception rather than the forwarding target.
+  Correct capture needs shared extraction plus D-MT-E1 reference-edge work and
+  is out of scope.
+- **T35 P-FP wrong tuple:** `USC_T35_C4_S41` has a real correct B1 occurrence
+  and a later genuine `Director` definition, but body-wide extraction persists
+  `SEC. 804. DEFINITION.` with 8,431 characters. B1 has no occurrence-level
+  output, so this is held shared-extraction/P-FP debt, not a B1 Developer gate.
+- **D-MT-E1 reference edges:** core shared reference-edge plumbing must add a
+  link from each captured forwarding definition to its cited target. This
+  sprint preserves the definition tuples but must not claim the edge shipped.
+- **D-INCLUDES `References to` (shipped G12 evidence):** the actual
+  `_extract_inline_quoted_definitions` path suppresses PA
+  `STATE_PA_T15_C57_S5749` via `_preceded_by_references_to` while retaining and
+  emitting genuine USC `"United States" includes ...`. This is main-contained
+  integration evidence, not a future held dependency or B1 Developer gate.
+- NE/SD are no longer accepted inherited dependencies: the merged markers
+  tree did not ship rules for them, and item 5 must close their live misses.
+
+## Evidence
+
+- Post-main Option-C integration is **5 passed**. Combined defining-verb plus
+  Option-C is exactly **1 held-T35 failed, 15 passed**. The shipped core-2 G12
+  unit file is **6 passed**; the repointed fifth Option-C pin drives the real
+  inline extractor in both PA-suppressed and USC-emitted directions.
+- Post-G12 FED/DC/NY integration is **4 passed**. Its green shared-boundary
+  debt pin now follows the actual final candidate: `recreational purposes`
+  remains swollen beyond 8,000 characters and contains both unrelated
+  subsection headings. `wildlife` is only 70 characters but still carries
+  `(4) The term`, so it is not described as fully clean.
+- The five P-FP guards query persisted `Definition` rows and verify definition
+  text; forwarding rows retain the real 31 CFR / IRC / 20 U.S.C. target text.
+- Runtime-only mutation evidence (restored before every command): PA requires
+  both a non-greedy trigger and a direct-`means` B1 branch; USC adds
+  `includes|shall include`; AR adds `purpose`; OH adds the bounded divisions
+  alternative. Each changes its named bounded B1 probe from `None` to
+  `Definitions`; restoring returns all four to `None`.
+- Full-corpus forwarding-filter measurement is recorded in M-R79; Option A
+  holds filters unchanged because the required tuple preservation is shared
+  extraction/reference-edge work, not a safe B1-only change.
+- Integrated tip `4fa9e7b368801757039091646e06a832620a3a2c` contains both
+  root-accepted Developer tips. The combined correction is **13 passed**; G8
+  scope/collision is **11 passed**; markers G3H is **21 passed**; Option-C plus
+  G9 is **6 passed**. Root independently reproduced the 13/13 combined gate.
+- Authoritative backend at `941661b` is **1199 passed / 24 failed / 18
+  warnings**. The 24 failures are exactly the accepted ledger: 23 marker
+  residuals plus held T35; the former NE x2, SD, and FED `eligible` release
+  blockers are green. The M-R122 port adds zero new failures.
+- Frontend is **25 files / 165 tests passed** and `tsc --noEmit` passes. Prior
+  cycles recorded this gate as unrunnable because the worktree had no
+  `frontend/node_modules`; `npm ci` was run there and it now executes locally.
+- QA cycle 1's G7 hold is closed: the certification entrypoint is permanent,
+  committed, re-pinned to HEAD, and re-executed (PASS, all three stages).
+
+## Stale-pin sweep
+
+Searched every repo-profile root (`backend/tests/unit`, `backend/tests/integration`,
+`backend/tests/e2e`, `frontend/src/components/__tests__`) case-insensitively
+for the six superseded cycle-8/9 Option-C and held-G12 test names: zero hits.
+The sole stale held-G12 name was repointed in the owned Option-C file; the stale
+FED debt-pin/capture-test names were repointed in their owned integration file.
+No external pins remain and no production signature/class/CSS rename occurred.
+
+## Evaluation Notes
+
+- 2026-08-09 — QA non-B1 call-shape regression repaired. Hebrew live RED,
+  11 QA provenance controls, and original focused gate are green (32 passed).
+
+- 2026-08-06 — QA cycle 1 completed broad gates but held G7 because its three
+  independent measurement scripts were unavailable; no regression reported.
+- 2026-08-07 — PROVISIONAL/UNACCEPTED Planner Item 7 evidence at `ca9dcd7`:
+  permanent Q-D1 → Q-D2 → Q-D3 entrypoint
+  committed; it pins snapshot `301000fc…`, integration `4fa9e7b…`, 53 files,
+  and 2,038,247 rows. Q-D1: before 29,698, after 156,322, new 126,624,
+  primary 78,925, fallback 47,699, GA 2 → 3,093: both G7 gates pass.
+- Q-D2: 99,877 candidates (57,094 captured / 42,783 uncaptured; quoted
+  95,830, unquoted 4,170). Q-D3 PASS:
+  `7e8eeafd85f41d00151174a9a0b9f4d319495abfcd84d5cdaf4b0ef57fb228d5`.
+- D-PFP-400: 480,372 tuples (`08ca7a33…`); deterministic 400 sample
+  (`880cdec8…`), 54 coverage seats then Hamilton allocation. All 400 ledger
+  rows are `unreviewed`; Planner makes no P-FP PASS claim. 0/400 upper 95%
+  bound is 0.7461%. Informational fallback byte ledger: 50 (`dc1fe464…`).
+- Exact commands/all hashes: `...-scripts/G7_CERTIFICATION.md`; compact
+  evidence: `...-scripts/g7-certification-evidence/`. RED was 3 failed;
+  focused green is 7 passed. Stale-pin sweep: none. Production read-only.
+- 2026-08-07T01:16:01Z — QA cycle 2 FAIL: pinned `STATE_HI_D2_T24_C431_S431`
+  (`us_hi_statutes.parquet:5`, `2ff51dc5…`) is a 2,404,155-byte concatenation;
+  live B1 emits its 529-char quoted indemnity provision as a term with `; and`.
+  Root reproduced; remaining 400 review/all-53/full suites skipped fail-fast. New live RED is committed.
 
 ## Context Dump
 
-New sprint. Planner: read program doc + dossier (§2 family 2, §6 addendum
-SD/OR/PA sections), re-confirm recon examples live, then author RED tests.
+1. Items 1-6 + B1 corrections are Dev Complete at `00b5b5c`; item 7 is BLOCKED.
+2. Certificate is `mr124/expected_changed.jsonl`: 345 = 341 + 4, `db52f060…`.
+3. A certificate is valid only if an executed full-population run emitted it.
+4. Deletion-side gate: zero certified removals may carry an adjacent relation.
+5. D-PFP-400 FAILS on 3 shared-extraction defects this panel cannot fix.
+6. `INTEGRATION_SHA` tracks HEAD; regenerate G7 whenever `backend/app` moves.
+7. Named residuals: IN "loan"/refers-to; 818 wrong-term; 2,367 undercapture.
+8. Escalate a disputed executed certificate; never author a replacement.

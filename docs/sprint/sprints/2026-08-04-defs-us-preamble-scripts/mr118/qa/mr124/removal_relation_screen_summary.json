@@ -1,0 +1,12 @@
+{
+  "certificate_rows": 345,
+  "removals": 341,
+  "removals_clear_no_adjacent_relation": 338,
+  "removals_relation_adjacent_SUSPECT": 3,
+  "removals_with_no_quoted_occurrence": 0,
+  "suspects_already_in_207_inventory": 0,
+  "suspects_by_jurisdiction": {
+    "US-IN": 3
+  },
+  "suspects_never_adjudicated": 3
+}

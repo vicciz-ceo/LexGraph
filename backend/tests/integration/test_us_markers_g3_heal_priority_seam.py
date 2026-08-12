@@ -31,6 +31,8 @@ _OTHER_INLINE_QUOTE_CODES = (
     "US-ND",
     "US-NY",
     "US-OK",
+    "US-NM",
+    "US-NV",
 )
 _MI_ACT_ID = "STATE_MI_C206_AAct-281-of-1967_S206.278"
 _MI_TERM = "Qualified investment"

@@ -1,0 +1,76 @@
+{
+  "correction_accounting": {
+    "certificate_rows_to_drop": 188,
+    "corrected_production_added": 4,
+    "corrected_production_changed": 368,
+    "corrected_production_removed": 364,
+    "missing_certificate_rows_to_retain": 14,
+    "production_extra_rows_to_drop": 5,
+    "revised_certificate_added": 4,
+    "revised_certificate_changed": 368,
+    "revised_certificate_removed": 364
+  },
+  "derived_sets": {
+    "certificate_missing_rows_to_retain": {
+      "records": 14,
+      "sha256": "5c734d8e8106708c13bd58d8fa4a3f7d69553256ef07d8522be0255ab8484155"
+    },
+    "certificate_rows_to_drop": {
+      "records": 188,
+      "sha256": "344a130c9d72690b7f9288f5ede19cfe8486bed6bcae73123d0715f029224e93"
+    },
+    "production_extra_rows_to_drop": {
+      "records": 5,
+      "sha256": "b8bd42abe91809f59ca15ab82f854b8876a66b0682c0e3729504c7577150c01e"
+    },
+    "revised_expected_changed": {
+      "records": 368,
+      "sha256": "49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d"
+    },
+    "simulated_corrected_production_changed": {
+      "records": 368,
+      "sha256": "49a9d3f71d124e19f085ded69d5fbaae269d8ecfc518cd8a9457a9d34e00933d"
+    }
+  },
+  "families": {
+    "certificate_invalid.explicit_post_quote_relation": {
+      "keys_sha256": "3dbc6f78d713fa0f05e385db3c6cfe6fca4aeed2c9d5e73ada49ac5fd1d8f1d3",
+      "records": 185
+    },
+    "certificate_invalid.explicit_pre_quote_relation": {
+      "keys_sha256": "82a925ed0a33927ae8bf09e2bbf172d82ed8668ff0cde3452bb7730762bc456a",
+      "records": 3
+    },
+    "production_gap.quote_direction_false_rejection_definition": {
+      "keys_sha256": "b8bd42abe91809f59ca15ab82f854b8876a66b0682c0e3729504c7577150c01e",
+      "records": 5
+    },
+    "production_gap.quote_direction_false_rejection_nondefinition": {
+      "keys_sha256": "5c734d8e8106708c13bd58d8fa4a3f7d69553256ef07d8522be0255ab8484155",
+      "records": 14
+    }
+  },
+  "input_sets": {
+    "certificate_records": 556,
+    "extra_records": 5,
+    "extra_sha256": "b8bd42abe91809f59ca15ab82f854b8876a66b0682c0e3729504c7577150c01e",
+    "missing_records": 202,
+    "missing_sha256": "8f8e57bf05efc615fe4256df50d4ee2e501b74cb7738c81977bb774c32539dd9",
+    "production_records": 359
+  },
+  "inventory": {
+    "path": "docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/mr118/qa/mr122/mismatch_inventory.jsonl",
+    "records": 207,
+    "sha256": "707e6299a445a878e02302a0620735c87224804f5b7671321c87520106caad2c"
+  },
+  "predicate_simulation": {
+    "certificate_invalid_rows_still_preserved": 188,
+    "extra_flipped_remove_to_preserve": 5,
+    "malformed_federal_sunset_control_occurrences": 0,
+    "malformed_federal_sunset_control_preserved_fail_open": true,
+    "missing_flipped_preserve_to_remove": 14,
+    "quote_direction_fix": "Treat the nearest prior straight quote as an opening continuation only when it is at physical line start (whitespace-only prefix since CR/LF) and the following gap begins a numbered marker; visible content before that quote proves it is a closing delimiter."
+  },
+  "schema": "lexgraph.mr121.production-certificate-mismatch-summary.v1",
+  "zero_residual": true
+}
