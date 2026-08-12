@@ -22,13 +22,14 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
-# Re-pinned by M-R123 to the M-R122 Developer port. The prior pin
-# (4fa9e7b368801757039091646e06a832620a3a2c) predates the c2a8717 and 941661b
-# production changes, so every certification run fail-closed on
-# validate_integration() rather than measuring the tree under test. The
-# integration SHA also seeds the D-PFP-400 sample rank, so the sample and all
-# G7 hashes recorded against the old pin are void and must be regenerated.
-INTEGRATION_SHA = "a4bd37daf1a7da43863c65bc27f67b280e3f1d19"
+# Re-pinned for PR #20 greening. The prior pin
+# (a4bd37daf1a7da43863c65bc27f67b280e3f1d19) predates the greening-sprint merge
+# and the core G4 discriminator perf fix, both of which touched backend/app, so
+# every certification run fail-closed on validate_integration() rather than
+# measuring the tree under test. The integration SHA also seeds the D-PFP-400
+# sample rank, so the sample and all G7 hashes recorded against the old pin
+# are void and must be regenerated.
+INTEGRATION_SHA = "1369fd8371321649d1cf6f884bdaedfad8052765"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
