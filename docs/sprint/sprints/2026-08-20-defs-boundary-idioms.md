@@ -1,20 +1,20 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/defs-boundary-idioms
 locked_by: "claude-code:planner"
 locked_at: "2026-08-20T21:50:00Z"
-last_agent: "claude-code:manager"
-last_updated: "2026-08-20T21:50:00Z"
+last_agent: "claude-code:planner"
+last_updated: "2026-08-20T22:31:38Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 0
+total_items: 1
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 120 2026-08-20T21:52:25Z"
+lint: "PASS 149 2026-08-20T22:31:43Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -103,7 +103,31 @@ recovery goes through idiom vocabulary only.
 
 ## Next Steps
 
-_To be defined by the Planner._
+### Item 1 — widen `_TIGHT_IDIOM_RE` to recover ceiling-tripped last entries (issue #27)
+
+In `backend/app/definition_links/rules/us_markers_boundary.py`'s
+`_TIGHT_IDIOM_RE` (line ~295) ONLY, add `shall include` and generalize
+`has the meaning` to `has the (?:following |same )?meaning` (still
+matches plain "has the meaning" unchanged). Do NOT touch `_TIGHT_IDIOM_
+WITH_RELATIVE_QUALIFIER_RE` or `_EXCLUSION_CLAUSE_BRIDGE_RE` — no
+evidence requires it. No other file. Full evidence, collateral-risk
+sweep, and gate-2 commands: log doc.
+
+RED tests to turn GREEN (all committed, all proven RED-for-cause and
+GREEN under a monkeypatched widened regex this pass — log doc has the
+proof runs): `test_us_markers_boundary_idioms_nj_department_recovery.py`,
+`test_us_markers_boundary_idioms_nj_public_body_recovery.py`,
+`test_us_markers_boundary_idioms_structural_controls.py`, and the
+re-pinned `test_us_markers_c5guard_nj.py::test_c5_guard_state_nj_t48_c10_s10_3`.
+Full suite verified: exactly these 8 RED pre-fix, all GREEN post-fix,
+zero other regressions.
+
+Adjudication (gate 1): live loss set is larger than the stale 41 (118
+real losses — log doc). This item recovers the "shall include"/"has the
+(following|same) meaning" subset only. `USC_T5_C75_S7511` "furlough" and
+the rest are a DIFFERENT defect family (marker boundary, not idiom
+vocabulary) — tracked, not silently dropped — log doc "Adjudication of
+the unrecovered remainder".
 
 ## Dev Complete
 
@@ -115,7 +139,11 @@ _None._
 
 ## Context Dump
 
-Sprint opened 2026-08-20 by the manager off main tip `69fb425` (issue #19
-sprint merged and closed; backend suite baseline now includes its 11 QA
-regression tests). Planner to enumerate the 41 rows' actual next-entry
-idioms, define item(s), and author RED tests per gate 6.
+Planner pass complete (2026-08-21). Re-derived the loss set live (118 real
+losses, not the stale 41 — see log doc); evidence-derived vocabulary is
+"shall include" + "has the (following|same) meaning"; one item defined,
+scoped to `_TIGHT_IDIOM_RE` only. 8 RED tests committed and proven RED-for-
+cause / GREEN-under-widened-regex. One stale pin re-pointed (c5guard_nj
+Pipeline). Baseline full suite: 1359 passed. Gate-2 harness needs a
+correction beyond the known `--current` trap — see log doc "Gate-2
+plumbing" before running it. Developer: read the log doc before coding.
