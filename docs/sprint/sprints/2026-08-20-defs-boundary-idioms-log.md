@@ -270,16 +270,137 @@ The rest are NOT silently dropped:
   acceptance (Developer/QA), consistent with "full-corpus discovery is
   NOT required at planning altitude."
 
+## Developer pass (2026-08-21)
+
+### Steps 1-7: implementation, tests, full pass -- all clean
+
+Synced at `d660849` (verified). Scoped RED re-run before any code change
+reproduced the brief's stated baseline exactly: 8 failed / 11 passed across
+the four target files. Widened `_TIGHT_IDIOM_RE`
+(`backend/app/definition_links/rules/us_markers_boundary.py:296`) per
+Item 1's spec exactly:
+
+```
+r'(?:means|shall mean|shall include|has the (?:following |same )?meaning)\b:?\s*'
+```
+
+(previously `r'(?:means|shall mean|has the meaning)\b:?\s*'`). Re-run: 19/19
+green across the four target files. Guard estate (16 c5guard class-B + 5
+discriminator safety guards + SC #28 (2) + NV #25 UCC bridge (6) + FX7
+ceiling (2) = 31 tests): 31/31 green. `git diff -- backend/app/` touches
+only `us_markers_boundary.py` (1 line changed). Full backend suite: 1370
+passed (baseline 1359 + Planner's 11 new, 0 failed -- matches the brief's
+exact expected count). Frontend: 165/165 passed (25 files). Typecheck:
+clean, zero errors. Committed `a51b1de` ("feat: recognize 'shall include'
+and 'has the following/same meaning' as entry boundaries (issue #27)
+(sprint/2026-08-20-defs-boundary-idioms)"), pushed to
+`claude/defs-boundary-idioms`.
+
+### Step 8: Gate-2 execution -- STOP-and-escalate triggered
+
+Built the corrected harness per this doc's own §7: a copy of
+`measure_actual_production.py` (this sprint's
+`measure_actual_production_all_rows.py`) with the `registered_b1_winner`
+population-restriction removed from the `--current` branch (every corpus
+row is now a measured "member", not just B1 winners) while
+`capture(..., current=True)` is unchanged (the real, general `--current`
+trap, preserved). Dropped the prior sprint's hard-coded
+`EXPECTED_MEMBERS`/`EXPECTED_MEMBERS_HASH`/`EXPECTED_CHANGED*` constants
+(B1-sprint-specific, inapplicable to this item's population) and the
+`compare()`/`--compare` mode entirely; diffing done instead by a
+`diff_gate2.py` copy (same pattern as
+`2026-08-12-defs-b1-refers-to-scripts/diff_gate2.py`, no hard-coded
+certified-ledger hash -- P-R11, run then adjudicate).
+
+Ran `run_gate2.sh` (`BASE_SHA=d660849163df9c46aae97157424ba0bb5420ffce`,
+the pre-fix commit on this branch; current = post-fix working tree @
+`a51b1de`). Both sides measured with `--current` (2,038,247 rows / 53
+files each, matching `EXPECTED_ROWS`). Raw result:
+
+```
+current:  766,928 records (members=2,038,247 -- full corpus, confirms the
+          population-restriction correction took effect)
+baseline: 760,753 records
+changed:            8,725  (added 7,450 / removed 1,275)
+distinct_anchors_row_term: 7,584
+  anchors_pure_added:              6,309
+  anchors_pure_removed:              134
+  anchors_both_removed_and_added:  1,141
+```
+
+**All three of the brief's STOP conditions are triggered simultaneously**:
+
+- `anchors_pure_removed = 134` -- anchors removed with NO same-anchor
+  re-add (the brief's first STOP condition, "any anchor is REMOVED with no
+  same-anchor re-add").
+- `distinct_anchors_row_term = 7,584` -- roughly 25x the brief's "~300"
+  ceiling (second STOP condition).
+- The scale itself: 7,584 real-corpus anchors touched by a one-line regex
+  change is not plausibly the same population as the Planner's 118-anchor
+  loss inventory, even accounting for the corrected harness now measuring
+  the FULL 2,038,247-row corpus rather than the Planner's 34-fixture /
+  21-jurisdiction collateral-risk sweep (third STOP condition: "the
+  additions don't plausibly correspond to the loss inventory").
+
+No adjudication performed (out of Developer scope, per brief and per
+P-R11/P-R15 -- QA's job, not this pass's). Per the brief's explicit
+instruction ("STOP and `ESCALATION:` before committing further"), the
+Developer pass halts here: the "chore: gate-2 all-53 execution artifacts"
+commit was NOT made, step 9 (`qa_g7_common.INTEGRATION_SHA` re-pin +
+evidence regeneration) was NOT run (the SHA-re-pin edit made in
+preparation was reverted, working tree clean again), and step 10 (Dev
+Complete bookkeeping) was NOT performed. Item 1 stays out of Dev Complete;
+the sprint contract frontmatter/Next-Steps/Dev-Complete sections are
+untouched by this pass.
+
+**Evidence preserved on local disk, NOT committed** (per the STOP
+instruction), for whoever adjudicates next:
+`docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/` --
+`measure_actual_production_all_rows.py`, `diff_gate2.py`, `run_gate2.sh`,
+`.gitignore`, `run_g7_repin.sh` (prepared, not yet run), and
+`run/run.log` + `run/compare/{summary.json,changed.jsonl}` (the full
+7,584-anchor raw delta; `run/current/`, `run/baseline/`,
+`run/baseline-src/` are the multi-hundred-MB raw record dumps, per the
+`.gitignore`). A plausible, UNVERIFIED hypothesis for the scale (offered
+as a lead, not an adjudication): `_TIGHT_IDIOM_RE` / `extract_quote_
+anchored_entries` may be reachable from more of the 53 corpus
+jurisdictions in live production than the Planner's fixture-bounded
+collateral sweep (34 files, 21 jurisdictions) sampled -- but this is
+exactly the kind of thing gate 2's own STOP thresholds exist to catch
+before assuming it, not something this pass is positioned to confirm.
+
 ## Escalations
 
-None raised.
+**ESCALATION (Developer pass, 2026-08-21):** Gate-2 all-53 execution (run
+under the log doc's own §7-corrected harness, not adjudicated) measured
+7,584 distinct (row, term) anchors changed by this item's one-line regex
+widening across the real 2,038,247-row production corpus -- 6,309 pure
+additions, 134 pure removals, 1,141 anchors both added-and-removed. All
+three of the brief's numeric STOP conditions trip at once (a pure removal
+exists; changed-anchor count is ~25x the "~300" ceiling; the scale does
+not plausibly match the Planner's 118-anchor loss inventory even after
+accounting for the corrected harness's full-corpus vs. fixture-sample
+population difference). The Developer pass halted per instruction rather
+than adjudicating or proceeding: gate-2 artifacts were NOT committed,
+`qa_g7_common.INTEGRATION_SHA` was NOT re-pinned, and Item 1 was NOT moved
+to Dev Complete. Full raw numbers and the corrected-harness methodology
+are in "Developer pass (2026-08-21)" above; raw evidence sits uncommitted
+under `docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/`
+for the next adjudicating pass. The code fix itself (`a51b1de`) is
+committed, pushed, and independently green against every scoped/guard-
+estate/full-suite/frontend/typecheck check run this pass -- the open
+question is strictly the true production collateral scope, not the RED
+tests or the regex correctness against them.
 
 ## Deviations from brief
 
-None. (The FED "approved percentage" row was considered as a second
-representative loss and DROPPED in favor of NJ "Public body" once its
-recovered text was found to carry an unrelated pre-existing artifact — a
-planning-time substitution, not a deviation from the brief's
+Step 8 did not reach the "Commit artifacts" instruction and steps 9-10
+were not started, per the STOP-and-escalate trigger documented above under
+Escalations -- not a scope deviation, the brief's own conditional halt.
+Otherwise none. (The FED "approved percentage" row was considered as a
+second representative loss and DROPPED in favor of NJ "Public body" once
+its recovered text was found to carry an unrelated pre-existing artifact --
+a planning-time substitution, not a deviation from the brief's
 requirements.)
 
 ## Agent roster (manager bookkeeping, append-only)
