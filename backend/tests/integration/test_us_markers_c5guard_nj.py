@@ -153,14 +153,46 @@ def test_c5_guard_state_nj_t58_c21b_s21b_2(db_session, matter_with_users):
     )
 
 def test_c5_guard_state_nj_t48_c10_s10_3(db_session, matter_with_users):
-    """STATE_NJ_T48_C10_S10-3: pins 1 term(s) as currently captured by baseline
-    alone. Regression guard -- not a target."""
+    """STATE_NJ_T48_C10_S10-3: pins 2 term(s) as currently captured by baseline
+    alone, PLUS 'Pipeline' once the boundary-idiom widening (sprint
+    2026-08-20-defs-boundary-idioms, issue #27) lands. Regression guard for
+    'Board'/'Natural gas pipeline utility' -- not a target; RED-before-green
+    representative recovery for 'Pipeline' -- IS this sprint's own target.
+
+    Re-pinned this sprint (stale-pin sweep, mandatory per the Planner brief):
+    `us_markers_boundary._TIGHT_IDIOM_RE` widened to recognize "shall
+    include" recovers `(c) "Pipeline" shall include compressor plants and
+    other facilities integrated with pipeline operations. L.1952, c. 166,
+    p. 540, s. 2, eff. May 9, 1952.` as its OWN anchor -- verified live this
+    sprint (direct-function + real-pipeline monkeypatch experiment) to be a
+    genuine, correctly-bounded ADDITION, not a corruption: 'Board''s own
+    long baseline-derived capture (pinned below, spanning all of (a)/(b)/(c)
+    verbatim) stays BYTE-IDENTICAL before and after the widening -- baseline
+    (`_split_into_numbered_blocks` + `_leading_quote_candidate`) wins the
+    term-set dedup in `extract_definitions_from_section` ahead of the
+    family-3 rule's own (shorter, more precise) contribution, exactly as it
+    already does today for 'Board'/'Natural gas pipeline utility'. This
+    doubles as this sprint's negative control (gate 3): an idiom
+    ("shall include") occurring INSIDE an existing correct capture's own
+    body does not split or shrink that capture -- it only adds a new,
+    independently genuine sibling anchor alongside it."""
     by_term = _run(db_session, matter_with_users, "STATE_NJ_T48_C10_S10-3")
     # Re-pinned per U-R16/U-R17 (M34/M35/M37): 'Natural gas pipeline utility'
     # is a clean class-A capture (not on the closed class-B list; ends with
     # a real terminal period, verified).
-    assert sorted(by_term) == ['Board', 'Natural gas pipeline utility'], f"got {sorted(by_term)!r}"
+    assert sorted(by_term) == ['Board', 'Natural gas pipeline utility', 'Pipeline'], (
+        f"got {sorted(by_term)!r}"
+    )
     spot = by_term['Board']
     assert spot.definition_text.strip() == 'shall mean the Board of Public Utility Commissioners of New Jersey. (b) "Natural gas pipeline utility" shall mean any individual, co-partnership, association, corporation, or joint stock company, their lessees, trustees or receivers appointed by any court whatsoever, that now or hereafter may own, operate, manage, or control any pipeline used for the transmission of natural gas within or through this State, but shall not include any individual, co-partnership, association, corporation, or joint stock company which, within this State, is engaged in the business of manufacturing, buying, or selling manufactured, mixed, or natural gas or a mixture of such gases with other gases and distributing the same to consumers within this State. (c) "Pipeline" shall include compressor plants and other facilities integrated with pipeline operations. L.1952, c. 166, p. 540, s. 2, eff. May 9, 1952.', (
-        f"content-fidelity spot check failed for 'Board': got {spot.definition_text!r}"
+        f"content-fidelity spot check failed for 'Board' -- 'Board' must stay "
+        f"BYTE-IDENTICAL to today even after the 'shall include' widening "
+        f"lands (negative control, gate 3): got {spot.definition_text!r}"
     )
+    # RED today (issue #27 recovery target): 'Pipeline' is not captured at
+    # all until _TIGHT_IDIOM_RE recognizes "shall include".
+    pipeline_spot = by_term['Pipeline']
+    assert pipeline_spot.definition_text.strip() == (
+        'compressor plants and other facilities integrated with pipeline '
+        'operations. L.1952, c. 166, p. 540, s. 2, eff. May 9, 1952.'
+    ), f"content-fidelity spot check failed for 'Pipeline': got {pipeline_spot.definition_text!r}"
