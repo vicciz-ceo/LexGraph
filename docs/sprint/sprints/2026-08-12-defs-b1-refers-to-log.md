@@ -271,3 +271,77 @@ artifacts + scripts as evidence (full 376M/398M corpus outputs gitignored,
 preserved on disk under run/current + run/baseline).
 
 - developer → a4af3fdce965b77ed (spawned 2026-08-12T10:55Z, escalated clean @ 86fccfb)
+
+## Developer pass 2 — escalation resolution, corrected gate-2, G7 re-pin (2026-08-20/21)
+
+Manager relayed the completed investigation (`a6eae82`,
+`docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/investigation.md`):
+the 4,255-record delta was a measurement-tool artifact, not the fix's
+effect. `measure_actual_production.py`'s `capture()` gates
+`recognized_by_registered_rule` on its own `--current` CLI flag; real
+production (`pipeline.py:262-266`) computes the same value
+unconditionally. `run_gate2.sh` ran CURRENT with `--current` but BASELINE
+without it — a calling convention no production commit ever executes.
+Verified corpus-wide (all 2,953 touched rows): 2,952/2,953 byte-identical
+under the true `--current` convention on both source trees; the sole
+exception is the intended `US-IN` row 80161 "loan" recovery. Verdict
+checked against the investigation's own evidence before acting (matched
+independent reading of `capture()`'s source during the original gate-2
+run).
+
+Actions taken, in order:
+
+1. `git reset --hard origin/claude/defs-b1-refers-to` to `a6eae82` (worktree
+   sync per the resume instructions).
+2. Corrected `run_gate2.sh`: BASELINE now also passes `--current`. The
+   script's own CLI forbids `--current` + `--members` together
+   ("current run needs no --members; baseline run requires it"), so
+   BASELINE determines its own membership via `--current`'s
+   `registered_b1_winner()` path instead of being restricted to CURRENT's
+   `members.jsonl`; the script's built-in `EXPECTED_MEMBERS_HASH` check
+   (enforced only under `--current`) would fail loudly if that membership
+   ever diverged — it did not (`851e85dc...` identical both runs).
+   Log-doc recipe above annotated with a correction note citing
+   investigation.md (does not rewrite the Planner's original recorded
+   text).
+3. Re-ran ONLY the baseline side under the corrected convention (CURRENT's
+   existing output, produced WITH `--current` in the original run, was
+   reused unchanged). Corrected diff: **exactly 1 changed record** —
+   `US-IN us_in_statutes.parquet row 80161 "loan"`, added, `definition_text`
+   identical to the Planner's original simulation transcript. Matches the
+   contract's original "expected shape" exactly, once measured correctly.
+4. Replaced `run/compare/{changed.jsonl,summary.json}` in place (old
+   4,255-record version preserved in git history at `75c030a`); appended a
+   correction entry to `run/run.log`. Committed `dc5faed`.
+5. `qa_g7_common.INTEGRATION_SHA` re-pinned `5c3e751...` → `86fccfb`
+   (the fix commit itself; `git diff 86fccfb..HEAD -- backend/app` empty,
+   confirmed ancestral) — verified this points at the actual production-code
+   commit, not a bookkeeping commit, per the resume instructions' explicit
+   check. Ran `run_g7_certification.py` (Q-D1 → independent Q-D2 → Q-D3)
+   into a scratch `--out`, then `export_compact_evidence()` into the
+   checked-in `g7-certification-evidence/`. Result: **G7 CERTIFICATION
+   PASS**, `qd3_crosscheck.json` `status: "PASS"`,
+   `summary_hash=2057f6dc79df615bc0591d5b112757ed109add34e1bf2002e432724c8fa1a76c`,
+   both G7 minimum gates pass (`ga_after_pass`, `new_primary_pass`).
+   Committed `816f63d`. (Wall-clock for this step read ~1h28m in `ps`
+   because the machine slept mid-run; actual CPU time was ~10 min per full
+   pass — process was never dead, contra a stale manager status snapshot
+   taken during the sleep window; confirmed alive via direct `ps` check
+   before re-arming the monitor rather than restarting the run.)
+6. Contract: Item 1 moved to Dev Complete, `status: dev-complete`,
+   `current_role: qa`, `dev_complete_items: 1`; lock fields untouched.
+
+**Not yet done — explicitly QA's next step, not Developer's:** gate 3's
+deletion-side relation re-screen has not been re-run against the corrected
+1-record delta (trivial at this size, but out of Developer scope per the
+brief — Developer produces the raw delta, does not adjudicate). Full
+gate-by-gate sign-off is QA's.
+
+Full backend/frontend re-verification this pass: unchanged from the
+original developer pass (86fccfb already had 1347/0 backend, 165/165
+frontend, clean typecheck before the escalation; no backend/app or
+frontend source changed since, only docs/scripts) — not re-run, since
+nothing in scope for full-suite results changed.
+
+- developer → (same worktree session, resumed after escalation + 2 machine
+  sleeps, exited clean @ 816f63d)

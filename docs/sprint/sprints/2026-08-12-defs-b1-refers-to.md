@@ -1,7 +1,7 @@
 ---
 id: "2026-08-12-defs-b1-refers-to"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/defs-b1-refers-to
 locked_by: "claude-code:developer"
 locked_at: "2026-08-12T10:50:00Z"
@@ -12,7 +12,7 @@ evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 1
 qa_cycles: 0
 lint: "PASS 151 2026-08-12T10:50:25Z"
 previous_sprint: "2026-08-12-shared-extraction-t35"
@@ -95,21 +95,7 @@ defect class), D-MAP (the (row, term) anchor is the product). Program doc:
 
 ## Next Steps
 
-### Item 1 — widen `_POST_RELATION` to recognize "refers to"/"refer to" (issue #19)
-
-Add a `refers?\s+to`-shaped verb alternative to `_POST_RELATION`'s
-alternation only (`us_body_preamble_b1.py:73-77`). Sibling `_ENUM_RELATION`/
-`_B1_QUOTE_MEANS_RE` untouched; module stays ≤300 lines (298 today, 2 lines
-of headroom); `git diff -- backend/app/` must touch only this file.
-
-**Acceptance = gates 1-6 above.** RED tests (this pass, both proven RED for
-the right reason — see the run tail in the Planner's report):
-`backend/tests/unit/test_us_body_preamble_b1_refers_to_relation_red.py`,
-`backend/tests/integration/test_us_body_preamble_b1_refers_to_relation_persistence_red.py`.
-Gate-2 all-53 run commands, gate-3 deletion-side re-screen methodology, the
-`qa_g7_common.INTEGRATION_SHA` re-pin/regen step, and the full loss-
-reproduction + fix-simulation transcript: all in
-`docs/sprint/sprints/2026-08-12-defs-b1-refers-to-log.md` (Planner pass).
+_None — Item 1 moved to Dev Complete._
 
 ## Stale-pin sweep
 
@@ -133,7 +119,13 @@ requires.
 
 ## Dev Complete
 
-_None._
+### Item 1 — widen `_POST_RELATION` to recognize "refers to"/"refer to" (issue #19)
+
+Fix: `us_body_preamble_b1.py` `_POST_RELATION` widened (`86fccfb`); scoped
+7/7, full backend 1347/0, frontend/typecheck green. Gate-2 all-53
+certified delta: exactly 1 record (`US-IN` "loan") after correcting a
+measurement-tool artifact (`dc5faed`, see investigation.md and the log
+doc). `INTEGRATION_SHA` re-pinned + G7 evidence regenerated, PASS (`816f63d`).
 
 ## Completed
 
@@ -141,11 +133,14 @@ _None._
 
 ## Context Dump
 
-Planner pass complete off `7af67d8` (loss reproduced live; mechanism in the
-log doc). One item; 2 RED test files committed at `f9961c9` — 5 cases RED
-for the right reason, 2 negative controls GREEN and must stay green.
-Baseline: 1342 passed / 5 failed / 1347 collected; gate-4 target 1347/0.
-Stale-pin sweep: none re-pointed. Gate-2 all-53 commands, gate-3 re-screen
-methodology, and the INTEGRATION_SHA re-pin step are in the log doc (P-R11:
-run, then adjudicate — no pre-authored ledger). Next: Developer implements
-the `_POST_RELATION` widening only, then hands to QA.
+Developer pass complete. Fix `86fccfb`; full backend 1347/0, frontend
+165/165, typecheck clean. Gate-2 all-53 run's FIRST diff (4,255 records)
+was a measurement-tool artifact (`--current` flag asymmetry in
+`measure_actual_production.py`'s baseline invocation, unrelated to
+`_POST_RELATION`) — escalated, independently investigated
+(`docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/investigation.md`),
+corrected (`dc5faed`): certified delta is exactly 1 record, `US-IN` "loan",
+matching gate 1. `INTEGRATION_SHA` re-pinned to `86fccfb`, G7 evidence
+regenerated and PASS (`816f63d`). Gate-3 deletion-side re-screen not yet
+re-run against the corrected delta — that + full gate adjudication is QA's
+next step. Full escalation/investigation/correction trail in the log doc.
