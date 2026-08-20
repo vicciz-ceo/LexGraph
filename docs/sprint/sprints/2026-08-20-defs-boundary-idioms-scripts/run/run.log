@@ -1,0 +1,18 @@
+artifacts: docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run
+{"files": 53, "members": 2038247, "members_sha256": "e0ffa4a6486a6129005b8de0c584628fa0554f01a7d2b6ba0af8e202e86e8a9c", "mode": "current", "records": 766928, "records_sha256": "6590a6015907db9175fffc05cc4a0d21150bfb7ffe4bed6a2fcba1baa99ef661", "rows": 2038247}
+{"files": 53, "members": 2038247, "members_sha256": "e0ffa4a6486a6129005b8de0c584628fa0554f01a7d2b6ba0af8e202e86e8a9c", "mode": "current", "records": 760753, "records_sha256": "d880cd535426a300e6b1d1fed0380f7e40b72143b8e2f095e9c7a6ac1826d3d8", "rows": 2038247}
+=== current/summary.json ===
+{"files": 53, "members": 2038247, "members_sha256": "e0ffa4a6486a6129005b8de0c584628fa0554f01a7d2b6ba0af8e202e86e8a9c", "mode": "current", "records": 766928, "records_sha256": "6590a6015907db9175fffc05cc4a0d21150bfb7ffe4bed6a2fcba1baa99ef661", "rows": 2038247}
+=== baseline/summary.json ===
+{"files": 53, "members": 2038247, "members_sha256": "e0ffa4a6486a6129005b8de0c584628fa0554f01a7d2b6ba0af8e202e86e8a9c", "mode": "current", "records": 760753, "records_sha256": "d880cd535426a300e6b1d1fed0380f7e40b72143b8e2f095e9c7a6ac1826d3d8", "rows": 2038247}
+{
+  "added": 7450,
+  "anchors_both_removed_and_added": 1141,
+  "anchors_pure_added": 6309,
+  "anchors_pure_removed": 134,
+  "changed": 8725,
+  "changed_sha256": "4fd6ef7fd7292a4ed2131e25f0db69e9d4ed9b80607444e339da4ab6b0b642ac",
+  "distinct_anchors_row_term": 7584,
+  "removed": 1275
+}
+GATE2_RUN_COMPLETE

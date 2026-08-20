@@ -1,0 +1,10 @@
+{
+  "added": 7450,
+  "anchors_both_removed_and_added": 1141,
+  "anchors_pure_added": 6309,
+  "anchors_pure_removed": 134,
+  "changed": 8725,
+  "changed_sha256": "4fd6ef7fd7292a4ed2131e25f0db69e9d4ed9b80607444e339da4ab6b0b642ac",
+  "distinct_anchors_row_term": 7584,
+  "removed": 1275
+}

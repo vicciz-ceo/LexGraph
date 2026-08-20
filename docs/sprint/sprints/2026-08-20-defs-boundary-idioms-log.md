@@ -406,3 +406,15 @@ requirements.)
 ## Agent roster (manager bookkeeping, append-only)
 
 - planner → af1fb30796df25f99 (spawned 2026-08-20T21:55Z, exited clean @ fa58834; manager verified: diff scope tests+docs only, RED re-run 8F/11P reproduced, c5guard_nj re-point strengthens assertions)
+
+## Manager: gate-2 evidence preserved + director ruling pending (2026-08-21)
+
+Developer STOP was correct per brief. Manager committed the small gate-2
+evidence (compare/ + run.log + scripts; record dumps gitignored on disk).
+Delta decomposition: 7,584 anchors = 6,309 pure additions + 1,141 re-bounded
++ 134 pure removals, vs the 118-anchor recovery inventory. Investigation
+spawned per the director's sprint-1 precedent (investigate before QA);
+product ruling on the mass-addition footprint goes to the director with the
+findings.
+
+- developer → ad944ba8200be8116 (spawned 2026-08-20T22:40Z, escalated clean @ ad6619f)
