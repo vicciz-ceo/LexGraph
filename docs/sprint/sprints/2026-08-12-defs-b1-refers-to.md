@@ -1,7 +1,7 @@
 ---
 id: "2026-08-12-defs-b1-refers-to"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/defs-b1-refers-to
 locked_by: "claude-code:qa"
 locked_at: "2026-08-20T21:26:00Z"
@@ -11,10 +11,10 @@ program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
-completed_items: 0
-dev_complete_items: 1
-qa_cycles: 0
-lint: "PASS 143 2026-08-20T21:26:21Z"
+completed_items: 1
+dev_complete_items: 0
+qa_cycles: 1
+lint: "PASS 147 2026-08-20T21:38:22Z"
 previous_sprint: "2026-08-12-shared-extraction-t35"
 prd_sections: []
 design_sections:
@@ -95,7 +95,7 @@ defect class), D-MAP (the (row, term) anchor is the product). Program doc:
 
 ## Next Steps
 
-_None — Item 1 moved to Dev Complete._
+_None — Item 1 moved to Completed._
 
 ## Stale-pin sweep
 
@@ -119,25 +119,29 @@ requires.
 
 ## Dev Complete
 
-### Item 1 — widen `_POST_RELATION` to recognize "refers to"/"refer to" (issue #19)
-
-Fix: `us_body_preamble_b1.py` `_POST_RELATION` widened (`86fccfb`); scoped
-7/7, full backend 1347/0, frontend/typecheck green. Gate-2 all-53
-certified delta: exactly 1 record (`US-IN` "loan") after correcting a
-measurement-tool artifact (`dc5faed`, see investigation.md and the log
-doc). `INTEGRATION_SHA` re-pinned + G7 evidence regenerated, PASS (`816f63d`).
+_None._
 
 ## Completed
 
-_None._
+- **Item 1** — widen `_POST_RELATION` to recognize "refers to"/"refer to"
+  (issue #19). PASS — all 6 gates independently re-verified (QA Notes
+  below); 11 new regression tests, commit `7718f7b`.
+
+## QA Notes
+
+- 2026-08-21 qa cycle 1: independent evaluator PASS — backend 1347→1358
+  (11 new regression tests, 0 failed), frontend 165/165, typecheck clean,
+  zero flakes. All 6 gates independently re-verified, not reusing the
+  Developer's numbers: G6 reproduced RED live (5 failed/2 passed pre-fix,
+  7/7 post-fix); G5 bounded (86fccfb = 1 file/1 line, module 298 lines);
+  G2 recomputed from raw records (0 removed/1 added, US-IN "loan",
+  adjudicated against the snapshot); G3 re-screen 0 suspects; G7 repin
+  confirmed. Item 1 → Completed; full transcript in `-log.md`.
 
 ## Context Dump
 
-Developer pass complete. Fix `86fccfb`; backend 1347/0, frontend 165/165,
-typecheck clean. Gate-2's first diff (4,255 records) was a measurement
-artifact (`--current` asymmetry in `measure_actual_production.py`; see
-investigation.md in the sprint scripts dir); corrected certificate
-`dc5faed`: exactly 1 changed record, `US-IN` "loan", matching gate 1.
-`INTEGRATION_SHA` re-pinned to `86fccfb`, G7 evidence regenerated, PASS
-(`816f63d`). QA's next step: gate-3 deletion-side re-screen against the
-corrected delta + full gate adjudication + regression tests.
+QA cycle 1 complete, PASS. All 6 gates independently re-verified from
+scratch (not reusing Developer's numbers) — evidence and exact commands
+in QA Notes above and the log doc. Regression: 11 new tests, commit
+`7718f7b`, full backend 1358/0. Item 1 → Completed; sprint → `review`.
+Next: Planner (director sign-off / sprint close).

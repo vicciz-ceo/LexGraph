@@ -347,3 +347,123 @@ nothing in scope for full-suite results changed.
   sleeps, exited clean @ 816f63d)
 - investigator (read-only recon, Sonnet high) → a734e9b202e545ee7 (spawned 2026-08-12, delivered investigation.md @ a6eae82)
 - lock handover developer→qa 2026-08-21T00:35Z by manager after diff verification (production hunk = 1 line in us_body_preamble_b1.py, module 298 lines, zero test files in dev commits)
+
+## QA pass 1 (2026-08-21) — full gate-by-gate independent re-verification
+
+Independent agent from Planner/Developer. Ran every gate from scratch
+rather than reusing recorded numbers, per the QA brief.
+
+**Gate 4 (evaluator).** `PYTHONPATH=.:backend .../python -m pytest
+backend/tests -q -p no:randomly`: **1347 passed, 0 failed, 1347 collected**
+(29.69s). `npm --prefix frontend run test -- --run`: **165/165 passed**.
+`npm --prefix frontend run typecheck`: clean, zero output. All green on
+first run — no flakes to report.
+
+**Gate 6 (red-before-green provenance).** `git show --stat f9961c9`
+confirms both new test files (`test_us_body_preamble_b1_refers_to_
+relation_red.py`, `test_us_body_preamble_b1_refers_to_relation_
+persistence_red.py`) were committed there, before the fix; `git show
+--stat 86fccfb` confirms the fix touches zero test files;
+`git merge-base --is-ancestor f9961c9 86fccfb` holds. Read the persistence
+test: it imports and drives the real production seam
+(`ingest_us_statute_rows` + `run_definition_linking`, reading back
+`Definition` rows via `db_session.get`) — not a mock. Independently
+**re-ran the actual regression**: backed up
+`us_body_preamble_b1.py`, overwrote it with the f9961c9 (pre-fix) content
+via `git show f9961c9:<path>`, ran both new test files —
+**5 failed / 2 passed**, matching the Developer's own claimed transcript
+exactly (2 passes = the two "referring to" gerund negative controls, one
+per altitude). Restored the file via `git checkout --`, byte-diffed
+against the backup to confirm a clean restore, then re-ran the same two
+files against current (post-fix) HEAD: **7 passed**. M-R107: all CASES use
+novel jurisdictions (US-WY/US-NM/US-VT) and terms never seen elsewhere.
+
+**Gate 5 (boundedness).** `git show --stat 86fccfb`: exactly 1 file
+(`us_body_preamble_b1.py`), 1 line changed (adds `refers?\s+to|` to the
+verb alternation, nothing else). Module is 298 lines (≤300). No commit
+after `86fccfb` touches `backend/app` at all (`git log --oneline
+86fccfb..HEAD -- backend/app` empty). Note: the brief's literal
+`git diff f9961c9..86fccfb` spans 3 commits (2 docs-only lock-handover
+commits sit between the RED-test commit and the fix commit), so that
+2-dot diff shows 3 files total — but the FIX commit itself (`86fccfb`
+alone) is exactly the 1 allowed file / 1 line, and the 2 intervening
+commits (`4b00fc7`, `362d4db`) touch only `docs/sprint/sprints/*.md`.
+Gate 5's substance (module scope + line budget + no post-fix backend/app
+drift) holds regardless of this minor brief imprecision.
+
+**Gate 2 (executed certificate).** Read `run_gate2.sh`: both CURRENT and
+BASELINE now pass `--current`, per the corrected convention.
+`run/run.log` ends `GATE2_CORRECTED_RUN_COMPLETE`; the corrected baseline
+re-run reports `members_sha256` identical to current's
+(`851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`),
+confirming dispatch/membership is unchanged by the fix. Read
+`run/compare/summary.json` (`added:1, removed:0, changed:1`) and
+`changed.jsonl` (single row: `US-IN us_in_statutes.parquet row 80161
+"loan"`, added). **Independently recomputed** the diff myself, reading
+only `run/current/records.jsonl` and `run/baseline/records.jsonl`
+(read-only, no regeneration) with a standalone script using the same
+`key()` tuple as `diff_gate2.py` — got the identical result (0 removed, 1
+added, same record). **Adjudicated the record**: loaded the real Indiana
+row 80161 directly from the ratified snapshot parquet
+(`us_in_statutes.parquet`) — `act_id` and `section_title` match, and the
+raw text is exactly `Sec. 3. As used in this chapter, "loan": (1) refers
+to a loan made by the corporation...; and (2) includes a loan guarantee
+made by the corporation. As added by P.L.222-2007, SEC.1.` — the
+certified `definition_text` ("a loan guarantee made by the corporation.
+As added by P.L.222-2007, SEC.1.") is a faithful substring of the row's
+own limb-(2) text, term "loan" is the row's own quoted term. Cross-checked
+`investigation.md`'s central claim (the `capture()` `current`-flag
+asymmetry vs. `pipeline.py`'s unconditional computation) by reading both
+functions directly — confirmed byte-for-byte: `pipeline.py:262-266`
+computes `recognized_by_registered_rule` unconditionally,
+`measure_actual_production.py:151-153` gates it on `current`. Convention
+correction trusted; did not re-run the full corpus.
+
+**Gate 3 (deletion-side screen).** Corrected delta has 0 removed records
+(confirmed above, both from the committed certificate and my own
+recomputation) — but RAN the recorded screen anyway rather than assuming:
+wrote a standalone script that iterates the corrected delta's removed set
+(empty), confirms the loan row is present in ADDED and absent from
+REMOVED (i.e. it "cleared"), and tests `_POST_RELATION`/`_ENUM_RELATION`
+against any removed row's quoted-term tail. Result: 0 removed, 0
+suspects, loan row confirmed cleared — script printed
+`GATE3_RESCREEN_COMPLETE`.
+
+**Gate 1.** Confirmed via gates 2+4: the live-persistence RED test
+(`test_state_in_loan_refers_to_relation_recovered_live_persistence`) is
+GREEN post-fix (I re-ran it directly, see gate 6), and the gate-2
+certified corpus-wide run shows exactly the Indiana "loan" row recovered,
+matching the mandate's SINGLE genuine loss.
+
+**G7 re-pin check.** `qa_g7_common.INTEGRATION_SHA ==
+"86fccfb1d2d6e3bcf93899b67ac97b71ed30d425"` (grep-confirmed). Ran
+`validate_integration()` directly (the fast, bounded runnable check named
+in the contract's "known trap") — **PASS** (SHA is ancestral, `backend/app`
+unchanged since). Did NOT re-run the full `run_g7_certification.py`
+Q-D1→Q-D2→Q-D3 corpus pass (53 files / 2M rows; the Developer's own pass
+logged ~10min CPU but risked long wall-clock due to unpredictable machine
+sleep) — instead verified the committed evidence: `git log` confirms
+`g7-certification-evidence/` was regenerated by commit `816f63d`, and
+`qd3_crosscheck.json` reads `"status":"PASS"`,
+`"integration_sha":"86fccfb1d2d6e3bcf93899b67ac97b71ed30d425"`,
+`"summary_hash":"2057f6dc79df615bc0591d5b112757ed109add34e1bf2002e432724c8fa1a76c"`
+— matching the log doc's claimed values exactly.
+
+**Regression tests.** Added
+`backend/tests/integration/test_qa_regression_defs_b1_refers_to.py` (11
+tests, 3 altitudes: direct `_POST_RELATION` regex pins including two new
+negative guards — "with reference to" and a partial-word "refers toon" —
+not covered by the Developer's own tests; direct-profile altitude with
+fresh jurisdictions US-OR/US-ME and terms "credit voucher"/"service
+credit"/"audit referral"; live-persistence altitude for the "credit
+voucher" recovery and the "audit referral" gerund negative control).
+Every case verified empirically against post-fix production code before
+being committed. Full backend suite with the new tests: **1358 passed, 0
+failed**. Committed `7718f7b`, pushed.
+
+**Verdict: Item 1 PASS.** All 6 gates independently confirmed, no defects
+found. Contract updated: Item 1 → Completed, `status: review`,
+`current_role: planner`, `completed_items: 1`, `dev_complete_items: 0`,
+`qa_cycles: 1`. `locked_by`/`locked_at` left untouched (manager-owned).
+
+- qa (Sonnet high) → this session, exited clean
