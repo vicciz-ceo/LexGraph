@@ -105,9 +105,12 @@ with source evidence.
 
 ### Named residuals, quantified
 
-- `STATE_IN_T5_A28_C28_S5-28-28-3` "loan": (1) **refers to** … is still
-  removed; that verb is absent from the defining-verb vocabulary. One token
-  closes it; deliberately deferred so it cannot invalidate the executed run.
+- ~~`STATE_IN_T5_A28_C28_S5-28-28-3` "loan"~~ CLOSED 2026-08-20 by sprint
+  `2026-08-12-defs-b1-refers-to` (issue #19): `_POST_RELATION` widened
+  (`86fccfb`), certified delta exactly 1 record, QA cycle 1 PASS. Trap found
+  en route: `measure_actual_production.py` baseline runs MUST pass
+  `--current` too — the flag asymmetry manufactured a phantom 4,255-record
+  delta (see that sprint's investigation.md; P-R16 family).
 - Deletion-side screen stands at 3 of 341 removals, 2 of which are the Indiana
   plural-repair tuples that the 4 additions replace.
 - The physical-line-start rule is **formatting-bound, not structure-bound**: it

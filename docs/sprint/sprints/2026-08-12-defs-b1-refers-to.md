@@ -1,12 +1,12 @@
 ---
 id: "2026-08-12-defs-b1-refers-to"
-status: review
+status: done
 current_role: planner
 branch: claude/defs-b1-refers-to
-locked_by: "claude-code:qa"
-locked_at: "2026-08-20T21:26:00Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-08-20T21:25:00Z"
+locked_by: null
+locked_at: null
+last_agent: "claude-code:manager"
+last_updated: "2026-08-20T21:41:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -14,7 +14,7 @@ total_items: 1
 completed_items: 1
 dev_complete_items: 0
 qa_cycles: 1
-lint: "PASS 147 2026-08-20T21:38:22Z"
+lint: "PASS 147 2026-08-20T21:41:14Z"
 previous_sprint: "2026-08-12-shared-extraction-t35"
 prd_sections: []
 design_sections:
