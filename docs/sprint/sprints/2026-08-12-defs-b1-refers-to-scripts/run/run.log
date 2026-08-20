@@ -1,0 +1,26 @@
+artifacts: docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/run
+{"files": 53, "members": 193830, "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a", "mode": "current", "records": 594905, "records_sha256": "f658e0d721d26a0d5a207346fd22087013c67d6e084995cc1992639b4066a1ec", "rows": 2038247}
+{"files": 53, "members": 193830, "members_sha256": null, "mode": "baseline", "records": 592076, "records_sha256": "44869d03cd95a642d03f68134e3382b367ff5dc4a26be52ebdf64a942e9defe4", "rows": 2038247}
+=== current/summary.json ===
+{"files": 53, "members": 193830, "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a", "mode": "current", "records": 594905, "records_sha256": "f658e0d721d26a0d5a207346fd22087013c67d6e084995cc1992639b4066a1ec", "rows": 2038247}
+=== baseline/summary.json ===
+{"files": 53, "members": 193830, "members_sha256": null, "mode": "baseline", "records": 592076, "records_sha256": "44869d03cd95a642d03f68134e3382b367ff5dc4a26be52ebdf64a942e9defe4", "rows": 2038247}
+GATE2_RUN_COMPLETE
+
+=== CORRECTION (2026-08-12): baseline re-run with --current ===
+The above baseline run (line 3/7, "mode": "baseline", no --current) used a
+calling convention no production commit ever executes -- see
+docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/investigation.md.
+current/ above (mode="current", records=594905) is unaffected and remains
+valid. Corrected baseline re-run, --current on both sides (mode reads
+"current" because it reflects the --current flag, not the source tree;
+source-root was still run/baseline-src, the archived pre-fix BASE_SHA):
+{"files": 53, "members": 193830, "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a", "mode": "current", "records": 594904, "records_sha256": "d97b7cb73015211bde7e074aefb84f161830a66a55f025266c63a0890fc28249", "rows": 2038247}
+Membership hash matches current/ exactly (851e85dc...), confirming the
+fix does not change B1 dispatch, only in-B1 candidate keep/drop. Corrected
+diff (current/records.jsonl vs this re-run's baseline/records.jsonl, same
+key() tuple): exactly 1 changed record -- US-IN row 80161 "loan", added.
+See run/compare/changed.jsonl + summary.json (overwritten in place; the
+old 4,255-record artifact version is preserved in git history at commit
+75c030a).
+GATE2_CORRECTED_RUN_COMPLETE

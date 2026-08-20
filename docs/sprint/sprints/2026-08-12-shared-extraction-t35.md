@@ -1,20 +1,20 @@
 ---
 id: "2026-08-12-shared-extraction-t35"
-status: planning
-current_role: developer
+status: done
+current_role: planner
 branch: claude/shared-extraction-t35
 locked_by: null
 locked_at: null
-last_agent: "claude-code:planner"
-last_updated: "2026-08-12T05:20:23Z"
+last_agent: "claude-code:manager"
+last_updated: "2026-08-12T10:15:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 1
-completed_items: 0
+completed_items: 1
 dev_complete_items: 0
-qa_cycles: 0
-lint: "PASS 282 2026-08-12T05:20:39Z"
+qa_cycles: 1
+lint: "PASS 291 2026-08-12T10:30:17Z"
 previous_sprint: "2026-08-10-green-the-suite"
 prd_sections: []
 design_sections:
@@ -93,12 +93,10 @@ that is a better outcome than four patches — but it must be shown, not assumed
 
 ## Next Steps
 
-Single-track — one function, one root cause, both symptoms. See "Planner
-findings" below for the full evidence; splitting this across two agents
-would repeat the exact disconnect M-R64 rejected (a Developer fixing the
-capture side without visibility into what else the same window touches).
+_None — the single item is closed; see Completed. The item's full spec is
+preserved below for the record._
 
-### Item 1 (RED, both gates authored this pass) — fix `_extract_inline_quoted_definitions`'s quote handling in `us_profile.py`
+### Item 1 (historical spec, now in Completed) — fix `_extract_inline_quoted_definitions`'s quote handling in `us_profile.py`
 
 **Root cause** (see "Planner findings"): `_QUOTE_TERM_RE`
 (`backend/app/definition_links/us_profile.py:924`) pairs the first `"`/`"`
@@ -165,7 +163,18 @@ _None._
 
 ## Completed
 
-_None._
+### Item 1 — fix `_extract_inline_quoted_definitions`'s quote handling (CLOSED 2026-08-12 by manager)
+
+Fix `4d0cfbc` (quote pairing corrected so block quotes stop yielding phantom
+terms), QA gate-3 adjudication `f71e5c5` (all 1,627 term losses adjudicated as
+phantom removals, zero genuine losses), merged to main via `5c3e751`; PR #20
+landed at zero failures (`ffcbd83`). Manager re-verified on main tip
+2026-08-12T10:12Z: all 12 tests in
+`test_us_body_preamble_defining_verb_narrowing_red.py` pass (both gate tests
+plus the 10 M-R64 guards). Gates 1–5 met; sprint work completed outside this
+contract's bookkeeping during the PR #20 merge session — this entry closes the
+record after the fact per P-R11 (the executed run and its adjudication ARE the
+certificate).
 
 ## Planner findings (this pass, sprint `2026-08-12-shared-extraction-t35`)
 

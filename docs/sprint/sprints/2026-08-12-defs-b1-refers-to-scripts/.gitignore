@@ -1,0 +1,6 @@
+# Full-corpus measurement outputs are hundreds of MB — kept on disk, not in git.
+# Regenerate via run_gate2.sh; the committed compare/ + run.log are the evidence.
+run/current/
+run/baseline/
+run/baseline-src/
+run/g7-out/
