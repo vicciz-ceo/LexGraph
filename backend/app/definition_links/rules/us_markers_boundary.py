@@ -294,7 +294,7 @@ _LEADING_QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # later in an unrelated sentence never qualifies.
 _TIGHT_IDIOM_RE = re.compile(
     r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
-    r'(?:means|shall mean|has the meaning)\b:?\s*',
+    r'(?:means|shall mean|shall include|has the (?:following |same )?meaning)\b:?\s*',
     re.IGNORECASE,
 )
 _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE = re.compile(
