@@ -1,10 +1,10 @@
 {
-  "added": 3542,
-  "anchors_both_removed_and_added": 671,
-  "anchors_pure_added": 2871,
-  "anchors_pure_removed": 42,
-  "changed": 4255,
-  "changed_sha256": "ef6f34ea56ce6b99b62b2a49e2197f4f43850a8092156e5c3aa1fca7f2341ec4",
-  "distinct_anchors_row_term": 3584,
-  "removed": 713
+  "added": 1,
+  "anchors_both_removed_and_added": 0,
+  "anchors_pure_added": 1,
+  "anchors_pure_removed": 0,
+  "changed": 1,
+  "changed_sha256": "f8684ad755ab311acf6b3a6bbae206cc946ba11ec2049d3ab0455d4ead4a6ed8",
+  "distinct_anchors_row_term": 1,
+  "removed": 0
 }

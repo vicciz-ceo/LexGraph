@@ -207,6 +207,24 @@ mandate: exactly one net anchor gain (`STATE_IN_T5_A28_C28_S5-28-28-3`,
 flips keep/drop decisions for candidates that were ALREADY being computed
 identically before and after.
 
+**Developer-pass correction (2026-08-12, post gate-2 execution):** the
+`--members`-restricted baseline invocation above is WRONG and must not be
+re-run as recorded. `measure_actual_production.py`'s `capture()` gates
+`recognized_by_registered_rule` on its own `--current` flag, but real
+production (`pipeline.py:262-266`) computes that value unconditionally --
+running BASELINE without `--current` invokes a calling convention no
+production commit ever executed, and produced a 4,255-record artifact
+delta (3,584 anchors) that was 99.97% measurement noise, not the fix's
+effect. Full mechanism, verification, and the corrected single-record
+delta: `docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/investigation.md`.
+Corrected recipe: both CURRENT and BASELINE run with `--current`; the
+script's own CLI forbids combining `--current` with `--members`, so
+BASELINE determines its own membership via `--current`'s
+`registered_b1_winner()` path (enforced against the same
+`EXPECTED_MEMBERS_HASH` the script already certifies under `--current`)
+rather than being restricted to CURRENT's `members.jsonl`. See the
+corrected `run_gate2.sh` under the same scripts directory.
+
 ### Gate 3: deletion-side relation screen -- re-run methodology
 
 No script for `removal_relation_screen.jsonl` was committed (it was an
