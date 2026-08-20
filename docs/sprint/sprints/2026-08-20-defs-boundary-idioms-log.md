@@ -281,3 +281,7 @@ representative loss and DROPPED in favor of NJ "Public body" once its
 recovered text was found to carry an unrelated pre-existing artifact — a
 planning-time substitution, not a deviation from the brief's
 requirements.)
+
+## Agent roster (manager bookkeeping, append-only)
+
+- planner → af1fb30796df25f99 (spawned 2026-08-20T21:55Z, exited clean @ fa58834; manager verified: diff scope tests+docs only, RED re-run 8F/11P reproduced, c5guard_nj re-point strengthens assertions)
