@@ -3,10 +3,10 @@ id: "2026-08-12-defs-b1-refers-to"
 status: dev-complete
 current_role: qa
 branch: claude/defs-b1-refers-to
-locked_by: "claude-code:developer"
-locked_at: "2026-08-12T10:50:00Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-08-12T10:46:00Z"
+locked_by: "claude-code:qa"
+locked_at: "2026-08-20T21:26:00Z"
+last_agent: "claude-code:developer"
+last_updated: "2026-08-20T21:25:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -14,7 +14,7 @@ total_items: 1
 completed_items: 0
 dev_complete_items: 1
 qa_cycles: 0
-lint: "PASS 151 2026-08-12T10:50:25Z"
+lint: "PASS 143 2026-08-20T21:26:21Z"
 previous_sprint: "2026-08-12-shared-extraction-t35"
 prd_sections: []
 design_sections:
@@ -133,14 +133,11 @@ _None._
 
 ## Context Dump
 
-Developer pass complete. Fix `86fccfb`; full backend 1347/0, frontend
-165/165, typecheck clean. Gate-2 all-53 run's FIRST diff (4,255 records)
-was a measurement-tool artifact (`--current` flag asymmetry in
-`measure_actual_production.py`'s baseline invocation, unrelated to
-`_POST_RELATION`) — escalated, independently investigated
-(`docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/investigation.md`),
-corrected (`dc5faed`): certified delta is exactly 1 record, `US-IN` "loan",
-matching gate 1. `INTEGRATION_SHA` re-pinned to `86fccfb`, G7 evidence
-regenerated and PASS (`816f63d`). Gate-3 deletion-side re-screen not yet
-re-run against the corrected delta — that + full gate adjudication is QA's
-next step. Full escalation/investigation/correction trail in the log doc.
+Developer pass complete. Fix `86fccfb`; backend 1347/0, frontend 165/165,
+typecheck clean. Gate-2's first diff (4,255 records) was a measurement
+artifact (`--current` asymmetry in `measure_actual_production.py`; see
+investigation.md in the sprint scripts dir); corrected certificate
+`dc5faed`: exactly 1 changed record, `US-IN` "loan", matching gate 1.
+`INTEGRATION_SHA` re-pinned to `86fccfb`, G7 evidence regenerated, PASS
+(`816f63d`). QA's next step: gate-3 deletion-side re-screen against the
+corrected delta + full gate adjudication + regression tests.

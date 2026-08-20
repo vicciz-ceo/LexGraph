@@ -345,3 +345,5 @@ nothing in scope for full-suite results changed.
 
 - developer → (same worktree session, resumed after escalation + 2 machine
   sleeps, exited clean @ 816f63d)
+- investigator (read-only recon, Sonnet high) → a734e9b202e545ee7 (spawned 2026-08-12, delivered investigation.md @ a6eae82)
+- lock handover developer→qa 2026-08-21T00:35Z by manager after diff verification (production hunk = 1 line in us_body_preamble_b1.py, module 298 lines, zero test files in dev commits)
