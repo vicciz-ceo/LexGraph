@@ -22,14 +22,15 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
-# Re-pinned to the final PR #20 tree, now that production has stopped moving.
-# The prior pin (1369fd8371321649d1cf6f884bdaedfad8052765) predates the TX
-# orphaned-redirect fold and the NJ compound-idiom prefix-preservation fix,
-# both of which touched backend/app, so every certification run fail-closed
-# on validate_integration() rather than measuring the tree under test. The
-# integration SHA also seeds the D-PFP-400 sample rank, so the sample and all
-# G7 hashes recorded against the old pin are void and must be regenerated.
-INTEGRATION_SHA = "5c3e75130c9e1d26c8e3448dc85691d12478889c"
+# Re-pinned to the refers-to B1 fix (issue #19, sprint 2026-08-12-defs-b1-
+# refers-to). The prior pin (5c3e75130c9e1d26c8e3448dc85691d12478889c)
+# predates commit 86fccfb1d2d6e3bcf93899b67ac97b71ed30d425, which widened
+# _POST_RELATION and touched backend/app, so every certification run
+# fail-closed on validate_integration() rather than measuring the tree
+# under test. The integration SHA also seeds the D-PFP-400 sample rank, so
+# the sample and all G7 hashes recorded against the old pin are void and
+# must be regenerated.
+INTEGRATION_SHA = "86fccfb1d2d6e3bcf93899b67ac97b71ed30d425"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
