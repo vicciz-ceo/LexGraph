@@ -235,3 +235,21 @@ anything -- the exact trap the program handoff already names.
 ## Agent roster (manager bookkeeping, append-only)
 
 - planner → ad62ef5b860ca7578 (spawned 2026-08-12T10:26Z, exited clean @ f9961c9)
+
+## Gate-2 escalation + director ruling (2026-08-12, manager)
+
+Developer completed the fix (86fccfb; gates 1/4/5/6 green) and executed the
+all-53 run per the recorded recipe. Raw delta: 4,255 changed records /
+3,584 distinct (row,term) anchors / 42 jurisdictions (3,542 added, 713
+removed; 671 anchors remove+add on the same key, 586 of the 713 removals in
+US-MI; ~42 removal-only records). Developer escalated per the >dozen-keys
+stop rule without adjudicating or committing gate-2 bookkeeping.
+
+DIRECTOR RULING (AskUserQuestion, 2026-08-12): **Investigate before QA** —
+diagnose WHY US-MI captures got their text replaced and sample the
+additions for genuineness BEFORE any QA cycle runs. INTEGRATION_SHA re-pin
+and contract advancement stay on hold. Manager committed the compare
+artifacts + scripts as evidence (full 376M/398M corpus outputs gitignored,
+preserved on disk under run/current + run/baseline).
+
+- developer → a4af3fdce965b77ed (spawned 2026-08-12T10:55Z, escalated clean @ 86fccfb)

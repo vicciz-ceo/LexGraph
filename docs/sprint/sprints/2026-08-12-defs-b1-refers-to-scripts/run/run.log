@@ -1,0 +1,8 @@
+artifacts: docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/run
+{"files": 53, "members": 193830, "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a", "mode": "current", "records": 594905, "records_sha256": "f658e0d721d26a0d5a207346fd22087013c67d6e084995cc1992639b4066a1ec", "rows": 2038247}
+{"files": 53, "members": 193830, "members_sha256": null, "mode": "baseline", "records": 592076, "records_sha256": "44869d03cd95a642d03f68134e3382b367ff5dc4a26be52ebdf64a942e9defe4", "rows": 2038247}
+=== current/summary.json ===
+{"files": 53, "members": 193830, "members_sha256": "851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a", "mode": "current", "records": 594905, "records_sha256": "f658e0d721d26a0d5a207346fd22087013c67d6e084995cc1992639b4066a1ec", "rows": 2038247}
+=== baseline/summary.json ===
+{"files": 53, "members": 193830, "members_sha256": null, "mode": "baseline", "records": 592076, "records_sha256": "44869d03cd95a642d03f68134e3382b367ff5dc4a26be52ebdf64a942e9defe4", "rows": 2038247}
+GATE2_RUN_COMPLETE
