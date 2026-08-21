@@ -1,7 +1,7 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: planning
-current_role: planner
+status: planned
+current_role: developer
 branch: claude/defs-boundary-idioms
 locked_by: "claude-code:planner"
 locked_at: "2026-08-21T14:38:00Z"
@@ -10,7 +10,7 @@ last_updated: "2026-08-21T14:38:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
-total_items: 1
+total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
@@ -128,6 +128,12 @@ recovery goes through idiom vocabulary only.
 
 ### Item 1 — widen `_TIGHT_IDIOM_RE` to recover ceiling-tripped last entries (issue #27)
 
+**Code already landed at `a51b1de`** (Developer pass, 2026-08-21). Gate-2
+STOP-and-escalate on the widening's own collateral footprint (7,584
+anchors) triggered the investigation and this amendment (Items 2-3,
+below) — see the log doc's Developer-pass/Escalations sections and
+`2026-08-20-defs-boundary-idioms-scripts/investigation.md`.
+
 In `backend/app/definition_links/rules/us_markers_boundary.py`'s
 `_TIGHT_IDIOM_RE` (line ~295) ONLY, add `shall include` and generalize
 `has the meaning` to `has the (?:following |same )?meaning` (still
@@ -152,6 +158,49 @@ the rest are a DIFFERENT defect family (marker boundary, not idiom
 vocabulary) — tracked, not silently dropped — log doc "Adjudication of
 the unrecovered remainder".
 
+### Item 2 — fix the fallback-suppression guard: merge, don't suppress
+
+`backend/app/definition_links/us_profile.py`,
+`USProfile.extract_definitions_from_section`'s guard (~line 2551): replace
+`if not candidates and heading_was_derived: candidates = _extract_inline_
+quoted_definitions(...)` with an always-run-when-`heading_was_derived`
+merge — admit a fallback candidate only when its term does not collide
+with any primary-engine term on that row, AND it fails a narrow
+implausible-capture rejection (a bare stopword term from {for/and/or/the/
+a/an/of/in/to/with/by}, or a term/definition_text starting with a
+4-digit-year+dash amendment-caption shape, `^\d{4}[—–-]`). Design chosen
+over unfiltered full union (strictly dominated: same additions, PLUS
+reintroduces Item-3-shape same-term collisions site-wide) after measuring
+footprint on the 130 losses + a seeded 200-row sample; full rationale and
+numbers: log doc "Planner pass 2, Item 2 design".
+
+RED tests (committed, RED-for-cause, GREEN under this pass's monkeypatched
+simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA
+717/OH 3296/NY 1978), `test_us_markers_fallback_guard_phantom_negative_
+control.py` (FED 4978, dual-purpose), `test_us_markers_fallback_guard_
+structural_controls.py` (M-R107 synthetic). Stale pin re-pointed:
+`test_us_body_preamble_g8_local_scope_dispatch_red.py`.
+
+### Item 3 — fix the same-term-collision dedup ordering (degraded re-boundings)
+
+`backend/app/definition_links/rules/us_markers_boundary.py`,
+`extract_quote_anchored_entries`: after building `starts` (before
+`close_entries`), classify each occurrence old-idiom (means/shall mean/
+bare has-the-meaning, or bridged) vs new-idiom-only (shall include/
+following meaning/same meaning); group by exact `term`; when a term has
+both classes, drop the new-idiom-only occurrence(s), keeping the
+pre-existing one(s) unchanged. Covers BOTH investigation-named shapes
+(displacement family AND the list-introducer corruption) — one mechanism,
+diagnosed this pass. Full diagnosis (incl. a correction to the NY row's
+own characterization): log doc "Planner pass 2, Item 3 design".
+
+RED tests (committed, RED-for-cause, GREEN under simulation):
+`test_us_markers_dedup_swap_hazard_recovery.py` (WA "active efforts" RED;
+NY "General service lamp" kept as a verified regression pin, NOT
+reproducible at persistence altitude for this specific row — see its own
+docstring), `test_us_markers_dedup_swap_hazard_structural_controls.py`
+(M-R107 synthetic, both shapes).
+
 ## Dev Complete
 
 _None._
@@ -162,11 +211,16 @@ _None._
 
 ## Context Dump
 
-Planner pass complete (2026-08-21). Re-derived the loss set live (118 real
-losses, not the stale 41 — see log doc); evidence-derived vocabulary is
-"shall include" + "has the (following|same) meaning"; one item defined,
-scoped to `_TIGHT_IDIOM_RE` only. 8 RED tests committed and proven RED-for-
-cause / GREEN-under-widened-regex. One stale pin re-pointed (c5guard_nj
-Pipeline). Baseline full suite: 1359 passed. Gate-2 harness needs a
-correction beyond the known `--current` trap — see log doc "Gate-2
-plumbing" before running it. Developer: read the log doc before coding.
+Pass 2 (amendment) complete (2026-08-21). Items 2-3 defined + specced; 18
+RED tests committed (8 RED-for-cause, 10 sanity/regression/negative-
+control, all GREEN today and proven GREEN under a monkeypatched
+simulation of both specs — see the Planner's completion report for the
+script). One new stale pin found + re-pointed (G8 local-scope dispatch —
+Item 2's merge surfaces a harmless extra section-candidate pipeline.py's
+OWN existing inner dedup already discards). Finding worth director
+attention: NY "General service lamp" does not reproduce investigation.md's
+claimed corruption at persistence altitude for this row (baseline wins the
+dedup there); demoted to a regression pin, general mechanism still proven
+via WA + synthetic controls. Full suite: 1379 passed / 8 RED (mine) / 1
+pre-existing unrelated failure (G7 SHA pin, Developer/QA territory per log
+doc). Developer: read log doc "Planner pass 2" before coding.

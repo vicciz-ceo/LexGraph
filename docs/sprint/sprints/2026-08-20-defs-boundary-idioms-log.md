@@ -428,3 +428,219 @@ certification run; zero genuine losses to ship. Gate 3 codifies the
 sampling+structural adjudication policy per investigation.md.
 
 - investigator (read-only, Sonnet high) → a4c4b766a332fcc7e (delivered investigation.md @ 494b0b4)
+
+## Planner pass 2 (2026-08-21, amendment)
+
+### Item 2 design — candidates measured, footprint, and choice
+
+Enumerated three credible designs for the guard site (`us_profile.py`
+~2551):
+
+- **(a) Full union, no per-term filter.** Every call to
+  `extract_definitions_from_section` with `heading_was_derived=True` runs
+  the fallback and appends ALL of its candidates, regardless of term
+  collision with the primary engine. **Rejected**: strictly dominated by
+  (b) — measured identical new-term footprint (same set-difference), PLUS
+  it reintroduces the EXACT same-term-collision hazard Item 3 fixes,
+  site-wide: on the 200-row seeded sample below (rows where primary
+  already finds ≥1 entry), the fallback's own term set overlapped the
+  primary's on 200/200 rows (100%) — every one of those becomes a NEW
+  same-key collision under (a), landing on whichever candidate is
+  first-in-list (no protection at all).
+- **(b) Per-term admission (chosen).** Admit a fallback candidate only
+  when its own term does not collide with any primary-engine term on that
+  row, further filtered by a narrow, evidence-derived implausible-capture
+  rejection (below). Recovers all 130 genuine losses (full population,
+  verified — see "130/130 recovery check"). Cannot ever reintroduce a
+  same-term collision (that is the filter's entire purpose), so it cannot
+  create NEW Item-3-shape hazards.
+- **(c) Structurally cleaner variant (positional overlap-avoidance).**
+  Considered: admit a fallback candidate only when its own text span does
+  not overlap the primary engine's own claimed span. Rejected as
+  currently unbuildable within bounds: this requires span/position
+  tracking inside `_extract_inline_quoted_definitions`, whose own
+  internals are explicitly forbidden by the amended gate 7.
+
+**Footprint measurement** (methodology: direct-function replay of
+`USProfile.extract_definitions_from_section`/`_extract_inline_quoted_
+definitions`, the same approach investigation.md's Q1 validated as 100%
+accurate against the real gate-2 diff; scripts run from this session's
+scratchpad, not committed):
+
+- **130-row genuine-loss population** (investigation.md's full table,
+  minus the 4 phantom rows): 130/130 recovered under design (b) with the
+  evidence-derived junk filter; 0 false rejects.
+- **Seeded 200-row sample** (seed `f"{20260821}:{jurisdiction}"`,
+  proportional draw across the 16 jurisdictions reachable through
+  family-3/OH/ME, filtered to rows where the primary engine already finds
+  ≥1 entry today): 61/200 rows (30.5%) gain ≥1 new fallback term under
+  design (b), 122 new terms total — extrapolates (rough, not a certified
+  count) to roughly 13,100 of the ~42,974 defs-headed rows across those
+  16 jurisdictions. **Precision spot-check (20 of the 122, full text, not
+  display-truncated) is MIXED**: several are clean, complete real
+  definitions (e.g. VA "facilitates the sale", a coherent multi-part
+  statutory exclusion); several others carry the fallback's own
+  documented no-trailing-stop-cutoff weakness, bleeding into the next
+  entry's own lead-in text (e.g. FED "Iran" -> `"...the District of
+  Columbia.\n\n(4) Person\n\nThe term"`; FED "trust" similarly); one is an
+  outright false positive with a garbage numeric term key ("1501") paired
+  with 1,029 chars of unrelated Executive Order text. This is a
+  MATERIALLY different, more mixed precision profile than Item 1's own
+  widening (80/80 sampled genuine, 0% FP) — flagged here for gate-2/QA to
+  sample this specific sub-population (rows where primary already had
+  ≥1 entry, now gaining more) separately from the 130-row recovery (which
+  IS clean by construction: every one of those 130 is a real, previously-
+  captured statutory definition, verified in investigation.md's own
+  table). Not resolved by this pass — the amended gate 7 authorizes the
+  guard-site fix; it does not pre-adjudicate the new population's
+  precision, and building a broader quality filter would require touching
+  `_extract_inline_quoted_definitions`'s own internals (forbidden) or
+  guessing at additional vocabulary (against the sprint's own "no
+  speculative additions" discipline) — a QA sampling pass against the
+  real gate-2 corpus-wide diff is the right next check, not a Planner-
+  authored heuristic.
+
+**The implausible-capture filter** (needed to satisfy the brief's
+negative-control requirement — literal per-term admission alone
+resurfaces investigation.md's 4 phantom terms, verified directly): reject
+an otherwise-admissible fallback candidate when (a) its term, stripped, is
+a bare common English function word (closed list: for/and/or/the/a/an/of/
+in/to/with/by — matches the observed "for" shape) or (b) its term OR
+definition_text begins with `^\d{4}[—–-]` (a 4-digit year immediately
+followed by an em/en dash or hyphen — matches the observed "2010—Subsec.
+..."/"2006—Subsec. ..." shape). Validated: 0 false rejects across the
+full 130-row genuine population; 100% correct rejection of all 4 known
+phantom terms (FED rows 2333/4978/34432). This filter applies uniformly
+(both to the always-existed zero-candidate path and the new merge path) —
+a strict quality improvement wherever it fires, not scoped narrowly to
+just these 4 rows.
+
+### Item 3 design — one mechanism covers both named shapes
+
+Diagnosed directly against real corpus text (WA row 148, NY row 6675, and
+spot-checked FED "correct" row 42191 from investigation's own "4 more
+instances" list): all three exhibit the IDENTICAL shape — the same exact
+term string quoted twice in one section body, once via an idiom
+`_TIGHT_IDIOM_RE` recognized BEFORE this sprint's Item 1 widening
+(`means`/`shall mean`/bare `has the meaning`) and once via an idiom ONLY
+the widening added (`shall include`/`has the following meaning`/`has the
+same meaning`). `extract_quote_anchored_entries` builds `starts` in text
+order with no per-term collision handling; downstream, whichever
+occurrence reaches `all_candidates` first wins the persist-time dedup
+(`pipeline.py` ~line 400, `key = (owning_art.id, tuple(sorted(candidate.
+terms)))`, first-occurrence-wins, unchanged by this item). In every
+verified instance the NEW (widened-idiom) occurrence sits textually
+BEFORE the pre-existing one, so it wins and displaces the correct one.
+This is investigation's "displacement family" AND the "list-introducer
+corruption" at once — not two defects, one.
+
+Fix lives entirely inside `extract_quote_anchored_entries`
+(`us_markers_boundary.py`, already an authorized file) — the
+term-set-dedup fallback allowance in the amended gate 7 was NOT needed;
+the seam is upstream of it. Filtering `starts` before `close_entries`
+means a term with only one recognized occurrence (the validated-genuine
+6,309 additions, and the 1,114/1,141 monotonic re-boundings) is
+structurally untouched by construction — the filter only ever acts on a
+term with 2+ occurrences in one call.
+
+**NY row 6675 diagnosis correction.** investigation.md's Q3 names this row
+as the sprint's "1 outright corruption." Diagnosed this pass, verified TWO
+independent ways (a direct `extract_definitions_from_section` call, and
+the real `ingest_us_statute_rows` -> `run_definition_linking` pipeline):
+this row does NOT reproduce the corruption at persistence altitude. NY
+carries 38 baseline blocks (`_split_into_numbered_blocks`), so `all_blocks
+= baseline_blocks + priority_blocks + extra_blocks` puts baseline FIRST;
+baseline's own `_leading_quote_candidate` already finds sub-item (c)'s
+clean "means" candidate as its own block, and NY has no
+`priority_before_single_baseline=True` registration (only US-WA,
+`us_markers_inline_quote.py`, and US-FED, `us_markers_fed_good_
+samaritan.py`, do) — so family-3's own colliding candidates (bad AND
+good) are appended AFTER baseline's, and the FIRST-occurrence-wins
+persist dedup picks baseline's already-correct entry both before and
+after Item 1's widening. This explains why the "displacement family" (~8
+rows) and NY's row are grouped separately in the mandate: the
+displacement family requires a jurisdiction where family-3 wins ordering
+ahead of baseline (WA/FED, both `priority_before_single_baseline=True`);
+NY does not have that property for this row. Kept in the test suite as a
+verified regression pin (currently green, must stay green), not a RED —
+the general mechanism is still real (proven via the WA row and two fully
+synthetic M-R107 controls reproducing BOTH named shapes cleanly). Flagged
+for the director/manager: this is a genuine discrepancy with
+investigation.md's own characterization, not a re-litigation of it — the
+underlying gate-2 "records.jsonl" this session cannot access directly
+might reflect a detail not captured by this pass's direct-function/
+full-pipeline replay; worth a second look if it matters for certification
+sign-off, but does not change what Item 3 must fix (the general
+mechanism, not this one row).
+
+### Stale-pin sweep (Items 2-3)
+
+Traced (not just grepped): every file importing `_extract_inline_quoted_
+definitions` (19 files) or referencing `heading_was_derived` (22 files)
+across all four test roots — cross-referenced against `git grep -l
+"extract_definitions_from_section\|extract_quote_anchored_entries"`.
+Confirmed via direct execution (this pass's monkeypatched simulation of
+BOTH specs together, run against each candidate file, then the full
+suite) rather than by inspection alone.
+
+- **`test_us_body_preamble_g8_local_scope_dispatch_red.py`** — ONE real
+  hit, re-pointed this pass. `test_b1_local_candidate_precedes_but_does_
+  not_suppress_distinct_section_candidate` pinned `extract_definitions_
+  from_section`'s own return value as EXACTLY `[("Section companion",)]`;
+  Item 2's merge additionally (harmlessly) surfaces "Scope probe" as a
+  second section-candidate (the broader fallback, now always run, finds
+  it independently of the primary engine's own numbered-block
+  segmentation). Verified this is inert at persistence altitude:
+  pipeline.py's EXISTING `used_body_derived_heading` inner dedup
+  (unchanged by this item) already discards any section-candidate whose
+  term-key collides with an already-registered LOCAL candidate key before
+  it reaches the final persist dedup — the row's actual persisted
+  Definitions are byte-identical before and after. Re-pinned to assert
+  "Section companion" is present and no OTHER term besides "Scope probe"
+  leaks in, rather than an exact single-element list.
+- **`test_us_g8_candidate_collision_preference.py`** (514 lines, pins the
+  EXACT `pipeline.py` first-occurrence-wins persist dedup Item 3 could
+  have touched) — traced and run explicitly: its fixture is a real
+  Arkansas row, and AR has NO registered `EntrySplitterRule` reaching
+  `extract_quote_anchored_entries` at all (confirmed:
+  `us_markers_inline_quote._OTHER_JURISDICTIONS` and the OH/ME wrapper
+  modules never name `"US-AR"`) — Item 3's fix, scoped entirely inside
+  that function, cannot reach this row by construction. 8/8 tests in this
+  file pass unchanged under the full Item 2+3 simulation.
+- **`test_us_markers_wave1_inline_quote_fallback.py`,
+  `test_us_markers_not_yet_rescued_subcases.py`,
+  `test_us_markers_wave1_auto_rescue_subcases.py`** (the other files most
+  directly exercising `_extract_inline_quoted_definitions`/
+  `heading_was_derived`, from the ancestor 2026-08-04-defs-us-markers
+  sprint) — 27/27 tests across these three files pass unchanged under the
+  full simulation.
+- Full suite under the full Item 2+3 simulation: 1386/1388 pass; the 2
+  non-passing are both expected artifacts, not regressions — (1) this
+  pass's OWN sanity test asserting "today's" (pre-fix) primary-only
+  behavior, which is inherently incompatible with a GLOBAL method-level
+  patch (the assertion's whole point is to document the UNPATCHED state);
+  (2) the pre-existing, already-broken `test_g7_integration_pin_is_
+  ancestral_and_production_is_frozen_after_it` (stale `qa_g7_common.
+  INTEGRATION_SHA`, dating to Item 1's own `a51b1de` landing — confirmed
+  via `git stash` + direct re-run that this fails identically with NONE
+  of this pass's files present; explicitly out of Planner scope per the
+  Developer pass's own STOP note, "step 9 ... was NOT run").
+
+No other hits across `backend/tests/{unit,integration,e2e,fixtures}`
+required re-pointing.
+
+### Simulation methodology
+
+`_TIGHT_IDIOM_RE`-style monkeypatch is insufficient here (Item 2/3's
+fixes change CONTROL FLOW, not a single swappable regex constant).
+Verification script (scratchpad, not committed) patches
+`USProfile.extract_definitions_from_section` with a faithful
+reimplementation (copied from the real method, only the guard section
+changed to Design (b)+filter) via `unittest.mock.patch.object`, and
+separately patches `extract_quote_anchored_entries` (module-level, plus
+every test/rule module that imported it by name — Python binds a fresh
+reference at import time, so patching the defining module's attribute
+alone does not reach already-`from`-imported names) with a reimplementation
+of the starts-building loop plus Item 3's collision filter, delegating to
+the REAL, unmodified `close_entries`/`compute_hard_stops`. Both patches
+active together for every run reported above.
