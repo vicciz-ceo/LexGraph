@@ -418,3 +418,13 @@ product ruling on the mass-addition footprint goes to the director with the
 findings.
 
 - developer → ad944ba8200be8116 (spawned 2026-08-20T22:40Z, escalated clean @ ad6619f)
+
+## Director ruling on the gate-2 escalation (2026-08-21, manager)
+
+Ruling A: amend the sprint — fix the fallback-suppression guard here (Item 2),
+gate 7 bound widened to name that seam. Ruling B: fold the ~9 degraded
+re-boundings into scope (Item 3) — nothing ships degraded. One combined
+certification run; zero genuine losses to ship. Gate 3 codifies the
+sampling+structural adjudication policy per investigation.md.
+
+- investigator (read-only, Sonnet high) → a4c4b766a332fcc7e (delivered investigation.md @ 494b0b4)

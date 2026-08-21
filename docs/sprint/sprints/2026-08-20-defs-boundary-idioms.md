@@ -1,12 +1,12 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: planned
-current_role: developer
+status: planning
+current_role: planner
 branch: claude/defs-boundary-idioms
-locked_by: "claude-code:developer"
-locked_at: "2026-08-20T22:36:00Z"
-last_agent: "claude-code:planner"
-last_updated: "2026-08-20T22:31:38Z"
+locked_by: "claude-code:planner"
+locked_at: "2026-08-21T14:38:00Z"
+last_agent: "claude-code:manager"
+last_updated: "2026-08-21T14:38:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -14,7 +14,7 @@ total_items: 1
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 149 2026-08-20T22:36:20Z"
+lint: "PASS 172 2026-08-21T14:38:04Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -48,6 +48,18 @@ Director decisions taken: idiom list must be DERIVED from the 41 rows' actual
 next-entry verbs (Planner enumerates the evidence; no guessed vocabulary).
 Issue #26 stays deferred to its own sprint.
 
+**AMENDED 2026-08-21 (director ruling, after the gate-2 footprint
+investigation — see `2026-08-20-defs-boundary-idioms-scripts/investigation.md`):**
+the widening's 130 collateral anchor losses trace to the pre-existing
+fallback-suppression guard (`us_profile.py` ~2551: `if not candidates and
+heading_was_derived`) — fallback definitions vanish the moment the primary
+engine finds its first entry. Ruling: (a) fix that guard IN THIS SPRINT
+(merge, don't suppress — Item 2); (b) also fix the ~9 degraded re-boundings
+(investigation Q3: the "active efforts"-shape displacement family and the
+NY "General service lamp" corruption — Item 3); (c) ONE combined
+certification run ships only with ZERO genuine losses. Vocabulary itself is
+vindicated: additions sample 80/80 genuine, re-boundings 97.6% improving.
+
 ## Acceptance gates (manager-defined, director-approved 2026-08-20)
 
 1. **Recovery with correct text.** The 41 ceiling-tripped anchors are
@@ -60,7 +72,13 @@ Issue #26 stays deferred to its own sprint.
    `measure_actual_production.py` (see Known traps).
 3. **No collateral damage.** No existing correct capture is split by an
    idiom occurring INSIDE a definition body; every ADDED anchor in the delta
-   is adjudicated genuine; P-R15 deletion-side screen clean.
+   is adjudicated genuine; P-R15 deletion-side screen clean. AMENDED
+   2026-08-21: the combined run must show ZERO genuine anchor losses (100%
+   of removals adjudicated; the 4 investigation-classified phantom removals
+   are acceptable); the itemized degraded re-boundings (investigation Q3)
+   must be fixed — no displacement or corruption ships. Additions and
+   re-boundings are adjudicated by stratified sampling plus full-population
+   structural checks per the investigation's methodology.
 4. **The ceiling guard still works.** FX7 safety test
    (`backend/tests/integration/test_us_markers_fx7_ceiling_known_closed_scope.py`)
    stays GREEN — genuinely unbounded runaways are still dropped.
@@ -72,9 +90,14 @@ Issue #26 stays deferred to its own sprint.
 6. **Red before green.** RED tests reproducing representative losses +
    novel structural controls (M-R107 — no jurisdiction/term/section keying;
    controls use unseen identifiers).
-7. **Bounded.** `git diff -- backend/app/` touches only
-   `us_markers_boundary.py`. No edits to `us_profile.py`,
-   `_citation_or_xref_context`, or any B1 module.
+7. **Bounded.** AMENDED 2026-08-21: `git diff -- backend/app/` may touch
+   `us_markers_boundary.py` AND the fallback-suppression guard site in
+   `us_profile.py` (the `if not candidates and heading_was_derived` dispatch
+   at ~2551 and, if the Item-3 diagnosis requires it, the term-set dedup it
+   feeds — the Planner names the exact seam; anything beyond these escalates
+   to the manager for a deliberate bound extension). Still forbidden:
+   `_citation_or_xref_context`, `_extract_inline_quoted_definitions`'s own
+   internals, and any B1 module.
 
 ## Rulings in force
 
