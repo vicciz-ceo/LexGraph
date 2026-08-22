@@ -2415,6 +2415,74 @@ def _trim_definition_at_structural_sibling(text: str, definition_text: str) -> s
     return definition_text
 
 
+# Sprint 2026-08-20-defs-boundary-idioms, Item 2 (issue #27 amendment):
+# `USProfile.extract_definitions_from_section`'s fallback-suppression guard
+# (~line 2551) merges the broader `_extract_inline_quoted_definitions`
+# fallback with the primary engine's own candidates instead of only running
+# it when the primary engine found nothing. Every admitted fallback
+# candidate must survive `_is_implausible_fallback_capture` below -- applied
+# UNIFORMLY, whether the primary engine found zero candidates (the
+# always-existed suppressed-fallback path) or some (the newly merged path).
+_FALLBACK_STOPWORD_TERMS = frozenset(
+    {"for", "and", "or", "the", "a", "an", "of", "in", "to", "with", "by"}
+)
+_FALLBACK_CAPTION_YEAR_RE = re.compile(r"^\d{4}[—–-]")
+# Director ruling 2026-08-23 (expansion-wave precision sample,
+# `2026-08-20-defs-boundary-idioms-scripts/expansion_precision.md`):
+# extends the implausible-capture rejection to a fallback term containing
+# the literal `"Pub. L."` or matching `Subsec\.\s*\(` -- the actual
+# measured/shipped shape tolerates the real "Subsec. (" space seen in every
+# sampled false positive (Planner micro-pass 3's precision correction to
+# the ruling's own `Subsec.\(` shorthand).
+_FALLBACK_SUBSEC_TERM_KEY_RE = re.compile(r"Subsec\.\s*\(")
+
+
+def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
+    """Reject an otherwise-admissible `_extract_inline_quoted_definitions`
+    candidate that is not a real definiendum: a bare common-English-
+    function-word term (closed list, matches the observed "for" phantom),
+    a legislative-history amendment-caption shape (a 4-digit year
+    immediately followed by an em/en dash or hyphen, matches the observed
+    "2010—Subsec. ..." phantom), a term containing "Pub. L.", or a
+    term matching `Subsec\\.\\s*\\(` (the director's 2026-08-23 extension,
+    matching the sampler's garbage-term-key false positives)."""
+    for term in candidate.terms:
+        stripped = term.strip()
+        if stripped.lower() in _FALLBACK_STOPWORD_TERMS:
+            return True
+        if _FALLBACK_CAPTION_YEAR_RE.match(stripped):
+            return True
+        if "Pub. L." in term:
+            return True
+        if _FALLBACK_SUBSEC_TERM_KEY_RE.search(term):
+            return True
+    return bool(_FALLBACK_CAPTION_YEAR_RE.match(candidate.definition_text.strip()))
+
+
+def _merge_fallback_candidates(
+    candidates: list[DefinitionCandidate], text: str, *, scope: str
+) -> list[DefinitionCandidate]:
+    """Item 2 (issue #27 amendment): merge, don't suppress. Always runs
+    `_extract_inline_quoted_definitions` when called (the caller gates this
+    on `heading_was_derived`) and admits a fallback candidate only when
+    none of its own terms collide with a term already found by the primary
+    engine on this row (`candidates`, as passed in -- per-term admission,
+    design (b) in the Planner's pass-2 report), AND it survives
+    `_is_implausible_fallback_capture`. When `candidates` is empty this
+    reduces to "every filtered fallback candidate" -- the same population
+    the always-existed zero-candidate path used to substitute unfiltered."""
+    fallback_candidates = _extract_inline_quoted_definitions(text, scope=scope)
+    primary_terms = {term for candidate in candidates for term in candidate.terms}
+    merged = list(candidates)
+    for candidate in fallback_candidates:
+        if any(term in primary_terms for term in candidate.terms):
+            continue
+        if _is_implausible_fallback_capture(candidate):
+            continue
+        merged.append(candidate)
+    return merged
+
+
 @dataclass(frozen=True)
 class USProfile:
     """The `"US-*"`/`"US-FED"` profile family -- ONE instance serves every
@@ -2548,8 +2616,8 @@ class USProfile:
                 else:
                     candidates.extend(rule.parse(block))
 
-        if not candidates and heading_was_derived:
-            candidates = _extract_inline_quoted_definitions(text, scope=scope)
+        if heading_was_derived:
+            candidates = _merge_fallback_candidates(candidates, text, scope=scope)
         if heading_was_derived:
             from app.definition_links.rules.us_body_preamble_b1 import (
                 is_b1_rule,
