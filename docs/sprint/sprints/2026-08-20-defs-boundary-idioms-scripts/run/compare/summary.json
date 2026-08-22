@@ -1,10 +1,10 @@
 {
-  "added": 28590,
+  "added": 28571,
   "anchors_both_removed_and_added": 1022,
-  "anchors_pure_added": 27568,
-  "anchors_pure_removed": 64,
+  "anchors_pure_added": 27549,
+  "anchors_pure_removed": 83,
   "changed": 29676,
-  "changed_sha256": "e4a94e370477ae23edfc80a1ba3ad53c97ac2c05d255ef17c433bd48244940b2",
+  "changed_sha256": "45ab65ce4d4f92ac7ea4735ab47190d779aa885a9e27979c8ba09cb9239e6eb8",
   "distinct_anchors_row_term": 28654,
-  "removed": 1086
+  "removed": 1105
 }
