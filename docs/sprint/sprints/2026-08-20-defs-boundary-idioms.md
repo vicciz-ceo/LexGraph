@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 235 2026-08-22T21:17:29Z"
+lint: "PASS 239 2026-08-22T21:28:40Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -193,6 +193,10 @@ simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA
 control.py` (FED 4978, dual-purpose), `test_us_markers_fallback_guard_
 structural_controls.py` (M-R107 synthetic). Stale pin re-pointed:
 `test_us_body_preamble_g8_local_scope_dispatch_red.py`.
+
+Micro-pass 3 (2026-08-23) additional RED tests, extended filter:
+`test_us_markers_fallback_guard_term_key_negative_control.py` (M-R107
+synthetic; 2 RED-for-cause + 2 negative controls, proof in log doc).
 
 ### Item 3 — fix the same-term-collision dedup ordering (degraded re-boundings)
 

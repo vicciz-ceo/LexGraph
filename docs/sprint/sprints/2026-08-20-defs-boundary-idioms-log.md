@@ -656,4 +656,82 @@ next-entry-bleed byte quality named tracked debt under D-MAP. Item 2 spec
 amended in the contract. Next: Planner micro-pass pins the extended filter
 (RED negative controls), then Developer implements Items 2+3.
 
+## Planner micro-pass 3 (2026-08-23): pinning the extended term-key filter
+
+New file `test_us_markers_fallback_guard_term_key_negative_control.py`
+(engine-level, same `_PROFILE`/`_terms` style as `..._structural_
+controls.py`), M-R107 synthetic fixtures shaped after the sampler's 5
+garbage-term-key FPs (#11/#19/#26/#46/#49, expansion_precision.md) but
+keyed to nobody's row/citation numbers. Two scenarios per term-key shape
+(`Pub. L.` / `Subsec.(`):
+
+- **RED-for-cause** (`test_red_pub_l_shaped_term_must_never_be_admitted`,
+  `test_red_subsec_shaped_term_must_never_be_admitted`): text where the
+  primary engine finds ZERO entries -- today's UN-FIXED guard (`if not
+  candidates and heading_was_derived`) substitutes the fallback's raw
+  output UNFILTERED, so the garbage term IS admitted live today. Verified
+  directly (not assumed): running the file today gives `2 failed, 6
+  passed` -- exactly these two RED, the other 6 (4 preconditions + 2
+  negative controls below) GREEN.
+- **Negative control, GREEN-and-staying-GREEN**
+  (`test_negative_control_pub_l_shaped_term_never_becomes_a_persisted_
+  term_even_without_a_collision`, same for `subsec`): text where the
+  primary engine already finds a DISTINCT term ('Wrenfeld'/'Halvex') --
+  today's guard suppresses the entire fallback call (unrelated reason);
+  once Item 2's merge always runs it, the garbage term is a live per-term
+  candidate that collides with nothing -- only the extended filter can
+  still reject it.
+
+**Consistency proof** (direct-function-replay method, same one this
+sprint's own footprint measurement and expansion_precision.md both used:
+`extract_definitions_from_section(heading_was_derived=False)` for the
+primary engine's own raw candidates, `_extract_inline_quoted_definitions`
+directly for the fallback's raw candidates, Item 2's spec'd merge/filter
+extended with the `Pub. L.`/`Subsec\.\s*\(` rejection applied as a pure
+function over both -- script not committed, scratchpad):
+
+```
+=== RED scenarios: must NOT contain the garbage term post-fix ===
+pub_l_primary_empty: post-fix terms = []
+  test_red_pub_l_shaped_term_must_never_be_admitted -> GREEN under simulated fix
+subsec_primary_empty: post-fix terms = []
+  test_red_subsec_shaped_term_must_never_be_admitted -> GREEN under simulated fix
+
+=== Negative controls: must STILL NOT contain the garbage term post-fix ===
+pub_l_primary_nonempty: post-fix terms = ['Wrenfeld']
+  test_negative_control_pub_l_shaped_term_never_becomes_a_persisted_term_even_without_a_collision -> stays GREEN under simulated fix
+subsec_primary_nonempty: post-fix terms = ['Halvex']
+  test_negative_control_subsec_shaped_term_never_becomes_a_persisted_term_even_without_a_collision -> stays GREEN under simulated fix
+
+ALL 4 NEW TESTS PROVEN CONSISTENT under the simulated Item-2 + 2026-08-23-extended-filter fix.
+```
+
+One precision note for the Developer: the ruling's own shorthand
+`Subsec.\(` under-specifies the validated rule -- expansion_precision.md's
+actual measured/shipped regex is `Subsec\.\s*\(` (tolerating the real
+`"Subsec. ("` space seen in all 5 sampled FPs); a literal single-wildcard-
+char reading of `Subsec.\(` would NOT match that shape. This pass's
+fixtures use the real, space-bearing shape, matching the evidence file.
+
+**Targeted run** (5 pre-existing Item-2/Item-3 files -- `..._fallback_
+guard_recovery.py`, `..._fallback_guard_phantom_negative_control.py`,
+`..._fallback_guard_structural_controls.py`, `..._dedup_swap_hazard_
+recovery.py`, `..._dedup_swap_hazard_structural_controls.py` -- plus this
+pass's new file): `10 failed, 16 passed` -- the pre-existing 8 RED
+unchanged (4 in recovery.py, 1 each in phantom_negative_control.py/
+structural_controls.py/dedup_swap_hazard_recovery.py/dedup_swap_hazard_
+structural_controls.py) plus this pass's 2 new RED
+(`test_red_pub_l_shaped_term_must_never_be_admitted`, `test_red_subsec_
+shaped_term_must_never_be_admitted`); the other 16 (6 new + 10
+pre-existing GREEN) pass.
+
+**Full backend suite** (`pytest backend/tests -q -p no:randomly`):
+`11 failed, 1385 passed`. Reconciles exactly: 1385 passed = 1379
+(pre-pass baseline) + 6 new GREEN (this file's 4 preconditions + 2
+negative controls); 11 failed = 8 pre-existing Planner RED (unchanged) +
+2 new RED (this pass) + 1 pre-existing `test_g7_integration_pin_is_
+ancestral_and_production_is_frozen_after_it` SHA-pin failure (unchanged,
+Developer's own re-pin step, out of this pass's scope). Total test count
+1396 = 1388 (prior) + 8 (this file's own tests) -- exact.
+
 - precision sampler (read-only, Sonnet high) → a1e8399ebf3c24f79 (delivered expansion_precision.md @ a9653f6; first attempt a2f644504ea003c2f died to machine sleep mid-git-compare — worktree restored by manager, containment rule added to the retry brief)
