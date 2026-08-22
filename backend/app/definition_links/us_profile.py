@@ -2435,6 +2435,14 @@ _FALLBACK_CAPTION_YEAR_RE = re.compile(r"^\d{4}[—–-]")
 # sampled false positive (Planner micro-pass 3's precision correction to
 # the ruling's own `Subsec.\(` shorthand).
 _FALLBACK_SUBSEC_TERM_KEY_RE = re.compile(r"Subsec\.\s*\(")
+# Manager ruling 2026-08-23 (ROUND-2 ADDENDUM, `expansion_precision_2.md`):
+# extends the implausible-capture rejection to a bare single-letter fallback
+# term -- the full 27,568-item current-shipped population was censused (not
+# sampled) for `^[A-Za-z]$` and found 19 instances across 4 jurisdictions,
+# every one individually verified a false positive (a lettered cross-
+# reference citation or a classification-letter label mis-paired with
+# distant, unrelated prose) -- 0/19 genuine.
+_FALLBACK_SINGLE_LETTER_TERM_RE = re.compile(r"^[A-Za-z]$")
 
 
 def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
@@ -2443,9 +2451,12 @@ def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
     function-word term (closed list, matches the observed "for" phantom),
     a legislative-history amendment-caption shape (a 4-digit year
     immediately followed by an em/en dash or hyphen, matches the observed
-    "2010—Subsec. ..." phantom), a term containing "Pub. L.", or a
+    "2010—Subsec. ..." phantom), a term containing "Pub. L.", a
     term matching `Subsec\\.\\s*\\(` (the director's 2026-08-23 extension,
-    matching the sampler's garbage-term-key false positives)."""
+    matching the sampler's garbage-term-key false positives), or a bare
+    single-letter term matching `^[A-Za-z]$` (the manager's 2026-08-23
+    ROUND-2 ADDENDUM, matching the census's lettered-citation/
+    classification-label false positives)."""
     for term in candidate.terms:
         stripped = term.strip()
         if stripped.lower() in _FALLBACK_STOPWORD_TERMS:
@@ -2455,6 +2466,8 @@ def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
         if "Pub. L." in term:
             return True
         if _FALLBACK_SUBSEC_TERM_KEY_RE.search(term):
+            return True
+        if _FALLBACK_SINGLE_LETTER_TERM_RE.match(stripped):
             return True
     return bool(_FALLBACK_CAPTION_YEAR_RE.match(candidate.definition_text.strip()))
 
