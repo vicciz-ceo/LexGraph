@@ -737,3 +737,168 @@ Developer's own re-pin step, out of this pass's scope). Total test count
 - precision sampler (read-only, Sonnet high) → a1e8399ebf3c24f79 (delivered expansion_precision.md @ a9653f6; first attempt a2f644504ea003c2f died to machine sleep mid-git-compare — worktree restored by manager, containment rule added to the retry brief)
 
 - planner micro-pass 3 → a8f332966285221a0 (delivered filter pins @ 84990a7; manager verified: tests+docs only, 2F/6P reproduced)
+
+## Developer pass (2026-08-23, Items 2-3)
+
+Synced at `586bbb8` (verified, matches the brief). RED baseline reproduced
+exactly: `pytest backend/tests -q -p no:randomly` -> 11 failed / 1385
+passed (10 Planner RED across the six Item-2/Item-3 files + the
+pre-existing G7 SHA-pin), matching the brief and Planner micro-pass 3's
+own reconciliation.
+
+### Item 2 -- merge, don't suppress + extended filter
+
+`backend/app/definition_links/us_profile.py`, `USProfile.
+extract_definitions_from_section`'s guard (~line 2551): replaced
+`if not candidates and heading_was_derived: candidates = _extract_inline_
+quoted_definitions(...)` with `if heading_was_derived: candidates =
+_merge_fallback_candidates(candidates, text, scope=scope)`. New module-
+level helpers immediately above `class USProfile:` -- `_is_implausible_
+fallback_capture` (stopword terms; `^\d{4}[—–-]` amendment-caption shape
+on term OR definition_text; `"Pub. L."` literal in term; `Subsec\.\s*\(`
+in term, per the director's 2026-08-23 extension and Planner micro-pass
+3's space-tolerant correction) and `_merge_fallback_candidates` (always
+calls `_extract_inline_quoted_definitions`, admits a candidate only when
+none of its terms collide with an existing primary term AND it survives
+the implausible-capture filter -- applied uniformly whether `candidates`
+started empty or non-empty, per spec).
+
+### Item 3 -- old-idiom preference in the same-term collision
+
+`backend/app/definition_links/rules/us_markers_boundary.py`,
+`extract_quote_anchored_entries`: each `starts` entry is now classified
+"old" (means/shall mean/bare has-the-meaning, or bridged) vs "new_only"
+(recognized only via Item 1's widened alternatives -- new
+`_WIDENED_IDIOM_ONLY_RE`, `shall include|has the (?:following|same)
+meaning`), index-aligned with `starts`. Before `compute_hard_stops`/
+`close_entries`, a "new_only" entry is dropped whenever the SAME exact
+term string also has an "old" entry elsewhere in the same call. A term
+whose occurrences are ALL new-idiom-only is left untouched (matches the
+negative-control spec).
+
+### Scoped + guard-estate + full-pass results
+
+Six Item-2/Item-3 files: 25/26 -- ALL 10 Planner RED go green; the one
+non-green is `test_us_markers_fallback_guard_structural_controls.py::
+test_fixture_precondition_primary_finds_exactly_zorbenex_and_fallback_
+also_finds_quixtor`, a PRE-EXISTING (not authored this pass) precondition
+test asserting "today's" pre-fix primary-only output through the EXACT
+function this item modifies (`_primary`, `heading_was_derived=True`) --
+this is provably impossible to satisfy simultaneously with the very next
+test in the same file (`test_red_fallback_only_term_is_admitted_alongside_
+an_existing_primary_entry`, which requires the opposite outcome from the
+identical input text) once Item 2 lands at all. This exact conflict was
+already identified and pre-cleared by the Planner in "Planner pass 2"
+above ("this pass's OWN sanity test asserting 'today's' (pre-fix)
+primary-only behavior... inherently incompatible with a GLOBAL
+method-level patch... not a regression"). Per the brief's own hard rule
+(no test edits, ever), left as-is -- documented here rather than silently
+absorbed. Guard estate (16 c5guard class-B + 5 discriminator + SC #28 (2)
++ NV #25 (6) + FX7 ceiling (2) = 31 tests): 31/31 green. Full backend
+suite: 1394 passed / 2 failed (the precondition test above + the
+pre-existing G7 SHA-pin, the latter cleared only by a re-pin not yet
+reached -- see Escalations below). Frontend 165/165. Typecheck clean.
+`git diff a51b1de..HEAD -- backend/app/` touches only `us_profile.py` and
+`us_markers_boundary.py`. Committed `f267644` ("feat: merge fallback
+guard with extended filter; dedup old-idiom preference (issues #27
+amendment)"), pushed.
+
+### Gate-2 combined certification run -- STOP-and-escalate triggered
+
+Ran this sprint's `run_gate2.sh` unmodified (`BASE_SHA=d660849`, the
+pre-Item-1 commit; current = post-Items-1+2+3 working tree @ `f267644`).
+Both sides `--current`, full 2,038,247-row/53-file corpus (matches
+`EXPECTED_ROWS`). Raw result:
+
+```
+current:  788,257 records
+baseline: 760,753 records
+changed:            29,676  (added 28,590 / removed 1,086)
+distinct_anchors_row_term: 28,654
+  anchors_pure_added:              27,568
+  anchors_pure_removed:               64
+  anchors_both_removed_and_added:  1,022
+```
+
+All three of the brief's numeric STOP conditions trip: `anchors_pure_
+removed = 64` (not the 4 named phantoms specifically); `distinct_anchors_
+row_term = 28,654` exceeds the ~20,000 ceiling; the wave (~27,568 - 6,309
+Item-1-attributable ≈ 21,259) is roughly 2.4x the ruling's ~8,708 figure.
+
+Bounded sanity checks run this pass (NOT a full adjudication -- QA's job
+per P-R11/P-R15):
+
+- **All 64 pure-removed anchors** checked programmatically against the
+  shipped implausible-capture filter's own four rejection rules (stopword
+  term; `^\d{4}[—–-]`; `"Pub. L."` in term; `Subsec\.\s*\(` in term) --
+  64/64 match. These are NOT novel genuine losses; they are the SAME
+  garbage-term-key phenomenon investigation.md named on 4 specific rows,
+  now also correctly rejected everywhere else it occurs corpus-wide (the
+  filter is unconditional, not scoped to those 4 rows -- exactly as
+  specified). Baseline (pre-Item-1's unconditional, unfiltered fallback
+  substitution) had admitted all 64 as junk; the fix now rejects them.
+- **A random 15-of-1,022 sample of `anchors_both_removed_and_added`**
+  (seed 20260823): every sampled pair is OLD (longer, bleeding into the
+  next entry's own lead-in text) -> NEW (a proper prefix of OLD, cut at a
+  real boundary) -- the "improving re-bounding" shape the Planner's own
+  97.6% figure describes, not the WA/NY-named degradation shape. No
+  displaced/corrupted pair found in the sample.
+- **Population breakdown by jurisdiction** (additions): 15,057 fall
+  within the Planner's own 16-jurisdiction wave-sampling scope; **13,533
+  fall OUTSIDE that scope** -- US-MS 3,996, US-CA 2,231, US-GA 1,398,
+  US-MD 710, US-HI 688, US-CO 643, and 20-odd more jurisdictions never
+  sampled for precision. `_extract_inline_quoted_definitions`'s own
+  docstring names CA/GA as real target jurisdictions for this exact
+  fallback path, so this is not a surprising code path to be reachable --
+  but its false-positive rate for this ~13,500-item sub-population was
+  never measured (expansion_precision.md's own census was explicitly
+  scoped to "the same 16 jurisdictions the Planner's own seeded sample
+  used," never claimed to bound the full-corpus population).
+
+No adjudication performed (out of scope for this pass, per the brief's
+"run, do NOT adjudicate" and precedent from the 2026-08-21 escalation).
+Per the brief's STOP instruction, halted here: the "chore: gate-2 combined
+certification artifacts" commit was NOT made (raw evidence sits on local
+disk, uncommitted, under `docs/sprint/sprints/2026-08-20-defs-boundary-
+idioms-scripts/run/` -- `compare/{summary.json,changed.jsonl}` +
+`run.log`, matching the 2026-08-21 precedent of leaving commit disposition
+to whoever adjudicates), step 8 (G7 re-pin) was NOT run, and step 9 (Dev
+Complete bookkeeping) was NOT performed -- the sprint contract's
+frontmatter/Next-Steps/Dev-Complete sections are untouched by this pass,
+matching the 2026-08-21 developer pass's own precedent for a gate-2 STOP.
+
+## Escalations (2026-08-23, Developer pass, Items 2-3)
+
+**ESCALATION:** the gate-2 combined certification run (step 7, this pass)
+trips all three of the brief's numeric STOP conditions simultaneously --
+see "Gate-2 combined certification run" above for the full numbers and
+this pass's bounded (non-adjudicating) sanity checks. Summary for the
+director/manager: the MECHANISM appears correct by every check this pass
+could run within its own scope (the 64 pure removals are all the SAME
+already-classified garbage-term-key shape, just found corpus-wide rather
+than on the 4 originally-named rows; a 15-item random sample of the 1,022
+re-bounded anchors all show the expected "improving, tighter boundary"
+shape, none the degraded-displacement shape) -- but the SCALE is real and
+larger than estimated because Item 2's guard-site fix correctly applies
+wherever `heading_was_derived=True` corpus-wide, not only within the 16
+jurisdictions `expansion_precision.md`'s own census scoped its
+false-positive measurement to. 13,533 of the 28,590 additions (47%) fall
+in jurisdictions (US-MS/US-CA/US-GA/US-MD/US-HI/US-CO and ~20 more) whose
+false-positive rate for this fallback-merge path has never been sampled.
+This is the same shape of surprise as the 2026-08-21 escalation (the
+widening's true footprint exceeding the Planner's own estimate) --
+recommend the director decide whether: (a) the existing filter's ~4-9%
+measured FP rate (on the 16-jurisdiction sample) is trusted to generalize
+corpus-wide and the wave ships as measured, or (b) a precision sample of
+the ~13,500-item out-of-scope population is required before certification,
+per this program's own D-RECALL-FP/gate-3 adjudication discipline.
+Evidence preserved on local disk (not committed) for whoever adjudicates
+next: `docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/
+compare/{summary.json,changed.jsonl}` and `run/run.log`; `run/current/`,
+`run/baseline/`, `run/baseline-src/` are the multi-hundred-MB raw dumps
+(gitignored, regenerate via `run_gate2.sh`). The code fix itself
+(`f267644`) is committed, pushed, and independently green against every
+scoped/guard-estate/frontend/typecheck check this pass ran -- the open
+question is strictly the true production footprint size and its
+unmeasured-population precision, not the RED tests or the mechanism's
+correctness against them.
