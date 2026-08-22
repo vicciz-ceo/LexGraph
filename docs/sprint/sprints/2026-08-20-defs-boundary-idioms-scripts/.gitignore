@@ -4,3 +4,10 @@ run/current/
 run/baseline/
 run/baseline-src/
 run/g7-out/
+
+# Design (b) expansion-wave raw dump (29MB; some definition_text values run
+# unbounded to end-of-section per _extract_inline_quoted_definitions's own
+# no-trailing-stop-cutoff weakness) — kept on disk, not in git. Regenerate
+# via measure_design_b_expansion_wave.py + sample_design_b_expansion_wave.py;
+# the committed expansion_precision.md's own sample table is the evidence.
+run/design_b/
