@@ -644,3 +644,16 @@ alone does not reach already-`from`-imported names) with a reimplementation
 of the starts-building loop plus Item 3's collision filter, delegating to
 the REAL, unmodified `close_entries`/`compute_hard_stops`. Both patches
 active together for every run reported above.
+
+## Director ruling: wave + filter (2026-08-23, manager)
+
+Expansion-wave precision sample (expansion_precision.md @ a9653f6): census
+8,708 terms / 4,419 rows / 16 jurisdictions; 90/9/1 GENUINE/FP/AMBIGUOUS;
+term-key filter (reject `Pub. L.` / `Subsec.\(` keys) cuts FP to 4/100 with
+zero genuine collateral. Director ruled: ship wave + extended filter;
+restore-only rejected under D-RECALL-FP (~7,837 genuine forfeited);
+next-entry-bleed byte quality named tracked debt under D-MAP. Item 2 spec
+amended in the contract. Next: Planner micro-pass pins the extended filter
+(RED negative controls), then Developer implements Items 2+3.
+
+- precision sampler (read-only, Sonnet high) → a1e8399ebf3c24f79 (delivered expansion_precision.md @ a9653f6; first attempt a2f644504ea003c2f died to machine sleep mid-git-compare — worktree restored by manager, containment rule added to the retry brief)

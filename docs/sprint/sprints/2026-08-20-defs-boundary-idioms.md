@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 172 2026-08-21T14:38:04Z"
+lint: "PASS 235 2026-08-22T21:17:29Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -174,6 +174,19 @@ reintroduces Item-3-shape same-term collisions site-wide) after measuring
 footprint on the 130 losses + a seeded 200-row sample; full rationale and
 numbers: log doc "Planner pass 2, Item 2 design".
 
+DIRECTOR RULING 2026-08-23 (after the expansion-wave precision sample —
+`2026-08-20-defs-boundary-idioms-scripts/expansion_precision.md`, commit
+`a9653f6`): **wave + filter ships.** The implausible-capture rejection is
+EXTENDED with the sampler's zero-collateral term-key rule: reject a
+fallback term containing `Pub. L.` or matching `Subsec.\(`. Measured
+result: 8,708-term wave at ~4% FP (Wilson 95% ≤16.2% pre-filter, sample
+FP 4/100 post-filter, zero genuine collateral in-sample). Restore-only
+(forfeiting ~7,837 genuine) was considered and rejected under
+D-RECALL-FP. The wave's next-entry-bleed byte quality (incl. ~6% unbounded
+runaways) is NAMED TRACKED DEBT in the certificate under D-MAP — anchors
+correct, text informational. A Planner micro-pass must pin the extended
+filter with RED negative controls before the Developer starts.
+
 RED tests (committed, RED-for-cause, GREEN under this pass's monkeypatched
 simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA
 717/OH 3296/NY 1978), `test_us_markers_fallback_guard_phantom_negative_
@@ -211,16 +224,12 @@ _None._
 
 ## Context Dump
 
-Pass 2 (amendment) complete (2026-08-21). Items 2-3 defined + specced; 18
-RED tests committed (8 RED-for-cause, 10 sanity/regression/negative-
-control, all GREEN today and proven GREEN under a monkeypatched
-simulation of both specs — see the Planner's completion report for the
-script). One new stale pin found + re-pointed (G8 local-scope dispatch —
-Item 2's merge surfaces a harmless extra section-candidate pipeline.py's
-OWN existing inner dedup already discards). Finding worth director
-attention: NY "General service lamp" does not reproduce investigation.md's
-claimed corruption at persistence altitude for this row (baseline wins the
-dedup there); demoted to a regression pin, general mechanism still proven
-via WA + synthetic controls. Full suite: 1379 passed / 8 RED (mine) / 1
-pre-existing unrelated failure (G7 SHA pin, Developer/QA territory per log
-doc). Developer: read log doc "Planner pass 2" before coding.
+Items 2-3 specced with 18 tests committed (8 RED-for-cause; rest are
+controls, GREEN and staying GREEN; all proven GREEN under monkeypatched
+spec simulations). Director ruled 2026-08-23: wave + EXTENDED filter ships
+(see Item 2's ruling block); next is a Planner micro-pass pinning the
+`Pub. L.`/`Subsec.\(` term-key filter with RED negative controls, then the
+Developer implements Items 2+3. Suite: 1379 passed / 8 RED (the Planner's)
+/ 1 pre-existing G7 SHA-pin failure (fixed at the Developer's re-pin
+step). Read the log doc "Planner pass 2" + the ruling entries before
+coding.
