@@ -39,22 +39,33 @@ def _terms(candidates) -> dict[str, list[str]]:
 
 def test_fixture_precondition_primary_finds_exactly_zorbenex_and_fallback_also_finds_quixtor():
     """Sanity/precondition, not the RED itself: proves the exact shape this
-    test depends on, so the RED below cannot go vacuous. Today, the
-    primary engine finds exactly ONE entry ('Zorbenex' -- swallowing the
-    rest of the text since it does not recognize bare 'includes' as a
-    boundary); the fallback (unmodified by this item) independently finds
-    BOTH 'Zorbenex' (cleanly bounded) and 'Quixtor'."""
+    test depends on, so the RED below cannot go vacuous. After Item 2's
+    merged-guard fix, the primary engine now finds BOTH 'Zorbenex' (original,
+    via the recognized idiom) and 'Quixtor' (via the fallback merge for
+    per-term-novel candidates); the fallback (unmodified by this item)
+    independently confirms both entries."""
     text = '"Zorbenex" means a first concept. "Quixtor" includes a second concept entirely.'
 
-    primary_today = _terms(_primary(text))
-    assert list(primary_today) == ["Zorbenex"], (
-        f"sanity: primary engine must find exactly one entry today, got {sorted(primary_today)!r}"
+    primary = _terms(_primary(text))
+    assert set(primary.keys()) == {"Zorbenex", "Quixtor"}, (
+        f"sanity: primary engine must find both 'Zorbenex' and 'Quixtor' "
+        f"after Item 2's merged-guard fix, got {sorted(primary)!r}"
+    )
+    assert primary["Quixtor"] == ["a second concept entirely."], (
+        f"sanity: 'Quixtor' must be recovered through the fallback merge, "
+        f"got {primary.get('Quixtor')!r}"
+    )
+    assert primary["Zorbenex"] == [
+        'a first concept. "Quixtor" includes a second concept entirely.'
+    ], (
+        f"sanity: 'Zorbenex' remains from the primary engine (unchanged), "
+        f"got {primary.get('Zorbenex')!r}"
     )
 
     fallback = _terms(_extract_inline_quoted_definitions(text, scope="law-wide"))
     assert fallback.get("Quixtor") == ["a second concept entirely."], (
         f"sanity: the fallback function itself must already find 'Quixtor' "
-        f"today (unmodified by this item) -- got {fallback.get('Quixtor')!r}"
+        f"(unmodified by this item) -- got {fallback.get('Quixtor')!r}"
     )
 
 
