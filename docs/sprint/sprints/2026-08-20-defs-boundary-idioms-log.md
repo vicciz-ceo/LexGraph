@@ -902,3 +902,18 @@ scoped/guard-estate/frontend/typecheck check this pass ran -- the open
 question is strictly the true production footprint size and its
 unmeasured-population precision, not the RED tests or the mechanism's
 correctness against them.
+
+## Round-2 evidence + manager ruling: single-letter filter extension (2026-08-23)
+
+expansion_precision_2.md @ 0ec36b3: delta decomposition exact (0 residue),
+out-of-census FP 1.0%, 64/64 removals phantom-verified against source,
+re-boundings 30/30 improving. New FP shape: 19 bare single-letter fallback
+terms, 19/19 verified false — D-MAP blocking class, must not ship. Manager
+ruled (under the director's wave+filter ruling + D-MAP): extend the filter
+with `^[A-Za-z]$` rejection; re-measure current side only. Flagged to the
+director for veto in the same report. Next: Planner micro-pass 4 pins the
+rule, Developer applies + re-runs current side + G7 re-pin + bookkeeping.
+
+- developer items 2-3 → a94a95011854ffd8d (escalated clean @ cc51c49)
+- haiku pin re-point → a100ef1fbec4c23b9 (d8c16fd; manager diff-checked)
+- round-2 sampler → a30d7e30f596e46d9 (0ec36b3)

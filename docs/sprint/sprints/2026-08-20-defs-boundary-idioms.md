@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 239 2026-08-22T21:29:43Z"
+lint: "PASS 250 2026-08-22T22:45:36Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -186,6 +186,17 @@ D-RECALL-FP. The wave's next-entry-bleed byte quality (incl. ~6% unbounded
 runaways) is NAMED TRACKED DEBT in the certificate under D-MAP — anchors
 correct, text informational. A Planner micro-pass must pin the extended
 filter with RED negative controls before the Developer starts.
+
+ROUND-2 ADDENDUM (manager ruling 2026-08-23 under D-MAP + the ruling
+above; see `expansion_precision_2.md` @ `0ec36b3`): the combined-run scale
+was a scope artifact (delta decomposes exactly: 6,309 Item-1 + 7,768
+in-census wave + 13,491 out-of-census wave, 0 residue; out-of-census FP
+1.0%, Wilson [0.2%, 5.4%]; all 64 removals verified phantom against
+source; re-boundings 30/30 improving). One new FP shape: bare
+single-letter fallback terms — 19 corpus-wide, 19/19 verified false, D-MAP
+blocking class. The implausible-capture filter is EXTENDED again: reject a
+fallback term matching `^[A-Za-z]$`. Certified delta must show the 19
+absent; only the CURRENT side needs re-measurement (baseline unchanged).
 
 RED tests (committed, RED-for-cause, GREEN under this pass's monkeypatched
 simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA
