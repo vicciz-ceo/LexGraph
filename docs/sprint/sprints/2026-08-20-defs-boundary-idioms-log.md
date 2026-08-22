@@ -917,3 +917,64 @@ rule, Developer applies + re-runs current side + G7 re-pin + bookkeeping.
 - developer items 2-3 → a94a95011854ffd8d (escalated clean @ cc51c49)
 - haiku pin re-point → a100ef1fbec4c23b9 (d8c16fd; manager diff-checked)
 - round-2 sampler → a30d7e30f596e46d9 (0ec36b3)
+
+## Planner micro-pass 4 (2026-08-23): pinning the single-letter filter rule
+
+New file `test_us_markers_fallback_guard_single_letter_negative_control.py`
+(engine-level, same `_PROFILE`/`_terms` style as the term-key file), M-R107
+synthetic fixtures shaped after the round-2 census's classification-letter-
+label FP shape (`class "B" violation` etc.) but keyed to nobody's row/
+citation letters. Unlike micro-pass 3, the merged guard (`f267644`) is
+ALREADY live at this pass's `HEAD` (`f3d8f78`) — `_merge_fallback_
+candidates` runs unconditionally whenever `heading_was_derived=True`,
+regardless of whether the primary engine found zero or some candidates —
+so there is only one code path, not the term-key file's isolated/non-
+colliding split; both row shapes are still pinned for coverage, not because
+behavior branches on it (verified empirically: both admit the bare letter
+identically today).
+
+- **RED-for-cause** (`test_red_isolated_single_letter_term_must_never_be_
+  admitted`, `test_red_noncolliding_single_letter_term_must_never_be_
+  admitted`): `_is_implausible_fallback_capture` does not yet reject
+  `^[A-Za-z]$`, so a bare single-letter fallback term ('B'/'C') IS admitted
+  live today, on both an isolated-primary row and a non-colliding-primary
+  row ('Wrenfeld' present, no collision). Verified directly: running the
+  file today gives `2 failed, 3 passed` — exactly these two RED, the other
+  3 (2 preconditions + 1 positive control) GREEN.
+- **Positive control, GREEN-and-staying-GREEN**
+  (`test_positive_control_multi_char_short_term_still_admitted`): a
+  legitimate short-but-multi-character term ('AI', 2 characters) stays
+  admitted both before and after — `^[A-Za-z]$` matches exactly one letter,
+  never two — guarding against an over-broad implementation (e.g. a stray
+  length threshold) that would also sweep in short multi-character terms
+  the ruling never asked to close (`expansion_precision_2.md`'s own sample
+  lists a real 2-character GENUINE term, 'PA').
+
+**Consistency proof** (direct-function-replay/monkeypatch method, script
+not committed, scratchpad — patches `_is_implausible_fallback_capture` to
+additionally reject `^[A-Za-z]$` and re-runs the real
+`extract_definitions_from_section`):
+
+```
+isolated (simulated fix): {}
+  test_red_isolated_single_letter_term_must_never_be_admitted -> GREEN under simulated fix
+noncolliding (simulated fix): {'Wrenfeld': [...]}
+  test_red_noncolliding_single_letter_term_must_never_be_admitted -> GREEN under simulated fix ('C' absent, 'Wrenfeld' survives)
+control AI (simulated fix): {'Wrenfeld': [...], 'AI': ['a real multi-character acronym term that must stay admitted, not a bare single letter.']}
+  test_positive_control_multi_char_short_term_still_admitted -> stays GREEN under simulated fix
+
+ALL SIMULATED ASSERTIONS PASS -- GREEN under the extended-rule simulation
+```
+
+**Targeted run** (this pass's new file only): `2 failed, 3 passed` — matches
+the consistency proof exactly (2 RED-for-cause, 3 GREEN controls).
+
+**Full backend suite** (`pytest backend -q -p no:randomly`): `3 failed, 1398
+passed`. Reconciles exactly: pre-pass baseline measured this pass (file
+temporarily moved aside and re-run) = `1 failed, 1395 passed` (1396 total —
+the pre-existing `test_g7_integration_pin_is_ancestral_and_production_is_
+frozen_after_it` SHA-pin failure, unchanged, Developer's own re-pin step,
+out of this pass's scope); + this pass's 5 new tests (3 GREEN + 2 RED) =
+`3 failed, 1398 passed` (1401 total) — exact.
+
+- planner micro-pass 4 → (this agent; delivered filter pins, 2F/3P reproduced, full suite 3F/1398P)

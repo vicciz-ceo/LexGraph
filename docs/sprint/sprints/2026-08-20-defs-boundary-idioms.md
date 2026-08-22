@@ -209,6 +209,11 @@ Micro-pass 3 (2026-08-23) additional RED tests, extended filter:
 `test_us_markers_fallback_guard_term_key_negative_control.py` (M-R107
 synthetic; 2 RED-for-cause + 2 negative controls, proof in log doc).
 
+Micro-pass 4 (2026-08-23) additional RED tests, ROUND-2 ADDENDUM's
+`^[A-Za-z]$` rule: `test_us_markers_fallback_guard_single_letter_negative_
+control.py` (M-R107 synthetic; 2 RED-for-cause + 3 controls (2 preconditions
++ 1 positive "AI" control), proof in log doc).
+
 ### Item 3 — fix the same-term-collision dedup ordering (degraded re-boundings)
 
 `backend/app/definition_links/rules/us_markers_boundary.py`,
