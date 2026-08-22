@@ -978,3 +978,163 @@ out of this pass's scope); + this pass's 5 new tests (3 GREEN + 2 RED) =
 `3 failed, 1398 passed` (1401 total) — exact.
 
 - planner micro-pass 4 → (this agent; delivered filter pins, 2F/3P reproduced, full suite 3F/1398P)
+
+## Developer pass (2026-08-23, single-letter filter rule): STOP-and-escalate
+
+### Steps 1-4: implementation, scoped tests, bounded diff -- all clean
+
+Synced at `ea97a07` (verified, matches brief). Baseline reproduced exactly:
+single-letter file `2 failed, 3 passed`; full suite `3 failed, 1398 passed`
+(2 single-letter RED + 1 pre-existing G7 SHA-pin). Built a fresh worktree
+venv (`backend/.venv`, mcp 2.0.0 confirmed) and canary-checked `import app`
+resolves inside this worktree, not the main checkout, per the worktree-venv
+trap. Added the `^[A-Za-z]$` rejection to `_is_implausible_fallback_
+capture` (`backend/app/definition_links/us_profile.py`), matching the
+existing rule style exactly (new `_FALLBACK_SINGLE_LETTER_TERM_RE`
+constant + one more `if` branch in the loop; no other function touched).
+
+Re-run: single-letter file `5/5 green`; all 8 Item-2/Item-3 test files
+(34 tests) green; the exact 31-test guard estate (16 c5guard class-B + 5
+discriminator + 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7) green. `git diff
+a51b1de..HEAD -- backend/app/` touches only `us_markers_boundary.py` +
+`us_profile.py`. Committed `877c970` ("feat: reject bare single-letter
+fallback terms"), pushed to `claude/defs-boundary-idioms`.
+
+### Step 5: Gate-2 CURRENT-side re-measurement -- STOP-and-escalate triggered
+
+Regenerated `run/current` at `877c970` via `measure_actual_production_
+all_rows.py --current` (own worktree venv, `--source-root` = this
+worktree; baseline `run/baseline` left untouched on disk, per instruction).
+Ran `diff_gate2.py` against the unchanged baseline. Before overwriting,
+backed up the OLD `run/compare/{changed.jsonl,summary.json}` and confirmed
+the OLD delta's single-letter "added" rows are EXACTLY the 19 keys
+`expansion_precision_2.md` censused (16 US-IA / 1 US-CA / 1 US-OH / 1
+US-SC — jurisdiction counts match exactly; none had a same-anchor
+"removed" counterpart, i.e. all 19 were `anchors_pure_added`).
+
+New combined summary:
+
+```
+added: 28,571 (was 28,590, -19)             changed: 29,676 (unchanged)
+removed: 1,105 (was 1,086, +19)             distinct_anchors: 28,654 (unchanged)
+anchors_pure_added: 27,549 (was 27,568, -19)
+anchors_pure_removed: 83 (was 64, +19)
+anchors_both_removed_and_added: 1,022 (unchanged)
+```
+
+The 19 expected additions vanished exactly as specced (confirmed via
+symmetric-difference of OLD vs NEW `changed.jsonl` at full-row-key
+granularity: the 19 "only-in-OLD" rows are precisely the 19 census keys).
+**But 19 DIFFERENT rows appeared as NEW pure removals** — this is the
+brief's own named STOP condition ("a new removal") and directly
+contradicts its "same 64 removals... everything else identical"
+expectation.
+
+**Mechanism (verified, not guessed):** `_is_implausible_fallback_capture`
+is invoked uniformly inside `_merge_fallback_candidates`, which covers BOTH
+the always-existed zero-primary-candidate path AND the new merge path.
+Baseline (`d660849`, pre-Item-2) has ZERO filtering on that always-existed
+path — no stopword/caption/Pub.L./Subsec./single-letter rule exists there
+at all. For any row where baseline's primary engine already found zero
+candidates AND current's primary engine (even after Item 1's widening)
+also still finds zero, `_merge_fallback_candidates([], text, scope)`
+reduces to "every filtered fallback candidate" on BOTH sides — so whenever
+`_extract_inline_quoted_definitions` itself produces an IDENTICAL
+single-letter capture on both sides, baseline and pre-this-fix-current
+already agreed byte-for-byte and the anchor was invisible to the delta
+(neither added nor removed). This fix is the FIRST rule in the whole
+filter chain to newly diverge current from that shared, previously-
+unexamined agreement — surfacing 19 pre-existing single-letter captures
+that were NEVER part of `expansion_precision_2.md`'s censused population
+(that census scoped to "all PURE-ADDED anchors" only, i.e. current-vs-
+baseline deltas; it structurally could not see captures baseline already
+shared).
+
+**Adjudication sample (3 of 19, bounded sanity check, NOT full
+adjudication -- that is QA's/the director's call):**
+
+- `STATE_IA_TI_C15J_S15J.4` row 4963, term `'b'`: verified against source
+  -- `"...include in the notification under paragraph "a" and in the
+  statement required under paragraph "c" all of the following:"` -- a
+  lettered-citation phantom, same shape as the already-adjudicated 14/19
+  US-IA cases in `expansion_precision_2.md`.
+- `STATE_WI_C343_S343.14` row 11238, term `'H'`: verified against source
+  -- the application form for an `"H"` endorsement (defined elsewhere,
+  `s. 343.17`) is merely REFERENCED here, then a nearby, unrelated `shall
+  include` clause (Item 1's own widened idiom) got mis-paired with it --
+  same "mis-paired quote" root mechanism the census already found
+  unclosable by term-shape rules.
+- **`STATE_NV_T43_C484B_S484B.307` row 21958, term `'X'`: CONFIRMED
+  GENUINE, NOT a phantom.** Source, verified directly: `"12. ... (a) A
+  downward-pointing green arrow means that a driver facing the signal may
+  drive in any lane over which the green signal is shown. (b) A red "X"
+  symbol means a driver facing the signal must not enter or drive in any
+  lane over which the red signal is shown."` -- this is a real, well-formed
+  `"TERM" means DEFINITION` clause; the single letter `X` is the actual,
+  correct definiendum (a standard traffic lane-control symbol), not a
+  citation or classification-label artifact. The captured anchor is
+  correct (definition_text is a known-tracked-debt unbounded runaway per
+  D-MAP, same as other genuine anchors in this wave -- that debt
+  classification is NOT the problem here). **The problem is the anchor
+  itself is being REJECTED and lost entirely** by the blanket `^[A-Za-z]$`
+  rule, contradicting both the ROUND-2 ADDENDUM's own premise ("a real
+  English defined term is never literally one bare letter... in this
+  corpus") and its "D-MAP blocking class" framing (a genuine single-letter
+  loss was named as something that "must not ship").
+
+**This is a genuine anchor loss, not a phantom** -- Acceptance Gate 3
+("the combined run must show ZERO genuine anchor losses") is not met by
+the rule as specced. The other 16 of 19 new removals were NOT individually
+verified this pass (bounded, not full adjudication); given 1 confirmed
+genuine hit already, the director/manager should treat the full 19 as
+needing QA-level review, not assume the remaining 16 are phantom by
+extrapolation from the sampled 2.
+
+**Halting per instruction, matching the 2026-08-21 and first 2026-08-23
+STOP-and-escalate precedents in this same log:** the gate-2 "final
+certification" framing is NOT claimed; `qa_g7_common.INTEGRATION_SHA`
+re-pin was prepared then REVERTED (uncommitted, working tree left clean --
+re-pinning implies a certified, gate-2-clean tree, which this is not);
+Items 1-3 are NOT moved to Dev Complete; the sprint contract frontmatter/
+Next-Steps/Dev-Complete/Context-Dump sections are untouched by this pass.
+The code fix itself (`877c970`) stays independently green against every
+scoped/guard-estate/bounded-diff check this pass ran -- the open question
+is strictly whether the single-letter rule as specced is over-broad (loses
+`STATE_NV_T43_C484B_S484B.307` "X"), not the RED tests or the merge
+mechanism's correctness against them.
+
+## Escalations (2026-08-23, Developer pass, single-letter filter rule)
+
+**ESCALATION:** the ROUND-2 ADDENDUM's `^[A-Za-z]$` fallback-term rejection
+rule, applied as specced, closes the expected 19 phantom additions but ALSO
+newly rejects 19 single-letter fallback captures that already existed
+identically in both baseline and pre-fix-current (invisible to every prior
+delta/census because they matched byte-for-byte before this fix). At least
+1 of these 19 is a **confirmed genuine anchor loss**:
+`STATE_NV_T43_C484B_S484B.307` (NV traffic-signal lane-control statute),
+term `"X"` -- a real `"X" symbol means a driver facing the signal must not
+enter...` definitional clause, not a citation or classification-label
+artifact. This directly contradicts the ROUND-2 ADDENDUM's premise and its
+own "D-MAP blocking class" / "must not ship" framing for genuine
+single-letter losses, and trips Acceptance Gate 3 ("ZERO genuine anchor
+losses"). 2 more of the 19 (IA row 4963 `'b'`, WI row 11238 `'H'`) were
+sampled and ARE phantom (same already-known shapes); the remaining 16 are
+UNVERIFIED this pass. Recommend the director/manager choose between: (a) a
+narrower single-letter rule that doesn't catch a bare-letter-immediately-
+followed-by-`means` shape (would require Planner-level filter redesign --
+out of this Developer pass's authorized bound, which was "add `^[A-Za-z]$`
+... nothing else changes"), or (b) full QA-level adjudication of all 19
+new removals before deciding whether the 1-in-19 (or worse) genuine-loss
+rate is acceptable under D-RECALL-FP. Full numbers, mechanism, and the
+3-sample adjudication: "Developer pass (2026-08-23, single-letter filter
+rule)" above. Per instruction, halted rather than proceeding: gate-2
+artifacts (`run/compare/{summary.json,changed.jsonl}`) ARE committed this
+pass (raw, honest re-measurement, matching the 2026-08-21 precedent's own
+follow-up "preserve gate-2 evidence" commit) but NOT framed as a passing
+certification; `qa_g7_common.INTEGRATION_SHA` re-pin was prepared then
+reverted; Items 1-3 are NOT moved to Dev Complete. The code fix (`877c970`)
+is committed, pushed, and independently green against every scoped/
+guard-estate/bounded-diff check this pass ran.
+
+- developer single-letter rule → (this agent; code green, gate-2 STOP,
+  see escalation above)
