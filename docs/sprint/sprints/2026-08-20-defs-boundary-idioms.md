@@ -3,8 +3,8 @@ id: "2026-08-20-defs-boundary-idioms"
 status: planned
 current_role: developer
 branch: claude/defs-boundary-idioms
-locked_by: "claude-code:planner"
-locked_at: "2026-08-21T14:38:00Z"
+locked_by: "claude-code:developer"
+locked_at: "2026-08-22T21:29:00Z"
 last_agent: "claude-code:manager"
 last_updated: "2026-08-21T14:38:00Z"
 program: "2026-08-04-definition-completeness"
@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 239 2026-08-22T21:28:40Z"
+lint: "PASS 239 2026-08-22T21:29:43Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:

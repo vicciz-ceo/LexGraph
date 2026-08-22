@@ -735,3 +735,5 @@ Developer's own re-pin step, out of this pass's scope). Total test count
 1396 = 1388 (prior) + 8 (this file's own tests) -- exact.
 
 - precision sampler (read-only, Sonnet high) → a1e8399ebf3c24f79 (delivered expansion_precision.md @ a9653f6; first attempt a2f644504ea003c2f died to machine sleep mid-git-compare — worktree restored by manager, containment rule added to the retry brief)
+
+- planner micro-pass 3 → a8f332966285221a0 (delivered filter pins @ 84990a7; manager verified: tests+docs only, 2F/6P reproduced)
