@@ -2763,10 +2763,27 @@ _FALLBACK_TRAILING_MARKER_FRAGMENT_RE = re.compile(
 # trailing fragment (`_FALLBACK_DANGLING_TAIL_MAX` chars) so a
 # legitimately long definition that simply lacks a final period for some
 # unrelated reason is never chopped mid-content -- only a SHORT dangling
-# tail is ever removed, and only back to the end of the last complete
-# sentence (period/semicolon/closing-quote) already inside the
-# candidate's own text, never past it.
-_SENTENCE_TERMINAL_CHARS = (".", ";", '"', "”", "'", "’")
+# tail is ever removed.
+#
+# `_SENTENCE_ALREADY_TERMINAL_CHARS` (broad) gates whether this heuristic
+# even ATTEMPTS a back-trim -- a definition already ending in a quote is
+# a legitimate, complete way to end (e.g. a definition whose own last
+# word is itself a quoted term). `_SENTENCE_SEARCH_BACK_CHARS` (narrow:
+# period/semicolon only) is what it searches BACKWARD for as the cut
+# point -- deliberately NOT a bare quote character, found to be unsafe
+# live: real FED `USC_T16_C24_S1151`'s own `"Party" or "parties" means
+# the United States of America, Canada, Japan, and Russia (except that
+# as used in subsection (b) of this section, "party" and...` -- cut
+# earlier by a marker-based stop mid-sentence at "(b)"'s own cross-
+# reference, leaving `...means the United States...Russia (except that
+# as used` as the un-terminated tail. Searching backward through THIS
+# for the broad set found `"parties"`'s own CLOSING quote (a nested term
+# name early in the sentence, not a sentence end at all) and wrongly cut
+# there, leaving just `or "parties"` -- a quote closing a short quoted
+# PHRASE is not a reliable "sentence complete" signal the way a period
+# or semicolon is.
+_SENTENCE_ALREADY_TERMINAL_CHARS = (".", ";", '"', "”", "'", "’")
+_SENTENCE_SEARCH_BACK_CHARS = (".", ";")
 _FALLBACK_DANGLING_TAIL_MAX = 120
 
 
@@ -2791,9 +2808,9 @@ def _clean_fallback_trailing_bleed(definition_text: str) -> str:
     without_fragment = _FALLBACK_TRAILING_MARKER_FRAGMENT_RE.sub("", cleaned).strip()
     if without_fragment:
         cleaned = without_fragment
-    if cleaned and cleaned[-1] not in _SENTENCE_TERMINAL_CHARS:
+    if cleaned and cleaned[-1] not in _SENTENCE_ALREADY_TERMINAL_CHARS:
         best = -1
-        for ch in _SENTENCE_TERMINAL_CHARS:
+        for ch in _SENTENCE_SEARCH_BACK_CHARS:
             idx = cleaned.rfind(ch)
             if idx > best:
                 best = idx
