@@ -1152,3 +1152,77 @@ only for the sampled wave population.
 
 - planner micro-pass 4 → a2c3d2cb82190a3e1 (3c7347e/ea97a07; pins now retired per reversal)
 - developer finish pass → a08c4c030ff9951cc (877c970 + escalation @ 0774ca8)
+
+## Planner micro-pass 5 (2026-08-23): retiring the reversed single-letter pins
+
+Per the director's reversal ruling above, `test_us_markers_fallback_guard_
+single_letter_negative_control.py`'s two `must_never_be_admitted` RED tests
+asserted the now-reversed `^[A-Za-z]$` rejection rule -- they no longer
+match the ruled behavior and are retired. Removed
+`test_red_isolated_single_letter_term_must_never_be_admitted` and
+`test_red_noncolliding_single_letter_term_must_never_be_admitted` outright;
+re-pointed their scenarios (same synthetic fixtures, same M-R107 shape) into
+two new tests pinning the opposite, RULED assertion -- a bare single-letter
+fallback term IS admitted by the merged guard (isolated-primary and
+non-colliding-primary shapes) -- `test_red_isolated_single_letter_term_is_
+admitted`, `test_red_noncolliding_single_letter_term_is_admitted`. Kept the
+2 preconditions and the `"AI"` positive control unchanged (director/Planner
+brief: "the AI control stays"). Module docstring rewritten to cite both the
+contract's Item 2 "REVERSED by director ruling 2026-08-23" block and this
+log doc's "Director ruling: revert single-letter rule, certify, ship"
+entry, name the confirmed genuine loss (`STATE_NV_T43_C484B_S484B.307`
+"X"), and note the future-work direction (reject a single-letter fallback
+term only when it lacks an adjacent defining verb) is explicitly deferred
+to a later sprint, not attempted here.
+
+**State note verified both sides**, per the brief (`877c970` is still an
+ancestor of this pass's `HEAD` -- the Developer's revert has not landed):
+
+Targeted run, this pass's `HEAD` (RED-for-cause, live code):
+
+```
+PYTHONPATH=.:backend .../python -m pytest backend/tests/integration/test_us_markers_fallback_guard_single_letter_negative_control.py -q -p no:randomly
+2 failed, 3 passed
+```
+
+Exactly the 2 re-pointed tests fail (`test_red_isolated_single_letter_
+term_is_admitted`, `test_red_noncolliding_single_letter_term_is_admitted`);
+the 2 preconditions + the `"AI"` positive control (unaffected either way)
+stay green.
+
+Consistency proof (scratchpad script, not committed -- same "monkeypatch a
+constant, re-run the real unmodified pipeline" method every prior pass in
+this sprint used; here `_FALLBACK_SINGLE_LETTER_TERM_RE` is replaced with a
+pattern that never matches, simulating the Developer's pending revert of
+`877c970`):
+
+```
+=== Simulated reverted code (877c970's rule neutralized) ===
+isolated: {'B': ['a classification label mis-paired with distant, unrelated prose entirely, not a real definition.']}
+  test_red_isolated_single_letter_term_is_admitted -> GREEN under simulated revert
+noncolliding: {'Wrenfeld': [...], 'C': ['a classification label mis-paired with distant, unrelated prose entirely, not a real definition.']}
+  test_red_noncolliding_single_letter_term_is_admitted -> GREEN under simulated revert
+control AI: {'Wrenfeld': [...], 'AI': ['a real multi-character acronym term that must stay admitted, not a bare single letter.']}
+  test_positive_control_multi_char_short_term_still_admitted -> stays GREEN under simulated revert
+
+ALL SIMULATED ASSERTIONS PASS -- GREEN under the reverted-code simulation
+```
+
+**Full backend suite** (`pytest backend/tests -q -p no:randomly`), this
+pass's `HEAD`: `3 failed, 1398 passed` (1401 collected). Reconciles exactly
+against the prior micro-pass 4 baseline at `6b1efd4` (1401 collected, 1398
+passed, 3 failed -- the two OLD `must_never_be_admitted` tests were GREEN
+there, since the rule was live and correctly rejected the term at that
+point, plus the pre-existing G7 SHA-pin failure): this pass renames/
+re-points the same 2 tests to assert the opposite outcome (no test added or
+removed, count unchanged at 1401), so the same 2 tests flip from GREEN to
+RED (now for the opposite, ruled-behavior reason), the pre-existing G7
+SHA-pin failure is unchanged and out of this pass's scope (Developer's own
+re-pin step), and every other test is unaffected -- `3 failed, 1398 passed`
+either way, composition of the 3 failures is what changed, not the count.
+
+Contract Item 2's test list updated (2-line addition) to record the
+retirement and its RED/GREEN-under-simulation status.
+
+- planner micro-pass 5 → (this agent; delivered retired pins, RED 2F/3P
+  live + GREEN under simulated revert, full suite 3F/1398P reconciled)

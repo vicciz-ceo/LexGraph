@@ -228,6 +228,12 @@ Micro-pass 4 (2026-08-23) additional RED tests, ROUND-2 ADDENDUM's
 control.py` (M-R107 synthetic; 2 RED-for-cause + 3 controls (2 preconditions
 + 1 positive "AI" control), proof in log doc).
 
+Micro-pass 5 (2026-08-23), after the REVERSAL above: the two `^[A-Za-z]$`
+RED pins in that file are retired; the file now pins the RULED (post-revert)
+behavior — single-letter fallback terms ARE admitted — RED-for-cause at
+this pass's `HEAD` (`877c970` still present) and GREEN under a simulation
+of the Developer's pending revert (proof in log doc).
+
 ### Item 3 — fix the same-term-collision dedup ordering (degraded re-boundings)
 
 `backend/app/definition_links/rules/us_markers_boundary.py`,
