@@ -127,6 +127,24 @@ def process_file(path: Path) -> dict:
                 recognized_by_rule = bool(
                     recognized and callable(rule_only) and rule_only(heading, body)
                 )
+                # Attribution fix: set BEFORE any extraction call, including
+                # derive_body_preamble_match's OWN internal pre-check call
+                # (derive_heading_from_body -> extract_definitions_from_
+                # section when a B1 rule matches) -- setting this only
+                # before the LATER explicit call left a trim event fired
+                # from that internal call mis-attributed to whatever row
+                # had most recently updated this dict (confirmed live: a
+                # trim record's own act_id genuinely did not contain the
+                # term it was filed under).
+                _current_row_ctx.clear()
+                _current_row_ctx.update(
+                    {
+                        "jurisdiction": jurisdiction_code,
+                        "source_file": path.name,
+                        "source_row": row_number,
+                        "act_id": row["act_id"],
+                    }
+                )
                 derived = None
                 b1_winner = False
                 if not recognized:
@@ -144,15 +162,6 @@ def process_file(path: Path) -> dict:
                     continue
                 scope = profile.determine_scope(body)
                 heading_was_derived = (derived is not None) or recognized_by_rule
-                _current_row_ctx.clear()
-                _current_row_ctx.update(
-                    {
-                        "jurisdiction": jurisdiction_code,
-                        "source_file": path.name,
-                        "source_row": row_number,
-                        "act_id": row["act_id"],
-                    }
-                )
                 if b1_winner:
                     candidates = profile.extract_definitions_from_section(
                         body,
