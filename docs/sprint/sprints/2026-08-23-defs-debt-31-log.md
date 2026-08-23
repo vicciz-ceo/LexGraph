@@ -327,6 +327,69 @@ set; 2 pre-existing cross-sprint frozen-production tripwires that fire
 on ANY future sprint touching `backend/app/`, by their own design, not
 specific to this sprint).
 
+**Two MORE bugs found on re-running the population measurement after
+the quoted-block fix** (same discipline: measure, don't assume the
+first fix was complete):
+
+- **Abbreviation guard too narrow.** The first fix
+  (`_FALLBACK_TRIM_ABBREVIATION_BEFORE_RE`) only excluded a short word-
+  then-period when immediately preceded by a QUOTE character
+  (`"Subsec.`). Real FED `USC_T21_C13_S801`'s own baseline-block
+  candidate -- itself a pre-existing, out-of-scope primary-engine
+  defect (a numbered clause from a quoted Executive Order mis-split as
+  a fake "term") -- has its OWN `definition_text` starting `"Sec. 5.
+  The Attorney General..."` with NOTHING before "Sec." at all, not even
+  a quote (it sits right at `definition_start` itself), so the quote-
+  specific guard missed it, collapsing 5148 chars down to 4 ("Sec.").
+  Generalized: `_period_precedes_a_real_sentence` finds the nearest
+  preceding clause boundary (a quote OR an earlier period, bounded
+  60-char lookback, deliberately NOT a newline -- real prose hard-wraps
+  mid-sentence, e.g. NY's own validated "...family\nservices." stop)
+  and requires the clause between that boundary and the current period
+  to contain at least one whitespace character (more than one word) --
+  generalizes to ANY short label, not just the two named abbreviations.
+- **Reused hard-stops with no minimum-content floor.** A BASELINE-
+  sourced candidate's `definition_text` (via `_leading_quote_candidate`)
+  is never idiom-stripped -- "means"/"shall mean" stays the literal
+  first word(s), unlike `_extract_inline_quoted_definitions`'s own
+  candidates. When such a definition legitimately opens with an
+  enumeration marker right after its own idiom (real NY `STATE_NY_
+  ATAX_A8_S171-T`'s own `"Debt" means (i), for purposes of state debt,
+  a "tax debt" as\ndefined in section...`), `compute_hard_stops`'s own
+  REUSED letter-marker check found a quote shortly after that FIRST
+  marker (`"tax debt"`, a nested cross-reference within the SAME first
+  enumerated item, not a sibling entry) and treated it as a hard-stop --
+  collapsing a 1015-char candidate down to the bare idiom word itself
+  ("means", 5 chars). `_period_precedes_a_real_sentence` structurally
+  guards this module's OWN two relaxed checks (a period can never
+  appear within a handful of characters of `definition_start`), but the
+  REUSED `hard_stops` list had no such requirement of its own. Fixed
+  with `_MIN_CONTENT_BEFORE_REUSED_STOP` (20 chars): a genuine
+  definition is never just its own bare idiom word.
+
+Found by classifying the FULL "severe reduction" population (77 cases
+remaining after the first fix, before>200 chars / after<20 chars) by
+whether the TERM ITSELF looks genuine vs. citation-noise-shaped --
+IMPORTANT finding along the way: the large majority of the 77 (69/77)
+turned out to be genuine trim SUCCESSES, not bugs (a badly-bleeding
+1000s-char capture correctly reduced to its TRUE short definition, e.g.
+real `"spouse"` -> `"a widower."`, `"consolidation"` -> `"a merger."`,
+`"regulation"` -> `"an order."` -- all plausible, complete, correct US
+Code definitions). Raw "before/after size ratio" alone is NOT a
+reliable defect signal for this population; only a handful of the 77
+were genuinely broken, and both are now fixed. Also fixed in the same
+pass: a pre-existing row-attribution bug in the measurement script
+ITSELF (`measure_item1_bleed_trim_population.py`'s own `_current_row_
+ctx` was updated AFTER `derive_body_preamble_match`'s own internal pre-
+check call, mis-attributing a trim event's act_id to whatever row had
+most recently updated the dict) -- confirmed live (a flagged record's
+own act_id genuinely did not contain the term it was filed under)
+before either of the two bugs above could be correctly traced to their
+real source rows.
+
+Full backend suite unchanged after both fixes: 1422 passed, 4 failed
+(same known/documented set, stable throughout).
+
 ### Item 2 (single-letter adjacency)
 
 Corpus-computed (not guessed) the exact idiom-gap distance for every
