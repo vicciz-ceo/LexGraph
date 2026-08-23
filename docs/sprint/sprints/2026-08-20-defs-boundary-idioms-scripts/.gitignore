@@ -1,0 +1,27 @@
+# Full-corpus measurement outputs are hundreds of MB — kept on disk, not in git.
+# Regenerate via run_gate2.sh; the committed compare/ + run.log are the evidence.
+run/current/
+run/baseline/
+run/baseline-src/
+run/g7-out/
+
+# Design (b) expansion-wave raw dump (29MB; some definition_text values run
+# unbounded to end-of-section per _extract_inline_quoted_definitions's own
+# no-trailing-stop-cutoff weakness) — kept on disk, not in git. Regenerate
+# via measure_design_b_expansion_wave.py + sample_design_b_expansion_wave.py;
+# the committed expansion_precision.md's own sample table is the evidence.
+run/design_b/
+
+# Round-2 precision sampler (2026-08-23): item1-only full-corpus re-measurement
+# (a51b1de vs d660849, isolates Item 1 alone -- hundreds of MB) and the
+# round2/ working dumps (up to 49MB: full pure_added/pure_removed/both jsonl
+# + per-anchor mechanism classifications) -- kept on disk, not in git.
+# Regenerate via round2_census.py, round2_mechanism_precise.py,
+# round2_sample_population_c.py, round2_classify_population_c.py,
+# round2_sample_both.py, verify_removals.py, diff_item1_vs_baseline.py (the
+# item1-only re-measurement itself needs run_gate2.sh's own git-archive +
+# measure_actual_production_all_rows.py pattern against a51b1de). The
+# committed expansion_precision_2.md is the evidence.
+run/item1/
+run/item1-src/
+run/round2/

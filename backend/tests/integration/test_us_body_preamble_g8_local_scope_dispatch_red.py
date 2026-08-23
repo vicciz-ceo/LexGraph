@@ -173,9 +173,37 @@ def test_b1_local_candidate_precedes_but_does_not_suppress_distinct_section_cand
         (candidate.scope, candidate.definition_text) == ("local", _CLEAN_LOCAL_TEXT)
         for candidate in local_candidates
     ), "duplicate raw Scope-probe candidates must remain byte-identical clean local tuples"
-    assert [candidate.terms for candidate in profile.extract_definitions_from_section(
-        _LOCAL_SUBSET_ROW["text"], scope="law-wide", heading_was_derived=True
-    )] == [("Section companion",)]
+    section_candidate_terms = [
+        candidate.terms
+        for candidate in profile.extract_definitions_from_section(
+            _LOCAL_SUBSET_ROW["text"], scope="law-wide", heading_was_derived=True
+        )
+    ]
+    # Re-pinned (sprint 2026-08-20-defs-boundary-idioms, pass 2 amendment,
+    # Item 2 stale-pin sweep): the fallback-suppression guard fix
+    # (`us_profile.py`'s `if not candidates and heading_was_derived` guard,
+    # merge-not-suppress) now ALSO runs the broader fallback whenever
+    # `heading_was_derived=True`, even though the primary engine here
+    # already found "Section companion" -- so `_extract_inline_quoted_
+    # definitions` additionally, harmlessly re-discovers "Scope probe" (an
+    # ordinary quoted "means" term, unbounded by primary's own numbered-
+    # block segmentation) as a SECOND section-candidate. This is expected
+    # and correctly inert: pipeline.py's existing `used_body_derived_
+    # heading` inner dedup (unchanged by Item 2) already discards any
+    # section-candidate whose term-key collides with an already-registered
+    # LOCAL candidate key BEFORE it ever reaches persistence -- the
+    # persisted result below is unaffected either way. "Section companion"
+    # must still be present (this test's actual protective assertion);
+    # "Scope probe" is now also tolerated as harmless extra section-engine
+    # noise, not asserted away.
+    assert ("Section companion",) in section_candidate_terms, (
+        f"'Section companion' must not be suppressed by local-scope "
+        f"dispatch: got {section_candidate_terms!r}"
+    )
+    assert set(section_candidate_terms) <= {("Section companion",), (_LOCAL_TERM,)}, (
+        f"section-candidate output must not introduce any OTHER term: got "
+        f"{section_candidate_terms!r}"
+    )
 
     _, _, definitions = _run_rows(
         db_session,

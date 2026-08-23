@@ -121,6 +121,16 @@ with source evidence.
   laws ingested with newlines intact.
 - Boundary overrun runs at 83/400 = 20.8% of sampled tuples. Non-blocking
   under the director's carve-out, but it is the dominant byte-quality cost.
+- 2026-08-23, sprint `2026-08-20-defs-boundary-idioms` (issue #27, PR #30):
+  `_TIGHT_IDIOM_RE` widened + fallback guard merged per-term + dedup fix.
+  Certified +27,568 anchors / 0 genuine losses (cc51c49 executed run,
+  byte-identity chain). Tracked debt: next-entry bleed, 19 enumerated
+  single-letter wave phantoms, mis-paired-quote FP class, FX7 remainder
+  (~60 marker-family + ~40 citation-noise). LESSON (single-letter rule,
+  reverted): a zero-collateral claim measured on ONE population does not
+  transfer to other populations the same rule reaches — the `^[A-Za-z]$`
+  filter was clean on the wave but deleted a genuine pre-existing anchor
+  (NV 484B.307 "X"). Measure every population a filter change can touch.
 
 ## Program state: read each contract from its OWN branch
 

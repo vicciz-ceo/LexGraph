@@ -294,7 +294,7 @@ _LEADING_QUOTE_TERM_RE = re.compile(r'["“]([^"”]{1,200})["”]')
 # later in an unrelated sentence never qualifies.
 _TIGHT_IDIOM_RE = re.compile(
     r'[,;:]?\s*(?:\([a-zA-Z]\)\s*)?(?:and its variants\s+)?'
-    r'(?:means|shall mean|has the meaning)\b:?\s*',
+    r'(?:means|shall mean|shall include|has the (?:following |same )?meaning)\b:?\s*',
     re.IGNORECASE,
 )
 _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE = re.compile(
@@ -303,6 +303,18 @@ _TIGHT_IDIOM_WITH_RELATIVE_QUALIFIER_RE = re.compile(
     r'[^.\n]{1,300}?,\s*)?'
     r'(?:means|shall mean|has the meaning)\b:?\s*',
     re.IGNORECASE,
+)
+
+# Item 3 (sprint 2026-08-20-defs-boundary-idioms, issue #27 amendment): the
+# subset of `_TIGHT_IDIOM_RE`'s own alternation that ONLY exists because of
+# Item 1's widening ("shall include" / "has the following meaning" / "has
+# the same meaning") -- never matched by `_TIGHT_IDIOM_WITH_RELATIVE_
+# QUALIFIER_RE` (unchanged by Item 1) or `_EXCLUSION_CLAUSE_BRIDGE_RE`
+# (also unchanged). Used to classify each `starts` entry below as
+# "new-idiom-only" vs. pre-existing ("old") idiom, so a same-term collision
+# between the two can prefer the pre-existing occurrence.
+_WIDENED_IDIOM_ONLY_RE = re.compile(
+    r'shall include|has the (?:following|same) meaning', re.IGNORECASE
 )
 
 # Issue #25 (NV UCC): `"Term," (as distinguished from|except as used in)
@@ -712,6 +724,10 @@ def extract_quote_anchored_entries(
     )
 
     starts: list[tuple[int, str, int]] = []
+    # Item 3: index-aligned with `starts` -- "old" (means/shall mean/bare
+    # has-the-meaning, or bridged) vs "new_only" (recognized ONLY via
+    # Item 1's widened idiom alternatives).
+    idiom_classes: list[str] = []
     excluded_spans: list[tuple[int, int]] = []
     bridged_dstarts: set[int] = set()
     for m in _LEADING_QUOTE_TERM_RE.finditer(text, 0, limit):
@@ -740,6 +756,32 @@ def extract_quote_anchored_entries(
         ):
             dstart = idiom_m.start()
         starts.append((m.start(), term, dstart))
+        if bridged_exclusion:
+            idiom_classes.append("old")
+        elif _WIDENED_IDIOM_ONLY_RE.search(idiom_m.group(0)):
+            idiom_classes.append("new_only")
+        else:
+            idiom_classes.append("old")
+
+    # Item 3 (sprint 2026-08-20-defs-boundary-idioms, issue #27 amendment):
+    # when the SAME exact term string has both an "old"-idiom-recognized
+    # occurrence and a "new_only" (widened-idiom-only-recognized)
+    # occurrence in this one call, drop the new-idiom-only occurrence(s) --
+    # the downstream persist-time term-set dedup (`pipeline.py`,
+    # first-occurrence-wins) must never be handed a competing, idiom-
+    # widening-only capture when a real pre-existing capture already
+    # exists for that term. A term whose occurrences are ALL new-idiom-only
+    # (no pre-existing occurrence to prefer) is left untouched -- this
+    # filter only ever acts on a term with 2+ occurrences where at least
+    # one is old-idiom-recognized.
+    old_idiom_terms = {
+        term for (_qstart, term, _dstart), cls in zip(starts, idiom_classes) if cls == "old"
+    }
+    starts = [
+        entry
+        for entry, cls in zip(starts, idiom_classes)
+        if not (cls == "new_only" and entry[1] in old_idiom_terms)
+    ]
 
     hard_stops, mn_subd_stops, digit_based_stops = compute_hard_stops(
         text, limit, stop_at_mn_subd_headers=stop_at_mn_subd_headers

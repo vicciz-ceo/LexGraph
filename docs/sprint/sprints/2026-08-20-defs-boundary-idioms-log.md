@@ -1,0 +1,1430 @@
+# Log — sprint 2026-08-20-defs-boundary-idioms
+
+## Planner pass (2026-08-21)
+
+### 1. Re-deriving the current loss set live
+
+The stale count (41 ceiling-tripped anchors, 2026-08-11 manager triage) predates
+the #21/#25/#28 boundary fixes and the #19 "refers to" widening. The
+triage artifacts (`mgr_lost_term_triage_result.json`,
+`devD_item21_blast_radius_result.json`) were never committed (per QA1 Q4
+fixture-vendoring norm) and no longer exist on disk in any worktree.
+
+Reproduced live instead, in two stages:
+
+1. **Direct-function scan.** For each of the 14 jurisdictions
+   `us_markers_inline_quote._OTHER_JURISDICTIONS` registers (WA/VA/FED/UT/
+   TX/SC/AZ/NJ/MI/ND/NY/OK/NM/NV), loaded every real Definitions-headed row
+   (`profile.is_definitions_heading(heading, "")`) from the local
+   `vaquill/open-us-law` snapshot cache, applied the same
+   `normalize_for_parsing` + `strip_wikilinks` preprocessing production
+   uses, and called `extract_quote_anchored_entries` twice per row: once
+   at the real 3,000-char ceiling, once with the ceiling monkeypatched to
+   `10**9` (mirroring the original manager triage's own methodology).
+   Sanity-checked against the issue's own two named examples —
+   `USC_T5_C75_S7511` "furlough" (uncapped 3,017 chars) and
+   `STATE_NJ_T27_C1A_S1A-3.1` "Department" (uncapped 10,319 chars,
+   next-term "New Jersey tolling entity" idiom "shall include") — both
+   reproduced byte-for-byte. Result: **165 ceiling-tripped candidate
+   anchors** across the 14 jurisdictions.
+2. **Live persistence verification.** Ingested all 165 candidates' real
+   rows through the REAL `ingest_us_statute_rows` -> `run_definition_
+   linking` pipeline (one throwaway pytest probe, deleted before any
+   commit — not part of this sprint's committed test set) and checked
+   term presence in the persisted `Definition` rows (matched back to
+   source via `Article.id = _derive_article_id(document_id, act_id)`,
+   since a naive per-term dict collapses same-named terms across
+   different rows). **118 of the 165 are TRUE current losses** (absent
+   from every extraction path today, not merely present-but-shorter via
+   some other rule); the other 47 are captured by baseline or another
+   registered rule despite the ceiling drop in `us_markers_boundary`
+   alone.
+
+**The set has materially changed from the stale 41.** 118 real losses,
+not 41. This is expected given the intervening #19/#21/#25/#28 landings
+changed which rows even reach this shape; no attempt was made to
+reconcile against the original 66-row population (not reproducible — see
+above) and none is needed per P-R11 (run first, adjudicate the real
+delta).
+
+### 2. Idiom vocabulary — derived from evidence, not guessed
+
+Of the 118 real losses, only 58 have ANY subsequent quoted string in the
+remaining text at all; of those, most are noise (citation-quoted Act
+names — `"Administrative Procedure Act," P.L.1968, c.410 (C.52:14B-1...)`
+— not a defining idiom) or self-references picked up by a naive
+`.search`. Re-scanned with a corrected probe requiring (a) a DISTINCT
+quoted term (not the same term repeating itself) and (b) the idiom word
+sitting in the TIGHT gap immediately after the closing quote (the same
+shape `_TIGHT_IDIOM_RE.match` itself requires). Clean, verified findings:
+
+| Idiom (real, observed) | Row | Verified recovery |
+|---|---|---|
+| `shall include` | `STATE_NJ_T27_C1A_S1A-3.1` "Department" | `"the Department of Transportation."` — matches the issue's own director-verified text exactly |
+| `has the following meaning` | `USC_T12_C13_S1715r` "approved percentage" | Clean ~515-char recovery, but the row ALSO carries an unrelated, pre-existing digit-paren-run-membership artifact (same defect family as #21/#28) in its trailing boundary — **not used as a committed fixture** for that reason (see below) |
+| `has the same meaning` | `STATE_NJ_T34_C1A_S1A-1.16` "Public body" | Clean, single-sentence recovery, no artifacts — **used as the second committed representative loss** |
+
+`shall include` is independently corroborated a THIRD way:
+`test_us_markers_qa_sc_digit_run_membership_swallow.py`'s own docstring
+(issue #28, unrelated investigation) names `STATE_SC_T31_C3_A1_S31-3-20`'s
+`"Obligee of the authority"`/`"obligee"` item as using "shall include", an
+idiom `_TIGHT_IDIOM_RE` does not recognize — that row is not itself
+ceiling-tripped (already protected by the digit-marker run-membership
+override), but it is a second, independent real-corpus confirmation of
+the idiom string.
+
+`includes` (bare, no "shall") was investigated and REJECTED for this
+item: real evidence exists (`STATE_MI_..._S750.219a` "Unlawful
+telecommunications access device" -> "Value of the telecommunications
+service obtained..."), but its collateral-risk profile (below) is far
+worse than "shall include" alone, and the director's ruling requires
+"no speculative additions" — deferred, not part of this item.
+
+### 3. Collateral-risk sweep (gate 3)
+
+Method: ran `extract_quote_anchored_entries` against EVERY row in EVERY
+fixture under `backend/tests/fixtures/us_statutes/*.json` (34 files),
+current regex vs. four widened candidates, diffed per-row term sets and
+text; then filtered to only rows whose act_id implies a jurisdiction
+where `extract_quote_anchored_entries` is actually reachable in production
+(the 14 `us_markers_inline_quote` jurisdictions + US-FL/MN/RI/AK/ME/OH/TN,
+whose sibling rule modules also call it directly — 21 total). Naive,
+unfiltered fixture-row diffs are NOT evidence of real collateral risk —
+several early "hits" (e.g. `STATE_AR_..._S26-18-104` "Person" corrupted
+into a duplicated fragment) turned out to be for jurisdictions (AR) with
+NO registered rule reaching this function at all, hence unreachable in
+production; only the jurisdiction-filtered rows matter.
+
+| Variant | Relevant (registered-jurisdiction) rows changed | Rows with EXISTING capture text changed |
+|---|---|---|
+| A: `+shall include` only | **5** | 2 (both investigated, see below) |
+| B: `+includes` (bare) | 32 | multiple, incl. NV UCC #25 flagship fixture and the VA "sell" nested-means flagship guard |
+| C: `+includes` + has-variants | 32 (same as B) | same as B |
+| D: `+shall include` + has-variants (no bare `includes`) | **5 (identical set to A)** | 2 (same as A) |
+
+Variant D (this item's actual scope) touches exactly the same 5 rows as
+"shall include" alone — the has-meaning variants add zero additional
+collateral risk. Each of the 5 traced to its actual test assertions (not
+just the raw fixture diff):
+
+- `STATE_FL_TXLVII_C941_PI_S941.34` — only `is_definitions_heading` is
+  asserted on this row anywhere; unaffected.
+- `STATE_NJ_T48_C10_S10-3` (c5guard_nj "Board"/"Pipeline") — REAL
+  collateral, traced and RESOLVED: see §4 below.
+- `STATE_VA_T58.1_SI_C17_A9_S58.1-1735` ("Rental in the
+  Commonwealth"/"Commonwealth") — only `is_correctly_empty`/`.count('"
+  means')` asserted, never this term's own text; unaffected.
+- `STATE_VA_T47.1_C1_S47.1-2` ("notary"/"Oath", QA1 Q4 ceiling-audit
+  fixture) — that file's own tests pin ONLY `"Satisfactory evidence of
+  identity"` (a different term in the same row, bounded by the
+  already-recognized "means"/next-term exemption, wholly unaffected by
+  this widening); confirmed GREEN unchanged
+  (`test_us_markers_qa_q4_ceiling_audit.py`, 4 passed, both before and
+  after). "notary"/"Oath" are not asserted anywhere.
+- `STATE_SC_T31_C3_A1_S31-3-20` (issue #28 fixture) — adds `obligee`,
+  `Community facilities`, `Government`, `Project`, `bonds`, `mortgage`,
+  `real property` as new anchors; `Persons of low income`'s own text is
+  UNCHANGED (verified: still ends `..."beneficiary class"; and`, still
+  excludes `Obligee of the authority`). `test_us_markers_qa_sc_digit_run_
+  membership_swallow.py`'s two tests only check `Persons of low income`'s
+  presence/absence properties, never an exact term SET — confirmed GREEN
+  unchanged, both tests, both before and after.
+
+**Full-suite proof (not just the 5 rows):** ran the entire `backend/tests`
+suite (1359 tests) with `_TIGHT_IDIOM_RE` monkeypatched to the widened
+form. Result: **1358 passed, exactly 1 failed** —
+`test_us_markers_c5guard_nj.py::test_c5_guard_state_nj_t48_c10_s10_3`
+(the only real collateral hit, re-pinned this pass, see §4). No other
+regression anywhere in the backend suite.
+
+### 4. The one real stale pin — `test_c5_guard_state_nj_t48_c10_s10_3`
+
+`STATE_NJ_T48_C10_S10-3`'s `"Board"` capture comes from BASELINE
+(`_split_into_numbered_blocks` + `_leading_quote_candidate`), which wins
+its term-set dedup ahead of the family-3 rule's own contribution in
+`extract_definitions_from_section` (`all_blocks = baseline_blocks +
+priority_blocks + extra_blocks`, first-writer-wins on `candidate_key =
+tuple(sorted(candidate.terms))`). Verified directly (real DB pipeline,
+widened-regex monkeypatch): `"Board"`'s `definition_text` is
+BYTE-IDENTICAL before and after the widening. The widening's only visible
+effect on this row is a NEW, independently genuine anchor: `"Pipeline"`
+-> `"compressor plants and other facilities integrated with pipeline
+operations. L.1952, c. 166, p. 540, s. 2, eff. May 9, 1952."` (previously
+never captured by any path — `"Pipeline"` uses `"shall include"`, not
+`"means"`).
+
+Re-pinned this pass (only the Planner may edit tests): term-set assertion
+now includes `'Pipeline'`, with a content spot-check. This single test
+change is simultaneously (a) this sprint's stale-pin re-point, (b) an
+extra representative-loss RED test (using an ALREADY-vendored real row —
+no new fixture needed), and (c) a live negative control proving gate 3
+directly against a real corpus row (`"Board"`'s own long capture is
+provably unsplit).
+
+### 5. Stale-pin sweep (mandatory, full)
+
+`grep -rniE "shall\s+include|_TIGHT_IDIOM_RE|has the meaning|includes"`
+across `backend/tests/{unit,integration,e2e,fixtures}` (the four test
+roots) is far too broad to trace line-by-line by hand (hundreds of hits,
+mostly unrelated fixture body text). Traced narrowly instead: (a) every
+`.py` file importing any `us_markers_boundary`/sibling rule module (29
+files) that ALSO contains the literal string `"shall include"` — 3 hits:
+`test_us_markers_c5guard_nj.py` (re-pointed, §4), `test_us_markers_fx7_
+ceiling_known_closed_scope.py` (docstring evidence only, no functional
+dependency — its own fixture text is deliberately marker-AND-idiom-free
+prose, unaffected, confirmed GREEN unchanged: 2 passed both before and
+after), `test_us_markers_qa_sc_digit_run_membership_swallow.py`
+(docstring only, functionally unaffected — §3 above); (b) the full
+jurisdiction-filtered fixture-diff sweep in §3, which is a STRONGER,
+behavioral check than grep and is the one actually load-bearing here.
+
+**Current-behavior pin specifically checked per the brief**: issue #28's
+SC test docstring documents `"shall include"` as NOT recognized today.
+Traced its actual assertions (not just the docstring prose) — neither
+test in that file asserts non-recognition; both check presence/absence
+properties orthogonal to whether `"obligee"` itself becomes its own
+anchor. **No pin flips.** Confirmed live: both tests GREEN, unchanged,
+under the widened regex.
+
+**Result: 1 hit requiring re-pointing (`test_us_markers_c5guard_nj.py`,
+done this pass), 0 others.**
+
+### 6. Baseline
+
+Full backend suite, current HEAD, before any test additions:
+
+```
+PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly
+1359 passed, 18 warnings in 30.56s
+```
+
+After this pass's 8 new/re-pointed RED-for-cause tests: `1362 passed, 8
+failed` (all 8 for the intended reason — see item's Next Steps entry).
+
+### 7. Gate-2 plumbing
+
+**Correction beyond the known `--current` trap.** The reusable pattern in
+`docs/sprint/sprints/2026-08-12-defs-b1-refers-to-scripts/run_gate2.sh`
+was built for a B1 (body-preamble-derived) item. Read closely,
+`measure_actual_production.measure()`'s `--current` branch does TWO
+things bundled into one flag: (a) makes `capture()`'s `recognized_by_
+registered_rule` match production's real, unconditional computation (the
+documented trap — this part IS a real, general requirement, keep it), AND
+(b) restricts the entire `members`/`records` population to ONLY rows
+where `registered_b1_winner(...)` is true (skips every other row before
+`capture()` is even called). `STATE_NJ_T27_C1A_S1A-3.1`'s heading is
+recognized directly by BASELINE `is_definitions_heading` (not
+body-derived) — confirmed live — so it is NOT a B1 winner, and neither is
+any other row this item's family-3 widening touches. **Run `run_gate2.sh`
+unmodified for this item and the acceptance delta will read ~0** — not
+because nothing changed, but because the harness's own row-admission gate
+excludes the affected population entirely.
+
+Recommended correction for whoever runs gate 2 (Developer/QA, not this
+pass — out of Planner scope per the brief): in a COPY of
+`measure_actual_production.py` for this sprint's own scripts dir, remove
+the `if not registered_b1_winner(...): continue` skip from the `--current`
+branch (keep `members.append(...)` unconditional, or drop the members
+list requirement entirely and diff `records.jsonl` directly), while
+KEEPING `capture(..., current=True)` on both sides (the real trap). Do
+NOT hand-author an expected-change ledger (P-R11) — run the corrected
+harness first, then adjudicate the actual delta.
+
+Exact commands to reuse (BASE_SHA and paths per the existing pattern,
+correction applied as above):
+
+```bash
+BASE_SHA=<pre-item commit, this branch>
+PY=/Users/nerya/LexGraph/backend/.venv/bin/python
+MEASURE=<corrected copy of measure_actual_production.py, see above>
+SNAPSHOT=/Users/nerya/.cache/huggingface/hub/datasets--vaquill--open-us-law/snapshots/301000fc3465374ee0f23c3c6953a8a861e95cad
+RUN=docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run
+git archive "$BASE_SHA" | tar -x -C "$RUN/baseline-src"
+PYTHONPATH=.:backend "$PY" "$MEASURE" --snapshot "$SNAPSHOT" --source-root "$REPO" --out "$RUN/current" --current
+PYTHONPATH=.:backend "$PY" "$MEASURE" --snapshot "$SNAPSHOT" --source-root "$RUN/baseline-src" --out "$RUN/baseline" --current
+```
+
+Not executed this pass (Planner scope explicitly excludes running the
+full all-53).
+
+### 8. Adjudication of the unrecovered remainder (gate 1)
+
+Of the 118 live-verified real losses, this item recovers those whose true
+next-term idiom is `shall include`/`has the (following|same) meaning`.
+The rest are NOT silently dropped:
+
+- **~60 have no distinguishable next-quoted-term at all** in the
+  remaining text (e.g. `USC_T5_C75_S7511` "furlough" — verified directly:
+  its true boundary is a bare `"(b) This subchapter does not apply..."`
+  LETTER marker with no quote in the 40-char lookahead
+  `_QUOTE_WITHIN_LOOKAHEAD_RE` requires, a completely different defect
+  family — un-quote-adjacent marker recognition, not idiom vocabulary).
+  Out of this item's scope (director ruling: "recovery goes through idiom
+  vocabulary only" for THIS item; a marker-boundary fix would be its own,
+  separate item).
+- **The remaining ~40-odd with a next quote** are dominated by citation
+  noise (quoted Act names followed by a P.L./Pub.L. citation, not a
+  defining idiom) once traced individually; no further CLEAN,
+  evidence-backed idiom emerged at planning altitude beyond the three in
+  §2. Full corpus-wide recovery accounting is deferred to gate-2
+  acceptance (Developer/QA), consistent with "full-corpus discovery is
+  NOT required at planning altitude."
+
+## Developer pass (2026-08-21)
+
+### Steps 1-7: implementation, tests, full pass -- all clean
+
+Synced at `d660849` (verified). Scoped RED re-run before any code change
+reproduced the brief's stated baseline exactly: 8 failed / 11 passed across
+the four target files. Widened `_TIGHT_IDIOM_RE`
+(`backend/app/definition_links/rules/us_markers_boundary.py:296`) per
+Item 1's spec exactly:
+
+```
+r'(?:means|shall mean|shall include|has the (?:following |same )?meaning)\b:?\s*'
+```
+
+(previously `r'(?:means|shall mean|has the meaning)\b:?\s*'`). Re-run: 19/19
+green across the four target files. Guard estate (16 c5guard class-B + 5
+discriminator safety guards + SC #28 (2) + NV #25 UCC bridge (6) + FX7
+ceiling (2) = 31 tests): 31/31 green. `git diff -- backend/app/` touches
+only `us_markers_boundary.py` (1 line changed). Full backend suite: 1370
+passed (baseline 1359 + Planner's 11 new, 0 failed -- matches the brief's
+exact expected count). Frontend: 165/165 passed (25 files). Typecheck:
+clean, zero errors. Committed `a51b1de` ("feat: recognize 'shall include'
+and 'has the following/same meaning' as entry boundaries (issue #27)
+(sprint/2026-08-20-defs-boundary-idioms)"), pushed to
+`claude/defs-boundary-idioms`.
+
+### Step 8: Gate-2 execution -- STOP-and-escalate triggered
+
+Built the corrected harness per this doc's own §7: a copy of
+`measure_actual_production.py` (this sprint's
+`measure_actual_production_all_rows.py`) with the `registered_b1_winner`
+population-restriction removed from the `--current` branch (every corpus
+row is now a measured "member", not just B1 winners) while
+`capture(..., current=True)` is unchanged (the real, general `--current`
+trap, preserved). Dropped the prior sprint's hard-coded
+`EXPECTED_MEMBERS`/`EXPECTED_MEMBERS_HASH`/`EXPECTED_CHANGED*` constants
+(B1-sprint-specific, inapplicable to this item's population) and the
+`compare()`/`--compare` mode entirely; diffing done instead by a
+`diff_gate2.py` copy (same pattern as
+`2026-08-12-defs-b1-refers-to-scripts/diff_gate2.py`, no hard-coded
+certified-ledger hash -- P-R11, run then adjudicate).
+
+Ran `run_gate2.sh` (`BASE_SHA=d660849163df9c46aae97157424ba0bb5420ffce`,
+the pre-fix commit on this branch; current = post-fix working tree @
+`a51b1de`). Both sides measured with `--current` (2,038,247 rows / 53
+files each, matching `EXPECTED_ROWS`). Raw result:
+
+```
+current:  766,928 records (members=2,038,247 -- full corpus, confirms the
+          population-restriction correction took effect)
+baseline: 760,753 records
+changed:            8,725  (added 7,450 / removed 1,275)
+distinct_anchors_row_term: 7,584
+  anchors_pure_added:              6,309
+  anchors_pure_removed:              134
+  anchors_both_removed_and_added:  1,141
+```
+
+**All three of the brief's STOP conditions are triggered simultaneously**:
+
+- `anchors_pure_removed = 134` -- anchors removed with NO same-anchor
+  re-add (the brief's first STOP condition, "any anchor is REMOVED with no
+  same-anchor re-add").
+- `distinct_anchors_row_term = 7,584` -- roughly 25x the brief's "~300"
+  ceiling (second STOP condition).
+- The scale itself: 7,584 real-corpus anchors touched by a one-line regex
+  change is not plausibly the same population as the Planner's 118-anchor
+  loss inventory, even accounting for the corrected harness now measuring
+  the FULL 2,038,247-row corpus rather than the Planner's 34-fixture /
+  21-jurisdiction collateral-risk sweep (third STOP condition: "the
+  additions don't plausibly correspond to the loss inventory").
+
+No adjudication performed (out of Developer scope, per brief and per
+P-R11/P-R15 -- QA's job, not this pass's). Per the brief's explicit
+instruction ("STOP and `ESCALATION:` before committing further"), the
+Developer pass halts here: the "chore: gate-2 all-53 execution artifacts"
+commit was NOT made, step 9 (`qa_g7_common.INTEGRATION_SHA` re-pin +
+evidence regeneration) was NOT run (the SHA-re-pin edit made in
+preparation was reverted, working tree clean again), and step 10 (Dev
+Complete bookkeeping) was NOT performed. Item 1 stays out of Dev Complete;
+the sprint contract frontmatter/Next-Steps/Dev-Complete sections are
+untouched by this pass.
+
+**Evidence preserved on local disk, NOT committed** (per the STOP
+instruction), for whoever adjudicates next:
+`docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/` --
+`measure_actual_production_all_rows.py`, `diff_gate2.py`, `run_gate2.sh`,
+`.gitignore`, `run_g7_repin.sh` (prepared, not yet run), and
+`run/run.log` + `run/compare/{summary.json,changed.jsonl}` (the full
+7,584-anchor raw delta; `run/current/`, `run/baseline/`,
+`run/baseline-src/` are the multi-hundred-MB raw record dumps, per the
+`.gitignore`). A plausible, UNVERIFIED hypothesis for the scale (offered
+as a lead, not an adjudication): `_TIGHT_IDIOM_RE` / `extract_quote_
+anchored_entries` may be reachable from more of the 53 corpus
+jurisdictions in live production than the Planner's fixture-bounded
+collateral sweep (34 files, 21 jurisdictions) sampled -- but this is
+exactly the kind of thing gate 2's own STOP thresholds exist to catch
+before assuming it, not something this pass is positioned to confirm.
+
+## Escalations
+
+**ESCALATION (Developer pass, 2026-08-21):** Gate-2 all-53 execution (run
+under the log doc's own §7-corrected harness, not adjudicated) measured
+7,584 distinct (row, term) anchors changed by this item's one-line regex
+widening across the real 2,038,247-row production corpus -- 6,309 pure
+additions, 134 pure removals, 1,141 anchors both added-and-removed. All
+three of the brief's numeric STOP conditions trip at once (a pure removal
+exists; changed-anchor count is ~25x the "~300" ceiling; the scale does
+not plausibly match the Planner's 118-anchor loss inventory even after
+accounting for the corrected harness's full-corpus vs. fixture-sample
+population difference). The Developer pass halted per instruction rather
+than adjudicating or proceeding: gate-2 artifacts were NOT committed,
+`qa_g7_common.INTEGRATION_SHA` was NOT re-pinned, and Item 1 was NOT moved
+to Dev Complete. Full raw numbers and the corrected-harness methodology
+are in "Developer pass (2026-08-21)" above; raw evidence sits uncommitted
+under `docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/`
+for the next adjudicating pass. The code fix itself (`a51b1de`) is
+committed, pushed, and independently green against every scoped/guard-
+estate/full-suite/frontend/typecheck check run this pass -- the open
+question is strictly the true production collateral scope, not the RED
+tests or the regex correctness against them.
+
+## Deviations from brief
+
+Step 8 did not reach the "Commit artifacts" instruction and steps 9-10
+were not started, per the STOP-and-escalate trigger documented above under
+Escalations -- not a scope deviation, the brief's own conditional halt.
+Otherwise none. (The FED "approved percentage" row was considered as a
+second representative loss and DROPPED in favor of NJ "Public body" once
+its recovered text was found to carry an unrelated pre-existing artifact --
+a planning-time substitution, not a deviation from the brief's
+requirements.)
+
+## Agent roster (manager bookkeeping, append-only)
+
+- planner → af1fb30796df25f99 (spawned 2026-08-20T21:55Z, exited clean @ fa58834; manager verified: diff scope tests+docs only, RED re-run 8F/11P reproduced, c5guard_nj re-point strengthens assertions)
+
+## Manager: gate-2 evidence preserved + director ruling pending (2026-08-21)
+
+Developer STOP was correct per brief. Manager committed the small gate-2
+evidence (compare/ + run.log + scripts; record dumps gitignored on disk).
+Delta decomposition: 7,584 anchors = 6,309 pure additions + 1,141 re-bounded
++ 134 pure removals, vs the 118-anchor recovery inventory. Investigation
+spawned per the director's sprint-1 precedent (investigate before QA);
+product ruling on the mass-addition footprint goes to the director with the
+findings.
+
+- developer → ad944ba8200be8116 (spawned 2026-08-20T22:40Z, escalated clean @ ad6619f)
+
+## Director ruling on the gate-2 escalation (2026-08-21, manager)
+
+Ruling A: amend the sprint — fix the fallback-suppression guard here (Item 2),
+gate 7 bound widened to name that seam. Ruling B: fold the ~9 degraded
+re-boundings into scope (Item 3) — nothing ships degraded. One combined
+certification run; zero genuine losses to ship. Gate 3 codifies the
+sampling+structural adjudication policy per investigation.md.
+
+- investigator (read-only, Sonnet high) → a4c4b766a332fcc7e (delivered investigation.md @ 494b0b4)
+
+## Planner pass 2 (2026-08-21, amendment)
+
+### Item 2 design — candidates measured, footprint, and choice
+
+Enumerated three credible designs for the guard site (`us_profile.py`
+~2551):
+
+- **(a) Full union, no per-term filter.** Every call to
+  `extract_definitions_from_section` with `heading_was_derived=True` runs
+  the fallback and appends ALL of its candidates, regardless of term
+  collision with the primary engine. **Rejected**: strictly dominated by
+  (b) — measured identical new-term footprint (same set-difference), PLUS
+  it reintroduces the EXACT same-term-collision hazard Item 3 fixes,
+  site-wide: on the 200-row seeded sample below (rows where primary
+  already finds ≥1 entry), the fallback's own term set overlapped the
+  primary's on 200/200 rows (100%) — every one of those becomes a NEW
+  same-key collision under (a), landing on whichever candidate is
+  first-in-list (no protection at all).
+- **(b) Per-term admission (chosen).** Admit a fallback candidate only
+  when its own term does not collide with any primary-engine term on that
+  row, further filtered by a narrow, evidence-derived implausible-capture
+  rejection (below). Recovers all 130 genuine losses (full population,
+  verified — see "130/130 recovery check"). Cannot ever reintroduce a
+  same-term collision (that is the filter's entire purpose), so it cannot
+  create NEW Item-3-shape hazards.
+- **(c) Structurally cleaner variant (positional overlap-avoidance).**
+  Considered: admit a fallback candidate only when its own text span does
+  not overlap the primary engine's own claimed span. Rejected as
+  currently unbuildable within bounds: this requires span/position
+  tracking inside `_extract_inline_quoted_definitions`, whose own
+  internals are explicitly forbidden by the amended gate 7.
+
+**Footprint measurement** (methodology: direct-function replay of
+`USProfile.extract_definitions_from_section`/`_extract_inline_quoted_
+definitions`, the same approach investigation.md's Q1 validated as 100%
+accurate against the real gate-2 diff; scripts run from this session's
+scratchpad, not committed):
+
+- **130-row genuine-loss population** (investigation.md's full table,
+  minus the 4 phantom rows): 130/130 recovered under design (b) with the
+  evidence-derived junk filter; 0 false rejects.
+- **Seeded 200-row sample** (seed `f"{20260821}:{jurisdiction}"`,
+  proportional draw across the 16 jurisdictions reachable through
+  family-3/OH/ME, filtered to rows where the primary engine already finds
+  ≥1 entry today): 61/200 rows (30.5%) gain ≥1 new fallback term under
+  design (b), 122 new terms total — extrapolates (rough, not a certified
+  count) to roughly 13,100 of the ~42,974 defs-headed rows across those
+  16 jurisdictions. **Precision spot-check (20 of the 122, full text, not
+  display-truncated) is MIXED**: several are clean, complete real
+  definitions (e.g. VA "facilitates the sale", a coherent multi-part
+  statutory exclusion); several others carry the fallback's own
+  documented no-trailing-stop-cutoff weakness, bleeding into the next
+  entry's own lead-in text (e.g. FED "Iran" -> `"...the District of
+  Columbia.\n\n(4) Person\n\nThe term"`; FED "trust" similarly); one is an
+  outright false positive with a garbage numeric term key ("1501") paired
+  with 1,029 chars of unrelated Executive Order text. This is a
+  MATERIALLY different, more mixed precision profile than Item 1's own
+  widening (80/80 sampled genuine, 0% FP) — flagged here for gate-2/QA to
+  sample this specific sub-population (rows where primary already had
+  ≥1 entry, now gaining more) separately from the 130-row recovery (which
+  IS clean by construction: every one of those 130 is a real, previously-
+  captured statutory definition, verified in investigation.md's own
+  table). Not resolved by this pass — the amended gate 7 authorizes the
+  guard-site fix; it does not pre-adjudicate the new population's
+  precision, and building a broader quality filter would require touching
+  `_extract_inline_quoted_definitions`'s own internals (forbidden) or
+  guessing at additional vocabulary (against the sprint's own "no
+  speculative additions" discipline) — a QA sampling pass against the
+  real gate-2 corpus-wide diff is the right next check, not a Planner-
+  authored heuristic.
+
+**The implausible-capture filter** (needed to satisfy the brief's
+negative-control requirement — literal per-term admission alone
+resurfaces investigation.md's 4 phantom terms, verified directly): reject
+an otherwise-admissible fallback candidate when (a) its term, stripped, is
+a bare common English function word (closed list: for/and/or/the/a/an/of/
+in/to/with/by — matches the observed "for" shape) or (b) its term OR
+definition_text begins with `^\d{4}[—–-]` (a 4-digit year immediately
+followed by an em/en dash or hyphen — matches the observed "2010—Subsec.
+..."/"2006—Subsec. ..." shape). Validated: 0 false rejects across the
+full 130-row genuine population; 100% correct rejection of all 4 known
+phantom terms (FED rows 2333/4978/34432). This filter applies uniformly
+(both to the always-existed zero-candidate path and the new merge path) —
+a strict quality improvement wherever it fires, not scoped narrowly to
+just these 4 rows.
+
+### Item 3 design — one mechanism covers both named shapes
+
+Diagnosed directly against real corpus text (WA row 148, NY row 6675, and
+spot-checked FED "correct" row 42191 from investigation's own "4 more
+instances" list): all three exhibit the IDENTICAL shape — the same exact
+term string quoted twice in one section body, once via an idiom
+`_TIGHT_IDIOM_RE` recognized BEFORE this sprint's Item 1 widening
+(`means`/`shall mean`/bare `has the meaning`) and once via an idiom ONLY
+the widening added (`shall include`/`has the following meaning`/`has the
+same meaning`). `extract_quote_anchored_entries` builds `starts` in text
+order with no per-term collision handling; downstream, whichever
+occurrence reaches `all_candidates` first wins the persist-time dedup
+(`pipeline.py` ~line 400, `key = (owning_art.id, tuple(sorted(candidate.
+terms)))`, first-occurrence-wins, unchanged by this item). In every
+verified instance the NEW (widened-idiom) occurrence sits textually
+BEFORE the pre-existing one, so it wins and displaces the correct one.
+This is investigation's "displacement family" AND the "list-introducer
+corruption" at once — not two defects, one.
+
+Fix lives entirely inside `extract_quote_anchored_entries`
+(`us_markers_boundary.py`, already an authorized file) — the
+term-set-dedup fallback allowance in the amended gate 7 was NOT needed;
+the seam is upstream of it. Filtering `starts` before `close_entries`
+means a term with only one recognized occurrence (the validated-genuine
+6,309 additions, and the 1,114/1,141 monotonic re-boundings) is
+structurally untouched by construction — the filter only ever acts on a
+term with 2+ occurrences in one call.
+
+**NY row 6675 diagnosis correction.** investigation.md's Q3 names this row
+as the sprint's "1 outright corruption." Diagnosed this pass, verified TWO
+independent ways (a direct `extract_definitions_from_section` call, and
+the real `ingest_us_statute_rows` -> `run_definition_linking` pipeline):
+this row does NOT reproduce the corruption at persistence altitude. NY
+carries 38 baseline blocks (`_split_into_numbered_blocks`), so `all_blocks
+= baseline_blocks + priority_blocks + extra_blocks` puts baseline FIRST;
+baseline's own `_leading_quote_candidate` already finds sub-item (c)'s
+clean "means" candidate as its own block, and NY has no
+`priority_before_single_baseline=True` registration (only US-WA,
+`us_markers_inline_quote.py`, and US-FED, `us_markers_fed_good_
+samaritan.py`, do) — so family-3's own colliding candidates (bad AND
+good) are appended AFTER baseline's, and the FIRST-occurrence-wins
+persist dedup picks baseline's already-correct entry both before and
+after Item 1's widening. This explains why the "displacement family" (~8
+rows) and NY's row are grouped separately in the mandate: the
+displacement family requires a jurisdiction where family-3 wins ordering
+ahead of baseline (WA/FED, both `priority_before_single_baseline=True`);
+NY does not have that property for this row. Kept in the test suite as a
+verified regression pin (currently green, must stay green), not a RED —
+the general mechanism is still real (proven via the WA row and two fully
+synthetic M-R107 controls reproducing BOTH named shapes cleanly). Flagged
+for the director/manager: this is a genuine discrepancy with
+investigation.md's own characterization, not a re-litigation of it — the
+underlying gate-2 "records.jsonl" this session cannot access directly
+might reflect a detail not captured by this pass's direct-function/
+full-pipeline replay; worth a second look if it matters for certification
+sign-off, but does not change what Item 3 must fix (the general
+mechanism, not this one row).
+
+### Stale-pin sweep (Items 2-3)
+
+Traced (not just grepped): every file importing `_extract_inline_quoted_
+definitions` (19 files) or referencing `heading_was_derived` (22 files)
+across all four test roots — cross-referenced against `git grep -l
+"extract_definitions_from_section\|extract_quote_anchored_entries"`.
+Confirmed via direct execution (this pass's monkeypatched simulation of
+BOTH specs together, run against each candidate file, then the full
+suite) rather than by inspection alone.
+
+- **`test_us_body_preamble_g8_local_scope_dispatch_red.py`** — ONE real
+  hit, re-pointed this pass. `test_b1_local_candidate_precedes_but_does_
+  not_suppress_distinct_section_candidate` pinned `extract_definitions_
+  from_section`'s own return value as EXACTLY `[("Section companion",)]`;
+  Item 2's merge additionally (harmlessly) surfaces "Scope probe" as a
+  second section-candidate (the broader fallback, now always run, finds
+  it independently of the primary engine's own numbered-block
+  segmentation). Verified this is inert at persistence altitude:
+  pipeline.py's EXISTING `used_body_derived_heading` inner dedup
+  (unchanged by this item) already discards any section-candidate whose
+  term-key collides with an already-registered LOCAL candidate key before
+  it reaches the final persist dedup — the row's actual persisted
+  Definitions are byte-identical before and after. Re-pinned to assert
+  "Section companion" is present and no OTHER term besides "Scope probe"
+  leaks in, rather than an exact single-element list.
+- **`test_us_g8_candidate_collision_preference.py`** (514 lines, pins the
+  EXACT `pipeline.py` first-occurrence-wins persist dedup Item 3 could
+  have touched) — traced and run explicitly: its fixture is a real
+  Arkansas row, and AR has NO registered `EntrySplitterRule` reaching
+  `extract_quote_anchored_entries` at all (confirmed:
+  `us_markers_inline_quote._OTHER_JURISDICTIONS` and the OH/ME wrapper
+  modules never name `"US-AR"`) — Item 3's fix, scoped entirely inside
+  that function, cannot reach this row by construction. 8/8 tests in this
+  file pass unchanged under the full Item 2+3 simulation.
+- **`test_us_markers_wave1_inline_quote_fallback.py`,
+  `test_us_markers_not_yet_rescued_subcases.py`,
+  `test_us_markers_wave1_auto_rescue_subcases.py`** (the other files most
+  directly exercising `_extract_inline_quoted_definitions`/
+  `heading_was_derived`, from the ancestor 2026-08-04-defs-us-markers
+  sprint) — 27/27 tests across these three files pass unchanged under the
+  full simulation.
+- Full suite under the full Item 2+3 simulation: 1386/1388 pass; the 2
+  non-passing are both expected artifacts, not regressions — (1) this
+  pass's OWN sanity test asserting "today's" (pre-fix) primary-only
+  behavior, which is inherently incompatible with a GLOBAL method-level
+  patch (the assertion's whole point is to document the UNPATCHED state);
+  (2) the pre-existing, already-broken `test_g7_integration_pin_is_
+  ancestral_and_production_is_frozen_after_it` (stale `qa_g7_common.
+  INTEGRATION_SHA`, dating to Item 1's own `a51b1de` landing — confirmed
+  via `git stash` + direct re-run that this fails identically with NONE
+  of this pass's files present; explicitly out of Planner scope per the
+  Developer pass's own STOP note, "step 9 ... was NOT run").
+
+No other hits across `backend/tests/{unit,integration,e2e,fixtures}`
+required re-pointing.
+
+### Simulation methodology
+
+`_TIGHT_IDIOM_RE`-style monkeypatch is insufficient here (Item 2/3's
+fixes change CONTROL FLOW, not a single swappable regex constant).
+Verification script (scratchpad, not committed) patches
+`USProfile.extract_definitions_from_section` with a faithful
+reimplementation (copied from the real method, only the guard section
+changed to Design (b)+filter) via `unittest.mock.patch.object`, and
+separately patches `extract_quote_anchored_entries` (module-level, plus
+every test/rule module that imported it by name — Python binds a fresh
+reference at import time, so patching the defining module's attribute
+alone does not reach already-`from`-imported names) with a reimplementation
+of the starts-building loop plus Item 3's collision filter, delegating to
+the REAL, unmodified `close_entries`/`compute_hard_stops`. Both patches
+active together for every run reported above.
+
+## Director ruling: wave + filter (2026-08-23, manager)
+
+Expansion-wave precision sample (expansion_precision.md @ a9653f6): census
+8,708 terms / 4,419 rows / 16 jurisdictions; 90/9/1 GENUINE/FP/AMBIGUOUS;
+term-key filter (reject `Pub. L.` / `Subsec.\(` keys) cuts FP to 4/100 with
+zero genuine collateral. Director ruled: ship wave + extended filter;
+restore-only rejected under D-RECALL-FP (~7,837 genuine forfeited);
+next-entry-bleed byte quality named tracked debt under D-MAP. Item 2 spec
+amended in the contract. Next: Planner micro-pass pins the extended filter
+(RED negative controls), then Developer implements Items 2+3.
+
+## Planner micro-pass 3 (2026-08-23): pinning the extended term-key filter
+
+New file `test_us_markers_fallback_guard_term_key_negative_control.py`
+(engine-level, same `_PROFILE`/`_terms` style as `..._structural_
+controls.py`), M-R107 synthetic fixtures shaped after the sampler's 5
+garbage-term-key FPs (#11/#19/#26/#46/#49, expansion_precision.md) but
+keyed to nobody's row/citation numbers. Two scenarios per term-key shape
+(`Pub. L.` / `Subsec.(`):
+
+- **RED-for-cause** (`test_red_pub_l_shaped_term_must_never_be_admitted`,
+  `test_red_subsec_shaped_term_must_never_be_admitted`): text where the
+  primary engine finds ZERO entries -- today's UN-FIXED guard (`if not
+  candidates and heading_was_derived`) substitutes the fallback's raw
+  output UNFILTERED, so the garbage term IS admitted live today. Verified
+  directly (not assumed): running the file today gives `2 failed, 6
+  passed` -- exactly these two RED, the other 6 (4 preconditions + 2
+  negative controls below) GREEN.
+- **Negative control, GREEN-and-staying-GREEN**
+  (`test_negative_control_pub_l_shaped_term_never_becomes_a_persisted_
+  term_even_without_a_collision`, same for `subsec`): text where the
+  primary engine already finds a DISTINCT term ('Wrenfeld'/'Halvex') --
+  today's guard suppresses the entire fallback call (unrelated reason);
+  once Item 2's merge always runs it, the garbage term is a live per-term
+  candidate that collides with nothing -- only the extended filter can
+  still reject it.
+
+**Consistency proof** (direct-function-replay method, same one this
+sprint's own footprint measurement and expansion_precision.md both used:
+`extract_definitions_from_section(heading_was_derived=False)` for the
+primary engine's own raw candidates, `_extract_inline_quoted_definitions`
+directly for the fallback's raw candidates, Item 2's spec'd merge/filter
+extended with the `Pub. L.`/`Subsec\.\s*\(` rejection applied as a pure
+function over both -- script not committed, scratchpad):
+
+```
+=== RED scenarios: must NOT contain the garbage term post-fix ===
+pub_l_primary_empty: post-fix terms = []
+  test_red_pub_l_shaped_term_must_never_be_admitted -> GREEN under simulated fix
+subsec_primary_empty: post-fix terms = []
+  test_red_subsec_shaped_term_must_never_be_admitted -> GREEN under simulated fix
+
+=== Negative controls: must STILL NOT contain the garbage term post-fix ===
+pub_l_primary_nonempty: post-fix terms = ['Wrenfeld']
+  test_negative_control_pub_l_shaped_term_never_becomes_a_persisted_term_even_without_a_collision -> stays GREEN under simulated fix
+subsec_primary_nonempty: post-fix terms = ['Halvex']
+  test_negative_control_subsec_shaped_term_never_becomes_a_persisted_term_even_without_a_collision -> stays GREEN under simulated fix
+
+ALL 4 NEW TESTS PROVEN CONSISTENT under the simulated Item-2 + 2026-08-23-extended-filter fix.
+```
+
+One precision note for the Developer: the ruling's own shorthand
+`Subsec.\(` under-specifies the validated rule -- expansion_precision.md's
+actual measured/shipped regex is `Subsec\.\s*\(` (tolerating the real
+`"Subsec. ("` space seen in all 5 sampled FPs); a literal single-wildcard-
+char reading of `Subsec.\(` would NOT match that shape. This pass's
+fixtures use the real, space-bearing shape, matching the evidence file.
+
+**Targeted run** (5 pre-existing Item-2/Item-3 files -- `..._fallback_
+guard_recovery.py`, `..._fallback_guard_phantom_negative_control.py`,
+`..._fallback_guard_structural_controls.py`, `..._dedup_swap_hazard_
+recovery.py`, `..._dedup_swap_hazard_structural_controls.py` -- plus this
+pass's new file): `10 failed, 16 passed` -- the pre-existing 8 RED
+unchanged (4 in recovery.py, 1 each in phantom_negative_control.py/
+structural_controls.py/dedup_swap_hazard_recovery.py/dedup_swap_hazard_
+structural_controls.py) plus this pass's 2 new RED
+(`test_red_pub_l_shaped_term_must_never_be_admitted`, `test_red_subsec_
+shaped_term_must_never_be_admitted`); the other 16 (6 new + 10
+pre-existing GREEN) pass.
+
+**Full backend suite** (`pytest backend/tests -q -p no:randomly`):
+`11 failed, 1385 passed`. Reconciles exactly: 1385 passed = 1379
+(pre-pass baseline) + 6 new GREEN (this file's 4 preconditions + 2
+negative controls); 11 failed = 8 pre-existing Planner RED (unchanged) +
+2 new RED (this pass) + 1 pre-existing `test_g7_integration_pin_is_
+ancestral_and_production_is_frozen_after_it` SHA-pin failure (unchanged,
+Developer's own re-pin step, out of this pass's scope). Total test count
+1396 = 1388 (prior) + 8 (this file's own tests) -- exact.
+
+- precision sampler (read-only, Sonnet high) → a1e8399ebf3c24f79 (delivered expansion_precision.md @ a9653f6; first attempt a2f644504ea003c2f died to machine sleep mid-git-compare — worktree restored by manager, containment rule added to the retry brief)
+
+- planner micro-pass 3 → a8f332966285221a0 (delivered filter pins @ 84990a7; manager verified: tests+docs only, 2F/6P reproduced)
+
+## Developer pass (2026-08-23, Items 2-3)
+
+Synced at `586bbb8` (verified, matches the brief). RED baseline reproduced
+exactly: `pytest backend/tests -q -p no:randomly` -> 11 failed / 1385
+passed (10 Planner RED across the six Item-2/Item-3 files + the
+pre-existing G7 SHA-pin), matching the brief and Planner micro-pass 3's
+own reconciliation.
+
+### Item 2 -- merge, don't suppress + extended filter
+
+`backend/app/definition_links/us_profile.py`, `USProfile.
+extract_definitions_from_section`'s guard (~line 2551): replaced
+`if not candidates and heading_was_derived: candidates = _extract_inline_
+quoted_definitions(...)` with `if heading_was_derived: candidates =
+_merge_fallback_candidates(candidates, text, scope=scope)`. New module-
+level helpers immediately above `class USProfile:` -- `_is_implausible_
+fallback_capture` (stopword terms; `^\d{4}[—–-]` amendment-caption shape
+on term OR definition_text; `"Pub. L."` literal in term; `Subsec\.\s*\(`
+in term, per the director's 2026-08-23 extension and Planner micro-pass
+3's space-tolerant correction) and `_merge_fallback_candidates` (always
+calls `_extract_inline_quoted_definitions`, admits a candidate only when
+none of its terms collide with an existing primary term AND it survives
+the implausible-capture filter -- applied uniformly whether `candidates`
+started empty or non-empty, per spec).
+
+### Item 3 -- old-idiom preference in the same-term collision
+
+`backend/app/definition_links/rules/us_markers_boundary.py`,
+`extract_quote_anchored_entries`: each `starts` entry is now classified
+"old" (means/shall mean/bare has-the-meaning, or bridged) vs "new_only"
+(recognized only via Item 1's widened alternatives -- new
+`_WIDENED_IDIOM_ONLY_RE`, `shall include|has the (?:following|same)
+meaning`), index-aligned with `starts`. Before `compute_hard_stops`/
+`close_entries`, a "new_only" entry is dropped whenever the SAME exact
+term string also has an "old" entry elsewhere in the same call. A term
+whose occurrences are ALL new-idiom-only is left untouched (matches the
+negative-control spec).
+
+### Scoped + guard-estate + full-pass results
+
+Six Item-2/Item-3 files: 25/26 -- ALL 10 Planner RED go green; the one
+non-green is `test_us_markers_fallback_guard_structural_controls.py::
+test_fixture_precondition_primary_finds_exactly_zorbenex_and_fallback_
+also_finds_quixtor`, a PRE-EXISTING (not authored this pass) precondition
+test asserting "today's" pre-fix primary-only output through the EXACT
+function this item modifies (`_primary`, `heading_was_derived=True`) --
+this is provably impossible to satisfy simultaneously with the very next
+test in the same file (`test_red_fallback_only_term_is_admitted_alongside_
+an_existing_primary_entry`, which requires the opposite outcome from the
+identical input text) once Item 2 lands at all. This exact conflict was
+already identified and pre-cleared by the Planner in "Planner pass 2"
+above ("this pass's OWN sanity test asserting 'today's' (pre-fix)
+primary-only behavior... inherently incompatible with a GLOBAL
+method-level patch... not a regression"). Per the brief's own hard rule
+(no test edits, ever), left as-is -- documented here rather than silently
+absorbed. Guard estate (16 c5guard class-B + 5 discriminator + SC #28 (2)
++ NV #25 (6) + FX7 ceiling (2) = 31 tests): 31/31 green. Full backend
+suite: 1394 passed / 2 failed (the precondition test above + the
+pre-existing G7 SHA-pin, the latter cleared only by a re-pin not yet
+reached -- see Escalations below). Frontend 165/165. Typecheck clean.
+`git diff a51b1de..HEAD -- backend/app/` touches only `us_profile.py` and
+`us_markers_boundary.py`. Committed `f267644` ("feat: merge fallback
+guard with extended filter; dedup old-idiom preference (issues #27
+amendment)"), pushed.
+
+### Gate-2 combined certification run -- STOP-and-escalate triggered
+
+Ran this sprint's `run_gate2.sh` unmodified (`BASE_SHA=d660849`, the
+pre-Item-1 commit; current = post-Items-1+2+3 working tree @ `f267644`).
+Both sides `--current`, full 2,038,247-row/53-file corpus (matches
+`EXPECTED_ROWS`). Raw result:
+
+```
+current:  788,257 records
+baseline: 760,753 records
+changed:            29,676  (added 28,590 / removed 1,086)
+distinct_anchors_row_term: 28,654
+  anchors_pure_added:              27,568
+  anchors_pure_removed:               64
+  anchors_both_removed_and_added:  1,022
+```
+
+All three of the brief's numeric STOP conditions trip: `anchors_pure_
+removed = 64` (not the 4 named phantoms specifically); `distinct_anchors_
+row_term = 28,654` exceeds the ~20,000 ceiling; the wave (~27,568 - 6,309
+Item-1-attributable ≈ 21,259) is roughly 2.4x the ruling's ~8,708 figure.
+
+Bounded sanity checks run this pass (NOT a full adjudication -- QA's job
+per P-R11/P-R15):
+
+- **All 64 pure-removed anchors** checked programmatically against the
+  shipped implausible-capture filter's own four rejection rules (stopword
+  term; `^\d{4}[—–-]`; `"Pub. L."` in term; `Subsec\.\s*\(` in term) --
+  64/64 match. These are NOT novel genuine losses; they are the SAME
+  garbage-term-key phenomenon investigation.md named on 4 specific rows,
+  now also correctly rejected everywhere else it occurs corpus-wide (the
+  filter is unconditional, not scoped to those 4 rows -- exactly as
+  specified). Baseline (pre-Item-1's unconditional, unfiltered fallback
+  substitution) had admitted all 64 as junk; the fix now rejects them.
+- **A random 15-of-1,022 sample of `anchors_both_removed_and_added`**
+  (seed 20260823): every sampled pair is OLD (longer, bleeding into the
+  next entry's own lead-in text) -> NEW (a proper prefix of OLD, cut at a
+  real boundary) -- the "improving re-bounding" shape the Planner's own
+  97.6% figure describes, not the WA/NY-named degradation shape. No
+  displaced/corrupted pair found in the sample.
+- **Population breakdown by jurisdiction** (additions): 15,057 fall
+  within the Planner's own 16-jurisdiction wave-sampling scope; **13,533
+  fall OUTSIDE that scope** -- US-MS 3,996, US-CA 2,231, US-GA 1,398,
+  US-MD 710, US-HI 688, US-CO 643, and 20-odd more jurisdictions never
+  sampled for precision. `_extract_inline_quoted_definitions`'s own
+  docstring names CA/GA as real target jurisdictions for this exact
+  fallback path, so this is not a surprising code path to be reachable --
+  but its false-positive rate for this ~13,500-item sub-population was
+  never measured (expansion_precision.md's own census was explicitly
+  scoped to "the same 16 jurisdictions the Planner's own seeded sample
+  used," never claimed to bound the full-corpus population).
+
+No adjudication performed (out of scope for this pass, per the brief's
+"run, do NOT adjudicate" and precedent from the 2026-08-21 escalation).
+Per the brief's STOP instruction, halted here: the "chore: gate-2 combined
+certification artifacts" commit was NOT made (raw evidence sits on local
+disk, uncommitted, under `docs/sprint/sprints/2026-08-20-defs-boundary-
+idioms-scripts/run/` -- `compare/{summary.json,changed.jsonl}` +
+`run.log`, matching the 2026-08-21 precedent of leaving commit disposition
+to whoever adjudicates), step 8 (G7 re-pin) was NOT run, and step 9 (Dev
+Complete bookkeeping) was NOT performed -- the sprint contract's
+frontmatter/Next-Steps/Dev-Complete sections are untouched by this pass,
+matching the 2026-08-21 developer pass's own precedent for a gate-2 STOP.
+
+## Escalations (2026-08-23, Developer pass, Items 2-3)
+
+**ESCALATION:** the gate-2 combined certification run (step 7, this pass)
+trips all three of the brief's numeric STOP conditions simultaneously --
+see "Gate-2 combined certification run" above for the full numbers and
+this pass's bounded (non-adjudicating) sanity checks. Summary for the
+director/manager: the MECHANISM appears correct by every check this pass
+could run within its own scope (the 64 pure removals are all the SAME
+already-classified garbage-term-key shape, just found corpus-wide rather
+than on the 4 originally-named rows; a 15-item random sample of the 1,022
+re-bounded anchors all show the expected "improving, tighter boundary"
+shape, none the degraded-displacement shape) -- but the SCALE is real and
+larger than estimated because Item 2's guard-site fix correctly applies
+wherever `heading_was_derived=True` corpus-wide, not only within the 16
+jurisdictions `expansion_precision.md`'s own census scoped its
+false-positive measurement to. 13,533 of the 28,590 additions (47%) fall
+in jurisdictions (US-MS/US-CA/US-GA/US-MD/US-HI/US-CO and ~20 more) whose
+false-positive rate for this fallback-merge path has never been sampled.
+This is the same shape of surprise as the 2026-08-21 escalation (the
+widening's true footprint exceeding the Planner's own estimate) --
+recommend the director decide whether: (a) the existing filter's ~4-9%
+measured FP rate (on the 16-jurisdiction sample) is trusted to generalize
+corpus-wide and the wave ships as measured, or (b) a precision sample of
+the ~13,500-item out-of-scope population is required before certification,
+per this program's own D-RECALL-FP/gate-3 adjudication discipline.
+Evidence preserved on local disk (not committed) for whoever adjudicates
+next: `docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/
+compare/{summary.json,changed.jsonl}` and `run/run.log`; `run/current/`,
+`run/baseline/`, `run/baseline-src/` are the multi-hundred-MB raw dumps
+(gitignored, regenerate via `run_gate2.sh`). The code fix itself
+(`f267644`) is committed, pushed, and independently green against every
+scoped/guard-estate/frontend/typecheck check this pass ran -- the open
+question is strictly the true production footprint size and its
+unmeasured-population precision, not the RED tests or the mechanism's
+correctness against them.
+
+## Round-2 evidence + manager ruling: single-letter filter extension (2026-08-23)
+
+expansion_precision_2.md @ 0ec36b3: delta decomposition exact (0 residue),
+out-of-census FP 1.0%, 64/64 removals phantom-verified against source,
+re-boundings 30/30 improving. New FP shape: 19 bare single-letter fallback
+terms, 19/19 verified false — D-MAP blocking class, must not ship. Manager
+ruled (under the director's wave+filter ruling + D-MAP): extend the filter
+with `^[A-Za-z]$` rejection; re-measure current side only. Flagged to the
+director for veto in the same report. Next: Planner micro-pass 4 pins the
+rule, Developer applies + re-runs current side + G7 re-pin + bookkeeping.
+
+- developer items 2-3 → a94a95011854ffd8d (escalated clean @ cc51c49)
+- haiku pin re-point → a100ef1fbec4c23b9 (d8c16fd; manager diff-checked)
+- round-2 sampler → a30d7e30f596e46d9 (0ec36b3)
+
+## Planner micro-pass 4 (2026-08-23): pinning the single-letter filter rule
+
+New file `test_us_markers_fallback_guard_single_letter_negative_control.py`
+(engine-level, same `_PROFILE`/`_terms` style as the term-key file), M-R107
+synthetic fixtures shaped after the round-2 census's classification-letter-
+label FP shape (`class "B" violation` etc.) but keyed to nobody's row/
+citation letters. Unlike micro-pass 3, the merged guard (`f267644`) is
+ALREADY live at this pass's `HEAD` (`f3d8f78`) — `_merge_fallback_
+candidates` runs unconditionally whenever `heading_was_derived=True`,
+regardless of whether the primary engine found zero or some candidates —
+so there is only one code path, not the term-key file's isolated/non-
+colliding split; both row shapes are still pinned for coverage, not because
+behavior branches on it (verified empirically: both admit the bare letter
+identically today).
+
+- **RED-for-cause** (`test_red_isolated_single_letter_term_must_never_be_
+  admitted`, `test_red_noncolliding_single_letter_term_must_never_be_
+  admitted`): `_is_implausible_fallback_capture` does not yet reject
+  `^[A-Za-z]$`, so a bare single-letter fallback term ('B'/'C') IS admitted
+  live today, on both an isolated-primary row and a non-colliding-primary
+  row ('Wrenfeld' present, no collision). Verified directly: running the
+  file today gives `2 failed, 3 passed` — exactly these two RED, the other
+  3 (2 preconditions + 1 positive control) GREEN.
+- **Positive control, GREEN-and-staying-GREEN**
+  (`test_positive_control_multi_char_short_term_still_admitted`): a
+  legitimate short-but-multi-character term ('AI', 2 characters) stays
+  admitted both before and after — `^[A-Za-z]$` matches exactly one letter,
+  never two — guarding against an over-broad implementation (e.g. a stray
+  length threshold) that would also sweep in short multi-character terms
+  the ruling never asked to close (`expansion_precision_2.md`'s own sample
+  lists a real 2-character GENUINE term, 'PA').
+
+**Consistency proof** (direct-function-replay/monkeypatch method, script
+not committed, scratchpad — patches `_is_implausible_fallback_capture` to
+additionally reject `^[A-Za-z]$` and re-runs the real
+`extract_definitions_from_section`):
+
+```
+isolated (simulated fix): {}
+  test_red_isolated_single_letter_term_must_never_be_admitted -> GREEN under simulated fix
+noncolliding (simulated fix): {'Wrenfeld': [...]}
+  test_red_noncolliding_single_letter_term_must_never_be_admitted -> GREEN under simulated fix ('C' absent, 'Wrenfeld' survives)
+control AI (simulated fix): {'Wrenfeld': [...], 'AI': ['a real multi-character acronym term that must stay admitted, not a bare single letter.']}
+  test_positive_control_multi_char_short_term_still_admitted -> stays GREEN under simulated fix
+
+ALL SIMULATED ASSERTIONS PASS -- GREEN under the extended-rule simulation
+```
+
+**Targeted run** (this pass's new file only): `2 failed, 3 passed` — matches
+the consistency proof exactly (2 RED-for-cause, 3 GREEN controls).
+
+**Full backend suite** (`pytest backend -q -p no:randomly`): `3 failed, 1398
+passed`. Reconciles exactly: pre-pass baseline measured this pass (file
+temporarily moved aside and re-run) = `1 failed, 1395 passed` (1396 total —
+the pre-existing `test_g7_integration_pin_is_ancestral_and_production_is_
+frozen_after_it` SHA-pin failure, unchanged, Developer's own re-pin step,
+out of this pass's scope); + this pass's 5 new tests (3 GREEN + 2 RED) =
+`3 failed, 1398 passed` (1401 total) — exact.
+
+- planner micro-pass 4 → (this agent; delivered filter pins, 2F/3P reproduced, full suite 3F/1398P)
+
+## Developer pass (2026-08-23, single-letter filter rule): STOP-and-escalate
+
+### Steps 1-4: implementation, scoped tests, bounded diff -- all clean
+
+Synced at `ea97a07` (verified, matches brief). Baseline reproduced exactly:
+single-letter file `2 failed, 3 passed`; full suite `3 failed, 1398 passed`
+(2 single-letter RED + 1 pre-existing G7 SHA-pin). Built a fresh worktree
+venv (`backend/.venv`, mcp 2.0.0 confirmed) and canary-checked `import app`
+resolves inside this worktree, not the main checkout, per the worktree-venv
+trap. Added the `^[A-Za-z]$` rejection to `_is_implausible_fallback_
+capture` (`backend/app/definition_links/us_profile.py`), matching the
+existing rule style exactly (new `_FALLBACK_SINGLE_LETTER_TERM_RE`
+constant + one more `if` branch in the loop; no other function touched).
+
+Re-run: single-letter file `5/5 green`; all 8 Item-2/Item-3 test files
+(34 tests) green; the exact 31-test guard estate (16 c5guard class-B + 5
+discriminator + 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7) green. `git diff
+a51b1de..HEAD -- backend/app/` touches only `us_markers_boundary.py` +
+`us_profile.py`. Committed `877c970` ("feat: reject bare single-letter
+fallback terms"), pushed to `claude/defs-boundary-idioms`.
+
+### Step 5: Gate-2 CURRENT-side re-measurement -- STOP-and-escalate triggered
+
+Regenerated `run/current` at `877c970` via `measure_actual_production_
+all_rows.py --current` (own worktree venv, `--source-root` = this
+worktree; baseline `run/baseline` left untouched on disk, per instruction).
+Ran `diff_gate2.py` against the unchanged baseline. Before overwriting,
+backed up the OLD `run/compare/{changed.jsonl,summary.json}` and confirmed
+the OLD delta's single-letter "added" rows are EXACTLY the 19 keys
+`expansion_precision_2.md` censused (16 US-IA / 1 US-CA / 1 US-OH / 1
+US-SC — jurisdiction counts match exactly; none had a same-anchor
+"removed" counterpart, i.e. all 19 were `anchors_pure_added`).
+
+New combined summary:
+
+```
+added: 28,571 (was 28,590, -19)             changed: 29,676 (unchanged)
+removed: 1,105 (was 1,086, +19)             distinct_anchors: 28,654 (unchanged)
+anchors_pure_added: 27,549 (was 27,568, -19)
+anchors_pure_removed: 83 (was 64, +19)
+anchors_both_removed_and_added: 1,022 (unchanged)
+```
+
+The 19 expected additions vanished exactly as specced (confirmed via
+symmetric-difference of OLD vs NEW `changed.jsonl` at full-row-key
+granularity: the 19 "only-in-OLD" rows are precisely the 19 census keys).
+**But 19 DIFFERENT rows appeared as NEW pure removals** — this is the
+brief's own named STOP condition ("a new removal") and directly
+contradicts its "same 64 removals... everything else identical"
+expectation.
+
+**Mechanism (verified, not guessed):** `_is_implausible_fallback_capture`
+is invoked uniformly inside `_merge_fallback_candidates`, which covers BOTH
+the always-existed zero-primary-candidate path AND the new merge path.
+Baseline (`d660849`, pre-Item-2) has ZERO filtering on that always-existed
+path — no stopword/caption/Pub.L./Subsec./single-letter rule exists there
+at all. For any row where baseline's primary engine already found zero
+candidates AND current's primary engine (even after Item 1's widening)
+also still finds zero, `_merge_fallback_candidates([], text, scope)`
+reduces to "every filtered fallback candidate" on BOTH sides — so whenever
+`_extract_inline_quoted_definitions` itself produces an IDENTICAL
+single-letter capture on both sides, baseline and pre-this-fix-current
+already agreed byte-for-byte and the anchor was invisible to the delta
+(neither added nor removed). This fix is the FIRST rule in the whole
+filter chain to newly diverge current from that shared, previously-
+unexamined agreement — surfacing 19 pre-existing single-letter captures
+that were NEVER part of `expansion_precision_2.md`'s censused population
+(that census scoped to "all PURE-ADDED anchors" only, i.e. current-vs-
+baseline deltas; it structurally could not see captures baseline already
+shared).
+
+**Adjudication sample (3 of 19, bounded sanity check, NOT full
+adjudication -- that is QA's/the director's call):**
+
+- `STATE_IA_TI_C15J_S15J.4` row 4963, term `'b'`: verified against source
+  -- `"...include in the notification under paragraph "a" and in the
+  statement required under paragraph "c" all of the following:"` -- a
+  lettered-citation phantom, same shape as the already-adjudicated 14/19
+  US-IA cases in `expansion_precision_2.md`.
+- `STATE_WI_C343_S343.14` row 11238, term `'H'`: verified against source
+  -- the application form for an `"H"` endorsement (defined elsewhere,
+  `s. 343.17`) is merely REFERENCED here, then a nearby, unrelated `shall
+  include` clause (Item 1's own widened idiom) got mis-paired with it --
+  same "mis-paired quote" root mechanism the census already found
+  unclosable by term-shape rules.
+- **`STATE_NV_T43_C484B_S484B.307` row 21958, term `'X'`: CONFIRMED
+  GENUINE, NOT a phantom.** Source, verified directly: `"12. ... (a) A
+  downward-pointing green arrow means that a driver facing the signal may
+  drive in any lane over which the green signal is shown. (b) A red "X"
+  symbol means a driver facing the signal must not enter or drive in any
+  lane over which the red signal is shown."` -- this is a real, well-formed
+  `"TERM" means DEFINITION` clause; the single letter `X` is the actual,
+  correct definiendum (a standard traffic lane-control symbol), not a
+  citation or classification-label artifact. The captured anchor is
+  correct (definition_text is a known-tracked-debt unbounded runaway per
+  D-MAP, same as other genuine anchors in this wave -- that debt
+  classification is NOT the problem here). **The problem is the anchor
+  itself is being REJECTED and lost entirely** by the blanket `^[A-Za-z]$`
+  rule, contradicting both the ROUND-2 ADDENDUM's own premise ("a real
+  English defined term is never literally one bare letter... in this
+  corpus") and its "D-MAP blocking class" framing (a genuine single-letter
+  loss was named as something that "must not ship").
+
+**This is a genuine anchor loss, not a phantom** -- Acceptance Gate 3
+("the combined run must show ZERO genuine anchor losses") is not met by
+the rule as specced. The other 16 of 19 new removals were NOT individually
+verified this pass (bounded, not full adjudication); given 1 confirmed
+genuine hit already, the director/manager should treat the full 19 as
+needing QA-level review, not assume the remaining 16 are phantom by
+extrapolation from the sampled 2.
+
+**Halting per instruction, matching the 2026-08-21 and first 2026-08-23
+STOP-and-escalate precedents in this same log:** the gate-2 "final
+certification" framing is NOT claimed; `qa_g7_common.INTEGRATION_SHA`
+re-pin was prepared then REVERTED (uncommitted, working tree left clean --
+re-pinning implies a certified, gate-2-clean tree, which this is not);
+Items 1-3 are NOT moved to Dev Complete; the sprint contract frontmatter/
+Next-Steps/Dev-Complete/Context-Dump sections are untouched by this pass.
+The code fix itself (`877c970`) stays independently green against every
+scoped/guard-estate/bounded-diff check this pass ran -- the open question
+is strictly whether the single-letter rule as specced is over-broad (loses
+`STATE_NV_T43_C484B_S484B.307` "X"), not the RED tests or the merge
+mechanism's correctness against them.
+
+## Escalations (2026-08-23, Developer pass, single-letter filter rule)
+
+**ESCALATION:** the ROUND-2 ADDENDUM's `^[A-Za-z]$` fallback-term rejection
+rule, applied as specced, closes the expected 19 phantom additions but ALSO
+newly rejects 19 single-letter fallback captures that already existed
+identically in both baseline and pre-fix-current (invisible to every prior
+delta/census because they matched byte-for-byte before this fix). At least
+1 of these 19 is a **confirmed genuine anchor loss**:
+`STATE_NV_T43_C484B_S484B.307` (NV traffic-signal lane-control statute),
+term `"X"` -- a real `"X" symbol means a driver facing the signal must not
+enter...` definitional clause, not a citation or classification-label
+artifact. This directly contradicts the ROUND-2 ADDENDUM's premise and its
+own "D-MAP blocking class" / "must not ship" framing for genuine
+single-letter losses, and trips Acceptance Gate 3 ("ZERO genuine anchor
+losses"). 2 more of the 19 (IA row 4963 `'b'`, WI row 11238 `'H'`) were
+sampled and ARE phantom (same already-known shapes); the remaining 16 are
+UNVERIFIED this pass. Recommend the director/manager choose between: (a) a
+narrower single-letter rule that doesn't catch a bare-letter-immediately-
+followed-by-`means` shape (would require Planner-level filter redesign --
+out of this Developer pass's authorized bound, which was "add `^[A-Za-z]$`
+... nothing else changes"), or (b) full QA-level adjudication of all 19
+new removals before deciding whether the 1-in-19 (or worse) genuine-loss
+rate is acceptable under D-RECALL-FP. Full numbers, mechanism, and the
+3-sample adjudication: "Developer pass (2026-08-23, single-letter filter
+rule)" above. Per instruction, halted rather than proceeding: gate-2
+artifacts (`run/compare/{summary.json,changed.jsonl}`) ARE committed this
+pass (raw, honest re-measurement, matching the 2026-08-21 precedent's own
+follow-up "preserve gate-2 evidence" commit) but NOT framed as a passing
+certification; `qa_g7_common.INTEGRATION_SHA` re-pin was prepared then
+reverted; Items 1-3 are NOT moved to Dev Complete. The code fix (`877c970`)
+is committed, pushed, and independently green against every scoped/
+guard-estate/bounded-diff check this pass ran.
+
+- developer single-letter rule → (this agent; code green, gate-2 STOP,
+  see escalation above)
+
+## Director ruling: revert single-letter rule, certify, ship (2026-08-23, manager)
+
+Finish pass found the rule reaches a pre-existing population (19 rows in
+baseline AND current) with >=1 confirmed genuine loss (NV 484B.307 "X").
+Director ruled: revert 877c970; ship the 19 wave phantoms as enumerated
+named tracked debt (preamble precedent); certify on cc51c49's executed
+measurement (production bytes identical post-revert — byte-identity to be
+verified by the Developer and re-verified by QA). Manager's own
+zero-collateral claim for the rule is corrected on the record: it held
+only for the sampled wave population.
+
+- planner micro-pass 4 → a2c3d2cb82190a3e1 (3c7347e/ea97a07; pins now retired per reversal)
+- developer finish pass → a08c4c030ff9951cc (877c970 + escalation @ 0774ca8)
+
+## Planner micro-pass 5 (2026-08-23): retiring the reversed single-letter pins
+
+Per the director's reversal ruling above, `test_us_markers_fallback_guard_
+single_letter_negative_control.py`'s two `must_never_be_admitted` RED tests
+asserted the now-reversed `^[A-Za-z]$` rejection rule -- they no longer
+match the ruled behavior and are retired. Removed
+`test_red_isolated_single_letter_term_must_never_be_admitted` and
+`test_red_noncolliding_single_letter_term_must_never_be_admitted` outright;
+re-pointed their scenarios (same synthetic fixtures, same M-R107 shape) into
+two new tests pinning the opposite, RULED assertion -- a bare single-letter
+fallback term IS admitted by the merged guard (isolated-primary and
+non-colliding-primary shapes) -- `test_red_isolated_single_letter_term_is_
+admitted`, `test_red_noncolliding_single_letter_term_is_admitted`. Kept the
+2 preconditions and the `"AI"` positive control unchanged (director/Planner
+brief: "the AI control stays"). Module docstring rewritten to cite both the
+contract's Item 2 "REVERSED by director ruling 2026-08-23" block and this
+log doc's "Director ruling: revert single-letter rule, certify, ship"
+entry, name the confirmed genuine loss (`STATE_NV_T43_C484B_S484B.307`
+"X"), and note the future-work direction (reject a single-letter fallback
+term only when it lacks an adjacent defining verb) is explicitly deferred
+to a later sprint, not attempted here.
+
+**State note verified both sides**, per the brief (`877c970` is still an
+ancestor of this pass's `HEAD` -- the Developer's revert has not landed):
+
+Targeted run, this pass's `HEAD` (RED-for-cause, live code):
+
+```
+PYTHONPATH=.:backend .../python -m pytest backend/tests/integration/test_us_markers_fallback_guard_single_letter_negative_control.py -q -p no:randomly
+2 failed, 3 passed
+```
+
+Exactly the 2 re-pointed tests fail (`test_red_isolated_single_letter_
+term_is_admitted`, `test_red_noncolliding_single_letter_term_is_admitted`);
+the 2 preconditions + the `"AI"` positive control (unaffected either way)
+stay green.
+
+Consistency proof (scratchpad script, not committed -- same "monkeypatch a
+constant, re-run the real unmodified pipeline" method every prior pass in
+this sprint used; here `_FALLBACK_SINGLE_LETTER_TERM_RE` is replaced with a
+pattern that never matches, simulating the Developer's pending revert of
+`877c970`):
+
+```
+=== Simulated reverted code (877c970's rule neutralized) ===
+isolated: {'B': ['a classification label mis-paired with distant, unrelated prose entirely, not a real definition.']}
+  test_red_isolated_single_letter_term_is_admitted -> GREEN under simulated revert
+noncolliding: {'Wrenfeld': [...], 'C': ['a classification label mis-paired with distant, unrelated prose entirely, not a real definition.']}
+  test_red_noncolliding_single_letter_term_is_admitted -> GREEN under simulated revert
+control AI: {'Wrenfeld': [...], 'AI': ['a real multi-character acronym term that must stay admitted, not a bare single letter.']}
+  test_positive_control_multi_char_short_term_still_admitted -> stays GREEN under simulated revert
+
+ALL SIMULATED ASSERTIONS PASS -- GREEN under the reverted-code simulation
+```
+
+**Full backend suite** (`pytest backend/tests -q -p no:randomly`), this
+pass's `HEAD`: `3 failed, 1398 passed` (1401 collected). Reconciles exactly
+against the prior micro-pass 4 baseline at `6b1efd4` (1401 collected, 1398
+passed, 3 failed -- the two OLD `must_never_be_admitted` tests were GREEN
+there, since the rule was live and correctly rejected the term at that
+point, plus the pre-existing G7 SHA-pin failure): this pass renames/
+re-points the same 2 tests to assert the opposite outcome (no test added or
+removed, count unchanged at 1401), so the same 2 tests flip from GREEN to
+RED (now for the opposite, ruled-behavior reason), the pre-existing G7
+SHA-pin failure is unchanged and out of this pass's scope (Developer's own
+re-pin step), and every other test is unaffected -- `3 failed, 1398 passed`
+either way, composition of the 3 failures is what changed, not the count.
+
+Contract Item 2's test list updated (2-line addition) to record the
+retirement and its RED/GREEN-under-simulation status.
+
+- planner micro-pass 5 → (this agent; delivered retired pins, RED 2F/3P
+  live + GREEN under simulated revert, full suite 3F/1398P reconciled)
+
+## Developer final pass (2026-08-23): revert, byte-identity certify, re-pin, Dev Complete
+
+Synced at `96a292e` (verified). Baseline reproduced exactly: single-letter
+file `2 failed, 3 passed`.
+
+**Revert:** `git revert --no-edit 877c970` → `79e34c8` ("Revert 'feat:
+reject bare single-letter fallback terms...'"), touching only
+`backend/app/definition_links/us_profile.py` (2 insertions, 15 deletions —
+exact inverse of `877c970`'s 15 insertions, 2 deletions). Pushed.
+
+**Byte-identity check (load-bearing):**
+
+```
+git diff f267644..HEAD -- backend/app/
+```
+
+Output: empty. Confirms the tree is byte-identical in `backend/app/` to
+`f267644` (the pre-single-letter-rule state Items 1-3 certified against),
+so the `cc51c49` combined measurement (executed against that same tree)
+stands as the certificate under P-R11. No STOP triggered.
+
+**Scoped:** single-letter file `5/5 green`. All 8 Item-2/Item-3 test files
+(34 tests, `test_us_markers_fallback_guard_recovery.py`,
+`_phantom_negative_control.py`, `_structural_controls.py`,
+`_term_key_negative_control.py`, `_single_letter_negative_control.py`,
+`test_us_markers_dedup_swap_hazard_recovery.py`,
+`_structural_controls.py`, `test_us_body_preamble_g8_local_scope_dispatch_
+red.py`) green. 31-test guard estate (16 c5guard class-B + 5 discriminator
++ 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7 ceiling — collected and verified as
+exactly 31 via a single combined pytest invocation) `31/31 green`.
+
+**Restored certified gate-2 artifacts:** `git checkout cc51c49 --
+docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/compare/
+docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/run.log`
+— replaces the on-disk post-`877c970` measurement (added 28,571 / removed
+1,105 / anchors_pure_removed 83, reflecting the now-reverted single-letter
+rule's -19/+19 swap) with `cc51c49`'s certified combined-run summary
+(added 28,590 / removed 1,086 / anchors_pure_removed 64 /
+distinct_anchors_row_term 28,654, matching this doc's "Director ruling"
+entry). Committed separately per the brief. Note for QA: the on-disk
+`run/current/` (gitignored) still reflects the pre-revert
+(post-`877c970`) measurement, not the committed `cc51c49` compare — QA
+re-derives from the committed compare artifacts or re-runs
+`measure_actual_production_all_rows.py --current` fresh if it wants a
+first-hand regeneration; either is expected to reproduce the committed
+numbers given the proven byte-identity above.
+
+**G7 re-pin:** `qa_g7_common.INTEGRATION_SHA` re-pointed to `79e34c8`
+(this pass's revert commit) per the recorded re-pin procedure; evidence
+regenerated. G7 pin test verified green post-re-pin (see full-pass tail
+below).
+
+**Full authoritative pass, backend:**
+
+```
+PYTHONPATH=.:backend backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly
+1401 passed in ...s
+```
+
+Reconciles exactly against the `96a292e` baseline (1398 passed / 2
+re-pointed single-letter tests RED / 1 G7 SHA-pin RED = 1401 collected):
+the revert flips the 2 re-pointed single-letter tests GREEN (they pin the
+ruled, post-revert behavior), and the G7 re-pin flips the SHA-pin test
+GREEN (re-pointed to `79e34c8`) — 1398 + 2 + 1 = 1401 passed, 0 failed.
+
+**Frontend:** `npm --prefix frontend run test -- --run` → 165/165 passed.
+**Typecheck:** `npm --prefix frontend run typecheck` → clean, 0 errors.
+
+**Contract bookkeeping:** Items 1-3 moved to Dev Complete (see contract
+Dev Complete section for commit references and named tracked debt);
+`status: dev-complete`, `current_role: qa`, `dev_complete_items: 3`.
+Context Dump replaced with a QA-facing pointer (certificate paths + debt
+list). `bash scripts/contract_lint.sh 2026-08-20-defs-boundary-idioms`
+checked by exit code; `lint:` field updated.
+
+- developer final pass → (this agent; revert `79e34c8`, byte-identity
+  empty-diff proof, scoped/guard-estate green, cc51c49 artifacts restored,
+  G7 re-pinned to `79e34c8`, full pass reconciled 1401/1401, frontend
+  165/165 + typecheck clean, Items 1-3 → Dev Complete)
+
+- planner micro-pass 5 → a4117c12ff03c5b2e (a184ddc/96a292e; stalled pre-push to machine sleep, manager pushed + verified)
+- developer final pass → a05576966654734b6 (79e34c8/096da83/8cfdb0f/e3d42a3; manager verified byte-identity 0-line diff, probes 21/21)
+- lock handover developer→qa by manager after verification
+
+## QA cycle 1 (2026-08-23): independent verification, PASS
+
+Independent agent (separate from every Planner/Developer this sprint).
+`git log --oneline -1` == `87159d4` confirmed at start.
+
+**Gate 5/4 (evaluator + estates).** Full backend
+`PYTHONPATH=.:backend .../pytest backend/tests -q -p no:randomly`:
+1401 passed, 0 failed (no flakes, single run). Frontend
+`npm --prefix frontend run test -- --run`: 165/165 (25 files). Typecheck:
+0 errors. 31-test guard estate run as a SINGLE combined invocation (16
+c5guard class-B + 5 discriminator + 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7
+ceiling, collected count independently confirmed to be exactly 31):
+31/31 green. FX7 file alone: 2/2 green. `bash scripts/contract_lint.sh
+2026-08-20-defs-boundary-idioms`: exit code 0, all 7 checks PASS.
+
+**Gate 6 (provenance).** Reconstructed full commit order via
+`git log --oneline --graph 629bd88^..87159d4` (confirmed fully linear,
+zero merges, so print order is exact chronology reversed). RED precedes
+GREEN for every item: Item 1 `fa58834` (test) < `a51b1de` (feat); Items
+2/3 `c91c659`+`326f898` (tests) < `979827a` (extended-filter RED) <
+`f267644` (feat, both items); micro-pass 4 `3c7347e` (test) < `877c970`
+(feat, later reverted). `git show --stat` on each of the 4 fix commits
+(`a51b1de`, `f267644`, `877c970`, `79e34c8`) confirms zero test files
+touched — `a51b1de` touches only `us_markers_boundary.py`; `f267644`
+touches only `us_markers_boundary.py` + `us_profile.py` (matching gate
+7's named bound exactly); `877c970`/`79e34c8` touch only `us_profile.py`.
+Re-pointed pins (`d8c16fd`, `a184ddc`) each cite their authority in their
+own commit/docstring (verified by reading both). Gate 7 bound:
+`git diff 629bd88..HEAD --stat -- backend/app/` touches exactly the two
+named files, nothing else.
+
+**Gate 2 (executed certificate, P-R11).** `git diff f267644..HEAD --
+backend/app/` empty — byte-identity independently reproduced. Restored
+`run/compare/{summary.json,changed.jsonl}` diffed byte-for-byte against
+`git show cc51c49:<path>` — identical, both files. Independently
+re-derived from `changed.jsonl` (not quoting summary.json): bucketed all
+29,676 records by (source_row_id, term) anchor key → 28,654 distinct
+anchors (27,568 pure-added / 64 pure-removed / 1,022 both), exact match.
+Further re-derived the mechanism decomposition using the on-disk
+(uncommitted, pre-existing) `run/round2/pure_added_mechanism_precise.jsonl`
+evidence (27,568 rows: 6,309 `mechanism=primary` / 21,259 `fallback`),
+then split the 21,259 fallback rows by the 16-jurisdiction round-1 census
+list named in `expansion_precision.md` §"Scope": 7,768 inside / 13,491
+outside — exact match to `expansion_precision_2.md`'s 6,309+7,768+13,491
+census, zero residue, independently reproduced (not quoted).
+
+**Gate 3 (zero genuine losses + adjudication).** Own seeded sample
+(`random.Random(20260823)`, n=10 of the 64 pure removals): all 10 traced
+against the real `vaquill/open-us-law` snapshot source text — every one
+confirmed phantom (amendment-history "substituted X for Y" constructions
+with a bare-stopword or amendment-caption "term", or a Statutory-Notes
+heading + Pub.L. citation + "provided that:"/"read as follows:" quote of
+superseded/uncodified text). 10/10 phantom, zero genuine losses in the
+sample. Own seeded additions sample (`random.Random(9182026)`, n=20:
+7 primary/6,309-population, 7 in-scope-fallback/7,768-population,
+6 out-of-scope-fallback/13,491-population), each checked against source:
+19/20 genuine; 1 likely FP (`STATE_MO_C191_S191.875` "Health Care Cost
+Reduction and Transparency Act" — the Act's own name mis-paired with the
+following terms-list's "shall mean:" trigger, the same disclosed
+mis-paired-quote failure mode `expansion_precision_2.md` already names as
+unclosed) — within the brief's own "~0-2 FP" expectation, not a FAIL.
+Item-3 displacement family re-verified live against real source text
+(direct calls to `extract_definitions_from_section` on the real rows):
+WA `active efforts` (row 148) — both "Active efforts" (branch a, 2808
+chars) and "active efforts" (branch b, 200 chars, the previously-displaced
+complete definition) now captured distinctly, no displacement. NY
+`General service lamp` (row 6675) now captures the real lighting-code
+definition, not the "the following definitions:" corruption. Also
+spot-verified FED `compensation` (row 2893), NY `related person` (row
+103), WA `final action` (row 35293), FED `correct` (row 42191) — all show
+real, substantive definitions at HEAD, none show the swap-hazard pattern.
+NV `484B.307` "X" (row 21958) independently re-verified captured via
+direct `extract_definitions_from_section(..., heading_was_derived=True)`
+call against the real source row.
+
+**Gate 1 (recovery).** All 4 named exemplars independently re-verified
+via direct pipeline calls against real source rows: NJ `Department`
+(row 8866) → "the Department of Transportation." (33 chars); NJ
+`Public body` (row 13985) → 231-char clean single-sentence definition;
+FED `approved percentage` (row 5247) → 515-char recovery (matches the
+Planner's own figure); NJ `Pipeline` (row 48126) → 123-char clean
+definition. Unrecovered-remainder adjudication confirmed recorded in the
+log doc's "Planner pass (2026-08-21)" §8: 118 live-verified real losses,
+~60 with no distinguishable next-quoted-term (different defect family,
+out of this item's scope per director ruling), ~40-odd dominated by
+citation noise — never silently skipped.
+
+**G7 pin.** `qa_g7_common.INTEGRATION_SHA ==
+79e34c860b28ad3f8a838977fc557341d82e0b2c` (== `79e34c8`) confirmed by
+direct read. `test_us_body_preamble_g7_certification_contract.py`:
+16/16 green. `8cfdb0f`'s evidence regeneration confirmed committed
+(qd1/qd2/qd3 summaries, D-PFP-400 ledger, fallback byte-quality ledger).
+
+**Regression tests.** 7 new tests added,
+`backend/tests/integration/test_qa_regression_defs_boundary_idioms.py`
+(commit `a6ce3c0`): (1) NV 484B.307 "X" pinned at direct-profile altitude
+with the real, verbatim statute excerpt — the reversal's protected row,
+not just the Developer's synthetic B/C/AI negative controls; (2) a fresh
+live-persistence-altitude test (US-OR, fresh act_id/term "Q", M-R107) for
+single-letter fallback admission — an altitude the Developer/Planner's
+own single-letter negative-control file never exercises; (3) three
+Gate-2/P-R11 certificate-composition pins (summary.json counts, its own
+recorded `changed.jsonl` sha256 checksum, `backend/app/` byte-identity to
+`f267644`). All 7 independently verified green; full backend reconciles
+1401 → 1408, 0 failed.
+
+**Verdict: PASS, all 3 items.** Items 1-3 → Completed. `status: review`,
+`current_role: planner`, `completed_items: 3`, `dev_complete_items: 0`,
+`qa_cycles: 1`. Lock fields (`locked_by`/`locked_at`/`last_agent`/
+`last_updated`) left untouched per instruction. Contract lint PASS (exit
+0), `lint:` field updated. Named tracked debt (next-entry-bleed +
+19 single-letter wave phantoms) confirmed recorded, not re-litigated.
+Context Dump replaced (9 lines).
+
+- qa cycle 1 → this agent; PASS all 3 items, 7 gates independently
+  re-verified from scratch, 7 regression tests (`a6ce3c0`), full backend
+  1408/1408, frontend 165/165, typecheck clean, contract lint PASS
