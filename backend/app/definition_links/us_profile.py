@@ -2592,19 +2592,43 @@ def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
 _FALLBACK_TRIM_LETTER_PAREN_RE = re.compile(r"\([A-Za-z]{1,4}\)")
 _FALLBACK_TRIM_DIGIT_DOT_RE = re.compile(r"(?<![\d.])\d{1,3}\.(?=[ \t])")
 _FALLBACK_TRIM_PRECEDING_PERIOD_RE = re.compile(r"\.\s*\Z")
-# A quote-open character immediately followed by a short bare word and a
-# period (`"Subsec.`, `"Pub.` ) is a citation-ABBREVIATION's own period,
-# not a genuine sentence end, even though it satisfies the plain period
-# check above -- confirmed live: `test_us_markers_fallback_guard_term_
-# key_negative_control.py`'s own `"Subsec. (b)(3). Some historical
-# amendment note..."` synthetic term-key (quoted prose INSIDE a genuine,
-# already-correct definition's own body, testing an unrelated guard)
-# regressed during this item's own development until this exclusion was
-# added. A real sentence end this trim is meant to catch is never a bare
-# single short word directly after an opening quote (every real
-# NY/OH/FED exemplar's own true sentence has several words before its
-# terminal period).
-_FALLBACK_TRIM_ABBREVIATION_BEFORE_RE = re.compile(r'["“][A-Za-z]{1,15}\.\s*\Z')
+# A short, SPACE-FREE token ending in a period (`Sec.`, `Subsec.`,
+# `Pub.`, a lone word) is a citation-ABBREVIATION's own period or a bare
+# label, not a genuine sentence end, even though it satisfies the plain
+# period check above -- confirmed live on TWO independent real shapes:
+# `test_us_markers_fallback_guard_term_key_negative_control.py`'s own
+# `"Subsec. (b)(3). Some historical amendment note..."` synthetic term-
+# key (quoted prose INSIDE a genuine, already-correct definition's own
+# body -- the short word sits right after a QUOTE-open), and real FED
+# `USC_T21_C13_S801`'s own baseline-block "(7) Director, Office of
+# National Narcotics Intelligence, Department of Justice." candidate
+# (itself a mis-split numbered clause from a quoted Executive Order, a
+# separate, pre-existing primary-engine defect out of this item's own
+# scope -- but its OWN definition_text starts "Sec. 5. The Attorney
+# General..." with NOTHING before "Sec." at all, not even a quote, so
+# the first check alone missed it: the short word sits right at
+# `definition_start` itself). A REAL sentence this trim is meant to
+# catch always has multiple words before its terminal period; a bare
+# abbreviation/label never does, regardless of what (if anything)
+# precedes it -- checked directly (a bounded lookback for the nearest
+# quote/period CLAUSE boundary, deliberately NOT a newline: real
+# statutory prose hard-wraps mid-sentence, e.g. NY's own "...family\n
+# services." -- treating `\n` as a boundary here would wrongly exclude
+# that real, validated stop) rather than enumerating specific
+# abbreviation strings, so it generalizes to any short label, not just
+# the two named above.
+_CLAUSE_BOUNDARY_CHAR_RE = re.compile(r'["“”.]')
+_WHITESPACE_RE = re.compile(r"\s")
+_ABBREVIATION_LOOKBACK = 60
+
+
+def _period_precedes_a_real_sentence(text: str, period_pos: int, definition_start: int) -> bool:
+    window_start = max(definition_start, period_pos - _ABBREVIATION_LOOKBACK)
+    window = text[window_start:period_pos]
+    boundary_positions = [m.end() for m in _CLAUSE_BOUNDARY_CHAR_RE.finditer(window)]
+    clause_start = boundary_positions[-1] if boundary_positions else 0
+    clause = window[clause_start:]
+    return bool(_WHITESPACE_RE.search(clause.strip()))
 
 # A marker immediately preceded (skipping only whitespace) by a QUOTE
 # character is a per-paragraph quote-REOPEN followed by an internal list
@@ -2674,9 +2698,10 @@ def _fallback_bleed_trim_end(
     ]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
-            if not _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start()):
+            period_match = _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start())
+            if not period_match:
                 continue
-            if _FALLBACK_TRIM_ABBREVIATION_BEFORE_RE.search(text, definition_start, m.start()):
+            if not _period_precedes_a_real_sentence(text, period_match.start(), definition_start):
                 continue
             stops.append(m.start())
     return min(stops) if stops else end
