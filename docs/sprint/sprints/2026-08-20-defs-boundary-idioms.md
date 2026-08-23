@@ -1,12 +1,12 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: review
+status: done
 current_role: planner
 branch: claude/defs-boundary-idioms
-locked_by: "claude-code:qa"
-locked_at: "2026-08-23T09:00:00Z"
-last_agent: "claude-code:developer"
-last_updated: "2026-08-23T09:00:00Z"
+locked_by: null
+locked_at: null
+last_agent: "claude-code:manager"
+last_updated: "2026-08-23T09:24:00Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 3
 dev_complete_items: 0
 qa_cycles: 1
-lint: "PASS 161 2026-08-23T09:20:45Z"
+lint: "PASS 161 2026-08-23T09:24:01Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
