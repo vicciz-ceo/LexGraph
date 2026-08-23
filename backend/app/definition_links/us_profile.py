@@ -961,6 +961,54 @@ _MEANS_IDIOM_GAP_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Sprint 2026-08-23-defs-debt-31, Item 2 (issue #31 debt class 2 -- "19
+# enumerated single-letter wave phantoms"). `_MEANS_IDIOM_GAP_RE`'s own
+# 0-200-char non-greedy gap tolerance is what lets a genuine `"X" symbol
+# means ...`-shaped definiendum (real NV 484B.307, 8-char gap) and a
+# phantom `"e", subparagraph (2), eligible service includes ...`-shaped
+# citation token (real IA 97B.49B, 37-char gap through an intervening
+# noun phrase) BOTH match -- there is no positional/adjacency signal in
+# that regex at all. This SEPARATE regex re-locates the idiom word's own
+# start WITHIN an already-successful `_MEANS_IDIOM_GAP_RE` match (its
+# `.group(0)` is exactly the consumed gap + idiom), giving the gap
+# DISTANCE a caller can gate on -- narrower than adding a proximity
+# requirement to `_MEANS_IDIOM_GAP_RE` itself, which would also narrow
+# every ordinary multi-character term (director ruling D-INCLUDES already
+# measured and rejected tightened idiom guards generally as pure recall
+# loss; this stays scoped to single-letter terms only, see `_single_
+# letter_term_lacks_adjacent_idiom` below).
+_IDIOM_WORD_ONLY_RE = re.compile(
+    r"\b(?:means|shall mean|has the meaning|shall include|includes)\b", re.IGNORECASE
+)
+# Corpus-verified boundary (this item's own real-row/synthetic exemplars,
+# live-computed, not guessed): genuine adjacent shapes measure 8 chars
+# (NV 484B.307's own "symbol means") and 11 chars (this item's own
+# synthetic "Z" control's own "indicator means"); phantom distant shapes
+# measure 37 chars (IA 97B.49B's own citation gap) and 93 chars (this
+# item's own synthetic "K" control) -- a wide, unambiguous margin between
+# the two sub-populations the corpus-wide census found (14/19 IA citation
+# shape, 5/19 classification-label shape), so the exact cut point within
+# that margin is not precision-sensitive.
+_SINGLE_LETTER_ADJACENCY_MAX_GAP = 20
+
+
+def _single_letter_term_lacks_adjacent_idiom(term: str, means_match: re.Match[str]) -> bool:
+    """True when `term` is a single letter AND the idiom `means_match`
+    matched sits DISTANT from the quote's own closing delimiter -- a
+    lettered cross-reference citation or classification-letter label,
+    never a genuine `"X" means ...`-shaped definiendum. Only ever narrows
+    a SINGLE-LETTER term's own admission; a multi-character term's gap
+    distance is never inspected (out of this item's scope, per gate 2 --
+    D-INCLUDES already measured and rejected a general proximity
+    tightening as pure recall loss)."""
+    if len(term) != 1:
+        return False
+    idiom_word = _IDIOM_WORD_ONLY_RE.search(means_match.group(0))
+    if idiom_word is None:
+        return False
+    return idiom_word.start() > _SINGLE_LETTER_ADJACENCY_MAX_GAP
+
+
 # G12 mandatory guard (director ruling D-INCLUDES): a quoted span
 # immediately preceded (within a small bounded, whitespace-tolerant
 # lookback window) by "References to"/"Reference to" (case-insensitive)
@@ -1155,6 +1203,8 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
                 nested_term = nested_match.group(1).strip()
                 if not nested_term:
                     continue
+                if _single_letter_term_lacks_adjacent_idiom(nested_term, means_match):
+                    continue
                 entries.append(
                     (
                         nested_term,
@@ -1172,6 +1222,8 @@ def _extract_inline_quoted_definitions(text: str, *, scope: str) -> list[Definit
             continue
         term = term_match.group(1).strip()
         if not term:
+            continue
+        if _single_letter_term_lacks_adjacent_idiom(term, means_match):
             continue
         entries.append((term, term_match.start(), term_match.end() + means_match.end(), None))
 
@@ -2459,6 +2511,216 @@ def _is_implausible_fallback_capture(candidate: DefinitionCandidate) -> bool:
     return bool(_FALLBACK_CAPTION_YEAR_RE.match(candidate.definition_text.strip()))
 
 
+# Sprint 2026-08-23-defs-debt-31, Item 1 (issue #31 debt class 1 -- "next-
+# entry bleed on wave additions"). `_extract_inline_quoted_definitions`'s
+# own entries run to the START of the next recognized quote+idiom entry
+# or `len(text)`, with NO trailing-stop/ceiling of its own (confirmed by
+# reading the whole function -- no such call exists); `_leading_quote_
+# candidate` (the per-block leading-quote parser both baseline's own
+# `_split_into_numbered_blocks` and every registered `EntrySplitterRule`'s
+# blocks are parsed with) has the SAME gap -- `block[term_match.end():]
+# .strip()`, no trailing-stop of its own either. `us_markers_boundary.
+# close_entries`'s own `bounded`/`MAX_CLEAN_DEFINITION_LENGTH` ceiling
+# calc is the FX7 ceiling itself (gate 4, already proven unsafe to widen)
+# and is NEVER touched here -- everything below is an INDEPENDENT new
+# trim path, TRIM-only (D-RECALL-FP: an anchor's TERM is never dropped;
+# only `definition_text` bytes change, and only ever get shorter).
+#
+# Applied to EVERY block-derived candidate `USProfile.extract_definitions_
+# from_section` builds AND every candidate `_merge_fallback_candidates`
+# returns (primary-sourced or fallback-admitted alike): live corpus
+# verification (this sprint's own real-row exemplars) found the identical
+# unbounded-bleed shape on candidates the PRIMARY engine (baseline
+# `_split_into_numbered_blocks`, or a registered `EntrySplitterRule` built
+# on `us_markers_boundary.extract_quote_anchored_entries`) already
+# produced -- real NY `STATE_NY_ASOS_A6_T1_S390` "Enrolled legally exempt
+# provider" and real FED `USC_T5_C75_S7511` "furlough" BOTH reach their
+# FINAL, persisted `Definition.definition_text` via baseline's own
+# numbered-block splitter, not via `_extract_inline_quoted_definitions` at
+# all -- and FED's own row is reached with `heading_was_derived=False`
+# (`"Definitions; application"` is directly recognized, one of the 7
+# already-`section_title`-working states), so scoping the trim to
+# `_merge_fallback_candidates` alone (which only ever runs when `heading_
+# was_derived`) would silently miss it. Only OH `STATE_OH_T49_C4905_
+# S4905.331` "Proceeding" is genuinely fallback-sourced. Precision risk is
+# bounded by requiring the relaxed marker checks below to sit at a REAL
+# sentence end (a literal period immediately before, not merely "not a
+# lowercase letter") -- see `_fallback_bleed_trim_end`'s own note -- which
+# structurally excludes both a marker glued right after an idiom (real
+# `"X" means (a) ...` -- the char before "(a)" is the idiom's own trailing
+# lowercase letter, not a period) and a semicolon-joined internal
+# enumeration that is genuinely part of ONE definition (real `"X" means
+# (a) cash; (b) securities; and (c) real property.` -- the char before
+# "(b)"/"(c)" is ";", not "."), the two shapes that would otherwise make a
+# looser marker check unsafe to run this broadly.
+#
+# `compute_hard_stops` (imported, not reimplemented) already finds a
+# marker hard-stop SAFELY for the shapes it covers -- reused unmodified
+# via `_fallback_bleed_trim_end` below (its own internal-enumeration-run
+# and list-introducer protections apply exactly as they do for the
+# PRIMARY engine). Two gaps real bleeding rows hit, which `compute_hard_
+# stops`'s own stricter gates do not reach on their own, get narrow,
+# additive checks instead of a widened shared-engine rule (never touching
+# the shared engine itself):
+#   - a letter-paren marker (`(B)`/`(b)`) opening an ordinary prose
+#     sentence, not itself another quoted defined term (OH's own "(B) No
+#     electric distribution utility ..."; FED furlough's own "(b) This
+#     subchapter does not apply..."; FED 12889's own "(c) The term...").
+#     `compute_hard_stops`'s own letter-marker check additionally
+#     requires a QUOTE within its own short lookahead (correct for the
+#     PRIMARY engine, which must tell a genuine sibling ENTRY apart from
+#     a nested non-defining sub-item -- see that module's own docstring);
+#     irrelevant here, where the only question is "has this candidate's
+#     own true content already ended", not "is what follows itself
+#     another definition".
+#   - a bare digit-dot marker (`2.`) NOT anchored to a physical line
+#     start -- `compute_hard_stops`'s own `_DIGIT_DOT_MARKER_RE` is
+#     `(?:^|\n)`-anchored, so it silently never fires for the 9
+#     effectively-no-newline jurisdictions (NH/SC/PR/NY/UT/OH/IL/WA/NJ,
+#     known trap; confirmed live against real NY `STATE_NY_ASOS_A6_T1_
+#     S390`'s own "...services.\n  2. * (a) Child day care centers..."
+#     and this sprint's own zero-newline structural control).
+# Each relaxed check requires a literal period (optional trailing
+# whitespace/newlines) immediately before the marker -- deliberately
+# NARROWER than `us_markers_boundary._preceded_by_sentence_or_clause_
+# boundary` (which only excludes "mid-word", not "mid-enumeration") --
+# and additionally excludes a digit-dot token glued onto another digit or
+# a bare dot (`(?<![\d.])`, the SAME citation-number guard `_TRAILING_
+# MARKER_CHAIN_RE` already uses elsewhere in this module family), so a
+# real citation like OH's own "Chapters 4909. and 4928." is never
+# mistaken for a marker.
+_FALLBACK_TRIM_LETTER_PAREN_RE = re.compile(r"\([A-Za-z]{1,4}\)")
+_FALLBACK_TRIM_DIGIT_DOT_RE = re.compile(r"(?<![\d.])\d{1,3}\.(?=[ \t])")
+_FALLBACK_TRIM_PRECEDING_PERIOD_RE = re.compile(r"\.\s*\Z")
+# A quote-open character immediately followed by a short bare word and a
+# period (`"Subsec.`, `"Pub.` ) is a citation-ABBREVIATION's own period,
+# not a genuine sentence end, even though it satisfies the plain period
+# check above -- confirmed live: `test_us_markers_fallback_guard_term_
+# key_negative_control.py`'s own `"Subsec. (b)(3). Some historical
+# amendment note..."` synthetic term-key (quoted prose INSIDE a genuine,
+# already-correct definition's own body, testing an unrelated guard)
+# regressed during this item's own development until this exclusion was
+# added. A real sentence end this trim is meant to catch is never a bare
+# single short word directly after an opening quote (every real
+# NY/OH/FED exemplar's own true sentence has several words before its
+# terminal period).
+_FALLBACK_TRIM_ABBREVIATION_BEFORE_RE = re.compile(r'["“][A-Za-z]{1,15}\.\s*\Z')
+
+
+def _fallback_bleed_trim_end(text: str, definition_start: int, end: int) -> int:
+    """The earliest position in `[definition_start, end)` where a
+    structural marker signals this candidate's own true content has
+    already ended -- `end` itself (unchanged) when no such position is
+    found. See the module note above for the exact checks and why each
+    is safe."""
+    from app.definition_links.rules.us_markers_boundary import compute_hard_stops
+
+    stops: list[int] = []
+    hard_stops, _mn_subd_stops, _digit_based_stops = compute_hard_stops(text, end)
+    stops.extend(hs for hs in hard_stops if definition_start < hs < end)
+    for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
+        for m in pattern.finditer(text, definition_start, end):
+            if not _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start()):
+                continue
+            if _FALLBACK_TRIM_ABBREVIATION_BEFORE_RE.search(text, definition_start, m.start()):
+                continue
+            stops.append(m.start())
+    return min(stops) if stops else end
+
+
+# A trailing marker FRAGMENT leaked from the NEXT entry's own opening onto
+# THIS candidate's tail -- `_extract_inline_quoted_definitions` bounds an
+# entry at the next recognized entry's own QUOTE start, so a marker that
+# precedes that quote (NY's own "\n  b. "Bakery tray" means...", "\n  e.
+# "Egg basket" means...") leaks in as dangling debris. Newline-anchored
+# (real line-start marker only, matching this module family's own
+# line-anchored marker convention) so an ordinary trailing abbreviation or
+# initial (`"...refer to Exhibit A."`) is never mistaken for one -- unlike
+# `us_markers_boundary._TRAILING_MARKER_CHAIN_RE` (paren-wrapped or
+# digit-dot tokens only), this also covers a bare LOWERCASE letter-dot
+# token (`_TRAILING_MARKER_CHAIN_RE` only ever needs to strip primary-
+# engine debris, which is case-insensitive already at that marker family;
+# the fallback's own next-entry markers are frequently lowercase-lettered
+# list items, e.g. NY's "a."/"b."/"c." container-term list).
+_FALLBACK_TRAILING_MARKER_FRAGMENT_RE = re.compile(
+    r"\n[ \t]*(?:\([\w]{1,4}\)|(?<![\d.])\d{1,3}\.|[A-Za-z]\.)[ \t]*\Z"
+)
+
+# A trailing sentence FRAGMENT with no terminal punctuation of its own --
+# the shape a fallback-reached candidate's boundary produces when it is
+# cut off by hitting the NEXT recognized entry's own quote mid-clause, not
+# at a sentence end (real WA `STATE_WA_T10_C99_S080` "convicted": ends
+# "...or the levying of a fine. For the purposes of this section," -- a
+# dangling list-introducer-style stub belonging to the NEXT entry,
+# "domestic violence", not to "convicted" itself; no marker token appears
+# anywhere in it for either check above to find). Bounded to a short
+# trailing fragment (`_FALLBACK_DANGLING_TAIL_MAX` chars) so a
+# legitimately long definition that simply lacks a final period for some
+# unrelated reason is never chopped mid-content -- only a SHORT dangling
+# tail is ever removed, and only back to the end of the last complete
+# sentence (period/semicolon/closing-quote) already inside the
+# candidate's own text, never past it.
+_SENTENCE_TERMINAL_CHARS = (".", ";", '"', "”", "'", "’")
+_FALLBACK_DANGLING_TAIL_MAX = 120
+
+
+def _clean_fallback_trailing_bleed(definition_text: str) -> str:
+    """Post-process an already end-trimmed (`_fallback_bleed_trim_end`)
+    candidate's `definition_text`: strip OH's own scrape-metadata tail
+    (`_LAST_UPDATED_TAIL_RE`, reused unmodified -- OH's own `_split`
+    already applies this on the PRIMARY path; a fallback-reached
+    candidate bypassed it entirely until now), then a leaked next-entry
+    marker fragment, then a short dangling non-terminal tail. Never
+    returns an empty string when `definition_text` was non-empty
+    (D-RECALL-FP): each step is skipped, not forced, when it would
+    otherwise reduce the text to nothing."""
+    from app.definition_links.rules.us_markers_oh_trailing_clause import (
+        _LAST_UPDATED_TAIL_RE,
+    )
+
+    cleaned = definition_text
+    without_tail = _LAST_UPDATED_TAIL_RE.sub("", cleaned).strip()
+    if without_tail:
+        cleaned = without_tail
+    without_fragment = _FALLBACK_TRAILING_MARKER_FRAGMENT_RE.sub("", cleaned).strip()
+    if without_fragment:
+        cleaned = without_fragment
+    if cleaned and cleaned[-1] not in _SENTENCE_TERMINAL_CHARS:
+        best = -1
+        for ch in _SENTENCE_TERMINAL_CHARS:
+            idx = cleaned.rfind(ch)
+            if idx > best:
+                best = idx
+        if best != -1 and best < len(cleaned) - 1:
+            tail = cleaned[best + 1 :].strip()
+            if tail and len(tail) <= _FALLBACK_DANGLING_TAIL_MAX:
+                shortened = cleaned[: best + 1].strip()
+                if shortened:
+                    cleaned = shortened
+    return cleaned
+
+
+def _trim_fallback_candidate_bleed(text: str, candidate: DefinitionCandidate) -> None:
+    """Mutates `candidate.definition_text` in place, TRIMMING (D-RECALL-FP:
+    never dropping the candidate itself) trailing bleed per `_fallback_
+    bleed_trim_end` and `_clean_fallback_trailing_bleed`. Only acts when
+    `definition_text` is a UNIQUELY locatable, literal substring of `text`
+    -- same safety precedent already established by `_trim_definition_at_
+    structural_sibling` elsewhere in this module; left unchanged (never
+    guessed at) when it is not found, or found more than once."""
+    start = text.find(candidate.definition_text)
+    if start == -1 or text.find(candidate.definition_text, start + 1) != -1:
+        return
+    end = start + len(candidate.definition_text)
+    new_end = _fallback_bleed_trim_end(text, start, end)
+    sliced = text[start:new_end].strip()
+    if not sliced:
+        return
+    cleaned = _clean_fallback_trailing_bleed(sliced)
+    if cleaned and cleaned != candidate.definition_text:
+        candidate.definition_text = cleaned
+
+
 def _merge_fallback_candidates(
     candidates: list[DefinitionCandidate], text: str, *, scope: str
 ) -> list[DefinitionCandidate]:
@@ -2470,7 +2732,25 @@ def _merge_fallback_candidates(
     design (b) in the Planner's pass-2 report), AND it survives
     `_is_implausible_fallback_capture`. When `candidates` is empty this
     reduces to "every filtered fallback candidate" -- the same population
-    the always-existed zero-candidate path used to substitute unfiltered."""
+    the always-existed zero-candidate path used to substitute unfiltered.
+
+    Item 1 (sprint 2026-08-23-defs-debt-31): every NEWLY fallback-admitted
+    candidate (appended below) gets an independent bleed trim (`_trim_
+    fallback_candidate_bleed`) -- `_extract_inline_quoted_definitions`
+    itself has no trailing-stop of its own at all (real OH `STATE_OH_
+    T49_C4905_S4905.331` "Proceeding"). Deliberately NOT applied to the
+    pre-existing `candidates` argument passed in: those already went
+    through `USProfile.extract_definitions_from_section`'s own block-
+    processing loop, which applies the SAME trim ONLY to its own
+    BASELINE-sourced blocks (see that loop's own comment) -- a candidate
+    from a registered `EntrySplitterRule` (already correctly bounded via
+    `close_entries`) or a `TermClauseRule` (its own, separate extraction
+    mechanism, out of this item's scope) must never be re-touched here;
+    doing so once regressed `test_us_markers_fallback_guard_term_key_
+    negative_control.py` (a WA `EntrySplitterRule`-sourced candidate) and
+    `test_mr121_b1_source_truth_red.py` (a `TermClauseRule`-sourced R7
+    designation candidate) during this item's own development -- both
+    confirmed live, corrected by narrowing to this exact scope."""
     fallback_candidates = _extract_inline_quoted_definitions(text, scope=scope)
     primary_terms = {term for candidate in candidates for term in candidate.terms}
     merged = list(candidates)
@@ -2479,6 +2759,7 @@ def _merge_fallback_candidates(
             continue
         if _is_implausible_fallback_capture(candidate):
             continue
+        _trim_fallback_candidate_bleed(text, candidate)
         merged.append(candidate)
     return merged
 
@@ -2606,6 +2887,40 @@ class USProfile:
         for block in all_blocks:
             candidate = _leading_quote_candidate(block, scope=scope)
             if candidate is not None:
+                # Item 1 (sprint 2026-08-23-defs-debt-31): scoped to
+                # BASELINE-sourced blocks (`block in baseline_blocks`,
+                # not every block in `all_blocks` -- a registered
+                # `EntrySplitterRule` built on `us_markers_boundary.
+                # extract_quote_anchored_entries`, e.g. `us_markers_
+                # inline_quote.py`, already produces a correctly-bounded
+                # synthetic block via `close_entries`; only baseline's
+                # own `_split_into_numbered_blocks` + this per-block
+                # leading-quote parser has no trailing-stop of its own
+                # at all), further gated to the TWO populations live
+                # verification found this exact unbounded shape on:
+                #   - `heading_was_derived` articles (NY/CA/IL/GA-style
+                #     placeholder-heading states -- real NY `STATE_NY_
+                #     ASOS_A6_T1_S390` "Enrolled legally exempt
+                #     provider"), zero-risk for the 7 already-`section_
+                #     title`-working states by construction (this flag
+                #     is always False for them);
+                #   - US-FED specifically (real `USC_T5_C75_S7511`
+                #     "furlough", reached with `heading_was_derived=
+                #     False` -- FED's own "Definitions" heading is
+                #     directly recognized) -- the SAME scope `_trim_
+                #     definition_at_structural_sibling` immediately below
+                #     already uses, for the SAME reason its own docstring
+                #     gives: corpus measurement found no marker-
+                #     structure-only signal that separates a genuine FED
+                #     over-capture from several OTHER jurisdictions' own
+                #     PINNED, intentionally-kept baseline captures of the
+                #     identical shape.
+                # Confirmed live: broadening this to EVERY jurisdiction
+                # (dropping this gate) regressed the `test_us_markers_
+                # c5guard_{mi,nd,nj,ny,ok}.py` and `test_us_markers_qa_
+                # q1_wa_newline_collapse_swallow.py` guard estate.
+                if block in baseline_blocks and (heading_was_derived or self.code == "US-FED"):
+                    _trim_fallback_candidate_bleed(text, candidate)
                 candidates.append(candidate)
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):

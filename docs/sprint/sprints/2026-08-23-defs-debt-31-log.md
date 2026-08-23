@@ -212,3 +212,4 @@ between real matched genuine/mis-paired pairs, restated with novel
 identifiers; Item 4: text-level structural facts about the two named
 families' own documented shapes, calling no production code at all so
 they cannot flip red under any Dev/QA resolution).
+- 2026-08-23T19:38Z developer spawned (solo, Items 1-5): agentId a84542532f2c9fbac (Sonnet, medium). Left uncommitted deliberately so the Developer's HEAD sync check still sees b33d994; rides in its first commit.
