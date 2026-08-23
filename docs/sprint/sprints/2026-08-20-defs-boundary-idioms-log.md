@@ -1310,3 +1310,121 @@ checked by exit code; `lint:` field updated.
 - planner micro-pass 5 → a4117c12ff03c5b2e (a184ddc/96a292e; stalled pre-push to machine sleep, manager pushed + verified)
 - developer final pass → a05576966654734b6 (79e34c8/096da83/8cfdb0f/e3d42a3; manager verified byte-identity 0-line diff, probes 21/21)
 - lock handover developer→qa by manager after verification
+
+## QA cycle 1 (2026-08-23): independent verification, PASS
+
+Independent agent (separate from every Planner/Developer this sprint).
+`git log --oneline -1` == `87159d4` confirmed at start.
+
+**Gate 5/4 (evaluator + estates).** Full backend
+`PYTHONPATH=.:backend .../pytest backend/tests -q -p no:randomly`:
+1401 passed, 0 failed (no flakes, single run). Frontend
+`npm --prefix frontend run test -- --run`: 165/165 (25 files). Typecheck:
+0 errors. 31-test guard estate run as a SINGLE combined invocation (16
+c5guard class-B + 5 discriminator + 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7
+ceiling, collected count independently confirmed to be exactly 31):
+31/31 green. FX7 file alone: 2/2 green. `bash scripts/contract_lint.sh
+2026-08-20-defs-boundary-idioms`: exit code 0, all 7 checks PASS.
+
+**Gate 6 (provenance).** Reconstructed full commit order via
+`git log --oneline --graph 629bd88^..87159d4` (confirmed fully linear,
+zero merges, so print order is exact chronology reversed). RED precedes
+GREEN for every item: Item 1 `fa58834` (test) < `a51b1de` (feat); Items
+2/3 `c91c659`+`326f898` (tests) < `979827a` (extended-filter RED) <
+`f267644` (feat, both items); micro-pass 4 `3c7347e` (test) < `877c970`
+(feat, later reverted). `git show --stat` on each of the 4 fix commits
+(`a51b1de`, `f267644`, `877c970`, `79e34c8`) confirms zero test files
+touched — `a51b1de` touches only `us_markers_boundary.py`; `f267644`
+touches only `us_markers_boundary.py` + `us_profile.py` (matching gate
+7's named bound exactly); `877c970`/`79e34c8` touch only `us_profile.py`.
+Re-pointed pins (`d8c16fd`, `a184ddc`) each cite their authority in their
+own commit/docstring (verified by reading both). Gate 7 bound:
+`git diff 629bd88..HEAD --stat -- backend/app/` touches exactly the two
+named files, nothing else.
+
+**Gate 2 (executed certificate, P-R11).** `git diff f267644..HEAD --
+backend/app/` empty — byte-identity independently reproduced. Restored
+`run/compare/{summary.json,changed.jsonl}` diffed byte-for-byte against
+`git show cc51c49:<path>` — identical, both files. Independently
+re-derived from `changed.jsonl` (not quoting summary.json): bucketed all
+29,676 records by (source_row_id, term) anchor key → 28,654 distinct
+anchors (27,568 pure-added / 64 pure-removed / 1,022 both), exact match.
+Further re-derived the mechanism decomposition using the on-disk
+(uncommitted, pre-existing) `run/round2/pure_added_mechanism_precise.jsonl`
+evidence (27,568 rows: 6,309 `mechanism=primary` / 21,259 `fallback`),
+then split the 21,259 fallback rows by the 16-jurisdiction round-1 census
+list named in `expansion_precision.md` §"Scope": 7,768 inside / 13,491
+outside — exact match to `expansion_precision_2.md`'s 6,309+7,768+13,491
+census, zero residue, independently reproduced (not quoted).
+
+**Gate 3 (zero genuine losses + adjudication).** Own seeded sample
+(`random.Random(20260823)`, n=10 of the 64 pure removals): all 10 traced
+against the real `vaquill/open-us-law` snapshot source text — every one
+confirmed phantom (amendment-history "substituted X for Y" constructions
+with a bare-stopword or amendment-caption "term", or a Statutory-Notes
+heading + Pub.L. citation + "provided that:"/"read as follows:" quote of
+superseded/uncodified text). 10/10 phantom, zero genuine losses in the
+sample. Own seeded additions sample (`random.Random(9182026)`, n=20:
+7 primary/6,309-population, 7 in-scope-fallback/7,768-population,
+6 out-of-scope-fallback/13,491-population), each checked against source:
+19/20 genuine; 1 likely FP (`STATE_MO_C191_S191.875` "Health Care Cost
+Reduction and Transparency Act" — the Act's own name mis-paired with the
+following terms-list's "shall mean:" trigger, the same disclosed
+mis-paired-quote failure mode `expansion_precision_2.md` already names as
+unclosed) — within the brief's own "~0-2 FP" expectation, not a FAIL.
+Item-3 displacement family re-verified live against real source text
+(direct calls to `extract_definitions_from_section` on the real rows):
+WA `active efforts` (row 148) — both "Active efforts" (branch a, 2808
+chars) and "active efforts" (branch b, 200 chars, the previously-displaced
+complete definition) now captured distinctly, no displacement. NY
+`General service lamp` (row 6675) now captures the real lighting-code
+definition, not the "the following definitions:" corruption. Also
+spot-verified FED `compensation` (row 2893), NY `related person` (row
+103), WA `final action` (row 35293), FED `correct` (row 42191) — all show
+real, substantive definitions at HEAD, none show the swap-hazard pattern.
+NV `484B.307` "X" (row 21958) independently re-verified captured via
+direct `extract_definitions_from_section(..., heading_was_derived=True)`
+call against the real source row.
+
+**Gate 1 (recovery).** All 4 named exemplars independently re-verified
+via direct pipeline calls against real source rows: NJ `Department`
+(row 8866) → "the Department of Transportation." (33 chars); NJ
+`Public body` (row 13985) → 231-char clean single-sentence definition;
+FED `approved percentage` (row 5247) → 515-char recovery (matches the
+Planner's own figure); NJ `Pipeline` (row 48126) → 123-char clean
+definition. Unrecovered-remainder adjudication confirmed recorded in the
+log doc's "Planner pass (2026-08-21)" §8: 118 live-verified real losses,
+~60 with no distinguishable next-quoted-term (different defect family,
+out of this item's scope per director ruling), ~40-odd dominated by
+citation noise — never silently skipped.
+
+**G7 pin.** `qa_g7_common.INTEGRATION_SHA ==
+79e34c860b28ad3f8a838977fc557341d82e0b2c` (== `79e34c8`) confirmed by
+direct read. `test_us_body_preamble_g7_certification_contract.py`:
+16/16 green. `8cfdb0f`'s evidence regeneration confirmed committed
+(qd1/qd2/qd3 summaries, D-PFP-400 ledger, fallback byte-quality ledger).
+
+**Regression tests.** 7 new tests added,
+`backend/tests/integration/test_qa_regression_defs_boundary_idioms.py`
+(commit `a6ce3c0`): (1) NV 484B.307 "X" pinned at direct-profile altitude
+with the real, verbatim statute excerpt — the reversal's protected row,
+not just the Developer's synthetic B/C/AI negative controls; (2) a fresh
+live-persistence-altitude test (US-OR, fresh act_id/term "Q", M-R107) for
+single-letter fallback admission — an altitude the Developer/Planner's
+own single-letter negative-control file never exercises; (3) three
+Gate-2/P-R11 certificate-composition pins (summary.json counts, its own
+recorded `changed.jsonl` sha256 checksum, `backend/app/` byte-identity to
+`f267644`). All 7 independently verified green; full backend reconciles
+1401 → 1408, 0 failed.
+
+**Verdict: PASS, all 3 items.** Items 1-3 → Completed. `status: review`,
+`current_role: planner`, `completed_items: 3`, `dev_complete_items: 0`,
+`qa_cycles: 1`. Lock fields (`locked_by`/`locked_at`/`last_agent`/
+`last_updated`) left untouched per instruction. Contract lint PASS (exit
+0), `lint:` field updated. Named tracked debt (next-entry-bleed +
+19 single-letter wave phantoms) confirmed recorded, not re-litigated.
+Context Dump replaced (9 lines).
+
+- qa cycle 1 → this agent; PASS all 3 items, 7 gates independently
+  re-verified from scratch, 7 regression tests (`a6ce3c0`), full backend
+  1408/1408, frontend 165/165, typecheck clean, contract lint PASS

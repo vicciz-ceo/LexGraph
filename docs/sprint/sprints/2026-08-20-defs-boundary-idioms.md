@@ -1,7 +1,7 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: dev-complete
-current_role: qa
+status: review
+current_role: planner
 branch: claude/defs-boundary-idioms
 locked_by: "claude-code:qa"
 locked_at: "2026-08-23T09:00:00Z"
@@ -11,10 +11,10 @@ program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
-completed_items: 0
-dev_complete_items: 3
-qa_cycles: 0
-lint: "PASS 172 2026-08-23T09:00:23Z"
+completed_items: 3
+dev_complete_items: 0
+qa_cycles: 1
+lint: "PASS 161 2026-08-23T09:20:45Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -126,47 +126,36 @@ recovery goes through idiom vocabulary only.
 
 ## Next Steps
 
-_None — Items 1-3 moved to Dev Complete._
+_None — Items 1-3 moved to Completed._
 
 ## Dev Complete
 
-### Items 1-3 — boundary-idiom widening + fallback-merge fix + dedup ordering fix (issue #27)
-
-Item 1 (`a51b1de`): widened `_TIGHT_IDIOM_RE` to add `shall include` and
-generalize `has the meaning` to `has the (?:following |same )?meaning`.
-Item 2 (`f267644`): fallback-suppression guard merged, not suppressed, in
-`USProfile.extract_definitions_from_section`; implausible-capture filter =
-pass-2 rules (stopword term, 4-digit-year-dash caption) + `Pub. L.`/
-`Subsec.\(` term-key rejection ONLY. The `^[A-Za-z]$` single-letter rule
-shipped (`877c970`) then was REVERTED (`79e34c8`) per director ruling,
-after a confirmed genuine loss
-(`STATE_NV_T43_C484B_S484B.307` "X"); byte-identity to `f267644` verified
-empty (`git diff f267644..HEAD -- backend/app/`). Item 3 (`f267644`):
-same-term-collision dedup ordering fixed in `extract_quote_anchored_
-entries` (old-idiom occurrences win over new-idiom-only on term collision).
-
-Certification: restored `cc51c49` combined gate-2 measurement (28,654
-distinct anchors; zero genuine losses per the adjudication trail —
-`investigation.md`, `expansion_precision.md`, `expansion_precision_2.md`,
-all in the sprint scripts dir). `INTEGRATION_SHA` re-pinned to `79e34c8`,
-G7 evidence regenerated, PASS (`8cfdb0f`). Full backend 1401/0, frontend
-165/165, typecheck clean.
-
-Named tracked debt: (1) next-entry-bleed on the wave's unbounded-runaway
-definition-text byte quality (~6%, D-MAP: anchors correct, text
-informational); (2) 19 enumerated single-letter wave phantoms (US-IA 16,
-US-CA 1, US-OH 1, US-SC 1 — all verified false positives in
-`expansion_precision_2.md`) ship unfiltered per the reversal ruling; a
-narrower single-letter rule (reject only absent an adjacent defining verb)
-is deferred to a future sprint, not attempted here.
+_None._
 
 ## Completed
 
-_None._
+- **Items 1-3** — boundary-idiom widening + fallback-merge fix + dedup
+  ordering fix (issue #27). PASS — all 7 gates independently re-verified
+  (QA Notes below); 7 new regression tests, commit `a6ce3c0`.
+
+## QA Notes
+
+- 2026-08-23 qa cycle 1: independent evaluator PASS — backend 1401→1408
+  (7 new QA regression tests, 0 failed), frontend 165/165, typecheck
+  clean, contract lint PASS, zero flakes. All 7 gates independently
+  re-verified from scratch: G1 exemplars/adjudication, G2 byte-identity +
+  28,654-anchor re-derivation, G3 own seeded samples (10/10 removals
+  phantom, 20 additions ~1 FP, tolerance) + swap-hazard/NV "X" checks,
+  G4-G6 guard estate/FX7/provenance, G7 pin. Full transcript in `-log.md`.
+  Items 1-3 → Completed.
 
 ## Context Dump
 
-Items 1-3 Dev Complete. Certify against restored `cc51c49` gate-2 artifacts (`2026-08-20-defs-boundary-idioms-scripts/run/compare/{summary.json,changed.jsonl}`, `run/run.log`) plus the adjudication trail (`investigation.md`, `expansion_precision.md`, `expansion_precision_2.md`, same scripts dir).
-Byte-identity: `git diff f267644..HEAD -- backend/app/` is empty — re-verify independently; this is why the pre-single-letter-rule `cc51c49` certificate still stands under P-R11.
-Named tracked debt (QA confirms, does not re-litigate): next-entry-bleed unbounded-runaway text (~6% of the wave, D-MAP: anchors correct, text informational) + 19 enumerated single-letter phantoms (unfiltered, all 19 verified false positives in `expansion_precision_2.md`).
-G7 pin green (`8cfdb0f`); full backend 1401/0, frontend 165/165, typecheck clean, all reconciled this pass (see log doc "Developer final pass").
+QA cycle 1 PASS, all 7 gates independently re-verified from scratch (not
+reusing Developer's numbers) — full transcript in QA Notes above and
+`-log.md`. Regression: 7 new tests, commit `a6ce3c0`; full backend
+1408/1408, frontend 165/165, typecheck clean. Byte-identity to `f267644`
+re-confirmed empty; `cc51c49` certificate (28,654 anchors) re-derived
+independently, matches exactly. Named tracked debt confirmed, not
+re-litigated (next-entry-bleed + 19 single-letter phantoms). Items 1-3 →
+Completed; sprint → `review`. Next: Planner (director sign-off/close).
