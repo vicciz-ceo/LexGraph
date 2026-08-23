@@ -14,7 +14,7 @@ total_items: 3
 completed_items: 0
 dev_complete_items: 0
 qa_cycles: 0
-lint: "PASS 250 2026-08-22T22:45:36Z"
+lint: "PASS 269 2026-08-23T05:35:27Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -197,6 +197,20 @@ single-letter fallback terms — 19 corpus-wide, 19/19 verified false, D-MAP
 blocking class. The implausible-capture filter is EXTENDED again: reject a
 fallback term matching `^[A-Za-z]$`. Certified delta must show the 19
 absent; only the CURRENT side needs re-measurement (baseline unchanged).
+
+**REVERSED by director ruling 2026-08-23** (after the finish pass's gate-2
+re-measurement): the `^[A-Za-z]$` rule reached a third, unmeasured
+population — 19 PRE-EXISTING single-letter captures present in baseline
+and current alike — and a spot check confirmed ≥1 genuine loss
+(`STATE_NV_T43_C484B_S484B.307` "X", a real traffic-signal definition).
+Ruling: REVERT the rule (`877c970`); the 19 wave phantoms ship as
+ENUMERATED NAMED TRACKED DEBT (preamble-sprint precedent for phantom
+debt); the certified tree is byte-identical in `backend/app/` to the one
+the `cc51c49` combined measurement already certified (zero genuine
+losses), so that executed certificate stands under P-R11. Planner retires
+the two single-letter RED pins; a future smarter rule (single-letter
+rejection only absent an adjacent defining verb) may be designed in a
+later sprint with proper evidence.
 
 RED tests (committed, RED-for-cause, GREEN under this pass's monkeypatched
 simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA

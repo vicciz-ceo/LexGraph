@@ -1138,3 +1138,17 @@ guard-estate/bounded-diff check this pass ran.
 
 - developer single-letter rule → (this agent; code green, gate-2 STOP,
   see escalation above)
+
+## Director ruling: revert single-letter rule, certify, ship (2026-08-23, manager)
+
+Finish pass found the rule reaches a pre-existing population (19 rows in
+baseline AND current) with >=1 confirmed genuine loss (NV 484B.307 "X").
+Director ruled: revert 877c970; ship the 19 wave phantoms as enumerated
+named tracked debt (preamble precedent); certify on cc51c49's executed
+measurement (production bytes identical post-revert — byte-identity to be
+verified by the Developer and re-verified by QA). Manager's own
+zero-collateral claim for the rule is corrected on the record: it held
+only for the sampled wave population.
+
+- planner micro-pass 4 → a2c3d2cb82190a3e1 (3c7347e/ea97a07; pins now retired per reversal)
+- developer finish pass → a08c4c030ff9951cc (877c970 + escalation @ 0774ca8)
