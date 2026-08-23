@@ -1226,3 +1226,83 @@ retirement and its RED/GREEN-under-simulation status.
 
 - planner micro-pass 5 → (this agent; delivered retired pins, RED 2F/3P
   live + GREEN under simulated revert, full suite 3F/1398P reconciled)
+
+## Developer final pass (2026-08-23): revert, byte-identity certify, re-pin, Dev Complete
+
+Synced at `96a292e` (verified). Baseline reproduced exactly: single-letter
+file `2 failed, 3 passed`.
+
+**Revert:** `git revert --no-edit 877c970` → `79e34c8` ("Revert 'feat:
+reject bare single-letter fallback terms...'"), touching only
+`backend/app/definition_links/us_profile.py` (2 insertions, 15 deletions —
+exact inverse of `877c970`'s 15 insertions, 2 deletions). Pushed.
+
+**Byte-identity check (load-bearing):**
+
+```
+git diff f267644..HEAD -- backend/app/
+```
+
+Output: empty. Confirms the tree is byte-identical in `backend/app/` to
+`f267644` (the pre-single-letter-rule state Items 1-3 certified against),
+so the `cc51c49` combined measurement (executed against that same tree)
+stands as the certificate under P-R11. No STOP triggered.
+
+**Scoped:** single-letter file `5/5 green`. All 8 Item-2/Item-3 test files
+(34 tests, `test_us_markers_fallback_guard_recovery.py`,
+`_phantom_negative_control.py`, `_structural_controls.py`,
+`_term_key_negative_control.py`, `_single_letter_negative_control.py`,
+`test_us_markers_dedup_swap_hazard_recovery.py`,
+`_structural_controls.py`, `test_us_body_preamble_g8_local_scope_dispatch_
+red.py`) green. 31-test guard estate (16 c5guard class-B + 5 discriminator
++ 2 SC#28 + 6 NV#25 UCC bridge + 2 FX7 ceiling — collected and verified as
+exactly 31 via a single combined pytest invocation) `31/31 green`.
+
+**Restored certified gate-2 artifacts:** `git checkout cc51c49 --
+docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/compare/
+docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts/run/run.log`
+— replaces the on-disk post-`877c970` measurement (added 28,571 / removed
+1,105 / anchors_pure_removed 83, reflecting the now-reverted single-letter
+rule's -19/+19 swap) with `cc51c49`'s certified combined-run summary
+(added 28,590 / removed 1,086 / anchors_pure_removed 64 /
+distinct_anchors_row_term 28,654, matching this doc's "Director ruling"
+entry). Committed separately per the brief. Note for QA: the on-disk
+`run/current/` (gitignored) still reflects the pre-revert
+(post-`877c970`) measurement, not the committed `cc51c49` compare — QA
+re-derives from the committed compare artifacts or re-runs
+`measure_actual_production_all_rows.py --current` fresh if it wants a
+first-hand regeneration; either is expected to reproduce the committed
+numbers given the proven byte-identity above.
+
+**G7 re-pin:** `qa_g7_common.INTEGRATION_SHA` re-pointed to `79e34c8`
+(this pass's revert commit) per the recorded re-pin procedure; evidence
+regenerated. G7 pin test verified green post-re-pin (see full-pass tail
+below).
+
+**Full authoritative pass, backend:**
+
+```
+PYTHONPATH=.:backend backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly
+1401 passed in ...s
+```
+
+Reconciles exactly against the `96a292e` baseline (1398 passed / 2
+re-pointed single-letter tests RED / 1 G7 SHA-pin RED = 1401 collected):
+the revert flips the 2 re-pointed single-letter tests GREEN (they pin the
+ruled, post-revert behavior), and the G7 re-pin flips the SHA-pin test
+GREEN (re-pointed to `79e34c8`) — 1398 + 2 + 1 = 1401 passed, 0 failed.
+
+**Frontend:** `npm --prefix frontend run test -- --run` → 165/165 passed.
+**Typecheck:** `npm --prefix frontend run typecheck` → clean, 0 errors.
+
+**Contract bookkeeping:** Items 1-3 moved to Dev Complete (see contract
+Dev Complete section for commit references and named tracked debt);
+`status: dev-complete`, `current_role: qa`, `dev_complete_items: 3`.
+Context Dump replaced with a QA-facing pointer (certificate paths + debt
+list). `bash scripts/contract_lint.sh 2026-08-20-defs-boundary-idioms`
+checked by exit code; `lint:` field updated.
+
+- developer final pass → (this agent; revert `79e34c8`, byte-identity
+  empty-diff proof, scoped/guard-estate green, cc51c49 artifacts restored,
+  G7 re-pinned to `79e34c8`, full pass reconciled 1401/1401, frontend
+  165/165 + typecheck clean, Items 1-3 → Dev Complete)
