@@ -2606,6 +2606,35 @@ _FALLBACK_TRIM_PRECEDING_PERIOD_RE = re.compile(r"\.\s*\Z")
 # terminal period).
 _FALLBACK_TRIM_ABBREVIATION_BEFORE_RE = re.compile(r'["“][A-Za-z]{1,15}\.\s*\Z')
 
+# A marker immediately preceded (skipping only whitespace) by a QUOTE
+# character is a per-paragraph quote-REOPEN followed by an internal list
+# item of the SAME quoted block -- e.g. real FED `USC_T50_C44_S3024`'s
+# own "covered element of the intelligence community" means the
+# following:\n\n"(1) The Office of the Director of National
+# Intelligence.\n\n"(2) The Central Intelligence Agency.\n\n"(3) ..." --
+# NOT a genuine sibling-entry boundary. `compute_hard_stops`'s own
+# REUSED digit-marker check (its `_AFTER_MARKER_UPPER_RE` branch) is
+# designed for the opposite, PRIMARY-engine direction -- MARKER then
+# quote or uppercase word signals a NEW term -- and has no notion that a
+# quote can come FIRST as a paragraph-reopen (the exact shape `_extract_
+# inline_quoted_definitions`'s own `_is_paragraph_start_quote`/`_find_
+# block_quote_close` already handle for TERM-pairing, but which this
+# module's reused `compute_hard_stops` cannot see at all). Confirmed
+# live: reusing `hard_stops` unfiltered here regressed 146 real FED/etc.
+# candidates in a 10-jurisdiction scoped population sample alone (before
+# fixing), each collapsed from a genuine multi-hundred/thousand-char
+# enumerated definition down to ~11-17 chars ending right at the FIRST
+# re-opened quote. Applied only to the REUSED `hard_stops` list -- this
+# module's own two relaxed checks already require a literal PERIOD
+# immediately before (never a quote) and so were never exposed to this.
+_QUOTE_CHAR_IMMEDIATELY_BEFORE_RE = re.compile(r'["“”]\s*\Z')
+_QUOTE_CHAR_LOOKBACK = 8
+
+
+def _hard_stop_is_inside_quoted_block(text: str, pos: int) -> bool:
+    window = text[max(0, pos - _QUOTE_CHAR_LOOKBACK) : pos]
+    return bool(_QUOTE_CHAR_IMMEDIATELY_BEFORE_RE.search(window))
+
 
 def _whole_text_hard_stops(text: str) -> list[int]:
     """`compute_hard_stops(text, len(text))`'s own `hard_stops` list,
@@ -2638,7 +2667,11 @@ def _fallback_bleed_trim_end(
     per row by the caller (performance -- see that function's own note).
     See the module note above for the exact checks and why each is
     safe."""
-    stops: list[int] = [hs for hs in hard_stops if definition_start < hs < end]
+    stops: list[int] = [
+        hs
+        for hs in hard_stops
+        if definition_start < hs < end and not _hard_stop_is_inside_quoted_block(text, hs)
+    ]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
             if not _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start()):
