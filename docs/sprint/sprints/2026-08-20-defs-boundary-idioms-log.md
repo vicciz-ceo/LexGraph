@@ -1306,3 +1306,7 @@ checked by exit code; `lint:` field updated.
   empty-diff proof, scoped/guard-estate green, cc51c49 artifacts restored,
   G7 re-pinned to `79e34c8`, full pass reconciled 1401/1401, frontend
   165/165 + typecheck clean, Items 1-3 → Dev Complete)
+
+- planner micro-pass 5 → a4117c12ff03c5b2e (a184ddc/96a292e; stalled pre-push to machine sleep, manager pushed + verified)
+- developer final pass → a05576966654734b6 (79e34c8/096da83/8cfdb0f/e3d42a3; manager verified byte-identity 0-line diff, probes 21/21)
+- lock handover developer→qa by manager after verification
