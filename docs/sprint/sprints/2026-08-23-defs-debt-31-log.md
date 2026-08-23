@@ -7,3 +7,4 @@ land here. Never auto-loaded.
 
 - 2026-08-23T18:54Z manager: sprint opened by claude-code manager (Fable 5),
   branch `claude/defs-debt-31` from main @ 8850401.
+- 2026-08-23T18:56Z planner spawned: agentId ad8cac9fc7a8dba62 (Sonnet, high).
