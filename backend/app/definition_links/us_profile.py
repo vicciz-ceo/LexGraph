@@ -2660,6 +2660,32 @@ def _hard_stop_is_inside_quoted_block(text: str, pos: int) -> bool:
     return bool(_QUOTE_CHAR_IMMEDIATELY_BEFORE_RE.search(window))
 
 
+# A THIRD real gap, found the same way as the previous two (population-
+# scale re-measurement, not speculated): a BASELINE-sourced candidate's
+# own `definition_text` (via `_leading_quote_candidate`) is never idiom-
+# stripped at all -- `block[term_match.end():].strip()` keeps "means"/
+# "shall mean"/etc. as the LITERAL first word(s) of the text, unlike
+# `_extract_inline_quoted_definitions`'s own candidates. When such a
+# definition legitimately OPENS with an enumeration marker right after
+# its own idiom (real NY `STATE_NY_ATAX_A8_S171-T`'s own `"Debt" means
+# (i), for purposes of state debt, a "tax debt" as\ndefined in section
+# ...`), `compute_hard_stops`'s own REUSED letter-marker check can find
+# a quote shortly after that FIRST marker (here, `"tax debt"`, a nested
+# quoted cross-reference within the SAME first enumerated item, not a
+# sibling entry) and treat it as a hard-stop -- collapsing the whole
+# candidate down to the bare idiom word itself ("means", 5 chars).
+# `_period_precedes_a_real_sentence`'s OWN period requirement structurally
+# guards this module's two relaxed checks (a period can never appear
+# within a handful of characters of `definition_start`), but the REUSED
+# `hard_stops` list has no such requirement of its own. Guarded here
+# instead: a genuine definition is never just its own bare idiom word --
+# a REUSED hard-stop landing within `_MIN_CONTENT_BEFORE_REUSED_STOP`
+# characters of `definition_start` is untrusted (every real, validated
+# stop this item's own tests exercise closes off SUBSTANTIALLY more
+# content than this).
+_MIN_CONTENT_BEFORE_REUSED_STOP = 20
+
+
 def _whole_text_hard_stops(text: str) -> list[int]:
     """`compute_hard_stops(text, len(text))`'s own `hard_stops` list,
     computed ONCE for the FULL `text` -- a performance fix (not a
@@ -2694,7 +2720,8 @@ def _fallback_bleed_trim_end(
     stops: list[int] = [
         hs
         for hs in hard_stops
-        if definition_start < hs < end and not _hard_stop_is_inside_quoted_block(text, hs)
+        if definition_start + _MIN_CONTENT_BEFORE_REUSED_STOP <= hs < end
+        and not _hard_stop_is_inside_quoted_block(text, hs)
     ]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
