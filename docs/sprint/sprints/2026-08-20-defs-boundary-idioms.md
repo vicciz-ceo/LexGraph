@@ -1,7 +1,7 @@
 ---
 id: "2026-08-20-defs-boundary-idioms"
-status: planned
-current_role: developer
+status: dev-complete
+current_role: qa
 branch: claude/defs-boundary-idioms
 locked_by: "claude-code:developer"
 locked_at: "2026-08-22T21:29:00Z"
@@ -12,9 +12,9 @@ evaluator: custom
 evaluator_command: "PYTHONPATH=.:backend /Users/nerya/LexGraph/backend/.venv/bin/python -m pytest backend/tests -q -p no:randomly && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 3
 completed_items: 0
-dev_complete_items: 0
+dev_complete_items: 3
 qa_cycles: 0
-lint: "PASS 269 2026-08-23T05:35:27Z"
+lint: "PASS 172 2026-08-23T08:58:42Z"
 previous_sprint: "2026-08-12-defs-b1-refers-to"
 prd_sections: []
 design_sections:
@@ -126,137 +126,39 @@ recovery goes through idiom vocabulary only.
 
 ## Next Steps
 
-### Item 1 — widen `_TIGHT_IDIOM_RE` to recover ceiling-tripped last entries (issue #27)
-
-**Code already landed at `a51b1de`** (Developer pass, 2026-08-21). Gate-2
-STOP-and-escalate on the widening's own collateral footprint (7,584
-anchors) triggered the investigation and this amendment (Items 2-3,
-below) — see the log doc's Developer-pass/Escalations sections and
-`2026-08-20-defs-boundary-idioms-scripts/investigation.md`.
-
-In `backend/app/definition_links/rules/us_markers_boundary.py`'s
-`_TIGHT_IDIOM_RE` (line ~295) ONLY, add `shall include` and generalize
-`has the meaning` to `has the (?:following |same )?meaning` (still
-matches plain "has the meaning" unchanged). Do NOT touch `_TIGHT_IDIOM_
-WITH_RELATIVE_QUALIFIER_RE` or `_EXCLUSION_CLAUSE_BRIDGE_RE` — no
-evidence requires it. No other file. Full evidence, collateral-risk
-sweep, and gate-2 commands: log doc.
-
-RED tests to turn GREEN (all committed, all proven RED-for-cause and
-GREEN under a monkeypatched widened regex this pass — log doc has the
-proof runs): `test_us_markers_boundary_idioms_nj_department_recovery.py`,
-`test_us_markers_boundary_idioms_nj_public_body_recovery.py`,
-`test_us_markers_boundary_idioms_structural_controls.py`, and the
-re-pinned `test_us_markers_c5guard_nj.py::test_c5_guard_state_nj_t48_c10_s10_3`.
-Full suite verified: exactly these 8 RED pre-fix, all GREEN post-fix,
-zero other regressions.
-
-Adjudication (gate 1): live loss set is larger than the stale 41 (118
-real losses — log doc). This item recovers the "shall include"/"has the
-(following|same) meaning" subset only. `USC_T5_C75_S7511` "furlough" and
-the rest are a DIFFERENT defect family (marker boundary, not idiom
-vocabulary) — tracked, not silently dropped — log doc "Adjudication of
-the unrecovered remainder".
-
-### Item 2 — fix the fallback-suppression guard: merge, don't suppress
-
-`backend/app/definition_links/us_profile.py`,
-`USProfile.extract_definitions_from_section`'s guard (~line 2551): replace
-`if not candidates and heading_was_derived: candidates = _extract_inline_
-quoted_definitions(...)` with an always-run-when-`heading_was_derived`
-merge — admit a fallback candidate only when its term does not collide
-with any primary-engine term on that row, AND it fails a narrow
-implausible-capture rejection (a bare stopword term from {for/and/or/the/
-a/an/of/in/to/with/by}, or a term/definition_text starting with a
-4-digit-year+dash amendment-caption shape, `^\d{4}[—–-]`). Design chosen
-over unfiltered full union (strictly dominated: same additions, PLUS
-reintroduces Item-3-shape same-term collisions site-wide) after measuring
-footprint on the 130 losses + a seeded 200-row sample; full rationale and
-numbers: log doc "Planner pass 2, Item 2 design".
-
-DIRECTOR RULING 2026-08-23 (after the expansion-wave precision sample —
-`2026-08-20-defs-boundary-idioms-scripts/expansion_precision.md`, commit
-`a9653f6`): **wave + filter ships.** The implausible-capture rejection is
-EXTENDED with the sampler's zero-collateral term-key rule: reject a
-fallback term containing `Pub. L.` or matching `Subsec.\(`. Measured
-result: 8,708-term wave at ~4% FP (Wilson 95% ≤16.2% pre-filter, sample
-FP 4/100 post-filter, zero genuine collateral in-sample). Restore-only
-(forfeiting ~7,837 genuine) was considered and rejected under
-D-RECALL-FP. The wave's next-entry-bleed byte quality (incl. ~6% unbounded
-runaways) is NAMED TRACKED DEBT in the certificate under D-MAP — anchors
-correct, text informational. A Planner micro-pass must pin the extended
-filter with RED negative controls before the Developer starts.
-
-ROUND-2 ADDENDUM (manager ruling 2026-08-23 under D-MAP + the ruling
-above; see `expansion_precision_2.md` @ `0ec36b3`): the combined-run scale
-was a scope artifact (delta decomposes exactly: 6,309 Item-1 + 7,768
-in-census wave + 13,491 out-of-census wave, 0 residue; out-of-census FP
-1.0%, Wilson [0.2%, 5.4%]; all 64 removals verified phantom against
-source; re-boundings 30/30 improving). One new FP shape: bare
-single-letter fallback terms — 19 corpus-wide, 19/19 verified false, D-MAP
-blocking class. The implausible-capture filter is EXTENDED again: reject a
-fallback term matching `^[A-Za-z]$`. Certified delta must show the 19
-absent; only the CURRENT side needs re-measurement (baseline unchanged).
-
-**REVERSED by director ruling 2026-08-23** (after the finish pass's gate-2
-re-measurement): the `^[A-Za-z]$` rule reached a third, unmeasured
-population — 19 PRE-EXISTING single-letter captures present in baseline
-and current alike — and a spot check confirmed ≥1 genuine loss
-(`STATE_NV_T43_C484B_S484B.307` "X", a real traffic-signal definition).
-Ruling: REVERT the rule (`877c970`); the 19 wave phantoms ship as
-ENUMERATED NAMED TRACKED DEBT (preamble-sprint precedent for phantom
-debt); the certified tree is byte-identical in `backend/app/` to the one
-the `cc51c49` combined measurement already certified (zero genuine
-losses), so that executed certificate stands under P-R11. Planner retires
-the two single-letter RED pins; a future smarter rule (single-letter
-rejection only absent an adjacent defining verb) may be designed in a
-later sprint with proper evidence.
-
-RED tests (committed, RED-for-cause, GREEN under this pass's monkeypatched
-simulation): `test_us_markers_fallback_guard_recovery.py` (FED 12889/WA
-717/OH 3296/NY 1978), `test_us_markers_fallback_guard_phantom_negative_
-control.py` (FED 4978, dual-purpose), `test_us_markers_fallback_guard_
-structural_controls.py` (M-R107 synthetic). Stale pin re-pointed:
-`test_us_body_preamble_g8_local_scope_dispatch_red.py`.
-
-Micro-pass 3 (2026-08-23) additional RED tests, extended filter:
-`test_us_markers_fallback_guard_term_key_negative_control.py` (M-R107
-synthetic; 2 RED-for-cause + 2 negative controls, proof in log doc).
-
-Micro-pass 4 (2026-08-23) additional RED tests, ROUND-2 ADDENDUM's
-`^[A-Za-z]$` rule: `test_us_markers_fallback_guard_single_letter_negative_
-control.py` (M-R107 synthetic; 2 RED-for-cause + 3 controls (2 preconditions
-+ 1 positive "AI" control), proof in log doc).
-
-Micro-pass 5 (2026-08-23), after the REVERSAL above: the two `^[A-Za-z]$`
-RED pins in that file are retired; the file now pins the RULED (post-revert)
-behavior — single-letter fallback terms ARE admitted — RED-for-cause at
-this pass's `HEAD` (`877c970` still present) and GREEN under a simulation
-of the Developer's pending revert (proof in log doc).
-
-### Item 3 — fix the same-term-collision dedup ordering (degraded re-boundings)
-
-`backend/app/definition_links/rules/us_markers_boundary.py`,
-`extract_quote_anchored_entries`: after building `starts` (before
-`close_entries`), classify each occurrence old-idiom (means/shall mean/
-bare has-the-meaning, or bridged) vs new-idiom-only (shall include/
-following meaning/same meaning); group by exact `term`; when a term has
-both classes, drop the new-idiom-only occurrence(s), keeping the
-pre-existing one(s) unchanged. Covers BOTH investigation-named shapes
-(displacement family AND the list-introducer corruption) — one mechanism,
-diagnosed this pass. Full diagnosis (incl. a correction to the NY row's
-own characterization): log doc "Planner pass 2, Item 3 design".
-
-RED tests (committed, RED-for-cause, GREEN under simulation):
-`test_us_markers_dedup_swap_hazard_recovery.py` (WA "active efforts" RED;
-NY "General service lamp" kept as a verified regression pin, NOT
-reproducible at persistence altitude for this specific row — see its own
-docstring), `test_us_markers_dedup_swap_hazard_structural_controls.py`
-(M-R107 synthetic, both shapes).
+_None — Items 1-3 moved to Dev Complete._
 
 ## Dev Complete
 
-_None._
+### Items 1-3 — boundary-idiom widening + fallback-merge fix + dedup ordering fix (issue #27)
+
+Item 1 (`a51b1de`): widened `_TIGHT_IDIOM_RE` to add `shall include` and
+generalize `has the meaning` to `has the (?:following |same )?meaning`.
+Item 2 (`f267644`): fallback-suppression guard merged, not suppressed, in
+`USProfile.extract_definitions_from_section`; implausible-capture filter =
+pass-2 rules (stopword term, 4-digit-year-dash caption) + `Pub. L.`/
+`Subsec.\(` term-key rejection ONLY. The `^[A-Za-z]$` single-letter rule
+shipped (`877c970`) then was REVERTED (`79e34c8`) per director ruling,
+after a confirmed genuine loss
+(`STATE_NV_T43_C484B_S484B.307` "X"); byte-identity to `f267644` verified
+empty (`git diff f267644..HEAD -- backend/app/`). Item 3 (`f267644`):
+same-term-collision dedup ordering fixed in `extract_quote_anchored_
+entries` (old-idiom occurrences win over new-idiom-only on term collision).
+
+Certification: restored `cc51c49` combined gate-2 measurement (28,654
+distinct anchors; zero genuine losses per the adjudication trail —
+`investigation.md`, `expansion_precision.md`, `expansion_precision_2.md`,
+all in the sprint scripts dir). `INTEGRATION_SHA` re-pinned to `79e34c8`,
+G7 evidence regenerated, PASS (`8cfdb0f`). Full backend 1401/0, frontend
+165/165, typecheck clean.
+
+Named tracked debt: (1) next-entry-bleed on the wave's unbounded-runaway
+definition-text byte quality (~6%, D-MAP: anchors correct, text
+informational); (2) 19 enumerated single-letter wave phantoms (US-IA 16,
+US-CA 1, US-OH 1, US-SC 1 — all verified false positives in
+`expansion_precision_2.md`) ship unfiltered per the reversal ruling; a
+narrower single-letter rule (reject only absent an adjacent defining verb)
+is deferred to a future sprint, not attempted here.
 
 ## Completed
 
@@ -264,12 +166,7 @@ _None._
 
 ## Context Dump
 
-Items 2-3 specced with 18 tests committed (8 RED-for-cause; rest are
-controls, GREEN and staying GREEN; all proven GREEN under monkeypatched
-spec simulations). Director ruled 2026-08-23: wave + EXTENDED filter ships
-(see Item 2's ruling block); next is a Planner micro-pass pinning the
-`Pub. L.`/`Subsec.\(` term-key filter with RED negative controls, then the
-Developer implements Items 2+3. Suite: 1379 passed / 8 RED (the Planner's)
-/ 1 pre-existing G7 SHA-pin failure (fixed at the Developer's re-pin
-step). Read the log doc "Planner pass 2" + the ruling entries before
-coding.
+Items 1-3 Dev Complete. Certify against restored `cc51c49` gate-2 artifacts (`2026-08-20-defs-boundary-idioms-scripts/run/compare/{summary.json,changed.jsonl}`, `run/run.log`) plus the adjudication trail (`investigation.md`, `expansion_precision.md`, `expansion_precision_2.md`, same scripts dir).
+Byte-identity: `git diff f267644..HEAD -- backend/app/` is empty — re-verify independently; this is why the pre-single-letter-rule `cc51c49` certificate still stands under P-R11.
+Named tracked debt (QA confirms, does not re-litigate): next-entry-bleed unbounded-runaway text (~6% of the wave, D-MAP: anchors correct, text informational) + 19 enumerated single-letter phantoms (unfiltered, all 19 verified false positives in `expansion_precision_2.md`).
+G7 pin green (`8cfdb0f`); full backend 1401/0, frontend 165/165, typecheck clean, all reconciled this pass (see log doc "Developer final pass").
