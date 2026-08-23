@@ -390,6 +390,55 @@ real source rows.
 Full backend suite unchanged after both fixes: 1422 passed, 4 failed
 (same known/documented set, stable throughout).
 
+**Fourth bug, same discipline, found re-running the population
+measurement AGAIN after the third fix**: classified the (now-reduced,
+63-case) "severe reduction" list once more by term-shape; almost all
+were confirmed-genuine short definitions again (same stable set: spouse
+-> a widower., consolidation -> a merger., etc.), but one new case
+stood out on spot-check -- real FED `USC_T16_C24_S1151`'s own `"Party"
+or "parties" means the United States of America, Canada, Japan, and
+Russia (except that as used in subsection (b) of this section,
+"party" and...`. A marker-based stop (mid-sentence, at the "(b)"
+cross-reference's own nearby quote -- a lower-severity residual variant
+of the same "ordinary cross-reference marker followed shortly by an
+unrelated quote" class the quoted-block and min-content fixes already
+partially address, not fully chased further given this sprint's time
+bounds) left an un-terminated tail. `_clean_fallback_trailing_bleed`'s
+own "dangling tail" heuristic then searched that tail for the broadest
+terminal-char set (including bare quotes) and found `"parties"`'s own
+closing quote -- a nested term name early in the sentence, not a
+sentence end -- cutting there and discarding the real definitional
+content (`means the United States of America, Canada, Japan, and
+Russia`) entirely, leaving just `or "parties"` (12 chars). Fixed:
+split into `_SENTENCE_ALREADY_TERMINAL_CHARS` (broad, gates whether to
+attempt a back-trim -- ending in a quote is a legitimate way to already
+be complete) and `_SENTENCE_SEARCH_BACK_CHARS` (narrow: period/
+semicolon only -- what it searches backward FOR). A quote closing a
+short quoted phrase is not a reliable "sentence complete" signal the
+way a period/semicolon is. Verified: now keeps the real content (109
+chars ending "...as used in subsection" -- still cut short by the
+"(b)" marker misfire, a materially better outcome than losing the
+content, not a full fix of that residual). Full suite unchanged: 1422
+passed, 4 failed (same set).
+
+**Stopping point (time-bounded, not exhaustive):** four independent,
+confirmed bug classes found and fixed via repeated population-scale
+re-measurement, each verified live against a real corpus row, each
+re-confirmed against the full scoped test suite AND the full backend
+suite with zero new regressions. A final population re-verification
+pass is running now (`item1_population_run/`, 4th rerun) to confirm
+`term_dropped` stays at zero and the residual "severe reduction"
+population stays the same stable, already-classified-as-genuine set
+before this item is treated as fully done. Any FURTHER, smaller-still
+residual imprecision in this specific reused-marker-heuristic class
+(the "(b)"-style ordinary cross-reference followed coincidentally by an
+unrelated quote) is accepted as a known, documented, lower-severity
+characteristic rather than chased indefinitely -- it never drops an
+anchor (D-RECALL-FP holds throughout, confirmed zero `term_dropped`
+across every population run) and only ever affects the BYTES of an
+already-imperfect population, consistent with Item 1's own "trim, not
+achieve perfect precision on every corner case" mandate.
+
 ### Item 2 (single-letter adjacency)
 
 Corpus-computed (not guessed) the exact idiom-gap distance for every
