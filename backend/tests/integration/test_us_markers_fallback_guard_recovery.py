@@ -30,13 +30,28 @@ companion `test_us_markers_fallback_guard_phantom_negative_control.py`).
 Every row below is byte-verified against the real corpus this pass
 (`vaquill/open-us-law`, snapshot pinned in investigation.md); fixtures are
 vendored verbatim (act_id/section_title/chapter/section_number unchanged).
-Expected recovery texts are the fallback function's OWN existing output
-(unchanged by this item -- `_extract_inline_quoted_definitions`'s internals
-are out of bounds per the amended gate 7), including its own pre-existing
-imperfections (e.g. a captured definition bleeding a few words into the
-next entry's own lead-in, "...\\n\\n(c) The term") -- investigation.md
-documents these as GENUINE LOSSES regardless (the core definitional
-content is real and completely absent today, not merely re-bounded)."""
+Expected recovery texts were originally the fallback function's OWN
+existing (bleeding) output, on the premise that `_extract_inline_quoted_
+definitions`'s internals were out of bounds per the amended gate 7 --
+investigation.md documented these bleed tails as GENUINE LOSSES regardless
+of byte quality (the core definitional content is real and completely
+absent today, not merely re-bounded).
+
+**Re-pointed 2026-08-23 (sprint 2026-08-23-defs-debt-31, Item 1, mandatory
+stale-pin sweep)**: THIS sprint's own gate 8 explicitly widens the seam to
+include `_extract_inline_quoted_definitions`'s internals (needed for Item
+1's trim-not-drop fix). Five of this file's exact-match assertions baked
+in the very bleed tails Item 1 targets as required substrings (FED
+'Pre-Apprenticeship' swallowing the next entry's own "(c) The term"
+lead-in; WA 'convicted' swallowing a dangling "For the purposes of this
+section," list-introducer stub; OH 'Derivative transaction' swallowing
+the next entry's own " (2)" marker; NY 'Bakery basket'/'Dairy case' each
+swallowing the next lettered entry's own "\\n  b."/"\\n  e." marker+quote
+start) -- a GREEN test pinning exactly the pre-fix broken bytes this same
+sprint's Item 1 is meant to correct. Re-pointed to each term's TRUE,
+correctly-bounded text (verified against the same vendored real rows);
+this file is now ALSO Item 1 RED-test coverage on already-vendored real
+fixtures, not just the original Item 2 (issue #27) recovery target."""
 from __future__ import annotations
 
 import json
@@ -114,7 +129,11 @@ def test_red_fed_12889_recovers_seven_executive_order_terms_without_losing_state
             f"{prefix!r}): got {texts!r}"
         )
     # Exact-text pin for the two short ones (content-fidelity spot check).
-    assert "set forth in 29 CFR 30.2.\n\n(c) The term" in [
+    # Re-pointed (sprint 2026-08-23-defs-debt-31, Item 1 stale-pin sweep):
+    # the true definition ends at "29 CFR 30.2." -- "\n\n(c) The term" is
+    # the NEXT entry's own lead-in bleeding through; TRIM not DROP is this
+    # sprint's own Item 1 target for exactly this shape.
+    assert "set forth in 29 CFR 30.2." in [
         d.definition_text for d in by_term["Pre-Apprenticeship"]
     ]
 
@@ -140,10 +159,15 @@ def test_red_wa_717_recovers_convicted_without_corrupting_domestic_violence(
         f"'convicted' never captured by any path today -- got terms {sorted(by_term)!r}"
     )
     convicted_texts = [d.definition_text for d in by_term["convicted"]]
+    # Re-pointed (sprint 2026-08-23-defs-debt-31, Item 1 stale-pin sweep):
+    # the true definition ends "...or the levying of a fine." -- "For the
+    # purposes of this section," is a list-introducer stub leading into
+    # the NEXT entry ('domestic violence'), the exact bleed shape Item 1
+    # targets (round-1 evidence's "list-introducer stub" failure mode).
     expected = (
         "a plea of guilty, a finding of guilt regardless of whether the "
         "imposition of the sentence is deferred or any part of the penalty "
-        "is suspended, or the levying of a fine. For the purposes of this section,"
+        "is suspended, or the levying of a fine."
     )
     assert expected in convicted_texts, (
         f"'convicted' captured but not with the expected fallback text: got {convicted_texts!r}"
@@ -169,12 +193,16 @@ def test_red_oh_3296_recovers_derivative_transaction_and_person(db_session, matt
         f"lost fallback-only terms never captured by any path today: {missing!r}. "
         f"Got terms: {sorted(by_term)!r}"
     )
+    # Re-pointed (sprint 2026-08-23-defs-debt-31, Item 1 stale-pin sweep):
+    # the true definition ends "...or other assets." -- the trailing " (2)"
+    # is the NEXT entry's own marker ('Loans and extensions of credit'),
+    # the exact next-entry-bleed shape Item 1 targets.
     dt_expected = (
         "any transaction that is a contract, agreement, swap, warrant, note, "
         "or option that is based, in whole or in part, on the value of, any "
         "interest in, or any quantitative measure or the occurrence of any "
         "event relating to, one or more commodities, securities, currencies, "
-        "interest or other rates, indices, or other assets. (2)"
+        "interest or other rates, indices, or other assets."
     )
     assert dt_expected in [d.definition_text for d in by_term["Derivative transaction"]], (
         f"'Derivative transaction' captured but not with the expected fallback "
@@ -208,9 +236,13 @@ def test_red_ny_1978_recovers_five_container_terms(db_session, matter_with_users
         f"lost fallback-only container terms never captured by any path today: "
         f"{missing!r}. Got terms: {sorted(by_term)!r}"
     )
-    assert "to transport, store or carry bakery products.\n  b." in [
+    # Re-pointed (sprint 2026-08-23-defs-debt-31, Item 1 stale-pin sweep):
+    # each true definition ends at "...products." -- the trailing
+    # "\n  b."/"\n  e." is the NEXT lettered entry's own marker+quote
+    # start bleeding through, the exact shape Item 1 targets.
+    assert "to transport, store or carry bakery products." in [
         d.definition_text for d in by_term["Bakery basket"]
     ]
-    assert "to transport, store or carry dairy products.\n  e." in [
+    assert "to transport, store or carry dairy products." in [
         d.definition_text for d in by_term["Dairy case"]
     ]
