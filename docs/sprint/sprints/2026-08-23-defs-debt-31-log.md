@@ -213,3 +213,179 @@ identifiers; Item 4: text-level structural facts about the two named
 families' own documented shapes, calling no production code at all so
 they cannot flip red under any Dev/QA resolution).
 - 2026-08-23T19:38Z developer spawned (solo, Items 1-5): agentId a84542532f2c9fbac (Sonnet, medium). Left uncommitted deliberately so the Developer's HEAD sync check still sees b33d994; rides in its first commit.
+
+## Developer pass (2026-08-23/24)
+
+### Sync + RED verification
+
+HEAD matched `b33d994` at start. Scoped RED run confirmed 12 RED (3
+real-row + 3 structural bleed-trim, 2 single-letter adjacency, 4
+re-pointed fallback_guard_recovery) / 10 GREEN controls, matching the
+Planner's own count exactly.
+
+### Item 1 (bleed trim) — investigation before implementation
+
+Direct-execution tracing (not hand-analysis) of all 3 real-row RED
+exemplars found the Planner's own stated seam was INCOMPLETE for 2 of
+3: NY `STATE_NY_ASOS_A6_T1_S390` "Enrolled legally exempt provider" and
+FED `USC_T5_C75_S7511` "furlough" both reach their FINAL, winning,
+persisted `Definition.definition_text` via BASELINE's own `_split_into_
+numbered_blocks`/`_leading_quote_candidate` (the "(g)" lettered-list
+block splitter / FED's own numbered-block splitter), not via `_extract_
+inline_quoted_definitions` at all -- confirmed by directly calling each
+candidate mechanism in isolation and comparing byte-for-byte against
+the real, live pipeline's own persisted output. FED's own row is
+additionally reached with `heading_was_derived=False` (its "Definitions;
+application" heading is directly, baseline-recognized -- one of the 7
+already-`section_title`-working states), meaning `_merge_fallback_
+candidates` (the ONLY place a first implementation attempt scoped the
+trim to) never runs for it at all. Only OH `STATE_OH_T49_C4905_
+S4905.331` "Proceeding" is genuinely fallback-sourced as originally
+assumed.
+
+Implementation: `_fallback_bleed_trim_end`/`_clean_fallback_trailing_
+bleed`/`_trim_fallback_candidate_bleed` (new, in `us_profile.py`),
+reusing `us_markers_boundary.compute_hard_stops` unmodified plus two
+narrow, period-gated relaxed checks (a letter-paren marker and a non-
+line-anchored digit-dot marker, both requiring a LITERAL PERIOD
+immediately before -- narrower than `_preceded_by_sentence_or_clause_
+boundary`, chosen specifically to exclude a marker glued right after an
+idiom and a semicolon-joined internal enumeration, both real risks a
+looser check would have hit). First implementation attempt applied the
+trim to EVERY baseline-block candidate for EVERY jurisdiction
+(reasoning: matches where the real defect lives) -- live full-suite run
+regressed 19 pre-existing tests (`c5guard` MI/ND/NJ/NY/OK, WA's own
+newline-collapse "kill control", TX 2009.003, NE/SD preamble, FED Good
+Samaritan, mr121, term-key-negative-control). Root cause: `_trim_
+definition_at_structural_sibling`'s own pre-existing docstring already
+documents that "no marker-structure-only signal separates FED's real
+over-capture from several OTHER jurisdictions' own PINNED,
+intentionally-kept baseline captures of the identical shape" -- missed
+on the first pass, found by reading that function's own commentary
+after the regression. Corrected: scoped to `heading_was_derived`
+articles (covers NY, zero-risk for the 7 already-working states by
+construction) OR `self.code == "US-FED"` specifically (covers furlough,
+matching `_trim_definition_at_structural_sibling`'s own precedent
+exactly) -- re-run: down to 8 failures (2 pre-existing mr121 + 2
+Item-2-not-yet-implemented + the term-key-negative-control + 3 others).
+Narrowed `_merge_fallback_candidates`'s own trim application from
+"every candidate in `merged`" to "only newly fallback-admitted
+candidates" (the broader form was ALSO touching `EntrySplitterRule`-
+and `TermClauseRule`-sourced candidates it should never see) plus added
+an abbreviation-before-marker guard (`_FALLBACK_TRIM_ABBREVIATION_
+BEFORE_RE`, catches `"Subsec.` /`"Pub.` -shaped citation abbreviations
+whose own period is not a sentence end) -- down to the 2 mr121 stale
+pins + 2 pre-existing cross-sprint frozen-production tripwires (gate-2
+certificate + `qa_g7_common.INTEGRATION_SHA`), stable from there.
+
+**Performance regression found and fixed** (same item, before first
+commit): `_fallback_bleed_trim_end` originally called `compute_hard_
+stops(text, end)` fresh per candidate -- cProfile on the real corpus
+found `USC_T5_C6_S601` (403,285 chars, 42 candidates) cost 19.6s for
+that one row alone. `compute_hard_stops`'s own marker-run tracking is a
+strictly sequential left-to-right scan, so computing it ONCE per row
+with `limit=len(text)` (a safe superset) and filtering the same
+precomputed list per candidate is byte-identical to computing it fresh
+each time -- `_whole_text_hard_stops` fixed this, same row now 1.657s.
+Remaining cost identified (not fixed, out of scope) as a pre-existing
+O(n)-per-call inefficiency in `us_markers_boundary._preceded_by_list_
+introducer` (slices the whole text prefix instead of a bounded
+lookback) -- flagged as a follow-up task (`task_ddf8102c`).
+
+**Critical correctness bug found via Item 4's own investigation, fixed
+before Item 1 was considered done**: building Item 4's population
+census surfaced a severe-reduction pattern in Item 1's OWN population
+measurement data (146 candidates in a 10-jurisdiction sample collapsed
+from genuine multi-hundred/thousand-char content down to ~11-17 chars).
+Root-caused (after first discovering and fixing an unrelated row-
+attribution bug in the measurement script's own instrumentation
+ordering) to `compute_hard_stops`'s reused digit-marker check firing on
+the REVERSE of its intended shape: a per-paragraph quote-REOPEN
+followed by an internal list item of the SAME quoted block (real FED
+`USC_T50_C44_S3024` "covered element of the intelligence community"
+means the following:\n\n"(1) The Office...\n\n"(2) The Central
+Intelligence Agency...) -- `compute_hard_stops`'s own `_AFTER_MARKER_
+UPPER_RE` branch is designed for MARKER-then-quote/uppercase (a NEW
+term), has no notion a quote can come FIRST as a paragraph-reopen (the
+exact shape `_extract_inline_quoted_definitions`'s own `_is_paragraph_
+start_quote` already handles for TERM-pairing, invisible to `compute_
+hard_stops`). Fixed: `_hard_stop_is_inside_quoted_block` excludes any
+REUSED hard-stop immediately preceded by a quote character. Verified on
+the real row (`USC_T50_C44_S3024`'s definition now correctly kept
+intact, all 280 chars). Full backend suite unchanged after the fix
+(same 4 known failures). This is exactly the P-R16/"measure the actual
+pipeline" discipline paying off -- no hand-picked unit test happened to
+carry this shape; only population-scale measurement surfaced it.
+
+Scoped tests: 13/13 green throughout. Full backend suite stable at 4
+failures from the second corrected pass onward (2 pre-existing mr121
+stale pins on a genuinely fallback-sourced mis-paired "Borealia"
+capture whose OWN trailing bleed Item 1 now correctly trims -- same
+class as the 5 pins the Planner already re-pointed in `test_us_markers_
+fallback_guard_recovery.py`, just outside this sprint's own swept file
+set; 2 pre-existing cross-sprint frozen-production tripwires that fire
+on ANY future sprint touching `backend/app/`, by their own design, not
+specific to this sprint).
+
+### Item 2 (single-letter adjacency)
+
+Corpus-computed (not guessed) the exact idiom-gap distance for every
+named exemplar: NV 484B.307 "X" = 8 chars, this item's own synthetic
+"Z" control = 11 chars (both must ADMIT); IA 97B.49B "e" = 37 chars,
+this item's own synthetic "K" control = 93 chars (both must REJECT) --
+wide, unambiguous margin, threshold set at 20 chars.
+`_single_letter_term_lacks_adjacent_idiom` wired into both `_extract_
+inline_quoted_definitions` entry points (ordinary + nested block-quote
+path). 9/9 scoped tests green on first implementation attempt, zero
+new regressions in the full suite.
+
+### Item 3 (mis-paired quotes) — no-code, adjudicated
+
+Investigated the positional/span-tracking signal gate 3 reopened.
+Found it real (all 4 named real mis-paired exemplars live-verified to
+cross a marker or a genuine sentence-terminating period between their
+quote's close and their matched idiom; matched genuine pairs do not).
+But a real-corpus scoped search for the specific counter-example a
+naive implementation would need to survive found 8 GENUINE definitions
+with the identical marker-crossing shape in the first 6 non-empty FED
+rows checked (FED's own extremely common `"(N) Label.--The term 'X'
+means Y."` numbered-definition-list convention) -- confirmed via direct
+corpus read, not speculated. A safe implementation would need the same
+class of dedicated, multi-round corpus-hardening machinery
+`us_markers_boundary._digit_paren_run_internal_content_starts` already
+required for the primary engine's own digit-paren-run discrimination --
+not buildable within this item's "scoped populations, not full all-53
+runs" exploration bound. Full write-up: `-scripts/item3_mispaired_
+quote_adjudication.md`. Evidence test unchanged, GREEN throughout.
+
+### Item 4 (FX7 remainder) — in progress
+
+Research (dedicated `Explore` agent pass) confirmed the prior sprint's
+own "118 live-verified ceiling-tripped losses" was never persisted
+anywhere in the committed repo at any point -- its source artifacts
+were a deliberately-uncommitted throwaway pytest probe (`docs/sprint/
+sprints/2026-08-20-defs-boundary-idioms-log.md` §1: "deleted before any
+commit"). No act_id-level list exists to read; the only individually-
+named row across the entire cluster of prior-sprint documents is
+`USC_T5_C75_S7511` "furlough" itself (already confirmed migrated into
+Item 1, per that item's own real-row exemplar). Live-re-deriving the
+population now via `measure_item4_fx7_remainder_census.py` (real-
+ceiling-vs-monkeypatched-unbounded-ceiling comparison across the 14
+`us_markers_inline_quote.py`-registered jurisdictions, on this
+worktree's CURRENT code -- i.e. what the ceiling drops even after
+Items 1-2 already landed).
+
+### Item 5 (certification) — in progress
+
+Full all-53 baseline (`main` @ `8850401`) vs current run via the
+corrected `run_gate5_certification.sh` (adapted verbatim from
+`2026-08-12-defs-b1-refers-to-scripts/run_gate2.sh`'s own corrected
+pattern -- `--current` on both sides). `measure_actual_production.py`'s
+own `capture()` calls `profile.extract_definitions_from_section`/
+`extract_local_scope_definitions` directly (not a reimplementation) --
+P-R16 satisfied without modifying the shared harness: it automatically
+reflects every Items-1-4 change. 100%-anchor-granularity delta
+adjudication script (`adjudicate_gate5_delta.py`) ready, classifies
+every changed anchor into text-change / true-removal / true-addition
+per the standing "decompose at (row,term) granularity" lesson, plus the
+P-R15 deletion-side screen.
