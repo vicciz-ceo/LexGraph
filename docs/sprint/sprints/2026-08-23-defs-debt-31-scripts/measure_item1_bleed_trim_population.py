@@ -71,9 +71,9 @@ _current_row_ctx: dict = {}
 _orig_trim = us_profile._trim_fallback_candidate_bleed
 
 
-def _instrumented_trim(text: str, candidate) -> None:
+def _instrumented_trim(text: str, candidate, hard_stops) -> None:
     before = candidate.definition_text
-    _orig_trim(text, candidate)
+    _orig_trim(text, candidate, hard_stops)
     after = candidate.definition_text
     if after != before:
         _records.append(

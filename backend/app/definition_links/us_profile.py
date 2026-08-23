@@ -2607,17 +2607,38 @@ _FALLBACK_TRIM_PRECEDING_PERIOD_RE = re.compile(r"\.\s*\Z")
 _FALLBACK_TRIM_ABBREVIATION_BEFORE_RE = re.compile(r'["“][A-Za-z]{1,15}\.\s*\Z')
 
 
-def _fallback_bleed_trim_end(text: str, definition_start: int, end: int) -> int:
+def _whole_text_hard_stops(text: str) -> list[int]:
+    """`compute_hard_stops(text, len(text))`'s own `hard_stops` list,
+    computed ONCE for the FULL `text` -- a performance fix (not a
+    behavior change): a per-CANDIDATE call inside a row with many
+    candidates on a long body (real FED `USC_T5_C6_S601`, 403,285 chars,
+    42 baseline candidates) cost 19.6s for that ONE row alone,
+    `compute_hard_stops` being O(len(text)) and re-run from scratch per
+    candidate. `compute_hard_stops`'s own marker-run tracking is a
+    strictly sequential left-to-right scan of `text[0:limit]`, so a
+    LARGER `limit` (the full text, a safe superset) never changes the
+    classification of any marker at a position before a SMALLER
+    candidate-specific `end` -- filtering this same precomputed list to
+    `< end` per candidate (done by callers) is byte-identical to calling
+    `compute_hard_stops(text, end)` fresh each time, just computed once
+    per row instead of once per candidate."""
+    from app.definition_links.rules.us_markers_boundary import compute_hard_stops
+
+    hard_stops, _mn_subd_stops, _digit_based_stops = compute_hard_stops(text, len(text))
+    return hard_stops
+
+
+def _fallback_bleed_trim_end(
+    text: str, definition_start: int, end: int, hard_stops: list[int]
+) -> int:
     """The earliest position in `[definition_start, end)` where a
     structural marker signals this candidate's own true content has
     already ended -- `end` itself (unchanged) when no such position is
-    found. See the module note above for the exact checks and why each
-    is safe."""
-    from app.definition_links.rules.us_markers_boundary import compute_hard_stops
-
-    stops: list[int] = []
-    hard_stops, _mn_subd_stops, _digit_based_stops = compute_hard_stops(text, end)
-    stops.extend(hs for hs in hard_stops if definition_start < hs < end)
+    found. `hard_stops` is `_whole_text_hard_stops(text)`, computed ONCE
+    per row by the caller (performance -- see that function's own note).
+    See the module note above for the exact checks and why each is
+    safe."""
+    stops: list[int] = [hs for hs in hard_stops if definition_start < hs < end]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
             if not _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start()):
@@ -2700,19 +2721,24 @@ def _clean_fallback_trailing_bleed(definition_text: str) -> str:
     return cleaned
 
 
-def _trim_fallback_candidate_bleed(text: str, candidate: DefinitionCandidate) -> None:
+def _trim_fallback_candidate_bleed(
+    text: str, candidate: DefinitionCandidate, hard_stops: list[int]
+) -> None:
     """Mutates `candidate.definition_text` in place, TRIMMING (D-RECALL-FP:
     never dropping the candidate itself) trailing bleed per `_fallback_
     bleed_trim_end` and `_clean_fallback_trailing_bleed`. Only acts when
     `definition_text` is a UNIQUELY locatable, literal substring of `text`
     -- same safety precedent already established by `_trim_definition_at_
     structural_sibling` elsewhere in this module; left unchanged (never
-    guessed at) when it is not found, or found more than once."""
+    guessed at) when it is not found, or found more than once.
+    `hard_stops` is `_whole_text_hard_stops(text)`, computed ONCE by the
+    caller and shared across every candidate for this same `text`
+    (performance -- see that function's own note)."""
     start = text.find(candidate.definition_text)
     if start == -1 or text.find(candidate.definition_text, start + 1) != -1:
         return
     end = start + len(candidate.definition_text)
-    new_end = _fallback_bleed_trim_end(text, start, end)
+    new_end = _fallback_bleed_trim_end(text, start, end, hard_stops)
     sliced = text[start:new_end].strip()
     if not sliced:
         return
@@ -2754,12 +2780,20 @@ def _merge_fallback_candidates(
     fallback_candidates = _extract_inline_quoted_definitions(text, scope=scope)
     primary_terms = {term for candidate in candidates for term in candidate.terms}
     merged = list(candidates)
+    hard_stops: list[int] | None = None
     for candidate in fallback_candidates:
         if any(term in primary_terms for term in candidate.terms):
             continue
         if _is_implausible_fallback_capture(candidate):
             continue
-        _trim_fallback_candidate_bleed(text, candidate)
+        if hard_stops is None:
+            # Computed once per row, lazily (only when at least one
+            # candidate needs it), and shared across every candidate
+            # below -- performance fix, see `_whole_text_hard_stops`'s
+            # own note (a per-candidate call cost 19.6s for one real,
+            # very long FED row alone).
+            hard_stops = _whole_text_hard_stops(text)
+        _trim_fallback_candidate_bleed(text, candidate, hard_stops)
         merged.append(candidate)
     return merged
 
@@ -2884,6 +2918,13 @@ class USProfile:
             all_blocks = baseline_blocks + priority_blocks + extra_blocks
 
         candidates: list[DefinitionCandidate] = []
+        # Computed once per row, lazily (only when at least one baseline
+        # block below actually needs the Item 1 trim), and shared across
+        # every candidate in this loop -- performance fix: a per-
+        # candidate `compute_hard_stops` call cost 19.6s for one real,
+        # very long FED row alone (`USC_T5_C6_S601`, 403,285 chars, 42
+        # candidates). See `_whole_text_hard_stops`'s own note.
+        block_hard_stops: list[int] | None = None
         for block in all_blocks:
             candidate = _leading_quote_candidate(block, scope=scope)
             if candidate is not None:
@@ -2920,7 +2961,9 @@ class USProfile:
                 # c5guard_{mi,nd,nj,ny,ok}.py` and `test_us_markers_qa_
                 # q1_wa_newline_collapse_swallow.py` guard estate.
                 if block in baseline_blocks and (heading_was_derived or self.code == "US-FED"):
-                    _trim_fallback_candidate_bleed(text, candidate)
+                    if block_hard_stops is None:
+                        block_hard_stops = _whole_text_hard_stops(text)
+                    _trim_fallback_candidate_bleed(text, candidate, block_hard_stops)
                 candidates.append(candidate)
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):
