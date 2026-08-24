@@ -985,28 +985,72 @@ _IDIOM_WORD_ONLY_RE = re.compile(
 # (NV 484B.307's own "symbol means") and 11 chars (this item's own
 # synthetic "Z" control's own "indicator means"); phantom distant shapes
 # measure 37 chars (IA 97B.49B's own citation gap) and 93 chars (this
-# item's own synthetic "K" control) -- a wide, unambiguous margin between
-# the two sub-populations the corpus-wide census found (14/19 IA citation
-# shape, 5/19 classification-label shape), so the exact cut point within
-# that margin is not precision-sensitive.
+# item's own synthetic "K" control) -- the two sub-populations the
+# corpus-wide census found (14/19 IA citation shape, 5/19 classification-
+# label shape).
+#
+# QA-fail cycle 1 (gate 2 bounce, contract item 7): this "wide, unambiguous
+# margin" claim did NOT hold for a THIRD real exemplar, one of the prior
+# sprint's own named 19 phantoms -- real CA `STATE_CA_Chsc_D2_C2.4_S1424`
+# term "B" (`expansion_precision_2.md`'s own "classification-letter label"
+# shape: "...in the same manner as a class "B" violation, and shall
+# include the right of appeal as specified in Section 1428.") gaps only 16
+# chars, INSIDE the claimed-genuine 8-20 range, so distance ALONE cannot
+# separate it from NV's genuine 8-char "X". Retuning the bare number would
+# leave a near-zero margin between NV (8) / the synthetic "Z" control (11)
+# on one side and this real phantom (16) on the other -- exactly the kind
+# of single-population overfit the standing lesson warns against. Fixed
+# instead with an ORTHOGONAL, structural payload-shape signal (QA's own
+# suggestion): a gap whose text immediately before the idiom word is a
+# coordinating conjunction picking up a SEPARATE clause (", and "/", or "/
+# "; and "/"; or ") signals the idiom's own subject is NOT the quoted term
+# itself but something introduced earlier and unrelated -- CA "B"'s own
+# gap reads "...class "B" violation, and shall include the right of
+# appeal..." (the "shall include" clause is coordinated onto "violation",
+# not predicated of "B"), structurally distinct from a genuine `"X" <noun>
+# <idiom> ...` shape (NV's "symbol means", the synthetic "Z" control's
+# "indicator means") which never has a comma/semicolon-plus-conjunction
+# immediately before its own idiom word. Applied ADDITIVELY (either signal
+# rejects) -- the distance threshold is UNCHANGED at 20 (still the correct,
+# and only necessary, rejector for IA's 37-char and the synthetic "K"
+# control's 93-char citation-shape gaps; retuning it was not needed once
+# the coordinated-clause signal independently covers the classification-
+# label sub-shape it was blind to).
 _SINGLE_LETTER_ADJACENCY_MAX_GAP = 20
+
+# See the module note above `_SINGLE_LETTER_ADJACENCY_MAX_GAP` ("QA-fail
+# cycle 1") for the full rationale. Matches a gap whose text immediately
+# before the matched idiom word ends in a comma/semicolon followed by a
+# coordinating conjunction ("and"/"or") -- real CA "B"'s own "violation,
+# and shall include" shape. Anchored at the END of the gap-prefix (`\Z`,
+# not merely "appears somewhere in the gap") so an unrelated earlier
+# "and"/"or" deeper inside a longer, genuinely-adjacent definiendum clause
+# is never mistaken for this signal.
+_COORDINATED_CLAUSE_BEFORE_IDIOM_RE = re.compile(r"[,;]\s+(?:and|or)\s*\Z", re.IGNORECASE)
 
 
 def _single_letter_term_lacks_adjacent_idiom(term: str, means_match: re.Match[str]) -> bool:
     """True when `term` is a single letter AND the idiom `means_match`
-    matched sits DISTANT from the quote's own closing delimiter -- a
-    lettered cross-reference citation or classification-letter label,
-    never a genuine `"X" means ...`-shaped definiendum. Only ever narrows
-    a SINGLE-LETTER term's own admission; a multi-character term's gap
-    distance is never inspected (out of this item's scope, per gate 2 --
-    D-INCLUDES already measured and rejected a general proximity
-    tightening as pure recall loss)."""
+    matched does NOT read as its own genuine definiendum -- either because
+    it sits DISTANT from the quote's own closing delimiter, or (QA-fail
+    cycle 1, gate 2) because the text immediately before the idiom word
+    coordinates onto a separate, unrelated clause (`_COORDINATED_CLAUSE_
+    BEFORE_IDIOM_RE` -- see the module note above `_SINGLE_LETTER_
+    ADJACENCY_MAX_GAP`) -- a lettered cross-reference citation or
+    classification-letter label, never a genuine `"X" means ...`-shaped
+    definiendum. Only ever narrows a SINGLE-LETTER term's own admission; a
+    multi-character term's gap distance/shape is never inspected (out of
+    this item's scope, per gate 2 -- D-INCLUDES already measured and
+    rejected a general proximity tightening as pure recall loss)."""
     if len(term) != 1:
         return False
     idiom_word = _IDIOM_WORD_ONLY_RE.search(means_match.group(0))
     if idiom_word is None:
         return False
-    return idiom_word.start() > _SINGLE_LETTER_ADJACENCY_MAX_GAP
+    if idiom_word.start() > _SINGLE_LETTER_ADJACENCY_MAX_GAP:
+        return True
+    gap_prefix = means_match.group(0)[: idiom_word.start()]
+    return bool(_COORDINATED_CLAUSE_BEFORE_IDIOM_RE.search(gap_prefix))
 
 
 # G12 mandatory guard (director ruling D-INCLUDES): a quoted span
