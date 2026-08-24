@@ -540,3 +540,284 @@ P-R15 deletion-side screen.
   1432P/3F(own RED)/18W, frontend 165P, typecheck clean. Status ->
   qa-fail, current_role -> developer, qa_cycles: 1. Lock untouched
   (manager-owned).
+
+## Manager compression overflow (2026-08-24, pre-qa-fail-cycle-1 dev spawn)
+
+Moved verbatim from the contract at lint-driven compression. Originals follow.
+
+### Original QA-FAIL items 6-8 (full text)
+
+6. **[QA-FAIL: Item 1 — bleed trim over-trims legitimate same-definition
+   enumerated lists, gate 1.]** `_fallback_bleed_trim_end`'s relaxed
+   `_FALLBACK_TRIM_LETTER_PAREN_RE`/`_FALLBACK_TRIM_DIGIT_DOT_RE` checks
+   cannot distinguish "a marker that starts a genuinely NEW, unrelated
+   entry" from "the NEXT item of the SAME definition's own `means X,
+   includes: (A) ... (B) ... (C) ...`-shaped list" — both are byte-
+   identical to the heuristic (`[period][whitespace]([Letter])[prose]`).
+   **Expected** (gate 1): trim removes only bleed; remaining text is a
+   complete, correct definition. **Actual**, live-verified against BOTH
+   `main@8850401` and this worktree's HEAD via direct
+   `extract_definitions_from_section` calls (not sampling): real CA
+   `STATE_CA_Cgov_T2_D3_P1_C5.6_S11546.46` "Covered populations" 648→253
+   chars, losing items (B)-(H) — baseline's 648-char capture already
+   consumed the ENTIRE remaining row text (zero possible bleed existed);
+   real FL `STATE_FL_TX_C112_PI_S112.1816` "Cancer" 509→18 chars, losing
+   20 of 21 enumerated cancer types (96.5% content loss); real PR
+   `STATE_PR_LEY_60_1963_ART422` "Agent" 1324→362 chars, losing exclusion
+   clauses (b)-(e) and closing sentence. A bounded heuristic rescan of
+   the certified `text_changes.jsonl` (73,720 rows) found this shape in
+   ~15% of the population (upper-bound signal, not a precision count —
+   some fraction are legitimately separate-term lettered lists, not this
+   bug; not fully quantified by QA, Planner/Developer should scope it
+   properly on the return pass). RED test (committed, real rows via full
+   `ingest_us_statute_rows` → `run_definition_linking` pipeline):
+   `test_us_markers_defs_debt_31_qa_gap_real_rows_red.py::
+   test_red_ca_covered_populations_multi_item_list_not_truncated_to_first_item`
+   and `::test_red_fl_cancer_21_item_list_not_truncated_to_first_item`.
+7. **[QA-FAIL: Item 2 — a named phantom from the prior sprint's own "19"
+   still survives, gate 2.]** **Expected**: "All 19 enumerated phantoms
+   removed." **Actual**: real CA `STATE_CA_Chsc_D2_C2.4_S1424` term `"B"`
+   — the prior sprint's own named "classification-letter label" exemplar
+   (`expansion_precision_2.md`: "CA 'B'... captured definition_text is a
+   LATER, unrelated usage-context sentence about appeal rights, not the
+   row's actual 'class "B" violations are...' definitional clause
+   4,000+ characters earlier") — is STILL admitted, byte-identical
+   between `gate5-run/baseline/records.jsonl` and `gate5-run/current/
+   records.jsonl` (Item 2's fix never touched it; confirmed both via the
+   committed evidence and a fresh live-pipeline call). Root cause,
+   live-measured: the phantom's own gap ("...class "B" violation, and
+   shall include the right of appeal...") is 16 chars from the quote's
+   close to "shall include" — UNDER `_SINGLE_LETTER_ADJACENCY_MAX_GAP`
+   (20), so `_single_letter_term_lacks_adjacent_idiom` wrongly treats it
+   as adjacent/genuine. The docstring's claim of a "wide, unambiguous
+   margin" between genuine (8/11-char) and phantom (37/93-char) gaps
+   does not hold — this named phantom's own gap (16 chars) sits inside
+   the claimed "genuine" range. Planner/Developer: either tighten the
+   threshold with a margin that survives this counter-example (re-verify
+   against the corpus, not just the 4 originally-sampled points) or find
+   an orthogonal signal (e.g. the FALSE relation "shall include the
+   right of appeal" reads as a cross-reference clause, not a defining
+   one — a payload-shape check may be needed in addition to distance).
+   RED test (committed, real row via full pipeline):
+   `test_us_markers_defs_debt_31_qa_gap_real_rows_red.py::
+   test_red_ca_class_b_phantom_still_survives_item2_adjacency_fix`.
+8. **[QA-FAIL: Item 5 — certification built on Items 1-2's own bugs,
+   gates 5-6.]** QA's own independent delta re-derivation (fresh script,
+   not `adjudicate_gate5_delta.py`) reproduces the committed counts
+   EXACTLY (545,866 unchanged / 73,720 text-change / 0 addition / 30
+   removal; own removed-key set byte-identical to `true_removals.jsonl`)
+   — the ARITHMETIC is correct. The CERTIFICATION's own substantive
+   claim is not: `item5_gate5_certification.md` itself discloses the
+   73,720 text changes were "spot-verified, not individually reviewed at
+   this volume" (an 8-row manual sample, 0/8 flagged) — QA's own
+   32-sample cross-jurisdiction spot-check (≥25 required) instead found
+   3 clear regressions (see Item 1 above), a materially higher hit rate
+   the thin 8-row check missed by chance. Re-running Item 5's full all-53
+   certification is necessarily blocked on Items 1 and 2's own fixes
+   landing first (the whole delta changes once those trims/rejections are
+   corrected) — not a fresh Item-5-only defect, but Item 5 cannot be
+   re-certified as PASS until the population it measures is actually
+   correct. No new RED test needed beyond Items 1/2's own (which already
+   pin the underlying defect); re-run `run_gate5_certification.sh` fresh
+   once Items 1-2 land.
+
+
+### Original Dev Complete entries 1-5 (full text)
+
+1. **Bleed trim** (`backend/app/definition_links/us_profile.py`,
+   commit `82eeead`): independent TRIM-not-DROP trailing-stop added to
+   `_extract_inline_quoted_definitions`'s own private-helper family
+   (`_fallback_bleed_trim_end`/`_clean_fallback_trailing_bleed`/
+   `_trim_fallback_candidate_bleed`), wired in at two scopes verified
+   live to reach real bleed without regressing the c5guard/WA guard
+   estate: baseline-block-sourced candidates under `heading_was_derived`
+   or `self.code == "US-FED"`, and newly fallback-admitted candidates in
+   `_merge_fallback_candidates`. 13/13 scoped tests green (3 real-row +
+   3 structural + 4 re-pointed fallback_guard_recovery + 3 GREEN
+   controls). Population measurement:
+   `docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+   measure_item1_bleed_trim_population.py` (9 no-newline jurisdictions +
+   US-FED, resumable per-file). Known finding: `test_mr121_b1_source_
+   truth_red.py`/`test_mr121_source_truth_persistence_red.py` pin a
+   pre-existing fallback-sourced mis-paired capture's own trailing-
+   bleed bytes as "source truth" -- now correctly trimmed, breaking the
+   stale pin (same class as the 5 the Planner already re-pointed in
+   `test_us_markers_fallback_guard_recovery.py`, outside this sprint's
+   own swept set). Recommend Planner return-pass to re-point.
+2. **Single-letter adjacency** (`backend/app/definition_links/
+   us_profile.py`, commit `82eeead`): `_single_letter_term_lacks_
+   adjacent_idiom` (20-char corpus-verified adjacency threshold) wired
+   into both `_extract_inline_quoted_definitions` entry points. 9/9
+   scoped tests green (IA real phantom rejected, NV real "X" protected,
+   synthetic distant-reject/adjacent-admit, single-letter negative
+   control unaffected).
+3. **Mis-paired quotes: NO-CODE outcome** (commit `196e8c0`; legitimate
+   PASS per gate 3): investigated a positional/span-tracking rejection
+   (marker-crossing / sentence-boundary-crossing between a quote's close
+   and its matched idiom) -- real signal, confirmed against all 4 named
+   real mis-paired exemplars, but a real-corpus scoped scan found 8
+   GENUINE definitions with the identical marker-crossing shape in the
+   first 6 non-empty US-FED rows checked (FED's own common `"(N)
+   Label.--The term 'X' means Y."` numbered-list convention) -- a safe
+   implementation needs the same class of dedicated corpus-hardening
+   `us_markers_boundary._digit_paren_run_internal_content_starts`
+   already required for the primary engine, not buildable within this
+   item's scoped-population bound. Full adjudication + recommendation:
+   `docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+   item3_mispaired_quote_adjudication.md`. Evidence test stays GREEN,
+   unchanged (3/3 `test_us_markers_defs_debt_31_mispaired_quote_
+   evidence.py`).
+
+**Performance fix** (commit `196e8c0`, rides with Item 1): `_fallback_
+bleed_trim_end` was calling `compute_hard_stops` fresh per candidate
+(O(candidates x row length)) -- cost 19.6s for one real, very long FED
+row (`USC_T5_C6_S601`, 403,285 chars, 42 candidates), confirmed via
+cProfile. Fixed to compute once per row (`_whole_text_hard_stops`,
+byte-identical result, proven via `compute_hard_stops`'s own strictly-
+sequential scan property) -- same row now 1.657s. Remaining cost is a
+PRE-EXISTING O(n)-per-call inefficiency in `us_markers_boundary.
+_preceded_by_list_introducer` (string-slices the whole prefix instead
+of a bounded lookback), already paid once by the primary engine's own
+`compute_hard_stops` call and now paid twice instead of 43 times.
+Flagged as a separate follow-up task (out of this sprint's scope --
+shared primary-engine internals, a performance concern not a
+definition-completeness defect), not fixed here.
+
+**Post-Item-1 population-scale hardening** (commits `a56d823`,
+`ab28554`, `faa06a3`, `01a19ca`): re-running the population measurement
+after each fix (not trusting the first pass) found and fixed 3
+additional independent correctness bugs, each verified live against a
+real corpus row and re-confirmed against the full scoped + backend
+suite with zero new regressions: (1) `compute_hard_stops`'s reused
+digit-marker check firing on a per-paragraph quote-reopen (real FED
+`USC_T50_C44_S3024`); (2) the abbreviation guard being too narrow
+(quote-preceded only, missing real FED `USC_T21_C13_S801`'s own
+`definition_start`-adjacent "Sec." label) -- generalized to any short
+space-free clause; (3) reused hard-stops with no minimum-content floor
+collapsing a baseline candidate to its own bare idiom word (real NY
+`STATE_NY_ATAX_A8_S171-T` "Debt" -> "means"); (4) the dangling-tail
+back-trim heuristic treating a bare quote as sentence-terminal (real
+FED `USC_T16_C24_S1151` "Party"/"parties"). Final population
+re-verification: 32,444 candidates trimmed across 180,350 seen (10
+jurisdictions), ZERO `term_dropped` throughout every pass (D-RECALL-FP
+empirically confirmed, not just scoped-test-confirmed).
+
+4. **FX7 remainder ledger** (commit `470e139`): 101 ceiling-tripped
+   candidates found via live re-derivation across the 14 registered
+   jurisdictions (the prior sprint's own ~100-row population was never
+   persisted anywhere in the repo to read from). All 101 individually
+   adjudicated UNRECOVERABLE, verified empirically (0/101 recovered
+   when checked against the real, current pipeline) with a common,
+   structural, stated reason: every one is `EntrySplitterRule`-sourced
+   (the shared primary engine the FX7 ceiling itself lives inside),
+   and Item 1's own trim is scoped, by design, to never reach that
+   population (gate 8's own explicit ceiling-protection boundary). 101
+   closely matches the prior sprint's own cited "~100 remainder rows"
+   figure. Family sub-classification (no-next-quoted-term vs citation-
+   noise) attempted but not cleanly resolved within this pass's time
+   bounds -- documented as a known, non-blocking gap; the core gate-4
+   requirement (recovered-or-adjudicated, stated reason) is fully
+   satisfied for all 101 rows. Full write-up: `docs/sprint/sprints/
+   2026-08-23-defs-debt-31-scripts/item4_fx7_remainder_ledger.md`.
+5. **Certification** (commit `5d2093a`): ONE full all-53 executed run,
+   baseline = `main` (`8850401`), corrected runner pattern (`--current`
+   on both sides). `members_sha256` byte-identical on both sides
+   (193,830 members) -- confirms Items 1-4 never touch B1 membership/
+   heading recognition. 100%-anchor-granularity delta: 545,866
+   unchanged, 73,720 text changes (99.9986% shorter, 0 empty, exactly 1
+   longer -- explained: a phantom single-letter sibling no longer
+   wrongly truncating its neighbor's own definition), 0 true additions
+   (structurally correct given what Items 1-4 do), 30 true removals
+   (100% adjudicated: every one a single-CHARACTER term, Item 2's own
+   mechanism -- supersedes the prior sprint's own sampled "19" estimate
+   with the real, authoritative full-corpus count per P-R11). P-R15
+   deletion-side screen: 0/30 flagged. Cross-checked against Item 4's
+   101-row ledger: 0 overlap, exactly as claimed. P-R16 satisfied
+   without harness modification (`measure_actual_production.py` calls
+   the real `extract_definitions_from_section` directly). Full write-
+   up: `docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+   item5_gate5_certification.md`.
+
+
+### Original Evaluation Notes essay (full text)
+
+**Full evaluator pass (2026-08-24, final, post-Item-5):**
+
+```
+PYTHONPATH=.:backend .../python -m pytest backend/tests -q -p no:randomly
+  -> 1422 passed, 4 failed, 18 warnings
+
+npm --prefix frontend run test -- --run
+  -> 25 test files, 165 tests, all passed
+
+npm --prefix frontend run typecheck
+  -> clean, zero errors
+```
+
+**The 4 backend failures are ALL pre-existing, documented, expected
+consequences of touching `backend/app/` -- not functional regressions
+introduced by this sprint's own Items 1-5:**
+
+1-2. `test_qa_regression_defs_boundary_idioms.py::test_gate2_
+   certificate_still_stands_backend_app_byte_identical_to_certified_
+   tree` (the file's own docstring names 3 pins; only the byte-identity
+   assertion is reached before the test raises, the other 2 -- summary
+   counts, checksum -- never execute past it). Pre-authorized in this
+   sprint's own contract Known Traps: "WILL go red the instant Items
+   1-4 touch `backend/app/` ... re-pointing ... is Item 5's own closing
+   work (Planner return-pass once real numbers exist, per P-R11)." The
+   fresh gate-2 certificate now exists (`item5_gate5_certification.md`)
+   -- re-pointing is QA/Planner's own next step, not Developer's.
+3. `test_mr121_b1_source_truth_persistence_red.py::test_mr121_source_
+   truth_through_definition_persistence[R7_reciprocal_respectively_
+   designation]` and
+4. `test_mr121_b1_source_truth_red.py::test_mr121_source_truth_at_
+   direct_profile_altitude[R7_reciprocal_respectively_designation]` --
+   pin a pre-existing, genuinely fallback-sourced, mis-paired "Borealia"
+   capture's own trailing-bleed BYTES as "source truth" for an
+   unrelated B1-position-tracking verification. Item 1's trim now
+   correctly removes that trailing bleed (the SAME class of fix as the
+   5 pins the Planner already re-pointed in `test_us_markers_fallback_
+   guard_recovery.py` this same sprint, just outside that sweep's own
+   file set). Documented live in commit `82eeead`'s own message and
+   this contract's Item 1 entry above. NOT pre-authorized in this
+   sprint's own brief -- flagged for QA/Planner attention, recommend a
+   return-pass re-point (same mechanism, same precedent, different
+   file).
+5. `test_us_body_preamble_g7_certification_contract.py::test_g7_
+   integration_pin_is_ancestral_and_production_is_frozen_after_it` --
+   an EARLIER sprint's (`2026-08-04-defs-us-preamble`) own equivalent
+   "production changed after a pinned integration SHA, re-pin +
+   regenerate G7/D-PFP-400 certification evidence" tripwire, structurally
+   identical in kind to #1-2 above (own docstring: "make that loud in
+   the evaluator" -- fires by design whenever `backend/app` changes).
+   Also NOT pre-authorized in this sprint's own brief (a DIFFERENT
+   sprint's own contract file, discovered live, not the "3 gate-2
+   pins" this sprint names) -- re-pinning requires regenerating that
+   earlier sprint's OWN full G7 certification evidence set, a
+   specialized QA process out of Developer's own scope. Flagged for
+   QA/Planner: either re-pin + regenerate, or retire that sprint-scoped
+   contract if the preamble sprint has closed (the test's own error
+   message names both options).
+
+**Deviation from brief:** the brief's own completion-proof template
+anticipated "3 failed = the named tripwire pins" as the expected end-
+state; the actual end-state is 4 failed (the pre-authorized 1 gate-2
+assertion + 2 mr121 pins + 1 g7 tripwire discovered live, none pre-
+named). All 4 are documented above with root cause, precedent, and a
+concrete recommended remediation; none represent a functional defect
+in Items 1-5's own shipped code (each is independently re-derivable:
+the mr121/g7 pins' own root cause was traced to a specific, real
+corpus row and verified live, not assumed).
+
+**Corpus-scale validation beyond the committed test suite:** given
+this sprint's changes touch a shared extraction pipeline at corpus
+scale, Development went beyond the scoped RED-test suite to also
+population-measure Items 1/4 (10 and 14 jurisdictions respectively)
+and run Item 5's own full all-53 certification -- this found and fixed
+4 independent correctness bugs in Item 1's own trim mechanism (none of
+which any committed unit/integration test happened to exercise) before
+they could reach certification. See Item 1's own Dev Complete entry
+and the sprint log's "Developer pass" section for the full account of
+each.
+
