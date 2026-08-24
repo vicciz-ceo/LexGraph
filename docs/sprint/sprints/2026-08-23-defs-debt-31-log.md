@@ -501,3 +501,10 @@ adjudication script (`adjudicate_gate5_delta.py`) ready, classifies
 every changed anchor into text-change / true-removal / true-addition
 per the standing "decompose at (row,term) granularity" lesson, plus the
 P-R15 deletion-side screen.
+- 2026-08-24T05:20Z developer complete: 5/5 Dev Complete @ 1853479; manager
+  re-verified diff containment (only us_profile.py, zero test files), reran
+  full backend (1422P/4F, identical reconciliation), spot-verified gate5
+  certificate (P-R15 0/30, additions 0, NV 484B.307 X kept, removals all
+  single-char phantoms). 4 failures = tripwire pins (test estate).
+- 2026-08-24T05:20Z planner return-pass spawned: re-point gate-2 tripwire +
+  2 mr121 R7 pins + g7 INTEGRATION_SHA/evidence. Lock -> claude-code:planner.
