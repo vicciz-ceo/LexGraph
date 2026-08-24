@@ -508,3 +508,4 @@ P-R15 deletion-side screen.
   single-char phantoms). 4 failures = tripwire pins (test estate).
 - 2026-08-24T05:20Z planner return-pass spawned: re-point gate-2 tripwire +
   2 mr121 R7 pins + g7 INTEGRATION_SHA/evidence. Lock -> claude-code:planner.
+- 2026-08-24T05:22Z planner return-pass agentId a5d31c4c1a24a1ea7 (Sonnet, high). Uncommitted append (HEAD-check preservation), rides in its commit.
