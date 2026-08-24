@@ -1,0 +1,15 @@
+# Full raw D-PFP-400 population/measurement dumps for the G7
+# INTEGRATION_SHA re-pin (Planner return-pass, sprint 2026-08-23-defs-
+# debt-31) -- kept on disk, not in git, same convention as
+# gate5-run/.gitignore and the prior sprints' own run_g7_repin.sh scratch
+# --out dirs. Only the small compact evidence (export_compact_evidence
+# output) is committed, into docs/sprint/sprints/2026-08-04-defs-us-
+# preamble-scripts/g7-certification-evidence/.
+dpfp400_population.jsonl
+dpfp400_sample.jsonl
+dpfp400_adjudication_ledger.jsonl
+new_fallback_byte_quality_ledger.jsonl
+qd1_summary.json
+qd2_candidate_ledger.jsonl
+qd2_summary.json
+qd3_crosscheck.json

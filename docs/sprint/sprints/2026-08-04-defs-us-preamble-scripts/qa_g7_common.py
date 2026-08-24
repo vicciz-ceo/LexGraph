@@ -22,18 +22,22 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
-# Re-pinned to the boundary-idiom widening + fallback-merge fix, including
-# the reverted single-letter rule (issue #27, sprint 2026-08-20-defs-
-# boundary-idioms). The prior pin (86fccfb1d2d6e3bcf93899b67ac97b71ed30d425)
-# predates this sprint's Item 1 (a51b1de), Item 2/3 (f267644), and the
-# 877c970 single-letter rule + its 79e34c8 revert, so every certification
-# run fail-closed on validate_integration() rather than measuring the tree
-# under test. 79e34c8 is byte-identical in backend/app/ to f267644 (verified
-# via `git diff f267644..79e34c8 -- backend/app/` == empty), the tree the
-# combined cc51c49 gate-2 measurement certified. The integration SHA also
-# seeds the D-PFP-400 sample rank, so the sample and all G7 hashes recorded
-# against the old pin are void and must be regenerated.
-INTEGRATION_SHA = "79e34c860b28ad3f8a838977fc557341d82e0b2c"
+# Re-pinned to this sprint's own Item 1 (definition-text bleed trim) + Item 2
+# (single-letter idiom-adjacency phantom removal) fixes (issue #31, sprint
+# 2026-08-23-defs-debt-31, Planner return-pass stale-pin sweep). The prior
+# pin (79e34c860b28ad3f8a838977fc557341d82e0b2c) predates both -- 5d2093a is
+# the last commit this sprint to touch backend/app/ (only two docs-only
+# commits follow it on this branch, independently re-verified this pass via
+# `git log --oneline 5d2093a..HEAD -- backend/app/` == empty), so every
+# certification run fail-closed on validate_integration() rather than
+# measuring the tree under test. The integration SHA also seeds the
+# D-PFP-400 sample rank, so the sample and all G7 hashes recorded against
+# the old pin are void and must be regenerated (per the established
+# recipe in commit 816f63d's run_g7_repin.sh: run_g7_certification.py
+# Q-D1 -> independent Q-D2 -> Q-D3 into a scratch --out, then
+# export_compact_evidence(out, evidence) writes the canonical compact
+# evidence into this checked-in g7-certification-evidence/ dir).
+INTEGRATION_SHA = "5d2093aec21e0ca5b8d26b2f72a9d9ef01339559"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
