@@ -1,0 +1,100 @@
+{
+  "US-AZ": {
+    "ceiling_tripped_count": 4,
+    "definitions_rows": 3511,
+    "file": "us_az_statutes.parquet",
+    "jurisdiction": "US-AZ",
+    "total_rows": 22674
+  },
+  "US-FED": {
+    "ceiling_tripped_count": 12,
+    "definitions_rows": 8592,
+    "file": "us_federal_statutes.parquet",
+    "jurisdiction": "US-FED",
+    "total_rows": 54853
+  },
+  "US-MI": {
+    "ceiling_tripped_count": 19,
+    "definitions_rows": 5582,
+    "file": "us_mi_statutes.parquet",
+    "jurisdiction": "US-MI",
+    "total_rows": 40658
+  },
+  "US-ND": {
+    "ceiling_tripped_count": 0,
+    "definitions_rows": 1943,
+    "file": "us_nd_statutes.parquet",
+    "jurisdiction": "US-ND",
+    "total_rows": 29042
+  },
+  "US-NJ": {
+    "ceiling_tripped_count": 45,
+    "definitions_rows": 4503,
+    "file": "us_nj_statutes.parquet",
+    "jurisdiction": "US-NJ",
+    "total_rows": 55897
+  },
+  "US-NM": {
+    "ceiling_tripped_count": 1,
+    "definitions_rows": 3519,
+    "file": "us_nm_statutes.parquet",
+    "jurisdiction": "US-NM",
+    "total_rows": 34455
+  },
+  "US-NV": {
+    "ceiling_tripped_count": 0,
+    "definitions_rows": 13098,
+    "file": "us_nv_statutes.parquet",
+    "jurisdiction": "US-NV",
+    "total_rows": 48190
+  },
+  "US-NY": {
+    "ceiling_tripped_count": 1,
+    "definitions_rows": 3989,
+    "file": "us_ny_statutes.parquet",
+    "jurisdiction": "US-NY",
+    "total_rows": 40102
+  },
+  "US-OK": {
+    "ceiling_tripped_count": 2,
+    "definitions_rows": 2841,
+    "file": "us_ok_statutes.parquet",
+    "jurisdiction": "US-OK",
+    "total_rows": 35329
+  },
+  "US-SC": {
+    "ceiling_tripped_count": 12,
+    "definitions_rows": 2054,
+    "file": "us_sc_statutes.parquet",
+    "jurisdiction": "US-SC",
+    "total_rows": 29947
+  },
+  "US-TX": {
+    "ceiling_tripped_count": 3,
+    "definitions_rows": 8963,
+    "file": "us_tx_statutes.parquet",
+    "jurisdiction": "US-TX",
+    "total_rows": 122535
+  },
+  "US-UT": {
+    "ceiling_tripped_count": 1,
+    "definitions_rows": 4225,
+    "file": "us_ut_statutes.parquet",
+    "jurisdiction": "US-UT",
+    "total_rows": 25880
+  },
+  "US-VA": {
+    "ceiling_tripped_count": 0,
+    "definitions_rows": 3071,
+    "file": "us_va_statutes.parquet",
+    "jurisdiction": "US-VA",
+    "total_rows": 33856
+  },
+  "US-WA": {
+    "ceiling_tripped_count": 1,
+    "definitions_rows": 4217,
+    "file": "us_wa_statutes.parquet",
+    "jurisdiction": "US-WA",
+    "total_rows": 51498
+  }
+}
