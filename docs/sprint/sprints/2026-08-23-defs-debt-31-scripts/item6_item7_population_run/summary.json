@@ -1,0 +1,90 @@
+{
+  "US-AK": {
+    "file": "us_ak_statutes.parquet",
+    "jurisdiction": "US-AK",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 5860,
+    "total_rows": 17935,
+    "trimmed_count": 0
+  },
+  "US-AL": {
+    "file": "us_al_statutes.parquet",
+    "jurisdiction": "US-AL",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 15364,
+    "total_rows": 45984,
+    "trimmed_count": 1039
+  },
+  "US-AR": {
+    "file": "us_ar_statutes.parquet",
+    "jurisdiction": "US-AR",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 17746,
+    "total_rows": 36936,
+    "trimmed_count": 2154
+  },
+  "US-AZ": {
+    "file": "us_az_statutes.parquet",
+    "jurisdiction": "US-AZ",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 14375,
+    "total_rows": 22674,
+    "trimmed_count": 264
+  },
+  "US-CA": {
+    "file": "us_ca_statutes.parquet",
+    "jurisdiction": "US-CA",
+    "single_letter_candidate_count": 8,
+    "total_candidates_seen": 37079,
+    "total_rows": 161429,
+    "trimmed_count": 16975
+  },
+  "US-CO": {
+    "file": "us_co_statutes.parquet",
+    "jurisdiction": "US-CO",
+    "single_letter_candidate_count": 4,
+    "total_candidates_seen": 22484,
+    "total_rows": 34231,
+    "trimmed_count": 3555
+  },
+  "US-CT": {
+    "file": "us_ct_statutes.parquet",
+    "jurisdiction": "US-CT",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 11183,
+    "total_rows": 16082,
+    "trimmed_count": 2417
+  },
+  "US-DC": {
+    "file": "us_dc_statutes.parquet",
+    "jurisdiction": "US-DC",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 12367,
+    "total_rows": 23694,
+    "trimmed_count": 1517
+  },
+  "US-DE": {
+    "file": "us_de_statutes.parquet",
+    "jurisdiction": "US-DE",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 11716,
+    "total_rows": 21649,
+    "trimmed_count": 2169
+  },
+  "US-FED": {
+    "file": "us_federal_statutes.parquet",
+    "jurisdiction": "US-FED",
+    "single_letter_candidate_count": 6,
+    "total_candidates_seen": 41867,
+    "total_rows": 54853,
+    "trimmed_count": 13736
+  },
+  "US-FL": {
+    "file": "us_fl_statutes.parquet",
+    "jurisdiction": "US-FL",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 16564,
+    "total_rows": 24866,
+    "trimmed_count": 12954
+  }
+}

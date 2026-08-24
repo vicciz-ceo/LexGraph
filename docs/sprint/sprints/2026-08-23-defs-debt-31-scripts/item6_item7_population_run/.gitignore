@@ -1,0 +1,8 @@
+# Full raw per-jurisdiction trim/single-letter dumps (~170MB+ combined
+# across all 53 jurisdictions) -- kept on disk, not in git, matching the
+# established convention in this sprint's own gate5-run/.gitignore and
+# the prior sprint's scripts dirs. Only the small summary.json (proof of
+# the run, per-jurisdiction row/candidate/trim counts) is committed.
+# Reproducible via measure_item6_item7_population.py.
+*.trim.jsonl
+*.letter.jsonl
