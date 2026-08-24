@@ -1,0 +1,10 @@
+# Full raw all-53 measurement dumps (600MB+ combined) -- kept on disk,
+# not in git, matching the established convention in prior sprints'
+# own scripts dirs (e.g. 2026-08-20-defs-boundary-idioms-scripts/
+# .gitignore). Only the small summary.json files (proof of the run)
+# are committed. Reproducible via run_gate5_certification.sh.
+current/records.jsonl
+current/members.jsonl
+baseline/records.jsonl
+baseline/members.jsonl
+baseline-src/

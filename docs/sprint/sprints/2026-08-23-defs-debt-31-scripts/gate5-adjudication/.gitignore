@@ -1,0 +1,6 @@
+# The full text_changes.jsonl (73,720 records, ~223MB, before+after
+# full definition_text for each) is kept on disk, not in git -- same
+# convention as gate5-run/.gitignore. summary.json and the (small)
+# true_removals/true_additions/flagged_removals_p_r15 files ARE
+# committed -- they are the actual adjudication evidence.
+text_changes.jsonl
