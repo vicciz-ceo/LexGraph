@@ -512,3 +512,31 @@ P-R15 deletion-side screen.
 - 2026-08-24T06:55Z return-pass verified by manager (containment clean, 77/77
   in the 4 files, zero backend/app delta). Lock -> claude-code:qa; QA spawn next.
 - 2026-08-24T06:40Z QA spawned: agentId ac68362a153f84b46 (Sonnet, high). Uncommitted append, rides in QA's commit.
+- 2026-08-24T10:30Z QA verdict (qa_cycles: 1): FAIL, bounce. Independent
+  gate re-derivations all matched the committed evidence exactly (delta
+  545,866/73,720/0/30 via QA's own from-scratch script; removed-key set
+  byte-identical to true_removals.jsonl; text_changes.jsonl population
+  claims 73,720/1-longer/0-empty all confirmed). But QA's own 32-row
+  cross-jurisdiction sample (gate 1 asks >=25) and live-pipeline
+  reproduction against both main@8850401 and HEAD found two confirmed
+  regressions the Developer's narrower spot-checks missed: (1) Item 1's
+  trim over-truncates legitimate same-definition enumerated lists (real
+  CA "Covered populations" 648->253 chars losing items B-H with ZERO
+  possible bleed -- baseline's capture already ran to the row's own
+  end; real FL "Cancer" 509->18 chars losing 20/21 cancer types; real PR
+  "Agent" 1324->362 chars losing exclusion clauses b-e; heuristic rescan
+  of the full 73,720-row population suggests up to ~15% show this shape,
+  not fully quantified); (2) Item 2 leaves the prior sprint's own named
+  "CA 'B'" phantom (expansion_precision_2.md) admitted, byte-identical
+  baseline to current -- its own gap to "shall include" measures 16
+  chars, under the 20-char threshold, disproving the "wide unambiguous
+  margin" claim on its own named exemplar. Items 3 (mis-paired quotes,
+  no-code) and 4 (FX7 remainder, 101/101 UNRECOVERABLE) independently
+  re-verified PASS -- exemplars re-checked live against real source/
+  pipeline, cross-checks reproduced. Gates 6/7/8 (P-R15 screen own
+  lenient re-implementation, full evaluator, bounded diff) all PASS.
+  Committed: 3 RED tests (real rows, full ingest+pipeline, pin both
+  bugs) + 6 regression tests (Items 3/4, PASS). Evaluator final: backend
+  1432P/3F(own RED)/18W, frontend 165P, typecheck clean. Status ->
+  qa-fail, current_role -> developer, qa_cycles: 1. Lock untouched
+  (manager-owned).
