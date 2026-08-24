@@ -59,6 +59,19 @@ Two gaps closed here:
    + 13,491 out-of-scope-fallback per `expansion_precision_2.md`'s census,
    re-derived independently, not quoted).
 
+   **Re-pointed 2026-08-24 (sprint 2026-08-23-defs-debt-31, Planner
+   return-pass, mandatory stale-pin sweep)**: only the third sub-check
+   (`backend/app/` byte-identical to a certified tree) has been re-anchored
+   -- the first two sub-checks above still correctly pin the frozen,
+   historical `2026-08-20-defs-boundary-idioms-scripts` evidence file
+   unchanged and remain green on their own terms. The byte-identity
+   sub-check's underlying premise (backend/app/ has not moved since the
+   last full certified measurement) was pre-authorized by this sprint's own
+   contract to go red the moment Items 1-2 touched
+   `backend/app/definition_links/us_profile.py` (Known traps); it is now
+   re-pointed to THIS sprint's own fresh gate-5 certificate instead of the
+   superseded gate-2 one. See the test's own docstring for the new anchor.
+
 Every assertion below was verified empirically against the current
 (post-fix, post-revert) production code before being committed, per this
 sprint's own M-R107/no-flip-to-red-trap discipline: each pins the REQUIRED
@@ -219,7 +232,19 @@ def test_single_letter_fallback_term_survives_live_persistence_altitude_novel_ca
 _SCRIPTS_DIR = ROOT / "docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts"
 _SUMMARY_PATH = _SCRIPTS_DIR / "run/compare/summary.json"
 _CHANGED_PATH = _SCRIPTS_DIR / "run/compare/changed.jsonl"
-_CERTIFIED_TREE_SHA = "f267644"
+# Re-pointed 2026-08-24 (sprint 2026-08-23-defs-debt-31, Planner return-pass,
+# mandatory stale-pin sweep): was "f267644" (the 2026-08-20-defs-boundary-
+# idioms gate-2 cert this test originally pinned against). backend/app/ has
+# since legitimately moved (this sprint's Items 1-2 touched
+# definition_links/us_profile.py, pre-authorized by this sprint's own
+# contract) and been re-certified by a fresh, independent combined run --
+# see docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+# item5_gate5_certification.md ("ONE full all-53 executed run ... 100%
+# anchor-granularity adjudication") and gate5-adjudication/summary.json.
+# Only two docs-only commits follow this SHA (verified this pass via
+# `git log --oneline 5d2093a..HEAD -- backend/app/` == empty), so it is the
+# current production tip the fresh certificate actually measured.
+_CERTIFIED_TREE_SHA = "5d2093a"
 
 
 def test_gate2_certificate_summary_composition_is_unchanged():
@@ -259,19 +284,41 @@ def test_gate2_certificate_changed_jsonl_checksum_matches_summary():
 
 
 def test_gate2_certificate_still_stands_backend_app_byte_identical_to_certified_tree():
-    """Gate 2 / P-R11's own standing condition: the `cc51c49` combined
-    measurement was executed against `f267644`. It remains the valid
-    certificate for HEAD only as long as `backend/app/` stays byte-identical
-    to that tree (contract Context Dump: 'git diff f267644..HEAD --
-    backend/app/ is empty -- re-verify independently'). A future change to
-    `backend/app/` without a fresh gate-2 run must fail this test, not ship
-    silently uncertified."""
+    """Gate 2 / P-R11's own standing condition, originally: the `cc51c49`
+    combined measurement was executed against `f267644`, and remained the
+    valid certificate for HEAD only as long as `backend/app/` stayed
+    byte-identical to that tree. A change to `backend/app/` without a fresh
+    certified run must fail this test, not ship silently uncertified.
+
+    **Re-pointed 2026-08-24 (sprint 2026-08-23-defs-debt-31, Planner
+    return-pass, mandatory stale-pin sweep)**: this sprint's own contract
+    pre-authorized this exact tripwire as expected-red the moment Items 1-2
+    touched `backend/app/definition_links/us_profile.py` (Known traps) --
+    the divergence from `f267644` is real and intentional, not a defect.
+    The tripwire's DESIGN (fail loud the instant `backend/app/` moves
+    without a fresh certified run backing it) is preserved, re-anchored to
+    THIS sprint's own fresh certificate instead of the superseded gate-2
+    one: production tip `5d2093a` ("feat: Item 5 certification complete --
+    gate5-6 satisfied"; independently re-verified this pass -- `git log
+    --oneline 5d2093a..HEAD -- backend/app/` is empty, only two docs-only
+    commits follow it), measured by the gate-5 combined run documented in
+    `docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+    item5_gate5_certification.md` and `gate5-adjudication/summary.json`
+    (619,586 current records vs. 619,616 baseline; 545,866 unchanged /
+    73,720 text-change / 30 true-removal / 0 true-addition anchors, P-R15
+    deletion screen clean; committed `gate5-run/current/summary.json`
+    records_sha256
+    `6b0a0c81d24516a90b81001b236a8fce1e5a1c05f17244a2590b93e265d1b841`,
+    members_sha256
+    `851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`
+    identical to baseline's -- both independently re-read from the
+    committed JSON this pass, not retyped from memory)."""
     diff = subprocess.run(
         ["git", "-C", str(ROOT), "diff", f"{_CERTIFIED_TREE_SHA}..HEAD", "--", "backend/app/"],
         check=True, capture_output=True, text=True,
     ).stdout
     assert diff == "", (
         f"backend/app/ has diverged from the certified tree {_CERTIFIED_TREE_SHA} -- "
-        f"the cc51c49 gate-2 certificate no longer stands under P-R11 until a fresh "
-        f"combined run is executed and re-certified:\n{diff[:2000]}"
+        f"the sprint-2026-08-23-defs-debt-31 gate-5 certificate no longer stands until a "
+        f"fresh combined run is executed and re-certified:\n{diff[:2000]}"
     )
