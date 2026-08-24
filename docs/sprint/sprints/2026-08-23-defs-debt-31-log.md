@@ -511,3 +511,4 @@ P-R15 deletion-side screen.
 - 2026-08-24T05:22Z planner return-pass agentId a5d31c4c1a24a1ea7 (Sonnet, high). Uncommitted append (HEAD-check preservation), rides in its commit.
 - 2026-08-24T06:55Z return-pass verified by manager (containment clean, 77/77
   in the 4 files, zero backend/app delta). Lock -> claude-code:qa; QA spawn next.
+- 2026-08-24T06:40Z QA spawned: agentId ac68362a153f84b46 (Sonnet, high). Uncommitted append, rides in QA's commit.
