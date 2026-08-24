@@ -141,8 +141,23 @@ CASES = (
         "family": "R7_reciprocal_respectively_designation",
         "jurisdiction": "US-KS",
         "text": 'In this compact:\n1. The State of Cerulea and the State of Borealia are designated, respectively, as "Cerulea" and "Borealia".\n2. The provisions respecting each named state shall include and bind its citizens.\n3. The term "upper cerulean reach" means the northern channel.',
+        # Re-pointed 2026-08-24 (sprint 2026-08-23-defs-debt-31, Planner
+        # return-pass, mandatory stale-pin sweep): "Borealia"'s true
+        # definition ends "...and bind its citizens." -- the trailing
+        # "\n3. The term" this pin used to require was the NEXT enumerated
+        # item's own lead-in ('3. The term "upper cerulean reach" means
+        # ...') bleeding through, the exact next-entry-bleed shape Item 1
+        # (TRIM not DROP) targets -- structurally identical to this
+        # sprint's already-adjudicated FED "Pre-Apprenticeship" case in
+        # test_us_markers_fallback_guard_recovery.py (also a "The
+        # term"-shaped next-entry lead-in bleeding into the prior
+        # definition). Live-verified against the current profile output
+        # this pass: this fixture still yields exactly two candidates
+        # ("Borealia" / "upper cerulean reach"), so the bleed is trimmed,
+        # not that "Borealia" silently vanished and something else
+        # coincidentally satisfied the assertion.
         "expected": {
-            "Borealia": "and bind its citizens.\n3. The term",
+            "Borealia": "and bind its citizens.",
             "upper cerulean reach": "the northern channel.",
         },
     },
