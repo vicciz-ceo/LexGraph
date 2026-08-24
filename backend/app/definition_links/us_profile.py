@@ -2833,6 +2833,72 @@ def _whole_text_hard_stops(text: str) -> list[int]:
 # precisely CA/FL's own shape, where no quote follows the marker at all.
 _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD = 80
 
+# Live-found running BOTH trackers against real PR `STATE_PR_LEY_60_1963_
+# ART422` "Agent" (identical shape to CA/FL, named in the QA bounce prose
+# though not itself a committed RED test -- item 8's own re-certification
+# sampling caught it): "(1) An issuer: (a) By conducting transactions
+# regarding a security exempted under clauses (1), (2), (3), (10) or (11)
+# of Section 402(a). (b) By conducting transactions exempted under
+# Section 402(b). (c) ..." -- a citation cross-reference glued directly
+# onto a preceding word/number with NO separating whitespace ("402(a)",
+# "402(b)") produces a letter-paren match that is byte-identical in SHAPE
+# to a genuine enumeration marker, but sits INSIDE item (a)'s own prose,
+# BEFORE the real next marker (b). Sequentially scanning every match
+# (needed for both trackers, same as `us_markers_boundary._digit_paren_
+# run_internal_content_starts`'s own unmodified digit-paren version, which
+# has the identical latent gap -- out of scope to fix there, gate 8) means
+# this glued "(a)" arrives between the real (a) and the real (b): its own
+# letter ('a') never equals whatever `expected_letter` the run is waiting
+# for, so the ORIGINAL algorithm's "no match -> reset run_active" branch
+# wrongly tore down open run tracking before the real next marker was ever
+# reached -- silently reproducing the exact CA/FL over-trim this pass
+# exists to fix, just one glued citation later. Fixed by treating a GLUED
+# match (the character immediately before its own opening delimiter is
+# alphanumeric -- never true for a real enumeration marker in this
+# corpus's own drafting convention, which always separates one from
+# surrounding prose by whitespace or a line start) as invisible noise:
+# skipped before either the "continues the active run" or "starts a new
+# run" branch even looks at it, so in-progress run state survives across
+# it unchanged, exactly as if it had never matched at all.
+#
+# Deliberately checked as "the nearest non-whitespace character before the
+# marker is a clause-boundary punctuation mark (or the marker sits at the
+# very start of `text`)", not merely "is preceded by SOME whitespace" --
+# a first attempt at that weaker rule still let the SAME real PR row's own
+# "...exempted under clauses (1), (2), (3), (10) or (11) of Section
+# 402(a)." through: each of "(1)", "(2)", "(3)", "(10)", "(11)" IS
+# separated from surrounding prose by ordinary whitespace ("clauses
+# (1)", "(1), (2)", "(10) or (11)") -- a comma-joined INLINE citation
+# list, not a sequential document-structure marker, yet indistinguishable
+# from one under a bare whitespace check; the citation "(1)" reset run
+# tracking exactly like the glued "402(a)" case did, one step later
+# (live-found: fixing only the glued shape got PR's own capture to 964
+# chars via the letter-paren run, still short of the correct 1324 -- the
+# ROW's own OUTER digit-paren run, see `_fallback_digit_paren_run_
+# internal_content_starts` below, hit this exact inline-citation-list
+# shape). A genuine sequential marker in this corpus's own drafting
+# convention always opens a NEW clause -- immediately preceded (skipping
+# only whitespace) by a period, colon, semicolon, or em-dash (the SAME
+# boundary character set `_LIST_INTRODUCER_BEFORE_RE` already uses for
+# "starts a list" specifically; this reuses the identical convention for
+# "is a clause boundary at all", the more general case a plain comma or
+# bare word never satisfies) -- or is the very first thing in `text`.
+_PRECEDING_CLAUSE_BOUNDARY_RE = re.compile(r"[.:;—]\s*\Z")
+
+
+def _marker_lacks_preceding_clause_boundary(text: str, marker_start: int) -> bool:
+    """True UNLESS `text[marker_start]` sits at the very start of `text`
+    or the nearest non-whitespace character before it is a clause-boundary
+    mark (`.`/`:`/`;`/`—`) -- see the module note above `_FALLBACK_MARKER_
+    RUN_OPENER_LOOKAHEAD` ("Live-found...") for why anything else (a
+    citation cross-reference glued directly onto a word/number, OR one
+    comma/word away from one inside an inline citation list -- `402(a)`,
+    `18(b)(3)`, `(4)(D)`, `clauses (1), (2)`) is not a genuine enumeration
+    marker, and must be ignored by every run tracker below."""
+    if marker_start == 0:
+        return False
+    return not _PRECEDING_CLAUSE_BOUNDARY_RE.search(text[:marker_start])
+
 
 def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
     """LETTER-paren analog of `us_markers_boundary._digit_paren_run_
@@ -2851,6 +2917,8 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
     run_is_internal = False
     expected_letter: str | None = None
     for m in _LETTER_MARKER_RE.finditer(text, 0, limit):
+        if _marker_lacks_preceding_clause_boundary(text, m.start()):
+            continue
         letters = m.group(0).strip("() \t")
         if len(letters) != 1 or not letters.isalpha():
             run_active = False
@@ -2897,6 +2965,8 @@ def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> se
     run_is_internal = False
     expected_number: int | None = None
     for m in _FALLBACK_TRIM_DIGIT_DOT_RE.finditer(text, 0, limit):
+        if _marker_lacks_preceding_clause_boundary(text, m.start()):
+            continue
         try:
             number = int(m.group(0)[:-1])
         except ValueError:
@@ -2927,18 +2997,94 @@ def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> se
     return suppressed
 
 
+# Live-found continuing the SAME real PR "Agent" row past the letter-paren
+# fix above: fixing (a)-(e)'s own glued-citation derailment got the
+# capture to 964 chars, still short of baseline's correct 1324 -- the row's
+# OUTER digit-paren run ("(1) An issuer: (a) ... (e) ...  (2) A broker-
+# dealer ...") is tracked by `us_markers_boundary._digit_paren_run_
+# internal_content_starts` (feeding the REUSED `hard_stops` list, not
+# either of THIS module's own two relaxed checks) -- confirmed live: the
+# outer "(2)" sits in `compute_hard_stops(body, len(body))`'s own returned
+# `hard_stops` AND is absent from that SAME boundary-module function's own
+# `internal_content_starts` set, because IT has the identical glued-
+# citation gap this module's own two trackers above just fixed (this
+# row's own nested "(1), (2), (3), (10) or (11)" citation list, and later
+# "18(b)(3)"/"18(b)(4)(D)", derail the outer run the exact same way) --
+# out of scope to fix in that shared, FX7-protected file (gate 8). Fixed
+# here instead, independently: the SAME digit-paren algorithm, reimplemented
+# (not calling the original -- it cannot be edited to add the glued-aware
+# skip) with `_marker_lacks_preceding_clause_boundary` applied, used ONLY to
+# further filter which of the REUSED `hard_stops` this module's own trim
+# honors (see `_fallback_bleed_trim_end` below) -- never touches `compute_
+# hard_stops`/`close_entries`/the PRIMARY engine's own digit-paren handling
+# at all, an independent, additive narrowing exactly like this module's two
+# existing relaxed checks, scoped to the fallback trim path only (gate 8).
+def _fallback_digit_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
+    """DIGIT-PAREN analog, glued-citation-aware -- see the module note
+    above this function ("Live-found continuing...") for the full
+    rationale. Used to ADDITIONALLY filter the REUSED `hard_stops` list in
+    `_fallback_bleed_trim_end`, not to replace or widen `us_markers_
+    boundary.compute_hard_stops`'s own, unmodified digit-paren handling."""
+    from app.definition_links.rules.us_markers_boundary import (
+        _AFTER_MARKER_QUOTE_RE,
+        _ALL_CAPS_LABEL_OPEN_RE,
+        _DIGIT_MARKER_RE,
+        _preceded_by_list_introducer,
+    )
+
+    suppressed: set[int] = set()
+    run_active = False
+    run_is_internal = False
+    expected_number: int | None = None
+    for m in _DIGIT_MARKER_RE.finditer(text, 0, limit):
+        if _marker_lacks_preceding_clause_boundary(text, m.start()):
+            continue
+        try:
+            number = int(m.group(0).strip("() \t"))
+        except ValueError:
+            run_active = False
+            continue
+        if run_active and number == expected_number:
+            if run_is_internal:
+                opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+                has_own_direct_evidence = bool(
+                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                )
+                if not has_own_direct_evidence:
+                    suppressed.add(m.start())
+            expected_number = number + 1
+            run_active = True
+            continue
+        run_active = False
+        if number == 1 and _preceded_by_list_introducer(text, m.start()):
+            opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+            run_is_internal = not (
+                _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+            )
+            run_active = True
+            expected_number = 2
+    return suppressed
+
+
 def _whole_text_fallback_run_suppressed_starts(text: str) -> frozenset[int]:
-    """Union of `_fallback_letter_paren_run_internal_content_starts` and
-    `_fallback_digit_dot_run_internal_content_starts`, computed ONCE per
-    row -- same caching rationale as `_whole_text_hard_stops` (a per-
-    candidate call would repeat an O(row length) scan for every candidate
-    on a row). The two regexes can never produce colliding `m.start()`
-    positions (`\\(...\\)` vs a bare digit-dot token are disjoint shapes),
-    so a plain set union is safe to use as one combined lookup."""
+    """Union of `_fallback_letter_paren_run_internal_content_starts`,
+    `_fallback_digit_dot_run_internal_content_starts`, and `_fallback_
+    digit_paren_run_internal_content_starts`, computed ONCE per row --
+    same caching rationale as `_whole_text_hard_stops` (a per-candidate
+    call would repeat an O(row length) scan for every candidate on a
+    row). The three regexes can never produce colliding `m.start()`
+    positions (`\\([A-Za-z]{1,4}\\)`, a bare digit-dot token, and
+    `\\(\\d{1,3}\\)` are disjoint shapes), so a plain set union is safe to
+    use as one combined lookup -- applied to BOTH this module's own two
+    relaxed checks AND (unlike those two, which are its own independent
+    matches) the REUSED `hard_stops` list in `_fallback_bleed_trim_end`,
+    since the digit-paren member of this union exists specifically to
+    further narrow THAT reused list."""
     limit = len(text)
     return frozenset(
         _fallback_letter_paren_run_internal_content_starts(text, limit)
         | _fallback_digit_dot_run_internal_content_starts(text, limit)
+        | _fallback_digit_paren_run_internal_content_starts(text, limit)
     )
 
 
@@ -2955,13 +3101,20 @@ def _fallback_bleed_trim_end(
     found. `hard_stops` is `_whole_text_hard_stops(text)`, `run_
     suppressed_starts` is `_whole_text_fallback_run_suppressed_starts(text)`
     -- both computed ONCE per row by the caller (performance -- see each
-    function's own note). See the module note above for the exact checks
-    and why each is safe."""
+    function's own note). `run_suppressed_starts` is applied to the REUSED
+    `hard_stops` list too, not just this function's own two relaxed checks
+    below -- its digit-paren member exists specifically to further narrow
+    `hard_stops` (real PR `STATE_PR_LEY_60_1963_ART422` "Agent": the outer
+    digit-paren run's own glued-citation gap left an un-suppressed "(2)"
+    inside `hard_stops` itself, see `_fallback_digit_paren_run_internal_
+    content_starts`'s own module note). See the module note above for the
+    exact checks and why each is safe."""
     stops: list[int] = [
         hs
         for hs in hard_stops
         if definition_start + _MIN_CONTENT_BEFORE_REUSED_STOP <= hs < end
         and not _hard_stop_is_inside_quoted_block(text, hs)
+        and hs not in run_suppressed_starts
     ]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
