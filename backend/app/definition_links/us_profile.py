@@ -2707,16 +2707,212 @@ def _whole_text_hard_stops(text: str) -> list[int]:
     return hard_stops
 
 
+# QA-fail cycle 1 (sprint 2026-08-23-defs-debt-31, issue #31, gate 1 bounce,
+# contract item 6). `_FALLBACK_TRIM_LETTER_PAREN_RE`/`_FALLBACK_TRIM_DIGIT_
+# DOT_RE` above fire on ANY marker sitting at a real-sentence period,
+# whether that marker starts a genuinely NEW, unrelated entry (OH's own
+# "(B) No electric distribution utility ...", the shape Item 1 was built to
+# trim) or is the NEXT enumerated item of the SAME definition's own list
+# (real CA `STATE_CA_Cgov_T2_D3_P1_C5.6_S11546.46` "Covered populations":
+# "...means demographics ..., and includes, but is not limited to, the
+# following:\n\n(A) Households...\n\n(B) Individuals 60 years of age or
+# older...\n\n...(H) Residents of rural areas." -- baseline's own 648-char
+# capture already consumed the ENTIRE remaining row text, so (B)-(H) have
+# NOTHING to bleed FROM; the row simply ends after (H)) -- both shapes are
+# byte-identical to the two checks above on their own.
+#
+# `us_markers_boundary._digit_paren_run_internal_content_starts` already
+# solves the identical problem for DIGIT-PAREN markers (`(1)`/`(2)`/...) in
+# the PRIMARY engine: a colon/dash-introduced run's own item 1 decides,
+# once, whether the whole run is genuine siblings or one entry's own
+# internal enumeration, and every STRICTLY CONSECUTIVE successor inherits
+# that verdict as a fallback only -- never overriding a successor's own
+# direct evidence (its own quote or ALL-CAPS label immediately after ITS
+# marker). The two functions below apply the SAME algorithm (imported
+# helpers reused, not reimplemented: `_preceded_by_list_introducer`,
+# `_AFTER_MARKER_QUOTE_RE`, `_ALL_CAPS_LABEL_OPEN_RE`) to the two marker
+# families THIS module's own relaxed checks use instead -- letter-paren
+# (`(A)`/`(a)`) and digit-dot (`1.`/`2.`), neither of which `_digit_paren_
+# run_internal_content_starts` itself covers. Real FL `STATE_FL_TX_C112_
+# PI_S112.1816` "Cancer" independently proves the digit-dot case needs its
+# OWN tracking: "(a) "Cancer" includes: 1. Bladder cancer. 2. Brain
+# cancer. ... 21. Thyroid cancer. (b) "Employer" ..." -- the list-
+# introducing colon ("includes:") is ALREADY CONSUMED by `_MEANS_IDIOM_
+# GAP_RE`'s own idiom match before `definition_start`, so it never appears
+# INSIDE the candidate's own scanned span -- `_preceded_by_list_
+# introducer` still finds it because (like `us_markers_boundary`'s own
+# callers) it is always given the FULL original `text`, never a pre-
+# sliced window. This row's own OUTER (a)/(b)/(c) list is itself the
+# OPPOSITE case (genuine siblings, each opening with its own quote right
+# after the marker) -- confirming the "own direct evidence overrides
+# inheritance" rule is required here too: without it, (b)/(c) would
+# themselves be wrongly swallowed as "internal" (inherited from (a)'s own
+# list-introduced, no-immediate-quote opener), reintroducing a different
+# over-trim bug.
+#
+# Reused `_LETTER_MARKER_RE` (not this module's own `_FALLBACK_TRIM_
+# LETTER_PAREN_RE`) for the letter-paren SCAN -- it already consumes
+# trailing whitespace after the marker (`\s*`), which the "does the very
+# next character start a quote" check depends on to land on the marker's
+# own first real content character rather than a leading space; this
+# module's own `_FALLBACK_TRIM_LETTER_PAREN_RE` has no such consumption
+# (harmless for its own period-precedes-it check, but would silently
+# defeat `_AFTER_MARKER_QUOTE_RE`'s anchored match here). Match START
+# positions are identical between the two patterns (the trailing `\s*`
+# only changes where each match ENDS), so the suppressed-position set this
+# produces is safe to test against `_FALLBACK_TRIM_LETTER_PAREN_RE`'s own
+# `finditer` matches below. The digit-dot marker has no reusable sibling
+# in `us_markers_boundary` (`_DIGIT_DOT_MARKER_RE` there is `(?:^|\n)`-
+# anchored to a physical line start -- exactly the anchor gap FL's own
+# single-paragraph, zero-newline row falls through, this sprint's own
+# Item 1 finding) -- `_FALLBACK_TRIM_DIGIT_DOT_RE` is reused directly
+# instead, manually walking past its own guaranteed trailing space/tab
+# (a lookahead, not consumed by the match itself) before the opener check.
+#
+# Deliberately SAFE even where its own "direct evidence" check is too
+# narrow to fire (e.g. a "The term "X" means ..."-shaped opener, where the
+# quote sits a few words after the marker, not immediately against it):
+# `_fallback_bleed_trim_end` takes the MINIMUM stop across every check,
+# and `compute_hard_stops`'s own REUSED `hard_stops` list already
+# independently hard-stops any letter-paren marker followed, within its
+# own wider 40-char lookahead, by a quote (`_QUOTE_WITHIN_LOOKAHEAD_RE`)
+# -- confirmed live against real FED `USC_T29_C4C_S50`'s own "(b) The
+# term "Pre-Apprenticeship".../(c) The term "Labor-Management Forum"
+# means ..." shape (this sprint's own already-shipped, already-pinned
+# Item 1 recovery, `test_us_markers_fallback_guard_recovery.py`): its own
+# "(c)" is inherited-internal by THIS run-tracker's narrower immediate-
+# adjacency check (each opener reads "The term "X" means", never a bare
+# quote right against the marker), yet the pin stays correctly trimmed
+# because the REUSED hard_stops list finds "(c)" on its own, independent,
+# looser signal. This function's own suppression is only ever LOAD-
+# BEARING where NEITHER existing check already protects the boundary --
+# precisely CA/FL's own shape, where no quote follows the marker at all.
+_FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD = 80
+
+
+def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
+    """LETTER-paren analog of `us_markers_boundary._digit_paren_run_
+    internal_content_starts` -- see the module note above this function
+    for the full rationale (real CA "Covered populations"/FL "Cancer" --
+    QA-fail cycle 1, gate 1)."""
+    from app.definition_links.rules.us_markers_boundary import (
+        _AFTER_MARKER_QUOTE_RE,
+        _ALL_CAPS_LABEL_OPEN_RE,
+        _LETTER_MARKER_RE,
+        _preceded_by_list_introducer,
+    )
+
+    suppressed: set[int] = set()
+    run_active = False
+    run_is_internal = False
+    expected_letter: str | None = None
+    for m in _LETTER_MARKER_RE.finditer(text, 0, limit):
+        letters = m.group(0).strip("() \t")
+        if len(letters) != 1 or not letters.isalpha():
+            run_active = False
+            continue
+        letter = letters.lower()
+        if run_active and letter == expected_letter:
+            if run_is_internal:
+                opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+                has_own_direct_evidence = bool(
+                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                )
+                if not has_own_direct_evidence:
+                    suppressed.add(m.start())
+            expected_letter = None if letter == "z" else chr(ord(letter) + 1)
+            run_active = expected_letter is not None
+            continue
+        run_active = False
+        if letter == "a" and _preceded_by_list_introducer(text, m.start()):
+            opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+            run_is_internal = not (
+                _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+            )
+            run_active = True
+            expected_letter = "b"
+    return suppressed
+
+
+def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> set[int]:
+    """DIGIT-DOT analog of the same algorithm -- see the module note above
+    `_fallback_letter_paren_run_internal_content_starts`. Uses THIS
+    module's own `_FALLBACK_TRIM_DIGIT_DOT_RE` (unanchored to a physical
+    line start, unlike `us_markers_boundary._DIGIT_DOT_MARKER_RE`) so it
+    still works on a real single-paragraph, zero-newline row (real FL
+    `STATE_FL_TX_C112_PI_S112.1816`'s own "1. Bladder cancer. 2. Brain
+    cancer. ..." run has no `\\n` between items at all)."""
+    from app.definition_links.rules.us_markers_boundary import (
+        _AFTER_MARKER_QUOTE_RE,
+        _ALL_CAPS_LABEL_OPEN_RE,
+        _preceded_by_list_introducer,
+    )
+
+    suppressed: set[int] = set()
+    run_active = False
+    run_is_internal = False
+    expected_number: int | None = None
+    for m in _FALLBACK_TRIM_DIGIT_DOT_RE.finditer(text, 0, limit):
+        try:
+            number = int(m.group(0)[:-1])
+        except ValueError:
+            run_active = False
+            continue
+        content_start = m.end()
+        while content_start < limit and text[content_start] in " \t":
+            content_start += 1
+        if run_active and number == expected_number:
+            if run_is_internal:
+                opener = text[content_start : content_start + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+                has_own_direct_evidence = bool(
+                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                )
+                if not has_own_direct_evidence:
+                    suppressed.add(m.start())
+            expected_number = number + 1
+            run_active = True
+            continue
+        run_active = False
+        if number == 1 and _preceded_by_list_introducer(text, m.start()):
+            opener = text[content_start : content_start + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
+            run_is_internal = not (
+                _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+            )
+            run_active = True
+            expected_number = 2
+    return suppressed
+
+
+def _whole_text_fallback_run_suppressed_starts(text: str) -> frozenset[int]:
+    """Union of `_fallback_letter_paren_run_internal_content_starts` and
+    `_fallback_digit_dot_run_internal_content_starts`, computed ONCE per
+    row -- same caching rationale as `_whole_text_hard_stops` (a per-
+    candidate call would repeat an O(row length) scan for every candidate
+    on a row). The two regexes can never produce colliding `m.start()`
+    positions (`\\(...\\)` vs a bare digit-dot token are disjoint shapes),
+    so a plain set union is safe to use as one combined lookup."""
+    limit = len(text)
+    return frozenset(
+        _fallback_letter_paren_run_internal_content_starts(text, limit)
+        | _fallback_digit_dot_run_internal_content_starts(text, limit)
+    )
+
+
 def _fallback_bleed_trim_end(
-    text: str, definition_start: int, end: int, hard_stops: list[int]
+    text: str,
+    definition_start: int,
+    end: int,
+    hard_stops: list[int],
+    run_suppressed_starts: frozenset[int],
 ) -> int:
     """The earliest position in `[definition_start, end)` where a
     structural marker signals this candidate's own true content has
     already ended -- `end` itself (unchanged) when no such position is
-    found. `hard_stops` is `_whole_text_hard_stops(text)`, computed ONCE
-    per row by the caller (performance -- see that function's own note).
-    See the module note above for the exact checks and why each is
-    safe."""
+    found. `hard_stops` is `_whole_text_hard_stops(text)`, `run_
+    suppressed_starts` is `_whole_text_fallback_run_suppressed_starts(text)`
+    -- both computed ONCE per row by the caller (performance -- see each
+    function's own note). See the module note above for the exact checks
+    and why each is safe."""
     stops: list[int] = [
         hs
         for hs in hard_stops
@@ -2725,6 +2921,8 @@ def _fallback_bleed_trim_end(
     ]
     for pattern in (_FALLBACK_TRIM_LETTER_PAREN_RE, _FALLBACK_TRIM_DIGIT_DOT_RE):
         for m in pattern.finditer(text, definition_start, end):
+            if m.start() in run_suppressed_starts:
+                continue
             period_match = _FALLBACK_TRIM_PRECEDING_PERIOD_RE.search(text, definition_start, m.start())
             if not period_match:
                 continue
@@ -2824,7 +3022,10 @@ def _clean_fallback_trailing_bleed(definition_text: str) -> str:
 
 
 def _trim_fallback_candidate_bleed(
-    text: str, candidate: DefinitionCandidate, hard_stops: list[int]
+    text: str,
+    candidate: DefinitionCandidate,
+    hard_stops: list[int],
+    run_suppressed_starts: frozenset[int],
 ) -> None:
     """Mutates `candidate.definition_text` in place, TRIMMING (D-RECALL-FP:
     never dropping the candidate itself) trailing bleed per `_fallback_
@@ -2833,14 +3034,15 @@ def _trim_fallback_candidate_bleed(
     -- same safety precedent already established by `_trim_definition_at_
     structural_sibling` elsewhere in this module; left unchanged (never
     guessed at) when it is not found, or found more than once.
-    `hard_stops` is `_whole_text_hard_stops(text)`, computed ONCE by the
-    caller and shared across every candidate for this same `text`
-    (performance -- see that function's own note)."""
+    `hard_stops` is `_whole_text_hard_stops(text)`, `run_suppressed_starts`
+    is `_whole_text_fallback_run_suppressed_starts(text)` -- both computed
+    ONCE by the caller and shared across every candidate for this same
+    `text` (performance -- see each function's own note)."""
     start = text.find(candidate.definition_text)
     if start == -1 or text.find(candidate.definition_text, start + 1) != -1:
         return
     end = start + len(candidate.definition_text)
-    new_end = _fallback_bleed_trim_end(text, start, end, hard_stops)
+    new_end = _fallback_bleed_trim_end(text, start, end, hard_stops, run_suppressed_starts)
     sliced = text[start:new_end].strip()
     if not sliced:
         return
@@ -2883,6 +3085,7 @@ def _merge_fallback_candidates(
     primary_terms = {term for candidate in candidates for term in candidate.terms}
     merged = list(candidates)
     hard_stops: list[int] | None = None
+    run_suppressed_starts: frozenset[int] | None = None
     for candidate in fallback_candidates:
         if any(term in primary_terms for term in candidate.terms):
             continue
@@ -2895,7 +3098,8 @@ def _merge_fallback_candidates(
             # own note (a per-candidate call cost 19.6s for one real,
             # very long FED row alone).
             hard_stops = _whole_text_hard_stops(text)
-        _trim_fallback_candidate_bleed(text, candidate, hard_stops)
+            run_suppressed_starts = _whole_text_fallback_run_suppressed_starts(text)
+        _trim_fallback_candidate_bleed(text, candidate, hard_stops, run_suppressed_starts)
         merged.append(candidate)
     return merged
 
@@ -3027,6 +3231,7 @@ class USProfile:
         # very long FED row alone (`USC_T5_C6_S601`, 403,285 chars, 42
         # candidates). See `_whole_text_hard_stops`'s own note.
         block_hard_stops: list[int] | None = None
+        block_run_suppressed_starts: frozenset[int] | None = None
         for block in all_blocks:
             candidate = _leading_quote_candidate(block, scope=scope)
             if candidate is not None:
@@ -3065,7 +3270,10 @@ class USProfile:
                 if block in baseline_blocks and (heading_was_derived or self.code == "US-FED"):
                     if block_hard_stops is None:
                         block_hard_stops = _whole_text_hard_stops(text)
-                    _trim_fallback_candidate_bleed(text, candidate, block_hard_stops)
+                        block_run_suppressed_starts = _whole_text_fallback_run_suppressed_starts(text)
+                    _trim_fallback_candidate_bleed(
+                        text, candidate, block_hard_stops, block_run_suppressed_starts
+                    )
                 candidates.append(candidate)
         for block in all_blocks:
             for rule in registry.term_clause_rules_for(self.code):

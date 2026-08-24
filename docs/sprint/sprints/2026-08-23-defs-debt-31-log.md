@@ -821,3 +821,4 @@ they could reach certification. See Item 1's own Dev Complete entry
 and the sprint log's "Developer pass" section for the full account of
 each.
 
+- 2026-08-24T08:25Z qa-fail cycle-1 developer spawned (fresh, items 6-8): agentId a2e3d1cbf521d73ab (Sonnet, medium). Uncommitted append, rides in its first commit.
