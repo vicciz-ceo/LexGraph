@@ -828,3 +828,197 @@ each.
   4th sleep-kill, deviating from strict role separation for pure re-execution
   (no authorship/adjudication) to keep the measurement ratchet advancing
   across sleep cycles. Developer resumes for adjudication when both finish.
+
+## qa-fail cycle 1 Developer pass (2026-08-24/25) — full account
+
+**Items 6-8 (Items 1/2/5 re-submission), commit sequence and root
+causes.** Read the QA-FAIL text first (compression overflow above) and
+the RED file (`test_us_markers_defs_debt_31_qa_gap_real_rows_red.py`,
+3 tests) as spec, per the brief. Fixed in order, each landing only
+after the population sample it was measured against forced the next
+fix (P-R11/P-R16 — never hand-authored, always executed then
+adjudicated):
+
+1. **`b996350` — run-aware suppression (base mechanism).** QA's own
+   root cause was exact: `_fallback_bleed_trim_end`'s relaxed letter-
+   paren/digit-dot checks can't tell a marker starting a genuinely NEW
+   entry from the NEXT item of the SAME definition's own internal
+   list. Fix mirrors `us_markers_boundary._digit_paren_run_internal_
+   content_starts`'s own proven algorithm (list-introducer-anchored run
+   + consecutive-successor inheritance + a successor's own direct
+   evidence overriding inherited status) — generalized to the two
+   marker families the boundary module's own version doesn't cover
+   (letter-paren, digit-dot), added as `_fallback_letter_paren_run_
+   internal_content_starts`/`_fallback_digit_dot_run_internal_content_
+   starts`, threaded through as a new `run_suppressed_starts` set.
+   Fixed CA "Covered populations" and FL "Cancer" (both QA RED tests).
+   Verified against the full 84-test Item-1 regression estate (real-row
+   + structural REDs, `fallback_guard_recovery`'s 4 re-pointed pins,
+   mr121 Borealia pins, single-letter/phantom/term-key negative
+   controls) — 84/84 green, zero collateral.
+2. **`5542bee` — Item 2's CA "B" phantom, coordinated-clause signal.**
+   QA's own root cause: the phantom's 16-char gap to "shall include"
+   sits inside the 8-20 "genuine" range the 20-char threshold assumed
+   was safe. Rather than retune the bare number (near-zero margin
+   between the synthetic "Z" admit at 11 and this phantom at 16 —
+   exactly the single-population-overfit the standing lesson warns
+   against), added `_COORDINATED_CLAUSE_BEFORE_IDIOM_RE`: reject
+   (additively) when the text immediately before the idiom word ends
+   in a comma/semicolon + coordinating conjunction ("...violation, and
+   shall include...") — a structural signal QA itself suggested
+   (payload-shape). NV "X" and the synthetic adjacent-admit unaffected
+   (neither has a conjunction before their own idiom).
+3. **`f3d38d2` — PR "Agent" glued-citation derailment.** Not itself a
+   committed RED test, but named in QA's own bounce prose and required
+   by this cycle's own certification sampling. Real PR `STATE_PR_
+   LEY_60_1963_ART422` "Agent" was STILL over-trimmed (362/1324 chars)
+   after fix 1 landed. Root cause: a citation cross-reference glued
+   directly onto a word/number ("402(a)"), glued onto a PRIOR marker's
+   own closing paren ("(4)(D)"), or separated from prose only by
+   ordinary whitespace inside an inline citation list ("clauses (1),
+   (2), (3)") is byte-identical in SHAPE to a genuine enumeration
+   marker, and each one sequentially derails the run tracker's
+   "strictly consecutive successor" state machine before the real next
+   marker is ever reached — reproducing the CA/FL bug one marker
+   later, three times over on the same row (letter-paren AND, once
+   discovered, an independent digit-paren-level instance requiring its
+   own new `_fallback_digit_paren_run_internal_content_starts`, used
+   only to further filter the REUSED `hard_stops` list, never touching
+   `us_markers_boundary.py` itself). Fixed via `_marker_lacks_
+   preceding_clause_boundary`: a candidate run member must be
+   immediately preceded (skipping only whitespace) by an actual
+   clause-boundary mark (`.`/`:`/`;`/`—`) or sit at the start of text.
+   PR "Agent" recovered to 1320 chars (4 chars SHORTER than baseline's
+   own 1324 — baseline itself carried a dangling `" (c)"` fragment
+   from the next entry that this fix correctly strips, a genuine
+   improvement over baseline, not merely a match to it).
+4. **`54111be` — digit-dot line-anchor mismatch + Borealia self-check
+   regression.** Item 8's own required ≥30-row/≥10-jurisdiction sample
+   caught real WI `STATE_WI_C13_S13.48` "historic property" losing 2 of
+   3 genuine list items (243/794 chars). Root cause: `us_markers_
+   boundary._DIGIT_DOT_MARKER_RE` (feeding the REUSED `hard_stops`
+   list) is line-anchored — its OWN match START is the preceding
+   newline, one-plus characters before the digit's own position that
+   this module's `_fallback_digit_dot_run_internal_content_starts`
+   suppresses — so a `hard_stops` entry for a genuinely-internal "2."/
+   "3." sat at a position the suppression set never matched, silently
+   surviving as the real cut point. Fixed via `_digit_dot_line_anchor_
+   equivalent_start`, suppressing that earlier position too whenever
+   the boundary module's own anchor requirement is actually satisfied.
+   This ALONE regressed the mr121 "Borealia" pins (self-check the
+   contract itself names: "if your fix un-trims it, your discriminator
+   is wrong") — removing the digit-dot's own newline-anchored hard-stop
+   removed the safety net that used to protect a "The term "X" means"-
+   shaped successor (item 3's own opener) via `compute_hard_stops`'
+   weaker "capital letter follows" signal. Fixed by widening ONLY the
+   run tracker's SUCCESSOR override check (`has_own_direct_evidence`,
+   all three trackers) to also recognize a quote within a short
+   lookahead (`_QUOTE_WITHIN_LOOKAHEAD_RE`, reused from `compute_hard_
+   stops`'s own letter-marker loop) — NOT the run SEED's own internal/
+   genuine determination, which stays on the narrower immediate-
+   adjacency check matching the boundary module's own proven
+   convention (its SC "director"/(16) "Obligee" example specifically
+   relies on the seed check staying narrow). Verified: Borealia green
+   again; WI "historic property"/"Reasonable attempt to repair" (x2
+   rows)/"Commercial feed" all recover their full lists; PR/CA/FL still
+   correct; 102/102 combined regression.
+5. **Escalation + `457045b` — manager-authorized roman-numeral run
+   tracking.** Continued population re-sampling (now required before
+   Item 8's own re-certification) surfaced a 19-row/10-jurisdiction
+   population showing the IDENTICAL over-trim shape one marker family
+   later: `_LETTER_MARKER_RE` matches roman numerals (they're letters),
+   but the run tracker only ever recognized single-letter successors,
+   so "(ii)"/"(iii)" always reset tracking. This was a KNOWN, disclosed
+   limitation from fix 1's own original design (module comments:
+   "roman numerals need real numeral arithmetic, not attempted here"),
+   now confirmed live at population scale — escalated per this cycle's
+   own standing instruction ("if population measurement keeps
+   surfacing new defect shapes, STOP and escalate") rather than fixed
+   unilaterally. Manager ruling: authorized as a bounded vocabulary
+   extension (i-x, the SAME proven algorithm, no other design changes),
+   with a HARD TERMINAL CONDITION — any 6th shape found during the
+   mandatory one-more-verify-cycle must be enumerated, not fixed.
+   Implemented via a `run_vocabulary` constant ("letter"/"roman")
+   decided once at each run's own seed (the two seeds, "a" and "i", are
+   disjoint — no ambiguity) and used for that run's own remaining
+   lifetime, so a plain letter run reaching its own 9th member ("i") is
+   never confused with a roman run restarting there. Verified: AZ
+   "unreasonable restriction" recovers its full 6-item list; 6 more of
+   the 19 independently verified correct against real source text (CA
+   "proportionate interest", PA "knowingly consents", MS "gasoline",
+   CO "employee"/"similar coverage"/"fire occurring on private
+   property") — 7/19 confirmed clean, exceeding the required bar.
+
+**The 5th shape (disclosed, per the hard terminal condition — NOT
+fixed).** The mandatory verify cycle's own sample surfaced a
+structurally distinct residual: a NESTED sub-list (lettered or roman)
+inside one outer roman item hijacks the tracker's single active-run
+state (the nested marker satisfies the SAME seed condition, "a" or
+"i", abandoning the outer run, never resumed) — confirmed via direct
+real-source-text verification in PA "Tobacco product." (both rows,
+missing item (iv)), CA "necessary equipment" and "direct support
+costs" (the latter: a nested roman sub-list inside a roman item,
+orphaning (iii)), WY "orphan landfill site" (nested letter list
+orphaning (ii)/(iii)), CT "extraordinary life circumstance" (nested
+roman sub-list orphaning (ii)). A SEPARATE, unrelated mechanism: real
+MD `STATE_MD_Agps_T14_S3_S14-304` "Committee" over-captures into
+unrelated later digit-paren subsections that merely mention "Committee"
+as a term-use — confirmed this predates EVERY fix this sprint has ever
+landed (baseline `main@8850401` itself already captures 1,901 chars,
+the entire remainder of the row). A handful more (OR "communication in
+support of...", a CO row's own "Bona fide physician-patient
+relationship" ending in a malformed `"(a."` fragment, PA "evidence of
+imminent danger"/"municipality") show non-obviously-correct output not
+further root-caused, per the hard-terminal-condition instruction not
+to invest further. Population scale: the heuristic scan that found the
+original 19 (`scan_roman_numeral_truncation.py`, committed) re-run
+against the fully-fixed delta finds 8 rows still matching its own
+coarse pattern, of which 1 (MS "gasoline") is a confirmed false
+positive (independently verified correct — the "next roman marker" it
+flags belongs to a different, later quoted term). Full account,
+including a concrete recommendation for the next cycle (a stack-based
+run tracker — a genuine design question, not a bounded vocabulary
+extension like this cycle's own fix): `item5_gate5_certification_v2.md`'s
+own "Disclosed gap" section.
+
+**Sleep interruptions.** This machine slept mid-run at least 6 times
+across this pass (both the item6/7 population census and the gate5
+current-side certification run, at various points), each losing all
+in-flight, uncommitted work. The item6/7 population script's own
+existing per-file resumability (already-proven pattern from `measure_
+item1_bleed_trim_population.py`) absorbed this cleanly every time. The
+gate5 current-side run had NO such resumability (`measure_actual_
+production.py --current` accumulates all 53 files in memory, writing
+once at the very end) and lost 100% of elapsed progress (up to ~50
+minutes) on each of its first several kills — fixed by writing `run_
+gate5_current_resumable.py`, a new driver calling the EXACT SAME
+functions (`capture`/`key`/`member`/`registered_b1_winner`/
+`jurisdiction`/`write_jsonl`/`load_production`, imported, never
+reimplemented — P-R16) with per-jurisdiction checkpointing added;
+every subsequent interruption then only cost the one file in flight.
+Every checkpoint commit is in the branch's own history; the manager
+also relaunched these same committed, unmodified scripts directly as a
+named carve-out at one point to keep the ratchet moving overnight (see
+this file's own "2026-08-25T12:47Z manager carve-out" entry above) —
+pure re-execution, no authorship or adjudication performed by the
+manager.
+
+**Certification v2 headline:** unchanged 549,116 / text-change 70,468 /
+addition 0 / removal 32 (baseline 619,616 = current 619,584);
+`members_sha256` byte-identical to baseline both before and after every
+fix (B1 dispatch never touched); P-R15 0/32; item-4 cross-check 0/101
+overlap; CA/FL/PR named exemplars + 7-row roman-numeral sample all
+independently verified correct against real source text. Full writeup,
+including the disclosed gap: `item5_gate5_certification_v2.md`.
+
+**Final full evaluator (this pass, HEAD 457045b):** 1433 passed / 2
+failed (backend) — both the SAME class of pre-authorized `backend/app/`
+tripwire the prior pass already documented and re-pinned once (gate-2
+certificate pin, g7 `INTEGRATION_SHA` pin), now re-fired since
+`backend/app/` moved again this cycle; needs a QA/Planner return-pass
+re-pin against this cycle's own tip, not a Developer fix. Frontend
+165/165, typecheck clean. All 3 QA RED tests, both mr121 Borealia pins,
+items 3-4 regression tests, and the original item-1/2 sprint RED files
+all independently re-verified green this pass (not merely assumed from
+the aggregate count) — see contract's own Evaluation Notes for the
+full named list.
