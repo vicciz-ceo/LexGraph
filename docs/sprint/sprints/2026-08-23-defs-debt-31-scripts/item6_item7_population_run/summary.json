@@ -166,5 +166,261 @@
     "total_candidates_seen": 4,
     "total_rows": 23152,
     "trimmed_count": 6
+  },
+  "US-MD": {
+    "file": "us_md_statutes.parquet",
+    "jurisdiction": "US-MD",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 23906,
+    "total_rows": 39552,
+    "trimmed_count": 8310
+  },
+  "US-ME": {
+    "file": "us_me_statutes.parquet",
+    "jurisdiction": "US-ME",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 13409,
+    "total_rows": 25316,
+    "trimmed_count": 652
+  },
+  "US-MI": {
+    "file": "us_mi_statutes.parquet",
+    "jurisdiction": "US-MI",
+    "single_letter_candidate_count": 9,
+    "total_candidates_seen": 37286,
+    "total_rows": 40658,
+    "trimmed_count": 532
+  },
+  "US-MN": {
+    "file": "us_mn_statutes.parquet",
+    "jurisdiction": "US-MN",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 17942,
+    "total_rows": 27747,
+    "trimmed_count": 1023
+  },
+  "US-MO": {
+    "file": "us_mo_statutes.parquet",
+    "jurisdiction": "US-MO",
+    "single_letter_candidate_count": 1,
+    "total_candidates_seen": 13263,
+    "total_rows": 29296,
+    "trimmed_count": 3032
+  },
+  "US-MS": {
+    "file": "us_ms_statutes.parquet",
+    "jurisdiction": "US-MS",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 57987,
+    "total_rows": 158688,
+    "trimmed_count": 18778
+  },
+  "US-MT": {
+    "file": "us_mt_statutes.parquet",
+    "jurisdiction": "US-MT",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 13217,
+    "total_rows": 30514,
+    "trimmed_count": 1498
+  },
+  "US-NC": {
+    "file": "us_nc_statutes.parquet",
+    "jurisdiction": "US-NC",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 12228,
+    "total_rows": 26685,
+    "trimmed_count": 2240
+  },
+  "US-ND": {
+    "file": "us_nd_statutes.parquet",
+    "jurisdiction": "US-ND",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 9011,
+    "total_rows": 29042,
+    "trimmed_count": 341
+  },
+  "US-NE": {
+    "file": "us_ne_statutes.parquet",
+    "jurisdiction": "US-NE",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 114,
+    "total_rows": 25997,
+    "trimmed_count": 138
+  },
+  "US-NH": {
+    "file": "us_nh_statutes.parquet",
+    "jurisdiction": "US-NH",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 1923,
+    "total_rows": 25375,
+    "trimmed_count": 2089
+  },
+  "US-NJ": {
+    "file": "us_nj_statutes.parquet",
+    "jurisdiction": "US-NJ",
+    "single_letter_candidate_count": 2,
+    "total_candidates_seen": 21412,
+    "total_rows": 55897,
+    "trimmed_count": 252
+  },
+  "US-NM": {
+    "file": "us_nm_statutes.parquet",
+    "jurisdiction": "US-NM",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 17292,
+    "total_rows": 34455,
+    "trimmed_count": 2169
+  },
+  "US-NV": {
+    "file": "us_nv_statutes.parquet",
+    "jurisdiction": "US-NV",
+    "single_letter_candidate_count": 2,
+    "total_candidates_seen": 16756,
+    "total_rows": 48190,
+    "trimmed_count": 705
+  },
+  "US-NY": {
+    "file": "us_ny_statutes.parquet",
+    "jurisdiction": "US-NY",
+    "single_letter_candidate_count": 12,
+    "total_candidates_seen": 23815,
+    "total_rows": 40102,
+    "trimmed_count": 2672
+  },
+  "US-OH": {
+    "file": "us_oh_statutes.parquet",
+    "jurisdiction": "US-OH",
+    "single_letter_candidate_count": 2,
+    "total_candidates_seen": 18238,
+    "total_rows": 33161,
+    "trimmed_count": 1663
+  },
+  "US-OK": {
+    "file": "us_ok_statutes.parquet",
+    "jurisdiction": "US-OK",
+    "single_letter_candidate_count": 10,
+    "total_candidates_seen": 14814,
+    "total_rows": 35329,
+    "trimmed_count": 491
+  },
+  "US-OR": {
+    "file": "us_or_statutes.parquet",
+    "jurisdiction": "US-OR",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 16922,
+    "total_rows": 36202,
+    "trimmed_count": 3102
+  },
+  "US-PA": {
+    "file": "us_pa_statutes.parquet",
+    "jurisdiction": "US-PA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 632,
+    "total_rows": 14547,
+    "trimmed_count": 598
+  },
+  "US-PR": {
+    "file": "us_pr_statutes.parquet",
+    "jurisdiction": "US-PR",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 68,
+    "total_rows": 23636,
+    "trimmed_count": 128
+  },
+  "US-RI": {
+    "file": "us_ri_statutes.parquet",
+    "jurisdiction": "US-RI",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 5327,
+    "total_rows": 21107,
+    "trimmed_count": 0
+  },
+  "US-SC": {
+    "file": "us_sc_statutes.parquet",
+    "jurisdiction": "US-SC",
+    "single_letter_candidate_count": 2,
+    "total_candidates_seen": 10955,
+    "total_rows": 29947,
+    "trimmed_count": 402
+  },
+  "US-SD": {
+    "file": "us_sd_statutes.parquet",
+    "jurisdiction": "US-SD",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 7534,
+    "total_rows": 39589,
+    "trimmed_count": 598
+  },
+  "US-TN": {
+    "file": "us_tn_statutes.parquet",
+    "jurisdiction": "US-TN",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 15989,
+    "total_rows": 32693,
+    "trimmed_count": 6557
+  },
+  "US-TX": {
+    "file": "us_tx_statutes.parquet",
+    "jurisdiction": "US-TX",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 49288,
+    "total_rows": 122535,
+    "trimmed_count": 3001
+  },
+  "US-UT": {
+    "file": "us_ut_statutes.parquet",
+    "jurisdiction": "US-UT",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 26147,
+    "total_rows": 25880,
+    "trimmed_count": 445
+  },
+  "US-VA": {
+    "file": "us_va_statutes.parquet",
+    "jurisdiction": "US-VA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 15524,
+    "total_rows": 33856,
+    "trimmed_count": 472
+  },
+  "US-VT": {
+    "file": "us_vt_statutes.parquet",
+    "jurisdiction": "US-VT",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 10521,
+    "total_rows": 23521,
+    "trimmed_count": 1857
+  },
+  "US-WA": {
+    "file": "us_wa_statutes.parquet",
+    "jurisdiction": "US-WA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 20734,
+    "total_rows": 51498,
+    "trimmed_count": 767
+  },
+  "US-WI": {
+    "file": "us_wi_statutes.parquet",
+    "jurisdiction": "US-WI",
+    "single_letter_candidate_count": 2,
+    "total_candidates_seen": 14943,
+    "total_rows": 18158,
+    "trimmed_count": 5852
+  },
+  "US-WV": {
+    "file": "us_wv_statutes.parquet",
+    "jurisdiction": "US-WV",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 11888,
+    "total_rows": 25460,
+    "trimmed_count": 2300
+  },
+  "US-WY": {
+    "file": "us_wy_statutes.parquet",
+    "jurisdiction": "US-WY",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 5271,
+    "total_rows": 10219,
+    "trimmed_count": 708
   }
 }
