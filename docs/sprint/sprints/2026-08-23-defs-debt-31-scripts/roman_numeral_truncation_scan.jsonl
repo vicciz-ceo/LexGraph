@@ -1,0 +1,8 @@
+{"jurisdiction": "US-CA", "source_file": "us_ca_statutes.parquet", "source_row": 41256, "term": "necessary equipment", "act_id": "STATE_CA_Cgov_T8_C5_A9_S69959.5", "after_len": 360, "before_len": 3986}
+{"jurisdiction": "US-PA", "source_file": "us_pa_statutes.parquet", "source_row": 3780, "term": "Tobacco product.", "act_id": "STATE_PA_T18_C63_S6306.1", "after_len": 843, "before_len": 2049}
+{"jurisdiction": "US-CA", "source_file": "us_ca_statutes.parquet", "source_row": 78542, "term": "direct support costs", "act_id": "STATE_CA_Cedc_T2_D4_P28_C10_A6_S52616.4", "after_len": 1453, "before_len": 3790}
+{"jurisdiction": "US-PA", "source_file": "us_pa_statutes.parquet", "source_row": 3982, "term": "Tobacco product.", "act_id": "STATE_PA_T18_C63_S6305", "after_len": 843, "before_len": 2452}
+{"jurisdiction": "US-MS", "source_file": "us_ms_statutes.parquet", "source_row": 27489, "term": "gasoline", "act_id": "STATE_MS_T75_C12_S55-5", "after_len": 346, "before_len": 360}
+{"jurisdiction": "US-OR", "source_file": "us_or_statutes.parquet", "source_row": 12450, "term": "communication in support of or in opposition to a clearly identified candidate", "act_id": "STATE_OR_T23_C260_S260.266", "after_len": 33, "before_len": 955}
+{"jurisdiction": "US-WY", "source_file": "us_wy_statutes.parquet", "source_row": 5089, "term": "orphan landfill site", "act_id": "STATE_WY_T35_C11_S35-11-525", "after_len": 246, "before_len": 2439}
+{"jurisdiction": "US-CT", "source_file": "us_ct_statutes.parquet", "source_row": 2241, "term": "extraordinary life circumstance", "act_id": "STATE_CT_T38a_C701_S38a-686", "after_len": 435, "before_len": 2136}
