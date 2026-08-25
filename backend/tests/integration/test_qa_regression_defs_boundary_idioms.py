@@ -72,6 +72,15 @@ Two gaps closed here:
    re-pointed to THIS sprint's own fresh gate-5 certificate instead of the
    superseded gate-2 one. See the test's own docstring for the new anchor.
 
+   **Re-pointed again 2026-08-25 (sprint 2026-08-23-defs-debt-31, Planner
+   return-pass 2, mandatory stale-pin sweep after qa-fail cycle 1)**:
+   `backend/app/` moved a second time -- Items 6-7's qa-fail-cycle-1 fixes
+   (roman-numeral run-tracking extension, `457045b`) landed after the
+   return-pass-1 anchor (`5d2093a`) went stale. Re-pointed to THIS sprint's
+   own v2 gate-5 certificate (`item5_gate5_certification_v2.md` /
+   `gate5-adjudication-v2/`) instead. See the test's own docstring for the
+   new anchor.
+
 Every assertion below was verified empirically against the current
 (post-fix, post-revert) production code before being committed, per this
 sprint's own M-R107/no-flip-to-red-trap discipline: each pins the REQUIRED
@@ -232,19 +241,21 @@ def test_single_letter_fallback_term_survives_live_persistence_altitude_novel_ca
 _SCRIPTS_DIR = ROOT / "docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts"
 _SUMMARY_PATH = _SCRIPTS_DIR / "run/compare/summary.json"
 _CHANGED_PATH = _SCRIPTS_DIR / "run/compare/changed.jsonl"
-# Re-pointed 2026-08-24 (sprint 2026-08-23-defs-debt-31, Planner return-pass,
-# mandatory stale-pin sweep): was "f267644" (the 2026-08-20-defs-boundary-
-# idioms gate-2 cert this test originally pinned against). backend/app/ has
-# since legitimately moved (this sprint's Items 1-2 touched
-# definition_links/us_profile.py, pre-authorized by this sprint's own
-# contract) and been re-certified by a fresh, independent combined run --
-# see docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
-# item5_gate5_certification.md ("ONE full all-53 executed run ... 100%
-# anchor-granularity adjudication") and gate5-adjudication/summary.json.
-# Only two docs-only commits follow this SHA (verified this pass via
-# `git log --oneline 5d2093a..HEAD -- backend/app/` == empty), so it is the
-# current production tip the fresh certificate actually measured.
-_CERTIFIED_TREE_SHA = "5d2093a"
+# Re-pointed again 2026-08-25 (sprint 2026-08-23-defs-debt-31, Planner
+# return-pass 2, mandatory stale-pin sweep after qa-fail cycle 1): was
+# "5d2093a" (return-pass 1's Item-5 gate-5 cert tip). backend/app/ moved a
+# second time -- Items 6-7's qa-fail-cycle-1 fixes (manager-authorized
+# roman-numeral run-tracking extension) landed at 457045b -- and been
+# re-certified by a fresh, independent combined run -- see
+# docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/
+# item5_gate5_certification_v2.md ("Fresh full all-53 executed run ... 100%
+# anchor-granularity adjudication") and gate5-adjudication-v2/summary.json
+# (549,116 unchanged / 70,468 text-change / 0 true-addition / 32
+# true-removal anchors). No later commit touches backend/app/ (verified
+# this pass via `git log --oneline 457045b..HEAD -- backend/app/` ==
+# empty), so 457045b is the current production tip the fresh v2
+# certificate actually measured.
+_CERTIFIED_TREE_SHA = "457045b"
 
 
 def test_gate2_certificate_summary_composition_is_unchanged():
@@ -309,6 +320,28 @@ def test_gate2_certificate_still_stands_backend_app_byte_identical_to_certified_
     deletion screen clean; committed `gate5-run/current/summary.json`
     records_sha256
     `6b0a0c81d24516a90b81001b236a8fce1e5a1c05f17244a2590b93e265d1b841`,
+    members_sha256
+    `851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`
+    identical to baseline's -- both independently re-read from the
+    committed JSON this pass, not retyped from memory).
+
+    **Re-pointed again 2026-08-25 (sprint 2026-08-23-defs-debt-31, Planner
+    return-pass 2, mandatory stale-pin sweep after qa-fail cycle 1)**:
+    `backend/app/definition_links/us_profile.py` moved a second time --
+    Items 6-7's qa-fail-cycle-1 fixes (run-aware roman-numeral marker-run
+    tracking extension, manager-authorized) landed at `457045b`,
+    superseding the return-pass-1 anchor (`5d2093a`). Re-anchored to THIS
+    sprint's own v2 gate-5 certificate: production tip `457045b`
+    ("fix(item6): manager-authorized roman-numeral run tracking (i-x)";
+    independently re-verified this pass -- `git log --oneline
+    457045b..HEAD -- backend/app/` is empty), measured by the gate-5
+    combined run documented in `docs/sprint/sprints/2026-08-23-defs-debt-31
+    -scripts/item5_gate5_certification_v2.md` and `gate5-adjudication-v2/
+    summary.json` (619,584 current records vs. 619,616 baseline; 549,116
+    unchanged / 70,468 text-change / 32 true-removal / 0 true-addition
+    anchors, P-R15 deletion screen clean 0/32; committed `gate5-run/
+    current/summary.json` records_sha256
+    `4cc9c28f4fd532b2d84814e298bdfad7b274869b6768b7aa83922ae97aae0475`,
     members_sha256
     `851e85dc81d6f9657a80cd2ae6d94d2c6289068932d9274288a45c926236af5a`
     identical to baseline's -- both independently re-read from the

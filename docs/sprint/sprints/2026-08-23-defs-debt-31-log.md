@@ -1026,3 +1026,4 @@ full named list.
   (us_profile.py only, zero test edits), exactly 2 pre-authorized tripwires
   red, QA RED tests + Borealia pins green, ceiling untouched. Lock ->
   planner for return-pass #2 (cert pin + g7 re-pin/evidence).
+- 2026-08-25 planner return-pass 2 spawned: agentId a26b651b6a64f0412 (Sonnet, high). Uncommitted append, rides in its commit.
