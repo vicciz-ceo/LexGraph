@@ -22,22 +22,24 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
 SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
-# Re-pinned to this sprint's own Item 1 (definition-text bleed trim) + Item 2
-# (single-letter idiom-adjacency phantom removal) fixes (issue #31, sprint
-# 2026-08-23-defs-debt-31, Planner return-pass stale-pin sweep). The prior
-# pin (79e34c860b28ad3f8a838977fc557341d82e0b2c) predates both -- 5d2093a is
-# the last commit this sprint to touch backend/app/ (only two docs-only
-# commits follow it on this branch, independently re-verified this pass via
-# `git log --oneline 5d2093a..HEAD -- backend/app/` == empty), so every
-# certification run fail-closed on validate_integration() rather than
-# measuring the tree under test. The integration SHA also seeds the
-# D-PFP-400 sample rank, so the sample and all G7 hashes recorded against
-# the old pin are void and must be regenerated (per the established
-# recipe in commit 816f63d's run_g7_repin.sh: run_g7_certification.py
-# Q-D1 -> independent Q-D2 -> Q-D3 into a scratch --out, then
-# export_compact_evidence(out, evidence) writes the canonical compact
-# evidence into this checked-in g7-certification-evidence/ dir).
-INTEGRATION_SHA = "5d2093aec21e0ca5b8d26b2f72a9d9ef01339559"
+# Re-pinned again to this sprint's own Items 6-7 (qa-fail-cycle-1 fixes:
+# run-aware bleed-trim discriminator + manager-authorized roman-numeral
+# run-tracking extension) tip (issue #31, sprint 2026-08-23-defs-debt-31,
+# Planner return-pass 2 stale-pin sweep). The prior pin
+# (5d2093aec21e0ca5b8d26b2f72a9d9ef01339559, return-pass 1's Item-5 tip)
+# predates them -- 457045b is the last commit this sprint to touch
+# backend/app/ (independently re-verified this pass via `git log --oneline
+# 457045b..HEAD -- backend/app/` == empty), so every certification run
+# fail-closed on validate_integration() rather than measuring the tree
+# under test. The integration SHA also seeds the D-PFP-400 sample rank, so
+# the sample and all G7 hashes recorded against the old pin are void and
+# must be regenerated (per the established recipe in commit 816f63d's
+# run_g7_repin.sh, adapted for this sprint as run_g7_repin.sh in
+# docs/sprint/sprints/2026-08-23-defs-debt-31-scripts/:
+# run_g7_certification.py Q-D1 -> independent Q-D2 -> Q-D3 into a scratch
+# --out, then export_compact_evidence(out, evidence) writes the canonical
+# compact evidence into this checked-in g7-certification-evidence/ dir).
+INTEGRATION_SHA = "457045bb6216f338f8dc9839a7e160a3b7485ba8"
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
