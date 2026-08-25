@@ -1022,3 +1022,7 @@ items 3-4 regression tests, and the original item-1/2 sprint RED files
 all independently re-verified green this pass (not merely assumed from
 the aggregate count) — see contract's own Evaluation Notes for the
 full named list.
+- 2026-08-25 manager verified qa-fail cycle-1 dev output: containment clean
+  (us_profile.py only, zero test edits), exactly 2 pre-authorized tripwires
+  red, QA RED tests + Borealia pins green, ceiling untouched. Lock ->
+  planner for return-pass #2 (cert pin + g7 re-pin/evidence).
