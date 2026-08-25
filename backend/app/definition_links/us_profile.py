@@ -2910,6 +2910,7 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
         _ALL_CAPS_LABEL_OPEN_RE,
         _LETTER_MARKER_RE,
         _preceded_by_list_introducer,
+        _QUOTE_WITHIN_LOOKAHEAD_RE,
     )
 
     suppressed: set[int] = set()
@@ -2928,7 +2929,9 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
             if run_is_internal:
                 opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
                 has_own_direct_evidence = bool(
-                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    _AFTER_MARKER_QUOTE_RE.match(opener)
+                    or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    or _QUOTE_WITHIN_LOOKAHEAD_RE.match(opener)
                 )
                 if not has_own_direct_evidence:
                     suppressed.add(m.start())
@@ -2946,6 +2949,48 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
     return suppressed
 
 
+# Live-found against real WI `STATE_WI_C13_S13.48` "historic property"
+# ("means any building, structure or site which is any of the following:
+# \n\n1. Listed on ...\n\n2. Included in a district ...\n\n3. Included on
+# a list ...\n\n(b) The long-range public building program ..." -- ALL
+# THREE numbered items are "historic property"'s own content; "(b)" is
+# the real, genuinely-unrelated next entry): `_fallback_digit_dot_run_
+# internal_content_starts` correctly judges "2."/"3." as internal-run
+# members and adds THEIR OWN start position (the digit itself) to
+# `suppressed` -- but `us_markers_boundary._DIGIT_DOT_MARKER_RE`, the
+# regex actually feeding the REUSED `hard_stops` list, is `(?:^|\n)[ \t]*
+# \d{1,3}\.[ \t]+` -- its OWN match START is the preceding newline (or
+# start-of-text), one or more characters EARLIER than the digit's own
+# position, because it CONSUMES the line-anchor and any leading spaces/
+# tabs into the match itself (needed for ITS OWN "is this a physical
+# line start" requirement -- this module's own `_FALLBACK_TRIM_DIGIT_
+# DOT_RE` has no such anchor and so never consumes it). A `hard_stops`
+# entry for "2." therefore sits at the NEWLINE's position, which a
+# suppressed set keyed to the DIGIT's own position never matches --
+# confirmed live: real position 1079 (`\n`) in `hard_stops`, 1080 (`2`)
+# in `suppressed`, one off, the unfiltered 1079 silently became the
+# actual cut point, reproducing the CA/FL over-trim a third time on this
+# row's own digit-dot list. Fixed by additionally suppressing that
+# earlier, boundary-module-equivalent position whenever it exists.
+def _digit_dot_line_anchor_equivalent_start(text: str, digit_start: int) -> int | None:
+    """The position `us_markers_boundary._DIGIT_DOT_MARKER_RE`'s own match
+    for the SAME marker would start at -- see the module note above this
+    function ("Live-found against real WI..."). `None` when that pattern's
+    own line-anchor requirement (start-of-text or an immediately preceding
+    `\\n`, skipping only spaces/tabs) is not actually satisfied here (a
+    digit-dot marker reached only via THIS module's own broader, unanchored
+    definition -- e.g. FL's own zero-newline "1. Bladder cancer. 2. ...\"
+    run -- has no boundary-module hard-stop counterpart to suppress at all)."""
+    pos = digit_start
+    while pos > 0 and text[pos - 1] in " \t":
+        pos -= 1
+    if pos == 0:
+        return 0
+    if text[pos - 1] == "\n":
+        return pos - 1
+    return None
+
+
 def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> set[int]:
     """DIGIT-DOT analog of the same algorithm -- see the module note above
     `_fallback_letter_paren_run_internal_content_starts`. Uses THIS
@@ -2953,11 +2998,17 @@ def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> se
     line start, unlike `us_markers_boundary._DIGIT_DOT_MARKER_RE`) so it
     still works on a real single-paragraph, zero-newline row (real FL
     `STATE_FL_TX_C112_PI_S112.1816`'s own "1. Bladder cancer. 2. Brain
-    cancer. ..." run has no `\\n` between items at all)."""
+    cancer. ..." run has no `\\n` between items at all). Each suppressed
+    member ALSO suppresses its own `_digit_dot_line_anchor_equivalent_
+    start` when one exists -- see that function's own module note (real
+    WI `STATE_WI_C13_S13.48` "historic property") for why the REUSED
+    `hard_stops` list needs that earlier position specifically, not the
+    digit's own."""
     from app.definition_links.rules.us_markers_boundary import (
         _AFTER_MARKER_QUOTE_RE,
         _ALL_CAPS_LABEL_OPEN_RE,
         _preceded_by_list_introducer,
+        _QUOTE_WITHIN_LOOKAHEAD_RE,
     )
 
     suppressed: set[int] = set()
@@ -2979,10 +3030,15 @@ def _fallback_digit_dot_run_internal_content_starts(text: str, limit: int) -> se
             if run_is_internal:
                 opener = text[content_start : content_start + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
                 has_own_direct_evidence = bool(
-                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    _AFTER_MARKER_QUOTE_RE.match(opener)
+                    or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    or _QUOTE_WITHIN_LOOKAHEAD_RE.match(opener)
                 )
                 if not has_own_direct_evidence:
                     suppressed.add(m.start())
+                    anchor_equivalent = _digit_dot_line_anchor_equivalent_start(text, m.start())
+                    if anchor_equivalent is not None:
+                        suppressed.add(anchor_equivalent)
             expected_number = number + 1
             run_active = True
             continue
@@ -3030,6 +3086,7 @@ def _fallback_digit_paren_run_internal_content_starts(text: str, limit: int) -> 
         _ALL_CAPS_LABEL_OPEN_RE,
         _DIGIT_MARKER_RE,
         _preceded_by_list_introducer,
+        _QUOTE_WITHIN_LOOKAHEAD_RE,
     )
 
     suppressed: set[int] = set()
@@ -3048,7 +3105,9 @@ def _fallback_digit_paren_run_internal_content_starts(text: str, limit: int) -> 
             if run_is_internal:
                 opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
                 has_own_direct_evidence = bool(
-                    _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    _AFTER_MARKER_QUOTE_RE.match(opener)
+                    or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
+                    or _QUOTE_WITHIN_LOOKAHEAD_RE.match(opener)
                 )
                 if not has_own_direct_evidence:
                     suppressed.add(m.start())
