@@ -86,5 +86,85 @@
     "total_candidates_seen": 16564,
     "total_rows": 24866,
     "trimmed_count": 12954
+  },
+  "US-GA": {
+    "file": "us_ga_statutes.parquet",
+    "jurisdiction": "US-GA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 16237,
+    "total_rows": 28154,
+    "trimmed_count": 14721
+  },
+  "US-HI": {
+    "file": "us_hi_statutes.parquet",
+    "jurisdiction": "US-HI",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 3095,
+    "total_rows": 16446,
+    "trimmed_count": 2976
+  },
+  "US-IA": {
+    "file": "us_ia_statutes.parquet",
+    "jurisdiction": "US-IA",
+    "single_letter_candidate_count": 97,
+    "total_candidates_seen": 14460,
+    "total_rows": 28223,
+    "trimmed_count": 2935
+  },
+  "US-ID": {
+    "file": "us_id_statutes.parquet",
+    "jurisdiction": "US-ID",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 10452,
+    "total_rows": 22754,
+    "trimmed_count": 2037
+  },
+  "US-IL": {
+    "file": "us_il_statutes.parquet",
+    "jurisdiction": "US-IL",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 15191,
+    "total_rows": 72456,
+    "trimmed_count": 9947
+  },
+  "US-IN": {
+    "file": "us_in_statutes.parquet",
+    "jurisdiction": "US-IN",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 11556,
+    "total_rows": 83148,
+    "trimmed_count": 5055
+  },
+  "US-KS": {
+    "file": "us_ks_statutes.parquet",
+    "jurisdiction": "US-KS",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 11651,
+    "total_rows": 24361,
+    "trimmed_count": 2178
+  },
+  "US-KY": {
+    "file": "us_ky_statutes.parquet",
+    "jurisdiction": "US-KY",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 12074,
+    "total_rows": 20894,
+    "trimmed_count": 2600
+  },
+  "US-LA": {
+    "file": "us_la_statutes.parquet",
+    "jurisdiction": "US-LA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 17782,
+    "total_rows": 43474,
+    "trimmed_count": 4984
+  },
+  "US-MA": {
+    "file": "us_ma_statutes.parquet",
+    "jurisdiction": "US-MA",
+    "single_letter_candidate_count": 0,
+    "total_candidates_seen": 4,
+    "total_rows": 23152,
+    "trimmed_count": 6
   }
 }
