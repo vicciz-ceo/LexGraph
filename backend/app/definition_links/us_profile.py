@@ -2900,11 +2900,55 @@ def _marker_lacks_preceding_clause_boundary(text: str, marker_start: int) -> boo
     return not _PRECEDING_CLAUSE_BOUNDARY_RE.search(text[:marker_start])
 
 
+# Manager-authorized bounded vocabulary extension (QA-fail cycle 1, item 8's
+# own population re-sampling, post-digit-dot-fix): the letter-paren run
+# tracker above only ever recognized a SINGLE-LETTER sequence (a, b, c, ...),
+# seeded at "a" -- a roman-numeral sequence ((i), (ii), (iii), ...) matches
+# the SAME `_LETTER_MARKER_RE` (roman numerals are letters) but its own
+# successor tokens are multi-character ("ii", "iii", ...), so they always
+# hit the "not a single letter" branch and reset run tracking -- reproducing
+# the identical CA/FL/PR/WI over-trim shape one marker family later. Real,
+# quantified, live-verified across 19 rows / 10 jurisdictions in the
+# certified delta (e.g. real AZ `STATE_AZ_T28_C10_A10_S4653` "unreasonable
+# restriction": "(i) An unreasonable limitation ...\n\n(ii) An unreasonable
+# limitation on the ability ...\n\n(iii) ...\n\n(iv) ..." -- ALL FOUR are
+# "unreasonable restriction"'s own list, truncated to (i) alone).
+#
+# Scoped, per manager ruling, to i-x (`_ROMAN_NUMERALS_I_TO_X`) -- real
+# statutory enumeration depth essentially never exceeds this in practice,
+# and going further needs actual roman-numeral arithmetic this module
+# deliberately does not implement. Both vocabularies share ONE state
+# machine: which one a run belongs to is decided ONCE, at its own seed
+# ("a" starts a letter run, "i" starts a roman run -- the two seeds are
+# disjoint, no ambiguity), and used for that run's own remaining lifetime
+# via `_next_letter_paren_token`, so a plain letter run that later reaches
+# its own 9th member ("i") is never confused with a roman run restarting
+# there -- `token == "i"` only means "roman" AT THE SEED, never mid-run.
+# Case-insensitive throughout (`.lower()`), covering both "(i)"/"(ii)" and
+# "(I)"/"(II)" paren forms, matching this function's own pre-existing
+# case-folding for plain letters.
+_ROMAN_NUMERALS_I_TO_X = ("i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x")
+
+
+def _next_letter_paren_token(vocabulary: str, token: str) -> str | None:
+    """The NEXT expected marker interior after `token`, within `vocabulary`
+    ("letter" or "roman") -- `None` once past the end of that vocabulary
+    (past "z", or past "x"). See the module note above `_ROMAN_NUMERALS_
+    I_TO_X` for why the vocabulary is a run-lifetime constant, never
+    re-inferred from `token` alone."""
+    if vocabulary == "roman":
+        index = _ROMAN_NUMERALS_I_TO_X.index(token)
+        return _ROMAN_NUMERALS_I_TO_X[index + 1] if index + 1 < len(_ROMAN_NUMERALS_I_TO_X) else None
+    return None if token == "z" else chr(ord(token) + 1)
+
+
 def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) -> set[int]:
     """LETTER-paren analog of `us_markers_boundary._digit_paren_run_
     internal_content_starts` -- see the module note above this function
     for the full rationale (real CA "Covered populations"/FL "Cancer" --
-    QA-fail cycle 1, gate 1)."""
+    QA-fail cycle 1, gate 1). Tracks TWO vocabularies (single letters
+    seeded at "a", roman numerals i-x seeded at "i") -- see the module
+    note above `_ROMAN_NUMERALS_I_TO_X` for why."""
     from app.definition_links.rules.us_markers_boundary import (
         _AFTER_MARKER_QUOTE_RE,
         _ALL_CAPS_LABEL_OPEN_RE,
@@ -2916,16 +2960,16 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
     suppressed: set[int] = set()
     run_active = False
     run_is_internal = False
-    expected_letter: str | None = None
+    run_vocabulary: str | None = None
+    expected_token: str | None = None
     for m in _LETTER_MARKER_RE.finditer(text, 0, limit):
         if _marker_lacks_preceding_clause_boundary(text, m.start()):
             continue
-        letters = m.group(0).strip("() \t")
-        if len(letters) != 1 or not letters.isalpha():
+        token = m.group(0).strip("() \t").lower()
+        if not token.isalpha():
             run_active = False
             continue
-        letter = letters.lower()
-        if run_active and letter == expected_letter:
+        if run_active and token == expected_token:
             if run_is_internal:
                 opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
                 has_own_direct_evidence = bool(
@@ -2935,17 +2979,24 @@ def _fallback_letter_paren_run_internal_content_starts(text: str, limit: int) ->
                 )
                 if not has_own_direct_evidence:
                     suppressed.add(m.start())
-            expected_letter = None if letter == "z" else chr(ord(letter) + 1)
-            run_active = expected_letter is not None
+            expected_token = _next_letter_paren_token(run_vocabulary, token)
+            run_active = expected_token is not None
             continue
         run_active = False
-        if letter == "a" and _preceded_by_list_introducer(text, m.start()):
+        if token == "a":
+            vocabulary = "letter"
+        elif token == "i":
+            vocabulary = "roman"
+        else:
+            continue
+        if _preceded_by_list_introducer(text, m.start()):
             opener = text[m.end() : m.end() + _FALLBACK_MARKER_RUN_OPENER_LOOKAHEAD]
             run_is_internal = not (
                 _AFTER_MARKER_QUOTE_RE.match(opener) or _ALL_CAPS_LABEL_OPEN_RE.match(opener)
             )
             run_active = True
-            expected_letter = "b"
+            run_vocabulary = vocabulary
+            expected_token = _next_letter_paren_token(vocabulary, token)
     return suppressed
 
 
