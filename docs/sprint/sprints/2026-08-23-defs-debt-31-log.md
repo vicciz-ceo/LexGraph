@@ -822,3 +822,9 @@ and the sprint log's "Developer pass" section for the full account of
 each.
 
 - 2026-08-24T08:25Z qa-fail cycle-1 developer spawned (fresh, items 6-8): agentId a2e3d1cbf521d73ab (Sonnet, medium). Uncommitted append, rides in its first commit.
+- 2026-08-25T12:47Z manager carve-out (named): relaunched the Developer's own
+  committed, unmodified resumable runners (run_gate5_current_resumable.py +
+  measure_item6_item7_population.py) as manager background tasks after the
+  4th sleep-kill, deviating from strict role separation for pure re-execution
+  (no authorship/adjudication) to keep the measurement ratchet advancing
+  across sleep cycles. Developer resumes for adjudication when both finish.
