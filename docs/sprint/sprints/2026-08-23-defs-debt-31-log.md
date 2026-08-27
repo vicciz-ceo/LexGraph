@@ -1027,3 +1027,5 @@ full named list.
   red, QA RED tests + Borealia pins green, ceiling untouched. Lock ->
   planner for return-pass #2 (cert pin + g7 re-pin/evidence).
 - 2026-08-25 planner return-pass 2 spawned: agentId a26b651b6a64f0412 (Sonnet, high). Uncommitted append, rides in its commit.
+- 2026-08-27 return-pass 2 manager-verified (tests+g7 evidence only, zero
+  backend/app, 23/23 in the 2 files). Lock -> qa for cycle 2.
