@@ -954,3 +954,26 @@ The collaborative assertion functionality is complete only when:
 14. Proposed assertions do not appear as accepted facts in the default graph.
 15. All assertion and rating actions are permission-checked and audited.
 16. Automated tests confirm that assertion data and rating aggregates cannot cross matter boundaries.
+
+## Local agent authoring and lawyer completion (2026-09-16)
+
+Platform-neutral agents submit via `app.agent_cli`, opt-in MCP
+`suggest_assertion`, or `POST /api/v1/agent/assertions`. All share the creation
+transaction and validations. Agent platform/model/run ID are recorded as
+self-reported audit provenance, returned as `agent_provenance`; machine
+confidence remains separate. Only draft/proposed states are allowed. Agent
+references must resolve to persisted, same-matter entities, and evidence must
+resolve to a same-matter document in the selected repository. Explanations are
+preserved as initial comments; creation and provenance audit are transactional.
+
+Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
+provide actual source choices for the lawyer suggestion form. Evidence details
+include quote text and document title. Legacy opaque graph entity references
+remain supported by the human API; the agent interface requires persisted types.
+
+Lawyers edit through recorded revisions using `expected_revision_number`, can
+submit drafts/requested revisions and withdraw unreviewed suggestions. An author
+needs contributor membership and an unreviewed status; reviewers can revise
+reviewed assertions. Revisions retain prior ratings without copying them forward.
+The UI displays prior revision text and loads its rating summary on demand.
+The current rating rationale is preserved when updating a rating.

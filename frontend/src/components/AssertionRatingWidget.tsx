@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactElement } from "react";
 
 // UI1 — accessible 1-5 assertion strength rating widget (spec §4 labels,
@@ -12,6 +12,7 @@ export interface AssertionRatingWidgetSaveData {
 
 export interface AssertionRatingWidgetProps {
   currentUserRating: number | null;
+  currentRationale?: string | null;
   onSave: (data: AssertionRatingWidgetSaveData) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
 }
@@ -30,16 +31,23 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function AssertionRatingWidget({
   currentUserRating,
+  currentRationale = "",
   onSave,
   onRemove,
 }: AssertionRatingWidgetProps): ReactElement {
   const [selectedStrength, setSelectedStrength] = useState<number | null>(currentUserRating);
-  const [rationale, setRationale] = useState("");
+  const [rationale, setRationale] = useState(currentRationale ?? "");
   const [focusedIndex, setFocusedIndex] = useState(
     currentUserRating != null ? currentUserRating - 1 : 0
   );
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  const rationaleId = useId();
+  useEffect(() => {
+    setSelectedStrength(currentUserRating);
+    setRationale(currentRationale ?? "");
+  }, [currentUserRating, currentRationale]);
 
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -164,20 +172,20 @@ export function AssertionRatingWidget({
       </div>
 
       <div className="assertion-rating-widget__rationale">
-        <label htmlFor="assertion-rating-rationale">Rationale (optional)</label>
+        <label htmlFor={rationaleId}>Rationale (optional)</label>
         <textarea
-          id="assertion-rating-rationale"
+          id={rationaleId}
           value={rationale}
           onChange={(event) => setRationale(event.target.value)}
         />
       </div>
 
       <div className="assertion-rating-widget__actions">
-        <button type="button" onClick={handleSave} disabled={selectedStrength == null}>
+        <button type="button" onClick={handleSave} disabled={status === "saving" || selectedStrength == null}>
           {hasExistingRating ? "Update rating" : "Save rating"}
         </button>
         {hasExistingRating && (
-          <button type="button" onClick={handleRemove}>
+          <button type="button" onClick={handleRemove} disabled={status === "saving"}>
             Remove rating
           </button>
         )}

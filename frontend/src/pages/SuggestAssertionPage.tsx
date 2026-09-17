@@ -8,6 +8,7 @@
 
 import "../styles/pages/suggest-assertion.css";
 
+import { SourcePicker } from "../components/SourcePicker";
 import { useState } from "react";
 import type { ReactElement } from "react";
 
@@ -118,6 +119,8 @@ function SimilarNotice({
 function SuggestWorkspace({ matter }: { matter: MatterMembership }): ReactElement {
   const [subjectEntityId, setSubjectEntityId] = useState(() => initialEntityParam("subject"));
   const [objectEntityId, setObjectEntityId] = useState(() => initialEntityParam("object"));
+  const [subjectType, setSubjectType] = useState("Document");
+  const [objectType, setObjectType] = useState("Document");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<Assertion | null>(null);
@@ -132,13 +135,13 @@ function SuggestWorkspace({ matter }: { matter: MatterMembership }): ReactElemen
   };
 
   const handleSubmission = async (submission: AssertionSuggestionSubmission) => {
-    if (busy) return;
+    if (busy || created) return;
     setError(null);
 
     const subjectId = submission.subjectEntityId?.trim() ?? "";
     if (subjectId === "") {
       setError(
-        "Enter a subject entity ID — every assertion must be anchored to a graph entity in this matter.",
+        "Select a source for the subject of this assertion.",
       );
       return;
     }
@@ -156,9 +159,9 @@ function SuggestWorkspace({ matter }: { matter: MatterMembership }): ReactElemen
       repository_id: submission.repositoryId,
       matter_id: submission.matterId,
       assertion_type: submission.assertionType.trim(),
-      proposition: submission.proposition.trim(),
-      subject_entity: { type: "Entity", id: subjectId },
-      object_entity: objectId !== "" ? { type: "Entity", id: objectId } : null,
+      proposition: submission.proposition,
+      subject_entity: { type: subjectType, id: subjectId },
+      object_entity: objectId !== "" ? { type: objectType, id: objectId } : null,
       jurisdiction: submission.jurisdiction?.trim() || null,
       effective_from: submission.effectiveStartDate || null,
       effective_to: submission.effectiveEndDate || null,
@@ -209,38 +212,16 @@ function SuggestWorkspace({ matter }: { matter: MatterMembership }): ReactElemen
         <section className="card sa-form-card">
           <div className="card__body">
             <div className="sa-entity-fields">
-              <div className="field">
-                <label htmlFor="sa-subject-entity">Subject entity ID</label>
-                <input
-                  id="sa-subject-entity"
-                  className="input"
-                  type="text"
-                  value={subjectEntityId}
-                  onChange={(event) => setSubjectEntityId(event.target.value)}
-                  placeholder="Graph entity this assertion is about"
-                />
-                <span className="field__hint">
-                  Required. Copy the entity&rsquo;s ID from the Knowledge Base graph.
-                </span>
-              </div>
-              <div className="field">
-                <label htmlFor="sa-object-entity">Object entity ID</label>
-                <input
-                  id="sa-object-entity"
-                  className="input"
-                  type="text"
-                  value={objectEntityId}
-                  onChange={(event) => setObjectEntityId(event.target.value)}
-                  placeholder="Second entity, if the claim relates two"
-                />
-                <span className="field__hint">
-                  Optional — leave empty (or tick standalone) for a one-entity claim.
-                </span>
-              </div>
+              <SourcePicker matterId={matter.id} kind="entities" label="Subject source" value={subjectEntityId}
+                onSelect={(option) => { setSubjectEntityId(option?.id ?? ""); setSubjectType(option?.type ?? "Document"); }} />
+              <SourcePicker matterId={matter.id} kind="entities" label="Object source (optional)" value={objectEntityId}
+                onSelect={(option) => { setObjectEntityId(option?.id ?? ""); setObjectType(option?.type ?? "Document"); }} />
             </div>
 
             <AssertionSuggestionForm
               prefill={prefill}
+              browseSources
+              disabled={busy || created !== null}
               onSubmit={(submission) => {
                 void handleSubmission(submission);
               }}

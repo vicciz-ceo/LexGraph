@@ -182,7 +182,7 @@ def test_withdraw_own_draft(client, matter_with_users):
     assert r.json()["status"] == "withdrawn"
 
 
-def test_attach_evidence_with_role(client, matter_with_users):
+def test_attach_evidence_with_role(client, matter_with_users, db_session):
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
@@ -192,7 +192,7 @@ def test_attach_evidence_with_role(client, matter_with_users):
     assertion_id = create.json()["id"]
     r = client.post(
         f"/api/v1/assertions/{assertion_id}/evidence",
-        json={"source_span_id": new_id(), "evidence_role": "supports"},
+        json={"source_span_id": _real_span(db_session, m), "evidence_role": "supports"},
         headers=m["contributor_headers"],
     )
     assert r.status_code == 201
@@ -215,7 +215,7 @@ def test_attach_evidence_invalid_role_rejected(client, matter_with_users):
     assert r.status_code == 422
 
 
-def test_remove_evidence(client, matter_with_users):
+def test_remove_evidence(client, matter_with_users, db_session):
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
@@ -225,7 +225,7 @@ def test_remove_evidence(client, matter_with_users):
     assertion_id = create.json()["id"]
     add = client.post(
         f"/api/v1/assertions/{assertion_id}/evidence",
-        json={"source_span_id": new_id(), "evidence_role": "supports"},
+        json={"source_span_id": _real_span(db_session, m), "evidence_role": "supports"},
         headers=m["contributor_headers"],
     )
     evidence_id = add.json()["id"]
@@ -260,3 +260,9 @@ def test_optimistic_concurrency_conflict_on_stale_patch(client, matter_with_user
         headers=m["contributor_headers"],
     )
     assert r.status_code == 409
+
+
+def _real_span(session, m):
+    from tests.conftest import seed_document, seed_source_span
+    doc = seed_document(session, repository_id=m["repository_id"], matter_id=m["matter_id"])
+    return seed_source_span(session, document_id=doc, matter_id=m["matter_id"])

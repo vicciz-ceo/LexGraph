@@ -80,3 +80,12 @@ describe("AssertionRatingWidget", () => {
     expect(await screen.findByText(/error|failed/i)).toBeInTheDocument();
   });
 });
+
+it("retains the saved rationale when changing only the strength", async () => {
+  const onSave = vi.fn();
+  render(<AssertionRatingWidget currentUserRating={3} currentRationale="Exact source supports the claim." onSave={onSave} onRemove={vi.fn()} />);
+  expect(screen.getByLabelText("Rationale (optional)")).toHaveValue("Exact source supports the claim.");
+  fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
+  fireEvent.click(screen.getByRole("button", { name: "Update rating" }));
+  expect(onSave).toHaveBeenCalledWith({ strength: 4, rationale: "Exact source supports the claim." });
+});

@@ -18,7 +18,7 @@ def test_create_comment_stores_raw(client, matter_with_users):
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
-        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        json=assertion_payload(m["matter_id"], m["repository_id"], explanation=None),
         headers=m["contributor_headers"],
     )
     assertion_id = create.json()["id"]
@@ -41,7 +41,7 @@ def test_update_comment_stores_raw(client, matter_with_users):
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
-        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        json=assertion_payload(m["matter_id"], m["repository_id"], explanation=None),
         headers=m["contributor_headers"],
     )
     assertion_id = create.json()["id"]

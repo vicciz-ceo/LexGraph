@@ -20,7 +20,7 @@ from tests.conftest import assertion_payload
 def _create_assertion(client, m):
     r = client.post(
         "/api/v1/assertions",
-        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        json=assertion_payload(m["matter_id"], m["repository_id"], explanation=None),
         headers=m["contributor_headers"],
     )
     return r.json()["id"]

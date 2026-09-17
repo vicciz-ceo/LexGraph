@@ -148,6 +148,10 @@ export const api = {
       body: { email, display_name: displayName, ...(id ? { id } : {}) },
     }),
 
+  sources: (matterId: string, kind: "entities" | "source-spans", q = "", offset = 0) =>
+    request<{ items: { id: string; type?: string; label?: string; document_title?: string; quote_text?: string }[]; total: number }>(
+      "GET", `/matters/${matterId}/${kind}`, { query: { q, offset, limit: 50 } }),
+
   // --- assertions ---------------------------------------------------------
   listAssertions: (matterId: string, params: AssertionListParams = {}) =>
     request<AssertionList>("GET", "/assertions", {

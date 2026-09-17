@@ -40,6 +40,7 @@ track's in-progress work.
 from __future__ import annotations
 
 import uuid
+import json
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
@@ -50,6 +51,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
+from app.models.audit_event import AuditEvent
+from app.models.document import Document
+from app.services.audit import record_audit_event
+from app.services.source_access import validate_entity, validate_span
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.assertion_evidence import AssertionEvidence
@@ -179,7 +184,7 @@ class AssertionPatch(BaseModel):
     effective_from: datetime | None = None
     effective_to: datetime | None = None
     revision_reason: str | None = None
-    expected_revision_number: int | None = None
+    expected_revision_number: int | None = Field(default=None, ge=1)
 
 
 class EvidenceCreate(BaseModel):
@@ -210,6 +215,16 @@ def _evidence_status(session: Session, assertion_id: str) -> str:
     return "unsupported"
 
 
+def _agent_provenance(session: Session, assertion: Assertion) -> dict | None:
+    if assertion.origin != "model_suggested":
+        return None
+    event = session.scalars(select(AuditEvent).where(
+        AuditEvent.assertion_id == assertion.id,
+        AuditEvent.event_type == "assertion_agent_provenance",
+    ).order_by(AuditEvent.timestamp).limit(1)).first()
+    return json.loads(event.new_value) if event and event.new_value else None
+
+
 def _serialize_assertion(session: Session, a: Assertion) -> dict:
     current_revision = _current_revision(session, a)
     ratings = _rating_pairs_for_revision(
@@ -233,6 +248,7 @@ def _serialize_assertion(session: Session, a: Assertion) -> dict:
             else None
         ),
         "origin": a.origin,
+        "agent_provenance": _agent_provenance(session, a),
         "status": a.status,
         # Sprint 2026-07-30-ratings-grade, item B1 (ruling R3): derived at
         # read time, never persisted -- `status` itself is untouched.
@@ -278,8 +294,16 @@ def _serialize_revision(r: AssertionRevision) -> dict:
     }
 
 
-def _serialize_evidence(e: AssertionEvidence) -> dict:
+def _serialize_evidence(e: AssertionEvidence, session: Session | None = None) -> dict:
+    span = session.get(SourceSpan, e.source_span_id) if session else None
+    doc = session.get(Document, span.document_id) if span else None
+    assertion = session.get(Assertion, e.assertion_id) if session else None
+    if not assertion or not span or not doc or span.matter_id != assertion.matter_id or doc.matter_id != assertion.matter_id:
+        span = doc = None
     return {
+        "quote_text": span.quote_text if span else None,
+        "document_id": doc.id if doc else None,
+        "document_title": doc.title if doc else None,
         "id": e.id,
         "assertion_id": e.assertion_id,
         "source_span_id": e.source_span_id,
@@ -456,10 +480,11 @@ def _require_can_modify(session: Session, user_id: str, assertion: Assertion) ->
     role = _matter_role(session, user_id, assertion.matter_id)
     if role is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="no access to matter")
-    if user_id != assertion.author_user_id and role not in _REVIEWER_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to modify this assertion"
-        )
+    if role in _REVIEWER_ROLES:
+        return
+    if (role != "contributor" or user_id != assertion.author_user_id
+            or assertion.status not in ("draft", "proposed", "revision_requested")):
+        raise HTTPException(403, "Only the author of an unreviewed assertion or a reviewer may modify it")
 
 
 # --- Routes ------------------------------------------------------------------
@@ -471,6 +496,11 @@ def create_assertion(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
+    return _create_assertion(body, session, user_id)
+
+
+def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
+                      agent: dict | None = None, confidence: float | None = None) -> dict:
     matter = session.get(Matter, body.matter_id)
     if matter is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="matter not found")
@@ -478,11 +508,19 @@ def create_assertion(
     if repository is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="repository not found")
 
+    if matter.repository_id != body.repository_id:
+        raise HTTPException(422, "Repository does not belong to the selected matter")
     role = _matter_role(session, user_id, body.matter_id)
     if role is None or role not in ("contributor", "reviewer", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
         )
+
+    validate_entity(session, body.subject_entity, body.matter_id, strict=agent is not None)
+    if body.object_entity:
+        validate_entity(session, body.object_entity, body.matter_id, strict=agent is not None)
+    for item in body.evidence:
+        validate_span(session, item.source_span_id, body.matter_id, body.repository_id)
 
     # --- B5: validate + sanitize the submitted payload before storage ------
     # Submitted text (proposition, etc.) is never treated as instructions —
@@ -493,6 +531,8 @@ def create_assertion(
         # Track A, item A8 (issue #2 sub-item, gate G4): length cap is
         # checked against the raw submitted text, before sanitization.
         validate_text_length(body.proposition, label="proposition")
+        if body.explanation is not None:
+            validate_text_length(body.explanation, label="explanation")
         validate_proposition_not_empty(proposition)
         validate_effective_dates(body.effective_from, body.effective_to)
         validate_assertion_type(
@@ -570,10 +610,10 @@ def create_assertion(
         subject_entity_id=body.subject_entity.id,
         object_entity_type=body.object_entity.type if body.object_entity else None,
         object_entity_id=body.object_entity.id if body.object_entity else None,
-        origin="user_suggested",
+        origin="model_suggested" if agent else "user_suggested",
         status=body.save_as,
         author_user_id=user_id,
-        confidence=None,
+        confidence=confidence if agent else None,
         jurisdiction=body.jurisdiction,
         effective_from=body.effective_from,
         effective_to=body.effective_to,
@@ -622,6 +662,24 @@ def create_assertion(
             )
         )
 
+    session.flush()
+    record_audit_event(session, actor_user_id=user_id, event_type="assertion_created",
+                       repository_id=assertion.repository_id, matter_id=assertion.matter_id,
+                       assertion_id=assertion.id, assertion_revision_id=revision.id,
+                       new_value=assertion.status)
+    if agent:
+        record_audit_event(session, actor_user_id=user_id, event_type="assertion_agent_provenance",
+                           repository_id=assertion.repository_id, matter_id=assertion.matter_id,
+                           assertion_id=assertion.id, assertion_revision_id=revision.id,
+                           new_value=json.dumps(agent, ensure_ascii=False))
+    if body.explanation and sanitize_for_storage(body.explanation).strip():
+        comment = AssertionComment(id=str(uuid.uuid4()), assertion_id=assertion.id,
+            user_id=user_id, comment_text=sanitize_for_storage(body.explanation),
+            comment_text_raw=body.explanation, created_at=now, updated_at=now)
+        session.add(comment)
+        record_audit_event(session, actor_user_id=user_id, event_type="comment_created",
+                           repository_id=assertion.repository_id, matter_id=assertion.matter_id,
+                           assertion_id=assertion.id, new_value=comment.id)
     session.commit()
     session.refresh(assertion)
     result = _serialize_assertion(session, assertion)
@@ -785,7 +843,7 @@ def get_assertion(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
     result = _serialize_assertion(session, assertion)
-    result["evidence"] = [_serialize_evidence(e) for e in _evidence_rows(session, assertion_id)]
+    result["evidence"] = [_serialize_evidence(e, session) for e in _evidence_rows(session, assertion_id)]
     result["ratings_summary"] = _ratings_summary(session, assertion)
     result["comments"] = _comments_for_assertion(session, assertion_id)
     result["revision_history"] = _revision_history(session, assertion_id)
@@ -816,6 +874,24 @@ def patch_assertion(
     )
     if not updates:
         return _serialize_assertion(session, assertion)
+
+    try:
+        for field in ("proposition", "assertion_type", "subject_entity"):
+            if field in updates and updates[field] is None:
+                raise ValidationError(f"{field} cannot be null")
+        if "proposition" in updates:
+            validate_proposition_not_empty(sanitize_for_storage(body.proposition))
+        if "assertion_type" in updates:
+            validate_assertion_type(body.assertion_type)
+        validate_effective_dates(updates.get("effective_from", assertion.effective_from),
+                                 updates.get("effective_to", assertion.effective_to))
+        for field in ("subject_entity", "object_entity"):
+            entity = getattr(body, field)
+            if entity is not None:
+                validate_matter_scoped_entity_id(entity.id, label=field)
+                validate_entity(session, entity, assertion.matter_id)
+    except (ValidationError, TypeError) as exc:
+        raise HTTPException(422, str(exc)) from exc
 
     # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
     # against the raw submitted text, before sanitization.
@@ -889,7 +965,15 @@ def patch_assertion(
         edited_by_user_id=user_id,
         created_at=now,
     )
+    if assertion.status == "proposed":
+        assertion.reviewed_by = None
+        assertion.reviewed_at = None
     session.add(revision)
+    session.flush()
+    record_audit_event(session, actor_user_id=user_id, event_type="assertion_revised",
+                       repository_id=assertion.repository_id, matter_id=assertion.matter_id,
+                       assertion_id=assertion.id, assertion_revision_id=revision.id,
+                       previous_value=str(new_revision_number - 1), new_value=str(new_revision_number))
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -904,7 +988,7 @@ def submit_assertion(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
 
-    if assertion.status not in ("draft", "proposed"):
+    if assertion.status not in ("draft", "proposed", "revision_requested"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"cannot submit assertion in status '{assertion.status}'",
@@ -927,6 +1011,8 @@ def withdraw_assertion(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
 
+    if assertion.status not in ("draft", "proposed", "revision_requested"):
+        raise HTTPException(409, "Only an unreviewed assertion can be withdrawn")
     assertion.status = "withdrawn"
     assertion.updated_at = _now()
     session.commit()
@@ -961,93 +1047,9 @@ def create_revision(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    """Explicit revision-create endpoint (spec §13); shares the same
-    material-edit semantics as PATCH, always recording a new revision.
-    """
+    patch_assertion(assertion_id, body, session, user_id)
     assertion = _get_assertion_or_404(session, assertion_id)
-    _require_can_modify(session, user_id, assertion)
-
-    if (
-        body.expected_revision_number is not None
-        and body.expected_revision_number != assertion.current_revision_number
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="assertion has been modified since expected_revision_number",
-        )
-
-    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
-    # against the raw submitted text, before sanitization.
-    if body.proposition is not None:
-        try:
-            validate_text_length(body.proposition, label="proposition")
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-            ) from exc
-
-    if body.jurisdiction is not None:
-        try:
-            validate_jurisdiction(body.jurisdiction)
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-            ) from exc
-
-    # Track A, item A2 (issue #2, gate G1): carry the previous revision's
-    # raw text forward when this call doesn't touch proposition.
-    previous_revision = _current_revision(session, assertion)
-    proposition_raw = previous_revision.proposition_raw if previous_revision else None
-
-    now = _now()
-    new_revision_number = assertion.current_revision_number + 1
-
-    if body.proposition is not None:
-        # B5 (qa-fail fix): sanitize like CREATE does (gate G10).
-        assertion.proposition = sanitize_for_storage(body.proposition)
-        proposition_raw = body.proposition
-    if body.assertion_type is not None:
-        assertion.assertion_type = body.assertion_type
-    if body.subject_entity is not None:
-        assertion.subject_entity_type = body.subject_entity.type
-        assertion.subject_entity_id = body.subject_entity.id
-    if body.object_entity is not None:
-        assertion.object_entity_type = body.object_entity.type
-        assertion.object_entity_id = body.object_entity.id
-    if body.jurisdiction is not None:
-        assertion.jurisdiction = body.jurisdiction
-    if body.effective_from is not None:
-        assertion.effective_from = body.effective_from
-    if body.effective_to is not None:
-        assertion.effective_to = body.effective_to
-
-    assertion.current_revision_number = new_revision_number
-    assertion.updated_at = now
-    if assertion.status == "accepted":
-        assertion.status = "proposed"
-
-    revision = AssertionRevision(
-        id=str(uuid.uuid4()),
-        assertion_id=assertion.id,
-        revision_number=new_revision_number,
-        proposition=assertion.proposition,
-        proposition_raw=proposition_raw,
-        assertion_type=assertion.assertion_type,
-        subject_entity_type=assertion.subject_entity_type,
-        subject_entity_id=assertion.subject_entity_id,
-        object_entity_type=assertion.object_entity_type,
-        object_entity_id=assertion.object_entity_id,
-        jurisdiction=assertion.jurisdiction,
-        effective_from=assertion.effective_from,
-        effective_to=assertion.effective_to,
-        revision_reason=body.revision_reason,
-        edited_by_user_id=user_id,
-        created_at=now,
-    )
-    session.add(revision)
-    session.commit()
-    session.refresh(revision)
-    return _serialize_revision(revision)
+    return _serialize_revision(_current_revision(session, assertion))
 
 
 @router.get("/{assertion_id}/evidence")
@@ -1065,7 +1067,7 @@ def list_evidence(
         .scalars()
         .all()
     )
-    return [_serialize_evidence(e) for e in rows]
+    return [_serialize_evidence(e, session) for e in rows]
 
 
 @router.post("/{assertion_id}/evidence", status_code=status.HTTP_201_CREATED)
@@ -1086,7 +1088,7 @@ def add_evidence(
     # (spec §7 "a user cannot attach evidence from another inaccessible
     # matter") — see validate_evidence_matter_scope for why an unresolved
     # span id is not itself grounds for rejection here.
-    span = session.get(SourceSpan, body.source_span_id)
+    span = validate_span(session, body.source_span_id, assertion.matter_id, assertion.repository_id)
     try:
         validate_evidence_matter_scope(span.matter_id if span is not None else None, assertion.matter_id)
     except ValidationError as exc:
@@ -1105,7 +1107,7 @@ def add_evidence(
     session.add(evidence)
     session.commit()
     session.refresh(evidence)
-    return _serialize_evidence(evidence)
+    return _serialize_evidence(evidence, session)
 
 
 @router.delete("/{assertion_id}/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)

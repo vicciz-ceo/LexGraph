@@ -113,3 +113,20 @@ The design assumed capabilities the API did not have. Added (additively, in
   deployment concern, out of scope here.
 - Analytics aggregates are computed client-side from the matter's assertion
   list; fine at demo/matter scale, a stats endpoint would be the next step.
+
+## Local authoring completion (2026-09-16)
+
+The suggestion page now searches actual documents/articles and evidence quotes
+with bounded pagination instead of requiring users to copy entity IDs. Empty
+source results explain that documents must first be imported. Creating the
+assertion and its evidence/explanation is atomic. Saving is disabled while a
+request is pending or after a similar-match result has already been saved.
+
+Assertion detail resolves evidence quotations and document titles, shows agent
+platform/model/run provenance as self-reported, and offers role-gated edit,
+submit and withdraw actions. The revision editor preserves authored text,
+explains the impact on prior ratings, and sends the expected revision number.
+A conflict preserves the lawyer's unsaved text. Activity exposes each revision's
+text and rating summary; rating updates retain rationale and refresh standing.
+These additions supersede the earlier notes about missing span resolution and
+ID-only evidence entry.

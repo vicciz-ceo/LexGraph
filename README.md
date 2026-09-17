@@ -91,6 +91,17 @@ The web UI (React, `frontend/src/pages/`) implements the Consensus design system
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
 
+## Local agents and lawyer authoring
+
+Agents on Claude Code, Codex or any platform with local shell access can now
+create validated, evidence-backed suggestions via MCP, JSON CLI, or REST. Read
+[the agent guide](docs/AGENT_GUIDE.md) and [MCP setup](docs/mcp-registration.md).
+Repository-level `AGENTS.md` and `CLAUDE.md` make the workflow discoverable.
+
+Lawyers can search sources, suggest assertions, edit through recorded revisions,
+submit/withdraw drafts, and rate each revision with a preserved rationale.
+Agent provenance and exact evidence quotes are visible on assertion detail.
+
 ## Status
 
 The collaborative-assertion feature set (see [docs/specs/collaborative-assertions.md](docs/specs/collaborative-assertions.md)) is implemented and test-covered: assertion CRUD with evidence and revisions, revision-scoped ratings with aggregates, comments, audit trail, review workflow with server-side per-matter permissions, matter isolation, hostile-input sanitization, graph projection, in-app notifications, search/sort/duplicate detection, eleven React components, and an end-to-end flow test.

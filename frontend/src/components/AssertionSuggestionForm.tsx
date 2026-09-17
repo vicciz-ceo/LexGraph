@@ -1,3 +1,4 @@
+import { SourcePicker } from "./SourcePicker";
 import { useState } from "react";
 import type { ChangeEvent, ReactElement } from "react";
 
@@ -67,6 +68,8 @@ export interface AssertionSuggestionSubmission {
 }
 
 export interface AssertionSuggestionFormProps {
+  browseSources?: boolean;
+  disabled?: boolean;
   prefill: AssertionSuggestionPrefill;
   onSubmit: (submission: AssertionSuggestionSubmission) => void;
   onCancel?: () => void;
@@ -88,6 +91,8 @@ function nextRowId(): string {
 
 export function AssertionSuggestionForm({
   prefill,
+  browseSources = false,
+  disabled = false,
   onSubmit,
   onCancel,
   similarAssertions = [],
@@ -120,7 +125,7 @@ export function AssertionSuggestionForm({
   // exact duplicate does. When the caller has already surfaced possible
   // matches (similarAssertions is non-empty) the proposition-required
   // gate is considered satisfied by that upstream check.
-  const submitDisabled = hasExactDuplicate || propositionMissing;
+  const submitDisabled = disabled || hasExactDuplicate || propositionMissing;
 
   const addEvidenceRow = () => {
     setEvidenceRows((rows) => [...rows, { id: nextRowId(), sourceSpanId: "", evidenceRole: "supports" }]);
@@ -315,13 +320,13 @@ export function AssertionSuggestionForm({
         <ul>
           {evidenceRows.map((row) => (
             <li key={row.id} className="assertion-suggestion-form__evidence-row">
+              {browseSources ? <SourcePicker matterId={prefill.matterId} kind="source-spans" label="Evidence source"
+                value={row.sourceSpanId} onSelect={(option) => updateEvidenceSpanId(row.id, option?.id ?? "")} /> : <>
               <label htmlFor={`${row.id}-span`}>Source span</label>
-              <input
-                id={`${row.id}-span`}
-                type="text"
-                value={row.sourceSpanId}
-                onChange={(event) => updateEvidenceSpanId(row.id, event.target.value)}
-              />
+              <input id={`${row.id}-span`} type="text" value={row.sourceSpanId}
+                onChange={(event) => updateEvidenceSpanId(row.id, event.target.value)} />
+              </>}
+
               <select
                 aria-label="Evidence role"
                 value={row.evidenceRole}
@@ -360,7 +365,7 @@ export function AssertionSuggestionForm({
       ) : null}
 
       <div className="assertion-suggestion-form__actions">
-        <button type="button" onClick={handleSaveDraft}>
+        <button type="button" onClick={handleSaveDraft} disabled={disabled || propositionMissing}>
           Save as draft
         </button>
         <button type="button" onClick={handleTogglePreview}>

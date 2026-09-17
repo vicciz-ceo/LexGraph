@@ -1,49 +1,21 @@
-"""LexGraph MCP stdio server (sprint 2026-07-26-local-first-platform, Track
-C, item C1; gate G7; rulings R5, R6).
+"""Local MCP discovery and opt-in agent authoring.
 
-Registers three read-only tools against the local SQLAlchemy session,
-built with the official `mcp` Python SDK's `MCPServer` (stdio transport):
-
-- `explore(query)` -- a query resolves to matching assertions plus their
-  evidence (linked source-span quotes) and relationships (subject/object
-  entities, supersession) in ONE bounded call -- CodeGraph-style: fewer
-  tokens, less time, better output than crawling the REST API.
-- `search(query)` -- bounded list of assertion summaries matching `query`.
-- `fetch(assertion_id)` -- full detail for one assertion by id.
-
-Read-only (ruling R5): no write/mutation tool is registered here, and none
-of these functions call `session.add`/`session.delete`/`session.commit`.
-Zero network I/O (ruling R6, gate G7, item D3's static guardrail): this
-module imports none of httpx/requests/urllib.request/aiohttp/socket/
-http.client -- only the local `mcp` SDK, SQLAlchemy, and this app's own
-models.
-
-Text preference (raw-text awareness, Track A): every proposition surfaced
-here is the current revision's byte-exact `proposition_raw` when present,
-falling back to the sanitized `proposition` only for rows without a raw
-value (e.g. pre-Track-A data) -- the same precedence
-`app.routers.assertions` uses for search (`_matches`) and detail
-(`_serialize_assertion`) responses, since `proposition_raw` is the system
-of record for legal text.
-
-Runnable standalone against a local SQLite file:
-
-    python -m app.mcp.server
-
-(reads `LEXGRAPH_DATABASE_URL` the same way `app.main.create_app` does;
-see `docs/mcp-registration.md` for client registration commands.)
+Without a configured actor, legacy lookup tools read the entire local database.
+With an actor, reads are matter-scoped and validated proposal creation is enabled.
+See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 """
 
 from __future__ import annotations
 
 from mcp.server.mcpserver import MCPServer
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.source_span import SourceSpan
+from app.models.matter_role import MatterRole
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
 _DEFAULT_RESULT_LIMIT = 10
@@ -66,13 +38,15 @@ def _proposition_text(session: Session, assertion: Assertion) -> str:
     return raw if raw is not None else assertion.proposition
 
 
-def _matching_assertions(session: Session, query: str, limit: int) -> list[Assertion]:
-    needle = (query or "").strip().lower()
-    assertions = session.execute(select(Assertion)).scalars().all()
-    if not needle:
-        return list(assertions[:limit])
-    matched = [a for a in assertions if needle in _proposition_text(session, a).lower()]
-    return matched[:limit]
+def _matching_assertions(session: Session, query: str, limit: int, user_id: str | None = None) -> list[Assertion]:
+    stmt = select(Assertion).outerjoin(AssertionRevision, (
+        (AssertionRevision.assertion_id == Assertion.id)
+        & (AssertionRevision.revision_number == Assertion.current_revision_number)))
+    if user_id is not None:
+        stmt = stmt.where(Assertion.matter_id.in_(select(MatterRole.matter_id).where(MatterRole.user_id == user_id)))
+    if query.strip():
+        stmt = stmt.where(func.coalesce(AssertionRevision.proposition_raw, Assertion.proposition).icontains(query.strip(), autoescape=True))
+    return list(session.scalars(stmt.order_by(Assertion.id).limit(limit)))
 
 
 def _evidence_rows(session: Session, assertion_id: str) -> list[AssertionEvidence]:
@@ -106,6 +80,9 @@ def _serialize_assertion_summary(session: Session, assertion: Assertion) -> dict
         "assertion_type": assertion.assertion_type,
         "proposition": _proposition_text(session, assertion),
         "status": assertion.status,
+        "origin": assertion.origin,
+        "repository_id": assertion.repository_id,
+        "current_revision_number": assertion.current_revision_number,
     }
 
 
@@ -133,11 +110,8 @@ def _serialize_assertion_detail(session: Session, assertion: Assertion) -> dict:
     return detail
 
 
-def create_server(session_factory: sessionmaker[Session]) -> MCPServer:
-    """Build a `MCPServer` instance with `explore`/`search`/`fetch` tools
-    registered, reading through a fresh `Session` (from `session_factory`)
-    per call. No tool here mutates the database (ruling R5: MCP v1 is
-    read-only)."""
+def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str | None = None) -> MCPServer:
+    """Build local tools; a configured actor enables validated, scoped suggestions."""
 
     server = MCPServer(name="lexgraph")
 
@@ -148,7 +122,7 @@ def create_server(session_factory: sessionmaker[Session]) -> MCPServer:
         supersession) in one bounded call."""
         session = session_factory()
         try:
-            matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT)
+            matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
@@ -163,7 +137,7 @@ def create_server(session_factory: sessionmaker[Session]) -> MCPServer:
         text matches `query`."""
         session = session_factory()
         try:
-            matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT)
+            matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
@@ -179,11 +153,42 @@ def create_server(session_factory: sessionmaker[Session]) -> MCPServer:
         session = session_factory()
         try:
             assertion = session.get(Assertion, assertion_id)
+            if assertion is not None and agent_user_id is not None:
+                allowed = session.scalar(select(MatterRole.id).where(
+                    MatterRole.user_id == agent_user_id, MatterRole.matter_id == assertion.matter_id))
+                if allowed is None:
+                    assertion = None
             if assertion is None:
                 return {"error": f"assertion not found: {assertion_id}"}
             return _serialize_assertion_detail(session, assertion)
         finally:
             session.close()
+
+    @server.tool()
+    def assertion_guide() -> dict:
+        """Learn how to create evidence-backed suggestions and retrieve the exact JSON schema."""
+        from app.agent_cli import guide
+        result = guide()
+        result["submissions_enabled"] = agent_user_id is not None
+        return result
+
+    if agent_user_id:
+        @server.tool()
+        def agent_context(matter_id: str | None = None, query: str = "", limit: int = 20, offset: int = 0) -> dict:
+            """Discover authorized matters, real entity IDs, source quotes and existing assertions."""
+            from app.agent_cli import context
+            with session_factory() as session:
+                return context(session, agent_user_id, matter_id, query, limit, offset)
+
+        @server.tool()
+        def suggest_assertion(payload: dict) -> dict:
+            """Submit a model-suggested draft/proposal. Call assertion_guide for schema, agent_context for IDs.
+            The configured account must have contributor access. Never accepts assertions or rates them.
+            """
+            from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit
+            from fastapi.encoders import jsonable_encoder
+            with session_factory() as session:
+                return jsonable_encoder(submit(AgentAssertionCreate.model_validate(payload), session, agent_user_id))
 
     return server
 
@@ -199,7 +204,8 @@ def _stdio_main() -> None:  # pragma: no cover -- exercised via manual local run
     settings = get_settings()
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
-    server = create_server(session_factory)
+    import os
+    server = create_server(session_factory, agent_user_id=os.environ.get("LEXGRAPH_AGENT_USER_ID") or None)
     server.run(transport="stdio")
 
 

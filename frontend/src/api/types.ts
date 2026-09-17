@@ -37,6 +37,7 @@ export interface Assertion {
    * status passthrough for non-proposed assertions. */
   standing: string;
   author_user_id: string;
+  agent_provenance?: { platform: string; model?: string | null; run_id?: string | null } | null;
   confidence: number | null;
   jurisdiction: string | null;
   effective_from: string | null;
@@ -70,6 +71,8 @@ export interface AssertionListParams {
 }
 
 export interface Evidence {
+  quote_text?: string | null;
+  document_title?: string | null;
   id: string;
   assertion_id: string;
   source_span_id: string;

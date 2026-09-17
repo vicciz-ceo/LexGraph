@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid as _uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 
 
@@ -359,7 +359,11 @@ def validate_effective_dates(
 
     Open-ended ranges (either or both bounds `None`) are always consistent.
     """
-    if effective_from is not None and effective_to is not None and effective_to < effective_from:
+    def comparable(value):
+        if isinstance(value, datetime):
+            return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+    if effective_from is not None and effective_to is not None and comparable(effective_to) < comparable(effective_from):
         raise ValidationError("effective_to cannot be before effective_from")
 
 

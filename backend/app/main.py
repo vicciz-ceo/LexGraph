@@ -87,6 +87,10 @@ def create_app() -> FastAPI:
 
     app.include_router(users_router.router)
 
+    from app.routers import agents, sources
+    app.include_router(agents.router)
+    app.include_router(sources.router)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}

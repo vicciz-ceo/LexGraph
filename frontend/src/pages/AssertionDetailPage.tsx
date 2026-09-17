@@ -1,3 +1,4 @@
+import { AssertionEditor } from "../components/AssertionEditor";
 // Assertion detail — the full record for one assertion: proposition,
 // entities, model provenance, evidence spans, discussion, revision
 // activity, team ratings, and role-gated review actions.
@@ -148,6 +149,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             : Promise.resolve(null),
         ]);
         if (cancelled) return;
+        if (assertion.matter_id !== session.currentMatter.id) {
+          setNotFound(true); setDetail(null); return;
+        }
         setDetail(assertion);
         setRelated(rel);
         setSummary(sum);
@@ -177,12 +181,14 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     if (!detail || detail.current_revision_number == null) return;
     await api.putRating(detail.id, detail.current_revision_number, strength, rationale);
     setSummary(await api.ratingSummary(detail.id, detail.current_revision_number));
+    setDetail(await api.getAssertion(detail.id));
   };
 
   const handleRemoveRating = async () => {
     if (!detail || detail.current_revision_number == null) return;
     await api.deleteRating(detail.id, detail.current_revision_number);
     setSummary(await api.ratingSummary(detail.id, detail.current_revision_number));
+    setDetail(await api.getAssertion(detail.id));
   };
 
   const runReview = async (action: () => Promise<unknown>) => {
@@ -346,6 +352,10 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             </div>
           </section>
 
+          {canContribute && <AssertionEditor key={detail.id} detail={detail} canReview={canReview}
+            isAuthor={detail.author_user_id === session.user.id} onSaved={refresh} />}
+          {canContribute && <Link to="/suggest" className="btn btn--secondary">Suggest another assertion</Link>}
+
           {isModelOrigin && (
             <section className="card">
               <div className="card__header">Model provenance</div>
@@ -361,6 +371,12 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     </strong>
                   </span>
                 </div>
+                {detail.agent_provenance && <p>
+                  Platform: {detail.agent_provenance.platform}
+                  {detail.agent_provenance.model && ` · Model: ${detail.agent_provenance.model}`}
+                  {detail.agent_provenance.run_id && ` · Run: ${detail.agent_provenance.run_id}`}
+                  {" (self-reported)"}
+                </p>}
                 <p className="adp-note">
                   Model confidence is reported by the extraction pipeline. It is independent
                   of team strength ratings and of the review status.
@@ -384,7 +400,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                       <span className={evidenceRoleBadge(item.evidence_role)}>
                         {labelize(item.evidence_role)}
                       </span>
-                      <span className="mono">{item.source_span_id}</span>
+                      <span>{item.document_title ?? item.source_span_id}</span>
+                      {item.quote_text && <blockquote>{item.quote_text}</blockquote>}
                       <span className="muted adp-evidence-by">
                         added by {nameFor(item.added_by_user_id)}
                       </span>
@@ -392,7 +409,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   ))}
                 </ul>
               )}
-              <p className="adp-note">Span text resolution is not yet available.</p>
+
             </div>
           </section>
 
@@ -467,6 +484,10 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         {nameFor(revision.edited_by_user_id)} ·{" "}
                         {fmtDateTime(revision.created_at)}
                       </div>
+                      <details><summary>View revision text and ratings</summary>
+                        <p>{revision.proposition_raw ?? revision.proposition}</p>
+                        <RevisionRatings assertionId={detail.id} revision={revision.revision_number} />
+                      </details>
                       {revision.revision_reason && (
                         <p className="adp-timeline-reason">{revision.revision_reason}</p>
                       )}
@@ -508,6 +529,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   <AssertionRatingWidget
                     key={`${detail.id}:${detail.current_revision_number}`}
                     currentUserRating={summary?.current_user_rating?.strength ?? null}
+                    currentRationale={summary?.current_user_rating?.rationale ?? ""}
                     onSave={handleSaveRating}
                     onRemove={handleRemoveRating}
                   />
@@ -585,4 +607,16 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
       </div>
     </div>
   );
+}
+
+function RevisionRatings({ assertionId, revision }: { assertionId: string; revision: number }) {
+  const [summary, setSummary] = useState<RatingSummary | null>(null);
+  const [error, setError] = useState("");
+  const load = async () => {
+    try { setSummary(await api.ratingSummary(assertionId, revision)); setError(""); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to load ratings"); }
+  };
+  return <div>{summary ? <AssertionRatingDistribution summary={summary} modelConfidence={null} /> :
+    <button type="button" onClick={() => void load()}>Load ratings for revision {revision}</button>}
+    {error && <p role="alert">{error}</p>}</div>;
 }

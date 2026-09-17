@@ -360,7 +360,7 @@ npm --prefix frontend run build
 
 ### Standalone MCP Server
 
-The LexGraph MCP server exposes the local database as read-only tools for AI agents. To run the MCP server standalone:
+The LexGraph MCP server exposes local assertion discovery and, when an agent account is configured, validated suggestion tools. See [MCP registration](mcp-registration.md). To run the MCP server standalone:
 
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
@@ -471,3 +471,13 @@ above:
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend.
 - **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.
+
+## Agent suggestions and lawyer collaboration
+
+See [AGENT_GUIDE.md](AGENT_GUIDE.md) for the validated local JSON CLI, REST
+submission contract, provenance and lawyer workflow, and
+[mcp-registration.md](mcp-registration.md) for Claude Code/Codex configuration.
+Use the same absolute database URL for backend, CLI and MCP. No additional
+schema migration is required on an already-current database. Agent writes are
+opt-in through a dedicated contributor account; existing no-actor MCP clients
+retain their original whole-database read-only mode.

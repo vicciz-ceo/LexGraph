@@ -39,7 +39,7 @@ vi.mock("../../api/client", () => {
     }
   }
   return {
-    api: { createAssertion: vi.fn() },
+    api: { createAssertion: vi.fn(), sources: vi.fn() },
     ApiError: MockApiError,
   };
 });
@@ -57,7 +57,7 @@ function makeAssertion(overrides: Partial<CreateAssertionResult> = {}): CreateAs
     assertion_type: "APPLIES_TO",
     proposition: "Section 12 applies to subtenants.",
     proposition_raw: null,
-    subject_entity: { type: "Entity", id: "ent-9" },
+    subject_entity: { type: "Document", id: "ent-9" },
     object_entity: null,
     origin: "user_suggested",
     status: "draft",
@@ -80,7 +80,8 @@ function makeAssertion(overrides: Partial<CreateAssertionResult> = {}): CreateAs
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("Subject entity ID"), "ent-9");
+  await screen.findAllByRole("option", { name: "Lease" });
+  await user.selectOptions(screen.getByLabelText("Subject source"), "ent-9");
   await user.type(screen.getByLabelText("Assertion type"), "APPLIES_TO");
   await user.type(screen.getByLabelText("Proposition"), "Section 12 applies to subtenants.");
 }
@@ -88,6 +89,10 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => {
   sessionState.role = "contributor";
   window.location.hash = "#/suggest";
+  vi.mocked(api.sources).mockResolvedValue({ items: [
+    { id: "ent-9", type: "Document", label: "Lease" },
+    { id: "ent-3", type: "Article", label: "Section 12" },
+  ], total: 2 });
   vi.mocked(api.createAssertion).mockReset();
   vi.mocked(api.createAssertion).mockResolvedValue(makeAssertion());
 });
@@ -121,7 +126,7 @@ describe("SuggestAssertionPage", () => {
       matter_id: "matter-1",
       assertion_type: "APPLIES_TO",
       proposition: "Section 12 applies to subtenants.",
-      subject_entity: { type: "Entity", id: "ent-9" },
+      subject_entity: { type: "Document", id: "ent-9" },
       object_entity: null,
       jurisdiction: null,
       effective_from: null,
@@ -139,15 +144,15 @@ describe("SuggestAssertionPage", () => {
     render(<SuggestAssertionPage />);
 
     await fillRequiredFields(user);
-    await user.type(screen.getByLabelText("Object entity ID"), "ent-3");
+    await user.selectOptions(screen.getByLabelText("Object source (optional)"), "ent-3");
     await user.click(screen.getByRole("button", { name: /submit for review/i }));
 
     await waitFor(() => expect(api.createAssertion).toHaveBeenCalledTimes(1));
     expect(api.createAssertion).toHaveBeenCalledWith(
       expect.objectContaining({
         save_as: "proposed",
-        subject_entity: { type: "Entity", id: "ent-9" },
-        object_entity: { type: "Entity", id: "ent-3" },
+        subject_entity: { type: "Document", id: "ent-9" },
+        object_entity: { type: "Article", id: "ent-3" },
       }),
     );
     await waitFor(() => expect(window.location.hash).toBe("#/assertions/a-77"));
@@ -190,7 +195,7 @@ describe("SuggestAssertionPage", () => {
     await user.type(screen.getByLabelText("Proposition"), "Section 12 applies.");
     await user.click(screen.getByRole("button", { name: /save as draft/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/subject entity/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/subject/i);
     expect(api.createAssertion).not.toHaveBeenCalled();
   });
 
@@ -226,6 +231,6 @@ describe("SuggestAssertionPage", () => {
     window.location.hash = "#/suggest?subject=ent-42";
     render(<SuggestAssertionPage />);
 
-    expect(screen.getByLabelText("Subject entity ID")).toHaveValue("ent-42");
+    expect(screen.getByLabelText("Subject source")).toHaveValue("ent-42");
   });
 });

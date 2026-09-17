@@ -76,7 +76,6 @@ class AuditHookMiddleware(BaseHTTPMiddleware):
             return
 
         if request.method == "POST" and _CREATE_ASSERTION_RE.match(request.url.path):
-            await self._record_assertion_created(request, response)
             return
 
         rating_match = _RATING_RE.match(request.url.path)

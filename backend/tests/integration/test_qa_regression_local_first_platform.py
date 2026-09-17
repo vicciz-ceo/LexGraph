@@ -64,7 +64,7 @@ def test_comment_raw_round_trips_unicode_emoji_and_crlf_byte_exact(client, matte
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
-        json=assertion_payload(m["matter_id"], m["repository_id"]),
+        json=assertion_payload(m["matter_id"], m["repository_id"], explanation=None),
         headers=m["contributor_headers"],
     )
     assertion_id = create.json()["id"]

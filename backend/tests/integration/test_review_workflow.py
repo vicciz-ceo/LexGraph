@@ -26,10 +26,13 @@ def _create_submitted(client, m, **overrides):
     return assertion_id
 
 
-def test_reviewer_can_accept(client, matter_with_users):
+def test_reviewer_can_accept(client, matter_with_users, db_session):
+    from tests.conftest import seed_document, seed_source_span
     m = matter_with_users
+    doc_id = seed_document(db_session, repository_id=m["repository_id"], matter_id=m["matter_id"])
+    span_id = seed_source_span(db_session, document_id=doc_id, matter_id=m["matter_id"])
     assertion_id = _create_submitted(
-        client, m, evidence=[{"source_span_id": "seed-span", "evidence_role": "primary_basis"}]
+        client, m, evidence=[{"source_span_id": span_id, "evidence_role": "primary_basis"}]
     )
     r = client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
     assert r.status_code == 200

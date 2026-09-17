@@ -1,95 +1,85 @@
-# LexGraph MCP Registration
+# LexGraph MCP registration
 
-The LexGraph backend includes a local MCP (Model Context Protocol) server that exposes the graph database as read-only tools for AI agents. This server reads the local SQLite database and provides no network access — the MCP exposes the entire local database read-only, with no per-matter permission filtering. It is the session's map of the user's own local data.
+The local stdio server connects directly to LexGraph's database. Install the
+backend first (`pip install -e '.[dev]'`). Use absolute paths so the Python module
+and database resolve regardless of the agent's working directory.
 
-The MCP server runs as a stdio process and provides three tools:
-- **explore**: Query assertions and evidence with relationships in a single bounded call
-- **search**: Full-text search across the database
-- **fetch**: Retrieve specific records by ID
+Available tools:
 
-## Claude Code Registration
+- `assertion_guide`: workflow and complete submission JSON schema.
+- `explore`, `search`, `fetch`: existing assertion lookup and evidence.
+- `agent_context`: discover authorized matters, persisted entities, source spans
+  and existing assertions (requires configured agent user).
+- `suggest_assertion`: atomically create a model-suggested draft/proposal with
+  evidence and provenance (requires configured agent user).
 
-To register the LexGraph MCP with Claude Code, use the following command:
+When `LEXGRAPH_AGENT_USER_ID` is configured, all reads and writes are restricted
+to that user's matter memberships; suggestions require contributor access.
+Without it the server retains its original **whole-local-database read-only**
+mode, plus `assertion_guide`. Only use this mode with trusted local clients.
+
+First create an agent account through Admin and grant contributor membership.
+Replace all paths and `AGENT_USER_ID` below. These examples configure clients;
+they do not start an LLM or make any provider API calls.
+
+## Claude Code
 
 ```bash
-claude mcp add lexgraph -- backend/.venv/bin/python -m app.mcp.server
+claude mcp add lexgraph \
+  --env LEXGRAPH_DATABASE_URL=sqlite:////absolute/path/to/LexGraph/backend/dev.db \
+  --env LEXGRAPH_AGENT_USER_ID=AGENT_USER_ID \
+  -- /absolute/path/to/LexGraph/backend/.venv/bin/python -m app.mcp.server
 ```
 
-Ensure the `LEXGRAPH_DATABASE_URL` environment variable is set before running Claude Code. For example:
+## Codex
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+codex mcp add lexgraph \
+  --env LEXGRAPH_DATABASE_URL=sqlite:////absolute/path/to/LexGraph/backend/dev.db \
+  --env LEXGRAPH_AGENT_USER_ID=AGENT_USER_ID \
+  -- /absolute/path/to/LexGraph/backend/.venv/bin/python -m app.mcp.server
 ```
 
-## Codex Configuration
+Alternatively use `~/.codex/config.toml`:
 
-For Codex, add the following to your MCP configuration file (typically `~/.codex/mcp.json` or similar):
+```toml
+[mcp_servers.lexgraph]
+command = "/absolute/path/to/LexGraph/backend/.venv/bin/python"
+args = ["-m", "app.mcp.server"]
+
+[mcp_servers.lexgraph.env]
+LEXGRAPH_DATABASE_URL = "sqlite:////absolute/path/to/LexGraph/backend/dev.db"
+LEXGRAPH_AGENT_USER_ID = "AGENT_USER_ID"
+```
+
+Codex supports stdio MCP registration through its CLI or TOML configuration;
+see the [official MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
+Command syntax was also checked against the locally installed clients' help.
+
+## Cursor, Antigravity and other clients
+
+Use the client's stdio MCP configuration with the same command, arguments and
+environment. For clients that accept `mcpServers` JSON:
 
 ```json
 {
   "mcpServers": {
     "lexgraph": {
-      "command": "python",
+      "command": "/absolute/path/to/LexGraph/backend/.venv/bin/python",
       "args": ["-m", "app.mcp.server"],
-      "cwd": "/path/to/lexgraph/backend",
       "env": {
-        "LEXGRAPH_DATABASE_URL": "sqlite:///lexgraph.db"
+        "LEXGRAPH_DATABASE_URL": "sqlite:////absolute/path/to/LexGraph/backend/dev.db",
+        "LEXGRAPH_AGENT_USER_ID": "AGENT_USER_ID"
       }
     }
   }
 }
 ```
 
-## Cursor Configuration
+Clients differ in config location and wrapper keys; use their stdio settings.
+Agents without MCP can use the JSON CLI or HTTP API in the
+[agent guide](AGENT_GUIDE.md). No web server is needed for CLI or MCP.
 
-For Cursor, configure the MCP server in your Cursor settings or configuration file:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "lexgraph": {
-        "command": "python",
-        "args": ["-m", "app.mcp.server"],
-        "cwd": "/path/to/lexgraph/backend",
-        "env": {
-          "LEXGRAPH_DATABASE_URL": "sqlite:///lexgraph.db"
-        }
-      }
-    }
-  }
-}
-```
-
-## Antigravity Configuration
-
-For Antigravity, configure the LexGraph MCP server using the following configuration:
-
-```json
-{
-  "mcpServers": {
-    "lexgraph": {
-      "command": "python",
-      "args": ["-m", "app.mcp.server"],
-      "cwd": "/path/to/lexgraph/backend",
-      "env": {
-        "LEXGRAPH_DATABASE_URL": "sqlite:///lexgraph.db"
-      }
-    }
-  }
-}
-```
-
-## Running the MCP Server Standalone
-
-To test the MCP server outside of any client, run:
-
-```bash
-python -m app.mcp.server
-```
-
-The server reads the database URL from the `LEXGRAPH_DATABASE_URL` environment variable. If not set, it defaults to an in-memory SQLite database.
-
-## Database
-
-The MCP server is read-only and connects to the same SQLite database as the grading app. Set `LEXGRAPH_DATABASE_URL` to point to your database file. Multiple clients can connect to the same MCP server instance, all reading from the same local database.
+After connecting, ask the agent to call `assertion_guide`, then `agent_context`,
+read the relevant sources, and call `suggest_assertion` with `payload` set to a
+schema-valid JSON object. Proposed assertions appear in the lawyers' review queue.

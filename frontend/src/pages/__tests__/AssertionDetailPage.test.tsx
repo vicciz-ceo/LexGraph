@@ -93,6 +93,7 @@ const detailFixture: AssertionDetail = {
       id: "ev-1",
       assertion_id: "a-1",
       source_span_id: "span-123",
+      quote_text: "The tenant must deliver statements by 31 March.",
       evidence_role: "supports",
       added_by_user_id: "u-2",
       created_at: "2026-07-01T10:05:00Z",
@@ -156,7 +157,7 @@ const relatedFixture: RelatedMatch[] = [
 
 async function renderPage() {
   render(<AssertionDetailPage assertionId="a-1" />);
-  await screen.findByText(detailFixture.proposition);
+  await screen.findAllByText(detailFixture.proposition);
 }
 
 beforeEach(() => {
@@ -193,7 +194,7 @@ describe("AssertionDetailPage", () => {
 
     // Evidence span, comment, revision reason, related match.
     expect(screen.getByText("span-123")).toBeInTheDocument();
-    expect(screen.getByText("Span text resolution is not yet available.")).toBeInTheDocument();
+    expect(screen.getByText("The tenant must deliver statements by 31 March.")).toBeInTheDocument();
     expect(screen.getByText("Please double-check the deadline.")).toBeInTheDocument();
     expect(screen.getByText("Corrected the delivery deadline")).toBeInTheDocument();
     expect(screen.getByText("Similar proposition")).toBeInTheDocument();
@@ -276,6 +277,6 @@ describe("AssertionDetailPage", () => {
 
     mockedApi.getAssertion.mockResolvedValue(detailFixture);
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await screen.findByText(detailFixture.proposition);
+    await screen.findAllByText(detailFixture.proposition);
   });
 });

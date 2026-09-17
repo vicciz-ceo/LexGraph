@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git config user.email | grep -q noreply || echo \"WARN: git email not noreply — push will fail GH007\"; [ -d backend/.venv ] || echo \"WARN: no backend/.venv in this worktree\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *.py|*.ts|*.tsx|*.js|*.jsx) awk 'END{if(NR>300) print FILENAME\": \"NR\" lines — exceeds 300-line style gate\"}' \"$f\";; esac; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
