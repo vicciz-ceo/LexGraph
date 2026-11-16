@@ -166,11 +166,16 @@ Repository-level `AGENTS.md` and `CLAUDE.md` make the workflow discoverable.
 
 Lawyers can search sources, suggest assertions, edit through recorded revisions,
 submit/withdraw drafts, and rate each revision with a preserved rationale.
-Agent provenance and exact evidence quotes are visible on assertion detail.
+Agent provenance and exact evidence quotes are visible on assertion detail,
+together with the review history and the rating rationales a member may read.
+The detail page also attaches and removes evidence (for the author of an
+unreviewed assertion, or a reviewer), threads the discussion with replies and
+edits or deletes one's own comments, compares any two revisions field by field,
+and lets reviewers mark an accepted assertion superseded by another accepted one.
 
 ## Status
 
-The collaborative-assertion feature set (see [docs/specs/collaborative-assertions.md](docs/specs/collaborative-assertions.md)) is implemented and test-covered: assertion CRUD with evidence and revisions, revision-scoped ratings with aggregates, comments, audit trail, review workflow with server-side per-matter permissions, matter isolation, hostile-input sanitization, graph projection, in-app notifications, search/sort/duplicate detection, the web UI described above, and an end-to-end flow test.
+The collaborative-assertion feature set (see [docs/specs/collaborative-assertions.md](docs/specs/collaborative-assertions.md)) is implemented and test-covered: assertion CRUD with evidence and revisions, revision-scoped ratings with aggregates, comments, audit trail, review workflow with server-side per-matter permissions, matter isolation, hostile-input sanitization, graph projection (served by `GET /api/v1/matters/{id}/graph`; the web UI has no graph explorer yet), in-app notifications, search/sort/duplicate detection, the web UI described above, and an end-to-end flow test. Of the eleven React components the spec names (§14), the pages use eight: AssertionSuggestionForm (Suggest Assertion), AssertionReviewPanel (review queue, assertion detail), AssertionRatingDistribution (review queue, contested queue, assertion detail), and AssertionRatingWidget, AssertionEvidenceSelector, AssertionComments, AssertionRevisionHistory and AssertionComparisonView (assertion detail). AssertionCard, AssertionDetailPanel and RelatedAssertionsPanel are tested but not used by any page.
 
 In-app notifications are stored in the database, so they survive restarts and every API worker serves the same feed; they link to their assertion and can be marked read (see [docs/RUNBOOK.md](docs/RUNBOOK.md#notifications)).
 

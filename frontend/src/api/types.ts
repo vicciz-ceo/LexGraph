@@ -19,6 +19,9 @@ export type EvidenceStatus = "evidenced" | "unsupported" | "awaiting_evidence";
 export interface EntityRef {
   type: string | null;
   id: string | null;
+  /** GET /assertions/{id} only: a same-matter entity's title, quote or
+   * proposition; null for legacy opaque references. */
+  label?: string | null;
 }
 
 export interface Assertion {
@@ -199,6 +202,8 @@ export interface HistoryEvent {
 export interface CurrentUserRating {
   strength: number;
   rationale: string | null;
+  /** The user's exact text (prefill editors with this, not `rationale`). */
+  rationale_raw?: string | null;
   updated_at: string | null;
 }
 
@@ -209,14 +214,18 @@ export interface RatingSummary {
   distribution: Record<string, number>;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   current_user_rating: CurrentUserRating | null;
   rationale_count: number;
+  /** Ratings recorded against this assertion's lower-numbered revisions. */
+  prior_revision_rating_count?: number;
 }
 
 export interface Rating {
   id: string;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   user_id: string;
   strength: number;
   rationale: string | null;
@@ -244,6 +253,8 @@ export interface RelatedMatch {
   assertion_id: string;
   match_kind: "exact_proposition" | "same_subject_type_object" | "similar" | string;
   score: number;
+  proposition?: string;
+  status?: AssertionStatus;
 }
 
 export interface AppNotification {

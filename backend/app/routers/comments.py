@@ -6,12 +6,27 @@ RATIONALES).
     PATCH  /api/v1/assertions/{assertion_id}/comments/{comment_id}
     DELETE /api/v1/assertions/{assertion_id}/comments/{comment_id}
 
-Matter-scoped: any user holding a `matter_roles` row for the assertion's
-matter may read/post comments; a user with no matter role at all (the
-"outsider" case) gets 403. Soft-delete: DELETE sets `deleted_at` rather
-than removing the row, and the default GET listing excludes soft-deleted
-comments. Edit-own-only: only the comment's original author may PATCH or
-DELETE it -- no reviewer/admin override, per this item's brief.
+Matter-scoped and permission-checked (spec §12): reading needs
+`assertion:view` (every matter role); posting, editing and deleting need
+`assertion:comment` (contributor, reviewer, admin), so a viewer can read
+the discussion but not post to it, and a user demoted to viewer can no
+longer edit or delete their old comments (finding api:10). A user with no
+matter role at all (the "outsider" case) gets 403. Edit-own-only: only the
+comment's original author may PATCH or DELETE it -- no reviewer/admin
+override, per this item's brief.
+
+Text rules (finding api:25): the length cap is checked on the raw text, and
+a comment must still contain non-whitespace text once markup is removed --
+blank and markup-only text is rejected with 422 on create and on edit (the
+same rule the proposition path applies).
+
+Threads and soft-delete (finding api:25): DELETE sets `deleted_at` rather
+than removing the row. A reply must target a live comment on the same
+assertion (a deleted parent is a 409 conflict). The GET listing omits
+deleted comments, except that a deleted comment which still has a live
+reply somewhere below it is returned as a tombstone -- `deleted_at` set,
+`comment_text` empty, `comment_text_raw` null -- so every listed reply's
+`parent_comment_id` resolves within the listing and no deleted text leaks.
 
 Every mutation writes an `audit_events` row via `app.services.audit`
 (this track's audit service).
@@ -28,7 +43,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,6 +52,7 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.matter_role import MatterRole
 from app.services.audit import record_audit_event
+from app.services.permissions import has_permission
 from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["comments"])
@@ -67,13 +83,19 @@ def get_current_user_id(request: Request) -> str:
 # --- Request/response schemas ------------------------------------------------
 
 
+# `comment_text` emptiness is checked by `_sanitized_comment_text_or_422`
+# (blank once markup is removed), not by a `min_length` constraint: that
+# would make pydantic reject a lone surrogate itself, and FastAPI's default
+# 422 renderer then crashes (HTTP 500) echoing that input back.
+
+
 class CommentCreate(BaseModel):
-    comment_text: str = Field(min_length=1)
+    comment_text: str
     parent_comment_id: str | None = None
 
 
 class CommentPatch(BaseModel):
-    comment_text: str = Field(min_length=1)
+    comment_text: str
 
 
 # --- Helpers ------------------------------------------------------------
@@ -86,7 +108,13 @@ def _get_assertion_or_404(session: Session, assertion_id: str) -> Assertion:
     return assertion
 
 
-def _require_matter_member(session: Session, user_id: str, matter_id: str) -> str:
+_PERMISSION_DENIED_DETAIL = {
+    "assertion:view": "no access to matter",
+    "assertion:comment": "your role in this matter does not permit commenting",
+}
+
+
+def _require_permission(session: Session, user_id: str, matter_id: str, permission: str) -> str:
     role = session.execute(
         select(MatterRole.role).where(
             MatterRole.user_id == user_id, MatterRole.matter_id == matter_id
@@ -94,7 +122,41 @@ def _require_matter_member(session: Session, user_id: str, matter_id: str) -> st
     ).scalar_one_or_none()
     if role is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="no access to matter")
+    if not has_permission(role, permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=_PERMISSION_DENIED_DETAIL[permission]
+        )
     return role
+
+
+def _sanitized_comment_text_or_422(raw_text: str) -> str:
+    """Return the text to store as `comment_text`, or raise a 422.
+
+    Track A, item A8 (issue #2 sub-item, gate G4): the length cap is checked
+    against the raw submitted text, before sanitization. A comment must also
+    keep some non-whitespace text once markup is removed (finding api:25),
+    so blank (`"   "`) and markup-only (`"<script>…</script>"`) comments are
+    rejected rather than stored as an empty entry in the discussion.
+    """
+    try:
+        validate_text_length(raw_text, label="comment_text")
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        # JSON can escape a lone UTF-16 surrogate ("\ud800") that no UTF-8
+        # database can store; the insert used to fail with a 500.
+        raw_text.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise HTTPException(
+            status_code=422, detail="comment_text contains an unpaired surrogate character"
+        ) from exc
+    sanitized = sanitize_for_storage(raw_text)
+    if not sanitized.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="comment_text must contain text other than whitespace or markup",
+        )
+    return sanitized
 
 
 def _get_comment_or_404(session: Session, assertion_id: str, comment_id: str) -> AssertionComment:
@@ -104,21 +166,59 @@ def _get_comment_or_404(session: Session, assertion_id: str, comment_id: str) ->
     return comment
 
 
-def _serialize(c: AssertionComment) -> dict:
+def _serialize(c: AssertionComment, *, tombstone: bool = False) -> dict:
     return {
         "id": c.id,
         "assertion_id": c.assertion_id,
         "user_id": c.user_id,
         "parent_comment_id": c.parent_comment_id,
-        "comment_text": c.comment_text,
+        # A tombstone keeps its place in the thread but never its text.
+        "comment_text": "" if tombstone else c.comment_text,
         # Track A, item A3 (issue #2, gate G1): the author's exact
         # submitted bytes, independent of whatever sanitize_for_storage
         # did to `comment_text` above.
-        "comment_text_raw": c.comment_text_raw,
+        "comment_text_raw": None if tombstone else c.comment_text_raw,
         "created_at": c.created_at,
         "updated_at": c.updated_at,
         "deleted_at": c.deleted_at,
     }
+
+
+def list_visible_comments(session: Session, assertion_id: str) -> list[dict]:
+    """Serialize the assertion's discussion as the GET listing returns it.
+
+    Live comments in creation order, plus a redacted tombstone for each
+    deleted comment that still has a live reply somewhere below it, so a
+    reply never references a parent that is missing from the result. A
+    deleted comment with no live replies is omitted. No permission check:
+    callers must already have checked `assertion:view` for the matter.
+    """
+    rows = (
+        session.execute(
+            select(AssertionComment)
+            .where(AssertionComment.assertion_id == assertion_id)
+            .order_by(AssertionComment.created_at.asc(), AssertionComment.id.asc())
+        )
+        .scalars()
+        .all()
+    )
+    by_id = {c.id: c for c in rows}
+    has_live_reply: set[str] = set()
+    for comment in rows:
+        if comment.deleted_at is not None:
+            continue
+        parent_id = comment.parent_comment_id
+        # Walk up until an ancestor already known to have a live reply
+        # (its own ancestors were marked then); `has_live_reply` also
+        # guards against a malformed parent cycle.
+        while parent_id is not None and parent_id in by_id and parent_id not in has_live_reply:
+            has_live_reply.add(parent_id)
+            parent_id = by_id[parent_id].parent_comment_id
+    return [
+        _serialize(c, tombstone=c.deleted_at is not None)
+        for c in rows
+        if c.deleted_at is None or c.id in has_live_reply
+    ]
 
 
 # --- Routes -------------------------------------------------------------
@@ -132,16 +232,8 @@ def create_comment(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
-    _require_matter_member(session, user_id, assertion.matter_id)
-
-    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
-    # against the raw submitted text, before sanitization.
-    try:
-        validate_text_length(body.comment_text, label="comment_text")
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
+    _require_permission(session, user_id, assertion.matter_id, "assertion:comment")
+    comment_text = _sanitized_comment_text_or_422(body.comment_text)
 
     if body.parent_comment_id is not None:
         parent = session.get(AssertionComment, body.parent_comment_id)
@@ -149,13 +241,17 @@ def create_comment(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="parent comment not found"
             )
+        if parent.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="cannot reply to a deleted comment"
+            )
 
     now = _now()
     comment = AssertionComment(
         assertion_id=assertion_id,
         user_id=user_id,
         parent_comment_id=body.parent_comment_id,
-        comment_text=sanitize_for_storage(body.comment_text),
+        comment_text=comment_text,
         comment_text_raw=body.comment_text,
         created_at=now,
         updated_at=now,
@@ -184,20 +280,8 @@ def list_comments(
     user_id: str = Depends(get_current_user_id),
 ) -> list[dict]:
     assertion = _get_assertion_or_404(session, assertion_id)
-    _require_matter_member(session, user_id, assertion.matter_id)
-    rows = (
-        session.execute(
-            select(AssertionComment)
-            .where(
-                AssertionComment.assertion_id == assertion_id,
-                AssertionComment.deleted_at.is_(None),
-            )
-            .order_by(AssertionComment.created_at.asc())
-        )
-        .scalars()
-        .all()
-    )
-    return [_serialize(c) for c in rows]
+    _require_permission(session, user_id, assertion.matter_id, "assertion:view")
+    return list_visible_comments(session, assertion_id)
 
 
 @router.patch("/{assertion_id}/comments/{comment_id}")
@@ -209,7 +293,7 @@ def update_comment(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
-    _require_matter_member(session, user_id, assertion.matter_id)
+    _require_permission(session, user_id, assertion.matter_id, "assertion:comment")
     comment = _get_comment_or_404(session, assertion_id, comment_id)
 
     if comment.user_id != user_id:
@@ -217,16 +301,7 @@ def update_comment(
             status_code=status.HTTP_403_FORBIDDEN, detail="can only edit your own comment"
         )
 
-    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
-    # against the raw submitted text, before sanitization.
-    try:
-        validate_text_length(body.comment_text, label="comment_text")
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=422, detail=str(exc)
-        ) from exc
-
-    comment.comment_text = sanitize_for_storage(body.comment_text)
+    comment.comment_text = _sanitized_comment_text_or_422(body.comment_text)
     comment.comment_text_raw = body.comment_text
     comment.updated_at = _now()
 
@@ -252,7 +327,7 @@ def delete_comment(
     user_id: str = Depends(get_current_user_id),
 ) -> None:
     assertion = _get_assertion_or_404(session, assertion_id)
-    _require_matter_member(session, user_id, assertion.matter_id)
+    _require_permission(session, user_id, assertion.matter_id, "assertion:comment")
     comment = _get_comment_or_404(session, assertion_id, comment_id)
 
     if comment.user_id != user_id:

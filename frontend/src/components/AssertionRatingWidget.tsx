@@ -1,9 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactElement } from "react";
 
+import { STRENGTH_LABELS, STRENGTH_VALUES } from "../constants/ratings";
+
 // UI1 — accessible 1-5 assertion strength rating widget (spec §4 labels,
 // §5 interface requirements). Types are intentionally local to this file
-// (sprint ruling R7): no shared type/util module this sprint.
+// (sprint ruling R7); the strength labels are shared with the distribution
+// and the rationale list (src/constants/ratings.ts).
 
 export interface AssertionRatingWidgetSaveData {
   strength: number;
@@ -16,16 +19,6 @@ export interface AssertionRatingWidgetProps {
   onSave: (data: AssertionRatingWidgetSaveData) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
 }
-
-const STRENGTH_VALUES = [1, 2, 3, 4, 5] as const;
-
-const STRENGTH_LABELS: Record<number, string> = {
-  1: "Very weak",
-  2: "Weak",
-  3: "Plausible or mixed",
-  4: "Strong",
-  5: "Very strong",
-};
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 

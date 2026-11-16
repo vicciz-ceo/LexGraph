@@ -324,6 +324,7 @@ cd ..
 ```
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint); add `&limit=100&offset=<n>` to page through a large run.
+The assertion detail page shows these rows as pipeline-generated: the pipeline is the author, the `--triggered-by-user-id` user is named only as the user the run is attributed to, and the evidence badge reads "System-derived".
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 
@@ -517,7 +518,7 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
 - **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. The topbar search opens it on all statuses, and submitting the same query again re-runs it
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
-- **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
+- **Assertion detail** — evidence (attach and remove, under the edit rule), threaded comments (reply; edit or delete your own), review history, revision history with a side-by-side comparison of any two revisions, ratings with rationales, and role-gated review actions, including superseding an accepted assertion
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
 - **Admin** — user account provisioning and matter member/role management (admin role required)

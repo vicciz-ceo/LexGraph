@@ -1,7 +1,12 @@
-// UI3 — revision history + comparison entry point (spec §3).
-// Local types only for this component (sprint ruling R7 — no shared types module).
+// Revision history and comparison entry point (spec §3: "The interface must
+// show a complete revision history"; "The user must be able to compare
+// revisions"). Mounted as the assertion detail page's Activity timeline
+// (findings ui:15, pipeline:8). Every revision's authored text stays
+// visible; with two or more revisions, any two can be selected and
+// compared.
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 export interface AssertionRevisionSummary {
   revisionNumber: number;
@@ -12,17 +17,34 @@ export interface AssertionRevisionSummary {
   // (possibly lossy, sanitized) `proposition` field when absent.
   propositionRaw?: string;
   editedBy: string;
+  /** Display text for when the revision was recorded. */
   createdAt?: string;
   revisionReason?: string | null;
 }
 
 export interface AssertionRevisionHistoryProps {
+  /** In display order (the detail page lists the newest first). */
   revisions: AssertionRevisionSummary[];
   onCompare: (leftRevisionNumber: number, rightRevisionNumber: number) => void;
+  currentRevisionNumber?: number | null;
+  /** Extra content under a revision, e.g. its ratings. */
+  renderFooter?: (revisionNumber: number) => ReactNode;
 }
 
-export function AssertionRevisionHistory({ revisions, onCompare }: AssertionRevisionHistoryProps) {
+function selectionHint(count: number): string {
+  if (count === 0) return "Select two revisions to compare them field by field.";
+  if (count === 1) return "Select one more revision to compare.";
+  return "Two revisions selected.";
+}
+
+export function AssertionRevisionHistory({
+  revisions,
+  onCompare,
+  currentRevisionNumber = null,
+  renderFooter,
+}: AssertionRevisionHistoryProps) {
   const [selected, setSelected] = useState<number[]>([]);
+  const comparable = revisions.length >= 2;
 
   function toggleSelect(revisionNumber: number, checked: boolean) {
     setSelected((previous) => {
@@ -41,38 +63,51 @@ export function AssertionRevisionHistory({ revisions, onCompare }: AssertionRevi
 
   return (
     <div className="assertion-revision-history">
-      <ul className="assertion-revision-list">
+      <ol className="adp-timeline assertion-revision-list">
         {revisions.map((revision) => (
-          <li key={revision.revisionNumber} className="assertion-revision-item">
-            <label className="assertion-revision-select">
-              <input
-                type="checkbox"
-                aria-label={`Select revision ${revision.revisionNumber} for comparison`}
-                checked={selected.includes(revision.revisionNumber)}
-                onChange={(event) => toggleSelect(revision.revisionNumber, event.target.checked)}
-              />
-            </label>
-            <h4>Revision {revision.revisionNumber}</h4>
-            <p className="assertion-revision-author">{revision.editedBy}</p>
-            {revision.createdAt && (
-              <p className="assertion-revision-date">{revision.createdAt}</p>
-            )}
-            <p className="assertion-revision-proposition">
+          <li key={revision.revisionNumber} className="adp-timeline-item assertion-revision-item">
+            <div className="adp-timeline-title">
+              {comparable && (
+                <input
+                  type="checkbox"
+                  className="adp-compare-select"
+                  aria-label={`Select revision ${revision.revisionNumber} for comparison`}
+                  checked={selected.includes(revision.revisionNumber)}
+                  onChange={(event) => toggleSelect(revision.revisionNumber, event.target.checked)}
+                />
+              )}
+              <span>Revision {revision.revisionNumber}</span>
+              {revision.revisionNumber === currentRevisionNumber && (
+                <span className="chip chip--tag">current</span>
+              )}
+            </div>
+            <div className="muted adp-timeline-meta assertion-revision-author">
+              {revision.editedBy}
+              {revision.createdAt ? ` · ${revision.createdAt}` : ""}
+            </div>
+            <p className="adp-timeline-text assertion-revision-proposition">
               {revision.propositionRaw ?? revision.proposition}
             </p>
             {revision.revisionReason && (
-              <p className="assertion-revision-reason">{revision.revisionReason}</p>
+              <p className="adp-timeline-reason assertion-revision-reason">{revision.revisionReason}</p>
             )}
+            {renderFooter?.(revision.revisionNumber)}
           </li>
         ))}
-      </ul>
-      <button
-        type="button"
-        onClick={handleCompareClick}
-        disabled={selected.length !== 2}
-      >
-        Compare
-      </button>
+      </ol>
+      {comparable && (
+        <div className="adp-compare-controls">
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={handleCompareClick}
+            disabled={selected.length !== 2}
+          >
+            Compare selected revisions
+          </button>
+          <span className="field__hint">{selectionHint(selected.length)}</span>
+        </div>
+      )}
     </div>
   );
 }

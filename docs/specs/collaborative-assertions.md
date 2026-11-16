@@ -487,7 +487,10 @@ Requirements:
 - Comments must be matter-scoped.
 - Comments must be audited.
 - Users may edit or delete their own comments.
+- Posting, editing and deleting comments requires `assertion:comment` (contributor, reviewer, administrator). Viewers can read comments but cannot post, edit or delete them, including comments they wrote before they became viewers.
+- A comment must contain text once markup is removed: blank and markup-only comments are rejected on create and on edit (422).
 - Deleted comments should be soft-deleted where audit requirements apply.
+- A reply must target a live comment on the same assertion; replying to a deleted comment is rejected (409). A deleted comment that still has live replies is listed as a tombstone (`deleted_at` set, `comment_text` empty, `comment_text_raw` null), so replies are never orphaned. A deleted comment without live replies is not listed.
 - Reviewer comments should be visually distinguishable.
 - Comments are not evidence unless explicitly converted into or linked to an AssertionEvidence record.
 
@@ -635,6 +638,7 @@ Reviewer:
 - Review assertions
 - Accept, reject, dispute, or request revision
 - Modify assertions through recorded revisions
+- Read other users' rating rationales (`assertion:view_rating_rationales`)
 
 Administrator:
 - All Reviewer permissions
@@ -729,13 +733,21 @@ DELETE /api/v1/assertions/{assertion_id}/evidence/{evidence_id}
 GET    /api/v1/assertions/{assertion_id}/related
 GET    /api/v1/assertions/{assertion_id}/history
 
+`GET /assertions/{assertion_id}` gives `subject_entity` and `object_entity` a `label`: a document's title, `"<document title> / <number> <heading>"` for an article, a definition's quoted terms followed by the article that defines them, a source span's quote, or an assertion's proposition. Only persisted entities of the assertion's own matter are labelled. A legacy opaque reference (for example `Provision`), a missing row or a row of another matter gets `null`. Labels longer than 240 characters are shortened. Each `GET .../related` match carries the related assertion's `proposition` and `status` next to `assertion_id`, `match_kind` and `score`.
+
 Ratings:
 
-PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings/summary
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings
+PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings/summary
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings
+
+`{revision_number}` is the assertion's revision number (`revision_number` in `GET .../revisions`, `current_revision_number` on the assertion), not the revision UUID; a UUID there is rejected (422). This corrects the original `{revision_id}` wording (2026-11-16). Rating rows and summaries identify the revision both ways, as `assertion_revision_id` and `assertion_revision_number`.
+
+Rating requests: `strength` must be a JSON integer from 1 to 5; booleans, strings and floats (including `4.0`) are rejected (422). Omitting `rationale` keeps the stored rationale (a new rating has none), so a strength-only update never changes it. `null`, an empty string or whitespace-only text removes it. Any other text replaces it: `rationale_raw` stores it exactly and `rationale` stores the sanitized text. The summary's `current_user_rating` includes `rationale_raw`, and `rationale_count` counts the ratings whose sanitized rationale contains text. `GET .../ratings` lists ratings in creation order. Roles holding `assertion:view_rating_rationales` (reviewer, administrator) see every rater's rationale. Other roles see their own rationale and `null` in place of other raters' rationale text.
+
+The summary also reports `prior_revision_rating_count`: the number of ratings recorded against the assertion's revisions numbered below `{revision_number}`. Those ratings stay with their own revision. The count lets a client tell users that the revision in front of them has not been rated while earlier revisions were (§10).
 
 Comments:
 
@@ -1244,3 +1256,75 @@ hides the decision that would repeat the current status, and sends one decision
 at a time. Confirm stays disabled until the acceptance justification (required
 unless the assertion is `evidenced`) or the request-revision comment has text
 after trimming and is at most 100,000 characters; the trimmed text is sent.
+
+## Assertion detail page (2026-11-16)
+
+The detail page names people from the matter roster (`GET /matters/{id}/members`,
+which every member may read) and never shows a user id as a person's name. A
+user no longer on the roster is shown as "Former member"; if the roster cannot
+be loaded, people are shown as "Team member". The header names the author and
+the last reviewer with the decision date. A Review history card lists the review
+decisions from `GET .../history`, newest first: accept, reject, dispute, request
+revision and supersede, plus submit and withdraw when the feed records them. Each
+entry shows the reviewer, the revision, the time and the acceptance justification
+or revision comment. Other audit rows, including ratings, are not listed.
+
+The Ratings card says which revision its team ratings belong to. When the
+current revision is unrated but earlier revisions were rated, it says how many
+earlier ratings exist; the reviewer's Review card says so too. The card shows the
+distribution with each strength's name and count, how many ratings include a
+rationale, and the rationales the API returns to the viewer: every rationale for
+reviewers and administrators, otherwise the viewer's own. It also states that
+ratings are individual assessments, not formal legal conclusions. A prior
+revision's ratings and rationales load under Activity. The rating editor is
+prefilled with the rater's exact text (`rationale_raw`).
+
+Subject, object and related assertions are shown by label, proposition and
+status. A legacy reference without a label is marked as an external reference.
+Opening a link to an assertion of another matter the user belongs to switches
+the active matter to that matter. If the user then switches away, the page
+offers to switch back instead of switching on its own. A user who is not a
+member of the assertion's matter is told so.
+
+System-generated assertions (written by the definition-linking pipeline) are
+shown as such. The pipeline is named as the author, and the user the run is
+attributed to (`--triggered-by-user-id`) is named only as that. The evidence
+badge reads "System-derived" instead of "Awaiting evidence". Every such assertion
+has a revision 1 record (written by the persistence-layer invariant, or by the
+backfill migration for databases linked earlier), so it can be rated. On a
+database that has not been migrated, the page says that the current revision has
+no stored record and offers no rating.
+
+Evidence can be attached and removed after creation (§6, §8, §10). **Attach
+evidence** searches the matter's source passages (`GET /matters/{id}/source-spans`)
+and offers the six evidence roles. Supports, Primary basis and Secondary basis
+count as supporting evidence. Removing a passage asks for confirmation. The page
+offers these controls under the edit rule (§12): to the author, with contributor
+membership, of a draft, proposed or revision-requested assertion, and to
+reviewers and administrators for any assertion. Everyone else sees the evidence
+read-only. The page does not attach a passage again with a role it already has,
+and it keeps the last supporting passage of an accepted assertion. When the API
+refuses a change, the page shows the API's reason.
+
+Comments are shown as threads (§9). A reply appears under the comment it
+answers, and a deleted comment that still has replies keeps its place as
+"[comment removed]". Comments by members who now hold the reviewer or
+administrator role carry a Reviewer or Admin badge. Members who may comment can
+reply to a live comment, and edit or delete their own comments. An edit starts
+from the text exactly as written (`comment_text_raw`), and a deletion asks for
+confirmation. An edited comment is marked "(edited)". When the API refuses an
+action, the form stays open with the text and the API's reason.
+
+Activity lists every revision with its text, editor, time and reason, and loads
+each revision's ratings on request. With two or more revisions, any two can be
+compared side by side (§3). The comparison shows the text and the recorded
+fields (assertion type, subject, object, jurisdiction, effective from and to)
+and marks every field that differs as Changed. It also shows each revision's
+reason and that revision's own team ratings.
+
+On an accepted assertion, reviewers and administrators can mark it superseded by
+another accepted assertion of the same matter (§1, §10). They choose the
+replacement from the related accepted assertions or by searching the matter's
+accepted assertions. The assertion itself, and an assertion whose supersede link
+already points back to it, are not offered. A superseded assertion's page links
+to the assertion that replaced it and shows that assertion's status.
