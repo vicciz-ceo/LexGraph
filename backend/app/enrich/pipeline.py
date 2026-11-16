@@ -21,6 +21,10 @@ in this matter is not suggested again on a re-run (`app/enrich/cli.py`'s
 already attached as evidence to a `model_suggested` assertion in this
 matter.
 
+The triggering user must exist and hold a suggesting role (contributor,
+reviewer or admin) in the matter, as for any assertion author (audit finding
+pipeline:6); `app/enrich/cli.py` reports a refusal and exits non-zero.
+
 Audited (spec section 16, audit finding pipeline:3): each created
 assertion gets the same `assertion_created` event as the REST creation
 path, in the same transaction, naming revision 1 and the triggering user.
@@ -40,8 +44,10 @@ from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.matter import Matter
+from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
+from app.models.user import User
 from app.services.audit import record_audit_event
 from app.services.validation import sanitize_for_storage
 
@@ -50,17 +56,42 @@ _MODEL_STATUS = "draft"
 # Reserved for machine/rule-based extraction confidence (spec §2): this
 # pipeline's own heuristic never derives it from a user rating.
 _HEURISTIC_CONFIDENCE = 0.6
+_SUGGESTING_ROLES = ("contributor", "reviewer", "admin")
 
 
-class UnknownMatterError(ValueError):
+class EnrichmentRefused(ValueError):
+    """`run_enrichment` cannot run for the given matter and user.
+    `app/enrich/cli.py::main` turns this into a clear non-zero exit."""
+
+
+class UnknownMatterError(EnrichmentRefused):
     """Raised when `run_enrichment` is asked to enrich a matter (or a
     matter with no resolvable repository) that does not exist.
-    `app/enrich/cli.py::main` turns this into a clear non-zero exit.
     """
+
+
+class UnknownUserError(EnrichmentRefused):
+    """The triggering user does not exist."""
+
+
+class UserNotPermittedError(EnrichmentRefused):
+    """The triggering user has no suggesting role in the matter."""
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _require_actor(session: Session, user_id: str, matter_id: str) -> None:
+    if session.get(User, user_id) is None:
+        raise UnknownUserError(f"user '{user_id}' does not exist")
+    role = session.execute(
+        select(MatterRole.role).where(MatterRole.user_id == user_id, MatterRole.matter_id == matter_id)
+    ).scalars().first()
+    if role not in _SUGGESTING_ROLES:
+        raise UserNotPermittedError(
+            f"user '{user_id}' has no contributor, reviewer or admin role in matter '{matter_id}'"
+        )
 
 
 def run_enrichment(
@@ -84,6 +115,7 @@ def run_enrichment(
         raise UnknownMatterError(
             f"matter '{matter_id}' has no resolvable repository '{matter.repository_id}'"
         )
+    _require_actor(session, triggered_by_user_id, matter_id)
 
     active_enricher: Enricher = enricher if enricher is not None else HeuristicEnricher()
 
