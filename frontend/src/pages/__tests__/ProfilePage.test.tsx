@@ -176,14 +176,15 @@ const notificationItems: AppNotification[] = [
 ];
 
 /** A stand-in for the server over `matter` (all of the matter's assertions)
- * and `unrated` (what unrated_by_me returns): it filters by author, sorts by
- * -updated_at and pages like GET /assertions, and aggregates like
- * GET /matters/{id}/assertion-stats. */
+ * and `unrated` (what unrated_by_me returns): it filters by author and
+ * origin, sorts by -updated_at and pages like GET /assertions, and
+ * aggregates like GET /matters/{id}/assertion-stats. */
 function serve(matter: Assertion[], unrated: Assertion[]) {
   mockedApi.listAssertions.mockImplementation(
     async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
       let rows = params.unrated_by_me ? unrated : matter;
       if (params.author_user_id) rows = rows.filter((a) => a.author_user_id === params.author_user_id);
+      if (params.origin) rows = rows.filter((a) => a.origin === params.origin);
       if (params.sort === "-updated_at") {
         rows = [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
       }
@@ -198,13 +199,20 @@ function serve(matter: Assertion[], unrated: Assertion[]) {
         (a) => !params.author_user_id || a.author_user_id === params.author_user_id,
       );
       const byStatus: AssertionStats["by_status"] = {};
-      for (const a of rows) byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
+      const byOrigin: AssertionStats["by_origin"] = {};
+      const byOriginStatus: AssertionStats["by_origin_status"] = {};
+      for (const a of rows) {
+        byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
+        byOrigin[a.origin] = (byOrigin[a.origin] ?? 0) + 1;
+        const statuses = (byOriginStatus[a.origin] ??= {});
+        statuses[a.status] = (statuses[a.status] ?? 0) + 1;
+      }
       return {
         matter_id: "m-1",
         total: rows.length,
         by_status: byStatus,
-        by_origin: {},
-        by_origin_status: {},
+        by_origin: byOrigin,
+        by_origin_status: byOriginStatus,
         by_type: {},
         by_evidence_status: {},
         authors: [],
@@ -250,19 +258,24 @@ describe("ProfilePage", () => {
     // ui:1: counts come from the stats endpoint filtered by author, and the
     // lists are bounded server pages; the matter is never downloaded.
     expect(mockedApi.assertionStats).toHaveBeenCalledWith("m-1", { author_user_id: "u-me" });
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
-      author_user_id: "u-me",
-      sort: "-updated_at",
-      limit: 50,
-      offset: 0,
-    });
+    // My suggestions: my colleague-style and AI-deduced assertions (the
+    // endpoint filters one origin at a time), newest first.
+    for (const origin of ["user_suggested", "model_suggested"]) {
+      expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+        author_user_id: "u-me",
+        origin,
+        sort: "-updated_at",
+        limit: 50,
+        offset: 0,
+      });
+    }
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
       status: "proposed",
       unrated_by_me: true,
       limit: 50,
       offset: 0,
     });
-    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(3);
 
     // Identity header: name + role badge + email + matter scope.
     expect(screen.getByRole("heading", { name: /Noa Levi/ })).toBeInTheDocument();
@@ -423,13 +436,12 @@ describe("ProfilePage", () => {
     mocks.role = "viewer";
     await renderPage();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
-      author_user_id: "u-me",
-      sort: "-updated_at",
-      limit: 50,
-      offset: 0,
-    });
+    // Only my suggestions' two lists: no unrated query.
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
+    for (const [, params] of mockedApi.listAssertions.mock.calls) {
+      expect(params).toMatchObject({ author_user_id: "u-me", sort: "-updated_at", limit: 50 });
+      expect(params).not.toHaveProperty("unrated_by_me");
+    }
     expect(mockedApi.assertionStats).toHaveBeenCalledTimes(1);
 
     expect(screen.queryByRole("tab", { name: /Awaiting my rating/ })).not.toBeInTheDocument();
@@ -498,11 +510,13 @@ describe("ProfilePage", () => {
 
     fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
     await waitFor(() => expect(within(panel()).getAllByRole("link")).toHaveLength(100));
-    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m-1", {
+    // The newest 100 of each origin, merged.
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
       author_user_id: "u-me",
+      origin: "user_suggested",
       sort: "-updated_at",
-      limit: 50,
-      offset: 50,
+      limit: 100,
+      offset: 0,
     });
     expect(within(panel()).getByText("Showing 100 of 120")).toBeInTheDocument();
 
@@ -512,6 +526,38 @@ describe("ProfilePage", () => {
     expect(links[0]).toHaveTextContent("My suggestion number 0.");
     expect(links[119]).toHaveTextContent("My suggestion number 119.");
     expect(within(panel()).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+  });
+
+  // ui:4: the definition-linking pipeline stores its output under the user
+  // who ran it; none of it is that user's suggestion.
+  it("leaves pipeline output generated under my account out of my suggestions", async () => {
+    const pipeline = Array.from({ length: 60 }, (_, i) =>
+      makeAssertion({
+        id: `gen-${i}`,
+        proposition: `Generated definition link ${i}.`,
+        origin: "system_generated",
+        status: "accepted",
+        standing: "accepted",
+        // Newer than all of mine: a plain list would show only these.
+        updated_at: new Date(Date.UTC(2026, 7, 1) + i * 60_000).toISOString(),
+      }),
+    );
+    serve([...matterItems, ...pipeline], awaitingItems);
+    await renderPage();
+
+    // Still 4 suggestions, 1 accepted and 1 rejected: 50%.
+    expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^4$/);
+    expect(screen.getByTestId("pf-stat-accepted")).toHaveTextContent(/^1$/);
+    expect(screen.getByTestId("pf-stat-acceptance")).toHaveTextContent(/^50%$/);
+    expect(
+      screen.getByText(/60 assertions generated by the definition-linking pipeline under your account/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(screen.getByRole("tab", { name: /My suggestions/ })).toHaveTextContent("4");
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getAllByRole("link")).toHaveLength(4);
+    expect(within(panel).queryByText(/Generated definition link/)).not.toBeInTheDocument();
   });
 
   it("loads more of the proposed assertions awaiting my rating", async () => {

@@ -8,18 +8,27 @@
 // of 50 with Show more. The whole matter is never downloaded (audit finding
 // ui:1). The three signals stay separate: 1-5 strength ratings, model
 // confidence (percent, model_suggested only), and reviewer-gated status.
+//
+// Assertions the definition-linking pipeline generated under the user's
+// account (origin system_generated, when they ran it) are not their
+// suggestions (ui:4): they are left out of the counts, the acceptance rate
+// and the list, which reads the user's colleague and AI-deduced
+// suggestions as two lists (the endpoint filters one origin at a time).
 
 import { useEffect, useRef, useState } from "react";
 
 import "../styles/pages/profile.css";
 
 import { api } from "../api/client";
-import { formatInstantDate, formatInstantDateTime } from "../api/datetime";
+import { formatInstantDate, formatInstantDateTime, parseApiInstant } from "../api/datetime";
+import { listWindow } from "../api/listWindow";
 import type {
   AppNotification,
   Assertion,
   AssertionList,
+  AssertionListItem,
   AssertionListParams,
+  AssertionOrigin,
   AssertionStats,
 } from "../api/types";
 import { Icon } from "../app/icons";
@@ -28,10 +37,7 @@ import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
 import { NotificationFeed } from "../components/NotificationsMenu";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
-
-function defaultJurisdictionKey(userId: string): string {
-  return `lexgraph:default-jurisdiction:${userId}`;
-}
+import { defaultJurisdictionStorageKey, readDefaultJurisdiction } from "../constants/preferences";
 
 const ORIGIN_CHIPS: Record<Assertion["origin"], { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -58,6 +64,34 @@ const LIST_PAGE = 50;
 const AWAITING_PARAMS: AssertionListParams = { status: "proposed", unrated_by_me: true };
 
 const EMPTY_LIST: AssertionList = { items: [], total: 0 };
+
+/** What a user suggests; system_generated rows are the pipeline's. */
+const SUGGESTION_ORIGINS: AssertionOrigin[] = ["user_suggested", "model_suggested"];
+
+function lastUpdate(item: AssertionListItem): number {
+  return parseApiInstant(item.updated_at)?.getTime() ?? 0;
+}
+
+/** The `size` most recently updated suggestions of `userId`, and how many
+ * there are in all. */
+async function loadSuggestions(
+  matterId: string,
+  userId: string,
+  size: number,
+): Promise<AssertionList> {
+  const lists = await Promise.all(
+    SUGGESTION_ORIGINS.map((origin) =>
+      listWindow(matterId, { author_user_id: userId, origin, sort: "-updated_at" }, size),
+    ),
+  );
+  const seen = new Set<string>();
+  const items = lists
+    .flatMap((list) => list.items)
+    .filter((item) => !seen.has(item.id) && Boolean(seen.add(item.id)))
+    .sort((a, b) => lastUpdate(b) - lastUpdate(a))
+    .slice(0, size);
+  return { items, total: lists.reduce((sum, list) => sum + list.total, 0) };
+}
 
 type ListId = "mine" | "awaiting";
 
@@ -115,14 +149,19 @@ export function ProfilePage() {
     session.role === "reviewer" ||
     session.role === "admin";
 
-  const [defaultJurisdiction, setDefaultJurisdiction] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return window.localStorage.getItem(defaultJurisdictionKey(userId)) ?? "";
-  });
+  // Kept in this browser only; the Suggest form reads it back
+  // (constants/preferences.ts). Unavailable storage just keeps no default.
+  const [defaultJurisdiction, setDefaultJurisdiction] = useState<string>(() =>
+    readDefaultJurisdiction(userId),
+  );
 
   const handleDefaultJurisdictionChange = (value: string) => {
     setDefaultJurisdiction(value);
-    window.localStorage.setItem(defaultJurisdictionKey(userId), value);
+    try {
+      window.localStorage.setItem(defaultJurisdictionStorageKey(userId), value);
+    } catch {
+      /* storage blocked: the choice lasts for this page only */
+    }
   };
 
   const [stats, setStats] = useState<AssertionStats | null>(null);
@@ -140,9 +179,6 @@ export function ProfilePage() {
   // user is dropped.
   const loadGeneration = useRef(0);
 
-  const listParams = (list: ListId): AssertionListParams =>
-    list === "mine" ? { author_user_id: userId, sort: "-updated_at" } : AWAITING_PARAMS;
-
   useEffect(() => {
     let cancelled = false;
     loadGeneration.current += 1;
@@ -157,12 +193,7 @@ export function ProfilePage() {
 
     const loads: [Promise<AssertionStats>, Promise<AssertionList>, Promise<AssertionList>] = [
       api.assertionStats(matterId, { author_user_id: userId }),
-      api.listAssertions(matterId, {
-        author_user_id: userId,
-        sort: "-updated_at",
-        limit: LIST_PAGE,
-        offset: 0,
-      }),
+      loadSuggestions(matterId, userId, LIST_PAGE),
       canRate
         ? api.listAssertions(matterId, { ...AWAITING_PARAMS, limit: LIST_PAGE, offset: 0 })
         : Promise.resolve(EMPTY_LIST),
@@ -205,35 +236,46 @@ export function ProfilePage() {
     const generation = loadGeneration.current;
     setMoreLoading(list);
     setMoreError(null);
-    api
-      .listAssertions(matterId, {
-        ...listParams(list),
-        limit: LIST_PAGE,
-        offset: current.items.length,
-      })
-      .then(
-        (next) => {
-          if (loadGeneration.current !== generation) return;
-          const update = (prev: AssertionList | null) =>
-            prev === null ? prev : appendPage(prev, next);
-          if (list === "mine") setAuthored(update);
-          else setAwaiting(update);
-          setMoreLoading(null);
-        },
-        (error: unknown) => {
-          if (loadGeneration.current !== generation) return;
-          setMoreError({
-            list,
-            message: error instanceof Error ? error.message : "the server did not respond",
+    // My suggestions are re-read as a larger window (two lists merged);
+    // the awaiting list appends its next page.
+    const request =
+      list === "mine"
+        ? loadSuggestions(matterId, userId, current.items.length + LIST_PAGE)
+        : api.listAssertions(matterId, {
+            ...AWAITING_PARAMS,
+            limit: LIST_PAGE,
+            offset: current.items.length,
           });
-          setMoreLoading(null);
-        },
-      );
+    request.then(
+      (next) => {
+        if (loadGeneration.current !== generation) return;
+        if (list === "mine") setAuthored(next);
+        else setAwaiting((prev) => (prev === null ? prev : appendPage(prev, next)));
+        setMoreLoading(null);
+      },
+      (error: unknown) => {
+        if (loadGeneration.current !== generation) return;
+        setMoreError({
+          list,
+          message: error instanceof Error ? error.message : "the server did not respond",
+        });
+        setMoreLoading(null);
+      },
+    );
   };
 
-  const authoredCount = stats?.total ?? 0;
-  const acceptedCount = stats?.by_status.accepted ?? 0;
-  const rejectedCount = stats?.by_status.rejected ?? 0;
+  // Without the pipeline output generated under this account.
+  const pipelineCount = stats?.by_origin.system_generated ?? 0;
+  const pipelineStatus = stats?.by_origin_status.system_generated ?? {};
+  const authoredCount = Math.max(0, (stats?.total ?? 0) - pipelineCount);
+  const acceptedCount = Math.max(
+    0,
+    (stats?.by_status.accepted ?? 0) - (pipelineStatus.accepted ?? 0),
+  );
+  const rejectedCount = Math.max(
+    0,
+    (stats?.by_status.rejected ?? 0) - (pipelineStatus.rejected ?? 0),
+  );
   const decidedCount = acceptedCount + rejectedCount;
   const acceptancePct =
     decidedCount > 0 ? Math.round((acceptedCount / decidedCount) * 100) : null;
@@ -496,6 +538,15 @@ export function ProfilePage() {
               />
             )}
           </section>
+          {pipelineCount > 0 && (
+            <p className="pf-note pf-pipeline-note">
+              {`${formatCount(pipelineCount)} ${
+                pipelineCount === 1 ? "assertion" : "assertions"
+              } generated by the definition-linking pipeline under your account ${
+                pipelineCount === 1 ? "is" : "are"
+              } not counted or listed as your suggestions.`}
+            </p>
+          )}
 
           <div className="pf-columns">
             <section className="pf-activity">
