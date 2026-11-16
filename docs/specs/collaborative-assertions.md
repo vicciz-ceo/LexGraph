@@ -411,6 +411,8 @@ Implementation rules (2026-11-16):
 - The 100,000-character length caps are checked on the raw submitted text before it is sanitized: the proposition and explanation on creation, the proposition on PATCH and POST /revisions, comment text and rating rationales on their own routes.
 - A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored.
 - A creation payload that lists the same source span twice with the same evidence role is a 422.
+- POST /api/v1/assertions refuses any key it does not declare (422). The agent contract's agent and confidence keys get a 422 that names POST /api/v1/agent/assertions, so an agent payload sent to the lawyer endpoint is never stored as a lawyer's suggestion.
+- A number that is not finite (NaN, Infinity, or a literal such as 1e999 that overflows) is invalid wherever a number is expected: 422, on any route. The 422 body spells such a value as the string "NaN", "Infinity" or "-Infinity".
 
 The interface should warn the user when:
 
@@ -453,6 +455,10 @@ Exact duplicates (2026-11-16). Two propositions are exact duplicates when they a
 - a draft by the same author as the assertion being created or edited.
 
 Withdrawn, rejected and superseded assertions never block, so an abandoned or decided claim can be proposed again (for example with new evidence); neither do other users' drafts, which are unsubmitted work. Non-blocking exact matches are returned in similar_assertions with match_kind exact_proposition. The same rule applies when an edit (PATCH or POST /revisions) changes the proposition, and when a draft is submitted; keeping the current proposition is never a duplicate. Submitting a draft is blocked only by live assertions, so of two identical drafts the first submitted wins.
+
+The duplicate 409 body is {"detail": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "existing_assertion_id": "<id>"}, wherever the rule applies (create, edit, submit). The detail text is unchanged. Other 409s, such as the stale-revision conflict, carry only detail.
+
+Similar assertions (2026-11-16). Every creation response (POST /api/v1/assertions and POST /api/v1/agent/assertions, so also the agent CLI and the MCP suggest_assertion tool) lists the 20 strongest matches in similar_assertions, ordered by score descending and then by assertion id. Each entry keeps assertion_id, match_kind (exact_proposition, same_subject_type_object or similar) and score. It also carries the matched assertion's proposition as display text (its stored proposition, cut to 300 characters ending in "…" when longer), its status and its assertion_type. Next to the list, similar_assertions_total counts all matches and similar_assertions_truncated says whether the list was cut. GET /api/v1/assertions/{id}/related returns the same entries for an existing assertion as a JSON list of at most 20, with the number of all matches in the X-Total-Count response header. The exact-duplicate check considers every match, not only the listed ones. A matter that holds definition-linking output can match thousands of generated assertions; the cap keeps those responses small, but comparing a proposition with every assertion of the matter still takes time in proportion to the matter's size.
 
 ==================================================
 9. ASSERTION DISCUSSION AND RATIONALES
@@ -994,7 +1000,11 @@ resolve to a same-matter document in the selected repository. Explanations are
 preserved as initial comments; creation and provenance audit are transactional.
 An explanation is stored as POST .../comments stores the same text (sanitized
 text plus the raw authored text), also when nothing survives sanitization; a
-blank explanation creates no comment (2026-11-16).
+blank explanation creates no comment (2026-11-16). Agent platform, model and run
+ID are sanitized like other submitted text before they are stored or returned; a
+value with no text left once markup is removed is a 422 (2026-11-16). The agent
+payload belongs to the agent endpoint: POST /api/v1/assertions refuses it (see
+section 7).
 
 Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
 provide actual source choices for the lawyer suggestion form. Evidence details
@@ -1009,3 +1019,25 @@ section 3). Submitting clears reviewed_by and reviewed_at; the earlier decision
 stays in the audit trail. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Offline enrichment (2026-11-16)
+
+`python -m app.enrich.cli` suggests draft `model_suggested` assertions from a
+matter's stored source spans. Agent submissions share that origin. An
+enrichment row is one whose revision 1 has revision_reason "model-suggested
+(offline enrichment)"; an agent row carries `agent_provenance`. Enrichment is
+idempotent on its own output only. It skips a span that already backs an
+enrichment row, and it never suggests a proposition it already suggested in the
+matter, whatever became of that suggestion. It also applies the exact-duplicate
+rule of section 8 for the triggering user, checked under the write lock. A span
+that an agent or lawyer cites is still suggested.
+
+A span of up to 1,000 characters is suggested whole. From a longer span, such as
+an ingested statute section, the proposition quotes the sentence in which the
+heuristic matched, or the clause when that sentence is longer. A match that
+cannot be quoted within 1,000 characters is not suggested. Every enricher's text
+is held to the 100,000-character cap before it is sanitized. Its evidence is
+limited to the matter's own spans. The triggering user must exist and hold a
+contributor, reviewer or admin role in the matter; the CLI otherwise reports
+the problem and exits 1, as it does for an unknown matter, an unset or in-memory
+database URL, or a database without the LexGraph tables.

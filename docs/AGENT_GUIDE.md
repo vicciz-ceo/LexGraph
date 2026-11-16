@@ -75,11 +75,22 @@ Success prints JSON with the assertion ID and exits 0; errors print JSON to
 stderr and exit 1. `--user-id USER_ID` before the subcommand overrides the actor
 environment variable. The `schema` command needs neither an actor nor a database.
 The same JSON can be sent to `POST /api/v1/agent/assertions` using
-`Authorization: Bearer AGENT_USER_ID` when the API server is running.
+`Authorization: Bearer AGENT_USER_ID` when the API server is running. Do not send
+it to `POST /api/v1/assertions`, the lawyer endpoint: it refuses `agent` and
+`confidence` with a 422 that names the agent endpoint, and any other key it does
+not declare with a 422 too.
+
+The result lists at most 20 `similar_assertions`, strongest first. Each gives the
+matched assertion's `assertion_id`, `match_kind`, `score`, `proposition` (display
+text, cut to 300 characters), `status` and `assertion_type`.
+`similar_assertions_total` counts all matches and `similar_assertions_truncated`
+says whether the list was cut. Inspect close matches before you suggest more.
 
 `agent.platform` is required and platform-neutral; model and run ID are optional.
-They are self-reported provenance, not verified identity. Confidence is optional,
-finite, and between 0 and 1; it is never a lawyer rating or proof of correctness.
+They are self-reported provenance, not verified identity. Markup is removed from
+them as from other submitted text, and a value that is only markup is refused.
+Confidence is optional, finite, and between 0 and 1; it is never a lawyer rating
+or proof of correctness.
 The canonical schema and assertion vocabulary come from `schema`, so agents need
 not hardcode them. Unknown assertion types require
 `assertion_type_is_proposed_new: true`. Effective dates are UTC instants: an
@@ -98,12 +109,15 @@ No agent-submission operation accepts assertions or creates ratings.
 
 - **403:** actor lacks the required matter role. An admin must grant access.
 - **422:** fix the reported validation issue (including missing/cross-matter
-  sources, wrong repository, invalid confidence or dates, a date outside the
+  sources, wrong repository, invalid confidence or dates, a confidence that is
+  not a finite number such as `NaN` or `1e999`, a date outside the
   years 1–9999 once in UTC, one source span listed twice with the same role,
-  text over 100,000 characters, or JSON with an unpaired surrogate escape such
-  as `\ud800`).
+  text over 100,000 characters, provenance that is only markup, the agent
+  payload sent to `POST /api/v1/assertions`, or JSON with an unpaired surrogate
+  escape such as `\ud800`).
 - **409 duplicate:** no second assertion was created. Read the existing assertion
-  ID in the error and inspect it. Do not retry with cosmetic rewording. This
+  ID in the error (the REST response also gives it as `existing_assertion_id`)
+  and inspect it. Do not retry with cosmetic rewording. This
   holds for concurrent and retried submissions too (parallel agents, CLI, MCP
   and REST): exactly one of several identical submissions is stored. Only live
   (proposed, revision-requested, accepted, disputed) assertions and the actor's
