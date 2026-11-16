@@ -163,8 +163,9 @@ cd ..
 
 ### Migration: Revision Invariants (2026-11-16)
 
-Databases created before 2026-11-16 need an idempotent migration (it prints `True` when it changed something and `False` when there was nothing to do; a fresh database does not need it):
+Databases created before 2026-11-16 need two idempotent migrations (each prints `True` when it changed something and `False` when there was nothing to do; a fresh database needs neither):
 
+- `m20261116_assertion_revision_number_unique` adds the unique index on `assertion_revisions (assertion_id, revision_number)`. Revision numbers that concurrent edits stored twice are first renumbered, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning.
 - `m20261116_backfill_initial_assertion_revisions` adds the missing revision 1 (and an `assertion_created` audit event marked `migration:<id>`) to assertions that were stored without one, i.e. definition-link output written before this date. Definition-link assertions edited before the fix keep only their later revisions: the original text was not stored.
 
 ```bash
@@ -172,10 +173,10 @@ cd backend
 .venv/bin/python -c "
 from app.config import get_settings
 from app.db import make_engine
-from app.migrations import m20261116_backfill_initial_assertion_revisions
+from app.migrations import m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions
 
 engine = make_engine(get_settings().database_url)
-for migration in (m20261116_backfill_initial_assertion_revisions,):
+for migration in (m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions):
     print(migration.MIGRATION_ID, migration.upgrade(engine))
 "
 cd ..

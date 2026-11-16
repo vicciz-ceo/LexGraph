@@ -1,20 +1,25 @@
-"""Migration m20261116_backfill_initial_assertion_revisions (api:1,
-pipeline:2, pipeline:3, ui:4).
+"""Migrations m20261116_assertion_revision_number_unique (api:0) and
+m20261116_backfill_initial_assertion_revisions (api:1, pipeline:2,
+pipeline:3, ui:4).
 
-Old databases are built from the current schema with rows written by raw
-SQL the way the old code left them (the ORM hook never sees raw SQL), then
-upgraded, checked through the database and the HTTP API, and upgraded again
-(no-op).
+Old databases are built from the current schema with the new parts taken
+away (the unique index dropped) or with rows written by raw SQL the way the
+old code left them (the ORM hook never sees raw SQL), then upgraded, checked
+through the database and the HTTP API, and upgraded again (no-op).
 """
 
 from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import create_engine, text
+import pytest
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from app.db import Base
+from app.migrations import m20261116_assertion_revision_number_unique as unique_numbers
 from app.migrations import m20261116_backfill_initial_assertion_revisions as backfill
+from app.models.assertion_revision import REVISION_NUMBER_UNIQUE_INDEX
 
 _ASSERTION_COLUMNS = (
     "id, organization_id, repository_id, matter_id, assertion_type, proposition, subject_entity_type, "
@@ -62,17 +67,86 @@ def _revisions(conn, assertion_id):
         "ORDER BY revision_number"), {"a": assertion_id})]
 
 
-def test_the_backfill_is_a_no_op_on_a_fresh_database(tmp_path):
+def _current_number(conn, assertion_id):
+    return conn.execute(text("SELECT current_revision_number FROM assertions WHERE id = :a"),
+                        {"a": assertion_id}).scalar_one()
+
+
+def test_both_migrations_are_no_ops_on_a_fresh_database(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
     import app.models  # noqa: F401  -- register every table
 
     Base.metadata.create_all(engine)
+    assert unique_numbers.upgrade(engine) is False
     assert backfill.upgrade(engine) is False
     engine.dispose()
 
 
-def test_migration_id_follows_the_convention():
+def test_migration_ids_follow_the_convention():
+    assert unique_numbers.MIGRATION_ID == "20261116_assertion_revision_number_unique"
     assert backfill.MIGRATION_ID == "20261116_backfill_initial_assertion_revisions"
+    assert unique_numbers.INDEX_NAME == REVISION_NUMBER_UNIQUE_INDEX
+
+
+def test_unique_numbers_migration_renumbers_duplicates_and_adds_the_index(app, client, matter_with_users):
+    m = matter_with_users
+    engine = app.state.engine
+    author = m["reviewer_id"]
+    with engine.begin() as conn:
+        conn.execute(text(f"DROP INDEX {REVISION_NUMBER_UNIQUE_INDEX}"))  # the pre-migration schema
+        # The api:0 race: two edits of revision 1 both stored revision 2; the
+        # edit that committed last ("edit A") is what the assertion holds,
+        # although its row was created first.
+        raced = _insert_assertion(conn, m, proposition="edit A", current=2, origin="user_suggested",
+                                  status="proposed", object_type=None)
+        _insert_revision(conn, raced, 1, "original", created_at="2026-09-01 10:00:00", author=author)
+        a_row = _insert_revision(conn, raced, 2, "edit A", created_at="2026-09-01 11:00:00", author=author)
+        b_row = _insert_revision(conn, raced, 2, "edit B", created_at="2026-09-01 11:00:01", author=author)
+        conn.execute(text(
+            "INSERT INTO assertion_ratings (id, organization_id, repository_id, matter_id, assertion_id, "
+            "assertion_revision_id, user_id, strength, created_at, updated_at) VALUES (:id, :org, :repo, "
+            ":matter, :aid, :rid, :uid, 2, '2026-09-02 00:00:00', '2026-09-02 00:00:00')"),
+            {"id": _id(), "org": m["organization_id"], "repo": m["repository_id"], "matter": m["matter_id"],
+             "aid": raced, "rid": b_row, "uid": m["rater_id"]})
+        # A later edit on top of a duplicate pair: every number above moves up.
+        stacked = _insert_assertion(conn, m, proposition="third", current=2, origin="user_suggested",
+                                    status="proposed", object_type=None)
+        _insert_revision(conn, stacked, 1, "first", created_at="2026-09-01 10:00:00", author=author)
+        _insert_revision(conn, stacked, 1, "first again", created_at="2026-09-01 10:00:05", author=author)
+        _insert_revision(conn, stacked, 2, "third", created_at="2026-09-01 12:00:00", author=author)
+        clean = _insert_assertion(conn, m, proposition="two", current=2, origin="user_suggested",
+                                  status="proposed", object_type=None)
+        _insert_revision(conn, clean, 1, "one", created_at="2026-09-01 10:00:00", author=author)
+        _insert_revision(conn, clean, 2, "two", created_at="2026-09-01 10:30:00", author=author)
+
+    assert unique_numbers.upgrade(engine) is True
+
+    with engine.begin() as conn:
+        assert _revisions(conn, raced) == [(1, "original"), (2, "edit B"), (3, "edit A")]
+        assert _current_number(conn, raced) == 3
+        assert conn.execute(text("SELECT revision_number FROM assertion_revisions WHERE id = :id"),
+                            {"id": a_row}).scalar_one() == 3
+        rated = conn.execute(text("SELECT assertion_revision_id FROM assertion_ratings WHERE assertion_id = :a"),
+                             {"a": raced}).scalar_one()
+        assert rated == b_row  # the rating stays with the row it rated (now revision 2)
+        assert _revisions(conn, stacked) == [(1, "first"), (2, "first again"), (3, "third")]
+        assert _current_number(conn, stacked) == 3
+        assert _revisions(conn, clean) == [(1, "one"), (2, "two")] and _current_number(conn, clean) == 2
+    index = next(i for i in inspect(engine).get_indexes("assertion_revisions")
+                 if i["name"] == REVISION_NUMBER_UNIQUE_INDEX)
+    assert index["unique"] and index["column_names"] == ["assertion_id", "revision_number"]
+    with pytest.raises(IntegrityError), engine.begin() as conn:
+        _insert_revision(conn, clean, 2, "again", created_at="2026-09-03 00:00:00", author=author)
+
+    detail = client.get(f"/api/v1/assertions/{raced}", headers=m["reviewer_headers"])
+    assert detail.status_code == 200
+    assert (detail.json()["current_revision_number"], detail.json()["proposition_raw"]) == (3, "edit A")
+    listing = client.get("/api/v1/assertions", params={"matter_id": m["matter_id"]}, headers=m["reviewer_headers"])
+    assert listing.status_code == 200 and listing.json()["total"] == 3
+    summary = client.get(f"/api/v1/assertions/{raced}/revisions/2/ratings/summary", headers=m["reviewer_headers"])
+    assert summary.status_code == 200 and summary.json()["count"] == 1
+
+    assert unique_numbers.upgrade(engine) is False
 
 
 def test_backfill_creates_revision_one_and_a_creation_event_for_unrevisioned_rows(app, client, matter_with_users):

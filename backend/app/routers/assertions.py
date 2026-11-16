@@ -48,6 +48,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
@@ -77,6 +78,7 @@ from app.services.validation import (
     validate_proposition_not_empty,
     validate_text_length,
 )
+from app.services.write_lock import lock_assertion_writes
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
 
@@ -375,12 +377,15 @@ def _comments_for_assertion(session: Session, assertion_id: str) -> list[dict]:
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
+    # (assertion_id, revision_number) is unique, but a database that has not
+    # run the unique-index migration may still hold two rows with one
+    # number (api:0); read the newest instead of failing the whole matter.
     return session.execute(
         select(AssertionRevision).where(
             AssertionRevision.assertion_id == assertion.id,
             AssertionRevision.revision_number == assertion.current_revision_number,
-        )
-    ).scalar_one_or_none()
+        ).order_by(AssertionRevision.created_at.desc(), AssertionRevision.id.desc()).limit(1)
+    ).scalars().first()
 
 
 def _rating_strengths_for_revision(session: Session, revision_id: str | None) -> list[int]:
@@ -485,6 +490,24 @@ def _require_can_modify(session: Session, user_id: str, assertion: Assertion) ->
     if (role != "contributor" or user_id != assertion.author_user_id
             or assertion.status not in ("draft", "proposed", "revision_requested")):
         raise HTTPException(403, "Only the author of an unreviewed assertion or a reviewer may modify it")
+
+
+# --- Conflict helpers (stale revisions) -------------------------------------
+
+_STALE_REVISION_DETAIL = "assertion has been modified since expected_revision_number"
+
+
+def _stale_revision_conflict() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_STALE_REVISION_DETAIL)
+
+
+def _revision_number_taken(session: Session, assertion_id: str, revision_number: int) -> bool:
+    return session.execute(
+        select(AssertionRevision.id).where(
+            AssertionRevision.assertion_id == assertion_id,
+            AssertionRevision.revision_number == revision_number,
+        ).limit(1)
+    ).first() is not None
 
 
 # --- Routes ------------------------------------------------------------------
@@ -859,15 +882,15 @@ def patch_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    # The revision this edit is based on: the caller's expected revision, or
+    # (when omitted) the one current when this request read the assertion.
+    base_revision_number = assertion.current_revision_number
 
     if (
         body.expected_revision_number is not None
-        and body.expected_revision_number != assertion.current_revision_number
+        and body.expected_revision_number != base_revision_number
     ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="assertion has been modified since expected_revision_number",
-        )
+        raise _stale_revision_conflict()
 
     updates = body.model_dump(
         exclude_unset=True, exclude={"expected_revision_number", "revision_reason"}
@@ -911,6 +934,16 @@ def patch_assertion(
                 status_code=422, detail=str(exc)
             ) from exc
 
+    # api:0: serialize writers, then re-read the assertion. A concurrent edit
+    # of the same base revision has committed if the number moved on; the
+    # unique (assertion_id, revision_number) index is the backstop below.
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    if assertion.current_revision_number != base_revision_number:
+        session.rollback()
+        raise _stale_revision_conflict()
+    _require_can_modify(session, user_id, assertion)
+
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this PATCH doesn't touch proposition, so a new
     # revision's raw column is never silently blanked out.
@@ -918,7 +951,7 @@ def patch_assertion(
     proposition_raw = previous_revision.proposition_raw if previous_revision else None
 
     now = _now()
-    new_revision_number = assertion.current_revision_number + 1
+    new_revision_number = base_revision_number + 1
 
     if "proposition" in updates:
         # B5 (qa-fail fix): sanitize like CREATE does -- PATCH is a storage
@@ -969,7 +1002,13 @@ def patch_assertion(
         assertion.reviewed_by = None
         assertion.reviewed_at = None
     session.add(revision)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError as exc:
+        session.rollback()
+        if _revision_number_taken(session, assertion_id, new_revision_number):
+            raise _stale_revision_conflict() from exc
+        raise
     record_audit_event(session, actor_user_id=user_id, event_type="assertion_revised",
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
