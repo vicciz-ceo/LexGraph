@@ -660,7 +660,7 @@ describe("superseding an accepted assertion (ui:15, pipeline:8)", () => {
     fireEvent.click(within(panel).getByLabelText("A newer accepted reading."));
     fireEvent.click(submit);
 
-    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9"));
+    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 1));
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 
@@ -690,7 +690,7 @@ describe("superseding an accepted assertion (ui:15, pipeline:8)", () => {
     fireEvent.click(option);
     fireEvent.click(within(panel).getByRole("button", { name: "Supersede with selected assertion" }));
 
-    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-7"));
+    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-7", 1));
   });
 
   it("shows the server's reason when the supersede is refused", async () => {

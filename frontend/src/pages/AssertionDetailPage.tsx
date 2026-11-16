@@ -564,11 +564,23 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     await runEvidenceChange(() => api.removeEvidence(id, evidenceId));
   };
 
-  // --- Supersede (reviewers and admins, accepted assertions). The panel
-  // shows the server's reason when it refuses the supersede.
+  // --- Supersede (reviewers and admins, accepted assertions). Like the other
+  // review decisions it names the revision on screen, so the API refuses it
+  // (409) if the assertion changed meanwhile; the page then says the
+  // decision was not recorded and shows the current version. The panel
+  // shows the server's reason for any refusal and keeps the choice.
   const handleSupersede = async (successorId: string) => {
     if (!detail) return;
-    await api.supersedeAssertion(detail.id, successorId);
+    setActionError(null);
+    try {
+      await api.supersedeAssertion(detail.id, successorId, detail.current_revision_number);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setActionError(reviewConflictNotice(err.message));
+        refresh();
+      }
+      throw err;
+    }
     refresh();
   };
 

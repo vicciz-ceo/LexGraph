@@ -33,6 +33,7 @@ vi.mock("../../api/client", () => {
       rejectAssertion: vi.fn(),
       disputeAssertion: vi.fn(),
       requestRevision: vi.fn(),
+      supersedeAssertion: vi.fn(),
     },
   };
 });
@@ -218,6 +219,49 @@ describe("AssertionDetailPage review actions", () => {
     await renderPage(makeDetail({ status: "accepted", standing: "accepted" }));
 
     expect(decisionButtons()).toEqual(["Reject", "Dispute", "Request revision"]);
+  });
+
+  describe("supersede, the fifth decision", () => {
+    async function chooseReplacement() {
+      mockedApi.relatedAssertions.mockResolvedValue([
+        {
+          assertion_id: "a-9",
+          match_kind: "similar",
+          score: 0.8,
+          proposition: "A newer accepted reading.",
+          status: "accepted",
+        },
+      ]);
+      await renderPage(makeDetail({ status: "accepted", standing: "accepted" }));
+      fireEvent.click(screen.getByRole("button", { name: /Mark as superseded/ }));
+      fireEvent.click(await screen.findByLabelText("A newer accepted reading."));
+      fireEvent.click(screen.getByRole("button", { name: "Supersede with selected assertion" }));
+    }
+
+    it("sends the revision on screen", async () => {
+      mockedApi.supersedeAssertion.mockResolvedValue({} as never);
+      await chooseReplacement();
+
+      await waitFor(() =>
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+      );
+      await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    });
+
+    it("explains a refusal because the record is stale (409) and re-fetches it", async () => {
+      mockedApi.supersedeAssertion.mockRejectedValue(
+        new ApiError(409, "assertion has been modified since expected_revision_number"),
+      );
+      await chooseReplacement();
+
+      await waitFor(() =>
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+      );
+      expect(await screen.findByText(/changed after you opened it/)).toHaveTextContent(
+        /not recorded/,
+      );
+      await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    });
   });
 
   it("records one decision when Reject is clicked again before the first one finishes", async () => {
