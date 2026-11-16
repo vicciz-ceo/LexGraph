@@ -15,6 +15,8 @@ git clone https://github.com/vicciz-ceo/LexGraph.git
 cd LexGraph
 ```
 
+You need Python 3.12 or later (`python3 --version`; CI tests 3.12 and 3.13) and Node.js 22 (22.12 or later) or 24 with npm.
+
 ### Quickstart (real provisioning)
 
 The real path from an empty database to a working, admin-owned instance:
@@ -23,7 +25,7 @@ provision further users and access from the app itself.
 
 ```bash
 cd backend
-python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m app.bootstrap --db dev.db
 ```
 
@@ -31,11 +33,17 @@ Bootstrap refuses to run on a non-empty database (an empty-DB guard — no
 silent mutation on top of an existing workspace) and prints the new admin's
 sign-in id — that id **is** the credential (`backend/app/auth.py`'s
 test-token seam: `Authorization: Bearer <user_id>`); there are no passwords.
-Copy it, then start both servers:
+Copy it, then start the backend, still in `backend/`. It keeps running in
+this terminal until you press Ctrl-C:
 
 ```bash
 LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
-cd .. && npm --prefix frontend ci && npm --prefix frontend run dev
+```
+
+In a second terminal, from the repository root, start the web app:
+
+```bash
+npm --prefix frontend ci && npm --prefix frontend run dev
 ```
 
 Sign in at http://localhost:5173 with the printed id. From there, use
@@ -71,8 +79,12 @@ Sign in at http://localhost:5173 as `admin`, `reviewer`, `contributor`, or
 `viewer` (the user id *is* the role name — no admin action created these;
 they're fixtures for exercising the UI locally). The seeder
 (`backend/app/seed_demo.py`) drives the real API, so the demo data carries
-genuine revisions, ratings, comments, notifications, and audit events —
-useful for development and mockups, not for a real deployment.
+genuine revisions, ratings, comments, and audit events —
+useful for development and mockups, not for a real deployment. It carries no
+notifications: they are kept in the memory of the server process that handled
+each action, so the ones the seeder's actions raised are gone when it exits,
+and every bell starts empty. Submitting or reviewing an assertion in the
+running app does notify.
 
 ### Backend Environment Setup
 
@@ -80,7 +92,7 @@ Initialize the backend virtual environment and install dependencies:
 
 ```bash
 cd backend
-python3.13 -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 cd ..
 ```
@@ -97,7 +109,7 @@ npm --prefix frontend ci
 
 ### Initialize the Database
 
-LexGraph uses SQLite as the default local database. Create a new database file or use an in-memory database by setting the environment variable:
+LexGraph stores everything in one SQLite database file; it supports no other database yet. Every LexGraph process (the server, the CLIs, the MCP server) reads its location from the same environment variable; `app.bootstrap`, `app.seed_demo` and `app.migrate` also accept `--db PATH`:
 
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
@@ -206,7 +218,7 @@ Start the FastAPI backend server:
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
 cd backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+.venv/bin/uvicorn app.main:app --port 8000
 ```
 
 The backend will be available at `http://localhost:8000`. Check the health status with:
@@ -214,6 +226,14 @@ The backend will be available at `http://localhost:8000`. Check the health statu
 ```bash
 curl http://localhost:8000/healthz
 ```
+
+**Keep the backend on this machine.** uvicorn listens on `127.0.0.1` unless told otherwise, so only programs on this computer can reach it, and every command in this runbook keeps that default. Do not add `--host 0.0.0.0`: it serves `/api/v1`, `/docs` and `/openapi.json` on every network interface over plain HTTP, and LexGraph's sign-in is built for a trusted local installation, not for a network. On the demo workspace, for example, the credentials are the role names themselves (`admin`, `reviewer`, …). To use LexGraph from another computer, leave the bind as it is and connect through an encrypted, authenticated channel instead, such as an SSH tunnel started on that computer:
+
+```bash
+ssh -N -L 8000:127.0.0.1:8000 you@lexgraph-host
+```
+
+Then open `http://localhost:8000` on that computer, with the web app built so that the backend serves it (see "Serving the web app in production"). For a team, run a reverse proxy on the LexGraph host that terminates HTTPS and restricts who may connect, and point it at `http://127.0.0.1:8000`.
 
 If the database cannot be served (see "Database Schema" above), uvicorn exits during startup with status 3, before binding the port. The end of its output names what is missing and the command that fixes it, for example on a workspace provisioned on 2026-07-31:
 
@@ -486,10 +506,10 @@ The production deployment is a single process. Build the web app once, and the b
 npm --prefix frontend ci            # first time only
 npm --prefix frontend run build     # writes frontend/dist/
 cd backend
-LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
 ```
 
-Open `http://localhost:8000` and sign in. At startup the backend logs `Serving the web app from .../frontend/dist`. Without a build it serves the API only (`GET /` is a 404). It looks for the build once, at startup, so build first.
+Open `http://localhost:8000` and sign in. At startup the backend logs `Serving the web app from .../frontend/dist`. Without a build it serves the API only (`GET /` is a 404). It looks for the build once, at startup, so build first. It listens on `127.0.0.1` only; to serve other computers, keep it that way and follow "Keep the backend on this machine" under "Starting the Backend".
 
 - `/` and any other page path return the app's `index.html`, sent with `Cache-Control: no-cache` so browsers revalidate it on every load. The app routes with URL hashes (`/#/knowledge`), so deep links and reloads need nothing more.
 - `/assets/*` serves the build's content-hashed files, which browsers may cache for a year.
@@ -572,7 +592,7 @@ above:
    ```bash
    git clone https://github.com/vicciz-ceo/LexGraph.git
    cd LexGraph
-   cd backend && python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]' && cd ..
+   (cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')
    npm --prefix frontend ci
    ```
 
@@ -590,7 +610,7 @@ above:
    ```bash
    export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
    cd backend
-   .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+   .venv/bin/uvicorn app.main:app --port 8000
    ```
 
 4. **Start the web app** (Terminal 2):
@@ -598,8 +618,9 @@ above:
    npm --prefix frontend run dev
    ```
    For a deployment, skip this terminal instead: run
-   `npm --prefix frontend run build` once and the backend from step 3 serves
-   the app at `http://localhost:8000` (see "Serving the web app in production").
+   `npm --prefix frontend run build` once, then start (or restart) the backend
+   from step 3, which serves the app at `http://localhost:8000` (see "Serving
+   the web app in production"; the backend looks for the build only at startup).
 
 5. **Access the application**:
    - Grading app: `http://localhost:5173` — sign in with the id from step 2
@@ -610,11 +631,19 @@ above:
    id) → Admin → Members & roles → grant it a role on a matter. See
    "Provisioning users & access" above for the full walkthrough.
 
-7. **Optional: Register MCP server** (Terminal 3):
+7. **Optional: Register MCP server** (Terminal 3, from the repository root).
+   `claude mcp add` stores only what is on its command line, and the client
+   starts the server from its own working directory, so pass the interpreter
+   and the database from step 2 as absolute paths:
    ```bash
-   export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
-   claude mcp add lexgraph -- backend/.venv/bin/python -m app.mcp.server
+   claude mcp add lexgraph \
+     --env LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/lexgraph.db" \
+     -- "$PWD/backend/.venv/bin/python" -m app.mcp.server
    ```
+   This registers the read-only tools. To let an agent submit suggestions,
+   create a dedicated contributor account in step 6 and add
+   `--env LEXGRAPH_AGENT_USER_ID=<its sign-in id>` after the database URL; see
+   [mcp-registration.md](mcp-registration.md) for that and for other clients.
 
 ## Environment Variables
 
@@ -630,7 +659,7 @@ above:
 - **Sign-in says "Unknown user ID" or "Could not reach the LexGraph server" although the id is valid**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production".
 - **`no such column` / `no such table` errors from a CLI or the MCP server**: the database predates your checkout (those entry points do not run the server's startup check); run `python -m app.migrate --db PATH` on it.
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend. For `./scripts/demo.sh`, set `BACKEND_PORT` or `FRONTEND_PORT` (see "Optional: demo workspace").
-- **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.
+- **Module not found errors**: Ensure you've run `.venv/bin/pip install -e '.[dev]'` in the backend directory, and that you start LexGraph with `backend/.venv/bin/...`, not a system `python3`.
 
 ## Agent suggestions and lawyer collaboration
 
