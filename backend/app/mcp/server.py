@@ -2,18 +2,28 @@
 
 Without a configured actor, legacy lookup tools read the entire local database.
 With an actor, reads are matter-scoped and validated proposal creation is enabled.
-See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
+Anticipated failures reach the agent as `ToolError` text holding the CLI's JSON
+error object: mcp >= 2.1 replaces any other exception with a bare
+"Error executing tool <name>". See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 """
 
 from __future__ import annotations
 
+import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 
+from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.agent_cli import assertion_search
+from app.agent_cli import assertion_search, context, error_body, guide
 from app.agent_database import ConfigurationError
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
@@ -21,9 +31,20 @@ from app.models.assertion_revision import AssertionRevision
 from app.models.source_span import SourceSpan
 from app.models.matter_role import MatterRole
 from app.models.user import User
+from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit_suggestion
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
 _DEFAULT_RESULT_LIMIT = 10
+
+
+@contextmanager
+def _reported_errors() -> Iterator[None]:
+    """Turn anticipated failures into a ToolError carrying {"error", "status"}.
+    Anything else stays a crash: logged server-side, withheld from the client."""
+    try:
+        yield
+    except (HTTPException, ValidationError, SQLAlchemyError, ConfigurationError) as exc:
+        raise ToolError(json.dumps(jsonable_encoder(error_body(exc)), ensure_ascii=False)) from exc
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
@@ -122,38 +143,31 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
         (linked source-span quotes), and relationships (subject/object
         entities, supersession) in one bounded call. Matching is a
         case-insensitive substring of the current proposition text."""
-        session = session_factory()
-        try:
+        with _reported_errors(), session_factory() as session:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
                 "results": [_serialize_assertion_detail(session, a) for a in matches],
             }
-        finally:
-            session.close()
 
     @server.tool()
     def search(query: str) -> dict:
         """Bounded list (up to 10) of assertion summaries whose current
         proposition text contains `query` (case-insensitive substring)."""
-        session = session_factory()
-        try:
+        with _reported_errors(), session_factory() as session:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
                 "results": [_serialize_assertion_summary(session, a) for a in matches],
             }
-        finally:
-            session.close()
 
     @server.tool()
     def fetch(assertion_id: str) -> dict:
         """Full detail (proposition, evidence, relationships) for one
         assertion by id."""
-        session = session_factory()
-        try:
+        with _reported_errors(), session_factory() as session:
             assertion = session.get(Assertion, assertion_id)
             if assertion is not None and agent_user_id is not None:
                 allowed = session.scalar(select(MatterRole.id).where(
@@ -163,13 +177,10 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
             if assertion is None:
                 return {"error": f"assertion not found: {assertion_id}"}
             return _serialize_assertion_detail(session, assertion)
-        finally:
-            session.close()
 
     @server.tool()
     def assertion_guide() -> dict:
         """Learn how to create evidence-backed suggestions and retrieve the exact JSON schema."""
-        from app.agent_cli import guide
         result = guide()
         result["submissions_enabled"] = agent_user_id is not None
         return result
@@ -178,19 +189,20 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
         @server.tool()
         def agent_context(matter_id: str | None = None, query: str = "", limit: int = 20, offset: int = 0) -> dict:
             """Discover authorized matters, real entity IDs, source quotes and existing assertions."""
-            from app.agent_cli import context
-            with session_factory() as session:
+            with _reported_errors(), session_factory() as session:
                 return context(session, agent_user_id, matter_id, query, limit, offset)
 
         @server.tool()
         def suggest_assertion(payload: dict) -> dict:
-            """Submit a model-suggested draft/proposal. Call assertion_guide for schema, agent_context for IDs.
-            The configured account must have contributor access. Never accepts assertions or rates them.
-            """
-            from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit
-            from fastapi.encoders import jsonable_encoder
-            with session_factory() as session:
-                return jsonable_encoder(submit(AgentAssertionCreate.model_validate(payload), session, agent_user_id))
+            """Submit a model-suggested draft/proposal. payload is one JSON object
+            matching assertion_guide's schema, with IDs from agent_context; the
+            configured account needs contributor access. Never accepts or rates
+            assertions. A failure is an error result ending in JSON {"error",
+            "status"}: 409 duplicate names the existing assertion (inspect it, do
+            not reword); 422 explains the invalid field ("issues"); 403 missing role."""
+            with _reported_errors(), session_factory() as session:
+                body = AgentAssertionCreate.model_validate(payload)
+                return jsonable_encoder(submit_suggestion(body, session, agent_user_id))
 
     return server
 

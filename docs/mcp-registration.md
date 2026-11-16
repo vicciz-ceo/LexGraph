@@ -90,3 +90,9 @@ Agents without MCP can use the JSON CLI or HTTP API in the
 After connecting, ask the agent to call `assertion_guide`, then `agent_context`,
 read the relevant sources, and call `suggest_assertion` with `payload` set to a
 schema-valid JSON object. Proposed assertions appear in the lawyers' review queue.
+
+A failed call returns an error result whose text is `Error executing tool <name>: `
+followed by the JSON object the CLI prints, for example
+`{"error": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "status": 409}`.
+Schema violations add `issues` (`field` and `message` for each). The statuses
+mean the same as in the [agent guide](AGENT_GUIDE.md#persistence-and-errors).

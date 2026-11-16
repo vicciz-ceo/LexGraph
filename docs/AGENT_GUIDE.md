@@ -95,6 +95,10 @@ and surfaced as `agent_provenance`; subsequent lawyer edits preserve it.
 `origin` is always `model_suggested`, and only `draft` or `proposed` is allowed.
 No agent-submission operation accepts assertions or creates ratings.
 
+Failures carry a `status` and an `error` message. The CLI prints them as one
+JSON object on stderr; MCP returns the same object as the text of an error
+result, after `Error executing tool <name>: `.
+
 - **403:** actor lacks the required matter role. An admin must grant access.
 - **422:** fix the reported validation issue (including missing/cross-matter
   sources, wrong repository, invalid confidence or dates).

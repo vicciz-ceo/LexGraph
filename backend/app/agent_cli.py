@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from sqlalchemy import func, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from app import models  # register mappings before opening a session
 from app.agent_database import ConfigurationError, open_database
 from app.config import get_settings
@@ -68,6 +68,26 @@ def context(session, user_id: str, matter_id: str | None = None, q: str = "", li
             stmt.order_by(Assertion.id).limit(limit).offset(offset))],
         "limit": limit, "offset": offset,
     }
+
+
+def error_body(exc: BaseException) -> dict:
+    """The JSON error object both agent interfaces report for a failure."""
+    if isinstance(exc, HTTPException):
+        return {"error": exc.detail, "status": exc.status_code}
+    if isinstance(exc, ValidationError):
+        issues = [{"field": ".".join(str(part) for part in err["loc"]) or "payload", "message": err["msg"]}
+                  for err in exc.errors(include_url=False, include_context=False, include_input=False)]
+        summary = "; ".join(issue["message"] if issue["field"] == "payload" else f"{issue['field']}: {issue['message']}"
+                            for issue in issues)
+        return {"error": f"Invalid payload: {summary}", "status": 422, "issues": issues}
+    if isinstance(exc, ConfigurationError):
+        return {"error": str(exc), "status": 500}
+    if isinstance(exc, SQLAlchemyError):  # the driver's reason, without SQL or bound parameters
+        reason = exc.orig if isinstance(exc, DBAPIError) else str(exc).splitlines()[0]
+        return {"error": f"Database error: {reason}", "status": 500}
+    if isinstance(exc, ValueError):
+        return {"error": str(exc), "status": 422}
+    return {"error": f"Unexpected {type(exc).__name__}: {exc}", "status": 500}
 
 
 def main(argv=None) -> int:
