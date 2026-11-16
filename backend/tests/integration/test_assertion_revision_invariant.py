@@ -180,7 +180,6 @@ def test_writers_that_record_revision_one_themselves_get_exactly_one(client, db_
     doc = seed_document(db_session, repository_id=m["repository_id"], matter_id=m["matter_id"])
     span = seed_source_span(db_session, document_id=doc, matter_id=m["matter_id"],
                             quote_text="Clause 9 survives termination of this Agreement.")
-    # Enrich first: it skips spans an agent proposal already cites.
     enriched = run_enrichment(db_session, matter_id=m["matter_id"], triggered_by_user_id=m["reviewer_id"])
     assert len(enriched) == 1
     human = client.post("/api/v1/assertions", json=assertion_payload(
