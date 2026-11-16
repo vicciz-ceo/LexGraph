@@ -63,6 +63,13 @@ def make_engine(database_url: str):
     return engine
 
 
+def _in_transaction(dbapi_connection) -> bool:
+    try:
+        return bool(dbapi_connection.in_transaction)
+    except Exception:  # closed or broken: the pool discards it, no transaction to keep
+        return False
+
+
 def rollback_leftover_transaction(dbapi_connection, connection_record, reset_state) -> None:
     """Pool `reset` hook: roll back a transaction still open on a connection
     that is being returned to the pool.
@@ -70,15 +77,13 @@ def rollback_leftover_transaction(dbapi_connection, connection_record, reset_sta
     The pool calls it on every return, including the one after a failed
     COMMIT, where SQLAlchemy reports the transaction as already reset and the
     pool's own rollback does not run (see the module docstring)."""
-    if reset_state.asyncio_safe and getattr(dbapi_connection, "in_transaction", False):
+    if reset_state.asyncio_safe and _in_transaction(dbapi_connection):
         dbapi_connection.rollback()
 
 
 def note_transaction_at_checkout(dbapi_connection, connection_record, connection_proxy) -> None:
     """Pool `checkout` hook: record `TRANSACTION_AT_CHECKOUT` for this checkout."""
-    connection_record.info[TRANSACTION_AT_CHECKOUT] = bool(
-        getattr(dbapi_connection, "in_transaction", False)
-    )
+    connection_record.info[TRANSACTION_AT_CHECKOUT] = _in_transaction(dbapi_connection)
 
 
 def make_session_factory(engine) -> sessionmaker[Session]:
