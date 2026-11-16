@@ -138,7 +138,7 @@ export const api = {
     request<MatterMember[]>("GET", `/matters/${matterId}/members`),
 
   setMatterMemberRole: (matterId: string, userId: string, role: MatterRoleName) =>
-    request<MatterMember>("PUT", `/matters/${matterId}/members/${userId}`, {
+    request<MatterMember>("PUT", `/matters/${matterId}/members/${encodeURIComponent(userId)}`, {
       body: { role },
     }),
 
@@ -148,7 +148,7 @@ export const api = {
     }),
 
   removeMatterMember: (matterId: string, userId: string) =>
-    request<void>("DELETE", `/matters/${matterId}/members/${userId}`),
+    request<void>("DELETE", `/matters/${matterId}/members/${encodeURIComponent(userId)}`),
 
   // --- user accounts (B2/UI1: admin-on-any-matter gate, backend/app/routers/users.py) ---
   listUsers: () => request<UserAccount[]>("GET", "/users"),
