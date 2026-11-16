@@ -48,7 +48,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
 from sqlalchemy import select
@@ -442,19 +442,6 @@ def _rating_pairs_for_revision(session: Session, revision_id: str | None) -> lis
         )
     ).all()
     return [{"user_id": user_id, "strength": strength} for user_id, strength in rows]
-
-
-def _user_rating_for_revision(
-    session: Session, revision_id: str | None, user_id: str
-) -> int | None:
-    if revision_id is None:
-        return None
-    return session.execute(
-        select(AssertionRating.strength).where(
-            AssertionRating.assertion_revision_id == revision_id,
-            AssertionRating.user_id == user_id,
-        )
-    ).scalar_one_or_none()
 
 
 def _ratings_summary(session: Session, assertion: Assertion) -> dict | None:
