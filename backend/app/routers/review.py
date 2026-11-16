@@ -8,17 +8,40 @@ Implements the "Review" API surface from spec §13:
     POST /api/v1/assertions/{assertion_id}/request-revision
     POST /api/v1/assertions/{assertion_id}/supersede
 
-Business rules encoded here (spec §10/§12, sprint gates G5/G6/G8):
+Business rules encoded here (spec §2/§3/§10/§12/§13/§16, sprint gates
+G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
 
 - Only a role granted the relevant `assertion:*` permission (reviewer or
   admin) may change review status; a role with no matter access at all
   (no matter_roles row) is treated as having no permissions.
-- An "unsupported" assertion (zero `assertion_evidence` rows) cannot be
-  accepted unless the request records an `acceptance_justification`.
-- A review decision never touches `assertion_ratings` rows.
+- Every decision body may carry `expected_revision_number`, the revision
+  the reviewer looked at. A stale value is refused with 409 before
+  anything changes, so a decision always applies to the revision that
+  was reviewed. Checks run in the order 404 -> 403 -> 409 -> 422.
+- A decision is only recorded from a reviewable status: never on an
+  unsubmitted `draft`, a `withdrawn` assertion or a `superseded` one, and
+  never as a repeat of the current status (409). Moving between the
+  reviewed statuses stays open (contested rulings, re-review).
+- The write is a conditional UPDATE on the status and revision this
+  request checked, so a concurrent decision or edit that lands between
+  the checks and the write is refused with 409 rather than overwritten.
+- An assertion without supporting-role evidence (`evidence_status` other
+  than "evidenced", the classification the assertion API exposes) cannot
+  be accepted unless the request records a non-blank
+  `acceptance_justification`.
+- Supersede refuses the assertion itself, a successor from another
+  matter, a successor that is a draft or withdrawn, rejected or
+  superseded, and any link that would close a supersede cycle.
+- Review text (the request-revision comment, the acceptance
+  justification) gets the same length cap and sanitizer as every other
+  stored text; the comment keeps its raw text in `comment_text_raw`, and
+  the audit log only ever holds the sanitized form.
 - A review decision records which assertion + revision was reviewed
   (`reviewed_by`, `reviewed_at`, and the current revision's id on the
-  audit event this router writes).
+  audit event this router writes), with a correlation id shared by every
+  audit row one request writes.
+- Every route returns the full assertion, like the other assertion
+  mutation routes.
 - No decision here ever mutates `assertion_ratings` — ratings are owned by
   track B2 and are read-only from this router's point of view.
 
@@ -30,24 +53,49 @@ session factory is created per-`create_app()` call (see
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
-from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
-from app.models.audit_event import AuditEvent
 from app.models.matter_role import MatterRole
+from app.routers.assertions import _evidence_status, _serialize_assertion
+from app.services.audit import new_correlation_id, record_audit_event
 from app.services.permissions import has_permission
+from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["review"])
+
+# Statuses a review decision may be recorded from. `draft` has never been
+# submitted for review, `withdrawn` was retracted by its author, and
+# `superseded` is terminal: it points at its successor through
+# `superseded_by_assertion_id`. Mirrors the source-status preconditions of
+# the sibling submit/withdraw routes in `app/routers/assertions.py`.
+DECIDABLE_STATUSES = frozenset(
+    {"proposed", "revision_requested", "disputed", "accepted", "rejected"}
+)
+
+# Statuses an assertion may hold to supersede another one: submitted and
+# still live. A rejected, withdrawn or never-submitted assertion replaces
+# nothing, and refusing an already-superseded successor keeps every
+# supersede chain pointing at a current assertion.
+SUCCESSOR_STATUSES = frozenset({"proposed", "revision_requested", "disputed", "accepted"})
+
+_ACTION_VERB = {
+    "accepted": "accept",
+    "rejected": "reject",
+    "disputed": "dispute",
+    "revision_requested": "request revision of",
+    "superseded": "supersede",
+}
 
 
 # --- Local dependencies ---------------------------------------------------
@@ -71,15 +119,26 @@ def get_current_user_id(request: Request) -> str:
 # --- Request bodies --------------------------------------------------------
 
 
-class AcceptBody(BaseModel):
+class DecisionBody(BaseModel):
+    """Fields every review decision accepts.
+
+    `expected_revision_number` is the revision the reviewer was looking at.
+    It is optional, as on PATCH; when supplied and no longer the current
+    revision the decision is refused with 409 before anything changes.
+    """
+
+    expected_revision_number: int | None = Field(default=None, ge=1)
+
+
+class AcceptBody(DecisionBody):
     acceptance_justification: str | None = None
 
 
-class RequestRevisionBody(BaseModel):
+class RequestRevisionBody(DecisionBody):
     comment: str | None = None
 
 
-class SupersedeBody(BaseModel):
+class SupersedeBody(DecisionBody):
     superseded_by_assertion_id: str
 
 
@@ -109,6 +168,85 @@ def _require_permission(db: Session, user_id: str, assertion: Assertion, permiss
     return role  # type: ignore[return-value]
 
 
+def _require_expected_revision(assertion: Assertion, body: DecisionBody | None) -> None:
+    """409 when the reviewer decided on a revision that is no longer current."""
+    expected = body.expected_revision_number if body is not None else None
+    if expected is not None and expected != assertion.current_revision_number:
+        raise HTTPException(
+            status_code=409,
+            detail="assertion has been modified since expected_revision_number",
+        )
+
+
+def _require_decidable(assertion: Assertion, new_status: str) -> None:
+    """409 unless a review decision may move `assertion` to `new_status`."""
+    if assertion.status not in DECIDABLE_STATUSES:
+        hint = "; it must be submitted for review first" if assertion.status == "draft" else ""
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"cannot {_ACTION_VERB[new_status]} an assertion in status "
+                f"'{assertion.status}'{hint}"
+            ),
+        )
+    if assertion.status == new_status:
+        raise HTTPException(status_code=409, detail=f"assertion is already '{new_status}'")
+
+
+def _sanitized_text(raw: str | None, *, label: str) -> str | None:
+    """Length-check `raw` (422) and return its sanitized form, or None when
+    nothing but markup and whitespace was submitted.
+
+    Same rules as every other stored text field: the cap applies to the
+    text as submitted (`validate_text_length`, gate G4) and active markup
+    is neutralized by `sanitize_for_storage` (spec §7, gate G10).
+    """
+    if raw is None:
+        return None
+    try:
+        validate_text_length(raw, label=label)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    sanitized = sanitize_for_storage(raw)
+    return sanitized if sanitized.strip() else None
+
+
+def _validated_successor(db: Session, assertion: Assertion, successor_id: str) -> Assertion:
+    """Return the superseding assertion, or raise 404/422 if it cannot be one."""
+    if successor_id == assertion.id:
+        raise HTTPException(status_code=422, detail="an assertion cannot supersede itself")
+    successor = db.get(Assertion, successor_id)
+    if successor is None:
+        raise HTTPException(status_code=404, detail="superseding assertion not found")
+    if successor.matter_id != assertion.matter_id:
+        raise HTTPException(
+            status_code=422, detail="superseding assertion must belong to the same matter"
+        )
+    if successor.status not in SUCCESSOR_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "superseding assertion must be submitted and not rejected, withdrawn or "
+                f"superseded (it is '{successor.status}')"
+            ),
+        )
+    # Follow the successor's own supersede links (rows decided before this
+    # router enforced statuses can carry one without being superseded):
+    # reaching `assertion` again would close a cycle.
+    seen = {successor.id}
+    link = successor.superseded_by_assertion_id
+    while link is not None and link not in seen:
+        if link == assertion.id:
+            raise HTTPException(
+                status_code=422,
+                detail="superseding assertion leads back to this assertion (supersede cycle)",
+            )
+        seen.add(link)
+        next_row = db.get(Assertion, link)
+        link = next_row.superseded_by_assertion_id if next_row is not None else None
+    return successor
+
+
 def _current_revision(db: Session, assertion: Assertion) -> AssertionRevision | None:
     return db.execute(
         select(AssertionRevision).where(
@@ -118,13 +256,51 @@ def _current_revision(db: Session, assertion: Assertion) -> AssertionRevision | 
     ).scalar_one_or_none()
 
 
-def _has_evidence(db: Session, assertion: Assertion) -> bool:
-    return (
-        db.execute(
-            select(AssertionEvidence.id).where(AssertionEvidence.assertion_id == assertion.id)
-        ).first()
-        is not None
+def _apply_decision(
+    db: Session,
+    user_id: str,
+    assertion: Assertion,
+    new_status: str,
+    *,
+    superseded_by_assertion_id: str | None = None,
+) -> None:
+    """Write the decision as a compare-and-swap on status and revision.
+
+    The row only changes while it still carries the status and revision
+    this request checked, so a concurrent decision (a double-click, a
+    second reviewer) or an edit landing between the checks and this write
+    is refused with 409 instead of being overwritten or accepted unread.
+    `superseded_by_assertion_id` is set by a supersede and cleared by every
+    other decision: the link exists exactly while the assertion is
+    superseded. The ORM object is left untouched; callers refresh it after
+    commit.
+    """
+    now = datetime.now(timezone.utc)
+    result = db.execute(
+        update(Assertion)
+        .where(
+            Assertion.id == assertion.id,
+            Assertion.status == assertion.status,
+            Assertion.current_revision_number == assertion.current_revision_number,
+        )
+        .values(
+            status=new_status,
+            reviewed_by=user_id,
+            reviewed_at=now,
+            updated_at=now,
+            superseded_by_assertion_id=superseded_by_assertion_id,
+        )
+        .execution_options(synchronize_session=False)
     )
+    if result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "assertion was changed by another request; reload it and review the "
+                "current revision"
+            ),
+        )
 
 
 def _record_decision(
@@ -135,51 +311,83 @@ def _record_decision(
     assertion: Assertion,
     previous_status: str,
     new_status: str,
+    correlation_id: str,
     extra_note: str | None = None,
 ) -> None:
-    """Write one audit_events row for a review decision (B4-owned mechanism;
-
-    does not call into track B3's `app.services.audit`, which is not part
-    of this track's write-set and may not exist in this worktree — see
-    ruling R9).
+    """Write one audit_events row for a review decision via
+    `app.services.audit` (spec §16: actor, timestamp, matter, assertion,
+    reviewed revision, before/after and a correlation id). `extra_note`
+    only ever carries sanitized text or ids.
     """
     revision = _current_revision(db, assertion)
-    new_value = new_status if not extra_note else f"{new_status}; {extra_note}"
-    db.add(
-        AuditEvent(
-            actor_user_id=actor_user_id,
-            event_type=event_type,
-            timestamp=datetime.now(timezone.utc),
-            repository_id=assertion.repository_id,
-            matter_id=assertion.matter_id,
-            assertion_id=assertion.id,
-            assertion_revision_id=revision.id if revision else None,
-            previous_value=previous_status,
-            new_value=new_value,
-        )
+    record_audit_event(
+        db,
+        actor_user_id=actor_user_id,
+        event_type=event_type,
+        repository_id=assertion.repository_id,
+        matter_id=assertion.matter_id,
+        assertion_id=assertion.id,
+        assertion_revision_id=revision.id if revision else None,
+        previous_value=previous_status,
+        new_value=new_status if not extra_note else f"{new_status}; {extra_note}",
+        correlation_id=correlation_id,
     )
 
 
-def _apply_decision(db: Session, user_id: str, assertion: Assertion, new_status: str) -> None:
-    assertion.status = new_status
-    assertion.reviewed_by = user_id
-    now = datetime.now(timezone.utc)
-    assertion.reviewed_at = now
-    assertion.updated_at = now
-    db.add(assertion)
-
-
-def _serialize(assertion: Assertion) -> dict:
-    return {
-        "id": assertion.id,
-        "matter_id": assertion.matter_id,
-        "repository_id": assertion.repository_id,
-        "status": assertion.status,
-        "reviewed_by": assertion.reviewed_by,
-        "reviewed_at": assertion.reviewed_at.isoformat() if assertion.reviewed_at else None,
-        "current_revision_number": assertion.current_revision_number,
-        "superseded_by_assertion_id": assertion.superseded_by_assertion_id,
-    }
+def _decide(
+    db: Session,
+    user_id: str,
+    assertion: Assertion,
+    new_status: str,
+    *,
+    event_type: str,
+    extra_note: str | None = None,
+    superseded_by_assertion_id: str | None = None,
+    comment: tuple[str, str] | None = None,
+) -> dict:
+    """Apply an already-validated decision, audit it, commit, and return
+    the full assertion. `comment` is `(sanitized_text, raw_text)` for the
+    request-revision comment, stored like every other comment."""
+    previous_status = assertion.status
+    correlation_id = new_correlation_id()
+    _apply_decision(
+        db, user_id, assertion, new_status, superseded_by_assertion_id=superseded_by_assertion_id
+    )
+    _record_decision(
+        db,
+        actor_user_id=user_id,
+        event_type=event_type,
+        assertion=assertion,
+        previous_status=previous_status,
+        new_status=new_status,
+        correlation_id=correlation_id,
+        extra_note=extra_note,
+    )
+    if comment is not None:
+        now = datetime.now(timezone.utc)
+        comment_row = AssertionComment(
+            id=str(uuid.uuid4()),
+            assertion_id=assertion.id,
+            user_id=user_id,
+            comment_text=comment[0],
+            comment_text_raw=comment[1],
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(comment_row)
+        record_audit_event(
+            db,
+            actor_user_id=user_id,
+            event_type="comment_created",
+            repository_id=assertion.repository_id,
+            matter_id=assertion.matter_id,
+            assertion_id=assertion.id,
+            new_value=comment_row.id,
+            correlation_id=correlation_id,
+        )
+    db.commit()
+    db.refresh(assertion)
+    return _serialize_assertion(db, assertion)
 
 
 # --- Routes -----------------------------------------------------------------
@@ -194,79 +402,58 @@ def accept_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(db, assertion_id)
     _require_permission(db, user_id, assertion, "assertion:accept")
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, "accepted")
 
-    justification = body.acceptance_justification if body else None
-    if not _has_evidence(db, assertion) and not justification:
+    justification = _sanitized_text(
+        body.acceptance_justification if body else None, label="acceptance_justification"
+    )
+    justification = justification.strip() if justification else None
+    if justification is None and _evidence_status(db, assertion.id) != "evidenced":
         raise HTTPException(
             status_code=422,
             detail=(
-                "unsupported assertion (no evidence attached) cannot be accepted "
+                "unsupported assertion (no supporting evidence attached) cannot be accepted "
                 "without a recorded acceptance_justification"
             ),
         )
 
-    previous_status = assertion.status
-    _apply_decision(db, user_id, assertion, "accepted")
-    _record_decision(
+    return _decide(
         db,
-        actor_user_id=user_id,
+        user_id,
+        assertion,
+        "accepted",
         event_type="assertion.accept",
-        assertion=assertion,
-        previous_status=previous_status,
-        new_status="accepted",
         extra_note=f"acceptance_justification={justification}" if justification else None,
     )
-    db.commit()
-    db.refresh(assertion)
-    return _serialize(assertion)
 
 
 @router.post("/{assertion_id}/reject")
 def reject_assertion(
     assertion_id: str,
+    body: DecisionBody | None = None,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(db, assertion_id)
     _require_permission(db, user_id, assertion, "assertion:reject")
-
-    previous_status = assertion.status
-    _apply_decision(db, user_id, assertion, "rejected")
-    _record_decision(
-        db,
-        actor_user_id=user_id,
-        event_type="assertion.reject",
-        assertion=assertion,
-        previous_status=previous_status,
-        new_status="rejected",
-    )
-    db.commit()
-    db.refresh(assertion)
-    return _serialize(assertion)
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, "rejected")
+    return _decide(db, user_id, assertion, "rejected", event_type="assertion.reject")
 
 
 @router.post("/{assertion_id}/dispute")
 def dispute_assertion(
     assertion_id: str,
+    body: DecisionBody | None = None,
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(db, assertion_id)
     _require_permission(db, user_id, assertion, "assertion:dispute")
-
-    previous_status = assertion.status
-    _apply_decision(db, user_id, assertion, "disputed")
-    _record_decision(
-        db,
-        actor_user_id=user_id,
-        event_type="assertion.dispute",
-        assertion=assertion,
-        previous_status=previous_status,
-        new_status="disputed",
-    )
-    db.commit()
-    db.refresh(assertion)
-    return _serialize(assertion)
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, "disputed")
+    return _decide(db, user_id, assertion, "disputed", event_type="assertion.dispute")
 
 
 @router.post("/{assertion_id}/request-revision")
@@ -281,35 +468,20 @@ def request_revision(
     # (spec §10); gated on the general `assertion:review` permission since
     # the spec's permission list has no dedicated request-revision entry.
     _require_permission(db, user_id, assertion, "assertion:review")
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, "revision_requested")
 
-    comment_text = body.comment if body else None
-    previous_status = assertion.status
-    _apply_decision(db, user_id, assertion, "revision_requested")
-
-    if comment_text:
-        now = datetime.now(timezone.utc)
-        db.add(
-            AssertionComment(
-                assertion_id=assertion.id,
-                user_id=user_id,
-                comment_text=comment_text,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-
-    _record_decision(
+    raw_comment = body.comment if body else None
+    comment_text = _sanitized_text(raw_comment, label="comment")
+    return _decide(
         db,
-        actor_user_id=user_id,
+        user_id,
+        assertion,
+        "revision_requested",
         event_type="assertion.request_revision",
-        assertion=assertion,
-        previous_status=previous_status,
-        new_status="revision_requested",
         extra_note=f"comment={comment_text}" if comment_text else None,
+        comment=(comment_text, raw_comment) if comment_text else None,
     )
-    db.commit()
-    db.refresh(assertion)
-    return _serialize(assertion)
 
 
 @router.post("/{assertion_id}/supersede")
@@ -321,27 +493,16 @@ def supersede_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(db, assertion_id)
     _require_permission(db, user_id, assertion, "assertion:review")
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, "superseded")
 
-    successor = db.get(Assertion, body.superseded_by_assertion_id)
-    if successor is None:
-        raise HTTPException(status_code=404, detail="superseding assertion not found")
-    if successor.matter_id != assertion.matter_id:
-        raise HTTPException(
-            status_code=422, detail="superseding assertion must belong to the same matter"
-        )
-
-    previous_status = assertion.status
-    assertion.superseded_by_assertion_id = successor.id
-    _apply_decision(db, user_id, assertion, "superseded")
-    _record_decision(
+    successor = _validated_successor(db, assertion, body.superseded_by_assertion_id)
+    return _decide(
         db,
-        actor_user_id=user_id,
+        user_id,
+        assertion,
+        "superseded",
         event_type="assertion.supersede",
-        assertion=assertion,
-        previous_status=previous_status,
-        new_status="superseded",
         extra_note=f"superseded_by_assertion_id={successor.id}",
+        superseded_by_assertion_id=successor.id,
     )
-    db.commit()
-    db.refresh(assertion)
-    return _serialize(assertion)

@@ -17,6 +17,11 @@ import { Icon } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
+import {
+  reviewConflictNotice,
+  reviewTextProblem,
+  reviewTextTooLongMessage,
+} from "../constants/review";
 
 const ORIGIN_CHIPS: Record<Assertion["origin"], { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -30,8 +35,11 @@ const EVIDENCE_BADGES: Record<Assertion["evidence_status"], { className: string;
   awaiting_evidence: { className: "badge badge--pending", label: "Awaiting evidence" },
 };
 
+/** Roles that make an assertion "evidenced" (the API's SUPPORTING_EVIDENCE_ROLES). */
+const SUPPORTING_ROLES = ["supports", "primary_basis", "secondary_basis"];
+
 function evidenceRoleClass(role: string): string {
-  if (role === "supports") return "badge badge--accepted";
+  if (SUPPORTING_ROLES.includes(role)) return "badge badge--accepted";
   if (role === "contradicts") return "badge badge--rejected";
   return "badge badge--neutral";
 }
@@ -101,6 +109,9 @@ export function ContestedPage() {
   const [revisionComment, setRevisionComment] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Page level, not in the drawer: the reload after a refused (409) ruling
+  // collapses the drawer and clears `actionError`.
+  const [rulingNotice, setRulingNotice] = useState<string | null>(null);
 
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -109,6 +120,10 @@ export function ContestedPage() {
       aliveRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    setRulingNotice(null);
+  }, [matterId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,6 +194,7 @@ export function ContestedPage() {
   async function runRuling(call: () => Promise<unknown>) {
     setActionBusy(true);
     setActionError(null);
+    setRulingNotice(null);
     try {
       await call();
       if (!aliveRef.current) return;
@@ -192,6 +208,14 @@ export function ContestedPage() {
     } catch (error) {
       if (!aliveRef.current) return;
       setActionBusy(false);
+      if (error instanceof ApiError && error.status === 409) {
+        // The drawer was stale (edited, withdrawn or decided meanwhile):
+        // nothing was recorded. Say so and reload the queue as it now is.
+        setRulingNotice(reviewConflictNotice(error.message));
+        setEvidence({});
+        setReloadKey((k) => k + 1);
+        return;
+      }
       setActionError(
         error instanceof ApiError && error.status === 403
           ? "Your role on this matter no longer permits review actions."
@@ -211,6 +235,9 @@ export function ContestedPage() {
       distribution: {},
     };
     const evidenceState = evidence[assertion.id];
+    // Same rules as the API: trimmed text, required, at most 100,000 characters.
+    const justificationProblem = reviewTextProblem(justification);
+    const revisionCommentProblem = reviewTextProblem(revisionComment);
 
     return (
       <tr className="ctd-drawer-row">
@@ -263,10 +290,25 @@ export function ContestedPage() {
                     {evidenceState.map((item) => (
                       <li key={item.id} className="ctd-evidence__item">
                         <Icon name="description" size={16} />
-                        <span className={evidenceRoleClass(item.evidence_role)}>
-                          {item.evidence_role}
-                        </span>
-                        <span className="mono">{item.source_span_id}</span>
+                        <div className="ctd-evidence__body">
+                          <div className="ctd-evidence__meta">
+                            <span className={evidenceRoleClass(item.evidence_role)}>
+                              {item.evidence_role.replace(/_/g, " ")}
+                            </span>
+                            {item.document_title && (
+                              <span className="ctd-evidence__source">{item.document_title}</span>
+                            )}
+                          </div>
+                          {item.quote_text ? (
+                            <blockquote className="ctd-evidence__quote">{item.quote_text}</blockquote>
+                          ) : (
+                            // The API resolves a span only within this matter.
+                            <p className="ctd-evidence__missing">
+                              The quoted source span (<span className="mono">{item.source_span_id}</span>)
+                              could not be found in this matter.
+                            </p>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -293,7 +335,13 @@ export function ContestedPage() {
                         setPendingAction("accept");
                         setActionError(null);
                       } else {
-                        void runRuling(() => api.acceptAssertion(assertion.id));
+                        void runRuling(() =>
+                          api.acceptAssertion(
+                            assertion.id,
+                            undefined,
+                            assertion.current_revision_number,
+                          ),
+                        );
                       }
                     }}
                   >
@@ -303,7 +351,11 @@ export function ContestedPage() {
                     type="button"
                     className="btn btn--danger-outline"
                     disabled={actionBusy}
-                    onClick={() => void runRuling(() => api.rejectAssertion(assertion.id))}
+                    onClick={() =>
+                      void runRuling(() =>
+                        api.rejectAssertion(assertion.id, assertion.current_revision_number),
+                      )
+                    }
                   >
                     Reject
                   </button>
@@ -335,14 +387,23 @@ export function ContestedPage() {
                       value={justification}
                       onChange={(event) => setJustification(event.target.value)}
                     />
+                    {justificationProblem === "too_long" && (
+                      <p className="ctd-confirm__error" role="alert">
+                        {reviewTextTooLongMessage(justification)}
+                      </p>
+                    )}
                     <div className="ctd-confirm__actions">
                       <button
                         type="button"
                         className="btn btn--primary"
-                        disabled={actionBusy || justification.trim() === ""}
+                        disabled={actionBusy || justificationProblem !== null}
                         onClick={() =>
                           void runRuling(() =>
-                            api.acceptAssertion(assertion.id, justification.trim()),
+                            api.acceptAssertion(
+                              assertion.id,
+                              justification.trim(),
+                              assertion.current_revision_number,
+                            ),
                           )
                         }
                       >
@@ -371,14 +432,23 @@ export function ContestedPage() {
                       value={revisionComment}
                       onChange={(event) => setRevisionComment(event.target.value)}
                     />
+                    {revisionCommentProblem === "too_long" && (
+                      <p className="ctd-confirm__error" role="alert">
+                        {reviewTextTooLongMessage(revisionComment)}
+                      </p>
+                    )}
                     <div className="ctd-confirm__actions">
                       <button
                         type="button"
                         className="btn btn--primary"
-                        disabled={actionBusy || revisionComment.trim() === ""}
+                        disabled={actionBusy || revisionCommentProblem !== null}
                         onClick={() =>
                           void runRuling(() =>
-                            api.requestRevision(assertion.id, revisionComment.trim()),
+                            api.requestRevision(
+                              assertion.id,
+                              revisionComment.trim(),
+                              assertion.current_revision_number,
+                            ),
                           )
                         }
                       >
@@ -421,6 +491,12 @@ export function ContestedPage() {
           </p>
         </div>
       </header>
+
+      {rulingNotice && (
+        <div className="error-banner" role="alert">
+          {rulingNotice}
+        </div>
+      )}
 
       {loadError ? (
         <div className="error-banner">

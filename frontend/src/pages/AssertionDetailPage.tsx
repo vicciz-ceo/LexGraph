@@ -28,6 +28,7 @@ import { AssertionRatingDistribution } from "../components/AssertionRatingDistri
 import { AssertionRatingWidget } from "../components/AssertionRatingWidget";
 import type { AssertionRatingWidgetSaveData } from "../components/AssertionRatingWidget";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
+import { reviewConflictNotice } from "../constants/review";
 
 const ORIGIN_CHIP: Record<AssertionOrigin, { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -191,13 +192,24 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     setDetail(await api.getAssertion(detail.id));
   };
 
-  const runReview = async (action: () => Promise<unknown>) => {
+  // Resolves to whether the decision was recorded; the review panel keeps
+  // its form (and blocks a second decision) until it settles.
+  const runReview = async (action: () => Promise<unknown>): Promise<boolean> => {
     setActionError(null);
     try {
       await action();
       refresh();
+      return true;
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Review action failed.");
+      if (err instanceof ApiError && err.status === 409) {
+        // Stale record (edited, withdrawn or decided meanwhile): nothing was
+        // recorded. Say so and show the current version.
+        setActionError(reviewConflictNotice(err.message));
+        refresh();
+      } else {
+        setActionError(err instanceof Error ? err.message : "Review action failed.");
+      }
+      return false;
     }
   };
 
@@ -561,14 +573,28 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     currentRevisionNumber: detail.current_revision_number ?? undefined,
                   }}
                   onAccept={(payload) =>
-                    void runReview(() =>
-                      api.acceptAssertion(detail.id, payload?.justification || undefined),
+                    runReview(() =>
+                      api.acceptAssertion(
+                        detail.id,
+                        payload?.justification?.trim() || undefined,
+                        detail.current_revision_number,
+                      ),
                     )
                   }
-                  onReject={() => void runReview(() => api.rejectAssertion(detail.id))}
-                  onDispute={() => void runReview(() => api.disputeAssertion(detail.id))}
+                  onReject={() =>
+                    runReview(() => api.rejectAssertion(detail.id, detail.current_revision_number))
+                  }
+                  onDispute={() =>
+                    runReview(() => api.disputeAssertion(detail.id, detail.current_revision_number))
+                  }
                   onRequestRevision={(payload) =>
-                    void runReview(() => api.requestRevision(detail.id, payload.comment))
+                    runReview(() =>
+                      api.requestRevision(
+                        detail.id,
+                        payload.comment,
+                        detail.current_revision_number,
+                      ),
+                    )
                   }
                   hasRatingsOnPriorRevision={hasRatingsOnPriorRevision}
                 />

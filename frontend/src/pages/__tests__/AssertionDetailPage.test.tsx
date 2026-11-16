@@ -223,7 +223,7 @@ describe("AssertionDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
     await waitFor(() =>
-      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined),
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2),
     );
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });

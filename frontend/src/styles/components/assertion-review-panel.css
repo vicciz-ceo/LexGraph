@@ -1,0 +1,43 @@
+/* AssertionReviewPanel (components/AssertionReviewPanel.tsx).
+ *
+ * The panel's base look lives in app.css (.assertion-review-*). The panel
+ * offers only the decisions valid for the assertion's current status, so a
+ * decision does not always sit in the same position. These rules style each
+ * decision by what it does. They are one class more specific than app.css's
+ * positional :first-child (Accept) and :nth-child(2) (Reject) rules, so they
+ * win whatever order the stylesheets load in. */
+
+.assertion-review-panel .assertion-review-actions button.assertion-review-action {
+  background: var(--surface-container-lowest);
+  border-color: var(--border);
+  color: inherit;
+}
+
+.assertion-review-panel .assertion-review-actions button.assertion-review-action--accept {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.assertion-review-panel .assertion-review-actions button.assertion-review-action--reject {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* Disabled while a decision is being recorded, or while a required text is
+ * blank. */
+.assertion-review-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assertion-review-unavailable,
+.assertion-review-hint {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.assertion-review-error {
+  font: var(--body-sm);
+  color: var(--error);
+}

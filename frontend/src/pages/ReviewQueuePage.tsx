@@ -6,7 +6,7 @@
 
 import "../styles/pages/review-queue.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "../api/client";
 import type {
@@ -22,9 +22,18 @@ import { useActiveSession } from "../app/session";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
+import { reviewConflictNotice } from "../constants/review";
 
-/** Keep per-card summary fetches bounded on large queues. */
-const SUMMARY_FETCH_CAP = 30;
+/**
+ * Rating summaries are fetched for every card, newest first, in sequential
+ * batches of this size, so a large queue never has more requests in flight.
+ */
+const SUMMARY_FETCH_BATCH = 30;
+
+/** Summaries are per revision: a revised card must not show the old ratings. */
+function summaryKey(assertion: Assertion): string {
+  return `${assertion.id}@${assertion.current_revision_number}`;
+}
 
 type StatusFilterKey = "proposed" | "revision_requested" | "open";
 type OriginFilterKey = "all" | AssertionOrigin;
@@ -110,12 +119,24 @@ export function ReviewQueuePage() {
 
   const [items, setItems] = useState<Assertion[] | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
-  const [summaries, setSummaries] = useState<Record<string, RatingSummary>>({});
+  // Keyed by summaryKey(). undefined: still loading; null: the request failed.
+  const [summaries, setSummaries] = useState<Record<string, RatingSummary | null>>({});
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // One decision at a time across the queue; the ref also stops a second
+  // activation that lands before the disabled buttons are rendered.
+  const [deciding, setDeciding] = useState(false);
+  const decidingRef = useRef(false);
+
+  // The page is not remounted when the matter changes: drop what belongs to
+  // the previous matter (its pending count, a notice about its assertion).
+  useEffect(() => {
+    setPendingCount(null);
+    setActionError(null);
+  }, [matterId]);
 
   // Resolve author_user_id → display_name once per matter.
   useEffect(() => {
@@ -164,26 +185,35 @@ export function ReviewQueuePage() {
         setItems(merged);
         setLoading(false);
 
-        const targets = merged
-          .slice(0, SUMMARY_FETCH_CAP)
-          .filter((a) => a.current_revision_number !== null);
-        const results = await Promise.all(
-          targets.map((a) =>
-            api.ratingSummary(a.id, a.current_revision_number as number).then(
-              (summary) => [a.id, summary] as const,
-              () => null,
+        // Every card gets its summary. Each batch is merged as it lands, so
+        // summaries already known (same assertion, same revision) stay on
+        // screen through a reload; the final map drops cards that left.
+        const targets = merged.filter((a) => a.current_revision_number !== null);
+        const fresh: Record<string, RatingSummary | null> = {};
+        for (let start = 0; start < targets.length; start += SUMMARY_FETCH_BATCH) {
+          const batch = targets.slice(start, start + SUMMARY_FETCH_BATCH);
+          const results = await Promise.all(
+            batch.map((a) =>
+              api.ratingSummary(a.id, a.current_revision_number as number).then(
+                (summary) => [summaryKey(a), summary] as const,
+                () => [summaryKey(a), null] as const,
+              ),
             ),
-          ),
-        );
-        if (cancelled) return;
-        const next: Record<string, RatingSummary> = {};
-        for (const entry of results) if (entry) next[entry[0]] = entry[1];
-        setSummaries(next);
+          );
+          if (cancelled) return;
+          const landed: Record<string, RatingSummary | null> = Object.fromEntries(results);
+          Object.assign(fresh, landed);
+          setSummaries((prev) => ({ ...prev, ...landed }));
+        }
+        setSummaries(fresh);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         setLoading(false);
         setItems(null);
+        // The count can no longer be vouched for (and may be another
+        // matter's or another jurisdiction's).
+        setPendingCount(null);
         setLoadError(err instanceof Error ? err.message : "Unexpected error.");
       });
 
@@ -192,19 +222,33 @@ export function ReviewQueuePage() {
     };
   }, [matterId, statusKey, originKey, jurisdiction, reloadKey]);
 
-  async function runReviewAction(action: () => Promise<unknown>) {
+  /** Records one decision; resolves to whether it was recorded. */
+  async function runReviewAction(action: () => Promise<unknown>): Promise<boolean> {
+    if (decidingRef.current) return false;
+    decidingRef.current = true;
+    setDeciding(true);
     setActionError(null);
     try {
       await action();
       setReloadKey((key) => key + 1);
+      return true;
     } catch (err) {
-      if (err instanceof ApiError && err.status === 403) {
+      if (err instanceof ApiError && err.status === 409) {
+        // The card was stale (edited, withdrawn or decided meanwhile):
+        // nothing was recorded. Say so and show the queue as it now is.
+        setActionError(reviewConflictNotice(err.message));
+        setReloadKey((key) => key + 1);
+      } else if (err instanceof ApiError && err.status === 403) {
         setActionError(
           "Your role on this matter does not permit review decisions. Ask a matter admin for the reviewer role.",
         );
       } else {
         setActionError(err instanceof Error ? err.message : "Review action failed.");
       }
+      return false;
+    } finally {
+      decidingRef.current = false;
+      setDeciding(false);
     }
   }
 
@@ -284,7 +328,14 @@ export function ReviewQueuePage() {
         <div className="rq-main">
           {loadError && (
             <div className="error-banner" role="alert">
-              Couldn&apos;t load the review queue. {loadError}
+              Couldn&apos;t load the review queue. {loadError}{" "}
+              <button
+                type="button"
+                className="btn btn--sm btn--secondary"
+                onClick={() => setReloadKey((key) => key + 1)}
+              >
+                Retry
+              </button>
             </div>
           )}
           {actionError && (
@@ -295,11 +346,11 @@ export function ReviewQueuePage() {
 
           {loading ? (
             <div className="loading">Loading review queue…</div>
-          ) : items && items.length > 0 ? (
+          ) : loadError || items === null ? null : items.length > 0 ? (
             <div className="rq-list">
               {items.map((assertion) => {
                 const origin = ORIGIN_META[assertion.origin];
-                const summary = summaries[assertion.id];
+                const summary = summaries[summaryKey(assertion)];
                 const showStanding =
                   assertion.status === "proposed" &&
                   STANDING_GRADES.includes(assertion.standing);
@@ -362,7 +413,9 @@ export function ReviewQueuePage() {
                           <p className="rq-card__summary-note muted">
                             {assertion.current_revision_number === null
                               ? "No revision to rate yet."
-                              : "Loading ratings…"}
+                              : summary === null
+                                ? "Ratings unavailable. Open the assertion to view them."
+                                : "Loading ratings…"}
                           </p>
                         )}
                       </div>
@@ -386,31 +439,43 @@ export function ReviewQueuePage() {
                               currentRevisionNumber:
                                 assertion.current_revision_number ?? undefined,
                             }}
+                            // Every decision names the revision this card shows,
+                            // so the API refuses it (409) if the text changed.
                             onAccept={(payload) =>
-                              void runReviewAction(() =>
+                              runReviewAction(() =>
                                 api.acceptAssertion(
                                   assertion.id,
-                                  payload?.justification?.trim()
-                                    ? payload.justification
-                                    : undefined,
+                                  payload?.justification?.trim() || undefined,
+                                  assertion.current_revision_number,
                                 ),
                               )
                             }
                             onReject={() =>
-                              void runReviewAction(() =>
-                                api.rejectAssertion(assertion.id),
+                              runReviewAction(() =>
+                                api.rejectAssertion(
+                                  assertion.id,
+                                  assertion.current_revision_number,
+                                ),
                               )
                             }
                             onDispute={() =>
-                              void runReviewAction(() =>
-                                api.disputeAssertion(assertion.id),
+                              runReviewAction(() =>
+                                api.disputeAssertion(
+                                  assertion.id,
+                                  assertion.current_revision_number,
+                                ),
                               )
                             }
                             onRequestRevision={({ comment }) =>
-                              void runReviewAction(() =>
-                                api.requestRevision(assertion.id, comment),
+                              runReviewAction(() =>
+                                api.requestRevision(
+                                  assertion.id,
+                                  comment,
+                                  assertion.current_revision_number,
+                                ),
                               )
                             }
+                            busy={deciding}
                           />
                         </div>
                       ) : (

@@ -133,6 +133,13 @@ async function request<T>(
   return payload as T;
 }
 
+/** The `expected_revision_number` field of a review decision, present only when known. */
+function expectedRevision(
+  expectedRevisionNumber: number | null | undefined,
+): { expected_revision_number?: number } {
+  return expectedRevisionNumber != null ? { expected_revision_number: expectedRevisionNumber } : {};
+}
+
 export const api = {
   // --- session / workspace ------------------------------------------------
   me: () => request<Me>("GET", "/me"),
@@ -202,27 +209,47 @@ export const api = {
     request<RelatedMatch[]>("GET", `/assertions/${id}/related`),
 
   // --- review (reviewer/admin) -------------------------------------------
-  acceptAssertion: (id: string, acceptanceJustification?: string) =>
+  // `expectedRevisionNumber` is the revision the reviewer saw; when it is no
+  // longer current the API refuses the decision with 409 and changes nothing.
+  acceptAssertion: (
+    id: string,
+    acceptanceJustification?: string,
+    expectedRevisionNumber?: number | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/accept`, {
-      body: acceptanceJustification
-        ? { acceptance_justification: acceptanceJustification }
-        : {},
+      body: {
+        ...(acceptanceJustification
+          ? { acceptance_justification: acceptanceJustification }
+          : {}),
+        ...expectedRevision(expectedRevisionNumber),
+      },
     }),
 
-  rejectAssertion: (id: string) =>
-    request<Assertion>("POST", `/assertions/${id}/reject`),
+  rejectAssertion: (id: string, expectedRevisionNumber?: number | null) =>
+    request<Assertion>("POST", `/assertions/${id}/reject`, {
+      body: expectedRevisionNumber != null ? expectedRevision(expectedRevisionNumber) : undefined,
+    }),
 
-  disputeAssertion: (id: string) =>
-    request<Assertion>("POST", `/assertions/${id}/dispute`),
+  disputeAssertion: (id: string, expectedRevisionNumber?: number | null) =>
+    request<Assertion>("POST", `/assertions/${id}/dispute`, {
+      body: expectedRevisionNumber != null ? expectedRevision(expectedRevisionNumber) : undefined,
+    }),
 
-  requestRevision: (id: string, comment?: string) =>
+  requestRevision: (id: string, comment?: string, expectedRevisionNumber?: number | null) =>
     request<Assertion>("POST", `/assertions/${id}/request-revision`, {
-      body: comment ? { comment } : {},
+      body: { ...(comment ? { comment } : {}), ...expectedRevision(expectedRevisionNumber) },
     }),
 
-  supersedeAssertion: (id: string, supersededByAssertionId: string) =>
+  supersedeAssertion: (
+    id: string,
+    supersededByAssertionId: string,
+    expectedRevisionNumber?: number | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/supersede`, {
-      body: { superseded_by_assertion_id: supersededByAssertionId },
+      body: {
+        superseded_by_assertion_id: supersededByAssertionId,
+        ...expectedRevision(expectedRevisionNumber),
+      },
     }),
 
   // --- evidence / revisions / comments / history --------------------------

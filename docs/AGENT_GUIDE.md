@@ -144,6 +144,21 @@ to proposed status after a material edit. Saving without a material change
 does nothing: no revision is created, and status and ratings stay as they were.
 Previous revision text and rating summaries remain available in **Activity**.
 
+Review decisions (accept, reject, dispute, request revision, supersede) can send
+the revision the reviewer saw as `expected_revision_number`. If the assertion
+has been edited since, the API returns 409 and changes nothing; reload it and
+review the current revision. A decision is also refused with 409 on a draft, a
+withdrawn or a superseded assertion, and when it repeats the current status.
+Accepting an assertion that has no supporting evidence requires a written
+justification, which is kept in its history.
+
+The Review Queue, the assertion page and **Contested** send that revision for
+you. If the assertion changed after you opened it, the page tells you that your
+decision was not recorded and shows the current version. They offer only the
+decisions that apply to the assertion's status, and Confirm stays disabled until
+the required justification or revision comment has text. The Contested drawer
+shows each piece of evidence with its document and quoted text.
+
 Lawyers rate the current revision from 1–5 with an optional rationale, update or
 remove their rating, and create their own assertions using **Suggest Assertion**.
 That form searches actual document/article subjects and evidence quotes, supports

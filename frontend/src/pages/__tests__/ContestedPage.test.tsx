@@ -50,7 +50,7 @@ vi.mock("../../api/client", () => {
   };
 });
 
-import { api } from "../../api/client";
+import { ApiError, api } from "../../api/client";
 import { ContestedPage } from "../ContestedPage";
 
 const mockedApi = vi.mocked(api);
@@ -205,7 +205,9 @@ describe("ContestedPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
 
-    await waitFor(() => expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1"));
+    await waitFor(() =>
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2),
+    );
     await waitFor(() => expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2));
   });
 
@@ -232,6 +234,7 @@ describe("ContestedPage", () => {
       expect(mockedApi.acceptAssertion).toHaveBeenCalledWith(
         "a-2",
         "Confirmed against the signed engagement letter.",
+        1,
       ),
     );
   });
@@ -256,6 +259,7 @@ describe("ContestedPage", () => {
       expect(mockedApi.requestRevision).toHaveBeenCalledWith(
         "a-1",
         "Please cite the amendment clause.",
+        2,
       ),
     );
   });
@@ -294,5 +298,111 @@ describe("ContestedPage", () => {
       await screen.findByText("The 2021 lease amendment extends the term to 2030."),
     ).toBeInTheDocument();
     expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Rulings carry the revision on screen (ui:2) and mirror the API's rules for
+// review text (ui:8); the drawer shows what the evidence says (ui:30).
+describe("ContestedPage rulings and evidence", () => {
+  it("rejects with the revision shown in the drawer", async () => {
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Reject" }));
+
+    await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2));
+  });
+
+  it("explains a refusal because the drawer is stale (409) above the queue, and keeps it through the reload", async () => {
+    mockedApi.acceptAssertion.mockRejectedValue(
+      new ApiError(409, "assertion has been modified since expected_revision_number"),
+    );
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+
+    expect(await screen.findByText(/changed after you opened it/)).toBeInTheDocument();
+    await waitFor(() => expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2));
+    await screen.findByText("The 2021 lease amendment extends the term to 2030.");
+    // The reload collapses the drawer; the notice lives above the queue.
+    expect(screen.queryByRole("button", { name: "Collapse row" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/changed after you opened it/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+
+    // The next ruling starts without the old notice.
+    mockedApi.rejectAssertion.mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Reject" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows each evidence item's document and quoted text instead of its span id", async () => {
+    mockedApi.listEvidence.mockResolvedValue([
+      {
+        ...evidenceItems[0],
+        document_id: "doc-1",
+        document_title: "Lease amendment (2021)",
+        quote_text: "The term of the lease is extended to 31 December 2030.",
+      },
+      {
+        ...evidenceItems[1],
+        document_id: "doc-2",
+        document_title: "Board minutes, 3 March 2021",
+        quote_text: "The board did not approve any extension of the lease term.",
+      },
+    ]);
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    expect(
+      await screen.findByText("The term of the lease is extended to 31 December 2030."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lease amendment (2021)")).toBeInTheDocument();
+    expect(
+      screen.getByText("The board did not approve any extension of the lease term."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Board minutes, 3 March 2021")).toBeInTheDocument();
+    expect(screen.queryByText("span-101")).not.toBeInTheDocument();
+    expect(screen.queryByText("span-102")).not.toBeInTheDocument();
+  });
+
+  it("says when an evidence span cannot be resolved rather than showing a bare id", async () => {
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    // The fixture spans carry no quote or document (unresolvable in this matter).
+    expect(await screen.findAllByText(/could not be found in this matter/)).toHaveLength(2);
+  });
+
+  it("names evidence roles readably and marks every supporting role as supporting", async () => {
+    mockedApi.listEvidence.mockResolvedValue([
+      {
+        ...evidenceItems[0],
+        evidence_role: "primary_basis",
+        document_title: "Lease amendment (2021)",
+        quote_text: "The term of the lease is extended to 31 December 2030.",
+      },
+    ]);
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    expect(await screen.findByText("primary basis")).toHaveClass("badge--accepted");
+  });
+
+  it("keeps Confirm accept disabled for a justification over 100,000 characters", async () => {
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
+    fireEvent.change(screen.getByLabelText("Acceptance justification"), {
+      target: { value: "x".repeat(100_001) },
+    });
+
+    expect(screen.getByRole("button", { name: "Confirm accept" })).toBeDisabled();
+    expect(screen.getByText(/100,000/)).toBeInTheDocument();
   });
 });
