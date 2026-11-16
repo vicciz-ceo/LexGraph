@@ -42,7 +42,7 @@ describe("AssertionEditor", () => {
       openEditor();
       const save = screen.getByText("Save revision");
       expect(save).toBeDisabled();
-      expect(screen.getByText("Change the proposition to save a new revision.")).toBeInTheDocument();
+      expect(screen.getByText("Change the proposition or another field to save a new revision.")).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText("Reason for revision"), { target: { value: "Only a reason" } });
       expect(save).toBeDisabled();
       typeText("Original <term> (edited)");
@@ -279,5 +279,110 @@ describe("AssertionEditor", () => {
     fireEvent.click(screen.getByText("Submit for review"));
     await waitFor(() => expect(api.submitAssertion).toHaveBeenCalledWith("a"));
     expect(await screen.findByRole("status")).toHaveTextContent("Submitted");
+  });
+});
+
+// XREQ-50 (ui:15): a revision records the type, jurisdiction and effective
+// dates too (spec §3), and PATCH changes them; the editor offers them and
+// sends only what the user changed.
+describe("AssertionEditor fields besides the text", () => {
+  const full = {
+    ...detail,
+    assertion_type: "INTERPRETS",
+    jurisdiction: "IL",
+    effective_from: "2026-01-01T00:00:00",
+    effective_to: null,
+  } as AssertionDetail;
+
+  it("saves a jurisdiction change alone, with the text unchanged", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    const save = screen.getByRole("button", { name: "Save revision" });
+    expect(save).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), { target: { value: "US-CA" } });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+
+    await waitFor(() =>
+      expect(api.updateAssertion).toHaveBeenCalledWith("a", {
+        proposition: "Original <term>",
+        jurisdiction: "US-CA",
+        revision_reason: null,
+        expected_revision_number: 3,
+      }),
+    );
+  });
+
+  it("clears a field with null and changes the type and dates", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    expect(screen.getByLabelText("Effective from")).toHaveValue("2026-01-01");
+
+    fireEvent.change(screen.getByLabelText("Assertion type"), { target: { value: "MODIFIES" } });
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Effective to"), { target: { value: "2026-12-31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save revision" }));
+
+    await waitFor(() =>
+      expect(api.updateAssertion).toHaveBeenCalledWith("a", {
+        proposition: "Original <term>",
+        assertion_type: "MODIFIES",
+        jurisdiction: null,
+        effective_to: "2026-12-31",
+        revision_reason: null,
+        expected_revision_number: 3,
+      }),
+    );
+  });
+
+  it("does not save an end date before the start date", () => {
+    render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+
+    fireEvent.change(screen.getByLabelText("Effective to"), { target: { value: "2025-06-30" } });
+
+    expect(screen.getByRole("button", { name: "Save revision" })).toBeDisabled();
+    expect(screen.getByText("The effective end date cannot be before the start date.")).toBeInTheDocument();
+  });
+
+  it("keeps a type outside the vocabulary selectable and unsent when left alone", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    render(
+      <AssertionEditor detail={{ ...full, assertion_type: "CANCELLED_BY" }} canReview isAuthor={false} onSaved={vi.fn()} />,
+    );
+    openEditor();
+    expect(screen.getByLabelText("Assertion type")).toHaveValue("CANCELLED_BY");
+
+    typeText("Revised claim");
+    fireEvent.click(screen.getByRole("button", { name: "Save revision" }));
+
+    await waitFor(() => expect(api.updateAssertion).toHaveBeenCalled());
+    expect(vi.mocked(api.updateAssertion).mock.calls[0][1]).not.toHaveProperty("assertion_type");
+  });
+
+  it("sends only the user's own changes over a newer revision", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    fireEvent.change(screen.getByLabelText("Assertion type"), { target: { value: "MODIFIES" } });
+
+    // Someone else saved revision 4 with another jurisdiction meanwhile.
+    view.rerender(
+      <AssertionEditor
+        detail={{ ...full, jurisdiction: "US-NY", current_revision_number: 4 }}
+        canReview
+        isAuthor={false}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save my text as the next revision" }));
+
+    await waitFor(() => expect(api.updateAssertion).toHaveBeenCalled());
+    const body = vi.mocked(api.updateAssertion).mock.calls[0][1];
+    expect(body).toMatchObject({ assertion_type: "MODIFIES", expected_revision_number: 4 });
+    expect(body).not.toHaveProperty("jurisdiction");
   });
 });
