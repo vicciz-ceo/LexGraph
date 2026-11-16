@@ -103,6 +103,13 @@
   color: var(--status-pending-fg);
 }
 
+/* Pipeline output without evidence ("System-derived"): neither pending nor a
+ * problem, as on the assertion page. */
+.rq-evidence--system {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
+}
+
 /* Model confidence chip — outlined, model-colored; deliberately styled
  * unlike ratings and status so the three indicators never read as one. */
 

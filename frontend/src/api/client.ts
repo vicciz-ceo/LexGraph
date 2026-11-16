@@ -311,9 +311,11 @@ export const api = {
   history: (id: string) => request<HistoryEvent[]>("GET", `/assertions/${id}/history`),
 
   // --- ratings -------------------------------------------------------------
-  putRating: (id: string, revision: number, strength: number, rationale: string) =>
+  // Spec §13: an omitted `rationale` keeps the stored one (and its raw text),
+  // "" or blank text removes it, other text replaces it (review listing:0).
+  putRating: (id: string, revision: number, strength: number, rationale?: string) =>
     request<Rating>("PUT", `/assertions/${id}/revisions/${revision}/rating`, {
-      body: { strength, rationale },
+      body: rationale === undefined ? { strength } : { strength, rationale },
     }),
 
   deleteRating: (id: string, revision: number) =>

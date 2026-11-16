@@ -6,7 +6,8 @@
 // decision rules (2026-11-16)"): none on a draft, withdrawn or superseded
 // assertion, never the one that would repeat the current status, one at a
 // time, and an acceptance without supporting evidence only with a written
-// justification.
+// justification. When an acceptance turns out to need one (the evidence was
+// removed after the page loaded), the page says so and the panel asks for it.
 
 import "../styles/components/assertion-review-panel.css";
 
@@ -27,13 +28,22 @@ export interface AssertionReviewSummary {
 }
 
 /**
- * What a decision handler returns: nothing, or a promise that settles once
- * the decision has been sent. Resolving to `false` means it was not recorded
- * (the caller reports why); the panel then keeps the form and the text typed
- * in it for another try. While the promise is pending the panel's actions
- * are disabled, so a decision is sent once.
+ * How a decision ended. `false` means it was not recorded (the caller reports
+ * why); the panel then keeps the form and the text typed in it for another
+ * try. "needs-justification" means an acceptance sent without a justification
+ * was not recorded because the assertion has no supporting evidence after all
+ * (it was removed after the page loaded it, review fe-review-detail:2); the
+ * panel then opens the justification form. Anything else means it was recorded.
  */
-export type ReviewDecisionResult = void | boolean | Promise<void | boolean>;
+export type ReviewDecisionOutcome = void | boolean | "needs-justification";
+
+/**
+ * What a decision handler returns: an outcome, or a promise of one that
+ * settles once the decision has been sent. While the promise is pending the
+ * panel's actions are disabled, so a decision is sent once; a page keeps them
+ * disabled (`busy`) until it shows the decision's result.
+ */
+export type ReviewDecisionResult = ReviewDecisionOutcome | Promise<ReviewDecisionOutcome>;
 
 export interface AssertionReviewPanelProps {
   assertion: AssertionReviewSummary;
@@ -48,7 +58,10 @@ export interface AssertionReviewPanelProps {
    * reflect the current text.
    */
   hasRatingsOnPriorRevision?: boolean;
-  /** True while the parent is recording a decision: every action is disabled. */
+  /**
+   * True while the parent is recording a decision, and until it shows the
+   * record re-read after one: every action is disabled.
+   */
   busy?: boolean;
 }
 
@@ -68,7 +81,7 @@ function noDecisionNote(status: string): string {
   );
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<void | boolean> {
+function isPromiseLike(value: unknown): value is PromiseLike<ReviewDecisionOutcome> {
   return typeof (value as PromiseLike<unknown> | null | undefined)?.then === "function";
 }
 
@@ -107,10 +120,14 @@ export function AssertionReviewPanel({
     if (busy || inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
-    const finish = (recorded: boolean) => {
+    const finish = (outcome: ReviewDecisionOutcome) => {
       inFlight.current = false;
       setSubmitting(false);
-      if (recorded) onRecorded?.();
+      if (outcome === "needs-justification") {
+        setPending("accept");
+      } else if (outcome !== false) {
+        onRecorded?.();
+      }
     };
     let outcome: ReviewDecisionResult;
     try {
@@ -120,12 +137,9 @@ export function AssertionReviewPanel({
       throw error;
     }
     if (isPromiseLike(outcome)) {
-      outcome.then(
-        (value) => finish(value !== false),
-        () => finish(false),
-      );
+      outcome.then(finish, () => finish(false));
     } else {
-      finish(outcome !== false);
+      finish(outcome);
     }
   }
 

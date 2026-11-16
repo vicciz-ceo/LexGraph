@@ -10,7 +10,13 @@ import { STRENGTH_LABELS, STRENGTH_VALUES } from "../constants/ratings";
 
 export interface AssertionRatingWidgetSaveData {
   strength: number;
-  rationale: string;
+  /**
+   * The rationale box, present only when the user edited it since it last
+   * showed the saved rating (an emptied box is ""). Without it the API keeps
+   * the stored rationale (spec §13), so a save from an editor that was not
+   * prefilled with the stored text never erases it (review listing:0).
+   */
+  rationale?: string;
 }
 
 export interface AssertionRatingWidgetProps {
@@ -30,6 +36,11 @@ export function AssertionRatingWidget({
 }: AssertionRatingWidgetProps): ReactElement {
   const [selectedStrength, setSelectedStrength] = useState<number | null>(currentUserRating);
   const [rationale, setRationale] = useState(currentRationale ?? "");
+  // Whether the user edited the box since it last showed the saved rating:
+  // only then does a save send it (review listing:0).
+  const [rationaleEdited, setRationaleEdited] = useState(false);
+  // Counts edits, so a save that resolves after a further edit keeps it.
+  const editCount = useRef(0);
   const [focusedIndex, setFocusedIndex] = useState(
     currentUserRating != null ? currentUserRating - 1 : 0
   );
@@ -52,6 +63,7 @@ export function AssertionRatingWidget({
     syncedFrom.current = { currentUserRating, currentRationale };
     setSelectedStrength(currentUserRating);
     setRationale(currentRationale ?? "");
+    setRationaleEdited(false);
   }, [currentUserRating, currentRationale]);
 
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -102,8 +114,13 @@ export function AssertionRatingWidget({
     }
     setStatus("saving");
     setFeedbackMessage(null);
+    const editsAtSave = editCount.current;
     try {
-      await onSave({ strength: selectedStrength, rationale });
+      await onSave(
+        rationaleEdited ? { strength: selectedStrength, rationale } : { strength: selectedStrength }
+      );
+      // The stored rationale is now the box's text, unless it was edited again meanwhile.
+      if (editCount.current === editsAtSave) setRationaleEdited(false);
       setStatus("saved");
       setFeedbackMessage(
         hasExistingRating ? "Rating updated." : "Rating saved."
@@ -125,6 +142,7 @@ export function AssertionRatingWidget({
       await onRemove();
       setSelectedStrength(null);
       setRationale("");
+      setRationaleEdited(false);
       setStatus("saved");
       setFeedbackMessage("Rating removed.");
     } catch (error) {
@@ -181,7 +199,11 @@ export function AssertionRatingWidget({
         <textarea
           id={rationaleId}
           value={rationale}
-          onChange={(event) => setRationale(event.target.value)}
+          onChange={(event) => {
+            editCount.current += 1;
+            setRationale(event.target.value);
+            setRationaleEdited(true);
+          }}
         />
       </div>
 

@@ -72,3 +72,16 @@ export function reviewConflictNotice(detail: string): string {
   const reason = detail.trim().replace(/\.+$/, "");
   return reason ? `${REVIEW_CONFLICT_MESSAGE} Reason: ${reason}.` : REVIEW_CONFLICT_MESSAGE;
 }
+
+/**
+ * Notice for an acceptance sent without a justification that the API refused
+ * with 422 because the assertion has no supporting evidence: the page showed
+ * evidence that was removed after it loaded. Adding or removing evidence
+ * changes neither the revision nor `updated_at`, so `expected_revision_number`
+ * cannot catch it. The page reloads the assertion and asks for the
+ * justification such an acceptance needs (review fe-review-detail:2).
+ */
+export const REVIEW_EVIDENCE_REMOVED_MESSAGE =
+  "Your decision was not recorded: this assertion no longer has supporting evidence " +
+  "(it was removed after you opened it). The current version is now shown; record a " +
+  "justification to accept it.";

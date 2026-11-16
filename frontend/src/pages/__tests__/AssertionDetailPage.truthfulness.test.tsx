@@ -780,7 +780,7 @@ describe("links into another matter (ui:31, review:11)", () => {
 });
 
 describe("the rationale survives a strength-only update (review:7)", () => {
-  it("prefills the exact text and sends it back unchanged", async () => {
+  it("prefills the exact text and leaves it unchanged on a strength-only update", async () => {
     const raw = "Compare <Annex 2> with clause 8.4";
     summariesByRevision({
       1: summary({ assertion_revision_number: 1 }),
@@ -803,7 +803,222 @@ describe("the rationale survives a strength-only update (review:7)", () => {
     fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
     fireEvent.click(screen.getByRole("button", { name: "Update rating" }));
 
-    await waitFor(() => expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, raw));
+    // The untouched box is left out of the PUT, so the API keeps
+    // rationale_raw byte for byte (spec §13); an edit sends the box exactly
+    // as typed (see listing:0 below).
+    await waitFor(() => expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, undefined));
+    expect(screen.getByLabelText("Rationale (optional)")).toHaveValue(raw);
+  });
+});
+
+/**
+ * The server's ratings of revision 2 as the signed-in user (u-1) changes
+ * them: PUT and DELETE update the state that the summary and the list read.
+ */
+function serveOwnRating(initial: { strength: number; rationale_raw: string | null } | null = null) {
+  let own = initial;
+  mockedApi.putRating.mockImplementation(async (_id, _revision, strength, rationale) => {
+    // An omitted rationale keeps the stored one; "" removes it (spec §13).
+    const kept = rationale === undefined ? (own?.rationale_raw ?? null) : rationale.trim() ? rationale : null;
+    own = { strength, rationale_raw: kept };
+    return {} as Rating;
+  });
+  mockedApi.deleteRating.mockImplementation(async () => {
+    own = null;
+  });
+  mockedApi.ratingSummary.mockImplementation(async (_id: string, rev: number) => {
+    if (rev !== 2) return summary({ assertion_revision_number: rev });
+    if (!own) return summary();
+    return summary({
+      count: 1,
+      average: own.strength,
+      median: own.strength,
+      rationale_count: own.rationale_raw ? 1 : 0,
+      distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, [String(own.strength)]: 1 },
+      current_user_rating: {
+        strength: own.strength,
+        rationale: own.rationale_raw,
+        rationale_raw: own.rationale_raw,
+        updated_at: "2026-07-06T10:00:00Z",
+      },
+    });
+  });
+  mockedApi.listRatings.mockImplementation(async (_id: string, rev: number) =>
+    rev === 2 && own
+      ? [rating({ user_id: "u-1", strength: own.strength, rationale: own.rationale_raw, rationale_raw: own.rationale_raw })]
+      : [],
+  );
+  return { current: () => own };
+}
+
+// Review fe-review-detail:7: Activity loads a revision's ratings on request.
+// For the current revision they must not stay at the value from before the
+// user's own rating change, contradicting the Ratings card above them.
+describe("Activity agrees with the Ratings card after the user rates (fe-review-detail:7)", () => {
+  const OWN_RATIONALE = "Clause 8.2 is express.";
+
+  function activity(): HTMLElement {
+    return screen.getByRole("region", { name: "Activity" });
+  }
+
+  it("re-reads the current revision's ratings under Activity after a save and a removal", async () => {
+    serveOwnRating();
+    await renderPage();
+    fireEvent.click(within(activity()).getByRole("button", { name: "Load ratings for revision 2" }));
+    expect(await within(activity()).findByText("No ratings yet.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
+    fireEvent.change(screen.getByLabelText("Rationale (optional)"), { target: { value: OWN_RATIONALE } });
+    fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+    await screen.findByText("Rating saved.");
+
+    expect(within(ratingsCard()).getByTestId("team-rating-indicator")).toHaveTextContent(
+      "4.0/5 based on 1 rating",
+    );
+    await waitFor(() =>
+      expect(within(activity()).getByTestId("team-rating-indicator")).toHaveTextContent(
+        "4.0/5 based on 1 rating",
+      ),
+    );
+    expect(within(activity()).getByText(OWN_RATIONALE)).toBeInTheDocument();
+    expect(within(activity()).queryByText("No ratings yet.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove rating" }));
+    await screen.findByText("Rating removed.");
+
+    await waitFor(() => expect(within(activity()).queryByText(OWN_RATIONALE)).not.toBeInTheDocument());
+    expect(within(activity()).getByText("No ratings yet.")).toBeInTheDocument();
+    expect(within(ratingsCard()).getByText("No ratings yet.")).toBeInTheDocument();
+  });
+
+  it("drops Activity ratings it can no longer vouch for when their re-read fails", async () => {
+    serveOwnRating();
+    await renderPage();
+    fireEvent.click(within(activity()).getByRole("button", { name: "Load ratings for revision 2" }));
+    expect(await within(activity()).findByText("No ratings yet.")).toBeInTheDocument();
+    // After the save the Ratings card's re-read succeeds; Activity's fails.
+    const served = mockedApi.ratingSummary.getMockImplementation()!;
+    let readsAfterSave = 0;
+    mockedApi.ratingSummary.mockImplementation(async (id: string, rev: number) => {
+      if (rev === 2 && ++readsAfterSave === 2) throw new Error("Ratings summary unavailable");
+      return served(id, rev);
+    });
+
+    fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+    await screen.findByText("Rating saved.");
+
+    expect(await within(activity()).findByRole("alert")).toHaveTextContent("Ratings summary unavailable");
+    expect(within(activity()).queryByText("No ratings yet.")).not.toBeInTheDocument();
+    expect(within(activity()).getByRole("button", { name: "Load ratings for revision 2" })).toBeEnabled();
+  });
+
+  it("leaves a prior revision's ratings as they were loaded", async () => {
+    serveOwnRating();
+    await renderPage();
+    fireEvent.click(within(activity()).getByRole("button", { name: "Load ratings for revision 1" }));
+    expect(await within(activity()).findByText("No ratings yet.")).toBeInTheDocument();
+    const revisionOneReads = mockedApi.ratingSummary.mock.calls.filter(([, rev]) => rev === 1).length;
+
+    fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+    await screen.findByText("Rating saved.");
+
+    expect(mockedApi.ratingSummary.mock.calls.filter(([, rev]) => rev === 1)).toHaveLength(revisionOneReads);
+  });
+
+  it("updates the compared current revision's ratings after the user rates", async () => {
+    serveOwnRating();
+    await renderPage();
+    fireEvent.click(within(activity()).getByRole("checkbox", { name: "Select revision 1 for comparison" }));
+    fireEvent.click(within(activity()).getByRole("checkbox", { name: "Select revision 2 for comparison" }));
+    fireEvent.click(within(activity()).getByRole("button", { name: "Compare selected revisions" }));
+    expect(await within(activity()).findAllByText("This revision has not yet been rated.")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("radio", { name: "3 - Plausible or mixed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+    await screen.findByText("Rating saved.");
+
+    expect(
+      await within(activity()).findByText("3.0 average from 1 rating for this revision."),
+    ).toBeInTheDocument();
+    expect(within(activity()).getAllByText("This revision has not yet been rated.")).toHaveLength(1);
+  });
+});
+
+// Review listing:0: PUT .../rating with `rationale: ""` removes the stored
+// rationale (spec §13); an omitted rationale keeps it. A save must never send
+// a rationale the user did not write in this box: not when the page could not
+// load the rating it would replace, and not from a tab that loaded before the
+// user rated elsewhere.
+describe("a rating save never erases a rationale the page did not load (listing:0)", () => {
+  const RAW = "Clause 8.2 is express; see <Annex 2> for the carve-out.";
+
+  it("prefills the editor from the rating list when the summary cannot be loaded, and keeps the stored rationale", async () => {
+    const server = serveOwnRating({ strength: 4, rationale_raw: RAW });
+    mockedApi.ratingSummary.mockRejectedValueOnce(new ApiError(503, "Service unavailable"));
+    await renderPage();
+
+    const card = ratingsCard();
+    expect(within(card).getByRole("radio", { name: "4 - Strong" })).toHaveAttribute("aria-checked", "true");
+    expect(within(card).getByLabelText("Rationale (optional)")).toHaveValue(RAW);
+    fireEvent.click(within(card).getByRole("radio", { name: "3 - Plausible or mixed" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Update rating" }));
+
+    await waitFor(() => expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 3, undefined));
+    expect(server.current()).toEqual({ strength: 3, rationale_raw: RAW });
+    await screen.findByText("Rating updated.");
+  });
+
+  it("offers no rating editor, but says so with a Retry, when neither the summary nor the list can be loaded", async () => {
+    serveOwnRating({ strength: 4, rationale_raw: RAW });
+    mockedApi.ratingSummary.mockRejectedValueOnce(new ApiError(503, "Service unavailable"));
+    mockedApi.listRatings.mockRejectedValueOnce(new ApiError(503, "Service unavailable"));
+    await renderPage();
+
+    const card = ratingsCard();
+    expect(within(card).queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Save rating" })).not.toBeInTheDocument();
+    expect(within(card).getByRole("alert")).toHaveTextContent("Your rating could not be loaded.");
+
+    fireEvent.click(within(card).getByRole("button", { name: "Retry" }));
+
+    expect(await within(card).findByRole("button", { name: "Update rating" })).toBeInTheDocument();
+    expect(within(card).getByLabelText("Rationale (optional)")).toHaveValue(RAW);
+    expect(within(card).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps a rationale saved from another tab when this tab, loaded before it, saves a strength", async () => {
+    // Nothing is rated when this tab loads.
+    serveOwnRating();
+    await renderPage();
+    expect(screen.getByRole("button", { name: "Save rating" })).toBeInTheDocument();
+    // Meanwhile the user rates 4, with a rationale, in another tab.
+    const server = serveOwnRating({ strength: 4, rationale_raw: RAW });
+
+    fireEvent.click(screen.getByRole("radio", { name: "2 - Weak" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
+
+    await waitFor(() => expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 2, undefined));
+    expect(server.current()).toEqual({ strength: 2, rationale_raw: RAW });
+  });
+
+  it("sends the box when the user edits it, and an emptied box as the request to remove the rationale", async () => {
+    serveOwnRating({ strength: 4, rationale_raw: RAW });
+    await renderPage();
+    const box = screen.getByLabelText("Rationale (optional)");
+    expect(box).toHaveValue(RAW);
+
+    fireEvent.change(box, { target: { value: `${RAW} Also clause 8.4.` } });
+    fireEvent.click(screen.getByRole("button", { name: "Update rating" }));
+    await waitFor(() =>
+      expect(mockedApi.putRating).toHaveBeenLastCalledWith("a-1", 2, 4, `${RAW} Also clause 8.4.`),
+    );
+    await screen.findByText("Rating updated.");
+
+    fireEvent.change(screen.getByLabelText("Rationale (optional)"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Update rating" }));
+    await waitFor(() => expect(mockedApi.putRating).toHaveBeenLastCalledWith("a-1", 2, 4, ""));
   });
 });
 

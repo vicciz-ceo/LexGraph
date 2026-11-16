@@ -70,6 +70,32 @@ describe("api client", () => {
     expect(text).toHaveBeenCalledTimes(1);
   });
 
+  // Review listing:0 / spec §13: an omitted rationale keeps the stored one,
+  // "" removes it, other text replaces it.
+  it("leaves the rationale out of a rating PUT unless one is given", async () => {
+    fetchMock.mockResolvedValue(reply(200, {}));
+
+    await api.putRating("a-1", 2, 4);
+    await api.putRating("a-1", 2, 3, "");
+    await api.putRating("a-1", 2, 5, "Compare <Annex 2> with clause 8.4");
+
+    const sent = fetchMock.mock.calls.map(([url, init]) => ({
+      method: (init as RequestInit).method,
+      path: new URL(url as string).pathname,
+      body: JSON.parse((init as RequestInit).body as string),
+    }));
+    expect(sent).toEqual([
+      { method: "PUT", path: "/api/v1/assertions/a-1/revisions/2/rating", body: { strength: 4 } },
+      { method: "PUT", path: "/api/v1/assertions/a-1/revisions/2/rating", body: { strength: 3, rationale: "" } },
+      {
+        method: "PUT",
+        path: "/api/v1/assertions/a-1/revisions/2/rating",
+        body: { strength: 5, rationale: "Compare <Annex 2> with clause 8.4" },
+      },
+    ]);
+    expect(Object.keys(sent[0].body)).toEqual(["strength"]);
+  });
+
   it("hands over how many related assertions the server found beyond the listed ones", async () => {
     const listed = [{ assertion_id: "a-2", match_kind: "similar", score: 0.7 }];
     fetchMock
