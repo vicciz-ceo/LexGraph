@@ -22,12 +22,14 @@ function NotAuthorized() {
 }
 
 function NoMatter() {
+  // Accounts and access are provisioned in-app by a matter admin; the demo
+  // seed is a local-testing tool that cannot help here.
   return (
     <div className="empty-state">
       <p className="empty-state__title">No matter access</p>
       <p>
         Your account is not a member of any matter yet. Ask a matter admin to add
-        you, or run the demo seed script (see README).
+        you.
       </p>
     </div>
   );

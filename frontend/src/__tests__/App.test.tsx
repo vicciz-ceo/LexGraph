@@ -347,6 +347,7 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
 
     expect(await screen.findByText("No matter access")).toBeInTheDocument();
+    expect(screen.queryByText(/demo seed/i)).not.toBeInTheDocument();
   });
 });
 
