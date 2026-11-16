@@ -53,6 +53,17 @@ SHIPPED_MIGRATIONS = [
     "20260804_add_assertion_subject_unit_path_column",
     "20260805_add_heading_breadcrumbs_column",
 ]
+# Shipped after the runner by other packages (authoring-core's revision
+# invariants, notifications, identity), each found by convention with no
+# wiring. The backfill is data-only: these fixtures' one assertion already
+# has revision 1, so the upgrade tests below do not expect it to apply.
+LATER_MIGRATIONS = [
+    "20261116_assertion_revision_number_unique",
+    "20261116_backfill_initial_assertion_revisions",
+    "20261116_durable_notifications",
+    "20261116_sign_in_tokens",
+    "20261116_users_email_unique",
+]
 
 
 def _schema_shape(path: Path) -> dict:
@@ -91,7 +102,8 @@ def test_runner_discovers_the_shipped_migrations_in_historical_order():
     ids = [migration.id for migration in migrate.discover_migrations()]
     assert ids == sorted(ids), "migrations must run in MIGRATION_ID order"
     assert len(ids) == len(set(ids))
-    assert [i for i in ids if i in SHIPPED_MIGRATIONS] == SHIPPED_MIGRATIONS
+    expected = SHIPPED_MIGRATIONS + LATER_MIGRATIONS
+    assert [i for i in ids if i in expected] == expected
 
 
 def _fake_migrations_package(tmp_path: Path, name: str, modules: dict[str, str]) -> str:

@@ -13,6 +13,7 @@ resolves them; meanwhile the API answers 409 for them, never 500.
 from __future__ import annotations
 
 import logging
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -162,6 +163,7 @@ def test_the_runner_upgrades_around_shared_addresses_and_finishes_once_resolved(
     # the accounts that block it (not reported as a missing migration).
     assert migrate_main(["--db", str(db_path)]) == 0
     out = capsys.readouterr().out
+    assert re.search(r"20261116_users_email_unique +applied in part, waiting for an operator\n", out), out
     assert "1 unique index(es) wait for an operator" in out
     assert "unique index ix_users_email" in out and "u1" in out and "u2" in out
     engine = create_engine(f"sqlite:///{db_path}")

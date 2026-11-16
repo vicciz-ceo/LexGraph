@@ -484,7 +484,10 @@ def main(argv: list[str] | None = None) -> int:
                     "after it did not run. Fix the cause and re-run the same command."
                 )
             applied += bool(changed)
-            print(f"  {migration.id:<{width}}  {'applied' if changed else 'already applied'}", flush=True)
+            status = "applied" if changed else "already applied"
+            if migration.pending_uniques is not None and migration.pending_uniques(engine):
+                status = "applied in part, waiting for an operator" if changed else "waiting for an operator"
+            print(f"  {migration.id:<{width}}  {status}", flush=True)
         report, pending = check_schema(engine, migrations)
     finally:
         engine.dispose()
@@ -496,19 +499,17 @@ def main(argv: list[str] | None = None) -> int:
             "Either it is not a LexGraph database, or a model change shipped without a "
             "migration module in app/migrations, so it cannot be upgraded yet."
         )
-    done = (
-        f"Applied {applied} of {len(migrations)} migrations"
-        if applied
-        else f"Nothing to do: all {len(migrations)} migrations were already applied"
-    )
     if pending:
         waiting = "\n".join(f"  - unique index {name}: {action}" for name, action in sorted(pending.items()))
         print(
-            f"{done}. LexGraph can use the database, but {len(pending)} unique index(es) wait "
-            f"for an operator:\n{waiting}\nResolve that, then run this command again."
+            f"Applied {applied} of {len(migrations)} migrations. LexGraph can use the database, but "
+            f"{len(pending)} unique index(es) wait for an operator:\n{waiting}\n"
+            "Resolve that, then run this command again."
         )
+    elif applied:
+        print(f"Applied {applied} of {len(migrations)} migrations; the schema is current.")
     else:
-        print(f"{done}; the schema is current.")
+        print(f"Nothing to do: all {len(migrations)} migrations were already applied; the schema is current.")
     return 0
 
 
