@@ -10,12 +10,13 @@ Swagger UI showed no Authorize button and every "Try it out" call got 401.
 from __future__ import annotations
 
 import gc
+import hashlib
 import re
 import weakref
 
 from fastapi.testclient import TestClient
 
-from app.main import create_app
+from app.main import API_DOCS_ASSETS, create_app
 
 _HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
@@ -109,6 +110,58 @@ def test_docs_follow_the_root_path_behind_a_reverse_proxy(app):
     assert 'src="/lexgraph/docs/static/swagger-ui-bundle.js"' in swagger
     assert 'spec-url="/lexgraph/openapi.json"' in redoc
     assert 'src="/lexgraph/docs/static/redoc.standalone.js"' in redoc
+
+
+REDOC_LOGO_URL = b'"https://cdn.redoc.ly/redoc/logo-mini.svg"'
+
+
+def test_redoc_is_served_without_the_url_of_its_cdn_logo(client):
+    """Acceptance run (release candidate): Redoc 2 renders its "API docs by
+    Redocly" footer logo from cdn.redoc.ly, with no option to turn it off. The
+    page's Content-Security-Policy refused the request, but every load of
+    /redoc still made the browser try it and log a CSP violation as a console
+    error. The bundle is served with that URL emptied, so no request starts."""
+    served = client.get("/docs/static/redoc.standalone.js")
+    assert served.status_code == 200
+    assert "javascript" in served.headers["content-type"]
+    assert b"cdn.redoc.ly" not in served.content
+    assert not re.search(rb'src:"https?:', served.content)
+
+    # Nothing else differs, and the vendored file itself stays as published.
+    vendored = (API_DOCS_ASSETS / "redoc.standalone.js").read_bytes()
+    assert vendored.count(REDOC_LOGO_URL) == 1
+    assert served.content == vendored.replace(REDOC_LOGO_URL, b'""')
+    readme = (API_DOCS_ASSETS / "README.md").read_text(encoding="utf-8")
+    assert f"{hashlib.sha256(vendored).hexdigest()}  redoc.standalone.js" in readme
+
+
+def test_the_served_redoc_bundle_is_revalidated_like_the_other_assets(client):
+    url = "/docs/static/redoc.standalone.js"
+    first = client.get(url)
+    etag = first.headers["etag"]
+    assert client.get(url, headers={"If-None-Match": etag}).status_code == 304
+    assert client.get(url, headers={"If-None-Match": '"something-else"'}).status_code == 200
+    head = client.head(url)
+    assert (head.status_code, head.headers["etag"], head.content) == (200, etag, b"")
+    assert client.post(url).status_code == 405
+    # Every other file is served from disk as before.
+    assert client.get("/docs/static/swagger-ui.css").content == (API_DOCS_ASSETS / "swagger-ui.css").read_bytes()
+
+
+def test_operation_ids_make_deep_links_swagger_ui_can_read(client):
+    """Acceptance run (release candidate): Swagger UI writes #/<tag>/<operationId>
+    into the URL when an operation is opened, and on loading such a link it
+    reads an underscore as an escaped space: it logged "Deprecated: escaping
+    deep link whitespace with `_` is unsupported" for every one of FastAPI's
+    default operationIds (`me_api_v1_me_get`). They are camelCase now
+    (`meApiV1MeGet`), unique, and the tags have no underscore either."""
+    spec = client.get("/openapi.json").json()
+    operations = list(_operations(spec))
+    ids = [operation["operationId"] for _, _, operation in operations]
+    assert [i for i in ids if not re.fullmatch(r"[a-z][A-Za-z0-9]*", i)] == []
+    assert len(set(ids)) == len(ids) >= 40
+    assert spec["paths"]["/api/v1/me"]["get"]["operationId"] == "meApiV1MeGet"
+    assert [t for _, _, op in operations for t in op.get("tags", []) if "_" in t] == []
 
 
 def test_docs_pages_forbid_every_third_party_origin(client):

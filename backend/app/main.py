@@ -11,7 +11,8 @@ inside this factory, in the append-only R6 zones below; do not scatter
   that fixes it (`app.migrate.ensure_schema_current`);
 - /docs (Swagger UI) and /redoc (Redoc) served from vendored assets so they
   work offline, and an openapi.json that declares the bearer credential so
-  Swagger UI's "Authorize" can call the API;
+  Swagger UI's "Authorize" can call the API, with camelCase operationIds
+  that Swagger UI's deep links can name;
 - the built web app (frontend/dist, or LEXGRAPH_FRONTEND_DIST) on the same
   origin, so `npm --prefix frontend run build` plus uvicorn is the whole
   production deployment.
@@ -19,8 +20,11 @@ inside this factory, in the append-only R6 zones below; do not scatter
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import logging
 import os
+import re
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -30,8 +34,11 @@ from fastapi import FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.staticfiles import NotModifiedResponse
 
 from app.config import get_settings
 from app.db import make_engine, make_session_factory
@@ -58,12 +65,18 @@ _FROM_ENVIRONMENT = _FromEnvironment()
 # must work without an internet connection (no CDN, no web fonts).
 API_DOCS_ASSETS = Path(__file__).resolve().parent / "static" / "api-docs"
 API_DOCS_STATIC_PATH = "/docs/static"
-# Same-origin only, for every resource type. Redoc 2 renders its "API docs by
-# Redocly" logo from cdn.redoc.ly with no option to turn it off; this makes the
-# browser skip that request (Redoc hides the image) so the docs pages never
-# contact a third party. Inline scripts/styles stay allowed: FastAPI's
-# templates and Redoc's styled-components need them.
+# Same-origin only, for every resource type, so the docs pages never contact a
+# third party. Inline scripts/styles stay allowed: FastAPI's templates and
+# Redoc's styled-components need them.
 API_DOCS_CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'"
+# Redoc 2 renders its "API docs by Redocly" footer logo from this address, with
+# no option to turn it off. The CSP above refused that request, but each load
+# of /redoc still made the browser try it and log the CSP violation as a
+# console error. The bundle is served with the address emptied (see
+# _ApiDocsAssets): no request starts, and the image's error handler hides it,
+# so the footer reads "API docs by Redocly" without the logo, as it did.
+REDOC_BUNDLE = "redoc.standalone.js"
+REDOC_CDN_LOGO = b'"https://cdn.redoc.ly/redoc/logo-mini.svg"'
 BEARER_SCHEME = "HTTPBearer"  # FastAPI's own name for fastapi.security.HTTPBearer
 
 
@@ -204,12 +217,53 @@ async def _redoc_page(request: Request) -> HTMLResponse:
     return page
 
 
+@functools.lru_cache(maxsize=1)
+def _redoc_bundle(path: str, mtime_ns: int, size: int) -> tuple[bytes, str]:
+    """The Redoc bundle as served, without its CDN logo address, and its ETag.
+    Read again when the file changes (its modification time and size)."""
+    served = Path(path).read_bytes().replace(REDOC_CDN_LOGO, b'""')
+    return served, f'"{hashlib.sha256(served).hexdigest()}"'
+
+
+class _ApiDocsAssets(StaticFiles):
+    """The vendored Swagger UI and Redoc files, served as published except for
+    Redoc's CDN logo address (REDOC_CDN_LOGO). The files on disk stay
+    byte-identical to the npm packages (static/api-docs/README.md).
+
+    The bundle's ETag is the hash of what is served, never the file's own, so
+    a browser that cached the unchanged file revalidates to the served one."""
+
+    def file_response(
+        self, full_path: Any, stat_result: os.stat_result, scope: Any, status_code: int = 200
+    ) -> Response:
+        if Path(full_path).name != REDOC_BUNDLE:
+            return super().file_response(full_path, stat_result, scope, status_code)
+        body, etag = _redoc_bundle(os.fspath(full_path), stat_result.st_mtime_ns, stat_result.st_size)
+        response = Response(body, status_code, headers={"etag": etag}, media_type="text/javascript")
+        if self.is_not_modified(response.headers, Headers(scope=scope)):
+            return NotModifiedResponse(response.headers)
+        return response
+
+
 def _register_api_docs(app: FastAPI) -> None:
     """Serve /docs and /redoc from the vendored assets (FastAPI's defaults load
     them from cdn.jsdelivr.net, plus fonts.googleapis.com for Redoc)."""
-    app.mount(API_DOCS_STATIC_PATH, StaticFiles(directory=API_DOCS_ASSETS), name="api-docs-static")
+    app.mount(API_DOCS_STATIC_PATH, _ApiDocsAssets(directory=API_DOCS_ASSETS), name="api-docs-static")
     app.add_route("/docs", _swagger_ui_page, include_in_schema=False)
     app.add_route("/redoc", _redoc_page, include_in_schema=False)
+
+
+def _operation_id(route: APIRoute) -> str:
+    """FastAPI's default operationId, the function name, path and method, in
+    lowerCamelCase: `meApiV1MeGet` for GET /api/v1/me (`def me`).
+
+    The default joins them with underscores (`me_api_v1_me_get`). Swagger UI
+    links to an operation as /docs#/<tag>/<operationId> and reads an
+    underscore there as an escaped space, so loading any such link logged
+    "Deprecated: escaping deep link whitespace with `_` is unsupported".
+    """
+    words = re.findall(r"[A-Za-z0-9]+", f"{route.name} {route.path_format} {sorted(route.methods)[0]}")
+    return words[0].lower() + "".join(word[0].upper() + word[1:].lower() for word in words[1:])
 
 
 def _declare_bearer_auth(app: FastAPI) -> None:
@@ -271,6 +325,7 @@ def create_app(
         lifespan=_lifespan,
         docs_url=None,  # served offline by _register_api_docs
         redoc_url=None,
+        generate_unique_id_function=_operation_id,  # deep-link-safe operationIds
     )
 
     engine = make_engine(settings.database_url)
