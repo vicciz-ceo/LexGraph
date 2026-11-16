@@ -31,6 +31,7 @@ from app.models.assertion_revision import AssertionRevision
 from app.models.source_span import SourceSpan
 from app.models.matter_role import MatterRole
 from app.models.user import User
+from app.notifications import notify_submission
 from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit_suggestion
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
@@ -213,7 +214,11 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
             not reword); 422 explains the invalid field ("issues"); 403 missing role."""
             with _reported_errors(), session_factory() as session:
                 body = AgentAssertionCreate.model_validate(payload)
-                return jsonable_encoder(submit_suggestion(body, session, agent_user_id))
+                result = jsonable_encoder(submit_suggestion(body, session, agent_user_id))
+                # No HTTP request, so no notification hook: tell the matter's
+                # reviewers here (idempotent per submission, never raises).
+                notify_submission(session, result["id"], agent_user_id)
+                return result
 
     return server
 

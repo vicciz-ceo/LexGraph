@@ -817,6 +817,34 @@ def test_notify_submission_adds_nothing_where_the_http_hook_already_notified(cli
     assert _kinds(client, m["reviewer_headers"], r.json()["id"]) == ["assertion_submitted"]
 
 
+def test_cli_and_mcp_proposals_notify_the_reviewers_once(app, client, team):
+    """The agent CLI and the MCP server propose outside HTTP and call
+    notify_submission themselves (findings ui:6, pipeline:4, CLI/MCP half):
+    reviewers and admins hear of their proposals exactly as of a REST one."""
+    import json
+
+    from app.mcp.server import create_server
+    from tests.integration.agent_surface_helpers import agent_env, cli_json, run_cli, tool_json
+
+    m = team
+    env = agent_env(f"sqlite:///{app.state.engine.url.database}", m["contributor_id"])
+
+    def cli_suggest(body: dict) -> dict:
+        return cli_json(run_cli("suggest", env=env, stdin=json.dumps(body).encode("utf-8")))
+
+    via_cli = cli_suggest(_agent_body(m, "Proposed with the agent CLI."))
+    cli_draft = cli_suggest(_agent_body(m, "A draft saved with the agent CLI.", save_as="draft"))
+    server = create_server(app.state.session_factory, agent_user_id=m["contributor_id"])
+    via_mcp = tool_json(server, "suggest_assertion", {"payload": _agent_body(m, "Proposed over MCP.")})
+
+    for proposal in (via_cli, via_mcp):
+        assert proposal["status"] == "proposed"
+        assert _kinds(client, m["reviewer_headers"], proposal["id"]) == ["assertion_submitted"]
+        assert _kinds(client, m["admin_headers"], proposal["id"]) == ["assertion_submitted"]
+        assert _about(client, m["contributor_headers"], proposal["id"]) == []  # their own proposal
+    assert _about(client, m["reviewer_headers"], cli_draft["id"]) == []
+
+
 def test_notify_submission_never_raises(app, team, monkeypatch, caplog):
     from app import notifications
     from app.routers.agents import AgentAssertionCreate, suggest_assertion

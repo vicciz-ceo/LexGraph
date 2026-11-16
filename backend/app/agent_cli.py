@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.db import make_session_factory
 from app.models.assertion import Assertion
 from app.models.assertion_revision import AssertionRevision
+from app.notifications import notify_submission
 from app.routers.agents import AgentAssertionCreate, suggest_assertion
 from app.routers.sources import list_entities, list_spans
 from app.routers.workspace import me
@@ -218,6 +219,9 @@ def _run(argv: list[str]) -> int:
                     body = AgentAssertionCreate.model_validate_json(_read_input(args.input))
                     result = suggest_assertion(body, session, args.user_id)
                     created_id = result["id"]
+                    # No HTTP request, so no notification hook: tell the
+                    # matter's reviewers here (idempotent, never raises).
+                    notify_submission(session, created_id, args.user_id)
     except Exception as exc:  # the contract: every failure is one JSON object
         _write(sys.stderr, error_body(exc))
         return 1
