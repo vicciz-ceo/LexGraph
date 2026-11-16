@@ -184,7 +184,9 @@ Review decisions (accept, reject, dispute, request revision, supersede) can send
 the revision the reviewer saw as `expected_revision_number`. If the assertion
 has been edited since, the API returns 409 and changes nothing; reload it and
 review the current revision. A decision is also refused with 409 on a draft, a
-withdrawn or a superseded assertion, and when it repeats the current status.
+withdrawn or a superseded assertion, when it repeats the current status, and
+when it would make a rejected assertion live again next to an identical live
+assertion (the response names that one as `existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
 justification, which is kept in its history.
 

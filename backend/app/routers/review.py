@@ -22,6 +22,11 @@ G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
   unsubmitted `draft`, a `withdrawn` assertion or a `superseded` one, and
   never as a repeat of the current status (409). Moving between the
   reviewed statuses stays open (contested rulings, re-review).
+- Reviving a `rejected` assertion (accept, dispute, request revision)
+  re-applies the exact-duplicate rule, as submitting a draft does: if an
+  identical live assertion was proposed meanwhile, the decision is a 409
+  naming it (`existing_assertion_id`), checked under the matter's write
+  lock.
 - The write is a conditional UPDATE on the status and revision this
   request checked, so a concurrent decision or edit that lands between
   the checks and the write is refused with 409 rather than overwritten.
@@ -67,10 +72,17 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.assertion_revision import AssertionRevision
 from app.models.matter_role import MatterRole
-from app.routers.assertions import _evidence_status, _serialize_assertion
+from app.routers.assertions import (
+    _blocking_duplicate_id,
+    _duplicate_conflict,
+    _evidence_status,
+    _serialize_assertion,
+)
 from app.services.audit import new_correlation_id, record_audit_event
+from app.services.duplicates import ENDED_STATUSES
 from app.services.permissions import has_permission
 from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
+from app.services.write_lock import lock_assertion_writes
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["review"])
 
@@ -191,6 +203,37 @@ def _require_decidable(assertion: Assertion, new_status: str) -> None:
         )
     if assertion.status == new_status:
         raise HTTPException(status_code=409, detail=f"assertion is already '{new_status}'")
+
+
+def _require_no_live_duplicate(
+    db: Session, assertion: Assertion, new_status: str, body: DecisionBody | None
+) -> None:
+    """409 when the decision would revive an ended (rejected) assertion next
+    to an identical live one.
+
+    The exact-duplicate rule (spec section 8) lets an ended assertion's
+    proposition be proposed again, so an identical live assertion may exist
+    by now. Accepting, disputing or returning the rejected one would then
+    leave two live copies, so this applies the rule that submitting a draft
+    applies: under the matter's write lock (held until the decision commits),
+    against committed state, with the preconditions re-checked on the
+    refreshed row.
+    """
+    if assertion.status not in ENDED_STATUSES or new_status in ENDED_STATUSES:
+        return
+    lock_assertion_writes(db, assertion.matter_id)
+    db.refresh(assertion)
+    _require_expected_revision(assertion, body)
+    _require_decidable(assertion, new_status)
+    if assertion.status not in ENDED_STATUSES:
+        return  # another request revived it meanwhile; the checks above held
+    blocker = _blocking_duplicate_id(
+        db, assertion.matter_id, assertion.proposition,
+        owner_user_id=assertion.author_user_id, exclude_id=assertion.id, submitting=True,
+    )
+    if blocker is not None:
+        db.rollback()
+        raise _duplicate_conflict(blocker)
 
 
 def _sanitized_text(raw: str | None, *, label: str) -> str | None:
@@ -404,6 +447,7 @@ def accept_assertion(
     _require_permission(db, user_id, assertion, "assertion:accept")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "accepted")
+    _require_no_live_duplicate(db, assertion, "accepted", body)
 
     justification = _sanitized_text(
         body.acceptance_justification if body else None, label="acceptance_justification"
@@ -439,6 +483,7 @@ def reject_assertion(
     _require_permission(db, user_id, assertion, "assertion:reject")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "rejected")
+    _require_no_live_duplicate(db, assertion, "rejected", body)
     return _decide(db, user_id, assertion, "rejected", event_type="assertion.reject")
 
 
@@ -453,6 +498,7 @@ def dispute_assertion(
     _require_permission(db, user_id, assertion, "assertion:dispute")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "disputed")
+    _require_no_live_duplicate(db, assertion, "disputed", body)
     return _decide(db, user_id, assertion, "disputed", event_type="assertion.dispute")
 
 
@@ -470,6 +516,7 @@ def request_revision(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "revision_requested")
+    _require_no_live_duplicate(db, assertion, "revision_requested", body)
 
     raw_comment = body.comment if body else None
     comment_text = _sanitized_text(raw_comment, label="comment")
@@ -495,6 +542,7 @@ def supersede_assertion(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "superseded")
+    _require_no_live_duplicate(db, assertion, "superseded", body)
 
     successor = _validated_successor(db, assertion, body.superseded_by_assertion_id)
     return _decide(

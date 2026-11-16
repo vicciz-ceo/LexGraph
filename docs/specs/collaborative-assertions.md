@@ -1257,7 +1257,12 @@ Decisions are recorded only on assertions that are proposed,
 revision_requested, disputed, accepted or rejected. A draft must be submitted
 first, and withdrawn and superseded assertions take no decision. Repeating the
 current status, for example accepting an accepted assertion, also returns 409.
-Reviewers may still move an assertion between the reviewed statuses.
+Reviewers may still move an assertion between the reviewed statuses. A rejected
+assertion does not block its proposition (§8), so an identical live assertion
+may have been proposed since. Accepting, disputing or returning the rejected
+one would make it live again, so those decisions apply the exact-duplicate rule
+that submitting a draft applies: with an identical live assertion in the
+matter, the decision is refused with 409 and `existing_assertion_id` names it.
 
 An assertion can be accepted without a justification only if its
 `evidence_status` is `evidenced`, meaning at least one evidence row has the role
