@@ -38,7 +38,9 @@
 
 .sa-entity-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): a source select sized by a long option label must not
+   * widen its column past the card. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0 var(--space-md);
   padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--border);
@@ -47,18 +49,14 @@
 
 @media (max-width: 700px) {
   .sa-entity-fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-md);
   }
 }
 
 .sa-entity-fields .field {
   margin-bottom: 0;
-}
-
-.sa-entity-fields input {
-  font-family: var(--font-mono);
-  font-size: 13px;
+  min-width: 0;
 }
 
 /* --- Embedded AssertionSuggestionForm skin ------------------------------ */
@@ -186,14 +184,22 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row label {
+/* The row's own controls (source-span id input, role select, Remove) sit
+ * inline. These rules target direct children only: the browsable
+ * SourcePicker below is a column of its own, where a flex-basis would turn
+ * into a height and `width: auto` would size the select to its longest
+ * option label (review:1). */
+.sa-form-card .assertion-suggestion-form__evidence-row > label {
   font: var(--body-sm);
   color: var(--on-surface-variant);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row input {
+.sa-form-card .assertion-suggestion-form__evidence-row > input {
   flex: 1 1 180px;
   width: auto;
   margin-top: 0;
@@ -201,9 +207,30 @@
   font-size: 12px;
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row select {
+.sa-form-card .assertion-suggestion-form__evidence-row > select {
   width: auto;
   margin-top: 0;
+}
+
+/* Browsable evidence source: takes the whole row; the role select and the
+ * Remove button wrap beneath it. */
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker label {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+/* `.assertion-suggestion-form select` (app.css) resets the background that
+ * draws the `.field select` arrow, which left this select looking like a
+ * text box; use the native arrow, like the form's other selects. */
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker select {
+  appearance: auto;
+  padding-right: 12px;
 }
 
 .sa-form-card .assertion-suggestion-form__evidence button,
@@ -216,9 +243,14 @@
   font: 500 13px/18px var(--font-family);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence button:hover,
-.sa-form-card .assertion-suggestion-form__evidence-row button:hover {
+.sa-form-card .assertion-suggestion-form__evidence button:hover:not(:disabled),
+.sa-form-card .assertion-suggestion-form__evidence-row button:hover:not(:disabled) {
   background: var(--row-hover);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sa-form-card .assertion-suggestion-form__preview {
