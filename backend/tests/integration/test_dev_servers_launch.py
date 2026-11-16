@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -171,6 +172,28 @@ def test_backend_configuration_seeds_the_demo_workspace_then_serves_it(project, 
     assert "seeding" not in again.log.read_text()
     with closing(sqlite3.connect(database)) as db:
         assert db.execute("select count(*) from users").fetchone()[0] == users
+
+
+def test_backend_configuration_upgrades_an_older_database_before_serving_it(project, servers):
+    """An old dev.db is migrated in place (XREQ-8), not refused by the
+    server's startup check and not reseeded."""
+    from app.db import make_engine
+    from app.migrate import inspect_schema
+    from tests.schema_history import PRE_AUGUST, build_historical_db
+
+    database = build_historical_db(project / "backend" / "dev.db", PRE_AUGUST)
+    port = _free_port()
+    backend = servers.start("backend", project, port)
+    assert _ready(backend, f"http://127.0.0.1:{port}/healthz") == 200
+    log = backend.log.read_text()
+    assert "seeding" not in log and re.search(r"20260802_add_document_jurisdiction_column +applied\n", log), log
+    engine = make_engine(f"sqlite:///{database}")
+    try:
+        assert inspect_schema(engine).is_current
+    finally:
+        engine.dispose()
+    with closing(sqlite3.connect(database)) as db:
+        assert db.execute("select id from users").fetchall() == [("user-1",)]
 
 
 def test_backend_configuration_refuses_a_database_without_the_schema(project):
