@@ -134,6 +134,15 @@ def test_mcp_registrations_pass_absolute_paths_and_the_database():
         assert re.match(rf'"?{ABSOLUTE_PATH}', interpreter), command
 
 
+def test_readme_commands_leave_the_shell_at_the_repository_root():
+    """The README's blocks are all run from the repository root, one after
+    another: a bare `cd backend && ...` left the shell in backend/, so the
+    next block's `cd backend` failed."""
+    moves = [_where(README, n, line) for n, line in commands(README)
+             if re.search(r"(?:^|[;&|]\s*)cd ", line) and not line.startswith("(")]
+    assert moves == []
+
+
 def test_readme_test_instructions_install_both_halves_before_running_them():
     """Followed top to bottom in one shell from a fresh clone, the README's
     test section must reach its one-liner with both halves installed and the

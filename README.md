@@ -42,10 +42,11 @@ backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- -
 
 Provisioning a real instance starts with bootstrap — one command creates the
 first organization, matter, and admin user on an empty database, and prints
-that admin's sign-in id (the id *is* the credential; there are no passwords):
+that admin's sign-in id (the id *is* the credential; there are no passwords).
+Run every command below from the repository root:
 
 ```bash
-cd backend && .venv/bin/python -m app.bootstrap --db dev.db
+(cd backend && .venv/bin/python -m app.bootstrap --db dev.db)
 ```
 
 Flags (all optional — see `python -m app.bootstrap --help`): `--org-name`,
@@ -56,7 +57,7 @@ against a database that already has users, so it's safe to leave in a
 script. Copy the printed sign-in id, then start the servers:
 
 ```bash
-cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
+(cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000)
 ```
 
 The web app needs Node.js 22 (22.12 or later) or 24; CI uses 24.
@@ -81,10 +82,10 @@ npm --prefix frontend ci && npm --prefix frontend run build   # then start uvico
 
 After pulling a newer LexGraph, upgrade an existing database before starting
 the server. The command is idempotent, and the server refuses to start on an
-out-of-date database, printing this exact command:
+out-of-date database, printing this command with absolute paths:
 
 ```bash
-cd backend && .venv/bin/python -m app.migrate --db dev.db
+(cd backend && .venv/bin/python -m app.migrate --db dev.db)
 ```
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-an-existing-database-migration)
@@ -116,8 +117,12 @@ Running it again completes an interrupted first run (an install or seed cut shor
 Manually, the same demo seed is:
 
 ```bash
-cd backend && .venv/bin/python -m app.seed_demo --db dev.db
+(cd backend && .venv/bin/python -m app.seed_demo --db dev.db)
 ```
+
+It refuses a file that already exists, such as a workspace from
+`app.bootstrap`. Its `--reset` flag deletes the file first, whatever it
+holds, so use `--reset` only on a demo database.
 
 The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second
 matter) ships assertions in every status with ratings, comments, and
