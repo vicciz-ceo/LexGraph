@@ -132,7 +132,9 @@ describe("SignInPage", () => {
     expect(banner).toHaveTextContent(/could not reach the lexgraph server/i);
   });
 
-  it.each([404, 429])(
+  // 403 (an S3-style host), 404 and 405 (a static host that does not forward
+  // /api) and 429 all come from something other than a token check.
+  it.each([403, 404, 405, 429])(
     "does not call the token unknown when the server answers %i (only 401 means that)",
     async (status) => {
       signIn.mockRejectedValue(new ApiError(status, "x"));

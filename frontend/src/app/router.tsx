@@ -1,6 +1,8 @@
-// Minimal hash router — deliberately dependency-free so a fork can serve
-// the built app from any static host (or file://) with zero rewrite
-// rules. Routes look like "#/assertions/123?tab=history".
+// Minimal hash router — deliberately dependency-free. Hash routes never
+// reach the server, so the built app needs no rewrite rules on whatever
+// serves it; that host must still forward /api to the backend on the same
+// origin (docs/RUNBOOK.md "Serving the web app in production"). It does not
+// work from file://. Routes look like "#/assertions/123?tab=history".
 
 import { useEffect, useState } from "react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
