@@ -34,10 +34,10 @@ export interface SessionNotice {
   message: string;
 }
 
-export const TOKEN_REJECTED_NOTICE =
+const TOKEN_REJECTED_NOTICE =
   "Your saved sign-in token is no longer valid (it may have been rotated). " +
   "Enter your current sign-in token.";
-export const SERVER_UNREACHABLE_NOTICE =
+const SERVER_UNREACHABLE_NOTICE =
   "Could not reach the LexGraph server to restore your session. " +
   "Your saved sign-in token was kept.";
 
