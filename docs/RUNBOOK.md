@@ -542,7 +542,11 @@ yet, restarting, or a proxy error), it keeps your sign-in and shows
 the browser comes back online or the tab regains focus. While you work,
 the app re-reads your account (`GET /me`) when a request is refused,
 when you return to the tab, and every minute, so a role another admin
-gave you or took away shows up without a reload. On a narrow screen
+gave you or took away shows up without a reload. Each tab keeps the
+matter you chose in it; a new tab, or a reload, opens on the matter you
+chose last. Signing out in one tab signs out the browser's other tabs
+too, and when one tab finds that your token no longer works, the others
+show the sign-in page with the same message. On a narrow screen
 (below 768px wide) the sidebar is behind the menu button at the top
 left.
 
@@ -647,12 +651,15 @@ localhost or put TLS in front of it before exposing it on a network.
   token** (or **Issue token** for an account without one) → confirm. The
   new token is shown once and the previous one stops working immediately:
   that person's open sessions are signed out, with a message saying the
-  saved token is no longer valid, as soon as the app notices (their next
-  refused request, their return to the tab, or within a minute), and they
-  sign in with the new token. You may
+  saved token is no longer valid, as soon as one of their tabs notices
+  (their next refused request, their return to the tab, or within a
+  minute; that browser's other tabs follow at once), and they sign in with
+  the new token. You may
   rotate an account only
   if you are an admin on every matter it belongs to (or it is your own
-  account; rotating your own keeps this browser signed in).
+  account; rotating your own keeps this browser signed in, even if you
+  leave the page before the server answers, and the new token is then
+  shown once at the top of whatever page you are on).
 - **Lockouts (no admin can sign in).** With access to the database file,
   issue a new token from the command line. It prints the token once:
 

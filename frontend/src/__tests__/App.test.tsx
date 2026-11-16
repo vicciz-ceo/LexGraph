@@ -9,11 +9,21 @@
 //   after you change your own membership, so role-gated UI follows the server.
 // - ui:26: below 768px the sidebar is a drawer behind a menu button.
 // - ui:27: a malformed percent-escape in the hash route does not blank the app.
+// - review identity:0: a background re-check keeps the matter this tab shows
+//   (another tab's choice is only where new tabs start), so a Suggest draft,
+//   the admin console's add-member target and a one-time token survive it.
+// - review identity:1: a sign-out or a refused token in another tab signs
+//   this tab out with a message, instead of leaving it broken.
+// - review identity:2: rotating your own token survives leaving the admin
+//   page, and the new token is still shown once.
+// - review identity:4: accounts whose id contains "/" are managed in-app.
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "../App";
+import { reportAuthFailure } from "../api/authEvents";
+import { SessionProvider, useSession } from "../app/session";
 
 const TOKEN_KEY = "lexgraph.token";
 const MATTER_KEY = "lexgraph.matter";
@@ -26,9 +36,19 @@ interface Matter {
   role: Role;
 }
 
+interface Person {
+  id: string;
+  email: string;
+  display_name: string;
+}
+
 interface Member {
-  user: { id: string; email: string; display_name: string };
+  user: Person;
   role: Role;
+}
+
+interface Account extends Person {
+  sign_in_status: "active" | "legacy" | "none";
 }
 
 interface Reply {
@@ -38,6 +58,8 @@ interface Reply {
 
 const ADA = { id: "u-ada", email: "ada@firm.example", display_name: "Ada Admin" };
 const RIVA = { id: "u-riva", email: "riva@firm.example", display_name: "Riva Reviewer" };
+/** An account created before ids were restricted (api:24), upgraded as legacy. */
+const LEAD = { id: "team/lead", email: "lead@firm.example", display_name: "Team Lead" };
 
 /** The signed-in user is always Ada; tests change what the server says about her. */
 class FakeBackend {
@@ -47,6 +69,11 @@ class FakeBackend {
   meStatus: number | null = null;
   /** Member writes answer 403 (Ada lost the admin role elsewhere). */
   forbidMemberWrites = false;
+  /** The sign-in tokens the server accepts; every one is Ada's. */
+  tokens = new Set(["tok-ada"]);
+  /** Hold the answers to POST /users/{id}/sign-in-token until released. As on
+   * the real server, the rotation itself has taken effect by then. */
+  holdRotations = false;
   matters: Matter[] = [{ id: "m-msa", name: "MSA", role: "admin" }];
   members: Record<string, Member[]> = {
     "m-msa": [
@@ -54,12 +81,31 @@ class FakeBackend {
       { user: RIVA, role: "admin" },
     ],
   };
+  accounts: Account[] = [
+    { ...ADA, sign_in_status: "active" },
+    { ...RIVA, sign_in_status: "active" },
+  ];
+  /** `path` as sent (still percent-encoded); routing uses it decoded, like the server. */
   calls: { method: string; path: string; auth?: string }[] = [];
+  private held: (() => void)[] = [];
+  private issued = 0;
 
-  handle(method: string, path: string, body: Record<string, unknown> | undefined): Reply {
+  handle(
+    method: string,
+    path: string,
+    body: Record<string, unknown> | undefined,
+    auth: string | undefined,
+  ): Reply | Promise<Reply> {
     if (this.down) throw new TypeError("Failed to fetch");
+    const token = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length) : null;
+    if (token === null) {
+      return { status: 401, body: { detail: "missing or malformed Authorization header" } };
+    }
+    if (path === "/me" && this.meStatus !== null) {
+      return { status: this.meStatus, body: { detail: "x" } };
+    }
+    if (!this.tokens.has(token)) return { status: 401, body: { detail: "unknown sign-in token" } };
     if (path === "/me") {
-      if (this.meStatus !== null) return { status: this.meStatus, body: { detail: "x" } };
       return {
         status: 200,
         body: {
@@ -70,6 +116,28 @@ class FakeBackend {
     }
     if (path === "/notifications") return { status: 200, body: [] };
     if (path === "/assertions" && method === "GET") return { status: 200, body: { items: [], total: 0 } };
+    if (path === "/users" && method === "GET") return { status: 200, body: this.accounts };
+    if (path === "/users" && method === "POST") {
+      const account: Account = {
+        id: `u-${body!.email as string}`,
+        email: body!.email as string,
+        display_name: body!.display_name as string,
+        sign_in_status: "active",
+      };
+      this.accounts.push(account);
+      return { status: 201, body: { ...account, sign_in_token: `tok-created-${++this.issued}` } };
+    }
+    const rotation = path.match(/^\/users\/(.+)\/sign-in-token$/);
+    if (rotation && method === "POST") {
+      const account = this.accounts.find((a) => a.id === rotation[1]);
+      if (!account) return { status: 404, body: { detail: "user not found" } };
+      const fresh = `tok-new-${++this.issued}`;
+      account.sign_in_status = "active";
+      if (account.id === ADA.id) this.tokens = new Set([fresh]);
+      const reply = { status: 200, body: { ...account, sign_in_token: fresh } };
+      if (!this.holdRotations) return reply;
+      return new Promise((resolve) => this.held.push(() => resolve(reply)));
+    }
 
     const roster = path.match(/^\/matters\/([^/]+)\/members$/);
     if (roster && method === "GET") {
@@ -78,7 +146,18 @@ class FakeBackend {
       }
       return { status: 200, body: this.members[roster[1]] ?? [] };
     }
-    const member = path.match(/^\/matters\/([^/]+)\/members\/([^/]+)$/);
+    if (roster && method === "POST") {
+      const account = this.accounts.find((a) => a.email === body!.email);
+      if (!account) return { status: 404, body: { detail: "no user account with that email" } };
+      const row: Member = {
+        user: { id: account.id, email: account.email, display_name: account.display_name },
+        role: body!.role as Role,
+      };
+      this.members[roster[1]] = [...(this.members[roster[1]] ?? []), row];
+      return { status: 201, body: row };
+    }
+    // The member id may contain "/" (the server's `path` converter).
+    const member = path.match(/^\/matters\/([^/]+)\/members\/(.+)$/);
     if (member) {
       if (this.forbidMemberWrites) return { status: 403, body: { detail: "matter admin role required" } };
       const [, matterId, userId] = member;
@@ -100,8 +179,19 @@ class FakeBackend {
     return { status: 404, body: { detail: "not found" } };
   }
 
+  releaseRotations() {
+    const held = this.held;
+    this.held = [];
+    for (const release of held) release();
+  }
+
   count(path: string): number {
     return this.calls.filter((c) => c.path === path).length;
+  }
+
+  lastMeAuth(): string | undefined {
+    const reads = this.calls.filter((c) => c.path === "/me");
+    return reads[reads.length - 1]?.auth;
   }
 }
 
@@ -121,7 +211,12 @@ beforeEach(() => {
       const path = url.pathname.replace(/^\/api\/v1/, "");
       const headers = (init.headers ?? {}) as Record<string, string>;
       backend.calls.push({ method, path, auth: headers.Authorization });
-      const reply = backend.handle(method, path, init.body ? JSON.parse(String(init.body)) : undefined);
+      const reply = await backend.handle(
+        method,
+        decodeURIComponent(path),
+        init.body ? JSON.parse(String(init.body)) : undefined,
+        headers.Authorization,
+      );
       return {
         status: reply.status,
         ok: reply.status >= 200 && reply.status < 300,
@@ -447,5 +542,392 @@ describe("malformed links (ui:27)", () => {
 
     expect(await primaryNav()).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /review queue/i })).toBeInTheDocument();
+  });
+});
+
+// --- Several tabs of one browser --------------------------------------------
+//
+// Tabs share localStorage: the saved token and the matter a new tab opens on.
+// "Another tab" here is what it leaves in localStorage, plus the `storage`
+// event the browser sends this tab about it (jsdom sends none itself), or a
+// second SessionProvider standing in for that tab.
+
+/** A second tab of the same browser: its own SessionProvider, the same localStorage. */
+function OtherTab() {
+  const { session, signOut, refresh } = useSession();
+  return (
+    <section aria-label="Other tab">
+      <span data-testid="other-tab-state">
+        {session === undefined ? "restoring" : session === null ? "signed-out" : "signed-in"}
+      </span>
+      <button type="button" onClick={signOut}>
+        Other tab: sign out
+      </button>
+      <button type="button" onClick={() => void refresh().catch(() => {})}>
+        Other tab: re-check
+      </button>
+    </section>
+  );
+}
+
+function renderAppWithOtherTab(options: Parameters<typeof renderApp>[0] = {}) {
+  const { hash = "#/review", token = "tok-ada", matter = "m-msa" } = options;
+  window.localStorage.clear();
+  if (token) window.localStorage.setItem(TOKEN_KEY, token);
+  if (matter) window.localStorage.setItem(MATTER_KEY, matter);
+  window.location.hash = hash;
+  return render(
+    <>
+      <App />
+      <SessionProvider>
+        <OtherTab />
+      </SessionProvider>
+    </>,
+  );
+}
+
+/** The `storage` event the browser sends this tab when another tab changed a key. */
+function storageEventFromAnotherTab(key = TOKEN_KEY) {
+  act(() => {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key,
+        newValue: window.localStorage.getItem(key),
+        storageArea: window.localStorage,
+      }),
+    );
+  });
+}
+
+/** Let every answer already on its way reach the app. */
+async function settle() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+const matterSelect = () => screen.getByRole("combobox", { name: "Matter" });
+
+describe("each tab keeps its own matter (review identity:0)", () => {
+  const TWO_MATTERS: Matter[] = [
+    { id: "m-dpa", name: "DPA", role: "admin" },
+    { id: "m-msa", name: "MSA", role: "admin" },
+  ];
+
+  async function suggestDraft() {
+    backend.matters = TWO_MATTERS;
+    renderApp({ hash: "#/suggest", matter: "m-msa" });
+    const proposition = await screen.findByLabelText("Proposition");
+    fireEvent.change(proposition, { target: { value: "Clause 9 survives termination." } });
+    // Another tab of this browser switches to DPA, and Ada is made a
+    // reviewer on MSA meanwhile (so the re-read below visibly lands).
+    window.localStorage.setItem(MATTER_KEY, "m-dpa");
+    backend.matters = [
+      { id: "m-dpa", name: "DPA", role: "admin" },
+      { id: "m-msa", name: "MSA", role: "reviewer" },
+    ];
+  }
+
+  async function draftSurvived() {
+    expect(await screen.findByText(/reviewer · ada@firm\.example/)).toBeInTheDocument();
+    expect(matterSelect()).toHaveValue("m-msa");
+    expect(screen.getByLabelText("Proposition")).toHaveValue("Clause 9 survives termination.");
+    // The other tab's choice is still where a new tab starts.
+    expect(window.localStorage.getItem(MATTER_KEY)).toBe("m-dpa");
+  }
+
+  it("returning to the tab keeps its matter and the Suggest draft", async () => {
+    await suggestDraft();
+
+    refocusLater();
+
+    await draftSurvived();
+  });
+
+  it("the once-a-minute re-check keeps them too", async () => {
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    await suggestDraft();
+
+    clockOffset += 61_000;
+    act(() => {
+      for (const [callback, delay] of setIntervalSpy.mock.calls) {
+        if (delay === 60_000) (callback as () => void)();
+      }
+    });
+
+    await draftSurvived();
+  });
+
+  it("the re-check after a refused request keeps them too", async () => {
+    await suggestDraft();
+
+    act(() => {
+      // What the api client reports for any 401/403 answer.
+      reportAuthFailure({ status: 403, method: "GET", path: "/matters/m-msa/source-spans" });
+    });
+
+    await draftSurvived();
+  });
+
+  it("Add member still grants the role on the matter this tab shows", async () => {
+    backend.matters = TWO_MATTERS;
+    backend.members["m-dpa"] = [{ user: ADA, role: "admin" }];
+    renderApp({ hash: "#/admin", matter: "m-msa" });
+    await screen.findByText("Riva Reviewer");
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    await screen.findByRole("button", { name: "Rotate sign-in token for Riva Reviewer" });
+    fireEvent.change(screen.getByLabelText(/email for the new account/i), {
+      target: { value: "newbie@firm.example" },
+    });
+    fireEvent.change(screen.getByLabelText(/display name for the new account/i), {
+      target: { value: "Newbie" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await screen.findByRole("status", { name: "New sign-in token" });
+    fireEvent.click(screen.getByRole("tab", { name: "Members & roles" }));
+    fireEvent.change(screen.getByLabelText("Role for the new member"), { target: { value: "admin" } });
+    expect(screen.getByLabelText("Email of the account to add")).toHaveValue("newbie@firm.example");
+
+    window.localStorage.setItem(MATTER_KEY, "m-dpa"); // another tab chose DPA
+    refocusLater();
+    await waitFor(() => expect(backend.count("/me")).toBe(2));
+    await settle();
+    expect(matterSelect()).toHaveValue("m-msa");
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(backend.members["m-msa"].map((m) => [m.user.email, m.role])).toContainEqual([
+        "newbie@firm.example",
+        "admin",
+      ]),
+    );
+    expect(backend.members["m-dpa"].some((m) => m.user.email === "newbie@firm.example")).toBe(false);
+  });
+
+  it("a token shown once stays on screen", async () => {
+    backend.matters = [
+      { id: "m-dpa", name: "DPA", role: "viewer" },
+      { id: "m-msa", name: "MSA", role: "admin" },
+    ];
+    renderApp({ hash: "#/admin", matter: "m-msa" });
+    await screen.findByText("Riva Reviewer");
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate sign-in token for Riva Reviewer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm new sign-in token for Riva Reviewer" }));
+    const callout = await screen.findByRole("status", { name: "New sign-in token" });
+    expect(callout).toHaveTextContent("tok-new-1");
+
+    window.localStorage.setItem(MATTER_KEY, "m-dpa"); // where Ada is only a viewer
+    refocusLater();
+    await waitFor(() => expect(backend.count("/me")).toBe(2));
+    await settle();
+
+    expect(screen.getByRole("status", { name: "New sign-in token" })).toHaveTextContent("tok-new-1");
+    expect(screen.queryByText("Not authorized")).not.toBeInTheDocument();
+  });
+
+  it("choosing another matter in this tab still switches it, and is where new tabs start", async () => {
+    backend.matters = TWO_MATTERS;
+    renderApp({ hash: "#/review", matter: "m-msa" });
+    await primaryNav();
+
+    fireEvent.change(matterSelect(), { target: { value: "m-dpa" } });
+
+    expect(matterSelect()).toHaveValue("m-dpa");
+    expect(window.localStorage.getItem(MATTER_KEY)).toBe("m-dpa");
+  });
+});
+
+describe("signing out in another tab (review identity:1)", () => {
+  it("a sign-out there shows the sign-in page here, saying so", async () => {
+    renderAppWithOtherTab();
+    await primaryNav();
+    await waitFor(() => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-in"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Other tab: sign out" }));
+    storageEventFromAnotherTab();
+
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/signed out in another tab/i);
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    // Nothing went out without a token.
+    expect(backend.calls.filter((c) => !c.auth)).toEqual([]);
+  });
+
+  it("a token refused there shows the sign-in page here with the rotation notice", async () => {
+    renderAppWithOtherTab();
+    await primaryNav();
+    await waitFor(() => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-in"));
+
+    backend.tokens.clear(); // an admin rotated Ada's token
+    fireEvent.click(screen.getByRole("button", { name: "Other tab: re-check" }));
+    await waitFor(
+      () => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-out"),
+      { timeout: 3_000 },
+    );
+    storageEventFromAnotherTab();
+
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/no longer valid/i);
+  });
+
+  it("a request sent without the token another tab removed signs this tab out", async () => {
+    renderApp({ hash: "#/review" });
+    await primaryNav();
+
+    window.localStorage.removeItem(TOKEN_KEY); // signed out elsewhere; the event was missed
+    act(() => {
+      window.location.hash = "#/knowledge";
+    });
+
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/signed out in another tab/i);
+    expect(backend.count("/me")).toBe(1);
+  });
+
+  it("coming back to a tab whose token another tab removed signs it out", async () => {
+    renderApp();
+    await primaryNav();
+
+    window.localStorage.removeItem(TOKEN_KEY);
+    refocusLater();
+
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/signed out in another tab/i);
+  });
+
+  it("when both tabs see the token refused, both sign out", async () => {
+    renderAppWithOtherTab();
+    await primaryNav();
+    await waitFor(() => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-in"));
+
+    backend.tokens.clear();
+    refocusLater();
+
+    expect(await screen.findByLabelText(/sign-in token/i, {}, { timeout: 4_000 })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/no longer valid/i);
+    await waitFor(() => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-out"));
+  });
+
+  it("a token another tab stored (a rotation there) is checked here at once and kept", async () => {
+    renderApp();
+    await primaryNav();
+
+    backend.tokens = new Set(["tok-ada-2"]);
+    window.localStorage.setItem(TOKEN_KEY, "tok-ada-2");
+    storageEventFromAnotherTab();
+
+    await waitFor(() => expect(backend.lastMeAuth()).toBe("Bearer tok-ada-2"));
+    await settle();
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+  });
+
+  it("a sign-in in another tab carries over once its token works", async () => {
+    renderApp({ token: "" });
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+
+    window.localStorage.setItem(TOKEN_KEY, "tok-typo"); // still being checked over there
+    storageEventFromAnotherTab();
+    await waitFor(() => expect(backend.lastMeAuth()).toBe("Bearer tok-typo"));
+    await settle();
+    expect(screen.getByLabelText(/sign-in token/i)).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-typo");
+
+    window.localStorage.setItem(TOKEN_KEY, "tok-ada");
+    storageEventFromAnotherTab();
+    expect(await primaryNav()).toBeInTheDocument();
+  });
+});
+
+describe("rotating your own token (review identity:2)", () => {
+  async function startOwnRotation() {
+    backend.holdRotations = true;
+    renderApp({ hash: "#/admin" });
+    await screen.findByText("Riva Reviewer");
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate sign-in token for Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm new sign-in token for Ada Admin" }));
+    await waitFor(() => expect(backend.count("/users/u-ada/sign-in-token")).toBe(1));
+  }
+
+  async function newTokenShownOnce() {
+    const callout = await screen.findByRole("status", { name: "New sign-in token" });
+    expect(callout).toHaveTextContent("tok-new-1");
+    expect(callout).toHaveTextContent(/shown only once/i);
+    expect(callout).toHaveTextContent(/this browser now signs in with the new token/i);
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-1");
+    return callout;
+  }
+
+  it("leaving the admin page before the answer still switches to the new token and shows it", async () => {
+    await startOwnRotation();
+
+    act(() => {
+      window.location.hash = "#/review";
+    });
+    expect(await screen.findByRole("heading", { name: /review queue/i })).toBeInTheDocument();
+    await act(async () => {
+      backend.releaseRotations();
+    });
+
+    const callout = await newTokenShownOnce();
+    refocusLater();
+    await waitFor(() => expect(backend.lastMeAuth()).toBe("Bearer tok-new-1"));
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+
+    fireEvent.click(within(callout).getByRole("button", { name: /done, i have saved the token/i }));
+    expect(document.body).not.toHaveTextContent("tok-new-1");
+  });
+
+  it("the old token's 401 while the answer is on its way does not sign you out", async () => {
+    await startOwnRotation();
+
+    refocusLater(); // the server already refuses the old token
+    await waitFor(() => expect(backend.count("/me")).toBe(2));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_300)); // past the 1 s confirmation
+    });
+    // Still signed in: no sign-in page (its field is labelled exactly so).
+    expect(screen.queryByLabelText("Sign-in token")).not.toBeInTheDocument();
+
+    await act(async () => {
+      backend.releaseRotations();
+    });
+
+    await newTokenShownOnce();
+    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+    expect(screen.queryByText(/no longer valid/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("accounts whose id contains '/' (review identity:4)", () => {
+  it("can be re-roled, rotated and removed from the admin console", async () => {
+    backend.members["m-msa"].push({ user: LEAD, role: "reviewer" });
+    backend.accounts.push({ ...LEAD, sign_in_status: "legacy" });
+    renderApp({ hash: "#/admin" });
+    await screen.findByText("Team Lead");
+
+    fireEvent.change(screen.getByLabelText("Role for Team Lead"), { target: { value: "viewer" } });
+    await waitFor(() => expect(backend.members["m-msa"].find((m) => m.user.id === LEAD.id)?.role).toBe("viewer"));
+
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate sign-in token for Team Lead" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm new sign-in token for Team Lead" }));
+    expect(await screen.findByRole("status", { name: "New sign-in token" })).toHaveTextContent(
+      "Sign-in token for Team Lead",
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Members & roles" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Team Lead" }));
+    await waitFor(() => expect(screen.queryByText("Team Lead")).not.toBeInTheDocument());
+
+    // Each id went out as one percent-encoded path segment.
+    const writes = backend.calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${c.path}`);
+    expect(writes).toEqual([
+      "PUT /matters/m-msa/members/team%2Flead",
+      "POST /users/team%2Flead/sign-in-token",
+      "DELETE /matters/m-msa/members/team%2Flead",
+    ]);
   });
 });

@@ -14,6 +14,11 @@
 // it when the admin clicks Done. User ids are public references, never
 // credentials. Accounts still signing in with their public id (legacy,
 // from the upgrade migration) get a badge and a rotate action.
+//
+// Rotating your OWN token is left to the session (rotateOwnToken): the old
+// token stops working the moment the server commits, so this browser must
+// switch to the new one even if this page is closed before the answer
+// arrives, and the app shell shows that token once (review identity:2).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -29,6 +34,7 @@ import type {
   UserAccount,
 } from "../api/types";
 import { Icon } from "../app/icons";
+import { IssuedTokenCallout } from "../app/IssuedTokenCallout";
 import { navigate } from "../app/router";
 import { useActiveSession, useSession } from "../app/session";
 
@@ -89,14 +95,11 @@ const SIGN_IN_BADGES: Record<SignInStatus, { label: string; className: string; t
   },
 };
 
-/** A token the API just returned (shown once, then forgotten on Done). */
+/** A token the API just returned for another account (shown once, then
+ * forgotten on Done). Your own rotation is shown by the app shell. */
 interface IssuedToken {
   account: IssuedSignIn;
   reason: "created" | "rotated";
-  /** The signed-in admin rotated their own token. */
-  self: boolean;
-  /** Set when this browser could not switch to a self-rotated token. */
-  sessionError?: boolean;
 }
 
 /** Allowed / not-allowed cell for the role capability matrix. */
@@ -260,7 +263,7 @@ type AdminTab = "members" | "accounts" | "policy";
 
 export function AdminPage() {
   const session = useActiveSession();
-  const { signIn, refresh: refreshSession } = useSession();
+  const { refresh: refreshSession, rotateOwnToken } = useSession();
   const matterId = session.currentMatter.id;
   const canManage = session.role === "admin";
 
@@ -286,7 +289,6 @@ export function AdminPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [issued, setIssued] = useState<IssuedToken | null>(null);
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   /** Account whose token rotation awaits confirmation. */
   const [pendingRotation, setPendingRotation] = useState<string | null>(null);
   const [rotateBusy, setRotateBusy] = useState(false);
@@ -361,8 +363,7 @@ export function AdminPage() {
     try {
       const created = await api.createUser(email, displayName);
       if (!aliveRef.current) return;
-      setIssued({ account: created, reason: "created", self: false });
-      setCopyState("idle");
+      setIssued({ account: created, reason: "created" });
       setNewAccountEmail("");
       setNewAccountName("");
       // Wiring: hand the new account straight to the Members & roles tab's
@@ -382,38 +383,24 @@ export function AdminPage() {
     setRotateBusy(true);
     setRotateError(null);
     try {
-      const rotated = await api.rotateSignInToken(account.id);
-      if (!aliveRef.current) return;
-      const self = account.id === session.user.id;
-      let sessionError = false;
-      if (self) {
-        // The old token stopped working, including in this browser: switch
-        // the session to the new one so the admin stays signed in.
-        try {
-          await signIn(rotated.sign_in_token);
-        } catch {
-          sessionError = true;
-        }
+      if (account.id === session.user.id) {
+        // The old token stops working, in this browser too. The session
+        // switches to the new one and the app shell shows it once, even if
+        // this page is gone by the time the server answers (identity:2).
+        if (!rotateOwnToken) throw new Error("Your own token cannot be rotated from here.");
+        await rotateOwnToken();
+      } else {
+        const rotated = await api.rotateSignInToken(account.id);
         if (!aliveRef.current) return;
+        setIssued({ account: rotated, reason: "rotated" });
       }
-      setIssued({ account: rotated, reason: "rotated", self, sessionError });
-      setCopyState("idle");
+      if (!aliveRef.current) return;
       setAccountsReloadKey((k) => k + 1);
     } catch (error) {
       if (!aliveRef.current) return;
       setRotateError(describeAccountError(error));
     } finally {
       if (aliveRef.current) setRotateBusy(false);
-    }
-  }
-
-  async function copyIssuedToken(token: string) {
-    try {
-      if (!navigator.clipboard) throw new Error("clipboard unavailable");
-      await navigator.clipboard.writeText(token);
-      if (aliveRef.current) setCopyState("copied");
-    } catch {
-      if (aliveRef.current) setCopyState("failed");
     }
   }
 
@@ -634,7 +621,14 @@ export function AdminPage() {
     // The one-time token stays visible while the account list reloads.
     return (
       <>
-        {issued && renderIssuedToken(issued)}
+        {issued && (
+          <IssuedTokenCallout
+            key={issued.account.sign_in_token}
+            account={issued.account}
+            reason={issued.reason}
+            onDone={() => setIssued(null)}
+          />
+        )}
         {renderAccountsList()}
       </>
     );
@@ -798,74 +792,6 @@ export function AdminPage() {
           </div>
         </form>
       </>
-    );
-  }
-
-  /** The one-time display of a token the API just returned. */
-  function renderIssuedToken({ account, reason, self, sessionError }: IssuedToken) {
-    const token = account.sign_in_token;
-    return (
-      <section className="adm-issued" role="status" aria-label="New sign-in token">
-        <p className="adm-issued__title">
-          <Icon name="warning" size={18} />
-          {reason === "created" ? "Account created. " : "New token issued. "}
-          Sign-in token for {account.display_name}:
-        </p>
-        <div className="adm-issued__row">
-          <code className="mono adm-issued__token">{token}</code>
-          <button
-            type="button"
-            className="btn btn--sm btn--secondary"
-            onClick={() => void copyIssuedToken(token)}
-          >
-            {copyState === "copied" ? (
-              <>
-                <Icon name="check" size={16} /> Copied
-              </>
-            ) : (
-              "Copy token"
-            )}
-          </button>
-        </div>
-        {copyState === "failed" && (
-          <p className="adm-add__error">Copy failed — select the token and copy it manually.</p>
-        )}
-        <p className="adm-issued__warning">
-          Shown only once: copy it now and give it to {account.display_name} privately.
-          Only a hash is stored, so it cannot be shown again, and anyone who has it can
-          sign in as this account.
-        </p>
-        {reason === "rotated" && !self && (
-          <p className="muted adm-issued__hint">The previous token no longer works.</p>
-        )}
-        {self && !sessionError && (
-          <p className="muted adm-issued__hint">
-            This is your own account: this browser now signs in with the new token.
-          </p>
-        )}
-        {self && sessionError && (
-          <p className="adm-add__error">
-            This browser could not switch to the new token. Copy it, then sign out and
-            sign in with it.
-          </p>
-        )}
-        {reason === "created" && (
-          <p className="muted adm-issued__hint">
-            {account.email} was pre-filled into the Members & roles add-member field
-            so you can grant it a role next.
-          </p>
-        )}
-        <button
-          type="button"
-          className="btn btn--sm btn--primary"
-          onClick={() => {
-            setIssued(null);
-            setCopyState("idle");
-          }}
-        >
-          Done, I have saved the token
-        </button>
-      </section>
     );
   }
 

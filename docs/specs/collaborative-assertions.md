@@ -732,6 +732,20 @@ screen is shown. While signed in, the app re-reads `GET /api/v1/me` after
 any request refused with 401 or 403, when the tab regains focus and every
 minute, so role-gated UI follows role changes made elsewhere.
 
+The tabs of one browser share the saved token. Each tab keeps the matter it
+shows: a re-read applies the fresh role on it, and moves the tab to another
+matter only when the user no longer belongs to that one. The matter last
+chosen in any tab is only where a new tab, a reload or a sign-in starts.
+Signing out in one tab signs the browser's other tabs out at once, and a
+token the server refuses in one tab signs all of them out; the sign-in page
+says which of the two happened. A token saved by another tab (rotating your
+own token there, or signing in) is re-read with `GET /api/v1/me`, and a
+signed-out tab follows such a sign-in once the server accepts the token.
+Rotating your own token switches the browser to the new token as soon as
+the server answers, even if the admin page was left meanwhile, and the new
+token is shown once above whatever page is open. While that answer is on its
+way, a 401 for the old token signs the user out only if the rotation fails.
+
 ==================================================
 13. API REQUIREMENTS
 ==================================================
