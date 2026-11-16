@@ -644,9 +644,11 @@ people is entirely in-app; no CLI or DB access is required:
    (any admin-of-some-matter can list/create user accounts, per the users
    API's access model). The email is matched case-insensitively. A matter
    always keeps at least one admin, even when two admins demote each other
-   at the same moment. Changing your own role or removing yourself takes
-   effect in your browser at once: the app leaves the admin console and
-   shows your new access.
+   at the same moment. **Remove** asks for confirmation in the member's row
+   (**Remove member** or **Keep**) before it deletes the membership.
+   Changing your own role or removing yourself takes effect in your
+   browser at once: the app leaves the admin console and shows your new
+   access.
 3. **They sign in.** The new user enters the token from step 1 on the
    sign-in page and immediately sees the UI appropriate to the role(s)
    they were granted.

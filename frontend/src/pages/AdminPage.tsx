@@ -275,6 +275,9 @@ export function AdminPage() {
   /** Mutation error surfaced above the table (409 last-admin, 403, …). */
   const [banner, setBanner] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Member whose removal awaits confirmation, as for the app's other
+   * destructive actions (evidence, comments, sign-in tokens). */
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
 
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<MatterRoleName>("contributor");
@@ -307,6 +310,7 @@ export function AdminPage() {
     setMembers(null);
     setLoadError(null);
     setBanner(null);
+    setPendingRemoval(null);
     api.listMatterMembers(matterId).then(
       (res) => {
         if (!cancelled) setMembers(res);
@@ -443,7 +447,9 @@ export function AdminPage() {
     );
   }
 
+  /** Runs once the removal is confirmed (see pendingRemoval). */
   function removeMember(member: MatterMember) {
+    setPendingRemoval(null);
     void runMutation(
       () => api.removeMatterMember(matterId, member.user.id),
       member.user.id === session.user.id,
@@ -553,15 +559,48 @@ export function AdminPage() {
                     </td>
                     {canManage && (
                       <td className="adm-actions-col">
-                        <button
-                          type="button"
-                          className="btn btn--danger-outline btn--sm"
-                          disabled={busy}
-                          aria-label={`Remove ${member.user.display_name}`}
-                          onClick={() => removeMember(member)}
-                        >
-                          Remove
-                        </button>
+                        {pendingRemoval === member.user.id ? (
+                          <div className="adm-remove-confirm">
+                            <span className="adm-remove-confirm__question">
+                              {member.user.id === session.user.id
+                                ? "Remove yourself? You lose access to this matter."
+                                : "Remove from this matter?"}
+                            </span>
+                            <span className="adm-remove-confirm__actions">
+                              <button
+                                type="button"
+                                className="btn btn--danger btn--sm"
+                                disabled={busy}
+                                aria-label={`Confirm removing ${member.user.display_name}`}
+                                onClick={() => removeMember(member)}
+                              >
+                                Remove member
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                disabled={busy}
+                                aria-label={`Keep ${member.user.display_name}`}
+                                onClick={() => setPendingRemoval(null)}
+                              >
+                                Keep
+                              </button>
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn--danger-outline btn--sm"
+                            disabled={busy}
+                            aria-label={`Remove ${member.user.display_name}`}
+                            onClick={() => {
+                              setBanner(null);
+                              setPendingRemoval(member.user.id);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>

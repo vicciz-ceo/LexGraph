@@ -432,6 +432,7 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     await screen.findByText("Riva Reviewer");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Admin" })); // it asks first
 
     await waitFor(() =>
       expect(screen.queryByRole("option", { name: "MSA" })).not.toBeInTheDocument(),
@@ -446,6 +447,7 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     await screen.findByText("Riva Reviewer");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Admin" })); // it asks first
 
     expect(await screen.findByText("No matter access")).toBeInTheDocument();
     expect(screen.queryByText(/demo seed/i)).not.toBeInTheDocument();
@@ -990,6 +992,7 @@ describe("accounts whose id contains '/' (review identity:4)", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Members & roles" }));
     fireEvent.click(await screen.findByRole("button", { name: "Remove Team Lead" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm removing Team Lead" })); // it asks first
     await waitFor(() => expect(screen.queryByText("Team Lead")).not.toBeInTheDocument());
 
     // Each id went out as one percent-encoded path segment.

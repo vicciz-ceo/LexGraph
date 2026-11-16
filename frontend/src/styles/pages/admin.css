@@ -83,6 +83,26 @@
   white-space: nowrap;
 }
 
+/* "Remove" asks first, in its row: the question above its two buttons. The
+ * question may wrap, so the column needs no more than the buttons' width. */
+.adm-remove-confirm {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font: var(--body-sm);
+}
+
+.adm-remove-confirm__question {
+  white-space: normal;
+  text-align: right;
+}
+
+.adm-remove-confirm__actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 /* --- Add member card ------------------------------------------------------ */
 
 .adm-add {
