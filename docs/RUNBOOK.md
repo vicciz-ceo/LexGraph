@@ -172,6 +172,7 @@ Upgrading /path/to/LexGraph/backend/dev.db
   20260802_add_document_jurisdiction_column        applied
   20260804_add_assertion_subject_unit_path_column  applied
   20260805_add_heading_breadcrumbs_column          applied
+  20261116_assertion_comments_index                applied
   20261116_assertion_read_indexes                  applied
   20261116_assertion_revision_number_unique        applied
   20261116_backfill_initial_assertion_revisions    already applied
@@ -196,6 +197,7 @@ The migrations shipped so far, in the order they run (`backend/app/migrations/`;
 | `20260802_add_document_jurisdiction_column` | `documents.jurisdiction` (`NOT NULL DEFAULT 'IL'`) | every existing document becomes `IL` (all pre-2026-08-02 documents are Israeli law) |
 | `20260804_add_assertion_subject_unit_path_column` | `assertions.subject_unit_path` | `NULL` (no sub-article path known) |
 | `20260805_add_heading_breadcrumbs_column` | `articles.heading_breadcrumbs` | `NULL` (no breadcrumbs captured) |
+| `20261116_assertion_comments_index` | index on `assertion_comments (assertion_id)`, which an assertion's discussion and the recipients of every comment, evidence and edit notification are read by | none: an index only. The server starts without it; without it each comment, evidence or edit request scans every matter's comments |
 | `20261116_assertion_read_indexes` | indexes on `assertions (matter_id, status)`, `assertion_evidence (assertion_id)`, `assertion_ratings (assertion_revision_id)` and `audit_events (assertion_id, event_type)`, which the list, detail page, graph and statistics read by | none: indexes only. The server starts without them; they make large matters fast |
 | `20261116_assertion_revision_number_unique` | unique index on `assertion_revisions (assertion_id, revision_number)` | a revision number that concurrent edits stored twice is renumbered first, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning |
 | `20261116_backfill_initial_assertion_revisions` | none | an assertion stored without revision 1 (definition-link output written before 2026-11-16) gets it, plus an `assertion_created` audit event marked `migration:<id>`; one edited before then keeps only its later revisions, because the original text was not stored |

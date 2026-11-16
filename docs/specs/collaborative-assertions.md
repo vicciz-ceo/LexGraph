@@ -421,7 +421,7 @@ Implementation rules (2026-11-16):
 - An edit keeps the assertion's own assertion_type without a vocabulary check, whether or not it is a proposed new type. An edit that changes the type follows the creation rule; PATCH and POST /revisions accept assertion_type_is_proposed_new for that.
 - The 100,000-character length caps are checked on the raw submitted text before it is sanitized: the proposition and explanation on creation, the proposition and revision_reason on PATCH and POST /revisions (the reason also when nothing else is sent), comment text and rating rationales on their own routes.
 - A proposed new assertion type (one outside the vocabulary, sent with assertion_type_is_proposed_new) must have the vocabulary's shape, as the Suggest form writes it: at most 255 characters (what the column holds), letters and digits of any script in upper case, words joined by single underscores (CANCELLED_BY, SECTION_12A). Every name the form saves has it. A code point that the server's Unicode database lists as unassigned counts as a letter, because the browser that wrote the name may know a newer Unicode version, unless it is a noncharacter, outside planes 0 to 3, or reserved for invisible formatting. Anything else, markup or spaces included, is a 422, on creation (REST, agent endpoint, CLI and MCP) and on an edit that changes the type.
-- A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored.
+- A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored. The rule holds in every encoding a JSON body is read in: UTF-8, UTF-16 or UTF-32, with or without a byte-order mark. A body that cannot be read as JSON (it does not decode, or is not sent as JSON) is a 400 or 422, never a 500.
 - A creation payload that lists the same source span twice with the same evidence role is a 422.
 - POST /api/v1/assertions refuses any key it does not declare (422). The agent contract's agent and confidence keys get a 422 that names POST /api/v1/agent/assertions, so an agent payload sent to the lawyer endpoint is never stored as a lawyer's suggestion.
 - A number that is not finite (NaN, Infinity, or a literal such as 1e999 that overflows) is invalid wherever a number is expected: 422, on any route. The 422 body spells such a value as the string "NaN", "Infinity" or "-Infinity".
@@ -926,8 +926,8 @@ Implementation (2026-11-16):
 - The actor is never notified of their own action, and only current members of the matter are notified. Notifications follow the committed state change. Saving a draft, re-submitting an assertion that is already proposed, a decision that changes nothing and an edit that creates no revision notify nobody. A recipient gets at most one `assertion_submitted` per submission.
 - `GET /api/v1/notifications` returns the caller's notifications, newest first (`limit` 1–200, default 50; `offset`; `unread_only`). Each has `id`, `event_type`, `actor_user_id`, `recipient_user_id`, `assertion_id`, `matter_id`, `link` (the web-app route `/assertions/{id}`), `payload`, `context`, `created_at`, `read` and `read_at`. `context` holds the current proposition (excerpted to at most 280 characters), the assertion's status and origin, the matter name and the actor's display name. `link` and `context` are null once the recipient is no longer a member of the matter. Payloads hold references and event facts only, never comment or document text. Timestamps carry a UTC offset.
 - `GET /api/v1/notifications/unread-count` returns `{"unread_count": n}`. `POST /api/v1/notifications/{id}/read` marks one notification read; the first read time is kept, and an unknown id or another user's notification returns 404. `POST /api/v1/notifications/read-all` marks the caller's unread notifications read and returns `{"marked_read": n, "unread_count": m}`. Its optional `last_read_at` leaves notifications created after that instant unread.
-- Preferences: `GET` and `PUT /api/v1/notifications/preferences` (`{"preferences": {event_type: bool}}`) switch each event type per user. Every event is on by default except `assertion_rated`. An unknown event type returns 422 and nothing is changed.
-- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. The agent CLI and the MCP server propose outside HTTP; each calls `app.notifications.notify_submission` once a suggestion is stored, so their proposals notify the reviewers and admins like a REST one. It is idempotent per submission and never raises.
+- Preferences: `GET` and `PUT /api/v1/notifications/preferences` (`{"preferences": {event_type: bool}}`) switch each event type per user. Every event is on by default except `assertion_rated`. An unknown event type returns 422 and nothing is changed. Overlapping writes, including a user's first choices for an event type, are applied one after the other: each succeeds and the later one wins.
+- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. The response waits for the notices, so working out the recipients reads only the assertion's own rows, through indexes: its cost does not grow with other assertions' ratings and comments. The agent CLI and the MCP server propose outside HTTP; each calls `app.notifications.notify_submission` once a suggestion is stored, so their proposals notify the reviewers and admins like a REST one. It is idempotent per submission and never raises.
 
 ==================================================
 16. AUDIT REQUIREMENTS
@@ -976,7 +976,7 @@ Implementation (2026-11-16). Every audited mutation writes its audit rows in its
 - `comment_created`, `comment_updated` and `comment_deleted`: — → the comment id, never the comment text. The explanation saved with a new assertion is a comment too.
 - Review decisions (`assertion.accept`, `assertion.reject`, `assertion.dispute`, `assertion.request_revision`, `assertion.supersede`): the previous → the new status, followed by the decision's note, if any.
 
-A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header. The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
+A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header, including a refusal answered before routing (the 422 for an unpaired surrogate). The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
 
 ==================================================
 17. SEARCH AND SORTING
@@ -1194,7 +1194,8 @@ and every other paged route (`/matters/{id}/entities`, `/source-spans`,
 `evidence_status`, `created_from`/`created_to` and
 `last_activity_from`/`last_activity_to` (instants, half-open `[from, to)`),
 `effective_on` (in effect on that date; an open bound is unbounded),
-`min_average_rating`, `min_rating_count`, `unrated_by_me` and `my_rating` (1–5).
+`min_average_rating` (1–5), `min_rating_count` (0–2,147,483,647),
+`unrated_by_me` and `my_rating` (1–5).
 `sort` takes `created_at`, `updated_at`, `last_activity`, `proposition`,
 `assertion_type`, `subject`, `object`, `origin`, `author`, `status`,
 `evidence_status`, `average_rating`, `rating_count`, `my_rating`,
@@ -1202,8 +1203,12 @@ and every other paged route (`/matters/{id}/entities`, `/source-spans`,
 descending, and several keys are comma-separated. Missing values sort last in
 both directions, and ties keep insertion order. Rating sorts reflect user
 opinion, not legal authority. Unknown query parameters and sort keys are
-rejected with 422. Potential-duplicate and potential-conflict filters are not
-implemented. Besides the detail serializer's fields, each item carries
+rejected with 422, and so is a sort key given twice. An invalid filter value is
+a 422 too: a number out of its range or not finite, an instant that is outside
+the years 1 to 9999 once converted to UTC (an offset is applied; an instant
+without one is UTC), or an `effective_on` that is not a `YYYY-MM-DD` date.
+Potential-duplicate and potential-conflict filters are not implemented.
+Besides the detail serializer's fields, each item carries
 `ratings_summary` (the current revision's aggregate over every rating, the
 author's included, or null), `current_user_rating` and `last_activity_at` (the
 later of `updated_at` and the newest audit event).
@@ -1213,7 +1218,8 @@ later of `updated_at` and the newest audit event).
 status and author, model confidence by origin, and the current-revision rating
 aggregates. With `created_bucket_edges` (comma-separated instants) it also
 returns creation counts per bucket. Unknown query parameters are rejected with
-422.
+422, as are invalid filter values and bucket edges that are not strictly
+increasing instants within the years 1 to 9999 in UTC.
 
 `GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
 `show_unreviewed=true` it adds proposed, disputed, rejected and superseded

@@ -1,25 +1,37 @@
-"""Refuse request bodies that carry text no field can store (audit finding api:20).
+"""Refuse request bodies that carry text no field can store (audit finding
+api:20, review persistence:2).
 
 JSON can escape a lone UTF-16 surrogate (``"\\ud800"``), and Python's json
-module decodes it -- as it decodes the raw bytes ED A0 80 .. ED BF BF, which
-it reads with "surrogatepass" -- into a str that has no UTF-8 encoding. Such
-a string answered 500 wherever it met UTF-8: bound to SQLite, or echoed back
-in a 422 body (validation errors and several error details repeat the
-input). No field of this API can hold one, so a request body that contains
-one -- in any value or key, on any route -- is refused with a 422 before
-routing, validation or any handler runs, and nothing is written.
+module decodes it -- as it decodes a raw surrogate code unit, which it reads
+with "surrogatepass" -- into a str that has no UTF-8 encoding. Such a string
+answered 500 wherever it met UTF-8: bound to SQLite, or echoed back in a 422
+body (validation errors and several error details repeat the input). No
+field of this API can hold one, so a request body that contains one -- in
+any value or key, on any route -- is refused with a 422 before routing,
+validation or any handler runs, and nothing is written.
 
-Pure ASGI middleware, so it does not depend on where in ``create_app`` it is
-registered; ``register_request_guards`` is called from ``app.main``.
+The body is read exactly as the JSON parser reads it: Starlette parses with
+``json.loads(bytes)``, which accepts UTF-8, UTF-16 and UTF-32, with or
+without a byte-order mark. Matching UTF-8 byte patterns instead let the same
+surrogate through in UTF-16 or UTF-32 (a 500) and refused valid UTF-16 text
+whose bytes happen to look like one (U+A0ED is ED A0 in UTF-16-LE).
+
+A pure ASGI middleware; ``register_request_guards`` is called from
+``app.main``. It answers by itself, so its 422 carries ``X-Request-ID`` only
+because ``app.audit_middleware`` keeps the request-id middleware outside
+every other one, whatever the registration order (review workflow:6).
 
 It also registers two exception handlers:
 
-* Validation errors (audit finding review:6): FastAPI's 422 body echoes the
-  offending input, and JSON numbers such as ``1e999``, ``NaN`` and
-  ``Infinity`` parse to non-finite floats that a JSON response cannot carry,
-  so an invalid non-finite value answered 500. The 422 now spells such a
-  value as the string ``"Infinity"``, ``"-Infinity"`` or ``"NaN"``; the rest
-  of the body is FastAPI's.
+* Validation errors (audit finding review:6, review persistence:2): FastAPI's
+  422 body echoes the offending input, which a JSON response could not always
+  carry, so the 422 itself answered 500. JSON numbers such as ``1e999``,
+  ``NaN`` and ``Infinity`` parse to non-finite floats; a value is spelled as
+  the string ``"Infinity"``, ``"-Infinity"`` or ``"NaN"``. A body FastAPI
+  does not parse as JSON (no JSON content type) is echoed as bytes; bytes
+  that are not UTF-8 are spelled with ``\\xNN`` escapes. A string with no
+  UTF-8 encoding keeps its other characters and spells the surrogate as
+  ``\\uNNNN``. The rest of the body is FastAPI's.
 * The exact-duplicate 409 (audit finding ui:5) answers the existing
   assertion's id as data, ``existing_assertion_id``, next to the documented
   ``detail`` text.
@@ -45,18 +57,28 @@ UNPAIRED_SURROGATE_DETAIL = (
     "which is not valid Unicode text"
 )
 
-# Raw ED A0..ED BF lead bytes encode surrogates, which valid UTF-8 never contains.
-_RAW_SURROGATE = re.compile(rb"\xed[\xa0-\xbf]")
 # A \uD800-\uDFFF escape; whether it is paired only parsing can tell.
-_ESCAPED_SURROGATE = re.compile(rb"\\u[dD][89a-fA-F]")
+_ESCAPED_SURROGATE = re.compile(r"\\u[dD][89a-fA-F]")
 _SURROGATE = re.compile("[\ud800-\udfff]")
 
 
 def contains_unpaired_surrogate(body: bytes) -> bool:
-    """Whether `body` would decode to text containing a lone surrogate."""
-    if _RAW_SURROGATE.search(body):
+    """Whether `body`, read as the JSON parser reads it, holds a lone surrogate.
+
+    ``json.loads(bytes)`` picks UTF-8, UTF-16 or UTF-32 with
+    ``json.detect_encoding`` and decodes with "surrogatepass", so the body is
+    decoded the same way here. A surrogate code unit left in the decoded text
+    is unpaired whatever the JSON says; an escaped one needs a parse. A body
+    that does not decode is not this guard's business: the route answers it
+    (400, or 422 when it is not sent as JSON).
+    """
+    try:
+        text = body.decode(json.detect_encoding(body), "surrogatepass")
+    except UnicodeDecodeError:
+        return False
+    if _SURROGATE.search(text):
         return True
-    if not _ESCAPED_SURROGATE.search(body):
+    if not _ESCAPED_SURROGATE.search(text):
         return False  # the common case: no parse needed
     try:
         data = json.loads(body)
@@ -109,20 +131,34 @@ class UnpairedSurrogateGuard:
 
 
 def json_safe(value):
-    """`value` with every non-finite float replaced by its JSON spelling as a
-    string, so that a JSON response can carry it."""
+    """`value` in a form a JSON response can always carry (UTF-8, no NaN).
+
+    A non-finite float becomes its JSON spelling as a string. Bytes become
+    text, with ``\\xNN`` for bytes that are not UTF-8. A string or key with
+    no UTF-8 encoding (a lone surrogate) spells the surrogate as ``\\uNNNN``;
+    every other string is returned unchanged.
+    """
     if isinstance(value, float) and not math.isfinite(value):
         return "NaN" if math.isnan(value) else ("Infinity" if value > 0 else "-Infinity")
+    if isinstance(value, str):
+        return value.encode("utf-8", "backslashreplace").decode("utf-8")
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8", "backslashreplace")
     if isinstance(value, dict):
-        return {key: json_safe(item) for key, item in value.items()}
+        return {json_safe(key): json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [json_safe(item) for item in value]
     return value
 
 
 async def validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """FastAPI's 422 for an invalid request, JSON-safe (review:6)."""
-    return JSONResponse(status_code=422, content={"detail": json_safe(jsonable_encoder(exc.errors()))})
+    """FastAPI's 422 for an invalid request, JSON-safe (review:6, persistence:2).
+
+    `json_safe` also runs before `jsonable_encoder`, which decodes echoed
+    bytes as strict UTF-8 and raised on a body that is not UTF-8.
+    """
+    detail = json_safe(jsonable_encoder(json_safe(exc.errors())))
+    return JSONResponse(status_code=422, content={"detail": detail})
 
 
 async def duplicate_assertion_response(request: Request, exc: DuplicateAssertionError) -> JSONResponse:
