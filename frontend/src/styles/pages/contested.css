@@ -330,6 +330,19 @@
   }
 }
 
+/* On a phone the six-column table scrolls sideways inside its card, and
+ * expanding a row scrolls it to the toggle at the far right. The drawer
+ * stays pinned to the visible part of the card, as wide as the card. */
+@media (max-width: 767px) {
+  .ctd-drawer {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: calc(100vw - 2 * var(--space-md) - 2px);
+    padding: var(--space-md);
+  }
+}
+
 /* "Showing N of M" + Show more, under the table. */
 .ctd-more {
   display: flex;

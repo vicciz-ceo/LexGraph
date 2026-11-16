@@ -1076,6 +1076,23 @@ ol {
     display: none;
   }
 
+  /* The bell sits near the right edge here: its 360px panel, hung from the
+   * bell, ran off the left of a phone screen. It spans the topbar instead. */
+  .topbar {
+    position: relative;
+  }
+
+  .notifications {
+    position: static;
+  }
+
+  .notifications__panel {
+    left: var(--space-md);
+    right: var(--space-md);
+    width: auto;
+    max-height: min(420px, 70vh);
+  }
+
   .page-header__title {
     font: var(--headline-sm);
   }
