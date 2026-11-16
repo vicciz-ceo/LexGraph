@@ -29,6 +29,7 @@ import type { IconName } from "../app/icons";
 import { Link, useHashLocation } from "../app/router";
 import { useActiveSession } from "../app/session";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
+import { isSystemDerived, SYSTEM_DERIVED_LABEL } from "../constants/pipeline";
 
 const DEBOUNCE_MS = 250;
 /** Rows per table page. */
@@ -101,10 +102,12 @@ const EVIDENCE_LABELS: Record<string, string> = {
 
 /** The Evidence cell: a system_generated row without evidence was derived by
  * the definition-linking pipeline from the provision it links, so it is not
- * "awaiting evidence" (ui:4; the detail page says the same). */
+ * "awaiting evidence" (ui:4). The rule and its label are the shared ones of
+ * constants/pipeline.ts, so the Review Queue, Contested and the assertion page
+ * say the same. */
 function evidenceCell(assertion: AssertionListItem): { className: string; label: string } {
-  if (assertion.origin === "system_generated" && assertion.evidence_status === "awaiting_evidence") {
-    return { className: "kb-evidence kb-evidence--system", label: "System-derived" };
+  if (isSystemDerived(assertion)) {
+    return { className: "kb-evidence kb-evidence--system", label: SYSTEM_DERIVED_LABEL };
   }
   return {
     className: `kb-evidence kb-evidence--${assertion.evidence_status}`,
