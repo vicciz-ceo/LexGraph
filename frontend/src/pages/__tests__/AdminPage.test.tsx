@@ -15,10 +15,15 @@ const mocks = vi.hoisted(() => ({
   role: "admin" as MatterRoleName,
   signIn: vi.fn(),
   refreshSession: vi.fn(),
+  rotateOwnToken: vi.fn(),
 }));
 
 vi.mock("../../app/session", () => ({
-  useSession: () => ({ signIn: mocks.signIn, refresh: mocks.refreshSession }),
+  useSession: () => ({
+    signIn: mocks.signIn,
+    refresh: mocks.refreshSession,
+    rotateOwnToken: mocks.rotateOwnToken,
+  }),
   useActiveSession: () => {
     const matter = {
       id: "m-1",
@@ -132,6 +137,9 @@ beforeEach(() => {
   );
   mocks.signIn.mockResolvedValue(undefined);
   mocks.refreshSession.mockResolvedValue(undefined);
+  mocks.rotateOwnToken.mockResolvedValue(
+    rotated(accounts[0], "tok-rotated-u-admin-abcdefghijklmnopqrstuvwxyz"),
+  );
   window.location.hash = "#/admin";
 });
 
@@ -560,7 +568,13 @@ describe("AdminPage", () => {
       ).toBeInTheDocument();
     });
 
-    it("rotating your own token switches this session to the new token", async () => {
+    // Re-pointed (review identity:2): this page used to rotate your own token
+    // itself and switch the session (signIn) only if it was still open when
+    // the answer arrived, so leaving it meanwhile left the browser on the dead
+    // token, the new one unseen, and the admin locked out. The session now
+    // rotates, switches and keeps the token, and the app shell shows it once;
+    // App.test.tsx and session.tabs.test.tsx cover that end to end.
+    it("rotating your own token is left to the session, which survives this page", async () => {
       await renderPage();
       fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
       await screen.findByText("Dana Cohen");
@@ -570,12 +584,30 @@ describe("AdminPage", () => {
         screen.getByRole("button", { name: "Confirm new sign-in token for Ada Stern" }),
       );
 
-      await waitFor(() =>
-        expect(mocks.signIn).toHaveBeenCalledWith(
-          "tok-rotated-u-admin-abcdefghijklmnopqrstuvwxyz",
-        ),
+      await waitFor(() => expect(mocks.rotateOwnToken).toHaveBeenCalledTimes(1));
+      expect(mockedUsersApi.rotateSignInToken).not.toHaveBeenCalled();
+      expect(mocks.signIn).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockedUsersApi.listUsers).toHaveBeenCalledTimes(2));
+      // Shown once, by the app shell: no second copy on this page.
+      expect(screen.queryByRole("status", { name: "New sign-in token" })).not.toBeInTheDocument();
+    });
+
+    it("reports a failed rotation of your own token on the page", async () => {
+      mocks.rotateOwnToken.mockRejectedValueOnce(new ApiError(503, "Service Unavailable"));
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rotate sign-in token for Ada Stern" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm new sign-in token for Ada Stern" }),
       );
-      expect(await screen.findByText(/this browser now signs in with the new token/i)).toBeInTheDocument();
+
+      expect(await screen.findByText("Service Unavailable")).toBeInTheDocument();
+      expect(screen.queryByRole("status", { name: "New sign-in token" })).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Rotate sign-in token for Ada Stern" }),
+      ).toBeEnabled();
     });
 
     it("surfaces a refused rotation without showing a token", async () => {

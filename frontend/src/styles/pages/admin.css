@@ -175,6 +175,8 @@
   border: 1px solid var(--status-pending-fg);
   border-radius: var(--radius-md);
   background: var(--surface-container-lowest);
+  /* Also shown in the sign-in card, whose text is centred. */
+  text-align: left;
 }
 
 .adm-issued__title {

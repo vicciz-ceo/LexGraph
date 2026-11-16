@@ -708,6 +708,13 @@ Accounts and membership (2026-11-16):
   starting with a letter or digit, so that it fits `users.id` and works in
   URL paths; anything else, or an id already in use, is 422. `email` is
   at most 254 characters and `display_name` at most 255 (422).
+- Accounts created before that rule keep their ids. One containing `/`
+  (`team/lead`) is still addressed by
+  `POST /api/v1/users/{user_id}/sign-in-token` and by `PUT` and `DELETE`
+  `/api/v1/matters/{matter_id}/members/{user_id}`: clients send the id
+  percent-encoded as one path segment (`team%2Flead`), and these routes
+  take the rest of the path as the id, so such an account is rotated,
+  re-roled and removed like any other.
 - A request that loses a race to an equivalent concurrent request gets the
   answer the later of two sequential requests would get (409 for a
   duplicate email or membership, 422 for a duplicate id), never a 500.
@@ -726,6 +733,28 @@ If restoring a saved sign-in fails in any other way (no response, 5xx,
 screen is shown. While signed in, the app re-reads `GET /api/v1/me` after
 any request refused with 401 or 403, when the tab regains focus and every
 minute, so role-gated UI follows role changes made elsewhere.
+
+The tabs of one browser share the saved token. Each tab keeps the matter it
+shows: a re-read applies the fresh role on it, and moves the tab to another
+matter only when the user no longer belongs to that one. The matter last
+chosen in any tab is only where a new tab, a reload or a sign-in starts.
+Signing out in one tab signs the browser's other tabs out at once, and a
+token the server refuses in one tab signs all of them out; the sign-in page
+says which of the two happened. A token saved by another tab (rotating your
+own token there, or signing in) is re-read with `GET /api/v1/me`, and a
+signed-out tab follows such a sign-in once the server accepts the token.
+Rotating your own token switches the browser to the new token as soon as
+the server answers, even if the admin page was left meanwhile, and the new
+token is shown once above whatever page is open. While that answer is on its
+way, a 401 for the old token signs the user out only if the rotation fails.
+From the server's commit on, the new token is the only one that signs in as
+that user, so it is never dropped unseen: the tab that asked for it keeps
+showing it until the user confirms it is saved. A sign-out, in that tab or
+another, before the answer arrives or before that confirmation still signs
+every tab out, and the browser does not save the token; that tab's sign-in
+page shows it instead. It is shown to its owner only: once another account
+signs in in that tab, it is forgotten (an answer arriving after that is
+neither saved nor shown), and so is a token the server is then seen to refuse.
 
 ==================================================
 13. API REQUIREMENTS

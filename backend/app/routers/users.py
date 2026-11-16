@@ -322,7 +322,11 @@ def create_user(
     return _serialize_issued(user, token)
 
 
-@router.post("/users/{target_user_id}/sign-in-token")
+# `:path`: ids created before the api:24 rules may contain "/" (e.g.
+# "team/lead"). Clients send it as %2F, which the server decodes before
+# routing, so a plain segment parameter never matched such an account and
+# its legacy token could not be rotated in-app (review identity:4).
+@router.post("/users/{target_user_id:path}/sign-in-token")
 def rotate_sign_in_token(
     target_user_id: str,
     session: Session = Depends(get_session),

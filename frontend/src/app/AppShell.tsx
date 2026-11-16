@@ -2,6 +2,9 @@
 // + topbar (global assertion search, notifications, help), per the
 // Consensus design's shared layout. Below 768px the sidebar becomes a
 // drawer opened from the mobile bar's menu button (navDrawer.tsx).
+// Above every page it shows the token of a rotation of your own sign-in
+// token until you click Done, wherever you are when it arrives (review
+// identity:2).
 
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -9,6 +12,7 @@ import type { FormEvent, ReactNode } from "react";
 import { NotificationsMenu } from "../components/NotificationsMenu";
 import { Icon } from "./icons";
 import type { IconName } from "./icons";
+import { IssuedTokenCallout } from "./IssuedTokenCallout";
 import { Link, navigate, useHashLocation } from "./router";
 import { useSession } from "./session";
 import { MenuIcon, useNavDrawer } from "./navDrawer";
@@ -44,7 +48,8 @@ function initials(name: string): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { session, signOut, selectMatter } = useSession();
+  const { session, signOut, selectMatter, issuedOwnToken, acknowledgeIssuedOwnToken } =
+    useSession();
   // Below 768px the sidebar is a drawer behind the mobile bar's menu button (ui:26).
   const drawer = useNavDrawer();
   const location = useHashLocation();
@@ -204,7 +209,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </a>
         </header>
         <main className="page">
-          <div className="page__inner">{children}</div>
+          <div className="page__inner">
+            {issuedOwnToken && (
+              <IssuedTokenCallout
+                key={issuedOwnToken.sign_in_token}
+                account={issuedOwnToken}
+                reason="rotated"
+                self
+                onDone={() => acknowledgeIssuedOwnToken?.()}
+              />
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>
