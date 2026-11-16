@@ -23,6 +23,7 @@ from app.models.definition import Definition
 from app.models.document import Document
 from app.models.matter import Matter
 from app.models.matter_role import MatterRole
+from app.models.notification import Notification, NotificationPreference
 from app.models.organization import Organization
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
@@ -40,6 +41,8 @@ __all__ = [
     "Document",
     "Matter",
     "MatterRole",
+    "Notification",
+    "NotificationPreference",
     "Organization",
     "Repository",
     "SourceSpan",
