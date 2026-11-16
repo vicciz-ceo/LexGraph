@@ -362,6 +362,17 @@ describe("AdminPage", () => {
     expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
   });
 
+  it("says that a revision-requested assertion returns to review when resubmitted (ui:34)", async () => {
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Review policy" }));
+
+    // Saving a new revision keeps it "Revision requested"; only submitting
+    // it for review again makes it proposed (backend/app/routers/assertions.py).
+    expect(screen.getByText(/submits it for review again/i)).toBeInTheDocument();
+    expect(screen.queryByText(/a new revision returns it to proposed/i)).not.toBeInTheDocument();
+  });
+
   it("shows an error banner with retry when the roster fails to load", async () => {
     mockedApi.listMatterMembers.mockRejectedValueOnce(new Error("backend unreachable"));
     render(<AdminPage />);
