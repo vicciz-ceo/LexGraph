@@ -183,6 +183,8 @@ curl http://localhost:8000/healthz
 
 The backend provides REST APIs at `/api/v1/` for managing assertions, comments, ratings, and the graph. See the API documentation at `http://localhost:8000/docs` when the server is running.
 
+`GET /api/v1/assertions?matter_id=<id>` accepts the search, filter and sort parameters listed in [the spec](specs/collaborative-assertions.md#listing-statistics-graph-bounds-and-timestamps-2026-11-16) and pages with `limit` (1–500) and `offset`. `total` in the response always counts every match. Without `limit` every match is returned, which can be tens of megabytes for a matter holding pipeline output, so scripts should page. Unknown query parameters and sort keys return 422. `GET /api/v1/matters/<id>/graph` returns at most `limit` edges (default 1000) together with `total`, and `GET /api/v1/matters/<id>/assertion-stats` returns matter-level counts. Every timestamp the API returns is UTC with an explicit offset; `effective_from`/`effective_to` are calendar dates without one.
+
 ### Offline Pipelines (CLI-only, no frontend UI)
 
 Two deterministic, offline batch passes run against a matter's already-stored data and write draft/accepted assertions directly to the database (no LLM/network calls). Both read `LEXGRAPH_DATABASE_URL` the same way the backend server does, so point them at the same database file the server uses.
@@ -205,7 +207,7 @@ cd backend
 cd ..
 ```
 
-This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint); add `&limit=100&offset=<n>` to page through a large run.
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 

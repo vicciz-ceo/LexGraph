@@ -55,10 +55,12 @@ class GraphProjection(ABC):
 class InMemoryGraphProjection(GraphProjection):
     """In-memory GraphProjection adapter — real for this sprint (ruling R1).
 
-    Method bodies are unimplemented (`NotImplementedError`) pending a
-    Developer track (B6). This class is intentionally NOT a
-    `unittest.mock.Mock` — tests instantiate and call it directly so a
-    green result proves real projection behavior, per the self-mock ban.
+    Not thread-safe: `rebuild` replaces the whole projection. The graph
+    route therefore builds one instance per request from the requested
+    matter's rows instead of sharing one across requests. This class is
+    intentionally NOT a `unittest.mock.Mock` — tests instantiate and call
+    it directly so a green result proves real projection behavior, per the
+    self-mock ban.
     """
 
     def __init__(self) -> None:

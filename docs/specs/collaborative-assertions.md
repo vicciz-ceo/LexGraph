@@ -977,3 +977,45 @@ needs contributor membership and an unreviewed status; reviewers can revise
 reviewed assertions. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Listing, statistics, graph bounds and timestamps (2026-11-16)
+
+`GET /api/v1/assertions?matter_id=…` returns `{"items", "total", "limit",
+"offset"}`. `limit` (1–500) and `offset` page the result; without `limit`
+every match is returned, as before. `total` always counts every match. Filters
+(§10, §17): `q` (current revision's raw proposition, case-insensitive), `origin`,
+`status`, `assertion_type`, `author_user_id`, `subject_entity_type`,
+`subject_entity_id`, `object_entity_type`, `object_entity_id`, `jurisdiction`,
+`evidence_status`, `created_from`/`created_to` and
+`last_activity_from`/`last_activity_to` (instants, half-open `[from, to)`),
+`effective_on` (in effect on that date; an open bound is unbounded),
+`min_average_rating`, `min_rating_count`, `unrated_by_me` and `my_rating` (1–5).
+`sort` takes `created_at`, `updated_at`, `last_activity`, `proposition`,
+`assertion_type`, `subject`, `object`, `origin`, `author`, `status`,
+`evidence_status`, `average_rating`, `rating_count`, `my_rating`,
+`jurisdiction`, `effective_from` or `effective_to`. A `-` prefix sorts
+descending, and several keys are comma-separated. Missing values sort last in
+both directions, and ties keep insertion order. Rating sorts reflect user
+opinion, not legal authority. Unknown query parameters and sort keys are
+rejected with 422. Potential-duplicate and potential-conflict filters are not
+implemented. Besides the detail serializer's fields, each item carries
+`ratings_summary` (the current revision's aggregate over every rating, the
+author's included, or null), `current_user_rating` and `last_activity_at` (the
+later of `updated_at` and the newest audit event).
+
+`GET /api/v1/matters/{id}/assertion-stats` accepts the same filters except
+`q`. It returns counts by status, origin, origin and status, type, evidence
+status and author, model confidence by origin, and the current-revision rating
+aggregates. With `created_bucket_edges` (comma-separated instants) it also
+returns creation counts per bucket.
+
+`GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
+`show_unreviewed=true` it adds proposed, disputed, rejected and superseded
+ones. Drafts, withdrawn assertions and those returned for revision never
+appear. Each request builds its own projection from the matter's rows and
+returns at most `limit` edges (default 1000, maximum 5000) after `offset`,
+with `total`.
+
+Every instant the API returns is UTC with an explicit offset (`…Z` or
+`+00:00`). `effective_from` and `effective_to` are calendar dates and carry no
+offset.
