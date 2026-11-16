@@ -11,14 +11,25 @@ routing, validation or any handler runs, and nothing is written.
 
 Pure ASGI middleware, so it does not depend on where in ``create_app`` it is
 registered; ``register_request_guards`` is called from ``app.main``.
+
+It also registers the handler for validation errors (audit finding
+review:6): FastAPI's 422 body echoes the offending input, and JSON numbers
+such as ``1e999``, ``NaN`` and ``Infinity`` parse to non-finite floats that a
+JSON response cannot carry, so an invalid non-finite value answered 500. The
+422 now spells such a value as the string ``"Infinity"``, ``"-Infinity"`` or
+``"NaN"``; the rest of the body is FastAPI's.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -90,5 +101,23 @@ class UnpairedSurrogateGuard:
         await self.app(scope, replay, send)
 
 
+def json_safe(value):
+    """`value` with every non-finite float replaced by its JSON spelling as a
+    string, so that a JSON response can carry it."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return "NaN" if math.isnan(value) else ("Infinity" if value > 0 else "-Infinity")
+    if isinstance(value, dict):
+        return {key: json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    return value
+
+
+async def validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """FastAPI's 422 for an invalid request, JSON-safe (review:6)."""
+    return JSONResponse(status_code=422, content={"detail": json_safe(jsonable_encoder(exc.errors()))})
+
+
 def register_request_guards(app: FastAPI) -> None:
     app.add_middleware(UnpairedSurrogateGuard)
+    app.add_exception_handler(RequestValidationError, validation_error_response)

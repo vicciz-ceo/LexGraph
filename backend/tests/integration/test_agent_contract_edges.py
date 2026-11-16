@@ -6,9 +6,15 @@
   provenance and `confidence` silently dropped; its exact-duplicate then
   blocked the correct submission forever. Undeclared keys are now a 422, and
   the agent-only ones point to POST /api/v1/agent/assertions.
+* review:6 -- a non-finite confidence (`1e999`, `NaN`, `Infinity`, all valid
+  JSON numbers for Python) answered 500: FastAPI's 422 echoes the input,
+  which a JSON response cannot carry. Now a 422 with the value spelled as a
+  string; the same holds for any field on any route.
 """
 
 from __future__ import annotations
+
+import json
 
 import pytest
 from sqlalchemy import func, select
@@ -81,3 +87,49 @@ def test_a_lawyer_payload_is_still_a_user_suggestion(client, matter_with_users):
     assert r.status_code == 201, r.text
     assert (r.json()["origin"], r.json()["confidence"], r.json()["agent_provenance"]) == (
         "user_suggested", None, None)
+
+
+# --- review:6 ---------------------------------------------------------------
+
+
+def _raw_body(fields: dict, key: str, literal: str) -> str:
+    """`fields` as JSON with `key` set to a raw JSON number literal."""
+    return json.dumps(fields)[:-1] + f', "{key}": {literal}}}'
+
+
+@pytest.mark.parametrize(("literal", "spelled"), [
+    ("1e999", "Infinity"), ("-1e999", "-Infinity"), ("Infinity", "Infinity"), ("-Infinity", "-Infinity"),
+    ("NaN", "NaN"),
+])
+def test_a_non_finite_confidence_is_a_422_that_names_the_value(client, db_session, matter_with_users,
+                                                               suggestion, literal, spelled):
+    fields = {key: value for key, value in suggestion.items() if key != "confidence"}
+
+    r = client.post("/api/v1/agent/assertions", content=_raw_body(fields, "confidence", literal),
+                    headers={**matter_with_users["contributor_headers"], "Content-Type": "application/json"})
+
+    assert r.status_code == 422, r.text
+    (error,) = r.json()["detail"]
+    assert (error["type"], error["loc"], error["input"]) == ("finite_number", ["body", "confidence"], spelled)
+    assert _counts(db_session) == (0, 0)
+
+
+def test_non_finite_numbers_are_422_on_every_route(client, db_session, matter_with_users):
+    m = matter_with_users
+    headers = {**m["contributor_headers"], "Content-Type": "application/json"}
+    fields = {key: value for key, value in assertion_payload(m["matter_id"], m["repository_id"]).items()
+              if key != "effective_from"}
+
+    created = client.post("/api/v1/assertions", content=_raw_body(fields, "effective_from", "1e999"),
+                          headers=headers)
+    assert created.status_code == 422, created.text
+    assert created.json()["detail"][0]["input"] == "Infinity"
+    assert _counts(db_session) == (0, 0)
+
+    assertion = client.post("/api/v1/assertions", json=assertion_payload(m["matter_id"], m["repository_id"]),
+                            headers=m["contributor_headers"]).json()
+    rating = client.put(f"/api/v1/assertions/{assertion['id']}/revisions/1/rating",
+                        content='{"strength": NaN, "rationale": null}',
+                        headers={**m["rater_headers"], "Content-Type": "application/json"})
+    assert rating.status_code == 422, rating.text
+    assert rating.json()["detail"][0]["input"] == "NaN"
