@@ -259,6 +259,11 @@ describe("AdminPage", () => {
     expect(
       screen.getByText(/record an acceptance justification/),
     ).toBeInTheDocument();
+    // A new revision leaves a revision-requested assertion there; only
+    // submitting it again returns it to proposed (ui:34).
+    expect(
+      screen.getByText(/resubmits it, which returns it to proposed/),
+    ).toBeInTheDocument();
     // Reference content is static — no extra API traffic.
     expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
   });
