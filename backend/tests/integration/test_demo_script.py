@@ -33,6 +33,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -155,7 +156,8 @@ def _get(url: str) -> tuple[int, bytes]:
         with opener.open(url, timeout=10) as response:
             return response.status, response.read()
     except urllib.error.HTTPError as error:
-        return error.code, error.read()
+        with error:  # it holds the response open (ops-docs:1)
+            return error.code, error.read()
 
 
 def _sha256(path: Path) -> str:
@@ -163,7 +165,8 @@ def _sha256(path: Path) -> str:
 
 
 def _user_ids(db: Path) -> set[str]:
-    with sqlite3.connect(db) as conn:
+    # A connection's own `with` only commits; closing() closes it (ops-docs:1).
+    with closing(sqlite3.connect(db)) as conn:
         return {row[0] for row in conn.execute("SELECT id FROM users")}
 
 
@@ -196,6 +199,7 @@ class Demo:
         self.db = backend / "dev.db"
         self.output: list[str] = []
         self.process: subprocess.Popen[str] | None = None
+        self._reader: threading.Thread | None = None
 
     # --- layout states ------------------------------------------------------
     def install_backend(self, *, dependencies: bool = True) -> None:
@@ -261,7 +265,8 @@ class Demo:
             ["bash", str(self.root / "scripts" / "demo.sh")], cwd=self.root, env=self.env(**env),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True,
         )
-        threading.Thread(target=self._read, daemon=True).start()
+        self._reader = threading.Thread(target=self._read, daemon=True)
+        self._reader.start()
 
     def _read(self) -> None:
         assert self.process is not None and self.process.stdout is not None
@@ -299,6 +304,10 @@ class Demo:
         except ProcessLookupError:
             pass
         self.process.wait(timeout=10)
+        if self._reader is not None:
+            self._reader.join(timeout=10)  # EOF once no process of the session holds the pipe
+        if self.process.stdout is not None and not (self._reader and self._reader.is_alive()):
+            self.process.stdout.close()  # else an unclosed-file ResourceWarning (ops-docs:1)
 
     def assert_ports_free(self) -> None:
         deadline = time.monotonic() + 10
