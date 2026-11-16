@@ -65,7 +65,12 @@ from app.models.matter import Matter
 from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
-from app.services.duplicates import find_related_assertions
+from app.services.duplicates import (
+    blocks_exact_duplicate,
+    find_related_assertions,
+    first_blocking_duplicate,
+    normalize_proposition,
+)
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
@@ -492,13 +497,45 @@ def _require_can_modify(session: Session, user_id: str, assertion: Assertion) ->
         raise HTTPException(403, "Only the author of an unreviewed assertion or a reviewer may modify it")
 
 
-# --- Conflict helpers (stale revisions) -------------------------------------
+# --- Conflict helpers (duplicates, stale revisions) -------------------------
 
 _STALE_REVISION_DETAIL = "assertion has been modified since expected_revision_number"
 
 
 def _stale_revision_conflict() -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_STALE_REVISION_DETAIL)
+
+
+def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "duplicate: an identical proposition already exists in this matter "
+            f"(assertion {existing_assertion_id})"
+        ),
+    )
+
+
+def _blocking_duplicate_id(
+    session: Session,
+    matter_id: str,
+    proposition: str,
+    *,
+    owner_user_id: str,
+    exclude_id: str | None = None,
+    submitting: bool = False,
+) -> str | None:
+    """Exact-duplicate check against the committed state (spec §7/§8 and the
+    "Exact duplicates" rule): the oldest blocking assertion's id, or None.
+    Run it under `lock_assertion_writes` to make check-then-write atomic."""
+    rows = session.execute(
+        select(Assertion.id, Assertion.proposition, Assertion.status, Assertion.author_user_id)
+        .where(Assertion.matter_id == matter_id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
+    return first_blocking_duplicate(
+        proposition, rows, owner_user_id=owner_user_id, exclude_id=exclude_id, submitting=submitting
+    )
 
 
 def _revision_number_taken(session: Session, assertion_id: str, revision_number: int) -> bool:
@@ -581,7 +618,11 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # surfaced as a non-blocking warning (spec §7: "similarity warnings must
     # not prevent submission unless there is an exact duplicate").
     existing_rows = (
-        session.execute(select(Assertion).where(Assertion.matter_id == body.matter_id))
+        session.execute(
+            select(Assertion)
+            .where(Assertion.matter_id == body.matter_id)
+            .order_by(Assertion.created_at, Assertion.id)
+        )
         .scalars()
         .all()
     )
@@ -610,16 +651,33 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         for row in existing_rows
     ]
     matches = find_related_assertions(candidate, existing_candidates)
-    exact_matches = [m for m in matches if m["match_kind"] == "exact_proposition"]
-    if exact_matches:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "duplicate: an identical proposition already exists in this matter "
-                f"(assertion {exact_matches[0]['assertion_id']})"
-            ),
+    # api:16: only live assertions and the author's own drafts block; an
+    # exact match with a withdrawn/rejected/superseded assertion or another
+    # user's draft is returned below as a non-blocking similar assertion.
+    rows_by_id = {row.id: row for row in existing_rows}
+    blocking = [
+        m["assertion_id"]
+        for m in matches
+        if m["match_kind"] == "exact_proposition"
+        and blocks_exact_duplicate(
+            rows_by_id[m["assertion_id"]].status,
+            rows_by_id[m["assertion_id"]].author_user_id,
+            owner_user_id=user_id,
         )
-    similar_matches = [m for m in matches if m["match_kind"] != "exact_proposition"]
+    ]
+    if blocking:
+        raise _duplicate_conflict(blocking[0])
+    similar_matches = matches
+
+    # agent:1 / api:17: the scan above holds no lock, so another submitter
+    # (request, agent CLI or MCP server) may have stored the same
+    # proposition since. Serialize writers and re-check before inserting;
+    # the lock lasts until the commit below (or the rollback on 409).
+    lock_assertion_writes(session, body.matter_id)
+    blocker = _blocking_duplicate_id(session, body.matter_id, proposition, owner_user_id=user_id)
+    if blocker is not None:
+        session.rollback()
+        raise _duplicate_conflict(blocker)
 
     now = _now()
     assertion = Assertion(
@@ -934,6 +992,20 @@ def patch_assertion(
                 status_code=422, detail=str(exc)
             ) from exc
 
+    # api:17: an edit is held to the same exact-duplicate rule as creation
+    # (it may not take the proposition of another live assertion or of the
+    # author's own draft); keeping the current proposition is never a
+    # duplicate. Checked here without a lock, and again under it below.
+    new_proposition = sanitize_for_storage(body.proposition) if "proposition" in updates else None
+    takes_new_proposition = new_proposition is not None and (
+        normalize_proposition(new_proposition) != normalize_proposition(assertion.proposition)
+    )
+    duplicate_check = dict(owner_user_id=assertion.author_user_id, exclude_id=assertion.id)
+    if takes_new_proposition:
+        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+        if blocker is not None:
+            raise _duplicate_conflict(blocker)
+
     # api:0: serialize writers, then re-read the assertion. A concurrent edit
     # of the same base revision has committed if the number moved on; the
     # unique (assertion_id, revision_number) index is the backstop below.
@@ -943,6 +1015,11 @@ def patch_assertion(
         session.rollback()
         raise _stale_revision_conflict()
     _require_can_modify(session, user_id, assertion)
+    if takes_new_proposition:
+        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+        if blocker is not None:
+            session.rollback()
+            raise _duplicate_conflict(blocker)
 
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this PATCH doesn't touch proposition, so a new
@@ -956,7 +1033,7 @@ def patch_assertion(
     if "proposition" in updates:
         # B5 (qa-fail fix): sanitize like CREATE does -- PATCH is a storage
         # path for the proposition too (gate G10).
-        assertion.proposition = sanitize_for_storage(body.proposition)
+        assertion.proposition = new_proposition
         proposition_raw = body.proposition
     if "assertion_type" in updates:
         assertion.assertion_type = body.assertion_type
@@ -1026,12 +1103,27 @@ def submit_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    if assertion.status == "draft":
+        # api:16: a draft does not block other authors' identical
+        # propositions, so leaving draft is where it first claims one:
+        # serialize writers and check against the committed state.
+        lock_assertion_writes(session, assertion.matter_id)
+        session.refresh(assertion)
+        _require_can_modify(session, user_id, assertion)
 
     if assertion.status not in ("draft", "proposed", "revision_requested"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"cannot submit assertion in status '{assertion.status}'",
         )
+    if assertion.status == "draft":
+        blocker = _blocking_duplicate_id(
+            session, assertion.matter_id, assertion.proposition,
+            owner_user_id=assertion.author_user_id, exclude_id=assertion.id, submitting=True,
+        )
+        if blocker is not None:
+            session.rollback()
+            raise _duplicate_conflict(blocker)
 
     assertion.status = "proposed"
     assertion.submitted_at = _now()

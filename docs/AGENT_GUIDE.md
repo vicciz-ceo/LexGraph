@@ -96,7 +96,12 @@ No agent-submission operation accepts assertions or creates ratings.
 - **422:** fix the reported validation issue (including missing/cross-matter
   sources, wrong repository, invalid confidence or dates).
 - **409 duplicate:** no second assertion was created. Read the existing assertion
-  ID in the error and inspect it. Do not retry with cosmetic rewording.
+  ID in the error and inspect it. Do not retry with cosmetic rewording. This
+  holds for concurrent and retried submissions too (parallel agents, CLI, MCP
+  and REST): exactly one of several identical submissions is stored. Only live
+  (proposed, revision-requested, accepted, disputed) assertions and the actor's
+  own drafts block; withdrawn, rejected or superseded ones and other users'
+  drafts are listed in `similar_assertions` instead.
 
 Do not write assertion tables directly, even if the agent has SQL access.
 The local file owner can bypass application permissions; these interfaces enforce

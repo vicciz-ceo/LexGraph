@@ -7,10 +7,19 @@ competing/contradicting assertions. Must never auto-merge — this module
 only surfaces candidates; callers decide whether to block (exact
 duplicates, spec §7 "similarity warnings must not prevent submission
 unless there is an exact duplicate") or merely warn.
+
+Which exact duplicates block (audit finding api:16, recorded in the spec's
+"Exact duplicates" rule): an existing assertion in a LIVE status (anything
+but draft, withdrawn, rejected or superseded) blocks every author, and an
+existing draft blocks only its own author -- unless that draft is the one
+being submitted. Withdrawn, rejected and superseded assertions never block;
+they are still returned by `find_related_assertions` as matches, so callers
+report them as non-blocking `similar_assertions`.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from difflib import SequenceMatcher
 from typing import Any, TypedDict
 
@@ -28,8 +37,62 @@ class DuplicateCandidate(TypedDict):
     score: float
 
 
-def _norm(text: str | None) -> str:
+#: Statuses whose exact-proposition twin never blocks: the claim was
+#: abandoned, decided against, or replaced, so proposing it again (for
+#: example with new evidence) is a new submission, not a duplicate.
+ENDED_STATUSES = frozenset({"withdrawn", "rejected", "superseded"})
+
+
+def normalize_proposition(text: str | None) -> str:
+    """The comparison key for exact-duplicate detection (case and
+    surrounding whitespace are ignored)."""
     return (text or "").strip().lower()
+
+
+_norm = normalize_proposition
+
+
+def blocks_exact_duplicate(
+    status: str | None,
+    author_user_id: str | None,
+    *,
+    owner_user_id: str | None,
+    submitting: bool = False,
+) -> bool:
+    """Whether an existing assertion with an identical proposition blocks.
+
+    `owner_user_id` is the author of the assertion being created, edited or
+    submitted. `submitting` is True when a draft is being submitted: its
+    author's other drafts do not block it (they are checked when they are
+    submitted themselves).
+    """
+    if status in ENDED_STATUSES:
+        return False
+    if status == "draft":
+        return not submitting and author_user_id == owner_user_id
+    return True
+
+
+def first_blocking_duplicate(
+    proposition: str | None,
+    existing: Iterable[tuple[str, str | None, str | None, str | None]],
+    *,
+    owner_user_id: str | None,
+    exclude_id: str | None = None,
+    submitting: bool = False,
+) -> str | None:
+    """Return the id of the first `(id, proposition, status, author_user_id)`
+    row in `existing` that blocks `proposition` as an exact duplicate."""
+    key = normalize_proposition(proposition)
+    if not key:
+        return None
+    for row_id, other_proposition, status, author_user_id in existing:
+        if row_id == exclude_id or normalize_proposition(other_proposition) != key:
+            continue
+        if blocks_exact_duplicate(status, author_user_id, owner_user_id=owner_user_id,
+                                  submitting=submitting):
+            return row_id
+    return None
 
 
 def _entity_key(entity: dict[str, Any] | None) -> tuple[str | None, str | None] | None:

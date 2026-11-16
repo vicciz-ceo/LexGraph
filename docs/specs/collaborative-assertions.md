@@ -438,6 +438,13 @@ Allow the user to:
 
 Do not automatically merge assertions.
 
+Exact duplicates (2026-11-16). Two propositions are exact duplicates when they are equal after trimming surrounding whitespace and ignoring case, within one matter. An existing exact duplicate blocks (409, naming the existing assertion) when it is:
+
+- live: proposed, revision_requested, accepted or disputed, whoever wrote it; or
+- a draft by the same author as the assertion being created or edited.
+
+Withdrawn, rejected and superseded assertions never block, so an abandoned or decided claim can be proposed again (for example with new evidence); neither do other users' drafts, which are unsubmitted work. Non-blocking exact matches are returned in similar_assertions with match_kind exact_proposition. The same rule applies when an edit (PATCH or POST /revisions) changes the proposition, and when a draft is submitted; keeping the current proposition is never a duplicate. Submitting a draft is blocked only by live assertions, so of two identical drafts the first submitted wins.
+
 ==================================================
 9. ASSERTION DISCUSSION AND RATIONALES
 ==================================================
@@ -732,7 +739,7 @@ All mutation APIs must:
 - Prevent lost updates
 - Return the current assertion revision
 
-Concurrency (2026-11-16). Revision numbering holds for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation an edit takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409.
+Concurrency (2026-11-16). The exact-duplicate check and revision numbering hold for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation a create, edit or draft submission takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. N identical concurrent submissions yield one 201 and N-1 duplicate 409s. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409.
 
 ==================================================
 14. FRONTEND PAGES AND COMPONENTS
