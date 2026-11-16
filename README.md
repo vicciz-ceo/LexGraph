@@ -37,7 +37,9 @@ cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 
 Provisioning a real instance starts with bootstrap — one command creates the
 first organization, matter, and admin user on an empty database, and prints
-that admin's sign-in id (the id *is* the credential; there are no passwords):
+that admin's **sign-in token**. There are no passwords: each account has a
+random sign-in token, shown once when it is issued; only a hash is stored.
+User ids are public references (other members see them), never credentials.
 
 ```bash
 cd backend && .venv/bin/python -m app.bootstrap --db dev.db
@@ -48,7 +50,10 @@ Flags (all optional — see `python -m app.bootstrap --help`): `--org-name`,
 organization/matter/admin; `--db` points at a SQLite file (defaults to
 `LEXGRAPH_DATABASE_URL` from the environment). Bootstrap refuses to run
 against a database that already has users, so it's safe to leave in a
-script. Copy the printed sign-in id, then start the servers:
+script. Copy the printed sign-in token (it is not shown again; a lost token
+is replaced with `python -m app.rotate_sign_in_token`, see
+[docs/RUNBOOK.md](docs/RUNBOOK.md#sign-in-tokens-rotation-and-lockouts)),
+then start the servers:
 
 ```bash
 cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
@@ -58,18 +63,26 @@ cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:
 npm --prefix frontend install && npm --prefix frontend run dev
 ```
 
-Open http://localhost:5173 and sign in with the id bootstrap printed. From
-there, the signed-in admin creates further user accounts and grants them
-matter roles from the in-app admin console (Admin → User accounts, then
-Members & roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
+Open http://localhost:5173 and sign in with the token bootstrap printed.
+From there, the signed-in admin creates further user accounts (each shows
+its new sign-in token once, to hand to its owner) and grants them matter
+roles from the in-app admin console (Admin → User accounts, then Members &
+roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
 for the full walkthrough. No seed or mockup data is required for real use.
+
+Upgrading a database created before sign-in tokens existed: apply the
+migrations, after which every existing account signs in with its old user
+id as a *legacy* token. Those are public, so rotate them — see the upgrade
+note in [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-sign-in-tokens-replace-user-id-sign-in).
 
 ### Optional: demo workspace for local testing
 
 `./scripts/demo.sh` is a local-testing convenience, not the provisioning
-path: it sets up both environments, seeds a demo workspace (`admin`,
-`reviewer`, `contributor`, `viewer` — the user id *is* the role name) into
-`backend/dev.db`, and starts both servers in one command:
+path: it sets up both environments, seeds a demo workspace into
+`backend/dev.db`, and starts both servers in one command. Sign in with the
+demo sign-in tokens `admin`, `reviewer`, `contributor` or `viewer` (each is
+also that account's user id, so anyone can sign in as any demo account; the
+admin console flags them as legacy sign-ins):
 
 ```bash
 ./scripts/demo.sh

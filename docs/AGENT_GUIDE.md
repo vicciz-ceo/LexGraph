@@ -9,9 +9,12 @@ is required. The agent supplies the reasoning; LexGraph validates and stores it.
 Install the backend as described in [RUNBOOK.md](RUNBOOK.md). Bootstrap a new
 workspace only if needed. In the web app, an administrator creates a dedicated
 agent user and grants it **contributor** membership in the intended matter.
-Use that user's ID, not a lawyer's account. The existing local authentication
-scheme treats a user ID as the credential; it is intended for a trusted local
-installation, not public internet exposure.
+Use that user's ID, not a lawyer's account. The CLI and MCP server act as that
+user through direct access to the database file, so they need only the user ID
+(not a sign-in token); anyone who can open that file can do the same, so they
+are meant for a trusted local installation. The REST API instead requires the
+agent account's secret sign-in token, which the admin console shows once when
+the account is created or its token is rotated.
 
 All processes must use the **same absolute database URL**:
 
@@ -75,7 +78,8 @@ Success prints JSON with the assertion ID and exits 0; errors print JSON to
 stderr and exit 1. `--user-id USER_ID` before the subcommand overrides the actor
 environment variable. The `schema` command needs neither an actor nor a database.
 The same JSON can be sent to `POST /api/v1/agent/assertions` using
-`Authorization: Bearer AGENT_USER_ID` when the API server is running.
+`Authorization: Bearer AGENT_SIGN_IN_TOKEN` (the agent account's sign-in token,
+not its user ID) when the API server is running.
 
 `agent.platform` is required and platform-neutral; model and run ID are optional.
 They are self-reported provenance, not verified identity. Confidence is optional,

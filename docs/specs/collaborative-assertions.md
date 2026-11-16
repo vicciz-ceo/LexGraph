@@ -615,6 +615,34 @@ Administrator:
 
 All permission checks must occur server-side.
 
+Authentication and identity (2026-11-16):
+
+- A user id is a public reference. It appears in member rosters and as
+  author, reviewer, commenter, rater and audit actor, and it is never a
+  credential.
+- Each user signs in with a secret sign-in token sent as
+  `Authorization: Bearer <token>`. Tokens are random
+  (`secrets.token_urlsafe`, 32 bytes), and only their SHA-256 hex digest
+  is stored (`users.sign_in_token_hash`, unique; NULL means the account
+  cannot sign in). An unknown token is rejected with 401.
+- A token is returned exactly once, when it is issued: by bootstrap, by
+  `POST /api/v1/users` (`sign_in_token`), or by
+  `POST /api/v1/users/{user_id}/sign-in-token`, which replaces the
+  account's token at once. No other response contains a token or a hash.
+- Rotating another account's token requires the admin role on every
+  matter that account belongs to, because the caller learns the new
+  credential; any admin may rotate their own token or an account with no
+  memberships. Operators with database access use
+  `python -m app.rotate_sign_in_token`.
+- Databases created before sign-in tokens are upgraded by migration
+  `20261116_sign_in_tokens`, which gives each existing account a legacy
+  token equal to its user id. Legacy tokens are reported at startup and as
+  `sign_in_status: "legacy"` in `GET /api/v1/users`, and should be
+  rotated.
+- The local agent CLI and MCP server act as `LEXGRAPH_AGENT_USER_ID`
+  through direct database access, so the user id is enough there. The REST
+  agent endpoint requires the agent account's sign-in token.
+
 ==================================================
 13. API REQUIREMENTS
 ==================================================

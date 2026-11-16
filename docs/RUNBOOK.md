@@ -29,16 +29,19 @@ python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 
 Bootstrap refuses to run on a non-empty database (an empty-DB guard — no
 silent mutation on top of an existing workspace) and prints the new admin's
-sign-in id — that id **is** the credential (`backend/app/auth.py`'s
-test-token seam: `Authorization: Bearer <user_id>`); there are no passwords.
-Copy it, then start both servers:
+**sign-in token**: a random secret, shown this once, of which only a hash is
+stored (`backend/app/auth.py`; requests send `Authorization: Bearer <token>`).
+There are no passwords. User ids are public references, not credentials.
+Copy the token (if it is lost, see
+["Sign-in tokens, rotation and lockouts"](#sign-in-tokens-rotation-and-lockouts)),
+then start both servers:
 
 ```bash
 LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
 cd .. && npm --prefix frontend install && npm --prefix frontend run dev
 ```
 
-Sign in at http://localhost:5173 with the printed id. From there, use
+Sign in at http://localhost:5173 with the printed token. From there, use
 Admin → User accounts to create further accounts and Admin → Members &
 roles to grant them roles on a matter — see
 ["Provisioning users & access"](#provisioning-users--access) below for the
@@ -56,9 +59,13 @@ command:
 ./scripts/demo.sh
 ```
 
-Sign in at http://localhost:5173 as `admin`, `reviewer`, `contributor`, or
-`viewer` (the user id *is* the role name — no admin action created these;
-they're fixtures for exercising the UI locally). The seeder
+Sign in at http://localhost:5173 with the demo sign-in token `admin`,
+`reviewer`, `contributor`, or `viewer` (no admin action created these;
+they're fixtures for exercising the UI locally). Each demo token is also
+that account's public user id, so anyone can sign in as any demo account:
+the server logs a legacy-credential warning at startup and the admin
+console badges them "Legacy sign-in". Never use the demo seed for real
+data. The seeder
 (`backend/app/seed_demo.py`) drives the real API, so the demo data carries
 genuine revisions, ratings, comments, notifications, and audit events —
 useful for development and mockups, not for a real deployment.
@@ -308,7 +315,7 @@ In a separate terminal, start the Vite development server:
 npm --prefix frontend run dev
 ```
 
-The app will be available at `http://localhost:5173` (or the port specified by Vite); the dev server proxies `/api` to `http://127.0.0.1:8000` (override with `LEXGRAPH_API_PROXY`). Sign in with a user id that exists in the connected database — the bearer token *is* the user id (`backend/app/auth.py` test-token seam); with the demo seed that means `admin`, `reviewer`, `contributor`, or `viewer`.
+The app will be available at `http://localhost:5173` (or the port specified by Vite); the dev server proxies `/api` to `http://127.0.0.1:8000` (override with `LEXGRAPH_API_PROXY`). Sign in with your sign-in token (bootstrap prints the first admin's; the admin console shows each new account's once; `backend/app/auth.py`). Your user id is not a sign-in token. With the demo seed the tokens are `admin`, `reviewer`, `contributor`, and `viewer`.
 
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
@@ -327,11 +334,13 @@ Once signed in as an admin (bootstrap prints the first one — see
 people is entirely in-app; no CLI or DB access is required:
 
 1. **Create the account.** Admin → **User accounts** → fill in email and
-   display name → **Create account**. The response — and the page — show
-   the new account's sign-in id prominently. That id **is** the sign-in
-   credential (there are no passwords); hand it to the person. Creating an
-   account pre-fills its email into the Members & roles add-member field
-   so granting access is the very next step.
+   display name → **Create account**. The page shows the new account's
+   **sign-in token** once, with a copy button: copy it and hand it to the
+   person privately, then click **Done**. It cannot be shown again (only a
+   hash is stored); if it is lost, rotate it (below). The user id in the
+   table is a public reference, not a credential. Creating an account
+   pre-fills its email into the Members & roles add-member field so
+   granting access is the very next step.
 2. **Grant matter access.** Admin → **Members & roles** → the new
    account's email is already filled in → pick a role (viewer,
    contributor, reviewer, or admin) → **Add**. Roles are per-matter: the
@@ -339,7 +348,7 @@ people is entirely in-app; no CLI or DB access is required:
    another, and admin is a per-matter admin, not a global superuser role
    (any admin-of-some-matter can list/create user accounts, per the users
    API's access model).
-3. **They sign in.** The new user enters the id from step 1 on the
+3. **They sign in.** The new user enters the token from step 1 on the
    sign-in page and immediately sees the UI appropriate to the role(s)
    they were granted.
 
@@ -347,6 +356,75 @@ This replaces hand-editing the database or re-running the demo seed for
 real usage — the seed stays a local-testing convenience (see "Optional:
 demo workspace" above), never the provisioning path for an actual
 deployment.
+
+### Sign-in tokens, rotation and lockouts
+
+Every account signs in with its own random sign-in token. The backend
+stores only its SHA-256 hash and never returns a token except once, when
+it is issued: by bootstrap, by **Create account**, or by a rotation. Tokens
+are bearer secrets and the backend speaks plain HTTP, so keep it on
+localhost or put TLS in front of it before exposing it on a network.
+
+- **Rotate or re-issue in the app.** Admin → **User accounts** → **Rotate
+  token** (or **Issue token** for an account without one) → confirm. The
+  new token is shown once and the previous one stops working immediately:
+  that person's open sessions fail until they sign in with the new token
+  (on reload the app explains the saved token is no longer valid). You may
+  rotate an account only
+  if you are an admin on every matter it belongs to (or it is your own
+  account; rotating your own keeps this browser signed in).
+- **Lockouts (no admin can sign in).** With access to the database file,
+  issue a new token from the command line. It prints the token once:
+
+  ```bash
+  cd backend
+  .venv/bin/python -m app.rotate_sign_in_token --db dev.db --email admin@lexgraph.local
+  .venv/bin/python -m app.rotate_sign_in_token --db dev.db --user-id USER_ID
+  ```
+
+  Without `--db` it uses `LEXGRAPH_DATABASE_URL`.
+
+### Upgrading: sign-in tokens replace user-id sign-in
+
+Older LexGraph versions used each account's user id as its sign-in
+credential. User ids are visible to every member of a matter (rosters,
+authors, reviewers), so on those versions any member could sign in as any
+other member, including an admin. The `users.sign_in_token_hash` column
+fixes that, and upgrading a database created before it requires the
+`m20261116_sign_in_tokens` migration. With the migration runner,
+`python -m app.migrate --db PATH` applies it along with every other pending
+migration; to apply just this one directly:
+
+```bash
+cd backend
+.venv/bin/python -c "
+from app.db import make_engine
+from app.migrations.m20261116_sign_in_tokens import upgrade
+print(upgrade(make_engine('sqlite:///dev.db')))
+"
+```
+
+It prints `True` when it changed the database and `False` when there was
+nothing to do (it is safe to re-run). Until it has run, nobody can sign in
+and the server logs an error saying so.
+
+To avoid locking anyone out, the migration gives every existing account a
+**legacy** token equal to its old user id, so existing sign-ins (and saved
+browser sessions) keep working. Those tokens are known to every member who
+can see the ids, so **rotate them**:
+
+1. Start the backend. It logs a warning naming the accounts that still
+   sign in with their public user id.
+2. List them at any time:
+   `.venv/bin/python -m app.rotate_sign_in_token --db dev.db --list-legacy`.
+3. Sign in as an admin (with your old user id), open Admin → **User
+   accounts**, where those accounts carry a **Legacy sign-in** badge, and
+   **Rotate token** for each, starting with your own; hand each new token
+   to its owner. Accounts on matters you do not administer must be rotated
+   by their matter's admin or with the command-line tool.
+
+Rotated accounts sign in with their new token only; their old user id no
+longer works.
 
 ### Building for Production
 
@@ -433,7 +511,8 @@ above:
    .venv/bin/python -m app.bootstrap
    cd ..
    ```
-   Copy the printed sign-in id — it's the admin's credential.
+   Copy the printed sign-in token — it's the admin's credential and is
+   shown only once.
 
 3. **Start the backend** (Terminal 1):
    ```bash
@@ -448,12 +527,12 @@ above:
    ```
 
 5. **Access the application**:
-   - Grading app: `http://localhost:5173` — sign in with the id from step 2
+   - Grading app: `http://localhost:5173` — sign in with the token from step 2
    - Backend API docs: `http://localhost:8000/docs`
 
 6. **Create users and grant access** — from the signed-in admin session:
-   Admin → User accounts → create an account (copy the returned sign-in
-   id) → Admin → Members & roles → grant it a role on a matter. See
+   Admin → User accounts → create an account (copy its sign-in token, shown
+   once) → Admin → Members & roles → grant it a role on a matter. See
    "Provisioning users & access" above for the full walkthrough.
 
 7. **Optional: Register MCP server** (Terminal 3):
