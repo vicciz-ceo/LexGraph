@@ -103,6 +103,48 @@
   text-align: left;
 }
 
+/* Why the saved sign-in was dropped (its token was rejected, e.g. rotated). */
+.signin__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  font: var(--body-sm);
+  text-align: left;
+}
+
+/* Retry screen (SessionRetryPage): the saved sign-in could not be checked
+ * and was kept. */
+.signin__retry-alert {
+  margin-top: var(--space-md);
+}
+
+.signin__retry-alert p + p {
+  margin-top: 4px;
+}
+
+.signin__retry-detail {
+  font: var(--body-sm);
+  opacity: 0.85;
+}
+
+.signin__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.signin__hint {
+  margin-top: 6px;
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
 /* --- Form -------------------------------------------------------------- */
 
 .signin__form {

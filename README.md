@@ -42,19 +42,28 @@ backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- -
 
 Provisioning a real instance starts with bootstrap — one command creates the
 first organization, matter, and admin user on an empty database, and prints
-that admin's sign-in id (the id *is* the credential; there are no passwords).
+that admin's **sign-in token**. There are no passwords: each account has a
+random sign-in token, shown once when it is issued; only a hash is stored.
+User ids are public references (other members see them), never credentials.
 Run every command below from the repository root:
 
 ```bash
 (cd backend && .venv/bin/python -m app.bootstrap --db dev.db)
 ```
 
-Flags (all optional — see `python -m app.bootstrap --help`): `--org-name`,
+Flags (see `python -m app.bootstrap --help`): `--org-name`,
 `--matter-name`, `--user-name`, `--user-email` customize the first
-organization/matter/admin; `--db` points at a SQLite file (defaults to
-`LEXGRAPH_DATABASE_URL` from the environment). Bootstrap refuses to run
-against a database that already has users, so it's safe to leave in a
-script. Copy the printed sign-in id, then start the servers:
+organization/matter/admin and are checked like the admin console's
+fields (a valid email, stored in lowercase; names must not be blank);
+`--db` points at a SQLite file. Without `--db`, bootstrap uses
+`LEXGRAPH_DATABASE_URL`; with neither it refuses to run, because the
+built-in default is an in-memory database that would vanish when it
+exits. Bootstrap refuses to run against a database that already has
+users, so it's safe to leave in a script. Copy the printed sign-in token
+(it is not shown again; a lost token is replaced with
+`python -m app.rotate_sign_in_token`, see
+[docs/RUNBOOK.md](docs/RUNBOOK.md#sign-in-tokens-rotation-and-lockouts)),
+then start the servers with the command it prints, for example:
 
 ```bash
 (cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000)
@@ -66,11 +75,23 @@ The web app needs Node.js 22 (22.12 or later) or 24; CI uses 24.
 npm --prefix frontend ci && npm --prefix frontend run dev
 ```
 
-Open http://localhost:5173 and sign in with the id bootstrap printed. From
-there, the signed-in admin creates further user accounts and grants them
-matter roles from the in-app admin console (Admin → User accounts, then
-Members & roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
-for the full walkthrough. No seed or mockup data is required for real use.
+Open http://localhost:5173 and sign in with the token bootstrap printed.
+From there, the signed-in admin creates further user accounts (each shows
+its new sign-in token once, to hand to its owner) and grants them matter
+roles from the in-app admin console (Admin → User accounts, then Members &
+roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
+for the full walkthrough. Email addresses are case-insensitive: they are
+stored in lowercase, and no two accounts may share one. No seed or mockup
+data is required for real use.
+
+Upgrading a database created before sign-in tokens existed: apply the
+migrations, after which every existing account signs in with its old user
+id as a *legacy* token. Those are public, so rotate them — see the upgrade
+note in [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-sign-in-tokens-replace-user-id-sign-in).
+The same migration run lowercases stored email addresses and makes them
+unique; accounts that already share an address in different letter case
+are reported and left for you to resolve
+([docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-case-insensitive-emails)).
 
 For a deployment, build the web app once instead of running the dev server.
 The backend then serves it on its own port, same origin as the API (see
@@ -94,9 +115,11 @@ for what each migration changes.
 ### Optional: demo workspace for local testing
 
 `./scripts/demo.sh` is a local-testing convenience, not the provisioning
-path: it sets up both environments, seeds a demo workspace (`admin`,
-`reviewer`, `contributor`, `viewer` — the user id *is* the role name) into
-`backend/dev.db`, and starts both servers in one command. Ctrl-C stops both:
+path: it sets up both environments, seeds a demo workspace into
+`backend/dev.db`, and starts both servers in one command. Sign in with the
+demo sign-in tokens `admin`, `reviewer`, `contributor` or `viewer` (each is
+also that account's user id, so anyone can sign in as any demo account; the
+admin console flags them as legacy sign-ins). Ctrl-C stops both servers:
 
 ```bash
 ./scripts/demo.sh

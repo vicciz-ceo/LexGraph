@@ -7,6 +7,13 @@
 // App.tsx gates the /admin route to the admin role; the component still
 // hides mutating controls for non-admins as defense in depth and surfaces
 // ApiError 403/409 in a banner without breaking the roster table.
+//
+// User accounts tab: sign-in tokens (backend/app/auth.py) are secrets the
+// API returns exactly once — on account creation and on rotation. This page
+// shows such a token once, with a copy button and a warning, and forgets
+// it when the admin clicks Done. User ids are public references, never
+// credentials. Accounts still signing in with their public id (legacy,
+// from the upgrade migration) get a badge and a rotate action.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -14,9 +21,16 @@ import type { FormEvent } from "react";
 import "../styles/pages/admin.css";
 
 import { ApiError, api } from "../api/client";
-import type { MatterMember, MatterRoleName, UserInfo } from "../api/types";
+import type {
+  IssuedSignIn,
+  MatterMember,
+  MatterRoleName,
+  SignInStatus,
+  UserAccount,
+} from "../api/types";
 import { Icon } from "../app/icons";
-import { useActiveSession } from "../app/session";
+import { navigate } from "../app/router";
+import { useActiveSession, useSession } from "../app/session";
 
 const ROLE_OPTIONS: MatterRoleName[] = ["viewer", "contributor", "reviewer", "admin"];
 
@@ -35,6 +49,9 @@ function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
+const ACCESS_CHANGED_MESSAGE =
+  "Your access to this matter changed. Reload the page to continue.";
+
 function describeError(error: unknown): string {
   if (error instanceof ApiError && error.status === 403) {
     return "Your role on this matter no longer permits member management.";
@@ -51,6 +68,35 @@ function describeError(error: unknown): string {
 function describeAccountError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "The action failed.";
+}
+
+const SIGN_IN_BADGES: Record<SignInStatus, { label: string; className: string; title: string }> = {
+  active: {
+    label: "Active",
+    className: "badge badge--accepted",
+    title: "Signs in with a generated sign-in token.",
+  },
+  legacy: {
+    label: "Legacy sign-in",
+    className: "badge badge--pending",
+    title:
+      "Still signs in with its public user id, which other members can see. Rotate its token.",
+  },
+  none: {
+    label: "No token",
+    className: "badge badge--neutral",
+    title: "Has no sign-in token yet, so it cannot sign in. Issue one.",
+  },
+};
+
+/** A token the API just returned (shown once, then forgotten on Done). */
+interface IssuedToken {
+  account: IssuedSignIn;
+  reason: "created" | "rotated";
+  /** The signed-in admin rotated their own token. */
+  self: boolean;
+  /** Set when this browser could not switch to a self-rotated token. */
+  sessionError?: boolean;
 }
 
 /** Allowed / not-allowed cell for the role capability matrix. */
@@ -110,8 +156,8 @@ function ReviewPolicyPanel() {
             </li>
             <li>
               <span className="badge badge--revision_requested">Revision requested</span>{" "}
-              The reviewer sends it back with a comment; the author revises it and
-              resubmits it, which returns it to proposed.
+              The reviewer sends it back with a comment; once the author revises it and
+              submits it for review again, it returns to proposed.
             </li>
             <li>
               <span className="badge badge--disputed">Disputed</span> A reviewer flags a
@@ -214,6 +260,7 @@ type AdminTab = "members" | "accounts" | "policy";
 
 export function AdminPage() {
   const session = useActiveSession();
+  const { signIn, refresh: refreshSession } = useSession();
   const matterId = session.currentMatter.id;
   const canManage = session.role === "admin";
 
@@ -231,14 +278,19 @@ export function AdminPage() {
   const [addError, setAddError] = useState<string | null>(null);
 
   // --- User accounts tab (B2/UI1) ----------------------------------------
-  const [accounts, setAccounts] = useState<UserInfo[] | null>(null);
+  const [accounts, setAccounts] = useState<UserAccount[] | null>(null);
   const [accountsError, setAccountsError] = useState<string | null>(null);
   const [accountsReloadKey, setAccountsReloadKey] = useState(0);
   const [newAccountEmail, setNewAccountEmail] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [createdAccount, setCreatedAccount] = useState<UserInfo | null>(null);
+  const [issued, setIssued] = useState<IssuedToken | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  /** Account whose token rotation awaits confirmation. */
+  const [pendingRotation, setPendingRotation] = useState<string | null>(null);
+  const [rotateBusy, setRotateBusy] = useState(false);
+  const [rotateError, setRotateError] = useState<string | null>(null);
 
   const aliveRef = useRef(true);
   useEffect(() => {
@@ -309,7 +361,8 @@ export function AdminPage() {
     try {
       const created = await api.createUser(email, displayName);
       if (!aliveRef.current) return;
-      setCreatedAccount(created);
+      setIssued({ account: created, reason: "created", self: false });
+      setCopyState("idle");
       setNewAccountEmail("");
       setNewAccountName("");
       // Wiring: hand the new account straight to the Members & roles tab's
@@ -324,12 +377,68 @@ export function AdminPage() {
     }
   }
 
-  async function runMutation(call: () => Promise<unknown>) {
+  async function rotateToken(account: UserAccount) {
+    setPendingRotation(null);
+    setRotateBusy(true);
+    setRotateError(null);
+    try {
+      const rotated = await api.rotateSignInToken(account.id);
+      if (!aliveRef.current) return;
+      const self = account.id === session.user.id;
+      let sessionError = false;
+      if (self) {
+        // The old token stopped working, including in this browser: switch
+        // the session to the new one so the admin stays signed in.
+        try {
+          await signIn(rotated.sign_in_token);
+        } catch {
+          sessionError = true;
+        }
+        if (!aliveRef.current) return;
+      }
+      setIssued({ account: rotated, reason: "rotated", self, sessionError });
+      setCopyState("idle");
+      setAccountsReloadKey((k) => k + 1);
+    } catch (error) {
+      if (!aliveRef.current) return;
+      setRotateError(describeAccountError(error));
+    } finally {
+      if (aliveRef.current) setRotateBusy(false);
+    }
+  }
+
+  async function copyIssuedToken(token: string) {
+    try {
+      if (!navigator.clipboard) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(token);
+      if (aliveRef.current) setCopyState("copied");
+    } catch {
+      if (aliveRef.current) setCopyState("failed");
+    }
+  }
+
+  /** `affectsSelf`: the mutation targets the signed-in admin's own membership. */
+  async function runMutation(call: () => Promise<unknown>, affectsSelf = false) {
     setBusy(true);
     setBanner(null);
     try {
       await call();
       if (!aliveRef.current) return;
+      if (affectsSelf) {
+        // Changing your own role or membership succeeded, so you are no
+        // longer an admin of this matter (finding ui:19): re-read the
+        // session so role-gated UI everywhere follows, and leave this page.
+        // Re-fetching the roster here would read the old matter, which you
+        // may no longer see (a 403 reported as if the removal had failed).
+        try {
+          await refreshSession();
+        } catch {
+          if (aliveRef.current) setBanner(ACCESS_CHANGED_MESSAGE);
+          return;
+        }
+        navigate("/review");
+        return;
+      }
       await refresh();
     } catch (error) {
       if (!aliveRef.current) return;
@@ -341,11 +450,17 @@ export function AdminPage() {
 
   function changeRole(member: MatterMember, role: MatterRoleName) {
     if (role === member.role) return;
-    void runMutation(() => api.setMatterMemberRole(matterId, member.user.id, role));
+    void runMutation(
+      () => api.setMatterMemberRole(matterId, member.user.id, role),
+      member.user.id === session.user.id,
+    );
   }
 
   function removeMember(member: MatterMember) {
-    void runMutation(() => api.removeMatterMember(matterId, member.user.id));
+    void runMutation(
+      () => api.removeMatterMember(matterId, member.user.id),
+      member.user.id === session.user.id,
+    );
   }
 
   async function submitAdd(event: FormEvent<HTMLFormElement>) {
@@ -364,7 +479,7 @@ export function AdminPage() {
       if (!aliveRef.current) return;
       setAddError(
         error instanceof ApiError && error.status === 404
-          ? "No user account with that email — accounts are provisioned via the seed or DB."
+          ? "No user account with that email — create it first under User accounts."
           : describeError(error),
       );
     } finally {
@@ -516,6 +631,16 @@ export function AdminPage() {
   }
 
   function renderAccountsPanel() {
+    // The one-time token stays visible while the account list reloads.
+    return (
+      <>
+        {issued && renderIssuedToken(issued)}
+        {renderAccountsList()}
+      </>
+    );
+  }
+
+  function renderAccountsList() {
     if (accountsError) {
       return (
         <div className="error-banner">
@@ -533,32 +658,101 @@ export function AdminPage() {
     if (accounts === null) {
       return <div className="loading">Loading user accounts…</div>;
     }
+    const legacyCount = accounts.filter((a) => a.sign_in_status === "legacy").length;
     return (
       <>
+        {legacyCount > 0 && (
+          <div className="adm-legacy-banner" role="note">
+            <Icon name="warning" size={18} />
+            <span>
+              {legacyCount === 1
+                ? "1 account still signs in with its public user id"
+                : `${legacyCount} accounts still sign in with their public user id`}{" "}
+              — a legacy credential that anyone who can see the id could use. Rotate
+              each token and hand the new one to its owner.
+            </span>
+          </div>
+        )}
+        {rotateError && <div className="error-banner">{rotateError}</div>}
         <div className="card">
           <div className="table-wrap">
             <table className="table adm-table">
               <thead>
                 <tr>
                   <th>Account</th>
-                  <th className="adm-id-col">Sign-in id</th>
+                  <th className="adm-id-col">User id (public)</th>
+                  <th className="adm-signin-col">Sign-in</th>
+                  <th className="adm-token-col" aria-label="Sign-in token actions" />
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((account) => (
-                  <tr key={account.id}>
-                    <td>
-                      <div className="adm-member">
-                        <span className="avatar">{initials(account.display_name)}</span>
-                        <div className="adm-member__id">
-                          <span className="adm-member__name">{account.display_name}</span>
-                          <span className="muted adm-member__email">{account.email}</span>
+                {accounts.map((account) => {
+                  const badge = SIGN_IN_BADGES[account.sign_in_status] ?? SIGN_IN_BADGES.none;
+                  const verb = account.sign_in_status === "none" ? "Issue" : "Rotate";
+                  return (
+                    <tr key={account.id}>
+                      <td>
+                        <div className="adm-member">
+                          <span className="avatar">{initials(account.display_name)}</span>
+                          <div className="adm-member__id">
+                            <span className="adm-member__name">
+                              {account.display_name}
+                              {account.id === session.user.id && (
+                                <span className="chip chip--tag adm-you">You</span>
+                              )}
+                            </span>
+                            <span className="muted adm-member__email">{account.email}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="mono adm-id-col">{account.id}</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="mono adm-id-col">{account.id}</td>
+                      <td className="adm-signin-col">
+                        <span className={badge.className} title={badge.title}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="adm-token-col">
+                        {pendingRotation === account.id ? (
+                          <div className="adm-rotate-confirm">
+                            {account.sign_in_status !== "none" && (
+                              <span className="muted">Current token stops working.</span>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn--sm btn--primary"
+                              disabled={rotateBusy}
+                              aria-label={`Confirm new sign-in token for ${account.display_name}`}
+                              onClick={() => void rotateToken(account)}
+                            >
+                              {verb}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--sm btn--ghost"
+                              disabled={rotateBusy}
+                              onClick={() => setPendingRotation(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn--sm btn--secondary"
+                            disabled={rotateBusy}
+                            aria-label={`${verb} sign-in token for ${account.display_name}`}
+                            onClick={() => {
+                              setRotateError(null);
+                              setPendingRotation(account.id);
+                            }}
+                          >
+                            {verb} token
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -568,8 +762,8 @@ export function AdminPage() {
           <header className="card__header">Create account</header>
           <div className="card__body">
             <p className="muted adm-add__hint">
-              Creates a new sign-in-able account. There are no passwords — the id
-              shown after creation is the sign-in credential; hand it to the user.
+              Creates the account and a one-time sign-in token to hand to its owner.
+              User ids are public references; only the token signs in.
             </p>
             <div className="adm-add__row">
               <input
@@ -601,22 +795,77 @@ export function AdminPage() {
               </button>
             </div>
             {createError && <p className="adm-add__error">{createError}</p>}
-            {createdAccount && (
-              <div className="adm-created" role="status">
-                <p className="adm-created__label">
-                  Account created — this id is the sign-in credential, hand it to
-                  the user:
-                </p>
-                <code className="mono adm-created__id">{createdAccount.id}</code>
-                <p className="muted adm-created__hint">
-                  {createdAccount.email} was pre-filled into the Members & roles
-                  add-member field so you can grant it a role next.
-                </p>
-              </div>
-            )}
           </div>
         </form>
       </>
+    );
+  }
+
+  /** The one-time display of a token the API just returned. */
+  function renderIssuedToken({ account, reason, self, sessionError }: IssuedToken) {
+    const token = account.sign_in_token;
+    return (
+      <section className="adm-issued" role="status" aria-label="New sign-in token">
+        <p className="adm-issued__title">
+          <Icon name="warning" size={18} />
+          {reason === "created" ? "Account created. " : "New token issued. "}
+          Sign-in token for {account.display_name}:
+        </p>
+        <div className="adm-issued__row">
+          <code className="mono adm-issued__token">{token}</code>
+          <button
+            type="button"
+            className="btn btn--sm btn--secondary"
+            onClick={() => void copyIssuedToken(token)}
+          >
+            {copyState === "copied" ? (
+              <>
+                <Icon name="check" size={16} /> Copied
+              </>
+            ) : (
+              "Copy token"
+            )}
+          </button>
+        </div>
+        {copyState === "failed" && (
+          <p className="adm-add__error">Copy failed — select the token and copy it manually.</p>
+        )}
+        <p className="adm-issued__warning">
+          Shown only once: copy it now and give it to {account.display_name} privately.
+          Only a hash is stored, so it cannot be shown again, and anyone who has it can
+          sign in as this account.
+        </p>
+        {reason === "rotated" && !self && (
+          <p className="muted adm-issued__hint">The previous token no longer works.</p>
+        )}
+        {self && !sessionError && (
+          <p className="muted adm-issued__hint">
+            This is your own account: this browser now signs in with the new token.
+          </p>
+        )}
+        {self && sessionError && (
+          <p className="adm-add__error">
+            This browser could not switch to the new token. Copy it, then sign out and
+            sign in with it.
+          </p>
+        )}
+        {reason === "created" && (
+          <p className="muted adm-issued__hint">
+            {account.email} was pre-filled into the Members & roles add-member field
+            so you can grant it a role next.
+          </p>
+        )}
+        <button
+          type="button"
+          className="btn btn--sm btn--primary"
+          onClick={() => {
+            setIssued(null);
+            setCopyState("idle");
+          }}
+        >
+          Done, I have saved the token
+        </button>
+      </section>
     );
   }
 

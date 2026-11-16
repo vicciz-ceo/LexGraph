@@ -1,4 +1,5 @@
 import { AppShell } from "./app/AppShell";
+import { ErrorBoundary } from "./app/ErrorBoundary";
 import { matchPath, useHashLocation } from "./app/router";
 import { SessionProvider, useSession } from "./app/session";
 import { AdminPage } from "./pages/AdminPage";
@@ -8,7 +9,7 @@ import { ContestedPage } from "./pages/ContestedPage";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ReviewQueuePage } from "./pages/ReviewQueuePage";
-import { SignInPage } from "./pages/SignInPage";
+import { SessionRetryPage, SignInPage } from "./pages/SignInPage";
 import { SuggestAssertionPage } from "./pages/SuggestAssertionPage";
 
 function NotAuthorized() {
@@ -21,23 +22,26 @@ function NotAuthorized() {
 }
 
 function NoMatter() {
+  // Accounts and access are provisioned in-app by a matter admin; the demo
+  // seed is a local-testing tool that cannot help here.
   return (
     <div className="empty-state">
       <p className="empty-state__title">No matter access</p>
       <p>
         Your account is not a member of any matter yet. Ask a matter admin to add
-        you, or run the demo seed script (see README).
+        you.
       </p>
     </div>
   );
 }
 
 function AppRoutes() {
-  const { session } = useSession();
+  const { session, restoreError } = useSession();
   const location = useHashLocation();
 
   if (session === undefined) {
-    return <div className="loading">Restoring session…</div>;
+    // A saved sign-in that could not be checked keeps its token (ui:18).
+    return restoreError ? <SessionRetryPage /> : <div className="loading">Restoring session…</div>;
   }
   if (session === null) {
     return <SignInPage />;
@@ -80,13 +84,23 @@ function AppRoutes() {
     }
   }
 
-  return <AppShell>{content}</AppShell>;
+  // A page that fails to render keeps the shell (and its navigation); moving
+  // to another route clears the error (ui:27).
+  return (
+    <AppShell>
+      <ErrorBoundary resetKey={`${location.path}?${location.query.toString()}`}>
+        {content}
+      </ErrorBoundary>
+    </AppShell>
+  );
 }
 
 export default function App() {
   return (
-    <SessionProvider>
-      <AppRoutes />
-    </SessionProvider>
+    <ErrorBoundary>
+      <SessionProvider>
+        <AppRoutes />
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }

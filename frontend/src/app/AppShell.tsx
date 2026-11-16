@@ -1,6 +1,7 @@
 // Application chrome: sidebar (brand, matter selector, nav, user block)
 // + topbar (global assertion search, notifications, help), per the
-// Consensus design's shared layout.
+// Consensus design's shared layout. Below 768px the sidebar becomes a
+// drawer opened from the mobile bar's menu button (navDrawer.tsx).
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -11,6 +12,7 @@ import { Icon } from "./icons";
 import type { IconName } from "./icons";
 import { Link, navigate, useHashLocation } from "./router";
 import { useSession } from "./session";
+import { MenuIcon, useNavDrawer } from "./navDrawer";
 
 const NOTIFICATION_POLL_MS = 30_000;
 
@@ -120,6 +122,8 @@ function NotificationsBell() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session, signOut, selectMatter } = useSession();
+  // Below 768px the sidebar is a drawer behind the mobile bar's menu button (ui:26).
+  const drawer = useNavDrawer();
   const location = useHashLocation();
   const [search, setSearch] = useState("");
 
@@ -145,12 +149,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside
+        id="app-sidebar"
+        ref={drawer.drawerRef}
+        className={drawer.open ? "sidebar sidebar--open" : "sidebar"}
+        onClick={drawer.onDrawerClick}
+      >
         <div className="sidebar__brand">
           <span className="sidebar__brand-mark" aria-hidden="true">
             <Icon name="link" size={18} />
           </span>
           LexGraph
+          <button
+            type="button"
+            className="topbar__action sidebar__close"
+            aria-label="Close navigation"
+            onClick={drawer.closeDrawer}
+          >
+            <Icon name="close" />
+          </button>
         </div>
 
         <div className="sidebar__matter">
@@ -219,8 +236,27 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
+      {drawer.open && (
+        <div className="sidebar-backdrop" aria-hidden="true" onClick={drawer.dismiss} />
+      )}
 
       <div className="app-main">
+        <div className="mobile-bar">
+          <button
+            ref={drawer.menuButtonRef}
+            type="button"
+            className="topbar__action"
+            aria-label="Open navigation"
+            aria-expanded={drawer.open}
+            aria-controls="app-sidebar"
+            onClick={drawer.openDrawer}
+          >
+            <MenuIcon />
+          </button>
+          <span className="mobile-bar__title">
+            {session.currentMatter?.name ?? "LexGraph"}
+          </span>
+        </div>
         <header className="topbar">
           <form className="topbar__search" role="search" onSubmit={onSearch}>
             <Icon name="search" size={16} />

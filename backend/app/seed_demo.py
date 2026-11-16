@@ -10,10 +10,15 @@ Then serve it:
 
     LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
 
-Sign in from the frontend with one of the seeded user ids (the bearer
-token IS the user id — ``app/auth.py`` test-token seam):
+Sign in from the frontend with one of the demo sign-in tokens:
 
     admin · reviewer · contributor · viewer
+
+Demo only: each demo account's sign-in token is its role name, which is
+also its public user id, so anyone can sign in as any demo account. The
+admin console flags these as legacy sign-ins and the server logs a
+warning at startup. Real deployments use ``app.bootstrap`` and the Users
+API, which issue random tokens (``app/auth.py``).
 
 Everything domain-side (assertions, submissions, reviews, ratings,
 comments, evidence) is created through the real API endpoints, so
@@ -54,8 +59,9 @@ DPA_QUOTES = [
 ]
 
 
-def _auth(user_id: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {user_id}"}
+def _auth(demo_token: str) -> dict[str, str]:
+    """Bearer header for a demo account (its token is its role name)."""
+    return {"Authorization": f"Bearer {demo_token}"}
 
 
 def _entity(kind: str) -> dict:
@@ -81,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     # demo database.
     from fastapi.testclient import TestClient
 
+    from app.auth import hash_sign_in_token
     from app.db import Base
     from app.main import create_app
     from app.models.assertion import Assertion
@@ -112,7 +119,15 @@ def main(argv: list[str] | None = None) -> int:
     session.add_all([org, repo, msa, dpa])
 
     for user_id, email, display_name, _role in DEMO_USERS:
-        session.add(User(id=user_id, email=email, display_name=display_name))
+        # Demo token = role name = user id (documented in README/RUNBOOK).
+        session.add(
+            User(
+                id=user_id,
+                email=email,
+                display_name=display_name,
+                sign_in_token_hash=hash_sign_in_token(user_id),
+            )
+        )
     for user_id, _email, _display_name, role in DEMO_USERS:
         session.add(
             MatterRole(id=str(uuid.uuid4()), user_id=user_id, matter_id=msa.id, role=role)
@@ -398,7 +413,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Seeded {db_path} — 2 matters, {len(DEMO_USERS)} users, {total} source spans.")
     print("Serve it:")
     print(f"  LEXGRAPH_DATABASE_URL=sqlite:///{db_path} .venv/bin/uvicorn app.main:app --port 8000")
-    print("Sign-in ids (token = user id): " + ", ".join(u for u, *_ in DEMO_USERS))
+    print(
+        "Demo sign-in tokens (demo only; each equals the public user id): "
+        + ", ".join(u for u, *_ in DEMO_USERS)
+    )
     return 0
 
 

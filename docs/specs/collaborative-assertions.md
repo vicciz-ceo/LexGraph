@@ -646,6 +646,67 @@ Evidence (2026-11-16). Attaching or removing evidence modifies the assertion, so
 
 Creation checks the caller's suggesting role (contributor, reviewer or admin) in the matter before anything else in the payload: a caller without one gets 403 whatever matter, repository or pairing it sends.
 
+Authentication and identity (2026-11-16):
+
+- A user id is a public reference. It appears in member rosters and as
+  author, reviewer, commenter, rater and audit actor, and it is never a
+  credential.
+- Each user signs in with a secret sign-in token sent as
+  `Authorization: Bearer <token>`. Tokens are random
+  (`secrets.token_urlsafe`, 32 bytes), and only their SHA-256 hex digest
+  is stored (`users.sign_in_token_hash`, unique; NULL means the account
+  cannot sign in). An unknown token is rejected with 401.
+- A token is returned exactly once, when it is issued: by bootstrap, by
+  `POST /api/v1/users` (`sign_in_token`), or by
+  `POST /api/v1/users/{user_id}/sign-in-token`, which replaces the
+  account's token at once. No other response contains a token or a hash.
+- Rotating another account's token requires the admin role on every
+  matter that account belongs to, because the caller learns the new
+  credential; any admin may rotate their own token or an account with no
+  memberships. Operators with database access use
+  `python -m app.rotate_sign_in_token`.
+- Databases created before sign-in tokens are upgraded by migration
+  `20261116_sign_in_tokens`, which gives each existing account a legacy
+  token equal to its user id. Legacy tokens are reported at startup and as
+  `sign_in_status: "legacy"` in `GET /api/v1/users`, and should be
+  rotated.
+- The local agent CLI and MCP server act as `LEXGRAPH_AGENT_USER_ID`
+  through direct database access, so the user id is enough there. The REST
+  agent endpoint requires the agent account's sign-in token.
+
+Accounts and membership (2026-11-16):
+
+- Email addresses are normalized (surrounding whitespace removed,
+  lowercased) when stored and whenever they are compared, and are unique
+  (`users.email`, index `ix_users_email`). `POST /api/v1/users` with an
+  address another account has, in any letter case, is 409; adding a
+  member by email matches it case-insensitively. Migration
+  `20261116_users_email_unique` normalizes older databases; accounts that
+  already share an address are reported and left unchanged, and until an
+  operator resolves them both endpoints answer 409 for that address.
+- A caller-chosen user id is 1-36 ASCII letters, digits, `.`, `_` or `-`,
+  starting with a letter or digit, so that it fits `users.id` and works in
+  URL paths; anything else, or an id already in use, is 422. `email` is
+  at most 254 characters and `display_name` at most 255 (422).
+- A request that loses a race to an equivalent concurrent request gets the
+  answer the later of two sequential requests would get (409 for a
+  duplicate email or membership, 422 for a duplicate id), never a 500.
+- A matter always keeps at least one admin: demoting or removing its last
+  admin is 409, including when two admins demote each other at the same
+  moment.
+- `python -m app.bootstrap` requires a persistent database (`--db` or
+  `LEXGRAPH_DATABASE_URL`; an in-memory URL is refused with exit code 2)
+  and checks its flags with the rules above (exit code 2), before it
+  touches the database.
+
+Web app session (2026-11-16): the app keeps the sign-in token in the
+browser and signs the user out only when `GET /api/v1/me` answers 401.
+If restoring a saved sign-in fails in any other way (no response, 5xx,
+404, 429, or a body that is not a session), the token is kept and a retry
+screen is shown. While signed in, the app re-reads `GET /api/v1/me` after
+any request refused with 401 or 403, when the tab regains focus and every
+minute, so role-gated UI follows role changes made elsewhere.
+
 ==================================================
 13. API REQUIREMENTS
 ==================================================

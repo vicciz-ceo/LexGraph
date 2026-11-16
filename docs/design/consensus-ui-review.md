@@ -110,7 +110,8 @@ The design assumed capabilities the API did not have. Added (additively, in
 - Evidence rows reference `source_span_id`s; there is no span-resolution
   endpoint yet, so evidence lists show ids + roles, not quote text.
 - Notifications remain in-process (existing platform limitation).
-- The sign-in seam is the documented test-token scheme; a real IdP is a
+- Sign-in uses per-user secret tokens issued by an admin (no passwords, no
+  SSO); user ids are public references (2026-11-16). A real IdP is a
   deployment concern, out of scope here.
 - Analytics aggregates were computed client-side from the matter's assertion
   list; since 2026-11-16 Analytics and Profile read `assertion-stats` instead.

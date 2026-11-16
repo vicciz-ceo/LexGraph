@@ -128,32 +128,85 @@
   width: 220px;
 }
 
-.adm-created {
-  margin-top: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-container);
+.adm-signin-col {
+  width: 140px;
+  white-space: nowrap;
 }
 
-.adm-created__label {
+.adm-token-col {
+  width: 250px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.adm-rotate-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: var(--body-sm);
-  font-weight: 600;
-  margin-bottom: 6px;
 }
 
-.adm-created__id {
-  display: block;
+/* Accounts that still sign in with their public id (legacy migration). */
+.adm-legacy-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  font: var(--body-md);
+}
+
+.adm-legacy-banner .icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* One-time display of a newly issued sign-in token. */
+.adm-issued {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--status-pending-fg);
+  border-radius: var(--radius-md);
+  background: var(--surface-container-lowest);
+}
+
+.adm-issued__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--body-md);
+  font-weight: 600;
+  color: var(--status-pending-fg);
+}
+
+.adm-issued__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.adm-issued__token {
+  flex: 1;
+  min-width: 0;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
-  background: var(--surface-container-lowest);
+  background: var(--surface-container);
   border: 1px solid var(--border);
   user-select: all;
   word-break: break-all;
 }
 
-.adm-created__hint {
-  margin-top: 6px;
+.adm-issued__warning,
+.adm-issued__hint {
   font: var(--body-sm);
 }
 

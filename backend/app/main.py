@@ -339,6 +339,12 @@ def create_app(
     from app.request_guards import register_request_guards
     register_request_guards(app)
 
+    # Identity — resolve bearer sign-in tokens to user ids (append-only, R6).
+    # Order-independent: register_auth wraps the whole middleware stack.
+    from app.auth import register_auth
+
+    register_auth(app)
+
     @app.get("/healthz", openapi_extra={"security": []})
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
