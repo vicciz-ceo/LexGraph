@@ -1333,9 +1333,9 @@ shown as such. The pipeline is named as the author, and the user the run is
 attributed to (`--triggered-by-user-id`) is named only as that. The evidence
 badge reads "System-derived" instead of "Awaiting evidence". Every such assertion
 has a revision 1 record (written by the persistence-layer invariant, or by the
-backfill migration for databases linked earlier), so it can be rated. On a
-database that has not been migrated, the page says that the current revision has
-no stored record and offers no rating.
+backfill migration for databases linked earlier), so it can be rated. Should a
+current revision have no stored record all the same (a row written outside the
+application), the page says so and offers no rating.
 
 Evidence can be attached and removed after creation (§6, §8, §10). **Attach
 evidence** searches the matter's source passages (`GET /matters/{id}/source-spans`)
