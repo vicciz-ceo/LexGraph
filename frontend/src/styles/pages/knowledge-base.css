@@ -149,6 +149,11 @@
   color: var(--status-pending-fg);
 }
 
+/* Pipeline output without evidence: neither pending nor a problem. */
+.kb-evidence--system {
+  color: var(--on-surface-variant);
+}
+
 .kb-rating {
   font: var(--body-sm);
   white-space: nowrap;
