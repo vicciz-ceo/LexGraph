@@ -29,10 +29,20 @@ const DEBOUNCE_MS = 250;
 const STATUS_OPTIONS: { value: AssertionStatus | ""; label: string }[] = [
   { value: "accepted", label: "Accepted" },
   { value: "", label: "All statuses" },
-  { value: "superseded", label: "Superseded" },
-  { value: "disputed", label: "Disputed" },
+  { value: "draft", label: "Draft" },
   { value: "proposed", label: "Proposed" },
+  { value: "revision_requested", label: "Revision requested" },
+  { value: "disputed", label: "Disputed" },
+  { value: "rejected", label: "Rejected" },
+  { value: "superseded", label: "Superseded" },
+  { value: "withdrawn", label: "Withdrawn" },
 ];
+
+/** The plain Knowledge Base is the accepted catalog; a search from the
+ * topbar (a `?q=` URL) spans every status the viewer can see (ui:22). */
+function defaultStatusFor(urlQ: string): AssertionStatus | "" {
+  return urlQ === "" ? "accepted" : "";
+}
 
 const ORIGIN_OPTIONS: { value: AssertionOrigin | ""; label: string }[] = [
   { value: "", label: "All origins" },
@@ -70,6 +80,22 @@ function summaryKey(assertion: Assertion): string {
   return `${assertion.id}:${assertion.current_revision_number}`;
 }
 
+/** What a search covers, e.g. "across all statuses" or "in Accepted · AI-deduced". */
+function searchScope(
+  status: AssertionStatus | "",
+  origin: AssertionOrigin | "",
+  jurisdiction: string,
+): string {
+  const label = (options: { value: string; label: string }[], value: string) =>
+    options.find((option) => option.value === value)?.label ?? value;
+  const parts = [
+    status === "" ? "across all statuses" : `in ${label(STATUS_OPTIONS, status)}`,
+  ];
+  if (origin) parts.push(label(ORIGIN_OPTIONS, origin));
+  if (jurisdiction) parts.push(label(JURISDICTION_OPTIONS, jurisdiction));
+  return parts.join(" · ");
+}
+
 function titleCase(value: string): string {
   const label = value.replace(/_/g, " ");
   return label.charAt(0).toUpperCase() + label.slice(1);
@@ -105,7 +131,7 @@ export function KnowledgeBasePage() {
 
   const [q, setQ] = useState(urlQ);
   const [debouncedQ, setDebouncedQ] = useState(urlQ);
-  const [status, setStatus] = useState<AssertionStatus | "">("accepted");
+  const [status, setStatus] = useState<AssertionStatus | "">(() => defaultStatusFor(urlQ));
   const [origin, setOrigin] = useState<AssertionOrigin | "">("");
   const [jurisdiction, setJurisdiction] = useState("");
   const [sort, setSort] = useState("-created_at");
@@ -124,12 +150,22 @@ export function KnowledgeBasePage() {
     };
   }, []);
 
-  // The topbar search navigates to /knowledge?q=… — follow the URL, both on
-  // first render and whenever the hash query changes afterwards.
+  // The topbar search navigates to /knowledge?q=…; when the URL already is
+  // that, AppShell re-dispatches hashchange. Either way `location` gets a new
+  // identity, and the URL's search is applied afresh, replacing any in-page
+  // refinement, so the same topbar query always gives the same results. The
+  // first render already follows the URL.
+  const [searchNonce, setSearchNonce] = useState(0);
+  const mountLocation = useRef(location);
   useEffect(() => {
+    if (location === mountLocation.current) return;
     setQ(urlQ);
     setDebouncedQ(urlQ);
-  }, [urlQ]);
+    setStatus(defaultStatusFor(urlQ));
+    setOrigin("");
+    setJurisdiction("");
+    setSearchNonce((nonce) => nonce + 1);
+  }, [location, urlQ]);
 
   // Debounce in-page typing before it hits the API.
   useEffect(() => {
@@ -162,7 +198,7 @@ export function KnowledgeBasePage() {
     return () => {
       cancelled = true;
     };
-  }, [matterId, debouncedQ, status, origin, jurisdiction, sort, reloadNonce]);
+  }, [matterId, debouncedQ, status, origin, jurisdiction, sort, reloadNonce, searchNonce]);
 
   // Ratings are per revision and not embedded in the list payload — fetch a
   // summary per visible row (cached by assertion + revision).
@@ -348,7 +384,7 @@ export function KnowledgeBasePage() {
 
       {debouncedQ !== "" && (
         <p className="kb-results">
-          Results for <strong>“{debouncedQ}”</strong>
+          Results for <strong>“{debouncedQ}”</strong> {searchScope(status, origin, jurisdiction)}
         </p>
       )}
 

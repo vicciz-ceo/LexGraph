@@ -195,22 +195,66 @@ describe("KnowledgeBasePage", () => {
     );
   });
 
-  it("reads ?q= from the hash and shows the results banner", async () => {
+  it("reads ?q= from the hash as a search across every status", async () => {
+    // ?q= is the topbar's global search (ui:22): it must find assertions in
+    // any status the viewer can see, not only the accepted catalog.
     window.location.hash = "#/knowledge?q=capacity";
     const view = render(<KnowledgeBasePage />);
 
     await screen.findByText(a1.proposition);
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m1", {
       q: "capacity",
-      status: "accepted",
       sort: "-created_at",
     });
-    expect(screen.getByText(/Results for/)).toBeInTheDocument();
+    // One request: the search does not first load the accepted catalog.
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Status")).toHaveValue("");
+    expect(screen.getByText(/Results for/)).toHaveTextContent(
+      "Results for “capacity” across all statuses",
+    );
     expect(screen.getByText("“capacity”")).toBeInTheDocument();
     expect(screen.getByLabelText("Search assertions")).toHaveValue("capacity");
 
+    // The line says what is searched when a status filter narrows it.
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Status"), "accepted");
+    expect(screen.getByText(/Results for/)).toHaveTextContent(
+      "Results for “capacity” in Accepted",
+    );
+
     view.unmount();
     window.location.hash = "";
+  });
+
+  it("offers every review status in the Status filter", async () => {
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText(a1.proposition);
+
+    const options = within(screen.getByLabelText("Status"))
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value);
+    expect([...options].sort()).toEqual(
+      [
+        "",
+        "accepted",
+        "disputed",
+        "draft",
+        "proposed",
+        "rejected",
+        "revision_requested",
+        "superseded",
+        "withdrawn",
+      ].sort(),
+    );
+
+    await user.selectOptions(screen.getByLabelText("Status"), "revision_requested");
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
+        status: "revision_requested",
+        sort: "-created_at",
+      }),
+    );
   });
 
   it("shows an empty state when nothing matches", async () => {
