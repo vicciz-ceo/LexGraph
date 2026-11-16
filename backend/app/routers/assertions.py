@@ -581,31 +581,111 @@ _MATCH_COLUMNS = (
 )
 _MatchRow = namedtuple("_MatchRow", [column.key for column in _MATCH_COLUMNS])
 
-# Review authoring:3. The scans read every assertion of a matter. A plain
-# SELECT hands the rows over one at a time, and between two rows the reading
-# thread has to win the GIL back from the request threads busy with CPU work
-# (the similarity pass of the concurrent requests). Measured on a matter of
-# 220,000 rows with one such thread, 5,000 rows took 42 s: the read held
-# SQLite's SHARED lock for minutes, so every COMMIT in the database waited
-# behind it and failed with "database is locked". On SQLite the rows are
-# therefore built into one JSON value by SQLite itself, in one step that
-# holds the lock for well under a second whatever the load (0.4-0.7 s).
-_MATTER_ROWS_AS_JSON = text(
-    "SELECT json_group_array(json_array("
-    + ", ".join(column.key for column in _MATCH_COLUMNS)
-    + ", created_at)) FROM assertions WHERE matter_id = :matter_id"
+# Review authoring:3. The scans read every assertion of a matter. On SQLite
+# (rollback journal) a statement holds the database's SHARED lock until it
+# has finished, and a COMMIT anywhere in the database waits for every
+# statement running when it began, for at most the 5 s busy timeout. So a
+# statement over a matter must stay short, also when many run at once:
+#
+# * A plain SELECT hands the rows over one at a time, and between two rows
+#   the reading thread has to win the GIL back from the request threads busy
+#   with CPU work (the similarity pass of the concurrent requests). Measured
+#   on a matter of 220,000 rows with one such thread, 5,000 rows took 42 s.
+# * SQLite therefore encodes the rows as JSON itself, without the GIL, and
+#   the statement must not allocate memory for each row: such allocations
+#   go to a heap behind one lock that every connection of the process
+#   shares. json_array() allocates for every row. A subquery copies every
+#   value it passes on, from the connection's own small allocator only until
+#   the statements the connection keeps prepared have used it up, as they
+#   have in a running server. The whole-matter json_array() statement took
+#   0.2 s alone, but 5 to 7 s each when 12 agent submissions ran it at once
+#   in one server, past the busy timeout: a comment posted in another matter
+#   meanwhile failed with "database is locked" in every such burst. One
+#   json_group_array() per column, straight over the table, appends to one
+#   buffer per column: 0.2 s each for 50,000 rows with 12 at once.
+# * A matter larger than MATTER_ROWS_PER_STATEMENT is read in statements of
+#   at most that many rows (a rowid range within one status, the order of
+#   the index ix_assertions_matter_id_status), so how long one statement
+#   holds the lock does not grow with the matter.
+#: The most assertions one statement of `_matter_rows` reads on SQLite.
+MATTER_ROWS_PER_STATEMENT = 50_000
+_ROW_COLUMNS = ["rowid", *(column.key for column in _MATCH_COLUMNS), "created_at"]
+_ROWS_AS_JSON = (
+    "SELECT " + ", ".join(f"json_group_array({name})" for name in _ROW_COLUMNS)
+    + " FROM assertions WHERE matter_id = :matter_id"
+)
+_MATTER_SIZE_SQL = text("SELECT count(*) FROM assertions WHERE matter_id = :matter_id")
+_ALL_ROWS_AS_JSON = text(_ROWS_AS_JSON)
+_AFTER = " AND rowid > :after"
+# Rows of one status by rowid range, keyed by (lower bound, upper bound).
+_STATUS_ROWS_AS_JSON = {
+    (after, upto): text(_ROWS_AS_JSON + " AND status = :status" + (_AFTER if after else "")
+                        + (" AND rowid <= :upto" if upto else ""))
+    for after in (False, True) for upto in (False, True)
+}
+# The last rowid of a chunk: an index-only scan of at most one chunk.
+_CHUNK_END_SQL = {
+    after: text("SELECT rowid FROM assertions WHERE matter_id = :matter_id AND status = :status"
+                + (_AFTER if after else "") + " ORDER BY rowid LIMIT 1 OFFSET :offset")
+    for after in (False, True)
+}
+_FIRST_MATTER_STATUS_SQL = text("SELECT min(status) FROM assertions WHERE matter_id = :matter_id")
+_NEXT_MATTER_STATUS_SQL = text(
+    "SELECT min(status) FROM assertions WHERE matter_id = :matter_id AND status > :status"
 )
 _SQLITE_HAS_JSON = sqlite3.sqlite_version_info >= (3, 38, 0)
+
+
+def _decoded_rows(session: Session, statement, params: dict) -> list[tuple]:
+    """Run one `_ROWS_AS_JSON` statement: its rows as `_ROW_COLUMNS` tuples.
+    The aggregates of one SELECT see the rows in the same order."""
+    columns = session.execute(statement, params).one()
+    return list(zip(*(json.loads(column) for column in columns)))
+
+
+def _sqlite_matter_rows(session: Session, matter_id: str) -> list[tuple]:
+    """`_ROW_COLUMNS` tuples of every assertion of `matter_id`: in one
+    statement, or MATTER_ROWS_PER_STATEMENT at a time, status by status.
+
+    Outside a transaction several statements are not one snapshot: an
+    assertion whose status changes during the read appears once, in the
+    state read last, or is missed if it moved to a status already read. The
+    exact checks allow for that: under the write lock they re-check
+    everything written after the watermark taken before their scan
+    (`recheck_duplicate`), and every status change writes an audit row."""
+    limit = MATTER_ROWS_PER_STATEMENT
+    params = {"matter_id": matter_id}
+    if session.execute(_MATTER_SIZE_SQL, params).scalar_one() <= limit:
+        return _decoded_rows(session, _ALL_ROWS_AS_JSON, params)
+    by_id: dict[str, tuple] = {}
+    status_value = session.execute(_FIRST_MATTER_STATUS_SQL, params).scalar_one()
+    while status_value is not None:
+        after = None
+        while True:
+            where = {**params, "status": status_value}
+            if after is not None:
+                where["after"] = after
+            upto = session.execute(
+                _CHUNK_END_SQL[after is not None], {**where, "offset": limit - 1}
+            ).scalar_one_or_none()
+            if upto is not None:
+                where["upto"] = upto
+            for row in _decoded_rows(session, _STATUS_ROWS_AS_JSON[after is not None, upto is not None], where):
+                by_id[row[1]] = row  # read twice: its status changed during the read
+            if upto is None:
+                break
+            after = upto
+        status_value = session.execute(_NEXT_MATTER_STATUS_SQL, {**params, "status": status_value}).scalar_one()
+    return list(by_id.values())
 
 
 def _matter_rows(session: Session, matter_id: str) -> list[_MatchRow]:
     """Every assertion of `matter_id` as `_MATCH_COLUMNS` rows, oldest first
     (created_at, then id)."""
     if _SQLITE_HAS_JSON and session.get_bind().dialect.name == "sqlite":
-        value = session.execute(_MATTER_ROWS_AS_JSON, {"matter_id": matter_id}).scalar_one()
-        rows = json.loads(value) if value else []
-        rows.sort(key=lambda row: (str(row[-1]), row[0]))
-        return [_MatchRow(*row[:-1]) for row in rows]
+        rows = _sqlite_matter_rows(session, matter_id)
+        rows.sort(key=lambda row: (str(row[-1]), row[1]))
+        return [_MatchRow(*row[1:-1]) for row in rows]
     return [_MatchRow(*row) for row in session.execute(
         select(*_MATCH_COLUMNS)
         .where(Assertion.matter_id == matter_id)
