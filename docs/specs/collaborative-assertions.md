@@ -176,6 +176,10 @@ Rules:
 - The interface must show a complete revision history.
 - The user must be able to compare revisions.
 
+Implementation rules (2026-11-16):
+
+- Every assertion has a revision row for its current_revision_number, whatever wrote it. The persistence layer enforces this: when a transaction commits an inserted assertion that has no such row, an initial revision is recorded from the assertion's own fields (edited by its author; revision_reason "initial creation (system-generated)" for the definition-links pass), together with an "Assertion created" audit event. Writers that record revision 1 themselves (the REST/agent creation path, offline enrichment) are unaffected. This covers the deterministic definition-links pass, whose system_generated assertions are therefore ratable, keep their generated text as revision 1 when edited, and give review decisions a revision to name. Assertions stored without revision 1 before this rule are backfilled by a migration.
+
 ==================================================
 4. USER STRENGTH RATINGS
 ==================================================

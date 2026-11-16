@@ -20,6 +20,10 @@ in this matter is not suggested again on a re-run (`app/enrich/cli.py`'s
 "idempotent re-run" requirement) -- tracked by the set of source-span ids
 already attached as evidence to a `model_suggested` assertion in this
 matter.
+
+Audited (spec section 16, audit finding pipeline:3): each created
+assertion gets the same `assertion_created` event as the REST creation
+path, in the same transaction, naming revision 1 and the triggering user.
 """
 
 from __future__ import annotations
@@ -38,6 +42,7 @@ from app.models.assertion_revision import AssertionRevision
 from app.models.matter import Matter
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
+from app.services.audit import record_audit_event
 from app.services.validation import sanitize_for_storage
 
 _MODEL_ORIGIN = "model_suggested"
@@ -181,6 +186,16 @@ def run_enrichment(
             )
             already_suggested_span_ids.add(span_id)
 
+        record_audit_event(
+            session,
+            actor_user_id=triggered_by_user_id,
+            event_type="assertion_created",
+            repository_id=assertion.repository_id,
+            matter_id=assertion.matter_id,
+            assertion_id=assertion.id,
+            assertion_revision_id=revision.id,
+            new_value=assertion.status,
+        )
         session.commit()
         session.refresh(assertion)
         created.append(

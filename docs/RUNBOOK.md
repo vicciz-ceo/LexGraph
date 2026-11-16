@@ -161,6 +161,26 @@ downgrade(engine)
 cd ..
 ```
 
+### Migration: Revision Invariants (2026-11-16)
+
+Databases created before 2026-11-16 need an idempotent migration (it prints `True` when it changed something and `False` when there was nothing to do; a fresh database does not need it):
+
+- `m20261116_backfill_initial_assertion_revisions` adds the missing revision 1 (and an `assertion_created` audit event marked `migration:<id>`) to assertions that were stored without one, i.e. definition-link output written before this date. Definition-link assertions edited before the fix keep only their later revisions: the original text was not stored.
+
+```bash
+cd backend
+.venv/bin/python -c "
+from app.config import get_settings
+from app.db import make_engine
+from app.migrations import m20261116_backfill_initial_assertion_revisions
+
+engine = make_engine(get_settings().database_url)
+for migration in (m20261116_backfill_initial_assertion_revisions,):
+    print(migration.MIGRATION_ID, migration.upgrade(engine))
+"
+cd ..
+```
+
 ## Backend Server
 
 ### Starting the Backend
@@ -205,7 +225,7 @@ cd backend
 cd ..
 ```
 
-This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 
