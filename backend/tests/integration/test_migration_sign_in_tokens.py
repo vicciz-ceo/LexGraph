@@ -118,6 +118,25 @@ def test_upgrade_adds_the_column_and_preserves_existing_sign_ins(tmp_path, monke
         app.state.engine.dispose()
 
 
+def test_an_unmigrated_database_logs_an_upgrade_error_at_startup(tmp_path, monkeypatch, caplog):
+    db_path = tmp_path / "unmigrated.db"
+    engine = _old_schema_db(db_path)
+    _seed_old(engine)
+    engine.dispose()
+
+    monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{db_path}")
+    app = create_app()
+    try:
+        with caplog.at_level(logging.ERROR, logger="app.auth"):
+            with TestClient(app, raise_server_exceptions=False) as client:
+                # Nobody can sign in until the migration runs.
+                assert client.get("/api/v1/me", headers=auth_header("old-admin")).status_code == 500
+        errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+        assert any("no sign_in_token_hash column" in message for message in errors)
+    finally:
+        app.state.engine.dispose()
+
+
 def test_upgrade_is_a_no_op_on_a_fresh_create_all_database(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
     import app.models  # noqa: F401

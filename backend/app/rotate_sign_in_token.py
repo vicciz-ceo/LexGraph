@@ -63,7 +63,8 @@ def main(argv: list[str] | None = None) -> int:
         if "sign_in_token_hash" not in columns:
             print(
                 "error: this database predates sign-in tokens; upgrade it first "
-                "(python -m app.migrate --db PATH)",
+                "(python -m app.migrate --db PATH; see docs/RUNBOOK.md, "
+                "'Upgrading: sign-in tokens replace user-id sign-in')",
                 file=sys.stderr,
             )
             return 1

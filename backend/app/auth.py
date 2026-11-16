@@ -210,7 +210,8 @@ def warn_about_legacy_sign_ins(session_factory: Callable[[], Any]) -> int:
         if "sign_in_token_hash" in str(exc):
             logger.error(
                 "The users table has no sign_in_token_hash column, so nobody can sign "
-                "in. Upgrade the database first: python -m app.migrate --db PATH"
+                "in. Upgrade the database first: python -m app.migrate --db PATH "
+                "(docs/RUNBOOK.md, 'Upgrading: sign-in tokens replace user-id sign-in')"
             )
         return 0
     finally:
