@@ -597,6 +597,17 @@ def _assert_supersede_refused(client, db_session, m, assertion_id, successor_id)
     return r
 
 
+def test_supersede_with_an_unknown_successor_is_404(client, matter_with_users, db_session):
+    m = matter_with_users
+    assertion_id = _drive_to(client, db_session, m, "accepted")
+    r = _post(
+        client, assertion_id, "supersede", m["reviewer_headers"],
+        {"superseded_by_assertion_id": str(uuid.uuid4())},
+    )
+    assert r.status_code == 404, r.text
+    assert _row(db_session, assertion_id)["status"] == "accepted"
+
+
 def test_assertion_cannot_supersede_itself(client, matter_with_users, db_session):
     m = matter_with_users
     assertion_id = _drive_to(client, db_session, m, "accepted")

@@ -977,3 +977,46 @@ needs contributor membership and an unreviewed status; reviewers can revise
 reviewed assertions. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Review decision rules (2026-11-16)
+
+Every review decision (`accept`, `reject`, `dispute`, `request-revision`,
+`supersede`) accepts an optional `expected_revision_number`, the revision the
+reviewer looked at. If the assertion has moved on to another revision, the
+decision is refused with 409 and nothing changes. A decision that carries the
+field therefore applies to, and is audited against, the revision that was
+reviewed. The field is optional, as on PATCH. Once the request body is
+well-formed, checks run in this order: 404 (unknown assertion), 403
+(permission), 409 (stale revision or status), 422 (invalid request content). The
+write only succeeds while the assertion still has the status and revision that
+were checked. A concurrent decision or edit therefore gets 409 rather than being
+overwritten.
+
+Decisions are recorded only on assertions that are proposed,
+revision_requested, disputed, accepted or rejected. A draft must be submitted
+first, and withdrawn and superseded assertions take no decision. Repeating the
+current status, for example accepting an accepted assertion, also returns 409.
+Reviewers may still move an assertion between the reviewed statuses.
+
+An assertion can be accepted without a justification only if its
+`evidence_status` is `evidenced`, meaning at least one evidence row has the role
+supports, primary_basis or secondary_basis. Otherwise `acceptance_justification`
+must still contain text after sanitization and trimming. If it is missing, blank
+or contains only markup, the response is 422.
+
+The successor named in a supersede must be a different assertion in the same
+matter. It must be proposed, revision_requested, disputed or accepted, and its
+own supersede links must not lead back to the assertion being superseded.
+Otherwise the response is 422, or 404 for an unknown successor id.
+`superseded_by_assertion_id` is set only while an assertion is superseded, and
+any other decision clears it.
+
+Review text follows the same rules as all other stored text: at most 100,000
+characters (422 above that), with active markup removed. The request-revision
+comment is stored like any other comment: sanitized `comment_text`, exact
+`comment_text_raw` and a `comment_created` audit event. A comment that contains
+only markup stores nothing. The decision's own audit event holds only the
+sanitized text, as `revision_requested; comment=…` or
+`accepted; acceptance_justification=…`. All audit rows written by one decision
+share a `correlation_id`. The review routes return the full assertion, as the
+other assertion mutation routes do.

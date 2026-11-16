@@ -111,6 +111,14 @@ edit creates a revision and checks for stale edits. An accepted assertion return
 to proposed status after a material edit. Previous revision text and rating
 summaries remain available in **Activity**.
 
+Review decisions (accept, reject, dispute, request revision, supersede) can send
+the revision the reviewer saw as `expected_revision_number`. If the assertion
+has been edited since, the API returns 409 and changes nothing; reload it and
+review the current revision. A decision is also refused with 409 on a draft, a
+withdrawn or a superseded assertion, and when it repeats the current status.
+Accepting an assertion that has no supporting evidence requires a written
+justification, which is kept in its history.
+
 Lawyers rate the current revision from 1–5 with an optional rationale, update or
 remove their rating, and create their own assertions using **Suggest Assertion**.
 That form searches actual document/article subjects and evidence quotes, supports
