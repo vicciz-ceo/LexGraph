@@ -4,13 +4,13 @@ Three gaps the Stitch design exposed, closed here with minimal additive
 endpoints (no changes to existing routers):
 
 - ``GET /api/v1/me`` — resolve the caller's identity + matter memberships.
-  The UI needs this at sign-in: the bearer token IS the user id
-  (``app/auth.py`` test-token seam), so "signing in" = proving the token
-  resolves to a real user, then learning which matters (and roles) the
-  account has.
+  The UI needs this at sign-in: "signing in" = proving the bearer sign-in
+  token resolves to a real user (``app/auth.py``), then learning the
+  account's PUBLIC user id and which matters (and roles) it has.
 - ``GET /api/v1/matters/{matter_id}/members`` — member roster for a
   matter (any member may view; there is no user-enumeration endpoint
-  outside a shared matter).
+  outside a shared matter). Roster ids are public references, not
+  credentials, so showing them to every member is safe.
 - Admin role management (``POST``/``PUT``/``DELETE`` members) — powers
   the design's Admin console. Guarded so a matter can never lose its
   last admin (no lockout).

@@ -2,8 +2,9 @@
 
 Gate G1 (fresh-instance bootstrap): on an EMPTY database, one documented
 command creates an organization + repository + matter + the first user
-with the `admin` role on that matter, and prints the sign-in user id
-clearly. On a NON-empty database (any `users` row already exists) it
+with the `admin` role on that matter, and prints that admin's sign-in
+token clearly (2026-11-16: a random secret, stored only as a hash -- no
+longer the public user id). On a NON-empty database (any `users` row already exists) it
 refuses with a non-zero exit and mutates nothing (no silent org/matter/
 user creation on top of an existing workspace).
 
@@ -21,19 +22,37 @@ in `app/models/*.py`:
   organizations(id, name)
   repositories(id, organization_id, name)
   matters(id, repository_id, name)
-  users(id, email, display_name)
+  users(id, email, display_name, sign_in_token_hash)
   matter_roles(id, user_id, matter_id, role)
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
+import re
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+def _printed_token(stdout: str) -> str:
+    match = re.search(r"sign-in token[^:\n]*:\s*(\S+)", stdout)
+    assert match, f"bootstrap must print the sign-in token: {stdout!r}"
+    return match.group(1)
+
+
+def _assert_prints_credential_not_id(stdout: str, user_row: tuple) -> None:
+    # users(id, email, display_name, sign_in_token_hash)
+    user_id, token_hash = user_row[0], user_row[3]
+    token = _printed_token(stdout)
+    assert hashlib.sha256(token.encode()).hexdigest() == token_hash
+    assert token != user_id
+    # The public id is not presented as the credential any more.
+    assert user_id not in stdout
 
 
 def _run_bootstrap(
@@ -80,10 +99,10 @@ def test_bootstrap_creates_workspace_and_admin_on_empty_db(tmp_path):
     assert roles[0][1] == users[0][0]  # the role belongs to the one user created
     assert roles[0][2] == matters[0][0]  # ... on the one matter created
 
-    # The sign-in credential (the user id) must be printed clearly so an
-    # operator can hand it to the first admin (R3: id IS the credential).
-    user_id = users[0][0]
-    assert user_id in result.stdout
+    # The sign-in credential must be printed clearly so an operator can
+    # hand it to the first admin. Re-pointed 2026-11-16 (finding api:2):
+    # it is a random token whose hash is stored, not the public user id.
+    _assert_prints_credential_not_id(result.stdout, users[0])
 
 
 def test_bootstrap_refuses_on_nonempty_db_without_mutating(tmp_path):
@@ -131,7 +150,7 @@ def test_bootstrap_accepts_custom_org_matter_user_names_and_email(tmp_path):
     assert matters[0][2] == "Acme v. Zenith"
     assert users[0][1] == "root@acme.test"
     assert users[0][2] == "Root Admin"
-    assert users[0][0] in result.stdout
+    _assert_prints_credential_not_id(result.stdout, users[0])
 
 
 def test_bootstrap_reads_database_url_env_when_no_db_flag(tmp_path):

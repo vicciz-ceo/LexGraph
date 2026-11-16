@@ -13,9 +13,10 @@ Every `/api/v1/...` route not yet registered 404s today (see
 fails on a 404 instead of the intended status code -- the right RED
 reason until a Developer track adds and registers the router.
 
-Response shape pin (R3 + UI1 note): bare JSON, exact field names
-`{id, email, display_name}` -- no `{"items": [...]}` envelope on the list,
-matching `list_members`'s bare-array convention in workspace.py.
+Response shape pin (UI1 note; sign-in tokens 2026-11-16): bare JSON,
+exact field names `{id, email, display_name, sign_in_status}`, plus a
+one-time `sign_in_token` on creation -- no `{"items": [...]}` envelope on
+the list, matching `list_members`'s bare-array convention in workspace.py.
 """
 
 from __future__ import annotations
@@ -46,9 +47,12 @@ def test_list_users_returns_bare_array_with_exact_fields(client, matter_with_use
     assert m["contributor_id"] in ids
 
     row = next(row for row in body if row["id"] == admin_id)
-    assert set(row.keys()) == {"id", "email", "display_name"}
+    # sign_in_status (2026-11-16): active | legacy | none, for the admin
+    # console's legacy badge. Never the token or its hash.
+    assert set(row.keys()) == {"id", "email", "display_name", "sign_in_status"}
     assert row["email"] == "global-admin@example.test"
     assert row["display_name"] == "Global Admin"
+    assert row["sign_in_status"] == "legacy"  # seed_user's token == id
 
 
 def test_list_users_requires_admin_on_at_least_one_matter(client, matter_with_users):
@@ -87,9 +91,12 @@ def test_list_users_unknown_token_is_401(client, matter_with_users):
 # --- POST /api/v1/users -------------------------------------------------
 
 
-def test_admin_creates_account_and_response_surfaces_id_prominently(
+def test_admin_creates_account_and_response_surfaces_its_sign_in_token_once(
     client, matter_with_users, db_session
 ):
+    # Re-pointed 2026-11-16 (findings api:2/ui:0): the id is no longer the
+    # credential (it is shown to every matter member), so the creation
+    # response now carries a separate random sign-in token, shown once.
     m = matter_with_users
     admin_id = _make_admin(db_session, m["matter_id"])
 
@@ -100,10 +107,13 @@ def test_admin_creates_account_and_response_surfaces_id_prominently(
     )
     assert r.status_code == 201
     body = r.json()
-    assert set(body.keys()) == {"id", "email", "display_name"}
+    assert set(body.keys()) == {"id", "email", "display_name", "sign_in_status", "sign_in_token"}
     assert body["email"] == "new.hire@example.test"
     assert body["display_name"] == "New Hire"
     assert isinstance(body["id"], str) and body["id"] != ""
+    assert isinstance(body["sign_in_token"], str) and len(body["sign_in_token"]) >= 32
+    assert body["sign_in_token"] != body["id"]
+    assert body["sign_in_status"] == "active"
 
     listed = client.get("/api/v1/users", headers=auth_header(admin_id)).json()
     assert any(row["id"] == body["id"] for row in listed)

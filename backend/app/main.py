@@ -91,6 +91,12 @@ def create_app() -> FastAPI:
     app.include_router(agents.router)
     app.include_router(sources.router)
 
+    # Identity — resolve bearer sign-in tokens to user ids (append-only, R6).
+    # Order-independent: register_auth wraps the whole middleware stack.
+    from app.auth import register_auth
+
+    register_auth(app)
+
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
         return {"status": "ok"}

@@ -10,10 +10,11 @@ Usage (from ``backend/``, after ``pip install -e '.[dev]'``):
     LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/python -m app.bootstrap
 
 Creates one organization + repository + matter + the first user, with an
-``admin`` ``matter_roles`` row on that matter, then prints the new user's
-id clearly — that id IS the sign-in credential (R3, ``app/auth.py``'s
-test-token seam: ``Authorization: Bearer <user_id>``), so an operator can
-hand it straight to the first admin.
+``admin`` ``matter_roles`` row on that matter, then prints the new admin's
+sign-in token. The token is generated randomly, stored only as a hash, and
+shown this one time (``app/auth.py``): the operator hands it to the first
+admin, who enters it on the sign-in page. A lost token is replaced with
+``python -m app.rotate_sign_in_token``.
 
 Refuses to run on a NON-empty database (any existing ``users`` row) — no
 silent mutation on top of an already-bootstrapped workspace. Serve the
@@ -53,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     # target database (same convention as app/seed_demo.py).
     from sqlalchemy import select
 
+    from app.auth import issue_sign_in_token
     from app.db import Base
     from app.main import create_app
     from app.models.matter import Matter
@@ -82,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         matter = Matter(id=str(uuid.uuid4()), repository_id=repo.id, name=args.matter_name)
         user = User(id=str(uuid.uuid4()), email=args.user_email, display_name=args.user_name)
+        sign_in_token = issue_sign_in_token(user)
         admin_role = MatterRole(
             id=str(uuid.uuid4()), user_id=user.id, matter_id=matter.id, role="admin"
         )
@@ -89,7 +92,12 @@ def main(argv: list[str] | None = None) -> int:
         session.commit()
 
         print(f"Bootstrapped organization {org.name!r}, matter {matter.name!r}.")
-        print(f"Sign-in user id (this IS the credential, R3): {user.id}")
+        print(f"Admin sign-in token (shown once, keep it secret): {sign_in_token}")
+        print(
+            "Only a hash is stored. If it is lost: "
+            ".venv/bin/python -m app.rotate_sign_in_token --db <same db> "
+            f"--email {args.user_email}"
+        )
         print("Serve it:")
         print("  LEXGRAPH_DATABASE_URL=<same db> .venv/bin/uvicorn app.main:app --port 8000")
         return 0
