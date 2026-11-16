@@ -90,7 +90,7 @@ export function AssertionReviewHistory({
   if (events === null) {
     body = <p className="muted">Review history could not be loaded.</p>;
   } else if (decisions.length === 0) {
-    body = <p className="muted">No review decisions recorded yet.</p>;
+    body = <p className="muted">No reviewer has decided on this assertion yet.</p>;
   } else {
     body = <ReviewEventList decisions={decisions} nameFor={nameFor} formatTime={formatTime} />;
   }

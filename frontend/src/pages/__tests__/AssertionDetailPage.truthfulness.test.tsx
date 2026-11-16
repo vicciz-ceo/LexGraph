@@ -473,7 +473,7 @@ describe("author, reviewer and review history (ui:14)", () => {
     await renderPage();
 
     const card = screen.getByRole("region", { name: "Review history" });
-    expect(within(card).getByText("No review decisions recorded yet.")).toBeInTheDocument();
+    expect(within(card).getByText("No reviewer has decided on this assertion yet.")).toBeInTheDocument();
   });
 
   it("keeps the record usable when the history cannot be loaded", async () => {

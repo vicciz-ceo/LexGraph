@@ -56,7 +56,7 @@ describe("AssertionReviewHistory", () => {
       />,
     );
 
-    expect(screen.getByText("No review decisions recorded yet.")).toBeInTheDocument();
+    expect(screen.getByText("No reviewer has decided on this assertion yet.")).toBeInTheDocument();
   });
 
   it("lists submit and withdraw events when the feed records them", () => {
