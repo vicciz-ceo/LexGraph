@@ -93,7 +93,7 @@ The design assumed capabilities the API did not have. Added (additively, in
   API with the real role vocabulary (viewer/contributor/reviewer/admin,
   per-matter); "Voting Rules" became a read-only Review Policy explainer;
   the global audit-log tab was dropped (audit exists per-assertion via
-  `/history`, surfaced on the detail page).
+  `/history`; the detail page lists its review decisions).
 - **my_profile_activity** → `ProfilePage`. Stats computed from real queries
   (authored counts, acceptance rate, awaiting-my-rating via
   `unrated_by_me=true`); thumbs became rating shortcuts; expertise/weighting

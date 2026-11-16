@@ -1024,3 +1024,37 @@ shown as such. The pipeline is named as the author, and the user the run is
 attributed to (`--triggered-by-user-id`) is named only as that. The evidence
 badge reads "System-derived" instead of "Awaiting evidence". The pipeline stores
 no revision record, so no rating is offered until an edit records a revision.
+
+Evidence can be attached and removed after creation (§6, §8, §10). **Attach
+evidence** searches the matter's source passages (`GET /matters/{id}/source-spans`)
+and offers the six evidence roles. Supports, Primary basis and Secondary basis
+count as supporting evidence. Removing a passage asks for confirmation. The page
+offers these controls under the edit rule (§12): to the author, with contributor
+membership, of a draft, proposed or revision-requested assertion, and to
+reviewers and administrators for any assertion. Everyone else sees the evidence
+read-only. The page does not attach a passage again with a role it already has,
+and it keeps the last supporting passage of an accepted assertion. When the API
+refuses a change, the page shows the API's reason.
+
+Comments are shown as threads (§9). A reply appears under the comment it
+answers, and a deleted comment that still has replies keeps its place as
+"[comment removed]". Comments by members who now hold the reviewer or
+administrator role carry a Reviewer or Admin badge. Members who may comment can
+reply to a live comment, and edit or delete their own comments. An edit starts
+from the text exactly as written (`comment_text_raw`), and a deletion asks for
+confirmation. An edited comment is marked "(edited)". When the API refuses an
+action, the form stays open with the text and the API's reason.
+
+Activity lists every revision with its text, editor, time and reason, and loads
+each revision's ratings on request. With two or more revisions, any two can be
+compared side by side (§3). The comparison shows the text and the recorded
+fields (assertion type, subject, object, jurisdiction, effective from and to)
+and marks every field that differs as Changed. It also shows each revision's
+reason and that revision's own team ratings.
+
+On an accepted assertion, reviewers and administrators can mark it superseded by
+another accepted assertion of the same matter (§1, §10). They choose the
+replacement from the related accepted assertions or by searching the matter's
+accepted assertions. The assertion itself, and an assertion whose supersede link
+already points back to it, are not offered. A superseded assertion's page links
+to the assertion that replaced it and shows that assertion's status.

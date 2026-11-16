@@ -315,7 +315,7 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
 - **Knowledge Base** — searchable accepted-assertion table with CSV export
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
-- **Assertion detail** — evidence, comments, review history, revision history, ratings with rationales, and role-gated review actions
+- **Assertion detail** — evidence (attach and remove, under the edit rule), threaded comments (reply; edit or delete your own), review history, revision history with a side-by-side comparison of any two revisions, ratings with rationales, and role-gated review actions, including superseding an accepted assertion
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live from the assertion list
 - **Admin** — user account provisioning and matter member/role management (admin role required)
