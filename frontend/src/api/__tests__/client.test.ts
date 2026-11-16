@@ -62,6 +62,14 @@ describe("api client", () => {
     ]);
   });
 
+  it("reads the empty body of a 204, so the browser does not report the request as aborted", async () => {
+    const text = vi.fn(async () => "");
+    fetchMock.mockResolvedValue({ status: 204, ok: true, text });
+
+    await expect(api.deleteComment("a-1", "c-1")).resolves.toBeUndefined();
+    expect(text).toHaveBeenCalledTimes(1);
+  });
+
   it("hands over how many related assertions the server found beyond the listed ones", async () => {
     const listed = [{ assertion_id: "a-2", match_kind: "similar", score: 0.7 }];
     fetchMock

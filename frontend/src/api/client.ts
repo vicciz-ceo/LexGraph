@@ -119,10 +119,12 @@ async function send(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
+  // Read the body even when there is none (204): Chromium reports a
+  // response whose body is never read as a failed, aborted request.
+  const text = await response.text();
   if (response.status === 204) return { payload: undefined, response };
 
   let payload: unknown = null;
-  const text = await response.text();
   if (text) {
     try {
       payload = JSON.parse(text);
