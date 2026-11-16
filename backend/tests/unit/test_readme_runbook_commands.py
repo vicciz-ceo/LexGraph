@@ -59,11 +59,17 @@ def commands(path: Path) -> list[tuple[int, str]]:
     return joined
 
 
-def section_commands(path: Path, heading: str) -> list[str]:
-    """The commands inside one ``## `` section."""
+def _section_span(path: Path, heading: str) -> tuple[int, int]:
+    """1-based (heading line, last line) of one ``## `` section."""
     lines = path.read_text().splitlines()
     start = lines.index(f"## {heading}") + 1
     end = next((i for i in range(start, len(lines)) if lines[i].startswith("## ")), len(lines))
+    return start, end
+
+
+def section_commands(path: Path, heading: str) -> list[str]:
+    """The commands inside one ``## `` section."""
+    start, end = _section_span(path, heading)
     return [command for number, command in commands(path) if start < number <= end]
 
 
@@ -105,13 +111,23 @@ def test_no_documented_command_binds_every_interface(path):
     assert [_where(path, n, line) for n, line in commands(path) if wide.search(line)] == []
 
 
-def test_end_to_end_mcp_registration_passes_absolute_paths_and_the_database():
+def test_mcp_registrations_pass_absolute_paths_and_the_database():
     """`claude mcp add` stores only its own arguments, and the client starts the
     server from its own working directory, so relative paths and an exported
-    variable are both lost."""
-    registrations = [c for c in section_commands(RUNBOOK, "End-to-End Workflow")
-                     if c.startswith("claude mcp add ")]
-    assert registrations, "the end-to-end workflow no longer registers the MCP server"
+    variable are both lost.
+
+    The RUNBOOK's "MCP Server Registration" section and docs/mcp-registration.md
+    belong to the agent package's docs and are left to its checks; every other
+    registration these two documents show is checked here."""
+    agent_section = _section_span(RUNBOOK, "MCP Server Registration")
+    assert any(c.startswith("claude mcp add ") for _n, c in commands(RUNBOOK)), "parser found no registration"
+    registrations = [
+        command
+        for path in DOCS
+        for number, command in commands(path)
+        if command.startswith("claude mcp add ")
+        and not (path == RUNBOOK and agent_section[0] < number <= agent_section[1])
+    ]
     for command in registrations:
         assert re.search(rf'--env LEXGRAPH_DATABASE_URL="?sqlite:///{ABSOLUTE_PATH}', command), command
         interpreter = command.split(" -- ", 1)[1].split()[0]
