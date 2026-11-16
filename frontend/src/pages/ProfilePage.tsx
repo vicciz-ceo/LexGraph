@@ -2,17 +2,25 @@
 //
 // Adapts the Consensus "My Profile & Activity" design to LexGraph's real
 // model: no expertise chips, no vote weighting, no binary approve/reject.
-// Stats and lists derive client-side from the matter's assertions filtered
-// by author_user_id; "Awaiting my rating" uses the unrated_by_me filter.
-// The three signals stay separate: 1-5 strength ratings, model confidence
-// (percent, model_suggested only), and reviewer-gated status.
+// The counts come from the matter's assertion statistics filtered by
+// author_user_id; "My suggestions" (author_user_id, newest first) and
+// "Awaiting my rating" (status=proposed&unrated_by_me=true) are server pages
+// of 50 with Show more. The whole matter is never downloaded (audit finding
+// ui:1). The three signals stay separate: 1-5 strength ratings, model
+// confidence (percent, model_suggested only), and reviewer-gated status.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import "../styles/pages/profile.css";
 
 import { api } from "../api/client";
-import type { AppNotification, Assertion, AssertionList } from "../api/types";
+import type {
+  AppNotification,
+  Assertion,
+  AssertionList,
+  AssertionListParams,
+  AssertionStats,
+} from "../api/types";
 import { Icon } from "../app/icons";
 import type { IconName } from "../app/icons";
 import { Link } from "../app/router";
@@ -41,6 +49,26 @@ const STATUS_LABELS: Record<Assertion["status"], string> = {
 };
 
 const STANDING_GRADES = ["weak", "probable", "strong"];
+
+/** Rows per list request. */
+const LIST_PAGE = 50;
+
+const AWAITING_PARAMS: AssertionListParams = { status: "proposed", unrated_by_me: true };
+
+const EMPTY_LIST: AssertionList = { items: [], total: 0 };
+
+type ListId = "mine" | "awaiting";
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+/** `prev` followed by the rows of `next` it does not already hold (a row
+ * created between two pages shifts the second one). */
+function appendPage(prev: AssertionList, next: AssertionList): AssertionList {
+  const seen = new Set(prev.items.map((a) => a.id));
+  return { ...next, items: [...prev.items, ...next.items.filter((a) => !seen.has(a.id))] };
+}
 
 function initials(name: string): string {
   return name
@@ -107,7 +135,8 @@ export function ProfilePage() {
     window.localStorage.setItem(defaultJurisdictionKey(userId), value);
   };
 
-  const [matterAssertions, setMatterAssertions] = useState<Assertion[] | null>(null);
+  const [stats, setStats] = useState<AssertionStats | null>(null);
+  const [authored, setAuthored] = useState<AssertionList | null>(null);
   const [awaiting, setAwaiting] = useState<AssertionList | null>(null);
   const [notifications, setNotifications] = useState<
     AppNotification[] | "error" | null
@@ -115,25 +144,44 @@ export function ProfilePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>(canRate ? "awaiting" : "suggestions");
   const [reloadKey, setReloadKey] = useState(0);
+  const [moreLoading, setMoreLoading] = useState<ListId | null>(null);
+  const [moreError, setMoreError] = useState<{ list: ListId; message: string } | null>(null);
+  // Bumped by every (re)load, so a Show more answer for an earlier matter or
+  // user is dropped.
+  const loadGeneration = useRef(0);
+
+  const listParams = (list: ListId): AssertionListParams =>
+    list === "mine" ? { author_user_id: userId, sort: "-updated_at" } : AWAITING_PARAMS;
 
   useEffect(() => {
     let cancelled = false;
-    setMatterAssertions(null);
+    loadGeneration.current += 1;
+    setStats(null);
+    setAuthored(null);
     setAwaiting(null);
     setNotifications(null);
     setLoadError(null);
+    setMoreLoading(null);
+    setMoreError(null);
     setActiveTab(canRate ? "awaiting" : "suggestions");
 
-    const loads: [Promise<AssertionList>, Promise<AssertionList>] = [
-      api.listAssertions(matterId, {}),
+    const loads: [Promise<AssertionStats>, Promise<AssertionList>, Promise<AssertionList>] = [
+      api.assertionStats(matterId, { author_user_id: userId }),
+      api.listAssertions(matterId, {
+        author_user_id: userId,
+        sort: "-updated_at",
+        limit: LIST_PAGE,
+        offset: 0,
+      }),
       canRate
-        ? api.listAssertions(matterId, { status: "proposed", unrated_by_me: true })
-        : Promise.resolve({ items: [], total: 0 }),
+        ? api.listAssertions(matterId, { ...AWAITING_PARAMS, limit: LIST_PAGE, offset: 0 })
+        : Promise.resolve(EMPTY_LIST),
     ];
     Promise.all(loads).then(
-      ([all, unrated]) => {
+      ([myStats, mine, unrated]) => {
         if (cancelled) return;
-        setMatterAssertions(all.items);
+        setStats(myStats);
+        setAuthored(mine);
         setAwaiting(unrated);
       },
       (error: unknown) => {
@@ -159,19 +207,70 @@ export function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [matterId, canRate, reloadKey]);
+  }, [matterId, userId, canRate, reloadKey]);
 
-  const authored =
-    matterAssertions === null
-      ? null
-      : matterAssertions
-          .filter((a) => a.author_user_id === userId)
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  const acceptedCount = authored?.filter((a) => a.status === "accepted").length ?? 0;
-  const rejectedCount = authored?.filter((a) => a.status === "rejected").length ?? 0;
+  const showMore = (list: ListId) => {
+    const current = list === "mine" ? authored : awaiting;
+    if (current === null || moreLoading !== null) return;
+    const generation = loadGeneration.current;
+    setMoreLoading(list);
+    setMoreError(null);
+    api
+      .listAssertions(matterId, {
+        ...listParams(list),
+        limit: LIST_PAGE,
+        offset: current.items.length,
+      })
+      .then(
+        (next) => {
+          if (loadGeneration.current !== generation) return;
+          const update = (prev: AssertionList | null) =>
+            prev === null ? prev : appendPage(prev, next);
+          if (list === "mine") setAuthored(update);
+          else setAwaiting(update);
+          setMoreLoading(null);
+        },
+        (error: unknown) => {
+          if (loadGeneration.current !== generation) return;
+          setMoreError({
+            list,
+            message: error instanceof Error ? error.message : "the server did not respond",
+          });
+          setMoreLoading(null);
+        },
+      );
+  };
+
+  const authoredCount = stats?.total ?? 0;
+  const acceptedCount = stats?.by_status.accepted ?? 0;
+  const rejectedCount = stats?.by_status.rejected ?? 0;
   const decidedCount = acceptedCount + rejectedCount;
   const acceptancePct =
     decidedCount > 0 ? Math.round((acceptedCount / decidedCount) * 100) : null;
+
+  function renderMore(list: ListId, shown: AssertionList) {
+    if (shown.items.length >= shown.total) return null;
+    return (
+      <div className="pf-more">
+        <span className="pf-more__count">
+          Showing {formatCount(shown.items.length)} of {formatCount(shown.total)}
+        </span>
+        <button
+          type="button"
+          className="btn btn--sm btn--secondary"
+          onClick={() => showMore(list)}
+          disabled={moreLoading !== null}
+        >
+          {moreLoading === list ? "Loading…" : "Show more"}
+        </button>
+        {moreError?.list === list && (
+          <span className="pf-more__error" role="alert">
+            Couldn't load more: {moreError.message}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   function renderAwaiting() {
     if (awaiting === null) return null;
@@ -187,44 +286,47 @@ export function ProfilePage() {
       );
     }
     return (
-      <ul className="pf-list">
-        {awaiting.items.map((assertion) => {
-          const origin = ORIGIN_CHIPS[assertion.origin];
-          const metaParts = [
-            assertion.assertion_type,
-            assertion.jurisdiction,
-            `submitted ${formatDate(assertion.submitted_at)}`,
-          ].filter(Boolean) as string[];
-          if (assertion.origin === "model_suggested" && assertion.confidence !== null) {
-            metaParts.push(`model confidence ${Math.round(assertion.confidence * 100)}%`);
-          }
-          return (
-            <li key={assertion.id} className="pf-item">
-              <div className="pf-item__main">
-                <Link to={`/assertions/${assertion.id}`} className="pf-item__prop">
-                  {assertion.proposition}
-                </Link>
-                <div className="pf-item__meta">
-                  <span className={origin.className}>{origin.label}</span>
-                  <span className="pf-item__meta-text">{metaParts.join(" · ")}</span>
+      <>
+        <ul className="pf-list">
+          {awaiting.items.map((assertion) => {
+            const origin = ORIGIN_CHIPS[assertion.origin];
+            const metaParts = [
+              assertion.assertion_type,
+              assertion.jurisdiction,
+              `submitted ${formatDate(assertion.submitted_at)}`,
+            ].filter(Boolean) as string[];
+            if (assertion.origin === "model_suggested" && assertion.confidence !== null) {
+              metaParts.push(`model confidence ${Math.round(assertion.confidence * 100)}%`);
+            }
+            return (
+              <li key={assertion.id} className="pf-item">
+                <div className="pf-item__main">
+                  <Link to={`/assertions/${assertion.id}`} className="pf-item__prop">
+                    {assertion.proposition}
+                  </Link>
+                  <div className="pf-item__meta">
+                    <span className={origin.className}>{origin.label}</span>
+                    <span className="pf-item__meta-text">{metaParts.join(" · ")}</span>
+                  </div>
                 </div>
-              </div>
-              <Link
-                to={`/assertions/${assertion.id}`}
-                className="btn btn--primary btn--sm pf-item__cta"
-              >
-                Rate
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                <Link
+                  to={`/assertions/${assertion.id}`}
+                  className="btn btn--primary btn--sm pf-item__cta"
+                >
+                  Rate
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        {renderMore("awaiting", awaiting)}
+      </>
     );
   }
 
   function renderSuggestions() {
     if (authored === null) return null;
-    if (authored.length === 0) {
+    if (authored.items.length === 0) {
       return (
         <div className="empty-state">
           <p className="empty-state__title">No suggestions yet</p>
@@ -240,35 +342,38 @@ export function ProfilePage() {
       );
     }
     return (
-      <ul className="pf-list">
-        {authored.map((assertion) => {
-          const showStanding =
-            assertion.status === "proposed" &&
-            STANDING_GRADES.includes(assertion.standing);
-          return (
-            <li key={assertion.id} className="pf-item">
-              <div className="pf-item__main">
-                <Link to={`/assertions/${assertion.id}`} className="pf-item__prop">
-                  {assertion.proposition}
-                </Link>
-                <div className="pf-item__meta">
-                  <span className={`badge badge--${assertion.status}`}>
-                    {STATUS_LABELS[assertion.status]}
-                  </span>
-                  {showStanding && (
-                    <span className={`badge badge--${assertion.standing}`}>
-                      Standing: {assertion.standing}
+      <>
+        <ul className="pf-list">
+          {authored.items.map((assertion) => {
+            const showStanding =
+              assertion.status === "proposed" &&
+              STANDING_GRADES.includes(assertion.standing);
+            return (
+              <li key={assertion.id} className="pf-item">
+                <div className="pf-item__main">
+                  <Link to={`/assertions/${assertion.id}`} className="pf-item__prop">
+                    {assertion.proposition}
+                  </Link>
+                  <div className="pf-item__meta">
+                    <span className={`badge badge--${assertion.status}`}>
+                      {STATUS_LABELS[assertion.status]}
                     </span>
-                  )}
-                  <span className="pf-item__meta-text">
-                    {assertion.assertion_type} · updated {formatDate(assertion.updated_at)}
-                  </span>
+                    {showStanding && (
+                      <span className={`badge badge--${assertion.standing}`}>
+                        Standing: {assertion.standing}
+                      </span>
+                    )}
+                    <span className="pf-item__meta-text">
+                      {assertion.assertion_type} · updated {formatDate(assertion.updated_at)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+        {renderMore("mine", authored)}
+      </>
     );
   }
 
@@ -306,14 +411,14 @@ export function ProfilePage() {
     );
   }
 
-  const loaded = authored !== null && awaiting !== null;
+  const loaded = stats !== null && authored !== null && awaiting !== null;
 
   const tabs: { id: TabId; label: string; count: number | null }[] = loaded
     ? [
         ...(canRate
           ? [{ id: "awaiting" as const, label: "Awaiting my rating", count: awaiting.total }]
           : []),
-        { id: "suggestions" as const, label: "My suggestions", count: authored.length },
+        { id: "suggestions" as const, label: "My suggestions", count: authored.total },
         {
           id: "notifications" as const,
           label: "Notifications",
@@ -360,14 +465,14 @@ export function ProfilePage() {
             <StatCard
               label="My suggestions"
               icon="add-comment"
-              value={String(authored.length)}
+              value={formatCount(authoredCount)}
               caption="Assertions you authored"
               testId="pf-stat-suggestions"
             />
             <StatCard
               label="Accepted"
               icon="check"
-              value={String(acceptedCount)}
+              value={formatCount(acceptedCount)}
               caption="Of your suggestions"
               testId="pf-stat-accepted"
             />
@@ -407,7 +512,7 @@ export function ProfilePage() {
               <StatCard
                 label="Awaiting my rating"
                 icon="flag"
-                value={String(awaiting.total)}
+                value={formatCount(awaiting.total)}
                 caption="Proposed, not yet rated by you"
                 testId="pf-stat-awaiting"
               />
@@ -430,7 +535,7 @@ export function ProfilePage() {
                   >
                     {tab.label}
                     {tab.count !== null && (
-                      <span className="pf-tab__count">{tab.count}</span>
+                      <span className="pf-tab__count">{formatCount(tab.count)}</span>
                     )}
                   </button>
                 ))}
