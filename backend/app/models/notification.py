@@ -18,11 +18,11 @@ type. A missing row means the default in `app.notifications.
 DEFAULT_PREFERENCES` (every event on, except per-rating notices, which
 spec §15 says must be off by default).
 
-Instants use `UtcInstant` below: SQLite has no timezone-aware storage,
-so a plain `DateTime(timezone=True)` comes back naive and would be
-serialized without an offset (findings api:15 / ui:3). Same contract as
-the shared `app.db_types.UtcDateTime` being introduced in parallel; the
-two can be unified at integration.
+Instants use the shared `app.db_types.UtcDateTime`: SQLite has no
+timezone-aware storage, so a plain `DateTime(timezone=True)` comes back
+naive and would be serialized without an offset (findings api:15 / ui:3).
+Its DDL is the one `DateTime(timezone=True)` emits, as the migration's
+snapshot expects.
 
 Created on existing databases by migration
 `app.migrations.m20261116_durable_notifications`.
@@ -31,42 +31,13 @@ Created on existing databases by migration
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import TypeDecorator
 
 from app.db import Base
-
-
-class UtcInstant(TypeDecorator):
-    """An instant, always returned as a timezone-aware UTC ``datetime``.
-
-    Binding converts an aware value to UTC and treats a naive value as UTC
-    (the storage convention); reading re-attaches UTC. The DDL is the one
-    ``DateTime(timezone=True)`` emits.
-    """
-
-    impl = DateTime
-    cache_ok = True
-
-    def __init__(self) -> None:
-        super().__init__(timezone=True)
-
-    @staticmethod
-    def _as_utc(value):
-        if not isinstance(value, datetime):
-            return value
-        if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc)
-
-    def process_bind_param(self, value, dialect):
-        return self._as_utc(value)
-
-    def process_result_value(self, value, dialect):
-        return self._as_utc(value)
+from app.db_types import UtcDateTime
 
 
 class Notification(Base):
@@ -86,8 +57,8 @@ class Notification(Base):
         String(36), ForeignKey("assertions.id"), nullable=True
     )
     payload: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(UtcInstant(), nullable=False)
-    read_at: Mapped[datetime | None] = mapped_column(UtcInstant(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)
 
 
 class NotificationPreference(Base):
@@ -100,4 +71,4 @@ class NotificationPreference(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(UtcInstant(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
