@@ -226,6 +226,15 @@ export const api = {
       body: { comment_text: commentText, parent_comment_id: parentCommentId ?? null },
     }),
 
+  // Own comments only; needs assertion:comment (contributor, reviewer, admin).
+  updateComment: (id: string, commentId: string, commentText: string) =>
+    request<AssertionComment>("PATCH", `/assertions/${id}/comments/${commentId}`, {
+      body: { comment_text: commentText },
+    }),
+
+  deleteComment: (id: string, commentId: string) =>
+    request<void>("DELETE", `/assertions/${id}/comments/${commentId}`),
+
   history: (id: string) => request<HistoryEvent[]>("GET", `/assertions/${id}/history`),
 
   // --- ratings -------------------------------------------------------------
