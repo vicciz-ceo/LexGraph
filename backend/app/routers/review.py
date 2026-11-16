@@ -18,7 +18,9 @@ Business rules encoded here (spec §10/§12, sprint gates G5/G6/G8):
 - A review decision never touches `assertion_ratings` rows.
 - A review decision records which assertion + revision was reviewed
   (`reviewed_by`, `reviewed_at`, and the current revision's id on the
-  audit event this router writes).
+  audit event this router writes, which carries a correlation id).
+- Every route returns the full assertion, like the other assertion
+  mutation routes.
 - No decision here ever mutates `assertion_ratings` — ratings are owned by
   track B2 and are read-only from this router's point of view.
 
@@ -43,8 +45,9 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
-from app.models.audit_event import AuditEvent
 from app.models.matter_role import MatterRole
+from app.routers.assertions import _serialize_assertion
+from app.services.audit import record_audit_event
 from app.services.permissions import has_permission
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["review"])
@@ -137,26 +140,21 @@ def _record_decision(
     new_status: str,
     extra_note: str | None = None,
 ) -> None:
-    """Write one audit_events row for a review decision (B4-owned mechanism;
-
-    does not call into track B3's `app.services.audit`, which is not part
-    of this track's write-set and may not exist in this worktree — see
-    ruling R9).
+    """Write one audit_events row for a review decision via
+    `app.services.audit` (spec §16: actor, timestamp, matter, assertion,
+    reviewed revision, before/after and a correlation id).
     """
     revision = _current_revision(db, assertion)
-    new_value = new_status if not extra_note else f"{new_status}; {extra_note}"
-    db.add(
-        AuditEvent(
-            actor_user_id=actor_user_id,
-            event_type=event_type,
-            timestamp=datetime.now(timezone.utc),
-            repository_id=assertion.repository_id,
-            matter_id=assertion.matter_id,
-            assertion_id=assertion.id,
-            assertion_revision_id=revision.id if revision else None,
-            previous_value=previous_status,
-            new_value=new_value,
-        )
+    record_audit_event(
+        db,
+        actor_user_id=actor_user_id,
+        event_type=event_type,
+        repository_id=assertion.repository_id,
+        matter_id=assertion.matter_id,
+        assertion_id=assertion.id,
+        assertion_revision_id=revision.id if revision else None,
+        previous_value=previous_status,
+        new_value=new_status if not extra_note else f"{new_status}; {extra_note}",
     )
 
 
@@ -167,19 +165,6 @@ def _apply_decision(db: Session, user_id: str, assertion: Assertion, new_status:
     assertion.reviewed_at = now
     assertion.updated_at = now
     db.add(assertion)
-
-
-def _serialize(assertion: Assertion) -> dict:
-    return {
-        "id": assertion.id,
-        "matter_id": assertion.matter_id,
-        "repository_id": assertion.repository_id,
-        "status": assertion.status,
-        "reviewed_by": assertion.reviewed_by,
-        "reviewed_at": assertion.reviewed_at.isoformat() if assertion.reviewed_at else None,
-        "current_revision_number": assertion.current_revision_number,
-        "superseded_by_assertion_id": assertion.superseded_by_assertion_id,
-    }
 
 
 # --- Routes -----------------------------------------------------------------
@@ -218,7 +203,7 @@ def accept_assertion(
     )
     db.commit()
     db.refresh(assertion)
-    return _serialize(assertion)
+    return _serialize_assertion(db, assertion)
 
 
 @router.post("/{assertion_id}/reject")
@@ -242,7 +227,7 @@ def reject_assertion(
     )
     db.commit()
     db.refresh(assertion)
-    return _serialize(assertion)
+    return _serialize_assertion(db, assertion)
 
 
 @router.post("/{assertion_id}/dispute")
@@ -266,7 +251,7 @@ def dispute_assertion(
     )
     db.commit()
     db.refresh(assertion)
-    return _serialize(assertion)
+    return _serialize_assertion(db, assertion)
 
 
 @router.post("/{assertion_id}/request-revision")
@@ -309,7 +294,7 @@ def request_revision(
     )
     db.commit()
     db.refresh(assertion)
-    return _serialize(assertion)
+    return _serialize_assertion(db, assertion)
 
 
 @router.post("/{assertion_id}/supersede")
@@ -344,4 +329,4 @@ def supersede_assertion(
     )
     db.commit()
     db.refresh(assertion)
-    return _serialize(assertion)
+    return _serialize_assertion(db, assertion)
