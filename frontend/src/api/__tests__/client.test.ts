@@ -61,4 +61,23 @@ describe("api client", () => {
       { status: 401, method: "GET", path: "/me" },
     ]);
   });
+
+  it("hands over how many related assertions the server found beyond the listed ones", async () => {
+    const listed = [{ assertion_id: "a-2", match_kind: "similar", score: 0.7 }];
+    fetchMock
+      .mockResolvedValueOnce({
+        ...reply(200, listed),
+        headers: new Headers({ "X-Total-Count": "37" }),
+      })
+      .mockResolvedValueOnce(reply(200, listed));
+
+    const capped = await api.relatedAssertions("a-1");
+    expect(capped).toEqual(listed);
+    expect(capped.total).toBe(37);
+
+    // No header (an older server): no total, only the list.
+    const plain = await api.relatedAssertions("a-1");
+    expect(plain).toEqual(listed);
+    expect(plain.total).toBeUndefined();
+  });
 });

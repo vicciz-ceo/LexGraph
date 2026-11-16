@@ -7,7 +7,7 @@
 // are mocked; every test renders the real page.
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AssertionDetail,
@@ -679,6 +679,31 @@ describe("labels instead of UUIDs (ui:30)", () => {
     expect(screen.queryByText("5728cea5-51bc-445a-b659-4e65b2bf79d2")).not.toBeInTheDocument();
   });
 
+  it("says how many related matches there are when the list is capped", async () => {
+    const strongest = Array.from({ length: 20 }, (_, i) => ({
+      assertion_id: `a-${100 + i}`,
+      match_kind: "similar",
+      score: 0.9 - i / 100,
+      proposition: `Related reading number ${i + 1}.`,
+      status: "accepted" as const,
+    }));
+    // The client hands over the server's X-Total-Count as `total`.
+    mockedApi.relatedAssertions.mockResolvedValue(Object.assign(strongest, { total: 37 }));
+    await renderPage();
+
+    expect(screen.getByText("Showing the 20 strongest of 37 matches.")).toBeInTheDocument();
+  });
+
+  it("does not claim more related matches than it lists when the total is unknown", async () => {
+    mockedApi.relatedAssertions.mockResolvedValue([
+      { assertion_id: "a-7", match_kind: "similar", score: 0.5, proposition: "One reading.", status: "accepted" },
+    ]);
+    await renderPage();
+
+    expect(screen.getByRole("link", { name: "One reading." })).toBeInTheDocument();
+    expect(screen.queryByText(/strongest of/)).not.toBeInTheDocument();
+  });
+
   it("does not print a span id when an evidence source cannot be resolved", async () => {
     mockedApi.getAssertion.mockResolvedValue(
       detail({
@@ -851,5 +876,34 @@ describe("comment errors", () => {
     expect(alert).toHaveTextContent("comment_text must contain text other than whitespace or markup");
     expect(alert.closest(".adp-comment-form")).not.toBeNull();
     expect(screen.getByLabelText("Add a comment")).toHaveValue("<b></b>");
+  });
+});
+
+// ui:3 / XREQ-78: instants are read as UTC even without an offset, and shown
+// in the viewer's timezone; effective dates are calendar dates and keep the
+// day they name in every timezone.
+describe("dates and times", () => {
+  // West of UTC, so a calendar date read as a UTC instant would show the
+  // day before, and an offset-less instant read as local time the day after.
+  beforeAll(() => {
+    vi.stubEnv("TZ", "America/New_York");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("shows offset-less instants in the viewer's timezone and effective dates as written", async () => {
+    mockedApi.getAssertion.mockResolvedValue(
+      detail({
+        // 02:00 UTC on Nov 16 is 21:00 on Nov 15 in New York.
+        created_at: "2026-11-16T02:00:00.835814",
+        effective_from: "2026-01-01T00:00:00",
+        effective_to: "2026-12-31T00:00:00",
+      }),
+    );
+    await renderPage();
+
+    expect(screen.getByText(/Created Nov 15, 2026/)).toBeInTheDocument();
+    expect(screen.getByText("Jan 1, 2026 – Dec 31, 2026")).toBeInTheDocument();
   });
 });

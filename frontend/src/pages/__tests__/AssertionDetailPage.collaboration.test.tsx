@@ -683,7 +683,12 @@ describe("superseding an accepted assertion (ui:15, pipeline:8)", () => {
     fireEvent.change(within(panel).getByLabelText("Search accepted assertions"), { target: { value: "fee" } });
 
     const option = await within(panel).findByLabelText("The fee is three months of charges.");
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", { q: "fee", status: "accepted", limit: 25 });
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      q: "fee",
+      status: "accepted",
+      sort: "-created_at",
+      limit: 25,
+    });
     expect(within(panel).queryByLabelText(PROPOSITION)).not.toBeInTheDocument();
     expect(within(panel).queryByLabelText("A withdrawn reading.")).not.toBeInTheDocument();
     expect(within(panel).queryByLabelText("Points back at this one.")).not.toBeInTheDocument();

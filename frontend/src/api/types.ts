@@ -259,6 +259,10 @@ export interface RelatedMatch {
   assertion_type?: string;
 }
 
+/** GET /assertions/{id}/related: at most the 20 strongest matches. `total`
+ * (from X-Total-Count) counts every match, when the server sends it. */
+export type RelatedMatchList = RelatedMatch[] & { total?: number };
+
 /** Similar-assertion warnings returned next to a created assertion: at most
  * the top matches by score (score desc, then id); `similar_assertions_total`
  * counts every match before that cap. Older backends send only the list. */

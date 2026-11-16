@@ -25,6 +25,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 import { ApiError, api } from "../api/client";
+import { formatInstantDate, formatInstantDateTime } from "../api/datetime";
 import type {
   AssertionDetail,
   AssertionListParams,
@@ -35,7 +36,7 @@ import type {
   MatterRoleName,
   Rating,
   RatingSummary,
-  RelatedMatch,
+  RelatedMatchList,
   Revision,
 } from "../api/types";
 import { Icon } from "../app/icons";
@@ -110,23 +111,30 @@ function labelize(value: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/** An instant from the API (created, updated, reviewed, rated) as a date in
+ * the viewer's timezone; an offset-less instant is read as UTC. */
 function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatInstantDate(iso);
 }
 
+/** An instant from the API with its time, in the viewer's timezone. */
 function fmtDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
+  return formatInstantDateTime(iso, undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** effective_from / effective_to: a calendar date, shown as written and
+ * never shifted by the viewer's offset (unlike the instants above). */
+function fmtCalendarDate(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 /** A short handle for an opaque reference; the full id stays in the tooltip. */
@@ -191,13 +199,13 @@ function revisionFields(revision: Revision, detail: AssertionDetail): AssertionC
     {
       key: "effective_from",
       label: "Effective from",
-      value: fmtDate(revision.effective_from),
+      value: fmtCalendarDate(revision.effective_from),
       identity: instantIdentity(revision.effective_from),
     },
     {
       key: "effective_to",
       label: "Effective to",
-      value: fmtDate(revision.effective_to),
+      value: fmtCalendarDate(revision.effective_to),
       identity: instantIdentity(revision.effective_to),
     },
   ];
@@ -282,7 +290,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const canReview = role === "reviewer" || role === "admin";
 
   const [detail, setDetail] = useState<AssertionDetail | null>(null);
-  const [related, setRelated] = useState<RelatedMatch[]>([]);
+  // At most the 20 strongest matches; `total` counts them all when known.
+  const [related, setRelated] = useState<RelatedMatchList>([]);
   const [summary, setSummary] = useState<RatingSummary | null>(null);
   // `null` = the request failed (the page says so instead of showing nothing).
   const [ratings, setRatings] = useState<Rating[] | null>([]);
@@ -357,7 +366,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
         const successorId =
           assertion.status === "superseded" ? assertion.superseded_by_assertion_id : null;
         const [rel, sum, rows, events, roster, replacement] = await Promise.all([
-          api.relatedAssertions(assertionId).catch(() => [] as RelatedMatch[]),
+          api.relatedAssertions(assertionId).catch((): RelatedMatchList => []),
           revision != null
             ? api.ratingSummary(assertionId, revision).catch(() => null)
             : Promise.resolve(null),
@@ -418,11 +427,12 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   // back at it.
   const searchSuccessors = useCallback(
     async (q: string): Promise<SupersedeCandidate[]> => {
-      // `limit` pages the list on a server that pages it; one that does not
-      // ignores it and returns every match.
-      const query: AssertionListParams & { limit: number } = {
+      // A replacement is usually recent: the newest matches come first, and
+      // a narrower search finds older ones.
+      const query: AssertionListParams = {
         q,
         status: "accepted",
+        sort: "-created_at",
         limit: SUPERSEDE_SEARCH_LIMIT,
       };
       const result = await api.listAssertions(session.currentMatter.id, query);
@@ -694,8 +704,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const effectiveWindow =
     detail.effective_from === null && detail.effective_to === null
       ? "—"
-      : `${detail.effective_from ? fmtDate(detail.effective_from) : "…"} – ${
-          detail.effective_to ? fmtDate(detail.effective_to) : "ongoing"
+      : `${detail.effective_from ? fmtCalendarDate(detail.effective_from) : "…"} – ${
+          detail.effective_to ? fmtCalendarDate(detail.effective_to) : "ongoing"
         }`;
 
   const distributionSummary = summary ??
@@ -1238,6 +1248,11 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     </li>
                   ))}
                 </ul>
+              )}
+              {related.total !== undefined && related.total > related.length && (
+                <p className="muted adp-related-more">
+                  {`Showing the ${related.length} strongest of ${related.total} matches.`}
+                </p>
               )}
             </div>
           </section>

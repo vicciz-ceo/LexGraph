@@ -27,6 +27,7 @@ import type {
   Rating,
   RatingSummary,
   RelatedMatch,
+  RelatedMatchList,
   Revision,
   UserAccount,
   UserInfo,
@@ -85,11 +86,19 @@ function detailFromBody(body: unknown, fallback: string): string {
   return fallback;
 }
 
-async function request<T>(
+type RequestOptions = { body?: unknown; query?: Record<string, unknown> };
+
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  return (await send(method, path, options)).payload as T;
+}
+
+/** A successful response's parsed body, with the response itself for its
+ * headers; any other status throws ApiError. */
+async function send(
   method: string,
   path: string,
-  options: { body?: unknown; query?: Record<string, unknown> } = {},
-): Promise<T> {
+  options: RequestOptions = {},
+): Promise<{ payload: unknown; response: Response }> {
   const url = new URL(API_BASE + path, window.location.origin);
   if (options.query) {
     for (const [key, value] of Object.entries(options.query)) {
@@ -110,7 +119,7 @@ async function request<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) return { payload: undefined, response };
 
   let payload: unknown = null;
   const text = await response.text();
@@ -134,7 +143,7 @@ async function request<T>(
     );
   }
 
-  return payload as T;
+  return { payload, response };
 }
 
 /** The `expected_revision_number` field of a review decision, present only when known. */
@@ -209,8 +218,17 @@ export const api = {
   withdrawAssertion: (id: string) =>
     request<Assertion>("POST", `/assertions/${id}/withdraw`),
 
-  relatedAssertions: (id: string) =>
-    request<RelatedMatch[]>("GET", `/assertions/${id}/related`),
+  /** The strongest matches (the server lists at most 20); the array's
+   * `total` is every match it found (X-Total-Count), when it says. */
+  relatedAssertions: async (id: string): Promise<RelatedMatchList> => {
+    const { payload, response } = await send("GET", `/assertions/${id}/related`);
+    const matches = (Array.isArray(payload) ? payload : []) as RelatedMatch[];
+    const total = Number(response.headers?.get("X-Total-Count") ?? Number.NaN);
+    // Not enumerable: the value still compares and spreads as a plain list.
+    return Number.isInteger(total) && total >= matches.length
+      ? Object.defineProperty(matches, "total", { value: total, enumerable: false })
+      : matches;
+  },
 
   // --- review (reviewer/admin) -------------------------------------------
   // `expectedRevisionNumber` is the revision the reviewer saw; when it is no
