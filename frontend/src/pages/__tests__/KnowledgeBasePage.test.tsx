@@ -3,7 +3,7 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AssertionList, AssertionListItem, AssertionListParams } from "../../api/types";
 import { KnowledgeBasePage } from "../KnowledgeBasePage";
@@ -506,12 +506,12 @@ describe("KnowledgeBasePage", () => {
     );
     expect(lines).toHaveLength(1 + rows.length);
     expect(lines[1]).toBe(
-      "Proposition number 0.,obligation,IL,Colleague,accepted,accepted,evidenced,3.80,12,2026-07-20T10:00:00Z",
+      "Proposition number 0.,obligation,IL,Colleague,accepted,accepted,evidenced,3.80,12,2026-07-20T10:00:00.000Z",
     );
     expect(text).toContain("\r\nProposition number 1201.,");
     // A row without a rating aggregate: no average, zero ratings.
     expect(lines[lines.length - 1]).toBe(
-      `${a2.proposition},obligation,,AI-deduced,accepted,accepted,awaiting_evidence,,0,2026-07-20T10:00:00Z`,
+      `${a2.proposition},obligation,,AI-deduced,accepted,accepted,awaiting_evidence,,0,2026-07-20T10:00:00.000Z`,
     );
     // The export used the page's filters and sort, 500 rows per request.
     const exportCalls = mockedApi.listAssertions.mock.calls
@@ -610,6 +610,30 @@ describe("KnowledgeBasePage", () => {
     for (const line of text.split("\r\n").slice(1)) {
       expect(line).not.toMatch(/^"?[=+\-@\t]/);
     }
+  });
+});
+
+describe("KnowledgeBasePage in Asia/Tokyo", () => {
+  // ui:3: an offset-less timestamp is UTC. Read as local time it showed
+  // the UTC date and time as the viewer's (here a day early).
+  beforeAll(() => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("shows the viewer's local date for an offset-less instant and exports it as UTC", async () => {
+    mockedApi.listAssertions.mockImplementation(
+      serve([{ ...a1, updated_at: "2026-11-15T20:16:17.835814" }]),
+    );
+    const { text } = await exportCsv(a1.proposition);
+
+    const row = screen.getByText(a1.proposition).closest("tr");
+    expect(row).not.toBeNull();
+    // 20:16 UTC on Nov 15 is 05:16 on Nov 16 in Tokyo.
+    expect(within(row as HTMLElement).getByText("Nov 16, 2026")).toBeInTheDocument();
+    expect(text.split("\r\n")[1]).toMatch(/,2026-11-15T20:16:17\.835Z$/);
   });
 });
 

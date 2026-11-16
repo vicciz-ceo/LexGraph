@@ -1,7 +1,7 @@
 // ProfilePage — the signed-in user's activity in the current matter.
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AppNotification,
@@ -482,5 +482,39 @@ describe("ProfilePage", () => {
     expect(otherRow).toHaveTextContent("viewer");
     expect(otherRow).not.toHaveTextContent("Current");
     expect(within(matters).getByText(/Switch the active matter/)).toBeInTheDocument();
+  });
+});
+
+describe("ProfilePage in Asia/Tokyo", () => {
+  // ui:3: an offset-less timestamp is UTC. Read as local time it showed
+  // the UTC date and time as the viewer's (here a day early).
+  beforeAll(() => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("shows local dates and times for offset-less instants", async () => {
+    const naive = "2026-11-15T20:16:17.835814";
+    serve(
+      [makeAssertion({ id: "a-naive", proposition: "Mine, edited late UTC.", updated_at: naive })],
+      [makeAssertion({ id: "aw-naive", author_user_id: "u-other", submitted_at: naive })],
+    );
+    mockedApi.notifications.mockResolvedValue([{ ...notificationItems[0], created_at: naive }]);
+    await renderPage();
+
+    // 20:16 UTC on Nov 15 is 05:16 on Nov 16 in Tokyo.
+    expect(within(screen.getByRole("tabpanel")).getByText(/submitted Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(within(screen.getByRole("tabpanel")).getByText(/updated Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    expect(
+      within(screen.getByRole("tabpanel")).getByText(
+        new Date(Date.UTC(2026, 10, 15, 20, 16, 17, 835)).toLocaleString(),
+      ),
+    ).toBeInTheDocument();
   });
 });

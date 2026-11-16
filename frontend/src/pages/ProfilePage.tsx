@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import "../styles/pages/profile.css";
 
 import { api } from "../api/client";
+import { formatInstantDate, formatInstantDateTime } from "../api/datetime";
 import type {
   AppNotification,
   Assertion,
@@ -77,13 +78,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0])
     .join("");
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function humanizeEvent(eventType: string): string {
@@ -293,7 +287,7 @@ export function ProfilePage() {
             const metaParts = [
               assertion.assertion_type,
               assertion.jurisdiction,
-              `submitted ${formatDate(assertion.submitted_at)}`,
+              `submitted ${formatInstantDate(assertion.submitted_at, "en-US")}`,
             ].filter(Boolean) as string[];
             if (assertion.origin === "model_suggested" && assertion.confidence !== null) {
               metaParts.push(`model confidence ${Math.round(assertion.confidence * 100)}%`);
@@ -364,7 +358,7 @@ export function ProfilePage() {
                       </span>
                     )}
                     <span className="pf-item__meta-text">
-                      {assertion.assertion_type} · updated {formatDate(assertion.updated_at)}
+                      {assertion.assertion_type} · updated {formatInstantDate(assertion.updated_at, "en-US")}
                     </span>
                   </div>
                 </div>
@@ -396,7 +390,7 @@ export function ProfilePage() {
                 >
                   <span className="pf-notif__title">{humanizeEvent(n.event_type)}</span>
                   <span className="pf-notif__time">
-                    {new Date(n.created_at).toLocaleString()}
+                    {formatInstantDateTime(n.created_at)}
                   </span>
                 </li>
               ))}

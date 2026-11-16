@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import "../styles/pages/knowledge-base.css";
 
 import { api } from "../api/client";
+import { formatInstantDate, instantToIso } from "../api/datetime";
 import type {
   AssertionList,
   AssertionListItem,
@@ -112,14 +113,6 @@ function titleCase(value: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
@@ -168,7 +161,7 @@ function csvLine(assertion: AssertionListItem): string {
     assertion.evidence_status,
     summary ? summary.average.toFixed(2) : "",
     String(summary?.count ?? 0),
-    assertion.updated_at,
+    instantToIso(assertion.updated_at),
   ]
     .map(csvCell)
     .join(",");
@@ -609,7 +602,7 @@ export function KnowledgeBasePage() {
                         </span>
                       </td>
                       <td>{ratingCell(assertion)}</td>
-                      <td className="kb-date">{formatDate(assertion.updated_at)}</td>
+                      <td className="kb-date">{formatInstantDate(assertion.updated_at)}</td>
                     </tr>
                   );
                 })}
