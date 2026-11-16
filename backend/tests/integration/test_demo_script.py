@@ -239,9 +239,22 @@ class Demo:
         return env
 
     def run(self, **env: str) -> subprocess.CompletedProcess[str]:
-        """Run to completion: for cases where the script must stop by itself."""
-        return subprocess.run(["bash", str(self.root / "scripts" / "demo.sh")], cwd=self.root,
-                              env=self.env(**env), capture_output=True, text=True, timeout=120)
+        """Run to completion: for cases where the script must stop by itself.
+
+        In its own session, so that a script which hangs instead (and may have
+        started servers) is killed with everything it started.
+        """
+        process = subprocess.Popen(
+            ["bash", str(self.root / "scripts" / "demo.sh")], cwd=self.root, env=self.env(**env),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
+        )
+        try:
+            stdout, stderr = process.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            stdout, stderr = process.communicate()
+            pytest.fail(f"demo.sh did not stop by itself:\n{stdout}\n{stderr}")
+        return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
 
     def start(self, **env: str) -> None:
         self.process = subprocess.Popen(
@@ -278,12 +291,14 @@ class Demo:
             pytest.fail(f"demo.sh did not stop within {timeout}s:\n{self.text()}")
 
     def kill(self) -> None:
-        if self.process is not None and self.process.poll() is None:
-            try:
-                os.killpg(self.process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            self.process.wait(timeout=10)
+        """Kill whatever is left of the script's session, even after the script itself exited."""
+        if self.process is None:
+            return
+        try:
+            os.killpg(self.process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        self.process.wait(timeout=10)
 
     def assert_ports_free(self) -> None:
         deadline = time.monotonic() + 10
