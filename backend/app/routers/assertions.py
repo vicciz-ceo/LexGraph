@@ -25,8 +25,11 @@ with: query-param search/sort/filter on the list endpoint (spec §17),
 proposition/date/type/entity validation plus sanitization and an inline
 duplicate check on create (`app/services/validation.py`,
 `app/services/duplicates.py`), a matter-scope check on attached evidence,
-and the new `GET .../related` route (ruling R10). B1's original handler
-bodies (submit/withdraw/patch/revisions) are unchanged.
+and the new `GET .../related` route (ruling R10). PATCH and
+`POST .../revisions` share one edit path (`_edit_assertion`): an edit that
+changes nothing material creates no revision (PATCH answers 200 with the
+unchanged assertion, POST .../revisions 200 with the unchanged current
+revision instead of 201).
 
 DB access is via a small local dependency reading `request.app.state.
 session_factory` (per sprint-harness instruction: no shared deps module).
@@ -45,7 +48,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -548,6 +551,37 @@ def _revision_number_taken(session: Session, assertion_id: str, revision_number:
     ).first() is not None
 
 
+# --- Edit helpers -------------------------------------------------------------
+
+# Body fields that steer an edit but are not values of the assertion: on
+# their own they are never a change (api:18).
+_EDIT_CONTROL_FIELDS = {"expected_revision_number", "revision_reason"}
+
+
+def _changed_fields(assertion: Assertion, current: AssertionRevision | None, updates: dict) -> list[str]:
+    """The submitted fields whose value differs from the stored one (api:18,
+    review:3, ui:11): the proposition as authored (the current revision's raw
+    text, else the stored proposition -- what the editor shows), entities as
+    {type, id}, effective dates as UTC instants, everything else as is."""
+    changed = []
+    for field, value in updates.items():
+        if field == "proposition":
+            stored = (current.proposition_raw if current is not None and current.proposition_raw is not None
+                      else assertion.proposition)
+        elif field in ("subject_entity", "object_entity"):
+            side = field.removesuffix("_entity")
+            entity_type = getattr(assertion, f"{side}_entity_type")
+            stored = (None if entity_type is None
+                      else {"type": entity_type, "id": getattr(assertion, f"{side}_entity_id")})
+        elif field in ("effective_from", "effective_to"):
+            stored = normalize_effective_datetime(getattr(assertion, field), label=field)
+        else:
+            stored = getattr(assertion, field)
+        if value != stored:
+            changed.append(field)
+    return changed
+
+
 # --- Routes ------------------------------------------------------------------
 
 
@@ -951,6 +985,18 @@ def patch_assertion(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
+    assertion, _revision = _edit_assertion(assertion_id, body, session, user_id)
+    return _serialize_assertion(session, assertion)
+
+
+def _edit_assertion(
+    assertion_id: str, body: AssertionPatch, session: Session, user_id: str
+) -> tuple[Assertion, AssertionRevision | None]:
+    """Apply an edit (PATCH or POST .../revisions): return the assertion and
+    the revision the edit created, or None when nothing material changed.
+
+    Order: permission (403), stale base revision (409), validation (422),
+    then the no-op guard, then the duplicate rule and the write."""
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
     # The revision this edit is based on: the caller's expected revision, or
@@ -963,11 +1009,9 @@ def patch_assertion(
     ):
         raise _stale_revision_conflict()
 
-    updates = body.model_dump(
-        exclude_unset=True, exclude={"expected_revision_number", "revision_reason"}
-    )
+    updates = body.model_dump(exclude_unset=True, exclude=_EDIT_CONTROL_FIELDS)
     if not updates:
-        return _serialize_assertion(session, assertion)
+        return assertion, None
 
     new_proposition = None
     try:
@@ -983,6 +1027,8 @@ def patch_assertion(
             validate_proposition_not_empty(new_proposition)
         if "assertion_type" in updates:
             validate_assertion_type(body.assertion_type)
+        if "jurisdiction" in updates and body.jurisdiction is not None:
+            validate_jurisdiction(body.jurisdiction)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
         for bound in dates_set:
             # agent:7 / api:19: stored as UTC instants (offset applied).
@@ -1001,13 +1047,13 @@ def patch_assertion(
     except (ValidationError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
-    if "jurisdiction" in updates and body.jurisdiction is not None:
-        try:
-            validate_jurisdiction(body.jurisdiction)
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=422, detail=str(exc)
-            ) from exc
+    # api:18 / review:3 / review:8 / ui:11: "every material edit creates a
+    # new revision" (spec section 3) -- and nothing else does. When every
+    # submitted value equals the stored one (a revision_reason alone is not
+    # a change) nothing is written: no revision, no audit event, and an
+    # accepted assertion keeps its status, review metadata and ratings.
+    if not _changed_fields(assertion, _current_revision(session, assertion), updates):
+        return assertion, None
 
     # api:17: an edit is held to the same exact-duplicate rule as creation
     # (it may not take the proposition of another live assertion or of the
@@ -1108,7 +1154,8 @@ def patch_assertion(
                        previous_value=str(new_revision_number - 1), new_value=str(new_revision_number))
     session.commit()
     session.refresh(assertion)
-    return _serialize_assertion(session, assertion)
+    session.refresh(revision)  # answer with stored values, as GET .../revisions does
+    return assertion, revision
 
 
 @router.post("/{assertion_id}/submit")
@@ -1191,12 +1238,20 @@ def list_revisions(
 def create_revision(
     assertion_id: str,
     body: AssertionPatch,
+    response: Response,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    patch_assertion(assertion_id, body, session, user_id)
-    assertion = _get_assertion_or_404(session, assertion_id)
-    return _serialize_revision(_current_revision(session, assertion))
+    """PATCH's body and semantics, answering with a revision: 201 and the new
+    revision, or -- when nothing material changed, so none was created --
+    200 and the unchanged current revision, never 201 (api:18, review:3)."""
+    assertion, revision = _edit_assertion(assertion_id, body, session, user_id)
+    if revision is None:
+        response.status_code = status.HTTP_200_OK
+        revision = _current_revision(session, assertion)
+        if revision is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="revision not found")
+    return _serialize_revision(revision)
 
 
 @router.get("/{assertion_id}/evidence")
