@@ -94,6 +94,117 @@ def _audit_insert_fails(event_type: str):
         event.remove(AuditEvent, "before_insert", _refuse)
 
 
+# --- api:4 / pipeline:5 / review:2: submit and withdraw --------------------------
+
+
+def test_submit_is_audited_with_previous_status_revision_and_actor(client, matter_with_users):
+    m = matter_with_users
+    a = _create(client, m)
+    r = client.post(_url(a["id"], "/submit"), headers=m["contributor_headers"])
+    assert r.status_code == 200, r.text
+
+    (submitted,) = _of_type(_history(client, m, a["id"]), "assertion_submitted")
+    assert _summary(submitted) == (m["contributor_id"], 1, "draft", "proposed")
+    assert submitted["correlation_id"] == r.headers["x-request-id"]
+
+
+def test_resubmitting_after_a_revision_request_is_audited(client, db_session, matter_with_users):
+    m = matter_with_users
+    (span,) = _spans(db_session, m, "Clause 8.4 applies except where prohibited by law.")
+    a = _create(client, m, evidence=[{"source_span_id": span, "evidence_role": "supports"}])
+    assert client.post(_url(a["id"], "/submit"), headers=m["contributor_headers"]).status_code == 200
+    assert client.post(
+        _url(a["id"], "/request-revision"), json={"comment": "Cite 8.2 too."},
+        headers=m["reviewer_headers"],
+    ).status_code == 200
+    edited = client.patch(
+        _url(a["id"]), json={"proposition": f"Clause 8.4 qualifies 8.2 ({uuid.uuid4()}).",
+                             "expected_revision_number": 1},
+        headers=m["contributor_headers"],
+    )
+    assert edited.status_code == 200, edited.text
+    assert client.post(_url(a["id"], "/submit"), headers=m["contributor_headers"]).status_code == 200
+
+    submitted = _of_type(_history(client, m, a["id"]), "assertion_submitted")
+    assert [_summary(e) for e in submitted] == [
+        (m["contributor_id"], 1, "draft", "proposed"),
+        (m["contributor_id"], 2, "revision_requested", "proposed"),
+    ]
+
+
+def test_withdraw_is_audited_with_the_withdrawing_user(client, matter_with_users):
+    """A reviewer may withdraw another user's proposal; the trail must say who."""
+    m = matter_with_users
+    own_draft = _create(client, m)
+    proposal = _create(client, m, save_as="proposed")
+
+    assert client.post(_url(own_draft["id"], "/withdraw"), headers=m["contributor_headers"]).status_code == 200
+    r = client.post(_url(proposal["id"], "/withdraw"), headers=m["reviewer_headers"])
+    assert r.status_code == 200, r.text
+
+    (by_author,) = _of_type(_history(client, m, own_draft["id"]), "assertion_withdrawn")
+    assert _summary(by_author) == (m["contributor_id"], 1, "draft", "withdrawn")
+    (by_reviewer,) = _of_type(_history(client, m, proposal["id"]), "assertion_withdrawn")
+    assert _summary(by_reviewer) == (m["reviewer_id"], 1, "proposed", "withdrawn")
+    assert by_reviewer["correlation_id"] == r.headers["x-request-id"]
+
+
+def test_a_refused_submit_or_withdraw_writes_no_audit_row(client, matter_with_users):
+    m = matter_with_users
+    a = _create(client, m)
+    assert client.post(_url(a["id"], "/withdraw"), headers=m["contributor_headers"]).status_code == 200
+    before = _history(client, m, a["id"])
+    # The author may no longer modify it (403); a reviewer may, but not from
+    # 'withdrawn' (409); an outsider has no access (403).
+    for action, headers, refused in (
+        ("/submit", m["contributor_headers"], 403),
+        ("/submit", m["reviewer_headers"], 409),
+        ("/withdraw", m["reviewer_headers"], 409),
+        ("/withdraw", m["outsider_headers"], 403),
+    ):
+        assert client.post(_url(a["id"], action), headers=headers).status_code == refused, action
+    assert _history(client, m, a["id"]) == before
+
+
+def test_submit_and_its_audit_row_commit_together(app, client, matter_with_users):
+    m = matter_with_users
+    a = _create(client, m)
+    raw = TestClient(app, raise_server_exceptions=False)
+    with _audit_insert_fails("assertion_submitted"):
+        assert raw.post(_url(a["id"], "/submit"), headers=m["contributor_headers"]).status_code == 500
+    assert client.get(_url(a["id"]), headers=m["contributor_headers"]).json()["status"] == "draft"
+
+
+# --- api:4 / review:2: the accepted -> proposed reversal on edit -------------------
+
+
+def test_editing_an_accepted_assertion_audits_the_status_change(client, db_session, matter_with_users):
+    m = matter_with_users
+    (span,) = _spans(db_session, m, "Clause 8.4 applies except where prohibited by law.")
+    a = _create(client, m, save_as="proposed",
+                evidence=[{"source_span_id": span, "evidence_role": "supports"}])
+    assert client.post(_url(a["id"], "/accept"), headers=m["reviewer_headers"]).status_code == 200
+
+    r = client.patch(_url(a["id"]), json={"proposition": f"Edited ({uuid.uuid4()}).",
+                                           "expected_revision_number": 1},
+                     headers=m["reviewer_headers"])
+    assert r.status_code == 200, r.text
+    assert (r.json()["status"], r.json()["reviewed_by"]) == ("proposed", None)
+
+    history = _history(client, m, a["id"])
+    (changed,) = _of_type(history, "assertion_status_changed")
+    assert _summary(changed) == (m["reviewer_id"], 2, "accepted", "proposed")
+    (revised,) = _of_type(history, "assertion_revised")
+    assert _summary(revised) == (m["reviewer_id"], 2, "1", "2")
+    assert changed["correlation_id"] == revised["correlation_id"] == r.headers["x-request-id"]
+
+    # An edit that does not change the status records no status change.
+    again = client.patch(_url(a["id"]), json={"proposition": f"Edited again ({uuid.uuid4()})."},
+                         headers=m["reviewer_headers"])
+    assert again.status_code == 200, again.text
+    assert len(_of_type(_history(client, m, a["id"]), "assertion_status_changed")) == 1
+
+
 # --- review:2: evidence attached at creation (the only agent evidence path) ---------
 
 

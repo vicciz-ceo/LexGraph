@@ -945,6 +945,7 @@ def patch_assertion(
 
     assertion.current_revision_number = new_revision_number
     assertion.updated_at = now
+    previous_status = assertion.status
     # Editing an accepted assertion creates a new proposed revision rather
     # than silently modifying the accepted assertion (spec §3).
     if assertion.status == "accepted":
@@ -977,6 +978,10 @@ def patch_assertion(
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
                        previous_value=str(new_revision_number - 1), new_value=str(new_revision_number))
+    if assertion.status != previous_status:  # accepted -> proposed (audit api:4/review:2)
+        record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_status_changed",
+                               assertion_revision_id=revision.id, previous_value=previous_status,
+                               new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -997,9 +1002,12 @@ def submit_assertion(
             detail=f"cannot submit assertion in status '{assertion.status}'",
         )
 
+    previous_status = assertion.status
     assertion.status = "proposed"
     assertion.submitted_at = _now()
     assertion.updated_at = _now()
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_submitted",
+                           previous_value=previous_status, new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -1016,8 +1024,11 @@ def withdraw_assertion(
 
     if assertion.status not in ("draft", "proposed", "revision_requested"):
         raise HTTPException(409, "Only an unreviewed assertion can be withdrawn")
+    previous_status = assertion.status
     assertion.status = "withdrawn"
     assertion.updated_at = _now()
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_withdrawn",
+                           previous_value=previous_status, new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
