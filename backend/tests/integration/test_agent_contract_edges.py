@@ -10,6 +10,8 @@
   JSON numbers for Python) answered 500: FastAPI's 422 echoes the input,
   which a JSON response cannot carry. Now a 422 with the value spelled as a
   string; the same holds for any field on any route.
+* review:19 -- self-reported provenance (platform, model, run_id) was stored
+  and echoed with its markup; it is now sanitized like other submitted text.
 """
 
 from __future__ import annotations
@@ -133,3 +135,46 @@ def test_non_finite_numbers_are_422_on_every_route(client, db_session, matter_wi
                         headers={**m["rater_headers"], "Content-Type": "application/json"})
     assert rating.status_code == 422, rating.text
     assert rating.json()["detail"][0]["input"] == "NaN"
+
+
+# --- review:19 --------------------------------------------------------------
+
+
+def test_provenance_markup_is_removed_wherever_it_is_stored_or_shown(client, db_session, matter_with_users,
+                                                                     suggestion):
+    m = matter_with_users
+    agent = {"platform": "<img src=x onerror=alert(1)>codex", "model": "<script>alert(2)</script>gpt-x",
+             "run_id": "run <b>42</b>"}
+    clean = {"platform": "codex", "model": "gpt-x", "run_id": "run 42"}
+
+    r = client.post("/api/v1/agent/assertions", json={**suggestion, "agent": agent}, headers=m["contributor_headers"])
+
+    assert r.status_code == 201, r.text
+    assert r.json()["agent_provenance"] == clean
+    path = f"/api/v1/assertions/{r.json()['id']}"
+    assert client.get(path, headers=m["reviewer_headers"]).json()["agent_provenance"] == clean
+    history = client.get(path + "/history", headers=m["reviewer_headers"]).json()
+    assert [json.loads(e["new_value"]) for e in history if e["event_type"] == "assertion_agent_provenance"] == [clean]
+
+
+@pytest.mark.parametrize("field", ["platform", "model", "run_id"])
+def test_provenance_that_is_only_markup_is_refused(client, db_session, matter_with_users, suggestion, field):
+    agent = {**suggestion["agent"], field: "<script>alert(1)</script> <b></b>"}
+
+    r = client.post("/api/v1/agent/assertions", json={**suggestion, "agent": agent},
+                    headers=matter_with_users["contributor_headers"])
+
+    assert r.status_code == 422, r.text
+    (error,) = r.json()["detail"]
+    assert (error["type"], error["loc"]) == ("provenance_without_text", ["body", "agent", field])
+    assert _counts(db_session) == (0, 0)
+
+
+def test_plain_provenance_is_stored_as_sent(client, matter_with_users, suggestion):
+    agent = {"platform": "Claude Code", "model": "claude-opus-5-5 (2026)", "run_id": "2026-11-16/run#42 & retry"}
+
+    r = client.post("/api/v1/agent/assertions", json={**suggestion, "agent": agent},
+                    headers=matter_with_users["contributor_headers"])
+
+    assert r.status_code == 201, r.text
+    assert r.json()["agent_provenance"] == agent
