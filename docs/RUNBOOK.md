@@ -172,15 +172,16 @@ Upgrading /path/to/LexGraph/backend/dev.db
   20260802_add_document_jurisdiction_column        applied
   20260804_add_assertion_subject_unit_path_column  applied
   20260805_add_heading_breadcrumbs_column          applied
+  20261116_assertion_read_indexes                  applied
   20261116_assertion_revision_number_unique        applied
   20261116_backfill_initial_assertion_revisions    already applied
   20261116_durable_notifications                   applied
   20261116_sign_in_tokens                          applied
   20261116_users_email_unique                      applied
-Applied 7 of 10 migrations; the schema is current.
+Applied 8 of 11 migrations; the schema is current.
 ```
 
-- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 10 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
+- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 11 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
 - **One transaction per migration.** On SQLite the runner makes `ALTER TABLE` transactional too, so a migration that fails is rolled back completely. The run stops there and exits 1; migrations applied before it are kept. Fix the cause and run the same command again.
 - **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations add tables, columns and indexes and fill in missing values; they never delete or merge rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
 - **Some steps need an operator.** When stored rows stand in the way of a unique index (accounts sharing an email address), the migration leaves that index out and changes none of those rows. The run still exits 0, marks the migration `waiting for an operator` and ends by naming the rows and what to do. The server serves such a database meanwhile. Resolve them and run the command again (see "Upgrading: case-insensitive emails").
@@ -194,6 +195,7 @@ The migrations shipped so far, in the order they run (`backend/app/migrations/`;
 | `20260802_add_document_jurisdiction_column` | `documents.jurisdiction` (`NOT NULL DEFAULT 'IL'`) | every existing document becomes `IL` (all pre-2026-08-02 documents are Israeli law) |
 | `20260804_add_assertion_subject_unit_path_column` | `assertions.subject_unit_path` | `NULL` (no sub-article path known) |
 | `20260805_add_heading_breadcrumbs_column` | `articles.heading_breadcrumbs` | `NULL` (no breadcrumbs captured) |
+| `20261116_assertion_read_indexes` | indexes on `assertions (matter_id, status)`, `assertion_evidence (assertion_id)`, `assertion_ratings (assertion_revision_id)` and `audit_events (assertion_id, event_type)`, which the list, detail page, graph and statistics read by | none: indexes only. The server starts without them; they make large matters fast |
 | `20261116_assertion_revision_number_unique` | unique index on `assertion_revisions (assertion_id, revision_number)` | a revision number that concurrent edits stored twice is renumbered first, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning |
 | `20261116_backfill_initial_assertion_revisions` | none | an assertion stored without revision 1 (definition-link output written before 2026-11-16) gets it, plus an `assertion_created` audit event marked `migration:<id>`; one edited before then keeps only its later revisions, because the original text was not stored |
 | `20261116_durable_notifications` | `notifications` and `notification_preferences` tables | none: notifications raised before the upgrade lived only in the old server process |

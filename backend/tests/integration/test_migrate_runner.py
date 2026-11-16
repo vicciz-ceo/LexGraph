@@ -58,6 +58,7 @@ SHIPPED_MIGRATIONS = [
 # wiring. The backfill is data-only: these fixtures' one assertion already
 # has revision 1, so the upgrade tests below do not expect it to apply.
 LATER_MIGRATIONS = [
+    "20261116_assertion_read_indexes",
     "20261116_assertion_revision_number_unique",
     "20261116_backfill_initial_assertion_revisions",
     "20261116_durable_notifications",
