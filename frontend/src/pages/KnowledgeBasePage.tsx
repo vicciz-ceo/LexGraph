@@ -35,10 +35,13 @@ const DEBOUNCE_MS = 250;
 const PAGE_SIZE = 50;
 /** Rows per request while exporting: the list endpoint's largest limit. */
 const EXPORT_PAGE_SIZE = 500;
-/** Rows each export request reads again from the request before, to find
- * where the rows it has not read begin (see exportLines). */
+/** Rows at the end of each full export page that are not written yet: the
+ * next request reads them again, and they mark where the rows after the last
+ * row written begin (see exportLines). */
+const EXPORT_LOOKAHEAD = 20;
+/** Rows each export request reads again before the last row written. */
 const EXPORT_OVERLAP = 20;
-/** How often an export may read again from the start before it gives up. */
+/** How often an export may start over before it gives up. */
 const EXPORT_MAX_RESTARTS = 3;
 
 const STATUS_OPTIONS: { value: AssertionStatus | ""; label: string }[] = [
@@ -254,17 +257,24 @@ const EXPORT_ORDERS: Record<
  * of assertions fits in memory.
  *
  * Rows join and leave the result set while an export runs (a review
- * decision, an edit, a new assertion). Stepping an offset through it would
- * then skip the row at a page boundary whenever a row already written left
- * (listing:1). Instead each request starts EXPORT_OVERLAP rows before where
- * the previous one ended, and the export carries on after the last row in
- * it that it has already written: in an order no row moves in, the rows
- * after that one are exactly the ones still to read, whatever joined or
- * left before it. When no written row is in reach (more than
- * EXPORT_OVERLAP of them left at once), it reads again from the start,
- * skipping what it has written. So every row that matches throughout the
- * export is written, once; a row that joins or leaves meanwhile may or may
- * not be. */
+ * decision, an edit, a new assertion), so it cannot step an offset through
+ * it: a row already written that left would make it skip the row at the
+ * next page boundary (listing:1). It pages in an order no row moves in
+ * (EXPORT_ORDERS) and only ever writes rows that come after the last row it
+ * wrote, so the lines stay in that order, rows that join meanwhile included.
+ *
+ * To find where those rows begin, it holds back the last EXPORT_LOOKAHEAD
+ * rows of a full page, which it has read ahead, and the next request starts
+ * EXPORT_OVERLAP rows before them. The rows to write are those after the
+ * last row written, or, if that row has left, those from the first row read
+ * ahead that is still there. A row the page holds before that one, and not
+ * read ahead, joined after the export passed its place; it is left out. If
+ * neither the last row written nor any row read ahead is in the page (40 or
+ * more rows before them left between two requests, more than 480 joined
+ * before them, or they all left), the export cannot tell where its rows
+ * end, and starts over, at most EXPORT_MAX_RESTARTS times. So every row
+ * that matches throughout is written once, in the table's order; a row that
+ * joins or leaves meanwhile may or may not be. */
 async function exportLines(
   matterId: string,
   filters: AssertionListParams,
@@ -273,39 +283,64 @@ async function exportLines(
   onProgress: (done: number, total: number) => void,
 ): Promise<string[] | null> {
   const order = EXPORT_ORDERS[sort];
-  const rows: { line: string; key: ExportSortKey }[] = [];
-  const written = new Set<string>();
-  // Where the rows after the last one read began, as of the last request.
-  let next = 0;
+  // In the order written, which is the paging order.
+  let rows: { id: string; line: string; key: ExportSortKey }[] = [];
+  let written = new Set<string>();
+  // The rows the last page held after the last row written, in order.
+  let ahead: AssertionListItem[] = [];
+  let offset = 0;
   let restarts = 0;
+  const write = (item: AssertionListItem) => {
+    if (written.has(item.id)) return;
+    written.add(item.id);
+    rows.push({ id: item.id, line: csvLine(item), key: order.key ? order.key(item) : null });
+  };
   for (;;) {
-    const start = Math.max(0, next - EXPORT_OVERLAP);
     const page = await api.listAssertions(matterId, {
       ...filters,
       sort: order.pagingSort,
       limit: EXPORT_PAGE_SIZE,
-      offset: start,
+      offset,
     });
     if (run.cancelled) return null;
-    let last = -1;
-    for (let i = page.items.length - 1; i >= 0 && last === -1; i -= 1) {
-      if (written.has(page.items[i].id)) last = i;
+    const items = page.items;
+    const index = new Map(items.map((item, i) => [item.id, i]));
+    const lastWritten = rows.length > 0 ? rows[rows.length - 1].id : null;
+    // Where this page's rows still to write begin; null if it cannot tell.
+    let from: number | null = null;
+    if (lastWritten === null) {
+      from = 0;
+    } else if (index.has(lastWritten)) {
+      from = index.get(lastWritten)! + 1;
+    } else {
+      const first = ahead.findIndex((item) => index.has(item.id));
+      if (first !== -1) {
+        // The rows read ahead before that one are not in the page. If it
+        // holds a row already written, they lie between the two, so they
+        // left; otherwise they may have moved up past the page's start, and
+        // are written as they were read.
+        if (!items.some((item) => written.has(item.id))) ahead.slice(0, first).forEach(write);
+        from = index.get(ahead[first].id)!;
+      }
     }
-    if (last === -1 && start > 0) {
+    if (from === null) {
       restarts += 1;
       if (restarts > EXPORT_MAX_RESTARTS) {
         throw new Error("many matching assertions changed while it ran. Export again.");
       }
-      next = 0;
+      rows = [];
+      written = new Set();
+      ahead = [];
+      offset = 0;
       continue;
     }
-    for (const item of page.items.slice(last + 1)) {
-      written.add(item.id);
-      rows.push({ line: csvLine(item), key: order.key ? order.key(item) : null });
-    }
-    next = start + page.items.length;
-    onProgress(rows.length, page.total);
-    if (page.items.length < EXPORT_PAGE_SIZE) break;
+    const lastPage = items.length < EXPORT_PAGE_SIZE;
+    const end = lastPage ? items.length : Math.max(from, items.length - EXPORT_LOOKAHEAD);
+    items.slice(from, end).forEach(write);
+    ahead = items.slice(end);
+    onProgress(rows.length + ahead.length, page.total);
+    if (lastPage) break;
+    offset += end - EXPORT_OVERLAP;
   }
   const compare = order.compare;
   if (compare) rows.sort((a, b) => compare(a.key, b.key));

@@ -533,16 +533,18 @@ describe("KnowledgeBasePage", () => {
     expect(lines[lines.length - 1]).toBe(
       `${a2.proposition},obligation,,AI-deduced,accepted,accepted,awaiting_evidence,,0,2026-07-20T10:00:00.000Z`,
     );
-    // The export used the page's filters and sort, 500 rows per request. Each
-    // request after the first starts 20 rows back, so it can tell where the
-    // rows it has not read begin even if rows left meanwhile (listing:1).
+    // The export used the page's filters and sort, 500 rows per request. It
+    // holds back the last 20 rows of a full page, and the next request starts
+    // 20 rows before those, so it reads again the last 20 rows written and
+    // the 20 held back: that is how it finds its place even if rows joined or
+    // left meanwhile (listing:1).
     const exportCalls = mockedApi.listAssertions.mock.calls
       .map(([, params]) => params as AssertionListParams)
       .filter((params) => params.limit === 500);
     expect(exportCalls).toEqual([
       { status: "accepted", sort: "-created_at", limit: 500, offset: 0 },
-      { status: "accepted", sort: "-created_at", limit: 500, offset: 480 },
-      { status: "accepted", sort: "-created_at", limit: 500, offset: 960 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 460 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 920 },
     ]);
     expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:lexgraph");
@@ -718,7 +720,11 @@ async function exportCsv(readyText: string, sorted?: { sort: string; readyText: 
 // row it had not read yet moved ahead (a new rating under "Most ratings"),
 // the row at the next page boundary was never requested and the file came
 // out one row short, with nothing to say so. These tests change the matter
-// between the export's requests, like a colleague working meanwhile.
+// between the export's requests, like a colleague working meanwhile. Rows
+// that match throughout must all be in the file, once, and a row that starts
+// matching meanwhile must be in its place in the table's order or left out:
+// the first fix wrote such a row after the row it had last written, out of
+// order, when that row had left (verifier triggers (a) and (b)).
 describe("KnowledgeBasePage CSV export while the matter changes", () => {
   /** Ratings summary with `count` ratings of 4, or null for none. */
   function ratings(id: string, count: number): AssertionListItem["ratings_summary"] {
@@ -748,34 +754,83 @@ describe("KnowledgeBasePage CSV export while the matter changes", () => {
     });
   }
 
+  /** The server's sort keys the tests use (no sort: insertion order). */
+  const SORT_KEYS: Record<string, (a: AssertionListItem, b: AssertionListItem) => number> = {
+    "": () => 0,
+    "-created_at": (a, b) => b.created_at.localeCompare(a.created_at),
+    created_at: (a, b) => a.created_at.localeCompare(b.created_at),
+    assertion_type: (a, b) =>
+      a.assertion_type < b.assertion_type ? -1 : a.assertion_type > b.assertion_type ? 1 : 0,
+    "-rating_count": (a, b) => (b.ratings_summary?.count ?? 0) - (a.ratings_summary?.count ?? 0),
+  };
+
+  /** `rows` (in insertion order) as GET /assertions orders them for `sort`:
+   * by the sort key, ties in insertion order. */
+  function serverOrder(rows: AssertionListItem[], sort: string): AssertionListItem[] {
+    const compare = SORT_KEYS[sort];
+    if (compare === undefined) throw new Error(`the test server does not sort by ${sort}`);
+    const insertion = new Map(rows.map((row, i) => [row.id, i]));
+    return [...rows].sort((a, b) => compare(a, b) || insertion.get(a.id)! - insertion.get(b.id)!);
+  }
+
   /** GET /assertions over `rows` (insertion order) as the server answers it:
    * the status filter, the sort with ties in insertion order (no sort:
-   * insertion order), then limit/offset. `beforeExportRequest(n)` runs before
-   * the n-th export request (limit 500), from the second one on. */
-  function liveServer(rows: AssertionListItem[], beforeExportRequest: (n: number) => void) {
+   * insertion order), then limit/offset. `beforeExportRequest(n, previous)`
+   * runs before the n-th export request (limit 500), from the second one on;
+   * `previous` is what the export request before it returned. */
+  function liveServer(
+    rows: AssertionListItem[],
+    beforeExportRequest: (n: number, previous: AssertionListItem[]) => void,
+  ) {
     let exportRequests = 0;
-    const insertion = (row: AssertionListItem) => rows.findIndex((r) => r.id === row.id);
-    const order: Record<string, (a: AssertionListItem, b: AssertionListItem) => number> = {
-      "": () => 0,
-      "-created_at": (a, b) => b.created_at.localeCompare(a.created_at),
-      created_at: (a, b) => a.created_at.localeCompare(b.created_at),
-      "-rating_count": (a, b) => (b.ratings_summary?.count ?? 0) - (a.ratings_summary?.count ?? 0),
-    };
+    let previous: AssertionListItem[] = [];
     return async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
       if (params.limit === 500) {
         exportRequests += 1;
-        if (exportRequests > 1) beforeExportRequest(exportRequests);
+        if (exportRequests > 1) beforeExportRequest(exportRequests, previous);
       }
-      const compare = order[params.sort ?? ""];
-      if (compare === undefined) throw new Error(`the test server does not sort by ${params.sort}`);
-      const matched = rows
-        .filter((row) => !params.status || row.status === params.status)
-        .sort((a, b) => compare(a, b) || insertion(a) - insertion(b));
+      const matched = serverOrder(rows, params.sort ?? "").filter(
+        (row) => !params.status || row.status === params.status,
+      );
       const offset = params.offset ?? 0;
       const end = params.limit === undefined ? matched.length : offset + params.limit;
-      return { items: matched.slice(offset, end), total: matched.length, limit: params.limit ?? null, offset };
+      const items = matched.slice(offset, end);
+      if (params.limit === 500) previous = items;
+      return { items, total: matched.length, limit: params.limit ?? null, offset };
     };
   }
+
+  /** The offsets of the export's requests (limit 500), in order. */
+  function exportOffsets(): (number | undefined)[] {
+    return mockedApi.listAssertions.mock.calls
+      .map(([, params]) => params as AssertionListParams)
+      .filter((params) => params.limit === 500)
+      .map((params) => params.offset);
+  }
+
+  /** Expect the CSV `text` to hold each row at most once, every row of
+   * `throughout`, and its rows in the order the server sorts `rows` by `sort`
+   * (positions in that order are immutable in these tests). */
+  function expectTableOrder(
+    text: string,
+    rows: AssertionListItem[],
+    sort: string,
+    throughout: string[],
+  ): string[] {
+    const byProposition = new Map(rows.map((row) => [row.proposition, row.id]));
+    const ids = propositionsOf(text).map((proposition) => byProposition.get(proposition)!);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(throughout));
+    const position = new Map(serverOrder(rows, sort).map((row, i) => [row.id, i]));
+    const misplaced = ids.findIndex((id, i) => i > 0 && position.get(id)! < position.get(ids[i - 1])!);
+    expect(misplaced === -1 ? "in order" : `${ids[misplaced - 1]} before ${ids[misplaced]}`).toBe(
+      "in order",
+    );
+    return ids;
+  }
+
+  const pad = (i: number) => String(i).padStart(4, "0");
+  const minute = (i: number) => new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString();
 
   /** The propositions of a CSV's data lines (none of these needs quoting). */
   function propositionsOf(text: string): string[] {
@@ -879,35 +934,198 @@ describe("KnowledgeBasePage CSV export while the matter changes", () => {
     expect(new Set(exportSorts)).toEqual(new Set([undefined]));
   });
 
-  it("reads again from the start when more rows leave than it can bridge", async () => {
-    const rows = matter(1_100);
-    const newestFirst = [...rows].reverse();
-    const disputed = new Set(newestFirst.slice(0, 30).map((row) => row.id));
+  it.each([
+    // 39 of the rows the first request wrote leave: the last of the 20 rows
+    // it read past them is still in reach, so it carries on from there.
+    { leaving: 39, offsets: [0, 460, 920], remaining: 1_100 },
+    // 40 leave: the last row it wrote and the 20 after it are all out of
+    // reach, so it starts over and writes the 1,060 rows that remain.
+    { leaving: 40, offsets: [0, 460, 0, 460, 920], remaining: 1_060 },
+  ])(
+    "bridges up to 39 written rows leaving at once and starts over from 40 ($leaving leave)",
+    async ({ leaving, offsets, remaining }) => {
+      const rows = matter(1_100);
+      const newestFirst = [...rows].reverse();
+      const disputed = new Set(newestFirst.slice(0, leaving).map((row) => row.id));
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (n) => {
+          if (n === 2) for (const id of disputed) setRow(rows, id, { status: "disputed" });
+        }),
+      );
+
+      const { text } = await exportCsv(newestFirst[0].proposition);
+
+      // Every row once, newest first. Without a restart the rows that left
+      // were written before they left; after one, only the rows that remain.
+      expect(propositionsOf(text)).toEqual(
+        newestFirst.slice(newestFirst.length - remaining).map((row) => row.proposition),
+      );
+      expect(exportOffsets()).toEqual(offsets);
+    },
+  );
+
+  it.each([
+    { sort: "created_at", label: "Oldest first", onePipelineRun: false },
+    { sort: "-created_at", label: "Newest first, all from one pipeline run", onePipelineRun: true },
+    { sort: "assertion_type", label: "Type, all of one type", onePipelineRun: false },
+  ])(
+    "writes a row that joins next to one that leaves in the table's order ($label)",
+    async ({ sort, onePipelineRun }) => {
+      // Every accepted clause has a proposed twin created just before it
+      // (all at one instant for a pipeline run, where insertion order breaks
+      // the tie). Before each request, a reviewer disputes the last row the
+      // request before returned and accepts its twin: the twin joins right
+      // where a row that has left was, which the export must not mistake for
+      // rows it has not reached yet.
+      const rows = Array.from({ length: 1_100 }, (_, i) => {
+        const clause: AssertionListItem = {
+          ...a1,
+          id: `c-${pad(i)}`,
+          proposition: `Clause ${pad(i)} applies.`,
+          created_at: onePipelineRun ? minute(0) : minute(i),
+          ratings_summary: null,
+        };
+        const twin: AssertionListItem = {
+          ...clause,
+          id: `t-${pad(i)}`,
+          proposition: `Clause ${pad(i)} is preceded.`,
+          status: "proposed",
+          created_at: onePipelineRun ? minute(0) : minute(i - 0.5),
+        };
+        return [twin, clause];
+      }).flat();
+      const left = new Set<string>();
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (_n, previous) => {
+          const last = previous[previous.length - 1];
+          if (!last.id.startsWith("c-")) return;
+          setRow(rows, last.id, { status: "disputed" });
+          setRow(rows, `t-${last.id.slice(2)}`, { status: "accepted" });
+          left.add(last.id);
+        }),
+      );
+      const firstInSort = serverOrder(rows, sort).find((row) => row.status === "accepted")!;
+      const newest = serverOrder(rows, "-created_at").find((row) => row.status === "accepted")!;
+
+      const { text } = await exportCsv(
+        newest.proposition,
+        sort === "-created_at" ? undefined : { sort, readyText: firstInSort.proposition },
+      );
+
+      const throughout = rows
+        .filter((row) => row.id.startsWith("c-") && !left.has(row.id))
+        .map((row) => row.id);
+      const exported = expectTableOrder(text, rows, sort, throughout);
+      expect(left.size).toBeGreaterThan(1);
+      expect(exported.some((id) => id.startsWith("t-"))).toBe(true);
+    },
+  );
+
+  it("keeps the table's order when rows it wrote leave while an older row joins", async () => {
+    // Before the third request, 25 rows the second request wrote are
+    // disputed while a reviewer accepts an older proposed row.
+    const rows = matter(1_600);
+    setRow(rows, "c-0499", { status: "proposed" });
     mockedApi.listAssertions.mockImplementation(
       liveServer(rows, (n) => {
-        if (n === 2) for (const id of disputed) setRow(rows, id, { status: "disputed" });
+        if (n !== 3) return;
+        for (let i = 600; i < 625; i += 1) setRow(rows, `c-${pad(i)}`, { status: "disputed" });
+        setRow(rows, "c-0499", { status: "accepted" });
       }),
     );
 
-    const { text } = await exportCsv(newestFirst[0].proposition);
+    const { text } = await exportCsv("Clause 1599 applies.", {
+      sort: "created_at",
+      readyText: "Clause 0000 applies.",
+    });
 
-    // Every row, once and newest first; the 30 that left were written by the
-    // first request, before they left.
-    expect(propositionsOf(text)).toEqual(newestFirst.map((row) => row.proposition));
-    const exportOffsets = mockedApi.listAssertions.mock.calls
-      .map(([, params]) => params as AssertionListParams)
-      .filter((params) => params.limit === 500)
-      .map((params) => params.offset);
-    expect(exportOffsets).toEqual([0, 480, 0, 480, 960]);
+    const changed = (id: string) => id === "c-0499" || (id >= "c-0600" && id < "c-0625");
+    const throughout = rows.map((row) => row.id).filter((id) => !changed(id));
+    expectTableOrder(text, rows, "created_at", throughout);
   });
+
+  it("keeps the table's order when hundreds of rows join among those it has written", async () => {
+    // Accepted and proposed rows alternate; after the first request a bulk
+    // accept adds the 650 proposed rows among the oldest 1,300, most of them
+    // before the last row the export wrote.
+    const rows: AssertionListItem[] = Array.from({ length: 2_400 }, (_, i) => ({
+      ...a1,
+      id: `c-${pad(i)}`,
+      proposition: `Clause ${pad(i)} applies.`,
+      status: i % 2 === 0 ? "accepted" : "proposed",
+      created_at: minute(i),
+      ratings_summary: null,
+    }));
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n !== 2) return;
+        for (const row of rows.slice(0, 1_300)) {
+          if (row.status === "proposed") setRow(rows, row.id, { status: "accepted" });
+        }
+      }),
+    );
+
+    const { text } = await exportCsv("Clause 2398 applies.", {
+      sort: "created_at",
+      readyText: "Clause 0000 applies.",
+    });
+
+    const throughout = rows.filter((_, i) => i % 2 === 0).map((row) => row.id);
+    expectTableOrder(text, rows, "created_at", throughout);
+  });
+
+  it.each([
+    // 480 join before the last row it wrote, which is then the next page's
+    // last row: still in reach. The rows that joined behind it are left out.
+    { joining: 480, offsets: [0, 460, 940, 1_400], startedOver: false },
+    // 481: that row and the rows read past it are all beyond the next page,
+    // so the export cannot tell where its rows end. It starts over.
+    { joining: 481, offsets: [0, 460, 0, 460, 920, 1_380], startedOver: true },
+  ])(
+    "starts over, in the table's order, when more than 480 rows join before its place ($joining join)",
+    async ({ joining, offsets, startedOver }) => {
+      // Proposed rows from one pipeline run, created between clauses 0469
+      // and 0470, are accepted at once after the first request.
+      const rows = matter(1_100);
+      const pipeline = Array.from({ length: joining }, (_, i) => ({
+        ...a1,
+        id: `p-${pad(i)}`,
+        proposition: `Pipeline row ${pad(i)} applies.`,
+        status: "proposed" as const,
+        created_at: new Date(Date.parse(minute(469)) + 30_000).toISOString(),
+        ratings_summary: null,
+      }));
+      rows.splice(470, 0, ...pipeline);
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (n) => {
+          if (n === 2) for (const row of pipeline) setRow(rows, row.id, { status: "accepted" });
+        }),
+      );
+
+      const { text } = await exportCsv("Clause 1099 applies.", {
+        sort: "created_at",
+        readyText: "Clause 0000 applies.",
+      });
+
+      // Every row once, in creation order; after starting over, the rows
+      // that joined too.
+      expect(propositionsOf(text)).toEqual(
+        rows
+          .filter((row) => startedOver || !row.id.startsWith("p-"))
+          .map((row) => row.proposition),
+      );
+      expect(exportOffsets()).toEqual(offsets);
+    },
+  );
 
   it("fails instead of downloading a partial file when rows keep leaving", async () => {
     const rows = matter(1_100);
     let next = rows.length - 1;
     mockedApi.listAssertions.mockImplementation(
       liveServer(rows, () => {
-        // 30 more of the newest accepted rows leave before every request.
-        for (let i = 0; i < 30; i += 1, next -= 1) setRow(rows, rows[next].id, { status: "disputed" });
+        // 40 more of the newest accepted rows leave before every request,
+        // more than it can bridge (see above), so every attempt loses its place.
+        for (let i = 0; i < 40; i += 1, next -= 1) setRow(rows, rows[next].id, { status: "disputed" });
       }),
     );
     const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
