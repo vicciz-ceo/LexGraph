@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import Depends, HTTPException, Query, Request
@@ -93,7 +93,6 @@ def reject_unknown_query_params(request: Request, allowed: frozenset[str]) -> No
 
 def assertion_filters(
     matter_id: str,
-    q: str | None = None,
     origin: str | None = None,
     status: str | None = None,
     assertion_type: str | None = None,
@@ -117,10 +116,11 @@ def assertion_filters(
     unrated_by_me: bool | None = None,
     my_rating: int | None = Query(default=None, ge=1, le=5),
 ) -> AssertionFilters:
-    """FastAPI dependency declaring the shared filter parameters.
+    """FastAPI dependency declaring the filters the list and stats share.
 
     ``matter_id`` is a query parameter on ``/assertions`` and the path
-    parameter on ``/matters/{matter_id}/assertion-stats``.
+    parameter on ``/matters/{matter_id}/assertion-stats``. ``q`` is declared
+    by the list only (stats are computed in SQL).
     """
     if jurisdiction:
         try:
@@ -129,7 +129,6 @@ def assertion_filters(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
     return AssertionFilters(
         matter_id=matter_id,
-        q=q,
         origin=origin,
         status=status,
         assertion_type=assertion_type,
@@ -163,17 +162,18 @@ class AssertionListQuery:
 def assertion_list_query(
     request: Request,
     filters: AssertionFilters = Depends(assertion_filters),
+    q: str | None = None,
     sort: str | None = None,
     limit: int | None = Query(default=None, ge=1, le=LIST_MAX_LIMIT),
     offset: int = Query(default=0, ge=0),
 ) -> AssertionListQuery:
-    """Filters plus ``sort``, ``limit`` and ``offset``.
+    """Filters plus ``q``, ``sort``, ``limit`` and ``offset``.
 
     ``limit`` is optional with no default, so existing callers that expect
     the whole match set keep receiving it.
     """
     reject_unknown_query_params(request, LIST_QUERY_PARAMS)
-    return AssertionListQuery(filters=filters, sort=parse_sort(sort), limit=limit, offset=offset)
+    return AssertionListQuery(filters=replace(filters, q=q), sort=parse_sort(sort), limit=limit, offset=offset)
 
 
 @dataclass(frozen=True)

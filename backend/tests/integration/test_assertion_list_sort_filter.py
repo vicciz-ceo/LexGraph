@@ -133,6 +133,20 @@ def test_an_unknown_query_parameter_is_rejected_not_ignored(client, matter_with_
     assert f"unsupported query parameter(s): {next(iter(params))}" in response.json()["detail"]
 
 
+def test_declared_parameters_are_exactly_the_accepted_ones(client):
+    """A parameter declared but not accepted would always 422; one accepted
+    but not declared would be silently ignored."""
+    from app.services.assertion_listing import LIST_QUERY_PARAMS, STATS_QUERY_PARAMS
+
+    paths = client.get("/openapi.json").json()["paths"]
+
+    def declared(path: str) -> set[str]:
+        return {p["name"] for p in paths[path]["get"]["parameters"] if p["in"] == "query"}
+
+    assert declared("/api/v1/assertions") == LIST_QUERY_PARAMS
+    assert declared("/api/v1/matters/{matter_id}/assertion-stats") == STATS_QUERY_PARAMS
+
+
 def test_filters_by_type_author_subject_and_object(client, matter_with_users, varied):
     m, v = matter_with_users, varied
     assert _ids(client, m, assertion_type="WEAKENS") == [v["bravo"]]
