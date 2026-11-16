@@ -21,6 +21,8 @@ import type {
   MatterMember,
   MatterRoleName,
   Me,
+  NotificationListParams,
+  NotificationPreference,
   Rating,
   RatingSummary,
   RelatedMatch,
@@ -268,7 +270,28 @@ export const api = {
   matterGraph: (matterId: string) =>
     request<MatterGraph>("GET", `/matters/${matterId}/graph`),
 
-  notifications: () => request<AppNotification[]>("GET", "/notifications"),
+  notifications: (params: NotificationListParams = {}) =>
+    request<AppNotification[]>("GET", "/notifications", { query: { ...params } }),
+
+  unreadNotificationCount: () =>
+    request<{ unread_count: number }>("GET", "/notifications/unread-count"),
+
+  markNotificationRead: (id: string) =>
+    request<AppNotification>("POST", `/notifications/${encodeURIComponent(id)}/read`),
+
+  /** Notices created after `lastReadAt` (ISO) stay unread; omit it to mark all. */
+  markAllNotificationsRead: (lastReadAt?: string) =>
+    request<{ marked_read: number; unread_count: number }>("POST", "/notifications/read-all", {
+      body: lastReadAt ? { last_read_at: lastReadAt } : {},
+    }),
+
+  notificationPreferences: () =>
+    request<NotificationPreference[]>("GET", "/notifications/preferences"),
+
+  updateNotificationPreferences: (preferences: Record<string, boolean>) =>
+    request<NotificationPreference[]>("PUT", "/notifications/preferences", {
+      body: { preferences },
+    }),
 };
 
 export type Api = typeof api;

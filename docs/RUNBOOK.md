@@ -523,6 +523,64 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Admin** — user account provisioning and matter member/role management (admin role required)
 - **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), notifications, and matters
 
+### Notifications
+
+The bell in the top bar shows whether you have unread notifications (its
+label gives the count). Each notification names the assertion, who acted and
+in which matter. Opening one marks it read and takes you to the assertion,
+switching to its matter first when needed; **Mark all as read** marks
+everything listed (a notification that arrives meanwhile stays unread). The
+Profile page's **Notifications** tab lists the same notifications with the
+same actions. The gear in the bell's panel chooses which events notify you.
+
+| Event | Who is notified |
+|---|---|
+| An assertion enters review: created as proposed (Suggest Assertion's **Submit for review**, `POST /api/v1/agent/assertions`), submitted from draft, or resubmitted after a revision request | The matter's reviewers and admins |
+| Revision requested, accepted, rejected, disputed or superseded | The assertion's author |
+| New revision, evidence added | Everyone who has worked on the assertion (author, editors, evidence contributors, commenters, raters, last reviewer), plus the matter's reviewers and admins while it awaits review |
+| Comment added | Everyone who has worked on the assertion, and the author of the comment replied to |
+| A rating added or changed | The author, only after they switch this on (off by default) |
+
+Nobody is notified about their own action, and only current members of the
+matter are notified; a notification's assertion text and link are hidden
+from a recipient who has since lost access to the matter. Re-submitting an
+assertion that is already proposed, or repeating a decision that changes
+nothing, does not notify anyone again. Notifications are stored in the
+database (tables `notifications` and `notification_preferences`), so they
+survive restarts and every API worker serves the same feed; they are not
+deleted automatically. Proposals made through the agent CLI or the MCP server
+are stored by another process and do not raise a notification; reviewers find
+them in the Review Queue.
+
+The API is `GET /api/v1/notifications` (newest first; `limit` 1–200, default
+50, `offset`, `unread_only`), `GET /api/v1/notifications/unread-count`,
+`POST /api/v1/notifications/{id}/read`, `POST /api/v1/notifications/read-all`
+(optional body `{"last_read_at": "<ISO 8601>"}`: newer notifications stay
+unread) and `GET`/`PUT /api/v1/notifications/preferences`
+(`{"preferences": {"comment_added": false}}`). Each route acts on the
+caller's own notifications only.
+
+**Upgrading an existing database.** Databases created before notifications
+were stored need the two tables, created by migration
+`20261116_durable_notifications`. Until it has run, assertion changes still
+work but the notification routes fail. Run it against the database the
+server uses, before starting the upgraded server:
+
+```bash
+cd backend
+LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
+from app.config import get_settings
+from app.db import make_engine
+from app.migrations.m20261116_durable_notifications import upgrade
+print('created' if upgrade(make_engine(get_settings().database_url)) else 'already up to date')
+"
+cd ..
+```
+
+It is safe to run more than once and changes nothing on a database that
+already has the tables. Notifications raised before the upgrade lived only in
+the old server process, so there are none to carry over.
+
 ### Provisioning users & access
 
 Once signed in as an admin (bootstrap prints the first one — see

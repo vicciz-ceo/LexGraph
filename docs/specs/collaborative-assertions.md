@@ -886,6 +886,21 @@ The MVP may implement in-application notifications only.
 
 Do not send a notification for every rating by default. Allow configurable notification preferences or digest behavior.
 
+Implementation (2026-11-16):
+
+- Notifications are rows in the `notifications` table, one per recipient: recipient, actor, event type, matter, assertion, a JSON payload, `created_at` and `read_at`. Read state is stored, so it holds across reloads, restarts and API workers. Databases created earlier receive the tables through migration `20261116_durable_notifications`.
+- Events and recipients. "Participants" of an assertion are its author, the editors of its revisions, whoever attached evidence, the authors of its comments that are not deleted, the raters of any of its revisions, and its last reviewer.
+  - `assertion_submitted`: the matter's reviewers and admins, whenever the assertion enters `proposed`. That covers creation as proposed through `POST /api/v1/assertions` or `POST /api/v1/agent/assertions`, and `POST .../submit` from draft or revision_requested (`payload.previous_status` tells a resubmission apart).
+  - `revision_requested`, `assertion_accepted`, `assertion_rejected`, `assertion_disputed`, `assertion_superseded`: the author, when a reviewer changes the status. A supersede also carries `superseded_by_assertion_id`.
+  - `revision_created` (PATCH or `POST .../revisions` that creates a revision) and `evidence_added`: the participants, plus the matter's reviewers and admins while the assertion is `proposed`.
+  - `comment_added`: the participants and the author of the comment replied to.
+  - `assertion_rated` (a rating created or changed): the author, only if they opted in.
+- The actor is never notified of their own action, and only current members of the matter are notified. Notifications follow the committed state change. Saving a draft, re-submitting an assertion that is already proposed, a decision that changes nothing and an edit that creates no revision notify nobody. A recipient gets at most one `assertion_submitted` per submission.
+- `GET /api/v1/notifications` returns the caller's notifications, newest first (`limit` 1–200, default 50; `offset`; `unread_only`). Each has `id`, `event_type`, `actor_user_id`, `recipient_user_id`, `assertion_id`, `matter_id`, `link` (the web-app route `/assertions/{id}`), `payload`, `context`, `created_at`, `read` and `read_at`. `context` holds the current proposition (excerpted to at most 280 characters), the assertion's status and origin, the matter name and the actor's display name. `link` and `context` are null once the recipient is no longer a member of the matter. Payloads hold references and event facts only, never comment or document text. Timestamps carry a UTC offset.
+- `GET /api/v1/notifications/unread-count` returns `{"unread_count": n}`. `POST /api/v1/notifications/{id}/read` marks one notification read; the first read time is kept, and an unknown id or another user's notification returns 404. `POST /api/v1/notifications/read-all` marks the caller's unread notifications read and returns `{"marked_read": n, "unread_count": m}`. Its optional `last_read_at` leaves notifications created after that instant unread.
+- Preferences: `GET` and `PUT /api/v1/notifications/preferences` (`{"preferences": {event_type: bool}}`) switch each event type per user. Every event is on by default except `assertion_rated`. An unknown event type returns 422 and nothing is changed.
+- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. Proposals created outside HTTP raise the notice only where their entry point calls `app.notifications.notify_submission`, which is idempotent per submission and never raises. The agent CLI and the MCP server do not call it at present.
+
 ==================================================
 16. AUDIT REQUIREMENTS
 ==================================================

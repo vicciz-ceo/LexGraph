@@ -3,18 +3,15 @@
 // Consensus design's shared layout. Below 768px the sidebar becomes a
 // drawer opened from the mobile bar's menu button (navDrawer.tsx).
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 
-import { api } from "../api/client";
-import type { AppNotification } from "../api/types";
+import { NotificationsMenu } from "../components/NotificationsMenu";
 import { Icon } from "./icons";
 import type { IconName } from "./icons";
 import { Link, navigate, useHashLocation } from "./router";
 import { useSession } from "./session";
 import { MenuIcon, useNavDrawer } from "./navDrawer";
-
-const NOTIFICATION_POLL_MS = 30_000;
 
 interface NavItem {
   to: string;
@@ -44,80 +41,6 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0])
     .join("");
-}
-
-function describeNotification(n: AppNotification): string {
-  const label = n.event_type.replace(/_/g, " ");
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function NotificationsBell() {
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const poll = () => {
-      api
-        .notifications()
-        .then((res) => {
-          if (!cancelled) setItems(res);
-        })
-        .catch(() => {
-          /* notification polling is best-effort */
-        });
-    };
-    poll();
-    const timer = window.setInterval(poll, NOTIFICATION_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
-  }, [open]);
-
-  const hasUnread = items.some((n) => !n.read);
-
-  return (
-    <div className="notifications" ref={containerRef}>
-      <button
-        type="button"
-        className="topbar__action"
-        aria-label={hasUnread ? "Notifications (unread)" : "Notifications"}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Icon name="notifications" />
-        {hasUnread && <span className="topbar__badge" />}
-      </button>
-      {open && (
-        <div className="notifications__panel" role="dialog" aria-label="Notifications">
-          <div className="notifications__header">Notifications</div>
-          {items.length === 0 ? (
-            <div className="notifications__empty">No notifications yet.</div>
-          ) : (
-            items.slice(0, 20).map((n) => (
-              <div key={n.id} className="notifications__item">
-                <div className="notifications__item-title">{describeNotification(n)}</div>
-                <div className="notifications__item-time">
-                  {new Date(n.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -269,7 +192,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </form>
           <div className="topbar__spacer" />
-          <NotificationsBell />
+          <NotificationsMenu />
           <a
             className="topbar__action"
             href="https://github.com/vicciz-ceo/LexGraph#readme"
