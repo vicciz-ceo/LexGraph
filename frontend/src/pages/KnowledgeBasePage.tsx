@@ -83,8 +83,18 @@ function formatDate(iso: string): string {
   });
 }
 
+/** A cell a spreadsheet application would evaluate as a formula: one that
+ * starts with =, +, - or @ (also after leading whitespace, which some
+ * importers trim) or with a tab or carriage return. Propositions are free
+ * contributor text, so the export must never hand one over as a formula. */
+const FORMULA_TRIGGER = /^(?:[\t\r]|\s*[=+\-@])/;
+
 function csvCell(value: string): string {
-  return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  // A leading apostrophe makes spreadsheets read the cell as text (OWASP
+  // "CSV injection"). Quoting alone does not: a quoted field is unquoted
+  // before it is evaluated.
+  const text = FORMULA_TRIGGER.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 export function KnowledgeBasePage() {

