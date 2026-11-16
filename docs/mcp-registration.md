@@ -6,8 +6,12 @@ and database resolve regardless of the agent's working directory.
 
 Available tools:
 
-- `assertion_guide`: workflow and complete submission JSON schema.
-- `explore`, `search`, `fetch`: existing assertion lookup and evidence.
+- `assertion_guide`: workflow (naming these tools), vocabularies (assertion
+  types, jurisdiction codes) and complete submission JSON schema. Without a
+  configured agent user it reports `submissions_enabled: false` and a
+  `submissions_disabled_reason`.
+- `explore`, `search`, `fetch`: existing assertion lookup and evidence
+  (case-insensitive substring match on the current proposition text).
 - `agent_context`: discover authorized matters, persisted entities, source spans
   and existing assertions (requires configured agent user).
 - `suggest_assertion`: atomically create a model-suggested draft/proposal with

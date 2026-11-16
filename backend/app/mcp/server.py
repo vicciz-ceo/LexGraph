@@ -57,8 +57,8 @@ def _current_revision(session: Session, assertion: Assertion) -> AssertionRevisi
 
 
 def _proposition_text(session: Session, assertion: Assertion) -> str:
-    """Byte-exact raw proposition when available, sanitized fallback
-    otherwise -- see module docstring's "Text preference" note."""
+    """Byte-exact raw proposition of the current revision when stored, else
+    the sanitized column (rows from before raw text was kept)."""
     revision = _current_revision(session, assertion)
     raw = revision.proposition_raw if revision else None
     return raw if raw is not None else assertion.proposition
@@ -180,15 +180,25 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
 
     @server.tool()
     def assertion_guide() -> dict:
-        """Learn how to create evidence-backed suggestions and retrieve the exact JSON schema."""
-        result = guide()
-        result["submissions_enabled"] = agent_user_id is not None
+        """Start here: the workflow, vocabularies (assertion types, jurisdictions)
+        and the exact JSON schema for suggest_assertion's payload."""
+        result = guide("mcp")
+        result["submissions_enabled"] = bool(agent_user_id)
+        if not agent_user_id:
+            result["submissions_disabled_reason"] = (
+                "agent_context and suggest_assertion are not available: this server was started without "
+                "LEXGRAPH_AGENT_USER_ID. Ask the user to register it with the id of a dedicated agent account "
+                "that has contributor membership (see docs/mcp-registration.md).")
         return result
 
     if agent_user_id:
         @server.tool()
         def agent_context(matter_id: str | None = None, query: str = "", limit: int = 20, offset: int = 0) -> dict:
-            """Discover authorized matters, real entity IDs, source quotes and existing assertions."""
+            """Without matter_id: your user and matter memberships (matter id, role,
+            repository_id). With matter_id: that matter's documents and articles
+            (entities, documents first), source spans with full quote_text, and
+            existing assertions, each filtered by query (case-insensitive substring)
+            and paged with limit (1-100) and offset."""
             with _reported_errors(), session_factory() as session:
                 return context(session, agent_user_id, matter_id, query, limit, offset)
 
