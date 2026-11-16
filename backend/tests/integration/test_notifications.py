@@ -410,12 +410,14 @@ def test_editing_an_accepted_assertion_sends_it_back_to_the_reviewers(client, te
 def test_added_evidence_notifies_participants_and_reviewers_while_proposed(client, team):
     m = team
     created = _create(client, m, m["contributor_headers"], proposition="Evidence will follow.")
+    # Only the author or a reviewer/admin may attach evidence (spec section
+    # 12 edit rule); an admin who is not a participant attaches it here.
     r = client.post(
         f"/api/v1/assertions/{created['id']}/evidence",
         json={"source_span_id": m["span_id"], "evidence_role": "supports"},
-        headers=m["rater_headers"],
+        headers=m["admin_headers"],
     )
-    assert r.status_code == 201
+    assert r.status_code == 201, r.text
     evidence_id = r.json()["id"]
 
     notice = _about(client, m["contributor_headers"], created["id"])
@@ -423,7 +425,8 @@ def test_added_evidence_notifies_participants_and_reviewers_while_proposed(clien
     assert notice[0]["payload"]["evidence_id"] == evidence_id
     assert notice[0]["payload"]["evidence_role"] == "supports"
     assert _kinds(client, m["reviewer_headers"], created["id"]) == ["evidence_added", "assertion_submitted"]
-    assert _about(client, m["rater_headers"], created["id"]) == []  # their own action
+    assert _kinds(client, m["admin_headers"], created["id"]) == ["assertion_submitted"]  # their own action
+    assert _about(client, m["rater_headers"], created["id"]) == []  # not a participant
 
     # The author attaching evidence to their own draft tells nobody.
     draft = _create(client, m, m["contributor_headers"], proposition="Private draft.", save_as="draft")
