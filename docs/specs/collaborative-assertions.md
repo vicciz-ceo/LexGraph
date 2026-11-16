@@ -1020,3 +1020,14 @@ sanitized text, as `revision_requested; comment=…` or
 `accepted; acceptance_justification=…`. All audit rows written by one decision
 share a `correlation_id`. The review routes return the full assertion, as the
 other assertion mutation routes do.
+
+The web UI applies the same rules. The Review Queue, the assertion detail page
+and the Contested page send the revision on screen as
+`expected_revision_number` with every decision. When a decision is refused with
+409, the page says that nothing was recorded, shows the API's reason and
+reloads, so the reviewer sees the current version before deciding again. The
+review panel offers no decision on a draft, withdrawn or superseded assertion,
+hides the decision that would repeat the current status, and sends one decision
+at a time. Confirm stays disabled until the acceptance justification (required
+unless the assertion is `evidenced`) or the request-revision comment has text
+after trimming and is at most 100,000 characters; the trimmed text is sent.
