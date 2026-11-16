@@ -45,6 +45,17 @@
   gap: var(--space-md);
 }
 
+/* "Showing the newest N of M" + Show more, under the cards. */
+.rq-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
 .rq-card__body {
   display: flex;
   flex-direction: column;

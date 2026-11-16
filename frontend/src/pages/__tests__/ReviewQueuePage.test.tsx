@@ -128,6 +128,9 @@ const awaitingEvidenceAssertion = makeAssertion({
   proposition: "The notice period runs from the date of mailing, not receipt.",
 });
 
+/** Each status list is read newest first, one page of 50 at a time. */
+const FIRST_PAGE = { sort: "-created_at", limit: 50, offset: 0 };
+
 const summaryA1: RatingSummary = {
   count: 5,
   average: 3.8,
@@ -202,7 +205,9 @@ describe("ReviewQueuePage", () => {
 
     expect(await screen.findByText(modelAssertion.proposition)).toBeInTheDocument();
     expect(screen.getByText(userAssertion.proposition)).toBeInTheDocument();
-    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed" });
+    // The newest page of the proposed inbox, and its total for the chip.
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed", ...FIRST_PAGE });
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed", limit: 1 });
     expect(api.listMatterMembers).toHaveBeenCalledWith("m1");
 
     // Pending chip reflects the full proposed inbox.
@@ -232,19 +237,22 @@ describe("ReviewQueuePage", () => {
     expect(screen.getByText(disputedAssertion.proposition)).toBeInTheDocument();
     expect(api.listAssertions).toHaveBeenCalledWith("m1", {
       status: "revision_requested",
+      ...FIRST_PAGE,
     });
-    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "disputed" });
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "disputed", ...FIRST_PAGE });
 
     await user.click(screen.getByRole("button", { name: "AI-deduced" }));
     await waitFor(() =>
       expect(api.listAssertions).toHaveBeenCalledWith("m1", {
         status: "proposed",
         origin: "model_suggested",
+        ...FIRST_PAGE,
       }),
     );
     expect(api.listAssertions).toHaveBeenCalledWith("m1", {
       status: "disputed",
       origin: "model_suggested",
+      ...FIRST_PAGE,
     });
   });
 
