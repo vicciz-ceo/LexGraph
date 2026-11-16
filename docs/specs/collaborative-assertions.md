@@ -460,7 +460,10 @@ Requirements:
 - Comments must be matter-scoped.
 - Comments must be audited.
 - Users may edit or delete their own comments.
+- Posting, editing and deleting comments requires `assertion:comment` (contributor, reviewer, administrator). Viewers can read comments but cannot post, edit or delete them, including comments they wrote before they became viewers.
+- A comment must contain text once markup is removed: blank and markup-only comments are rejected on create and on edit (422).
 - Deleted comments should be soft-deleted where audit requirements apply.
+- A reply must target a live comment on the same assertion; replying to a deleted comment is rejected (409). A deleted comment that still has live replies is listed as a tombstone (`deleted_at` set, `comment_text` empty, `comment_text_raw` null), so replies are never orphaned. A deleted comment without live replies is not listed.
 - Reviewer comments should be visually distinguishable.
 - Comments are not evidence unless explicitly converted into or linked to an AssertionEvidence record.
 

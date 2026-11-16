@@ -313,19 +313,6 @@ def _serialize_evidence(e: AssertionEvidence, session: Session | None = None) ->
     }
 
 
-def _serialize_comment_summary(c: AssertionComment) -> dict:
-    return {
-        "id": c.id,
-        "assertion_id": c.assertion_id,
-        "user_id": c.user_id,
-        "parent_comment_id": c.parent_comment_id,
-        "comment_text": c.comment_text,
-        "comment_text_raw": c.comment_text_raw,
-        "created_at": c.created_at,
-        "updated_at": c.updated_at,
-    }
-
-
 # --- Evidence/comments/revisions/ratings read helpers (GET detail, B5) -----
 #
 # These back the `evidence`/`ratings_summary`/`comments`/`revision_history`
@@ -361,17 +348,11 @@ def _revision_history(session: Session, assertion_id: str) -> list[dict]:
 
 
 def _comments_for_assertion(session: Session, assertion_id: str) -> list[dict]:
-    rows = (
-        session.execute(
-            select(AssertionComment).where(
-                AssertionComment.assertion_id == assertion_id,
-                AssertionComment.deleted_at.is_(None),
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [_serialize_comment_summary(c) for c in rows]
+    # Same thread as GET .../comments (finding api:25): creation order, and
+    # redacted tombstones for deleted parents that still have live replies.
+    from app.routers.comments import list_visible_comments
+
+    return list_visible_comments(session, assertion_id)
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:

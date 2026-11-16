@@ -117,6 +117,7 @@ That form searches actual document/article subjects and evidence quotes, support
 an optional object, and saves a draft or submits for review. Drafts can be edited,
 submitted or withdrawn from their detail page. Requested revisions can be
 resubmitted. Explanations appear as comments. Ratings never accept an assertion;
-formal acceptance remains a reviewer action.
+formal acceptance remains a reviewer action. Contributors, reviewers and admins
+can comment; viewers can read the discussion but not post to it.
 
 See [MCP registration](mcp-registration.md) for agent-client configuration.
