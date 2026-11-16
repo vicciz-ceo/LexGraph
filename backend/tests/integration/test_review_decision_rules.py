@@ -797,6 +797,12 @@ def test_review_routes_return_the_full_assertion(client, matter_with_users, db_s
     assert r.status_code == 200, r.text
     detail = _get(client, m, assertion_id)
     expected = {k: v for k, v in detail.items() if k not in DETAIL_ONLY_KEYS}
+    # Entity labels are detail-page data (spec section 13, `GET
+    # /assertions/{id}` only); the mutation routes return bare references.
+    for key in ("subject_entity", "object_entity"):
+        if expected[key] is not None:
+            assert "label" in expected[key], expected[key]
+            expected[key] = {k: v for k, v in expected[key].items() if k != "label"}
     assert r.json() == expected
 
 
