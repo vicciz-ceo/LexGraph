@@ -30,7 +30,6 @@ import type {
   RelatedMatchList,
   Revision,
   UserAccount,
-  UserInfo,
 } from "./types";
 import type { AssertionStats, AssertionStatsParams } from "./types";
 import { reportAuthFailure } from "./authEvents";

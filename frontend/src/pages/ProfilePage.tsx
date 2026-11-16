@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import "../styles/pages/profile.css";
 
 import { api } from "../api/client";
-import { formatInstantDate, formatInstantDateTime, parseApiInstant } from "../api/datetime";
+import { formatInstantDate, parseApiInstant } from "../api/datetime";
 import { listWindow } from "../api/listWindow";
 import type {
   AppNotification,
