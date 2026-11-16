@@ -587,13 +587,15 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # Submitted text (proposition, etc.) is never treated as instructions —
     # sanitize_for_storage only strips active markup; validation errors are
     # surfaced as 422s, never silently corrected.
-    proposition = sanitize_for_storage(body.proposition)
     try:
-        # Track A, item A8 (issue #2 sub-item, gate G4): length cap is
-        # checked against the raw submitted text, before sanitization.
+        # Track A, item A8 (issue #2 sub-item, gate G4): length caps are
+        # checked against the raw submitted text, before sanitization: the
+        # sanitizer is super-linear on hostile markup, so over-cap text must
+        # never reach it (review:5).
         validate_text_length(body.proposition, label="proposition")
         if body.explanation is not None:
             validate_text_length(body.explanation, label="explanation")
+        proposition = sanitize_for_storage(body.proposition)
         validate_proposition_not_empty(proposition)
         # agent:7 / api:19: stored as UTC instants, so an offset is applied
         # rather than dropped and the stored range is the validated one.
@@ -617,6 +619,12 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         raise HTTPException(
             status_code=422, detail=str(exc)
         ) from exc
+    # review:20: an explanation is preserved as the initial comment, stored
+    # as POST .../comments stores the same text (sanitized text plus the raw
+    # authored text) even when nothing survives sanitization. Only a blank
+    # explanation is no explanation. Sanitized here, before the write lock.
+    explanation_raw = body.explanation if body.explanation and body.explanation.strip() else None
+    explanation = sanitize_for_storage(explanation_raw) if explanation_raw is not None else None
 
     # --- B5: duplicate/related-assertion detection (spec §8) ---------------
     # Exact proposition matches block submission; every other match kind is
@@ -758,10 +766,10 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                            assertion_id=assertion.id, assertion_revision_id=revision.id,
                            new_value=json.dumps(agent, ensure_ascii=False))
-    if body.explanation and sanitize_for_storage(body.explanation).strip():
+    if explanation_raw is not None:
         comment = AssertionComment(id=str(uuid.uuid4()), assertion_id=assertion.id,
-            user_id=user_id, comment_text=sanitize_for_storage(body.explanation),
-            comment_text_raw=body.explanation, created_at=now, updated_at=now)
+            user_id=user_id, comment_text=explanation,
+            comment_text_raw=explanation_raw, created_at=now, updated_at=now)
         session.add(comment)
         record_audit_event(session, actor_user_id=user_id, event_type="comment_created",
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
@@ -961,12 +969,18 @@ def patch_assertion(
     if not updates:
         return _serialize_assertion(session, assertion)
 
+    new_proposition = None
     try:
         for field in ("proposition", "assertion_type", "subject_entity"):
             if field in updates and updates[field] is None:
                 raise ValidationError(f"{field} cannot be null")
         if "proposition" in updates:
-            validate_proposition_not_empty(sanitize_for_storage(body.proposition))
+            # Track A, item A8 (issue #2 sub-item, gate G4): length cap
+            # checked against the raw submitted text, before the sanitizer
+            # -- super-linear on hostile markup -- runs, once (review:5).
+            validate_text_length(body.proposition, label="proposition")
+            new_proposition = sanitize_for_storage(body.proposition)
+            validate_proposition_not_empty(new_proposition)
         if "assertion_type" in updates:
             validate_assertion_type(body.assertion_type)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
@@ -987,16 +1001,6 @@ def patch_assertion(
     except (ValidationError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
-    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
-    # against the raw submitted text, before sanitization.
-    if "proposition" in updates and body.proposition is not None:
-        try:
-            validate_text_length(body.proposition, label="proposition")
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=422, detail=str(exc)
-            ) from exc
-
     if "jurisdiction" in updates and body.jurisdiction is not None:
         try:
             validate_jurisdiction(body.jurisdiction)
@@ -1009,7 +1013,6 @@ def patch_assertion(
     # (it may not take the proposition of another live assertion or of the
     # author's own draft); keeping the current proposition is never a
     # duplicate. Checked here without a lock, and again under it below.
-    new_proposition = sanitize_for_storage(body.proposition) if "proposition" in updates else None
     takes_new_proposition = new_proposition is not None and (
         normalize_proposition(new_proposition) != normalize_proposition(assertion.proposition)
     )
