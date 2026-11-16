@@ -70,10 +70,12 @@ from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
 from app.services.duplicates import (
+    DuplicateAssertionError,
     blocks_exact_duplicate,
     find_related_assertions,
     first_blocking_duplicate,
     normalize_proposition,
+    surface_similar,
 )
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
@@ -542,13 +544,40 @@ def _stale_revision_conflict() -> HTTPException:
 
 
 def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail=(
-            "duplicate: an identical proposition already exists in this matter "
-            f"(assertion {existing_assertion_id})"
+    # ui:5: the API answers the existing assertion's id as data next to the
+    # unchanged detail text (`existing_assertion_id`, app.request_guards).
+    return DuplicateAssertionError(existing_assertion_id)
+
+
+# Columns the duplicate/related scans compare and report: narrow rows, never
+# whole ORM objects of the matter (agent:2).
+_MATCH_COLUMNS = (
+    Assertion.id,
+    Assertion.proposition,
+    Assertion.assertion_type,
+    Assertion.subject_entity_type,
+    Assertion.subject_entity_id,
+    Assertion.object_entity_type,
+    Assertion.object_entity_id,
+    Assertion.status,
+    Assertion.author_user_id,
+)
+
+
+def _match_candidate(row) -> dict:
+    """`find_related_assertions`' view of an assertion (an ORM object or a
+    `_MATCH_COLUMNS` row)."""
+    return {
+        "id": row.id,
+        "proposition": row.proposition,
+        "assertion_type": row.assertion_type,
+        "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
+        "object_entity": (
+            {"type": row.object_entity_type, "id": row.object_entity_id}
+            if row.object_entity_type is not None
+            else None
         ),
-    )
+    }
 
 
 def _blocking_duplicate_id(
@@ -726,15 +755,11 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # Exact proposition matches block submission; every other match kind is
     # surfaced as a non-blocking warning (spec §7: "similarity warnings must
     # not prevent submission unless there is an exact duplicate").
-    existing_rows = (
-        session.execute(
-            select(Assertion)
-            .where(Assertion.matter_id == body.matter_id)
-            .order_by(Assertion.created_at, Assertion.id)
-        )
-        .scalars()
-        .all()
-    )
+    existing_rows = session.execute(
+        select(*_MATCH_COLUMNS)
+        .where(Assertion.matter_id == body.matter_id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
     candidate = {
         "proposition": proposition,
         "assertion_type": body.assertion_type,
@@ -745,21 +770,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             else None
         ),
     }
-    existing_candidates = [
-        {
-            "id": row.id,
-            "proposition": row.proposition,
-            "assertion_type": row.assertion_type,
-            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
-            "object_entity": (
-                {"type": row.object_entity_type, "id": row.object_entity_id}
-                if row.object_entity_type is not None
-                else None
-            ),
-        }
-        for row in existing_rows
-    ]
-    matches = find_related_assertions(candidate, existing_candidates)
+    matches = find_related_assertions(candidate, [_match_candidate(row) for row in existing_rows])
     # api:16: only live assertions and the author's own drafts block; an
     # exact match with a withdrawn/rejected/superseded assertion or another
     # user's draft is returned below as a non-blocking similar assertion.
@@ -776,7 +787,9 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     ]
     if blocking:
         raise _duplicate_conflict(blocking[0])
-    similar_matches = matches
+    # agent:2 / ui:5: the strongest matches with their text, status and type;
+    # the count of all of them goes next to the list.
+    similar, similar_total = surface_similar(matches, rows_by_id)
 
     # agent:1 / api:17: the scan above holds no lock, so another submitter
     # (request, agent CLI or MCP server) may have stored the same
@@ -873,7 +886,9 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     session.commit()
     session.refresh(assertion)
     result = _serialize_assertion(session, assertion)
-    result["similar_assertions"] = similar_matches
+    result["similar_assertions"] = similar
+    result["similar_assertions_total"] = similar_total
+    result["similar_assertions_truncated"] = similar_total > len(similar)
     return result
 
 
@@ -980,48 +995,27 @@ def list_assertions(
 @router.get("/{assertion_id}/related")
 def get_related_assertions(
     assertion_id: str,
+    response: Response,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> list[dict]:
-    """B5 / ruling R10: duplicate/related-assertion surface (spec §8, §13)."""
+    """B5 / ruling R10: duplicate/related-assertion surface (spec §8, §13).
+
+    agent:2 / ui:5: the strongest matches (`surface_similar`), each with the
+    matched assertion's text, status and type; the X-Total-Count header
+    gives the number of all matches."""
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
 
-    others = (
-        session.execute(
-            select(Assertion).where(
-                Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id
-            )
-        )
-        .scalars()
-        .all()
-    )
-    candidate = {
-        "id": assertion.id,
-        "proposition": assertion.proposition,
-        "assertion_type": assertion.assertion_type,
-        "subject_entity": {"type": assertion.subject_entity_type, "id": assertion.subject_entity_id},
-        "object_entity": (
-            {"type": assertion.object_entity_type, "id": assertion.object_entity_id}
-            if assertion.object_entity_type is not None
-            else None
-        ),
-    }
-    existing_candidates = [
-        {
-            "id": row.id,
-            "proposition": row.proposition,
-            "assertion_type": row.assertion_type,
-            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
-            "object_entity": (
-                {"type": row.object_entity_type, "id": row.object_entity_id}
-                if row.object_entity_type is not None
-                else None
-            ),
-        }
-        for row in others
-    ]
-    return find_related_assertions(candidate, existing_candidates)  # type: ignore[return-value]
+    others = session.execute(
+        select(*_MATCH_COLUMNS)
+        .where(Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
+    matches = find_related_assertions(_match_candidate(assertion), [_match_candidate(row) for row in others])
+    related, total = surface_similar(matches, {row.id: row for row in others})
+    response.headers["X-Total-Count"] = str(total)
+    return related
 
 
 @router.get("/{assertion_id}")

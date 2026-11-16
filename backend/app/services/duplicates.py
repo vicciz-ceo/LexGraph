@@ -15,13 +15,23 @@ existing draft blocks only its own author -- unless that draft is the one
 being submitted. Withdrawn, rejected and superseded assertions never block;
 they are still returned by `find_related_assertions` as matches, so callers
 report them as non-blocking `similar_assertions`.
+
+What callers show (audit findings agent:2, ui:5): `surface_similar` keeps
+the strongest `SIMILAR_ASSERTIONS_LIMIT` matches (score descending, then
+assertion id) and gives each the matched assertion's display text, status
+and type, so a response stays small however many rows match -- a matter
+holding definition-linking output can match tens of thousands. Callers
+report the uncapped count next to the list. The exact-duplicate check
+always runs over every match, never over the capped list.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from difflib import SequenceMatcher
 from typing import Any, TypedDict
+
+from fastapi import HTTPException
 
 # Below this similarity ratio, two propositions are considered unrelated
 # rather than merely differently worded. Tuned against the fixture pair in
@@ -30,11 +40,35 @@ from typing import Any, TypedDict
 # obligation.", ratio ~0.71) with headroom on both sides.
 SIMILARITY_THRESHOLD = 0.55
 
+#: How many matches a response lists (`surface_similar`).
+SIMILAR_ASSERTIONS_LIMIT = 20
+#: The longest proposition text a listed match carries; longer text is cut
+#: and ends with an ellipsis (the full text is at GET /assertions/{id}).
+SIMILAR_PROPOSITION_DISPLAY_LENGTH = 300
+
 
 class DuplicateCandidate(TypedDict):
     assertion_id: str
     match_kind: str  # "exact_proposition" | "same_subject_type_object" | "similar"
     score: float
+
+
+def duplicate_detail(existing_assertion_id: str) -> str:
+    return (
+        "duplicate: an identical proposition already exists in this matter "
+        f"(assertion {existing_assertion_id})"
+    )
+
+
+class DuplicateAssertionError(HTTPException):
+    """The exact-duplicate 409. `detail` is the documented message; the API
+    also answers `existing_assertion_id` next to it (registered in
+    `app.request_guards`). Callers that catch `HTTPException` (the agent
+    CLI, the MCP server) see a plain HTTPException with that detail."""
+
+    def __init__(self, existing_assertion_id: str) -> None:
+        super().__init__(status_code=409, detail=duplicate_detail(existing_assertion_id))
+        self.existing_assertion_id = existing_assertion_id
 
 
 #: Statuses whose exact-proposition twin never blocks: the claim was
@@ -101,10 +135,22 @@ def _entity_key(entity: dict[str, Any] | None) -> tuple[str | None, str | None] 
     return (entity.get("type"), entity.get("id"))
 
 
-def _proposition_similarity(a: str, b: str) -> float:
+def _similar_score(a: str, b: str) -> float | None:
+    """`SequenceMatcher(None, a, b).ratio()` when it reaches
+    SIMILARITY_THRESHOLD, else None.
+
+    Prefiltered without changing any result (agent:2): the length bound is
+    difflib's `real_quick_ratio`, an upper bound of `ratio`, so a pair it
+    rules out could never have matched. (Its character-multiset bound,
+    `quick_ratio`, was measured and dropped: it rules out almost no pair of
+    same-language sentences and costs about a tenth of `ratio`.)"""
     if not a or not b:
-        return 0.0
-    return SequenceMatcher(None, a, b).ratio()
+        return None
+    la, lb = len(a), len(b)
+    if 2.0 * min(la, lb) / (la + lb) < SIMILARITY_THRESHOLD:
+        return None
+    score = SequenceMatcher(None, a, b).ratio()
+    return score if score >= SIMILARITY_THRESHOLD else None
 
 
 def find_related_assertions(
@@ -124,6 +170,10 @@ def find_related_assertions(
     cand_object = _entity_key(candidate.get("object_entity"))
 
     results: list[DuplicateCandidate] = []
+    # Generated rows repeat their wording ('Article 2 uses the definition
+    # of "person".' in every law of a matter): each distinct text is scored
+    # once.
+    scores: dict[str, float | None] = {}
 
     for other in existing:
         other_id = other.get("id")
@@ -150,11 +200,47 @@ def find_related_assertions(
             )
             continue
 
-        score = _proposition_similarity(cand_proposition, other_proposition)
-        if score >= SIMILARITY_THRESHOLD:
+        if other_proposition not in scores:
+            scores[other_proposition] = _similar_score(cand_proposition, other_proposition)
+        score = scores[other_proposition]
+        if score is not None:
             results.append(
                 {"assertion_id": other_id, "match_kind": "similar", "score": round(score, 4)}
             )
 
     results.sort(key=lambda c: c["score"], reverse=True)
     return results
+
+
+def display_proposition(text: str | None) -> str:
+    """A proposition shortened for a list of matches."""
+    text = text or ""
+    if len(text) <= SIMILAR_PROPOSITION_DISPLAY_LENGTH:
+        return text
+    return text[: SIMILAR_PROPOSITION_DISPLAY_LENGTH - 1].rstrip() + "…"
+
+
+def surface_similar(
+    matches: Iterable[DuplicateCandidate],
+    assertions: Mapping[str, Any],
+    *,
+    limit: int = SIMILAR_ASSERTIONS_LIMIT,
+) -> tuple[list[dict[str, Any]], int]:
+    """The `limit` strongest `matches` (score descending, then assertion id)
+    as response entries, and how many matches there were before the cap.
+
+    Each entry keeps `assertion_id`, `match_kind` and `score` and adds the
+    matched assertion's `proposition` (display text, see
+    `display_proposition`), `status` and `assertion_type`, read from
+    `assertions[assertion_id]` (any object with those attributes)."""
+    ordered = sorted(matches, key=lambda m: (-m["score"], m["assertion_id"]))
+    shown = []
+    for match in ordered[:limit]:
+        row = assertions[match["assertion_id"]]
+        shown.append({
+            **match,
+            "proposition": display_proposition(row.proposition),
+            "status": row.status,
+            "assertion_type": row.assertion_type,
+        })
+    return shown, len(ordered)

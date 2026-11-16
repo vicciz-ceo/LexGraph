@@ -12,12 +12,17 @@ routing, validation or any handler runs, and nothing is written.
 Pure ASGI middleware, so it does not depend on where in ``create_app`` it is
 registered; ``register_request_guards`` is called from ``app.main``.
 
-It also registers the handler for validation errors (audit finding
-review:6): FastAPI's 422 body echoes the offending input, and JSON numbers
-such as ``1e999``, ``NaN`` and ``Infinity`` parse to non-finite floats that a
-JSON response cannot carry, so an invalid non-finite value answered 500. The
-422 now spells such a value as the string ``"Infinity"``, ``"-Infinity"`` or
-``"NaN"``; the rest of the body is FastAPI's.
+It also registers two exception handlers:
+
+* Validation errors (audit finding review:6): FastAPI's 422 body echoes the
+  offending input, and JSON numbers such as ``1e999``, ``NaN`` and
+  ``Infinity`` parse to non-finite floats that a JSON response cannot carry,
+  so an invalid non-finite value answered 500. The 422 now spells such a
+  value as the string ``"Infinity"``, ``"-Infinity"`` or ``"NaN"``; the rest
+  of the body is FastAPI's.
+* The exact-duplicate 409 (audit finding ui:5) answers the existing
+  assertion's id as data, ``existing_assertion_id``, next to the documented
+  ``detail`` text.
 """
 
 from __future__ import annotations
@@ -32,6 +37,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from app.services.duplicates import DuplicateAssertionError
 
 UNPAIRED_SURROGATE_DETAIL = (
     "request body contains an unpaired UTF-16 surrogate (such as \\ud800), "
@@ -118,6 +125,16 @@ async def validation_error_response(request: Request, exc: RequestValidationErro
     return JSONResponse(status_code=422, content={"detail": json_safe(jsonable_encoder(exc.errors()))})
 
 
+async def duplicate_assertion_response(request: Request, exc: DuplicateAssertionError) -> JSONResponse:
+    """The exact-duplicate 409 with the existing assertion's id (ui:5)."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "existing_assertion_id": exc.existing_assertion_id},
+        headers=exc.headers,
+    )
+
+
 def register_request_guards(app: FastAPI) -> None:
     app.add_middleware(UnpairedSurrogateGuard)
     app.add_exception_handler(RequestValidationError, validation_error_response)
+    app.add_exception_handler(DuplicateAssertionError, duplicate_assertion_response)

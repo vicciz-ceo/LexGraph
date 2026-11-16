@@ -177,7 +177,10 @@ def test_an_ended_assertion_does_not_block_proposing_the_same_text_again(client,
     again = _create(client, m, "  the notice period is THIRTY days.  ")
 
     assert again.status_code == 201, again.text
-    assert {"assertion_id": old, "match_kind": "exact_proposition", "score": 1.0} in again.json()["similar_assertions"]
+    # Each entry also carries the matched assertion's text, status and type
+    # (agent:2 / ui:5).
+    assert {"assertion_id": old, "match_kind": "exact_proposition", "score": 1.0, "proposition": _TEXT,
+            "status": ended, "assertion_type": "CREATES_EXCEPTION_TO"} in again.json()["similar_assertions"]
 
 
 @pytest.mark.parametrize("live", ["proposed", "revision_requested", "accepted", "disputed"])
