@@ -14,6 +14,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+# Spec §11: only accepted assertions are relationships in the default view;
+# the opt-in "Show unreviewed assertions" view adds exactly these states.
+# Drafts (private to the author), withdrawn suggestions and assertions
+# returned to their author (revision_requested) never appear (api:23).
+DEFAULT_VIEW_STATES: tuple[str, ...] = ("accepted",)
+UNREVIEWED_VIEW_STATES: tuple[str, ...] = ("accepted", "proposed", "disputed", "rejected", "superseded")
+
 
 class GraphProjection(ABC):
     """Read/write interface for the assertion graph projection."""
@@ -70,9 +77,8 @@ class InMemoryGraphProjection(GraphProjection):
         self, matter_id: str, *, show_unreviewed: bool = False
     ) -> list[dict[str, Any]]:
         bucket = self._by_matter.get(matter_id, {})
-        if show_unreviewed:
-            return [dict(a) for a in bucket.values()]
-        return [dict(a) for a in bucket.values() if a.get("status") == "accepted"]
+        states = UNREVIEWED_VIEW_STATES if show_unreviewed else DEFAULT_VIEW_STATES
+        return [dict(a) for a in bucket.values() if a.get("status") in states]
 
     def rebuild(self, assertions: list[dict[str, Any]]) -> None:
         # Full replace, never an incremental merge — proves the projection
