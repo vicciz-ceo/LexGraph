@@ -46,7 +46,7 @@ jobs:
         run: python -m pytest tests
 
   frontend:
-    name: frontend (typecheck + vitest)
+    name: frontend (typecheck + vitest + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -64,6 +64,42 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test -- --run
+      - name: Build
+        # The production path: the backend serves this frontend/dist
+        # (docs/RUNBOOK.md, "Serving the web app in production").
+        run: npm run build
+
+  frontend-audit:
+    # npm ci only prints its audit summary, so high and critical advisories
+    # in the toolchain accumulated unnoticed (8 vulnerabilities, 2 critical,
+    # by 2026-11). This job fails on them. It is separate from the frontend
+    # job so that a newly published advisory shows up red without blocking
+    # unrelated changes. Dev dependencies count (no --omit=dev): the Vite dev
+    # server is the documented way to run the web app.
+    name: frontend dependency audit (high, critical)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: npm audit
+        # Reads package-lock.json; no install needed.
+        run: npm audit --audit-level=high
+
+  scripts:
+    name: shell scripts (shellcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q shellcheck; }
+          shellcheck --version
+          shellcheck scripts/*.sh
 
   contracts:
     name: sprint contract lint

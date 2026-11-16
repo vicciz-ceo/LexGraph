@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:manager"
 last_updated: "2026-07-29T22:03:38Z"
-lint: "PASS 171 2026-07-29T22:03:38Z"
+lint: "PASS 162 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
@@ -126,20 +126,11 @@ live/independent check beyond the item's own tests, regression = new QA
 test name (file: `backend/tests/integration/test_qa_regression_mcp2_migration.py`
 unless noted).
 
-- **Item 1** — Raise the `mcp` dependency floor (commit `3009266`).
-  Verdict: PASS. Probe: independent fresh-venv rebuild (`rm -rf .venv`,
-  `python3.13 -m venv .venv`, `pip install -e '.[dev]'`) resolves `mcp` to
-  `2.0.0`; `grep -rn 'mcp<' backend --include='*.toml'` empty (no `<2.0`
-  pin anywhere in the repo).
-  Regression: existing `test_mcp_dependency_floor.py::test_installed_mcp_distribution_is_2x_or_newer`.
+- **Item 1** — Raise the `mcp` dependency floor (commit `3009266`). Verdict:
+  PASS. Full entry: `-log.md` § "Archived from contract (2026-11-16)".
 - **Item 2** — Port `app/mcp/server.py` to the mcp 2.0 server API (commit
-  `3009266`). Verdict: PASS. Probe: `git diff a6c1efe..3009266 --
-  backend/app/mcp/server.py` is exactly the import/class-name/docstring
-  rename (5 lines changed), zero tool-body or payload-shape changes; live
-  `call_tool`/`list_tools` dispatch tests (`test_mcp_tools_live.py`,
-  `test_mcp_search_fetch_tools.py`) green against the real SDK.
-  Regression: `test_create_server_exposes_the_list_tools_call_tool_and_run_surface_stdio_needs`
-  and `test_call_tool_with_missing_required_query_argument_raises_tool_error[search|explore]`.
+  `3009266`). Verdict: PASS. Full entry: `-log.md` § "Archived from contract
+  (2026-11-16)".
 
 ## Evaluation Notes
 

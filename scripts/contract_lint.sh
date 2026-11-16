@@ -6,6 +6,7 @@
 # Usage: contract_lint.sh <sprint-id> | contract_lint.sh -f <path>
 # Exit: 0 all PASS; 1 a check FAILed; 2 usage/file error.
 # Make executable: chmod +x contract_lint.sh
+# shellcheck disable=SC2329 # the checks are called through run_check
 set -euo pipefail
 
 usage() {
@@ -155,6 +156,10 @@ check_line_count() {
 # Length is counted in NON-BLANK content lines (the start/header line
 # included) so a spacer blank line before the next entry never inflates
 # the count.
+# START_RE and BOUNDARY_RE reach awk through -v, which applies string-escape
+# processing that differs between awks (gawk turns `\*` into `*` and warns,
+# mawk keeps the backslash). Write regex metacharacters as bracket
+# expressions (`[*]`, `[[]`), never with a backslash.
 check_entry_lengths() {
   local section="$1" start_re="$2" boundary_re="$3" limit="$4" label="$5"
   local sstart send
@@ -190,7 +195,7 @@ check_entry_lengths() {
   fi
   local rendered
   rendered=$(printf '%s' "$violations" | awk -F: '{printf "line %s (%s lines); ", $1, $2}')
-  echo "FAIL: ${label} — entries exceeding ${limit} lines: ${rendered}"
+  echo "FAIL: ${label} — entries exceeding ${limit} lines: ${rendered%; }"
   return 1
 }
 
@@ -202,10 +207,12 @@ check_qa_notes_lengths() {
 }
 
 check_completed_lengths() {
-  # Entries are "#### A1 ..." item headers or "- **A1** ..." bullets.
-  # "### Track ..." group headers close an open entry but are not
-  # themselves entries.
-  check_entry_lengths "Completed" '^#### |^- \*\*[A-Za-z0-9]' '^#### |^### |^## |^- \*\*[A-Za-z0-9]' 3 "Completed entry"
+  # Entries are "#### A1 ..." item headers or bullets that open with a bold
+  # label: "- **A1** ...", "- **#22** ...", or the task-list form
+  # "- [x] **B1 ...". "### Track ..." group headers close an open entry but
+  # are not themselves entries.
+  local bullet='^- ([[][ xX][]] )?[*][*][^* ]'
+  check_entry_lengths "Completed" "^#### |${bullet}" "^#### |^### |^## |${bullet}" 3 "Completed entry"
 }
 
 # --- Check 4 — Dev-Complete move-integrity invariant ---

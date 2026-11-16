@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-08-03T21:18:00Z"
-lint: "PASS 320 2026-08-03T21:18:13Z"
+lint: "PASS 316 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 6
@@ -215,18 +215,14 @@ _None._
 - **Item 2 — Jurisdiction-profile seam, Hebrew ported [G1].** Commit `7daf286`.
   QA cycle 5: PASS, re-confirmed final time — 167 Hebrew/definition-link
   tests green, unchanged after wave 7 (`HebrewProfile.code=="IL"` guard).
-- **Item 3 — US jurisdiction profile [G2/G3].** Wave 7 (entry-splitter fix
-  for letter-led entries). QA cycle 5: PASS-with-limitation — live-path
-  verified the cycle-4 bounce is fixed (`Open-space purposes` recovered,
-  `Dispose` 26,715→286 chars); residual bloat/truncation quantified and
-  recorded as a known limitation, not re-bounced (see below).
+- **Item 3 — US jurisdiction profile [G2/G3].** Wave 7 (entry-splitter fix for
+  letter-led entries). QA cycle 5: PASS-with-limitation. Full entry: `-log.md`
+  § "Archived from contract (2026-11-16)".
 - **Item 4 — Jurisdiction stamping [G5].** Commit `9662def`.
   QA: PASS — P1: null-jurisdiction miss proven unreachable via either production
   ingester; regression `test_document_jurisdiction_is_never_null_after_either_production_ingester_runs`.
-- **Item 5 — US dataset ingester [G6].** Wave 5b fix. QA cycle 5: PASS —
-  R17's full 105-file/2,045,897-row corpus run independently spot-checked
-  (4 real files, DB counts match CLI exactly, 112 corpus-wide skips
-  reproduced exactly); no longer code-only, gate is RUN-verified.
+- **Item 5 — US dataset ingester [G6].** Wave 5b fix. QA cycle 5: PASS. Full
+  entry: `-log.md` § "Archived from contract (2026-11-16)".
 - **Item 6 — UI jurisdiction pass [G7].** Commit `70db22e`.
   QA: PASS — frontend 165/165 green, typecheck clean; vocabulary drift-guard
   (Item 1) covers this item's picker source too.

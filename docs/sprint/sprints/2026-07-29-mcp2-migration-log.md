@@ -314,3 +314,37 @@ $ backend/.venv/bin/pytest backend/tests -v
 
 Item 1 PASS. Item 2 PASS. Gates G1–G4 all independently confirmed. Status
 → `review`, `current_role` → `planner`, `qa_cycles` → 1.
+
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract (`2026-07-29-mcp2-migration.md`) by
+a contract-hygiene pass, under the "move, never delete" rule. The contract's
+`lint:` stamp `PASS 171 2026-07-29T22:03:38Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check never ran
+under gawk, the awk CI uses: `awk -v` rewrote the entry regex's `\*\*` to
+`**`, so no `- **A1** ...` bullet counted as an entry. With the check fixed
+(LexGraph audit finding ops:0) the entries below exceeded the 3-line cap.
+Each is the exact prior contract text; nothing was summarized, reworded or
+dropped. The contract keeps each entry's opening words, verbatim, and a
+pointer to this section, where each entry has its own subsection. Its
+`lint:` stamp is now `PASS 162 2026-11-16T08:56:54Z`.
+
+### Completed, Item 1
+
+- **Item 1** — Raise the `mcp` dependency floor (commit `3009266`).
+  Verdict: PASS. Probe: independent fresh-venv rebuild (`rm -rf .venv`,
+  `python3.13 -m venv .venv`, `pip install -e '.[dev]'`) resolves `mcp` to
+  `2.0.0`; `grep -rn 'mcp<' backend --include='*.toml'` empty (no `<2.0`
+  pin anywhere in the repo).
+  Regression: existing `test_mcp_dependency_floor.py::test_installed_mcp_distribution_is_2x_or_newer`.
+
+### Completed, Item 2
+
+- **Item 2** — Port `app/mcp/server.py` to the mcp 2.0 server API (commit
+  `3009266`). Verdict: PASS. Probe: `git diff a6c1efe..3009266 --
+  backend/app/mcp/server.py` is exactly the import/class-name/docstring
+  rename (5 lines changed), zero tool-body or payload-shape changes; live
+  `call_tool`/`list_tools` dispatch tests (`test_mcp_tools_live.py`,
+  `test_mcp_search_fetch_tools.py`) green against the real SDK.
+  Regression: `test_create_server_exposes_the_list_tools_call_tool_and_run_surface_stdio_needs`
+  and `test_call_tool_with_missing_required_query_argument_raises_tool_error[search|explore]`.

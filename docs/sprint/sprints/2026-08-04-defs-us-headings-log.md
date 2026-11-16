@@ -237,3 +237,16 @@ evidence in `-log.md` § "Manager phase 2 — takeover verification".
   body, which is exactly what D-DF's body-confirmed capture requires. Note the
   body (`matcher_article.body`) is already in scope at the detection call site
   (`pipeline.py:198`), so this needs no new plumbing — only a seam decision.
+
+## Contract lint correction (2026-11-16)
+
+The sprint contract's `lint:` stamp `PASS 395 2026-08-12T00:18:44Z` had not
+been earned: `scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check
+never ran under gawk, the awk CI uses: `awk -v` rewrote the entry regex's
+`\*\*` to `**`, so no `- **A1** ...` bullet counted as an entry. With the
+check fixed (LexGraph audit finding ops:0) the Completed entries Item 1,
+Item 2, Item 4 measured 4 lines each against the 3-line cap. Each was
+already a summary with a pointer to the section "Archived from contract
+(2026-08-12)" above, so they were re-wrapped to 3 lines instead of being
+moved: only line breaks changed, the words are identical. The stamp is now
+`PASS 392 2026-11-16T08:56:54Z`.

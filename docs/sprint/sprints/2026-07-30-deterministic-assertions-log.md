@@ -106,3 +106,44 @@
   the `.bak` file; `git status --short` confirmed only the new test file
   remained untracked (implementation file byte-identical to HEAD).
   Re-ran the new test green afterward.
+
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract
+(`2026-07-30-deterministic-assertions.md`) by a contract-hygiene pass, under
+the "move, never delete" rule. The contract's `lint:` stamp
+`PASS 165 2026-07-30T20:31:46Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check did not
+recognize task-list entries (`- [x] **B1 ...`) under any awk, and under
+gawk, the awk CI uses, it measured no bullet entry at all (`awk -v` rewrote
+the entry regex's `\*\*` to `**`). With the check fixed (LexGraph audit
+finding ops:0) the entries below exceeded the 3-line cap. Each is the exact
+prior contract text; nothing was summarized, reworded or dropped. The
+contract keeps each entry's opening words, verbatim, and a pointer to this
+section, where each entry has its own subsection. Its `lint:` stamp is now
+`PASS 146 2026-11-16T08:56:54Z`.
+
+### Completed, L1
+
+- [x] **L1 — deterministic definition-links status: "proposed" → "accepted".**
+  QA-verified (independent full run, commit 6a0c0f5): `pipeline.py:49`
+  `_STATUS == "accepted"`, `_ORIGIN` unchanged (`system_generated`);
+  `docs/RUNBOOK.md` synced (:160 by the Developer in 6a0c0f5, :140 by a
+  separate doc-sync commit 731fb25). Both re-pointed live tests
+  (`test_definition_links_cli.py`, `test_definition_links_pipeline_live.py`)
+  confirmed to drive the REAL CLI entrypoint / `run_definition_linking`
+  pipeline against real `Article`/`Definition`/`Assertion` ORM rows — no
+  mocking. Diff audit (`git diff --stat 3feaa41..73f52f3`): only
+  `pipeline.py`, the two owned test files, `RUNBOOK.md`, and sprint
+  bookkeeping changed — no leakage. Full evaluator (from repo root,
+  `backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run
+  test -- --run`): **backend 423 passed, frontend 62 passed**, 0 failures,
+  0 flakes. Regression: 1 new test added,
+  `backend/tests/integration/test_qa_regression_deterministic_assertions.py::test_definition_links_pipeline_never_persists_proposed_status_across_all_edge_subtypes`
+  — reads the persisted `Assertion.status` column (not the pipeline's
+  summary dict) for every sub-type in one run (`USES_DEFINITION`,
+  `DERIVES_FROM_LAW` resolved AND unresolved — the resolved-derivation case
+  had never had its `status` checked by any prior test) and pins
+  `status == "accepted"` / `status != "proposed"` explicitly. Verified RED
+  against a reverted `_STATUS = "proposed"` (sabotage-and-revert via `git
+  checkout`, no residual diff) before being committed green.
