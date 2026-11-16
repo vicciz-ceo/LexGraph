@@ -668,7 +668,9 @@ Authentication and identity (2026-11-16):
   author, reviewer, commenter, rater and audit actor, and it is never a
   credential.
 - Each user signs in with a secret sign-in token sent as
-  `Authorization: Bearer <token>`. Tokens are random
+  `Authorization: Bearer <token>`. As in HTTP, the scheme name is
+  case-insensitive (`bearer <token>` is read too); any other scheme, or
+  no token after it, is rejected with 401. Tokens are random
   (`secrets.token_urlsafe`, 32 bytes), and only their SHA-256 hex digest
   is stored (`users.sign_in_token_hash`, unique; NULL means the account
   cannot sign in). An unknown token is rejected with 401.

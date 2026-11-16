@@ -24,6 +24,7 @@ from app.auth import (
     get_bearer_user_id,
     hash_sign_in_token,
     is_legacy_sign_in_hash,
+    parse_bearer_token,
 )
 from app.main import create_app
 from app.models.audit_event import AuditEvent
@@ -359,6 +360,54 @@ def test_audit_events_and_notifications_record_the_user_id_not_the_token(
     accepted_note = next(n for n in notes if n["event_type"] == "assertion_accepted")
     assert accepted_note["actor_user_id"] == reviewer_id
     assert accepted_note["recipient_user_id"] == author_id
+
+
+# --- the scheme name is case-insensitive (acceptance run, release candidate) --
+
+
+@pytest.mark.parametrize("scheme", ["bearer", "BEARER", "bEaReR"])
+def test_the_bearer_scheme_name_is_case_insensitive(client, db_session, matter_with_users, scheme):
+    """HTTP authentication scheme names are case-insensitive (RFC 9110
+    section 11.1, formerly RFC 7235 section 2.1). Only the documented
+    spelling `Bearer` was accepted: `bearer <valid token>` answered 401
+    "missing or malformed Authorization header"."""
+    m = matter_with_users
+    admin_id, admin_token = _admin_with_real_token(client, db_session, m["matter_id"])
+    headers = {"Authorization": f"{scheme} {admin_token}"}
+
+    me = client.get("/api/v1/me", headers=headers)
+    assert me.status_code == 200, me.text
+    assert me.json()["user"]["id"] == admin_id
+
+    # A write, whose actor the notification middleware reads from the same
+    # header: the reviewer is told who submitted the proposal.
+    created = client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="proposed"),
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["author_user_id"] == admin_id
+    notes = client.get("/api/v1/notifications", headers=m["reviewer_headers"]).json()
+    assert [n["actor_user_id"] for n in notes if n["event_type"] == "assertion_submitted"] == [admin_id]
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["Basic dXNlcjpwYXNz", "Bearertoken", "Bearer", "bearer ", "Token abc", "abc"],
+)
+def test_other_schemes_and_malformed_bearer_headers_are_401(client, header):
+    response = client.get("/api/v1/me", headers={"Authorization": header})
+    assert response.status_code == 401, response.text
+
+
+def test_parse_bearer_token_reads_any_letter_case_of_the_scheme():
+    assert parse_bearer_token("Bearer abc") == "abc"
+    assert parse_bearer_token("bearer abc") == "abc"
+    assert parse_bearer_token("BEARER  abc ") == "abc"
+    for header in (None, "", "Bearer", "Bearer   ", "Bearerabc", "Basic abc", "Bear abc"):
+        with pytest.raises(AuthHeaderError):
+            parse_bearer_token(header)
 
 
 def test_bearer_resolution_fails_closed_outside_a_request():
