@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import logging
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
 
 from app.auth import hash_sign_in_token
 from app.db import Base
 from app.main import create_app
+from app.migrate import SchemaNotCurrentError
+from app.migrate import main as migrate_main
 from app.migrations import m20261116_sign_in_tokens as migration
 from tests.conftest import auth_header, token_header
 
@@ -90,6 +93,16 @@ def test_upgrade_adds_the_column_and_preserves_existing_sign_ins(tmp_path, monke
     assert migration.upgrade(engine) is False
     engine.dispose()
 
+    # The server only starts on a current schema (app.migrate's startup
+    # check), and this old `users` table also predates the unique email
+    # index: an operator upgrades with the runner, which re-runs this
+    # migration as a no-op and applies the others.
+    assert migrate_main(["--db", str(db_path)]) == 0
+    migrated = create_engine(f"sqlite:///{db_path}")
+    with migrated.connect() as conn:
+        assert dict(conn.execute(text("SELECT id, sign_in_token_hash FROM users")).all()) == rows
+    migrated.dispose()
+
     monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{db_path}")
     app = create_app()
     try:
@@ -118,7 +131,9 @@ def test_upgrade_adds_the_column_and_preserves_existing_sign_ins(tmp_path, monke
         app.state.engine.dispose()
 
 
-def test_an_unmigrated_database_logs_an_upgrade_error_at_startup(tmp_path, monkeypatch, caplog):
+def test_an_unmigrated_database_is_refused_at_startup_with_the_upgrade_command(tmp_path, monkeypatch):
+    """Nobody could sign in on it, so the server does not start at all (the
+    startup schema check) and says which command upgrades it."""
     db_path = tmp_path / "unmigrated.db"
     engine = _old_schema_db(db_path)
     _seed_old(engine)
@@ -127,14 +142,18 @@ def test_an_unmigrated_database_logs_an_upgrade_error_at_startup(tmp_path, monke
     monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{db_path}")
     app = create_app()
     try:
-        with caplog.at_level(logging.ERROR, logger="app.auth"):
-            with TestClient(app, raise_server_exceptions=False) as client:
-                # Nobody can sign in until the migration runs.
-                assert client.get("/api/v1/me", headers=auth_header("old-admin")).status_code == 500
-        errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
-        assert any("no sign_in_token_hash column" in message for message in errors)
+        with pytest.raises(SchemaNotCurrentError) as refused:
+            with TestClient(app):
+                pass
+        message = str(refused.value)
+        assert "column users.sign_in_token_hash" in message
+        assert f"-m app.migrate --db {db_path}" in message
     finally:
         app.state.engine.dispose()
+    # Untouched: still the pre-upgrade users table.
+    check = create_engine(f"sqlite:///{db_path}")
+    assert "sign_in_token_hash" not in _user_schema(check)[0]
+    check.dispose()
 
 
 def test_upgrade_is_a_no_op_on_a_fresh_create_all_database(tmp_path):

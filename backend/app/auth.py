@@ -27,7 +27,9 @@ is known to everyone who can see that id, so it is detected by
 as a badge in the admin console, and should be rotated.
 
 Wiring: every router's local ``get_current_user_id`` dependency, and the
-audit/notification middlewares, call ``get_bearer_user_id(header)``. That
+notification middleware (``app.notification_hooks``, for the actor of a
+mutation), call ``get_bearer_user_id(header)``. The audit middleware only
+binds the request's correlation id; it does not resolve the caller. That
 function needs the database of the app serving the request, so
 ``register_auth(app)`` (one line in ``app.main.create_app()``) binds a
 request-scoped resolver in a context variable for the duration of every
@@ -114,8 +116,8 @@ class _RequestAuth:
     """Resolves sign-in tokens against one app's database for one request.
 
     Shared by reference with every task/thread the request spawns, so the
-    router dependency and the audit/notification middlewares look a token
-    up once per request.
+    router dependency and the notification middleware look a token up once
+    per request: authentication costs one statement per request.
     """
 
     def __init__(self, session_factory: Callable[[], Any]) -> None:
@@ -199,21 +201,14 @@ def legacy_sign_in_user_ids(session: Any) -> list[str]:
 def warn_about_legacy_sign_ins(session_factory: Callable[[], Any]) -> int:
     """Log a warning naming how many accounts still use legacy credentials.
 
-    Returns that count. A database that predates the sign-in token column
-    cannot authenticate anyone until it is migrated, so that is logged as
-    an error instead (and 0 is returned).
+    Returns that count. The server calls it only once the startup schema
+    check (``app.migrate.ensure_schema_current``) has accepted the database,
+    so the ``sign_in_token_hash`` column exists: a database that predates it
+    is refused at startup with the ``python -m app.migrate`` command instead.
     """
     session = session_factory()
     try:
         legacy = legacy_sign_in_user_ids(session)
-    except Exception as exc:  # missing table/column on an unmigrated database
-        if "sign_in_token_hash" in str(exc):
-            logger.error(
-                "The users table has no sign_in_token_hash column, so nobody can sign "
-                "in. Upgrade the database first: python -m app.migrate --db PATH "
-                "(docs/RUNBOOK.md, 'Upgrading: sign-in tokens replace user-id sign-in')"
-            )
-        return 0
     finally:
         session.close()
 
@@ -238,11 +233,15 @@ def warn_about_legacy_sign_ins(session_factory: Callable[[], Any]) -> int:
 def register_auth(app: Any) -> None:
     """Wire sign-in token resolution into ``app`` (called from create_app()).
 
-    The resolver must wrap every other middleware, because the audit and
-    notification middlewares resolve the caller after ``call_next``
-    returns. Wrapping the built middleware stack keeps it outermost no
-    matter where in create_app() this is called or what is added later.
-    Also logs the legacy-credential warning at startup (lifespan).
+    The resolver must wrap every other middleware, because the notification
+    middleware resolves the caller after the response. Wrapping the built
+    middleware stack keeps it outermost no matter where in create_app() this
+    is called or what is added later.
+
+    Also logs the legacy-credential warning at startup. It runs inside the
+    app's own lifespan, after the schema check there: querying first would
+    make SQLite create a missing database file, and an older database would
+    fail on the missing column before the check could name the upgrade.
     """
     build_stack = app.build_middleware_stack
 
@@ -255,8 +254,8 @@ def register_auth(app: Any) -> None:
 
     @asynccontextmanager
     async def lifespan_with_legacy_warning(asgi_app):
-        warn_about_legacy_sign_ins(app.state.session_factory)
         async with lifespan(asgi_app) as state:
+            warn_about_legacy_sign_ins(app.state.session_factory)
             yield state
 
     app.router.lifespan_context = lifespan_with_legacy_warning
