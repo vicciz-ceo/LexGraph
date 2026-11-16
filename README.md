@@ -57,7 +57,7 @@ cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:
 The web app needs Node.js 22 (22.12 or later) or 24; CI uses 24.
 
 ```bash
-npm --prefix frontend install && npm --prefix frontend run dev
+npm --prefix frontend ci && npm --prefix frontend run dev
 ```
 
 Open http://localhost:5173 and sign in with the id bootstrap printed. From

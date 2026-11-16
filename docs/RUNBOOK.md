@@ -35,7 +35,7 @@ Copy it, then start both servers:
 
 ```bash
 LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
-cd .. && npm --prefix frontend install && npm --prefix frontend run dev
+cd .. && npm --prefix frontend ci && npm --prefix frontend run dev
 ```
 
 Sign in at http://localhost:5173 with the printed id. From there, use
