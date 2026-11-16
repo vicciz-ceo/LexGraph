@@ -230,6 +230,88 @@ a.adp-entity:hover {
   font: var(--body-sm);
 }
 
+/* Row 1: role, document, adder, Remove. Then the quote, then any note. */
+.adp-evidence blockquote {
+  order: 1;
+  flex-basis: 100%;
+  margin: 0;
+  padding: 2px 0 2px var(--space-sm);
+  border-left: 3px solid var(--outline-variant);
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adp-evidence-blocked,
+.adp-evidence-confirm {
+  order: 2;
+  flex-basis: 100%;
+}
+
+.adp-evidence-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  font: var(--body-sm);
+}
+
+.adp-evidence-attach-open {
+  margin-top: var(--space-md);
+}
+
+.adp-evidence-attach {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container-low);
+}
+
+/* The source picker's Previous/More buttons sit in an unclassed row. */
+.adp-evidence-attach .field > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.adp-evidence-attach blockquote {
+  margin: 0;
+  padding: 2px 0 2px var(--space-sm);
+  border-left: 3px solid var(--outline-variant);
+  font: var(--body-md);
+  color: var(--on-surface-variant);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adp-evidence-duplicate {
+  margin-bottom: var(--space-sm);
+  color: var(--status-pending-fg);
+}
+
+.adp-evidence-attach-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.adp-evidence-status,
+.adp-evidence-error {
+  margin-top: var(--space-sm);
+  font: var(--body-sm);
+}
+
+.adp-evidence-status {
+  color: var(--status-accepted-fg);
+}
+
+.adp-evidence-error {
+  color: var(--error);
+}
+
 /* --- Comments ------------------------------------------------------------ */
 
 .adp-count {
@@ -290,6 +372,60 @@ a.adp-entity:hover {
 .adp-comment-error {
   font: var(--body-sm);
   color: var(--error);
+}
+
+.adp-comment-role {
+  flex: none;
+}
+
+.adp-comment-edited {
+  font: var(--body-sm);
+}
+
+/* Ghost buttons, nudged so their text lines up with the comment text. */
+.adp-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 2px 0 0 -10px;
+}
+
+.adp-comment-edit,
+.adp-comment-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.adp-comment-edit > label,
+.adp-comment-reply > label {
+  font: 500 13px/18px var(--font-family);
+}
+
+.adp-comment-form-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.adp-comment-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
+  font: var(--body-sm);
+}
+
+.adp-comment-replies {
+  margin-top: var(--space-md);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--border);
+}
+
+.adp-comment-replies--flat {
+  padding-left: 0;
+  border-left: none;
 }
 
 /* --- Review history ------------------------------------------------------ */
@@ -362,6 +498,114 @@ a.adp-entity:hover {
 .adp-timeline-reason {
   margin-top: 2px;
   font: var(--body-sm);
+}
+
+.adp-timeline-text {
+  margin-top: var(--space-xs);
+  font: var(--body-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adp-compare-select {
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.adp-compare-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+
+/* --- Revision comparison -------------------------------------------------- */
+
+.adp-compare-wrap {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+
+.adp-compare-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-sm);
+}
+
+.adp-compare-head .adp-subhead {
+  margin-bottom: 0;
+}
+
+.adp-compare-summary {
+  margin-bottom: var(--space-sm);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.adp-compare-scroll {
+  overflow-x: auto;
+}
+
+.adp-compare-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font: var(--body-sm);
+}
+
+.adp-compare-table th,
+.adp-compare-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.adp-compare-table thead th {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+  background: var(--surface-container-low);
+}
+
+.adp-compare-table thead th:first-child {
+  width: 9.5em;
+}
+
+.adp-compare-table tbody th {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.adp-compare-row--changed > td {
+  background: var(--surface-container-low);
+}
+
+.adp-compare-changed {
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.assertion-comparison-proposition {
+  font: var(--body-md);
+  white-space: pre-wrap;
+}
+
+.adp-compare-editor,
+.adp-compare-date {
+  display: block;
+}
+
+.adp-compare-editor {
+  font: 600 13px/18px var(--font-family);
 }
 
 /* --- Side column: ratings / standing ------------------------------------- */
@@ -551,6 +795,93 @@ a.adp-entity:hover {
 .adp-subhead {
   font: 600 13px/18px var(--font-family);
   margin-bottom: var(--space-sm);
+}
+
+/* --- Supersede ------------------------------------------------------------- */
+
+.adp-superseded-notice {
+  border-left-color: var(--outline);
+}
+
+.adp-supersede {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.adp-supersede .adp-note {
+  margin-top: 0;
+}
+
+.adp-supersede-group {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adp-supersede-group legend {
+  margin-bottom: var(--space-xs);
+  padding: 0;
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--on-surface-variant);
+}
+
+.adp-supersede-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.adp-supersede-option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-container-lowest);
+}
+
+.adp-supersede-option label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+  font: var(--body-sm);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.adp-supersede-option input {
+  margin: 2px 0 0;
+  accent-color: var(--primary);
+}
+
+.adp-supersede-open {
+  flex: none;
+  font: var(--label-md);
+}
+
+.adp-supersede-search {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.adp-supersede-error {
+  font: var(--body-sm);
+  color: var(--error);
+}
+
+.adp-supersede-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 /* --- Related assertions ---------------------------------------------------- */

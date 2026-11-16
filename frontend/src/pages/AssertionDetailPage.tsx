@@ -10,6 +10,14 @@ import { AssertionEditor } from "../components/AssertionEditor";
 //
 // People are named from the matter roster (GET /matters/{id}/members, which
 // every member may read); a user id is never a person's label (ui:0).
+//
+// Collaboration after creation (findings ui:15, pipeline:8), each offered
+// only to the members the spec allows: attaching and removing evidence
+// follows the edit rule (the author of an unreviewed assertion, or a
+// reviewer/admin); members who may comment reply to comments and edit or
+// delete their own; any member compares two revisions; reviewers and admins
+// supersede an accepted assertion with another accepted one. The API's own
+// checks still apply, and a refusal is shown where the action was taken.
 
 import "../styles/pages/assertion-detail.css";
 
@@ -19,17 +27,36 @@ import type { ReactElement } from "react";
 import { ApiError, api } from "../api/client";
 import type {
   AssertionDetail,
+  AssertionListParams,
   AssertionOrigin,
   EntityRef,
   EvidenceStatus,
   HistoryEvent,
+  MatterRoleName,
   Rating,
   RatingSummary,
   RelatedMatch,
+  Revision,
 } from "../api/types";
 import { Icon } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession, useSession } from "../app/session";
+import { AssertionComments } from "../components/AssertionComments";
+import type { AssertionCommentItem } from "../components/AssertionComments";
+import { AssertionComparisonView } from "../components/AssertionComparisonView";
+import type {
+  AssertionComparisonField,
+  AssertionComparisonRevision,
+} from "../components/AssertionComparisonView";
+import { AssertionEvidenceSelector } from "../components/AssertionEvidenceSelector";
+import type {
+  AssertionEvidenceItem,
+  NewEvidenceInput,
+} from "../components/AssertionEvidenceSelector";
+import { AssertionRevisionHistory } from "../components/AssertionRevisionHistory";
+import { AssertionSupersedePanel } from "../components/AssertionSupersedePanel";
+import type { SupersedeCandidate } from "../components/AssertionSupersedePanel";
+import { SUPPORTING_EVIDENCE_ROLES, UNREVIEWED_STATUSES } from "../constants/evidence";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
 import { AssertionRatingRationales } from "../components/AssertionRatingRationales";
 import { AssertionRatingWidget } from "../components/AssertionRatingWidget";
@@ -101,27 +128,78 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("") || "?"
-  );
-}
-
-function evidenceRoleBadge(role: string): string {
-  if (role === "supports") return "badge badge--accepted";
-  if (role === "contradicts") return "badge badge--rejected";
-  return "badge badge--neutral";
-}
-
 /** A short handle for an opaque reference; the full id stays in the tooltip. */
 function shortRef(id: string): string {
   if (UUID_PATTERN.test(id)) return id.slice(0, 8);
   return id.length > 24 ? `${id.slice(0, 8)}…` : id;
+}
+
+/** At most this many search results are offered as a replacement. */
+const SUPERSEDE_SEARCH_LIMIT = 25;
+
+const LAST_SUPPORT_REASON =
+  "An accepted assertion keeps at least one supporting passage. Attach another supporting passage first, or return the assertion to review.";
+
+/**
+ * An entity as one revision recorded it, worded like EntityChip. Only the
+ * assertion's current subject and object carry labels, so an entity that is
+ * neither (an earlier subject, say) is shown by type and short reference.
+ */
+function revisionEntityText(ref: EntityRef | null, detail: AssertionDetail): string {
+  if (!ref || (ref.type === null && ref.id === null)) return "None";
+  const type = ref.type ?? "Entity";
+  const current = [detail.subject_entity, detail.object_entity].find(
+    (known) => known && known.type === ref.type && known.id === ref.id,
+  );
+  if (current) {
+    const label = current.label?.trim();
+    if (label) return `${type}: ${label}`;
+    if (ref.type !== null && PERSISTED_ENTITY_TYPES.has(ref.type)) {
+      return `${type}: not available in this matter`;
+    }
+    return ref.id ? `${type}: external reference ${shortRef(ref.id)}` : type;
+  }
+  return ref.id ? `${type} ${shortRef(ref.id)}` : type;
+}
+
+/** The same instant compares equal however the server spelled it. */
+function instantIdentity(iso: string | null): string {
+  if (!iso) return "";
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? iso : String(time);
+}
+
+/** The fields a revision records besides its text (spec §3), for comparison. */
+function revisionFields(revision: Revision, detail: AssertionDetail): AssertionComparisonField[] {
+  const entityIdentity = (ref: EntityRef | null) => (ref ? `${ref.type}\u0000${ref.id}` : "");
+  return [
+    { key: "assertion_type", label: "Assertion type", value: labelize(revision.assertion_type) },
+    {
+      key: "subject",
+      label: "Subject",
+      value: revisionEntityText(revision.subject_entity, detail),
+      identity: entityIdentity(revision.subject_entity),
+    },
+    {
+      key: "object",
+      label: "Object",
+      value: revisionEntityText(revision.object_entity, detail),
+      identity: entityIdentity(revision.object_entity),
+    },
+    { key: "jurisdiction", label: "Jurisdiction", value: revision.jurisdiction ?? "—" },
+    {
+      key: "effective_from",
+      label: "Effective from",
+      value: fmtDate(revision.effective_from),
+      identity: instantIdentity(revision.effective_from),
+    },
+    {
+      key: "effective_to",
+      label: "Effective to",
+      value: fmtDate(revision.effective_to),
+      identity: instantIdentity(revision.effective_to),
+    },
+  ];
 }
 
 /** The current revision's number, or null when no revision record backs it. */
@@ -188,6 +266,13 @@ interface SwitchNotice {
   toName: string;
 }
 
+/** Two revisions of one assertion shown side by side under Activity. */
+interface Comparison {
+  assertionId: string;
+  left: number;
+  right: number;
+}
+
 export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const session = useActiveSession();
   const { selectMatter } = useSession();
@@ -202,6 +287,13 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const [ratings, setRatings] = useState<Rating[] | null>([]);
   const [history, setHistory] = useState<HistoryEvent[] | null>([]);
   const [memberNames, setMemberNames] = useState<Record<string, string> | null>(null);
+  const [memberRoles, setMemberRoles] = useState<Record<string, MatterRoleName> | null>(null);
+  // The assertion that superseded this one, when it could be loaded.
+  const [successor, setSuccessor] = useState<AssertionDetail | null>(null);
+  const [comparison, setComparison] = useState<Comparison | null>(null);
+  // Rating summaries for compared revisions, by "<assertion id>:<revision>";
+  // null when one could not be loaded.
+  const [revisionSummaries, setRevisionSummaries] = useState<Record<string, RatingSummary | null>>({});
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
   const [otherMatter, setOtherMatter] = useState<OtherMatter | null>(null);
@@ -209,9 +301,6 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [postingComment, setPostingComment] = useState(false);
-  const [commentError, setCommentError] = useState<string | null>(null);
   // Finding ui:31 / review:11: the assertion last shown in the active matter,
   // and the one this page already switched matter for. A link into another of
   // the user's matters switches once; a user who then switches matter away
@@ -229,17 +318,14 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     setRatings([]);
     setHistory([]);
     setMemberNames(null);
+    setMemberRoles(null);
+    setSuccessor(null);
+    setComparison(null);
     setUnavailable(null);
     setOtherMatter(null);
     setActionError(null);
-    setCommentError(null);
     setLoading(true);
   }, [assertionId, session.currentMatter.id]);
-
-  // A draft belongs to the assertion it was typed on.
-  useEffect(() => {
-    setCommentDraft("");
-  }, [assertionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,7 +353,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
           return;
         }
         const revision = recordedCurrentRevision(assertion);
-        const [rel, sum, rows, events, roster] = await Promise.all([
+        const successorId =
+          assertion.status === "superseded" ? assertion.superseded_by_assertion_id : null;
+        const [rel, sum, rows, events, roster, replacement] = await Promise.all([
           api.relatedAssertions(assertionId).catch(() => [] as RelatedMatch[]),
           revision != null
             ? api.ratingSummary(assertionId, revision).catch(() => null)
@@ -277,6 +365,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             : Promise.resolve([] as Rating[]),
           api.history(assertionId).catch(() => null),
           api.listMatterMembers(matterId).catch(() => null),
+          // The page links the replacement either way; loading it only adds its text.
+          successorId ? api.getAssertion(successorId).catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         shownRef.current = assertionId;
@@ -285,9 +375,11 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
         setSummary(sum);
         setRatings(rows);
         setHistory(events);
+        setSuccessor(replacement);
         // A failed roster refresh keeps the names already known.
         if (roster) {
           setMemberNames(Object.fromEntries(roster.map((m) => [m.user.id, m.user.display_name])));
+          setMemberRoles(Object.fromEntries(roster.map((m) => [m.user.id, m.role])));
         }
         setOtherMatter(null);
         setUnavailable(null);
@@ -318,6 +410,32 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
       return memberNames[userId] ?? "Former member";
     },
     [session.user.id, session.user.display_name, memberNames],
+  );
+
+  // Replacement candidates for a supersede: accepted assertions of this
+  // matter, never this assertion or one whose supersede link already points
+  // back at it.
+  const searchSuccessors = useCallback(
+    async (q: string): Promise<SupersedeCandidate[]> => {
+      // `limit` pages the list on a server that pages it; one that does not
+      // ignores it and returns every match.
+      const query: AssertionListParams & { limit: number } = {
+        q,
+        status: "accepted",
+        limit: SUPERSEDE_SEARCH_LIMIT,
+      };
+      const result = await api.listAssertions(session.currentMatter.id, query);
+      return result.items
+        .filter(
+          (item) =>
+            item.id !== assertionId &&
+            item.status === "accepted" &&
+            item.superseded_by_assertion_id !== assertionId,
+        )
+        .slice(0, SUPERSEDE_SEARCH_LIMIT)
+        .map((item) => ({ id: item.id, proposition: item.proposition }));
+    },
+    [assertionId, session.currentMatter.id],
   );
 
   // After a rating change: re-read the record, then the summary and the
@@ -364,23 +482,99 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     }
   };
 
-  const handlePostComment = async () => {
+  // --- Comments (spec §9). AssertionComments shows a refused action's reason
+  // (blank or markup-only text, a viewer role, someone else's comment) in the
+  // form it came from and keeps the typed text.
+  const commentGone = (err: unknown): unknown =>
+    err instanceof ApiError && err.status === 404
+      ? new Error("This comment no longer exists. Reload the page to see the current discussion.")
+      : err;
+
+  const handleAddComment = async (text: string) => {
     if (!detail) return;
-    const text = commentDraft.trim();
-    if (!text) return;
-    setPostingComment(true);
-    setCommentError(null);
+    await api.addComment(detail.id, text);
+    refresh();
+  };
+
+  const handleReplyToComment = async (parentCommentId: string, text: string) => {
+    if (!detail) return;
     try {
-      await api.addComment(detail.id, text);
-      setCommentDraft("");
-      refresh();
+      await api.addComment(detail.id, text, parentCommentId);
     } catch (err) {
-      // The server's reason (blank or markup-only text, a viewer role) is
-      // shown next to the form; the draft is kept for correction.
-      setCommentError(err instanceof Error ? err.message : "Failed to post comment.");
-    } finally {
-      setPostingComment(false);
+      throw commentGone(err);
     }
+    refresh();
+  };
+
+  const handleEditComment = async (commentId: string, text: string) => {
+    if (!detail) return;
+    try {
+      await api.updateComment(detail.id, commentId, text);
+    } catch (err) {
+      throw commentGone(err);
+    }
+    refresh();
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!detail) return;
+    try {
+      await api.deleteComment(detail.id, commentId);
+    } catch (err) {
+      throw commentGone(err);
+    }
+    refresh();
+  };
+
+  // --- Evidence after creation (spec §8, §10). The selector shows the
+  // server's reason for a refused change. After a refusal (403), a passage
+  // removed meanwhile (404) or a conflict (409) the record is re-read, so the
+  // card shows the current evidence and controls.
+  const runEvidenceChange = async (change: () => Promise<unknown>) => {
+    try {
+      await change();
+    } catch (err) {
+      if (err instanceof ApiError && [403, 404, 409].includes(err.status)) refresh();
+      throw err;
+    }
+    refresh();
+  };
+
+  const handleAddEvidence = async ({ sourceSpanId, evidenceRole }: NewEvidenceInput) => {
+    if (!detail) return;
+    const id = detail.id;
+    await runEvidenceChange(() => api.addEvidence(id, sourceSpanId, evidenceRole));
+  };
+
+  const handleRemoveEvidence = async (evidenceId: string) => {
+    if (!detail) return;
+    const id = detail.id;
+    await runEvidenceChange(() => api.removeEvidence(id, evidenceId));
+  };
+
+  // --- Supersede (reviewers and admins, accepted assertions). The panel
+  // shows the server's reason when it refuses the supersede.
+  const handleSupersede = async (successorId: string) => {
+    if (!detail) return;
+    await api.supersedeAssertion(detail.id, successorId);
+    refresh();
+  };
+
+  // --- Revision comparison (spec §3): both revisions' rating summaries are
+  // read again on every comparison; a failed one is shown as such.
+  const handleCompare = (left: number, right: number) => {
+    if (!detail) return;
+    const id = detail.id;
+    setComparison({ assertionId: id, left, right });
+    void Promise.all(
+      [left, right].map((revisionNumber) => api.ratingSummary(id, revisionNumber).catch(() => null)),
+    ).then(([leftSummary, rightSummary]) =>
+      setRevisionSummaries((current) => ({
+        ...current,
+        [`${id}:${left}`]: leftSummary,
+        [`${id}:${right}`]: rightSummary,
+      })),
+    );
   };
 
   const backLink = (
@@ -502,6 +696,91 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     (a, b) => b.revision_number - a.revision_number,
   );
 
+  // Evidence controls follow the edit rule (spec §12): the author, with
+  // contributor membership, while the assertion is unreviewed, or a
+  // reviewer/admin. An accepted assertion keeps its last supporting passage,
+  // so the page never makes it unsupported (spec §2).
+  const isAuthor = detail.author_user_id === session.user.id;
+  const canModifyEvidence =
+    canReview || (role === "contributor" && isAuthor && UNREVIEWED_STATUSES.has(detail.status));
+  const supportingCount = detail.evidence.filter((item) =>
+    SUPPORTING_EVIDENCE_ROLES.has(item.evidence_role),
+  ).length;
+  const evidenceItems: AssertionEvidenceItem[] = detail.evidence.map((item) => ({
+    id: item.id,
+    sourceSpanId: item.source_span_id,
+    evidenceRole: item.evidence_role,
+    quote: item.quote_text ?? "",
+    documentTitle: item.document_title ?? null,
+    addedBy: nameFor(item.added_by_user_id),
+  }));
+  const evidenceRemovalBlocked = (item: AssertionEvidenceItem): string | null =>
+    detail.status === "accepted" &&
+    SUPPORTING_EVIDENCE_ROLES.has(item.evidenceRole) &&
+    supportingCount <= 1
+      ? LAST_SUPPORT_REASON
+      : null;
+
+  // Spec §9: reviewer comments are visually distinguishable. The badge
+  // follows the author's current role in the matter.
+  const reviewerLabelFor = (userId: string): string | null => {
+    const memberRole = memberRoles?.[userId] ?? (userId === session.user.id ? role : undefined);
+    if (memberRole === "admin") return "Admin";
+    if (memberRole === "reviewer") return "Reviewer";
+    return null;
+  };
+  const commentItems: AssertionCommentItem[] = detail.comments.map((comment) => {
+    const reviewerLabel = reviewerLabelFor(comment.user_id);
+    return {
+      id: comment.id,
+      userId: comment.user_id,
+      authorName: nameFor(comment.user_id),
+      commentText: comment.comment_text,
+      commentTextRaw: comment.comment_text_raw,
+      isReviewer: reviewerLabel !== null,
+      reviewerLabel: reviewerLabel ?? undefined,
+      parentCommentId: comment.parent_comment_id,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      deletedAt: comment.deleted_at,
+    };
+  });
+  const liveCommentCount = detail.comments.filter((comment) => !comment.deleted_at).length;
+
+  const revisionItems = revisions.map((revision) => ({
+    revisionNumber: revision.revision_number,
+    proposition: revision.proposition,
+    propositionRaw: revision.proposition_raw ?? undefined,
+    editedBy: nameFor(revision.edited_by_user_id),
+    createdAt: fmtDateTime(revision.created_at),
+    revisionReason: revision.revision_reason,
+  }));
+  const compared = (revision: Revision): AssertionComparisonRevision => ({
+    revisionNumber: revision.revision_number,
+    proposition: revision.proposition,
+    propositionRaw: revision.proposition_raw ?? undefined,
+    editedBy: nameFor(revision.edited_by_user_id),
+    createdAt: fmtDateTime(revision.created_at),
+    revisionReason: revision.revision_reason,
+    fields: revisionFields(revision, detail),
+  });
+  const shownComparison = comparison !== null && comparison.assertionId === detail.id ? comparison : null;
+  const compareLeft = shownComparison
+    ? detail.revision_history.find((r) => r.revision_number === shownComparison.left)
+    : undefined;
+  const compareRight = shownComparison
+    ? detail.revision_history.find((r) => r.revision_number === shownComparison.right)
+    : undefined;
+
+  // Supersede (spec §1, §10): reviewers and admins, on an accepted
+  // assertion, with another accepted assertion of this matter.
+  const canSupersede = canReview && detail.status === "accepted";
+  const supersedeSuggestions: SupersedeCandidate[] = related
+    .filter((match) => match.status === "accepted" && match.assertion_id !== detail.id && match.proposition)
+    .map((match) => ({ id: match.assertion_id, proposition: match.proposition ?? "" }));
+  const supersededBy = detail.status === "superseded" ? detail.superseded_by_assertion_id : null;
+  const shownSuccessor = supersededBy && successor?.id === supersededBy ? successor : null;
+
   return (
     <div className="adp">
       {backLink}
@@ -538,6 +817,22 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
       {showSwitchNotice && switchNotice && (
         <p className="adp-notice" role="status">
           {`Switched the active matter from ${switchNotice.fromName} to ${switchNotice.toName} to show this assertion.`}
+        </p>
+      )}
+      {supersededBy && (
+        <p className="adp-notice adp-superseded-notice" role="note">
+          Superseded by{" "}
+          <Link to={`/assertions/${encodeURIComponent(supersededBy)}`}>
+            {shownSuccessor ? shownSuccessor.proposition : "the superseding assertion"}
+          </Link>
+          {shownSuccessor && (
+            <>
+              {" "}
+              <span className={`badge badge--${shownSuccessor.status}`}>
+                {labelize(shownSuccessor.status)}
+              </span>
+            </>
+          )}
         </p>
       )}
       {loading && <div className="adp-refreshing muted">Refreshing…</div>}
@@ -633,99 +928,45 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             </section>
           )}
 
-          <section className="card">
+          <section className="card" aria-labelledby="adp-evidence-title">
             <div className="card__header">
-              Evidence
+              <span id="adp-evidence-title">Evidence</span>
               <span className={evidenceStatus.className}>{evidenceStatus.label}</span>
             </div>
             <div className="card__body">
-              {detail.evidence.length === 0 ? (
-                isSystem ? (
-                  <p className="muted">
-                    No evidence spans are attached. LexGraph&apos;s definition-linking pipeline
-                    generated this assertion automatically from the provision text it links
-                    (shown above); no person suggested it.
-                  </p>
-                ) : (
-                  <p className="muted">No evidence spans are linked to this assertion.</p>
-                )
-              ) : (
-                <ul className="adp-evidence-list">
-                  {detail.evidence.map((item) => (
-                    <li key={item.id} className="adp-evidence">
-                      <span className={evidenceRoleBadge(item.evidence_role)}>
-                        {labelize(item.evidence_role)}
-                      </span>
-                      <span className={item.document_title ? undefined : "muted"}>
-                        {item.document_title ??
-                          (item.quote_text ? "Quoted source" : "Source span unavailable")}
-                      </span>
-                      {item.quote_text && <blockquote>{item.quote_text}</blockquote>}
-                      <span className="muted adp-evidence-by">
-                        added by {nameFor(item.added_by_user_id)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
+              <AssertionEvidenceSelector
+                key={detail.id}
+                matterId={detail.matter_id}
+                evidence={evidenceItems}
+                onAdd={canModifyEvidence ? handleAddEvidence : undefined}
+                onRemove={canModifyEvidence ? handleRemoveEvidence : undefined}
+                removalBlockedReason={evidenceRemovalBlocked}
+                emptyMessage={
+                  isSystem
+                    ? "No evidence spans are attached. LexGraph's definition-linking pipeline generated this assertion automatically from the provision text it links (shown above); no person suggested it."
+                    : "No evidence spans are linked to this assertion."
+                }
+              />
             </div>
           </section>
 
-          <section className="card">
+          <section className="card" aria-labelledby="adp-comments-title">
             <div className="card__header">
-              Comments
-              <span className="muted adp-count">{detail.comments.length}</span>
+              <span id="adp-comments-title">Comments</span>
+              <span className="muted adp-count">{liveCommentCount}</span>
             </div>
             <div className="card__body">
-              {detail.comments.length === 0 ? (
-                <p className="muted">No comments yet. Start the discussion on this assertion.</p>
-              ) : (
-                <ul className="adp-comment-list">
-                  {detail.comments.map((comment) => (
-                    <li key={comment.id} className="adp-comment">
-                      <span className="avatar" aria-hidden="true">
-                        {initialsOf(nameFor(comment.user_id))}
-                      </span>
-                      <div className="adp-comment-body">
-                        <div className="adp-comment-meta">
-                          <span className="adp-comment-author">{nameFor(comment.user_id)}</span>
-                          <span className="muted">{fmtDateTime(comment.created_at)}</span>
-                        </div>
-                        {comment.deleted_at ? (
-                          <p className="muted adp-comment-removed">[comment removed]</p>
-                        ) : (
-                          <p className="adp-comment-text">{comment.comment_text}</p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {canContribute && (
-                <div className="field adp-comment-form">
-                  <label htmlFor="adp-new-comment">Add a comment</label>
-                  <textarea
-                    id="adp-new-comment"
-                    className="textarea"
-                    value={commentDraft}
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                  />
-                  {commentError && (
-                    <p className="adp-comment-error" role="alert">
-                      {commentError}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn--primary btn--sm adp-comment-submit"
-                    onClick={() => void handlePostComment()}
-                    disabled={postingComment || commentDraft.trim() === ""}
-                  >
-                    Post comment
-                  </button>
-                </div>
-              )}
+              <AssertionComments
+                key={detail.id}
+                comments={commentItems}
+                currentUserId={session.user.id}
+                canComment={canContribute}
+                onAdd={handleAddComment}
+                onReply={handleReplyToComment}
+                onEdit={handleEditComment}
+                onDelete={handleDeleteComment}
+                formatTime={fmtDateTime}
+              />
             </div>
           </section>
 
@@ -743,8 +984,10 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             </div>
           </section>
 
-          <section className="card">
-            <div className="card__header">Activity</div>
+          <section className="card" aria-labelledby="adp-activity-title">
+            <div className="card__header" id="adp-activity-title">
+              Activity
+            </div>
             <div className="card__body">
               {revisions.length === 0 ? (
                 <p className="muted">
@@ -753,34 +996,44 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     : "No revisions recorded yet."}
                 </p>
               ) : (
-                <ol className="adp-timeline">
-                  {revisions.map((revision) => (
-                    <li key={revision.id} className="adp-timeline-item">
-                      <div className="adp-timeline-title">
-                        Revision {revision.revision_number}
-                        {revision.revision_number === detail.current_revision_number && (
-                          <span className="chip chip--tag">current</span>
-                        )}
+                <>
+                  <AssertionRevisionHistory
+                    key={detail.id}
+                    revisions={revisionItems}
+                    currentRevisionNumber={detail.current_revision_number}
+                    onCompare={handleCompare}
+                    renderFooter={(revisionNumber) => (
+                      <RevisionRatings
+                        assertionId={detail.id}
+                        revision={revisionNumber}
+                        currentUserId={session.user.id}
+                        nameFor={nameFor}
+                      />
+                    )}
+                  />
+                  {shownComparison && compareLeft && compareRight && (
+                    <div className="adp-compare-wrap">
+                      <div className="adp-compare-head">
+                        <h3 className="adp-subhead">
+                          {`Revision ${compareLeft.revision_number} compared with revision ${compareRight.revision_number}`}
+                        </h3>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => setComparison(null)}
+                        >
+                          Close comparison
+                        </button>
                       </div>
-                      <div className="muted adp-timeline-meta">
-                        {nameFor(revision.edited_by_user_id)} ·{" "}
-                        {fmtDateTime(revision.created_at)}
-                      </div>
-                      <details><summary>View revision text and ratings</summary>
-                        <p>{revision.proposition_raw ?? revision.proposition}</p>
-                        <RevisionRatings
-                          assertionId={detail.id}
-                          revision={revision.revision_number}
-                          currentUserId={session.user.id}
-                          nameFor={nameFor}
-                        />
-                      </details>
-                      {revision.revision_reason && (
-                        <p className="adp-timeline-reason">{revision.revision_reason}</p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
+                      <AssertionComparisonView
+                        left={compared(compareLeft)}
+                        right={compared(compareRight)}
+                        leftRatingSummary={revisionSummaries[`${detail.id}:${compareLeft.revision_number}`]}
+                        rightRatingSummary={revisionSummaries[`${detail.id}:${compareRight.revision_number}`]}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
@@ -895,6 +1148,22 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     void runReview(() => api.requestRevision(detail.id, payload.comment))
                   }
                   hasRatingsOnPriorRevision={hasRatingsOnPriorRevision}
+                />
+              </div>
+            </section>
+          )}
+
+          {canSupersede && (
+            <section className="card" aria-labelledby="adp-supersede-title">
+              <div className="card__header" id="adp-supersede-title">
+                Supersede
+              </div>
+              <div className="card__body">
+                <AssertionSupersedePanel
+                  key={detail.id}
+                  suggestions={supersedeSuggestions}
+                  search={searchSuccessors}
+                  onSupersede={handleSupersede}
                 />
               </div>
             </section>
