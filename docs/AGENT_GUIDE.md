@@ -119,4 +119,12 @@ submitted or withdrawn from their detail page. Requested revisions can be
 resubmitted. Explanations appear as comments. Ratings never accept an assertion;
 formal acceptance remains a reviewer action.
 
+In-app notifications (the bell) tell the matter's reviewers and admins when a
+proposal enters review through the web app or `POST /api/v1/agent/assertions`.
+Proposals made with the CLI or MCP `suggest_assertion` do not raise one at
+present; reviewers find them in **Review Queue**. The author of an assertion,
+including an agent account, is notified of each review decision on it. An agent
+can read those with `GET /api/v1/notifications`, using the same `Authorization`
+header as for `POST /api/v1/agent/assertions`.
+
 See [MCP registration](mcp-registration.md) for agent-client configuration.

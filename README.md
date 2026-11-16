@@ -106,7 +106,9 @@ Agent provenance and exact evidence quotes are visible on assertion detail.
 
 The collaborative-assertion feature set (see [docs/specs/collaborative-assertions.md](docs/specs/collaborative-assertions.md)) is implemented and test-covered: assertion CRUD with evidence and revisions, revision-scoped ratings with aggregates, comments, audit trail, review workflow with server-side per-matter permissions, matter isolation, hostile-input sanitization, graph projection, in-app notifications, search/sort/duplicate detection, eleven React components, and an end-to-end flow test.
 
-Known limitations are recorded in the sprint contract under `docs/sprint/sprints/`. Notable ones: in-app notifications are held in process (not durable across restarts), and text that forms a syntactically valid HTML tag is stripped by the sanitizer (browser-faithful, but it drops those characters).
+In-app notifications are stored in the database, so they survive restarts and every API worker serves the same feed; they link to their assertion and can be marked read (see [docs/RUNBOOK.md](docs/RUNBOOK.md#notifications)).
+
+Known limitations are recorded in the sprint contract under `docs/sprint/sprints/`. A notable one: text that forms a syntactically valid HTML tag is stripped by the sanitizer (browser-faithful, but it drops those characters).
 
 ## License
 

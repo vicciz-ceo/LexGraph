@@ -234,6 +234,30 @@ def test_agent_endpoint_proposal_notifies_reviewers_but_an_agent_draft_does_not(
     assert _about(client, m["reviewer_headers"], draft.json()["id"]) == []
 
 
+def test_an_agent_account_is_told_about_decisions_on_its_proposals(client, team):
+    """docs/AGENT_GUIDE.md: an agent can poll GET /notifications for reviews."""
+    m = team
+    body = {
+        "repository_id": m["repository_id"],
+        "matter_id": m["matter_id"],
+        "assertion_type": "APPLIES_TO",
+        "proposition": "An agent's proposal awaiting review.",
+        "subject_entity": {"type": "Document", "id": m["document_id"]},
+        "agent": {"platform": "codex"},
+    }
+    created = client.post("/api/v1/agent/assertions", json=body, headers=m["contributor_headers"])
+    assert created.status_code == 201
+    r = client.post(
+        f"/api/v1/assertions/{created.json()['id']}/request-revision",
+        json={"comment": "Attach the clause."},
+        headers=m["reviewer_headers"],
+    )
+    assert r.status_code == 200
+    notice = _about(client, m["contributor_headers"], created.json()["id"])
+    assert [n["event_type"] for n in notice] == ["revision_requested"]
+    assert notice[0]["context"]["assertion_origin"] == "model_suggested"
+
+
 def test_saving_a_draft_notifies_nobody(client, team):
     m = team
     draft = _create(client, m, m["contributor_headers"], proposition="Only a draft.", save_as="draft")
