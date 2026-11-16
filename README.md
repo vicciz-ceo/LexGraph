@@ -84,15 +84,6 @@ for the full walkthrough. Email addresses are case-insensitive: they are
 stored in lowercase, and no two accounts may share one. No seed or mockup
 data is required for real use.
 
-Upgrading a database created before sign-in tokens existed: apply the
-migrations, after which every existing account signs in with its old user
-id as a *legacy* token. Those are public, so rotate them — see the upgrade
-note in [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-sign-in-tokens-replace-user-id-sign-in).
-The same migration run lowercases stored email addresses and makes them
-unique; accounts that already share an address in different letter case
-are reported and left for you to resolve, and the app keeps working
-meanwhile ([docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-case-insensitive-emails)).
-
 For a deployment, build the web app once instead of running the dev server.
 The backend then serves it on its own port, same origin as the API (see
 [docs/RUNBOOK.md](docs/RUNBOOK.md#serving-the-web-app-in-production)):
@@ -110,7 +101,14 @@ out-of-date database, printing this command with absolute paths:
 ```
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-an-existing-database-migration)
-for what each migration changes.
+for what each migration changes. Two leave something to do on a database
+created before 2026-11-16. Every existing account then signs in with its old
+user id as a *legacy* token; those are public, so rotate them (see
+[the upgrade note](docs/RUNBOOK.md#upgrading-sign-in-tokens-replace-user-id-sign-in)).
+Stored email addresses are lowercased and made unique; accounts that already
+share an address in different letter case are reported and left for you to
+resolve, and the app keeps working meanwhile
+([docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-case-insensitive-emails)).
 
 ### Optional: demo workspace for local testing
 
