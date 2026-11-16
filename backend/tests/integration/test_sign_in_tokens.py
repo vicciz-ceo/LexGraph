@@ -490,9 +490,12 @@ def test_sign_in_tokens_and_hashes_appear_in_no_other_response(
         evidence=[{"source_span_id": span, "evidence_role": "supports"}]))
     assert created.status_code == 201, created.text
     aid = created.json()["id"]
+    # Submitted for review, so a reviewer may dispute it below (a draft takes
+    # no review decision: spec "Review decision rules").
     second = call("POST", "/api/v1/assertions", author[1], json=assertion_payload(
-        matter_id, m["repository_id"], proposition="A second, unrelated proposition."))
-    assert second.status_code == 201
+        matter_id, m["repository_id"], save_as="proposed",
+        proposition="A second, unrelated proposition."))
+    assert second.status_code == 201, second.text
     agent = call("POST", "/api/v1/agent/assertions", author[1], json={
         "repository_id": m["repository_id"], "matter_id": matter_id,
         "assertion_type": "SURVIVES_TERMINATION",
