@@ -28,13 +28,20 @@ python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 ```
 
 Bootstrap refuses to run on a non-empty database (an empty-DB guard — no
-silent mutation on top of an existing workspace) and prints the new admin's
+silent mutation on top of an existing workspace; the check runs before it
+creates any table) and prints the new admin's
 **sign-in token**: a random secret, shown this once, of which only a hash is
 stored (`backend/app/auth.py`; requests send `Authorization: Bearer <token>`).
 There are no passwords. User ids are public references, not credentials.
+It needs a database to write to: `--db PATH`, or else
+`LEXGRAPH_DATABASE_URL`. With neither (or an in-memory URL) it exits with
+an error instead of bootstrapping the throwaway in-memory default, and it
+also rejects a blank organization, matter or admin name and an invalid
+admin email before touching the database (exit code 2).
 Copy the token (if it is lost, see
 ["Sign-in tokens, rotation and lockouts"](#sign-in-tokens-rotation-and-lockouts)),
-then start both servers:
+then start both servers (bootstrap prints the exact command for your
+database):
 
 ```bash
 LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
@@ -317,6 +324,18 @@ npm --prefix frontend run dev
 
 The app will be available at `http://localhost:5173` (or the port specified by Vite); the dev server proxies `/api` to `http://127.0.0.1:8000` (override with `LEXGRAPH_API_PROXY`). Sign in with your sign-in token (bootstrap prints the first admin's; the admin console shows each new account's once; `backend/app/auth.py`). Your user id is not a sign-in token. With the demo seed the tokens are `admin`, `reviewer`, `contributor`, and `viewer`.
 
+The browser remembers your sign-in. Only the server rejecting your token
+(it was rotated or revoked) signs you out, with a message saying so. If
+the app cannot reach the backend when you open it (backend not started
+yet, restarting, or a proxy error), it keeps your sign-in and shows
+**Retry** instead of the sign-in page; it also retries by itself when
+the browser comes back online or the tab regains focus. While you work,
+the app re-reads your account (`GET /me`) when a request is refused,
+when you return to the tab, and every minute, so a role another admin
+gave you or took away shows up without a reload. On a narrow screen
+(below 768px wide) the sidebar is behind the menu button at the top
+left.
+
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
 - **Knowledge Base** — searchable accepted-assertion table with CSV export
@@ -334,7 +353,9 @@ Once signed in as an admin (bootstrap prints the first one — see
 people is entirely in-app; no CLI or DB access is required:
 
 1. **Create the account.** Admin → **User accounts** → fill in email and
-   display name → **Create account**. The page shows the new account's
+   display name → **Create account**. Email addresses are
+   case-insensitive: they are stored in lowercase, and an address another
+   account already uses (in any letter case) is refused. The page shows the new account's
    **sign-in token** once, with a copy button: copy it and hand it to the
    person privately, then click **Done**. It cannot be shown again (only a
    hash is stored); if it is lost, rotate it (below). The user id in the
@@ -347,7 +368,11 @@ people is entirely in-app; no CLI or DB access is required:
    same account can be a reviewer on one matter and have no access to
    another, and admin is a per-matter admin, not a global superuser role
    (any admin-of-some-matter can list/create user accounts, per the users
-   API's access model).
+   API's access model). The email is matched case-insensitively. A matter
+   always keeps at least one admin, even when two admins demote each other
+   at the same moment. Changing your own role or removing yourself takes
+   effect in your browser at once: the app leaves the admin console and
+   shows your new access.
 3. **They sign in.** The new user enters the token from step 1 on the
    sign-in page and immediately sees the UI appropriate to the role(s)
    they were granted.
@@ -368,8 +393,10 @@ localhost or put TLS in front of it before exposing it on a network.
 - **Rotate or re-issue in the app.** Admin → **User accounts** → **Rotate
   token** (or **Issue token** for an account without one) → confirm. The
   new token is shown once and the previous one stops working immediately:
-  that person's open sessions fail until they sign in with the new token
-  (on reload the app explains the saved token is no longer valid). You may
+  that person's open sessions are signed out, with a message saying the
+  saved token is no longer valid, as soon as the app notices (their next
+  refused request, their return to the tab, or within a minute), and they
+  sign in with the new token. You may
   rotate an account only
   if you are an admin on every matter it belongs to (or it is your own
   account; rotating your own keeps this browser signed in).
@@ -382,7 +409,8 @@ localhost or put TLS in front of it before exposing it on a network.
   .venv/bin/python -m app.rotate_sign_in_token --db dev.db --user-id USER_ID
   ```
 
-  Without `--db` it uses `LEXGRAPH_DATABASE_URL`.
+  Without `--db` it uses `LEXGRAPH_DATABASE_URL`. `--email` ignores letter
+  case.
 
 ### Upgrading: sign-in tokens replace user-id sign-in
 
@@ -425,6 +453,43 @@ can see the ids, so **rotate them**:
 
 Rotated accounts sign in with their new token only; their old user id no
 longer works.
+
+### Upgrading: case-insensitive emails
+
+Older versions stored email addresses as typed and compared them exactly,
+so `Dana@Firm.example` and `dana@firm.example` could become two accounts
+(and two simultaneous creations could even store one address twice).
+Addresses are now stored in lowercase and must be unique, enforced by a
+unique index that the `m20261116_users_email_unique` migration adds to an
+existing database. The migration runner applies it with the others; to
+apply just this one directly:
+
+```bash
+cd backend
+.venv/bin/python -c "
+from app.db import make_engine
+from app.migrations.m20261116_users_email_unique import upgrade
+print(upgrade(make_engine('sqlite:///dev.db')))
+"
+```
+
+It lowercases the stored addresses and adds the index. If two or more
+accounts already share an address in any letter case, it changes none of
+them and leaves the index out, and prints a warning naming each such
+account's user id and stored address. Until you resolve them the app
+keeps working, but refuses to guess: creating an account with that
+address, or adding it to a matter, is refused (409). Decide which account
+keeps the address, give each other account its own, and run the migration
+again (nothing is deleted or merged):
+
+```bash
+.venv/bin/python -c "
+import sqlite3
+db = sqlite3.connect('dev.db')
+db.execute(\"UPDATE users SET email = 'dana.old@firm.example' WHERE id = 'USER_ID'\")
+db.commit()
+"
+```
 
 ### Building for Production
 
