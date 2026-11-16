@@ -156,8 +156,8 @@ function ReviewPolicyPanel() {
             </li>
             <li>
               <span className="badge badge--revision_requested">Revision requested</span>{" "}
-              The reviewer sends it back with a comment; once the author revises it and
-              submits it for review again, it returns to proposed.
+              The reviewer sends it back with a comment; the author revises it and
+              resubmits it, which returns it to proposed.
             </li>
             <li>
               <span className="badge badge--disputed">Disputed</span> A reviewer flags a
