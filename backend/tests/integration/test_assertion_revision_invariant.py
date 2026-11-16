@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.models.assertion import Assertion
+from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.audit_event import AuditEvent
 from tests.conftest import assertion_payload, new_id, seed_document, seed_source_span
@@ -218,10 +219,18 @@ def test_enrichment_writes_a_creation_audit_event(db_session, matter_with_users)
                      quote_text="Clause 9 survives termination of this Agreement.")
     created = run_enrichment(db_session, matter_id=m["matter_id"], triggered_by_user_id=m["reviewer_id"])
     assert len(created) == 1
-    (event,) = _events(db_session, created[0]["id"])
     (revision,) = _revisions(db_session, created[0]["id"])
-    assert (event.event_type, event.actor_user_id, event.assertion_revision_id, event.new_value) == (
-        "assertion_created", m["reviewer_id"], revision.id, "draft")
+    (evidence_id,) = db_session.scalars(
+        select(AssertionEvidence.id).where(AssertionEvidence.assertion_id == created[0]["id"])
+    ).all()
+    # Creation plus the evidence it attaches (spec section 16: evidence
+    # added at creation is audited too), in one transaction.
+    events = sorted(_events(db_session, created[0]["id"]), key=lambda e: e.event_type)
+    assert [(e.event_type, e.actor_user_id, e.assertion_revision_id, e.new_value) for e in events] == [
+        ("assertion_created", m["reviewer_id"], revision.id, "draft"),
+        ("evidence_added", m["reviewer_id"], revision.id, evidence_id),
+    ]
+    assert len({e.correlation_id for e in events}) == 1
 
 
 def _bare_assertion(m: dict, **overrides) -> Assertion:

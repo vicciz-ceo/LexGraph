@@ -347,17 +347,18 @@ def _write(session: Session, candidate: _Candidate, span_ids: list[str], reposit
     )
     session.add(revision)
 
-    for span_id in span_ids:
-        session.add(
-            AssertionEvidence(
-                id=str(uuid.uuid4()),
-                assertion_id=assertion.id,
-                source_span_id=span_id,
-                evidence_role="supports",
-                added_by_user_id=triggered_by_user_id,
-                created_at=now,
-            )
+    evidence_rows = [
+        AssertionEvidence(
+            id=str(uuid.uuid4()),
+            assertion_id=assertion.id,
+            source_span_id=span_id,
+            evidence_role="supports",
+            added_by_user_id=triggered_by_user_id,
+            created_at=now,
         )
+        for span_id in span_ids
+    ]
+    session.add_all(evidence_rows)
 
     record_audit_event(
         session,
@@ -369,4 +370,18 @@ def _write(session: Session, candidate: _Candidate, span_ids: list[str], reposit
         assertion_revision_id=revision.id,
         new_value=assertion.status,
     )
+    # Spec section 16: evidence attached at creation is audited like the
+    # evidence routes' (one evidence_added row each, naming the evidence id
+    # and revision 1), as app.routers.assertions._create_assertion does.
+    for evidence in evidence_rows:
+        record_audit_event(
+            session,
+            actor_user_id=triggered_by_user_id,
+            event_type="evidence_added",
+            repository_id=assertion.repository_id,
+            matter_id=assertion.matter_id,
+            assertion_id=assertion.id,
+            assertion_revision_id=revision.id,
+            new_value=evidence.id,
+        )
     return assertion
