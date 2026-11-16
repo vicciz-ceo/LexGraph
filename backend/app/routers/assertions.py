@@ -586,6 +586,34 @@ def _changed_fields(assertion: Assertion, current: AssertionRevision | None, upd
     return changed
 
 
+# --- Evidence helpers ---------------------------------------------------------
+
+
+def _validate_distinct_evidence(items: list[EvidenceIn]) -> None:
+    """One span is attached at most once per role (api:11)."""
+    seen: set[tuple[str, str]] = set()
+    for item in items:
+        key = (item.source_span_id, item.evidence_role)
+        if key in seen:
+            raise ValidationError(
+                f"evidence lists source span {item.source_span_id} more than once "
+                f"with role '{item.evidence_role}'"
+            )
+        seen.add(key)
+
+
+def _evidence_exists(session: Session, assertion_id: str, *, exclude_id: str | None = None,
+                     source_span_id: str | None = None, roles: tuple[str, ...] | None = None) -> bool:
+    stmt = select(AssertionEvidence.id).where(AssertionEvidence.assertion_id == assertion_id)
+    if exclude_id is not None:
+        stmt = stmt.where(AssertionEvidence.id != exclude_id)
+    if source_span_id is not None:
+        stmt = stmt.where(AssertionEvidence.source_span_id == source_span_id)
+    if roles is not None:
+        stmt = stmt.where(AssertionEvidence.evidence_role.in_(roles))
+    return session.execute(stmt.limit(1)).first() is not None
+
+
 # --- Routes ------------------------------------------------------------------
 
 
@@ -655,6 +683,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             validate_evidence_matter_scope(
                 span.matter_id if span is not None else None, body.matter_id
             )
+        _validate_distinct_evidence(body.evidence)
     except ValidationError as exc:
         raise HTTPException(
             status_code=422, detail=str(exc)
@@ -1295,11 +1324,10 @@ def add_evidence(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
-    role = _matter_role(session, user_id, assertion.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to attach evidence"
-        )
+    # api:11: attaching evidence changes what the assertion rests on, so it
+    # follows the edit rule (spec section 12): the author of an unreviewed
+    # assertion, or a reviewer/admin.
+    _require_can_modify(session, user_id, assertion)
 
     # B5: a resolvable source span must belong to this assertion's matter
     # (spec §7 "a user cannot attach evidence from another inaccessible
@@ -1312,6 +1340,19 @@ def add_evidence(
         raise HTTPException(
             status_code=422, detail=str(exc)
         ) from exc
+
+    # Serialize evidence writers so the checks below still hold at commit.
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    _require_can_modify(session, user_id, assertion)
+    if _evidence_exists(session, assertion_id, source_span_id=body.source_span_id,
+                        roles=(body.evidence_role,)):
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(f"source span {body.source_span_id} is already attached to this assertion "
+                    f"with role '{body.evidence_role}'"),
+        )
 
     evidence = AssertionEvidence(
         id=str(uuid.uuid4()),
@@ -1335,15 +1376,30 @@ def remove_evidence(
     user_id: str = Depends(get_current_user_id),
 ) -> None:
     assertion = _get_assertion_or_404(session, assertion_id)
-    role = _matter_role(session, user_id, assertion.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to remove evidence"
-        )
+    # api:11: removing evidence modifies the assertion: the author of an
+    # unreviewed assertion, or a reviewer/admin -- a contributor can no
+    # longer strip someone else's (accepted) assertion of its evidence.
+    _require_can_modify(session, user_id, assertion)
 
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    _require_can_modify(session, user_id, assertion)
     evidence = session.get(AssertionEvidence, evidence_id)
     if evidence is None or evidence.assertion_id != assertion_id:
+        session.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="evidence not found")
+    # An accepted assertion stays supported (spec section 2: it cannot be
+    # accepted unsupported without a recorded reason, so it is not made
+    # unsupported afterwards either).
+    if (assertion.status == "accepted" and evidence.evidence_role in SUPPORTING_EVIDENCE_ROLES
+            and not _evidence_exists(session, assertion_id, exclude_id=evidence_id,
+                                     roles=SUPPORTING_EVIDENCE_ROLES)):
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("cannot remove the last supporting evidence of an accepted assertion; "
+                    "attach other supporting evidence first, or return the assertion to review"),
+        )
 
     session.delete(evidence)
     session.commit()
