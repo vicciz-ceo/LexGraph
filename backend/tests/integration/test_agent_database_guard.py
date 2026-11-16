@@ -111,6 +111,30 @@ def test_mcp_server_refuses_an_uninitialized_file(tmp_path):
     assert empty.stat().st_size == 0
 
 
+def test_cli_and_mcp_refuse_an_older_database_and_name_the_upgrade(tmp_path):
+    """The server's startup check, applied by both: an old workspace is not
+    served halfway (no such column) but refused with the migrate command."""
+    from app.migrate import main as migrate_main
+    from tests.schema_history import PRE_AUGUST, build_historical_db
+
+    old = build_historical_db(tmp_path / "old.db", PRE_AUGUST)
+    before = old.read_bytes()
+    env = agent_env(f"sqlite:///{old}", "user-1")
+    command = f"-m app.migrate --db {old}"
+
+    body = cli_error(run_cli("context", env=env, cwd=tmp_path))
+    assert body["status"] == 500 and "older version of LexGraph" in body["error"], body
+    assert command in body["error"] and "column documents.jurisdiction" in body["error"], body
+    served = _server(env, tmp_path)
+    stderr = served.stderr.decode("utf-8")
+    assert served.returncode != 0 and stderr.startswith("lexgraph MCP server: "), stderr
+    assert command in stderr and len(stderr.strip().splitlines()) == 1, stderr
+    assert old.read_bytes() == before
+
+    assert migrate_main(["--db", str(old)]) == 0
+    assert cli_json(run_cli("context", env=env, cwd=tmp_path))["user"]["id"] == "user-1"
+
+
 def test_mcp_server_refuses_an_unknown_agent_user(tmp_path, workspace_db):
     result = _server(agent_env(f"sqlite:///{workspace_db}", "no-such-user"), tmp_path)
     stderr = result.stderr.decode("utf-8")

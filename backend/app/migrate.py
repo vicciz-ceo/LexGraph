@@ -353,6 +353,11 @@ def _command(module: str, url: URL) -> str:
     return f"LEXGRAPH_DATABASE_URL={shown} {python} -m {module}"
 
 
+def upgrade_command(url: URL | str) -> str:
+    """The exact ``python -m app.migrate`` command that upgrades the database at ``url``."""
+    return _command("app.migrate", make_url(url) if isinstance(url, str) else url)
+
+
 def _usability(engine: Engine) -> tuple[str | None, dict[str, str]]:
     """(why the server cannot serve this database, with the fix, or None;
     the unique indexes pending an operator, see ``check_schema``)."""
