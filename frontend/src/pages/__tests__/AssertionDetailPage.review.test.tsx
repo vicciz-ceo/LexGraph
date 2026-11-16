@@ -24,6 +24,11 @@ vi.mock("../../api/client", () => {
       getAssertion: vi.fn(),
       relatedAssertions: vi.fn(),
       ratingSummary: vi.fn(),
+      // The detail page also loads the roster (names), the review history
+      // and the rationales of the current revision when it mounts.
+      listRatings: vi.fn(),
+      history: vi.fn(),
+      listMatterMembers: vi.fn(),
       acceptAssertion: vi.fn(),
       rejectAssertion: vi.fn(),
       disputeAssertion: vi.fn(),
@@ -32,8 +37,8 @@ vi.mock("../../api/client", () => {
   };
 });
 
-vi.mock("../../app/session", () => ({
-  useActiveSession: () => ({
+vi.mock("../../app/session", () => {
+  const session = {
     user: { id: "u-1", email: "ada@example.com", display_name: "Ada Lovelace" },
     currentMatter: {
       id: "m-1",
@@ -44,8 +49,13 @@ vi.mock("../../app/session", () => ({
     },
     role: "reviewer",
     matters: [],
-  }),
-}));
+  };
+  return {
+    useActiveSession: () => session,
+    // The page switches to an assertion's matter through selectMatter (ui:31).
+    useSession: () => ({ session, selectMatter: vi.fn() }),
+  };
+});
 
 import { ApiError, api } from "../../api/client";
 import { AssertionDetailPage } from "../AssertionDetailPage";
@@ -117,6 +127,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.relatedAssertions.mockResolvedValue([]);
   mockedApi.ratingSummary.mockResolvedValue(emptySummary);
+  mockedApi.listRatings.mockResolvedValue([]);
+  mockedApi.history.mockResolvedValue([]);
+  mockedApi.listMatterMembers.mockResolvedValue([]);
   mockedApi.acceptAssertion.mockResolvedValue({} as never);
   mockedApi.rejectAssertion.mockResolvedValue({} as never);
   mockedApi.disputeAssertion.mockResolvedValue({} as never);
