@@ -1197,6 +1197,11 @@ def submit_assertion(
             raise _duplicate_conflict(blocker)
 
     assertion.status = "proposed"
+    # api:29 / review:12: a proposal awaiting review names no reviewer, as
+    # after an edit that returns an assertion to proposed; the earlier
+    # decision (e.g. request-revision) stays in the audit trail.
+    assertion.reviewed_by = None
+    assertion.reviewed_at = None
     assertion.submitted_at = _now()
     assertion.updated_at = _now()
     session.commit()

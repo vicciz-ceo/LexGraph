@@ -2,9 +2,10 @@
 
 Audit findings api:18, review:3, review:8, ui:11 (an edit that changes
 nothing material creates nothing), api:21 / review:4 (an assertion's own
-proposed-new type survives an edit), review:5 (the length cap runs before
-the sanitizer) and review:20 (an explanation is never silently dropped).
-Every test drives the real HTTP app.
+proposed-new type survives an edit), api:29 / review:12 (resubmission
+clears the previous review decision's reviewer), review:5 (the length cap
+runs before the sanitizer) and review:20 (an explanation is never silently
+dropped). Every test drives the real HTTP app.
 """
 
 from __future__ import annotations
@@ -256,6 +257,29 @@ def test_changing_to_another_new_type_takes_the_flag_the_error_names(client, mat
     flag_only = client.post(path + "/revisions", json={"assertion_type_is_proposed_new": True},
                             headers=m["contributor_headers"])
     assert (flag_only.status_code, flag_only.json()["revision_number"]) == (200, 3)
+
+
+# --- Resubmission clears the earlier decision's reviewer (api:29, review:12)
+
+
+def test_resubmitting_a_requested_revision_clears_review_metadata(client, db_session, matter_with_users):
+    m = matter_with_users
+    created = _create(client, m, save_as="proposed")
+    path = f"/api/v1/assertions/{created['id']}"
+    requested = client.post(path + "/request-revision", json={"comment": "cite"}, headers=m["reviewer_headers"])
+    assert requested.json()["reviewed_by"] == m["reviewer_id"]
+    client.patch(path, json={"proposition": "Now with a citation to Clause 8.4."},
+                 headers=m["contributor_headers"])
+
+    submitted = client.post(path + "/submit", headers=m["contributor_headers"])
+
+    assert submitted.status_code == 200, submitted.text
+    body = submitted.json()
+    assert (body["status"], body["reviewed_by"], body["reviewed_at"]) == ("proposed", None, None)
+    # The decision itself stays in the audit trail.
+    assert db_session.scalar(select(func.count()).select_from(AuditEvent).where(
+        AuditEvent.assertion_id == created["id"],
+        AuditEvent.event_type == "assertion.request_revision")) == 1
 
 
 # --- The length cap runs before the sanitizer (review:5) --------------------
