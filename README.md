@@ -90,8 +90,8 @@ id as a *legacy* token. Those are public, so rotate them — see the upgrade
 note in [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-sign-in-tokens-replace-user-id-sign-in).
 The same migration run lowercases stored email addresses and makes them
 unique; accounts that already share an address in different letter case
-are reported and left for you to resolve
-([docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-case-insensitive-emails)).
+are reported and left for you to resolve, and the app keeps working
+meanwhile ([docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-case-insensitive-emails)).
 
 For a deployment, build the web app once instead of running the dev server.
 The backend then serves it on its own port, same origin as the API (see

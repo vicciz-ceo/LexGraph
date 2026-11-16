@@ -30,10 +30,11 @@ they do not start an LLM or make any provider API calls.
 
 The server checks its configuration at startup. If `LEXGRAPH_DATABASE_URL` is
 unset or in-memory, names a missing file or a file without the LexGraph schema,
-or `LEXGRAPH_AGENT_USER_ID` names no user, it exits with one line on stderr
-starting `lexgraph MCP server:` and creates no file, so the client reports the
-server as failed. To read the reason, run the configured command by hand with
-the same environment.
+names a database an older LexGraph created (the line names the
+`python -m app.migrate` command that upgrades it), or `LEXGRAPH_AGENT_USER_ID`
+names no user, it exits with one line on stderr starting `lexgraph MCP server:`
+and creates or changes no file, so the client reports the server as failed. To
+read the reason, run the configured command by hand with the same environment.
 
 ## Claude Code
 
@@ -95,7 +96,8 @@ Agents without MCP can use the JSON CLI or HTTP API in the
 
 After connecting, ask the agent to call `assertion_guide`, then `agent_context`,
 read the relevant sources, and call `suggest_assertion` with `payload` set to a
-schema-valid JSON object. Proposed assertions appear in the lawyers' review queue.
+schema-valid JSON object. Proposed assertions appear in the lawyers' review queue,
+and the matter's reviewers and admins are notified of each one.
 
 A failed call returns an error result whose text is `Error executing tool <name>: `
 followed by the JSON object the CLI prints, for example

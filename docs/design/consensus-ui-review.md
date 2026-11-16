@@ -24,7 +24,7 @@ scoping) that had to be fixed for a fork-and-run open-source repo.
 | 1 | **Votes don't exist.** Accept/decline tallies, quorums ("5 of 7 votes"), "Cast Vote" buttons, and "your grades weight the final confidence score" imply member voting decides outcomes. LexGraph separates three things by spec: per-user 1–5 *strength ratings* (never change status), *reviewer decisions* (accept/reject/dispute/request-revision, role-gated), and *model confidence* (0–1, read-only). | All vote UI became rating UI (1–5 strength + rationale, per revision, via the ratings API). Review actions render only for `reviewer`/`admin` roles and call the review endpoints. Quorum widgets became rating summaries (count/average/median/distribution). Copy states explicitly that ratings inform but never decide. |
 | 2 | **"Reviewer Confidence" conflated with model confidence.** The queue's 1–5 widget and the analytics "Avg. Confidence 4.2/5.0" mixed user ratings with the model's 0–1 confidence. | Ratings are always labeled "strength rating (1–5)"; model confidence is always a separate percentage chip shown only on `model_suggested` assertions. Never merged into one indicator (spec §5). |
 | 3 | **No matter context.** Every backend query requires `matter_id`; the design had no notion of matters and no way to discover them (the API had no listing endpoint either). | New backend workspace surface: `GET /api/v1/me` (identity + matter memberships with roles) and a matter selector in the sidebar. All pages read the active matter from the session. |
-| 4 | **Sign-in screen was fiction.** SSO button and username/password form, with the full authenticated chrome (nav, search, notifications) rendered *around* the sign-in card. | The backend's auth seam is `Authorization: Bearer <user_id>` (no IdP, no passwords). The page is now a bare centered card (no chrome) with a single User ID field, validated against `GET /me`. It first also offered the seeded demo logins as one-click chips; sprint 2026-07-31-admin-provisioning removed them, so every sign-in id now comes from an administrator, or from the seeder's own output for the demo workspace. SSO/password removed rather than faked. |
+| 4 | **Sign-in screen was fiction.** SSO button and username/password form, with the full authenticated chrome (nav, search, notifications) rendered *around* the sign-in card. | The backend's auth seam was then `Authorization: Bearer <user_id>` (no IdP, no passwords). The page is now a bare centered card (no chrome) with a single credential field, validated against `GET /me`. It first also offered the seeded demo logins as one-click chips; sprint 2026-07-31-admin-provisioning removed them. Since 2026-11-16 the credential is a per-user secret sign-in token issued by an administrator (the field reads "Sign-in token"), and user ids are public references. SSO/password removed rather than faked. |
 | 5 | **CDN/runtime dependencies.** Tailwind CDN script, Google Fonts (Inter), Material Symbols webfont, and `lh3.googleusercontent.com` images (logo, stock avatars) — none acceptable for an offline-capable OSS build. | Design tokens compiled to CSS custom properties (`src/styles/tokens.css`, values from DESIGN.md's frontmatter); Inter self-hosted via `@fontsource-variable/inter`; icons are bundled inline SVGs (`src/app/icons.tsx`); logo is an inline mark; avatars are initials chips (no avatar data exists in the model). |
 | 6 | **Fabricated identity/metadata.** Job titles ("Sales Ops"), departments (Logistics/HR/Architecture), headshots, "GPT-4 Pipeline v4.2.1" provenance, "System Integrity Validated" badges, hashtag taxonomies. | Users render as `display_name` + email + initials chip (the real model). Departments became real dimensions (`assertion_type`, `jurisdiction`). Model provenance renders the real `origin` + `confidence` fields. Decorative fictions dropped. |
 | 7 | **Inconsistent chrome.** 8 of 10 screens hardcoded "Review Queue" as active nav; two screens had a different 7-item sidebar; origin-chip and button recipes varied per screen. | One canonical `AppShell` (route-driven active state, role-gated Admin item) and one primitive set (`.btn`, `.chip`, `.badge`, `.card`, `.table`, `.filter-bar`) in `src/styles/app.css`, following the audit's canonical recipes. |
@@ -60,7 +60,8 @@ The design assumed capabilities the API did not have. Added (additively, in
 
 ## Screen-by-screen
 
-- **sign_in** → `SignInPage`. Chrome stripped; single User ID field (the demo
+- **sign_in** → `SignInPage`. Chrome stripped; a single credential field, the
+  user id at first and a secret sign-in token since 2026-11-16 (the demo
   account chips it first had were removed on 2026-07-31); validates via
   `GET /me`; errors surface inline. SSO, password field, and fake
   on-prem/policy badges removed.
@@ -107,9 +108,12 @@ The design assumed capabilities the API did not have. Added (additively, in
 
 ## Known limitations (deliberate)
 
-- Evidence rows reference `source_span_id`s; there is no span-resolution
-  endpoint yet, so evidence lists show ids + roles, not quote text.
-- Notifications remain in-process (existing platform limitation).
+- Evidence rows reference `source_span_id`s; there was no span-resolution
+  endpoint yet, so evidence lists showed ids + roles, not quote text. Resolved
+  on 2026-09-16 (see below): evidence carries its quote text and document title.
+- Notifications were held in the server process (a platform limitation then);
+  since 2026-11-16 they are stored in the database, survive restarts, and can
+  be marked read.
 - Sign-in uses per-user secret tokens issued by an admin (no passwords, no
   SSO); user ids are public references (2026-11-16). A real IdP is a
   deployment concern, out of scope here.

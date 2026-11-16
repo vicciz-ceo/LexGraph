@@ -697,7 +697,11 @@ Accounts and membership (2026-11-16):
   member by email matches it case-insensitively. Migration
   `20261116_users_email_unique` normalizes older databases; accounts that
   already share an address are reported and left unchanged, and until an
-  operator resolves them both endpoints answer 409 for that address.
+  operator resolves them both endpoints answer 409 for that address. The
+  unique index is created on the first migration run after that. Meanwhile
+  the server still starts on the database (its startup schema check accepts
+  this one missing index and logs the shared addresses), and `python -m
+  app.migrate` reports the index as waiting for an operator.
 - A caller-chosen user id is 1-36 ASCII letters, digits, `.`, `_` or `-`,
   starting with a letter or digit, so that it fits `users.id` and works in
   URL paths; anything else, or an id already in use, is 422. `email` is
@@ -743,7 +747,7 @@ DELETE /api/v1/assertions/{assertion_id}/evidence/{evidence_id}
 GET    /api/v1/assertions/{assertion_id}/related
 GET    /api/v1/assertions/{assertion_id}/history
 
-`GET /assertions/{assertion_id}` gives `subject_entity` and `object_entity` a `label`: a document's title, `"<document title> / <number> <heading>"` for an article, a definition's quoted terms followed by the article that defines them, a source span's quote, or an assertion's proposition. Only persisted entities of the assertion's own matter are labelled. A legacy opaque reference (for example `Provision`), a missing row or a row of another matter gets `null`. Labels longer than 240 characters are shortened. Each `GET .../related` match carries the related assertion's `proposition` and `status` next to `assertion_id`, `match_kind` and `score`.
+`GET /assertions/{assertion_id}` gives `subject_entity` and `object_entity` a `label`: a document's title, `"<document title> / <number> <heading>"` for an article, a definition's quoted terms followed by the article that defines them, a source span's quote, or an assertion's proposition. Only persisted entities of the assertion's own matter are labelled. A legacy opaque reference (for example `Provision`), a missing row or a row of another matter gets `null`. Labels longer than 240 characters are shortened. Labels belong to this detail response only: list items and the responses of the create, edit, submit, withdraw and review routes keep the bare `{type, id}` reference. Each `GET .../related` match carries the related assertion's `proposition` and `status` next to `assertion_id`, `match_kind` and `score`.
 
 Ratings:
 
@@ -921,7 +925,7 @@ Implementation (2026-11-16):
 - `GET /api/v1/notifications` returns the caller's notifications, newest first (`limit` 1–200, default 50; `offset`; `unread_only`). Each has `id`, `event_type`, `actor_user_id`, `recipient_user_id`, `assertion_id`, `matter_id`, `link` (the web-app route `/assertions/{id}`), `payload`, `context`, `created_at`, `read` and `read_at`. `context` holds the current proposition (excerpted to at most 280 characters), the assertion's status and origin, the matter name and the actor's display name. `link` and `context` are null once the recipient is no longer a member of the matter. Payloads hold references and event facts only, never comment or document text. Timestamps carry a UTC offset.
 - `GET /api/v1/notifications/unread-count` returns `{"unread_count": n}`. `POST /api/v1/notifications/{id}/read` marks one notification read; the first read time is kept, and an unknown id or another user's notification returns 404. `POST /api/v1/notifications/read-all` marks the caller's unread notifications read and returns `{"marked_read": n, "unread_count": m}`. Its optional `last_read_at` leaves notifications created after that instant unread.
 - Preferences: `GET` and `PUT /api/v1/notifications/preferences` (`{"preferences": {event_type: bool}}`) switch each event type per user. Every event is on by default except `assertion_rated`. An unknown event type returns 422 and nothing is changed.
-- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. Proposals created outside HTTP raise the notice only where their entry point calls `app.notifications.notify_submission`, which is idempotent per submission and never raises. The agent CLI and the MCP server do not call it at present.
+- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. The agent CLI and the MCP server propose outside HTTP; each calls `app.notifications.notify_submission` once a suggestion is stored, so their proposals notify the reviewers and admins like a REST one. It is idempotent per submission and never raises.
 
 ==================================================
 16. AUDIT REQUIREMENTS
@@ -1125,8 +1129,10 @@ and exits 1, MCP returns it as the text of an error result. The statuses are 400
 existing assertion), 422 (payload) and 500 (local database or installation).
 CLI input and output are UTF-8 regardless of locale. Both interfaces check the
 database before use: an unset, in-memory, missing or uninitialized database is
-refused with the resolved path, and no file is ever created. The MCP server
-exits at startup in that case, and when `LEXGRAPH_AGENT_USER_ID` names no user.
+refused with the resolved path, and no file is ever created. A database created
+by an older release is refused too, by the API server's schema check, with the
+`python -m app.migrate` command that upgrades it. The MCP server exits at
+startup in those cases, and when `LEXGRAPH_AGENT_USER_ID` names no user.
 The submission guide (CLI `schema`, MCP `assertion_guide`) names the operations
 of its own interface and lists the assertion types and jurisdiction codes.
 

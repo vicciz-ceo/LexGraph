@@ -4,10 +4,9 @@ pyproject.toml lives in backend/, a pip outside a virtualenv is refused on PEP 6
 systems, and pyproject accepts any Python >= 3.12. So an install command has to create
 the venv with `python3`, install with that venv's pip, and run both in backend/. The
 agent-facing docs give the one command that was run from the repository root of a
-fresh checkout, and no doc names a minor interpreter or a bare pip.
-
-docs/RUNBOOK.md is not listed yet: its `python3.13` lines are ops:9, fixed in the ops
-package. Add it to DOCS once that lands.
+fresh checkout, and no doc names a minor interpreter or a bare pip. docs/RUNBOOK.md
+is held to the same rules since the ops package replaced its `python3.13` lines
+(ops:9) and the integration gave its installs the one command.
 """
 from __future__ import annotations
 
@@ -19,7 +18,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 INSTALL = "(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')"
 AGENT_DOCS = ("AGENTS.md", "docs/AGENT_GUIDE.md", "docs/mcp-registration.md")
-DOCS = (*AGENT_DOCS, "CLAUDE.md", "README.md")
+DOCS = (*AGENT_DOCS, "CLAUDE.md", "README.md", "docs/RUNBOOK.md")
 
 
 def _line_of(text: str, offset: int) -> str:

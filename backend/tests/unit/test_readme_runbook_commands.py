@@ -116,18 +116,20 @@ def test_mcp_registrations_pass_absolute_paths_and_the_database():
     server from its own working directory, so relative paths and an exported
     variable are both lost.
 
-    The RUNBOOK's "MCP Server Registration" section and docs/mcp-registration.md
-    belong to the agent package's docs and are left to its checks; every other
-    registration these two documents show is checked here."""
+    Every registration these two documents show is checked, the RUNBOOK's "MCP
+    Server Registration" section included now that the agent package gave it the
+    absolute form (agent:3); docs/mcp-registration.md has its own checks."""
     agent_section = _section_span(RUNBOOK, "MCP Server Registration")
-    assert any(c.startswith("claude mcp add ") for _n, c in commands(RUNBOOK)), "parser found no registration"
+    assert any(
+        c.startswith("claude mcp add ") and agent_section[0] < n <= agent_section[1] for n, c in commands(RUNBOOK)
+    ), "parser found no registration in the MCP section"
     registrations = [
         command
         for path in DOCS
         for number, command in commands(path)
         if command.startswith("claude mcp add ")
-        and not (path == RUNBOOK and agent_section[0] < number <= agent_section[1])
     ]
+    assert len(registrations) >= 2, registrations
     for command in registrations:
         assert re.search(rf'--env LEXGRAPH_DATABASE_URL="?sqlite:///{ABSOLUTE_PATH}', command), command
         interpreter = command.split(" -- ", 1)[1].split()[0]

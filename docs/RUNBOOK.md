@@ -24,8 +24,8 @@ bootstrap the workspace, sign in as the admin bootstrap creates, then
 provision further users and access from the app itself.
 
 ```bash
+(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')
 cd backend
-python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m app.bootstrap --db dev.db
 ```
 
@@ -93,22 +93,17 @@ the server logs a legacy-credential warning at startup and the admin
 console badges them "Legacy sign-in". Never use the demo seed for real
 data. The seeder
 (`backend/app/seed_demo.py`) drives the real API, so the demo data carries
-genuine revisions, ratings, comments, and audit events —
-useful for development and mockups, not for a real deployment. It carries no
-notifications: they are kept in the memory of the server process that handled
-each action, so the ones the seeder's actions raised are gone when it exits,
-and every bell starts empty. Submitting or reviewing an assertion in the
-running app does notify.
+genuine revisions, ratings, comments, audit events and the notifications
+those actions raised (stored in the database like any others: the admin,
+reviewer and contributor bells start with unread notifications, the viewer's
+is empty) — useful for development and mockups, not for a real deployment.
 
 ### Backend Environment Setup
 
-Initialize the backend virtual environment and install dependencies:
+Initialize the backend virtual environment and install dependencies, from the repository root (the Quickstart's first command):
 
 ```bash
-cd backend
-python3 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
-cd ..
+(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')
 ```
 
 ### Frontend Environment Setup
@@ -123,29 +118,31 @@ npm --prefix frontend ci
 
 ### Initialize the Database
 
-LexGraph stores everything in one SQLite database file; it supports no other database yet. Every LexGraph process (the server, the CLIs, the MCP server) reads its location from the same environment variable; `app.bootstrap`, `app.seed_demo` and `app.migrate` also accept `--db PATH`:
+LexGraph stores everything in one SQLite database file; it supports no other database yet. Every LexGraph process (the server, the CLIs, the MCP server) reads its location from the same environment variable; `app.bootstrap`, `app.seed_demo`, `app.migrate` and `app.rotate_sign_in_token` also accept `--db PATH`. This runbook uses `backend/dev.db`, the file the Quickstart bootstraps. Set the variable from the repository root:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 ```
 
-Leaving the variable unset selects an in-memory database. No other process can fill it, so the server refuses to start on it.
+`$PWD` makes it the absolute, four-slash form, which names the same file from any directory. A relative URL such as `sqlite:///dev.db` resolves against the directory each command runs in. The commands below that start with this `export` run from the repository root; use another file name throughout for another database.
+
+Leaving the variable unset selects an in-memory database. No other process can fill it, so the server and the agent tools refuse to use it.
 
 ### Database Schema
 
 The backend does **not** create the schema itself (`create_app()` never calls `Base.metadata.create_all()`; `python -m app.bootstrap` does, together with the first admin). At startup the server checks the database against the current models. It refuses to start, printing what is wrong and the exact command to run, when:
 
-- the database file does not exist or has no LexGraph tables. Create the workspace with `python -m app.bootstrap --db PATH` (Quickstart).
-- the database was created by an older LexGraph and lacks tables or columns the code needs. Upgrade it with `python -m app.migrate --db PATH` (see "Upgrading an existing database" below).
+- the database file does not exist or has no LexGraph tables. Create the workspace with `python -m app.bootstrap --db PATH` (Quickstart). The check never creates the missing file.
+- the database was created by an older LexGraph and lacks tables, columns or unique indexes the code needs. Upgrade it with `python -m app.migrate --db PATH` (see "Upgrading an existing database" below).
 - `LEXGRAPH_DATABASE_URL` is unset (in-memory).
 
-It never starts "healthy" on a database it would answer HTTP 500 for.
+It never starts "healthy" on a database it would answer HTTP 500 for. The one index it does without is the unique email index while accounts still share an address: the server then starts and logs a warning naming them (see "Upgrading: case-insensitive emails"). The agent CLI and the MCP server run the same check before they open the database.
 
-To create an empty schema without bootstrap's first organization, matter and admin (one-time step for a new file-backed database):
+To create an empty schema without bootstrap's first organization, matter and admin (one-time step for a new file-backed database), with `LEXGRAPH_DATABASE_URL` exported as above:
 
 ```bash
 cd backend
-LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
+.venv/bin/python -c "
 import app.models  # register ORM mappings
 from app.config import get_settings
 from app.db import Base, make_engine
@@ -154,8 +151,6 @@ Base.metadata.create_all(make_engine(get_settings().database_url))
 "
 cd ..
 ```
-
-Note: this step only applies to file-backed databases. With the in-memory default (`LEXGRAPH_DATABASE_URL` unset), a separate process cannot populate the server's database, so the server refuses to start; use a file-backed URL for any real usage.
 
 ### Upgrading an existing database (migration)
 
@@ -177,12 +172,18 @@ Upgrading /path/to/LexGraph/backend/dev.db
   20260802_add_document_jurisdiction_column        applied
   20260804_add_assertion_subject_unit_path_column  applied
   20260805_add_heading_breadcrumbs_column          applied
-Applied 3 of 5 migrations; the schema is current.
+  20261116_assertion_revision_number_unique        applied
+  20261116_backfill_initial_assertion_revisions    already applied
+  20261116_durable_notifications                   applied
+  20261116_sign_in_tokens                          applied
+  20261116_users_email_unique                      applied
+Applied 7 of 10 migrations; the schema is current.
 ```
 
-- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 5 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
+- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 10 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
 - **One transaction per migration.** On SQLite the runner makes `ALTER TABLE` transactional too, so a migration that fails is rolled back completely. The run stops there and exits 1; migrations applied before it are kept. Fix the cause and run the same command again.
-- **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations only add tables and columns, and they never delete rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
+- **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations add tables, columns and indexes and fill in missing values; they never delete or merge rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
+- **Some steps need an operator.** When stored rows stand in the way of a unique index (accounts sharing an email address), the migration leaves that index out and changes none of those rows. The run still exits 0, marks the migration `waiting for an operator` and ends by naming the rows and what to do. The server serves such a database meanwhile. Resolve them and run the command again (see "Upgrading: case-insensitive emails").
 
 The migrations shipped so far, in the order they run (`backend/app/migrations/`; every new migration adds a row here):
 
@@ -193,8 +194,15 @@ The migrations shipped so far, in the order they run (`backend/app/migrations/`;
 | `20260802_add_document_jurisdiction_column` | `documents.jurisdiction` (`NOT NULL DEFAULT 'IL'`) | every existing document becomes `IL` (all pre-2026-08-02 documents are Israeli law) |
 | `20260804_add_assertion_subject_unit_path_column` | `assertions.subject_unit_path` | `NULL` (no sub-article path known) |
 | `20260805_add_heading_breadcrumbs_column` | `articles.heading_breadcrumbs` | `NULL` (no breadcrumbs captured) |
+| `20261116_assertion_revision_number_unique` | unique index on `assertion_revisions (assertion_id, revision_number)` | a revision number that concurrent edits stored twice is renumbered first, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning |
+| `20261116_backfill_initial_assertion_revisions` | none | an assertion stored without revision 1 (definition-link output written before 2026-11-16) gets it, plus an `assertion_created` audit event marked `migration:<id>`; one edited before then keeps only its later revisions, because the original text was not stored |
+| `20261116_durable_notifications` | `notifications` and `notification_preferences` tables | none: notifications raised before the upgrade lived only in the old server process |
+| `20261116_sign_in_tokens` | `users.sign_in_token_hash` and its unique index | every existing account gets a legacy token equal to its user id (see "Upgrading: sign-in tokens replace user-id sign-in") |
+| `20261116_users_email_unique` | unique index `ix_users_email` | stored addresses are lowercased; accounts that share one are reported and left for an operator (see "Upgrading: case-insensitive emails") |
 
 The individual modules stay importable and are idempotent, so the older per-module command (for example `from app.migrations.add_raw_text_columns import upgrade; upgrade(engine)`) still works. `python -m app.migrate` is the supported path: it applies them in order, makes each one atomic, and verifies the result.
+
+Effective dates are stored as UTC instants from 2026-11-16 on. Before that, a date submitted with a UTC offset (for example `2030-01-01T00:00:00+05:00`) was stored as its wall-clock part with the offset dropped. The offset is not recorded anywhere, so no migration can correct such values; an edit that leaves both dates alone still works, and resubmitting a date stores it correctly. Ranges that became inverted this way can be listed with `SELECT id FROM assertions WHERE effective_to < effective_from;`.
 
 **Adding a migration (developers).** A schema change that existing databases need ships as a new module `backend/app/migrations/m<YYYYMMDD>_<slug>.py` with `MIGRATION_ID = "<YYYYMMDD>_<slug>"` and an idempotent `upgrade(engine) -> bool`. The ORM models must declare the same schema, because fresh databases are still built by `create_all()`. The runner picks the module up automatically. The binding rules are in `backend/app/migrations/__init__.py`, and `backend/tests/integration/test_migrate_runner.py` checks every module against real historical schemas (`backend/tests/fixtures/schema_history/`).
 
@@ -207,11 +215,11 @@ The raw-text migration (`20260726_add_raw_text_columns`) adds three new columns:
 
 For any existing database with rows created before this upgrade, the migration automatically backfills these raw columns from their sanitized counterparts. This means historical rows will contain the sanitized approximation of the text, not the original bytes, because the original raw text is no longer available at the time of migration. New rows created after the migration will store both the original raw text and the sanitized version.
 
-If you need to downgrade and remove these columns (to go back to a LexGraph version that predates them; the current server refuses to start without them until you run `python -m app.migrate` again), run:
+If you need to downgrade and remove these columns (to go back to a LexGraph version that predates them; the current server refuses to start without them until you run `python -m app.migrate` again), run, with `LEXGRAPH_DATABASE_URL` exported as in "Initialize the Database":
 
 ```bash
 cd backend
-LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
+.venv/bin/python -c "
 from app.migrations.add_raw_text_columns import downgrade
 from app.db import make_engine
 from app.config import get_settings
@@ -223,29 +231,6 @@ downgrade(engine)
 cd ..
 ```
 
-### Migration: Revision Invariants (2026-11-16)
-
-Databases created before 2026-11-16 need two idempotent migrations (each prints `True` when it changed something and `False` when there was nothing to do; a fresh database needs neither):
-
-- `m20261116_assertion_revision_number_unique` adds the unique index on `assertion_revisions (assertion_id, revision_number)`. Revision numbers that concurrent edits stored twice are first renumbered, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning.
-- `m20261116_backfill_initial_assertion_revisions` adds the missing revision 1 (and an `assertion_created` audit event marked `migration:<id>`) to assertions that were stored without one, i.e. definition-link output written before this date. Definition-link assertions edited before the fix keep only their later revisions: the original text was not stored.
-
-```bash
-cd backend
-.venv/bin/python -c "
-from app.config import get_settings
-from app.db import make_engine
-from app.migrations import m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions
-
-engine = make_engine(get_settings().database_url)
-for migration in (m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions):
-    print(migration.MIGRATION_ID, migration.upgrade(engine))
-"
-cd ..
-```
-
-Effective dates are stored as UTC instants from 2026-11-16 on. Before that, a date submitted with a UTC offset (for example `2030-01-01T00:00:00+05:00`) was stored as its wall-clock part with the offset dropped. The offset is not recorded anywhere, so such values cannot be corrected automatically; an edit that leaves both dates alone still works, and resubmitting a date stores it correctly. Ranges that became inverted this way can be listed with `SELECT id FROM assertions WHERE effective_to < effective_from;`.
-
 ## Backend Server
 
 ### Starting the Backend
@@ -253,7 +238,7 @@ Effective dates are stored as UTC instants from 2026-11-16 on. Before that, a da
 Start the FastAPI backend server:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/uvicorn app.main:app --port 8000
 ```
@@ -276,9 +261,15 @@ If the database cannot be served (see "Database Schema" above), uvicorn exits du
 
 ```text
 app.migrate.SchemaNotCurrentError: LexGraph cannot start: the database at /path/to/LexGraph/backend/dev.db was created by an older version of LexGraph. It is missing:
+  - table notification_preferences
+  - table notifications
+  - column users.sign_in_token_hash
   - column assertions.subject_unit_path
   - column documents.jurisdiction
   - column articles.heading_breadcrumbs
+  - unique (email) on users
+  - unique (sign_in_token_hash) on users
+  - unique (assertion_id, revision_number) on assertion_revisions
 Upgrade it in place (safe to re-run; each migration runs in its own transaction):
     /path/to/LexGraph/backend/.venv/bin/python3 -m app.migrate --db /path/to/LexGraph/backend/dev.db
 
@@ -306,7 +297,7 @@ Two deterministic, offline batch passes run against a matter's already-stored da
 **Enrichment** (`app/enrich/`) suggests candidate assertions from existing `SourceSpan` rows:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/python -m app.enrich.cli --matter-id <matter-id> --triggered-by-user-id <user-id>
 cd ..
@@ -317,13 +308,13 @@ Each suggestion is a `draft`, `model_suggested` assertion authored by `--trigger
 **Definition linking** (`app/definition_links/`, sprint 2026-07-29-definition-links) deterministically (regex/rule-based, no LLM/ML) connects articles within a law to the definitions the law contains, and connects laws to each other when a definition explicitly derives from another law (e.g. "כהגדרתו בחוק..."). It requires `Article` rows already ingested via `app.definition_links.ingest.ingest_wiki_law` (there is no ingestion CLI yet — call `ingest_wiki_law(session, ...)` directly, e.g. from a one-off script or a REPL, to load a `.wiki`-formatted law's text into `Document`/`Article`/`SourceSpan` rows for a matter):
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/python -m app.definition_links.cli --matter-id <matter-id> --triggered-by-user-id <user-id>
 cd ..
 ```
 
-This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint); add `&limit=100&offset=<n>` to page through a large run.
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. On a database linked before 2026-11-16, `python -m app.migrate` adds the missing revision 1 (migration `20261116_backfill_initial_assertion_revisions`). The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint); add `&limit=100&offset=<n>` to page through a large run.
 The assertion detail page shows these rows as pipeline-generated: the pipeline is the author, the `--triggered-by-user-id` user is named only as the user the run is attributed to, and the evidence badge reads "System-derived".
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
@@ -334,14 +325,14 @@ Hugging Face dataset of US statutes and constitutions (50 states, DC, PR and
 federal; about 2M statute sections when LexGraph was built against it). The
 dataset has changed since: read "Getting the dataset" below before you
 download it. `pyarrow` is a real backend dependency (see
-`backend/pyproject.toml`) so `.venv/bin/pip install -e '.[dev]'` in the
-"Backend Environment Setup" step above already installs it.
+`backend/pyproject.toml`), so the backend install in "Backend Environment
+Setup" above already installs it.
 
 Each Parquet file is ingested with **one command**, which creates one
 `Document` (using `--title`) and one `Article` + `SourceSpan` per row:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
     --input /path/to/us_de_statutes.parquet \
@@ -379,7 +370,7 @@ around the single-file command. Point it at the directory holding the
 downloaded statutes and constitutions files:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/python -m app.definition_links.ingest_us_statutes_cli \
     --input-dir /path/to/open-us-law \
@@ -439,9 +430,9 @@ changed in three ways since LexGraph was built against it in 2026-08:
 
 Bulk mode takes statutes and constitutions files only. It records every other
 file in `--input-dir` as failed (`filename does not match ...`) and exits 1, so
-download just those two kinds. For example, with the Hugging Face CLI (`pip
-install huggingface_hub` in any Python environment; it is not a LexGraph
-dependency), after `hf auth login` with your token:
+download just those two kinds. For example, with the Hugging Face CLI (`hf`,
+from the `huggingface_hub` package, installed in any Python environment; it is
+not a LexGraph dependency), after `hf auth login` with your token:
 
 ```bash
 hf download vaquill/open-us-law --repo-type dataset \
@@ -575,7 +566,7 @@ same actions. The gear in the bell's panel chooses which events notify you.
 
 | Event | Who is notified |
 |---|---|
-| An assertion enters review: created as proposed (Suggest Assertion's **Submit for review**, `POST /api/v1/agent/assertions`), submitted from draft, or resubmitted after a revision request | The matter's reviewers and admins |
+| An assertion enters review: created as proposed (Suggest Assertion's **Submit for review**, `POST /api/v1/agent/assertions`, the agent CLI's `suggest`, the MCP `suggest_assertion` tool), submitted from draft, or resubmitted after a revision request | The matter's reviewers and admins |
 | Revision requested, accepted, rejected, disputed or superseded | The assertion's author |
 | New revision, evidence added | Everyone who has worked on the assertion (author, editors, evidence contributors, commenters, raters, last reviewer), plus the matter's reviewers and admins while it awaits review |
 | Comment added | Everyone who has worked on the assertion, and the author of the comment replied to |
@@ -588,9 +579,8 @@ assertion that is already proposed, or repeating a decision that changes
 nothing, does not notify anyone again. Notifications are stored in the
 database (tables `notifications` and `notification_preferences`), so they
 survive restarts and every API worker serves the same feed; they are not
-deleted automatically. Proposals made through the agent CLI or the MCP server
-are stored by another process and do not raise a notification; reviewers find
-them in the Review Queue.
+deleted automatically. The agent CLI and the MCP server write to the same
+tables, so their proposals notify the reviewers too.
 
 The API is `GET /api/v1/notifications` (newest first; `limit` 1–200, default
 50, `offset`, `unread_only`), `GET /api/v1/notifications/unread-count`,
@@ -601,25 +591,11 @@ unread) and `GET`/`PUT /api/v1/notifications/preferences`
 caller's own notifications only.
 
 **Upgrading an existing database.** Databases created before notifications
-were stored need the two tables, created by migration
-`20261116_durable_notifications`. Until it has run, assertion changes still
-work but the notification routes fail. Run it against the database the
-server uses, before starting the upgraded server:
-
-```bash
-cd backend
-LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
-from app.config import get_settings
-from app.db import make_engine
-from app.migrations.m20261116_durable_notifications import upgrade
-print('created' if upgrade(make_engine(get_settings().database_url)) else 'already up to date')
-"
-cd ..
-```
-
-It is safe to run more than once and changes nothing on a database that
-already has the tables. Notifications raised before the upgrade lived only in
-the old server process, so there are none to carry over.
+were stored lack the two tables, so the server refuses to start on them until
+`python -m app.migrate` has created them (migration
+`20261116_durable_notifications`; see "Upgrading an existing database").
+Notifications raised before the upgrade lived only in the old server process,
+so there are none to carry over.
 
 ### Provisioning users & access
 
@@ -693,23 +669,11 @@ Older LexGraph versions used each account's user id as its sign-in
 credential. User ids are visible to every member of a matter (rosters,
 authors, reviewers), so on those versions any member could sign in as any
 other member, including an admin. The `users.sign_in_token_hash` column
-fixes that, and upgrading a database created before it requires the
-`m20261116_sign_in_tokens` migration. With the migration runner,
-`python -m app.migrate --db PATH` applies it along with every other pending
-migration; to apply just this one directly:
-
-```bash
-cd backend
-.venv/bin/python -c "
-from app.db import make_engine
-from app.migrations.m20261116_sign_in_tokens import upgrade
-print(upgrade(make_engine('sqlite:///dev.db')))
-"
-```
-
-It prints `True` when it changed the database and `False` when there was
-nothing to do (it is safe to re-run). Until it has run, nobody can sign in
-and the server logs an error saying so.
+fixes that. A database created before it needs the
+`20261116_sign_in_tokens` migration, which `python -m app.migrate --db PATH`
+applies with every other pending one (see "Upgrading an existing
+database"). Until it has run, the server refuses to start on the database
+and names that command, because nobody could sign in.
 
 To avoid locking anyone out, the migration gives every existing account a
 **legacy** token equal to its old user id, so existing sign-ins (and saved
@@ -734,37 +698,40 @@ longer works.
 Older versions stored email addresses as typed and compared them exactly,
 so `Dana@Firm.example` and `dana@firm.example` could become two accounts
 (and two simultaneous creations could even store one address twice).
-Addresses are now stored in lowercase and must be unique, enforced by a
-unique index that the `m20261116_users_email_unique` migration adds to an
-existing database. The migration runner applies it with the others; to
-apply just this one directly:
+Addresses are now stored in lowercase and must be unique, enforced by the
+unique index `ix_users_email`. On an existing database, `python -m
+app.migrate` applies this with the other migrations
+(`20261116_users_email_unique`): it lowercases the stored addresses and adds
+the index.
+
+If two or more accounts already share an address in any letter case, it
+changes none of them and leaves the index out. The run still exits 0: its
+line for this migration reads `waiting for an operator`, and it ends by
+naming each such account's user id and stored address. Until you resolve
+them the app keeps working, but refuses to guess: the server starts and logs
+the same list as a warning, and creating an account with that address, or
+adding it to a matter, is refused (409). Decide which account keeps the
+address, give each other account its own, and run the migration again
+(nothing is deleted or merged). With `LEXGRAPH_DATABASE_URL` exported as in
+"Initialize the Database", replace `USER_ID` and the new address:
 
 ```bash
 cd backend
 .venv/bin/python -c "
+from sqlalchemy import text
+from app.config import get_settings
 from app.db import make_engine
-from app.migrations.m20261116_users_email_unique import upgrade
-print(upgrade(make_engine('sqlite:///dev.db')))
+
+with make_engine(get_settings().database_url).begin() as conn:
+    conn.execute(text('UPDATE users SET email = :email WHERE id = :id'),
+                 {'email': 'dana.old@firm.example', 'id': 'USER_ID'})
 "
+.venv/bin/python -m app.migrate
+cd ..
 ```
 
-It lowercases the stored addresses and adds the index. If two or more
-accounts already share an address in any letter case, it changes none of
-them and leaves the index out, and prints a warning naming each such
-account's user id and stored address. Until you resolve them the app
-keeps working, but refuses to guess: creating an account with that
-address, or adding it to a matter, is refused (409). Decide which account
-keeps the address, give each other account its own, and run the migration
-again (nothing is deleted or merged):
-
-```bash
-.venv/bin/python -c "
-import sqlite3
-db = sqlite3.connect('dev.db')
-db.execute(\"UPDATE users SET email = 'dana.old@firm.example' WHERE id = 'USER_ID'\")
-db.commit()
-"
-```
+The last command creates the index once no address is shared any more and
+ends with `the schema is current`.
 
 ### Serving the web app in production
 
@@ -789,7 +756,7 @@ To check a build without the backend serving it, run `npm --prefix frontend run 
 
 The app calls `/api/v1` on its own origin and the backend sends no CORS headers, so these do **not** work:
 
-- a static file host that does not forward `/api/` to the backend: sign-in fails, typically with "Unknown user ID" (the host's own 404 for `/api/v1/me`);
+- a static file host that does not forward `/api/` to the backend: sign-in fails with "Could not reach the LexGraph server" (the host's own 404 or 405 for `/api/v1/me`; only the backend's 401 reads "Unknown sign-in token");
 - a build whose `VITE_API_BASE` points at another origin: the browser blocks every call ("Could not reach the LexGraph server");
 - opening `frontend/dist/index.html` from disk (`file://`): a blank page.
 
@@ -802,16 +769,18 @@ Anything else in front of the app (a reverse proxy, a CDN) must serve `frontend/
 The LexGraph MCP server exposes local assertion discovery and, when an agent account is configured, validated suggestion tools. See [MCP registration](mcp-registration.md). To run the MCP server standalone:
 
 ```bash
-export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
 cd backend
 .venv/bin/python -m app.mcp.server
 ```
 
 The MCP server reads from the `LEXGRAPH_DATABASE_URL` environment variable and communicates via stdio.
 It checks the database before serving. If the URL is unset or in-memory, names a
-file that does not exist, or names a file without the LexGraph schema (or
-`LEXGRAPH_AGENT_USER_ID` names no user), it prints one line starting
-`lexgraph MCP server:` on stderr and exits non-zero. It never creates a database file.
+file that does not exist, names a file without the LexGraph schema or one an
+older LexGraph created (the line then names the `python -m app.migrate` command),
+or `LEXGRAPH_AGENT_USER_ID` names no user, it prints one line starting
+`lexgraph MCP server:` on stderr and exits non-zero. It never creates or changes
+a database file.
 
 ### Integration with AI Agents
 
@@ -823,12 +792,12 @@ do not inherit an `export`:
 
 ```bash
 claude mcp add lexgraph \
-  --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/lexgraph.db" \
+  --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/dev.db" \
   -- "$(pwd)/backend/.venv/bin/python" -m app.mcp.server
 ```
 
-This targets the `backend/lexgraph.db` that step 2 of the
-[end-to-end workflow](#end-to-end-workflow) creates; adjust the file name for
+This targets the `backend/dev.db` that the Quickstart and step 2 of the
+[end-to-end workflow](#end-to-end-workflow) create; adjust the file name for
 another database. Add `--env LEXGRAPH_AGENT_USER_ID=<agent account id>` before
 `--` to enable `agent_context` and `suggest_assertion`. Without it, the
 suggestion tools are not registered.
@@ -881,7 +850,7 @@ above:
 2. **Bootstrap the workspace** (one-time; creates the schema, the first
    organization/matter, and the first admin — see "Quickstart" above):
    ```bash
-   export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+   export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
    cd backend
    .venv/bin/python -m app.bootstrap
    cd ..
@@ -891,7 +860,7 @@ above:
 
 3. **Start the backend** (Terminal 1):
    ```bash
-   export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
+   export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
    cd backend
    .venv/bin/uvicorn app.main:app --port 8000
    ```
@@ -915,10 +884,10 @@ above:
    "Provisioning users & access" above for the full walkthrough.
 
 7. **Optional: Register MCP server** (Terminal 3, from the repository root;
-   uses the `backend/lexgraph.db` created in step 2):
+   uses the `backend/dev.db` created in step 2):
    ```bash
    claude mcp add lexgraph \
-     --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/lexgraph.db" \
+     --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/dev.db" \
      -- "$(pwd)/backend/.venv/bin/python" -m app.mcp.server
    ```
    To let an agent suggest assertions, also pass
@@ -928,7 +897,7 @@ above:
 
 ## Environment Variables
 
-- `LEXGRAPH_DATABASE_URL`: SQLite database URL (e.g., `sqlite:///lexgraph.db`; an absolute path needs four slashes). Defaults to in-memory if not set, which the server refuses to start on. `python -m app.bootstrap`, `app.seed_demo` and `app.migrate` accept `--db PATH` instead.
+- `LEXGRAPH_DATABASE_URL`: SQLite database URL, best given in the absolute four-slash form (`sqlite:////abs/path/backend/dev.db`, or `"sqlite:///$PWD/backend/dev.db"` from the repository root; a relative `sqlite:///dev.db` resolves against the current directory). Defaults to in-memory if not set, which the server, the agent CLI and the MCP server refuse. `python -m app.bootstrap`, `app.seed_demo`, `app.migrate` and `app.rotate_sign_in_token` accept `--db PATH` instead.
 - `LEXGRAPH_AGENT_USER_ID`: the dedicated agent account used by the agent CLI and the MCP server (see [AGENT_GUIDE.md](AGENT_GUIDE.md)). Unset, the MCP server is read-only.
 - `LEXGRAPH_FRONTEND_DIST`: the web app build the backend serves on its own origin (default: `frontend/dist` when it has been built; empty value: API only). See "Serving the web app in production".
 - `LEXGRAPH_API_PROXY`: where the Vite dev and preview servers forward `/api` (default `http://127.0.0.1:8000`).
@@ -938,13 +907,14 @@ above:
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
 - **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
-- **Sign-in says "Unknown user ID" or "Could not reach the LexGraph server" although the id is valid**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production".
-- **`no such column` / `no such table` errors from a CLI or the MCP server**: the database predates your checkout (those entry points do not run the server's startup check); run `python -m app.migrate --db PATH` on it.
+- **Sign-in says "Could not reach the LexGraph server" although the backend is running**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production". "Unknown sign-in token" is the backend itself refusing the token: check it, or have it rotated.
+- **An agent CLI or MCP error says the database was created by an older version of LexGraph**: run the `python -m app.migrate --db PATH` command it names. Both run the server's schema check before they touch the database.
+- **The server logs `The database lacks the unique index ix_users_email until an operator acts`**: accounts share an email address; see "Upgrading: case-insensitive emails".
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend. For `./scripts/demo.sh`, set `BACKEND_PORT` or `FRONTEND_PORT` (see "Optional: demo workspace").
-- **Module not found errors**: Ensure you've run `.venv/bin/pip install -e '.[dev]'` in the backend directory, and that you start LexGraph with `backend/.venv/bin/...`, not a system `python3`.
+- **Module not found errors**: Ensure you've installed the backend with `(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')` from the repository root, and that you start LexGraph with `backend/.venv/bin/...`, not a system `python3`.
 - **MCP server shows "Failed to connect"**: run the registered command by hand
   with the same environment, e.g.
-  `LEXGRAPH_DATABASE_URL=sqlite:////abs/path/backend/lexgraph.db /abs/path/backend/.venv/bin/python -m app.mcp.server < /dev/null`.
+  `LEXGRAPH_DATABASE_URL=sqlite:////abs/path/backend/dev.db /abs/path/backend/.venv/bin/python -m app.mcp.server < /dev/null`.
   It prints the reason on one stderr line (a working configuration prints
   nothing and exits when stdin closes). A relative `sqlite:///` URL
   resolves against the client's working directory, not `backend/`, so register
