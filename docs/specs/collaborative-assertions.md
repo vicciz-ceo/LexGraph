@@ -1250,8 +1250,10 @@ submitting the same query again runs it again. Analytics reads
 midnights for its weekly chart. Profile reads
 `assertion-stats?author_user_id=<user>` for its counts, and lists the user's
 suggestions (most recently updated first) and the proposed assertions they
-have not rated, 50 at a time. The UI reads an instant that has no offset as
-UTC.
+have not rated, 50 at a time. Its Notifications tab lists every notification,
+50 at a time with Show more; the tab and the list take the unread count from
+`GET /notifications/unread-count`, which covers notifications not loaded
+yet. The UI reads an instant that has no offset as UTC.
 
 ## Review decision rules (2026-11-16)
 

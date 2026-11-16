@@ -53,6 +53,7 @@ vi.mock("../../api/client", () => ({
     assertionStats: vi.fn(),
     listAssertions: vi.fn(),
     notifications: vi.fn(),
+    unreadNotificationCount: vi.fn(),
   },
 }));
 
@@ -70,6 +71,7 @@ beforeEach(() => {
     async (_matterId: string, _params: AssertionListParams = {}) => ({ items: [], total: 0 }),
   );
   mockedApi.notifications.mockResolvedValue([] as AppNotification[]);
+  mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 0 });
   mockedApi.assertionStats.mockResolvedValue({
     matter_id: "m-1",
     total: 0,

@@ -554,7 +554,7 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
 - **Admin** — user account provisioning and matter member/role management (admin role required)
-- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), notifications, and matters
+- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), all your notifications (50 at a time, with your unread count), and matters
 
 ### Notifications
 
@@ -562,9 +562,12 @@ The bell in the top bar shows whether you have unread notifications (its
 label gives the count). Each notification names the assertion, who acted and
 in which matter. Opening one marks it read and takes you to the assertion,
 switching to its matter first when needed; **Mark all as read** marks
-everything listed (a notification that arrives meanwhile stays unread). The
-Profile page's **Notifications** tab lists the same notifications with the
-same actions. The gear in the bell's panel chooses which events notify you.
+every notification up to the newest one listed (one that arrives meanwhile
+stays unread). The bell lists your 20 newest notifications. The Profile
+page's **Notifications** tab lists all of them, 50 at a time (**Show more**
+loads older ones), with the same actions; the tab and the line above the
+list give your unread count, which includes notifications not loaded yet.
+The gear in the bell's panel chooses which events notify you.
 
 | Event | Who is notified |
 |---|---|
