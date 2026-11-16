@@ -202,6 +202,9 @@ describe("AssertionDetailPage review actions", () => {
     await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2));
     expect(await screen.findByText(/changed after you opened it/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+    // In plain words, without the API's field name (acceptance run).
+    expect(screen.getByRole("alert")).toHaveTextContent("Reason: it was edited.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("expected_revision_number");
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 

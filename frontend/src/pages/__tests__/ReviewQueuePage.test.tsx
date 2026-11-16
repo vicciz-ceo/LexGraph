@@ -495,6 +495,9 @@ describe("ReviewQueuePage review decisions", () => {
     expect(screen.getByText(modelAssertion.proposition)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/changed after you opened it/);
     expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+    // In plain words, without the API's field name (acceptance run).
+    expect(screen.getByRole("alert")).toHaveTextContent("Reason: it was edited.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("expected_revision_number");
   });
 
   it("records one decision when Reject is double-clicked", async () => {

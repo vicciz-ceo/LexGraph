@@ -220,9 +220,12 @@ changes nothing.
 
 The Review Queue, the assertion page and **Contested** send that revision for
 you. If the assertion changed after you opened it, the page tells you that your
-decision was not recorded and shows the current version. The same happens to an
+decision was not recorded and why (for example, it was edited, or someone else
+already decided it), and shows the current version. The same happens to an
 acceptance when the assertion's supporting evidence was removed after you
-opened it; the page then also asks for the justification. They offer only the
+opened it; the page then also asks for the justification. When a decision
+would make a rejected assertion live next to an identical live one, the page
+says that this is why it was not recorded. The pages offer only the
 decisions that apply to the assertion's status, and the next decision only once
 they show the result of the last one. Confirm stays disabled until the required
 justification or revision comment has text. The Contested drawer shows each
