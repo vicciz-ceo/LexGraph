@@ -4,7 +4,7 @@
     {
       "name": "backend",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["scripts/dev-backend.sh"],
+      "runtimeArgs": ["scripts/dev-backend.sh", "--port", "8000"],
       "port": 8000,
       "autoPort": false
     },

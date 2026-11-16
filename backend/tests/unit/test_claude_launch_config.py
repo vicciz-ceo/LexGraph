@@ -47,9 +47,10 @@ def test_frontend_port_can_be_moved_by_the_preview_but_not_by_vite():
     assert frontend["autoPort"] is True
 
 
-def test_backend_configuration_runs_the_dev_backend_script():
+def test_backend_configuration_runs_the_dev_backend_script_on_its_own_port():
     backend = CONFIGS["backend"]
-    assert [backend["runtimeExecutable"], *backend["runtimeArgs"]] == ["sh", "scripts/dev-backend.sh"]
+    command = [backend["runtimeExecutable"], *backend["runtimeArgs"]]
+    assert command == ["sh", "scripts/dev-backend.sh", "--port", str(backend["port"])], command
     assert "cwd" not in backend, "the script is resolved against the project root"
 
 

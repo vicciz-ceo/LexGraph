@@ -66,6 +66,14 @@ def _listening(port: int) -> bool:
         return probe.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _argv(config: dict, port: int) -> list[str]:
+    """The configuration's command with its `--port` value moved to `port`, as the preview does."""
+    args = list(config["runtimeArgs"])
+    if "--port" in args:
+        args[args.index("--port") + 1] = str(port)
+    return [config["runtimeExecutable"], *args]
+
+
 class Servers:
     """Start configurations like the preview does; every process group is stopped at teardown."""
 
@@ -74,14 +82,11 @@ class Servers:
 
     def start(self, name: str, cwd: Path, port: int, env: dict[str, str] | None = None) -> subprocess.Popen:
         config = CONFIGS[name]
-        args = list(config["runtimeArgs"])
-        if "--port" in args:
-            args[args.index("--port") + 1] = str(port)
         log = self.logs / f"{name}-{len(self.started)}.log"
         with log.open("w") as out:
             process = subprocess.Popen(
-                [config["runtimeExecutable"], *args], cwd=cwd, stdout=out, stderr=subprocess.STDOUT,
-                env={**os.environ, **config.get("env", {}), **(env or {}), "PORT": str(port)},
+                _argv(config, port), cwd=cwd, stdout=out, stderr=subprocess.STDOUT,
+                env={**os.environ, **config.get("env", {}), "PORT": str(port), **(env or {})},
                 start_new_session=True)
         process.log = log
         self.started.append(process)
@@ -139,10 +144,10 @@ def _wrap(root: Path, name: str, args: str, before: str = "") -> None:
 
 
 def _run_backend(project: Path) -> subprocess.CompletedProcess:
-    config = CONFIGS["backend"]
-    return subprocess.run([config["runtimeExecutable"], *config["runtimeArgs"]], cwd=project,
-                          env={**os.environ, "PORT": str(_free_port())}, capture_output=True, text=True,
-                          timeout=120, check=False)
+    """Run the backend configuration to completion (for the cases where it must refuse to serve)."""
+    port = _free_port()
+    return subprocess.run(_argv(CONFIGS["backend"], port), cwd=project, env={**os.environ, "PORT": str(port)},
+                          capture_output=True, text=True, timeout=120, check=False)
 
 
 def test_backend_configuration_seeds_the_demo_workspace_then_serves_it(project, servers):
@@ -161,7 +166,7 @@ def test_backend_configuration_seeds_the_demo_workspace_then_serves_it(project, 
     backend.wait(15)
     assert not _listening(port)
 
-    again = servers.start("backend", project, port)
+    again = servers.start("backend", project, port, env={"PORT": "1"})  # a stray PORT cannot move it
     assert _ready(again, f"http://127.0.0.1:{port}/healthz") == 200
     assert "seeding" not in again.log.read_text()
     with closing(sqlite3.connect(database)) as db:

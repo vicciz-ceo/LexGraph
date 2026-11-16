@@ -2,12 +2,20 @@
 # Serve the LexGraph API for the frontend dev server: the "backend" entry of
 # .claude/launch.json, also usable by hand from any directory.
 #
+# Usage: scripts/dev-backend.sh [--port PORT]   (default: $PORT, else 8000)
+#
 # Serves backend/dev.db, the database README.md and scripts/demo.sh use, on
-# 127.0.0.1:$PORT (default 8000), where frontend/vite.config.ts proxies /api.
+# 127.0.0.1:8000 by default, where frontend/vite.config.ts proxies /api.
 # When backend/dev.db does not exist yet, the demo workspace is seeded into it
 # first, as scripts/demo.sh does (sign in as admin, reviewer, contributor or
 # viewer). An existing database is served as it is and never replaced.
 set -eu
+port=${PORT:-8000}
+case "${1:-}" in
+  --port) port=${2:?"--port needs a value"} ;;
+  "") ;;
+  *) echo "usage: scripts/dev-backend.sh [--port PORT]" >&2; exit 2 ;;
+esac
 cd "$(dirname "$0")/../backend"
 backend=$(pwd)
 
@@ -45,5 +53,5 @@ fi
 
 LEXGRAPH_DATABASE_URL="sqlite:///$backend/dev.db"
 export LEXGRAPH_DATABASE_URL
-echo "dev-backend: serving $LEXGRAPH_DATABASE_URL on http://127.0.0.1:${PORT:-8000}"
-exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "${PORT:-8000}"
+echo "dev-backend: serving $LEXGRAPH_DATABASE_URL on http://127.0.0.1:$port"
+exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$port"
