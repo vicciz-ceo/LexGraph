@@ -31,8 +31,9 @@ review" and the agent endpoint -- notifies exactly like draft + submit
 Notices are written in their own transaction right after the mutation has
 committed. A failure is logged and never changes the response the client
 gets. Agent proposals made through the CLI or the MCP server do not pass
-through HTTP; they can raise the same notice by calling
-`app.notifications.notify_assertion_submitted` on their own session.
+through HTTP; they raise the same notice by calling
+`app.notifications.notify_submission` on their own session (idempotent per
+submission, so it never duplicates a notice this hook already wrote).
 """
 
 from __future__ import annotations

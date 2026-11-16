@@ -738,35 +738,78 @@ def test_notifications_survive_a_restart_and_are_shared_between_app_instances(cl
         second.state.engine.dispose()
 
 
+def _agent_body(m, proposition: str, **extra) -> dict:
+    return {
+        "repository_id": m["repository_id"],
+        "matter_id": m["matter_id"],
+        "assertion_type": "APPLIES_TO",
+        "proposition": proposition,
+        "subject_entity": {"type": "Document", "id": m["document_id"]},
+        "agent": {"platform": "cli-test"},
+        **extra,
+    }
+
+
 def test_a_proposal_made_outside_http_can_notify_through_the_service(client, app, team):
-    """The agent CLI / MCP path: same shared creation function, another
-    session, no HTTP request -- the service writes into the same feed, and
-    a second call for the same submission adds nothing."""
+    """The agent CLI / MCP path: the same shared creation function on its
+    own session, no HTTP request. notify_submission writes into the same
+    feed, and a second call for the same submission adds nothing."""
     from app import notifications
-    from app.models.assertion import Assertion
     from app.routers.agents import AgentAssertionCreate, suggest_assertion
 
     m = team
-    body = AgentAssertionCreate.model_validate(
-        {
-            "repository_id": m["repository_id"],
-            "matter_id": m["matter_id"],
-            "assertion_type": "APPLIES_TO",
-            "proposition": "Proposed from the command line.",
-            "subject_entity": {"type": "Document", "id": m["document_id"]},
-            "agent": {"platform": "cli-test"},
-        }
-    )
     with app.state.session_factory() as session:
+        body = AgentAssertionCreate.model_validate(_agent_body(m, "Proposed from the command line."))
         result = suggest_assertion(body, session, m["contributor_id"])
-        assertion = session.get(Assertion, result["id"])
-        assert len(notifications.notify_assertion_submitted(session, assertion, m["contributor_id"])) == 2
-        session.commit()
-        assert notifications.notify_assertion_submitted(session, assertion, m["contributor_id"]) == []
-        session.commit()
+        assert notifications.notify_submission(session, result["id"], m["contributor_id"]) == 2
+        assert notifications.notify_submission(session, result["id"], m["contributor_id"]) == 0
+
+        draft = suggest_assertion(
+            AgentAssertionCreate.model_validate(_agent_body(m, "A CLI draft.", save_as="draft")),
+            session,
+            m["contributor_id"],
+        )
+        assert notifications.notify_submission(session, draft["id"], m["contributor_id"]) == 0
+        assert notifications.notify_submission(session, "no-such-assertion", m["contributor_id"]) == 0
 
     assert _kinds(client, m["reviewer_headers"], result["id"]) == ["assertion_submitted"]
     assert _kinds(client, m["admin_headers"], result["id"]) == ["assertion_submitted"]
+    assert _about(client, m["reviewer_headers"], draft["id"]) == []
+
+
+def test_notify_submission_adds_nothing_where_the_http_hook_already_notified(client, app, team):
+    """Safe to call from the shared agent function too: the REST agent
+    endpoint is already covered by the hook, and no duplicate appears."""
+    from app import notifications
+
+    m = team
+    r = client.post("/api/v1/agent/assertions", json=_agent_body(m, "Proposed over REST."), headers=m["contributor_headers"])
+    assert r.status_code == 201
+    with app.state.session_factory() as session:
+        assert notifications.notify_submission(session, r.json()["id"], m["contributor_id"]) == 0
+    assert _kinds(client, m["reviewer_headers"], r.json()["id"]) == ["assertion_submitted"]
+
+
+def test_notify_submission_never_raises(app, team, monkeypatch, caplog):
+    from app import notifications
+    from app.routers.agents import AgentAssertionCreate, suggest_assertion
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("notification store unavailable")
+
+    m = team
+    with app.state.session_factory() as session:
+        result = suggest_assertion(
+            AgentAssertionCreate.model_validate(_agent_body(m, "Stored even if notifying fails.")),
+            session,
+            m["contributor_id"],
+        )
+        monkeypatch.setattr(notifications, "notify_assertion_submitted", broken)
+        assert notifications.notify_submission(session, result["id"], m["contributor_id"]) == 0
+        assert "could not notify reviewers" in caplog.text
+        from app.models.assertion import Assertion
+
+        assert session.get(Assertion, result["id"]).status == "proposed"  # session still usable
 
 
 def test_a_notification_failure_never_breaks_the_mutation(client, team, monkeypatch, caplog):

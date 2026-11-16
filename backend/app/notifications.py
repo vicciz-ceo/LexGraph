@@ -31,8 +31,10 @@ Each user can switch any event type on or off (`notification_preferences`);
 
 The trigger hooks live in `app.notification_hooks` (ASGI middleware over
 the mutation routes). The `notify_*` functions here take a plain SQLAlchemy
-session, so code that changes assertions outside an HTTP request (the agent
-CLI, the MCP server) can raise the same notices into the same table.
+session, so code that changes assertions outside an HTTP request can raise
+the same notices into the same table: the agent CLI and MCP server propose
+without HTTP and need one `notify_submission(session, assertion_id, actor)`
+call after a proposal is stored.
 
 A notification stores references and event facts only (`payload`); the
 readable context (current proposition, matter name, actor name) and the
@@ -43,6 +45,7 @@ a member of the matter, so revoking access also hides old notices' content.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from collections.abc import Iterable
 from datetime import datetime, timezone
@@ -60,6 +63,8 @@ from app.models.matter import Matter
 from app.models.matter_role import MatterRole
 from app.models.notification import Notification, NotificationPreference
 from app.models.user import User
+
+logger = logging.getLogger("app.notifications")
 
 # Spec §15 order; also the order preferences are listed in.
 EVENT_TYPES = (
@@ -304,6 +309,28 @@ def notify_assertion_submitted(
         assertion_id=assertion.id,
         payload={"status": assertion.status, "previous_status": previous_status},
     )
+
+
+def notify_submission(session: Session, assertion_id: str, actor_user_id: str) -> int:
+    """One call for code that proposes assertions outside an HTTP request
+    (the agent CLI, the MCP server): if `assertion_id` is proposed, notify
+    the reviewers and commit. Returns how many notices were written.
+
+    Never raises -- a notification problem must not fail a suggestion that
+    has already been stored -- and is idempotent per submission, so calling
+    it on a path the HTTP hook also covers creates no duplicates.
+    """
+    try:
+        assertion = session.get(Assertion, assertion_id)
+        if assertion is None:
+            return 0
+        created = notify_assertion_submitted(session, assertion, actor_user_id)
+        session.commit()
+        return len(created)
+    except Exception:
+        session.rollback()
+        logger.exception("could not notify reviewers about assertion %s", assertion_id)
+        return 0
 
 
 def notify_review_decision(
