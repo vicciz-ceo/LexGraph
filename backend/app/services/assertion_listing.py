@@ -9,6 +9,10 @@ Backs ``GET /api/v1/assertions`` and ``GET /api/v1/matters/{id}/assertion-stats`
   the current revision's raw proposition so that it keeps Python's Unicode
   case folding (SQLite's ``lower()`` and ``LIKE`` fold ASCII only).
 * Unknown query parameters and sort keys get a 422. They are never ignored.
+* Every filter value is checked before it reaches SQL, and an invalid one
+  is a 422 (review listing:2): a value SQLite cannot bind, an instant that
+  leaves the years 1-9999 once in UTC, or a sort key given twice answered
+  500 instead.
 * Ties are broken by insertion order (the SQLite ``rowid``), so pages are
   stable even though one pipeline run stamps thousands of rows with a single
   ``created_at``.
@@ -20,7 +24,7 @@ import json
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time
 
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy import and_, case, func, literal_column, or_, select
@@ -35,7 +39,7 @@ from app.models.user import User
 from app.services.jurisdiction import validate_jurisdiction
 from app.services.paging import MAX_OFFSET
 from app.services.ratings import compute_rating_summary, compute_standing
-from app.services.validation import ValidationError
+from app.services.validation import ValidationError, normalize_effective_datetime
 
 SUPPORTING_EVIDENCE_ROLES = ("supports", "primary_basis", "secondary_basis")
 LIST_MAX_LIMIT = 500
@@ -112,8 +116,11 @@ def assertion_filters(
     last_activity_from: datetime | None = None,
     last_activity_to: datetime | None = None,
     effective_on: date | None = None,
-    min_average_rating: float | None = None,
-    min_rating_count: int | None = None,
+    # An average strength lies on the 1-5 rating scale; NaN and the
+    # infinities are no threshold (spec section 7: a non-finite number is a 422).
+    min_average_rating: float | None = Query(default=None, ge=1, le=5, allow_inf_nan=False),
+    # Bounded like `offset`: SQLite cannot bind an integer beyond 64 bits.
+    min_rating_count: int | None = Query(default=None, ge=0, le=MAX_OFFSET),
     unrated_by_me: bool | None = None,
     my_rating: int | None = Query(default=None, ge=1, le=5),
 ) -> AssertionFilters:
@@ -128,6 +135,21 @@ def assertion_filters(
             validate_jurisdiction(jurisdiction)
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # The instants become aware UTC here, as effective dates do: an offset is
+    # applied, a naive value is UTC, and one that leaves the years 1-9999
+    # once in UTC is a 422 (it used to overflow while being bound: a 500).
+    try:
+        created_from, created_to, last_activity_from, last_activity_to = (
+            normalize_effective_datetime(value, label=name)
+            for name, value in (
+                ("created_from", created_from),
+                ("created_to", created_to),
+                ("last_activity_from", last_activity_from),
+                ("last_activity_to", last_activity_to),
+            )
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return AssertionFilters(
         matter_id=matter_id,
         origin=origin,
@@ -193,20 +215,24 @@ def assertion_stats_query(
 
 
 def parse_bucket_edges(raw: str | None) -> tuple[datetime, ...]:
-    """Comma-separated ISO-8601 instants, strictly increasing. A naive value is UTC."""
+    """Comma-separated ISO-8601 instants, strictly increasing. A naive value is
+    UTC; one outside the years 1-9999 once in UTC is a 422."""
     if not raw:
         return ()
     edges = []
-    for token in raw.split(","):
+    for token in (part.strip() for part in raw.split(",")):
         try:
-            value = datetime.fromisoformat(token.strip())
+            value = datetime.fromisoformat(token)
         except ValueError as exc:
             raise HTTPException(
                 422,
-                f"created_bucket_edges: {token.strip()!r} is not an ISO-8601 date-time "
+                f"created_bucket_edges: {token!r} is not an ISO-8601 date-time "
                 "(write UTC as 'Z', or percent-encode '+' as %2B)",
             ) from exc
-        edges.append(value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc))
+        try:
+            edges.append(normalize_effective_datetime(value, label=f"created_bucket_edges: {token!r}"))
+        except ValidationError as exc:
+            raise HTTPException(422, str(exc)) from exc
     if not 2 <= len(edges) <= _MAX_BUCKET_EDGES:
         raise HTTPException(422, f"created_bucket_edges takes 2 to {_MAX_BUCKET_EDGES} instants")
     if any(later <= earlier for earlier, later in zip(edges, edges[1:])):
@@ -385,10 +411,12 @@ def _conditions(f: AssertionFilters, d: _Derived) -> list:
     if f.last_activity_to is not None:
         conditions.append(d.last_activity() < f.last_activity_to)
     if f.effective_on is not None:
-        # In effect on that calendar day; an open bound is unbounded.
-        day = datetime.combine(f.effective_on, time.min)
-        conditions.append(or_(Assertion.effective_from.is_(None), Assertion.effective_from < day + timedelta(days=1)))
-        conditions.append(or_(Assertion.effective_to.is_(None), Assertion.effective_to >= day))
+        # In effect on that calendar day; an open bound is unbounded. The
+        # day's last instant rather than the next midnight, which 9999-12-31
+        # does not have.
+        first, last = datetime.combine(f.effective_on, time.min), datetime.combine(f.effective_on, time.max)
+        conditions.append(or_(Assertion.effective_from.is_(None), Assertion.effective_from <= last))
+        conditions.append(or_(Assertion.effective_to.is_(None), Assertion.effective_to >= first))
     if f.evidence_status:
         conditions.append(d.evidence_status() == f.evidence_status)
     if f.min_rating_count is not None:
@@ -428,7 +456,13 @@ SORT_KEYS: dict[str, Callable[[_Derived], list[tuple[object, bool]]]] = {
 
 
 def parse_sort(sort: str | None) -> tuple[tuple[str, bool], ...]:
-    """``-key`` sorts descending; several keys are comma-separated."""
+    """``-key`` sorts descending; several keys are comma-separated.
+
+    A key given twice is a 422, like an unknown one: its second mention
+    could not change the order, so honouring the request as written is
+    impossible. That also bounds the ORDER BY at every key once (a key
+    repeated a thousand times exceeded SQLite's term limit: a 500).
+    """
     if not sort:
         return ()
     keys = []
@@ -441,6 +475,8 @@ def parse_sort(sort: str | None) -> tuple[tuple[str, bool], ...]:
                 f"unsupported sort key {token!r}. Supported: {', '.join(SORT_KEYS)} "
                 "(prefix '-' for descending; separate several keys with commas)",
             )
+        if any(name == seen for seen, _ in keys):
+            raise HTTPException(422, f"sort key {name!r} is given more than once")
         keys.append((name, descending))
     return tuple(keys)
 

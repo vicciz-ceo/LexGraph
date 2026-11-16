@@ -1192,7 +1192,8 @@ and every other paged route (`/matters/{id}/entities`, `/source-spans`,
 `evidence_status`, `created_from`/`created_to` and
 `last_activity_from`/`last_activity_to` (instants, half-open `[from, to)`),
 `effective_on` (in effect on that date; an open bound is unbounded),
-`min_average_rating`, `min_rating_count`, `unrated_by_me` and `my_rating` (1–5).
+`min_average_rating` (1–5), `min_rating_count` (0–2,147,483,647),
+`unrated_by_me` and `my_rating` (1–5).
 `sort` takes `created_at`, `updated_at`, `last_activity`, `proposition`,
 `assertion_type`, `subject`, `object`, `origin`, `author`, `status`,
 `evidence_status`, `average_rating`, `rating_count`, `my_rating`,
@@ -1200,8 +1201,12 @@ and every other paged route (`/matters/{id}/entities`, `/source-spans`,
 descending, and several keys are comma-separated. Missing values sort last in
 both directions, and ties keep insertion order. Rating sorts reflect user
 opinion, not legal authority. Unknown query parameters and sort keys are
-rejected with 422. Potential-duplicate and potential-conflict filters are not
-implemented. Besides the detail serializer's fields, each item carries
+rejected with 422, and so is a sort key given twice. An invalid filter value is
+a 422 too: a number out of its range or not finite, an instant that is outside
+the years 1 to 9999 once converted to UTC (an offset is applied; an instant
+without one is UTC), or an `effective_on` that is not a `YYYY-MM-DD` date.
+Potential-duplicate and potential-conflict filters are not implemented.
+Besides the detail serializer's fields, each item carries
 `ratings_summary` (the current revision's aggregate over every rating, the
 author's included, or null), `current_user_rating` and `last_activity_at` (the
 later of `updated_at` and the newest audit event).
@@ -1211,7 +1216,8 @@ later of `updated_at` and the newest audit event).
 status and author, model confidence by origin, and the current-revision rating
 aggregates. With `created_bucket_edges` (comma-separated instants) it also
 returns creation counts per bucket. Unknown query parameters are rejected with
-422.
+422, as are invalid filter values and bucket edges that are not strictly
+increasing instants within the years 1 to 9999 in UTC.
 
 `GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
 `show_unreviewed=true` it adds proposed, disputed, rejected and superseded
