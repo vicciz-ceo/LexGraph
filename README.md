@@ -100,7 +100,8 @@ Repository-level `AGENTS.md` and `CLAUDE.md` make the workflow discoverable.
 
 Lawyers can search sources, suggest assertions, edit through recorded revisions,
 submit/withdraw drafts, and rate each revision with a preserved rationale.
-Agent provenance and exact evidence quotes are visible on assertion detail.
+Agent provenance and exact evidence quotes are visible on assertion detail,
+together with the review history and the rating rationales a member may read.
 
 ## Status
 

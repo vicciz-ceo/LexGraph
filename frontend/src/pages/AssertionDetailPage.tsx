@@ -1,15 +1,19 @@
 import { AssertionEditor } from "../components/AssertionEditor";
 // Assertion detail — the full record for one assertion: proposition,
-// entities, model provenance, evidence spans, discussion, revision
-// activity, team ratings, and role-gated review actions.
+// entities, model provenance, evidence spans, discussion, review history,
+// revision activity, team ratings and rationales, and role-gated review
+// actions.
 //
 // Domain rules honored here: user strength ratings (1-5, per revision),
 // model confidence (0-1, model/system origins only), and review status
 // are three separate indicators and are never merged.
+//
+// People are named from the matter roster (GET /matters/{id}/members, which
+// every member may read); a user id is never a person's label (ui:0).
 
 import "../styles/pages/assertion-detail.css";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactElement } from "react";
 
 import { ApiError, api } from "../api/client";
@@ -18,15 +22,19 @@ import type {
   AssertionOrigin,
   EntityRef,
   EvidenceStatus,
+  HistoryEvent,
+  Rating,
   RatingSummary,
   RelatedMatch,
 } from "../api/types";
 import { Icon } from "../app/icons";
 import { Link } from "../app/router";
-import { useActiveSession } from "../app/session";
+import { useActiveSession, useSession } from "../app/session";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
+import { AssertionRatingRationales } from "../components/AssertionRatingRationales";
 import { AssertionRatingWidget } from "../components/AssertionRatingWidget";
 import type { AssertionRatingWidgetSaveData } from "../components/AssertionRatingWidget";
+import { AssertionReviewHistory } from "../components/AssertionReviewHistory";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
 
 const ORIGIN_CHIP: Record<AssertionOrigin, { className: string; label: string }> = {
@@ -40,6 +48,21 @@ const EVIDENCE_STATUS_BADGE: Record<EvidenceStatus, { className: string; label: 
   unsupported: { className: "badge badge--rejected", label: "Unsupported" },
   awaiting_evidence: { className: "badge badge--proposed", label: "Awaiting evidence" },
 };
+
+// Finding ui:4: system_generated assertions come from the deterministic
+// definition-linking pipeline (backend/app/definition_links), which stores
+// them accepted, without evidence spans and without a revision record. They
+// are not "awaiting evidence", and the user the pipeline run is attributed to
+// did not author them.
+const SYSTEM_DERIVED_BADGE = { className: "badge badge--neutral", label: "System-derived" };
+
+/** Entity types the backend persists, and therefore labels (ui:30). */
+const PERSISTED_ENTITY_TYPES = new Set(["Document", "Article", "Definition", "SourceSpan", "Assertion"]);
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const RATING_DISCLAIMER =
+  "Ratings reflect users' individual assessments and do not constitute formal legal conclusions.";
 
 const STANDING_EXPLANATION: Record<string, string> = {
   proposed: "Not enough team ratings yet to derive a standing.",
@@ -95,17 +118,79 @@ function evidenceRoleBadge(role: string): string {
   return "badge badge--neutral";
 }
 
+/** A short handle for an opaque reference; the full id stays in the tooltip. */
+function shortRef(id: string): string {
+  if (UUID_PATTERN.test(id)) return id.slice(0, 8);
+  return id.length > 24 ? `${id.slice(0, 8)}…` : id;
+}
+
+/** The current revision's number, or null when no revision record backs it. */
+function recordedCurrentRevision(assertion: AssertionDetail): number | null {
+  const current = assertion.current_revision_number;
+  if (current == null) return null;
+  return assertion.revision_history.some((r) => r.revision_number === current) ? current : null;
+}
+
 function EntityChip({ entity }: { entity: EntityRef }): ReactElement {
+  const type = entity.type ?? "Entity";
+  const label = entity.label && entity.label.trim() ? entity.label : null;
+  const title = entity.id ? `${type} ${entity.id}` : undefined;
+  const typeTag = (
+    <span className="adp-entity-type">
+      {type}
+      <span className="adp-sr-only">: </span>
+    </span>
+  );
+  if (label) {
+    const body = (
+      <>
+        {typeTag}
+        <span className="adp-entity-label">{label}</span>
+      </>
+    );
+    return entity.type === "Assertion" && entity.id ? (
+      <Link to={`/assertions/${encodeURIComponent(entity.id)}`} className="adp-entity" title={title}>
+        {body}
+      </Link>
+    ) : (
+      <span className="adp-entity" title={title}>
+        {body}
+      </span>
+    );
+  }
   return (
-    <span className="adp-entity">
-      <span className="adp-entity-type">{entity.type ?? "entity"}</span>
-      <span className="mono">{entity.id ?? "unknown"}</span>
+    <span className="adp-entity" title={title}>
+      {typeTag}
+      {entity.type !== null && PERSISTED_ENTITY_TYPES.has(entity.type) ? (
+        <span className="adp-entity-ref muted">Not available in this matter</span>
+      ) : (
+        <span className="adp-entity-ref muted">
+          External reference
+          {entity.id && <span className="mono">{shortRef(entity.id)}</span>}
+        </span>
+      )}
     </span>
   );
 }
 
+type Unavailable = "missing" | "forbidden";
+
+interface OtherMatter {
+  id: string;
+  /** null when the matter is not in this session's matter list. */
+  name: string | null;
+}
+
+interface SwitchNotice {
+  assertionId: string;
+  matterId: string;
+  fromName: string;
+  toName: string;
+}
+
 export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const session = useActiveSession();
+  const { selectMatter } = useSession();
   const role = session.role;
   const canContribute = role === "contributor" || role === "reviewer" || role === "admin";
   const canReview = role === "reviewer" || role === "admin";
@@ -113,13 +198,26 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const [detail, setDetail] = useState<AssertionDetail | null>(null);
   const [related, setRelated] = useState<RelatedMatch[]>([]);
   const [summary, setSummary] = useState<RatingSummary | null>(null);
+  // `null` = the request failed (the page says so instead of showing nothing).
+  const [ratings, setRatings] = useState<Rating[] | null>([]);
+  const [history, setHistory] = useState<HistoryEvent[] | null>([]);
+  const [memberNames, setMemberNames] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
+  const [otherMatter, setOtherMatter] = useState<OtherMatter | null>(null);
+  const [switchNotice, setSwitchNotice] = useState<SwitchNotice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [commentDraft, setCommentDraft] = useState("");
   const [postingComment, setPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  // Finding ui:31 / review:11: the assertion last shown in the active matter,
+  // and the one this page already switched matter for. A link into another of
+  // the user's matters switches once; a user who then switches matter away
+  // from the assertion on screen is offered a button, not switched back.
+  const shownRef = useRef<string | null>(null);
+  const switchedForRef = useRef<string | null>(null);
 
   const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -128,38 +226,76 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     setDetail(null);
     setSummary(null);
     setRelated([]);
-    setNotFound(false);
+    setRatings([]);
+    setHistory([]);
+    setMemberNames(null);
+    setUnavailable(null);
+    setOtherMatter(null);
     setActionError(null);
+    setCommentError(null);
     setLoading(true);
   }, [assertionId, session.currentMatter.id]);
 
+  // A draft belongs to the assertion it was typed on.
+  useEffect(() => {
+    setCommentDraft("");
+  }, [assertionId]);
+
   useEffect(() => {
     let cancelled = false;
+    const matterId = session.currentMatter.id;
     setError(null);
     (async () => {
       try {
         const assertion = await api.getAssertion(assertionId);
         if (cancelled) return;
-        const [rel, sum] = await Promise.all([
+        if (assertion.matter_id !== matterId) {
+          const target = session.matters.find((m) => m.id === assertion.matter_id) ?? null;
+          if (target && shownRef.current !== assertionId && switchedForRef.current !== assertionId) {
+            switchedForRef.current = assertionId;
+            setSwitchNotice({
+              assertionId,
+              matterId: target.id,
+              fromName: session.currentMatter.name,
+              toName: target.name,
+            });
+            selectMatter(target.id);
+            return;
+          }
+          setDetail(null);
+          setOtherMatter({ id: assertion.matter_id, name: target?.name ?? null });
+          return;
+        }
+        const revision = recordedCurrentRevision(assertion);
+        const [rel, sum, rows, events, roster] = await Promise.all([
           api.relatedAssertions(assertionId).catch(() => [] as RelatedMatch[]),
-          assertion.current_revision_number != null
-            ? api
-                .ratingSummary(assertionId, assertion.current_revision_number)
-                .catch(() => null)
+          revision != null
+            ? api.ratingSummary(assertionId, revision).catch(() => null)
             : Promise.resolve(null),
+          revision != null
+            ? api.listRatings(assertionId, revision).catch(() => null)
+            : Promise.resolve([] as Rating[]),
+          api.history(assertionId).catch(() => null),
+          api.listMatterMembers(matterId).catch(() => null),
         ]);
         if (cancelled) return;
-        if (assertion.matter_id !== session.currentMatter.id) {
-          setNotFound(true); setDetail(null); return;
-        }
+        shownRef.current = assertionId;
         setDetail(assertion);
         setRelated(rel);
         setSummary(sum);
-        setNotFound(false);
+        setRatings(rows);
+        setHistory(events);
+        // A failed roster refresh keeps the names already known.
+        if (roster) {
+          setMemberNames(Object.fromEntries(roster.map((m) => [m.user.id, m.user.display_name])));
+        }
+        setOtherMatter(null);
+        setUnavailable(null);
       } catch (err) {
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 404) {
-          setNotFound(true);
+        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+          setDetail(null);
+          setUnavailable(err.status === 404 ? "missing" : "forbidden");
         } else {
           setError(err instanceof Error ? err.message : "Failed to load assertion.");
         }
@@ -170,25 +306,52 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     return () => {
       cancelled = true;
     };
+    // session.matters/selectMatter are read when the active matter changes.
   }, [assertionId, session.currentMatter.id, reloadKey]);
 
+  // ui:0: never a user id. A former member is no longer on the roster; with
+  // no roster at all (request failed) only a neutral label is possible.
   const nameFor = useCallback(
-    (userId: string) => (userId === session.user.id ? session.user.display_name : userId),
-    [session.user.id, session.user.display_name],
+    (userId: string) => {
+      if (userId === session.user.id) return session.user.display_name;
+      if (memberNames === null) return "Team member";
+      return memberNames[userId] ?? "Former member";
+    },
+    [session.user.id, session.user.display_name, memberNames],
   );
+
+  // After a rating change: re-read the record, then the summary and the
+  // rationales of its current revision, and show them together. The rating
+  // itself was saved, so a failed re-read reloads the page data instead of
+  // reporting the save as failed.
+  const reloadRatings = async (id: string) => {
+    try {
+      const fresh = await api.getAssertion(id);
+      const revision = recordedCurrentRevision(fresh);
+      const [sum, rows] = await Promise.all([
+        revision != null ? api.ratingSummary(id, revision) : Promise.resolve(null),
+        revision != null
+          ? api.listRatings(id, revision).catch(() => null)
+          : Promise.resolve([] as Rating[]),
+      ]);
+      setDetail(fresh);
+      setSummary(sum);
+      setRatings(rows);
+    } catch {
+      refresh();
+    }
+  };
 
   const handleSaveRating = async ({ strength, rationale }: AssertionRatingWidgetSaveData) => {
     if (!detail || detail.current_revision_number == null) return;
     await api.putRating(detail.id, detail.current_revision_number, strength, rationale);
-    setSummary(await api.ratingSummary(detail.id, detail.current_revision_number));
-    setDetail(await api.getAssertion(detail.id));
+    await reloadRatings(detail.id);
   };
 
   const handleRemoveRating = async () => {
     if (!detail || detail.current_revision_number == null) return;
     await api.deleteRating(detail.id, detail.current_revision_number);
-    setSummary(await api.ratingSummary(detail.id, detail.current_revision_number));
-    setDetail(await api.getAssertion(detail.id));
+    await reloadRatings(detail.id);
   };
 
   const runReview = async (action: () => Promise<unknown>) => {
@@ -206,13 +369,15 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     const text = commentDraft.trim();
     if (!text) return;
     setPostingComment(true);
-    setActionError(null);
+    setCommentError(null);
     try {
       await api.addComment(detail.id, text);
       setCommentDraft("");
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to post comment.");
+      // The server's reason (blank or markup-only text, a viewer role) is
+      // shown next to the form; the draft is kept for correction.
+      setCommentError(err instanceof Error ? err.message : "Failed to post comment.");
     } finally {
       setPostingComment(false);
     }
@@ -225,13 +390,55 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     </Link>
   );
 
-  if (notFound) {
+  if (unavailable) {
     return (
       <div>
         {backLink}
         <div className="empty-state">
-          <p className="empty-state__title">Assertion not found</p>
-          <p>This assertion does not exist or is not part of the current matter.</p>
+          {unavailable === "missing" ? (
+            <>
+              <p className="empty-state__title">Assertion not found</p>
+              <p>This assertion does not exist.</p>
+            </>
+          ) : (
+            <>
+              <p className="empty-state__title">Assertion not available</p>
+              <p>
+                This assertion belongs to a matter you are not a member of. Ask a matter admin for
+                access.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (otherMatter) {
+    return (
+      <div>
+        {backLink}
+        <div className="empty-state">
+          <p className="empty-state__title">Assertion in another matter</p>
+          {otherMatter.name ? (
+            <>
+              <p>
+                {`This assertion belongs to ${otherMatter.name}, not the active matter ${session.currentMatter.name}.`}
+              </p>
+              <button
+                type="button"
+                className="btn btn--primary btn--sm adp-switch-matter"
+                onClick={() => selectMatter(otherMatter.id)}
+              >
+                {`Switch to ${otherMatter.name}`}
+              </button>
+            </>
+          ) : (
+            <p>
+              This assertion belongs to a matter that is not in your matter list. Reload the page
+              to refresh your matter memberships.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -255,7 +462,11 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   }
 
   const origin = ORIGIN_CHIP[detail.origin];
-  const evidenceStatus = EVIDENCE_STATUS_BADGE[detail.evidence_status];
+  const isSystem = detail.origin === "system_generated";
+  const evidenceStatus =
+    isSystem && detail.evidence.length === 0
+      ? SYSTEM_DERIVED_BADGE
+      : EVIDENCE_STATUS_BADGE[detail.evidence_status];
   const showStanding = detail.standing !== detail.status;
   const isModelOrigin =
     detail.origin === "model_suggested" || detail.origin === "system_generated";
@@ -272,8 +483,20 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const distributionSummary = summary ??
     detail.ratings_summary ?? { count: 0, average: null, median: null, distribution: {} };
 
+  // ui:12: compare with earlier revisions (the server counts their ratings),
+  // never with detail.ratings_summary, which describes the same revision.
+  const ratedRevision = recordedCurrentRevision(detail);
+  const priorRatingCount = summary?.prior_revision_rating_count ?? 0;
   const hasRatingsOnPriorRevision =
-    summary !== null && summary.count === 0 && (detail.ratings_summary?.count ?? 0) > 0;
+    summary !== null && summary.count === 0 && priorRatingCount > 0;
+
+  const authorLabel = isSystem
+    ? "System (definition-linking pipeline)"
+    : nameFor(detail.author_user_id);
+  const showSwitchNotice =
+    switchNotice !== null &&
+    switchNotice.assertionId === assertionId &&
+    switchNotice.matterId === session.currentMatter.id;
 
   const revisions = [...detail.revision_history].sort(
     (a, b) => b.revision_number - a.revision_number,
@@ -298,9 +521,25 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             <span className="muted">Created {fmtDate(detail.created_at)}</span>
             <span className="muted">Updated {fmtDate(detail.updated_at)}</span>
           </div>
+          <div className="adp-byline">
+            <span>Author: {authorLabel}</span>
+            {isSystem && (
+              <span className="muted">Pipeline run attributed to {nameFor(detail.author_user_id)}</span>
+            )}
+            {detail.reviewed_by && (
+              <span>
+                Last reviewed by {nameFor(detail.reviewed_by)} on {fmtDate(detail.reviewed_at)}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
+      {showSwitchNotice && switchNotice && (
+        <p className="adp-notice" role="status">
+          {`Switched the active matter from ${switchNotice.fromName} to ${switchNotice.toName} to show this assertion.`}
+        </p>
+      )}
       {loading && <div className="adp-refreshing muted">Refreshing…</div>}
       {error && (
         <div className="error-banner" role="alert">
@@ -358,12 +597,12 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
 
           {isModelOrigin && (
             <section className="card">
-              <div className="card__header">Model provenance</div>
+              <div className="card__header">{isSystem ? "Pipeline provenance" : "Model provenance"}</div>
               <div className="card__body adp-provenance">
                 <div className="adp-provenance-row">
                   <span className={origin.className}>{origin.label}</span>
                   <span className="adp-confidence">
-                    Model confidence:{" "}
+                    {isSystem ? "Pipeline confidence:" : "Model confidence:"}{" "}
                     <strong>
                       {detail.confidence != null
                         ? `${Math.round(detail.confidence * 100)}%`
@@ -377,10 +616,19 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   {detail.agent_provenance.run_id && ` · Run: ${detail.agent_provenance.run_id}`}
                   {" (self-reported)"}
                 </p>}
-                <p className="adp-note">
-                  Model confidence is reported by the extraction pipeline. It is independent
-                  of team strength ratings and of the review status.
-                </p>
+                {isSystem ? (
+                  <p className="adp-note">
+                    Generated automatically by LexGraph&apos;s deterministic definition-linking
+                    pipeline; no person or language model suggested it. The confidence is the
+                    pipeline&apos;s own score for this kind of link. It is independent of team
+                    strength ratings and of the review status.
+                  </p>
+                ) : (
+                  <p className="adp-note">
+                    Model confidence is reported by the extraction pipeline. It is independent
+                    of team strength ratings and of the review status.
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -392,7 +640,15 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             </div>
             <div className="card__body">
               {detail.evidence.length === 0 ? (
-                <p className="muted">No evidence spans are linked to this assertion.</p>
+                isSystem ? (
+                  <p className="muted">
+                    No evidence spans are attached. LexGraph&apos;s definition-linking pipeline
+                    generated this assertion automatically from the provision text it links (the
+                    subject and object above); no person suggested it.
+                  </p>
+                ) : (
+                  <p className="muted">No evidence spans are linked to this assertion.</p>
+                )
               ) : (
                 <ul className="adp-evidence-list">
                   {detail.evidence.map((item) => (
@@ -400,7 +656,10 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                       <span className={evidenceRoleBadge(item.evidence_role)}>
                         {labelize(item.evidence_role)}
                       </span>
-                      <span>{item.document_title ?? item.source_span_id}</span>
+                      <span className={item.document_title ? undefined : "muted"}>
+                        {item.document_title ??
+                          (item.quote_text ? "Quoted source" : "Source span unavailable")}
+                      </span>
                       {item.quote_text && <blockquote>{item.quote_text}</blockquote>}
                       <span className="muted adp-evidence-by">
                         added by {nameFor(item.added_by_user_id)}
@@ -452,6 +711,11 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     value={commentDraft}
                     onChange={(event) => setCommentDraft(event.target.value)}
                   />
+                  {commentError && (
+                    <p className="adp-comment-error" role="alert">
+                      {commentError}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="btn btn--primary btn--sm adp-comment-submit"
@@ -465,11 +729,29 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
             </div>
           </section>
 
+          <section className="card" aria-labelledby="adp-review-history-title">
+            <div className="card__header" id="adp-review-history-title">
+              Review history
+            </div>
+            <div className="card__body">
+              <AssertionReviewHistory
+                events={history}
+                nameFor={nameFor}
+                formatTime={fmtDateTime}
+                systemGenerated={isSystem}
+              />
+            </div>
+          </section>
+
           <section className="card">
             <div className="card__header">Activity</div>
             <div className="card__body">
               {revisions.length === 0 ? (
-                <p className="muted">No revisions recorded yet.</p>
+                <p className="muted">
+                  {isSystem
+                    ? "No revisions are recorded. System-generated assertions are created without a revision record; edits made here are recorded as revisions."
+                    : "No revisions recorded yet."}
+                </p>
               ) : (
                 <ol className="adp-timeline">
                   {revisions.map((revision) => (
@@ -486,7 +768,12 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                       </div>
                       <details><summary>View revision text and ratings</summary>
                         <p>{revision.proposition_raw ?? revision.proposition}</p>
-                        <RevisionRatings assertionId={detail.id} revision={revision.revision_number} />
+                        <RevisionRatings
+                          assertionId={detail.id}
+                          revision={revision.revision_number}
+                          currentUserId={session.user.id}
+                          nameFor={nameFor}
+                        />
                       </details>
                       {revision.revision_reason && (
                         <p className="adp-timeline-reason">{revision.revision_reason}</p>
@@ -500,16 +787,46 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
         </div>
 
         <div className="adp-col adp-col--side">
-          <section className="card">
-            <div className="card__header">Ratings</div>
+          <section className="card" aria-labelledby="adp-ratings-title">
+            <div className="card__header" id="adp-ratings-title">
+              Ratings
+            </div>
             <div className="card__body">
+              {ratedRevision != null ? (
+                <p className="muted adp-rating-scope">
+                  Team ratings for revision v{ratedRevision} (current)
+                </p>
+              ) : (
+                detail.current_revision_number != null && (
+                  <p className="muted adp-rating-scope">
+                    Revision v{detail.current_revision_number} has no stored revision record, so it
+                    cannot be rated. An edit records a new revision that can be rated.
+                  </p>
+                )
+              )}
+              {hasRatingsOnPriorRevision && (
+                <p className="adp-revision-note" role="note">
+                  {`${priorRatingCount} earlier ${
+                    priorRatingCount === 1 ? "rating was" : "ratings were"
+                  } recorded against prior revisions of this assertion. Revision v${ratedRevision} has not been rated yet; earlier ratings stay with their revision under Activity.`}
+                </p>
+              )}
               <AssertionRatingDistribution
                 summary={distributionSummary}
                 modelConfidence={null}
+                detailed
               />
               {distributionSummary.count > 0 && distributionSummary.median != null && (
                 <p className="muted adp-stats">Median {distributionSummary.median}/5</p>
               )}
+              <AssertionRatingRationales
+                ratings={ratings}
+                ratingCount={summary?.count ?? 0}
+                rationaleCount={summary?.rationale_count ?? null}
+                currentUserId={session.user.id}
+                nameFor={nameFor}
+                formatDate={fmtDate}
+              />
               {detail.status === "proposed" && (
                 <div className="adp-standing">
                   <span className={`badge badge--${detail.standing}`}>
@@ -521,15 +838,21 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   </span>
                 </div>
               )}
-              {canContribute && detail.current_revision_number != null && (
+              {canContribute && ratedRevision != null && (
                 <div className="adp-rating-widget">
                   <h3 className="adp-subhead">
-                    Your rating (v{detail.current_revision_number})
+                    Your rating (v{ratedRevision})
                   </h3>
                   <AssertionRatingWidget
-                    key={`${detail.id}:${detail.current_revision_number}`}
+                    key={`${detail.id}:${ratedRevision}`}
                     currentUserRating={summary?.current_user_rating?.strength ?? null}
-                    currentRationale={summary?.current_user_rating?.rationale ?? ""}
+                    // review:7: prefill the exact text, so a strength-only
+                    // update sends it back unchanged.
+                    currentRationale={
+                      summary?.current_user_rating?.rationale_raw ??
+                      summary?.current_user_rating?.rationale ??
+                      ""
+                    }
                     onSave={handleSaveRating}
                     onRemove={handleRemoveRating}
                   />
@@ -538,6 +861,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   </p>
                 </div>
               )}
+              <p className="adp-note adp-disclaimer">{RATING_DISCLAIMER}</p>
             </div>
           </section>
 
@@ -589,14 +913,21 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         to={`/assertions/${match.assertion_id}`}
                         className="adp-related-link"
                       >
+                        {match.proposition ?? "Open the related assertion"}
+                      </Link>
+                      <div className="adp-related-meta">
                         <span className="adp-related-kind">
                           {MATCH_KIND_LABEL[match.match_kind] ?? labelize(match.match_kind)}
                         </span>
-                        <span className="mono">{match.assertion_id}</span>
-                      </Link>
-                      <span className="muted adp-related-score">
-                        score {match.score.toFixed(2)}
-                      </span>
+                        {match.status && (
+                          <span className={`badge badge--${match.status}`}>
+                            {labelize(match.status)}
+                          </span>
+                        )}
+                        <span className="muted adp-related-score">
+                          score {match.score.toFixed(2)}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -609,14 +940,64 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   );
 }
 
-function RevisionRatings({ assertionId, revision }: { assertionId: string; revision: number }) {
+/** One revision's ratings and rationales, loaded on demand under Activity
+ * (ratings stay with the revision they were given on, ruling R5). */
+function RevisionRatings({
+  assertionId,
+  revision,
+  currentUserId,
+  nameFor,
+}: {
+  assertionId: string;
+  revision: number;
+  currentUserId: string;
+  nameFor: (userId: string) => string;
+}) {
   const [summary, setSummary] = useState<RatingSummary | null>(null);
+  const [ratings, setRatings] = useState<Rating[] | null>([]);
+  const [loadingRatings, setLoadingRatings] = useState(false);
   const [error, setError] = useState("");
   const load = async () => {
-    try { setSummary(await api.ratingSummary(assertionId, revision)); setError(""); }
-    catch (e) { setError(e instanceof Error ? e.message : "Unable to load ratings"); }
+    setLoadingRatings(true);
+    try {
+      const [sum, rows] = await Promise.all([
+        api.ratingSummary(assertionId, revision),
+        api.listRatings(assertionId, revision).catch(() => null),
+      ]);
+      setSummary(sum);
+      setRatings(rows);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load ratings");
+    } finally {
+      setLoadingRatings(false);
+    }
   };
-  return <div>{summary ? <AssertionRatingDistribution summary={summary} modelConfidence={null} /> :
-    <button type="button" onClick={() => void load()}>Load ratings for revision {revision}</button>}
-    {error && <p role="alert">{error}</p>}</div>;
+  return (
+    <div className="adp-revision-ratings">
+      {summary ? (
+        <>
+          <AssertionRatingDistribution summary={summary} modelConfidence={null} detailed />
+          <AssertionRatingRationales
+            ratings={ratings}
+            ratingCount={summary.count}
+            rationaleCount={summary.rationale_count}
+            currentUserId={currentUserId}
+            nameFor={nameFor}
+            formatDate={fmtDate}
+          />
+        </>
+      ) : (
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          disabled={loadingRatings}
+          onClick={() => void load()}
+        >
+          Load ratings for revision {revision}
+        </button>
+      )}
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
 }

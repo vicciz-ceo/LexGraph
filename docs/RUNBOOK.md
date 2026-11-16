@@ -206,6 +206,7 @@ cd ..
 ```
 
 This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+The assertion detail page shows these rows as pipeline-generated: the pipeline is the author, the `--triggered-by-user-id` user is named only as the user the run is attributed to, and the evidence badge reads "System-derived". The pipeline writes no revision record, so a rating is offered only after an edit records a revision.
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 
@@ -314,7 +315,7 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
 - **Knowledge Base** — searchable accepted-assertion table with CSV export
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
-- **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
+- **Assertion detail** — evidence, comments, review history, revision history, ratings with rationales, and role-gated review actions
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live from the assertion list
 - **Admin** — user account provisioning and matter member/role management (admin role required)

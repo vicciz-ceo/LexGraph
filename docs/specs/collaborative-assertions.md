@@ -989,3 +989,38 @@ needs contributor membership and an unreviewed status; reviewers can revise
 reviewed assertions. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Assertion detail page (2026-11-16)
+
+The detail page names people from the matter roster (`GET /matters/{id}/members`,
+which every member may read) and never shows a user id as a person's name. A
+user no longer on the roster is shown as "Former member"; if the roster cannot
+be loaded, people are shown as "Team member". The header names the author and
+the last reviewer with the decision date. A Review history card lists the review
+decisions from `GET .../history`, newest first: accept, reject, dispute, request
+revision and supersede, plus submit and withdraw when the feed records them. Each
+entry shows the reviewer, the revision, the time and the acceptance justification
+or revision comment. Other audit rows, including ratings, are not listed.
+
+The Ratings card says which revision its team ratings belong to. When the
+current revision is unrated but earlier revisions were rated, it says how many
+earlier ratings exist; the reviewer's Review card says so too. The card shows the
+distribution with each strength's name and count, how many ratings include a
+rationale, and the rationales the API returns to the viewer: every rationale for
+reviewers and administrators, otherwise the viewer's own. It also states that
+ratings are individual assessments, not formal legal conclusions. A prior
+revision's ratings and rationales load under Activity. The rating editor is
+prefilled with the rater's exact text (`rationale_raw`).
+
+Subject, object and related assertions are shown by label, proposition and
+status. A legacy reference without a label is marked as an external reference.
+Opening a link to an assertion of another matter the user belongs to switches
+the active matter to that matter. If the user then switches away, the page
+offers to switch back instead of switching on its own. A user who is not a
+member of the assertion's matter is told so.
+
+System-generated assertions (written by the definition-linking pipeline) are
+shown as such. The pipeline is named as the author, and the user the run is
+attributed to (`--triggered-by-user-id`) is named only as that. The evidence
+badge reads "System-derived" instead of "Awaiting evidence". The pipeline stores
+no revision record, so no rating is offered until an edit records a revision.
