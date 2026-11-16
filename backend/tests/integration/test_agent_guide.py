@@ -15,6 +15,7 @@ import app.mcp as mcp_package
 from app.agent_cli import guide
 from app.mcp.server import _stdio_main, create_server
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
+from tests.conftest import assertion_payload
 from tests.integration.agent_surface_helpers import agent_env, cli_json, run_cli, tool_json
 
 
@@ -42,6 +43,18 @@ def test_mcp_guide_without_an_actor_explains_how_to_enable_submissions(app, acto
     assert result["submissions_enabled"] is False
     reason = result["submissions_disabled_reason"]
     assert "LEXGRAPH_AGENT_USER_ID" in reason and "agent_context" in reason and "suggest_assertion" in reason
+
+
+def test_an_empty_actor_is_the_unscoped_read_only_mode(app, client, matter_with_users):
+    m = matter_with_users
+    created = client.post("/api/v1/assertions", headers=m["contributor_headers"], json=assertion_payload(
+        m["matter_id"], m["repository_id"], proposition="Visible to no-actor clients."))
+    assert created.status_code == 201, created.text
+    for actor in (None, ""):
+        server = create_server(app.state.session_factory, agent_user_id=actor)
+        assert "agent_context" not in _tools(server)
+        assert tool_json(server, "search", {"query": "no-actor clients"})["count"] == 1
+        assert tool_json(server, "fetch", {"assertion_id": created.json()["id"]})["id"] == created.json()["id"]
 
 
 def test_mcp_tool_descriptions_document_parameters_and_errors(app, matter_with_users):

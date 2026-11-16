@@ -135,6 +135,7 @@ def _serialize_assertion_detail(session: Session, assertion: Assertion) -> dict:
 def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str | None = None) -> MCPServer:
     """Build local tools; a configured actor enables validated, scoped suggestions."""
 
+    agent_user_id = agent_user_id or None  # "" is no actor, for scoping as for registration
     server = MCPServer(name="lexgraph")
 
     @server.tool()
@@ -183,15 +184,15 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
         """Start here: the workflow, vocabularies (assertion types, jurisdictions)
         and the exact JSON schema for suggest_assertion's payload."""
         result = guide("mcp")
-        result["submissions_enabled"] = bool(agent_user_id)
-        if not agent_user_id:
+        result["submissions_enabled"] = agent_user_id is not None
+        if agent_user_id is None:
             result["submissions_disabled_reason"] = (
                 "agent_context and suggest_assertion are not available: this server was started without "
                 "LEXGRAPH_AGENT_USER_ID. Ask the user to register it with the id of a dedicated agent account "
                 "that has contributor membership (see docs/mcp-registration.md).")
         return result
 
-    if agent_user_id:
+    if agent_user_id is not None:
         @server.tool()
         def agent_context(matter_id: str | None = None, query: str = "", limit: int = 20, offset: int = 0) -> dict:
             """Without matter_id: your user and matter memberships (matter id, role,
