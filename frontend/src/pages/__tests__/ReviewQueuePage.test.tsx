@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { api, ApiError } from "../../api/client";
@@ -257,7 +257,7 @@ describe("ReviewQueuePage", () => {
     // First card is the newest (a1, evidenced) — accept goes straight through.
     await user.click(screen.getAllByRole("button", { name: "Accept" })[0]);
 
-    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined));
+    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1));
     await waitFor(() =>
       expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(callsBefore),
     );
@@ -282,6 +282,7 @@ describe("ReviewQueuePage", () => {
       expect(api.acceptAssertion).toHaveBeenCalledWith(
         "a2",
         "Counsel confirmed the clause against the executed original.",
+        2,
       ),
     );
   });
@@ -340,6 +341,7 @@ describe("ReviewQueuePage", () => {
       expect(api.acceptAssertion).toHaveBeenCalledWith(
         "a5",
         "Confirmed via opposing counsel's admission letter.",
+        1,
       ),
     );
   });
@@ -386,5 +388,168 @@ describe("ReviewQueuePage", () => {
     const banner = await screen.findByRole("alert");
     expect(banner).toHaveTextContent("Couldn't load the review queue.");
     expect(banner).toHaveTextContent("network down");
+  });
+});
+
+// Review decisions from a queue card (spec addendum "Review decision rules
+// (2026-11-16)"): ui:2 (revision on screen, 409), ui:8 (justification),
+// ui:9 (status, double submit), ui:24 (per-card form ids).
+describe("ReviewQueuePage review decisions", () => {
+  function cardFor(proposition: string): HTMLElement {
+    const card = screen.getByText(proposition).closest("article");
+    if (!card) throw new Error(`no queue card shows "${proposition}"`);
+    return card;
+  }
+
+  async function waitForReload(callsBefore: number) {
+    await waitFor(() =>
+      expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(callsBefore),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Loading review queue…")).not.toBeInTheDocument(),
+    );
+  }
+
+  it.each([
+    ["Reject", "rejectAssertion"],
+    ["Dispute", "disputeAssertion"],
+  ] as const)("%s sends the revision shown on the card", async (buttonName, method) => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+
+    await user.click(
+      within(cardFor(userAssertion.proposition)).getByRole("button", { name: buttonName }),
+    );
+
+    // a2 is shown at revision 2.
+    await waitFor(() => expect(api[method]).toHaveBeenCalledWith("a2", 2));
+  });
+
+  it("sends the trimmed revision comment with the revision shown on the card", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const card = within(cardFor(userAssertion.proposition));
+
+    await user.click(card.getByRole("button", { name: "Request revision" }));
+    const confirm = card.getByRole("button", { name: "Confirm" });
+    expect(confirm).toBeDisabled();
+    await user.type(
+      card.getByLabelText("Comment explaining the requested revision"),
+      "  Cite the clause.  ",
+    );
+    await user.click(confirm);
+
+    await waitFor(() =>
+      expect(api.requestRevision).toHaveBeenCalledWith("a2", "Cite the clause.", 2),
+    );
+  });
+
+  it("never sends a blank justification and sends the typed one trimmed", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const card = within(cardFor(userAssertion.proposition));
+
+    // a2 is unsupported: Accept opens the justification form.
+    await user.click(card.getByRole("button", { name: "Accept" }));
+    const textarea = card.getByLabelText("Justification for accepting without supporting evidence");
+    const confirm = card.getByRole("button", { name: "Confirm" });
+
+    await user.type(textarea, "   ");
+    expect(confirm).toBeDisabled();
+    await user.click(confirm);
+    expect(api.acceptAssertion).not.toHaveBeenCalled();
+
+    await user.type(textarea, "Counsel confirmed it.  ");
+    await user.click(confirm);
+    await waitFor(() =>
+      expect(api.acceptAssertion).toHaveBeenCalledWith("a2", "Counsel confirmed it.", 2),
+    );
+  });
+
+  it("explains a refusal because the card is stale (409), reloads the queue and keeps the notice", async () => {
+    vi.mocked(api.acceptAssertion).mockRejectedValue(
+      new ApiError(409, "assertion has been modified since expected_revision_number"),
+    );
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    const callsBefore = vi.mocked(api.listAssertions).mock.calls.length;
+
+    await user.click(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Accept" }),
+    );
+
+    expect(await screen.findByText(/changed after you opened it/)).toBeInTheDocument();
+    await waitForReload(callsBefore);
+    expect(screen.getByText(modelAssertion.proposition)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/changed after you opened it/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+  });
+
+  it("records one decision when Reject is double-clicked", async () => {
+    vi.mocked(api.rejectAssertion).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+
+    await user.dblClick(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }),
+    );
+
+    expect(api.rejectAssertion).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the decisions on every card while one is being recorded", async () => {
+    vi.mocked(api.rejectAssertion).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+
+    await user.click(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }),
+    );
+
+    const accepts = screen.getAllByRole("button", { name: "Accept" });
+    expect(accepts).toHaveLength(2);
+    for (const button of accepts) expect(button).toBeDisabled();
+  });
+
+  it("offers on each card only the decisions its status allows", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    await user.click(screen.getByRole("button", { name: "All open" }));
+    await screen.findByText(revisionAssertion.proposition);
+
+    const revisionCard = within(cardFor(revisionAssertion.proposition));
+    expect(
+      revisionCard.queryByRole("button", { name: "Request revision" }),
+    ).not.toBeInTheDocument();
+    expect(revisionCard.getByRole("button", { name: "Accept" })).toBeInTheDocument();
+
+    const disputedCard = within(cardFor(disputedAssertion.proposition));
+    expect(disputedCard.queryByRole("button", { name: "Dispute" })).not.toBeInTheDocument();
+    expect(disputedCard.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+  });
+
+  it("links each card's form label to that card's own textarea", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const cards = [cardFor(modelAssertion.proposition), cardFor(userAssertion.proposition)];
+
+    for (const card of cards) {
+      await user.click(within(card).getByRole("button", { name: "Request revision" }));
+    }
+    for (const card of cards) {
+      const label = within(card).getByText("Comment explaining the requested revision");
+      expect(card).toContainElement((label as HTMLLabelElement).control as HTMLElement);
+    }
+
+    await user.click(within(cards[1]).getByText("Comment explaining the requested revision"));
+    expect(within(cards[1]).getByRole("textbox")).toHaveFocus();
   });
 });

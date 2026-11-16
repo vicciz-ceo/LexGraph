@@ -56,3 +56,19 @@ export function reviewTextTooLongMessage(text: string): string {
     `the limit is ${REVIEW_TEXT_MAX_LENGTH.toLocaleString("en-US")}.`
   );
 }
+
+/**
+ * Notice for a decision the API refused with 409: the assertion was edited,
+ * withdrawn or decided by someone else after the page loaded it. The page
+ * reloads it, so the reviewer sees the current version before deciding again.
+ */
+export const REVIEW_CONFLICT_MESSAGE =
+  "Your decision was not recorded: this assertion changed after you opened it " +
+  "(it was edited, withdrawn or decided by someone else). The current version is " +
+  "now shown; review it before deciding.";
+
+/** REVIEW_CONFLICT_MESSAGE followed by the API's own reason, when it gave one. */
+export function reviewConflictNotice(detail: string): string {
+  const reason = detail.trim().replace(/\.+$/, "");
+  return reason ? `${REVIEW_CONFLICT_MESSAGE} Reason: ${reason}.` : REVIEW_CONFLICT_MESSAGE;
+}

@@ -265,6 +265,11 @@
   color: var(--status-pending-fg);
 }
 
+.ctd-confirm__error {
+  font: var(--body-sm);
+  color: var(--error);
+}
+
 .ctd-confirm__actions {
   display: flex;
   gap: var(--space-sm);
