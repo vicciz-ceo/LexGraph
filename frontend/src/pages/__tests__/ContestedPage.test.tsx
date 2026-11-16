@@ -1,9 +1,15 @@
 // ContestedPage — disputed-assertion adjudication queue.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Assertion, Evidence, MatterRoleName, RatingSummary } from "../../api/types";
+import type {
+  Assertion,
+  AssertionListItem,
+  Evidence,
+  MatterRoleName,
+  RatingSummary,
+} from "../../api/types";
 
 const mocks = vi.hoisted(() => ({
   role: "reviewer" as MatterRoleName,
@@ -165,7 +171,12 @@ describe("ContestedPage", () => {
   it("loads disputed assertions for the current matter and renders the queue", async () => {
     await renderQueue();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", { status: "disputed" });
+    // The first page of the matter's disputed assertions.
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      status: "disputed",
+      limit: 50,
+      offset: 0,
+    });
     // Count chip in the header.
     expect(screen.getByText("2")).toBeInTheDocument();
     // Origin chips per domain vocabulary.
@@ -191,7 +202,9 @@ describe("ContestedPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
 
     expect(mockedApi.listEvidence).toHaveBeenCalledWith("a-1");
-    expect(await screen.findByText("span-101")).toBeInTheDocument();
+    // The fixture spans are unresolvable in this matter; their ids are not shown.
+    expect(await screen.findAllByText(/Source span unavailable/)).toHaveLength(2);
+    expect(screen.queryByText(/span-101/)).not.toBeInTheDocument();
     expect(screen.getByText("supports")).toBeInTheDocument();
     expect(screen.getByText("contradicts")).toBeInTheDocument();
     expect(screen.getByText("Count")).toBeInTheDocument();
@@ -269,7 +282,7 @@ describe("ContestedPage", () => {
     await renderQueue();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
-    await screen.findByText("span-101");
+    await screen.findAllByText(/Source span unavailable/);
 
     expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
@@ -404,5 +417,89 @@ describe("ContestedPage rulings and evidence", () => {
 
     expect(screen.getByRole("button", { name: "Confirm accept" })).toBeDisabled();
     expect(screen.getByText(/100,000/)).toBeInTheDocument();
+  });
+});
+
+// The paged list endpoint (lists package): each row's aggregate comes with
+// the list item instead of one request per row, and the table lists 50
+// disputed assertions at a time (XREQ-72/77).
+describe("ContestedPage against the paged list", () => {
+  function listed(index: number, overrides: Partial<AssertionListItem> = {}): AssertionListItem {
+    return {
+      ...makeAssertion({
+        id: `d-${index}`,
+        proposition: `Disputed proposition ${index}`,
+        current_revision_number: 1,
+      }),
+      ratings_summary: null,
+      current_user_rating: null,
+      ...overrides,
+    };
+  }
+
+  it("shows each row's embedded aggregate without a request per row", async () => {
+    mockedApi.listAssertions.mockResolvedValue({
+      items: [
+        listed(1, {
+          ratings_summary: {
+            assertion_id: "d-1",
+            assertion_revision_id: "rev-d-1",
+            average: 3.5,
+            median: 3.5,
+            count: 4,
+            distribution: { "2": 1, "3": 1, "4": 1, "5": 1 },
+          },
+        }),
+        listed(2),
+      ],
+      total: 2,
+    });
+    render(<ContestedPage />);
+
+    expect(await screen.findByText("avg 3.5 · 4 ratings")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    const tiles = within((await screen.findByText("Count")).closest(".ctd-tiles") as HTMLElement);
+    expect(tiles.getByText("4")).toBeInTheDocument();
+    expect(tiles.getAllByText("3.5")).toHaveLength(2); // average and median
+    expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
+  });
+
+  it("lists 50 disputed assertions at a time", async () => {
+    const all = Array.from({ length: 70 }, (_, i) => listed(i));
+    mockedApi.listAssertions.mockImplementation(async (_matterId, params = {}) => ({
+      items: all.slice(params.offset ?? 0, (params.offset ?? 0) + (params.limit ?? all.length)),
+      total: all.length,
+    }));
+    render(<ContestedPage />);
+
+    await screen.findByText("Disputed proposition 0");
+    expect(screen.getAllByRole("button", { name: "Expand row" })).toHaveLength(50);
+    expect(screen.getByText("70")).toBeInTheDocument();
+    expect(screen.getByText("Showing 50 of 70")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Expand row" })).toHaveLength(70),
+    );
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m-1", {
+      status: "disputed",
+      limit: 100,
+      offset: 0,
+    });
+    expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+  });
+
+  it("records one ruling when Reject is clicked twice before the first finishes", async () => {
+    mockedApi.rejectAssertion.mockReturnValue(new Promise(() => {}));
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    const reject = await screen.findByRole("button", { name: "Reject" });
+    reject.click();
+    reject.click();
+
+    expect(mockedApi.rejectAssertion).toHaveBeenCalledTimes(1);
   });
 });

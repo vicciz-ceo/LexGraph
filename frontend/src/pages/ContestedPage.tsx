@@ -6,22 +6,44 @@
 // user strength ratings (1-5 aggregate), model confidence (only for
 // AI-deduced assertions), and review status. Ratings never decide the
 // outcome — the reviewer's adjudication does.
+//
+// The table lists the first CONTESTED_PAGE disputed assertions (in the
+// order they were created) and grows with "Show more". Each row's rating
+// aggregate comes with the list item (ratings_summary).
 
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import "../styles/pages/contested.css";
 
 import { ApiError, api } from "../api/client";
-import type { Assertion, Evidence, RatingSummary } from "../api/types";
+import { formatInstantDate } from "../api/datetime";
+import { listWindow } from "../api/listWindow";
+import type { Assertion, AssertionListItem, Evidence } from "../api/types";
 import { Icon } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
+import type { AssertionRatingDistributionSummary } from "../components/AssertionRatingDistribution";
+import { SUPPORTING_EVIDENCE_ROLES } from "../constants/evidence";
 import {
   reviewConflictNotice,
   reviewTextProblem,
   reviewTextTooLongMessage,
 } from "../constants/review";
+
+/** Rows shown at first, and added by each "Show more". */
+const CONTESTED_PAGE = 50;
+
+/** Rating summaries a list item lacks are requested this many at a time. */
+const SUMMARY_FETCH_BATCH = 30;
+
+/** The aggregate of a revision nobody has rated (the list sends null). */
+const UNRATED: AssertionRatingDistributionSummary = {
+  count: 0,
+  average: null,
+  median: null,
+  distribution: {},
+};
 
 const ORIGIN_CHIPS: Record<Assertion["origin"], { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -35,24 +57,27 @@ const EVIDENCE_BADGES: Record<Assertion["evidence_status"], { className: string;
   awaiting_evidence: { className: "badge badge--pending", label: "Awaiting evidence" },
 };
 
-/** Roles that make an assertion "evidenced" (the API's SUPPORTING_EVIDENCE_ROLES). */
-const SUPPORTING_ROLES = ["supports", "primary_basis", "secondary_basis"];
-
 function evidenceRoleClass(role: string): string {
-  if (SUPPORTING_ROLES.includes(role)) return "badge badge--accepted";
+  if (SUPPORTING_EVIDENCE_ROLES.has(role)) return "badge badge--accepted";
   if (role === "contradicts") return "badge badge--rejected";
   return "badge badge--neutral";
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+/** Summaries are per revision: a revised row must not show the old ratings. */
+function summaryKey(assertion: AssertionListItem): string {
+  return `${assertion.id}@${assertion.current_revision_number}`;
 }
 
 /** Compact weak/probable/strong strength bar for a queue row. */
-function StrengthCell({ summary }: { summary: RatingSummary | null | undefined }) {
+function StrengthCell({
+  summary,
+}: {
+  summary: AssertionRatingDistributionSummary | null | undefined;
+}) {
   if (summary === undefined) return <span className="muted">…</span>;
   if (summary === null || summary.count === 0) return <span className="muted">—</span>;
 
@@ -97,9 +122,26 @@ export function ContestedPage() {
   const matterId = session.currentMatter.id;
   const canAdjudicate = session.role === "reviewer" || session.role === "admin";
 
-  const [items, setItems] = useState<Assertion[] | null>(null);
+  // How many rows to list belongs to one matter; a switch starts over. The
+  // reset is stored during render, so no request goes out with the
+  // previous matter's size.
+  const [windowState, setWindowState] = useState({ matterId, size: CONTESTED_PAGE });
+  if (windowState.matterId !== matterId) setWindowState({ matterId, size: CONTESTED_PAGE });
+  const windowSize = windowState.matterId === matterId ? windowState.size : CONTESTED_PAGE;
+  // The matter the rows on screen belong to: a reload or "Show more" keeps
+  // them (and an open drawer) on screen; another matter's are dropped.
+  const shownMatterRef = useRef<string | null>(null);
+
+  const [items, setItems] = useState<AssertionListItem[] | null>(null);
+  // Every disputed assertion of the matter, also those not listed yet.
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [summaries, setSummaries] = useState<Record<string, RatingSummary | null>>({});
+  // Only for rows whose list item carries no aggregate, keyed by
+  // id@revision. undefined: loading; null: the request failed.
+  const [summaries, setSummaries] = useState<
+    Record<string, AssertionRatingDistributionSummary | null>
+  >({});
   const [evidence, setEvidence] = useState<Record<string, EvidenceState>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -120,42 +162,71 @@ export function ContestedPage() {
       aliveRef.current = false;
     };
   }, []);
+  // One ruling at a time: also stops a second click that lands before the
+  // disabled buttons are rendered.
+  const rulingRef = useRef(false);
 
+  function resetAction() {
+    setPendingAction(null);
+    setJustification("");
+    setRevisionComment("");
+    setActionError(null);
+  }
+
+  // A matter switch drops the previous matter's drawer and notice.
   useEffect(() => {
     setRulingNotice(null);
+    setExpandedId(null);
+    resetAction();
+    setEvidence({});
   }, [matterId]);
 
   useEffect(() => {
     let cancelled = false;
-    setItems(null);
+    setLoading(true);
     setLoadError(null);
-    setSummaries({});
-    setExpandedId(null);
-    setPendingAction(null);
-    setActionError(null);
+    if (shownMatterRef.current !== matterId) {
+      shownMatterRef.current = null;
+      setItems(null);
+      setSummaries({});
+    }
 
-    api.listAssertions(matterId, { status: "disputed" }).then(
-      (list) => {
+    listWindow(matterId, { status: "disputed" }, windowSize).then(
+      async (list) => {
         if (cancelled) return;
+        shownMatterRef.current = matterId;
         setItems(list.items);
-        for (const assertion of list.items) {
-          const revision = assertion.current_revision_number;
-          if (revision === null) {
-            setSummaries((prev) => ({ ...prev, [assertion.id]: null }));
-            continue;
-          }
-          api.ratingSummary(assertion.id, revision).then(
-            (summary) => {
-              if (!cancelled) setSummaries((prev) => ({ ...prev, [assertion.id]: summary }));
-            },
-            () => {
-              if (!cancelled) setSummaries((prev) => ({ ...prev, [assertion.id]: null }));
-            },
+        setTotal(list.total);
+        setLoading(false);
+
+        // A list item without an aggregate gets its revision summary
+        // requested, a batch at a time; the final map drops rows that left.
+        const targets = list.items.filter(
+          (a) => a.current_revision_number !== null && !("ratings_summary" in a),
+        );
+        const fresh: Record<string, AssertionRatingDistributionSummary | null> = {};
+        for (let start = 0; start < targets.length; start += SUMMARY_FETCH_BATCH) {
+          const batch = targets.slice(start, start + SUMMARY_FETCH_BATCH);
+          const results = await Promise.all(
+            batch.map((a) =>
+              api.ratingSummary(a.id, a.current_revision_number as number).then(
+                (summary) => [summaryKey(a), summary] as const,
+                () => [summaryKey(a), null] as const,
+              ),
+            ),
           );
+          if (cancelled) return;
+          const landed = Object.fromEntries(results);
+          Object.assign(fresh, landed);
+          setSummaries((prev) => ({ ...prev, ...landed }));
         }
+        setSummaries(fresh);
       },
       (error: unknown) => {
         if (cancelled) return;
+        shownMatterRef.current = null;
+        setItems(null);
+        setLoading(false);
         setLoadError(
           error instanceof Error ? error.message : "Failed to load disputed assertions.",
         );
@@ -165,16 +236,19 @@ export function ContestedPage() {
     return () => {
       cancelled = true;
     };
-  }, [matterId, reloadKey]);
+  }, [matterId, windowSize, reloadKey]);
 
-  function resetAction() {
-    setPendingAction(null);
-    setJustification("");
-    setRevisionComment("");
-    setActionError(null);
+  /** The row's aggregate: a requested summary, else the list item's own;
+   * undefined while loading, null when it could not be loaded. */
+  function summaryOf(assertion: AssertionListItem): AssertionRatingDistributionSummary | null | undefined {
+    if (assertion.current_revision_number === null) return null;
+    const requested = summaries[summaryKey(assertion)];
+    if (requested) return requested;
+    if ("ratings_summary" in assertion) return assertion.ratings_summary ?? UNRATED;
+    return requested;
   }
 
-  function toggleExpand(assertion: Assertion) {
+  function toggleExpand(assertion: AssertionListItem) {
     const next = expandedId === assertion.id ? null : assertion.id;
     setExpandedId(next);
     resetAction();
@@ -192,6 +266,8 @@ export function ContestedPage() {
   }
 
   async function runRuling(call: () => Promise<unknown>) {
+    if (rulingRef.current) return;
+    rulingRef.current = true;
     setActionBusy(true);
     setActionError(null);
     setRulingNotice(null);
@@ -210,8 +286,11 @@ export function ContestedPage() {
       setActionBusy(false);
       if (error instanceof ApiError && error.status === 409) {
         // The drawer was stale (edited, withdrawn or decided meanwhile):
-        // nothing was recorded. Say so and reload the queue as it now is.
+        // nothing was recorded. Say so above the table, close the drawer
+        // and reload the queue as it now is.
         setRulingNotice(reviewConflictNotice(error.message));
+        setExpandedId(null);
+        resetAction();
         setEvidence({});
         setReloadKey((k) => k + 1);
         return;
@@ -223,17 +302,17 @@ export function ContestedPage() {
             ? error.message
             : "The action failed.",
       );
+    } finally {
+      rulingRef.current = false;
     }
   }
 
-  function renderDrawer(assertion: Assertion) {
-    const summary = summaries[assertion.id] ?? null;
-    const distributionSummary = summary ?? {
-      count: 0,
-      average: null,
-      median: null,
-      distribution: {},
-    };
+  function renderDrawer(assertion: AssertionListItem) {
+    const summary = summaryOf(assertion) ?? null;
+    const distributionSummary = summary ?? UNRATED;
+    // No ruling while one is recorded or the queue reloads after one: the
+    // row may still show a status that has just changed.
+    const busy = actionBusy || loading;
     const evidenceState = evidence[assertion.id];
     // Same rules as the API: trimmed text, required, at most 100,000 characters.
     const justificationProblem = reviewTextProblem(justification);
@@ -302,10 +381,11 @@ export function ContestedPage() {
                           {item.quote_text ? (
                             <blockquote className="ctd-evidence__quote">{item.quote_text}</blockquote>
                           ) : (
-                            // The API resolves a span only within this matter.
+                            // The API resolves a span only within this matter;
+                            // its id means nothing to a reader (XREQ-46).
                             <p className="ctd-evidence__missing">
-                              The quoted source span (<span className="mono">{item.source_span_id}</span>)
-                              could not be found in this matter.
+                              Source span unavailable: the quoted passage could not be found in
+                              this matter.
                             </p>
                           )}
                         </div>
@@ -323,7 +403,7 @@ export function ContestedPage() {
                   <button
                     type="button"
                     className="btn btn--primary"
-                    disabled={actionBusy}
+                    disabled={busy}
                     onClick={() => {
                       // The backend requires an acceptance justification
                       // whenever there is no supporting evidence, which
@@ -350,7 +430,7 @@ export function ContestedPage() {
                   <button
                     type="button"
                     className="btn btn--danger-outline"
-                    disabled={actionBusy}
+                    disabled={busy}
                     onClick={() =>
                       void runRuling(() =>
                         api.rejectAssertion(assertion.id, assertion.current_revision_number),
@@ -362,7 +442,7 @@ export function ContestedPage() {
                   <button
                     type="button"
                     className="btn btn--secondary"
-                    disabled={actionBusy}
+                    disabled={busy}
                     onClick={() => {
                       setPendingAction("revise");
                       setActionError(null);
@@ -396,7 +476,7 @@ export function ContestedPage() {
                       <button
                         type="button"
                         className="btn btn--primary"
-                        disabled={actionBusy || justificationProblem !== null}
+                        disabled={busy || justificationProblem !== null}
                         onClick={() =>
                           void runRuling(() =>
                             api.acceptAssertion(
@@ -412,7 +492,7 @@ export function ContestedPage() {
                       <button
                         type="button"
                         className="btn btn--ghost"
-                        disabled={actionBusy}
+                        disabled={busy}
                         onClick={resetAction}
                       >
                         Cancel
@@ -441,7 +521,7 @@ export function ContestedPage() {
                       <button
                         type="button"
                         className="btn btn--primary"
-                        disabled={actionBusy || revisionCommentProblem !== null}
+                        disabled={busy || revisionCommentProblem !== null}
                         onClick={() =>
                           void runRuling(() =>
                             api.requestRevision(
@@ -457,7 +537,7 @@ export function ContestedPage() {
                       <button
                         type="button"
                         className="btn btn--ghost"
-                        disabled={actionBusy}
+                        disabled={busy}
                         onClick={resetAction}
                       >
                         Cancel
@@ -483,7 +563,7 @@ export function ContestedPage() {
         <div>
           <h1 className="page-header__title">
             Contested
-            {items !== null && <span className="page-header__count">{items.length}</span>}
+            {items !== null && <span className="page-header__count">{formatCount(total)}</span>}
           </h1>
           <p className="page-header__subtitle">
             Assertions a reviewer has marked disputed in {session.currentMatter.name} — awaiting
@@ -551,13 +631,13 @@ export function ContestedPage() {
                           <span className={originChip.className}>{originChip.label}</span>
                         </td>
                         <td>
-                          <StrengthCell summary={summaries[assertion.id]} />
+                          <StrengthCell summary={summaryOf(assertion)} />
                         </td>
                         <td>
                           <span className={evidenceBadge.className}>{evidenceBadge.label}</span>
                         </td>
                         <td className="ctd-date">
-                          {formatDate(assertion.reviewed_at ?? assertion.updated_at)}
+                          {formatInstantDate(assertion.reviewed_at ?? assertion.updated_at, "en-US")}
                         </td>
                         <td className="ctd-toggle-cell">
                           <button
@@ -578,6 +658,21 @@ export function ContestedPage() {
               </tbody>
             </table>
           </div>
+          {total > items.length && (
+            <div className="ctd-more">
+              <span>
+                Showing {formatCount(items.length)} of {formatCount(total)}
+              </span>
+              <button
+                type="button"
+                className="btn btn--sm btn--secondary"
+                disabled={loading}
+                onClick={() => setWindowState({ matterId, size: windowSize + CONTESTED_PAGE })}
+              >
+                {loading ? "Loading…" : "Show more"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

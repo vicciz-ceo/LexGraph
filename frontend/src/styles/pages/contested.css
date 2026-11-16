@@ -329,3 +329,15 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* "Showing N of M" + Show more, under the table. */
+.ctd-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--outline-variant);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
