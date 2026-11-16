@@ -1126,7 +1126,8 @@ The CLI and MCP report a failure as one JSON object `{"error", "status"}`, plus
 `issues` (field and message) for schema violations. The CLI prints it on stderr
 and exits 1, MCP returns it as the text of an error result. The statuses are 400
 (command line or unreadable input), 401, 403, 404, 409 (duplicate, naming the
-existing assertion), 422 (payload) and 500 (local database or installation).
+existing assertion in the text and as `existing_assertion_id`), 422 (payload)
+and 500 (local database or installation).
 CLI input and output are UTF-8 regardless of locale. Both interfaces check the
 database before use: an unset, in-memory, missing or uninitialized database is
 refused with the resolved path, and no file is ever created. A database created

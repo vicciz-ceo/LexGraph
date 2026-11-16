@@ -151,9 +151,9 @@ result, after `Error executing tool <name>: `. Payload schema violations add
   text over 100,000 characters, provenance that is only markup, the agent
   payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
   escape such as `\ud800`, or input that is not UTF-8 JSON).
-- **409 duplicate:** no second assertion was created. Read the existing assertion
-  ID in the error (the REST response also gives it as `existing_assertion_id`)
-  and inspect it. Do not retry with cosmetic rewording. This
+- **409 duplicate:** no second assertion was created. The existing assertion's
+  ID is in `existing_assertion_id` (CLI, MCP and REST alike) and in the error
+  text; inspect that assertion. Do not retry with cosmetic rewording. This
   holds for concurrent and retried submissions too (parallel agents, CLI, MCP
   and REST): exactly one of several identical submissions is stored. Only live
   (proposed, revision-requested, accepted, disputed) assertions and the actor's

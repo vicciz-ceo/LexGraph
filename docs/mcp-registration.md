@@ -101,6 +101,6 @@ and the matter's reviewers and admins are notified of each one.
 
 A failed call returns an error result whose text is `Error executing tool <name>: `
 followed by the JSON object the CLI prints, for example
-`{"error": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "status": 409}`.
+`{"error": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "status": 409, "existing_assertion_id": "<id>"}`.
 Schema violations add `issues` (`field` and `message` for each). The statuses
 mean the same as in the [agent guide](AGENT_GUIDE.md#persistence-and-errors).

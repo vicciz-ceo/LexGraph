@@ -45,6 +45,8 @@ def test_duplicate_reports_409_with_the_existing_assertion_id(app, db_session, m
     existing_id = db_session.scalar(select(Assertion.id))
     body = tool_error(server, "suggest_assertion", {"payload": suggestion})
     assert body["status"] == 409 and "duplicate" in body["error"] and existing_id in body["error"], body
+    # Structured, like the REST 409 body (XREQ-33): no need to parse the text.
+    assert body["existing_assertion_id"] == existing_id, body
     assert _count(db_session) == 1
 
 

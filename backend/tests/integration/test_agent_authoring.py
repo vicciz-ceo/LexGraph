@@ -102,7 +102,11 @@ def test_local_cli_and_mcp_share_contract(app, client, matter_with_users, sugges
     assert created.returncode == 0, created.stderr
     aid = json.loads(created.stdout)['id']
     assert client.get(f'/api/v1/assertions/{aid}', headers=m['reviewer_headers']).json()['origin'] == 'model_suggested'
-    assert cli('suggest', payload=suggestion).returncode == 1
+    duplicate = cli('suggest', payload=suggestion)
+    assert duplicate.returncode == 1
+    assert json.loads(duplicate.stderr) == {
+        'error': f'duplicate: an identical proposition already exists in this matter (assertion {aid})',
+        'status': 409, 'existing_assertion_id': aid}
     server = create_server(app.state.session_factory, agent_user_id=m['contributor_id'])
     names = {t.name for t in asyncio.run(server.list_tools())}
     assert {'assertion_guide','agent_context','suggest_assertion'} <= names
