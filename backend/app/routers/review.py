@@ -8,8 +8,8 @@ Implements the "Review" API surface from spec §13:
     POST /api/v1/assertions/{assertion_id}/request-revision
     POST /api/v1/assertions/{assertion_id}/supersede
 
-Business rules encoded here (spec §3/§10/§12/§13/§16, sprint gates
-G5/G6/G8; the 2026-11-16 spec addendum "Review decision rules"):
+Business rules encoded here (spec §2/§3/§10/§12/§13/§16, sprint gates
+G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
 
 - Only a role granted the relevant `assertion:*` permission (reviewer or
   admin) may change review status; a role with no matter access at all
@@ -25,14 +25,21 @@ G5/G6/G8; the 2026-11-16 spec addendum "Review decision rules"):
 - The write is a conditional UPDATE on the status and revision this
   request checked, so a concurrent decision or edit that lands between
   the checks and the write is refused with 409 rather than overwritten.
-- An "unsupported" assertion (zero `assertion_evidence` rows) cannot be
-  accepted unless the request records an `acceptance_justification`.
+- An assertion without supporting-role evidence (`evidence_status` other
+  than "evidenced", the classification the assertion API exposes) cannot
+  be accepted unless the request records a non-blank
+  `acceptance_justification`.
 - Supersede refuses the assertion itself, a successor from another
   matter, a successor that is a draft or withdrawn, rejected or
   superseded, and any link that would close a supersede cycle.
+- Review text (the request-revision comment, the acceptance
+  justification) gets the same length cap and sanitizer as every other
+  stored text; the comment keeps its raw text in `comment_text_raw`, and
+  the audit log only ever holds the sanitized form.
 - A review decision records which assertion + revision was reviewed
   (`reviewed_by`, `reviewed_at`, and the current revision's id on the
-  audit event this router writes, which carries a correlation id).
+  audit event this router writes), with a correlation id shared by every
+  audit row one request writes.
 - Every route returns the full assertion, like the other assertion
   mutation routes.
 - No decision here ever mutates `assertion_ratings` — ratings are owned by
@@ -46,6 +53,7 @@ session factory is created per-`create_app()` call (see
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
 
@@ -57,12 +65,12 @@ from sqlalchemy.orm import Session
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
-from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.matter_role import MatterRole
-from app.routers.assertions import _serialize_assertion
-from app.services.audit import record_audit_event
+from app.routers.assertions import _evidence_status, _serialize_assertion
+from app.services.audit import new_correlation_id, record_audit_event
 from app.services.permissions import has_permission
+from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["review"])
 
@@ -185,6 +193,24 @@ def _require_decidable(assertion: Assertion, new_status: str) -> None:
         raise HTTPException(status_code=409, detail=f"assertion is already '{new_status}'")
 
 
+def _sanitized_text(raw: str | None, *, label: str) -> str | None:
+    """Length-check `raw` (422) and return its sanitized form, or None when
+    nothing but markup and whitespace was submitted.
+
+    Same rules as every other stored text field: the cap applies to the
+    text as submitted (`validate_text_length`, gate G4) and active markup
+    is neutralized by `sanitize_for_storage` (spec §7, gate G10).
+    """
+    if raw is None:
+        return None
+    try:
+        validate_text_length(raw, label=label)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    sanitized = sanitize_for_storage(raw)
+    return sanitized if sanitized.strip() else None
+
+
 def _validated_successor(db: Session, assertion: Assertion, successor_id: str) -> Assertion:
     """Return the superseding assertion, or raise 404/422 if it cannot be one."""
     if successor_id == assertion.id:
@@ -228,15 +254,6 @@ def _current_revision(db: Session, assertion: Assertion) -> AssertionRevision | 
             AssertionRevision.revision_number == assertion.current_revision_number,
         )
     ).scalar_one_or_none()
-
-
-def _has_evidence(db: Session, assertion: Assertion) -> bool:
-    return (
-        db.execute(
-            select(AssertionEvidence.id).where(AssertionEvidence.assertion_id == assertion.id)
-        ).first()
-        is not None
-    )
 
 
 def _apply_decision(
@@ -294,11 +311,13 @@ def _record_decision(
     assertion: Assertion,
     previous_status: str,
     new_status: str,
+    correlation_id: str,
     extra_note: str | None = None,
 ) -> None:
     """Write one audit_events row for a review decision via
     `app.services.audit` (spec §16: actor, timestamp, matter, assertion,
-    reviewed revision, before/after and a correlation id).
+    reviewed revision, before/after and a correlation id). `extra_note`
+    only ever carries sanitized text or ids.
     """
     revision = _current_revision(db, assertion)
     record_audit_event(
@@ -311,6 +330,7 @@ def _record_decision(
         assertion_revision_id=revision.id if revision else None,
         previous_value=previous_status,
         new_value=new_status if not extra_note else f"{new_status}; {extra_note}",
+        correlation_id=correlation_id,
     )
 
 
@@ -323,11 +343,13 @@ def _decide(
     event_type: str,
     extra_note: str | None = None,
     superseded_by_assertion_id: str | None = None,
-    comment_text: str | None = None,
+    comment: tuple[str, str] | None = None,
 ) -> dict:
     """Apply an already-validated decision, audit it, commit, and return
-    the full assertion."""
+    the full assertion. `comment` is `(sanitized_text, raw_text)` for the
+    request-revision comment, stored like every other comment."""
     previous_status = assertion.status
+    correlation_id = new_correlation_id()
     _apply_decision(
         db, user_id, assertion, new_status, superseded_by_assertion_id=superseded_by_assertion_id
     )
@@ -338,18 +360,30 @@ def _decide(
         assertion=assertion,
         previous_status=previous_status,
         new_status=new_status,
+        correlation_id=correlation_id,
         extra_note=extra_note,
     )
-    if comment_text:
+    if comment is not None:
         now = datetime.now(timezone.utc)
-        db.add(
-            AssertionComment(
-                assertion_id=assertion.id,
-                user_id=user_id,
-                comment_text=comment_text,
-                created_at=now,
-                updated_at=now,
-            )
+        comment_row = AssertionComment(
+            id=str(uuid.uuid4()),
+            assertion_id=assertion.id,
+            user_id=user_id,
+            comment_text=comment[0],
+            comment_text_raw=comment[1],
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(comment_row)
+        record_audit_event(
+            db,
+            actor_user_id=user_id,
+            event_type="comment_created",
+            repository_id=assertion.repository_id,
+            matter_id=assertion.matter_id,
+            assertion_id=assertion.id,
+            new_value=comment_row.id,
+            correlation_id=correlation_id,
         )
     db.commit()
     db.refresh(assertion)
@@ -371,12 +405,15 @@ def accept_assertion(
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "accepted")
 
-    justification = body.acceptance_justification if body else None
-    if not _has_evidence(db, assertion) and not justification:
+    justification = _sanitized_text(
+        body.acceptance_justification if body else None, label="acceptance_justification"
+    )
+    justification = justification.strip() if justification else None
+    if justification is None and _evidence_status(db, assertion.id) != "evidenced":
         raise HTTPException(
             status_code=422,
             detail=(
-                "unsupported assertion (no evidence attached) cannot be accepted "
+                "unsupported assertion (no supporting evidence attached) cannot be accepted "
                 "without a recorded acceptance_justification"
             ),
         )
@@ -434,7 +471,8 @@ def request_revision(
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "revision_requested")
 
-    comment_text = body.comment if body else None
+    raw_comment = body.comment if body else None
+    comment_text = _sanitized_text(raw_comment, label="comment")
     return _decide(
         db,
         user_id,
@@ -442,7 +480,7 @@ def request_revision(
         "revision_requested",
         event_type="assertion.request_revision",
         extra_note=f"comment={comment_text}" if comment_text else None,
-        comment_text=comment_text,
+        comment=(comment_text, raw_comment) if comment_text else None,
     )
 
 

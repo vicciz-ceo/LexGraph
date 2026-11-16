@@ -13,8 +13,14 @@ decision rules"):
   never on an unsubmitted draft, a withdrawn assertion or a superseded one,
   and never as a same-status repeat (double-click). Re-review between
   reviewed statuses stays allowed.
+- api:7 / ui:8 -- an assertion without supporting-role evidence
+  (`evidence_status` != "evidenced") needs a non-blank, recorded
+  justification to be accepted (spec §2).
 - api:8 -- supersede refuses the assertion itself, cycles, and successors
   that are drafts, withdrawn, rejected or superseded.
+- api:9 / review:22 -- review text goes through the same sanitizer,
+  raw-text storage and length cap as every other text field; the audit
+  log only ever holds the sanitized form.
 - ui:35 -- every review route returns the full assertion, like the other
   assertion mutation routes.
 - new:review-audit-correlation-id -- decision audit rows carry a
@@ -493,6 +499,88 @@ def test_decision_clears_a_stale_superseded_by_link(client, matter_with_users, d
     assert _row(db_session, stale_id)["superseded_by_assertion_id"] is None
 
 
+# --- api:7 / ui:8: acceptance without supporting evidence ----------------------
+
+
+@pytest.mark.parametrize("role", ["contradicts", "contextualizes", "qualifies"])
+@pytest.mark.parametrize(
+    "body", [None, {}, {"acceptance_justification": None}, {"acceptance_justification": ""}]
+)
+def test_non_supporting_evidence_still_needs_a_justification(
+    client, matter_with_users, db_session, role, body
+):
+    m = matter_with_users
+    span = _span(db_session, m)
+    assertion_id = _create(client, m, evidence=[{"source_span_id": span, "evidence_role": role}])
+    assert _get(client, m, assertion_id)["evidence_status"] == "unsupported"
+
+    r = _post(client, assertion_id, "accept", m["reviewer_headers"], body)
+
+    assert r.status_code == 422, r.text
+    assert "justification" in r.json()["detail"]
+    assert _row(db_session, assertion_id)["status"] == "proposed"
+    assert _decision_events(db_session, assertion_id) == []
+
+
+@pytest.mark.parametrize("role", ["contradicts", "contextualizes", "qualifies"])
+def test_non_supporting_evidence_accepts_with_a_recorded_justification(
+    client, matter_with_users, db_session, role
+):
+    m = matter_with_users
+    span = _span(db_session, m)
+    assertion_id = _create(client, m, evidence=[{"source_span_id": span, "evidence_role": role}])
+
+    r = _post(
+        client, assertion_id, "accept", m["reviewer_headers"],
+        {"acceptance_justification": "  Accepted on the reviewer's reading of clause 8.4.\n"},
+    )
+
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "accepted"
+    event = _history_event(client, m, assertion_id, "assertion.accept")
+    assert event["new_value"] == (
+        "accepted; acceptance_justification=Accepted on the reviewer's reading of clause 8.4."
+    )
+
+
+@pytest.mark.parametrize(
+    "blank", [" ", "   ", "\n\t ", " ", "<script>alert(1)</script>", "<b> </b>"]
+)
+def test_blank_or_markup_only_justification_is_not_a_recorded_reason(
+    client, matter_with_users, db_session, blank
+):
+    m = matter_with_users
+    assertion_id = _create(client, m)  # zero evidence: awaiting_evidence
+    r = _post(client, assertion_id, "accept", m["reviewer_headers"], {"acceptance_justification": blank})
+    assert r.status_code == 422, r.text
+    assert _row(db_session, assertion_id)["status"] == "proposed"
+    assert _decision_events(db_session, assertion_id) == []
+
+
+@pytest.mark.parametrize("role", ["supports", "primary_basis", "secondary_basis"])
+def test_supporting_roles_accept_without_a_justification(client, matter_with_users, db_session, role):
+    m = matter_with_users
+    span = _span(db_session, m)
+    assertion_id = _create(client, m, evidence=[{"source_span_id": span, "evidence_role": role}])
+    r = _post(client, assertion_id, "accept", m["reviewer_headers"])
+    assert r.status_code == 200, r.text
+    event = _history_event(client, m, assertion_id, "assertion.accept")
+    assert event["new_value"] == "accepted"
+
+
+def test_mixed_supporting_and_contradicting_evidence_accepts_without_a_justification(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    evidence = [
+        {"source_span_id": _span(db_session, m), "evidence_role": "supports"},
+        {"source_span_id": _span(db_session, m), "evidence_role": "contradicts"},
+    ]
+    assertion_id = _create(client, m, evidence=evidence)
+    assert _get(client, m, assertion_id)["evidence_status"] == "evidenced"
+    assert _post(client, assertion_id, "accept", m["reviewer_headers"], {}).status_code == 200
+
+
 # --- api:8: supersede successor rules -----------------------------------------
 
 
@@ -573,6 +661,113 @@ def test_supersede_accepts_a_live_successor(client, matter_with_users, db_sessio
     assert r.json()["superseded_by_assertion_id"] == successor_id
     event = _history_event(client, m, assertion_id, "assertion.supersede")
     assert event["new_value"] == f"superseded; superseded_by_assertion_id={successor_id}"
+
+
+# --- api:9 / review:22: review text is sanitized, raw-preserved and capped -----
+
+
+@pytest.mark.parametrize(
+    "raw, stored",
+    [
+        ("<img src=x onerror=alert(1)>cite it", "cite it"),
+        ("<script>alert(1)</script>please fix", "please fix"),
+        ("Clause 8.2 & 8.4: amount is < $500", "Clause 8.2 & 8.4: amount is < $500"),
+    ],
+)
+def test_request_revision_comment_is_stored_like_every_other_comment(
+    client, matter_with_users, db_session, raw, stored
+):
+    m = matter_with_users
+    assertion_id = _supported(client, db_session, m)
+
+    r = _post(client, assertion_id, "request-revision", m["reviewer_headers"], {"comment": raw})
+
+    assert r.status_code == 200, r.text
+    listed = client.get(f"/api/v1/assertions/{assertion_id}/comments", headers=m["rater_headers"])
+    assert [(c["comment_text"], c["comment_text_raw"]) for c in listed.json()] == [(stored, raw)]
+    comment_id = listed.json()[0]["id"]
+
+    history = client.get(f"/api/v1/assertions/{assertion_id}/history", headers=m["rater_headers"])
+    by_type = {e["event_type"]: e for e in history.json()}
+    assert by_type["assertion.request_revision"]["new_value"] == f"revision_requested; comment={stored}"
+    assert by_type["comment_created"]["new_value"] == comment_id
+    assert (
+        by_type["comment_created"]["correlation_id"]
+        == by_type["assertion.request_revision"]["correlation_id"]
+        is not None
+    )
+    if raw != stored:
+        assert all("<" not in (e["new_value"] or "") for e in history.json())
+
+
+def test_markup_only_request_revision_comment_leaves_no_empty_comment(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    assertion_id = _supported(client, db_session, m)
+    r = _post(
+        client, assertion_id, "request-revision", m["reviewer_headers"],
+        {"comment": "<script>alert(1)</script>"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "revision_requested"
+    assert _comment_rows(db_session, assertion_id) == []
+    event = _history_event(client, m, assertion_id, "assertion.request_revision")
+    assert event["new_value"] == "revision_requested"
+
+
+def test_request_revision_comment_over_the_length_cap_is_refused(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    assertion_id = _supported(client, db_session, m)
+    r = _post(
+        client, assertion_id, "request-revision", m["reviewer_headers"],
+        {"comment": "x" * 100_001},
+    )
+    assert r.status_code == 422, r.text
+    assert "100,000" in r.json()["detail"]
+    assert _row(db_session, assertion_id)["status"] == "proposed"
+    assert _comment_rows(db_session, assertion_id) == []
+    assert _decision_events(db_session, assertion_id) == []
+
+
+def test_request_revision_comment_at_exactly_the_cap_is_accepted(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    assertion_id = _supported(client, db_session, m)
+    r = _post(
+        client, assertion_id, "request-revision", m["reviewer_headers"],
+        {"comment": "x" * 100_000},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_acceptance_justification_is_sanitized_in_the_history(client, matter_with_users, db_session):
+    m = matter_with_users
+    assertion_id = _create(client, m)  # unsupported: justification required
+    r = _post(
+        client, assertion_id, "accept", m["reviewer_headers"],
+        {"acceptance_justification": "<script>alert(1)</script>Independent reading of clause 8.4."},
+    )
+    assert r.status_code == 200, r.text
+    event = _history_event(client, m, assertion_id, "assertion.accept")
+    assert event["new_value"] == "accepted; acceptance_justification=Independent reading of clause 8.4."
+
+
+def test_acceptance_justification_over_the_length_cap_is_refused(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    assertion_id = _supported(client, db_session, m)
+    r = _post(
+        client, assertion_id, "accept", m["reviewer_headers"],
+        {"acceptance_justification": "y" * 100_001},
+    )
+    assert r.status_code == 422, r.text
+    assert "100,000" in r.json()["detail"]
+    assert _row(db_session, assertion_id)["status"] == "proposed"
 
 
 # --- ui:35: response shape ------------------------------------------------------
