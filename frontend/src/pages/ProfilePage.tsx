@@ -14,6 +14,9 @@
 // suggestions (ui:4): they are left out of the counts, the acceptance rate
 // and the list, which reads the user's colleague and AI-deduced
 // suggestions as two lists (the endpoint filters one origin at a time).
+//
+// The Notifications tab lists every notice, 50 at a time with Show more, and
+// its label gives the server's unread count (fe-shell-authoring:2).
 
 import { useEffect, useRef, useState } from "react";
 
@@ -23,7 +26,6 @@ import { api } from "../api/client";
 import { formatInstantDate, parseApiInstant } from "../api/datetime";
 import { listWindow } from "../api/listWindow";
 import type {
-  AppNotification,
   Assertion,
   AssertionList,
   AssertionListItem,
@@ -35,7 +37,7 @@ import { Icon } from "../app/icons";
 import type { IconName } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
-import { NotificationFeed } from "../components/NotificationsMenu";
+import { NotificationFeed, useNotificationFeed } from "../components/NotificationsMenu";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 import { defaultJurisdictionStorageKey, readDefaultJurisdiction } from "../constants/preferences";
 
@@ -167,12 +169,11 @@ export function ProfilePage() {
   const [stats, setStats] = useState<AssertionStats | null>(null);
   const [authored, setAuthored] = useState<AssertionList | null>(null);
   const [awaiting, setAwaiting] = useState<AssertionList | null>(null);
-  const [notifications, setNotifications] = useState<
-    AppNotification[] | "error" | null
-  >(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>(canRate ? "awaiting" : "suggestions");
   const [reloadKey, setReloadKey] = useState(0);
+  // Reloaded with the rest of the page.
+  const notifications = useNotificationFeed(`${userId}|${matterId}|${reloadKey}`);
   const [moreLoading, setMoreLoading] = useState<ListId | null>(null);
   const [moreError, setMoreError] = useState<{ list: ListId; message: string } | null>(null);
   // Bumped by every (re)load, so a Show more answer for an earlier matter or
@@ -185,7 +186,6 @@ export function ProfilePage() {
     setStats(null);
     setAuthored(null);
     setAwaiting(null);
-    setNotifications(null);
     setLoadError(null);
     setMoreLoading(null);
     setMoreError(null);
@@ -210,19 +210,6 @@ export function ProfilePage() {
         setLoadError(
           error instanceof Error ? error.message : "Failed to load your activity.",
         );
-      },
-    );
-
-    api.notifications().then(
-      (items) => {
-        if (cancelled) return;
-        // Newest first, by instant: "…Z" and "+00:00" spellings do not
-        // compare as strings.
-        const at = (n: AppNotification) => parseApiInstant(n.created_at)?.getTime() ?? 0;
-        setNotifications([...items].sort((a, b) => at(b) - at(a)));
-      },
-      () => {
-        if (!cancelled) setNotifications("error");
       },
     );
 
@@ -414,14 +401,14 @@ export function ProfilePage() {
     return (
       <div className="card">
         <div className="card__body">
-          {notifications === null ? (
-            <p className="muted">Loading notifications…</p>
-          ) : notifications === "error" ? (
+          {notifications.failed ? (
             <p className="muted">Couldn't load notifications.</p>
-          ) : notifications.length === 0 ? (
+          ) : notifications.items === null ? (
+            <p className="muted">Loading notifications…</p>
+          ) : notifications.items.length === 0 ? (
             <p className="muted">No notifications yet.</p>
           ) : (
-            <NotificationFeed items={notifications} onItemsChange={setNotifications} />
+            <NotificationFeed feed={notifications} />
           )}
           <p className="pf-note">
             Notifications are kept until you read them. Choose which events notify
@@ -434,7 +421,10 @@ export function ProfilePage() {
 
   const loaded = stats !== null && authored !== null && awaiting !== null;
 
-  const tabs: { id: TabId; label: string; count: number | null }[] = loaded
+  // The notifications tab counts unread notices (the server's figure, which
+  // covers those not listed yet), and shows no count when all are read.
+  const unreadNotifications = notifications.unread ?? 0;
+  const tabs: { id: TabId; label: string; count: number | null; countSuffix?: string }[] = loaded
     ? [
         ...(canRate
           ? [{ id: "awaiting" as const, label: "Awaiting my rating", count: awaiting.total }]
@@ -443,7 +433,8 @@ export function ProfilePage() {
         {
           id: "notifications" as const,
           label: "Notifications",
-          count: Array.isArray(notifications) ? notifications.length : null,
+          count: unreadNotifications > 0 ? unreadNotifications : null,
+          countSuffix: " unread",
         },
       ]
     : [];
@@ -565,7 +556,10 @@ export function ProfilePage() {
                   >
                     {tab.label}
                     {tab.count !== null && (
-                      <span className="pf-tab__count">{formatCount(tab.count)}</span>
+                      <span className="pf-tab__count">
+                        {formatCount(tab.count)}
+                        {tab.countSuffix && <span className="pf-visually-hidden">{tab.countSuffix}</span>}
+                      </span>
                     )}
                   </button>
                 ))}

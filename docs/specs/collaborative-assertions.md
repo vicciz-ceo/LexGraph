@@ -394,7 +394,7 @@ Web suggestion form and revision editor (2026-11-16):
 - "Further evidence needed" appends a fixed note to the explanation, which is stored as the assertion's first comment; the API has no separate field for it.
 - The jurisdiction starts at the default chosen on the Profile page (stored in the browser per user), when that value is in the controlled vocabulary.
 - Similar assertions returned on creation are listed by proposition and status, each linked to the assertion: at most 20, highest score first (then id), followed by "and N more" when more matched. When a response lacks the text (older backends), the page loads it per listed assertion. The exact-duplicate 409 is explained with a link to the existing assertion.
-- The revision editor keeps Save disabled until the proposition differs from the current revision (line endings aside), and the reason field starts empty for each edit. After a stale-revision 409 the typed text and reason are kept, the assertion is reloaded, and the newer revision's text is shown with two choices: save the typed text as the next revision, or discard it and start from the latest. A duplicate 409 links to the existing assertion. When submitting or withdrawing is refused because the assertion changed meanwhile, the page reloads it and says so.
+- The revision editor edits the proposition, the assertion type (from the controlled vocabulary; a current type outside it stays selectable), the jurisdiction (a vocabulary code or none; a current code outside the vocabulary stays selectable) and effective from and to (calendar dates). Subject and object are not editable there. Save stays disabled until the proposition (line endings aside) or one of those fields differs from the revision the edit started from, and while effective_to is before effective_from ("The effective end date cannot be before the start date."). Saving sends only the fields that changed, the proposition included, a cleared jurisdiction or date as null, so saving over a newer revision keeps that revision's other values, its text included. Like any material edit (section 3), a change to the type, the jurisdiction or a date alone creates a revision and returns an accepted assertion to proposed. The reason field starts empty for each edit. After a stale-revision 409 the assertion is reloaded and the draft and reason are kept; a newer revision that reaches an open editor is handled the same way. The draft is rebased onto the newer revision: each field the user changed keeps the user's value, and every other field, the proposition included, shows the newer revision's value. The panel shows the newer text, lists the user's changes ("Jurisdiction: none → New York (US-NY)") and offers two choices: save those changes as the next revision, or discard them and start from the latest. Saving therefore never puts back a value the user did not change. A duplicate 409 links to the existing assertion. When submitting or withdrawing is refused because the assertion changed meanwhile, the page reloads it and says so.
 
 ==================================================
 7. USER-SUGGESTED ASSERTION VALIDATION
@@ -1266,16 +1266,36 @@ No page of the web UI downloads a whole matter. The Knowledge Base requests
 a filter or the sort changes. It shows accepted assertions by default and
 offers every review status. Its rating sorts state that the order reflects
 user opinion, not legal authority (§17). Its CSV export requests every match
-500 rows at a time. Each cell that begins with `=`, `+`, `-` or `@` (also
-after leading whitespace), a tab or a carriage return gets a leading
-apostrophe, so a spreadsheet never evaluates contributor text as a formula.
-The topbar search opens the Knowledge Base on all statuses, and submitting
-the same query again runs it again. Analytics reads `assertion-stats`, with
-`created_bucket_edges` at the viewer's local Monday midnights for its weekly
-chart. Profile reads `assertion-stats?author_user_id=<user>` for its counts,
-and lists the user's suggestions (most recently updated first) and the
-proposed assertions they have not rated, 50 at a time. The UI reads an
-instant that has no offset as UTC.
+500 rows at a time. Rows can join or leave the result set while it runs, so
+it does not step an offset through it. It pages in an order no row can move
+in: creation time for the two creation-time sorts, otherwise insertion order
+(no `sort`), after which the lines are sorted as the server sorts (code
+point order, missing ratings last, ties in insertion order). It only writes
+rows that come after the last row it wrote, so the lines keep that order.
+It holds back the last 20 rows of each full page, and the next request starts
+20 rows before those. The export continues after the last row it wrote or,
+if that row has left, at the first of those 20 rows that is still there; a
+row that the page holds before that point joined after the export passed
+it, and is left out. When neither that row nor any of the 20 is in the page
+(40 or more rows before them left between two requests, more than 480
+joined before them, or they all left), it starts over, up to three times,
+and then reports the export as failed rather than download part of it.
+Every row that matches throughout the export is therefore written exactly
+once, in the table's order; a row that joins or leaves meanwhile may or may
+not be. The file is UTF-8 with a byte-order mark, which Excel needs to open
+it directly. Each cell that begins with `=`, `+`,
+`-` or `@` (also after leading whitespace), a tab or a carriage return gets
+a leading apostrophe, so a spreadsheet never evaluates contributor text as a
+formula. The topbar search opens the Knowledge Base on all statuses, and
+submitting the same query again runs it again. Analytics reads
+`assertion-stats`, with `created_bucket_edges` at the viewer's local Monday
+midnights for its weekly chart. Profile reads
+`assertion-stats?author_user_id=<user>` for its counts, and lists the user's
+suggestions (most recently updated first) and the proposed assertions they
+have not rated, 50 at a time. Its Notifications tab lists every notification,
+50 at a time with Show more; the tab and the list take the unread count from
+`GET /notifications/unread-count`, which covers notifications not loaded
+yet. The UI reads an instant that has no offset as UTC.
 
 ## Review decision rules (2026-11-16)
 

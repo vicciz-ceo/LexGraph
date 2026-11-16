@@ -259,7 +259,16 @@ text, each linked; an exact duplicate is refused with a link to the existing
 assertion. A matter without imported documents shows how sources are imported
 ([RUNBOOK](RUNBOOK.md#getting-sources-into-a-matter)) instead of the form.
 
-In **Edit assertion**, Save stays disabled until the proposition differs from
-the current revision, and the reason starts empty for each edit. If a newer
-revision was saved meanwhile, the editor keeps your text, shows the newer one,
-and lets you save yours as the next revision or start again from the latest.
+In **Edit assertion** you can change the proposition, the assertion type, the
+jurisdiction and the effective from and to dates; subject and object cannot be
+edited there. Save stays disabled until at least one of them differs from the
+revision you started from, and while the effective end date is before the
+start date. Only the fields you changed are saved, the proposition included
+(clearing a date or the jurisdiction removes it), and a change to the type,
+jurisdiction or a date alone is a material edit too: it creates a revision and
+returns an accepted assertion to proposed. The reason starts empty for each
+edit. If a newer revision was saved meanwhile, the editor keeps your changes
+and shows the newer revision's values in every field you did not change, the
+text included. It lists your changes and lets you save them as the next
+revision or start again from the latest, so saving never undoes a colleague's
+change to a field you left alone.

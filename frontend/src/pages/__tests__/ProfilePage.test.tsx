@@ -1,6 +1,6 @@
 // ProfilePage — the signed-in user's activity in the current matter.
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -53,12 +53,14 @@ vi.mock("../../api/client", () => ({
     assertionStats: vi.fn(),
     listAssertions: vi.fn(),
     notifications: vi.fn(),
+    unreadNotificationCount: vi.fn(),
     markNotificationRead: vi.fn(),
     markAllNotificationsRead: vi.fn(),
   },
 }));
 
 import { api } from "../../api/client";
+import { NOTIFICATIONS_CHANGED_EVENT } from "../../constants/notifications";
 import { ProfilePage } from "../ProfilePage";
 
 const mockedApi = vi.mocked(api);
@@ -244,6 +246,7 @@ beforeEach(() => {
   window.location.hash = "";
   serve(matterItems, awaitingItems);
   mockedApi.notifications.mockResolvedValue(notificationItems);
+  mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 1 });
 });
 
 async function renderPage() {
@@ -395,13 +398,14 @@ describe("ProfilePage", () => {
         read: false,
       },
     ]);
+    mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 2 });
     mockedApi.markNotificationRead.mockResolvedValue({} as AppNotification);
     mockedApi.markAllNotificationsRead.mockResolvedValue({ marked_read: 1, unread_count: 0 });
     await renderPage();
     fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
     const panel = screen.getByRole("tabpanel");
 
-    expect(within(panel).getByText("2 unread")).toBeInTheDocument();
+    expect(await within(panel).findByText("2 unread")).toBeInTheDocument();
     const here = within(panel).getByRole("link", { name: /Assertion rejected/ });
     expect(here).toHaveAttribute("href", "#/assertions/a-1");
     expect(here).toHaveTextContent("Clause 9 restricts assignment without consent.");
@@ -413,9 +417,14 @@ describe("ProfilePage", () => {
     expect(window.location.hash).toBe("#/assertions/a-1");
     expect(within(panel).getByText("1 unread")).toBeInTheDocument();
 
+    // What the server reports once both are read.
+    mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 0 });
     fireEvent.click(within(panel).getByRole("link", { name: /submitted for review/ }));
     expect(mocks.selectMatter).toHaveBeenCalledWith("m-2");
     expect(window.location.hash).toBe("#/assertions/a-9");
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+    // Each write is followed by one re-read of the server's unread count.
+    await waitFor(() => expect(mockedApi.unreadNotificationCount).toHaveBeenCalledTimes(3));
     expect(within(panel).getByText("All read")).toBeInTheDocument();
   });
 
@@ -425,11 +434,149 @@ describe("ProfilePage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
     const panel = screen.getByRole("tabpanel");
 
-    fireEvent.click(within(panel).getByRole("button", { name: "Mark all as read" }));
+    fireEvent.click(await within(panel).findByRole("button", { name: "Mark all as read" }));
     // The newest notification shown bounds what is marked.
     expect(mockedApi.markAllNotificationsRead).toHaveBeenCalledWith("2026-07-25T10:00:00Z");
     expect(within(panel).getByText("All read")).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Mark all as read" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Notifications/ })).not.toHaveTextContent(/unread/));
+  });
+
+  // Review fe-shell-authoring:2: GET /notifications returns 50 by default, and
+  // the tab listed and counted only those, so older notices could not be
+  // reached and the unread figures stopped at 50.
+  describe("notifications beyond the first 50", () => {
+    /** `count` notices, newest first, a minute apart; `isUnread(i)` says which. */
+    function notices(count: number, isUnread: (i: number) => boolean): AppNotification[] {
+      return Array.from({ length: count }, (_, i) => ({
+        id: `nt-${i}`,
+        event_type: "assertion_submitted",
+        actor_user_id: "u-other",
+        recipient_user_id: "u-me",
+        payload: {},
+        assertion_id: null,
+        matter_id: "m-1",
+        link: null,
+        context: {
+          proposition: `Notice number ${i}.`,
+          assertion_status: "proposed",
+          assertion_origin: "user_suggested",
+          matter_name: "Acme v. Zenith",
+          actor_display_name: "Dan",
+        },
+        created_at: new Date(Date.UTC(2026, 10, 16, 12) - i * 60_000).toISOString(),
+        read: !isUnread(i),
+      }));
+    }
+
+    /** The notification routes over `store` (newest first), like the server:
+     * limit (default 50) and offset, the unread count, and both read writes. */
+    function serveNotifications(store: AppNotification[]) {
+      mockedApi.notifications.mockImplementation(async (params = {}) => {
+        const offset = params.offset ?? 0;
+        return store.slice(offset, offset + (params.limit ?? 50)).map((n) => ({ ...n }));
+      });
+      const unread = () => store.filter((n) => !n.read).length;
+      mockedApi.unreadNotificationCount.mockImplementation(async () => ({ unread_count: unread() }));
+      mockedApi.markNotificationRead.mockImplementation(async (id: string) => {
+        const n = store.find((x) => x.id === id)!;
+        n.read = true;
+        return { ...n };
+      });
+      mockedApi.markAllNotificationsRead.mockImplementation(async (lastReadAt?: string) => {
+        let marked = 0;
+        for (const n of store) {
+          if (!n.read && (lastReadAt === undefined || Date.parse(n.created_at) <= Date.parse(lastReadAt))) {
+            n.read = true;
+            marked += 1;
+          }
+        }
+        return { marked_read: marked, unread_count: unread() };
+      });
+    }
+
+    const tab = () => screen.getByRole("tab", { name: /Notifications/ });
+    const rows = () => within(screen.getByRole("tabpanel")).getAllByRole("listitem");
+
+    it("counts every unread notice and lists them all, 50 at a time", async () => {
+      serveNotifications(notices(93, (i) => i >= 16)); // 77 unread
+      await renderPage();
+
+      await waitFor(() => expect(tab()).toHaveTextContent("77 unread"));
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      expect(within(panel).getByText("77 unread")).toBeInTheDocument();
+      expect(rows()).toHaveLength(50);
+      expect(mockedApi.notifications).toHaveBeenCalledWith({ limit: 50, offset: 0 });
+      expect(within(panel).getByText("Showing the newest 50")).toBeInTheDocument();
+
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(93));
+      expect(mockedApi.notifications).toHaveBeenLastCalledWith({ limit: 50, offset: 50 });
+      expect(within(panel).getByText("Notice number 92.")).toBeInTheDocument();
+      // The last page came back short: everything is listed.
+      expect(within(panel).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+    });
+
+    it("keeps Mark all as read available while unread notices lie past the loaded ones", async () => {
+      serveNotifications(notices(77, (i) => i >= 50)); // the 27 oldest are unread
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+
+      expect(await within(panel).findByText("27 unread")).toBeInTheDocument();
+      expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
+      const markAll = within(panel).getByRole("button", { name: "Mark all as read" });
+      expect(markAll).toBeEnabled();
+
+      fireEvent.click(markAll);
+      expect(mockedApi.markAllNotificationsRead).toHaveBeenCalledWith(new Date(Date.UTC(2026, 10, 16, 12)).toISOString());
+      expect(await within(panel).findByText("All read")).toBeInTheDocument();
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(77));
+      // The older notices were marked as well.
+      expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
+      expect(tab()).not.toHaveTextContent(/unread/);
+    });
+
+    it("keeps the longer list when the bell reports a change", async () => {
+      const store = notices(93, (i) => i >= 16);
+      serveNotifications(store);
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      fireEvent.click(await within(panel).findByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(93));
+
+      // The bell marks everything read and says so.
+      for (const n of store) n.read = true;
+      act(() => {
+        window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED_EVENT, { detail: { source: "menu" } }));
+      });
+
+      expect(await within(panel).findByText("All read")).toBeInTheDocument();
+      await waitFor(() => expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument());
+      expect(rows()).toHaveLength(93);
+      // One request re-read every notice shown.
+      expect(mockedApi.notifications).toHaveBeenLastCalledWith({ limit: 93, offset: 0 });
+    });
+
+    it("lists a notice once when a new arrival shifts the next page", async () => {
+      const store = notices(60, () => false);
+      serveNotifications(store);
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      await waitFor(() => expect(rows()).toHaveLength(50));
+
+      store.unshift({ ...store[0], id: "nt-new", created_at: "2026-11-16T12:30:00.000Z" });
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+
+      await waitFor(() => expect(rows()).toHaveLength(60));
+      const texts = rows().map((row) => row.textContent);
+      expect(new Set(texts).size).toBe(60);
+      expect(within(panel).getByText("Notice number 59.")).toBeInTheDocument();
+    });
   });
 
   it("hides rating work entirely from viewers and skips the unrated query", async () => {

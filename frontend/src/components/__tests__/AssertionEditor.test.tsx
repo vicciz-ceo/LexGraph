@@ -128,7 +128,7 @@ describe("AssertionEditor", () => {
       expect(screen.getByLabelText("Proposition")).toHaveValue("Keep my work");
       expect(screen.getByLabelText("Reason for revision")).toHaveValue("My reason");
       expect(screen.getByText("Save revision")).toBeDisabled();
-      fireEvent.click(screen.getByText("Save my text as the next revision"));
+      fireEvent.click(screen.getByText("Save my changes as the next revision"));
       await waitFor(() => expect(api.updateAssertion).toHaveBeenCalledTimes(2));
       expect(api.updateAssertion).toHaveBeenLastCalledWith("a", { proposition: "Keep my work", revision_reason: "My reason", expected_revision_number: 4 });
       expect(await screen.findByRole("status")).toHaveTextContent("Revision saved");
@@ -144,7 +144,7 @@ describe("AssertionEditor", () => {
       fireEvent.click(screen.getByText("Save revision"));
       await screen.findByRole("alert");
       rerender(<AssertionEditor detail={newer} canReview isAuthor={false} onSaved={vi.fn()} />);
-      fireEvent.click(screen.getByText("Discard my text and start from the latest"));
+      fireEvent.click(screen.getByText("Discard my changes and start from the latest"));
       expect(screen.getByLabelText("Proposition")).toHaveValue("Reviewer text");
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(screen.getByText("Save revision")).toBeDisabled();
@@ -167,7 +167,7 @@ describe("AssertionEditor", () => {
       openEditor();
       typeText("Reviewer text");
       rerender(<AssertionEditor detail={newer} canReview isAuthor={false} onSaved={vi.fn()} />);
-      expect(screen.getByText("Save my text as the next revision")).toBeDisabled();
+      expect(screen.getByText("Save my changes as the next revision")).toBeDisabled();
       expect(screen.getByRole("alert")).toHaveTextContent("nothing to save");
     });
 
@@ -305,9 +305,10 @@ describe("AssertionEditor fields besides the text", () => {
     expect(save).toBeEnabled();
     fireEvent.click(save);
 
+    // The untouched text is not sent: the API keeps the stored text, so a
+    // save can never put an older wording back (review fe-shell-authoring:1).
     await waitFor(() =>
       expect(api.updateAssertion).toHaveBeenCalledWith("a", {
-        proposition: "Original <term>",
         jurisdiction: "US-CA",
         revision_reason: null,
         expected_revision_number: 3,
@@ -328,7 +329,6 @@ describe("AssertionEditor fields besides the text", () => {
 
     await waitFor(() =>
       expect(api.updateAssertion).toHaveBeenCalledWith("a", {
-        proposition: "Original <term>",
         assertion_type: "MODIFIES",
         jurisdiction: null,
         effective_to: "2026-12-31",
@@ -378,11 +378,160 @@ describe("AssertionEditor fields besides the text", () => {
         onSaved={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save my text as the next revision" }));
+    // The form shows what a save will store: the newer jurisdiction, my type.
+    expect(screen.getByLabelText("Jurisdiction")).toHaveValue("US-NY");
+    expect(screen.getByLabelText("Assertion type")).toHaveValue("MODIFIES");
+    fireEvent.click(screen.getByRole("button", { name: "Save my changes as the next revision" }));
 
     await waitFor(() => expect(api.updateAssertion).toHaveBeenCalled());
     const body = vi.mocked(api.updateAssertion).mock.calls[0][1];
     expect(body).toMatchObject({ assertion_type: "MODIFIES", expected_revision_number: 4 });
     expect(body).not.toHaveProperty("jurisdiction");
+  });
+});
+
+// Review fe-shell-authoring:1: "Save my text as the next revision" always
+// sent the text, so a draft that only changed a fact put the old wording back
+// over a colleague's newer one. A save now applies only the user's own
+// changes on top of the latest revision, and the panel lists them.
+describe("AssertionEditor over a colleague's newer wording", () => {
+  const full = {
+    ...detail,
+    proposition: "Original wording",
+    proposition_raw: "Original wording",
+    assertion_type: "INTERPRETS",
+    jurisdiction: "IL",
+    effective_from: null,
+    effective_to: null,
+  } as AssertionDetail;
+  const reworded = {
+    ...full,
+    proposition: "Colleague wording",
+    proposition_raw: "Colleague wording",
+    current_revision_number: 4,
+  } as AssertionDetail;
+
+  it("saves a jurisdiction-only draft without putting the old text back", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), { target: { value: "US-NY" } });
+
+    view.rerender(<AssertionEditor detail={reworded} canReview isAuthor={false} onSaved={vi.fn()} />);
+
+    const panel = screen.getByRole("alert");
+    expect(panel).toHaveTextContent("A newer revision (v4) was saved while you were editing");
+    expect(within(panel).getByText("Colleague wording")).toBeInTheDocument();
+    // What is shown is what will be saved: the newer text with my change.
+    expect(screen.getByLabelText("Proposition")).toHaveValue("Colleague wording");
+    expect(screen.getByLabelText("Jurisdiction")).toHaveValue("US-NY");
+    expect(panel).not.toHaveTextContent("Your text has not been saved");
+    expect(within(panel).getByRole("list", { name: "Your changes" })).toHaveTextContent(
+      "Jurisdiction: Israel → New York (US-NY)",
+    );
+    expect(within(panel).queryByText(/^Proposition:/)).not.toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Save my changes as the next revision" }));
+    await waitFor(() => expect(api.updateAssertion).toHaveBeenCalledOnce());
+    expect(api.updateAssertion).toHaveBeenCalledWith("a", {
+      jurisdiction: "US-NY",
+      revision_reason: null,
+      expected_revision_number: 4,
+    });
+  });
+
+  it("after a stale-revision 409, sends only the changed field over the newer revision", async () => {
+    vi.mocked(api.updateAssertion)
+      .mockRejectedValueOnce(new HttpError(409, STALE))
+      .mockResolvedValueOnce({} as never);
+    const onSaved = vi.fn();
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={onSaved} />);
+    openEditor();
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), { target: { value: "US-NY" } });
+    fireEvent.change(screen.getByLabelText("Reason for revision"), { target: { value: "New York law" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save revision" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce()); // the reload
+    expect(screen.getByRole("alert")).toHaveTextContent("Your changes are still in the form below");
+
+    view.rerender(<AssertionEditor detail={reworded} canReview isAuthor={false} onSaved={onSaved} />);
+    expect(screen.getByLabelText("Proposition")).toHaveValue("Colleague wording");
+    expect(screen.getByLabelText("Reason for revision")).toHaveValue("New York law");
+    fireEvent.click(screen.getByRole("button", { name: "Save my changes as the next revision" }));
+
+    await waitFor(() => expect(api.updateAssertion).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.updateAssertion).mock.calls.map(([, body]) => body)).toEqual([
+      { jurisdiction: "US-NY", revision_reason: "New York law", expected_revision_number: 3 },
+      { jurisdiction: "US-NY", revision_reason: "New York law", expected_revision_number: 4 },
+    ]);
+  });
+
+  it("still saves an edited text over the newer wording, and says so", async () => {
+    vi.mocked(api.updateAssertion).mockResolvedValue({} as never);
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    typeText("My wording");
+    fireEvent.change(screen.getByLabelText("Effective to"), { target: { value: "2026-12-31" } });
+
+    view.rerender(
+      <AssertionEditor detail={{ ...reworded, jurisdiction: "US-CA" }} canReview isAuthor={false} onSaved={vi.fn()} />,
+    );
+
+    const panel = screen.getByRole("alert");
+    expect(screen.getByLabelText("Proposition")).toHaveValue("My wording");
+    expect(panel).toHaveTextContent("Your text has not been saved and is still in the box below");
+    const changes = within(panel).getByRole("list", { name: "Your changes" });
+    expect(changes).toHaveTextContent("Proposition: the text in the box below");
+    expect(changes).toHaveTextContent("Effective to: none → 2026-12-31");
+    expect(changes).not.toHaveTextContent("Jurisdiction");
+    // The colleague's jurisdiction, which I did not touch, is kept.
+    expect(screen.getByLabelText("Jurisdiction")).toHaveValue("US-CA");
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Save my changes as the next revision" }));
+    await waitFor(() => expect(api.updateAssertion).toHaveBeenCalledOnce());
+    expect(api.updateAssertion).toHaveBeenCalledWith("a", {
+      proposition: "My wording",
+      effective_to: "2026-12-31",
+      revision_reason: null,
+      expected_revision_number: 4,
+    });
+  });
+
+  it("has nothing to save when the newer revision already made my change", () => {
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    fireEvent.change(screen.getByLabelText("Jurisdiction"), { target: { value: "US-NY" } });
+
+    view.rerender(
+      <AssertionEditor detail={{ ...reworded, jurisdiction: "US-NY" }} canReview isAuthor={false} onSaved={vi.fn()} />,
+    );
+
+    const panel = screen.getByRole("alert");
+    expect(panel).toHaveTextContent("nothing to save");
+    expect(within(panel).queryByRole("list", { name: "Your changes" })).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Save my changes as the next revision" })).toBeDisabled();
+  });
+
+  it("keeps my changes when yet another revision arrives, and discards them on request", () => {
+    const view = render(<AssertionEditor detail={full} canReview isAuthor={false} onSaved={vi.fn()} />);
+    openEditor();
+    fireEvent.change(screen.getByLabelText("Assertion type"), { target: { value: "MODIFIES" } });
+    view.rerender(<AssertionEditor detail={reworded} canReview isAuthor={false} onSaved={vi.fn()} />);
+    view.rerender(
+      <AssertionEditor
+        detail={{ ...reworded, proposition: "Third wording", proposition_raw: "Third wording", current_revision_number: 5 }}
+        canReview
+        isAuthor={false}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("A newer revision (v5)");
+    expect(screen.getByLabelText("Proposition")).toHaveValue("Third wording");
+    expect(screen.getByLabelText("Assertion type")).toHaveValue("MODIFIES");
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard my changes and start from the latest" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Assertion type")).toHaveValue("INTERPRETS");
+    expect(screen.getByRole("button", { name: "Save revision" })).toBeDisabled();
   });
 });

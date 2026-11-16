@@ -1,14 +1,17 @@
 // In-app notifications (spec §15): the topbar bell (`NotificationsMenu`)
-// and the Profile page's Notifications tab (`NotificationFeed`).
+// and the Profile page's Notifications tab (`useNotificationFeed` and
+// `NotificationFeed`).
 //
 // Each notice links to its assertion and shows its context (proposition,
 // who acted, matter). Opening one marks it read and, when it belongs to
 // another of the user's matters, switches to that matter first (the detail
 // page only shows assertions of the current matter). "Mark all as read"
-// marks exactly what is on screen: notices that arrived after the newest
-// one shown stay unread. Read state is stored server-side, so the badge
+// marks everything up to the newest notice on screen: notices that arrived
+// after it stay unread. Read state is stored server-side, so the badge
 // stays cleared across reloads and devices. The bell's settings view sets
-// which events notify the user.
+// which events notify the user. The bell shows the newest 20; the Profile
+// tab lists every notice, 50 at a time, and both take the unread figure
+// from the server, which counts notices not loaded yet.
 
 import "../styles/notifications.css";
 
@@ -16,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { api } from "../api/client";
-import { formatInstantDateTime } from "../api/datetime";
+import { formatInstantDateTime, parseApiInstant } from "../api/datetime";
 import type { AppNotification, NotificationPreference } from "../api/types";
 import { Icon } from "../app/icons";
 import { navigate } from "../app/router";
@@ -31,6 +34,10 @@ import {
 
 const POLL_MS = 30_000;
 const MENU_LIMIT = 20;
+/** Notices per page on the Profile tab (the API's default page). */
+const FEED_PAGE = 50;
+/** The most notices one GET /notifications returns. */
+const MAX_PAGE = 200;
 const MENU_SOURCE = "menu";
 const FEED_SOURCE = "feed";
 
@@ -367,57 +374,217 @@ export function NotificationsMenu() {
   );
 }
 
-interface NotificationFeedProps {
-  items: AppNotification[];
-  onItemsChange: (items: AppNotification[]) => void;
+/** Newest first, by instant: "…Z" and "+00:00" spellings do not compare as
+ * strings. The sort is stable, so ties keep the server's order. */
+function newestFirst(items: AppNotification[]): AppNotification[] {
+  const at = (n: AppNotification) => parseApiInstant(n.created_at)?.getTime() ?? 0;
+  return [...items].sort((a, b) => at(b) - at(a));
 }
 
-/** The Profile page's full list, with the same links and read actions as
- * the bell; changes made here or in the bell show up in both. */
-export function NotificationFeed({ items, onItemsChange }: NotificationFeedProps) {
-  const openNotification = useOpenNotification();
-  const latest = useRef(onItemsChange);
-  latest.current = onItemsChange;
+/** `first`, then the notices of `then` it does not hold: a notice that
+ * arrives between two requests shifts the later page by one. */
+function mergeNotices(first: AppNotification[], then: AppNotification[]): AppNotification[] {
+  const held = new Set(first.map((n) => n.id));
+  return [...first, ...then.filter((n) => !held.has(n.id))];
+}
+
+/** The newest notices again, down to `oldestId` (the oldest one listed; with
+ * none, one page) or to the last one there is, in as few requests as
+ * possible. Notices are never deleted, so this re-reads everything listed. */
+async function readNewestThrough(oldestId: string | null, listed: number): Promise<AppNotification[]> {
+  let items: AppNotification[] = [];
+  for (;;) {
+    const limit = Math.min(MAX_PAGE, Math.max(FEED_PAGE, listed - items.length));
+    const page = await api.notifications({ limit, offset: items.length });
+    items = mergeNotices(items, page);
+    if (page.length < limit || oldestId === null || page.some((n) => n.id === oldestId)) return items;
+  }
+}
+
+interface NotificationFeedState {
+  /** Newest first; null until the first page arrives. */
+  items: AppNotification[] | null;
+  failed: boolean;
+  /** The server's count of every unread notice, listed or not; null until known. */
+  unread: number | null;
+  /** The last page came back full, so older notices may follow. */
+  hasMore: boolean;
+  loadingMore: boolean;
+  moreError: string | null;
+}
+
+export interface NotificationFeedModel extends NotificationFeedState {
+  showMore: () => void;
+  markRead: (n: AppNotification) => void;
+  markAllRead: () => void;
+}
+
+const EMPTY_FEED: NotificationFeedState = {
+  items: null,
+  failed: false,
+  unread: null,
+  hasMore: false,
+  loadingMore: false,
+  moreError: null,
+};
+
+/** The Profile page's Notifications tab: every notice, FEED_PAGE at a time
+ * with Show more, and the server's unread count (review
+ * fe-shell-authoring:2). Kept by the page, not the tab, so it survives
+ * switching tabs; `reloadKey` starts it over. Changes made in the bell
+ * re-read everything listed, so the list never shrinks back to one page. */
+export function useNotificationFeed(reloadKey: string): NotificationFeedModel {
+  const [state, setState] = useState<NotificationFeedState>(EMPTY_FEED);
+  const latest = useRef(state);
+  latest.current = state;
+  // Bumped when the feed starts over: answers for an earlier start are dropped.
+  const generation = useRef(0);
+  // Bumped by every local change of read state: an unread count requested
+  // before one is stale.
+  const countGeneration = useRef(0);
+
+  const loadUnread = useCallback(() => {
+    const started = generation.current;
+    const counted = countGeneration.current;
+    api.unreadNotificationCount().then(
+      ({ unread_count }) => {
+        if (generation.current === started && countGeneration.current === counted) {
+          setState((s) => ({ ...s, unread: unread_count }));
+        }
+      },
+      () => undefined,
+    );
+  }, []);
+
+  const refresh = useCallback(() => {
+    loadUnread();
+    const listed = latest.current.items;
+    if (listed === null) return; // the first page is on its way
+    const started = generation.current;
+    const oldest = listed.length > 0 ? listed[listed.length - 1].id : null;
+    readNewestThrough(oldest, listed.length).then(
+      (fresh) => {
+        if (generation.current !== started) return;
+        setState((s) => {
+          if (s.items === null) return s;
+          // Keeps whatever a Show more added meanwhile. Nothing older than
+          // the oldest listed was read, so whether more follow is unchanged,
+          // unless the list was empty.
+          const items = newestFirst(mergeNotices(fresh, s.items));
+          return { ...s, items, hasMore: oldest === null ? fresh.length >= FEED_PAGE : s.hasMore };
+        });
+      },
+      () => undefined,
+    );
+  }, [loadUnread]);
+
+  useEffect(() => {
+    generation.current += 1;
+    const started = generation.current;
+    setState(EMPTY_FEED);
+    api.notifications({ limit: FEED_PAGE, offset: 0 }).then(
+      (page) => {
+        if (generation.current !== started) return;
+        setState((s) => ({ ...s, items: newestFirst(page), hasMore: page.length === FEED_PAGE }));
+      },
+      () => {
+        if (generation.current === started) setState((s) => ({ ...s, failed: true }));
+      },
+    );
+    loadUnread();
+  }, [reloadKey, loadUnread]);
 
   useEffect(() => {
     const onChanged = (event: Event) => {
-      if (sourceOf(event) === FEED_SOURCE) return;
-      api.notifications().then(
-        (fresh) => latest.current(fresh),
-        () => undefined,
-      );
+      if (sourceOf(event) !== FEED_SOURCE) refresh();
     };
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onChanged);
-  }, []);
+  }, [refresh]);
 
-  const unread = items.filter((n) => !n.read).length;
-
-  const settle = (write: Promise<unknown>) => {
-    write.then(() => announceNotificationsChanged(FEED_SOURCE)).catch(() => undefined);
+  const showMore = () => {
+    const listed = latest.current.items;
+    if (listed === null || latest.current.loadingMore) return;
+    const started = generation.current;
+    setState((s) => ({ ...s, loadingMore: true, moreError: null }));
+    api.notifications({ limit: FEED_PAGE, offset: listed.length }).then(
+      (page) => {
+        if (generation.current !== started) return;
+        setState((s) => ({
+          ...s,
+          items: s.items === null ? s.items : newestFirst(mergeNotices(s.items, page)),
+          hasMore: page.length === FEED_PAGE,
+          loadingMore: false,
+        }));
+      },
+      (error: unknown) => {
+        if (generation.current !== started) return;
+        setState((s) => ({
+          ...s,
+          loadingMore: false,
+          moreError: error instanceof Error ? error.message : "the server did not respond",
+        }));
+      },
+    );
   };
 
   const markRead = (n: AppNotification) => {
     if (n.read) return;
-    onItemsChange(items.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
-    settle(api.markNotificationRead(n.id));
+    countGeneration.current += 1;
+    setState((s) => ({
+      ...s,
+      items: s.items?.map((x) => (x.id === n.id ? { ...x, read: true } : x)) ?? null,
+      unread: s.unread === null ? null : Math.max(0, s.unread - 1),
+    }));
+    // Then the server's count, which also covers a notice read elsewhere.
+    api
+      .markNotificationRead(n.id)
+      .then(() => announceNotificationsChanged(FEED_SOURCE))
+      .catch(() => undefined)
+      .finally(loadUnread);
   };
 
   const markAllRead = () => {
-    if (unread === 0) return;
-    onItemsChange(items.map((x) => ({ ...x, read: true })));
-    settle(api.markAllNotificationsRead(items[0].created_at));
+    const listed = latest.current.items;
+    if (listed === null || listed.length === 0) return;
+    countGeneration.current += 1;
+    const counted = countGeneration.current;
+    setState((s) => ({ ...s, items: s.items?.map((x) => ({ ...x, read: true })) ?? null, unread: 0 }));
+    // Marks every unread notice up to the newest one listed, loaded or not.
+    api.markAllNotificationsRead(listed[0].created_at).then(
+      ({ unread_count }) => {
+        announceNotificationsChanged(FEED_SOURCE);
+        if (countGeneration.current === counted) setState((s) => ({ ...s, unread: unread_count }));
+        // Notices newer than the list stayed unread: list them.
+        if (unread_count > 0) refresh();
+      },
+      () => refresh(),
+    );
   };
+
+  return { ...state, showMore, markRead, markAllRead };
+}
+
+/** The Profile page's list of every notice (from `useNotificationFeed`),
+ * with the same links and read actions as the bell; changes made here or in
+ * the bell show up in both. */
+export function NotificationFeed({ feed }: { feed: NotificationFeedModel }) {
+  const openNotification = useOpenNotification();
+  const items = feed.items ?? [];
+  // The server's figure counts notices beyond the loaded ones too.
+  const unread = feed.unread ?? items.filter((n) => !n.read).length;
 
   return (
     <div className="notif-feed">
       <div className="notif-feed__bar">
-        <span className="notif-feed__count">{unread === 0 ? "All read" : `${unread} unread`}</span>
+        <span className="notif-feed__count">
+          {unread === 0 ? "All read" : `${unread.toLocaleString("en-US")} unread`}
+        </span>
         <button
           type="button"
           className="btn btn--sm btn--secondary"
-          onClick={markAllRead}
-          disabled={unread === 0}
+          onClick={feed.markAllRead}
+          disabled={unread === 0 || items.length === 0}
         >
           Mark all as read
         </button>
@@ -428,8 +595,26 @@ export function NotificationFeed({ items, onItemsChange }: NotificationFeedProps
         onOpen={(n, event) => {
           openNotification(n, event);
         }}
-        onMarkRead={markRead}
+        onMarkRead={feed.markRead}
       />
+      {feed.hasMore && (
+        <div className="pf-more">
+          <span className="pf-more__count">Showing the newest {items.length.toLocaleString("en-US")}</span>
+          <button
+            type="button"
+            className="btn btn--sm btn--secondary"
+            onClick={feed.showMore}
+            disabled={feed.loadingMore}
+          >
+            {feed.loadingMore ? "Loading…" : "Show more"}
+          </button>
+          {feed.moreError !== null && (
+            <span className="pf-more__error" role="alert">
+              Couldn't load more: {feed.moreError}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

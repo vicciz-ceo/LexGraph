@@ -533,17 +533,39 @@ describe("KnowledgeBasePage", () => {
     expect(lines[lines.length - 1]).toBe(
       `${a2.proposition},obligation,,AI-deduced,accepted,accepted,awaiting_evidence,,0,2026-07-20T10:00:00.000Z`,
     );
-    // The export used the page's filters and sort, 500 rows per request.
+    // The export used the page's filters and sort, 500 rows per request. It
+    // holds back the last 20 rows of a full page, and the next request starts
+    // 20 rows before those, so it reads again the last 20 rows written and
+    // the 20 held back: that is how it finds its place even if rows joined or
+    // left meanwhile (listing:1).
     const exportCalls = mockedApi.listAssertions.mock.calls
       .map(([, params]) => params as AssertionListParams)
       .filter((params) => params.limit === 500);
     expect(exportCalls).toEqual([
       { status: "accepted", sort: "-created_at", limit: 500, offset: 0 },
-      { status: "accepted", sort: "-created_at", limit: 500, offset: 500 },
-      { status: "accepted", sort: "-created_at", limit: 500, offset: 1000 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 460 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 920 },
     ]);
     expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:lexgraph");
+  });
+
+  it("writes UTF-8 with a byte-order mark, so Excel reads Hebrew text correctly", async () => {
+    // fe-shell-authoring:4: without the mark Excel decodes a double-clicked
+    // CSV in the ANSI code page, and 'חוק' arrives as '×—×•×§'.
+    const hebrew = { ...a1, id: "he", proposition: "חוק הגנת הפרטיות חל על מאגר המידע" };
+    mockedApi.listAssertions.mockImplementation(serve([hebrew]));
+
+    const { text, bytes } = await exportCsv(hebrew.proposition);
+
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    // The mark is not part of the first cell: the header is unchanged and
+    // carries no formula-guard apostrophe.
+    expect(new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)).toMatch(/^\uFEFFProposition,Type,/);
+    expect(text.split("\r\n")[0]).toBe(
+      "Proposition,Type,Jurisdiction,Origin,Status,Standing,Evidence,Avg rating,Ratings,Updated",
+    );
+    expect(text.split("\r\n")[1]).toMatch(/^חוק הגנת הפרטיות חל על מאגר המידע,obligation,/);
   });
 
   it("shows export progress and can cancel it", async () => {
@@ -551,7 +573,7 @@ describe("KnowledgeBasePage", () => {
     const rows = manyRows(700);
     mockedApi.listAssertions.mockImplementation(
       async (m: string, params: AssertionListParams = {}) => {
-        if (params.limit === 500 && params.offset === 500) {
+        if (params.limit === 500 && (params.offset ?? 0) > 0) {
           await new Promise<void>((resolve) => {
             releaseSecondPage = resolve;
           });
@@ -582,7 +604,7 @@ describe("KnowledgeBasePage", () => {
     const rows = manyRows(700);
     mockedApi.listAssertions.mockImplementation(
       async (m: string, params: AssertionListParams = {}) => {
-        if (params.limit === 500 && params.offset === 500) throw new Error("Server went away");
+        if (params.limit === 500 && (params.offset ?? 0) > 0) throw new Error("Server went away");
         return serve(rows)(m, params);
       },
     );
@@ -657,8 +679,10 @@ describe("KnowledgeBasePage in Asia/Tokyo", () => {
   });
 });
 
-/** Render, wait for `readyText`, click Export CSV and return the downloaded file's text. */
-async function exportCsv(readyText: string) {
+/** Render, wait for `readyText`, optionally pick a sort (then wait for
+ * `sorted.readyText`), click Export CSV and return the downloaded file: its
+ * text (decoded as UTF-8, which drops a byte-order mark) and its bytes. */
+async function exportCsv(readyText: string, sorted?: { sort: string; readyText: string }) {
   const user = userEvent.setup();
   const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
   const revokeObjectURL = vi.fn();
@@ -667,19 +691,454 @@ async function exportCsv(readyText: string) {
   try {
     render(<KnowledgeBasePage />);
     await screen.findByText(readyText);
+    if (sorted !== undefined) {
+      await user.selectOptions(screen.getByLabelText("Sort"), sorted.sort);
+      await screen.findByText(sorted.readyText);
+    }
     await user.click(screen.getByRole("button", { name: "Export CSV" }));
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     const blob = createObjectURL.mock.calls[0][0];
     // jsdom's Blob has no .text(); go through FileReader instead.
-    const text = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(blob);
-    });
-    return { text, revokeObjectURL };
+    const read = <T,>(how: "readAsText" | "readAsArrayBuffer") =>
+      new Promise<T>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as T);
+        reader.onerror = () => reject(reader.error);
+        reader[how](blob);
+      });
+    const text = await read<string>("readAsText");
+    const bytes = new Uint8Array(await read<ArrayBuffer>("readAsArrayBuffer"));
+    return { text, bytes, revokeObjectURL };
   } finally {
     click.mockRestore();
   }
 }
+
+// listing:1: the export used to step an OFFSET through the live result set.
+// When a row it had already written left the result set (disputed, say), or a
+// row it had not read yet moved ahead (a new rating under "Most ratings"),
+// the row at the next page boundary was never requested and the file came
+// out one row short, with nothing to say so. These tests change the matter
+// between the export's requests, like a colleague working meanwhile. Rows
+// that match throughout must all be in the file, once, and a row that starts
+// matching meanwhile must be in its place in the table's order or left out:
+// the first fix wrote such a row after the row it had last written, out of
+// order, when that row had left (verifier triggers (a) and (b)).
+describe("KnowledgeBasePage CSV export while the matter changes", () => {
+  /** Ratings summary with `count` ratings of 4, or null for none. */
+  function ratings(id: string, count: number): AssertionListItem["ratings_summary"] {
+    if (count === 0) return null;
+    return {
+      assertion_id: id,
+      assertion_revision_id: `rev-${id}`,
+      count,
+      average: 4,
+      median: 4,
+      distribution: { "1": 0, "2": 0, "3": 0, "4": count, "5": 0 },
+    };
+  }
+
+  /** `count` accepted rows in insertion order, each created a minute after
+   * the one before; the first `rated` are rated (most ratings first). */
+  function matter(count: number, rated = 0): AssertionListItem[] {
+    return Array.from({ length: count }, (_, i) => {
+      const id = `c-${String(i).padStart(4, "0")}`;
+      return {
+        ...a1,
+        id,
+        proposition: `Clause ${String(i).padStart(4, "0")} applies.`,
+        created_at: new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString(),
+        ratings_summary: ratings(id, i < rated ? rated - i : 0),
+      };
+    });
+  }
+
+  /** The server's sort keys the tests use (no sort: insertion order). */
+  const SORT_KEYS: Record<string, (a: AssertionListItem, b: AssertionListItem) => number> = {
+    "": () => 0,
+    "-created_at": (a, b) => b.created_at.localeCompare(a.created_at),
+    created_at: (a, b) => a.created_at.localeCompare(b.created_at),
+    assertion_type: (a, b) =>
+      a.assertion_type < b.assertion_type ? -1 : a.assertion_type > b.assertion_type ? 1 : 0,
+    "-rating_count": (a, b) => (b.ratings_summary?.count ?? 0) - (a.ratings_summary?.count ?? 0),
+  };
+
+  /** `rows` (in insertion order) as GET /assertions orders them for `sort`:
+   * by the sort key, ties in insertion order. */
+  function serverOrder(rows: AssertionListItem[], sort: string): AssertionListItem[] {
+    const compare = SORT_KEYS[sort];
+    if (compare === undefined) throw new Error(`the test server does not sort by ${sort}`);
+    const insertion = new Map(rows.map((row, i) => [row.id, i]));
+    return [...rows].sort((a, b) => compare(a, b) || insertion.get(a.id)! - insertion.get(b.id)!);
+  }
+
+  /** GET /assertions over `rows` (insertion order) as the server answers it:
+   * the status filter, the sort with ties in insertion order (no sort:
+   * insertion order), then limit/offset. `beforeExportRequest(n, previous)`
+   * runs before the n-th export request (limit 500), from the second one on;
+   * `previous` is what the export request before it returned. */
+  function liveServer(
+    rows: AssertionListItem[],
+    beforeExportRequest: (n: number, previous: AssertionListItem[]) => void,
+  ) {
+    let exportRequests = 0;
+    let previous: AssertionListItem[] = [];
+    return async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
+      if (params.limit === 500) {
+        exportRequests += 1;
+        if (exportRequests > 1) beforeExportRequest(exportRequests, previous);
+      }
+      const matched = serverOrder(rows, params.sort ?? "").filter(
+        (row) => !params.status || row.status === params.status,
+      );
+      const offset = params.offset ?? 0;
+      const end = params.limit === undefined ? matched.length : offset + params.limit;
+      const items = matched.slice(offset, end);
+      if (params.limit === 500) previous = items;
+      return { items, total: matched.length, limit: params.limit ?? null, offset };
+    };
+  }
+
+  /** The offsets of the export's requests (limit 500), in order. */
+  function exportOffsets(): (number | undefined)[] {
+    return mockedApi.listAssertions.mock.calls
+      .map(([, params]) => params as AssertionListParams)
+      .filter((params) => params.limit === 500)
+      .map((params) => params.offset);
+  }
+
+  /** Expect the CSV `text` to hold each row at most once, every row of
+   * `throughout`, and its rows in the order the server sorts `rows` by `sort`
+   * (positions in that order are immutable in these tests). */
+  function expectTableOrder(
+    text: string,
+    rows: AssertionListItem[],
+    sort: string,
+    throughout: string[],
+  ): string[] {
+    const byProposition = new Map(rows.map((row) => [row.proposition, row.id]));
+    const ids = propositionsOf(text).map((proposition) => byProposition.get(proposition)!);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(throughout));
+    const position = new Map(serverOrder(rows, sort).map((row, i) => [row.id, i]));
+    const misplaced = ids.findIndex((id, i) => i > 0 && position.get(id)! < position.get(ids[i - 1])!);
+    expect(misplaced === -1 ? "in order" : `${ids[misplaced - 1]} before ${ids[misplaced]}`).toBe(
+      "in order",
+    );
+    return ids;
+  }
+
+  const pad = (i: number) => String(i).padStart(4, "0");
+  const minute = (i: number) => new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString();
+
+  /** The propositions of a CSV's data lines (none of these needs quoting). */
+  function propositionsOf(text: string): string[] {
+    return text.split("\r\n").slice(1).map((line) => line.split(",")[0]);
+  }
+
+  function setRow(rows: AssertionListItem[], id: string, change: Partial<AssertionListItem>) {
+    const i = rows.findIndex((row) => row.id === id);
+    rows[i] = { ...rows[i], ...change };
+  }
+
+  it("keeps every match when a row it already wrote is disputed mid-export", async () => {
+    const rows = matter(1_100);
+    const newestFirst = [...rows].reverse();
+    const disputed = newestFirst[0].id; // written by the first request
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n === 2) setRow(rows, disputed, { status: "disputed" });
+      }),
+    );
+
+    const { text } = await exportCsv(newestFirst[0].proposition);
+
+    const exported = propositionsOf(text);
+    const throughout = newestFirst.filter((row) => row.id !== disputed).map((row) => row.proposition);
+    // Clause 0599 sat right after the first page boundary and used to be lost.
+    expect(exported).toContain("Clause 0599 applies.");
+    expect(exported.filter((p) => p !== "Clause 1099 applies.")).toEqual(throughout);
+    expect(new Set(exported).size).toBe(exported.length);
+  });
+
+  it("keeps every match when a removal and an addition leave the total unchanged", async () => {
+    const rows = matter(1_100);
+    setRow(rows, "c-0100", { status: "proposed" }); // not a match when the export starts
+    const disputed = "c-1050"; // written by the first request
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n === 2) {
+          setRow(rows, disputed, { status: "disputed" });
+          setRow(rows, "c-0100", { status: "accepted" }); // after the boundary
+        }
+      }),
+    );
+
+    const { text } = await exportCsv("Clause 1099 applies.");
+
+    const exported = new Set(propositionsOf(text));
+    for (const row of rows) {
+      if (row.id !== disputed && row.id !== "c-0100") expect(exported).toContain(row.proposition);
+    }
+    expect(exported).toContain("Clause 0100 applies.");
+  });
+
+  it("keeps a row that a new rating moves ahead under Most ratings, in rating order", async () => {
+    // Ten rated rows lead; the rest are unrated, oldest first. During the
+    // export a colleague rates the very last row of that order.
+    const rows = matter(1_100, 10);
+    const last = rows[rows.length - 1].id;
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n === 2) setRow(rows, last, { ratings_summary: ratings(last, 5) });
+      }),
+    );
+
+    const { text } = await exportCsv("Clause 1099 applies.", {
+      sort: "-rating_count",
+      readyText: "Clause 0000 applies.",
+    });
+
+    const lines = text.split("\r\n").slice(1);
+    const exported = lines.map((line) => line.split(",")[0]);
+    expect(exported).toHaveLength(1_100);
+    expect(new Set(exported).size).toBe(1_100);
+    expect(exported).toContain("Clause 1099 applies.");
+    // The file is in the table's order: most ratings first, ties oldest first.
+    const counts = lines.map((line) => Number(line.split(",")[8]));
+    expect(counts).toEqual([...counts].sort((a, b) => b - a));
+    expect(exported.slice(0, 7)).toEqual([
+      "Clause 0000 applies.", // 10 ratings
+      "Clause 0001 applies.",
+      "Clause 0002 applies.",
+      "Clause 0003 applies.",
+      "Clause 0004 applies.",
+      "Clause 0005 applies.", // 5 ratings, created first
+      "Clause 1099 applies.", // 5 ratings, rated during the export
+    ]);
+    expect(exported.slice(7, 11)).toEqual([
+      "Clause 0006 applies.", // 4 ratings
+      "Clause 0007 applies.",
+      "Clause 0008 applies.",
+      "Clause 0009 applies.", // 1 rating
+    ]);
+    expect(exported.slice(11)).toEqual(
+      rows.slice(10, -1).map((row) => row.proposition), // unrated, oldest first
+    );
+    // Paged in insertion order, which no rating can change, then sorted.
+    const exportSorts = mockedApi.listAssertions.mock.calls
+      .map(([, params]) => params as AssertionListParams)
+      .filter((params) => params.limit === 500)
+      .map((params) => params.sort);
+    expect(new Set(exportSorts)).toEqual(new Set([undefined]));
+  });
+
+  it.each([
+    // 39 of the rows the first request wrote leave: the last of the 20 rows
+    // it read past them is still in reach, so it carries on from there.
+    { leaving: 39, offsets: [0, 460, 920], remaining: 1_100 },
+    // 40 leave: the last row it wrote and the 20 after it are all out of
+    // reach, so it starts over and writes the 1,060 rows that remain.
+    { leaving: 40, offsets: [0, 460, 0, 460, 920], remaining: 1_060 },
+  ])(
+    "bridges up to 39 written rows leaving at once and starts over from 40 ($leaving leave)",
+    async ({ leaving, offsets, remaining }) => {
+      const rows = matter(1_100);
+      const newestFirst = [...rows].reverse();
+      const disputed = new Set(newestFirst.slice(0, leaving).map((row) => row.id));
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (n) => {
+          if (n === 2) for (const id of disputed) setRow(rows, id, { status: "disputed" });
+        }),
+      );
+
+      const { text } = await exportCsv(newestFirst[0].proposition);
+
+      // Every row once, newest first. Without a restart the rows that left
+      // were written before they left; after one, only the rows that remain.
+      expect(propositionsOf(text)).toEqual(
+        newestFirst.slice(newestFirst.length - remaining).map((row) => row.proposition),
+      );
+      expect(exportOffsets()).toEqual(offsets);
+    },
+  );
+
+  it.each([
+    { sort: "created_at", label: "Oldest first", onePipelineRun: false },
+    { sort: "-created_at", label: "Newest first, all from one pipeline run", onePipelineRun: true },
+    { sort: "assertion_type", label: "Type, all of one type", onePipelineRun: false },
+  ])(
+    "writes a row that joins next to one that leaves in the table's order ($label)",
+    async ({ sort, onePipelineRun }) => {
+      // Every accepted clause has a proposed twin created just before it
+      // (all at one instant for a pipeline run, where insertion order breaks
+      // the tie). Before each request, a reviewer disputes the last row the
+      // request before returned and accepts its twin: the twin joins right
+      // where a row that has left was, which the export must not mistake for
+      // rows it has not reached yet.
+      const rows = Array.from({ length: 1_100 }, (_, i) => {
+        const clause: AssertionListItem = {
+          ...a1,
+          id: `c-${pad(i)}`,
+          proposition: `Clause ${pad(i)} applies.`,
+          created_at: onePipelineRun ? minute(0) : minute(i),
+          ratings_summary: null,
+        };
+        const twin: AssertionListItem = {
+          ...clause,
+          id: `t-${pad(i)}`,
+          proposition: `Clause ${pad(i)} is preceded.`,
+          status: "proposed",
+          created_at: onePipelineRun ? minute(0) : minute(i - 0.5),
+        };
+        return [twin, clause];
+      }).flat();
+      const left = new Set<string>();
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (_n, previous) => {
+          const last = previous[previous.length - 1];
+          if (!last.id.startsWith("c-")) return;
+          setRow(rows, last.id, { status: "disputed" });
+          setRow(rows, `t-${last.id.slice(2)}`, { status: "accepted" });
+          left.add(last.id);
+        }),
+      );
+      const firstInSort = serverOrder(rows, sort).find((row) => row.status === "accepted")!;
+      const newest = serverOrder(rows, "-created_at").find((row) => row.status === "accepted")!;
+
+      const { text } = await exportCsv(
+        newest.proposition,
+        sort === "-created_at" ? undefined : { sort, readyText: firstInSort.proposition },
+      );
+
+      const throughout = rows
+        .filter((row) => row.id.startsWith("c-") && !left.has(row.id))
+        .map((row) => row.id);
+      const exported = expectTableOrder(text, rows, sort, throughout);
+      expect(left.size).toBeGreaterThan(1);
+      expect(exported.some((id) => id.startsWith("t-"))).toBe(true);
+    },
+  );
+
+  it("keeps the table's order when rows it wrote leave while an older row joins", async () => {
+    // Before the third request, 25 rows the second request wrote are
+    // disputed while a reviewer accepts an older proposed row.
+    const rows = matter(1_600);
+    setRow(rows, "c-0499", { status: "proposed" });
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n !== 3) return;
+        for (let i = 600; i < 625; i += 1) setRow(rows, `c-${pad(i)}`, { status: "disputed" });
+        setRow(rows, "c-0499", { status: "accepted" });
+      }),
+    );
+
+    const { text } = await exportCsv("Clause 1599 applies.", {
+      sort: "created_at",
+      readyText: "Clause 0000 applies.",
+    });
+
+    const changed = (id: string) => id === "c-0499" || (id >= "c-0600" && id < "c-0625");
+    const throughout = rows.map((row) => row.id).filter((id) => !changed(id));
+    expectTableOrder(text, rows, "created_at", throughout);
+  });
+
+  it("keeps the table's order when hundreds of rows join among those it has written", async () => {
+    // Accepted and proposed rows alternate; after the first request a bulk
+    // accept adds the 650 proposed rows among the oldest 1,300, most of them
+    // before the last row the export wrote.
+    const rows: AssertionListItem[] = Array.from({ length: 2_400 }, (_, i) => ({
+      ...a1,
+      id: `c-${pad(i)}`,
+      proposition: `Clause ${pad(i)} applies.`,
+      status: i % 2 === 0 ? "accepted" : "proposed",
+      created_at: minute(i),
+      ratings_summary: null,
+    }));
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, (n) => {
+        if (n !== 2) return;
+        for (const row of rows.slice(0, 1_300)) {
+          if (row.status === "proposed") setRow(rows, row.id, { status: "accepted" });
+        }
+      }),
+    );
+
+    const { text } = await exportCsv("Clause 2398 applies.", {
+      sort: "created_at",
+      readyText: "Clause 0000 applies.",
+    });
+
+    const throughout = rows.filter((_, i) => i % 2 === 0).map((row) => row.id);
+    expectTableOrder(text, rows, "created_at", throughout);
+  });
+
+  it.each([
+    // 480 join before the last row it wrote, which is then the next page's
+    // last row: still in reach. The rows that joined behind it are left out.
+    { joining: 480, offsets: [0, 460, 940, 1_400], startedOver: false },
+    // 481: that row and the rows read past it are all beyond the next page,
+    // so the export cannot tell where its rows end. It starts over.
+    { joining: 481, offsets: [0, 460, 0, 460, 920, 1_380], startedOver: true },
+  ])(
+    "starts over, in the table's order, when more than 480 rows join before its place ($joining join)",
+    async ({ joining, offsets, startedOver }) => {
+      // Proposed rows from one pipeline run, created between clauses 0469
+      // and 0470, are accepted at once after the first request.
+      const rows = matter(1_100);
+      const pipeline = Array.from({ length: joining }, (_, i) => ({
+        ...a1,
+        id: `p-${pad(i)}`,
+        proposition: `Pipeline row ${pad(i)} applies.`,
+        status: "proposed" as const,
+        created_at: new Date(Date.parse(minute(469)) + 30_000).toISOString(),
+        ratings_summary: null,
+      }));
+      rows.splice(470, 0, ...pipeline);
+      mockedApi.listAssertions.mockImplementation(
+        liveServer(rows, (n) => {
+          if (n === 2) for (const row of pipeline) setRow(rows, row.id, { status: "accepted" });
+        }),
+      );
+
+      const { text } = await exportCsv("Clause 1099 applies.", {
+        sort: "created_at",
+        readyText: "Clause 0000 applies.",
+      });
+
+      // Every row once, in creation order; after starting over, the rows
+      // that joined too.
+      expect(propositionsOf(text)).toEqual(
+        rows
+          .filter((row) => startedOver || !row.id.startsWith("p-"))
+          .map((row) => row.proposition),
+      );
+      expect(exportOffsets()).toEqual(offsets);
+    },
+  );
+
+  it("fails instead of downloading a partial file when rows keep leaving", async () => {
+    const rows = matter(1_100);
+    let next = rows.length - 1;
+    mockedApi.listAssertions.mockImplementation(
+      liveServer(rows, () => {
+        // 40 more of the newest accepted rows leave before every request,
+        // more than it can bridge (see above), so every attempt loses its place.
+        for (let i = 0; i < 40; i += 1, next -= 1) setRow(rows, rows[next].id, { status: "disputed" });
+      }),
+    );
+    const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Clause 1099 applies.");
+
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "CSV export failed: many matching assertions changed while it ran. Export again.",
+    );
+    expect(createObjectURL).not.toHaveBeenCalled();
+  });
+});

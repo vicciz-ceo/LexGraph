@@ -556,13 +556,13 @@ left.
 
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
-- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. The topbar search opens it on all statuses, and submitting the same query again re-runs it
+- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, in the table's order, as UTF-8 with a byte-order mark (Excel opens it directly, Hebrew included; a program reading it should decode `utf-8-sig`), with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. Assertions reviewed, edited or rated while it runs never make it skip one that matches the whole time, and never put a line out of order (one that starts matching meanwhile is either in its place or left out); if very many change at once it starts over, and if that happens three times it fails and says so rather than download part of the list. The topbar search opens it on all statuses, and submitting the same query again re-runs it
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
 - **Assertion detail** — evidence (attach and remove, under the edit rule), threaded comments (reply; edit or delete your own), review history, revision history with a side-by-side comparison of any two revisions, ratings with rationales, and role-gated review actions, including superseding an accepted assertion
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
 - **Admin** — user account provisioning and matter member/role management (admin role required)
-- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), notifications, and matters
+- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), all your notifications (50 at a time, with your unread count), and matters
 
 ### Notifications
 
@@ -570,9 +570,12 @@ The bell in the top bar shows whether you have unread notifications (its
 label gives the count). Each notification names the assertion, who acted and
 in which matter. Opening one marks it read and takes you to the assertion,
 switching to its matter first when needed; **Mark all as read** marks
-everything listed (a notification that arrives meanwhile stays unread). The
-Profile page's **Notifications** tab lists the same notifications with the
-same actions. The gear in the bell's panel chooses which events notify you.
+every notification up to the newest one listed (one that arrives meanwhile
+stays unread). The bell lists your 20 newest notifications. The Profile
+page's **Notifications** tab lists all of them, 50 at a time (**Show more**
+loads older ones), with the same actions; the tab and the line above the
+list give your unread count, which includes notifications not loaded yet.
+The gear in the bell's panel chooses which events notify you.
 
 | Event | Who is notified |
 |---|---|

@@ -12,6 +12,12 @@
   margin-top: var(--space-xs);
 }
 
+/* The user's own changes, which are all that saving over a newer revision sends. */
+.assertion-editor__changes {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 .assertion-editor__latest {
   margin: 0;
   align-self: stretch;
