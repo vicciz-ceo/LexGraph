@@ -14,13 +14,17 @@ app-wide projection from every matter on every request (audit findings
 api:23/api:14) raced between concurrent requests and cost a full table read.
 The response is bounded (`limit`, default 1000) and reports `total`; rating
 aggregates and evidence counts are loaded in batches, not per edge.
+
+`GET /api/v1/matters/{matter_id}/assertion-stats` serves matter-level
+assertion aggregates (spec §19) so dashboards need not download every
+assertion (audit finding ui:1).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -28,6 +32,9 @@ from app.auth import AuthHeaderError, get_bearer_user_id
 from app.graph_projection import DEFAULT_VIEW_STATES, UNREVIEWED_VIEW_STATES, InMemoryGraphProjection
 from app.models import Assertion, MatterRole
 from app.services.assertion_listing import (
+    AssertionStatsQuery,
+    assertion_stats,
+    assertion_stats_query,
     current_revisions,
     evidence_roles,
     insertion_order,
@@ -45,6 +52,10 @@ def _authenticate(authorization: str | None) -> str:
         return get_bearer_user_id(authorization)
     except AuthHeaderError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+def _authenticated_user(authorization: str | None = Header(default=None)) -> str:
+    return _authenticate(authorization)
 
 
 def _require_matter_access(session: Session, matter_id: str, user_id: str) -> None:
@@ -141,3 +152,22 @@ def get_matter_graph(
     finally:
         session.close()
 
+
+@router.get("/matters/{matter_id}/assertion-stats")
+def get_assertion_stats(
+    matter_id: str,
+    request: Request,
+    actor_user_id: str = Depends(_authenticated_user),
+    query: AssertionStatsQuery = Depends(assertion_stats_query),
+) -> dict[str, Any]:
+    """Counts by status, origin, type, evidence status and author; model
+    confidence and current-revision rating aggregates; creation counts per
+    caller-supplied time bucket. Accepts the list endpoint's filters
+    (except `q`), so e.g. `author_user_id` gives one user's statistics.
+    """
+    session: Session = request.app.state.session_factory()
+    try:
+        _require_matter_access(session, matter_id, actor_user_id)
+        return assertion_stats(session, query, user_id=actor_user_id)
+    finally:
+        session.close()
