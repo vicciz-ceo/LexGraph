@@ -35,6 +35,11 @@ const DEBOUNCE_MS = 250;
 const PAGE_SIZE = 50;
 /** Rows per request while exporting: the list endpoint's largest limit. */
 const EXPORT_PAGE_SIZE = 500;
+/** Rows each export request reads again from the request before, to find
+ * where the rows it has not read begin (see exportLines). */
+const EXPORT_OVERLAP = 20;
+/** How often an export may read again from the start before it gives up. */
+const EXPORT_MAX_RESTARTS = 3;
 
 const STATUS_OPTIONS: { value: AssertionStatus | ""; label: string }[] = [
   { value: "accepted", label: "Accepted" },
@@ -61,18 +66,20 @@ const ORIGIN_OPTIONS: { value: AssertionOrigin | ""; label: string }[] = [
   { value: "system_generated", label: "System" },
 ];
 
-const SORT_OPTIONS: { value: string; label: string }[] = [
+const SORT_OPTIONS = [
   { value: "-created_at", label: "Newest first" },
   { value: "created_at", label: "Oldest first" },
   { value: "proposition", label: "Proposition A–Z" },
   { value: "assertion_type", label: "Type" },
   { value: "-average_rating", label: "Highest average rating" },
   { value: "-rating_count", label: "Most ratings" },
-];
+] as const satisfies readonly { value: string; label: string }[];
+
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 
 /** Orders by colleagues' ratings, which spec §17 requires to be labelled as
  * user opinion rather than legal authority. */
-const RATING_SORTS = new Set(["-average_rating", "-rating_count"]);
+const RATING_SORTS = new Set<string>(["-average_rating", "-rating_count"]);
 
 const ORIGIN_CHIPS: Record<
   AssertionOrigin,
@@ -184,41 +191,135 @@ interface ExportRun {
   cancelled: boolean;
 }
 
-/** The CSV line of every match of `filters`, EXPORT_PAGE_SIZE rows per
- * request; null if cancelled. Only the lines are kept, not the rows, so a
- * matter of hundreds of thousands of assertions fits in memory. */
+type ExportSortKey = string | number | null;
+
+/** UTF-16 strings in code point order, the order of SQLite's default BINARY
+ * collation on UTF-8 text: a surrogate pair (a code point above U+FFFF)
+ * sorts after U+E000–U+FFFF. */
+function compareCodePoints(a: string, b: string): number {
+  const length = Math.min(a.length, b.length);
+  for (let i = 0; i < length; i += 1) {
+    let x = a.charCodeAt(i);
+    let y = b.charCodeAt(i);
+    if (x === y) continue;
+    if (x >= 0xd800 && y >= 0xd800) {
+      x = x >= 0xe000 ? x - 0x800 : x + 0x2000;
+      y = y >= 0xe000 ? y - 0x800 : y + 0x2000;
+    }
+    return x - y;
+  }
+  return a.length - b.length;
+}
+
+const byCodePoints = (a: ExportSortKey, b: ExportSortKey) =>
+  compareCodePoints(String(a ?? ""), String(b ?? ""));
+/** Descending, missing values last: how the server orders rating sorts. */
+const descendingMissingLast = (a: ExportSortKey, b: ExportSortKey) =>
+  a === null ? (b === null ? 0 : 1) : b === null ? -1 : Number(b) - Number(a);
+
+/** How the export reproduces each table sort (listing:1).
+ *
+ * The export pages through the live result set, so it pages in an order no
+ * row can move in. Creation time never changes: those sorts page as they
+ * are. An edit or a rating can move a row under the other sorts, possibly
+ * from the part the export has not read into the part it has, so they page
+ * in insertion order (`sort` left out, the server's own tiebreak) and the
+ * lines are then sorted as the server sorts: code point order, missing
+ * ratings last, ties in insertion order (the sort is stable). */
+const EXPORT_ORDERS: Record<
+  SortValue,
+  {
+    pagingSort?: string;
+    key?: (item: AssertionListItem) => ExportSortKey;
+    compare?: (a: ExportSortKey, b: ExportSortKey) => number;
+  }
+> = {
+  "-created_at": { pagingSort: "-created_at" },
+  created_at: { pagingSort: "created_at" },
+  proposition: { key: (item) => item.proposition, compare: byCodePoints },
+  assertion_type: { key: (item) => item.assertion_type, compare: byCodePoints },
+  "-average_rating": {
+    key: (item) => item.ratings_summary?.average ?? null,
+    compare: descendingMissingLast,
+  },
+  "-rating_count": {
+    key: (item) => item.ratings_summary?.count ?? 0,
+    compare: descendingMissingLast,
+  },
+};
+
+/** The CSV line of every match of `filters`, ordered by `sort`,
+ * EXPORT_PAGE_SIZE rows per request; null if cancelled. Only the lines (and
+ * a sort key) are kept, not the rows, so a matter of hundreds of thousands
+ * of assertions fits in memory.
+ *
+ * Rows join and leave the result set while an export runs (a review
+ * decision, an edit, a new assertion). Stepping an offset through it would
+ * then skip the row at a page boundary whenever a row already written left
+ * (listing:1). Instead each request starts EXPORT_OVERLAP rows before where
+ * the previous one ended, and the export carries on after the last row in
+ * it that it has already written: in an order no row moves in, the rows
+ * after that one are exactly the ones still to read, whatever joined or
+ * left before it. When no written row is in reach (more than
+ * EXPORT_OVERLAP of them left at once), it reads again from the start,
+ * skipping what it has written. So every row that matches throughout the
+ * export is written, once; a row that joins or leaves meanwhile may or may
+ * not be. */
 async function exportLines(
   matterId: string,
   filters: AssertionListParams,
+  sort: SortValue,
   run: ExportRun,
   onProgress: (done: number, total: number) => void,
 ): Promise<string[] | null> {
-  const lines: string[] = [];
-  const seen = new Set<string>();
-  let offset = 0;
+  const order = EXPORT_ORDERS[sort];
+  const rows: { line: string; key: ExportSortKey }[] = [];
+  const written = new Set<string>();
+  // Where the rows after the last one read began, as of the last request.
+  let next = 0;
+  let restarts = 0;
   for (;;) {
+    const start = Math.max(0, next - EXPORT_OVERLAP);
     const page = await api.listAssertions(matterId, {
       ...filters,
+      sort: order.pagingSort,
       limit: EXPORT_PAGE_SIZE,
-      offset,
+      offset: start,
     });
     if (run.cancelled) return null;
-    for (const item of page.items) {
-      // A row created mid-export shifts later pages by one; write it once.
-      if (!seen.has(item.id)) {
-        seen.add(item.id);
-        lines.push(csvLine(item));
-      }
+    let last = -1;
+    for (let i = page.items.length - 1; i >= 0 && last === -1; i -= 1) {
+      if (written.has(page.items[i].id)) last = i;
     }
-    offset += page.items.length;
-    onProgress(lines.length, page.total);
-    if (page.items.length < EXPORT_PAGE_SIZE || offset >= page.total) return lines;
+    if (last === -1 && start > 0) {
+      restarts += 1;
+      if (restarts > EXPORT_MAX_RESTARTS) {
+        throw new Error("many matching assertions changed while it ran. Export again.");
+      }
+      next = 0;
+      continue;
+    }
+    for (const item of page.items.slice(last + 1)) {
+      written.add(item.id);
+      rows.push({ line: csvLine(item), key: order.key ? order.key(item) : null });
+    }
+    next = start + page.items.length;
+    onProgress(rows.length, page.total);
+    if (page.items.length < EXPORT_PAGE_SIZE) break;
   }
+  const compare = order.compare;
+  if (compare) rows.sort((a, b) => compare(a.key, b.key));
+  return rows.map((row) => row.line);
 }
+
+/** Excel opens a double-clicked CSV as UTF-8 ("CSV UTF-8") only when it
+ * starts with a byte-order mark; without one, Hebrew arrives garbled
+ * (fe-shell-authoring:4). The mark precedes the header, not a cell. */
+const UTF8_BOM = "\uFEFF";
 
 function downloadCsv(lines: string[], matterId: string): void {
   const csv = [CSV_HEADER.join(","), ...lines].join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([UTF8_BOM + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -240,7 +341,7 @@ export function KnowledgeBasePage() {
   const [status, setStatus] = useState<AssertionStatus | "">(() => defaultStatusFor(urlQ));
   const [origin, setOrigin] = useState<AssertionOrigin | "">("");
   const [jurisdiction, setJurisdiction] = useState("");
-  const [sort, setSort] = useState("-created_at");
+  const [sort, setSort] = useState<SortValue>("-created_at");
   const [data, setData] = useState<AssertionList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -347,7 +448,7 @@ export function KnowledgeBasePage() {
     setExportError(null);
     setExportProgress({ done: 0, total });
     try {
-      const lines = await exportLines(matterId, filters, run, (done, of) => {
+      const lines = await exportLines(matterId, filters, sort, run, (done, of) => {
         if (!run.cancelled) setExportProgress({ done, total: of });
       });
       if (lines !== null && !run.cancelled) downloadCsv(lines, matterId);
@@ -459,7 +560,7 @@ export function KnowledgeBasePage() {
           <select
             className="select"
             value={sort}
-            onChange={(event) => setSort(event.target.value)}
+            onChange={(event) => setSort(event.target.value as SortValue)}
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>

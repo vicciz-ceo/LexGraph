@@ -1229,16 +1229,29 @@ No page of the web UI downloads a whole matter. The Knowledge Base requests
 a filter or the sort changes. It shows accepted assertions by default and
 offers every review status. Its rating sorts state that the order reflects
 user opinion, not legal authority (§17). Its CSV export requests every match
-500 rows at a time. Each cell that begins with `=`, `+`, `-` or `@` (also
-after leading whitespace), a tab or a carriage return gets a leading
-apostrophe, so a spreadsheet never evaluates contributor text as a formula.
-The topbar search opens the Knowledge Base on all statuses, and submitting
-the same query again runs it again. Analytics reads `assertion-stats`, with
-`created_bucket_edges` at the viewer's local Monday midnights for its weekly
-chart. Profile reads `assertion-stats?author_user_id=<user>` for its counts,
-and lists the user's suggestions (most recently updated first) and the
-proposed assertions they have not rated, 50 at a time. The UI reads an
-instant that has no offset as UTC.
+500 rows at a time. Rows can join or leave the result set while it runs, so
+it does not step an offset through it: each request after the first starts
+20 rows before the previous one ended, and the export carries on after the
+last row in it that it has already written. It pages in an order no row can
+move in: creation time for the two creation-time sorts, otherwise insertion
+order (no `sort`), after which the lines are sorted as the server sorts
+(code point order, missing ratings last, ties in insertion order). When no
+written row is within reach (more than 20 of them left at once), it reads
+again from the start, up to three times, and then reports the export as
+failed rather than download part of it. Every row that matches throughout
+the export is therefore written exactly once; a row that joins or leaves
+meanwhile may or may not be. The file is UTF-8 with a byte-order mark,
+which Excel needs to open it directly. Each cell that begins with `=`, `+`,
+`-` or `@` (also after leading whitespace), a tab or a carriage return gets
+a leading apostrophe, so a spreadsheet never evaluates contributor text as a
+formula. The topbar search opens the Knowledge Base on all statuses, and
+submitting the same query again runs it again. Analytics reads
+`assertion-stats`, with `created_bucket_edges` at the viewer's local Monday
+midnights for its weekly chart. Profile reads
+`assertion-stats?author_user_id=<user>` for its counts, and lists the user's
+suggestions (most recently updated first) and the proposed assertions they
+have not rated, 50 at a time. The UI reads an instant that has no offset as
+UTC.
 
 ## Review decision rules (2026-11-16)
 
