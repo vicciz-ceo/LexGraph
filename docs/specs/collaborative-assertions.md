@@ -966,10 +966,27 @@ references must resolve to persisted, same-matter entities, and evidence must
 resolve to a same-matter document in the selected repository. Explanations are
 preserved as initial comments; creation and provenance audit are transactional.
 
+The CLI and MCP report a failure as one JSON object `{"error", "status"}`, plus
+`issues` (field and message) for schema violations. The CLI prints it on stderr
+and exits 1, MCP returns it as the text of an error result. The statuses are 400
+(command line or unreadable input), 401, 403, 404, 409 (duplicate, naming the
+existing assertion), 422 (payload) and 500 (local database or installation).
+CLI input and output are UTF-8 regardless of locale. Both interfaces check the
+database before use: an unset, in-memory, missing or uninitialized database is
+refused with the resolved path, and no file is ever created. The MCP server
+exits at startup in that case, and when `LEXGRAPH_AGENT_USER_ID` names no user.
+The submission guide (CLI `schema`, MCP `assertion_guide`) names the operations
+of its own interface and lists the assertion types and jurisdiction codes.
+
 Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
 provide actual source choices for the lawyer suggestion form. Evidence details
 include quote text and document title. Legacy opaque graph entity references
 remain supported by the human API; the agent interface requires persisted types.
+Entities list documents first, by title, then each document's articles in
+natural number order, labelled `title / number heading`. Query filters there,
+in MCP search/explore and in agent context match a case-insensitive literal
+substring with the same Unicode case folding as REST assertion search.
+Propositions match on the current revision's submitted text.
 
 Lawyers edit through recorded revisions using `expected_revision_number`, can
 submit drafts/requested revisions and withdraw unreviewed suggestions. An author
