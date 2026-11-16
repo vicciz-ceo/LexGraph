@@ -13,11 +13,14 @@ whatever sqlite file the caller's environment points at -- in tests, the
 exact same file the `client`/`db_session` fixtures already use.
 
 Failures are reported on stderr as `enrichment failed: ...` with exit
-status 1, never as a traceback (audit finding pipeline:6): an unset or
-in-memory database URL (another process can never see what it would
-write), a database without the LexGraph tables, an unknown matter, and an
-unknown triggering user or one without a contributor, reviewer or admin
-role in the matter.
+status 1, never as a traceback (audit finding pipeline:6): an unknown
+matter, an unknown triggering user or one without a contributor, reviewer or
+admin role in the matter, and every database the agent CLI's check
+(`app.agent_database.open_database`) refuses: an unset or in-memory database
+URL (another process can never see what it would write), a database file that
+does not exist (nothing is created, review authoring:6), one without the
+LexGraph tables, and one an older LexGraph created (it names the
+`python -m app.migrate` command).
 """
 
 from __future__ import annotations
@@ -26,11 +29,11 @@ import argparse
 import sys
 from collections.abc import Sequence
 
-from sqlalchemy import inspect
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.agent_database import ConfigurationError, open_database
 from app.config import get_settings
-from app.db import make_engine, make_session_factory
+from app.db import make_session_factory
 from app.enrich.pipeline import EnrichmentRefused, run_enrichment
 
 # Registers every ORM model class against `app.db.Base` (mirrors
@@ -38,8 +41,6 @@ from app.enrich.pipeline import EnrichmentRefused, run_enrichment
 # standalone entrypoint's session can query all mapped tables, not just
 # the ones `app/enrich/pipeline.py` itself happens to import.
 from app import models  # noqa: F401,E402
-
-_IN_MEMORY_URLS = ("sqlite://", "sqlite:///:memory:")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -70,15 +71,11 @@ def _fail(message: str) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
-    url = get_settings().database_url
-    if url in _IN_MEMORY_URLS:
-        return _fail("set LEXGRAPH_DATABASE_URL to the database file the server uses; "
-                     "an in-memory database is empty and cannot be shared")
-    engine = make_engine(url)
+    try:  # checks before connecting: SQLite would create a missing file
+        engine = open_database(get_settings().database_url)
+    except ConfigurationError as exc:
+        return _fail(str(exc))
     try:
-        if not inspect(engine).has_table("assertions"):
-            return _fail(f"{engine.url} is not an initialized LexGraph database; "
-                         "create it with python -m app.bootstrap first")
         session = make_session_factory(engine)()
         try:
             created = run_enrichment(

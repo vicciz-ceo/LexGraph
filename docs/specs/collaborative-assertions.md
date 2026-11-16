@@ -1185,8 +1185,11 @@ cannot be quoted within 1,000 characters is not suggested. Every enricher's text
 is held to the 100,000-character cap before it is sanitized. Its evidence is
 limited to the matter's own spans. The triggering user must exist and hold a
 contributor, reviewer or admin role in the matter; the CLI otherwise reports
-the problem and exits 1, as it does for an unknown matter, an unset or in-memory
-database URL, or a database without the LexGraph tables.
+the problem and exits 1, as it does for an unknown matter and for every
+database the agent CLI's check refuses: an unset or in-memory database URL, a
+database file that does not exist (nothing is created), a database without the
+LexGraph tables, and one created by an older release (naming the
+`python -m app.migrate` command).
 
 ## Listing, statistics, graph bounds and timestamps (2026-11-16)
 
