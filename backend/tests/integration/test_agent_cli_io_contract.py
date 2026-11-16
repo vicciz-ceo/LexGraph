@@ -103,7 +103,9 @@ def test_non_ascii_arguments_survive_a_c_locale(cli, payload, matter_with_users)
 @pytest.mark.parametrize("encoding", ENCODINGS, ids=["latin-1", "cp1252", "ascii", "C-locale"])
 def test_error_messages_are_utf8_json(cli, payload, encoding):
     result = cli("suggest", stdin=json.dumps({**payload, "jurisdiction": "Übergabe ↔"}).encode(), **encoding)
-    assert cli_error(result) == {"error": "jurisdiction 'Übergabe ↔' is not in the controlled vocabulary", "status": 422}
+    assert cli_error(result) == {"error": "jurisdiction 'Übergabe ↔' is not in the controlled vocabulary; "
+                                          "use IL, US-<postal code> (US-IL is Illinois), US-DC, US-PR or US-FED; "
+                                          "GET /api/v1/jurisdictions lists them", "status": 422}
 
 
 @pytest.mark.parametrize("change", [

@@ -27,6 +27,22 @@ def test_create_assertion_rejects_jurisdiction_outside_the_vocabulary(client, ma
     assert "jurisdiction" in r.text.lower()
 
 
+def test_an_unknown_jurisdiction_is_answered_with_the_valid_codes(client, matter_with_users):
+    """XREQ-4: the frozen vocabulary's message cannot list the codes, so the
+    create and edit routes add a hint, also for the agent CLI and MCP."""
+    m = matter_with_users
+    hint = "use IL, US-<postal code> (US-IL is Illinois), US-DC, US-PR or US-FED; GET /api/v1/jurisdictions lists them"
+    payload = assertion_payload(m["matter_id"], m["repository_id"], jurisdiction="Illinois")
+    created = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
+    assert created.status_code == 422
+    assert created.json()["detail"] == f"jurisdiction 'Illinois' is not in the controlled vocabulary; {hint}"
+    ok = client.post("/api/v1/assertions", json={**payload, "jurisdiction": "US-IL"}, headers=m["contributor_headers"])
+    assert ok.status_code == 201, ok.text
+    edited = client.patch(f"/api/v1/assertions/{ok.json()['id']}", json={"jurisdiction": "IL-US"},
+                          headers=m["contributor_headers"])
+    assert edited.status_code == 422 and edited.json()["detail"].endswith(hint), edited.text
+
+
 def test_create_assertion_accepts_a_real_controlled_vocabulary_code(client, matter_with_users):
     m = matter_with_users
     payload = assertion_payload(m["matter_id"], m["repository_id"], jurisdiction="US-DE")
