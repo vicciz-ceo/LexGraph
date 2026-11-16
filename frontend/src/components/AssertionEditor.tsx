@@ -46,9 +46,33 @@ function changedFacts(facts: Facts, base: Facts): Record<string, string | null> 
   return body;
 }
 
+const FACT_KEYS: (keyof Facts)[] = ["assertionType", "jurisdiction", "effectiveFrom", "effectiveTo"];
+
+/** A draft's facts moved onto a newer revision (`latest`): each fact the user
+ * changed from `base` keeps the user's value, every other takes the newer one. */
+function rebaseFacts(facts: Facts, base: Facts, latest: Facts): Facts {
+  const rebased = { ...latest };
+  for (const key of FACT_KEYS) if (facts[key] !== base[key]) rebased[key] = facts[key];
+  return rebased;
+}
+
 function labelize(value: string): string {
   const spaced = value.replace(/_/g, " ").toLowerCase();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+const FACT_LABELS: Record<keyof Facts, string> = {
+  assertionType: "Assertion type",
+  jurisdiction: "Jurisdiction",
+  effectiveFrom: "Effective from",
+  effectiveTo: "Effective to",
+};
+
+function factValueLabel(key: keyof Facts, value: string): string {
+  if (value === "") return "none";
+  if (key === "assertionType") return `${labelize(value)} (${value})`;
+  if (key === "jurisdiction") return JURISDICTION_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  return value;
 }
 
 interface EditorError {
@@ -61,10 +85,14 @@ interface EditorError {
  *
  * `onSaved` reloads the assertion. It runs after every successful action,
  * and `onReload` (default: `onSaved`) runs after a conflict, so the editor
- * can show the latest revision next to the user's unsaved text: the text
- * is never discarded by a failed save, and a stale-revision conflict can
- * be resolved in place (save the text as the next revision, or start from
- * the latest one). */
+ * can show the latest revision next to the user's unsaved changes: they are
+ * never discarded by a failed save, and a stale-revision conflict can be
+ * resolved in place (save them as the next revision, or start from the
+ * latest one).
+ *
+ * A save sends only what the user changed, the text included: a field left
+ * alone is not sent, so the API keeps its stored value, which may be a
+ * colleague's newer one. */
 export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload }: {
   detail: AssertionDetail; canReview: boolean; isAuthor: boolean; onSaved: () => void;
   onReload?: () => void;
@@ -73,9 +101,12 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(latestText);
   const [reason, setReason] = useState("");
-  // The revision (and its text) the open draft started from. When the page
-  // reloads a newer revision, the draft is stale until the user decides.
+  // The revision the open draft started from. When the page reloads a newer
+  // revision, the draft is stale until the user decides.
   const [baseRevision, setBaseRevision] = useState(detail.current_revision_number);
+  // What the user's changes are measured against: the newest revision the
+  // open editor has seen (`seenRevision`).
+  const [seenRevision, setSeenRevision] = useState(detail.current_revision_number);
   const [baseText, setBaseText] = useState(latestText);
   const [facts, setFacts] = useState<Facts>(() => factsOf(detail));
   const [baseFacts, setBaseFacts] = useState<Facts>(() => factsOf(detail));
@@ -85,6 +116,23 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   const [error, setError] = useState<EditorError | null>(null);
   const [notice, setNotice] = useState("");
   const reload = onReload ?? onSaved;
+
+  // A newer revision reached the open editor (a colleague saved meanwhile, or
+  // the reload after a 409). Rebase the draft onto it, here during render so
+  // no stale value is ever shown: each field the user changed keeps their
+  // value, every other one takes the newer revision's, the text included.
+  // The form then shows what a save would store, and a save can no longer
+  // put back an older wording the user never touched (review
+  // fe-shell-authoring:1).
+  if (editing && detail.current_revision_number !== seenRevision) {
+    const newer = factsOf(detail);
+    setSeenRevision(detail.current_revision_number);
+    if (sameText(text, baseText)) setText(latestText);
+    setBaseText(latestText);
+    setFacts(rebaseFacts(facts, baseFacts, newer));
+    setBaseFacts(newer);
+  }
+
   const unreviewed = ["draft", "proposed", "revision_requested"].includes(detail.status);
   const canEdit = canReview || (isAuthor && unreviewed);
   // Keep an open draft, and the outcome of the last action, visible even if
@@ -93,10 +141,20 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
 
   const superseded = editing && detail.current_revision_number !== baseRevision;
   const latestFacts = factsOf(detail);
+  const textChanged = !sameText(text, baseText);
   const factChanges = changedFacts(facts, baseFacts);
-  const unchanged = sameText(text, baseText) && Object.keys(factChanges).length === 0;
+  const unchanged = !textChanged && Object.keys(factChanges).length === 0;
   const matchesLatest =
     sameText(text, latestText) && Object.keys(changedFacts(facts, latestFacts)).length === 0;
+  // The user's own changes, as the conflict panel lists them: exactly what a
+  // save sends.
+  const ownChanges = [
+    ...(textChanged ? ["Proposition: the text in the box below"] : []),
+    ...FACT_KEYS.filter((key) => facts[key] !== baseFacts[key]).map(
+      (key) => `${FACT_LABELS[key]}: ${factValueLabel(key, baseFacts[key])} → ${factValueLabel(key, facts[key])}`,
+    ),
+  ];
+  const nothingToSave = matchesLatest || ownChanges.length === 0;
   const invertedDates =
     facts.effectiveFrom !== "" && facts.effectiveTo !== "" && facts.effectiveTo < facts.effectiveFrom;
   // The current type stays selectable even when it is not in the vocabulary
@@ -107,15 +165,15 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   const jurisdictionKnown = JURISDICTION_OPTIONS.some((o) => o.value === baseFacts.jurisdiction);
   const setFact = (key: keyof Facts, value: string) => setFacts((current) => ({ ...current, [key]: value }));
 
-  const startEditing = () => {
-    setText(latestText); setBaseText(latestText); setBaseRevision(detail.current_revision_number);
-    setFacts(latestFacts); setBaseFacts(latestFacts);
-    setReason(""); setError(null); setNotice(""); setConflictPending(false); setEditing(true);
-  };
   const startFromLatest = () => {
-    setText(latestText); setBaseText(latestText); setBaseRevision(detail.current_revision_number);
+    setText(latestText); setBaseText(latestText);
+    setBaseRevision(detail.current_revision_number); setSeenRevision(detail.current_revision_number);
     setFacts(latestFacts); setBaseFacts(latestFacts);
     setConflictPending(false); setError(null);
+  };
+  const startEditing = () => {
+    startFromLatest();
+    setReason(""); setNotice(""); setEditing(true);
   };
   const closeEditor = () => {
     setEditing(false); setConflictPending(false); setError(null);
@@ -156,8 +214,10 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
     } finally { setBusy(false); }
   };
 
+  // Only the user's own changes: the text when they edited it, and the facts
+  // they changed (changedFacts).
   const saveAsNextRevision = (expected: number | null) => run(() => api.updateAssertion(detail.id, {
-    proposition: text, ...factChanges,
+    ...(textChanged ? { proposition: text } : {}), ...factChanges,
     revision_reason: reason.trim() || null, expected_revision_number: expected,
   }), "Revision saved. Previous ratings remain attached to their original revision.", "edit");
 
@@ -178,21 +238,30 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
       </div>}
       {canEdit && superseded && <div role="alert" className="error-banner assertion-editor__conflict">
         <p>A newer revision (v{detail.current_revision_number}) was saved while you were editing.
-          Your text has not been saved and is still in the box below.</p>
+          {textChanged
+            ? " Your text has not been saved and is still in the box below."
+            : " You had not changed the text, so the box below now shows the newer one."}
+          {" "}Fields you did not change show the newer revision's values.</p>
         <p>Latest saved text (v{detail.current_revision_number}):</p>
         <blockquote className="assertion-editor__latest">{latestText}</blockquote>
-        {matchesLatest
-          ? <p>Your text is the same as the latest revision, so there is nothing to save.</p>
-          : <p>Compare it with your text. Saving yours creates the next revision with your changes; the newer one stays in the history.</p>}
-        <button type="button" className="btn btn--primary" disabled={busy || matchesLatest || !text.trim() || invertedDates}
+        {nothingToSave
+          ? <p>Your changes are the same as the latest revision, so there is nothing to save.</p>
+          : <>
+            <p>Saving creates the next revision from the latest one, with only your changes:</p>
+            <ul className="assertion-editor__changes" aria-label="Your changes">
+              {ownChanges.map((change) => <li key={change}>{change}</li>)}
+            </ul>
+            <p>The newer revision stays in the history.</p>
+          </>}
+        <button type="button" className="btn btn--primary" disabled={busy || nothingToSave || !text.trim() || invertedDates}
           onClick={() => void saveAsNextRevision(detail.current_revision_number)}>
-          Save my text as the next revision</button>{" "}
+          Save my changes as the next revision</button>{" "}
         <button type="button" className="btn btn--secondary" disabled={busy} onClick={startFromLatest}>
-          Discard my text and start from the latest</button>
+          Discard my changes and start from the latest</button>
       </div>}
       {canEdit && conflictPending && !superseded && <div role="alert" className="error-banner assertion-editor__conflict">
         <p>This assertion was changed after you started editing, so your revision was not saved.
-          Your text is still in the box below. Loading the latest version…</p>
+          Your changes are still in the form below. Loading the latest version…</p>
         <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => reload()}>Reload latest version</button>
       </div>}
       <p>Saving creates a new revision. Earlier text and ratings remain in history; ratings are not copied to the new revision.</p>
