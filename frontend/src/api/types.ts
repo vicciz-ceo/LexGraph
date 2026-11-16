@@ -124,6 +124,8 @@ export interface HistoryEvent {
 export interface CurrentUserRating {
   strength: number;
   rationale: string | null;
+  /** The user's exact text (prefill editors with this, not `rationale`). */
+  rationale_raw?: string | null;
   updated_at: string | null;
 }
 
@@ -134,6 +136,7 @@ export interface RatingSummary {
   distribution: Record<string, number>;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   current_user_rating: CurrentUserRating | null;
   rationale_count: number;
 }
@@ -142,6 +145,7 @@ export interface Rating {
   id: string;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   user_id: string;
   strength: number;
   rationale: string | null;

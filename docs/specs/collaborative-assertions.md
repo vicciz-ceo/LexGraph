@@ -611,6 +611,7 @@ Reviewer:
 - Review assertions
 - Accept, reject, dispute, or request revision
 - Modify assertions through recorded revisions
+- Read other users' rating rationales (`assertion:view_rating_rationales`)
 
 Administrator:
 - All Reviewer permissions
@@ -642,11 +643,15 @@ GET    /api/v1/assertions/{assertion_id}/history
 
 Ratings:
 
-PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings/summary
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings
+PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings/summary
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings
+
+`{revision_number}` is the assertion's revision number (`revision_number` in `GET .../revisions`, `current_revision_number` on the assertion), not the revision UUID; a UUID there is rejected (422). This corrects the original `{revision_id}` wording (2026-11-16). Rating rows and summaries identify the revision both ways, as `assertion_revision_id` and `assertion_revision_number`.
+
+Rating requests: `strength` must be a JSON integer from 1 to 5; booleans, strings and floats (including `4.0`) are rejected (422). Omitting `rationale` keeps the stored rationale (a new rating has none), so a strength-only update never changes it. `null`, an empty string or whitespace-only text removes it. Any other text replaces it: `rationale_raw` stores it exactly and `rationale` stores the sanitized text. The summary's `current_user_rating` includes `rationale_raw`, and `rationale_count` counts the ratings whose sanitized rationale contains text. `GET .../ratings` lists ratings in creation order. Roles holding `assertion:view_rating_rationales` (reviewer, administrator) see every rater's rationale. Other roles see their own rationale and `null` in place of other raters' rationale text.
 
 Comments:
 

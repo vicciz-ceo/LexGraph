@@ -26,6 +26,22 @@ below calls B3's `app.services.audit.record_audit_event` directly (R7/R9:
 a call-site owned by this router, since the mutation lives in this
 router's own file).
 
+Finding api:30 confirmed the revision number as the deliberate design (it
+is also what `current_revision_number`, `expected_revision_number` and the
+history feed's `assertion_revision_number` use), so spec §13 was corrected
+to `{revision_number}`; a revision UUID in that segment stays a 422. So
+that a client holding any rating payload can build these routes, every
+rating row and summary carries both `assertion_revision_id` and
+`assertion_revision_number`.
+
+PUT body (spec §4, §18; findings api:22 and review:7): `strength` must be
+a JSON integer 1-5 -- booleans, numeric strings and floats are rejected,
+not coerced. `rationale` omitted keeps the stored rationale and its exact
+raw text (a new rating has none), so a strength-only update never rewrites
+`rationale_raw`; `null`, `""` or whitespace-only text removes it; any
+other string replaces it (`rationale_raw` = the exact text, `rationale` =
+its sanitized form).
+
 Permission checks reuse B4's already-merged, pure `app.services.
 permissions.has_permission` matrix (`assertion:rate` for
 mutating/removing a rating, `assertion:view` for read access,
@@ -93,7 +109,10 @@ def get_current_user_id(request: Request) -> str:
 
 
 class RatingIn(BaseModel):
-    strength: int = Field(ge=1, le=5)
+    # Strict (finding api:22, spec §18 "Non-integer ratings are rejected"):
+    # lax mode would store JSON `true` as 1 and `"4"` or `4.0` as 4.
+    strength: int = Field(strict=True, ge=1, le=5)
+    # Omitted = keep the stored rationale; see the module docstring.
     rationale: str | None = None
 
 
@@ -107,9 +126,18 @@ def _get_assertion_or_404(session: Session, assertion_id: str) -> Assertion:
     return assertion
 
 
+# `AssertionRevision.revision_number` is an `Integer` column (32-bit on
+# PostgreSQL); revisions are numbered from 1.
+_MAX_REVISION_NUMBER = 2**31 - 1
+
+
 def _get_revision_or_404(
     session: Session, assertion_id: str, revision_number: int
 ) -> AssertionRevision:
+    # A number no revision can have is simply not found -- never bound into
+    # the query, where SQLite raises OverflowError (HTTP 500) beyond 2**63-1.
+    if not 1 <= revision_number <= _MAX_REVISION_NUMBER:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="revision not found")
     revision = session.execute(
         select(AssertionRevision).where(
             AssertionRevision.assertion_id == assertion_id,
@@ -149,11 +177,16 @@ def _get_own_rating(
     ).scalar_one_or_none()
 
 
-def _serialize_rating(r: AssertionRating) -> dict:
+def _has_readable_text(rationale: str | None) -> bool:
+    return bool(rationale and rationale.strip())
+
+
+def _serialize_rating(r: AssertionRating, revision_number: int) -> dict:
     return {
         "id": r.id,
         "assertion_id": r.assertion_id,
         "assertion_revision_id": r.assertion_revision_id,
+        "assertion_revision_number": revision_number,
         "user_id": r.user_id,
         "strength": r.strength,
         "rationale": r.rationale,
@@ -191,22 +224,35 @@ def put_rating(
         raise HTTPException(
             status_code=422, detail=str(exc)
         ) from exc
+    try:
+        # JSON can escape a lone UTF-16 surrogate ("\ud800") that no UTF-8
+        # database can store; the write used to fail with a 500.
+        (body.rationale or "").encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise HTTPException(
+            status_code=422, detail="rationale contains an unpaired surrogate character"
+        ) from exc
 
     existing = _get_own_rating(session, revision.id, user_id)
     now = _now()
+    # Finding review:7 / spec addendum "The current rating rationale is
+    # preserved when updating a rating": an omitted `rationale` keeps the
+    # stored one byte-for-byte. Whitespace-only text means "no rationale".
+    rationale_raw = body.rationale if _has_readable_text(body.rationale) else None
     # B7: rationale is user-submitted free text (spec §7/G10) -- neutralize
     # active markup before storage, same as B5's proposition handling.
-    rationale = sanitize_for_storage(body.rationale)
+    rationale = sanitize_for_storage(rationale_raw)
 
     if existing is not None:
         existing.strength = body.strength
-        existing.rationale = rationale
-        existing.rationale_raw = body.rationale
+        if "rationale" in body.model_fields_set:
+            existing.rationale = rationale
+            existing.rationale_raw = rationale_raw
         existing.updated_at = now
         session.commit()
         session.refresh(existing)
         response.status_code = status.HTTP_200_OK
-        return _serialize_rating(existing)
+        return _serialize_rating(existing, revision.revision_number)
 
     rating = AssertionRating(
         id=str(uuid.uuid4()),
@@ -218,7 +264,7 @@ def put_rating(
         user_id=user_id,
         strength=body.strength,
         rationale=rationale,
-        rationale_raw=body.rationale,
+        rationale_raw=rationale_raw,
         created_at=now,
         updated_at=now,
     )
@@ -226,7 +272,7 @@ def put_rating(
     session.commit()
     session.refresh(rating)
     response.status_code = status.HTTP_201_CREATED
-    return _serialize_rating(rating)
+    return _serialize_rating(rating, revision.revision_number)
 
 
 @router.get("/{assertion_id}/revisions/{revision_number}/rating")
@@ -243,7 +289,7 @@ def get_own_rating(
     rating = _get_own_rating(session, revision.id, user_id)
     if rating is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no rating from this user")
-    return _serialize_rating(rating)
+    return _serialize_rating(rating, revision.revision_number)
 
 
 @router.delete(
@@ -307,13 +353,19 @@ def get_rating_summary(
     strengths = [r.strength for r in ratings]
     summary = compute_rating_summary(strengths)
 
-    rationale_count = sum(1 for r in ratings if r.rationale)
+    # Spec §4 "Number of ratings containing a rationale": only rationales
+    # with readable text once sanitized (not "" from markup-only input, nor
+    # whitespace written before blank rationales were normalized away).
+    rationale_count = sum(1 for r in ratings if _has_readable_text(r.rationale))
 
     own_rating = next((r for r in ratings if r.user_id == user_id), None)
     current_user_rating = (
         {
             "strength": own_rating.strength,
             "rationale": own_rating.rationale,
+            # Finding review:7: the caller's own exact text, so an editor
+            # can be prefilled with it rather than with the sanitized copy.
+            "rationale_raw": own_rating.rationale_raw,
             "updated_at": own_rating.updated_at,
         }
         if own_rating is not None
@@ -332,6 +384,7 @@ def get_rating_summary(
 
     body["assertion_id"] = assertion.id
     body["assertion_revision_id"] = revision.id
+    body["assertion_revision_number"] = revision.revision_number
     body["current_user_rating"] = current_user_rating
     body["rationale_count"] = rationale_count
     return body
@@ -348,11 +401,16 @@ def list_ratings(
     revision = _get_revision_or_404(session, assertion_id, revision_number)
     role = _require_permission(session, user_id, assertion.matter_id, "assertion:view")
 
+    # Spec §5/§10/§12 (finding ui:16): reviewers and admins read every
+    # rater's rationale; everyone else reads their own and sees `null` for
+    # other raters' rationale text (strengths stay visible).
     can_see_rationales = has_permission(role, "assertion:view_rating_rationales")
 
     ratings = (
         session.execute(
-            select(AssertionRating).where(AssertionRating.assertion_revision_id == revision.id)
+            select(AssertionRating)
+            .where(AssertionRating.assertion_revision_id == revision.id)
+            .order_by(AssertionRating.created_at.asc(), AssertionRating.id.asc())
         )
         .scalars()
         .all()
@@ -360,7 +418,7 @@ def list_ratings(
 
     results = []
     for r in ratings:
-        serialized = _serialize_rating(r)
+        serialized = _serialize_rating(r, revision.revision_number)
         if not can_see_rationales and r.user_id != user_id:
             serialized["rationale"] = None
             serialized["rationale_raw"] = None
