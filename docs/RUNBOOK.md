@@ -56,11 +56,16 @@ the server refuses to start on an out-of-date database until it has run. See
 `./scripts/demo.sh` is a local-testing convenience, not a provisioning
 path — it seeds a demo workspace into `backend/dev.db` with fixed,
 hardcoded accounts and starts backend (:8000) + frontend (:5173) in one
-command:
+command. Ctrl-C (or SIGTERM) stops both servers:
 
 ```bash
 ./scripts/demo.sh
 ```
+
+- **Settings.** `BACKEND_PORT` (default 8000), `FRONTEND_PORT` (default 5173) and `DEMO_DB` (default `backend/dev.db`, relative to the repository root), for example `DEMO_DB=backend/demo.db BACKEND_PORT=8001 FRONTEND_PORT=5174 ./scripts/demo.sh`. The web app's `/api` proxy always points at the demo's own backend port.
+- **It fails instead of guessing.** A port that is already in use, or a server that exits while starting, stops the demo with an error naming the cause; it never moves to another port or talks to another program's server. If either server stops later, the other one is stopped too.
+- **It only uses a demo database.** An existing `DEMO_DB` file is upgraded with `app.migrate` only when it holds the demo users. A workspace from `app.bootstrap`, or any other file, is refused and left unchanged; use another `DEMO_DB` for the demo. An empty file is replaced by the demo.
+- **Running it again completes an interrupted first run.** It reinstalls the backend when `backend/.venv` cannot import the app, runs `npm --prefix frontend ci` when `frontend/node_modules` is incomplete or out of date with `package.json`, and seeds into a scratch directory that it moves into place only when the seed has finished.
 
 Sign in at http://localhost:5173 as `admin`, `reviewer`, `contributor`, or
 `viewer` (the user id *is* the role name — no admin action created these;
@@ -551,7 +556,7 @@ above:
 - **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
 - **Sign-in says "Unknown user ID" or "Could not reach the LexGraph server" although the id is valid**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production".
 - **`no such column` / `no such table` errors from a CLI or the MCP server**: the database predates your checkout (those entry points do not run the server's startup check); run `python -m app.migrate --db PATH` on it.
-- **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend.
+- **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend. For `./scripts/demo.sh`, set `BACKEND_PORT` or `FRONTEND_PORT` (see "Optional: demo workspace").
 - **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.
 
 ## Agent suggestions and lawyer collaboration

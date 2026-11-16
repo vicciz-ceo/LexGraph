@@ -90,11 +90,23 @@ for what each migration changes.
 `./scripts/demo.sh` is a local-testing convenience, not the provisioning
 path: it sets up both environments, seeds a demo workspace (`admin`,
 `reviewer`, `contributor`, `viewer` — the user id *is* the role name) into
-`backend/dev.db`, and starts both servers in one command:
+`backend/dev.db`, and starts both servers in one command. Ctrl-C stops both:
 
 ```bash
 ./scripts/demo.sh
 ```
+
+It stops with an error when a port is taken or a server fails to start, and
+it refuses, without changing it, a `dev.db` that is not a demo workspace,
+such as the one `app.bootstrap` creates above. Pick other ports or another
+database file with `BACKEND_PORT` (default 8000), `FRONTEND_PORT` (default
+5173) and `DEMO_DB` (default `backend/dev.db`):
+
+```bash
+DEMO_DB=backend/demo.db BACKEND_PORT=8001 FRONTEND_PORT=5174 ./scripts/demo.sh
+```
+
+Running it again completes an interrupted first run (an install or seed cut short).
 
 Manually, the same demo seed is:
 
@@ -110,7 +122,7 @@ local development and mockup data, not for a real deployment.
 
 The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest + the production build on Node 24, `npm audit` of the frontend dependencies (fails on high and critical advisories), and `scripts/contract_lint.sh` over the sprint contracts.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest + the production build on Node 24, `npm audit` of the frontend dependencies (fails on high and critical advisories), shellcheck over `scripts/`, and `scripts/contract_lint.sh` over the sprint contracts.
 
 ## Local agents and lawyer authoring
 
