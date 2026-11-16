@@ -24,16 +24,22 @@ vi.mock("../../api/client", () => {
       getAssertion: vi.fn(),
       relatedAssertions: vi.fn(),
       ratingSummary: vi.fn(),
+      // The detail page also loads the roster (names), the review history
+      // and the rationales of the current revision when it mounts.
+      listRatings: vi.fn(),
+      history: vi.fn(),
+      listMatterMembers: vi.fn(),
       acceptAssertion: vi.fn(),
       rejectAssertion: vi.fn(),
       disputeAssertion: vi.fn(),
       requestRevision: vi.fn(),
+      supersedeAssertion: vi.fn(),
     },
   };
 });
 
-vi.mock("../../app/session", () => ({
-  useActiveSession: () => ({
+vi.mock("../../app/session", () => {
+  const session = {
     user: { id: "u-1", email: "ada@example.com", display_name: "Ada Lovelace" },
     currentMatter: {
       id: "m-1",
@@ -44,8 +50,13 @@ vi.mock("../../app/session", () => ({
     },
     role: "reviewer",
     matters: [],
-  }),
-}));
+  };
+  return {
+    useActiveSession: () => session,
+    // The page switches to an assertion's matter through selectMatter (ui:31).
+    useSession: () => ({ session, selectMatter: vi.fn() }),
+  };
+});
 
 import { ApiError, api } from "../../api/client";
 import { AssertionDetailPage } from "../AssertionDetailPage";
@@ -117,6 +128,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.relatedAssertions.mockResolvedValue([]);
   mockedApi.ratingSummary.mockResolvedValue(emptySummary);
+  mockedApi.listRatings.mockResolvedValue([]);
+  mockedApi.history.mockResolvedValue([]);
+  mockedApi.listMatterMembers.mockResolvedValue([]);
   mockedApi.acceptAssertion.mockResolvedValue({} as never);
   mockedApi.rejectAssertion.mockResolvedValue({} as never);
   mockedApi.disputeAssertion.mockResolvedValue({} as never);
@@ -205,6 +219,49 @@ describe("AssertionDetailPage review actions", () => {
     await renderPage(makeDetail({ status: "accepted", standing: "accepted" }));
 
     expect(decisionButtons()).toEqual(["Reject", "Dispute", "Request revision"]);
+  });
+
+  describe("supersede, the fifth decision", () => {
+    async function chooseReplacement() {
+      mockedApi.relatedAssertions.mockResolvedValue([
+        {
+          assertion_id: "a-9",
+          match_kind: "similar",
+          score: 0.8,
+          proposition: "A newer accepted reading.",
+          status: "accepted",
+        },
+      ]);
+      await renderPage(makeDetail({ status: "accepted", standing: "accepted" }));
+      fireEvent.click(screen.getByRole("button", { name: /Mark as superseded/ }));
+      fireEvent.click(await screen.findByLabelText("A newer accepted reading."));
+      fireEvent.click(screen.getByRole("button", { name: "Supersede with selected assertion" }));
+    }
+
+    it("sends the revision on screen", async () => {
+      mockedApi.supersedeAssertion.mockResolvedValue({} as never);
+      await chooseReplacement();
+
+      await waitFor(() =>
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+      );
+      await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    });
+
+    it("explains a refusal because the record is stale (409) and re-fetches it", async () => {
+      mockedApi.supersedeAssertion.mockRejectedValue(
+        new ApiError(409, "assertion has been modified since expected_revision_number"),
+      );
+      await chooseReplacement();
+
+      await waitFor(() =>
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+      );
+      expect(await screen.findByText(/changed after you opened it/)).toHaveTextContent(
+        /not recorded/,
+      );
+      await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    });
   });
 
   it("records one decision when Reject is clicked again before the first one finishes", async () => {

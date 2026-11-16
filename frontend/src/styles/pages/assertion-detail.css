@@ -892,6 +892,12 @@ a.adp-entity:hover {
   gap: var(--space-sm);
 }
 
+/* "Showing the 20 strongest of N matches." under a capped list. */
+.adp-related-more {
+  margin: var(--space-sm) 0 0;
+  font: var(--body-sm);
+}
+
 .adp-related {
   display: flex;
   flex-direction: column;

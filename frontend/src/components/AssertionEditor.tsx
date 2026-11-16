@@ -5,10 +5,50 @@ import type { AssertionDetail } from "../api/types";
 import { api } from "../api/client";
 import { Link } from "../app/router";
 import { duplicateConflictOf, httpStatusOf } from "../constants/apiConflicts";
+import { ASSERTION_TYPES } from "../constants/assertionTypes";
+import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 
 /** Same text for revision purposes: a textarea reports line breaks as LF. */
 function sameText(a: string, b: string): boolean {
   return a.replace(/\r\n?/g, "\n") === b.replace(/\r\n?/g, "\n");
+}
+
+/** The revision fields besides the text that the editor can change (spec §3;
+ * XREQ-50). Effective dates are calendar dates ("YYYY-MM-DD", "" for none). */
+interface Facts {
+  assertionType: string;
+  jurisdiction: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+}
+
+function calendarDate(value: string | null | undefined): string {
+  return value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : "";
+}
+
+function factsOf(detail: AssertionDetail): Facts {
+  return {
+    assertionType: detail.assertion_type ?? "",
+    jurisdiction: detail.jurisdiction ?? "",
+    effectiveFrom: calendarDate(detail.effective_from),
+    effectiveTo: calendarDate(detail.effective_to),
+  };
+}
+
+/** PATCH fields for what differs from `base`; null clears an optional field.
+ * Fields left alone are not sent, so a newer revision keeps its values. */
+function changedFacts(facts: Facts, base: Facts): Record<string, string | null> {
+  const body: Record<string, string | null> = {};
+  if (facts.assertionType !== base.assertionType) body.assertion_type = facts.assertionType;
+  if (facts.jurisdiction !== base.jurisdiction) body.jurisdiction = facts.jurisdiction || null;
+  if (facts.effectiveFrom !== base.effectiveFrom) body.effective_from = facts.effectiveFrom || null;
+  if (facts.effectiveTo !== base.effectiveTo) body.effective_to = facts.effectiveTo || null;
+  return body;
+}
+
+function labelize(value: string): string {
+  const spaced = value.replace(/_/g, " ").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 interface EditorError {
@@ -37,6 +77,8 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   // reloads a newer revision, the draft is stale until the user decides.
   const [baseRevision, setBaseRevision] = useState(detail.current_revision_number);
   const [baseText, setBaseText] = useState(latestText);
+  const [facts, setFacts] = useState<Facts>(() => factsOf(detail));
+  const [baseFacts, setBaseFacts] = useState<Facts>(() => factsOf(detail));
   // A save answered 409 and the reload has not shown a newer revision yet.
   const [conflictPending, setConflictPending] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,15 +92,29 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   if (!canEdit && !editing && !error && !notice) return null;
 
   const superseded = editing && detail.current_revision_number !== baseRevision;
-  const unchanged = sameText(text, baseText);
-  const matchesLatest = sameText(text, latestText);
+  const latestFacts = factsOf(detail);
+  const factChanges = changedFacts(facts, baseFacts);
+  const unchanged = sameText(text, baseText) && Object.keys(factChanges).length === 0;
+  const matchesLatest =
+    sameText(text, latestText) && Object.keys(changedFacts(facts, latestFacts)).length === 0;
+  const invertedDates =
+    facts.effectiveFrom !== "" && facts.effectiveTo !== "" && facts.effectiveTo < facts.effectiveFrom;
+  // The current type stays selectable even when it is not in the vocabulary
+  // (a proposed new type, or an older value).
+  const typeOptions = ASSERTION_TYPES.includes(baseFacts.assertionType) || !baseFacts.assertionType
+    ? ASSERTION_TYPES
+    : [baseFacts.assertionType, ...ASSERTION_TYPES];
+  const jurisdictionKnown = JURISDICTION_OPTIONS.some((o) => o.value === baseFacts.jurisdiction);
+  const setFact = (key: keyof Facts, value: string) => setFacts((current) => ({ ...current, [key]: value }));
 
   const startEditing = () => {
     setText(latestText); setBaseText(latestText); setBaseRevision(detail.current_revision_number);
+    setFacts(latestFacts); setBaseFacts(latestFacts);
     setReason(""); setError(null); setNotice(""); setConflictPending(false); setEditing(true);
   };
   const startFromLatest = () => {
     setText(latestText); setBaseText(latestText); setBaseRevision(detail.current_revision_number);
+    setFacts(latestFacts); setBaseFacts(latestFacts);
     setConflictPending(false); setError(null);
   };
   const closeEditor = () => {
@@ -101,12 +157,14 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
   };
 
   const saveAsNextRevision = (expected: number | null) => run(() => api.updateAssertion(detail.id, {
-    proposition: text, revision_reason: reason.trim() || null, expected_revision_number: expected,
+    proposition: text, ...factChanges,
+    revision_reason: reason.trim() || null, expected_revision_number: expected,
   }), "Revision saved. Previous ratings remain attached to their original revision.", "edit");
 
   const saveHint = !canEdit ? null
     : superseded ? "Choose how to handle the newer revision above before saving."
-      : unchanged ? "Change the proposition to save a new revision." : null;
+      : unchanged ? "Change the proposition or another field to save a new revision."
+        : invertedDates ? "The effective end date cannot be before the start date." : null;
 
   return <section className="card"><div className="card__header">Edit and submit</div><div className="card__body">
     {error && <div role="alert" className="error-banner">
@@ -125,8 +183,8 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
         <blockquote className="assertion-editor__latest">{latestText}</blockquote>
         {matchesLatest
           ? <p>Your text is the same as the latest revision, so there is nothing to save.</p>
-          : <p>Compare it with your text. Saving yours creates the next revision; the newer one stays in the history.</p>}
-        <button type="button" className="btn btn--primary" disabled={busy || matchesLatest || !text.trim()}
+          : <p>Compare it with your text. Saving yours creates the next revision with your changes; the newer one stays in the history.</p>}
+        <button type="button" className="btn btn--primary" disabled={busy || matchesLatest || !text.trim() || invertedDates}
           onClick={() => void saveAsNextRevision(detail.current_revision_number)}>
           Save my text as the next revision</button>{" "}
         <button type="button" className="btn btn--secondary" disabled={busy} onClick={startFromLatest}>
@@ -141,11 +199,33 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
       {detail.status === "accepted" && <p>This change will require review again.</p>}
       <div className="field"><label htmlFor="edit-proposition">Proposition</label>
         <textarea id="edit-proposition" className="textarea" value={text} onChange={(e) => setText(e.target.value)} /></div>
+      <div className="assertion-editor__facts">
+        <div className="field"><label htmlFor="edit-type">Assertion type</label>
+          <select id="edit-type" className="select" value={facts.assertionType}
+            onChange={(e) => setFact("assertionType", e.target.value)}>
+            {!facts.assertionType && <option value="">Select assertion type…</option>}
+            {typeOptions.map((type) => <option key={type} value={type}>{labelize(type)} ({type})</option>)}
+          </select></div>
+        <div className="field"><label htmlFor="edit-jurisdiction">Jurisdiction</label>
+          <select id="edit-jurisdiction" className="select" value={facts.jurisdiction}
+            onChange={(e) => setFact("jurisdiction", e.target.value)}>
+            <option value="">No jurisdiction</option>
+            {!jurisdictionKnown && baseFacts.jurisdiction &&
+              <option value={baseFacts.jurisdiction}>{baseFacts.jurisdiction}</option>}
+            {JURISDICTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select></div>
+        <div className="field"><label htmlFor="edit-effective-from">Effective from</label>
+          <input id="edit-effective-from" className="input" type="date" value={facts.effectiveFrom}
+            onChange={(e) => setFact("effectiveFrom", e.target.value)} /></div>
+        <div className="field"><label htmlFor="edit-effective-to">Effective to</label>
+          <input id="edit-effective-to" className="input" type="date" value={facts.effectiveTo}
+            onChange={(e) => setFact("effectiveTo", e.target.value)} /></div>
+      </div>
       <div className="field"><label htmlFor="edit-reason">Reason for revision</label>
         <input id="edit-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
       {saveHint && <p className="field__hint">{saveHint}</p>}
       <button className="btn btn--primary"
-        disabled={busy || !canEdit || !text.trim() || unchanged || superseded}
+        disabled={busy || !canEdit || !text.trim() || unchanged || superseded || invertedDates}
         onClick={() => void saveAsNextRevision(baseRevision)}>Save revision</button>{" "}
       <button className="btn btn--secondary" disabled={busy} onClick={closeEditor}>Cancel edit</button>
     </> : canEdit && <>

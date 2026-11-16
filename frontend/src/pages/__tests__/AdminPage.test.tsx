@@ -374,7 +374,7 @@ describe("AdminPage", () => {
 
     // Saving a new revision keeps it "Revision requested"; only submitting
     // it for review again makes it proposed (backend/app/routers/assertions.py).
-    expect(screen.getByText(/submits it for review again/i)).toBeInTheDocument();
+    expect(screen.getByText(/revises it and resubmits it/i)).toBeInTheDocument();
     expect(screen.queryByText(/a new revision returns it to proposed/i)).not.toBeInTheDocument();
   });
 

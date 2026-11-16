@@ -166,6 +166,26 @@ describe("KnowledgeBasePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("labels pipeline output without evidence as system-derived, not awaiting evidence", async () => {
+    // ui:4: the definition-linking pipeline writes accepted assertions with no
+    // evidence rows; nothing is pending for them.
+    const pipeline: AssertionListItem = {
+      ...a2,
+      id: "a3",
+      proposition: "Section 4 uses the defined term 'Supplier'.",
+      origin: "system_generated",
+    };
+    mockedApi.listAssertions.mockImplementation(serve([pipeline, a2]));
+    render(<KnowledgeBasePage />);
+
+    const row = (await screen.findByText(pipeline.proposition)).closest("tr") as HTMLElement;
+    expect(within(row).getByText("System-derived")).toBeInTheDocument();
+    expect(within(row).queryByText("Awaiting evidence")).not.toBeInTheDocument();
+    // A colleague's or model's assertion without evidence still awaits it.
+    const other = screen.getByText(a2.proposition).closest("tr") as HTMLElement;
+    expect(within(other).getByText("Awaiting evidence")).toBeInTheDocument();
+  });
+
   it("renders the rating summary embedded in each row, with no request per row", async () => {
     render(<KnowledgeBasePage />);
 

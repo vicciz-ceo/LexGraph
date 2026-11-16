@@ -660,7 +660,7 @@ describe("superseding an accepted assertion (ui:15, pipeline:8)", () => {
     fireEvent.click(within(panel).getByLabelText("A newer accepted reading."));
     fireEvent.click(submit);
 
-    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9"));
+    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 1));
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 
@@ -683,14 +683,19 @@ describe("superseding an accepted assertion (ui:15, pipeline:8)", () => {
     fireEvent.change(within(panel).getByLabelText("Search accepted assertions"), { target: { value: "fee" } });
 
     const option = await within(panel).findByLabelText("The fee is three months of charges.");
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", { q: "fee", status: "accepted", limit: 25 });
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      q: "fee",
+      status: "accepted",
+      sort: "-created_at",
+      limit: 25,
+    });
     expect(within(panel).queryByLabelText(PROPOSITION)).not.toBeInTheDocument();
     expect(within(panel).queryByLabelText("A withdrawn reading.")).not.toBeInTheDocument();
     expect(within(panel).queryByLabelText("Points back at this one.")).not.toBeInTheDocument();
     fireEvent.click(option);
     fireEvent.click(within(panel).getByRole("button", { name: "Supersede with selected assertion" }));
 
-    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-7"));
+    await waitFor(() => expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-7", 1));
   });
 
   it("shows the server's reason when the supersede is refused", async () => {

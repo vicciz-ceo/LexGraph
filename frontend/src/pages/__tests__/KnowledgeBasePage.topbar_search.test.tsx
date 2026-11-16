@@ -11,10 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Assertion } from "../../api/types";
 
+// The topbar's notification bell (NotificationsMenu) polls the feed and the
+// unread count.
 vi.mock("../../api/client", () => ({
   api: {
     listAssertions: vi.fn(),
     notifications: vi.fn(),
+    unreadNotificationCount: vi.fn(),
   },
 }));
 
@@ -50,6 +53,7 @@ import App from "../../App";
 const mockedApi = api as unknown as {
   listAssertions: ReturnType<typeof vi.fn>;
   notifications: ReturnType<typeof vi.fn>;
+  unreadNotificationCount: ReturnType<typeof vi.fn>;
 };
 
 const fee: Assertion = {
@@ -105,6 +109,7 @@ async function setHash(hash: string): Promise<void> {
 beforeEach(async () => {
   mockedApi.listAssertions.mockReset();
   mockedApi.notifications.mockReset();
+  mockedApi.unreadNotificationCount.mockReset();
   // A stand-in for the server: the revision-requested assertion matches any
   // search unless the request narrows the status to something else.
   mockedApi.listAssertions.mockImplementation(
@@ -114,6 +119,7 @@ beforeEach(async () => {
         : { items: [], total: 0 },
   );
   mockedApi.notifications.mockResolvedValue([]);
+  mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 0 });
   // Another page that loads nothing for a viewer ("Not authorized"), so the
   // search below is entered from outside the Knowledge Base.
   await setHash("#/admin");

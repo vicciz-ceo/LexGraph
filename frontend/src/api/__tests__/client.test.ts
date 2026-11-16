@@ -61,4 +61,31 @@ describe("api client", () => {
       { status: 401, method: "GET", path: "/me" },
     ]);
   });
+
+  it("reads the empty body of a 204, so the browser does not report the request as aborted", async () => {
+    const text = vi.fn(async () => "");
+    fetchMock.mockResolvedValue({ status: 204, ok: true, text });
+
+    await expect(api.deleteComment("a-1", "c-1")).resolves.toBeUndefined();
+    expect(text).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands over how many related assertions the server found beyond the listed ones", async () => {
+    const listed = [{ assertion_id: "a-2", match_kind: "similar", score: 0.7 }];
+    fetchMock
+      .mockResolvedValueOnce({
+        ...reply(200, listed),
+        headers: new Headers({ "X-Total-Count": "37" }),
+      })
+      .mockResolvedValueOnce(reply(200, listed));
+
+    const capped = await api.relatedAssertions("a-1");
+    expect(capped).toEqual(listed);
+    expect(capped.total).toBe(37);
+
+    // No header (an older server): no total, only the list.
+    const plain = await api.relatedAssertions("a-1");
+    expect(plain).toEqual(listed);
+    expect(plain.total).toBeUndefined();
+  });
 });

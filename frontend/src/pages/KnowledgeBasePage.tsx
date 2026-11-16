@@ -89,6 +89,19 @@ const EVIDENCE_LABELS: Record<string, string> = {
   awaiting_evidence: "Awaiting evidence",
 };
 
+/** The Evidence cell: a system_generated row without evidence was derived by
+ * the definition-linking pipeline from the provision it links, so it is not
+ * "awaiting evidence" (ui:4; the detail page says the same). */
+function evidenceCell(assertion: AssertionListItem): { className: string; label: string } {
+  if (assertion.origin === "system_generated" && assertion.evidence_status === "awaiting_evidence") {
+    return { className: "kb-evidence kb-evidence--system", label: "System-derived" };
+  }
+  return {
+    className: `kb-evidence kb-evidence--${assertion.evidence_status}`,
+    label: EVIDENCE_LABELS[assertion.evidence_status] ?? titleCase(assertion.evidence_status),
+  };
+}
+
 /** Standing bands worth showing next to a proposed status badge. */
 const STANDING_BANDS = new Set(["weak", "probable", "strong"]);
 
@@ -596,11 +609,8 @@ export function KnowledgeBasePage() {
                         </div>
                       </td>
                       <td>
-                        <span
-                          className={`kb-evidence kb-evidence--${assertion.evidence_status}`}
-                        >
-                          {EVIDENCE_LABELS[assertion.evidence_status] ??
-                            titleCase(assertion.evidence_status)}
+                        <span className={evidenceCell(assertion).className}>
+                          {evidenceCell(assertion).label}
                         </span>
                       </td>
                       <td>{ratingCell(assertion)}</td>

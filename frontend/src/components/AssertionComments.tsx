@@ -275,7 +275,15 @@ export function AssertionComments({
           </div>
           {isDeleted ? (
             <p className="muted adp-comment-removed">[comment removed]</p>
-          ) : action?.mode === "edit" ? null : (
+          ) : action?.mode === "edit" ? null : comment.commentText.trim() === "" &&
+            comment.commentTextRaw?.trim() ? (
+            // Text that was only markup (e.g. "<see clause 4>") sanitizes to
+            // nothing; the author's exact text is kept beside it, and React
+            // renders it as plain text.
+            <p className="adp-comment-text assertion-comment-text assertion-comment-text--raw">
+              {comment.commentTextRaw}
+            </p>
+          ) : (
             <p className="adp-comment-text assertion-comment-text">{comment.commentText}</p>
           )}
           {showActions && (

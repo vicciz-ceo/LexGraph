@@ -29,6 +29,23 @@ describe("AssertionComments", () => {
     expect(within(screen.getByTestId("comment-c1")).queryByText("Reviewer")).not.toBeInTheDocument();
   });
 
+  it("shows the authored text, as text, when a comment was only markup", () => {
+    // An explanation such as "<see clause 4>" sanitizes to "" and is kept
+    // with its exact text (review:20); the body must not render empty.
+    render(
+      <AssertionComments
+        comments={[{ ...comments[0], commentText: "", commentTextRaw: "<see clause 4>" }]}
+        currentUserId="u2"
+        onAdd={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const body = within(screen.getByTestId("comment-c1")).getByText("<see clause 4>");
+    expect(body.tagName).toBe("P");
+    expect(body.children).toHaveLength(0);
+  });
+
   it("lets a user add a new comment", () => {
     const onAdd = vi.fn();
     render(<AssertionComments comments={[]} currentUserId="u1" onAdd={onAdd} onEdit={vi.fn()} onDelete={vi.fn()} />);
