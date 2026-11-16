@@ -6,7 +6,13 @@ is required. The agent supplies the reasoning; LexGraph validates and stores it.
 
 ## One-time setup
 
-Install the backend as described in [RUNBOOK.md](RUNBOOK.md). Bootstrap a new
+Install the backend once, from the repository root (Python 3.12 or newer):
+
+```bash
+(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')
+```
+
+[RUNBOOK.md](RUNBOOK.md) covers the rest of a local installation. Bootstrap a new
 workspace only if needed. In the web app, an administrator creates a dedicated
 agent user and grants it **contributor** membership in the intended matter.
 Use that user's ID, not a lawyer's account. The existing local authentication

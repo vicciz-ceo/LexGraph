@@ -1,8 +1,10 @@
 # LexGraph MCP registration
 
 The local stdio server connects directly to LexGraph's database. Install the
-backend first (`pip install -e '.[dev]'`). Use absolute paths so the Python module
-and database resolve regardless of the agent's working directory.
+backend first, once, from the repository root (Python 3.12 or newer):
+`(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')`.
+Use absolute paths so the Python module and database resolve regardless of the
+agent's working directory.
 
 Available tools:
 
