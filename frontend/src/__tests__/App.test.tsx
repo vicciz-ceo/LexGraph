@@ -7,6 +7,7 @@
 // - ui:19: the session re-reads GET /me after a refused request, when the
 //   tab regains focus and every minute, and the admin console refreshes it
 //   after you change your own membership, so role-gated UI follows the server.
+// - ui:26: below 768px the sidebar is a drawer behind a menu button.
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -345,5 +346,95 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
 
     expect(await screen.findByText("No matter access")).toBeInTheDocument();
+  });
+});
+
+describe("navigation on narrow viewports (ui:26)", () => {
+  async function openDrawer() {
+    renderApp();
+    await primaryNav();
+    const menu = screen.getByRole("button", { name: "Open navigation" });
+    const drawer = document.getElementById("app-sidebar")!;
+    fireEvent.click(menu);
+    return { menu, drawer };
+  }
+
+  it("offers a menu button that opens the sidebar, with every navigation control, as a drawer", async () => {
+    renderApp();
+    await primaryNav();
+    const menu = screen.getByRole("button", { name: "Open navigation" });
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(menu).toHaveAttribute("aria-controls", "app-sidebar");
+    const drawer = document.getElementById("app-sidebar")!;
+    expect(drawer).not.toHaveClass("sidebar--open");
+    expect(within(drawer).getByRole("combobox", { name: "Matter" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("link", { name: /knowledge base/i })).toBeInTheDocument();
+    expect(within(drawer).getByRole("link", { name: "My profile" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+
+    fireEvent.click(menu);
+
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+    expect(drawer).toHaveClass("sidebar--open");
+    expect(within(drawer).getByRole("button", { name: "Close navigation" })).toHaveFocus();
+  });
+
+  it("closes on Escape and gives focus back to the menu button", async () => {
+    const { menu, drawer } = await openDrawer();
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+
+    expect(drawer).not.toHaveClass("sidebar--open");
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(menu).toHaveFocus();
+  });
+
+  it("closes with its close button and after following a link", async () => {
+    const { menu, drawer } = await openDrawer();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close navigation" }));
+    expect(drawer).not.toHaveClass("sidebar--open");
+    expect(menu).toHaveFocus();
+
+    fireEvent.click(menu);
+    fireEvent.click(within(drawer).getByRole("link", { name: /knowledge base/i }));
+    expect(drawer).not.toHaveClass("sidebar--open");
+  });
+
+  it("closes when the backdrop is clicked", async () => {
+    const { drawer } = await openDrawer();
+
+    fireEvent.click(document.querySelector(".sidebar-backdrop")!);
+
+    expect(drawer).not.toHaveClass("sidebar--open");
+  });
+
+  it("keeps keyboard focus inside the open drawer", async () => {
+    const { drawer } = await openDrawer();
+    const close = within(drawer).getByRole("button", { name: "Close navigation" });
+    const signOut = within(drawer).getByRole("button", { name: "Sign out" });
+
+    signOut.focus();
+    fireEvent.keyDown(signOut, { key: "Tab" });
+    expect(close).toHaveFocus();
+
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(signOut).toHaveFocus();
+  });
+
+  it("switching matters and signing out work from the drawer", async () => {
+    backend.matters = [
+      { id: "m-dpa", name: "DPA", role: "viewer" },
+      { id: "m-msa", name: "MSA", role: "admin" },
+    ];
+    const { drawer } = await openDrawer();
+
+    fireEvent.change(within(drawer).getByRole("combobox", { name: "Matter" }), {
+      target: { value: "m-dpa" },
+    });
+    expect(window.localStorage.getItem(MATTER_KEY)).toBe("m-dpa");
+    expect(await screen.findByText(/viewer · ada@firm\.example/)).toBeInTheDocument();
+
+    fireEvent.click(within(drawer).getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
   });
 });

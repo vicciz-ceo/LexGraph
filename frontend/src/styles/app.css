@@ -83,6 +83,16 @@ ol {
   overflow: hidden;
 }
 
+/* Narrow-viewport navigation (see Responsive): the mobile bar with its
+ * menu button, the drawer's close button and its backdrop exist only
+ * below 768px. (`.sidebar .sidebar__close` outranks `.topbar__action`,
+ * which the close button also carries.) */
+.mobile-bar,
+.sidebar-backdrop,
+.sidebar .sidebar__close {
+  display: none;
+}
+
 .page {
   flex: 1;
   overflow-y: auto;
@@ -981,11 +991,67 @@ ol {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The sidebar was simply hidden here, leaving no navigation, matter
+   * switcher, profile or sign-out at all (finding ui:26). It is now an
+   * off-canvas drawer that the mobile bar's menu button opens
+   * (app/navDrawer.tsx); hidden, it is also out of the tab order. */
   .sidebar {
-    display: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(288px, 85vw);
+    box-shadow: var(--shadow-popover);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  .sidebar--open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar .sidebar__close {
+    display: grid;
+    margin-left: auto;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.32);
+  }
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 6px var(--space-md);
+    background: var(--surface-container-lowest);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-bar__title {
+    min-width: 0;
+    font: var(--title-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .page-header__title {
     font: var(--headline-sm);
+  }
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar--open {
+    transition: none;
   }
 }
