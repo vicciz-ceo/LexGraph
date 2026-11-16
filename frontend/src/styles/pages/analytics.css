@@ -60,6 +60,11 @@
   color: var(--on-surface-variant);
 }
 
+.ana-contrib-note {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+}
+
 /* Shared color classes: `fill` covers SVG shapes, `background` covers the
  * matching HTML legend swatches — one class works for both. */
 

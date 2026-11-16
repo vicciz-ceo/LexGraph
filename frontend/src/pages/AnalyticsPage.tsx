@@ -8,6 +8,13 @@
 // user strength ratings (1–5), model confidence (0–1, AI-deduced only, shown
 // as %), and review status. Charts are hand-rolled inline SVG driven by
 // design tokens — no chart lib.
+//
+// Assertions the definition-linking pipeline generated (origin
+// system_generated) are stored accepted under the user who ran it, but nobody
+// suggested or reviewed them (ui:4): they count in the status mix, and are
+// left out of the acceptance rate and of the contributors table. Their
+// per-author counts come from a second stats request, made only when the
+// matter has any.
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -60,8 +67,9 @@ function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-/** Everything the dashboard shows, from the server's aggregates. */
-function deriveStats(stats: AssertionStats, weekStarts: Date[]) {
+/** Everything the dashboard shows, from the server's aggregates; `pipeline`
+ * holds the system_generated assertions' own aggregates (null: none). */
+function deriveStats(stats: AssertionStats, weekStarts: Date[], pipeline: AssertionStats | null) {
   const count = (status: AssertionStatus) => stats.by_status[status] ?? 0;
   const statusCounts: Record<StatusBucketKey, number> = {
     accepted: count("accepted"),
@@ -79,7 +87,11 @@ function deriveStats(stats: AssertionStats, weekStarts: Date[]) {
       statusCounts.rejected,
   );
   const open = count("proposed") + count("revision_requested") + count("disputed");
-  const reviewed = statusCounts.accepted + statusCounts.rejected;
+  // Decisions people made: pipeline output is accepted without a review.
+  const pipelineStatus = stats.by_origin_status.system_generated ?? {};
+  const reviewedAccepted = Math.max(0, statusCounts.accepted - (pipelineStatus.accepted ?? 0));
+  const reviewedRejected = Math.max(0, statusCounts.rejected - (pipelineStatus.rejected ?? 0));
+  const reviewed = reviewedAccepted + reviewedRejected;
   const decisions = (origin: "user_suggested" | "model_suggested") => ({
     accepted: stats.by_origin_status[origin]?.accepted ?? 0,
     rejected: stats.by_origin_status[origin]?.rejected ?? 0,
@@ -87,21 +99,29 @@ function deriveStats(stats: AssertionStats, weekStarts: Date[]) {
   const topTypes = Object.entries(stats.by_type)
     .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
     .slice(0, TOP_TYPES);
-  const topContributors: ContributorRow[] = [...stats.authors]
-    .sort((x, y) => y.total - x.total || x.user_id.localeCompare(y.user_id))
-    .slice(0, TOP_CONTRIBUTORS)
-    .map((author) => ({
-      userId: author.user_id,
-      authored: author.total,
-      accepted: author.by_status.accepted ?? 0,
-    }));
+  // Each author's own assertions, without the pipeline output run under
+  // their name.
+  const pipelineByAuthor = new Map((pipeline?.authors ?? []).map((a) => [a.user_id, a]));
+  const topContributors: ContributorRow[] = stats.authors
+    .map((author) => {
+      const generated = pipelineByAuthor.get(author.user_id);
+      return {
+        userId: author.user_id,
+        authored: author.total - (generated?.total ?? 0),
+        accepted: (author.by_status.accepted ?? 0) - (generated?.by_status.accepted ?? 0),
+      };
+    })
+    .filter((row) => row.authored > 0)
+    .sort((x, y) => y.authored - x.authored || x.userId.localeCompare(y.userId))
+    .slice(0, TOP_CONTRIBUTORS);
 
   return {
     total: stats.total,
     accepted: statusCounts.accepted,
     open,
     reviewed,
-    acceptanceRate: reviewed > 0 ? statusCounts.accepted / reviewed : null,
+    acceptanceRate: reviewed > 0 ? reviewedAccepted / reviewed : null,
+    pipelineCount: stats.by_origin.system_generated ?? 0,
     avgConfidence: stats.confidence_by_origin.model_suggested?.average ?? null,
     // Mean of the per-assertion averages over every rated current revision.
     avgStrength: stats.ratings.average_of_averages,
@@ -356,18 +376,21 @@ export function AnalyticsPage() {
   const session = useActiveSession();
   const matterId = session.currentMatter.id;
 
-  const [loaded, setLoaded] = useState<{ stats: AssertionStats; weekStarts: Date[] } | null>(
-    null,
-  );
+  const [loaded, setLoaded] = useState<{
+    stats: AssertionStats;
+    weekStarts: Date[];
+    pipeline: AssertionStats | null;
+  } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [members, setMembers] = useState<Record<string, UserInfo>>({});
+  // null until the roster has loaded (or when it could not be loaded).
+  const [members, setMembers] = useState<Record<string, UserInfo> | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoaded(null);
     setLoadError(null);
-    setMembers({});
+    setMembers(null);
 
     api.listMatterMembers(matterId).then(
       (res) => {
@@ -375,7 +398,7 @@ export function AnalyticsPage() {
         setMembers(Object.fromEntries(res.map((m) => [m.user.id, m.user])));
       },
       () => {
-        /* Names are a nicety — fall back to raw user ids. */
+        /* Names are a nicety: contributors get a neutral label, never an id. */
       },
     );
 
@@ -384,9 +407,16 @@ export function AnalyticsPage() {
       .assertionStats(matterId, {
         created_bucket_edges: edges.map((edge) => edge.toISOString()).join(","),
       })
+      .then(async (result) => {
+        const pipeline =
+          !cancelled && (result.by_origin.system_generated ?? 0) > 0
+            ? await api.assertionStats(matterId, { origin: "system_generated" })
+            : null;
+        return { result, pipeline };
+      })
       .then(
-        (result) => {
-          if (!cancelled) setLoaded({ stats: result, weekStarts: edges.slice(0, -1) });
+        ({ result, pipeline }) => {
+          if (!cancelled) setLoaded({ stats: result, weekStarts: edges.slice(0, -1), pipeline });
         },
         (error: unknown) => {
           if (cancelled) return;
@@ -402,7 +432,7 @@ export function AnalyticsPage() {
   }, [matterId, reloadKey]);
 
   const stats = useMemo(
-    () => (loaded === null ? null : deriveStats(loaded.stats, loaded.weekStarts)),
+    () => (loaded === null ? null : deriveStats(loaded.stats, loaded.weekStarts, loaded.pipeline)),
     [loaded],
   );
 
@@ -569,7 +599,14 @@ export function AnalyticsPage() {
             </thead>
             <tbody>
               {stats.topContributors.map((c) => {
-                const user = members[c.userId];
+                const user =
+                  members?.[c.userId] ?? (c.userId === session.user.id ? session.user : undefined);
+                // A user id is never a person's label (ui:0).
+                const name = user
+                  ? user.display_name
+                  : members === null
+                    ? "Team member"
+                    : "Former member";
                 return (
                   <tr key={c.userId}>
                     <td>
@@ -577,11 +614,9 @@ export function AnalyticsPage() {
                         <span className="avatar" aria-hidden="true">
                           {initialsOf(user?.display_name)}
                         </span>
-                        {user ? (
-                          <span className="ana-contrib__name">{user.display_name}</span>
-                        ) : (
-                          <span className="mono">{c.userId}</span>
-                        )}
+                        <span className={user ? "ana-contrib__name" : "ana-contrib__name muted"}>
+                          {name}
+                        </span>
                       </span>
                     </td>
                     <td className="ana-num">{formatCount(c.authored)}</td>
@@ -592,6 +627,11 @@ export function AnalyticsPage() {
             </tbody>
           </table>
         </div>
+        {stats.pipelineCount > 0 && (
+          <p className="ana-chart-note ana-contrib-note">
+            {`The ${formatCount(stats.pipelineCount)} assertions generated by the definition-linking pipeline are not credited to the person who ran it, and are left out of the acceptance rate.`}
+          </p>
+        )}
       </div>
     </div>
   );
