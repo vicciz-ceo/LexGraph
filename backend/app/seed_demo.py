@@ -8,7 +8,9 @@ drives the real HTTP API via Starlette's TestClient, which needs httpx):
 
 `--reset` replaces only a demo database (one holding the demo accounts) or an
 empty file; any other existing file, such as a bootstrapped workspace, is
-refused and left untouched. Ctrl-C stops the seed at once.
+refused and left untouched. `--quiet` prints nothing when the seed succeeds:
+scripts/demo.sh and scripts/dev-backend.sh serve the database themselves, on
+ports of their own, and say so. Ctrl-C stops the seed at once.
 
 Then serve it:
 
@@ -98,6 +100,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--reset", action="store_true",
         help="replace an existing demo database (or an empty file); any other file is refused",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="print nothing when the seed succeeds, for a script that serves the database "
+        "itself and prints its own instructions (a refusal is still explained)",
     )
     args = parser.parse_args(argv)
 
@@ -446,6 +453,8 @@ def main(argv: list[str] | None = None) -> int:
 
     session.close()
 
+    if args.quiet:
+        return 0
     total = len(MSA_QUOTES) + len(DPA_QUOTES)
     print(f"Seeded {db_path} — 2 matters, {len(DEMO_USERS)} users, {total} source spans.")
     print("Serve it:")

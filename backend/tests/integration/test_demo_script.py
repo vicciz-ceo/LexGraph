@@ -357,6 +357,12 @@ def test_first_run_seeds_the_demo_and_serves_it_on_the_configured_ports(demo):
     status, body = _get(f"http://127.0.0.1:{demo.frontend_port}/healthz")
     assert (status, json.loads(body)) == (200, {"status": "ok"})
     assert f"http://localhost:{demo.frontend_port}" in demo.text()
+    # Only the demo's own instructions, with its own ports: the seeder's
+    # standalone "Serve it" hint named port 8000 and a database path inside
+    # the scratch directory the seed is moved out of.
+    assert f"http://127.0.0.1:{demo.backend_port}/docs" in demo.text()
+    for hint in ("Serve it", "uvicorn app.main:app", "--port 8000"):
+        assert hint not in demo.text(), demo.text()
 
     assert demo.process is not None
     demo.process.send_signal(signal.SIGTERM)  # the script's pid only, as `kill <pid>` does
