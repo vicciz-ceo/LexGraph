@@ -24,8 +24,16 @@ import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 import { reviewConflictNotice } from "../constants/review";
 
-/** Keep per-card summary fetches bounded on large queues. */
-const SUMMARY_FETCH_CAP = 30;
+/**
+ * Rating summaries are fetched for every card, newest first, in sequential
+ * batches of this size, so a large queue never has more requests in flight.
+ */
+const SUMMARY_FETCH_BATCH = 30;
+
+/** Summaries are per revision: a revised card must not show the old ratings. */
+function summaryKey(assertion: Assertion): string {
+  return `${assertion.id}@${assertion.current_revision_number}`;
+}
 
 type StatusFilterKey = "proposed" | "revision_requested" | "open";
 type OriginFilterKey = "all" | AssertionOrigin;
@@ -111,7 +119,8 @@ export function ReviewQueuePage() {
 
   const [items, setItems] = useState<Assertion[] | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
-  const [summaries, setSummaries] = useState<Record<string, RatingSummary>>({});
+  // Keyed by summaryKey(). undefined: still loading; null: the request failed.
+  const [summaries, setSummaries] = useState<Record<string, RatingSummary | null>>({});
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -169,21 +178,27 @@ export function ReviewQueuePage() {
         setItems(merged);
         setLoading(false);
 
-        const targets = merged
-          .slice(0, SUMMARY_FETCH_CAP)
-          .filter((a) => a.current_revision_number !== null);
-        const results = await Promise.all(
-          targets.map((a) =>
-            api.ratingSummary(a.id, a.current_revision_number as number).then(
-              (summary) => [a.id, summary] as const,
-              () => null,
+        // Every card gets its summary. Each batch is merged as it lands, so
+        // summaries already known (same assertion, same revision) stay on
+        // screen through a reload; the final map drops cards that left.
+        const targets = merged.filter((a) => a.current_revision_number !== null);
+        const fresh: Record<string, RatingSummary | null> = {};
+        for (let start = 0; start < targets.length; start += SUMMARY_FETCH_BATCH) {
+          const batch = targets.slice(start, start + SUMMARY_FETCH_BATCH);
+          const results = await Promise.all(
+            batch.map((a) =>
+              api.ratingSummary(a.id, a.current_revision_number as number).then(
+                (summary) => [summaryKey(a), summary] as const,
+                () => [summaryKey(a), null] as const,
+              ),
             ),
-          ),
-        );
-        if (cancelled) return;
-        const next: Record<string, RatingSummary> = {};
-        for (const entry of results) if (entry) next[entry[0]] = entry[1];
-        setSummaries(next);
+          );
+          if (cancelled) return;
+          const landed: Record<string, RatingSummary | null> = Object.fromEntries(results);
+          Object.assign(fresh, landed);
+          setSummaries((prev) => ({ ...prev, ...landed }));
+        }
+        setSummaries(fresh);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -318,7 +333,7 @@ export function ReviewQueuePage() {
             <div className="rq-list">
               {items.map((assertion) => {
                 const origin = ORIGIN_META[assertion.origin];
-                const summary = summaries[assertion.id];
+                const summary = summaries[summaryKey(assertion)];
                 const showStanding =
                   assertion.status === "proposed" &&
                   STANDING_GRADES.includes(assertion.standing);
@@ -381,7 +396,9 @@ export function ReviewQueuePage() {
                           <p className="rq-card__summary-note muted">
                             {assertion.current_revision_number === null
                               ? "No revision to rate yet."
-                              : "Loading ratings…"}
+                              : summary === null
+                                ? "Ratings unavailable. Open the assertion to view them."
+                                : "Loading ratings…"}
                           </p>
                         )}
                       </div>
