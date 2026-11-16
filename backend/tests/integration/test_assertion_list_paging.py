@@ -15,7 +15,11 @@ import pytest
 from sqlalchemy import event
 
 from tests.conftest import assertion_payload
-from tests.integration._assertion_list_fixtures import build_varied_matter, run_definition_link_pipeline
+from tests.integration._assertion_list_fixtures import (
+    build_varied_matter,
+    insert_legacy_row_without_revision,
+    run_definition_link_pipeline,
+)
 
 
 def _list(client, m, headers=None, **params):
@@ -213,6 +217,17 @@ def test_bulk_lookup_path_serializes_exactly_like_the_id_list_path(client, matte
 # --- list items keep the detail serializer's contract -----------------------------
 
 
+def _without_entity_labels(detail: dict) -> dict:
+    """GET /assertions/{id} alone names the subject/object entities (`label`,
+    spec section 13, finding ui:30); every other serializer, the list's
+    included, returns the bare {type, id} reference."""
+    for key in ("subject_entity", "object_entity"):
+        if detail[key] is not None:
+            assert "label" in detail[key], detail[key]
+            detail[key] = {k: v for k, v in detail[key].items() if k != "label"}
+    return detail
+
+
 def test_every_list_item_equals_the_single_assertion_response(client, matter_with_users, db_session):
     """The batched list serializer may not drift from `_serialize_assertion`,
     which GET /assertions/{id}, create, patch and the agent CLI still use; its
@@ -220,18 +235,28 @@ def test_every_list_item_equals_the_single_assertion_response(client, matter_wit
     m = matter_with_users
     build_varied_matter(client, m, db_session)
     run_definition_link_pipeline(db_session, m)
+    pipeline_row = next(
+        i["id"] for i in _list(client, m, origin="system_generated", limit=1)["items"]
+    )
+    legacy_row = insert_legacy_row_without_revision(db_session, pipeline_row)
     items = _list(client, m, headers=m["rater_headers"])["items"]
     kinds = set()
     for item in items:
         detail = client.get(f"/api/v1/assertions/{item['id']}", headers=m["rater_headers"]).json()
         for detail_only in ("evidence", "comments", "revision_history"):
             detail.pop(detail_only)
-        assert {k: v for k, v in item.items() if k not in {"current_user_rating", "last_activity_at"}} == detail
+        assert {k: v for k, v in item.items() if k not in {"current_user_rating", "last_activity_at"}} == (
+            _without_entity_labels(detail)
+        )
         kinds.add((item["origin"], item["proposition_raw"] is None, item["agent_provenance"] is None))
-    # model_suggested with provenance, user rows with a revision, pipeline rows without one
+    # model_suggested with provenance and user rows, both with their own
+    # revision; pipeline rows with the revision 1 the persistence invariant
+    # records; a legacy pipeline row (not yet backfilled) without any revision.
     assert ("model_suggested", False, False) in kinds
     assert ("user_suggested", False, True) in kinds
+    assert ("system_generated", False, True) in kinds
     assert ("system_generated", True, True) in kinds
+    assert legacy_row in {item["id"] for item in items}
 
 
 def test_items_embed_the_current_revision_rating_summary(client, matter_with_users, db_session):
@@ -264,9 +289,12 @@ def test_items_embed_the_current_revision_rating_summary(client, matter_with_use
     foxtrot = items[ids["foxtrot"]]
     assert foxtrot["current_revision_number"] == 2
     assert foxtrot["ratings_summary"] is None and foxtrot["current_user_rating"] is None
+    # Pipeline rows are unrated; their revision 1 (persistence invariant)
+    # holds the generated text as the raw text.
     pipeline_rows = [item for item in items.values() if item["origin"] == "system_generated"]
     assert pipeline_rows and all(
-        item["ratings_summary"] is None and item["proposition_raw"] is None for item in pipeline_rows
+        item["ratings_summary"] is None and item["proposition_raw"] == item["proposition"]
+        for item in pipeline_rows
     )
 
     # Another caller sees their own rating, never the rater's.

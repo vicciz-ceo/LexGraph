@@ -8,6 +8,7 @@ the documents/spans the conftest seeds and the definition-link pipeline run.
 from __future__ import annotations
 
 import pathlib
+import uuid
 
 from tests.conftest import assertion_payload, seed_document, seed_source_span
 
@@ -46,7 +47,9 @@ def build_varied_matter(client, m, db_session) -> dict[str, str]:
     bravo    rater, WEAKENS, no jurisdiction, effective from 2025-06-01,
              no object, no evidence, draft, unrated; commented on last
     charlie  reviewer, SUPPORTS, US-NY, contradicting evidence only;
-             rated 2 (contributor); accepted
+             rated 2 (contributor); accepted with a recorded justification
+             (an assertion that is not "evidenced" needs one, spec "Review
+             decision rules")
     delta    contributor, CONFLICTS_WITH, US-CA, effective until 2027-03-31,
              primary-basis evidence; rated 3 (rater); disputed
     echo     agent suggestion (model_suggested, confidence 0.8) by the
@@ -125,8 +128,14 @@ def build_varied_matter(client, m, db_session) -> dict[str, str]:
         headers=reviewer,
     )
     assert revised.status_code == 200, revised.text
-    assert client.post(f"/api/v1/assertions/{ids['charlie']}/accept", json={}, headers=reviewer).status_code == 200
-    assert client.post(f"/api/v1/assertions/{ids['delta']}/dispute", headers=reviewer).status_code == 200
+    accepted = client.post(
+        f"/api/v1/assertions/{ids['charlie']}/accept",
+        json={"acceptance_justification": "Schedule B is read as supporting it despite the cited passage."},
+        headers=reviewer,
+    )
+    assert accepted.status_code == 200, accepted.text
+    disputed = client.post(f"/api/v1/assertions/{ids['delta']}/dispute", headers=reviewer)
+    assert disputed.status_code == 200, disputed.text
     comment = client.post(
         f"/api/v1/assertions/{ids['bravo']}/comments", json={"comment_text": "Needs a source."}, headers=reviewer
     )
@@ -137,8 +146,11 @@ def build_varied_matter(client, m, db_session) -> dict[str, str]:
 def run_definition_link_pipeline(db_session, m) -> int:
     """Ingest the vendored laws and run the real definition-link pass once.
 
-    Its rows are system_generated/accepted, share ONE created_at and have no
-    assertion_revisions row. Returns how many it created (about 130).
+    Its rows are system_generated/accepted and share ONE created_at. The
+    pipeline itself writes no assertion_revisions row; the persistence
+    invariant (app.models.assertion_invariants) adds revision 1 at commit,
+    with proposition_raw equal to the stored proposition. Returns how many
+    it created (about 130).
     """
     from app.definition_links.ingest import ingest_wiki_law
     from app.definition_links.pipeline import run_definition_linking
@@ -153,3 +165,25 @@ def run_definition_link_pipeline(db_session, m) -> int:
         )
     result = run_definition_linking(db_session, matter_id=m["matter_id"], triggered_by_user_id=m["contributor_id"])
     return len(result["created_assertions"])
+
+
+def insert_legacy_row_without_revision(db_session, source_id: str) -> str:
+    """Copy assertion ``source_id`` as a new row with a Core INSERT and return its id.
+
+    No ORM hook sees a Core INSERT, so the copy has no assertion_revisions
+    row: the state of a definition-link row written before the persistence
+    invariant, in a database the 20261116_backfill_initial_assertion_revisions
+    migration has not repaired yet. Readers must still serialize it.
+    """
+    from sqlalchemy import insert, select
+
+    from app.models.assertion import Assertion
+
+    table = Assertion.__table__
+    row = db_session.execute(select(table).where(table.c.id == source_id)).mappings().one()
+    new_id = str(uuid.uuid4())
+    db_session.execute(
+        insert(table).values({**row, "id": new_id, "proposition": f"{row['proposition']} (legacy row)"})
+    )
+    db_session.commit()
+    return new_id
