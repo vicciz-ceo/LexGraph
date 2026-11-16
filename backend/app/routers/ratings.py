@@ -64,7 +64,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
@@ -387,6 +387,18 @@ def get_rating_summary(
     body["assertion_revision_number"] = revision.revision_number
     body["current_user_rating"] = current_user_rating
     body["rationale_count"] = rationale_count
+    # Finding ui:12 / spec §10 ("Inform users that the revised assertion has
+    # not yet been rated"): ratings recorded against this assertion's earlier
+    # revisions. They stay on their own revision; this only counts them.
+    body["prior_revision_rating_count"] = session.scalar(
+        select(func.count(AssertionRating.id))
+        .join(AssertionRevision, AssertionRating.assertion_revision_id == AssertionRevision.id)
+        .where(
+            AssertionRating.assertion_id == assertion.id,
+            AssertionRevision.assertion_id == assertion.id,
+            AssertionRevision.revision_number < revision.revision_number,
+        )
+    ) or 0
     return body
 
 

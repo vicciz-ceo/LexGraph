@@ -19,6 +19,9 @@ export type EvidenceStatus = "evidenced" | "unsupported" | "awaiting_evidence";
 export interface EntityRef {
   type: string | null;
   id: string | null;
+  /** GET /assertions/{id} only: a same-matter entity's title, quote or
+   * proposition; null for legacy opaque references. */
+  label?: string | null;
 }
 
 export interface Assertion {
@@ -139,6 +142,8 @@ export interface RatingSummary {
   assertion_revision_number?: number;
   current_user_rating: CurrentUserRating | null;
   rationale_count: number;
+  /** Ratings recorded against this assertion's lower-numbered revisions. */
+  prior_revision_rating_count?: number;
 }
 
 export interface Rating {
@@ -173,6 +178,8 @@ export interface RelatedMatch {
   assertion_id: string;
   match_kind: "exact_proposition" | "same_subject_type_object" | "similar" | string;
   score: number;
+  proposition?: string;
+  status?: AssertionStatus;
 }
 
 export interface AppNotification {

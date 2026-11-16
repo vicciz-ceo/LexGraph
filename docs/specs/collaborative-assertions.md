@@ -641,6 +641,8 @@ DELETE /api/v1/assertions/{assertion_id}/evidence/{evidence_id}
 GET    /api/v1/assertions/{assertion_id}/related
 GET    /api/v1/assertions/{assertion_id}/history
 
+`GET /assertions/{assertion_id}` gives `subject_entity` and `object_entity` a `label`: a document's title, `"<document title> / <number> <heading>"` for an article, a definition's quoted terms followed by the article that defines them, a source span's quote, or an assertion's proposition. Only persisted entities of the assertion's own matter are labelled. A legacy opaque reference (for example `Provision`), a missing row or a row of another matter gets `null`. Labels longer than 240 characters are shortened. Each `GET .../related` match carries the related assertion's `proposition` and `status` next to `assertion_id`, `match_kind` and `score`.
+
 Ratings:
 
 PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
@@ -652,6 +654,8 @@ GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings
 `{revision_number}` is the assertion's revision number (`revision_number` in `GET .../revisions`, `current_revision_number` on the assertion), not the revision UUID; a UUID there is rejected (422). This corrects the original `{revision_id}` wording (2026-11-16). Rating rows and summaries identify the revision both ways, as `assertion_revision_id` and `assertion_revision_number`.
 
 Rating requests: `strength` must be a JSON integer from 1 to 5; booleans, strings and floats (including `4.0`) are rejected (422). Omitting `rationale` keeps the stored rationale (a new rating has none), so a strength-only update never changes it. `null`, an empty string or whitespace-only text removes it. Any other text replaces it: `rationale_raw` stores it exactly and `rationale` stores the sanitized text. The summary's `current_user_rating` includes `rationale_raw`, and `rationale_count` counts the ratings whose sanitized rationale contains text. `GET .../ratings` lists ratings in creation order. Roles holding `assertion:view_rating_rationales` (reviewer, administrator) see every rater's rationale. Other roles see their own rationale and `null` in place of other raters' rationale text.
+
+The summary also reports `prior_revision_rating_count`: the number of ratings recorded against the assertion's revisions numbered below `{revision_number}`. Those ratings stay with their own revision. The count lets a client tell users that the revision in front of them has not been rated while earlier revisions were (§10).
 
 Comments:
 

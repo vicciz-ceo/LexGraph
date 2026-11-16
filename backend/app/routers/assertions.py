@@ -812,7 +812,13 @@ def get_related_assertions(
         }
         for row in others
     ]
-    return find_related_assertions(candidate, existing_candidates)  # type: ignore[return-value]
+    # Finding ui:30: let the detail page show each match's text, not its UUID.
+    by_id = {row.id: row for row in others}
+    return [
+        {**match, "proposition": by_id[match["assertion_id"]].proposition,
+         "status": by_id[match["assertion_id"]].status}
+        for match in find_related_assertions(candidate, existing_candidates)
+    ]
 
 
 @router.get("/{assertion_id}")
@@ -824,6 +830,10 @@ def get_assertion(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
     result = _serialize_assertion(session, assertion)
+    # Finding ui:30: name the subject/object (same-matter entities only).
+    from app.services.entity_labels import label_entities
+
+    label_entities(session, assertion.matter_id, result)
     result["evidence"] = [_serialize_evidence(e, session) for e in _evidence_rows(session, assertion_id)]
     result["ratings_summary"] = _ratings_summary(session, assertion)
     result["comments"] = _comments_for_assertion(session, assertion_id)
