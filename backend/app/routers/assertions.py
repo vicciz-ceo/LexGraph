@@ -44,14 +44,19 @@ from __future__ import annotations
 
 import uuid
 import json
+import re
+import sqlite3
+import unicodedata
+from collections import namedtuple
 from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
-from sqlalchemy import select
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -80,6 +85,7 @@ from app.services.duplicates import (
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
+    ALLOWED_ASSERTION_TYPES,
     ValidationError,
     normalize_effective_datetime,
     sanitize_for_storage,
@@ -333,6 +339,8 @@ def _serialize_revision(r: AssertionRevision) -> dict:
         "effective_from": r.effective_from,
         "effective_to": r.effective_to,
         "revision_reason": r.revision_reason,
+        # authoring:5: the exact reason the editor submitted (sanitized above).
+        "revision_reason_raw": r.revision_reason_raw,
         "edited_by_user_id": r.edited_by_user_id,
         "created_at": r.created_at,
     }
@@ -529,6 +537,54 @@ def _validate_jurisdiction(code: str) -> None:
         raise ValidationError(f"{exc}; {_JURISDICTION_HINT}") from exc
 
 
+#: The longest proposed new assertion type, in characters: the 255 the
+#: column holds (frontend ASSERTION_TYPE_STORED_MAX_LENGTH). The Suggest form
+#: limits the name a person types to 100 characters, but upper case can make
+#: it longer (ß becomes SS, ﬃ becomes FFI), and the form cuts the name it
+#: saves at this length.
+NEW_ASSERTION_TYPE_MAX_LENGTH = 255
+# Letters and digits of any script, words joined by single underscores: what
+# the form's normalizeAssertionType produces (with upper case checked apart).
+_NEW_ASSERTION_TYPE_SHAPE = re.compile(r"[^\W_]+(?:_[^\W_]+)*")
+
+
+def _is_letter_of_a_newer_unicode(character: str) -> bool:
+    """A code point that this Python's Unicode database lists as unassigned
+    but a newer Unicode version may have made a letter: the browser running
+    the form can know a newer version (Node 24 knows Unicode 17, Python 3.14
+    knows 16, and 4,803 characters came in between). Letters are only ever
+    encoded in planes 0 to 3; noncharacters and the code points reserved for
+    invisible formatting (U+2065, U+FFF0 to U+FFF8) never become letters."""
+    code = ord(character)
+    return (
+        code <= 0x3FFFF
+        and unicodedata.category(character) == "Cn"
+        and not 0xFDD0 <= code <= 0xFDEF
+        and code & 0xFFFE != 0xFFFE
+        and code != 0x2065
+        and not 0xFFF0 <= code <= 0xFFF8
+    )
+
+
+def _validate_new_assertion_type(assertion_type: str) -> None:
+    """A proposed new type (one outside the controlled vocabulary) has the
+    vocabulary's shape (review authoring:5): any text used to pass, markup,
+    spaces and half a megabyte included, served to every member as a type.
+    Every name the Suggest form saves has it."""
+    if assertion_type in ALLOWED_ASSERTION_TYPES:
+        return
+    if len(assertion_type) <= NEW_ASSERTION_TYPE_MAX_LENGTH:
+        # A letter this Python does not know yet is checked as an "A".
+        shape = "".join("A" if _is_letter_of_a_newer_unicode(c) else c for c in assertion_type)
+        if shape == shape.upper() and _NEW_ASSERTION_TYPE_SHAPE.fullmatch(shape):
+            return
+    raise ValidationError(
+        f"a proposed new assertion_type must be at most {NEW_ASSERTION_TYPE_MAX_LENGTH} characters: "
+        "letters and digits in upper case, with words joined by single underscores (for example "
+        "CANCELLED_BY)"
+    )
+
+
 def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
     # ui:5: the API answers the existing assertion's id as data next to the
     # unchanged detail text (`existing_assertion_id`, app.request_guards).
@@ -548,6 +604,118 @@ _MATCH_COLUMNS = (
     Assertion.status,
     Assertion.author_user_id,
 )
+_MatchRow = namedtuple("_MatchRow", [column.key for column in _MATCH_COLUMNS])
+
+# Review authoring:3. The scans read every assertion of a matter. On SQLite
+# (rollback journal) a statement holds the database's SHARED lock until it
+# has finished, and a COMMIT anywhere in the database waits for every
+# statement running when it began, for at most the 5 s busy timeout. So a
+# statement over a matter must stay short, also when many run at once:
+#
+# * A plain SELECT hands the rows over one at a time, and between two rows
+#   the reading thread has to win the GIL back from the request threads busy
+#   with CPU work (the similarity pass of the concurrent requests). Measured
+#   on a matter of 220,000 rows with one such thread, 5,000 rows took 42 s.
+# * SQLite therefore encodes the rows as JSON itself, without the GIL, and
+#   the statement must not allocate memory for each row: such allocations
+#   go to a heap behind one lock that every connection of the process
+#   shares. json_array() allocates for every row. A subquery copies every
+#   value it passes on, from the connection's own small allocator only until
+#   the statements the connection keeps prepared have used it up, as they
+#   have in a running server. The whole-matter json_array() statement took
+#   0.2 s alone, but 5 to 7 s each when 12 agent submissions ran it at once
+#   in one server, past the busy timeout: a comment posted in another matter
+#   meanwhile failed with "database is locked" in every such burst. One
+#   json_group_array() per column, straight over the table, appends to one
+#   buffer per column: 0.2 s each for 50,000 rows with 12 at once.
+# * A matter larger than MATTER_ROWS_PER_STATEMENT is read in statements of
+#   at most that many rows (a rowid range within one status, the order of
+#   the index ix_assertions_matter_id_status), so how long one statement
+#   holds the lock does not grow with the matter.
+#: The most assertions one statement of `_matter_rows` reads on SQLite.
+MATTER_ROWS_PER_STATEMENT = 50_000
+_ROW_COLUMNS = ["rowid", *(column.key for column in _MATCH_COLUMNS), "created_at"]
+_ROWS_AS_JSON = (
+    "SELECT " + ", ".join(f"json_group_array({name})" for name in _ROW_COLUMNS)
+    + " FROM assertions WHERE matter_id = :matter_id"
+)
+_MATTER_SIZE_SQL = text("SELECT count(*) FROM assertions WHERE matter_id = :matter_id")
+_ALL_ROWS_AS_JSON = text(_ROWS_AS_JSON)
+_AFTER = " AND rowid > :after"
+# Rows of one status by rowid range, keyed by (lower bound, upper bound).
+_STATUS_ROWS_AS_JSON = {
+    (after, upto): text(_ROWS_AS_JSON + " AND status = :status" + (_AFTER if after else "")
+                        + (" AND rowid <= :upto" if upto else ""))
+    for after in (False, True) for upto in (False, True)
+}
+# The last rowid of a chunk: an index-only scan of at most one chunk.
+_CHUNK_END_SQL = {
+    after: text("SELECT rowid FROM assertions WHERE matter_id = :matter_id AND status = :status"
+                + (_AFTER if after else "") + " ORDER BY rowid LIMIT 1 OFFSET :offset")
+    for after in (False, True)
+}
+_FIRST_MATTER_STATUS_SQL = text("SELECT min(status) FROM assertions WHERE matter_id = :matter_id")
+_NEXT_MATTER_STATUS_SQL = text(
+    "SELECT min(status) FROM assertions WHERE matter_id = :matter_id AND status > :status"
+)
+_SQLITE_HAS_JSON = sqlite3.sqlite_version_info >= (3, 38, 0)
+
+
+def _decoded_rows(session: Session, statement, params: dict) -> list[tuple]:
+    """Run one `_ROWS_AS_JSON` statement: its rows as `_ROW_COLUMNS` tuples.
+    The aggregates of one SELECT see the rows in the same order."""
+    columns = session.execute(statement, params).one()
+    return list(zip(*(json.loads(column) for column in columns)))
+
+
+def _sqlite_matter_rows(session: Session, matter_id: str) -> list[tuple]:
+    """`_ROW_COLUMNS` tuples of every assertion of `matter_id`: in one
+    statement, or MATTER_ROWS_PER_STATEMENT at a time, status by status.
+
+    Outside a transaction several statements are not one snapshot: an
+    assertion whose status changes during the read appears once, in the
+    state read last, or is missed if it moved to a status already read. The
+    exact checks allow for that: under the write lock they re-check
+    everything written after the watermark taken before their scan
+    (`recheck_duplicate`), and every status change writes an audit row."""
+    limit = MATTER_ROWS_PER_STATEMENT
+    params = {"matter_id": matter_id}
+    if session.execute(_MATTER_SIZE_SQL, params).scalar_one() <= limit:
+        return _decoded_rows(session, _ALL_ROWS_AS_JSON, params)
+    by_id: dict[str, tuple] = {}
+    status_value = session.execute(_FIRST_MATTER_STATUS_SQL, params).scalar_one()
+    while status_value is not None:
+        after = None
+        while True:
+            where = {**params, "status": status_value}
+            if after is not None:
+                where["after"] = after
+            upto = session.execute(
+                _CHUNK_END_SQL[after is not None], {**where, "offset": limit - 1}
+            ).scalar_one_or_none()
+            if upto is not None:
+                where["upto"] = upto
+            for row in _decoded_rows(session, _STATUS_ROWS_AS_JSON[after is not None, upto is not None], where):
+                by_id[row[1]] = row  # read twice: its status changed during the read
+            if upto is None:
+                break
+            after = upto
+        status_value = session.execute(_NEXT_MATTER_STATUS_SQL, {**params, "status": status_value}).scalar_one()
+    return list(by_id.values())
+
+
+def _matter_rows(session: Session, matter_id: str) -> list[_MatchRow]:
+    """Every assertion of `matter_id` as `_MATCH_COLUMNS` rows, oldest first
+    (created_at, then id)."""
+    if _SQLITE_HAS_JSON and session.get_bind().dialect.name == "sqlite":
+        rows = _sqlite_matter_rows(session, matter_id)
+        rows.sort(key=lambda row: (str(row[-1]), row[1]))
+        return [_MatchRow(*row[1:-1]) for row in rows]
+    return [_MatchRow(*row) for row in session.execute(
+        select(*_MATCH_COLUMNS)
+        .where(Assertion.matter_id == matter_id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()]
 
 
 def _match_candidate(row) -> dict:
@@ -577,15 +745,111 @@ def _blocking_duplicate_id(
 ) -> str | None:
     """Exact-duplicate check against the committed state (spec §7/§8 and the
     "Exact duplicates" rule): the oldest blocking assertion's id, or None.
-    Run it under `lock_assertion_writes` to make check-then-write atomic."""
-    rows = session.execute(
-        select(Assertion.id, Assertion.proposition, Assertion.status, Assertion.author_user_id)
-        .where(Assertion.matter_id == matter_id)
-        .order_by(Assertion.created_at, Assertion.id)
-    ).all()
+    It reads the whole matter: run it before `lock_assertion_writes` (see
+    `DuplicateScan`), and re-check under the lock with `recheck_duplicate`."""
+    rows = [(row.id, row.proposition, row.status, row.author_user_id) for row in _matter_rows(session, matter_id)]
     return first_blocking_duplicate(
         proposition, rows, owner_user_id=owner_user_id, exclude_id=exclude_id, submitting=submitting
     )
+
+
+# --- Exact duplicates under the write lock (review authoring:3) -------------
+#
+# The exact-duplicate rule must hold at commit, so writers re-check it under
+# `lock_assertion_writes`. Re-reading a whole matter there held SQLite's
+# database-wide write lock for a full Python pass over every row (0.35 s at
+# 220,000 rows, seconds under load), long enough for queued writers to hit the
+# busy timeout. The scan over the matter therefore runs before the lock, and
+# the locked re-check reads only what was committed after the scan began:
+# rows inserted since (higher rowid) and assertions with an audit row since.
+# Every writer that changes an assertion's proposition or status (edit, submit,
+# withdraw, review decisions) records an audit row in the same transaction,
+# and assertions are never deleted, so no other row can have started to block.
+
+_WATERMARK_SQL = text(
+    "SELECT (SELECT coalesce(max(rowid), 0) FROM assertions), "
+    "(SELECT coalesce(max(rowid), 0) FROM audit_events)"
+)
+# Rows changed since a watermark. No matter filter in SQL: it would steer
+# SQLite to the matter index (every row of the matter) instead of the rowid
+# ranges, which hold only the few rows written since.
+_CHANGED_SINCE_SQL = text(
+    "SELECT id, matter_id, proposition, status, author_user_id, created_at FROM assertions "
+    "WHERE rowid > :assertion_rowid "
+    "UNION "
+    "SELECT id, matter_id, proposition, status, author_user_id, created_at FROM assertions "
+    "WHERE id IN (SELECT assertion_id FROM audit_events WHERE rowid > :audit_rowid)"
+)
+
+
+@dataclass(frozen=True)
+class DuplicateScan:
+    """An exact-duplicate check run without the write lock, and where the
+    database stood when it began: the newest assertion and audit rowids
+    (SQLite only; None elsewhere, where the re-check reads the matter)."""
+
+    matter_id: str
+    proposition: str
+    owner_user_id: str
+    exclude_id: str | None
+    submitting: bool
+    watermark: tuple[int, int] | None
+
+    @property
+    def rule(self) -> dict:
+        return dict(owner_user_id=self.owner_user_id, exclude_id=self.exclude_id, submitting=self.submitting)
+
+
+def write_watermark(session: Session) -> tuple[int, int] | None:
+    """The newest committed assertion and audit rowids, read in one statement."""
+    if session.get_bind().dialect.name != "sqlite":
+        return None
+    assertion_rowid, audit_rowid = session.execute(_WATERMARK_SQL).one()
+    return int(assertion_rowid), int(audit_rowid)
+
+
+def scan_for_duplicate(
+    session: Session,
+    matter_id: str,
+    proposition: str,
+    *,
+    owner_user_id: str,
+    exclude_id: str | None = None,
+    submitting: bool = False,
+) -> tuple[str | None, DuplicateScan]:
+    """The unlocked exact-duplicate check: the blocking assertion's id (or
+    None), and the scan to hand to `recheck_duplicate` under the lock."""
+    scan = DuplicateScan(matter_id, proposition, owner_user_id, exclude_id, submitting, write_watermark(session))
+    return _blocking_duplicate_id(session, matter_id, proposition, **scan.rule), scan
+
+
+def recheck_duplicate(session: Session, scan: DuplicateScan, proposition: str | None = None) -> str | None:
+    """Under `lock_assertion_writes`: the oldest assertion that blocks
+    `proposition` (default: the scanned one) and was committed or changed
+    after `scan` began, or None.
+
+    The whole matter is re-read only when the scan cannot be trusted: off
+    SQLite, when the proposition differs from the scanned one (the assertion
+    was edited meanwhile), or when the newest rowids went backwards (rows
+    deleted or renumbered by a VACUUM)."""
+    proposition = scan.proposition if proposition is None else proposition
+    watermark = scan.watermark
+    if watermark is not None and normalize_proposition(proposition) == normalize_proposition(scan.proposition):
+        now = write_watermark(session)
+        if now is not None and now[0] >= watermark[0] and now[1] >= watermark[1]:
+            rows = session.execute(
+                _CHANGED_SINCE_SQL, {"assertion_rowid": watermark[0], "audit_rowid": watermark[1]}
+            ).all()
+            changed = sorted(
+                (row for row in rows if row.matter_id == scan.matter_id),
+                key=lambda row: (str(row.created_at), row.id),
+            )
+            return first_blocking_duplicate(
+                proposition,
+                [(row.id, row.proposition, row.status, row.author_user_id) for row in changed],
+                **scan.rule,
+            )
+    return _blocking_duplicate_id(session, scan.matter_id, proposition, **scan.rule)
 
 
 def _revision_number_taken(session: Session, assertion_id: str, revision_number: int) -> bool:
@@ -715,6 +979,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         validate_assertion_type(
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
+        _validate_new_assertion_type(body.assertion_type)
         if body.jurisdiction is not None:
             _validate_jurisdiction(body.jurisdiction)
         validate_matter_scoped_entity_id(body.subject_entity.id, label="subject_entity")
@@ -741,11 +1006,8 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # Exact proposition matches block submission; every other match kind is
     # surfaced as a non-blocking warning (spec §7: "similarity warnings must
     # not prevent submission unless there is an exact duplicate").
-    existing_rows = session.execute(
-        select(*_MATCH_COLUMNS)
-        .where(Assertion.matter_id == body.matter_id)
-        .order_by(Assertion.created_at, Assertion.id)
-    ).all()
+    scan = DuplicateScan(body.matter_id, proposition, user_id, None, False, write_watermark(session))
+    existing_rows = _matter_rows(session, body.matter_id)
     candidate = {
         "proposition": proposition,
         "assertion_type": body.assertion_type,
@@ -780,9 +1042,10 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # agent:1 / api:17: the scan above holds no lock, so another submitter
     # (request, agent CLI or MCP server) may have stored the same
     # proposition since. Serialize writers and re-check before inserting;
-    # the lock lasts until the commit below (or the rollback on 409).
+    # the lock lasts until the commit below (or the rollback on 409). The
+    # re-check reads only what was written after the scan (authoring:3).
     lock_assertion_writes(session, body.matter_id)
-    blocker = _blocking_duplicate_id(session, body.matter_id, proposition, owner_user_id=user_id)
+    blocker = recheck_duplicate(session, scan)
     if blocker is not None:
         session.rollback()
         raise _duplicate_conflict(blocker)
@@ -921,11 +1184,7 @@ def get_related_assertions(
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
 
-    others = session.execute(
-        select(*_MATCH_COLUMNS)
-        .where(Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id)
-        .order_by(Assertion.created_at, Assertion.id)
-    ).all()
+    others = [row for row in _matter_rows(session, assertion.matter_id) if row.id != assertion.id]
     matches = find_related_assertions(_match_candidate(assertion), [_match_candidate(row) for row in others])
     related, total = surface_similar(matches, {row.id: row for row in others})
     response.headers["X-Total-Count"] = str(total)
@@ -983,9 +1242,21 @@ def _edit_assertion(
     ):
         raise _stale_revision_conflict()
 
+    # authoring:5: the reason is submitted text like any other. Its cap is
+    # checked on the raw text (422), even when nothing else is sent, before
+    # the sanitizer runs; the revision keeps the exact text next to it.
+    try:
+        validate_text_length(body.revision_reason, label="revision_reason")
+    except ValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     updates = body.model_dump(exclude_unset=True, exclude=_EDIT_CONTROL_FIELDS)
     if not updates:
         return assertion, None
+
+    reason_raw = body.revision_reason if body.revision_reason and body.revision_reason.strip() else None
+    reason = sanitize_for_storage(reason_raw) if reason_raw is not None else None
+    reason = reason if reason and reason.strip() else None  # nothing readable: no reason
 
     new_proposition = None
     try:
@@ -1005,6 +1276,7 @@ def _edit_assertion(
             validate_assertion_type(
                 body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
             )
+            _validate_new_assertion_type(body.assertion_type)
         if "jurisdiction" in updates and body.jurisdiction is not None:
             _validate_jurisdiction(body.jurisdiction)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
@@ -1040,9 +1312,10 @@ def _edit_assertion(
     takes_new_proposition = new_proposition is not None and (
         normalize_proposition(new_proposition) != normalize_proposition(assertion.proposition)
     )
-    duplicate_check = dict(owner_user_id=assertion.author_user_id, exclude_id=assertion.id)
+    scan = None
     if takes_new_proposition:
-        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+        blocker, scan = scan_for_duplicate(session, assertion.matter_id, new_proposition,
+                                           owner_user_id=assertion.author_user_id, exclude_id=assertion.id)
         if blocker is not None:
             raise _duplicate_conflict(blocker)
 
@@ -1054,9 +1327,13 @@ def _edit_assertion(
     if assertion.current_revision_number != base_revision_number:
         session.rollback()
         raise _stale_revision_conflict()
-    _require_can_modify(session, user_id, assertion)
-    if takes_new_proposition:
-        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+    try:
+        _require_can_modify(session, user_id, assertion)
+    except HTTPException:
+        session.rollback()
+        raise
+    if scan is not None:
+        blocker = recheck_duplicate(session, scan)
         if blocker is not None:
             session.rollback()
             raise _duplicate_conflict(blocker)
@@ -1112,7 +1389,8 @@ def _edit_assertion(
         jurisdiction=assertion.jurisdiction,
         effective_from=assertion.effective_from,
         effective_to=assertion.effective_to,
-        revision_reason=body.revision_reason,
+        revision_reason=reason,
+        revision_reason_raw=reason_raw,
         edited_by_user_id=user_id,
         created_at=now,
     )
@@ -1141,6 +1419,67 @@ def _edit_assertion(
     return assertion, revision
 
 
+# --- Status transitions (submit, withdraw) ------------------------------------
+#
+# Reviews authoring:1, persistence:1, workflow:1 and workflow:3: a submit or
+# withdraw used to check the status it read and then write unconditionally,
+# so a review decision that committed in between was silently overwritten
+# (an accepted assertion withdrawn by its author, a rejected one back in the
+# queue), and two simultaneous submits both recorded the move out of draft.
+# Each transition now takes the write lock, re-reads the row and re-runs its
+# checks on it (403/409 when they no longer pass), then writes as a
+# compare-and-swap on the status and revision it re-read. The audit row is
+# written after the swap, so its previous value is the status replaced.
+
+_UNREVIEWED_STATUSES = ("draft", "proposed", "revision_requested")
+_CHANGED_MEANWHILE = "assertion was changed by another request; reload it"
+
+
+def _require_submittable(assertion: Assertion) -> None:
+    if assertion.status not in _UNREVIEWED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"cannot submit assertion in status '{assertion.status}'",
+        )
+
+
+def _require_withdrawable(assertion: Assertion) -> None:
+    if assertion.status not in _UNREVIEWED_STATUSES:
+        raise HTTPException(409, "Only an unreviewed assertion can be withdrawn")
+
+
+def _lock_and_reread(session: Session, assertion: Assertion, check) -> None:
+    """Take the write lock (held until the commit), re-read `assertion` and
+    run `check()` on the committed row; a refusal rolls back, releasing it."""
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    try:
+        check()
+    except HTTPException:
+        session.rollback()
+        raise
+
+
+def _write_status(session: Session, assertion: Assertion, **values) -> None:
+    """UPDATE the row only while it still has the status and revision of
+    `assertion` (as re-read under the lock); otherwise roll back and 409.
+    Under the lock the swap cannot miss on SQLite; it is what keeps the write
+    conditional where the lock does not exclude every writer (PostgreSQL)."""
+    result = session.execute(
+        update(Assertion)
+        .where(
+            Assertion.id == assertion.id,
+            Assertion.status == assertion.status,
+            Assertion.current_revision_number == assertion.current_revision_number,
+        )
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_CHANGED_MEANWHILE)
+
+
 @router.post("/{assertion_id}/submit")
 def submit_assertion(
     assertion_id: str,
@@ -1149,39 +1488,44 @@ def submit_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    _require_submittable(assertion)
+    # api:16: a draft does not block other authors' identical propositions,
+    # so leaving draft is where it first claims one: checked here, and again
+    # under the lock below against what was committed since.
+    scan = None
     if assertion.status == "draft":
-        # api:16: a draft does not block other authors' identical
-        # propositions, so leaving draft is where it first claims one:
-        # serialize writers and check against the committed state.
-        lock_assertion_writes(session, assertion.matter_id)
-        session.refresh(assertion)
-        _require_can_modify(session, user_id, assertion)
-
-    if assertion.status not in ("draft", "proposed", "revision_requested"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"cannot submit assertion in status '{assertion.status}'",
-        )
-    if assertion.status == "draft":
-        blocker = _blocking_duplicate_id(
+        blocker, scan = scan_for_duplicate(
             session, assertion.matter_id, assertion.proposition,
             owner_user_id=assertion.author_user_id, exclude_id=assertion.id, submitting=True,
+        )
+        if blocker is not None:
+            raise _duplicate_conflict(blocker)
+
+    def still_submittable() -> None:
+        _require_can_modify(session, user_id, assertion)
+        _require_submittable(assertion)
+
+    _lock_and_reread(session, assertion, still_submittable)
+    if assertion.status == "draft":
+        blocker = (
+            recheck_duplicate(session, scan, assertion.proposition) if scan is not None
+            else _blocking_duplicate_id(session, assertion.matter_id, assertion.proposition,
+                                        owner_user_id=assertion.author_user_id, exclude_id=assertion.id,
+                                        submitting=True)
         )
         if blocker is not None:
             session.rollback()
             raise _duplicate_conflict(blocker)
 
     previous_status = assertion.status
-    assertion.status = "proposed"
+    now = _now()
     # api:29 / review:12: a proposal awaiting review names no reviewer, as
     # after an edit that returns an assertion to proposed; the earlier
     # decision (e.g. request-revision) stays in the audit trail.
-    assertion.reviewed_by = None
-    assertion.reviewed_at = None
-    assertion.submitted_at = _now()
-    assertion.updated_at = _now()
+    _write_status(session, assertion, status="proposed", reviewed_by=None, reviewed_at=None,
+                  submitted_at=now, updated_at=now)
     record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_submitted",
-                           previous_value=previous_status, new_value=assertion.status)
+                           previous_value=previous_status, new_value="proposed")
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -1195,14 +1539,17 @@ def withdraw_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    _require_withdrawable(assertion)
 
-    if assertion.status not in ("draft", "proposed", "revision_requested"):
-        raise HTTPException(409, "Only an unreviewed assertion can be withdrawn")
+    def still_withdrawable() -> None:
+        _require_can_modify(session, user_id, assertion)
+        _require_withdrawable(assertion)
+
+    _lock_and_reread(session, assertion, still_withdrawable)
     previous_status = assertion.status
-    assertion.status = "withdrawn"
-    assertion.updated_at = _now()
+    _write_status(session, assertion, status="withdrawn", updated_at=_now())
     record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_withdrawn",
-                           previous_value=previous_status, new_value=assertion.status)
+                           previous_value=previous_status, new_value="withdrawn")
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)

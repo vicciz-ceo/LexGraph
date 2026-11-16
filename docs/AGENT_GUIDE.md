@@ -117,7 +117,9 @@ or proof of correctness.
 The canonical schema, the assertion types and the jurisdiction codes
 (`jurisdictions`) come from `schema` (over MCP, from `assertion_guide`), so agents
 need not hardcode them. Unknown assertion types require
-`assertion_type_is_proposed_new: true`. `jurisdiction` is optional and
+`assertion_type_is_proposed_new: true` and the vocabulary's shape: at most 255
+characters, letters and digits in upper case, words joined by single
+underscores (`CANCELLED_BY`). `jurisdiction` is optional and
 case-sensitive: `IL` is Israel, a US state is `US-<postal code>` (Illinois is
 `US-IL`), and `US-DC`, `US-PR` and `US-FED` complete the list. Omit it rather
 than guess. Effective dates are UTC instants: an
@@ -148,9 +150,10 @@ result, after `Error executing tool <name>: `. Payload schema violations add
   sources, wrong repository, invalid confidence or dates, a confidence that is
   not a finite number such as `NaN` or `1e999`, a date outside the
   years 1–9999 once in UTC, one source span listed twice with the same role,
-  text over 100,000 characters, provenance that is only markup, the agent
-  payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
-  escape such as `\ud800`, or input that is not UTF-8 JSON).
+  text over 100,000 characters, provenance that is only markup, a proposed new
+  type of another shape, the agent payload sent to `POST /api/v1/assertions`,
+  JSON with an unpaired surrogate escape such as `\ud800`, or input that is not
+  UTF-8 JSON).
 - **409 duplicate:** no second assertion was created. The existing assertion's
   ID is in `existing_assertion_id` (CLI, MCP and REST alike) and in the error
   text; inspect that assertion. Do not retry with cosmetic rewording. This
@@ -188,7 +191,11 @@ withdrawn or a superseded assertion, when it repeats the current status, and
 when it would make a rejected assertion live again next to an identical live
 assertion (the response names that one as `existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
-justification, which is kept in its history.
+justification, which is kept in its history. Of two requests that change one
+assertion at the same moment (two reviewers, or an author withdrawing or
+resubmitting while a reviewer decides), the one that comes second is refused
+with 409, or 403 for an author whose assertion was reviewed meanwhile, and
+changes nothing.
 
 The Review Queue, the assertion page and **Contested** send that revision for
 you. If the assertion changed after you opened it, the page tells you that your

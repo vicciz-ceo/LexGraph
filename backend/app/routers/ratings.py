@@ -26,6 +26,16 @@ below therefore records no rating event of its own; adding one would write
 it twice. The hook does not see a deleted row's meaning, so the delete
 handler records `rating_removed` with `record_audit_event` itself.
 
+Concurrency (review listing:3): PUT and DELETE read the caller's rating and
+then insert, update or delete it. Two requests from one user (a double
+submit, two tabs, an agent's retry) used to read the same state: two first
+ratings both inserted, and the second failed the unique (user, revision)
+constraint with a 500; an update racing a removal updated a row that no
+longer existed, another 500. Both routes now take the database write lock
+(`app.services.write_lock`) before they read the rating, so they apply one
+after the other and answer as they would in sequence: 201 for the first
+rating, 200 for every later one, 204 and then 404 for two removals.
+
 Finding api:30 confirmed the revision number as the deliberate design (it
 is also what `current_revision_number`, `expected_revision_number` and the
 history feed's `assertion_revision_number` use), so spec §13 was corrected
@@ -76,6 +86,7 @@ from app.services.audit import record_audit_event
 from app.services.permissions import has_permission
 from app.services.ratings import compute_rating_summary
 from app.services.validation import ValidationError, sanitize_for_storage, validate_text_length
+from app.services.write_lock import lock_assertion_writes
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["ratings"])
 
@@ -233,6 +244,10 @@ def put_rating(
             status_code=422, detail="rationale contains an unpaired surrogate character"
         ) from exc
 
+    # listing:3: read the caller's rating under the write lock (held until
+    # the commit), so a concurrent PUT or DELETE of it is applied before or
+    # after this one, never in between.
+    lock_assertion_writes(session, assertion.matter_id)
     existing = _get_own_rating(session, revision.id, user_id)
     now = _now()
     # Finding review:7 / spec addendum "The current rating rationale is
@@ -306,8 +321,10 @@ def delete_rating(
     revision = _get_revision_or_404(session, assertion_id, revision_number)
     _require_permission(session, user_id, assertion.matter_id, "assertion:rate")
 
+    lock_assertion_writes(session, assertion.matter_id)  # listing:3, as in put_rating
     rating = _get_own_rating(session, revision.id, user_id)
     if rating is None:
+        session.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no rating to remove")
 
     previous_strength = str(rating.strength)

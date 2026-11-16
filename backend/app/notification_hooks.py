@@ -26,7 +26,9 @@ does not notify the reviewers a second time (finding api:12), a repeated
 decision that changes nothing is silent, and an edit that creates no
 revision is silent. Creation as proposed -- the Suggest form's "Submit for
 review" and the agent endpoint -- notifies exactly like draft + submit
-(findings ui:6, pipeline:4).
+(findings ui:6, pipeline:4). For a submit, the status it moved the assertion
+from is read from the request's own `assertion_submitted` audit row, since
+the snapshot can be stale when two submits race (review workflow:3).
 
 Notices are written in their own transaction right after the mutation has
 committed. A failure is logged and never changes the response the client
@@ -56,6 +58,8 @@ from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_rating import AssertionRating
+from app.models.audit_event import AuditEvent
+from app.services.audit import request_correlation_id
 
 logger = logging.getLogger("app.notification_hooks")
 
@@ -166,6 +170,25 @@ async def _read_json_body(response: Response):
         return None
 
 
+def _submitted_from(session, assertion_id: str) -> str | None:
+    """The status this request's own submit replaced, from the audit row it
+    wrote (review workflow:3), or None when there is none to read.
+
+    The snapshot is read before the request runs, so a submit racing another
+    one could still see 'draft' after the other had moved the assertion into
+    review; its own audit row then says proposed -> proposed."""
+    correlation_id = request_correlation_id()
+    if correlation_id is None:
+        return None
+    return session.scalar(
+        select(AuditEvent.previous_value).where(
+            AuditEvent.assertion_id == assertion_id,
+            AuditEvent.event_type == "assertion_submitted",
+            AuditEvent.correlation_id == correlation_id,
+        ).limit(1)
+    )
+
+
 def _created_row(session, model, body, assertion_id: str):
     row_id = body.get("id") if isinstance(body, dict) else None
     if not isinstance(row_id, str):
@@ -190,6 +213,7 @@ def _raise_notices(session, hook: _Hook, actor: str, before: _Snapshot | None, b
     previous_status = before.status if before is not None else None
 
     if hook.kind == "submit":
+        previous_status = _submitted_from(session, assertion.id) or previous_status
         if assertion.status != "proposed" or previous_status == "proposed":
             return []
         return notifications.notify_assertion_submitted(

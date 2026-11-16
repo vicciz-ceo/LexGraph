@@ -26,6 +26,12 @@ export const ASSERTION_TYPES: readonly string[] = [
 /** Longest proposed type name the form accepts (the column holds 255). */
 export const NEW_ASSERTION_TYPE_MAX_LENGTH = 100;
 
+/** Longest type name the API stores, in characters: the column's 255
+ * (backend NEW_ASSERTION_TYPE_MAX_LENGTH). Upper case can make a name longer
+ * than it was typed (ß becomes SS, ﬃ becomes FFI), so normalizeAssertionType
+ * cuts a longer name here. */
+export const ASSERTION_TYPE_STORED_MAX_LENGTH = 255;
+
 export function isRecognizedAssertionType(value: string): boolean {
   return ASSERTION_TYPES.includes(value);
 }
@@ -33,13 +39,18 @@ export function isRecognizedAssertionType(value: string): boolean {
 /** Canonical spelling of a typed type name: "cancelled by" and
  * "Cancelled-By" both become "CANCELLED_BY", the shape of the controlled
  * vocabulary. Letters of any script and digits are kept; every other run
- * of characters becomes one underscore. */
+ * of characters becomes one underscore. A name longer than the API stores
+ * is cut at ASSERTION_TYPE_STORED_MAX_LENGTH characters. */
 export function normalizeAssertionType(raw: string): string {
-  return raw
+  const name = raw
     .trim()
     .toUpperCase()
     .replace(/[^\p{L}\p{N}]+/gu, "_")
     .replace(/^_+|_+$/g, "");
+  const characters = Array.from(name); // code points, as the API counts them
+  return characters.length <= ASSERTION_TYPE_STORED_MAX_LENGTH
+    ? name
+    : characters.slice(0, ASSERTION_TYPE_STORED_MAX_LENGTH).join("").replace(/_+$/, "");
 }
 
 /** "CREATES_EXCEPTION_TO" -> "Creates exception to". */
