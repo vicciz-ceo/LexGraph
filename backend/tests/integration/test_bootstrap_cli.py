@@ -116,6 +116,8 @@ def test_bootstrap_refuses_on_nonempty_db_without_mutating(tmp_path):
 
     assert second.returncode != 0, "must refuse on a non-empty database"
     assert (second.stdout + second.stderr).strip() != "", "refusal must print a clear message"
+    # An existing workspace is upgraded, not bootstrapped: say how (XREQ-88).
+    assert f"-m app.migrate --db {db_path}" in second.stdout, second.stdout
 
     # No silent mutation: still exactly the one org/matter/user from the
     # first run.
@@ -302,6 +304,7 @@ def test_bootstrap_refuses_an_empty_but_outdated_users_table(tmp_path):
 
     assert result.returncode == 1, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert "upgrade" in (result.stdout + result.stderr).lower()
+    assert f"-m app.migrate --db {db_path}" in result.stdout, result.stdout
     assert _tables(db_path) == ["users"]
     assert _rows(db_path, "users") == []
 

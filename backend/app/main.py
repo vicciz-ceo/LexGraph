@@ -34,7 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.db import Base, make_engine, make_session_factory
+from app.db import make_engine, make_session_factory
 from app.migrate import ensure_schema_current
 
 # The web app's production build (`npm --prefix frontend run build`), served on
@@ -73,9 +73,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # LexGraph tables, or a schema from an older release) instead of starting
     # "healthy" and answering 500 on every endpoint. The error names the exact
     # `python -m app.bootstrap` / `python -m app.migrate` command to run.
-    ensure_schema_current(app.state.engine)
+    # A unique index that only waits for an operator (accounts sharing an
+    # email address) does not stop the server; it is reported instead.
+    log = logging.getLogger("uvicorn.error")
+    for index, action in sorted(ensure_schema_current(app.state.engine).items()):
+        log.warning("The database lacks the unique index %s until an operator acts: %s", index, action)
     if app.state.frontend_dist is not None:
-        logging.getLogger("uvicorn.error").info("Serving the web app from %s", app.state.frontend_dist)
+        log.info("Serving the web app from %s", app.state.frontend_dist)
     yield
 
 
@@ -295,13 +299,13 @@ def create_app(
     app.include_router(jurisdictions_router)
 
     # B6 — graph projection + notifications (append-only registration, R6).
-    from app.graph_projection import InMemoryGraphProjection
+    # Each graph request builds its own projection (app.routers.graph), and
+    # notifications are stored in the database (app.notifications), so no
+    # app-wide graph or notification state lives here.
     from app.notification_hooks import register_notification_hooks
     from app.routers import graph as graph_router
     from app.routers import notifications as notifications_router
 
-    app.state.graph_projection = InMemoryGraphProjection()
-    app.state.notification_store = []
     app.include_router(graph_router.router)
     app.include_router(notifications_router.router)
     register_notification_hooks(app)

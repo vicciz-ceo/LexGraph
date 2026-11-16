@@ -453,6 +453,74 @@ def test_reviewed_assertions_can_still_be_re_reviewed(client, matter_with_users,
         assert r.json()["status"] == DECISIONS[action]
 
 
+def _rejected_with_a_live_copy(client, db_session, m) -> tuple[str, str, str]:
+    """A rejected assertion, plus an identical live one another contributor
+    proposed after the rejection (allowed: a rejected assertion does not
+    block, spec section 8). Returns (rejected id, live copy id, proposition)."""
+    span = _span(db_session, m)
+    proposition = f"Revived proposition {uuid.uuid4()}."
+    evidence = [{"source_span_id": span, "evidence_role": "supports"}]
+    ids = []
+    for headers in (m["contributor_headers"], m["rater_headers"]):
+        if ids:
+            assert _post(client, ids[0], "reject", m["reviewer_headers"]).status_code == 200
+        r = client.post("/api/v1/assertions", json=assertion_payload(
+            m["matter_id"], m["repository_id"], save_as="proposed", proposition=proposition,
+            evidence=evidence, explanation=None), headers=headers)
+        assert r.status_code == 201, r.text
+        ids.append(r.json()["id"])
+    return ids[0], ids[1], proposition
+
+
+@pytest.mark.parametrize("action", ["accept", "dispute", "request-revision"])
+def test_reviving_a_rejected_assertion_next_to_a_live_copy_is_refused(
+    client, matter_with_users, db_session, action
+):
+    """XREQ-21: a decision that makes a rejected assertion live again applies
+    the exact-duplicate rule, like submitting a draft, instead of leaving two
+    identical live assertions."""
+    m = matter_with_users
+    rejected_id, live_id, _ = _rejected_with_a_live_copy(client, db_session, m)
+    before = _decision_events(db_session, rejected_id)
+
+    r = _post(client, rejected_id, action, m["reviewer_headers"], _body_for(action))
+
+    assert r.status_code == 409, r.text
+    assert r.json()["existing_assertion_id"] == live_id
+    assert f"(assertion {live_id})" in r.json()["detail"]
+    assert _row(db_session, rejected_id)["status"] == "rejected"
+    assert _decision_events(db_session, rejected_id) == before
+    assert _comment_rows(db_session, rejected_id) == []
+
+
+def test_a_rejected_assertion_is_revived_once_no_live_copy_remains(client, matter_with_users, db_session):
+    m = matter_with_users
+    rejected_id, live_id, _ = _rejected_with_a_live_copy(client, db_session, m)
+    assert client.post(f"/api/v1/assertions/{live_id}/withdraw", headers=m["rater_headers"]).status_code == 200
+
+    r = _post(client, rejected_id, "accept", m["reviewer_headers"])
+
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "accepted"
+    # Ending it again never needs the check.
+    assert _post(client, rejected_id, "reject", m["reviewer_headers"]).status_code == 200
+
+
+def test_the_duplicate_check_on_revival_ranks_with_the_409s(client, matter_with_users, db_session):
+    """Check order 404 -> 403 -> 409 -> 422: a revival that would also lack a
+    justification reports the duplicate (409) first, and a stale revision
+    (409) is still reported as stale."""
+    m = matter_with_users
+    rejected_id, live_id, _ = _rejected_with_a_live_copy(client, db_session, m)
+    db_session.execute(text("DELETE FROM assertion_evidence WHERE assertion_id = :id"), {"id": rejected_id})
+    db_session.commit()
+    assert _post(client, rejected_id, "accept", m["contributor_headers"]).status_code == 403
+    stale = _post(client, rejected_id, "accept", m["reviewer_headers"], {"expected_revision_number": 7})
+    assert stale.status_code == 409 and "expected_revision_number" in stale.json()["detail"]
+    duplicate = _post(client, rejected_id, "accept", m["reviewer_headers"])
+    assert duplicate.status_code == 409 and duplicate.json()["existing_assertion_id"] == live_id
+
+
 def test_superseded_assertion_cannot_be_re_accepted(client, matter_with_users, db_session):
     m = matter_with_users
     old_id = _drive_to(client, db_session, m, "accepted")
@@ -797,6 +865,12 @@ def test_review_routes_return_the_full_assertion(client, matter_with_users, db_s
     assert r.status_code == 200, r.text
     detail = _get(client, m, assertion_id)
     expected = {k: v for k, v in detail.items() if k not in DETAIL_ONLY_KEYS}
+    # Entity labels are detail-page data (spec section 13, `GET
+    # /assertions/{id}` only); the mutation routes return bare references.
+    for key in ("subject_entity", "object_entity"):
+        if expected[key] is not None:
+            assert "label" in expected[key], expected[key]
+            expected[key] = {k: v for k, v in expected[key].items() if k != "label"}
     assert r.json() == expected
 
 

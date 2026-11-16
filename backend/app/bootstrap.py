@@ -137,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     from app.models.repository import Repository
     from app.models.user import User
 
+    from app.migrate import upgrade_command
+
     engine = make_engine(url_text)
     try:
         # Guards first, so a refusal really leaves the database untouched.
@@ -147,15 +149,17 @@ def main(argv: list[str] | None = None) -> int:
             if has_users:
                 print(
                     "Refusing to bootstrap: the database already has users. "
-                    "Bootstrap only runs on an empty database — nothing was changed."
+                    "Bootstrap only runs on an empty database — nothing was changed.\n"
+                    "To bring an existing workspace up to this version of LexGraph, run instead "
+                    f"(safe to re-run):\n    {upgrade_command(url)}"
                 )
                 return 1
             columns = {column["name"] for column in inspector.get_columns("users")}
             if "sign_in_token_hash" not in columns:
                 print(
                     "Refusing to bootstrap: this database's users table predates sign-in "
-                    "tokens. Upgrade it first (python -m app.migrate --db PATH; see "
-                    "docs/RUNBOOK.md) — nothing was changed."
+                    "tokens — nothing was changed. Upgrade it first (see docs/RUNBOOK.md):\n"
+                    f"    {upgrade_command(url)}"
                 )
                 return 1
 

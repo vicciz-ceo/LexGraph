@@ -3,7 +3,10 @@
 Opening a missing SQLite path creates an empty database, so a mistyped or
 relative LEXGRAPH_DATABASE_URL used to leave a stray 0-byte file behind and
 report "not initialized" (CLI) or start a server whose every tool failed
-(MCP). `open_database` checks first and never creates anything.
+(MCP). `open_database` checks first and never creates anything. It also runs
+the API server's schema check (`app.migrate.check_schema`), so a database from
+an older release is refused with the `python -m app.migrate` command instead of
+failing halfway through a request with "no such column".
 """
 from __future__ import annotations
 
@@ -74,4 +77,12 @@ def open_database(database_url: str):
         raise ConfigurationError(
             f"{where} is not an initialized LexGraph database (no assertions table). Point "
             "LEXGRAPH_DATABASE_URL at the database the web app uses; run app.bootstrap only to start a new workspace.")
+    from app.migrate import check_schema, upgrade_command
+
+    report, _pending = check_schema(engine)
+    if not report.is_current:
+        engine.dispose()
+        raise ConfigurationError(
+            f"{where} was created by an older version of LexGraph and lacks {', '.join(report.problems())}. "
+            f"Upgrade it first (safe to re-run): {upgrade_command(url)}")
     return engine

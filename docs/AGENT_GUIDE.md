@@ -35,8 +35,9 @@ in-memory database because another process cannot share it. A relative
 `sqlite:///` URL resolves against the current directory, so the CLI also
 refuses a URL whose file does not exist or has no LexGraph schema; the error
 names the resolved path, and no file is ever created. A database created
-by an older LexGraph release must first be upgraded with
-`.venv/bin/python -m app.migrate` (it changes nothing on a current database).
+by an older LexGraph release is refused as well, with the command that
+upgrades it in place, `.venv/bin/python -m app.migrate` (it reads the same
+`LEXGRAPH_DATABASE_URL`, and changes nothing on a current database).
 
 ## Discover, reason, submit
 
@@ -150,17 +151,18 @@ result, after `Error executing tool <name>: `. Payload schema violations add
   text over 100,000 characters, provenance that is only markup, the agent
   payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
   escape such as `\ud800`, or input that is not UTF-8 JSON).
-- **409 duplicate:** no second assertion was created. Read the existing assertion
-  ID in the error (the REST response also gives it as `existing_assertion_id`)
-  and inspect it. Do not retry with cosmetic rewording. This
+- **409 duplicate:** no second assertion was created. The existing assertion's
+  ID is in `existing_assertion_id` (CLI, MCP and REST alike) and in the error
+  text; inspect that assertion. Do not retry with cosmetic rewording. This
   holds for concurrent and retried submissions too (parallel agents, CLI, MCP
   and REST): exactly one of several identical submissions is stored. Only live
   (proposed, revision-requested, accepted, disputed) assertions and the actor's
   own drafts block; withdrawn, rejected or superseded ones and other users'
   drafts are listed in `similar_assertions` instead.
 - **500:** a local database or installation problem, not a payload problem: the
-  message names it (database file not found, not a LexGraph database, database
-  locked). Report it to the user; retry later only for a locked database. If the
+  message names it (database file not found, not a LexGraph database, created
+  by an older release and needing `python -m app.migrate`, database locked).
+  Report it to the user; retry later only for a locked database. If the
   CLI cannot print a result after committing, this error has `committed: true`
   and the new `id`, so do not resubmit.
 
@@ -182,7 +184,9 @@ Review decisions (accept, reject, dispute, request revision, supersede) can send
 the revision the reviewer saw as `expected_revision_number`. If the assertion
 has been edited since, the API returns 409 and changes nothing; reload it and
 review the current revision. A decision is also refused with 409 on a draft, a
-withdrawn or a superseded assertion, and when it repeats the current status.
+withdrawn or a superseded assertion, when it repeats the current status, and
+when it would make a rejected assertion live again next to an identical live
+assertion (the response names that one as `existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
 justification, which is kept in its history.
 
@@ -222,9 +226,9 @@ assertion superseded by another accepted assertion of the same matter; the
 superseded assertion then links to its replacement.
 
 In-app notifications (the bell) tell the matter's reviewers and admins when a
-proposal enters review through the web app or `POST /api/v1/agent/assertions`.
-Proposals made with the CLI or MCP `suggest_assertion` do not raise one at
-present; reviewers find them in **Review Queue**. The author of an assertion,
+proposal enters review, whether it was made in the web app, with
+`POST /api/v1/agent/assertions`, with the CLI's `suggest` or with the MCP
+`suggest_assertion` tool; a draft notifies nobody. The author of an assertion,
 including an agent account, is notified of each review decision on it. An agent
 can read those with `GET /api/v1/notifications`, using the same `Authorization`
 header as for `POST /api/v1/agent/assertions`.

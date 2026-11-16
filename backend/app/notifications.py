@@ -33,8 +33,8 @@ The trigger hooks live in `app.notification_hooks` (ASGI middleware over
 the mutation routes). The `notify_*` functions here take a plain SQLAlchemy
 session, so code that changes assertions outside an HTTP request can raise
 the same notices into the same table: the agent CLI and MCP server propose
-without HTTP and need one `notify_submission(session, assertion_id, actor)`
-call after a proposal is stored.
+without HTTP, so each calls `notify_submission(session, assertion_id, actor)`
+once a proposal is stored.
 
 A notification stores references and event facts only (`payload`); the
 readable context (current proposition, matter name, actor name) and the

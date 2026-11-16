@@ -7,8 +7,10 @@
 # Serves backend/dev.db, the database README.md and scripts/demo.sh use, on
 # 127.0.0.1:8000 by default, where frontend/vite.config.ts proxies /api.
 # When backend/dev.db does not exist yet, the demo workspace is seeded into it
-# first, as scripts/demo.sh does (sign in as admin, reviewer, contributor or
-# viewer). An existing database is served as it is and never replaced.
+# first, as scripts/demo.sh does (sign in with the demo sign-in tokens admin,
+# reviewer, contributor or viewer). An existing database is never replaced:
+# it is upgraded in place with `python -m app.migrate` (a no-op on a current
+# one), as scripts/demo.sh does, and then served.
 set -eu
 port=${PORT:-8000}
 case "${1:-}" in
@@ -50,6 +52,10 @@ then
   echo "to have the demo workspace seeded, or serve your own database by hand (README.md)." >&2
   exit 1
 fi
+
+# A dev.db from an older checkout would make the server refuse to start;
+# apply any pending migration first (each one is atomic and safe to re-run).
+.venv/bin/python -m app.migrate --db dev.db
 
 LEXGRAPH_DATABASE_URL="sqlite:///$backend/dev.db"
 export LEXGRAPH_DATABASE_URL

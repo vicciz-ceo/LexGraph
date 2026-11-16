@@ -33,4 +33,5 @@ and, after `npm --prefix frontend ci`, `npm --prefix frontend test -- --run`;
 build with `npm --prefix frontend run build`.
 The Claude Code preview (`.claude/launch.json`) runs `backend` on port 8000
 (`scripts/dev-backend.sh`: serves `backend/dev.db`, seeding the demo workspace
-into it on first run) and `frontend` on port 5173, which proxies `/api` to it.
+into it on first run and upgrading an existing one with `app.migrate`) and
+`frontend` on port 5173, which proxies `/api` to it.

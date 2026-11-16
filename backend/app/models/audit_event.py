@@ -24,7 +24,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -33,6 +33,9 @@ from app.db_types import UtcDateTime
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
+    # History, last activity and review history read an assertion's events
+    # (migration 20261116_assertion_read_indexes).
+    __table_args__ = (Index("ix_audit_events_assertion_id_event_type", "assertion_id", "event_type"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     actor_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)

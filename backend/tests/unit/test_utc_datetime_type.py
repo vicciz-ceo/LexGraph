@@ -104,4 +104,7 @@ def test_every_model_instant_column_is_utc_aware_and_calendar_dates_are_not():
         ("assertion_comments", "updated_at"),
         ("assertion_comments", "deleted_at"),
         ("audit_events", "timestamp"),
+        ("notifications", "created_at"),
+        ("notifications", "read_at"),
+        ("notification_preferences", "updated_at"),
     } <= set(instants)

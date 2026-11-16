@@ -48,7 +48,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
 from sqlalchemy import select
@@ -444,19 +444,6 @@ def _rating_pairs_for_revision(session: Session, revision_id: str | None) -> lis
     return [{"user_id": user_id, "strength": strength} for user_id, strength in rows]
 
 
-def _user_rating_for_revision(
-    session: Session, revision_id: str | None, user_id: str
-) -> int | None:
-    if revision_id is None:
-        return None
-    return session.execute(
-        select(AssertionRating.strength).where(
-            AssertionRating.assertion_revision_id == revision_id,
-            AssertionRating.user_id == user_id,
-        )
-    ).scalar_one_or_none()
-
-
 def _ratings_summary(session: Session, assertion: Assertion) -> dict | None:
     revision = _current_revision(session, assertion)
     strengths = _rating_strengths_for_revision(session, revision.id if revision else None)
@@ -522,6 +509,24 @@ _STALE_REVISION_DETAIL = "assertion has been modified since expected_revision_nu
 
 def _stale_revision_conflict() -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_STALE_REVISION_DETAIL)
+
+
+_JURISDICTION_HINT = (
+    "use IL, US-<postal code> (US-IL is Illinois), US-DC, US-PR or US-FED; "
+    "GET /api/v1/jurisdictions lists them"
+)
+
+
+def _validate_jurisdiction(code: str) -> None:
+    """`validate_jurisdiction` plus a hint naming the valid codes (XREQ-4).
+
+    app/services/jurisdiction.py is part of the certified seam, so its own
+    message cannot list them; agents and lawyers otherwise learn only that
+    their code is not in the vocabulary."""
+    try:
+        validate_jurisdiction(code)
+    except ValidationError as exc:
+        raise ValidationError(f"{exc}; {_JURISDICTION_HINT}") from exc
 
 
 def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
@@ -711,7 +716,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
         if body.jurisdiction is not None:
-            validate_jurisdiction(body.jurisdiction)
+            _validate_jurisdiction(body.jurisdiction)
         validate_matter_scoped_entity_id(body.subject_entity.id, label="subject_entity")
         if body.object_entity is not None:
             validate_matter_scoped_entity_id(body.object_entity.id, label="object_entity")
@@ -1001,7 +1006,7 @@ def _edit_assertion(
                 body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
             )
         if "jurisdiction" in updates and body.jurisdiction is not None:
-            validate_jurisdiction(body.jurisdiction)
+            _validate_jurisdiction(body.jurisdiction)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
         for bound in dates_set:
             # agent:7 / api:19: stored as UTC instants (offset applied).

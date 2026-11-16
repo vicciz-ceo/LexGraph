@@ -17,8 +17,8 @@ from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -37,6 +37,9 @@ class AssertionRating(Base):
             "user_id", "assertion_revision_id", name="uq_assertion_ratings_user_revision"
         ),
         CheckConstraint("strength BETWEEN 1 AND 5", name="ck_assertion_ratings_strength_range"),
+        # Ratings are read per revision; the unique index above leads with
+        # user_id, so it cannot serve that (migration 20261116_assertion_read_indexes).
+        Index("ix_assertion_ratings_assertion_revision_id", "assertion_revision_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

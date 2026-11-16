@@ -145,7 +145,12 @@ def test_only_the_requested_matter_is_read_in_a_fixed_number_of_statements(
     def measure() -> list:
         with _Recorder(app.state.engine) as recorder:
             _graph(client, m, show_unreviewed=True)
-        return recorder.statements
+        # Authentication resolves the sign-in token with exactly one lookup
+        # per request (app.auth, cached for the request); everything else
+        # is the route's own work.
+        sign_in = [s for s in recorder.statements if "users.sign_in_token_hash" in s[0]]
+        assert len(sign_in) == 1, sign_in
+        return [s for s in recorder.statements if s not in sign_in]
 
     for i in range(3):
         rated = _create(client, m, proposition=f"Here {i}.")

@@ -41,6 +41,7 @@ from app.services.assertion_listing import (
     ratings_for_revisions,
     reject_unknown_query_params,
 )
+from app.services.paging import MAX_OFFSET
 
 router = APIRouter(prefix="/api/v1", tags=["graph"])
 
@@ -109,7 +110,7 @@ def get_matter_graph(
     request: Request,
     show_unreviewed: bool = False,
     limit: int = Query(default=GRAPH_DEFAULT_LIMIT, ge=1, le=GRAPH_MAX_LIMIT),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     session_factory = request.app.state.session_factory

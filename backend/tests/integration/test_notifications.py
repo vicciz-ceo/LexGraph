@@ -410,12 +410,14 @@ def test_editing_an_accepted_assertion_sends_it_back_to_the_reviewers(client, te
 def test_added_evidence_notifies_participants_and_reviewers_while_proposed(client, team):
     m = team
     created = _create(client, m, m["contributor_headers"], proposition="Evidence will follow.")
+    # Only the author or a reviewer/admin may attach evidence (spec section
+    # 12 edit rule); an admin who is not a participant attaches it here.
     r = client.post(
         f"/api/v1/assertions/{created['id']}/evidence",
         json={"source_span_id": m["span_id"], "evidence_role": "supports"},
-        headers=m["rater_headers"],
+        headers=m["admin_headers"],
     )
-    assert r.status_code == 201
+    assert r.status_code == 201, r.text
     evidence_id = r.json()["id"]
 
     notice = _about(client, m["contributor_headers"], created["id"])
@@ -423,7 +425,8 @@ def test_added_evidence_notifies_participants_and_reviewers_while_proposed(clien
     assert notice[0]["payload"]["evidence_id"] == evidence_id
     assert notice[0]["payload"]["evidence_role"] == "supports"
     assert _kinds(client, m["reviewer_headers"], created["id"]) == ["evidence_added", "assertion_submitted"]
-    assert _about(client, m["rater_headers"], created["id"]) == []  # their own action
+    assert _kinds(client, m["admin_headers"], created["id"]) == ["assertion_submitted"]  # their own action
+    assert _about(client, m["rater_headers"], created["id"]) == []  # not a participant
 
     # The author attaching evidence to their own draft tells nobody.
     draft = _create(client, m, m["contributor_headers"], proposition="Private draft.", save_as="draft")
@@ -812,6 +815,34 @@ def test_notify_submission_adds_nothing_where_the_http_hook_already_notified(cli
     with app.state.session_factory() as session:
         assert notifications.notify_submission(session, r.json()["id"], m["contributor_id"]) == 0
     assert _kinds(client, m["reviewer_headers"], r.json()["id"]) == ["assertion_submitted"]
+
+
+def test_cli_and_mcp_proposals_notify_the_reviewers_once(app, client, team):
+    """The agent CLI and the MCP server propose outside HTTP and call
+    notify_submission themselves (findings ui:6, pipeline:4, CLI/MCP half):
+    reviewers and admins hear of their proposals exactly as of a REST one."""
+    import json
+
+    from app.mcp.server import create_server
+    from tests.integration.agent_surface_helpers import agent_env, cli_json, run_cli, tool_json
+
+    m = team
+    env = agent_env(f"sqlite:///{app.state.engine.url.database}", m["contributor_id"])
+
+    def cli_suggest(body: dict) -> dict:
+        return cli_json(run_cli("suggest", env=env, stdin=json.dumps(body).encode("utf-8")))
+
+    via_cli = cli_suggest(_agent_body(m, "Proposed with the agent CLI."))
+    cli_draft = cli_suggest(_agent_body(m, "A draft saved with the agent CLI.", save_as="draft"))
+    server = create_server(app.state.session_factory, agent_user_id=m["contributor_id"])
+    via_mcp = tool_json(server, "suggest_assertion", {"payload": _agent_body(m, "Proposed over MCP.")})
+
+    for proposal in (via_cli, via_mcp):
+        assert proposal["status"] == "proposed"
+        assert _kinds(client, m["reviewer_headers"], proposal["id"]) == ["assertion_submitted"]
+        assert _kinds(client, m["admin_headers"], proposal["id"]) == ["assertion_submitted"]
+        assert _about(client, m["contributor_headers"], proposal["id"]) == []  # their own proposal
+    assert _about(client, m["reviewer_headers"], cli_draft["id"]) == []
 
 
 def test_notify_submission_never_raises(app, team, monkeypatch, caplog):

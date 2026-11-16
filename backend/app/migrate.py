@@ -18,7 +18,15 @@ to serve an out-of-date database (``ensure_schema_current``).
 The runner never creates a database. A missing file or a file without LexGraph
 tables is refused; ``python -m app.bootstrap`` creates new workspaces.
 
-Exit status: 0 when the schema is current, 1 when the run was refused or failed.
+A migration never deletes or merges rows to make room for a unique index. When
+stored rows violate one (accounts sharing an email address), it leaves that
+index out and its optional ``pending_uniques(engine)`` says what an operator
+must resolve. Such a database is still usable: the runner and the server's
+startup check report the pending index instead of refusing it, and the next
+run creates the index once the rows are resolved.
+
+Exit status: 0 when the schema is current, or lacks only unique indexes that
+wait for an operator (they are listed); 1 when the run was refused or failed.
 """
 
 from __future__ import annotations
@@ -30,7 +38,7 @@ import pkgutil
 import re
 import shlex
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -58,6 +66,10 @@ class Migration:
     id: str
     module: str
     upgrade: Callable[[Engine], bool]
+    #: Optional ``pending_uniques(engine) -> {index name: what to resolve}``:
+    #: declared unique indexes this migration leaves out while stored rows
+    #: violate them, until an operator resolves those rows.
+    pending_uniques: Callable[[Engine], dict[str, str]] | None = None
 
 
 def discover_migrations(package: str = MIGRATIONS_PACKAGE) -> list[Migration]:
@@ -65,8 +77,9 @@ def discover_migrations(package: str = MIGRATIONS_PACKAGE) -> list[Migration]:
     ``upgrade()``, sorted by ``MIGRATION_ID``.
 
     Modules whose name starts with ``_``, and modules defining neither name,
-    are skipped. A malformed or duplicated ID, or an ID without ``upgrade()``,
-    raises ``MigrationError`` before anything runs.
+    are skipped. A malformed or duplicated ID, an ID without ``upgrade()``, or
+    a ``pending_uniques`` that is not a function raises ``MigrationError``
+    before anything runs.
     """
     root = importlib.import_module(package)
     found: list[Migration] = []
@@ -84,7 +97,12 @@ def discover_migrations(package: str = MIGRATIONS_PACKAGE) -> list[Migration]:
             )
         if not callable(upgrade):
             raise MigrationError(f"{module.__name__}: {migration_id} has no upgrade(engine) function")
-        found.append(Migration(id=migration_id, module=module.__name__, upgrade=upgrade))
+        pending = getattr(module, "pending_uniques", None)
+        if pending is not None and not callable(pending):
+            raise MigrationError(f"{module.__name__}: pending_uniques must be a function of the engine")
+        found.append(
+            Migration(id=migration_id, module=module.__name__, upgrade=upgrade, pending_uniques=pending)
+        )
 
     modules_by_id: dict[str, list[str]] = {}
     for migration in found:
@@ -144,15 +162,21 @@ class SchemaReport:
     column, and every declared uniqueness (as a unique constraint or a unique
     index, whichever way it was created). Extra tables, columns and indexes,
     column types and plain indexes are not compared.
+
+    ``pending_uniques`` lists the missing unique indexes that a migration left
+    out until an operator resolves the rows violating them (see
+    ``check_schema``); they do not make the database unusable.
     """
 
     missing_tables: tuple[str, ...]
     missing_columns: tuple[str, ...]
     missing_uniques: tuple[str, ...]
     model_table_count: int
+    pending_uniques: tuple[str, ...] = ()
 
     @property
     def is_current(self) -> bool:
+        """Usable by this version: nothing missing except pending uniques."""
         return not (self.missing_tables or self.missing_columns or self.missing_uniques)
 
     @property
@@ -223,12 +247,20 @@ def _declared_uniques(table) -> Iterator[tuple[frozenset[str] | None, str | None
             yield (frozenset(column.name for column in index.columns) if plain else None), index.name
 
 
-def inspect_schema(engine: Engine, *, fast: bool = True, metadata: MetaData | None = None) -> SchemaReport:
+def inspect_schema(
+    engine: Engine,
+    *,
+    fast: bool = True,
+    metadata: MetaData | None = None,
+    pending: Collection[str] = (),
+) -> SchemaReport:
     """Compare the live database with ``metadata`` (default: the app's
     ``Base.metadata``; see SchemaReport).
 
     ``fast`` uses SQLite's pragmas directly; other dialects (and ``fast=False``)
-    go through SQLAlchemy's inspector.
+    go through SQLAlchemy's inspector. A missing declared uniqueness whose name
+    is in ``pending`` is reported in ``pending_uniques`` instead of
+    ``missing_uniques``.
     """
     model_tables = (metadata if metadata is not None else Base.metadata).sorted_tables
     with engine.connect() as conn:
@@ -240,6 +272,7 @@ def inspect_schema(engine: Engine, *, fast: bool = True, metadata: MetaData | No
     missing_tables: list[str] = []
     missing_columns: list[str] = []
     missing_uniques: list[str] = []
+    pending_uniques: list[str] = []
     for table in model_tables:
         found = live.get(table.name)
         if found is None:
@@ -252,13 +285,42 @@ def inspect_schema(engine: Engine, *, fast: bool = True, metadata: MetaData | No
             if name and name in found.unique_index_names:
                 continue
             what = f"({', '.join(sorted(columns))})" if columns is not None else str(name)
-            missing_uniques.append(f"{what} on {table.name}")
+            (pending_uniques if name in pending else missing_uniques).append(f"{what} on {table.name}")
     return SchemaReport(
         missing_tables=tuple(missing_tables),
         missing_columns=tuple(missing_columns),
         missing_uniques=tuple(missing_uniques),
         model_table_count=len(model_tables),
+        pending_uniques=tuple(pending_uniques),
     )
+
+
+def pending_uniques(engine: Engine, migrations: list[Migration] | None = None) -> dict[str, str]:
+    """Unique indexes a migration left out until an operator resolves the rows
+    that violate them: ``{index name: what to resolve}`` (``Migration.pending_uniques``)."""
+    pending: dict[str, str] = {}
+    for migration in discover_migrations() if migrations is None else migrations:
+        if migration.pending_uniques is not None:
+            pending.update(migration.pending_uniques(engine))
+    return pending
+
+
+def check_schema(
+    engine: Engine, migrations: list[Migration] | None = None
+) -> tuple[SchemaReport, dict[str, str]]:
+    """``inspect_schema`` that also accounts for pending uniques.
+
+    Returns the report and ``{index name: what to resolve}`` for the unique
+    indexes that only wait for an operator. Those are consulted only when
+    every table and column exists, so a migration's check can rely on them.
+    """
+    report = inspect_schema(engine)
+    if report.is_current or report.missing_tables or report.missing_columns:
+        return report, {}
+    pending = pending_uniques(engine, migrations)
+    if not pending:
+        return report, {}
+    return inspect_schema(engine, pending=pending), pending
 
 
 # --- messages -------------------------------------------------------------------
@@ -291,8 +353,14 @@ def _command(module: str, url: URL) -> str:
     return f"LEXGRAPH_DATABASE_URL={shown} {python} -m {module}"
 
 
-def unusable_database_message(engine: Engine) -> str | None:
-    """Why the server cannot serve this database, with the fix; None if it can."""
+def upgrade_command(url: URL | str) -> str:
+    """The exact ``python -m app.migrate`` command that upgrades the database at ``url``."""
+    return _command("app.migrate", make_url(url) if isinstance(url, str) else url)
+
+
+def _usability(engine: Engine) -> tuple[str | None, dict[str, str]]:
+    """(why the server cannot serve this database, with the fix, or None;
+    the unique indexes pending an operator, see ``check_schema``)."""
     url = engine.url
     path = _sqlite_file(url)
     if path is not None and not path.exists():
@@ -301,10 +369,14 @@ def unusable_database_message(engine: Engine) -> str | None:
             f"LexGraph cannot start: there is no database file at {path}.\n"
             f"Create a workspace there:\n    {_command('app.bootstrap', url)}\n"
             "or point LEXGRAPH_DATABASE_URL at an existing LexGraph database."
-        )
-    report = inspect_schema(engine)
+        ), {}
+    report, pending = check_schema(engine)
     if report.is_current:
-        return None
+        return None, pending
+    return _unusable_message(url, report), {}
+
+
+def _unusable_message(url: URL, report: SchemaReport) -> str:
     if _is_memory(url):
         python = shlex.quote(sys.executable or "python")
         return (
@@ -328,12 +400,21 @@ def unusable_database_message(engine: Engine) -> str | None:
     )
 
 
-def ensure_schema_current(engine: Engine) -> None:
+def unusable_database_message(engine: Engine) -> str | None:
+    """Why the server cannot serve this database, with the fix; None if it can."""
+    return _usability(engine)[0]
+
+
+def ensure_schema_current(engine: Engine) -> dict[str, str]:
     """Raise SchemaNotCurrentError, naming the fix, unless the server can use
-    this database. Called from the API server's lifespan (app/main.py)."""
-    message = unusable_database_message(engine)
+    this database. Called from the API server's lifespan (app/main.py).
+
+    Returns the unique indexes that only wait for an operator, ``{index name:
+    what to resolve}`` (usually empty), for the server to report."""
+    message, pending = _usability(engine)
     if message is not None:
         raise SchemaNotCurrentError(message)
+    return pending
 
 
 # --- command line ---------------------------------------------------------------
@@ -403,8 +484,11 @@ def main(argv: list[str] | None = None) -> int:
                     "after it did not run. Fix the cause and re-run the same command."
                 )
             applied += bool(changed)
-            print(f"  {migration.id:<{width}}  {'applied' if changed else 'already applied'}", flush=True)
-        report = inspect_schema(engine)
+            status = "applied" if changed else "already applied"
+            if migration.pending_uniques is not None and migration.pending_uniques(engine):
+                status = "applied in part, waiting for an operator" if changed else "waiting for an operator"
+            print(f"  {migration.id:<{width}}  {status}", flush=True)
+        report, pending = check_schema(engine, migrations)
     finally:
         engine.dispose()
 
@@ -415,7 +499,14 @@ def main(argv: list[str] | None = None) -> int:
             "Either it is not a LexGraph database, or a model change shipped without a "
             "migration module in app/migrations, so it cannot be upgraded yet."
         )
-    if applied:
+    if pending:
+        waiting = "\n".join(f"  - unique index {name}: {action}" for name, action in sorted(pending.items()))
+        print(
+            f"Applied {applied} of {len(migrations)} migrations. LexGraph can use the database, but "
+            f"{len(pending)} unique index(es) wait for an operator:\n{waiting}\n"
+            "Resolve that, then run this command again."
+        )
+    elif applied:
         print(f"Applied {applied} of {len(migrations)} migrations; the schema is current.")
     else:
         print(f"Nothing to do: all {len(migrations)} migrations were already applied; the schema is current.")

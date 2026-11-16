@@ -4,7 +4,11 @@ Usage (from ``backend/``, after ``pip install -e '.[dev]'`` — the seeder
 drives the real HTTP API via Starlette's TestClient, which needs httpx):
 
     .venv/bin/python -m app.seed_demo            # writes ./dev.db
-    .venv/bin/python -m app.seed_demo --reset    # start over
+    .venv/bin/python -m app.seed_demo --reset    # start a demo database over
+
+`--reset` replaces only a demo database (one holding the demo accounts) or an
+empty file; any other existing file, such as a bootstrapped workspace, is
+refused and left untouched.
 
 Then serve it:
 
@@ -33,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sqlite3
 import sys
 import uuid
 from pathlib import Path
@@ -68,18 +73,49 @@ def _entity(kind: str) -> dict:
     return {"type": kind, "id": str(uuid.uuid4())}
 
 
+def database_kind(path: Path) -> str:
+    """What an existing file at `path` holds: "empty" (0 bytes), "demo" (the
+    seeded demo accounts, the test scripts/demo.sh applies too), "other" (a
+    LexGraph workspace without them, such as one from app.bootstrap) or
+    "foreign" (not a LexGraph database). Opened read-only."""
+    if path.stat().st_size == 0:
+        return "empty"
+    try:
+        db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            user_ids = {row[0] for row in db.execute("SELECT id FROM users")}
+        finally:
+            db.close()
+    except sqlite3.DatabaseError:
+        return "foreign"
+    return "demo" if {user[0] for user in DEMO_USERS} <= user_ids else "other"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", default="dev.db", help="SQLite file to create (default: dev.db)")
-    parser.add_argument("--reset", action="store_true", help="delete the DB file first")
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="replace an existing demo database (or an empty file); any other file is refused",
+    )
     args = parser.parse_args(argv)
 
     db_path = Path(args.db)
-    if args.reset and db_path.exists():
-        db_path.unlink()
     if db_path.exists():
-        print(f"{db_path} already exists — pass --reset to reseed from scratch.")
-        return 1
+        kind = database_kind(db_path)
+        if kind in ("other", "foreign"):
+            # --reset used to unlink whatever it was given, so following the
+            # hint deleted a real workspace (ops new:seed-reset-warning).
+            what = ("a LexGraph workspace without the demo accounts (for example one from "
+                    "app.bootstrap)" if kind == "other" else "not a LexGraph database")
+            print(f"{db_path} is {what}; it was left untouched, and --reset does not replace it. "
+                  "Seed the demo into another file, for example --db demo.db.")
+            return 1
+        if not args.reset:
+            print(f"{db_path} already exists ({'the demo workspace' if kind == 'demo' else 'an empty file'})"
+                  " — pass --reset to reseed it from scratch.")
+            return 1
+        db_path.unlink()
 
     os.environ["LEXGRAPH_DATABASE_URL"] = f"sqlite:///{db_path}"
 

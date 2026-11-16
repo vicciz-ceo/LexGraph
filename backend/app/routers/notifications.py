@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from app import notifications
 from app.auth import AuthHeaderError, get_bearer_user_id
+from app.services.paging import MAX_OFFSET
 
 router = APIRouter(prefix="/api/v1", tags=["notifications"])
 
@@ -65,7 +66,7 @@ class PreferencesBody(BaseModel):
 @router.get("/notifications")
 def get_notifications(
     limit: int = Query(default=notifications.DEFAULT_PAGE_SIZE, ge=1, le=notifications.MAX_PAGE_SIZE),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     unread_only: bool = False,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),

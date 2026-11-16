@@ -307,8 +307,10 @@ def test_evidence_endpoint_events_carry_the_evidence_id_and_revision(client, db_
     a = _create(client, m)
     client.patch(_url(a["id"]), json={"proposition": f"Second revision ({uuid.uuid4()})."},
                  headers=m["contributor_headers"])
+    # Two different permitted actors (spec section 12 edit rule): the author
+    # adds the evidence, a reviewer removes it.
     added = client.post(_url(a["id"], "/evidence"), json={"source_span_id": span, "evidence_role": "supports"},
-                        headers=m["rater_headers"])
+                        headers=m["contributor_headers"])
     assert added.status_code == 201, added.text
     evidence_id = added.json()["id"]
     removed = client.delete(_url(a["id"], f"/evidence/{evidence_id}"), headers=m["reviewer_headers"])
@@ -317,7 +319,7 @@ def test_evidence_endpoint_events_carry_the_evidence_id_and_revision(client, db_
     history = _history(client, m, a["id"])
     (add_event,) = _of_type(history, "evidence_added")
     (remove_event,) = _of_type(history, "evidence_removed")
-    assert _summary(add_event) == (m["rater_id"], 2, None, evidence_id)
+    assert _summary(add_event) == (m["contributor_id"], 2, None, evidence_id)
     assert _summary(remove_event) == (m["reviewer_id"], 2, None, evidence_id)
     assert add_event["correlation_id"] == added.headers["x-request-id"]
     assert remove_event["correlation_id"] == removed.headers["x-request-id"]

@@ -33,6 +33,7 @@ from app.models.assertion_revision import AssertionRevision
 from app.models.audit_event import AuditEvent
 from app.models.user import User
 from app.services.jurisdiction import validate_jurisdiction
+from app.services.paging import MAX_OFFSET
 from app.services.ratings import compute_rating_summary, compute_standing
 from app.services.validation import ValidationError
 
@@ -165,7 +166,7 @@ def assertion_list_query(
     q: str | None = None,
     sort: str | None = None,
     limit: int | None = Query(default=None, ge=1, le=LIST_MAX_LIMIT),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
 ) -> AssertionListQuery:
     """Filters plus ``q``, ``sort``, ``limit`` and ``offset``.
 
