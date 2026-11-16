@@ -17,6 +17,7 @@ import { Icon } from "../app/icons";
 import type { IconName } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
+import { NotificationFeed } from "../components/NotificationsMenu";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 
 function defaultJurisdictionKey(userId: string): string {
@@ -56,11 +57,6 @@ function formatDate(iso: string | null): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
-function humanizeEvent(eventType: string): string {
-  const label = eventType.replace(/_/g, " ");
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 interface StatCardProps {
@@ -283,23 +279,11 @@ export function ProfilePage() {
           ) : notifications.length === 0 ? (
             <p className="muted">No notifications yet.</p>
           ) : (
-            <ul className="pf-notifs">
-              {notifications.map((n) => (
-                <li
-                  key={n.id}
-                  className={n.read ? "pf-notif" : "pf-notif pf-notif--unread"}
-                >
-                  <span className="pf-notif__title">{humanizeEvent(n.event_type)}</span>
-                  <span className="pf-notif__time">
-                    {new Date(n.created_at).toLocaleString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <NotificationFeed items={notifications} onItemsChange={setNotifications} />
           )}
           <p className="pf-note">
-            In-app notifications are held in server memory and reset when the server
-            restarts.
+            Notifications are kept until you read them. Choose which events notify
+            you from the bell's settings.
           </p>
         </div>
       </div>

@@ -179,6 +179,35 @@ export interface AppNotification {
   payload: Record<string, unknown>;
   created_at: string;
   read: boolean;
+  /** The assertion the notice is about (also in payload.assertion_id). */
+  assertion_id?: string | null;
+  matter_id?: string | null;
+  /** App route of that assertion ("/assertions/<id>"); null once the
+   * recipient can no longer open it. */
+  link?: string | null;
+  /** Read-time context; null once the recipient left the matter. */
+  context?: NotificationContext | null;
+  read_at?: string | null;
+}
+
+export interface NotificationContext {
+  proposition: string | null;
+  assertion_status: AssertionStatus | null;
+  assertion_origin: AssertionOrigin | null;
+  matter_name: string | null;
+  actor_display_name: string | null;
+}
+
+export interface NotificationListParams {
+  limit?: number;
+  offset?: number;
+  unread_only?: boolean;
+}
+
+export interface NotificationPreference {
+  event_type: string;
+  enabled: boolean;
+  default: boolean;
 }
 
 export interface GraphEdge {

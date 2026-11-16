@@ -12,10 +12,11 @@ import type {
 
 const mocks = vi.hoisted(() => ({
   role: "reviewer" as MatterRoleName,
+  selectMatter: vi.fn(),
 }));
 
-vi.mock("../../app/session", () => ({
-  useActiveSession: () => {
+vi.mock("../../app/session", () => {
+  const useActiveSession = () => {
     const current = {
       id: "m-1",
       name: "Acme v. Zenith",
@@ -36,13 +37,20 @@ vi.mock("../../app/session", () => ({
       currentMatter: current,
       role: mocks.role,
     };
-  },
-}));
+  };
+  return {
+    useActiveSession,
+    // The notifications tab's links switch matter through useSession().
+    useSession: () => ({ session: useActiveSession(), selectMatter: mocks.selectMatter }),
+  };
+});
 
 vi.mock("../../api/client", () => ({
   api: {
     listAssertions: vi.fn(),
     notifications: vi.fn(),
+    markNotificationRead: vi.fn(),
+    markAllNotificationsRead: vi.fn(),
   },
 }));
 
@@ -166,6 +174,7 @@ const notificationItems: AppNotification[] = [
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.role = "reviewer";
+  window.location.hash = "";
   mockedApi.listAssertions.mockImplementation(
     async (_matterId: string, params: AssertionListParams = {}) =>
       params.unrated_by_me
@@ -241,7 +250,7 @@ describe("ProfilePage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lists notifications newest first with humanized event types and the reset note", async () => {
+  it("lists notifications newest first with humanized event types and the storage note", async () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
@@ -251,7 +260,83 @@ describe("ProfilePage", () => {
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("Rating added");
     expect(items[1]).toHaveTextContent("Assertion accepted");
-    expect(within(panel).getByText(/reset when the server restarts/)).toBeInTheDocument();
+    // Notifications are stored server-side now (pipeline:9); the old
+    // "reset when the server restarts" note is no longer true.
+    expect(within(panel).getByText(/kept until you read them/)).toBeInTheDocument();
+    expect(within(panel).queryByText(/reset when the server restarts/)).not.toBeInTheDocument();
+  });
+
+  it("links notifications to their assertion, marks them read and switches matter when needed", async () => {
+    const context = {
+      proposition: "Clause 9 restricts assignment without consent.",
+      assertion_status: "rejected" as const,
+      assertion_origin: "user_suggested" as const,
+      matter_name: "Acme v. Zenith",
+      actor_display_name: "Riva Reviewer",
+    };
+    mockedApi.notifications.mockResolvedValue([
+      {
+        id: "n-here",
+        event_type: "assertion_rejected",
+        actor_user_id: "u-reviewer",
+        recipient_user_id: "u-me",
+        payload: { assertion_id: "a-1", matter_id: "m-1" },
+        assertion_id: "a-1",
+        matter_id: "m-1",
+        link: "/assertions/a-1",
+        context,
+        created_at: "2026-07-26T10:00:00Z",
+        read: false,
+      },
+      {
+        id: "n-there",
+        event_type: "assertion_submitted",
+        actor_user_id: "u-other",
+        recipient_user_id: "u-me",
+        payload: { assertion_id: "a-9", matter_id: "m-2" },
+        assertion_id: "a-9",
+        matter_id: "m-2",
+        link: "/assertions/a-9",
+        context: { ...context, matter_name: "Estate of Harel", actor_display_name: "Dan" },
+        created_at: "2026-07-25T10:00:00Z",
+        read: false,
+      },
+    ]);
+    mockedApi.markNotificationRead.mockResolvedValue({} as AppNotification);
+    mockedApi.markAllNotificationsRead.mockResolvedValue({ marked_read: 1, unread_count: 0 });
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    const panel = screen.getByRole("tabpanel");
+
+    expect(within(panel).getByText("2 unread")).toBeInTheDocument();
+    const here = within(panel).getByRole("link", { name: /Assertion rejected/ });
+    expect(here).toHaveAttribute("href", "#/assertions/a-1");
+    expect(here).toHaveTextContent("Clause 9 restricts assignment without consent.");
+    expect(here).toHaveTextContent("Riva Reviewer · Acme v. Zenith");
+
+    fireEvent.click(here);
+    expect(mockedApi.markNotificationRead).toHaveBeenCalledWith("n-here");
+    expect(mocks.selectMatter).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#/assertions/a-1");
+    expect(within(panel).getByText("1 unread")).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole("link", { name: /submitted for review/ }));
+    expect(mocks.selectMatter).toHaveBeenCalledWith("m-2");
+    expect(window.location.hash).toBe("#/assertions/a-9");
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+  });
+
+  it("marks everything shown as read in one call", async () => {
+    mockedApi.markAllNotificationsRead.mockResolvedValue({ marked_read: 1, unread_count: 0 });
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    const panel = screen.getByRole("tabpanel");
+
+    fireEvent.click(within(panel).getByRole("button", { name: "Mark all as read" }));
+    // The newest notification shown bounds what is marked.
+    expect(mockedApi.markAllNotificationsRead).toHaveBeenCalledWith("2026-07-25T10:00:00Z");
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Mark all as read" })).toBeDisabled();
   });
 
   it("hides rating work entirely from viewers and skips the unrated query", async () => {
