@@ -2,23 +2,49 @@
 
 Without a configured actor, legacy lookup tools read the entire local database.
 With an actor, reads are matter-scoped and validated proposal creation is enabled.
-See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
+Anticipated failures reach the agent as `ToolError` text holding the CLI's JSON
+error object: mcp >= 2.1 replaces any other exception with a bare
+"Error executing tool <name>". See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 """
 
 from __future__ import annotations
 
+import json
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 from mcp.server.mcpserver import MCPServer
-from sqlalchemy import select, func
+from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import ValidationError
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.agent_cli import assertion_search, context, error_body, guide
+from app.agent_database import ConfigurationError
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.source_span import SourceSpan
 from app.models.matter_role import MatterRole
+from app.models.user import User
+from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit_suggestion
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
 _DEFAULT_RESULT_LIMIT = 10
+
+
+@contextmanager
+def _reported_errors() -> Iterator[None]:
+    """Turn anticipated failures into a ToolError carrying {"error", "status"}.
+    Anything else stays a crash: logged server-side, withheld from the client."""
+    try:
+        yield
+    except (HTTPException, ValidationError, SQLAlchemyError, ConfigurationError) as exc:
+        raise ToolError(json.dumps(jsonable_encoder(error_body(exc)), ensure_ascii=False)) from exc
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
@@ -31,21 +57,17 @@ def _current_revision(session: Session, assertion: Assertion) -> AssertionRevisi
 
 
 def _proposition_text(session: Session, assertion: Assertion) -> str:
-    """Byte-exact raw proposition when available, sanitized fallback
-    otherwise -- see module docstring's "Text preference" note."""
+    """Byte-exact raw proposition of the current revision when stored, else
+    the sanitized column (rows from before raw text was kept)."""
     revision = _current_revision(session, assertion)
     raw = revision.proposition_raw if revision else None
     return raw if raw is not None else assertion.proposition
 
 
 def _matching_assertions(session: Session, query: str, limit: int, user_id: str | None = None) -> list[Assertion]:
-    stmt = select(Assertion).outerjoin(AssertionRevision, (
-        (AssertionRevision.assertion_id == Assertion.id)
-        & (AssertionRevision.revision_number == Assertion.current_revision_number)))
+    stmt = assertion_search(query)
     if user_id is not None:
         stmt = stmt.where(Assertion.matter_id.in_(select(MatterRole.matter_id).where(MatterRole.user_id == user_id)))
-    if query.strip():
-        stmt = stmt.where(func.coalesce(AssertionRevision.proposition_raw, Assertion.proposition).icontains(query.strip(), autoescape=True))
     return list(session.scalars(stmt.order_by(Assertion.id).limit(limit)))
 
 
@@ -113,45 +135,40 @@ def _serialize_assertion_detail(session: Session, assertion: Assertion) -> dict:
 def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str | None = None) -> MCPServer:
     """Build local tools; a configured actor enables validated, scoped suggestions."""
 
+    agent_user_id = agent_user_id or None  # "" is no actor, for scoping as for registration
     server = MCPServer(name="lexgraph")
 
     @server.tool()
     def explore(query: str) -> dict:
-        """Resolve a query to matching assertions, their evidence (linked
-        source-span quotes), and relationships (subject/object entities,
-        supersession) in one bounded call."""
-        session = session_factory()
-        try:
+        """Resolve a query to matching assertions (up to 10), their evidence
+        (linked source-span quotes), and relationships (subject/object
+        entities, supersession) in one bounded call. Matching is a
+        case-insensitive substring of the current proposition text."""
+        with _reported_errors(), session_factory() as session:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
                 "results": [_serialize_assertion_detail(session, a) for a in matches],
             }
-        finally:
-            session.close()
 
     @server.tool()
     def search(query: str) -> dict:
-        """Bounded list of assertion summaries whose current proposition
-        text matches `query`."""
-        session = session_factory()
-        try:
+        """Bounded list (up to 10) of assertion summaries whose current
+        proposition text contains `query` (case-insensitive substring)."""
+        with _reported_errors(), session_factory() as session:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
             return {
                 "query": query,
                 "count": len(matches),
                 "results": [_serialize_assertion_summary(session, a) for a in matches],
             }
-        finally:
-            session.close()
 
     @server.tool()
     def fetch(assertion_id: str) -> dict:
         """Full detail (proposition, evidence, relationships) for one
         assertion by id."""
-        session = session_factory()
-        try:
+        with _reported_errors(), session_factory() as session:
             assertion = session.get(Assertion, assertion_id)
             if assertion is not None and agent_user_id is not None:
                 allowed = session.scalar(select(MatterRole.id).where(
@@ -161,51 +178,68 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
             if assertion is None:
                 return {"error": f"assertion not found: {assertion_id}"}
             return _serialize_assertion_detail(session, assertion)
-        finally:
-            session.close()
 
     @server.tool()
     def assertion_guide() -> dict:
-        """Learn how to create evidence-backed suggestions and retrieve the exact JSON schema."""
-        from app.agent_cli import guide
-        result = guide()
+        """Start here: the workflow, vocabularies (assertion types, jurisdictions)
+        and the exact JSON schema for suggest_assertion's payload."""
+        result = guide("mcp")
         result["submissions_enabled"] = agent_user_id is not None
+        if agent_user_id is None:
+            result["submissions_disabled_reason"] = (
+                "agent_context and suggest_assertion are not available: this server was started without "
+                "LEXGRAPH_AGENT_USER_ID. Ask the user to register it with the id of a dedicated agent account "
+                "that has contributor membership (see docs/mcp-registration.md).")
         return result
 
-    if agent_user_id:
+    if agent_user_id is not None:
         @server.tool()
         def agent_context(matter_id: str | None = None, query: str = "", limit: int = 20, offset: int = 0) -> dict:
-            """Discover authorized matters, real entity IDs, source quotes and existing assertions."""
-            from app.agent_cli import context
-            with session_factory() as session:
+            """Without matter_id: your user and matter memberships (matter id, role,
+            repository_id). With matter_id: that matter's documents and articles
+            (entities, documents first), source spans with full quote_text, and
+            existing assertions, each filtered by query (case-insensitive substring)
+            and paged with limit (1-100) and offset."""
+            with _reported_errors(), session_factory() as session:
                 return context(session, agent_user_id, matter_id, query, limit, offset)
 
         @server.tool()
         def suggest_assertion(payload: dict) -> dict:
-            """Submit a model-suggested draft/proposal. Call assertion_guide for schema, agent_context for IDs.
-            The configured account must have contributor access. Never accepts assertions or rates them.
-            """
-            from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit
-            from fastapi.encoders import jsonable_encoder
-            with session_factory() as session:
-                return jsonable_encoder(submit(AgentAssertionCreate.model_validate(payload), session, agent_user_id))
+            """Submit a model-suggested draft/proposal. payload is one JSON object
+            matching assertion_guide's schema, with IDs from agent_context; the
+            configured account needs contributor access. Never accepts or rates
+            assertions. A failure is an error result ending in JSON {"error",
+            "status"}: 409 duplicate names the existing assertion (inspect it, do
+            not reword); 422 explains the invalid field ("issues"); 403 missing role."""
+            with _reported_errors(), session_factory() as session:
+                body = AgentAssertionCreate.model_validate(payload)
+                return jsonable_encoder(submit_suggestion(body, session, agent_user_id))
 
     return server
 
 
-def _stdio_main() -> None:  # pragma: no cover -- exercised via manual local run
-    """Entrypoint for `python -m app.mcp.server`: wires a session factory
-    from this app's usual settings (`LEXGRAPH_DATABASE_URL`, defaulting to
-    an in-memory SQLite DB) and serves `explore`/`search`/`fetch` over
-    stdio."""
+def _stdio_main() -> None:  # pragma: no cover -- run as a subprocess by the tests
+    """Entrypoint for `python -m app.mcp.server`: serves explore, search, fetch
+    and assertion_guide over stdio, plus agent_context and suggest_assertion
+    when LEXGRAPH_AGENT_USER_ID names a user. LEXGRAPH_DATABASE_URL must be an
+    initialized LexGraph database; otherwise the process exits with a one-line
+    reason on stderr (stdout carries JSON-RPC) instead of serving tools that
+    all fail."""
+    from app.agent_database import open_database
     from app.config import get_settings
-    from app.db import make_engine, make_session_factory
+    from app.db import make_session_factory
 
-    settings = get_settings()
-    engine = make_engine(settings.database_url)
-    session_factory = make_session_factory(engine)
-    import os
-    server = create_server(session_factory, agent_user_id=os.environ.get("LEXGRAPH_AGENT_USER_ID") or None)
+    agent_user_id = os.environ.get("LEXGRAPH_AGENT_USER_ID") or None
+    try:
+        engine = open_database(get_settings().database_url)
+        with Session(engine) as session:
+            if agent_user_id and session.get(User, agent_user_id) is None:
+                raise ConfigurationError(
+                    f"LEXGRAPH_AGENT_USER_ID {agent_user_id!r} is not a user in {engine.url.database}; "
+                    "use the id of a dedicated agent account created in Admin")
+    except ConfigurationError as exc:
+        raise SystemExit(f"lexgraph MCP server: {exc}") from None
+    server = create_server(make_session_factory(engine), agent_user_id=agent_user_id)
     server.run(transport="stdio")
 
 

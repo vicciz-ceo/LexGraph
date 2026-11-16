@@ -1,13 +1,19 @@
 # LexGraph MCP registration
 
 The local stdio server connects directly to LexGraph's database. Install the
-backend first (`pip install -e '.[dev]'`). Use absolute paths so the Python module
-and database resolve regardless of the agent's working directory.
+backend first, once, from the repository root (Python 3.12 or newer):
+`(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')`.
+Use absolute paths so the Python module and database resolve regardless of the
+agent's working directory.
 
 Available tools:
 
-- `assertion_guide`: workflow and complete submission JSON schema.
-- `explore`, `search`, `fetch`: existing assertion lookup and evidence.
+- `assertion_guide`: workflow (naming these tools), vocabularies (assertion
+  types, jurisdiction codes) and complete submission JSON schema. Without a
+  configured agent user it reports `submissions_enabled: false` and a
+  `submissions_disabled_reason`.
+- `explore`, `search`, `fetch`: existing assertion lookup and evidence
+  (case-insensitive substring match on the current proposition text).
 - `agent_context`: discover authorized matters, persisted entities, source spans
   and existing assertions (requires configured agent user).
 - `suggest_assertion`: atomically create a model-suggested draft/proposal with
@@ -21,6 +27,13 @@ mode, plus `assertion_guide`. Only use this mode with trusted local clients.
 First create an agent account through Admin and grant contributor membership.
 Replace all paths and `AGENT_USER_ID` below. These examples configure clients;
 they do not start an LLM or make any provider API calls.
+
+The server checks its configuration at startup. If `LEXGRAPH_DATABASE_URL` is
+unset or in-memory, names a missing file or a file without the LexGraph schema,
+or `LEXGRAPH_AGENT_USER_ID` names no user, it exits with one line on stderr
+starting `lexgraph MCP server:` and creates no file, so the client reports the
+server as failed. To read the reason, run the configured command by hand with
+the same environment.
 
 ## Claude Code
 
@@ -83,3 +96,9 @@ Agents without MCP can use the JSON CLI or HTTP API in the
 After connecting, ask the agent to call `assertion_guide`, then `agent_context`,
 read the relevant sources, and call `suggest_assertion` with `payload` set to a
 schema-valid JSON object. Proposed assertions appear in the lawyers' review queue.
+
+A failed call returns an error result whose text is `Error executing tool <name>: `
+followed by the JSON object the CLI prints, for example
+`{"error": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "status": 409}`.
+Schema violations add `issues` (`field` and `message` for each). The statuses
+mean the same as in the [agent guide](AGENT_GUIDE.md#persistence-and-errors).

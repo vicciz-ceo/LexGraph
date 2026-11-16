@@ -108,7 +108,7 @@ def test_local_cli_and_mcp_share_contract(app, client, matter_with_users, sugges
     assert {'assertion_guide','agent_context','suggest_assertion'} <= names
     payload = {**suggestion, 'proposition':'An independently phrased MCP suggestion.', 'agent':{'platform':'codex'}}
     result = asyncio.run(server.call_tool('suggest_assertion', {'payload':payload}))
-    assert not getattr(result, 'isError', False), result
+    assert result.is_error is False, result
     rows = client.get('/api/v1/assertions', params={'matter_id':m['matter_id']}, headers=m['reviewer_headers']).json()['items']
     assert len(rows) == 2 and {a['agent_provenance']['platform'] for a in rows} == {'claude-code','codex'}
     readonly = create_server(app.state.session_factory)
