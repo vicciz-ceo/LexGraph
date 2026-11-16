@@ -75,6 +75,7 @@ from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
     ValidationError,
+    normalize_effective_datetime,
     sanitize_for_storage,
     validate_assertion_type,
     validate_effective_dates,
@@ -594,7 +595,11 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         if body.explanation is not None:
             validate_text_length(body.explanation, label="explanation")
         validate_proposition_not_empty(proposition)
-        validate_effective_dates(body.effective_from, body.effective_to)
+        # agent:7 / api:19: stored as UTC instants, so an offset is applied
+        # rather than dropped and the stored range is the validated one.
+        effective_from = normalize_effective_datetime(body.effective_from, label="effective_from")
+        effective_to = normalize_effective_datetime(body.effective_to, label="effective_to")
+        validate_effective_dates(effective_from, effective_to)
         validate_assertion_type(
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
@@ -696,8 +701,8 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         author_user_id=user_id,
         confidence=confidence if agent else None,
         jurisdiction=body.jurisdiction,
-        effective_from=body.effective_from,
-        effective_to=body.effective_to,
+        effective_from=effective_from,
+        effective_to=effective_to,
         created_at=now,
         updated_at=now,
         submitted_at=now if body.save_as == "proposed" else None,
@@ -964,8 +969,16 @@ def patch_assertion(
             validate_proposition_not_empty(sanitize_for_storage(body.proposition))
         if "assertion_type" in updates:
             validate_assertion_type(body.assertion_type)
-        validate_effective_dates(updates.get("effective_from", assertion.effective_from),
-                                 updates.get("effective_to", assertion.effective_to))
+        dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
+        for bound in dates_set:
+            # agent:7 / api:19: stored as UTC instants (offset applied).
+            updates[bound] = normalize_effective_datetime(updates[bound], label=bound)
+        if dates_set:
+            # Checked when the edit sets a date. An edit that leaves the dates
+            # alone is not blocked by the stored range, which a row written
+            # while offsets were still dropped may hold inverted (api:19).
+            validate_effective_dates(updates.get("effective_from", assertion.effective_from),
+                                     updates.get("effective_to", assertion.effective_to))
         for field in ("subject_entity", "object_entity"):
             entity = getattr(body, field)
             if entity is not None:
@@ -1046,9 +1059,9 @@ def patch_assertion(
     if "jurisdiction" in updates:
         assertion.jurisdiction = body.jurisdiction
     if "effective_from" in updates:
-        assertion.effective_from = body.effective_from
+        assertion.effective_from = updates["effective_from"]
     if "effective_to" in updates:
-        assertion.effective_to = body.effective_to
+        assertion.effective_to = updates["effective_to"]
 
     assertion.current_revision_number = new_revision_number
     assertion.updated_at = now
