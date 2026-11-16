@@ -49,7 +49,8 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -168,7 +169,17 @@ class EvidenceIn(BaseModel):
     ]
 
 
+#: Keys of the agent contract (`POST /api/v1/agent/assertions`) that the
+#: lawyer endpoint refuses with a pointer to the agent endpoint (agent:11).
+_AGENT_ONLY_FIELDS = ("agent", "confidence")
+
+
 class AssertionCreate(BaseModel):
+    # agent:11: an undeclared key is a 422, never silently dropped -- the
+    # agent JSON posted here used to be stored as a lawyer's user_suggested
+    # assertion without its provenance or confidence.
+    model_config = ConfigDict(extra="forbid")
+
     repository_id: str
     matter_id: str
     assertion_type: str = Field(min_length=1)
@@ -184,6 +195,22 @@ class AssertionCreate(BaseModel):
     # B5: explicit opt-in for an assertion_type outside the controlled
     # vocabulary (spec §7 "explicitly marked as a proposed new type").
     assertion_type_is_proposed_new: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _agent_fields_go_to_the_agent_endpoint(cls, data):
+        # Inert for AgentAssertionCreate, which declares both fields.
+        if isinstance(data, dict):
+            sent = [key for key in _AGENT_ONLY_FIELDS if key in data and key not in cls.model_fields]
+            if sent:
+                raise PydanticCustomError(
+                    "agent_endpoint_required",
+                    " and ".join(sent) + (" is" if len(sent) == 1 else " are")
+                    + " not accepted on POST /api/v1/assertions: send agent suggestions, "
+                    "with their provenance and confidence, to POST /api/v1/agent/assertions",
+                    {"fields": sent},
+                )
+        return data
 
 
 class AssertionPatch(BaseModel):
