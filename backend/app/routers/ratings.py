@@ -16,15 +16,15 @@ ratings are preserved, never auto-copied.
 
 The path segment is the revision *number* (`AssertionRevision.
 revision_number`), not the revision's UUID `id` -- this matches every
-caller in the test suite (`.../revisions/1/rating`) and B3's
-`app/audit_middleware.py::_RATING_RE`, which only recognizes digits there
-and fires `rating_created`/`rating_changed` audit rows automatically off
-of a successful PUT. This router does NOT duplicate that: the PUT handler
-below emits no audit event of its own. DELETE is not matched by that
-middleware (audit rows are only emitted for PUT), so the delete handler
-below calls B3's `app.services.audit.record_audit_event` directly (R7/R9:
-a call-site owned by this router, since the mutation lives in this
-router's own file).
+caller in the test suite (`.../revisions/1/rating`).
+
+Audit (spec section 16, finding api:5): `rating_created` and
+`rating_changed` are written by a `before_flush` hook in
+`app.services.audit` from the rating row itself (previous -> new strength,
+the rated revision), inside the PUT's own transaction. The PUT handler
+below therefore records no rating event of its own; adding one would write
+it twice. The hook does not see a deleted row's meaning, so the delete
+handler records `rating_removed` with `record_audit_event` itself.
 
 Finding api:30 confirmed the revision number as the deliberate design (it
 is also what `current_revision_number`, `expected_revision_number` and the
@@ -313,10 +313,9 @@ def delete_rating(
     previous_strength = str(rating.strength)
     session.delete(rating)
 
-    # The audit middleware (app/audit_middleware.py, B3) only recognizes PUT
-    # on this path -- DELETE is deliberately unmatched there, so this is the
-    # one call-site this track owns for the removal audit row (spec: "Removing
-    # a rating must create an audit event").
+    # The before_flush hook in app.services.audit writes rating_created and
+    # rating_changed; the removal row is this route's own (spec: "Removing a
+    # rating must create an audit event"), in the same transaction.
     record_audit_event(
         session,
         actor_user_id=user_id,

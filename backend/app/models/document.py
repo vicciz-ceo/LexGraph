@@ -12,9 +12,10 @@ SQLAlchemy at flush for ORM-constructed `Document(...)` rows) AND a DB-level
 repository_id, matter_id, title) VALUES (...)")` -- a fixture this item may
 not edit (Planner-owned) -- which bypasses the ORM entirely, so only a
 `server_default` keeps that pre-existing raw-SQL insert satisfying the new
-NOT NULL constraint. This is an additive column on a table created fresh
-via `Base.metadata.create_all()` (no persisted schema/migration to
-reconcile -- see `app/db.py`), so no migration module is needed for it.
+NOT NULL constraint. Fresh databases get the column from
+`Base.metadata.create_all()`; databases created before 2026-08-02 get it,
+with the same DDL, from `app/migrations/m20260802_add_document_jurisdiction_column.py`
+(run by `python -m app.migrate`).
 """
 
 from __future__ import annotations
