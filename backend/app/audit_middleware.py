@@ -10,7 +10,9 @@ request writes -- whichever router, helper or flush hook writes it --
 records that id, so the rows of one action can be found together and tied
 to the response the client got. The id is never taken from the client: a
 caller-supplied `X-Request-ID` would let one request's rows pose as
-another's.
+another's. The middleware is kept outside every other middleware, so even a
+refusal another middleware answers by itself carries the header (see
+`register_audit_hooks`).
 
 History: this middleware used to write `assertion_created`,
 `rating_created`/`rating_changed` and `evidence_added`/`evidence_removed`
@@ -62,5 +64,24 @@ class AuditHookMiddleware:
 
 
 def register_audit_hooks(app: FastAPI) -> None:
-    """Wire the audit middleware into `app` (called from create_app())."""
+    """Wire the audit middleware into `app` (called from create_app()).
+
+    It must run outside every other user middleware, or a response that
+    another middleware answers by itself -- the unpaired-surrogate guard's
+    422 (`app.request_guards`) -- leaves before a request id exists and
+    carries no `X-Request-ID` (spec §16, review workflow:6). Starlette makes
+    the middleware registered last the outermost one, so rather than depend
+    on the call order in create_app(), the middleware is moved to the front
+    of `app.user_middleware` when the stack is built. It stays inside
+    Starlette's ServerErrorMiddleware: the bare 500 of an unhandled error
+    has no `X-Request-ID`, the one exception spec §16 names.
+    """
     app.add_middleware(AuditHookMiddleware)
+    build_stack = app.build_middleware_stack
+
+    def build_stack_with_request_ids_outermost():
+        # A stable sort: every other middleware keeps its relative order.
+        app.user_middleware.sort(key=lambda entry: entry.cls is not AuditHookMiddleware)
+        return build_stack()
+
+    app.build_middleware_stack = build_stack_with_request_ids_outermost

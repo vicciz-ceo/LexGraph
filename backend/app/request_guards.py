@@ -16,8 +16,10 @@ without a byte-order mark. Matching UTF-8 byte patterns instead let the same
 surrogate through in UTF-16 or UTF-32 (a 500) and refused valid UTF-16 text
 whose bytes happen to look like one (U+A0ED is ED A0 in UTF-16-LE).
 
-Pure ASGI middleware, so it does not depend on where in ``create_app`` it is
-registered; ``register_request_guards`` is called from ``app.main``.
+A pure ASGI middleware; ``register_request_guards`` is called from
+``app.main``. It answers by itself, so its 422 carries ``X-Request-ID`` only
+because ``app.audit_middleware`` keeps the request-id middleware outside
+every other one, whatever the registration order (review workflow:6).
 
 It also registers two exception handlers:
 
