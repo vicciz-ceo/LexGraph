@@ -78,8 +78,8 @@ returned by `context` and the example proposition with your grounded claim:
 .venv/bin/python -m app.agent_cli suggest
 ```
 
-Input and output are UTF-8 JSON whatever the locale or Windows code page; a
-UTF-8 byte-order mark is accepted. Success prints one JSON object (with the
+Input and output are UTF-8 JSON whatever the locale, code page (such as
+cp1252) or `PYTHONIOENCODING`; a UTF-8 byte-order mark is accepted. Success prints one JSON object (with the
 assertion ID) on stdout and exits 0. Every error, including a command-line
 mistake, prints one JSON object on stderr and exits 1. `--user-id USER_ID`,
 before or after the subcommand, overrides the actor environment variable.
