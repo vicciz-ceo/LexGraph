@@ -188,6 +188,10 @@ class AssertionCreate(BaseModel):
 
 class AssertionPatch(BaseModel):
     assertion_type: str | None = Field(default=None, min_length=1)
+    # api:21 / review:4: the edit-side counterpart of AssertionCreate's flag.
+    # Consulted only when assertion_type changes: an assertion keeps its own
+    # type, proposed-new or not, without it.
+    assertion_type_is_proposed_new: bool = False
     proposition: str | None = Field(default=None, min_length=1)
     subject_entity: EntityRef | None = None
     object_entity: EntityRef | None = None
@@ -555,7 +559,7 @@ def _revision_number_taken(session: Session, assertion_id: str, revision_number:
 
 # Body fields that steer an edit but are not values of the assertion: on
 # their own they are never a change (api:18).
-_EDIT_CONTROL_FIELDS = {"expected_revision_number", "revision_reason"}
+_EDIT_CONTROL_FIELDS = {"expected_revision_number", "revision_reason", "assertion_type_is_proposed_new"}
 
 
 def _changed_fields(assertion: Assertion, current: AssertionRevision | None, updates: dict) -> list[str]:
@@ -1025,8 +1029,12 @@ def _edit_assertion(
             validate_text_length(body.proposition, label="proposition")
             new_proposition = sanitize_for_storage(body.proposition)
             validate_proposition_not_empty(new_proposition)
-        if "assertion_type" in updates:
-            validate_assertion_type(body.assertion_type)
+        if "assertion_type" in updates and body.assertion_type != assertion.assertion_type:
+            # api:21 / review:4: the assertion's own type, proposed-new or
+            # not, is kept as is; a different type follows the creation rule.
+            validate_assertion_type(
+                body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
+            )
         if "jurisdiction" in updates and body.jurisdiction is not None:
             validate_jurisdiction(body.jurisdiction)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]

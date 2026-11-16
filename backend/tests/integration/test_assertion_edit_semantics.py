@@ -1,9 +1,10 @@
 """Write semantics of assertion creation and edits.
 
 Audit findings api:18, review:3, review:8, ui:11 (an edit that changes
-nothing material creates nothing), review:5 (the length cap runs before the
-sanitizer) and review:20 (an explanation is never silently dropped). Every
-test drives the real HTTP app.
+nothing material creates nothing), api:21 / review:4 (an assertion's own
+proposed-new type survives an edit), review:5 (the length cap runs before
+the sanitizer) and review:20 (an explanation is never silently dropped).
+Every test drives the real HTTP app.
 """
 
 from __future__ import annotations
@@ -216,6 +217,45 @@ def test_a_no_op_body_is_still_validated_and_stale_checked(client, matter_with_u
                          headers=m["contributor_headers"])
     assert stale.status_code == 409
     assert client.patch(path, json=same, headers=m["rater_headers"]).status_code == 403
+
+
+# --- An assertion's own proposed-new type survives an edit (api:21, review:4)
+
+
+def test_an_unchanged_proposed_new_type_is_accepted_on_edit(client, matter_with_users):
+    m = matter_with_users
+    created = _create(client, m, assertion_type="MY_NEW_TYPE", assertion_type_is_proposed_new=True)
+    path = f"/api/v1/assertions/{created['id']}"
+
+    patched = client.patch(path, json={"assertion_type": "MY_NEW_TYPE", "proposition": "Edited once."},
+                           headers=m["contributor_headers"])
+    assert patched.status_code == 200, patched.text
+    revised = client.post(path + "/revisions",
+                          json={"assertion_type": "MY_NEW_TYPE", "proposition": "Edited twice."},
+                          headers=m["contributor_headers"])
+    assert revised.status_code == 201, revised.text
+    assert revised.json()["assertion_type"] == "MY_NEW_TYPE"
+
+
+def test_changing_to_another_new_type_takes_the_flag_the_error_names(client, matter_with_users):
+    m = matter_with_users
+    created = _create(client, m, assertion_type="MY_NEW_TYPE", assertion_type_is_proposed_new=True)
+    path = f"/api/v1/assertions/{created['id']}"
+
+    refused = client.patch(path, json={"assertion_type": "ANOTHER_NEW_TYPE"}, headers=m["contributor_headers"])
+    assert refused.status_code == 422
+    assert "assertion_type_is_proposed_new=true" in refused.json()["detail"]
+    accepted = client.patch(path, json={"assertion_type": "ANOTHER_NEW_TYPE",
+                                        "assertion_type_is_proposed_new": True},
+                            headers=m["contributor_headers"])
+    assert (accepted.status_code, accepted.json()["assertion_type"]) == (200, "ANOTHER_NEW_TYPE")
+    back = client.post(path + "/revisions", json={"assertion_type": "INTERPRETS"},
+                       headers=m["contributor_headers"])
+    assert (back.status_code, back.json()["assertion_type"]) == (201, "INTERPRETS")
+    # The flag alone is not a change.
+    flag_only = client.post(path + "/revisions", json={"assertion_type_is_proposed_new": True},
+                            headers=m["contributor_headers"])
+    assert (flag_only.status_code, flag_only.json()["revision_number"]) == (200, 3)
 
 
 # --- The length cap runs before the sanitizer (review:5) --------------------
