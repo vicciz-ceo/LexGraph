@@ -925,13 +925,15 @@ ol {
   font: 500 14px/20px var(--font-family);
 }
 
-.assertion-review-actions button:first-child {
+/* Each decision is styled by what it does, not by its position: the panel
+ * offers only the decisions valid for the current status. */
+.assertion-review-actions .assertion-review-action--accept {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--on-primary);
 }
 
-.assertion-review-actions button:nth-child(2) {
+.assertion-review-actions .assertion-review-action--reject {
   color: var(--error);
   border-color: var(--error);
 }
@@ -1056,6 +1058,22 @@ ol {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Under the mobile bar the topbar holds only the search, the bell and
+   * help: the search takes the row instead of sharing it with the spacer. */
+  .topbar {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .topbar__search {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .topbar__spacer {
+    display: none;
   }
 
   .page-header__title {
