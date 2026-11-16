@@ -120,22 +120,27 @@ def test_two_spans_with_one_text_give_one_draft_across_runs_users_and_endings(cl
     assert db_session.scalar(select(func.count()).select_from(Assertion)) == 1
 
 
-def test_a_live_assertion_blocks_and_another_users_draft_does_not(client, db_session, matter_with_users):
+def test_a_live_assertion_and_the_users_own_draft_block_and_another_users_draft_does_not(client, db_session,
+                                                                                         matter_with_users):
     m = matter_with_users
     proposed_text, drafted_text = SURVIVES, "This clause applies to all affiliates."
-    _span(db_session, m, proposed_text)
-    _span(db_session, m, drafted_text)
-    for text, save_as in ((proposed_text, "proposed"), (drafted_text, "draft")):
+    own_draft_text = "Clause 2 survives termination of this Agreement."
+    for text in (proposed_text, drafted_text, own_draft_text):
+        _span(db_session, m, text)
+    for text, save_as, author in ((proposed_text, "proposed", "rater_headers"), (drafted_text, "draft", "rater_headers"),
+                                  (own_draft_text, "draft", "reviewer_headers")):
         r = client.post("/api/v1/assertions", json=assertion_payload(
-            m["matter_id"], m["repository_id"], proposition=text, save_as=save_as), headers=m["rater_headers"])
+            m["matter_id"], m["repository_id"], proposition=text, save_as=save_as), headers=m[author])
         assert r.status_code == 201, r.text
 
     created = _enrich(db_session, m)
 
-    # Like a lawyer, enrichment may not copy a live proposal; another user's
-    # draft is unsubmitted work and blocks no one but its author.
+    # Like a lawyer, enrichment may not copy a live proposal or the
+    # triggering user's own draft; another user's draft is unsubmitted work
+    # and blocks no one but its author.
     assert [c["proposition"] for c in created] == [drafted_text]
-    assert _enrich(db_session, m, user="rater_id") == []
+    # For the rater the reviewer's draft is another user's draft.
+    assert [c["proposition"] for c in _enrich(db_session, m, user="rater_id")] == [own_draft_text]
 
 
 def test_the_duplicate_check_holds_against_a_writer_that_commits_meanwhile(client, db_session, matter_with_users,
