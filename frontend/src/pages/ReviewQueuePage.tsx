@@ -131,6 +131,13 @@ export function ReviewQueuePage() {
   const [deciding, setDeciding] = useState(false);
   const decidingRef = useRef(false);
 
+  // The page is not remounted when the matter changes: drop what belongs to
+  // the previous matter (its pending count, a notice about its assertion).
+  useEffect(() => {
+    setPendingCount(null);
+    setActionError(null);
+  }, [matterId]);
+
   // Resolve author_user_id → display_name once per matter.
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +211,9 @@ export function ReviewQueuePage() {
         if (cancelled) return;
         setLoading(false);
         setItems(null);
+        // The count can no longer be vouched for (and may be another
+        // matter's or another jurisdiction's).
+        setPendingCount(null);
         setLoadError(err instanceof Error ? err.message : "Unexpected error.");
       });
 
@@ -318,7 +328,14 @@ export function ReviewQueuePage() {
         <div className="rq-main">
           {loadError && (
             <div className="error-banner" role="alert">
-              Couldn&apos;t load the review queue. {loadError}
+              Couldn&apos;t load the review queue. {loadError}{" "}
+              <button
+                type="button"
+                className="btn btn--sm btn--secondary"
+                onClick={() => setReloadKey((key) => key + 1)}
+              >
+                Retry
+              </button>
             </div>
           )}
           {actionError && (
@@ -329,7 +346,7 @@ export function ReviewQueuePage() {
 
           {loading ? (
             <div className="loading">Loading review queue…</div>
-          ) : items && items.length > 0 ? (
+          ) : loadError || items === null ? null : items.length > 0 ? (
             <div className="rq-list">
               {items.map((assertion) => {
                 const origin = ORIGIN_META[assertion.origin];
