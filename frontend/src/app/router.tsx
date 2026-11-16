@@ -33,7 +33,19 @@ export function navigate(to: string): void {
   window.location.hash = to.startsWith("#") ? to.slice(1) : to;
 }
 
-/** Match "/assertions/:id" against "/assertions/123" → {id: "123"}, or null. */
+/** decodeURIComponent, or null for a malformed escape such as "%E0%A4%A". */
+function safeDecode(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
+/** Match "/assertions/:id" against "/assertions/123" → {id: "123"}, or null.
+ * A parameter with a malformed percent-escape (a truncated or hand-edited
+ * link) is no match: decodeURIComponent's URIError used to escape from
+ * render and blank the whole app (finding ui:27). */
 export function matchPath(pattern: string, path: string): Record<string, string> | null {
   const patternParts = pattern.split("/").filter(Boolean);
   const pathParts = path.split("/").filter(Boolean);
@@ -44,7 +56,9 @@ export function matchPath(pattern: string, path: string): Record<string, string>
     const expected = patternParts[i];
     const actual = pathParts[i];
     if (expected.startsWith(":")) {
-      params[expected.slice(1)] = decodeURIComponent(actual);
+      const value = safeDecode(actual);
+      if (value === null) return null;
+      params[expected.slice(1)] = value;
     } else if (expected !== actual) {
       return null;
     }

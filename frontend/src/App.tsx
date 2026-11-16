@@ -1,4 +1,5 @@
 import { AppShell } from "./app/AppShell";
+import { ErrorBoundary } from "./app/ErrorBoundary";
 import { matchPath, useHashLocation } from "./app/router";
 import { SessionProvider, useSession } from "./app/session";
 import { AdminPage } from "./pages/AdminPage";
@@ -81,13 +82,23 @@ function AppRoutes() {
     }
   }
 
-  return <AppShell>{content}</AppShell>;
+  // A page that fails to render keeps the shell (and its navigation); moving
+  // to another route clears the error (ui:27).
+  return (
+    <AppShell>
+      <ErrorBoundary resetKey={`${location.path}?${location.query.toString()}`}>
+        {content}
+      </ErrorBoundary>
+    </AppShell>
+  );
 }
 
 export default function App() {
   return (
-    <SessionProvider>
-      <AppRoutes />
-    </SessionProvider>
+    <ErrorBoundary>
+      <SessionProvider>
+        <AppRoutes />
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }

@@ -8,6 +8,7 @@
 //   tab regains focus and every minute, and the admin console refreshes it
 //   after you change your own membership, so role-gated UI follows the server.
 // - ui:26: below 768px the sidebar is a drawer behind a menu button.
+// - ui:27: a malformed percent-escape in the hash route does not blank the app.
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -436,5 +437,14 @@ describe("navigation on narrow viewports (ui:26)", () => {
 
     fireEvent.click(within(drawer).getByRole("button", { name: "Sign out" }));
     expect(await screen.findByLabelText(/sign-in token/i)).toBeInTheDocument();
+  });
+});
+
+describe("malformed links (ui:27)", () => {
+  it("a malformed percent-escape in the hash route does not blank the app", async () => {
+    renderApp({ hash: "#/assertions/%E0%A4%A" });
+
+    expect(await primaryNav()).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /review queue/i })).toBeInTheDocument();
   });
 });

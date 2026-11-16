@@ -724,6 +724,20 @@ ol {
   color: var(--on-surface-variant);
 }
 
+/* Error boundary fallback (app/ErrorBoundary.tsx). */
+.error-state {
+  max-width: 640px;
+  margin: var(--space-lg) auto;
+}
+
+.error-state__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;
