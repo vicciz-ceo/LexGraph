@@ -302,8 +302,8 @@ describe("ContestedPage", () => {
 });
 
 // Rulings carry the revision on screen (ui:2) and mirror the API's rules for
-// review text (ui:8).
-describe("ContestedPage rulings", () => {
+// review text (ui:8); the drawer shows what the evidence says (ui:30).
+describe("ContestedPage rulings and evidence", () => {
   it("rejects with the revision shown in the drawer", async () => {
     await renderQueue();
 
@@ -335,6 +335,62 @@ describe("ContestedPage rulings", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Reject" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows each evidence item's document and quoted text instead of its span id", async () => {
+    mockedApi.listEvidence.mockResolvedValue([
+      {
+        ...evidenceItems[0],
+        document_id: "doc-1",
+        document_title: "Lease amendment (2021)",
+        quote_text: "The term of the lease is extended to 31 December 2030.",
+      },
+      {
+        ...evidenceItems[1],
+        document_id: "doc-2",
+        document_title: "Board minutes, 3 March 2021",
+        quote_text: "The board did not approve any extension of the lease term.",
+      },
+    ]);
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    expect(
+      await screen.findByText("The term of the lease is extended to 31 December 2030."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lease amendment (2021)")).toBeInTheDocument();
+    expect(
+      screen.getByText("The board did not approve any extension of the lease term."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Board minutes, 3 March 2021")).toBeInTheDocument();
+    expect(screen.queryByText("span-101")).not.toBeInTheDocument();
+    expect(screen.queryByText("span-102")).not.toBeInTheDocument();
+  });
+
+  it("says when an evidence span cannot be resolved rather than showing a bare id", async () => {
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    // The fixture spans carry no quote or document (unresolvable in this matter).
+    expect(await screen.findAllByText(/could not be found in this matter/)).toHaveLength(2);
+  });
+
+  it("names evidence roles readably and marks every supporting role as supporting", async () => {
+    mockedApi.listEvidence.mockResolvedValue([
+      {
+        ...evidenceItems[0],
+        evidence_role: "primary_basis",
+        document_title: "Lease amendment (2021)",
+        quote_text: "The term of the lease is extended to 31 December 2030.",
+      },
+    ]);
+    await renderQueue();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+
+    expect(await screen.findByText("primary basis")).toHaveClass("badge--accepted");
   });
 
   it("keeps Confirm accept disabled for a justification over 100,000 characters", async () => {

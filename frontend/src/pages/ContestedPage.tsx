@@ -35,8 +35,11 @@ const EVIDENCE_BADGES: Record<Assertion["evidence_status"], { className: string;
   awaiting_evidence: { className: "badge badge--pending", label: "Awaiting evidence" },
 };
 
+/** Roles that make an assertion "evidenced" (the API's SUPPORTING_EVIDENCE_ROLES). */
+const SUPPORTING_ROLES = ["supports", "primary_basis", "secondary_basis"];
+
 function evidenceRoleClass(role: string): string {
-  if (role === "supports") return "badge badge--accepted";
+  if (SUPPORTING_ROLES.includes(role)) return "badge badge--accepted";
   if (role === "contradicts") return "badge badge--rejected";
   return "badge badge--neutral";
 }
@@ -287,10 +290,25 @@ export function ContestedPage() {
                     {evidenceState.map((item) => (
                       <li key={item.id} className="ctd-evidence__item">
                         <Icon name="description" size={16} />
-                        <span className={evidenceRoleClass(item.evidence_role)}>
-                          {item.evidence_role}
-                        </span>
-                        <span className="mono">{item.source_span_id}</span>
+                        <div className="ctd-evidence__body">
+                          <div className="ctd-evidence__meta">
+                            <span className={evidenceRoleClass(item.evidence_role)}>
+                              {item.evidence_role.replace(/_/g, " ")}
+                            </span>
+                            {item.document_title && (
+                              <span className="ctd-evidence__source">{item.document_title}</span>
+                            )}
+                          </div>
+                          {item.quote_text ? (
+                            <blockquote className="ctd-evidence__quote">{item.quote_text}</blockquote>
+                          ) : (
+                            // The API resolves a span only within this matter.
+                            <p className="ctd-evidence__missing">
+                              The quoted source span (<span className="mono">{item.source_span_id}</span>)
+                              could not be found in this matter.
+                            </p>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
