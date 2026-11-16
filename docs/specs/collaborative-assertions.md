@@ -1181,7 +1181,10 @@ database URL, or a database without the LexGraph tables.
 
 `GET /api/v1/assertions?matter_id=…` returns `{"items", "total", "limit",
 "offset"}`. `limit` (1–500) and `offset` page the result; without `limit`
-every match is returned, as before. `total` always counts every match. Filters
+every match is returned, as before. `total` always counts every match. On this
+and every other paged route (`/matters/{id}/entities`, `/source-spans`,
+`/graph`, `/notifications`, and the agent `context`), `offset` is at most
+2,147,483,647; a larger one is a 422. Filters
 (§10, §17): `q` (current revision's raw proposition, case-insensitive), `origin`,
 `status`, `assertion_type`, `author_user_id`, `subject_entity_type`,
 `subject_entity_id`, `object_entity_type`, `object_entity_id`, `jurisdiction`,

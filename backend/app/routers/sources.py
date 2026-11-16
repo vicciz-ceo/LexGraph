@@ -7,6 +7,7 @@ from app.models.article import Article
 from app.models.source_span import SourceSpan
 from app.models.matter import Matter
 from app.routers.assertions import get_session, get_current_user_id, _require_matter_member
+from app.services.paging import MAX_OFFSET
 from app.services.text_search import NaturalOrder, contains_text
 
 router = APIRouter(prefix="/api/v1/matters", tags=["sources"])
@@ -22,7 +23,7 @@ def _matter(session, user_id, matter_id):
 
 @router.get("/{matter_id}/entities")
 def list_entities(matter_id: str, q: str = "", limit: int = Query(50, ge=1, le=100),
-                  offset: int = Query(0, ge=0), session: Session = Depends(get_session),
+                  offset: int = Query(0, ge=0, le=MAX_OFFSET), session: Session = Depends(get_session),
                   user_id: str = Depends(get_current_user_id)) -> dict:
     """Documents first (by title), then each document's articles in natural number order.
 
@@ -59,7 +60,7 @@ def list_entities(matter_id: str, q: str = "", limit: int = Query(50, ge=1, le=1
 
 @router.get("/{matter_id}/source-spans")
 def list_spans(matter_id: str, q: str = "", document_id: str | None = None,
-               limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+               limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0, le=MAX_OFFSET),
                session: Session = Depends(get_session), user_id: str = Depends(get_current_user_id)) -> dict:
     matter = _matter(session, user_id, matter_id)
     stmt = select(SourceSpan, Document.title).join(Document, SourceSpan.document_id == Document.id).where(

@@ -88,11 +88,13 @@ def test_permission_failures_report_403(app, db_session, matter_with_users, sugg
     assert _count(db_session) == 0
 
 
-@pytest.mark.parametrize("arguments", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+@pytest.mark.parametrize(
+    "arguments", [{"limit": 0}, {"limit": 101}, {"offset": -1}, {"offset": 2**31}, {"offset": 10**20}]
+)
 def test_agent_context_reports_invalid_paging(app, matter_with_users, arguments):
     server = create_server(app.state.session_factory, agent_user_id=matter_with_users["contributor_id"])
     assert tool_error(server, "agent_context", arguments) == {
-        "error": "limit must be 1..100 and offset nonnegative", "status": 422}
+        "error": "limit must be 1..100 and offset 0..2147483647", "status": 422}
 
 
 def test_unknown_actor_reports_401(app, matter_with_users):

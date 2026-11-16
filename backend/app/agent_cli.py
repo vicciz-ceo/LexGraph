@@ -28,6 +28,7 @@ from app.routers.agents import AgentAssertionCreate, suggest_assertion
 from app.routers.sources import list_entities, list_spans
 from app.routers.workspace import me
 from app.services.jurisdiction import JURISDICTION_CODES
+from app.services.paging import MAX_OFFSET
 from app.services.text_search import contains_text
 from app.services.validation import ALLOWED_ASSERTION_TYPES
 
@@ -87,8 +88,8 @@ def assertion_search(query: str):
 
 def context(session, user_id: str, matter_id: str | None = None, q: str = "", limit: int = 20, offset: int = 0) -> dict:
     from app.routers.assertions import _serialize_assertion, _require_matter_member
-    if not 1 <= limit <= 100 or offset < 0:
-        raise HTTPException(422, "limit must be 1..100 and offset nonnegative")
+    if not 1 <= limit <= 100 or not 0 <= offset <= MAX_OFFSET:
+        raise HTTPException(422, f"limit must be 1..100 and offset 0..{MAX_OFFSET}")
     workspace = me(session, user_id)
     if matter_id is None:
         return workspace
