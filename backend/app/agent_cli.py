@@ -1,9 +1,16 @@
-"""Platform-neutral JSON interface. Run `python -m app.agent_cli --help`."""
+"""Platform-neutral JSON interface. Run `python -m app.agent_cli --help`.
+
+Input and output are UTF-8 JSON whatever the locale. Success prints one JSON
+object on stdout (exit 0); every failure prints one JSON object with `error`
+and `status` on stderr (exit 1). `app.mcp.server` shares the guide, the
+discovery query, the database check and the error objects.
+"""
 from __future__ import annotations
 import argparse
 import json
 import os
 import sys
+import warnings
 from pathlib import Path
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -70,6 +77,15 @@ def context(session, user_id: str, matter_id: str | None = None, q: str = "", li
     }
 
 
+class _UsageError(Exception):
+    """A command-line mistake; argparse would print usage text and exit 2."""
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise _UsageError(message)
+
+
 def error_body(exc: BaseException) -> dict:
     """The JSON error object both agent interfaces report for a failure."""
     if isinstance(exc, HTTPException):
@@ -80,6 +96,8 @@ def error_body(exc: BaseException) -> dict:
         summary = "; ".join(issue["message"] if issue["field"] == "payload" else f"{issue['field']}: {issue['message']}"
                             for issue in issues)
         return {"error": f"Invalid payload: {summary}", "status": 422, "issues": issues}
+    if isinstance(exc, _UsageError):
+        return {"error": f"{exc} (run with --help for usage)", "status": 400}
     if isinstance(exc, ConfigurationError):
         return {"error": str(exc), "status": 500}
     if isinstance(exc, SQLAlchemyError):  # the driver's reason, without SQL or bound parameters
@@ -90,9 +108,10 @@ def error_body(exc: BaseException) -> dict:
     return {"error": f"Unexpected {type(exc).__name__}: {exc}", "status": 500}
 
 
-def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--user-id", default=os.environ.get("LEXGRAPH_AGENT_USER_ID"), help="Dedicated agent user (or LEXGRAPH_AGENT_USER_ID)")
+def _parser() -> _Parser:
+    parser = _Parser(prog="python -m app.agent_cli", description=__doc__.splitlines()[0])
+    actor = {"help": "Dedicated agent user (or LEXGRAPH_AGENT_USER_ID)"}
+    parser.add_argument("--user-id", default=os.environ.get("LEXGRAPH_AGENT_USER_ID"), **actor)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("schema", help="Print instructions and complete submission JSON schema; no database needed")
     ctx = sub.add_parser("context", help="Discover authorized matters, sources and existing assertions")
@@ -101,10 +120,65 @@ def main(argv=None) -> int:
     ctx.add_argument("--limit", type=int, default=20)
     ctx.add_argument("--offset", type=int, default=0)
     submit = sub.add_parser("suggest", help="Atomically persist an agent suggestion, evidence and provenance")
-    submit.add_argument("--input", default="-", help="JSON file, or - for stdin")
-    args = parser.parse_args(argv)
-    engine = None
+    submit.add_argument("--input", default="-", help="UTF-8 JSON file, or - for stdin")
+    for command in (ctx, submit):
+        command.add_argument("--user-id", default=argparse.SUPPRESS, **actor)
+    return parser
+
+
+def _utf8_args(argv: list[str]) -> list[str]:
+    """Undo a non-UTF-8 POSIX locale's decoding of UTF-8 arguments."""
+    decoded = []
+    for arg in argv:
+        try:
+            decoded.append(os.fsencode(arg).decode("utf-8"))
+        except UnicodeError:
+            decoded.append(arg)
+    return decoded
+
+
+def _read_input(path: str) -> str:
+    if path == "-":
+        stream = getattr(sys.stdin, "buffer", None)
+        data = stream.read() if stream is not None else sys.stdin.read()
+    else:
+        try:
+            data = Path(path).read_bytes()
+        except OSError as exc:
+            raise HTTPException(400, f"Cannot read --input {path}: {exc.strerror or exc}") from exc
+    if isinstance(data, str):
+        return data.removeprefix("﻿")
     try:
+        return data.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(422, f"Input is not UTF-8 JSON: {exc.reason} at byte {exc.start}") from exc
+
+
+def _write(stream, body: dict) -> None:
+    print(json.dumps(jsonable_encoder(body), ensure_ascii=False), file=stream, flush=True)
+
+
+def _emit(result: dict, created_id: str | None) -> int:
+    try:
+        _write(sys.stdout, result)
+        return 0
+    except (OSError, ValueError) as exc:
+        try:  # the unwritten buffer would fail again at interpreter exit
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except (OSError, ValueError):
+            pass
+        body = {"error": f"Result could not be written to stdout: {exc}", "status": 500}
+        if created_id:
+            body.update(committed=True, id=created_id)
+        _write(sys.stderr, body)
+        return 1
+
+
+def _run(argv: list[str]) -> int:
+    engine = None
+    created_id = None
+    try:
+        args = _parser().parse_args(_utf8_args(argv))
         if args.command == "schema":
             result = guide()
         else:
@@ -115,21 +189,26 @@ def main(argv=None) -> int:
                 if args.command == "context":
                     result = context(session, args.user_id, args.matter_id, args.query, args.limit, args.offset)
                 else:
-                    raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text()
-                    body = AgentAssertionCreate.model_validate_json(raw)
+                    body = AgentAssertionCreate.model_validate_json(_read_input(args.input))
                     result = suggest_assertion(body, session, args.user_id)
-        print(json.dumps(jsonable_encoder(result), ensure_ascii=False))
-        return 0
-    except ConfigurationError as exc:  # the local setup, not the payload
-        print(json.dumps({"error": str(exc), "status": 500}, ensure_ascii=False), file=sys.stderr)
-        return 1
-    except (HTTPException, ValidationError, ValueError, OSError, SQLAlchemyError) as exc:
-        detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
-        print(json.dumps({"error": detail, "status": getattr(exc, "status_code", 422)}, ensure_ascii=False), file=sys.stderr)
+                    created_id = result["id"]
+    except Exception as exc:  # the contract: every failure is one JSON object
+        _write(sys.stderr, error_body(exc))
         return 1
     finally:
         if engine is not None:
             engine.dispose()
+    return _emit(result, created_id)
+
+
+def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):  # JSON interchange is UTF-8 (RFC 8259)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+    with warnings.catch_warnings():  # keep stderr a single JSON object; -W/PYTHONWARNINGS still apply
+        if not sys.warnoptions:
+            warnings.simplefilter("ignore")
+        return _run(sys.argv[1:] if argv is None else list(argv))
 
 
 if __name__ == "__main__":

@@ -74,9 +74,12 @@ returned by `context` and the example proposition with your grounded claim:
 .venv/bin/python -m app.agent_cli suggest
 ```
 
-Success prints JSON with the assertion ID and exits 0; errors print JSON to
-stderr and exit 1. `--user-id USER_ID` before the subcommand overrides the actor
-environment variable. The `schema` command needs neither an actor nor a database.
+Input and output are UTF-8 JSON whatever the locale or Windows code page; a
+UTF-8 byte-order mark is accepted. Success prints one JSON object (with the
+assertion ID) on stdout and exits 0. Every error, including a command-line
+mistake, prints one JSON object on stderr and exits 1. `--user-id USER_ID`,
+before or after the subcommand, overrides the actor environment variable.
+The `schema` command needs neither an actor nor a database.
 The same JSON can be sent to `POST /api/v1/agent/assertions` using
 `Authorization: Bearer AGENT_USER_ID` when the API server is running.
 
@@ -97,13 +100,24 @@ No agent-submission operation accepts assertions or creates ratings.
 
 Failures carry a `status` and an `error` message. The CLI prints them as one
 JSON object on stderr; MCP returns the same object as the text of an error
-result, after `Error executing tool <name>: `.
+result, after `Error executing tool <name>: `. Payload schema violations add
+`issues`, a list of `field` and `message` pairs.
 
+- **400:** the command line is wrong or the `--input` file cannot be read.
+- **401:** no actor is configured, or the actor ID is not a user.
 - **403:** actor lacks the required matter role. An admin must grant access.
+- **404:** a suggestion names a matter or repository that does not exist. Use
+  IDs from `context` (which answers 403 for a matter you cannot see).
 - **422:** fix the reported validation issue (including missing/cross-matter
-  sources, wrong repository, invalid confidence or dates).
+  sources, wrong repository, invalid confidence or dates, input that is not
+  UTF-8 JSON).
 - **409 duplicate:** no second assertion was created. Read the existing assertion
   ID in the error and inspect it. Do not retry with cosmetic rewording.
+- **500:** a local database or installation problem, not a payload problem: the
+  message names it (database file not found, not a LexGraph database, database
+  locked). Report it to the user; retry later only for a locked database. If the
+  CLI cannot print a result after committing, this error has `committed: true`
+  and the new `id`, so do not resubmit.
 
 Do not write assertion tables directly, even if the agent has SQL access.
 The local file owner can bypass application permissions; these interfaces enforce
