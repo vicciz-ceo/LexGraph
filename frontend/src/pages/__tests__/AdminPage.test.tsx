@@ -14,10 +14,11 @@ import type {
 const mocks = vi.hoisted(() => ({
   role: "admin" as MatterRoleName,
   signIn: vi.fn(),
+  refreshSession: vi.fn(),
 }));
 
 vi.mock("../../app/session", () => ({
-  useSession: () => ({ signIn: mocks.signIn }),
+  useSession: () => ({ signIn: mocks.signIn, refresh: mocks.refreshSession }),
   useActiveSession: () => {
     const matter = {
       id: "m-1",
@@ -130,6 +131,8 @@ beforeEach(() => {
     rotated(accounts.find((a) => a.id === id)!, `tok-rotated-${id}-abcdefghijklmnopqrstuvwxyz`),
   );
   mocks.signIn.mockResolvedValue(undefined);
+  mocks.refreshSession.mockResolvedValue(undefined);
+  window.location.hash = "#/admin";
 });
 
 async function renderPage() {
@@ -207,6 +210,80 @@ describe("AdminPage", () => {
       expect(mockedApi.removeMatterMember).toHaveBeenCalledWith("m-1", "u-2"),
     );
     await waitFor(() => expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(2));
+  });
+
+  // --- Changing your own membership (finding ui:19) -------------------------
+  //
+  // A successful change to your own membership always costs you the admin
+  // role on this matter: the page refreshes the session (GET /me) so the
+  // role-gated chrome follows, and leaves /admin instead of re-fetching a
+  // roster you may no longer be allowed to see (after a self-removal that
+  // re-fetch 403'd and reported the success as an error).
+
+  it("demoting yourself refreshes the session and leaves the admin page", async () => {
+    await renderPage();
+
+    fireEvent.change(screen.getByLabelText("Role for Ada Stern"), {
+      target: { value: "viewer" },
+    });
+
+    await waitFor(() => expect(mocks.refreshSession).toHaveBeenCalledTimes(1));
+    expect(mockedApi.setMatterMemberRole).toHaveBeenCalledWith("m-1", "u-admin", "viewer");
+    await waitFor(() => expect(window.location.hash).toBe("#/review"));
+    expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
+  });
+
+  it("removing yourself refreshes the session without a false error or roster re-fetch", async () => {
+    mockedApi.listMatterMembers
+      .mockResolvedValueOnce(roster)
+      .mockRejectedValue(new ApiError(403, "no access to matter"));
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+
+    await waitFor(() => expect(mocks.refreshSession).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(window.location.hash).toBe("#/review"));
+    expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/no longer permits/i)).not.toBeInTheDocument();
+  });
+
+  it("changing someone else does not touch the session", async () => {
+    await renderPage();
+
+    fireEvent.change(screen.getByLabelText("Role for Boaz Levi"), {
+      target: { value: "viewer" },
+    });
+
+    await waitFor(() => expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(2));
+    expect(mocks.refreshSession).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#/admin");
+  });
+
+  it("a refused change to yourself (last admin) keeps the session as it is", async () => {
+    mockedApi.removeMatterMember.mockRejectedValue(
+      new ApiError(409, "a matter must keep at least one admin"),
+    );
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+
+    expect(await screen.findByText("a matter must keep at least one admin")).toBeInTheDocument();
+    expect(mocks.refreshSession).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#/admin");
+  });
+
+  it("asks for a reload when the session cannot be refreshed after changing yourself", async () => {
+    mocks.refreshSession.mockRejectedValue(new TypeError("fetch failed"));
+    await renderPage();
+
+    fireEvent.change(screen.getByLabelText("Role for Ada Stern"), {
+      target: { value: "viewer" },
+    });
+
+    expect(
+      await screen.findByText("Your access to this matter changed. Reload the page to continue."),
+    ).toBeInTheDocument();
+    expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
   });
 
   it("adds a member by email with the chosen role", async () => {

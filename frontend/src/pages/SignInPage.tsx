@@ -4,7 +4,13 @@
 // useSession().signIn. Rendered by App.tsx OUTSIDE the AppShell, so this
 // page owns the full viewport: centered card over the design's blurred
 // background blobs, no sidebar/topbar. The design's SSO button and
-// password field are deliberately absent — nothing backs them.
+// password field are deliberately absent — nothing backs them, and so are
+// the design's demo-account quick-fill chips (sprint 2026-07-31-admin-
+// provisioning, gate G3: no hardcoded demo accounts in the product).
+//
+// SessionRetryPage (same card) is shown instead when a saved sign-in could
+// not be checked (no response, 5xx, ...): the token is kept, so the user is
+// not presented as signed out (finding ui:18).
 
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -21,7 +27,7 @@ const NETWORK_MESSAGE =
   "Could not reach the LexGraph server. Check that the backend is running.";
 
 export function SignInPage() {
-  const { signIn, notice, retryRestore } = useSession();
+  const { signIn, notice } = useSession();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [token, setToken] = useState("");
   const [pending, setPending] = useState(false);
@@ -74,15 +80,6 @@ export function SignInPage() {
             notice && (
               <div className="signin__notice" role="status">
                 <span>{notice.message}</span>
-                {notice.kind === "server_unreachable" && retryRestore && (
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--secondary"
-                    onClick={retryRestore}
-                  >
-                    Try again
-                  </button>
-                )}
               </div>
             )
           )}
@@ -120,6 +117,69 @@ export function SignInPage() {
               {pending ? "Signing in…" : "Sign in"}
             </button>
           </form>
+        </section>
+      </main>
+
+      <span className="signin__env">
+        <span className="signin__env-dot" aria-hidden="true" />
+        Self-hosted · LexGraph
+      </span>
+    </div>
+  );
+}
+
+/** A saved sign-in could not be checked: keep it and offer a retry. */
+export function SessionRetryPage() {
+  const { restoreError, retryRestore, signOut } = useSession();
+  const [pending, setPending] = useState(false);
+
+  async function retry() {
+    if (!retryRestore || pending) return;
+    setPending(true);
+    try {
+      await retryRestore();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="signin">
+      <div className="signin__blob signin__blob--primary" aria-hidden="true" />
+      <div className="signin__blob signin__blob--tertiary" aria-hidden="true" />
+
+      <main className="signin__content">
+        <section className="signin__card" aria-labelledby="signin-retry-title">
+          <div className="signin__logo" aria-hidden="true">
+            <Icon name="link" size={26} />
+          </div>
+          <h1 id="signin-retry-title" className="signin__title">
+            LexGraph
+          </h1>
+          <div className="error-banner signin__retry-alert" role="alert">
+            <p>
+              Could not reach the LexGraph server to restore your session. Check that
+              the backend is running.
+            </p>
+            {restoreError && <p className="signin__retry-detail">{restoreError}</p>}
+          </div>
+          <p className="signin__subtitle">
+            Your sign-in is still saved on this device: you will not need your token
+            again once the server is back.
+          </p>
+          <div className="signin__actions">
+            <button
+              type="button"
+              className="btn btn--primary signin__submit"
+              disabled={pending}
+              onClick={() => void retry()}
+            >
+              {pending ? "Retrying…" : "Retry"}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={signOut}>
+              Sign in with a different token
+            </button>
+          </div>
         </section>
       </main>
 

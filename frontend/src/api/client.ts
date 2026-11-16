@@ -28,6 +28,7 @@ import type {
   UserAccount,
   UserInfo,
 } from "./types";
+import { reportAuthFailure } from "./authEvents";
 
 const TOKEN_KEY = "lexgraph.token";
 const MATTER_KEY = "lexgraph.matter";
@@ -116,6 +117,10 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    // Lets the session re-check GET /me (authEvents.ts, ui:18/ui:19).
+    if (response.status === 401 || response.status === 403) {
+      reportAuthFailure({ status: response.status, method, path });
+    }
     throw new ApiError(
       response.status,
       detailFromBody(payload, `${method} ${path} failed (${response.status})`),

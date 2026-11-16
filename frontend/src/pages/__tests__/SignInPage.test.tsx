@@ -1,30 +1,36 @@
 // SignInPage — token-entry gate. Re-pointed 2026-11-16 (findings
 // api:2/ui:0): the user enters their secret sign-in token, which is no
-// longer the (public) user id. The page's only side effects are
-// useSession().signIn / retryRestore, so the session module is mocked;
-// ApiError is the real class from the api client.
+// longer the (public) user id. The pages' only side effects are
+// useSession().signIn / retryRestore / signOut, so the session module is
+// mocked; ApiError is the real class from the api client.
+//
+// SessionRetryPage (ui:18): when a saved sign-in cannot be checked (no
+// response, 5xx, ...) the token is kept and the user gets a retry screen,
+// not the sign-in form.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/client";
 import type { SessionNotice } from "../../app/session";
-import { SignInPage } from "../SignInPage";
+import { SessionRetryPage, SignInPage } from "../SignInPage";
 
-const { signIn, retryRestore, state } = vi.hoisted(() => ({
+const { signIn, signOut, retryRestore, state } = vi.hoisted(() => ({
   signIn: vi.fn(),
+  signOut: vi.fn(),
   retryRestore: vi.fn(),
-  state: { notice: null as SessionNotice | null },
+  state: { notice: null as SessionNotice | null, restoreError: null as string | null },
 }));
 
 vi.mock("../../app/session", () => ({
   useSession: () => ({
-    session: null,
+    session: state.restoreError ? undefined : null,
     signIn,
-    signOut: vi.fn(),
+    signOut,
     selectMatter: vi.fn(),
     refresh: vi.fn(),
     notice: state.notice,
+    restoreError: state.restoreError,
     retryRestore,
   }),
 }));
@@ -39,8 +45,10 @@ describe("SignInPage", () => {
   beforeEach(() => {
     signIn.mockReset();
     signIn.mockResolvedValue(undefined);
+    signOut.mockReset();
     retryRestore.mockReset();
     state.notice = null;
+    state.restoreError = null;
   });
 
   it("renders the bare token sign-in card without SSO or password fictions", () => {
@@ -143,12 +151,14 @@ describe("SignInPage", () => {
     expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
   });
 
-  it("offers to retry restoring the saved token when the server was unreachable", () => {
-    state.notice = { kind: "server_unreachable", message: "Could not reach the LexGraph server." };
+  // Re-pointed 2026-11-16 (ui:18): "offers to retry restoring the saved
+  // token when the server was unreachable" pinned a "Try again" button on
+  // the sign-in form. A kept token no longer lands on the sign-in form at
+  // all (that read as being signed out); SessionRetryPage below covers it.
+  it("never offers a retry: the sign-in page is only shown when signed out", () => {
     render(<SignInPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
-    expect(retryRestore).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /try again|retry/i })).not.toBeInTheDocument();
   });
 
   // Re-pointed for sprint 2026-07-31-admin-provisioning, gate G3 ("no
@@ -173,5 +183,47 @@ describe("SignInPage", () => {
     // The real sign-in surface must still be there.
     expect(screen.getByLabelText(/sign-in token/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+  });
+});
+
+describe("SessionRetryPage", () => {
+  beforeEach(() => {
+    signOut.mockReset();
+    retryRestore.mockReset();
+    retryRestore.mockResolvedValue(undefined);
+    state.notice = null;
+    state.restoreError = "No response from the server.";
+  });
+
+  it("says the server could not be reached and that the sign-in is still saved", () => {
+    render(<SessionRetryPage />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/could not reach the lexgraph server/i);
+    expect(alert).toHaveTextContent("No response from the server.");
+    expect(screen.getByText(/still saved on this device/i)).toBeInTheDocument();
+    // Not the sign-in form: the user does not need their token again.
+    expect(screen.queryByLabelText(/sign-in token/i)).not.toBeInTheDocument();
+  });
+
+  it("retries on demand and shows that it is retrying", async () => {
+    let finish!: () => void;
+    retryRestore.mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+    render(<SessionRetryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(retryRestore).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: /retrying/i })).toBeDisabled();
+    finish();
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeEnabled();
+  });
+
+  it("offers signing in with a different token", () => {
+    render(<SessionRetryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with a different token" }));
+
+    expect(signOut).toHaveBeenCalledTimes(1);
   });
 });

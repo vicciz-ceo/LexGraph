@@ -29,6 +29,7 @@ import type {
   UserAccount,
 } from "../api/types";
 import { Icon } from "../app/icons";
+import { navigate } from "../app/router";
 import { useActiveSession, useSession } from "../app/session";
 
 const ROLE_OPTIONS: MatterRoleName[] = ["viewer", "contributor", "reviewer", "admin"];
@@ -47,6 +48,9 @@ function initials(name: string): string {
   const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
   return (first + last).toUpperCase();
 }
+
+const ACCESS_CHANGED_MESSAGE =
+  "Your access to this matter changed. Reload the page to continue.";
 
 function describeError(error: unknown): string {
   if (error instanceof ApiError && error.status === 403) {
@@ -256,7 +260,7 @@ type AdminTab = "members" | "accounts" | "policy";
 
 export function AdminPage() {
   const session = useActiveSession();
-  const { signIn } = useSession();
+  const { signIn, refresh: refreshSession } = useSession();
   const matterId = session.currentMatter.id;
   const canManage = session.role === "admin";
 
@@ -413,12 +417,28 @@ export function AdminPage() {
     }
   }
 
-  async function runMutation(call: () => Promise<unknown>) {
+  /** `affectsSelf`: the mutation targets the signed-in admin's own membership. */
+  async function runMutation(call: () => Promise<unknown>, affectsSelf = false) {
     setBusy(true);
     setBanner(null);
     try {
       await call();
       if (!aliveRef.current) return;
+      if (affectsSelf) {
+        // Changing your own role or membership succeeded, so you are no
+        // longer an admin of this matter (finding ui:19): re-read the
+        // session so role-gated UI everywhere follows, and leave this page.
+        // Re-fetching the roster here would read the old matter, which you
+        // may no longer see (a 403 reported as if the removal had failed).
+        try {
+          await refreshSession();
+        } catch {
+          if (aliveRef.current) setBanner(ACCESS_CHANGED_MESSAGE);
+          return;
+        }
+        navigate("/review");
+        return;
+      }
       await refresh();
     } catch (error) {
       if (!aliveRef.current) return;
@@ -430,11 +450,17 @@ export function AdminPage() {
 
   function changeRole(member: MatterMember, role: MatterRoleName) {
     if (role === member.role) return;
-    void runMutation(() => api.setMatterMemberRole(matterId, member.user.id, role));
+    void runMutation(
+      () => api.setMatterMemberRole(matterId, member.user.id, role),
+      member.user.id === session.user.id,
+    );
   }
 
   function removeMember(member: MatterMember) {
-    void runMutation(() => api.removeMatterMember(matterId, member.user.id));
+    void runMutation(
+      () => api.removeMatterMember(matterId, member.user.id),
+      member.user.id === session.user.id,
+    );
   }
 
   async function submitAdd(event: FormEvent<HTMLFormElement>) {

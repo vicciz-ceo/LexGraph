@@ -8,7 +8,7 @@ import { ContestedPage } from "./pages/ContestedPage";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ReviewQueuePage } from "./pages/ReviewQueuePage";
-import { SignInPage } from "./pages/SignInPage";
+import { SessionRetryPage, SignInPage } from "./pages/SignInPage";
 import { SuggestAssertionPage } from "./pages/SuggestAssertionPage";
 
 function NotAuthorized() {
@@ -33,11 +33,12 @@ function NoMatter() {
 }
 
 function AppRoutes() {
-  const { session } = useSession();
+  const { session, restoreError } = useSession();
   const location = useHashLocation();
 
   if (session === undefined) {
-    return <div className="loading">Restoring session…</div>;
+    // A saved sign-in that could not be checked keeps its token (ui:18).
+    return restoreError ? <SessionRetryPage /> : <div className="loading">Restoring session…</div>;
   }
   if (session === null) {
     return <SignInPage />;
