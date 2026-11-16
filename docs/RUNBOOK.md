@@ -268,10 +268,12 @@ This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the s
 
 Sprint 2026-08-02-us-state-law (item 5, gate G6) adds an ingester for the
 [`vaquill/open-us-law`](https://huggingface.co/datasets/vaquill/open-us-law)
-Hugging Face dataset (109 Parquet files, ~1.1GB, ~2M sections — 50 states +
-DC + PR + federal, statutes + constitutions). `pyarrow` is a real backend
-dependency (see `backend/pyproject.toml`) so `pip install -e '.[dev]'` in
-the "Backend Environment Setup" step above already installs it.
+Hugging Face dataset of US statutes and constitutions (50 states, DC, PR and
+federal; about 2M statute sections when LexGraph was built against it). The
+dataset has changed since: read "Getting the dataset" below before you
+download it. `pyarrow` is a real backend dependency (see
+`backend/pyproject.toml`) so `.venv/bin/pip install -e '.[dev]'` in the
+"Backend Environment Setup" step above already installs it.
 
 Each Parquet file is ingested with **one command**, which creates one
 `Document` (using `--title`) and one `Article` + `SourceSpan` per row:
@@ -309,10 +311,10 @@ and `us_pa_statutes.parquet` at 14,547 rows) — not on any combination of
 can make byte-identical for two genuinely different sections (see
 `ingest_us_statutes.py`'s module docstring for the full collision history).
 
-**Ingesting the full 109-file corpus (gate G6) is ONE command** using
+**Ingesting a whole downloaded corpus (gate G6) is ONE command** using
 `--input-dir` instead of `--input` — bulk directory mode, not a shell loop
-around the single-file command. Point it at the directory holding all 109
-downloaded Parquet files:
+around the single-file command. Point it at the directory holding the
+downloaded statutes and constitutions files:
 
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
@@ -334,7 +336,7 @@ Files are processed in sorted filename order, **one at a time, in the same
 process**. Critically, **a single file failing (corrupt/unreadable input, a
 filename that doesn't match the naming convention, an unrecognized derived
 jurisdiction code) is recorded and the run CONTINUES to the next file** —
-it never aborts the whole 109-file run over one bad file. A final summary
+it never aborts the whole run over one bad file. A final summary
 prints files found/processed/failed (with each failure's reason), total
 rows newly ingested, total rows matched (already ingested — i.e. a
 re-ingested `act_id`, reported SEPARATELY from newly-created rows so a
@@ -350,10 +352,81 @@ the whole `--input-dir` command run again (or can be re-run alone with
 single-file `--input` pointed at just that one file, using the same
 `--jurisdiction`/`--title` its filename derives to).
 
-The `.venv/bin/python` process itself never downloads the dataset — fetch
-the 109 Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or
-the Hugging Face CLI) into one local directory and point `--input-dir` (or
-`--input` for a single file) at it.
+#### Getting the dataset
+
+The `.venv/bin/python` process itself never downloads the dataset: fetch the
+Parquet files into one local directory first, and point `--input-dir` (or
+`--input` for a single file) at it. As checked on 2026-11-16, the dataset has
+changed in three ways since LexGraph was built against it in 2026-08:
+
+- **It is gated.** Anonymous downloads are refused: the Hub answers HTTP 401,
+  and the Hugging Face CLI prints `Access denied. Dataset
+  'vaquill/open-us-law' requires approval.` Sign in at huggingface.co,
+  request access on the dataset page, then download with an access token.
+- **Its files are different.** The current revision (`eed1dd8c…`, updated
+  2026-10-07) has 313 files: 48 statutes files (none for Arkansas, Colorado,
+  Georgia, Mississippi or Tennessee), 51 constitutions files, and 209 Parquet
+  files of other kinds (regulations, court rules, attorney-general opinions,
+  guidance and more). LexGraph's US definition linking was certified on
+  revision `301000fc3465374ee0f23c3c6953a8a861e95cad`, which had a statutes
+  file for each of the 53 jurisdictions (2,038,247 rows). The Hub no longer
+  serves that revision (see "Re-certifying US definition linking" below).
+- **Its license tag changed** from `cc-by-4.0`, recorded when the sprint
+  reviewed the dataset, to `cc-by-nc-4.0` (non-commercial). Read the dataset
+  card before you use it.
+
+Bulk mode takes statutes and constitutions files only. It records every other
+file in `--input-dir` as failed (`filename does not match ...`) and exits 1, so
+download just those two kinds. For example, with the Hugging Face CLI (`pip
+install huggingface_hub` in any Python environment; it is not a LexGraph
+dependency), after `hf auth login` with your token:
+
+```bash
+hf download vaquill/open-us-law --repo-type dataset \
+    --include 'us_*_statutes.parquet' --include 'us_*_constitutions.parquet' \
+    --local-dir /path/to/open-us-law
+```
+
+#### Re-certifying US definition linking
+
+The US definition-linking rules were certified against one fixed copy of the
+corpus: the statutes files of revision
+`301000fc3465374ee0f23c3c6953a8a861e95cad` (53 files, 2,038,247 rows). The
+certification harness in `docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts/`
+(procedure in its `G7_CERTIFICATION.md`) refuses any other copy: the snapshot
+directory must be named for that revision and hold exactly that many files and
+rows. Only a change to the code a certification run measures calls for a new
+run: the files and symbols that `qa_g7_common.MEASURED_PRODUCTION_PATHS` and
+`MEASURED_SHARED_SYMBOLS` declare (`backend/app/definition_links/`, the
+jurisdiction vocabulary, two package `__init__.py` files and the
+`ValidationError` class), checked by
+`backend/tests/unit/test_certification_freeze_scope.py`. Other backend
+changes need no re-certification.
+
+As of 2026-11-16, no certification run is possible from a clean checkout:
+
+- **The pinned revision is gone from the Hub.** The Hub's revision API answers
+  `404 Invalid rev id` for `301000fc…`, as it does for a made-up id, while it
+  still resolves the current head and other refs of the same gated dataset
+  for anonymous callers. The repository records no checksums of the snapshot's
+  files (the harness checks the directory name, file count, columns and row
+  count only), so a run needs an existing local copy, such as the Hugging Face
+  cache of the machine that certified it.
+- **The recorded runner scripts only work on that machine.** `run_g7_repin.sh`
+  and `run_gate2.sh` (in the `2026-08-12-defs-b1-refers-to-scripts/` and
+  `2026-08-20-defs-boundary-idioms-scripts/` sprint directories) and the
+  commands in `G7_CERTIFICATION.md` hard-code its interpreter and snapshot
+  paths (`/Users/nerya/...`). Anywhere else the scripts stop at once with exit
+  status 127, and they read neither path from the environment, so run copies
+  edited to use your own `backend/.venv/bin/python` and snapshot path. The
+  harness itself needs nothing more: pointed at a copy with the wrong name or
+  file count, it fails closed with a `CertificationError`.
+- **The current revision cannot simply replace it.** It has no Georgia
+  statutes file, but certification fails unless the Georgia count
+  (`US-GA after`) reaches 2,794, and four more states are missing. The file
+  and row counts, every summary hash and the D-PFP-400 sample would all
+  change, so moving to a newer revision is a new certification with new
+  targets, which has to be decided before any run.
 
 ## Web Application
 
