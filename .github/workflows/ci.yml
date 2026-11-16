@@ -46,7 +46,7 @@ jobs:
         run: python -m pytest tests
 
   frontend:
-    name: frontend (typecheck + vitest)
+    name: frontend (typecheck + vitest + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -64,6 +64,10 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test -- --run
+      - name: Build
+        # The production path: the backend serves this frontend/dist
+        # (docs/RUNBOOK.md, "Serving the web app in production").
+        run: npm run build
 
   contracts:
     name: sprint contract lint

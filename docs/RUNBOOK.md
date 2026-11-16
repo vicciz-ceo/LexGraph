@@ -400,13 +400,33 @@ real usage — the seed stays a local-testing convenience (see "Optional:
 demo workspace" above), never the provisioning path for an actual
 deployment.
 
-### Building for Production
+### Serving the web app in production
 
-To build the frontend for production:
+The production deployment is a single process. Build the web app once, and the backend serves it on its own port, on the same origin as the API:
 
 ```bash
-npm --prefix frontend run build
+npm --prefix frontend ci            # first time only
+npm --prefix frontend run build     # writes frontend/dist/
+cd backend
+LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+Open `http://localhost:8000` and sign in. At startup the backend logs `Serving the web app from .../frontend/dist`. Without a build it serves the API only (`GET /` is a 404). It looks for the build once, at startup, so build first.
+
+- `/` and any other page path return the app's `index.html`, sent with `Cache-Control: no-cache` so browsers revalidate it on every load. The app routes with URL hashes (`/#/knowledge`), so deep links and reloads need nothing more.
+- `/assets/*` serves the build's content-hashed files, which browsers may cache for a year.
+- `/api/v1/*`, `/docs`, `/redoc`, `/openapi.json` and `/healthz` answer exactly as without the web app. An unknown `/api/...` path is still a JSON 404, and a wrong method is still a 405.
+- `LEXGRAPH_FRONTEND_DIST=/path/to/dist` serves a build from another directory, for example when the backend is installed as a package. Set it to an empty value to serve the API only. If the directory has no `index.html`, the backend exits at startup with the command to build it.
+
+To check a build without the backend serving it, run `npm --prefix frontend run preview`. Vite's preview server serves `frontend/dist`, proxies `/api` to `http://127.0.0.1:8000` (or `LEXGRAPH_API_PROXY`) like the dev server, and prints the URL to open. It is a local check, not a production server.
+
+The app calls `/api/v1` on its own origin and the backend sends no CORS headers, so these do **not** work:
+
+- a static file host that does not forward `/api/` to the backend: sign-in fails, typically with "Unknown user ID" (the host's own 404 for `/api/v1/me`);
+- a build whose `VITE_API_BASE` points at another origin: the browser blocks every call ("Could not reach the LexGraph server");
+- opening `frontend/dist/index.html` from disk (`file://`): a blank page.
+
+Anything else in front of the app (a reverse proxy, a CDN) must serve `frontend/dist` and forward `/api/` to the backend on the same origin.
 
 ## MCP Server Registration
 
@@ -498,6 +518,9 @@ above:
    ```bash
    npm --prefix frontend run dev
    ```
+   For a deployment, skip this terminal instead: run
+   `npm --prefix frontend run build` once and the backend from step 3 serves
+   the app at `http://localhost:8000` (see "Serving the web app in production").
 
 5. **Access the application**:
    - Grading app: `http://localhost:5173` — sign in with the id from step 2
@@ -517,11 +540,15 @@ above:
 ## Environment Variables
 
 - `LEXGRAPH_DATABASE_URL`: SQLite database URL (e.g., `sqlite:///lexgraph.db`; an absolute path needs four slashes). Defaults to in-memory if not set, which the server refuses to start on. `python -m app.bootstrap`, `app.seed_demo` and `app.migrate` accept `--db PATH` instead.
+- `LEXGRAPH_FRONTEND_DIST`: the web app build the backend serves on its own origin (default: `frontend/dist` when it has been built; empty value: API only). See "Serving the web app in production".
+- `LEXGRAPH_API_PROXY`: where the Vite dev and preview servers forward `/api` (default `http://127.0.0.1:8000`).
+- `VITE_API_BASE` (build time): the API base path the web app calls (default `/api/v1`). It must stay on the app's own origin, because the backend sends no CORS headers.
 
 ## Troubleshooting
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
 - **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
+- **Sign-in says "Unknown user ID" or "Could not reach the LexGraph server" although the id is valid**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production".
 - **`no such column` / `no such table` errors from a CLI or the MCP server**: the database predates your checkout (those entry points do not run the server's startup check); run `python -m app.migrate --db PATH` on it.
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend.
 - **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.

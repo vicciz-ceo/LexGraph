@@ -11,23 +11,48 @@ inside this factory, in the append-only R6 zones below; do not scatter
   that fixes it (`app.migrate.ensure_schema_current`);
 - /docs (Swagger UI) and /redoc (Redoc) served from vendored assets so they
   work offline, and an openapi.json that declares the bearer credential so
-  Swagger UI's "Authorize" can call the API.
+  Swagger UI's "Authorize" can call the API;
+- the built web app (frontend/dist, or LEXGRAPH_FRONTEND_DIST) on the same
+  origin, so `npm --prefix frontend run build` plus uvicorn is the whole
+  production deployment.
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import logging
+import os
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.db import Base, make_engine, make_session_factory
 from app.migrate import ensure_schema_current
+
+# The web app's production build (`npm --prefix frontend run build`), served on
+# the API's own origin when it exists. LEXGRAPH_FRONTEND_DIST overrides the
+# location; an empty value serves the API only.
+DEFAULT_FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+FRONTEND_DIST_ENV = "LEXGRAPH_FRONTEND_DIST"
+# First path segments the web app never answers for: an unknown path under
+# them keeps its own 404 (JSON for the API, not index.html).
+_NOT_THE_WEB_APP = frozenset({"api", "docs", "redoc", "assets", "openapi.json", "healthz"})
+
+
+class _FromEnvironment:
+    """Default for create_app(frontend_dist=...): LEXGRAPH_FRONTEND_DIST,
+    else the repository's frontend/dist if it has been built."""
+
+
+_FROM_ENVIRONMENT = _FromEnvironment()
 
 # Swagger UI / Redoc, vendored by scripts/vendor_api_docs.sh: /docs and /redoc
 # must work without an internet connection (no CDN, no web fonts).
@@ -49,7 +74,87 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # "healthy" and answering 500 on every endpoint. The error names the exact
     # `python -m app.bootstrap` / `python -m app.migrate` command to run.
     ensure_schema_current(app.state.engine)
+    if app.state.frontend_dist is not None:
+        logging.getLogger("uvicorn.error").info("Serving the web app from %s", app.state.frontend_dist)
     yield
+
+
+def _frontend_dist(requested: str | os.PathLike[str] | None | _FromEnvironment) -> Path | None:
+    """The build directory to serve, or None for an API-only server."""
+    if isinstance(requested, _FromEnvironment):
+        configured = os.environ.get(FRONTEND_DIST_ENV)
+        if configured is None:
+            built = (DEFAULT_FRONTEND_DIST / "index.html").is_file()
+            return DEFAULT_FRONTEND_DIST.resolve() if built else None
+        if not configured.strip():
+            return None
+        requested = configured
+    if requested is None:
+        return None
+    dist = Path(requested).expanduser().resolve()
+    if not (dist / "index.html").is_file():
+        raise ValueError(
+            f"No web app build at {dist} (no index.html). Build it with "
+            f"`npm --prefix frontend run build`, or set {FRONTEND_DIST_ENV}= (empty) to serve "
+            "the API only."
+        )
+    return dist
+
+
+class _HashedAssets(StaticFiles):
+    """dist/assets: Vite puts a content hash in every file name there, so a URL
+    never changes meaning and browsers may keep the file for good."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+def _route_path(scope: Mapping[str, Any]) -> str:
+    """The request path relative to this app. A Mount (e.g. /assets) extends
+    root_path for its child; Starlette keeps the app's own in app_root_path."""
+    path = scope["path"]
+    root = scope.get("app_root_path", scope.get("root_path", ""))
+    return path[len(root) :] if root and path.startswith(root) else path
+
+
+def _serve_frontend(app: FastAPI, dist: Path) -> None:
+    """Serve the built web app on the API's own origin (one process, no CORS).
+
+    Not a catch-all route: that would turn a wrong method on an API path
+    into 404, and an unknown non-GET path into 405. Instead, a GET/HEAD that
+    no route matched (404) outside /api, /docs, /redoc, /assets,
+    /openapi.json and /healthz gets the app's index.html. The app routes with
+    URL hashes (#/assertions/...), so every page is index.html. A path naming
+    a file gets that file from the build, or a real 404.
+    """
+    index = dist / "index.html"
+    if (dist / "assets").is_dir():
+        app.mount("/assets", _HashedAssets(directory=dist / "assets"), name="frontend-assets")
+
+    def page_or_file(route_path: str) -> FileResponse | None:
+        relative = route_path.lstrip("/")
+        if "." not in relative.rsplit("/", 1)[-1]:
+            return FileResponse(index, headers={"Cache-Control": "no-cache"})
+        try:
+            target = (dist / relative).resolve(strict=True)
+        except (OSError, RuntimeError, ValueError):  # missing, symlink loop, NUL byte
+            return None
+        if not target.is_file() or not target.is_relative_to(dist):
+            return None  # never serve anything outside the build
+        return FileResponse(target, headers={"Cache-Control": "no-cache"} if target == index else None)
+
+    async def web_app_fallback(request: Request, exc: StarletteHTTPException) -> Response:
+        if exc.status_code == 404 and request.method in ("GET", "HEAD"):
+            route_path = _route_path(request.scope)
+            if route_path.lstrip("/").split("/", 1)[0] not in _NOT_THE_WEB_APP:
+                response = page_or_file(route_path)
+                if response is not None:
+                    return response
+        return await http_exception_handler(request, exc)
+
+    app.add_exception_handler(StarletteHTTPException, web_app_fallback)
 
 
 def _register_api_docs(app: FastAPI) -> None:
@@ -136,9 +241,15 @@ def _declare_bearer_auth(app: FastAPI) -> None:
     app.openapi = openapi
 
 
-def create_app() -> FastAPI:
+def create_app(
+    *, frontend_dist: str | os.PathLike[str] | None | _FromEnvironment = _FROM_ENVIRONMENT
+) -> FastAPI:
+    """``frontend_dist``: the web app build to serve on this origin; None for
+    an API-only server. By default LEXGRAPH_FRONTEND_DIST decides, else the
+    repository's frontend/dist when it has been built."""
     from app import models  # register ORM mappings
 
+    dist = _frontend_dist(frontend_dist)
     settings = get_settings()
     app = FastAPI(
         title="LexGraph API",
@@ -220,6 +331,9 @@ def create_app() -> FastAPI:
 
     _register_api_docs(app)
     _declare_bearer_auth(app)
+    app.state.frontend_dist = dist
+    if dist is not None:
+        _serve_frontend(app, dist)
 
     return app
 

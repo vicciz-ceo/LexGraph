@@ -64,6 +64,14 @@ matter roles from the in-app admin console (Admin → User accounts, then
 Members & roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
 for the full walkthrough. No seed or mockup data is required for real use.
 
+For a deployment, build the web app once instead of running the dev server.
+The backend then serves it on its own port, same origin as the API (see
+[docs/RUNBOOK.md](docs/RUNBOOK.md#serving-the-web-app-in-production)):
+
+```bash
+npm --prefix frontend ci && npm --prefix frontend run build   # then start uvicorn as above; open http://localhost:8000
+```
+
 After pulling a newer LexGraph, upgrade an existing database before starting
 the server. The command is idempotent, and the server refuses to start on an
 out-of-date database, printing this exact command:
@@ -100,7 +108,7 @@ local development and mockup data, not for a real deployment.
 
 The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest + the production build on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
 
 ## Local agents and lawyer authoring
 
