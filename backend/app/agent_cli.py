@@ -8,14 +8,17 @@ from pathlib import Path
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
-from sqlalchemy import inspect
+from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from app import models  # register mappings before opening a session
 from app.config import get_settings
 from app.db import make_engine, make_session_factory
+from app.models.assertion import Assertion
+from app.models.assertion_revision import AssertionRevision
 from app.routers.agents import AgentAssertionCreate, suggest_assertion
 from app.routers.sources import list_entities, list_spans
 from app.routers.workspace import me
+from app.services.text_search import contains_text
 from app.services.validation import ALLOWED_ASSERTION_TYPES
 
 
@@ -37,19 +40,25 @@ def guide() -> dict:
     }
 
 
+def assertion_search(query: str):
+    """Assertions whose current proposition contains `query`, matched like REST search:
+    the revision's raw text (sanitized text as fallback), Unicode case-insensitive."""
+    stmt = select(Assertion).outerjoin(AssertionRevision, (AssertionRevision.assertion_id == Assertion.id)
+                                       & (AssertionRevision.revision_number == Assertion.current_revision_number))
+    if query.strip():
+        stmt = stmt.where(contains_text(func.coalesce(AssertionRevision.proposition_raw, Assertion.proposition), query))
+    return stmt
+
+
 def context(session, user_id: str, matter_id: str | None = None, q: str = "", limit: int = 20, offset: int = 0) -> dict:
-    from app.models.assertion import Assertion
     from app.routers.assertions import _serialize_assertion, _require_matter_member
-    from sqlalchemy import select
     if not 1 <= limit <= 100 or offset < 0:
         raise HTTPException(422, "limit must be 1..100 and offset nonnegative")
     workspace = me(session, user_id)
     if matter_id is None:
         return workspace
     _require_matter_member(session, user_id, matter_id)
-    stmt = select(Assertion).where(Assertion.matter_id == matter_id)
-    if q.strip():
-        stmt = stmt.where(Assertion.proposition.icontains(q.strip(), autoescape=True))
+    stmt = assertion_search(q).where(Assertion.matter_id == matter_id)
     return {
         "workspace": workspace,
         "entities": list_entities(matter_id, q, limit, offset, session, user_id),

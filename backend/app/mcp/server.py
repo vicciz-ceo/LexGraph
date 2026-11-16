@@ -8,9 +8,10 @@ See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 from __future__ import annotations
 
 from mcp.server.mcpserver import MCPServer
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.agent_cli import assertion_search
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
@@ -39,13 +40,9 @@ def _proposition_text(session: Session, assertion: Assertion) -> str:
 
 
 def _matching_assertions(session: Session, query: str, limit: int, user_id: str | None = None) -> list[Assertion]:
-    stmt = select(Assertion).outerjoin(AssertionRevision, (
-        (AssertionRevision.assertion_id == Assertion.id)
-        & (AssertionRevision.revision_number == Assertion.current_revision_number)))
+    stmt = assertion_search(query)
     if user_id is not None:
         stmt = stmt.where(Assertion.matter_id.in_(select(MatterRole.matter_id).where(MatterRole.user_id == user_id)))
-    if query.strip():
-        stmt = stmt.where(func.coalesce(AssertionRevision.proposition_raw, Assertion.proposition).icontains(query.strip(), autoescape=True))
     return list(session.scalars(stmt.order_by(Assertion.id).limit(limit)))
 
 
@@ -117,9 +114,10 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
 
     @server.tool()
     def explore(query: str) -> dict:
-        """Resolve a query to matching assertions, their evidence (linked
-        source-span quotes), and relationships (subject/object entities,
-        supersession) in one bounded call."""
+        """Resolve a query to matching assertions (up to 10), their evidence
+        (linked source-span quotes), and relationships (subject/object
+        entities, supersession) in one bounded call. Matching is a
+        case-insensitive substring of the current proposition text."""
         session = session_factory()
         try:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
@@ -133,8 +131,8 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
 
     @server.tool()
     def search(query: str) -> dict:
-        """Bounded list of assertion summaries whose current proposition
-        text matches `query`."""
+        """Bounded list (up to 10) of assertion summaries whose current
+        proposition text contains `query` (case-insensitive substring)."""
         session = session_factory()
         try:
             matches = _matching_assertions(session, query, _DEFAULT_RESULT_LIMIT, agent_user_id)
