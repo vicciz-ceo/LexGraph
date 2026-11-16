@@ -4,8 +4,9 @@ Audit findings api:18, review:3, review:8, ui:11 (an edit that changes
 nothing material creates nothing), api:21 / review:4 (an assertion's own
 proposed-new type survives an edit), api:29 / review:12 (resubmission
 clears the previous review decision's reviewer), review:5 (the length cap
-runs before the sanitizer) and review:20 (an explanation is never silently
-dropped). Every test drives the real HTTP app.
+runs before the sanitizer), review:20 (an explanation is never silently
+dropped) and review:17 (authorization before the matter/repository
+pairing). Every test drives the real HTTP app.
 """
 
 from __future__ import annotations
@@ -21,8 +22,10 @@ from app.models.audit_event import AuditEvent
 from tests.conftest import (
     assertion_payload,
     auth_header,
+    new_id,
     seed_document,
     seed_matter_role,
+    seed_repository,
     seed_source_span,
     seed_user,
 )
@@ -349,3 +352,29 @@ def test_a_blank_explanation_creates_no_comment(client, db_session, matter_with_
     created = _create(client, m, explanation=explanation)
     assert db_session.scalar(select(func.count()).select_from(AssertionComment).where(
         AssertionComment.assertion_id == created["id"])) == 0
+
+
+# --- Authorization before the matter/repository pairing (review:17) ---------
+
+
+@pytest.mark.parametrize("route", ["/api/v1/assertions", "/api/v1/agent/assertions"])
+def test_a_caller_without_a_suggesting_role_learns_nothing_from_the_payload(client, db_session,
+                                                                          matter_with_users, route):
+    m = matter_with_users
+    viewer = seed_user(db_session)
+    seed_matter_role(db_session, user_id=viewer, matter_id=m["matter_id"], role="viewer")
+    other_repo = seed_repository(db_session, organization_id=m["organization_id"])
+    body = assertion_payload(m["matter_id"], m["repository_id"])
+    if route.endswith("agent/assertions"):
+        body["agent"] = {"platform": "pytest"}
+
+    for headers in (m["outsider_headers"], auth_header(viewer)):
+        for variant in ({}, {"repository_id": other_repo}, {"repository_id": new_id()},
+                        {"matter_id": new_id()}):
+            response = client.post(route, json={**body, **variant}, headers=headers)
+            assert response.status_code == 403, (variant, response.text)
+    # A member still gets the specific answers.
+    assert client.post(route, json={**body, "repository_id": other_repo},
+                       headers=m["contributor_headers"]).status_code == 422
+    assert client.post(route, json={**body, "repository_id": new_id()},
+                       headers=m["contributor_headers"]).status_code == 404

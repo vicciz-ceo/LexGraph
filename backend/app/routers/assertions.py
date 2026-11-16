@@ -600,20 +600,22 @@ def create_assertion(
 
 def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                       agent: dict | None = None, confidence: float | None = None) -> dict:
+    # review:17: authorize before reading anything else in the payload, so a
+    # caller without a suggesting role in the matter gets the same 403 for
+    # any matter, repository or pairing and learns nothing from the answer.
+    role = _matter_role(session, user_id, body.matter_id)
+    if role not in ("contributor", "reviewer", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
+        )
     matter = session.get(Matter, body.matter_id)
     if matter is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="matter not found")
     repository = session.get(Repository, body.repository_id)
     if repository is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="repository not found")
-
     if matter.repository_id != body.repository_id:
         raise HTTPException(422, "Repository does not belong to the selected matter")
-    role = _matter_role(session, user_id, body.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
-        )
 
     validate_entity(session, body.subject_entity, body.matter_id, strict=agent is not None)
     if body.object_entity:
