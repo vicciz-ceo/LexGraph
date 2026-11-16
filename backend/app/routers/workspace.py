@@ -15,10 +15,14 @@ endpoints (no changes to existing routers):
   the design's Admin console. Guarded so a matter can never lose its
   last admin (no lockout).
 
-Concurrency (2026-11-16, finding api:24): adding a member looks the
-account up by normalized email (``app.routers.users.find_users_by_email``),
-and a request that loses a race to a concurrent add of the same member
-gets the sequential 409, not a 500.
+Concurrency (2026-11-16, finding api:24 and new:last-admin-race): adding
+a member looks the account up by normalized email
+(``app.routers.users.find_users_by_email``), and a request that loses a
+race to a concurrent add of the same member gets the sequential 409, not
+a 500. The last-admin guard is re-checked inside the demoting or
+removing statement itself, so two admins demoting each other at the same
+moment cannot both succeed (they used to, every time, leaving the matter
+with no admin).
 
 Follows the established per-router conventions: local session/auth
 dependencies, no shared deps module, roles from ``matter_roles``.
@@ -31,7 +35,7 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -142,6 +146,25 @@ _ALREADY_MEMBER = "user is already a member of this matter"
 def _forbid_removing_last_admin(session: Session, membership: MatterRole) -> None:
     if membership.role == "admin" and _admin_count(session, membership.matter_id) <= 1:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
+
+
+def _unless_last_admin(membership: MatterRole):
+    """WHERE clause that lets a demoting/removing statement touch
+    ``membership`` only if it is not an admin row or another admin row
+    remains on the matter.
+
+    The read-then-write check above can see a stale count when two admins
+    demote each other at the same moment. Evaluated inside the UPDATE or
+    DELETE, the check runs under the database's write lock (SQLite admits
+    one writer at a time), so the second statement sees the first one's
+    committed change and matches no row.
+    """
+    other_admin = exists().where(
+        MatterRole.matter_id == membership.matter_id,
+        MatterRole.role == "admin",
+        MatterRole.id != membership.id,
+    )
+    return (MatterRole.id == membership.id) & ((MatterRole.role != "admin") | other_admin)
 
 
 def _membership(session: Session, user_id: str, matter_id: str) -> MatterRole | None:
@@ -275,10 +298,19 @@ def set_member_role(
             status_code=status.HTTP_404_NOT_FOUND, detail="not a member of this matter"
         )
 
-    if body.role != "admin":
+    if body.role != "admin" and membership.role == "admin":
         _forbid_removing_last_admin(session, membership)
-
-    membership.role = body.role
+        demoted = session.execute(
+            update(MatterRole)
+            .where(_unless_last_admin(membership))
+            .values(role=body.role)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        if not demoted:
+            session.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
+    else:
+        membership.role = body.role
     session.commit()
 
     target = session.get(User, member_user_id)
@@ -307,5 +339,12 @@ def remove_member(
 
     _forbid_removing_last_admin(session, membership)
 
-    session.delete(membership)
+    removed = session.execute(
+        delete(MatterRole)
+        .where(_unless_last_admin(membership))
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    if not removed:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
     session.commit()

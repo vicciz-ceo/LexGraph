@@ -389,3 +389,54 @@ def test_add_member_that_loses_a_concurrent_add_race_is_409_not_500(
         {"u": outsider, "m": m["matter_id"]},
     ).scalars().all()
     assert roles == ["viewer"]
+
+
+def test_a_demotion_that_read_a_stale_admin_count_cannot_remove_the_last_admin(
+    client, matter_with_users, db_session, monkeypatch
+):
+    # new:last-admin-race. Two admins demoting each other at the same
+    # moment both counted two admins before either committed; live, 10 of
+    # 10 such races left the matter with no admin at all. The guard must
+    # hold when the write happens, so replay the stale read.
+    from app.routers import workspace
+
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    monkeypatch.setattr(workspace, "_admin_count", lambda session, matter_id: 2)
+
+    demote = client.put(
+        f"/api/v1/matters/{m['matter_id']}/members/{admin_id}",
+        json={"role": "viewer"},
+        headers=auth_header(admin_id),
+    )
+    assert demote.status_code == 409, demote.text
+    assert _admins_left(db_session, m["matter_id"]) == 1
+
+    remove = client.delete(
+        f"/api/v1/matters/{m['matter_id']}/members/{admin_id}",
+        headers=auth_header(admin_id),
+    )
+    assert remove.status_code == 409, remove.text
+    assert _admins_left(db_session, m["matter_id"]) == 1
+
+
+def test_an_admin_can_still_step_down_while_another_admin_remains(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    first_admin = _seed_admin(db_session, m["matter_id"])
+    second_admin = seed_user(db_session, display_name="Second Admin")
+    seed_matter_role(db_session, user_id=second_admin, matter_id=m["matter_id"], role="admin")
+
+    r = client.put(
+        f"/api/v1/matters/{m['matter_id']}/members/{first_admin}",
+        json={"role": "viewer"},
+        headers=auth_header(first_admin),
+    )
+    assert r.status_code == 200 and r.json()["role"] == "viewer"
+    removed = client.delete(
+        f"/api/v1/matters/{m['matter_id']}/members/{first_admin}",
+        headers=auth_header(second_admin),
+    )
+    assert removed.status_code == 204
+    assert _admins_left(db_session, m["matter_id"]) == 1
