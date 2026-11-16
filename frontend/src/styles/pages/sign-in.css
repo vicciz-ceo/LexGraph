@@ -103,6 +103,31 @@
   text-align: left;
 }
 
+/* Why a saved sign-in could not be restored (token rotated, server down). */
+.signin__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  font: var(--body-sm);
+  text-align: left;
+}
+
+.signin__notice .btn {
+  flex-shrink: 0;
+}
+
+.signin__hint {
+  margin-top: 6px;
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
 /* --- Form -------------------------------------------------------------- */
 
 .signin__form {

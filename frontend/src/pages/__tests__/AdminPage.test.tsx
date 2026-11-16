@@ -4,13 +4,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MatterMember, MatterRoleName, UserInfo } from "../../api/types";
+import type {
+  IssuedSignIn,
+  MatterMember,
+  MatterRoleName,
+  UserAccount,
+} from "../../api/types";
 
 const mocks = vi.hoisted(() => ({
   role: "admin" as MatterRoleName,
+  signIn: vi.fn(),
 }));
 
 vi.mock("../../app/session", () => ({
+  useSession: () => ({ signIn: mocks.signIn }),
   useActiveSession: () => {
     const matter = {
       id: "m-1",
@@ -51,6 +58,7 @@ vi.mock("../../api/client", () => {
       // here doesn't block `npm run typecheck` while they're still RED.
       listUsers: vi.fn(),
       createUser: vi.fn(),
+      rotateSignInToken: vi.fn(),
     },
   };
 });
@@ -67,6 +75,7 @@ const mockedApi = vi.mocked(api);
 const mockedUsersApi = api as unknown as {
   listUsers: ReturnType<typeof vi.fn>;
   createUser: ReturnType<typeof vi.fn>;
+  rotateSignInToken: ReturnType<typeof vi.fn>;
 };
 
 const roster: MatterMember[] = [
@@ -85,18 +94,26 @@ const roster: MatterMember[] = [
 ];
 
 // B2 response shape pin (backend/tests/integration/test_users_api.py):
-// GET /api/v1/users returns a bare array of {id, email, display_name}.
-const accounts: UserInfo[] = [
-  { id: "u-admin", email: "ada@firm.example", display_name: "Ada Stern" },
-  { id: "u-2", email: "boaz@firm.example", display_name: "Boaz Levi" },
-  { id: "u-9", email: "dana@firm.example", display_name: "Dana Cohen" },
+// GET /api/v1/users returns a bare array of
+// {id, email, display_name, sign_in_status} — never a token or hash.
+const accounts: UserAccount[] = [
+  { id: "u-admin", email: "ada@firm.example", display_name: "Ada Stern", sign_in_status: "active" },
+  { id: "u-2", email: "boaz@firm.example", display_name: "Boaz Levi", sign_in_status: "legacy" },
+  { id: "u-9", email: "dana@firm.example", display_name: "Dana Cohen", sign_in_status: "none" },
 ];
 
-const createdAccount: UserInfo = {
+// POST /api/v1/users returns the new account plus its one-time token.
+const createdAccount: IssuedSignIn = {
   id: "new-user-123",
   email: "erez@firm.example",
   display_name: "Erez Katz",
+  sign_in_status: "active",
+  sign_in_token: "tok-erez-0123456789abcdefghijklmnopqrstuvwx",
 };
+
+function rotated(account: UserAccount, token: string): IssuedSignIn {
+  return { ...account, sign_in_status: "active", sign_in_token: token };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -109,6 +126,10 @@ beforeEach(() => {
   mockedApi.removeMatterMember.mockResolvedValue(undefined);
   mockedUsersApi.listUsers.mockResolvedValue(accounts);
   mockedUsersApi.createUser.mockResolvedValue(createdAccount);
+  mockedUsersApi.rotateSignInToken.mockImplementation(async (id: string) =>
+    rotated(accounts.find((a) => a.id === id)!, `tok-rotated-${id}-abcdefghijklmnopqrstuvwxyz`),
+  );
+  mocks.signIn.mockResolvedValue(undefined);
 });
 
 async function renderPage() {
@@ -222,9 +243,10 @@ describe("AdminPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
+    // Accounts are created in-app (User accounts tab), not via seed or DB.
     expect(
       await screen.findByText(
-        "No user account with that email — accounts are provisioned via the seed or DB.",
+        "No user account with that email — create it first under User accounts.",
       ),
     ).toBeInTheDocument();
     expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
@@ -277,9 +299,11 @@ describe("AdminPage", () => {
   // --- User accounts (B2/UI1, sprint 2026-07-31-admin-provisioning) -------
   //
   // A new tab on this same page: lists global accounts via api.listUsers
-  // and creates one via api.createUser, surfacing the returned sign-in id
-  // (R3: the id IS the credential) so the admin can hand it over. Gated
-  // the same way the existing mutating members controls are (canManage =
+  // and creates one via api.createUser. Re-pointed 2026-11-16 (findings
+  // api:2/ui:0): the user id is public, so the page surfaces the one-time
+  // SIGN-IN TOKEN the API returns (with copy + warning), not the id, and
+  // offers per-account token rotation with a legacy badge. Gated the same
+  // way the existing mutating members controls are (canManage =
   // session.role === "admin") -- App.tsx's own route gate is the outer
   // layer, this is defense in depth for when AdminPage renders directly.
 
@@ -294,7 +318,7 @@ describe("AdminPage", () => {
       expect(screen.getByText("dana@firm.example")).toBeInTheDocument();
     });
 
-    it("creates an account and shows the returned sign-in id so the admin can copy it", async () => {
+    it("creates an account and shows its one-time sign-in token with a copy button and warning", async () => {
       await renderPage();
       fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
       await screen.findByText("Dana Cohen");
@@ -313,9 +337,172 @@ describe("AdminPage", () => {
           "Erez Katz",
         ),
       );
-      // The id is the sign-in credential (R3) -- it must render, not just
-      // exist in a success toast that vanishes.
-      expect(await screen.findByText("new-user-123")).toBeInTheDocument();
+      // The token is the credential -- it must render (not vanish in a
+      // toast), with the shown-once warning and a copy affordance.
+      const callout = await screen.findByRole("status", { name: "New sign-in token" });
+      expect(callout).toHaveTextContent(createdAccount.sign_in_token);
+      expect(callout).toHaveTextContent(/shown only once/i);
+      expect(callout).toHaveTextContent("Sign-in token for Erez Katz");
+      expect(screen.getByRole("button", { name: "Copy token" })).toBeInTheDocument();
+      // The public id is not presented as the credential.
+      expect(callout).not.toHaveTextContent("new-user-123");
+    });
+
+    it("forgets the token once the admin clicks Done", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+      fireEvent.change(screen.getByLabelText(/email for the new account/i), {
+        target: { value: "erez@firm.example" },
+      });
+      fireEvent.change(screen.getByLabelText(/display name for the new account/i), {
+        target: { value: "Erez Katz" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+      await screen.findByText(createdAccount.sign_in_token);
+
+      fireEvent.click(screen.getByRole("button", { name: /done, i have saved the token/i }));
+
+      expect(screen.queryByText(createdAccount.sign_in_token)).not.toBeInTheDocument();
+      expect(document.body).not.toHaveTextContent(createdAccount.sign_in_token);
+    });
+
+    it("copies the token to the clipboard", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText },
+        configurable: true,
+      });
+      try {
+        await renderPage();
+        fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+        await screen.findByText("Dana Cohen");
+        fireEvent.change(screen.getByLabelText(/email for the new account/i), {
+          target: { value: "erez@firm.example" },
+        });
+        fireEvent.change(screen.getByLabelText(/display name for the new account/i), {
+          target: { value: "Erez Katz" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+        await screen.findByText(createdAccount.sign_in_token);
+
+        fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
+
+        await waitFor(() => expect(writeText).toHaveBeenCalledWith(createdAccount.sign_in_token));
+        expect(await screen.findByRole("button", { name: /copied/i })).toBeInTheDocument();
+      } finally {
+        Reflect.deleteProperty(navigator, "clipboard");
+      }
+    });
+
+    it("asks to copy manually when the clipboard is unavailable", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+      fireEvent.change(screen.getByLabelText(/email for the new account/i), {
+        target: { value: "erez@firm.example" },
+      });
+      fireEvent.change(screen.getByLabelText(/display name for the new account/i), {
+        target: { value: "Erez Katz" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+      await screen.findByText(createdAccount.sign_in_token);
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy token" }));
+
+      expect(await screen.findByText(/copy failed/i)).toBeInTheDocument();
+    });
+
+    it("badges each account's sign-in status and flags legacy sign-ins", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      expect(screen.getByText("Active")).toBeInTheDocument();
+      expect(screen.getByText("Legacy sign-in")).toBeInTheDocument();
+      expect(screen.getByText("No token")).toBeInTheDocument();
+      expect(screen.getByRole("note")).toHaveTextContent(
+        /1 account still signs in with its public user id/,
+      );
+      expect(
+        screen.getByRole("button", { name: "Rotate sign-in token for Boaz Levi" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Issue sign-in token for Dana Cohen" }),
+      ).toBeInTheDocument();
+    });
+
+    it("rotates a token after confirmation, shows the new token once, and reloads the list", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rotate sign-in token for Boaz Levi" }));
+      expect(screen.getByText("Current token stops working.")).toBeInTheDocument();
+      expect(mockedUsersApi.rotateSignInToken).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm new sign-in token for Boaz Levi" }),
+      );
+
+      await waitFor(() => expect(mockedUsersApi.rotateSignInToken).toHaveBeenCalledWith("u-2"));
+      const callout = await screen.findByRole("status", { name: "New sign-in token" });
+      expect(callout).toHaveTextContent("tok-rotated-u-2-");
+      expect(callout).toHaveTextContent(/previous token no longer works/i);
+      await waitFor(() => expect(mockedUsersApi.listUsers).toHaveBeenCalledTimes(2));
+      // Someone else's token: this browser's session is untouched.
+      expect(mocks.signIn).not.toHaveBeenCalled();
+    });
+
+    it("cancelling the confirmation does not rotate", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rotate sign-in token for Boaz Levi" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(mockedUsersApi.rotateSignInToken).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", { name: "Rotate sign-in token for Boaz Levi" }),
+      ).toBeInTheDocument();
+    });
+
+    it("rotating your own token switches this session to the new token", async () => {
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rotate sign-in token for Ada Stern" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm new sign-in token for Ada Stern" }),
+      );
+
+      await waitFor(() =>
+        expect(mocks.signIn).toHaveBeenCalledWith(
+          "tok-rotated-u-admin-abcdefghijklmnopqrstuvwxyz",
+        ),
+      );
+      expect(await screen.findByText(/this browser now signs in with the new token/i)).toBeInTheDocument();
+    });
+
+    it("surfaces a refused rotation without showing a token", async () => {
+      mockedUsersApi.rotateSignInToken.mockRejectedValueOnce(
+        new ApiError(
+          403,
+          "rotating this account's sign-in token requires the admin role on every matter it belongs to",
+        ),
+      );
+      await renderPage();
+      fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+      await screen.findByText("Dana Cohen");
+
+      fireEvent.click(screen.getByRole("button", { name: "Rotate sign-in token for Boaz Levi" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm new sign-in token for Boaz Levi" }),
+      );
+
+      expect(await screen.findByText(/requires the admin role on every matter/)).toBeInTheDocument();
+      expect(screen.queryByRole("status", { name: "New sign-in token" })).not.toBeInTheDocument();
     });
 
     it("pre-fills the new account's email into the existing add-member form", async () => {
@@ -333,7 +520,7 @@ describe("AdminPage", () => {
         target: { value: "Erez Katz" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Create account" }));
-      await screen.findByText("new-user-123");
+      await screen.findByText(createdAccount.sign_in_token);
 
       fireEvent.click(screen.getByRole("tab", { name: "Members & roles" }));
 

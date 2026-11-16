@@ -208,6 +208,23 @@ export interface UserInfo {
   display_name: string;
 }
 
+/** How an account signs in (backend/app/routers/users.py): `active` = a
+ * generated sign-in token; `legacy` = the token is still the account's
+ * public user id (left by the upgrade migration; rotate it); `none` = no
+ * sign-in credential. */
+export type SignInStatus = "active" | "legacy" | "none";
+
+/** GET /users row (admin console). Never carries a token or its hash. */
+export interface UserAccount extends UserInfo {
+  sign_in_status: SignInStatus;
+}
+
+/** POST /users and POST /users/{id}/sign-in-token: the account plus its
+ * new sign-in token, which the API returns exactly once. */
+export interface IssuedSignIn extends UserAccount {
+  sign_in_token: string;
+}
+
 export type MatterRoleName = "viewer" | "contributor" | "reviewer" | "admin";
 
 export interface MatterMembership {

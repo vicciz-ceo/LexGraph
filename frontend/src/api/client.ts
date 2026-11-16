@@ -1,8 +1,11 @@
 // Thin typed client over the LexGraph REST API.
 //
-// Auth follows the backend's test-token seam (backend/app/auth.py): the
-// bearer token IS the user id. The token lives in localStorage so a
-// reload keeps the session; there is no server-side session state.
+// Auth (backend/app/auth.py): the bearer token is the user's secret
+// sign-in token, NOT the public user id (the signed-in user's id comes from
+// GET /me). The token lives in localStorage so a reload keeps the session;
+// there is no server-side session state. The key predates sign-in tokens:
+// a value stored then (the user id) is accepted by an upgraded backend as a
+// legacy token until an admin rotates it, so it needs no client migration.
 
 import type {
   AppNotification,
@@ -13,6 +16,7 @@ import type {
   AssertionListParams,
   Evidence,
   HistoryEvent,
+  IssuedSignIn,
   MatterGraph,
   MatterMember,
   MatterRoleName,
@@ -21,6 +25,7 @@ import type {
   RatingSummary,
   RelatedMatch,
   Revision,
+  UserAccount,
   UserInfo,
 } from "./types";
 
@@ -141,12 +146,17 @@ export const api = {
     request<void>("DELETE", `/matters/${matterId}/members/${userId}`),
 
   // --- user accounts (B2/UI1: admin-on-any-matter gate, backend/app/routers/users.py) ---
-  listUsers: () => request<UserInfo[]>("GET", "/users"),
+  listUsers: () => request<UserAccount[]>("GET", "/users"),
 
+  /** The response carries the new account's sign-in token, shown once. */
   createUser: (email: string, displayName: string, id?: string) =>
-    request<UserInfo>("POST", "/users", {
+    request<IssuedSignIn>("POST", "/users", {
       body: { email, display_name: displayName, ...(id ? { id } : {}) },
     }),
+
+  /** Replace an account's sign-in token; the old one stops working. */
+  rotateSignInToken: (userId: string) =>
+    request<IssuedSignIn>("POST", `/users/${encodeURIComponent(userId)}/sign-in-token`),
 
   sources: (matterId: string, kind: "entities" | "source-spans", q = "", offset = 0) =>
     request<{ items: { id: string; type?: string; label?: string; document_title?: string; quote_text?: string }[]; total: number }>(
