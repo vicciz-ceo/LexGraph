@@ -72,6 +72,7 @@ export interface AssertionListParams {
 
 export interface Evidence {
   quote_text?: string | null;
+  document_id?: string | null;
   document_title?: string | null;
   id: string;
   assertion_id: string;
@@ -107,7 +108,8 @@ export interface AssertionComment {
   comment_text_raw: string | null;
   created_at: string;
   updated_at: string | null;
-  deleted_at: string | null;
+  /** Absent on the comments embedded in GET /assertions/{id} (never deleted). */
+  deleted_at?: string | null;
 }
 
 export interface HistoryEvent {
