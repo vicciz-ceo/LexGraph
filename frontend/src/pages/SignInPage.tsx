@@ -44,10 +44,11 @@ export function SignInPage() {
       // Success: SessionProvider now has a session and App unmounts this
       // page — no state to update here.
     } catch (err) {
-      // 4xx = the backend answered and rejected the token; anything else
-      // (network failure, proxy/server 5xx) reads as connectivity.
+      // Only a 401 says the token is unknown: GET /me answers nothing else
+      // for a bad token. Anything else (no response, a 5xx, a misrouted
+      // proxy's 404, a 429) reads as connectivity, as on restore (ui:18).
       setError(
-        err instanceof ApiError && err.status < 500
+        err instanceof ApiError && err.status === 401
           ? UNKNOWN_TOKEN_MESSAGE
           : NETWORK_MESSAGE,
       );

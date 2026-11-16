@@ -132,6 +132,21 @@ describe("SignInPage", () => {
     expect(banner).toHaveTextContent(/could not reach the lexgraph server/i);
   });
 
+  it.each([404, 429])(
+    "does not call the token unknown when the server answers %i (only 401 means that)",
+    async (status) => {
+      signIn.mockRejectedValue(new ApiError(status, "x"));
+      render(<SignInPage />);
+
+      typeToken("admin");
+      fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+      const banner = await screen.findByRole("alert");
+      expect(banner).not.toHaveTextContent(/unknown sign-in token/i);
+      expect(banner).toHaveTextContent(/could not reach the lexgraph server/i);
+    },
+  );
+
   it("treats a 5xx response as connectivity trouble, not an unknown token", async () => {
     signIn.mockRejectedValue(new ApiError(502, "Bad Gateway"));
     render(<SignInPage />);
