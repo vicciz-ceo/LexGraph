@@ -13,6 +13,11 @@ fi
 if [ ! -f backend/dev.db ]; then
   echo "» Seeding demo workspace (backend/dev.db)…"
   (cd backend && .venv/bin/python -m app.seed_demo --db dev.db)
+else
+  # A dev.db seeded by an older checkout lacks newer tables/columns, and the
+  # server refuses to start on it. Upgrading is idempotent: a no-op when current.
+  echo "» Upgrading the existing demo workspace (backend/dev.db)…"
+  (cd backend && .venv/bin/python -m app.migrate --db dev.db)
 fi
 
 if [ ! -d frontend/node_modules ]; then

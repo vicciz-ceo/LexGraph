@@ -13,17 +13,31 @@ do not scatter `include_router` calls elsewhere.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.config import get_settings
 from app.db import Base, make_engine, make_session_factory
+from app.migrate import ensure_schema_current
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Refuse to serve a database this version cannot use (no file, no
+    # LexGraph tables, or a schema from an older release) instead of starting
+    # "healthy" and answering 500 on every endpoint. The error names the exact
+    # `python -m app.bootstrap` / `python -m app.migrate` command to run.
+    ensure_schema_current(app.state.engine)
+    yield
 
 
 def create_app() -> FastAPI:
     from app import models  # register ORM mappings
 
     settings = get_settings()
-    app = FastAPI(title="LexGraph API", version="0.1.0")
+    app = FastAPI(title="LexGraph API", version="0.1.0", lifespan=_lifespan)
 
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)

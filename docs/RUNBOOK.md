@@ -45,6 +45,12 @@ roles to grant them roles on a matter — see
 full flow. The rest of this runbook is the manual, step-by-step breakdown
 of what bootstrap and the demo seed each automate.
 
+**Upgrading later.** After pulling a newer LexGraph, run
+`.venv/bin/python -m app.migrate --db dev.db` (from `backend/`) before
+starting the server. It changes nothing when there is nothing to upgrade, and
+the server refuses to start on an out-of-date database until it has run. See
+["Upgrading an existing database"](#upgrading-an-existing-database-migration).
+
 ### Optional: demo workspace (local testing / mockup data)
 
 `./scripts/demo.sh` is a local-testing convenience, not a provisioning
@@ -92,17 +98,19 @@ LexGraph uses SQLite as the default local database. Create a new database file o
 export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
 ```
 
-For an in-memory database (no persistence), omit this variable:
-
-```bash
-unset LEXGRAPH_DATABASE_URL
-```
+Leaving the variable unset selects an in-memory database. No other process can fill it, so the server refuses to start on it.
 
 ### Database Schema
 
-The backend does **not** create the schema automatically — `create_app()` never calls `Base.metadata.create_all()` (only the test fixtures do). Against a fresh database, uvicorn starts and `/healthz` passes, but every real API call fails with `no such table` errors.
+The backend does **not** create the schema itself (`create_app()` never calls `Base.metadata.create_all()`; `python -m app.bootstrap` does, together with the first admin). At startup the server checks the database against the current models. It refuses to start, printing what is wrong and the exact command to run, when:
 
-Before starting the backend against a new file-backed database, create the schema manually (one-time step):
+- the database file does not exist or has no LexGraph tables. Create the workspace with `python -m app.bootstrap --db PATH` (Quickstart).
+- the database was created by an older LexGraph and lacks tables or columns the code needs. Upgrade it with `python -m app.migrate --db PATH` (see "Upgrading an existing database" below).
+- `LEXGRAPH_DATABASE_URL` is unset (in-memory).
+
+It never starts "healthy" on a database it would answer HTTP 500 for.
+
+To create an empty schema without bootstrap's first organization, matter and admin (one-time step for a new file-backed database):
 
 ```bash
 cd backend
@@ -116,40 +124,63 @@ Base.metadata.create_all(make_engine(get_settings().database_url))
 cd ..
 ```
 
-Note: this step only applies to file-backed databases. With the in-memory default (`LEXGRAPH_DATABASE_URL` unset), a separate process cannot populate the server's database — use a file-backed URL for any real usage.
+Note: this step only applies to file-backed databases. With the in-memory default (`LEXGRAPH_DATABASE_URL` unset), a separate process cannot populate the server's database, so the server refuses to start; use a file-backed URL for any real usage.
 
-### Migration: Adding Raw-Text Columns
+### Upgrading an existing database (migration)
 
-If you are upgrading from a version of LexGraph before the raw-text columns were added (raw columns for proposition, comment, and rationale), you must run the migration to add these columns:
+After pulling a newer LexGraph, upgrade every existing database file before you start the server. One command applies every pending schema migration:
 
 ```bash
 cd backend
-python3.13 -c "
-from app.migrations.add_raw_text_columns import upgrade
-from app.db import make_engine
-from app.config import get_settings
-
-settings = get_settings()
-engine = make_engine(settings.database_url)
-upgrade(engine)
-"
-cd ..
+.venv/bin/python -m app.migrate --db dev.db
+# or, reading the same variable the server uses:
+LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/python -m app.migrate
 ```
+
+It prints one line per migration and then checks the result against the current models. On a workspace provisioned on 2026-07-31:
+
+```text
+Upgrading /path/to/LexGraph/backend/dev.db
+  20260726_add_raw_text_columns                    already applied
+  20260729_add_definition_link_tables              already applied
+  20260802_add_document_jurisdiction_column        applied
+  20260804_add_assertion_subject_unit_path_column  applied
+  20260805_add_heading_breadcrumbs_column          applied
+Applied 3 of 5 migrations; the schema is current.
+```
+
+- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 5 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
+- **One transaction per migration.** On SQLite the runner makes `ALTER TABLE` transactional too, so a migration that fails is rolled back completely. The run stops there and exits 1; migrations applied before it are kept. Fix the cause and run the same command again.
+- **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations only add tables and columns, and they never delete rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
+
+The migrations shipped so far, in the order they run (`backend/app/migrations/`; every new migration adds a row here):
+
+| `MIGRATION_ID` | Schema change | Existing rows |
+|---|---|---|
+| `20260726_add_raw_text_columns` | `proposition_raw`, `comment_text_raw`, `rationale_raw` columns | backfilled from the sanitized text (see below) |
+| `20260729_add_definition_link_tables` | `articles` and `definitions` tables (definition linking) | none: new, empty tables |
+| `20260802_add_document_jurisdiction_column` | `documents.jurisdiction` (`NOT NULL DEFAULT 'IL'`) | every existing document becomes `IL` (all pre-2026-08-02 documents are Israeli law) |
+| `20260804_add_assertion_subject_unit_path_column` | `assertions.subject_unit_path` | `NULL` (no sub-article path known) |
+| `20260805_add_heading_breadcrumbs_column` | `articles.heading_breadcrumbs` | `NULL` (no breadcrumbs captured) |
+
+The individual modules stay importable and are idempotent, so the older per-module command (for example `from app.migrations.add_raw_text_columns import upgrade; upgrade(engine)`) still works. `python -m app.migrate` is the supported path: it applies them in order, makes each one atomic, and verifies the result.
+
+**Adding a migration (developers).** A schema change that existing databases need ships as a new module `backend/app/migrations/m<YYYYMMDD>_<slug>.py` with `MIGRATION_ID = "<YYYYMMDD>_<slug>"` and an idempotent `upgrade(engine) -> bool`. The ORM models must declare the same schema, because fresh databases are still built by `create_all()`. The runner picks the module up automatically. The binding rules are in `backend/app/migrations/__init__.py`, and `backend/tests/integration/test_migrate_runner.py` checks every module against real historical schemas (`backend/tests/fixtures/schema_history/`).
 
 ### Backfill: Historical Rows
 
-The migration adds three new columns:
+The raw-text migration (`20260726_add_raw_text_columns`) adds three new columns:
 - `proposition_raw` in `assertion_revisions`
 - `comment_text_raw` in `assertion_comments`
 - `rationale_raw` in `assertion_ratings`
 
 For any existing database with rows created before this upgrade, the migration automatically backfills these raw columns from their sanitized counterparts. This means historical rows will contain the sanitized approximation of the text, not the original bytes, because the original raw text is no longer available at the time of migration. New rows created after the migration will store both the original raw text and the sanitized version.
 
-If you need to downgrade and remove these columns, run:
+If you need to downgrade and remove these columns (to go back to a LexGraph version that predates them; the current server refuses to start without them until you run `python -m app.migrate` again), run:
 
 ```bash
 cd backend
-python3.13 -c "
+LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db" .venv/bin/python -c "
 from app.migrations.add_raw_text_columns import downgrade
 from app.db import make_engine
 from app.config import get_settings
@@ -178,6 +209,21 @@ The backend will be available at `http://localhost:8000`. Check the health statu
 ```bash
 curl http://localhost:8000/healthz
 ```
+
+If the database cannot be served (see "Database Schema" above), uvicorn exits during startup with status 3, before binding the port. The end of its output names what is missing and the command that fixes it, for example on a workspace provisioned on 2026-07-31:
+
+```text
+app.migrate.SchemaNotCurrentError: LexGraph cannot start: the database at /path/to/LexGraph/backend/dev.db was created by an older version of LexGraph. It is missing:
+  - column assertions.subject_unit_path
+  - column documents.jurisdiction
+  - column articles.heading_breadcrumbs
+Upgrade it in place (safe to re-run; each migration runs in its own transaction):
+    /path/to/LexGraph/backend/.venv/bin/python3 -m app.migrate --db /path/to/LexGraph/backend/dev.db
+
+ERROR:    Application startup failed. Exiting.
+```
+
+Run the printed command, then start the server again.
 
 ### Backend REST API
 
@@ -464,11 +510,13 @@ above:
 
 ## Environment Variables
 
-- `LEXGRAPH_DATABASE_URL`: SQLite database URL (e.g., `sqlite:///lexgraph.db`). Defaults to in-memory if not set.
+- `LEXGRAPH_DATABASE_URL`: SQLite database URL (e.g., `sqlite:///lexgraph.db`; an absolute path needs four slashes). Defaults to in-memory if not set, which the server refuses to start on. `python -m app.bootstrap`, `app.seed_demo` and `app.migrate` accept `--db PATH` instead.
 
 ## Troubleshooting
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
+- **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
+- **`no such column` / `no such table` errors from a CLI or the MCP server**: the database predates your checkout (those entry points do not run the server's startup check); run `python -m app.migrate --db PATH` on it.
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend.
 - **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.
 
@@ -477,7 +525,8 @@ above:
 See [AGENT_GUIDE.md](AGENT_GUIDE.md) for the validated local JSON CLI, REST
 submission contract, provenance and lawyer workflow, and
 [mcp-registration.md](mcp-registration.md) for Claude Code/Codex configuration.
-Use the same absolute database URL for backend, CLI and MCP. No additional
-schema migration is required on an already-current database. Agent writes are
+Use the same absolute database URL for backend, CLI and MCP. A database from an
+older LexGraph release needs `python -m app.migrate` first (see "Upgrading an
+existing database"); on a current database it changes nothing. Agent writes are
 opt-in through a dedicated contributor account; existing no-actor MCP clients
 retain their original whole-database read-only mode.

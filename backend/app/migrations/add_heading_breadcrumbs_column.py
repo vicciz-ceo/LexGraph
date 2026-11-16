@@ -22,10 +22,15 @@ own `subject_unit_path`.
 
 Same raw-DDL-against-a-plain-`Engine` shape as `add_assertion_subject_
 unit_path_column.py`, this sprint's named D-ANCHOR precedent for a column
-that must survive on an already-provisioned production database -- NOT
-`Document.jurisdiction`'s fresh-test-only `Base.metadata.create_all()`
-shape, which only works for tables that do not exist yet and would fail
-against a real, already-provisioned database.
+that must survive on an already-provisioned production database. (When this
+was written, `Document.jurisdiction` had no migration and relied on
+`Base.metadata.create_all()`, which only works for tables that do not exist
+yet; `m20260802_add_document_jurisdiction_column.py` now covers it.)
+
+A database provisioned before 2026-07-29 has no `articles` table at all;
+`m20260729_add_definition_link_tables.py` creates it earlier in the same
+`python -m app.migrate` run. Called on its own against such a database this
+module has nothing to change and returns False.
 """
 
 from __future__ import annotations
@@ -33,12 +38,21 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from app.migrations import has_column, has_table
 
-def upgrade(engine: Engine) -> None:
+MIGRATION_ID = "20260805_add_heading_breadcrumbs_column"
+
+
+def upgrade(engine: Engine) -> bool:
+    """Add the column unless it is already there (idempotent)."""
     with engine.begin() as conn:
+        if not has_table(conn, "articles") or has_column(conn, "articles", "heading_breadcrumbs"):
+            return False
         conn.execute(text("ALTER TABLE articles ADD COLUMN heading_breadcrumbs TEXT"))
+        return True
 
 
 def downgrade(engine: Engine) -> None:
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE articles DROP COLUMN heading_breadcrumbs"))
+        if has_column(conn, "articles", "heading_breadcrumbs"):
+            conn.execute(text("ALTER TABLE articles DROP COLUMN heading_breadcrumbs"))

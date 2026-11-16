@@ -22,8 +22,9 @@ cd /absolute/path/to/LexGraph/backend
 ```
 
 SQLite absolute URLs have four slashes. The agent CLI refuses the default
-in-memory database because another process cannot share it. No schema migration
-is needed for this workflow on an already-current LexGraph database.
+in-memory database because another process cannot share it. A database created
+by an older LexGraph release must first be upgraded with
+`.venv/bin/python -m app.migrate` (it changes nothing on a current database).
 
 ## Discover, reason, submit
 

@@ -64,6 +64,17 @@ matter roles from the in-app admin console (Admin → User accounts, then
 Members & roles) — see [docs/RUNBOOK.md](docs/RUNBOOK.md#provisioning-users--access)
 for the full walkthrough. No seed or mockup data is required for real use.
 
+After pulling a newer LexGraph, upgrade an existing database before starting
+the server. The command is idempotent, and the server refuses to start on an
+out-of-date database, printing this exact command:
+
+```bash
+cd backend && .venv/bin/python -m app.migrate --db dev.db
+```
+
+See [docs/RUNBOOK.md](docs/RUNBOOK.md#upgrading-an-existing-database-migration)
+for what each migration changes.
+
 ### Optional: demo workspace for local testing
 
 `./scripts/demo.sh` is a local-testing convenience, not the provisioning
