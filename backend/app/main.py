@@ -339,7 +339,8 @@ def create_app(
     app.include_router(agents.router)
     app.include_router(sources.router)
 
-    # Audit finding api:20: a body with an unpaired surrogate is a 422, not a 500.
+    # Audit finding api:20: a body with an unpaired surrogate is a 422, not a 500;
+    # a locked database is a JSON 503 with Retry-After, not the bare 500.
     from app.request_guards import register_request_guards
     register_request_guards(app)
 

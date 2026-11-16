@@ -176,12 +176,19 @@ tool the server does not offer). Payload and argument schema violations add
   (proposed, revision-requested, accepted, disputed) assertions and the actor's
   own drafts block; withdrawn, rejected or superseded ones and other users'
   drafts are listed in `similar_assertions` instead.
-- **500:** a local database or installation problem, not a payload problem: the
-  message names it (database file not found, not a LexGraph database, created
-  by an older release and needing `python -m app.migrate`, database locked).
-  Report it to the user; retry later only for a locked database. If the
-  CLI cannot print a result after committing, this error has `committed: true`
-  and the new `id`, so do not resubmit.
+- **500:** a local database or installation problem, not a payload problem.
+  From the CLI and MCP the message names it (database file not found, not a
+  LexGraph database, created by an older release and needing
+  `python -m app.migrate`, database locked). Report it to the user; retry
+  later only for a locked database. If the CLI cannot print a result after
+  committing, this error has `committed: true` and the new `id`, so do not
+  resubmit. The API server checks its database before it starts, so over REST
+  a 500 is an unexpected server error, answered as plain text: report it too.
+- **503:** over REST, the database is locked: another process kept it busy
+  longer than the server waits (5 seconds), for example while many submissions
+  run at once. The JSON `detail` says so, `Retry-After` gives the seconds to
+  wait before you retry, and `X-Request-ID` identifies the request. Retrying is
+  safe: identical submissions are never stored twice (see 409).
 
 Do not write assertion tables directly, even if the agent has SQL access.
 The local file owner can bypass application permissions; these interfaces enforce
