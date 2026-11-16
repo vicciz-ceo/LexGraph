@@ -643,8 +643,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                 isSystem ? (
                   <p className="muted">
                     No evidence spans are attached. LexGraph&apos;s definition-linking pipeline
-                    generated this assertion automatically from the provision text it links (the
-                    subject and object above); no person suggested it.
+                    generated this assertion automatically from the provision text it links
+                    (shown above); no person suggested it.
                   </p>
                 ) : (
                   <p className="muted">No evidence spans are linked to this assertion.</p>
