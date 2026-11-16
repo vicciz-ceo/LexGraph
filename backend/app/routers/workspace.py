@@ -280,7 +280,11 @@ def add_member(
     return {"user": _serialize_user(target), "role": body.role}
 
 
-@router.put("/matters/{matter_id}/members/{member_user_id}")
+# `:path` on the member id: an id created before the api:24 rules may contain
+# "/" ("team/lead"). Clients send it as %2F, which the server decodes before
+# routing, so a plain segment parameter answered 404 and such a membership
+# could not be changed or removed in-app (review identity:4).
+@router.put("/matters/{matter_id}/members/{member_user_id:path}")
 def set_member_role(
     matter_id: str,
     member_user_id: str,
@@ -319,7 +323,7 @@ def set_member_role(
 
 
 @router.delete(
-    "/matters/{matter_id}/members/{member_user_id}",
+    "/matters/{matter_id}/members/{member_user_id:path}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_member(

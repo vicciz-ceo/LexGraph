@@ -706,6 +706,13 @@ Accounts and membership (2026-11-16):
   starting with a letter or digit, so that it fits `users.id` and works in
   URL paths; anything else, or an id already in use, is 422. `email` is
   at most 254 characters and `display_name` at most 255 (422).
+- Accounts created before that rule keep their ids. One containing `/`
+  (`team/lead`) is still addressed by
+  `POST /api/v1/users/{user_id}/sign-in-token` and by `PUT` and `DELETE`
+  `/api/v1/matters/{matter_id}/members/{user_id}`: clients send the id
+  percent-encoded as one path segment (`team%2Flead`), and these routes
+  take the rest of the path as the id, so such an account is rotated,
+  re-roled and removed like any other.
 - A request that loses a race to an equivalent concurrent request gets the
   answer the later of two sequential requests would get (409 for a
   duplicate email or membership, 422 for a duplicate id), never a 500.
