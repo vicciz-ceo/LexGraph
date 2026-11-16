@@ -102,10 +102,16 @@ def test_submit_is_audited_with_previous_status_revision_and_actor(client, matte
     a = _create(client, m)
     r = client.post(_url(a["id"], "/submit"), headers=m["contributor_headers"])
     assert r.status_code == 200, r.text
+    # Submitting again is allowed (it refreshes submitted_at) and is audited too.
+    again = client.post(_url(a["id"], "/submit"), headers=m["contributor_headers"])
+    assert again.status_code == 200, again.text
 
-    (submitted,) = _of_type(_history(client, m, a["id"]), "assertion_submitted")
-    assert _summary(submitted) == (m["contributor_id"], 1, "draft", "proposed")
-    assert submitted["correlation_id"] == r.headers["x-request-id"]
+    submitted = _of_type(_history(client, m, a["id"]), "assertion_submitted")
+    assert [_summary(e) for e in submitted] == [
+        (m["contributor_id"], 1, "draft", "proposed"),
+        (m["contributor_id"], 1, "proposed", "proposed"),
+    ]
+    assert [e["correlation_id"] for e in submitted] == [r.headers["x-request-id"], again.headers["x-request-id"]]
 
 
 def test_resubmitting_after_a_revision_request_is_audited(client, db_session, matter_with_users):

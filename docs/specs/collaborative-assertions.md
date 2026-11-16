@@ -827,6 +827,20 @@ Audit records must include:
 
 Do not include confidential full-document content in routine audit logs.
 
+Implementation (2026-11-16). Every audited mutation writes its audit rows in its own database transaction, so a mutation and its audit rows commit or roll back together and a refused request writes none. `GET /api/v1/assertions/{assertion_id}/history` returns an assertion's rows oldest first, each with its `assertion_revision_number`, `previous_value`, `new_value` and `correlation_id`. Event types, with previous value → new value (— for none):
+
+- `assertion_created`: — → the initial status. Agent suggestions also get `assertion_agent_provenance`: — → the self-reported provenance as JSON.
+- `evidence_added` and `evidence_removed`: — → the evidence id, both for evidence attached when the assertion is created (the only evidence path for agents) and for the evidence routes.
+- `assertion_submitted`: the previous status → `proposed`, on every submit, including a resubmission after a revision request.
+- `assertion_withdrawn`: the previous status → `withdrawn`. The actor is the user who withdrew it, whether the author or a reviewer.
+- `assertion_revised`: the previous → the new revision number, on every edit.
+- `assertion_status_changed`: `accepted` → `proposed`, when an edit returns an accepted assertion to review. It is written with the edit's `assertion_revised`.
+- `rating_created` (— → the strength), `rating_changed` (the previous → the new strength) and `rating_removed` (the removed strength → —). `rating_changed` is written for every update of an existing rating, including one that only changes the rationale.
+- `comment_created`, `comment_updated` and `comment_deleted`: — → the comment id, never the comment text. The explanation saved with a new assertion is a comment too.
+- Review decisions (`assertion.accept`, `assertion.reject`, `assertion.dispute`, `assertion.request_revision`, `assertion.supersede`): the previous → the new status, followed by the decision's note, if any.
+
+A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header. The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
+
 ==================================================
 17. SEARCH AND SORTING
 ==================================================
