@@ -1007,14 +1007,15 @@ later of `updated_at` and the newest audit event).
 `q`. It returns counts by status, origin, origin and status, type, evidence
 status and author, model confidence by origin, and the current-revision rating
 aggregates. With `created_bucket_edges` (comma-separated instants) it also
-returns creation counts per bucket.
+returns creation counts per bucket. Unknown query parameters are rejected with
+422.
 
 `GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
 `show_unreviewed=true` it adds proposed, disputed, rejected and superseded
 ones. Drafts, withdrawn assertions and those returned for revision never
 appear. Each request builds its own projection from the matter's rows and
 returns at most `limit` edges (default 1000, maximum 5000) after `offset`,
-with `total`.
+with `total`. Unknown query parameters are rejected with 422.
 
 Every instant the API returns is UTC with an explicit offset (`…Z` or
 `+00:00`). `effective_from` and `effective_to` are calendar dates and carry no

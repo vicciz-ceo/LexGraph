@@ -109,10 +109,16 @@ def test_creation_counts_per_caller_supplied_bucket(client, matter_with_users, d
         {"sort": "created_at"},
         {"limit": 5},
         {"bogus": "1"},
+        # The matter comes from the path; a query copy would be silently ignored.
+        {"matter_id": "00000000-0000-4000-8000-000000000001"},
     ],
 )
 def test_invalid_parameters_are_rejected(client, matter_with_users, params):
-    assert _stats(client, matter_with_users, **params).status_code == 422
+    m = matter_with_users
+    response = client.get(
+        f"/api/v1/matters/{m['matter_id']}/assertion-stats", params=params, headers=m["reviewer_headers"]
+    )
+    assert response.status_code == 422, response.text
 
 
 def test_access_is_checked_and_other_matters_never_count(client, matter_with_users, db_session):

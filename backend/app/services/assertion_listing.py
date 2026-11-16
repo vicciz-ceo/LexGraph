@@ -77,7 +77,8 @@ class AssertionFilters:
 
 FILTER_QUERY_PARAMS = frozenset(AssertionFilters.__dataclass_fields__)
 LIST_QUERY_PARAMS = FILTER_QUERY_PARAMS | {"sort", "limit", "offset"}
-STATS_QUERY_PARAMS = (FILTER_QUERY_PARAMS - {"q"}) | {"created_bucket_edges"}
+# The stats route takes matter_id from its path, so a query copy would be ignored.
+STATS_QUERY_PARAMS = (FILTER_QUERY_PARAMS - {"q", "matter_id"}) | {"created_bucket_edges"}
 
 
 def reject_unknown_query_params(request: Request, allowed: frozenset[str]) -> None:
@@ -750,7 +751,7 @@ def assertion_stats(session: Session, query: AssertionStatsQuery, *, user_id: st
         author_entry["by_status"][status] += n
         if n_confidence:
             confidence[origin][0] += n_confidence
-            confidence[origin][1] += sum_confidence
+            confidence[origin][1] += float(sum_confidence)
 
     evidence_status = d.evidence_status()
     by_evidence_status = {status: n for status, n in rows(evidence_status, func.count(Assertion.id), group_by=(evidence_status,))}
@@ -788,7 +789,8 @@ def assertion_stats(session: Session, query: AssertionStatsQuery, *, user_id: st
         "ratings": {
             "rated_assertions": rated_assertions,
             "ratings": int(n_ratings or 0),
-            "average_of_averages": average_of_averages,
+            # float(): PostgreSQL's avg() is numeric, i.e. a Decimal.
+            "average_of_averages": float(average_of_averages) if average_of_averages is not None else None,
         },
         "created_buckets": buckets,
     }

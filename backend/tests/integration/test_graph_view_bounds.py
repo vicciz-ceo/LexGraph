@@ -107,9 +107,9 @@ def test_the_response_is_bounded_and_pages(client, matter_with_users):
     assert [e["assertion_id"] for e in default["edges"]] == ids  # insertion order
     page = _graph(client, m, show_unreviewed=True, limit=2, offset=2)
     assert page["total"] == 5 and [e["assertion_id"] for e in page["edges"]] == ids[2:4]
-    for bad in ({"limit": 0}, {"limit": 5001}, {"offset": -1}):
+    for bad in ({"limit": 0}, {"limit": 5001}, {"offset": -1}, {"show_unreviwed": "true"}):
         response = client.get(f"/api/v1/matters/{m['matter_id']}/graph", params=bad, headers=m["reviewer_headers"])
-        assert response.status_code == 422
+        assert response.status_code == 422, bad
 
 
 class _Recorder:

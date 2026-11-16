@@ -39,12 +39,14 @@ from app.services.assertion_listing import (
     evidence_roles,
     insertion_order,
     ratings_for_revisions,
+    reject_unknown_query_params,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["graph"])
 
 GRAPH_DEFAULT_LIMIT = 1000
 GRAPH_MAX_LIMIT = 5000
+_GRAPH_QUERY_PARAMS = frozenset({"show_unreviewed", "limit", "offset"})
 
 
 def _authenticate(authorization: str | None) -> str:
@@ -114,6 +116,7 @@ def get_matter_graph(
     session: Session = session_factory()
     try:
         actor_user_id = _authenticate(authorization)
+        reject_unknown_query_params(request, _GRAPH_QUERY_PARAMS)
         _require_matter_access(session, matter_id, actor_user_id)
 
         states = UNREVIEWED_VIEW_STATES if show_unreviewed else DEFAULT_VIEW_STATES
