@@ -93,10 +93,15 @@ with source evidence.
 
 - `qa_g7_common.INTEGRATION_SHA` was pinned at `4fa9e7b…`, predating two
   production changes, so `validate_integration()` fail-closed on every
-  D-PFP-400 run without measuring anything. It now tracks HEAD, and the
-  evaluator asserts the invariant (ancestral, production frozen after it,
-  committed evidence generated under the same pin). **Re-pin and regenerate
-  whenever `backend/app` moves.**
+  D-PFP-400 run without measuring anything. It now tracks the measured
+  production seam, and the evaluator asserts the invariant (ancestral, seam
+  frozen after it, committed evidence generated under the same pin). **Re-pin
+  and regenerate whenever the measured seam moves** — the paths in
+  `qa_g7_common.MEASURED_PRODUCTION_PATHS` (`backend/app/definition_links` +
+  the jurisdiction vocabulary) or a `MEASURED_SHARED_SYMBOLS` definition.
+  Scope corrected 2026-11-15: the freeze used to cover all of `backend/app`,
+  so `83efb55` (agent authoring — routers/MCP/CLI, nothing a certification
+  run imports) turned `main` red and fail-closed every run.
 - The worktree had no `frontend/node_modules`, which is why earlier cycles
   recorded the frontend gate as unrunnable. `npm ci` has been run there.
 - The main venv at `/Users/nerya/LexGraph/backend/.venv` resolves worktree code

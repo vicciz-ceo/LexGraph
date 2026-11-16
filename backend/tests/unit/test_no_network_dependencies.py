@@ -15,6 +15,7 @@ from __future__ import annotations
 import ast
 import importlib
 import pkgutil
+from pathlib import Path
 
 BANNED_NETWORK_MODULES = {
     "httpx",
@@ -44,7 +45,7 @@ def _assert_package_imports_no_network_libraries(package_name: str) -> None:
         package.__path__, prefix=f"{package_name}."
     ):
         module = importlib.import_module(name)
-        source = open(module.__file__, encoding="utf-8").read()
+        source = Path(module.__file__).read_text(encoding="utf-8")
         imported = _imported_module_names(source)
         banned_hits = imported & BANNED_NETWORK_MODULES
         assert not banned_hits, f"{name} imports network-capable module(s): {banned_hits}"

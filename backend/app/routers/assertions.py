@@ -550,7 +550,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             )
     except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=422, detail=str(exc)
         ) from exc
 
     # --- B5: duplicate/related-assertion detection (spec §8) ---------------
@@ -728,7 +728,7 @@ def list_assertions(
             validate_jurisdiction(jurisdiction)
         except ValidationError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                status_code=422, detail=str(exc)
             ) from exc
         stmt = stmt.where(Assertion.jurisdiction == jurisdiction)
     assertions = session.execute(stmt).scalars().all()
@@ -900,7 +900,7 @@ def patch_assertion(
             validate_text_length(body.proposition, label="proposition")
         except ValidationError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                status_code=422, detail=str(exc)
             ) from exc
 
     if "jurisdiction" in updates and body.jurisdiction is not None:
@@ -908,7 +908,7 @@ def patch_assertion(
             validate_jurisdiction(body.jurisdiction)
         except ValidationError as exc:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+                status_code=422, detail=str(exc)
             ) from exc
 
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
@@ -1093,7 +1093,7 @@ def add_evidence(
         validate_evidence_matter_scope(span.matter_id if span is not None else None, assertion.matter_id)
     except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=422, detail=str(exc)
         ) from exc
 
     evidence = AssertionEvidence(

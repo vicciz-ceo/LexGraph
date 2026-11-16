@@ -124,20 +124,20 @@ def create_user(
     email = body.email.strip()
     if not _EMAIL_RE.match(email):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid email"
+            status_code=422, detail="invalid email"
         )
 
     display_name = body.display_name.strip()
     if not display_name:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="display_name must not be blank",
         )
 
     new_id = body.id.strip() if body.id else str(uuid.uuid4())
     if not new_id or session.get(User, new_id) is not None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="id must be non-empty and not already in use",
         )
 

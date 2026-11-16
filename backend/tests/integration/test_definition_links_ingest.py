@@ -108,7 +108,7 @@ def test_ingest_wiki_law_never_imports_the_poc_build_assertions_db_module():
     import importlib
 
     module = importlib.import_module("app.definition_links.ingest")
-    source = open(module.__file__, encoding="utf-8").read()
+    source = pathlib.Path(module.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     imported_names = set()
     for node in ast.walk(tree):

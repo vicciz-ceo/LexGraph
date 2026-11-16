@@ -116,7 +116,7 @@ def _require_admin(session: Session, user_id: str, matter_id: str) -> None:
 def _validate_role(role: str) -> None:
     if role not in VALID_ROLES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=f"role must be one of {', '.join(VALID_ROLES)}",
         )
 

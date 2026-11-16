@@ -1428,3 +1428,64 @@ Context Dump replaced (9 lines).
 - qa cycle 1 → this agent; PASS all 3 items, 7 gates independently
   re-verified from scratch, 7 regression tests (`a6ce3c0`), full backend
   1408/1408, frontend 165/165, typecheck clean, contract lint PASS
+
+## Post-sprint correction (2026-11-15): the certificate freeze covers the measured seam, not all of `backend/app`
+
+**What broke.** `83efb55` ("Enable scoped agent assertion authoring",
+2026-09-17, pushed straight to `main`) changed nine files under
+`backend/app` — `agent_cli.py`, `audit_middleware.py`, `main.py`,
+`mcp/server.py`, `routers/{agents,assertions,sources}.py`,
+`services/{source_access,validation}.py` — and nothing else there. Both
+certificate pins compared ALL of `backend/app` to the certified tree, so
+`main` CI went red (2 failed / 1422 passed, py3.12 + py3.13) and stayed red
+(D-GREEN), and `validate_integration()` fail-closed every G7 run:
+`test_gate2_certificate_still_stands_backend_app_byte_identical_to_certified_tree`
+(pin `f267644`) and
+`test_g7_integration_pin_is_ancestral_and_production_is_frozen_after_it`
+(pin `79e34c8`, same `backend/app` tree as `f267644`).
+
+**Why the certificate still stands (P-R11, byte-identity — the same
+argument as the Developer final pass above, at the scope it actually
+needs).** The implementation a gate-2 / G7 run measures is the import
+closure of `measure_actual_production_all_rows.capture()` /
+`qa_g7_common.capture_row()`: 38 modules — `backend/app/__init__.py`,
+34 under `backend/app/definition_links/`, `services/__init__.py`,
+`services/jurisdiction.py`, `services/validation.py` — derived statically
+(every import statement at any depth, plus `rules/__init__.py`'s `pkgutil`
+auto-discovery) and confirmed equal to the modules a real capture loads.
+Between `f267644`/`79e34c8` and `83efb55`:
+
+- the `backend/app/definition_links` tree object is identical
+  (`ee1690df49f81a947d0ea4e060a39b0ab3ad14ab` at all three commits), as are
+  `app/__init__.py`, `services/__init__.py` and `services/jurisdiction.py`;
+- exactly one closure file changed, `services/validation.py`
+  (`9d283dc` → `c0f071c`), and only in `validate_effective_dates` plus its
+  `from datetime import … timezone` line. The seam binds one name from that
+  module, `ValidationError` (raised by `jurisdiction.validate_jurisdiction`);
+  its definition is unchanged, and `validate_effective_dates` is called only
+  from `routers/assertions.py`;
+- the eight other changed modules are outside the closure: making them
+  un-importable changes nothing, and the harnesses' own capture functions
+  return byte-identical output on both trees for all 317 vendored statutory
+  fixture rows (2,015 G7-after tuples, 2,137 gate-2 records).
+
+No full-corpus re-run was made or claimed: the pinned snapshot is not on the
+machine that made this correction, and none is needed while the seam is
+byte-identical. `INTEGRATION_SHA` and the committed G7 evidence are unchanged.
+
+**What changed.** `qa_g7_common` now declares the seam once
+(`MEASURED_PRODUCTION_PATHS`, `MEASURED_SHARED_SYMBOLS`) and
+`measured_production_drift()` is the only comparison; both pin tests and
+`validate_integration()` call it. New contract tests: the declaration must
+cover the live import closure and the names the seam binds from a shared
+module (P-R16 family — a freeze list that drifts from what is measured), and
+a throwaway-repository mutation tripwire proves seam edits, vocabulary edits
+and pinned-symbol edits are rejected while router/CLI edits are not.
+`validate_integration()` additionally rejects uncommitted and untracked seam
+files: it used to compare `INTEGRATION_SHA..HEAD` only, while a run imports
+the working tree (and `rules/` auto-imports untracked modules).
+`G7_CERTIFICATION.md` no longer quotes a pin SHA (it still said `4fa9e7b`).
+
+**Still a re-pin + regenerate (needs the corpus):** any change under
+`backend/app/definition_links/`, to `services/jurisdiction.py`, or to
+`ValidationError`.

@@ -61,19 +61,22 @@ def test_g7_integration_pin_is_ancestral_and_production_is_frozen_after_it():
     whoever runs certification. The preamble sprint spent a QA cycle's worth of
     surprise on a pin that predated two production changes, so the ordinary
     evaluator asserts it too.
+
+    "Production" is the seam a certification run can load -- the declaration
+    ``validate_integration`` itself enforces (``measured_production_drift``),
+    covered against the live import closure by
+    ``test_certification_freeze_scope.py`` -- not every file under
+    ``backend/app``: the whole-tree scope failed this test on an
+    agent-authoring commit that does not touch definition extraction (83efb55).
     """
     common = _load("qa_g7_common.py")
     subprocess.run(
         ["git", "-C", str(ROOT), "merge-base", "--is-ancestor", common.INTEGRATION_SHA, "HEAD"],
         check=True, capture_output=True,
     )
-    changed = subprocess.run(
-        ["git", "-C", str(ROOT), "diff", "--name-only",
-         f"{common.INTEGRATION_SHA}..HEAD", "--", "backend/app"],
-        check=True, capture_output=True, text=True,
-    ).stdout.strip()
-    assert changed == "", (
-        f"production changed after pinned integration {common.INTEGRATION_SHA}: {changed}. "
+    changed = common.measured_production_drift(common.INTEGRATION_SHA)
+    assert changed == [], (
+        f"measured production changed after pinned integration {common.INTEGRATION_SHA}: {changed}. "
         "Every G7/D-PFP-400 run now fail-closes instead of measuring this tree. "
         "Either re-pin INTEGRATION_SHA and regenerate the certification evidence, "
         "or retire this sprint-scoped contract if the preamble sprint has closed."

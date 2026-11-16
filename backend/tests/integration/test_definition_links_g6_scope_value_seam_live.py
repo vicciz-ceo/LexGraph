@@ -247,7 +247,7 @@ def test_g6_ky_156_106_shaped_section_after_the_fix_links_only_the_two_named_sec
 
     assert "161.605" in linked_numbers, (
         f"the enumerated co-target article must link; linked={linked_numbers!r}, "
-        f"assertions={uses_edges!r}"
+        f"assertions={uses_edge_ids!r}"
     )
     assert "139.486" not in linked_numbers, (
         f"the uninvolved article must NOT link once the real two-member "

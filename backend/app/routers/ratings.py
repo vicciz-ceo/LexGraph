@@ -189,7 +189,7 @@ def put_rating(
         validate_text_length(body.rationale, label="rationale")
     except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=422, detail=str(exc)
         ) from exc
 
     existing = _get_own_rating(session, revision.id, user_id)

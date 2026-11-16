@@ -120,7 +120,7 @@ recovery goes through idiom vocabulary only.
   a try/except-swallowing probe once manufactured a false "66/66
   discriminator errors" catastrophe — never swallow exceptions in probes.
 - `qa_g7_common.INTEGRATION_SHA` re-pin + evidence regeneration whenever
-  `backend/app` moves.
+  the measured seam (`qa_g7_common.MEASURED_PRODUCTION_PATHS`) moves.
 - Worktree venv: main checkout's venv with `PYTHONPATH=.:backend` from the
   worktree root; no `git stash`; raw-vs-ingest (escaped-\n) on raw parquet.
 

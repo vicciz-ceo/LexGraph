@@ -389,6 +389,6 @@ No external pins remain and no production signature/class/CSS rename occurred.
 3. A certificate is valid only if an executed full-population run emitted it.
 4. Deletion-side gate: zero certified removals may carry an adjacent relation.
 5. D-PFP-400 FAILS on 3 shared-extraction defects this panel cannot fix.
-6. `INTEGRATION_SHA` tracks HEAD; regenerate G7 whenever `backend/app` moves.
+6. `INTEGRATION_SHA` pins the measured seam (`qa_g7_common.MEASURED_*`); regenerate G7 when it moves.
 7. Named residuals: IN "loan"/refers-to; 818 wrong-term; 2,367 undercapture.
 8. Escalate a disputed executed certificate; never author a replacement.

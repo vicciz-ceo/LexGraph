@@ -19,8 +19,18 @@ non-gating.
 
 The tools require snapshot `301000fc3465374ee0f23c3c6953a8a861e95cad`, exactly
 53 `us_*_statutes.parquet` files, and exactly 2,038,247 parquet rows.  They also
-require production integration `4fa9e7b368801757039091646e06a832620a3a2c` to be
-an ancestor of `HEAD` and reject any later change under `backend/app`.
+require the pinned production integration -- `qa_g7_common.INTEGRATION_SHA`,
+the single source of truth; do not copy the SHA into prose, it goes stale on
+every re-pin -- to be an ancestor of `HEAD`, and reject any later change to the
+**measured production seam**: the files under
+`qa_g7_common.MEASURED_PRODUCTION_PATHS` (the `backend/app/definition_links`
+package plus the jurisdiction vocabulary its profile registry imports) and the
+definitions named in `MEASURED_SHARED_SYMBOLS`, whether committed, uncommitted
+or untracked.  That seam is the import closure of the harness (38 modules);
+`backend/tests/unit/test_certification_freeze_scope.py` asserts the declaration
+covers the live closure.  The rest of `backend/app` (routers, MCP server, agent
+CLI, enrich, models) is outside that closure -- no certification run imports
+it -- so changing it neither fail-closes a run nor requires a re-pin.
 
 Q-D1 reads batches directly from the parquet files and calls the real production
 normalization, profile, registry, extraction and first-wins persistence-dedup
@@ -76,7 +86,11 @@ uniqueness/membership and coverage of every non-empty jurisdiction, route, and
 rule family. It requires the Planner's unreviewed ledger to be a one-to-one
 immutable projection of the sample (including tuple/source/rule/route and
 source-row hash) and byte-ledger count `min(50, fallback_population_count)`,
-uniqueness, fallback-only population membership, and informational status.
+uniqueness, fallback-only population membership, and that every byte-ledger
+row arrives `qa_boundary_status: unreviewed` carrying no verdict field
+(`informational_only`, `false_capture`, `qa_status`, `is_overrun`): the
+producer emits a review queue, and only QA adjudication may mark a row
+informational.
 
 ## Exact clean-QA workflow
 

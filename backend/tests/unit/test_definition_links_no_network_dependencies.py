@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import importlib
 import pkgutil
+from pathlib import Path
 
 BANNED_MODULES = {
     "httpx",
@@ -52,7 +53,7 @@ def test_definition_links_package_imports_no_network_or_ml_libraries():
         package.__path__, prefix="app.definition_links."
     ):
         module = importlib.import_module(name)
-        source = open(module.__file__, encoding="utf-8").read()
+        source = Path(module.__file__).read_text(encoding="utf-8")
         imported = _imported_module_names(source)
         banned_hits = imported & BANNED_MODULES
         assert not banned_hits, f"{name} imports network/ML module(s): {banned_hits}"

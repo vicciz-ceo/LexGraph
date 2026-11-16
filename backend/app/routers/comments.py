@@ -140,7 +140,7 @@ def create_comment(
         validate_text_length(body.comment_text, label="comment_text")
     except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=422, detail=str(exc)
         ) from exc
 
     if body.parent_comment_id is not None:
@@ -222,7 +222,7 @@ def update_comment(
         validate_text_length(body.comment_text, label="comment_text")
     except ValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=422, detail=str(exc)
         ) from exc
 
     comment.comment_text = sanitize_for_storage(body.comment_text)

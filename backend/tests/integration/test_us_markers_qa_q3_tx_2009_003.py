@@ -1,4 +1,4 @@
-"""QA1 (phase-2 QA cycle 1) -- Q3: TX `STATE_TX_Cgv_C2009_S2009.003`'s 4
+r"""QA1 (phase-2 QA cycle 1) -- Q3: TX `STATE_TX_Cgv_C2009_S2009.003`'s 4
 degenerate 1-term rows (sprint 2026-08-04-defs-us-markers, gate U1;
 ownership per ruling M-R5, recorded in this sprint's own log `## Q-B`:
 "The TX `2009.003` residual ... is ours by M-R5 and folds into our
