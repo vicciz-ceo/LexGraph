@@ -259,7 +259,7 @@ def test_the_cli_refuses_an_unknown_or_unauthorized_user(db_session, matter_with
     assert "does not exist" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("url", [None, "sqlite:///:memory:", "sqlite://"])
+@pytest.mark.parametrize("url", [None, "sqlite:///:memory:", "sqlite://", "sqlite:///", "sqlite+pysqlite:///:memory:"])
 def test_the_cli_refuses_a_database_no_other_process_can_share(url, tmp_path):
     env = {key: value for key, value in os.environ.items() if key != "LEXGRAPH_DATABASE_URL"}
     if url is not None:
@@ -269,12 +269,33 @@ def test_the_cli_refuses_a_database_no_other_process_can_share(url, tmp_path):
                          capture_output=True, text=True, env=env, cwd=BACKEND, timeout=120)
 
     assert run.returncode == 1
-    assert run.stderr.startswith("enrichment failed: set LEXGRAPH_DATABASE_URL")
+    # The agent CLI's database check (app.agent_database), shared since review authoring:6.
+    assert run.stderr.startswith("enrichment failed: LEXGRAPH_DATABASE_URL is unset or names an in-memory database")
     assert "Traceback" not in run.stderr
 
 
 def test_the_cli_refuses_a_database_without_lexgraph_tables(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{tmp_path / 'empty.db'}")
+    empty = tmp_path / "empty.db"
+    empty.touch()  # an existing file: a missing one is refused as missing (next test)
+    monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{empty}")
 
     assert enrich_cli(["--matter-id", "m", "--triggered-by-user-id", "u"]) == 1
     assert "not an initialized LexGraph database" in capsys.readouterr().err
+    assert empty.stat().st_size == 0
+
+
+@pytest.mark.parametrize("url", ["sqlite:///typo.db", "sqlite:///{tmp}/typo.db", "sqlite:///{tmp}/no-dir/typo.db"])
+def test_the_cli_never_creates_a_missing_database_file(tmp_path, url):
+    # review authoring:6: connecting created a 0-byte file, then the CLI advised bootstrapping it.
+    url = url.format(tmp=tmp_path)
+    missing = tmp_path / url.removeprefix(f"sqlite:///{tmp_path}/").removeprefix("sqlite:///")
+    env = {**{key: value for key, value in os.environ.items() if not key.startswith("LEXGRAPH_")},
+           "LEXGRAPH_DATABASE_URL": url, "PYTHONPATH": str(BACKEND)}
+
+    run = subprocess.run([sys.executable, "-m", "app.enrich.cli", "--matter-id", "m", "--triggered-by-user-id", "u"],
+                         capture_output=True, text=True, env=env, cwd=tmp_path, timeout=120)
+
+    assert run.returncode == 1, run
+    assert run.stderr.startswith(f"enrichment failed: Database file not found: {missing} "), run.stderr
+    assert "Nothing was created" in run.stderr and "bootstrap" not in run.stderr and "Traceback" not in run.stderr
+    assert not missing.exists() and sorted(path.name for path in tmp_path.iterdir()) == []

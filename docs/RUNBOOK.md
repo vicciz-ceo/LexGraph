@@ -118,7 +118,7 @@ npm --prefix frontend ci
 
 ### Initialize the Database
 
-LexGraph stores everything in one SQLite database file; it supports no other database yet. Every LexGraph process (the server, the CLIs, the MCP server) reads its location from the same environment variable; `app.bootstrap`, `app.seed_demo`, `app.migrate` and `app.rotate_sign_in_token` also accept `--db PATH`. This runbook uses `backend/dev.db`, the file the Quickstart bootstraps. Set the variable from the repository root:
+LexGraph stores everything in one SQLite database file; it supports no other database yet. The server, the agent CLI, the offline pipelines and the MCP server read its location from the same environment variable, and so do `app.bootstrap`, `app.migrate` and `app.rotate_sign_in_token` unless `--db PATH` names the file. `app.seed_demo` is the exception: it ignores the variable and writes the file given by `--db` (default `dev.db` in the current directory), so pass the same file to it. This runbook uses `backend/dev.db`, the file the Quickstart bootstraps. Set the variable from the repository root:
 
 ```bash
 export LEXGRAPH_DATABASE_URL="sqlite:///$PWD/backend/dev.db"
@@ -309,7 +309,7 @@ cd backend
 cd ..
 ```
 
-Each suggestion is a `draft`, `model_suggested` assertion authored by `--triggered-by-user-id`, which must be an existing user with a contributor, reviewer or admin role in the matter. The CLI prints `enrichment failed: ...` and exits 1 when that user is unknown or has no such role, and likewise for an unknown matter, an unset or in-memory `LEXGRAPH_DATABASE_URL`, or a database without the LexGraph tables. Rerunning it is idempotent: it skips spans it has already suggested from, never suggests the same proposition twice in a matter (two spans with one text give one draft, also after that draft is withdrawn or rejected), and does not store an exact duplicate of a live assertion or of the triggering user's own draft. Agent submissions share the `model_suggested` origin, but enrichment's rows are the ones whose revision 1 has the reason `model-suggested (offline enrichment)`. A span an agent or lawyer has cited is therefore still suggested. A span of up to 1,000 characters is suggested whole; from a longer one, such as an ingested statute section, the suggestion quotes the sentence that matched, and a match that cannot be quoted within 1,000 characters is skipped. Drafts suggested before 2026-11-16 from such spans keep the whole section as their proposition, and a rerun does not replace them because their spans count as suggested; list them with `SELECT a.id FROM assertions a JOIN assertion_revisions r ON r.assertion_id = a.id AND r.revision_number = 1 WHERE r.revision_reason = 'model-suggested (offline enrichment)' AND length(a.proposition) > 1000;` and withdraw or edit them.
+Each suggestion is a `draft`, `model_suggested` assertion authored by `--triggered-by-user-id`, which must be an existing user with a contributor, reviewer or admin role in the matter. The CLI prints `enrichment failed: ...` and exits 1 when that user is unknown or has no such role, and likewise for an unknown matter, an unset or in-memory `LEXGRAPH_DATABASE_URL`, a database file that does not exist (the message names the resolved path; nothing is created), a database without the LexGraph tables, or one an older LexGraph created (it names the `python -m app.migrate` command): the same database check the agent CLI runs. Rerunning it is idempotent: it skips spans it has already suggested from, never suggests the same proposition twice in a matter (two spans with one text give one draft, also after that draft is withdrawn or rejected), and does not store an exact duplicate of a live assertion or of the triggering user's own draft. Agent submissions share the `model_suggested` origin, but enrichment's rows are the ones whose revision 1 has the reason `model-suggested (offline enrichment)`. A span an agent or lawyer has cited is therefore still suggested. A span of up to 1,000 characters is suggested whole; from a longer one, such as an ingested statute section, the suggestion quotes the sentence that matched, and a match that cannot be quoted within 1,000 characters is skipped. Drafts suggested before 2026-11-16 from such spans keep the whole section as their proposition, and a rerun does not replace them because their spans count as suggested; list them with `SELECT a.id FROM assertions a JOIN assertion_revisions r ON r.assertion_id = a.id AND r.revision_number = 1 WHERE r.revision_reason = 'model-suggested (offline enrichment)' AND length(a.proposition) > 1000;` and withdraw or edit them.
 
 **Definition linking** (`app/definition_links/`, sprint 2026-07-29-definition-links) deterministically (regex/rule-based, no LLM/ML) connects articles within a law to the definitions the law contains, and connects laws to each other when a definition explicitly derives from another law (e.g. "כהגדרתו בחוק..."). It requires `Article` rows already ingested via `app.definition_links.ingest.ingest_wiki_law` (there is no ingestion CLI yet — call `ingest_wiki_law(session, ...)` directly, e.g. from a one-off script or a REPL, to load a `.wiki`-formatted law's text into `Document`/`Article`/`SourceSpan` rows for a matter):
 
@@ -437,14 +437,24 @@ changed in three ways since LexGraph was built against it in 2026-08:
 Bulk mode takes statutes and constitutions files only. It records every other
 file in `--input-dir` as failed (`filename does not match ...`) and exits 1, so
 download just those two kinds. For example, with the Hugging Face CLI (`hf`,
-from the `huggingface_hub` package, installed in any Python environment; it is
-not a LexGraph dependency), after `hf auth login` with your token:
+from the `huggingface_hub` package 0.34 or later, installed in any Python
+environment; it is not a LexGraph dependency), after `hf auth login` with your
+token, run one command per kind into the same directory:
 
 ```bash
 hf download vaquill/open-us-law --repo-type dataset \
-    --include 'us_*_statutes.parquet' --include 'us_*_constitutions.parquet' \
-    --local-dir /path/to/open-us-law
+    --include 'us_*_statutes.parquet' --local-dir /path/to/open-us-law
+hf download vaquill/open-us-law --repo-type dataset \
+    --include 'us_*_constitutions.parquet' --local-dir /path/to/open-us-law
 ```
+
+Give each command one `--include` with one pattern. Before huggingface_hub 1.0
+(`hf version` prints yours) a second `--include` replaces the first, so a single
+command fetches only the constitutions and still exits 0; from 1.0 on, a second
+pattern after one `--include` is taken as a file name. Bulk mode also exits 0 on
+a directory without the statutes, so count the files before you ingest: at
+revision `eed1dd8c…`, `ls /path/to/open-us-law/us_*_statutes.parquet | wc -l`
+prints 48, and the same for `us_*_constitutions.parquet` prints 51.
 
 #### Re-certifying US definition linking
 
@@ -679,8 +689,9 @@ localhost or put TLS in front of it before exposing it on a network.
   .venv/bin/python -m app.rotate_sign_in_token --db dev.db --user-id USER_ID
   ```
 
-  Without `--db` it uses `LEXGRAPH_DATABASE_URL`. `--email` ignores letter
-  case.
+  Without `--db` it uses `LEXGRAPH_DATABASE_URL`. It refuses a database file
+  that does not exist and creates nothing there, so a mistyped path cannot
+  leave an empty `dev.db` behind. `--email` ignores letter case.
 
 ### Upgrading: sign-in tokens replace user-id sign-in
 
@@ -916,7 +927,7 @@ above:
 
 ## Environment Variables
 
-- `LEXGRAPH_DATABASE_URL`: SQLite database URL, best given in the absolute four-slash form (`sqlite:////abs/path/backend/dev.db`, or `"sqlite:///$PWD/backend/dev.db"` from the repository root; a relative `sqlite:///dev.db` resolves against the current directory). Defaults to in-memory if not set, which the server, the agent CLI and the MCP server refuse. `python -m app.bootstrap`, `app.seed_demo`, `app.migrate` and `app.rotate_sign_in_token` accept `--db PATH` instead.
+- `LEXGRAPH_DATABASE_URL`: SQLite database URL, best given in the absolute four-slash form (`sqlite:////abs/path/backend/dev.db`, or `"sqlite:///$PWD/backend/dev.db"` from the repository root; a relative `sqlite:///dev.db` resolves against the current directory). Defaults to in-memory if not set, which the server, the agent CLI and the MCP server refuse. `python -m app.bootstrap`, `app.migrate` and `app.rotate_sign_in_token` accept `--db PATH` instead. `app.seed_demo` does not read it: it writes the file given by `--db` (default `dev.db` in the current directory).
 - `LEXGRAPH_AGENT_USER_ID`: the dedicated agent account used by the agent CLI and the MCP server (see [AGENT_GUIDE.md](AGENT_GUIDE.md)). Unset, the MCP server is read-only.
 - `LEXGRAPH_FRONTEND_DIST`: the web app build the backend serves on its own origin (default: `frontend/dist` when it has been built; empty value: API only). See "Serving the web app in production".
 - `LEXGRAPH_API_PROXY`: where the Vite dev and preview servers forward `/api` (default `http://127.0.0.1:8000`).
@@ -926,10 +937,10 @@ above:
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
 - **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
-- **Sign-in says "Could not reach the LexGraph server" although the backend is running**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production". "Unknown sign-in token" is the backend itself refusing the token: check it, or have it rotated.
+- **Sign-in says "Could not reach the LexGraph server" although the backend is running**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production". "Unknown sign-in token" is the backend itself refusing the token: check it, or have it rotated. With the dev or preview server, first check that it forwards to your backend (see "Port already in use" below): another backend on port 8000 refuses your token too.
 - **An agent CLI or MCP error says the database was created by an older version of LexGraph**: run the `python -m app.migrate --db PATH` command it names. Both run the server's schema check before they touch the database.
 - **The server logs `The database lacks the unique index ix_users_email until an operator acts`**: accounts share an email address; see "Upgrading: case-insensitive emails".
-- **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend. For `./scripts/demo.sh`, set `BACKEND_PORT` or `FRONTEND_PORT` (see "Optional: demo workspace").
+- **Port already in use**: Start the backend on another port with `--port 8001`. The web app's dev and preview servers still forward `/api` to `http://127.0.0.1:8000`, whatever holds that port (often another LexGraph checkout, with its own database), so point them at the moved backend: `LEXGRAPH_API_PROXY=http://127.0.0.1:8001 npm --prefix frontend run dev` (the same for `run preview`). To move the web app itself, use `npm --prefix frontend run dev -- --port 5174 --strictPort` (without `--strictPort`, Vite picks the next free port on its own). For `./scripts/demo.sh`, set `BACKEND_PORT` or `FRONTEND_PORT` (see "Optional: demo workspace"); its proxy follows the backend port.
 - **Module not found errors**: Ensure you've installed the backend with `(cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')` from the repository root, and that you start LexGraph with `backend/.venv/bin/...`, not a system `python3`.
 - **MCP server shows "Failed to connect"**: run the registered command by hand
   with the same environment, e.g.

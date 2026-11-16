@@ -8,6 +8,7 @@ client path (in-process `Client(server)`, plus one stdio session against
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 
 import pytest
@@ -99,9 +100,70 @@ def test_agent_context_reports_invalid_paging(app, matter_with_users, arguments)
         "error": "limit must be 1..100 and offset 0..2147483647", "status": 422}
 
 
-def test_unknown_actor_reports_401(app, matter_with_users):
+def test_unknown_actor_reports_401(app, matter_with_users, suggestion):
     server = create_server(app.state.session_factory, agent_user_id="no-such-user")
     assert tool_error(server, "agent_context") == {"error": "unknown user", "status": 401}
+    assert tool_error(server, "suggest_assertion", {"payload": suggestion}) == {"error": "unknown user", "status": 401}
+
+
+def test_a_matter_that_does_not_exist_reports_403_like_one_without_a_role(app, db_session, matter_with_users,
+                                                                          suggestion):
+    # review agent:1: authorize first (spec, review:17), so existence is never revealed.
+    server = create_server(app.state.session_factory, agent_user_id=matter_with_users["contributor_id"])
+    body = tool_error(server, "suggest_assertion", {"payload": {**suggestion, "matter_id": "no-such-matter"}})
+    assert body == {"error": "not permitted to suggest assertions", "status": 403}
+    body = tool_error(server, "suggest_assertion", {"payload": {**suggestion, "repository_id": "no-such-repository"}})
+    assert body == {"error": "repository not found", "status": 404}
+    assert _count(db_session) == 0
+
+
+# review agent:2: the SDK validates arguments against the tool signature before the
+# tool body runs, and used to answer with pydantic's multi-line text and no status.
+ARGUMENT_ERRORS = [
+    ("suggest_assertion", "fields beside payload", "payload"),  # the most common LLM mistake
+    ("suggest_assertion", {}, "payload"),
+    ("suggest_assertion", {"payload": [{"proposition": "x"}]}, "payload"),
+    ("suggest_assertion", {"payload": None}, "payload"),
+    ("suggest_assertion", {"payload": "not JSON"}, "payload"),
+    ("agent_context", {"limit": 5.5}, "limit"),
+    ("agent_context", {"limit": "abc"}, "limit"),
+    ("agent_context", {"offset": [1]}, "offset"),
+    ("agent_context", {"matter_id": 123}, "matter_id"),
+    ("agent_context", {"query": None}, "query"),
+    ("search", {}, "query"),
+    ("explore", {"query": 7}, "query"),
+    ("fetch", {"assertion_id": 42}, "assertion_id"),
+]
+
+
+@pytest.mark.parametrize(("tool", "arguments", "field"), ARGUMENT_ERRORS)
+def test_invalid_arguments_report_422_and_the_failing_argument(app, db_session, matter_with_users, suggestion,
+                                                               tool, arguments, field):
+    server = create_server(app.state.session_factory, agent_user_id=matter_with_users["contributor_id"])
+    body = tool_error(server, tool, suggestion if arguments == "fields beside payload" else arguments)
+    assert body["status"] == 422 and [issue["field"] for issue in body["issues"]] == [field], body
+    assert body["error"].startswith(f"Invalid arguments: {field}: ") and "\n" not in body["error"], body
+    if tool == "suggest_assertion":
+        assert "one JSON object in the payload argument" in body["error"], body
+    assert _count(db_session) == 0
+
+
+def test_a_payload_sent_as_a_json_string_is_still_accepted(app, db_session, matter_with_users, suggestion):
+    server = create_server(app.state.session_factory, agent_user_id=matter_with_users["contributor_id"])
+    is_error, text = call_tool(server, "suggest_assertion", {"payload": json.dumps(suggestion)})
+    assert not is_error, text
+    assert _count(db_session) == 1
+
+
+def test_tools_the_server_does_not_offer_report_json_too(app, matter_with_users):
+    read_only = create_server(app.state.session_factory)
+    for tool in ("agent_context", "suggest_assertion"):
+        body = tool_error(read_only, tool, {"payload": {}} if tool == "suggest_assertion" else {})
+        assert body["status"] == 401 and "LEXGRAPH_AGENT_USER_ID" in body["error"], body
+    server = create_server(app.state.session_factory, agent_user_id=matter_with_users["contributor_id"])
+    assert tool_error(server, "serch", {"query": "x"}) == {
+        "error": "unknown tool 'serch'; this server offers agent_context, assertion_guide, explore, fetch, search "
+                 "and suggest_assertion", "status": 400}
 
 
 @pytest.mark.parametrize("tool", ["search", "explore", "fetch"])
@@ -133,3 +195,21 @@ def test_stdio_server_reports_the_duplicate_to_a_real_client(app, client, matter
     existing_id = client.get("/api/v1/assertions", params={"matter_id": m["matter_id"]},
                              headers=m["reviewer_headers"]).json()["items"][0]["id"]
     assert result.is_error and '"status": 409' in text and existing_id in text, text
+
+
+def test_stdio_server_reports_failures_before_the_tool_body_as_json(app, matter_with_users, suggestion, tmp_path):
+    """review agent:2, over the registered entrypoint: argument errors and unknown tools."""
+    params = StdioServerParameters(command=sys.executable, args=["-m", "app.mcp.server"], cwd=str(tmp_path),
+                                   env=agent_env(str(app.state.engine.url), matter_with_users["contributor_id"]))
+    calls = [("suggest_assertion", suggestion, 422), ("agent_context", {"limit": 5.5}, 422),
+             ("serch", {"query": "x"}, 400)]
+
+    async def run():
+        async with Client(params, read_timeout_seconds=60) as session:
+            return [await session.call_tool(name, arguments) for name, arguments, _status in calls]
+
+    for result, (name, _arguments, status) in zip(asyncio.run(run()), calls):
+        text = " ".join(block.text for block in result.content)
+        prefix = f"Error executing tool {name}: "
+        assert result.is_error and text.startswith(prefix), text
+        assert json.loads(text[len(prefix):])["status"] == status, text

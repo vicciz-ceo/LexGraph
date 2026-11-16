@@ -4,7 +4,9 @@ Without a configured actor, legacy lookup tools read the entire local database.
 With an actor, reads are matter-scoped and validated proposal creation is enabled.
 Anticipated failures reach the agent as `ToolError` text holding the CLI's JSON
 error object: mcp >= 2.1 replaces any other exception with a bare
-"Error executing tool <name>". See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
+"Error executing tool <name>". That includes what the SDK refuses before a tool
+body runs: arguments that do not match the tool's signature, and a tool this
+server does not offer. See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 """
 
 from __future__ import annotations
@@ -13,17 +15,18 @@ import json
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from mcp.server.mcpserver import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.agent_cli import assertion_search, context, error_body, guide
+from app.agent_cli import assertion_search, context, error_body, guide, require_actor, validation_issues
 from app.agent_database import ConfigurationError
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
@@ -36,6 +39,15 @@ from app.routers.agents import AgentAssertionCreate, suggest_assertion as submit
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
 _DEFAULT_RESULT_LIMIT = 10
+_ACTOR_TOOLS = ("agent_context", "suggest_assertion")
+_SUBMISSIONS_DISABLED = (
+    "agent_context and suggest_assertion are not available: this server was started without "
+    "LEXGRAPH_AGENT_USER_ID. Ask the user to register it with the id of a dedicated agent account "
+    "that has contributor membership (see docs/mcp-registration.md).")
+
+
+def _json(body: dict) -> str:
+    return json.dumps(jsonable_encoder(body), ensure_ascii=False)
 
 
 @contextmanager
@@ -45,7 +57,49 @@ def _reported_errors() -> Iterator[None]:
     try:
         yield
     except (HTTPException, ValidationError, SQLAlchemyError, ConfigurationError) as exc:
-        raise ToolError(json.dumps(jsonable_encoder(error_body(exc)), ensure_ascii=False)) from exc
+        raise ToolError(_json(error_body(exc))) from exc
+
+
+def _argument_error(tool: str, exc: ValidationError) -> dict:
+    """The 422 for arguments that do not match the tool's signature."""
+    issues = validation_issues(exc)
+    error = "Invalid arguments: " + "; ".join(f"{issue['field']}: {issue['message']}" for issue in issues)
+    if tool == "suggest_assertion":  # most often its fields sent beside payload instead of inside it
+        error += (". Send the whole submission as one JSON object in the payload argument, "
+                  "matching assertion_guide's schema")
+    return {"error": error, "status": 422, "issues": issues}
+
+
+class _Server(MCPServer):
+    """An MCPServer whose every failed call ends in the JSON error object (review agent:2).
+
+    The SDK checks the tool name and validates the arguments against the tool's
+    signature before the tool body (and `_reported_errors`) runs. It reported those
+    failures as "Unknown tool: <name>" and as pydantic's multi-line text, which
+    echoes the rejected values and carries no status."""
+
+    def __init__(self, *, submissions_enabled: bool):
+        super().__init__(name="lexgraph")
+        self._submissions_enabled = submissions_enabled
+
+    async def call_tool(self, name: str, arguments: dict[str, Any], context=None):
+        offered = sorted(tool.name for tool in await self.list_tools())
+        if name not in offered:
+            if name in _ACTOR_TOOLS and not self._submissions_enabled:
+                body = {"error": _SUBMISSIONS_DISABLED, "status": 401}
+            else:
+                listing = ", ".join(offered[:-1]) + f" and {offered[-1]}"
+                body = {"error": f"unknown tool {name!r}; this server offers {listing}", "status": 400}
+            raise ToolError(f"Error executing tool {name}: {_json(body)}")
+        try:
+            return await super().call_tool(name, arguments, context)
+        except UnexpectedToolError:
+            raise  # a crash: the SDK logs it and withholds the details
+        except ToolError as exc:
+            if not isinstance(exc.__cause__, ValidationError):
+                raise  # the tool body's own failure, already the JSON object
+            cause = exc.__cause__
+            raise ToolError(f"Error executing tool {name}: {_json(_argument_error(name, cause))}") from cause
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
@@ -137,7 +191,7 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
     """Build local tools; a configured actor enables validated, scoped suggestions."""
 
     agent_user_id = agent_user_id or None  # "" is no actor, for scoping as for registration
-    server = MCPServer(name="lexgraph")
+    server = _Server(submissions_enabled=agent_user_id is not None)
 
     @server.tool()
     def explore(query: str) -> dict:
@@ -187,10 +241,7 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
         result = guide("mcp")
         result["submissions_enabled"] = agent_user_id is not None
         if agent_user_id is None:
-            result["submissions_disabled_reason"] = (
-                "agent_context and suggest_assertion are not available: this server was started without "
-                "LEXGRAPH_AGENT_USER_ID. Ask the user to register it with the id of a dedicated agent account "
-                "that has contributor membership (see docs/mcp-registration.md).")
+            result["submissions_disabled_reason"] = _SUBMISSIONS_DISABLED
         return result
 
     if agent_user_id is not None:
@@ -211,8 +262,11 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
             configured account needs contributor access. Never accepts or rates
             assertions. A failure is an error result ending in JSON {"error",
             "status"}: 409 duplicate names the existing assertion (inspect it, do
-            not reword); 422 explains the invalid field ("issues"); 403 missing role."""
+            not reword); 422 explains the invalid field ("issues"); 403 missing role,
+            also for a matter ID that does not exist (check it against agent_context);
+            404 a repository that does not exist."""
             with _reported_errors(), session_factory() as session:
+                require_actor(session, agent_user_id)
                 body = AgentAssertionCreate.model_validate(payload)
                 result = jsonable_encoder(submit_suggestion(body, session, agent_user_id))
                 # No HTTP request, so no notification hook: tell the matter's

@@ -4,24 +4,32 @@ against a tmp SQLite file, then checks sign-in through the real app."""
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
 from tests.conftest import token_header
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+TARGETS = [("--email", "root@acme.test"), ("--user-id", "some-user"), ("--list-legacy",)]
 
 
-def _run(module: str, *args: str) -> subprocess.CompletedProcess[str]:
+def _run(module: str, *args: str, url: str | None = None, cwd: Path = BACKEND_DIR) -> subprocess.CompletedProcess[str]:
+    env = {key: value for key, value in os.environ.items() if not key.startswith("LEXGRAPH_")}
+    env["PYTHONPATH"] = str(BACKEND_DIR)  # `app` importable from any cwd
+    if url is not None:
+        env["LEXGRAPH_DATABASE_URL"] = url
     return subprocess.run(
         [sys.executable, "-m", module, *args],
-        cwd=BACKEND_DIR,
+        cwd=cwd,
+        env=env,
         capture_output=True,
         text=True,
         timeout=60,
@@ -127,3 +135,45 @@ def test_a_database_that_predates_sign_in_tokens_is_refused_with_the_upgrade_com
     assert "predates sign-in tokens" in result.stderr
     assert f"-m app.migrate --db {db_path}" in result.stderr, result.stderr
     assert db_path.read_bytes() == before
+
+
+# review identity:3: connecting to a mistyped path created a 0-byte file there,
+# which scripts/dev-backend.sh and the server then refused as "not initialized".
+
+
+@pytest.mark.parametrize("target", TARGETS, ids=lambda target: target[0])
+@pytest.mark.parametrize("where", ["typo.db", "no-dir/typo.db"])
+def test_a_missing_database_file_is_refused_and_never_created(tmp_path, target, where):
+    missing = tmp_path / where
+    result = _run("app.rotate_sign_in_token", "--db", str(missing), *target)
+    assert result.returncode == 1, result
+    assert result.stderr.startswith(f"error: no database file at {missing} (nothing was created)"), result.stderr
+    assert "Traceback" not in result.stderr and list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("url", ["sqlite:///typo.db", "sqlite:///{tmp}/typo.db"])
+def test_a_missing_file_named_by_the_environment_is_refused_and_never_created(tmp_path, url):
+    result = _run("app.rotate_sign_in_token", "--list-legacy", url=url.format(tmp=tmp_path), cwd=tmp_path)
+    assert result.returncode == 1, result
+    assert result.stderr.startswith(f"error: no database file at {tmp_path / 'typo.db'} "), result.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("url", ["sqlite://", "sqlite:///", "sqlite:///:memory:", "sqlite+pysqlite:///:memory:",
+                                 "sqlite:///file::memory:?uri=true", "sqlite:///file:x?mode=memory&uri=true"])
+def test_an_in_memory_database_is_refused(tmp_path, url):
+    result = _run("app.rotate_sign_in_token", "--list-legacy", url=url, cwd=tmp_path)
+    assert result.returncode == 1, result
+    assert result.stderr.startswith("error: pass --db PATH or set LEXGRAPH_DATABASE_URL"), result.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_file_that_is_not_a_database_is_one_line_not_a_traceback(tmp_path):
+    notes = tmp_path / "notes.db"
+    notes.write_text("not a database\n" * 100)
+    before = notes.read_bytes()
+    result = _run("app.rotate_sign_in_token", "--db", str(notes), "--list-legacy")
+    assert result.returncode == 1, result
+    assert result.stderr.startswith(f"error: cannot use the database at {notes}: "), result.stderr
+    assert "Traceback" not in result.stderr and len(result.stderr.splitlines()) == 1, result.stderr
+    assert notes.read_bytes() == before

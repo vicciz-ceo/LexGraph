@@ -1155,13 +1155,23 @@ section 7).
 
 The CLI and MCP report a failure as one JSON object `{"error", "status"}`, plus
 `issues` (field and message) for schema violations. The CLI prints it on stderr
-and exits 1, MCP returns it as the text of an error result. The statuses are 400
-(command line or unreadable input), 401, 403, 404, 409 (duplicate, naming the
-existing assertion in the text and as `existing_assertion_id`), 422 (payload)
-and 500 (local database or installation).
-CLI input and output are UTF-8 regardless of locale. Both interfaces check the
-database before use: an unset, in-memory, missing or uninitialized database is
-refused with the resolved path, and no file is ever created. A database created
+and exits 1, MCP returns it as the text of an error result. That includes a call
+the MCP SDK refuses before the tool body runs: arguments that do not match the
+tool's signature (422 with `issues`), a tool the server does not offer (400), and
+`agent_context` or `suggest_assertion` on a server started without an actor
+(401). The statuses are 400 (command line, unreadable input, unknown tool), 401
+(no actor, or the actor is not a user), 403 (no suggesting role in the matter,
+also for a matter that does not exist: section 12 authorizes first), 404 (a
+repository that does not exist), 409 (duplicate, naming the existing assertion
+in the text and as `existing_assertion_id`), 422 (payload or arguments) and 500
+(local database or installation). An unpaired surrogate escape is the CLI's and
+REST's 422 (section 7); the MCP SDK's stdio transport drops such a request
+without an answer.
+CLI input and output are UTF-8 regardless of locale, and so are text arguments
+such as `--query`; the `--input` file name reaches the file system as given.
+Both interfaces check the database before use: an unset, in-memory, missing or
+uninitialized database is refused with the resolved path, and no file is ever
+created. A database created
 by an older release is refused too, by the API server's schema check, with the
 `python -m app.migrate` command that upgrades it. The MCP server exits at
 startup in those cases, and when `LEXGRAPH_AGENT_USER_ID` names no user.
@@ -1206,8 +1216,11 @@ cannot be quoted within 1,000 characters is not suggested. Every enricher's text
 is held to the 100,000-character cap before it is sanitized. Its evidence is
 limited to the matter's own spans. The triggering user must exist and hold a
 contributor, reviewer or admin role in the matter; the CLI otherwise reports
-the problem and exits 1, as it does for an unknown matter, an unset or in-memory
-database URL, or a database without the LexGraph tables.
+the problem and exits 1, as it does for an unknown matter and for every
+database the agent CLI's check refuses: an unset or in-memory database URL, a
+database file that does not exist (nothing is created), a database without the
+LexGraph tables, and one created by an older release (naming the
+`python -m app.migrate` command).
 
 ## Listing, statistics, graph bounds and timestamps (2026-11-16)
 

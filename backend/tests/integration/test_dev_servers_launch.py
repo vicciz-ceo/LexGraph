@@ -59,7 +59,8 @@ def _status(url: str, token: str | None = None) -> int:
         with _DIRECT.open(request, timeout=10) as response:
             return response.status
     except urllib.error.HTTPError as error:
-        return error.code
+        with error:  # it holds the response open: a ResourceWarning under -W error (ops-docs:1)
+            return error.code
 
 
 def _listening(port: int) -> bool:

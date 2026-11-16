@@ -13,6 +13,7 @@ from __future__ import annotations
 import sqlite3
 import subprocess
 import sys
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -27,7 +28,8 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _user_ids(db: Path) -> set[str]:
-    with sqlite3.connect(db) as conn:
+    # A connection's own `with` only commits; closing() closes it (ops-docs:1).
+    with closing(sqlite3.connect(db)) as conn:
         return {row[0] for row in conn.execute("SELECT id FROM users")}
 
 

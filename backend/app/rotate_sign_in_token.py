@@ -10,8 +10,9 @@ Usage (from ``backend/``):
     .venv/bin/python -m app.rotate_sign_in_token --db dev.db --user-id USER_ID
     .venv/bin/python -m app.rotate_sign_in_token --db dev.db --list-legacy
 
-Without ``--db``, ``LEXGRAPH_DATABASE_URL`` is used. Rotating prints the new
-token exactly once; only its hash is stored and the previous token stops
+Without ``--db``, ``LEXGRAPH_DATABASE_URL`` is used. A database file that
+does not exist is refused, and nothing is created there. Rotating prints the
+new token exactly once; only its hash is stored and the previous token stops
 working immediately. ``--list-legacy`` lists accounts whose token is still
 their public user id (left by the ``m20261116_sign_in_tokens`` migration),
 which every member who can see that id could use to sign in as them.
@@ -39,7 +40,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     from sqlalchemy import inspect, select
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import ArgumentError, DBAPIError, SQLAlchemyError
 
+    from app.agent_database import _sqlite_file
     from app.auth import issue_sign_in_token, legacy_sign_in_user_ids
     from app.config import get_settings
     from app.db import make_engine, make_session_factory
@@ -47,15 +51,34 @@ def main(argv: list[str] | None = None) -> int:
     from app.routers.users import find_users_by_email
 
     url = f"sqlite:///{args.db}" if args.db else get_settings().database_url
-    if url in ("sqlite://", "sqlite:///:memory:"):
-        print(
-            "error: pass --db PATH or set LEXGRAPH_DATABASE_URL to the server's database",
-            file=sys.stderr,
-        )
-        return 1
-
-    engine = make_engine(url)
     try:
+        parsed = make_url(url)
+    except ArgumentError:
+        print(f"error: LEXGRAPH_DATABASE_URL is not a database URL: {url!r}", file=sys.stderr)
+        return 1
+    where = parsed.render_as_string(hide_password=True)
+    if parsed.get_backend_name() == "sqlite":
+        # Resolved as the driver will, and checked before connecting: SQLite
+        # would create a missing file there (review identity:3).
+        path = _sqlite_file(parsed)
+        if path is None:  # in-memory: empty, and no other process can see it
+            print(
+                "error: pass --db PATH or set LEXGRAPH_DATABASE_URL to the server's database",
+                file=sys.stderr,
+            )
+            return 1
+        if not path.is_file():
+            problem = f"{path} is a directory" if path.is_dir() else f"no database file at {path}"
+            print(
+                f"error: {problem} (nothing was created); pass --db with the server's database file",
+                file=sys.stderr,
+            )
+            return 1
+        where = str(path)
+
+    engine = None
+    try:
+        engine = make_engine(url)
         inspector = inspect(engine)
         if not inspector.has_table("users"):
             print("error: no users table; is this the right database?", file=sys.stderr)
@@ -108,8 +131,13 @@ def main(argv: list[str] | None = None) -> int:
             print("Shown once; the previous token no longer works:")
             print(token)
             return 0
+    except (ImportError, SQLAlchemyError) as exc:  # one line, not a traceback
+        reason = exc.orig if isinstance(exc, DBAPIError) else str(exc).splitlines()[0]
+        print(f"error: cannot use the database at {where}: {reason}", file=sys.stderr)
+        return 1
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
 
 
 if __name__ == "__main__":
