@@ -52,9 +52,34 @@ export interface Assertion {
   evidence_status: EvidenceStatus;
 }
 
+/** Current-revision rating aggregate embedded in every GET /assertions item:
+ * all ratings, the author's included. Null when the revision is unrated or
+ * the assertion has no revision row (definition-link pipeline output). */
+export interface ListRatingsSummary {
+  assertion_id: string;
+  assertion_revision_id: string;
+  average: number;
+  median: number;
+  count: number;
+  distribution: Record<string, number>;
+}
+
+/** A GET /assertions item: the detail serializer's fields plus list-only ones
+ * (optional here so fixtures built from a plain Assertion still type-check). */
+export interface AssertionListItem extends Assertion {
+  ratings_summary?: ListRatingsSummary | null;
+  current_user_rating?: CurrentUserRating | null;
+  /** UTC instant: the later of updated_at and the newest audit event. */
+  last_activity_at?: string;
+}
+
 export interface AssertionList {
-  items: Assertion[];
+  items: AssertionListItem[];
+  /** Every match, whatever limit/offset returned. */
   total: number;
+  /** The request's page size; null when it set none (every match returned). */
+  limit?: number | null;
+  offset?: number;
 }
 
 export interface AssertionListParams {
@@ -67,7 +92,24 @@ export interface AssertionListParams {
   min_rating_count?: number;
   unrated_by_me?: boolean;
   my_rating?: number;
+  /** Comma-separated sort keys; a "-" prefix sorts descending. */
   sort?: string;
+  assertion_type?: string;
+  author_user_id?: string;
+  subject_entity_type?: string;
+  subject_entity_id?: string;
+  object_entity_type?: string;
+  object_entity_id?: string;
+  /** ISO instants; each range is half-open, [from, to). */
+  created_from?: string;
+  created_to?: string;
+  last_activity_from?: string;
+  last_activity_to?: string;
+  /** YYYY-MM-DD: in effect on that date. */
+  effective_on?: string;
+  /** Page size, 1–500. Without it every match is returned. */
+  limit?: number;
+  offset?: number;
 }
 
 export interface Evidence {
@@ -200,6 +242,10 @@ export interface GraphEdge {
 export interface MatterGraph {
   matter_id: string;
   edges: GraphEdge[];
+  /** Every edge of the view; `edges` holds at most `limit` (default 1000) after `offset`. */
+  total?: number;
+  limit?: number;
+  offset?: number;
 }
 
 export interface UserInfo {

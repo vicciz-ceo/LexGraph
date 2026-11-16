@@ -113,6 +113,8 @@ describe("KnowledgeBasePage jurisdiction filter", () => {
         status: "accepted",
         jurisdiction: "US-DE",
         sort: "-created_at",
+        limit: 50,
+        offset: 0,
       }),
     );
   });

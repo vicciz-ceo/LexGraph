@@ -5,7 +5,7 @@
 // assertions in every status the viewer can see, and submitting the same
 // query again must re-run it even though the URL does not change.
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +15,6 @@ vi.mock("../../api/client", () => ({
   api: {
     listAssertions: vi.fn(),
     notifications: vi.fn(),
-    ratingSummary: vi.fn(() => new Promise(() => {})),
   },
 }));
 
@@ -92,7 +91,18 @@ function inPageInput(): HTMLElement {
   return boxes[0];
 }
 
-beforeEach(() => {
+/** Set the hash and let its (asynchronous) hashchange fire before anything
+ * renders: in the app a page mounts in response to that event, never before. */
+async function setHash(hash: string): Promise<void> {
+  const target = hash === "" || hash === "#" ? "" : hash.startsWith("#") ? hash : `#${hash}`;
+  if (window.location.hash === target) return;
+  await new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => resolve(), { once: true });
+    window.location.hash = hash;
+  });
+}
+
+beforeEach(async () => {
   mockedApi.listAssertions.mockReset();
   mockedApi.notifications.mockReset();
   // A stand-in for the server: the revision-requested assertion matches any
@@ -106,11 +116,12 @@ beforeEach(() => {
   mockedApi.notifications.mockResolvedValue([]);
   // Another page that loads nothing for a viewer ("Not authorized"), so the
   // search below is entered from outside the Knowledge Base.
-  window.location.hash = "#/admin";
+  await setHash("#/admin");
 });
 
-afterEach(() => {
-  window.location.hash = "";
+afterEach(async () => {
+  cleanup();
+  await setHash("");
 });
 
 describe("topbar global search", () => {
@@ -128,11 +139,12 @@ describe("topbar global search", () => {
   });
 
   it("from the Knowledge Base, searches every status, so a revision-requested assertion is found", async () => {
-    window.location.hash = "#/knowledge";
+    await setHash("#/knowledge");
     const user = userEvent.setup();
     render(<App />);
     // The plain Knowledge Base is still the accepted catalog.
     expect(await screen.findByText("No assertions found")).toBeInTheDocument();
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
     expect(mockedApi.listAssertions).toHaveBeenLastCalledWith(
       "m1",
       expect.objectContaining({ status: "accepted" }),
