@@ -51,7 +51,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Session
 
@@ -216,21 +216,30 @@ def reviewers_of(session: Session, matter_id: str) -> set[str]:
 def participants_of(session: Session, assertion: Assertion) -> set[str]:
     """Everyone who has worked on `assertion`: its author and last reviewer,
     the editors of its revisions, whoever attached evidence, commented on it
-    (comments not deleted) or rated any of its revisions."""
+    (comments not deleted) or rated any of its revisions.
+
+    Runs for every comment, evidence and edit notice before the response is
+    sent, so each lookup is an index search on this assertion's rows, whose
+    cost does not grow with other matters (review workflow:5). Raters are
+    found through the revisions (ix_assertion_ratings_assertion_revision_id):
+    assertion_ratings has no index on assertion_id, and SQLite answered
+    ``DISTINCT user_id ... WHERE assertion_id = ?`` by walking the whole
+    (user_id, assertion_revision_id) index and reading every rating. Rows
+    are deduplicated here rather than with DISTINCT, so that no plan has a
+    reason to walk a user-ordered index.
+    """
+    revisions = select(AssertionRevision.id).where(AssertionRevision.assertion_id == assertion.id)
     ids: set[str | None] = {assertion.author_user_id, assertion.reviewed_by}
     for column, where in (
         (AssertionRevision.edited_by_user_id, AssertionRevision.assertion_id == assertion.id),
         (AssertionEvidence.added_by_user_id, AssertionEvidence.assertion_id == assertion.id),
-        (AssertionRating.user_id, AssertionRating.assertion_id == assertion.id),
+        (AssertionRating.user_id, AssertionRating.assertion_revision_id.in_(revisions)),
+        (  # ix_assertion_comments_assertion_id
+            AssertionComment.user_id,
+            and_(AssertionComment.assertion_id == assertion.id, AssertionComment.deleted_at.is_(None)),
+        ),
     ):
-        ids |= set(session.scalars(select(column).where(where).distinct()))
-    ids |= set(
-        session.scalars(
-            select(AssertionComment.user_id)
-            .where(AssertionComment.assertion_id == assertion.id, AssertionComment.deleted_at.is_(None))
-            .distinct()
-        )
-    )
+        ids.update(session.scalars(select(column).where(where)))
     ids.discard(None)
     return ids  # type: ignore[return-value]
 
