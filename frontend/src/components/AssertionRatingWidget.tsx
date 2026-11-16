@@ -37,7 +37,19 @@ export function AssertionRatingWidget({
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const rationaleId = useId();
+  // Follow the saved rating when it changes (after a save or a reload). The
+  // state already starts from it, so the mount needs no sync: React may run
+  // a mount's effects after a first click, which would undo that click.
+  const syncedFrom = useRef({ currentUserRating, currentRationale });
   useEffect(() => {
+    const previous = syncedFrom.current;
+    if (
+      previous.currentUserRating === currentUserRating &&
+      previous.currentRationale === currentRationale
+    ) {
+      return;
+    }
+    syncedFrom.current = { currentUserRating, currentRationale };
     setSelectedStrength(currentUserRating);
     setRationale(currentRationale ?? "");
   }, [currentUserRating, currentRationale]);

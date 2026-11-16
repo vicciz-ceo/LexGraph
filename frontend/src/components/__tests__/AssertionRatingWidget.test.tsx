@@ -6,7 +6,8 @@
 // module-resolution failure, not an assertion failure; that is the
 // accepted RED shape for frontend component files ONLY.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { AssertionRatingWidget } from "../AssertionRatingWidget";
@@ -88,4 +89,67 @@ it("retains the saved rationale when changing only the strength", async () => {
   fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
   fireEvent.click(screen.getByRole("button", { name: "Update rating" }));
   expect(onSave).toHaveBeenCalledWith({ strength: 4, rationale: "Exact source supports the claim." });
+});
+
+// XREQ-96: "saves a strength rating against the current revision" on the
+// detail page failed now and then. The widget re-syncs its selection from
+// its props in an effect, and React runs a mount's effects in a later task
+// when the mount was not urgent (data that arrived). A click landing in
+// between (the order of those tasks varies under load) was undone by that
+// late effect: the selection fell back to the props, Save stayed disabled
+// and nothing was saved. React's scheduler runs a mount's effects in the
+// same task unless the render outlasts its time slice, as the large detail
+// page can under load. Rendering outside act() next to a slow sibling and
+// clicking from a MutationObserver reproduces that order deterministically.
+// (jsdom keeps an earlier test's click as window.event, which would make
+// React treat this mount as urgent and run its effects at once; the stub
+// hides it while mounting.)
+function SlowSibling(): null {
+  const end = performance.now() + 20;
+  while (performance.now() < end) {
+    // A render longer than the scheduler's time slice (5 ms).
+  }
+  return null;
+}
+
+describe("AssertionRatingWidget mounted by data that just arrived", () => {
+  it("keeps a selection made before its mount effects have run", async () => {
+    const reactGlobal = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const previous = reactGlobal.IS_REACT_ACT_ENVIRONMENT;
+    reactGlobal.IS_REACT_ACT_ENVIRONMENT = false;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const noEvent = vi.spyOn(window, "event", "get").mockReturnValue(undefined);
+    try {
+      const clicked = new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          const radio = container.querySelector<HTMLElement>('[aria-label="4 - Strong"]');
+          if (!radio) return;
+          observer.disconnect();
+          noEvent.mockRestore();
+          radio.click(); // before the scheduled mount effects
+          resolve();
+        });
+        observer.observe(container, { childList: true, subtree: true });
+      });
+      root.render(
+        <>
+          <SlowSibling />
+          <AssertionRatingWidget currentUserRating={null} onSave={vi.fn()} onRemove={vi.fn()} />
+        </>,
+      );
+      await clicked;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const strong = container.querySelector('[aria-label="4 - Strong"]');
+      expect(strong).toHaveAttribute("aria-checked", "true");
+      expect(within(container).getByRole("button", { name: "Save rating" })).toBeEnabled();
+    } finally {
+      noEvent.mockRestore();
+      root.unmount();
+      container.remove();
+      reactGlobal.IS_REACT_ACT_ENVIRONMENT = previous;
+    }
+  });
 });
