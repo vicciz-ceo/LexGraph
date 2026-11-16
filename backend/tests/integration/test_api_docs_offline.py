@@ -9,9 +9,13 @@ Swagger UI showed no Authorize button and every "Try it out" call got 401.
 
 from __future__ import annotations
 
+import gc
 import re
+import weakref
 
 from fastapi.testclient import TestClient
+
+from app.main import create_app
 
 _HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
@@ -117,3 +121,27 @@ def test_docs_pages_forbid_every_third_party_origin(client):
         assert sources[0] == "default-src"
         assert "'self'" in sources
         assert not [s for s in sources if "." in s or s.endswith(":") and s not in ("data:", "blob:")], policy
+
+
+def _build_and_use_an_app(dist) -> weakref.ref:
+    application = create_app(frontend_dist=dist)
+    try:
+        with TestClient(application) as client:
+            for path in ("/docs", "/redoc", "/openapi.json", "/", "/api/v1/nope", "/healthz"):
+                client.get(path)
+    finally:
+        application.state.engine.dispose()
+    return weakref.ref(application)
+
+
+def test_apps_built_by_create_app_are_garbage_collected(app, tmp_path):
+    """FastAPI caches endpoint callables process-wide (an lru_cache keyed by the
+    callable). Docs endpoints that closed over the app kept every app a test
+    session built alive, with its engine: 264 apps after 300 tests, about 2M
+    extra objects by the end of the suite."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>LexGraph</title>")
+    refs = [_build_and_use_an_app(dist) for _ in range(3)]
+    gc.collect()
+    assert [ref() for ref in refs] == [None, None, None]

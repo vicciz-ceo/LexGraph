@@ -157,45 +157,55 @@ def _serve_frontend(app: FastAPI, dist: Path) -> None:
     app.add_exception_handler(StarletteHTTPException, web_app_fallback)
 
 
+# The two docs pages are module-level and read the app from the request. FastAPI
+# keeps process-wide caches keyed by endpoint callables, so an endpoint closing
+# over `app` would keep every app (and its engine) a test session builds alive.
+# Like FastAPI's own docs routes, they are plain routes (add_route), not API
+# routes, so no dependency analysis applies.
+
+
+def _docs_root(request: Request) -> str:
+    # Behind a reverse proxy mounted under a sub-path (uvicorn --root-path).
+    return request.scope.get("root_path", "").rstrip("/")
+
+
+async def _swagger_ui_page(request: Request) -> HTMLResponse:
+    app, root = request.app, _docs_root(request)
+    static = f"{root}{API_DOCS_STATIC_PATH}"
+    page = get_swagger_ui_html(
+        openapi_url=f"{root}{app.openapi_url}",
+        title=f"{app.title} - Swagger UI",
+        swagger_js_url=f"{static}/swagger-ui-bundle.js",
+        swagger_css_url=f"{static}/swagger-ui.css",
+        swagger_favicon_url=f"{static}/favicon-32x32.png",
+        # Keep the token across reloads (the web app keeps its own in
+        # localStorage the same way); never contact validator.swagger.io.
+        swagger_ui_parameters={"persistAuthorization": True, "validatorUrl": None},
+    )
+    page.headers["Content-Security-Policy"] = API_DOCS_CSP
+    return page
+
+
+async def _redoc_page(request: Request) -> HTMLResponse:
+    app, root = request.app, _docs_root(request)
+    static = f"{root}{API_DOCS_STATIC_PATH}"
+    page = get_redoc_html(
+        openapi_url=f"{root}{app.openapi_url}",
+        title=f"{app.title} - ReDoc",
+        redoc_js_url=f"{static}/redoc.standalone.js",
+        redoc_favicon_url=f"{static}/favicon-32x32.png",
+        with_google_fonts=False,
+    )
+    page.headers["Content-Security-Policy"] = API_DOCS_CSP
+    return page
+
+
 def _register_api_docs(app: FastAPI) -> None:
     """Serve /docs and /redoc from the vendored assets (FastAPI's defaults load
     them from cdn.jsdelivr.net, plus fonts.googleapis.com for Redoc)."""
     app.mount(API_DOCS_STATIC_PATH, StaticFiles(directory=API_DOCS_ASSETS), name="api-docs-static")
-
-    def _prefix(request: Request) -> str:
-        # Behind a reverse proxy mounted under a sub-path (uvicorn --root-path).
-        return request.scope.get("root_path", "").rstrip("/")
-
-    @app.get("/docs", include_in_schema=False)
-    def swagger_ui(request: Request) -> HTMLResponse:
-        root = _prefix(request)
-        static = f"{root}{API_DOCS_STATIC_PATH}"
-        page = get_swagger_ui_html(
-            openapi_url=f"{root}{app.openapi_url}",
-            title=f"{app.title} - Swagger UI",
-            swagger_js_url=f"{static}/swagger-ui-bundle.js",
-            swagger_css_url=f"{static}/swagger-ui.css",
-            swagger_favicon_url=f"{static}/favicon-32x32.png",
-            # Keep the token across reloads (the web app keeps its own in
-            # localStorage the same way); never contact validator.swagger.io.
-            swagger_ui_parameters={"persistAuthorization": True, "validatorUrl": None},
-        )
-        page.headers["Content-Security-Policy"] = API_DOCS_CSP
-        return page
-
-    @app.get("/redoc", include_in_schema=False)
-    def redoc(request: Request) -> HTMLResponse:
-        root = _prefix(request)
-        static = f"{root}{API_DOCS_STATIC_PATH}"
-        page = get_redoc_html(
-            openapi_url=f"{root}{app.openapi_url}",
-            title=f"{app.title} - ReDoc",
-            redoc_js_url=f"{static}/redoc.standalone.js",
-            redoc_favicon_url=f"{static}/favicon-32x32.png",
-            with_google_fonts=False,
-        )
-        page.headers["Content-Security-Policy"] = API_DOCS_CSP
-        return page
+    app.add_route("/docs", _swagger_ui_page, include_in_schema=False)
+    app.add_route("/redoc", _redoc_page, include_in_schema=False)
 
 
 def _declare_bearer_auth(app: FastAPI) -> None:
