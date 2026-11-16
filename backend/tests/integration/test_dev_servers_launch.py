@@ -213,4 +213,7 @@ def test_frontend_configuration_reaches_the_backend_configuration_through_its_pr
 
     os.killpg(backend.pid, signal.SIGTERM)
     backend.wait(15)
-    assert _status(me, token="no-such-user") == 500  # a frontend without its backend: the defect
+    # A frontend without its backend (the defect): the Vite proxy itself
+    # answers. Vite 8 (frontend/package-lock.json) reports a failed proxy
+    # request as 502 Bad Gateway; Vite 5 used 500.
+    assert _status(me, token="no-such-user") == 502
