@@ -171,14 +171,16 @@ interface ExportRun {
   cancelled: boolean;
 }
 
-/** Every match of `filters`, EXPORT_PAGE_SIZE rows per request; null if cancelled. */
-async function fetchEveryMatch(
+/** The CSV line of every match of `filters`, EXPORT_PAGE_SIZE rows per
+ * request; null if cancelled. Only the lines are kept, not the rows, so a
+ * matter of hundreds of thousands of assertions fits in memory. */
+async function exportLines(
   matterId: string,
   filters: AssertionListParams,
   run: ExportRun,
   onProgress: (done: number, total: number) => void,
-): Promise<AssertionListItem[] | null> {
-  const rows: AssertionListItem[] = [];
+): Promise<string[] | null> {
+  const lines: string[] = [];
   const seen = new Set<string>();
   let offset = 0;
   for (;;) {
@@ -192,17 +194,17 @@ async function fetchEveryMatch(
       // A row created mid-export shifts later pages by one; write it once.
       if (!seen.has(item.id)) {
         seen.add(item.id);
-        rows.push(item);
+        lines.push(csvLine(item));
       }
     }
     offset += page.items.length;
-    onProgress(rows.length, page.total);
-    if (page.items.length < EXPORT_PAGE_SIZE || offset >= page.total) return rows;
+    onProgress(lines.length, page.total);
+    if (page.items.length < EXPORT_PAGE_SIZE || offset >= page.total) return lines;
   }
 }
 
-function downloadCsv(rows: AssertionListItem[], matterId: string): void {
-  const csv = [CSV_HEADER.join(","), ...rows.map(csvLine)].join("\r\n");
+function downloadCsv(lines: string[], matterId: string): void {
+  const csv = [CSV_HEADER.join(","), ...lines].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -332,10 +334,10 @@ export function KnowledgeBasePage() {
     setExportError(null);
     setExportProgress({ done: 0, total });
     try {
-      const rows = await fetchEveryMatch(matterId, filters, run, (done, of) => {
+      const lines = await exportLines(matterId, filters, run, (done, of) => {
         if (!run.cancelled) setExportProgress({ done, total: of });
       });
-      if (rows !== null && !run.cancelled) downloadCsv(rows, matterId);
+      if (lines !== null && !run.cancelled) downloadCsv(lines, matterId);
     } catch (err: unknown) {
       if (!run.cancelled) {
         setExportError(err instanceof Error ? err.message : "the server did not respond");
