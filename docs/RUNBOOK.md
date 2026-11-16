@@ -182,6 +182,8 @@ for migration in (m20261116_assertion_revision_number_unique, m20261116_backfill
 cd ..
 ```
 
+Effective dates are stored as UTC instants from 2026-11-16 on. Before that, a date submitted with a UTC offset (for example `2030-01-01T00:00:00+05:00`) was stored as its wall-clock part with the offset dropped. The offset is not recorded anywhere, so such values cannot be corrected automatically; an edit that leaves both dates alone still works, and resubmitting a date stores it correctly. Ranges that became inverted this way can be listed with `SELECT id FROM assertions WHERE effective_to < effective_from;`.
+
 ## Backend Server
 
 ### Starting the Backend

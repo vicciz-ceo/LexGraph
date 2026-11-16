@@ -82,11 +82,15 @@ They are self-reported provenance, not verified identity. Confidence is optional
 finite, and between 0 and 1; it is never a lawyer rating or proof of correctness.
 The canonical schema and assertion vocabulary come from `schema`, so agents need
 not hardcode them. Unknown assertion types require
-`assertion_type_is_proposed_new: true`.
+`assertion_type_is_proposed_new: true`. Effective dates are UTC instants: an
+offset in `effective_from`/`effective_to` is applied (a value without one is
+read as UTC, a date as midnight UTC), and responses give the UTC value without
+an offset.
 
 ## Persistence and errors
 
-Creation, revision 1, evidence, explanation (an initial comment), audit, and agent
+Creation, revision 1, evidence, explanation (an initial comment, kept with its
+raw text even if markup removal leaves nothing), audit, and agent
 provenance commit together. Provenance is retained in the existing audit table
 and surfaced as `agent_provenance`; subsequent lawyer edits preserve it.
 `origin` is always `model_suggested`, and only `draft` or `proposed` is allowed.
@@ -94,7 +98,10 @@ No agent-submission operation accepts assertions or creates ratings.
 
 - **403:** actor lacks the required matter role. An admin must grant access.
 - **422:** fix the reported validation issue (including missing/cross-matter
-  sources, wrong repository, invalid confidence or dates).
+  sources, wrong repository, invalid confidence or dates, a date outside the
+  years 1–9999 once in UTC, one source span listed twice with the same role,
+  text over 100,000 characters, or JSON with an unpaired surrogate escape such
+  as `\ud800`).
 - **409 duplicate:** no second assertion was created. Read the existing assertion
   ID in the error and inspect it. Do not retry with cosmetic rewording. This
   holds for concurrent and retried submissions too (parallel agents, CLI, MCP
@@ -113,15 +120,17 @@ In **Review Queue**, lawyers can inspect model proposals, source quotations and
 self-reported provenance. Reviewers can edit any assertion through **Edit
 assertion**; contributors can edit their own unreviewed submissions. Saving an
 edit creates a revision and checks for stale edits. An accepted assertion returns
-to proposed status after a material edit. Previous revision text and rating
-summaries remain available in **Activity**.
+to proposed status after a material edit. Saving without a material change
+does nothing: no revision is created, and status and ratings stay as they were.
+Previous revision text and rating summaries remain available in **Activity**.
 
 Lawyers rate the current revision from 1–5 with an optional rationale, update or
 remove their rating, and create their own assertions using **Suggest Assertion**.
 That form searches actual document/article subjects and evidence quotes, supports
 an optional object, and saves a draft or submits for review. Drafts can be edited,
 submitted or withdrawn from their detail page. Requested revisions can be
-resubmitted. Explanations appear as comments. Ratings never accept an assertion;
+resubmitted; the assertion then shows no reviewer until the next decision.
+Explanations appear as comments. Ratings never accept an assertion;
 formal acceptance remains a reviewer action.
 
 See [MCP registration](mcp-registration.md) for agent-client configuration.

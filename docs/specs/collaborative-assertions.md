@@ -180,6 +180,7 @@ Implementation rules (2026-11-16):
 
 - Every assertion has a revision row for its current_revision_number, whatever wrote it. The persistence layer enforces this: when a transaction commits an inserted assertion that has no such row, an initial revision is recorded from the assertion's own fields (edited by its author; revision_reason "initial creation (system-generated)" for the definition-links pass), together with an "Assertion created" audit event. Writers that record revision 1 themselves (the REST/agent creation path, offline enrichment) are unaffected. This covers the deterministic definition-links pass, whose system_generated assertions are therefore ratable, keep their generated text as revision 1 when edited, and give review decisions a revision to name. Assertions stored without revision 1 before this rule are backfilled by a migration.
 - revision_number is unique per assertion (database constraint).
+- An edit that changes nothing material creates nothing. PATCH and POST /revisions first check permission (403), the stale base revision (409) and validity (422), then compare each submitted value with the stored one: the proposition with the authored text (the current revision's raw text), entities as {type, id}, effective dates as UTC instants, other fields as they are. When nothing differs, no revision or audit event is written and status, review metadata, ratings and updated_at stay as they were: PATCH answers 200 with the unchanged assertion, and POST /revisions answers 200 with the unchanged current revision (201 only when it created one). revision_reason, expected_revision_number and assertion_type_is_proposed_new are never changes on their own. POST /revisions takes PATCH's body with PATCH's semantics (omitted fields are kept, an explicit null clears an optional field).
 
 ==================================================
 4. USER STRENGTH RATINGS
@@ -402,6 +403,14 @@ Requirements:
 - Assertion type must come from an allowed controlled vocabulary or be explicitly marked as a proposed new type.
 - Raw HTML and scripts must be sanitized.
 - Submitted text must not be treated as system or model instructions.
+
+Implementation rules (2026-11-16):
+
+- Effective dates are UTC instants. An offset is applied before storage, never dropped; a value without an offset is read as UTC and a date as midnight UTC; responses give the UTC value without an offset. A value outside the years 1 to 9999 once converted to UTC is a 422. The range is checked on creation and whenever an edit sets a date; an edit that leaves both dates alone is not blocked by the stored range.
+- An edit keeps the assertion's own assertion_type without a vocabulary check, whether or not it is a proposed new type. An edit that changes the type follows the creation rule; PATCH and POST /revisions accept assertion_type_is_proposed_new for that.
+- The 100,000-character length caps are checked on the raw submitted text before it is sanitized: the proposition and explanation on creation, the proposition on PATCH and POST /revisions, comment text and rating rationales on their own routes.
+- A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored.
+- A creation payload that lists the same source span twice with the same evidence role is a 422.
 
 The interface should warn the user when:
 
@@ -626,6 +635,10 @@ Administrator:
 - Manage assertion types and permissions
 
 All permission checks must occur server-side.
+
+Evidence (2026-11-16). Attaching or removing evidence modifies the assertion, so it follows the edit rule: the author, with contributor membership, of a draft, proposed or revision_requested assertion, or a reviewer or admin for any assertion. Removing the last supporting span (supports, primary_basis or secondary_basis) of an accepted assertion is refused with 409; attach another supporting span first, or return the assertion to review. A source span is attached to an assertion at most once per role; attaching it again with the same role is a 409.
+
+Creation checks the caller's suggesting role (contributor, reviewer or admin) in the matter before anything else in the payload: a caller without one gets 403 whatever matter, repository or pairing it sends.
 
 ==================================================
 13. API REQUIREMENTS
@@ -979,6 +992,9 @@ confidence remains separate. Only draft/proposed states are allowed. Agent
 references must resolve to persisted, same-matter entities, and evidence must
 resolve to a same-matter document in the selected repository. Explanations are
 preserved as initial comments; creation and provenance audit are transactional.
+An explanation is stored as POST .../comments stores the same text (sanitized
+text plus the raw authored text), also when nothing survives sanitization; a
+blank explanation creates no comment (2026-11-16).
 
 Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
 provide actual source choices for the lawyer suggestion form. Evidence details
@@ -988,6 +1004,8 @@ remain supported by the human API; the agent interface requires persisted types.
 Lawyers edit through recorded revisions using `expected_revision_number`, can
 submit drafts/requested revisions and withdraw unreviewed suggestions. An author
 needs contributor membership and an unreviewed status; reviewers can revise
-reviewed assertions. Revisions retain prior ratings without copying them forward.
+reviewed assertions. Saving without a material change creates no revision (see
+section 3). Submitting clears reviewed_by and reviewed_at; the earlier decision
+stays in the audit trail. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
