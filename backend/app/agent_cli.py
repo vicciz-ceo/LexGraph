@@ -8,11 +8,12 @@ from pathlib import Path
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from app import models  # register mappings before opening a session
+from app.agent_database import ConfigurationError, open_database
 from app.config import get_settings
-from app.db import make_engine, make_session_factory
+from app.db import make_session_factory
 from app.models.assertion import Assertion
 from app.models.assertion_revision import AssertionRevision
 from app.routers.agents import AgentAssertionCreate, suggest_assertion
@@ -89,12 +90,7 @@ def main(argv=None) -> int:
         else:
             if not args.user_id:
                 raise HTTPException(401, "Set LEXGRAPH_AGENT_USER_ID or --user-id")
-            url = get_settings().database_url
-            if url in ("sqlite://", "sqlite:///:memory:"):
-                raise HTTPException(422, "Configure a persistent LEXGRAPH_DATABASE_URL; in-memory databases cannot be shared")
-            engine = make_engine(url)
-            if not inspect(engine).has_table("assertions"):
-                raise HTTPException(422, "Database is not initialized. Use app.bootstrap before submitting suggestions")
+            engine = open_database(get_settings().database_url)
             with make_session_factory(engine)() as session:
                 if args.command == "context":
                     result = context(session, args.user_id, args.matter_id, args.query, args.limit, args.offset)
@@ -104,6 +100,9 @@ def main(argv=None) -> int:
                     result = suggest_assertion(body, session, args.user_id)
         print(json.dumps(jsonable_encoder(result), ensure_ascii=False))
         return 0
+    except ConfigurationError as exc:  # the local setup, not the payload
+        print(json.dumps({"error": str(exc), "status": 500}, ensure_ascii=False), file=sys.stderr)
+        return 1
     except (HTTPException, ValidationError, ValueError, OSError, SQLAlchemyError) as exc:
         detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
         print(json.dumps({"error": detail, "status": getattr(exc, "status_code", 422)}, ensure_ascii=False), file=sys.stderr)

@@ -8,6 +8,9 @@ using `.venv/bin/python`.
 
 - Use the configured local database and a dedicated agent user with contributor
   membership in the intended matter. Do not guess the database path or actor.
+  `context` and `suggest` need its absolute four-slash URL (`sqlite:////...`):
+  a relative `sqlite:///` URL resolves against the current directory, and the
+  CLI refuses a database file that does not exist instead of creating one.
 - Discover authorized matters, actual entity IDs, and exact documentary source
   spans with `context` or the MCP `agent_context` tool before suggesting claims.
 - Submit via the CLI, MCP `suggest_assertion`, or `/api/v1/agent/assertions`.

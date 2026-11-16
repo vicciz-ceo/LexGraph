@@ -22,7 +22,10 @@ cd /absolute/path/to/LexGraph/backend
 ```
 
 SQLite absolute URLs have four slashes. The agent CLI refuses the default
-in-memory database because another process cannot share it. No schema migration
+in-memory database because another process cannot share it. A relative
+`sqlite:///` URL resolves against the current directory, so the CLI also
+refuses a URL whose file does not exist or has no LexGraph schema; the error
+names the resolved path, and no file is ever created. No schema migration
 is needed for this workflow on an already-current LexGraph database.
 
 ## Discover, reason, submit

@@ -7,16 +7,20 @@ See docs/mcp-registration.md and docs/AGENT_GUIDE.md.
 
 from __future__ import annotations
 
+import os
+
 from mcp.server.mcpserver import MCPServer
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.agent_cli import assertion_search
+from app.agent_database import ConfigurationError
 from app.models.assertion import Assertion
 from app.models.assertion_evidence import AssertionEvidence
 from app.models.assertion_revision import AssertionRevision
 from app.models.source_span import SourceSpan
 from app.models.matter_role import MatterRole
+from app.models.user import User
 
 # Bounded output (gate G7: "in one bounded call" -- no unbounded dumps).
 _DEFAULT_RESULT_LIMIT = 10
@@ -191,19 +195,28 @@ def create_server(session_factory: sessionmaker[Session], *, agent_user_id: str 
     return server
 
 
-def _stdio_main() -> None:  # pragma: no cover -- exercised via manual local run
-    """Entrypoint for `python -m app.mcp.server`: wires a session factory
-    from this app's usual settings (`LEXGRAPH_DATABASE_URL`, defaulting to
-    an in-memory SQLite DB) and serves `explore`/`search`/`fetch` over
-    stdio."""
+def _stdio_main() -> None:  # pragma: no cover -- run as a subprocess by the tests
+    """Entrypoint for `python -m app.mcp.server`: serves explore, search, fetch
+    and assertion_guide over stdio, plus agent_context and suggest_assertion
+    when LEXGRAPH_AGENT_USER_ID names a user. LEXGRAPH_DATABASE_URL must be an
+    initialized LexGraph database; otherwise the process exits with a one-line
+    reason on stderr (stdout carries JSON-RPC) instead of serving tools that
+    all fail."""
+    from app.agent_database import open_database
     from app.config import get_settings
-    from app.db import make_engine, make_session_factory
+    from app.db import make_session_factory
 
-    settings = get_settings()
-    engine = make_engine(settings.database_url)
-    session_factory = make_session_factory(engine)
-    import os
-    server = create_server(session_factory, agent_user_id=os.environ.get("LEXGRAPH_AGENT_USER_ID") or None)
+    agent_user_id = os.environ.get("LEXGRAPH_AGENT_USER_ID") or None
+    try:
+        engine = open_database(get_settings().database_url)
+        with Session(engine) as session:
+            if agent_user_id and session.get(User, agent_user_id) is None:
+                raise ConfigurationError(
+                    f"LEXGRAPH_AGENT_USER_ID {agent_user_id!r} is not a user in {engine.url.database}; "
+                    "use the id of a dedicated agent account created in Admin")
+    except ConfigurationError as exc:
+        raise SystemExit(f"lexgraph MCP server: {exc}") from None
+    server = create_server(make_session_factory(engine), agent_user_id=agent_user_id)
     server.run(transport="stdio")
 
 

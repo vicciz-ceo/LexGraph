@@ -22,6 +22,13 @@ First create an agent account through Admin and grant contributor membership.
 Replace all paths and `AGENT_USER_ID` below. These examples configure clients;
 they do not start an LLM or make any provider API calls.
 
+The server checks its configuration at startup. If `LEXGRAPH_DATABASE_URL` is
+unset or in-memory, names a missing file or a file without the LexGraph schema,
+or `LEXGRAPH_AGENT_USER_ID` names no user, it exits with one line on stderr
+starting `lexgraph MCP server:` and creates no file, so the client reports the
+server as failed. To read the reason, run the configured command by hand with
+the same environment.
+
 ## Claude Code
 
 ```bash

@@ -369,16 +369,30 @@ cd backend
 ```
 
 The MCP server reads from the `LEXGRAPH_DATABASE_URL` environment variable and communicates via stdio.
+It checks the database before serving. If the URL is unset or in-memory, names a
+file that does not exist, or names a file without the LexGraph schema (or
+`LEXGRAPH_AGENT_USER_ID` names no user), it prints one line starting
+`lexgraph MCP server:` on stderr and exits non-zero. It never creates a database file.
 
 ### Integration with AI Agents
 
 To use the LexGraph MCP with Claude Code, Codex, Cursor, or Antigravity, see the registration instructions in `docs/mcp-registration.md`.
 
-For Claude Code, the basic command is:
+For Claude Code, run this from the repository root. It registers absolute paths
+because clients start the server from their own working directory, and they
+do not inherit an `export`:
 
 ```bash
-claude mcp add lexgraph -- backend/.venv/bin/python -m app.mcp.server
+claude mcp add lexgraph \
+  --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/lexgraph.db" \
+  -- "$(pwd)/backend/.venv/bin/python" -m app.mcp.server
 ```
+
+This targets the `backend/lexgraph.db` that step 2 of the
+[end-to-end workflow](#end-to-end-workflow) creates; adjust the file name for
+another database. Add `--env LEXGRAPH_AGENT_USER_ID=<agent account id>` before
+`--` to enable `agent_context` and `suggest_assertion`. Without it, the
+suggestion tools are not registered.
 
 ## Running Tests
 
@@ -456,21 +470,35 @@ above:
    id) → Admin → Members & roles → grant it a role on a matter. See
    "Provisioning users & access" above for the full walkthrough.
 
-7. **Optional: Register MCP server** (Terminal 3):
+7. **Optional: Register MCP server** (Terminal 3, from the repository root;
+   uses the `backend/lexgraph.db` created in step 2):
    ```bash
-   export LEXGRAPH_DATABASE_URL="sqlite:///lexgraph.db"
-   claude mcp add lexgraph -- backend/.venv/bin/python -m app.mcp.server
+   claude mcp add lexgraph \
+     --env LEXGRAPH_DATABASE_URL="sqlite:///$(pwd)/backend/lexgraph.db" \
+     -- "$(pwd)/backend/.venv/bin/python" -m app.mcp.server
    ```
+   To let an agent suggest assertions, also pass
+   `--env LEXGRAPH_AGENT_USER_ID=<id>` (before `--`) with a dedicated agent
+   account from step 6 that has contributor membership. See
+   [mcp-registration.md](mcp-registration.md) for Codex and other clients.
 
 ## Environment Variables
 
 - `LEXGRAPH_DATABASE_URL`: SQLite database URL (e.g., `sqlite:///lexgraph.db`). Defaults to in-memory if not set.
+- `LEXGRAPH_AGENT_USER_ID`: the dedicated agent account used by the agent CLI and the MCP server (see [AGENT_GUIDE.md](AGENT_GUIDE.md)). Unset, the MCP server is read-only.
 
 ## Troubleshooting
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
 - **Port already in use**: Change the port with `--port 8001` for the backend or Vite configuration for the frontend.
 - **Module not found errors**: Ensure you've run `pip install -e '.[dev]'` in the backend directory.
+- **MCP server shows "Failed to connect"**: run the registered command by hand
+  with the same environment, e.g.
+  `LEXGRAPH_DATABASE_URL=sqlite:////abs/path/backend/lexgraph.db /abs/path/backend/.venv/bin/python -m app.mcp.server < /dev/null`.
+  It prints the reason on one stderr line (a working configuration prints
+  nothing and exits when stdin closes). A relative `sqlite:///` URL
+  resolves against the client's working directory, not `backend/`, so register
+  the absolute four-slash URL as shown in step 7.
 
 ## Agent suggestions and lawyer collaboration
 
