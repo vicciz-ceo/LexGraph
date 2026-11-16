@@ -8,7 +8,7 @@ drives the real HTTP API via Starlette's TestClient, which needs httpx):
 
 `--reset` replaces only a demo database (one holding the demo accounts) or an
 empty file; any other existing file, such as a bootstrapped workspace, is
-refused and left untouched.
+refused and left untouched. Ctrl-C stops the seed at once.
 
 Then serve it:
 
@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sqlite3
 import sys
 import uuid
@@ -457,4 +458,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Ctrl-C ends the process at once, as an uncaught KeyboardInterrupt would.
+    # As a KeyboardInterrupt it could land while the TestClient above was
+    # starting a request's event-loop thread (anyio's start_blocking_portal),
+    # and the main thread then waited for that thread forever: the seed, and
+    # scripts/demo.sh waiting for it, hung until a second Ctrl-C. Nothing here
+    # needs cleaning up: SQLite rolls back an unfinished write, and the scripts
+    # discard an unfinished seed.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(main())
