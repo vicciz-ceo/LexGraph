@@ -182,6 +182,14 @@ def test_filters_by_evidence_status(client, matter_with_users, varied):
     assert _get(client, m, evidence_status="supported").status_code == 422
 
 
+def test_empty_string_filters_mean_not_filtered_as_before(client, matter_with_users, varied):
+    m = matter_with_users
+    everything = _ids(client, m)
+    empty = {key: "" for key in ("q", "origin", "status", "assertion_type", "author_user_id", "jurisdiction",
+                                 "evidence_status", "subject_entity_id", "object_entity_type", "sort")}
+    assert _ids(client, m, **empty) == everything
+
+
 def test_filters_by_the_callers_rating(client, matter_with_users, varied):
     m, v = matter_with_users, varied
     assert _ids(client, m, my_rating=5) == [v["alpha"]]

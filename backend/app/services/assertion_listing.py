@@ -103,8 +103,9 @@ def assertion_filters(
     object_entity_type: str | None = None,
     object_entity_id: str | None = None,
     jurisdiction: str | None = None,
+    # Empty means "not filtered", as for every string filter.
     evidence_status: str | None = Query(
-        default=None, pattern="^(evidenced|unsupported|awaiting_evidence)$"
+        default=None, pattern="^(|evidenced|unsupported|awaiting_evidence)$"
     ),
     created_from: datetime | None = None,
     created_to: datetime | None = None,
