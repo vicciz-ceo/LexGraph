@@ -659,7 +659,10 @@ localhost or put TLS in front of it before exposing it on a network.
   if you are an admin on every matter it belongs to (or it is your own
   account; rotating your own keeps this browser signed in, even if you
   leave the page before the server answers, and the new token is then
-  shown once at the top of whatever page you are on).
+  shown once at the top of whatever page you are on, until you click
+  **Done**. If you sign out before that, in that tab or another, the
+  browser stays signed out and that tab's sign-in page shows the new
+  token instead, so you can still save it and sign in with it).
 - **Lockouts (no admin can sign in).** With access to the database file,
   issue a new token from the command line. It prints the token once:
 

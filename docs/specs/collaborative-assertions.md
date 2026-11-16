@@ -745,6 +745,14 @@ Rotating your own token switches the browser to the new token as soon as
 the server answers, even if the admin page was left meanwhile, and the new
 token is shown once above whatever page is open. While that answer is on its
 way, a 401 for the old token signs the user out only if the rotation fails.
+From the server's commit on, the new token is the only one that signs in as
+that user, so it is never dropped unseen: the tab that asked for it keeps
+showing it until the user confirms it is saved. A sign-out, in that tab or
+another, before the answer arrives or before that confirmation still signs
+every tab out, and the browser does not save the token; that tab's sign-in
+page shows it instead. It is shown to its owner only: once another account
+signs in in that tab, it is forgotten (an answer arriving after that is
+neither saved nor shown), and so is a token the server is then seen to refuse.
 
 ==================================================
 13. API REQUIREMENTS

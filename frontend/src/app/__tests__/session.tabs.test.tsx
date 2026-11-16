@@ -16,7 +16,10 @@
 //   token another tab stored is re-read with GET /me.
 // - review identity:2: rotating your own token runs in the session, so the
 //   new token is adopted (and kept to be shown once) whatever page is open,
-//   and the old token's 401s meanwhile do not sign you out.
+//   and the old token's 401s meanwhile do not sign you out. A sign-out, in
+//   this tab or another, before the answer or before Done keeps the browser
+//   signed out, but the tab that asked still shows the token until Done
+//   (never in another account's session).
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -157,6 +160,12 @@ function Tab({ name }: { name: string }) {
       </button>
       <button type="button" onClick={() => value.acknowledgeIssuedOwnToken?.()}>
         done
+      </button>
+      <button
+        type="button"
+        onClick={() => void value.signIn(value.issuedOwnToken?.sign_in_token ?? "").catch(() => {})}
+      >
+        sign in with the new token
       </button>
     </section>
   );
@@ -545,7 +554,12 @@ describe("rotating your own token (review identity:2)", () => {
     expect(field("tab 2", "issued")).toBe("");
   });
 
-  it("signing out while the answer is on its way stays signed out and keeps no token", async () => {
+  // The server has replaced the token before it answers: from then on the new
+  // token is the account's only credential. A sign-out meanwhile keeps the
+  // browser signed out (the token is not saved), but the token is still shown,
+  // in the tab that asked for it, until Done: losing it would lock the user
+  // out (a sole admin could only recover with the operator CLI).
+  it("signing out while the answer is on its way stays signed out, and the new token is still shown", async () => {
     server.holdRotations = true;
     renderTabs("tab 1");
     await signedIn("tab 1");
@@ -559,6 +573,165 @@ describe("rotating your own token (review identity:2)", () => {
 
     expect(field("tab 1", "state")).toBe("signed-out");
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    expect(server.tokens.has("tok-new-1")).toBe(true);
+
+    click("tab 1", "done");
+    expect(field("tab 1", "issued")).toBe("");
+    expect(field("tab 1", "state")).toBe("signed-out");
+  });
+
+  it("an explicit sign-out in another tab while the answer is on its way: every tab stays signed out, and the tab that asked shows the new token", async () => {
+    server.holdRotations = true;
+    renderTabs("tab 1", "tab 2");
+    await signedIn("tab 1", "tab 2");
+    await rotationStarted("tab 1");
+
+    click("tab 2", "sign out");
+    deliverStorageEvent();
+    expect(field("tab 1", "state")).toBe("signed-out");
+    expect(field("tab 1", "notice")).toBe("signed_out_elsewhere");
+
+    await act(async () => {
+      server.releaseRotations();
+    });
+    await settle();
+    deliverStorageEvent(); // nothing changed: no tab signs back in
+    await settle();
+
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(field("tab 1", "state")).toBe("signed-out");
+    expect(field("tab 2", "state")).toBe("signed-out");
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    expect(field("tab 2", "issued")).toBe("");
+
+    // Signing in with it works, and it stays on screen until Done.
+    click("tab 1", "sign in with the new token");
+    await signedIn("tab 1");
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-1");
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    deliverStorageEvent();
+    await signedIn("tab 2");
+    expect(field("tab 2", "issued")).toBe("");
+    click("tab 1", "done");
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("a new token already shown is still shown after a sign-out in another tab, until Done", async () => {
+    renderTabs("tab 1", "tab 2");
+    await signedIn("tab 1", "tab 2");
+    await rotationStarted("tab 1");
+    await waitFor(() => expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-1"));
+    deliverStorageEvent();
+    await waitFor(() => expect(server.meAuths()).toContain("Bearer tok-new-1"));
+    await settle();
+
+    click("tab 2", "sign out"); // the user may not even have looked at tab 1 yet
+    deliverStorageEvent();
+
+    expect(field("tab 1", "state")).toBe("signed-out");
+    expect(field("tab 2", "state")).toBe("signed-out");
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    click("tab 1", "done");
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("another account signed in here meanwhile: the token is neither saved nor shown", async () => {
+    server.holdRotations = true;
+    server.tokens.set("tok-two", OTHER_USER);
+    renderTabs("tab 1", "tab 2");
+    await signedIn("tab 1", "tab 2");
+    await rotationStarted("tab 1");
+
+    click("tab 2", "sign out");
+    deliverStorageEvent();
+    window.localStorage.setItem(TOKEN_KEY, "tok-two"); // tab 2 signs in as User Two
+    deliverStorageEvent();
+    await waitFor(() => expect(field("tab 1", "user")).toBe("u-2"));
+
+    await act(async () => {
+      server.releaseRotations();
+    });
+    await settle();
+
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-two");
+    expect(field("tab 1", "user")).toBe("u-2");
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("another account signed in and out again meanwhile: the answer is not shown on the sign-in page either", async () => {
+    server.holdRotations = true;
+    server.tokens.set("tok-two", OTHER_USER);
+    renderTabs("tab 1", "tab 2");
+    await signedIn("tab 1", "tab 2");
+    await rotationStarted("tab 1");
+
+    click("tab 2", "sign out");
+    deliverStorageEvent();
+    window.localStorage.setItem(TOKEN_KEY, "tok-two"); // User Two signs in in tab 2...
+    deliverStorageEvent();
+    await waitFor(() => expect(field("tab 1", "user")).toBe("u-2"));
+    window.localStorage.removeItem(TOKEN_KEY); // ...and signs out again
+    deliverStorageEvent();
+    expect(field("tab 1", "state")).toBe("signed-out");
+
+    await act(async () => {
+      server.releaseRotations();
+    });
+    await settle();
+
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("a new token shown while signed out is forgotten when another account signs in", async () => {
+    server.holdRotations = true;
+    server.tokens.set("tok-two", OTHER_USER);
+    renderTabs("tab 1");
+    await signedIn("tab 1");
+    await rotationStarted();
+    click("tab 1", "sign out");
+    await act(async () => {
+      server.releaseRotations();
+    });
+    await settle();
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+
+    window.localStorage.setItem(TOKEN_KEY, "tok-two"); // User Two signs in in another tab
+    deliverStorageEvent();
+
+    await waitFor(() => expect(field("tab 1", "user")).toBe("u-2"));
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("a shown token the server then refuses (rotated again elsewhere) is no longer shown", async () => {
+    renderTabs("tab 1");
+    await signedIn("tab 1");
+    await rotationStarted();
+    await waitFor(() => expect(field("tab 1", "issued")).toBe("tok-new-1"));
+    await settle();
+
+    server.tokens = new Map([["tok-by-another-admin", USER]]);
+    click("tab 1", "re-check");
+
+    await waitFor(() => expect(field("tab 1", "state")).toBe("signed-out"), { timeout: 3_000 });
+    expect(field("tab 1", "notice")).toBe("token_rejected");
+    expect(field("tab 1", "issued")).toBe("");
+  });
+
+  it("signing out in this tab after the new token was shown keeps showing it until Done", async () => {
+    renderTabs("tab 1");
+    await signedIn("tab 1");
+    await rotationStarted();
+    await waitFor(() => expect(field("tab 1", "issued")).toBe("tok-new-1"));
+
+    click("tab 1", "sign out");
+
+    expect(field("tab 1", "state")).toBe("signed-out");
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    click("tab 1", "done");
     expect(field("tab 1", "issued")).toBe("");
   });
 

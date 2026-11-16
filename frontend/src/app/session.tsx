@@ -49,6 +49,15 @@
 // once, until the user says it is saved. From the server's commit until
 // that answer the old token is refused: such a 401, in this tab or in
 // another, signs out only if the rotation fails.
+//
+// From that commit on, the new token is the account's only credential, so it
+// is never dropped unseen. A sign-out, in this tab or in another, before the
+// answer arrives or before the user clicks Done, still signs every tab out
+// and the token is not saved; but the tab that asked for it keeps showing it,
+// on its sign-in page, until Done. It is shown to its owner only: once
+// another account signs in in this tab, it is forgotten (and an answer that
+// arrives after that is neither saved nor shown), and so is a token the
+// server is then seen to refuse.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -135,12 +144,15 @@ interface SessionContextValue {
   retryRestore?: () => Promise<void>;
   /** Replace the signed-in user's own sign-in token. This browser switches
    * to the new token as soon as the server answers, whatever page is open,
-   * and the session keeps it in `issuedOwnToken`. Rejects, changing
-   * nothing, when the server refuses or cannot be reached; while a rotation
-   * is on its way, calling again returns that one. */
+   * and the session keeps it in `issuedOwnToken`. If the user signed out
+   * meanwhile (here or in another tab), the browser stays signed out and the
+   * token is only kept to be shown. Rejects, changing nothing, when the
+   * server refuses or cannot be reached; while a rotation is on its way,
+   * calling again returns that one. */
   rotateOwnToken?: () => Promise<IssuedSignIn>;
   /** The token your own last rotation issued, until acknowledged (it is
-   * shown exactly once); null otherwise. */
+   * shown exactly once), also while signed out (the sign-in page shows it
+   * then); null otherwise. */
   issuedOwnToken?: IssuedSignIn | null;
   /** The user saved `issuedOwnToken`: stop showing it. */
   acknowledgeIssuedOwnToken?: () => void;
@@ -206,11 +218,26 @@ function sameSession(a: Session, b: Session): boolean {
   );
 }
 
+/** A token your own rotation issued, kept to be shown until acknowledged. */
+interface OwnToken {
+  issued: IssuedSignIn;
+  /** The account it signs in as (the one signed in when it was asked for). */
+  ownerId: string;
+}
+
+/** Your own token rotation while its answer is on its way. */
+interface PendingRotation {
+  promise: Promise<IssuedSignIn>;
+  userId: string;
+  /** Another account was signed in in this tab meanwhile. */
+  otherAccountSignedIn: boolean;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [notice, setNotice] = useState<SessionNotice | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [issuedOwnToken, setIssuedOwnToken] = useState<IssuedSignIn | null>(null);
+  const [ownToken, setOwnToken] = useState<OwnToken | null>(null);
 
   // Bumped by every restore, sign-in, sign-out and token switch: an answer
   // to a request that started before the latest of those is stale and ignored.
@@ -231,7 +258,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // localStorage means another tab changed it.
   const knownTokenRef = useRef<string | null>(null);
   // Your own token rotation while its answer is on its way.
-  const ownRotationRef = useRef<Promise<IssuedSignIn> | null>(null);
+  const ownRotationRef = useRef<PendingRotation | null>(null);
+  // The token it issued, as last set, at once. Every change goes through keepOwnToken().
+  const ownTokenRef = useRef<OwnToken | null>(null);
   const restoreErrorRef = useRef(restoreError);
   restoreErrorRef.current = restoreError;
 
@@ -239,6 +268,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     sessionRef.current = next;
     setSession(next);
   }, []);
+
+  const keepOwnToken = useCallback((next: OwnToken | null) => {
+    ownTokenRef.current = next;
+    setOwnToken(next);
+  }, []);
+
+  /** The server refused `token`: if it is the kept one, it is dead, so stop showing it. */
+  const forgetOwnTokenIfRefused = useCallback(
+    (token: string | null) => {
+      if (token !== null && ownTokenRef.current?.issued.sign_in_token === token) keepOwnToken(null);
+    },
+    [keepOwnToken],
+  );
 
   /** Save or remove the token; a removal says why, for the other tabs. */
   const saveToken = useCallback((token: string | null, reason: SignOutReason | null = null) => {
@@ -248,13 +290,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     knownTokenRef.current = token;
   }, []);
 
-  /** Show the sign-in page, with `why` when there is one. */
+  /** Show the sign-in page, with `why` when there is one. A token your own
+   * rotation issued stays on screen there until Done: from the server's
+   * commit on, it is the only one that signs in as you. */
   const leave = useCallback(
     (why: SessionNotice | null) => {
       epochRef.current += 1;
       setRestoreError(null);
       setNotice(why);
-      setIssuedOwnToken(null);
       commit(null);
     },
     [commit],
@@ -269,21 +312,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const tabMatterId = sameUser ? (current?.currentMatter?.id ?? null) : null;
       const { session: next, moved } = buildSession(me.user, me.matters, tabMatterId);
       if (moved && next.currentMatter) setStoredMatterId(next.currentMatter.id);
-      if (!sameUser) setIssuedOwnToken(null);
+      // Your own new token is for your eyes only: never shown in another
+      // account's session, nor once one was signed in here.
+      if (ownTokenRef.current && ownTokenRef.current.ownerId !== me.user.id) keepOwnToken(null);
+      const rotation = ownRotationRef.current;
+      if (rotation && rotation.userId !== me.user.id) rotation.otherAccountSignedIn = true;
       // Keep the same object when nothing changed, so consumers do not re-render.
       if (current && sameSession(current, next)) return;
       commit(next);
     },
-    [commit],
+    [commit, keepOwnToken],
   );
 
   const signOutRejected = useCallback(() => {
+    forgetOwnTokenIfRefused(getToken());
     saveToken(null, "token_rejected");
     leave(REJECTED);
-  }, [leave, saveToken]);
+  }, [forgetOwnTokenIfRefused, leave, saveToken]);
 
   /** Another tab removed the saved token: leave too, saying why. */
   const signedOutElsewhere = useCallback(() => {
+    // The token this tab last knew: the one removed.
+    const removed = knownTokenRef.current;
     knownTokenRef.current = getToken();
     if (sessionRef.current === null) return;
     const reason = readSignOutReason();
@@ -291,16 +341,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (rotation && reason === "token_rejected") {
       // That tab saw the old token refused while this one is still waiting
       // for the new token it asked for: decide once the rotation settles.
-      void rotation.then(
+      void rotation.promise.then(
         () => undefined,
         () => {
-          if (getToken() === null && sessionRef.current) leave(REJECTED);
+          if (getToken() === null && sessionRef.current) {
+            forgetOwnTokenIfRefused(removed);
+            leave(REJECTED);
+          }
         },
       );
       return;
     }
+    if (reason === "token_rejected") forgetOwnTokenIfRefused(removed);
     leave(reason === "token_rejected" ? REJECTED : ELSEWHERE);
-  }, [leave]);
+  }, [forgetOwnTokenIfRefused, leave]);
 
   const restore = useCallback(async () => {
     for (;;) {
@@ -382,7 +436,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           // Rotating your own token: the server refuses the old one from its
           // commit until this browser has the new one (identity:2).
           const rotation = ownRotationRef.current;
-          if (rotation) await rotation.catch(() => undefined);
+          if (rotation) await rotation.promise.catch(() => undefined);
           if (epoch !== epochRef.current) return;
           const now = getToken();
           if (now === null) {
@@ -500,9 +554,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const syncStoredToken = useCallback(() => {
     const token = getToken();
     if (token === knownTokenRef.current) return;
+    if (token === null) {
+      // It reads which token was removed (the one this tab knew), then forgets it.
+      signedOutElsewhere();
+      return;
+    }
     knownTokenRef.current = token;
-    if (token === null) signedOutElsewhere();
-    else if (sessionRef.current) recheckInBackground(true);
+    if (sessionRef.current) recheckInBackground(true);
     else void followSignIn(token);
   }, [followSignIn, recheckInBackground, signedOutElsewhere]);
 
@@ -551,36 +609,48 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const rotateOwnToken = useCallback((): Promise<IssuedSignIn> => {
-    if (ownRotationRef.current) return ownRotationRef.current;
+    if (ownRotationRef.current) return ownRotationRef.current.promise;
     const current = sessionRef.current;
     if (!current) return Promise.reject(new Error("Sign in to rotate your sign-in token."));
     const userId = current.user.id;
-    const rotation = api.rotateSignInToken(userId).then((issued) => {
-      if (typeof issued?.sign_in_token !== "string" || issued.sign_in_token === "") {
-        throw new Error("The server's answer carried no sign-in token.");
-      }
-      // The server has replaced the token, so the old one is refused from now
-      // on, in this browser too: switch at once, whatever page is open. Not
-      // if this tab was signed out, or another account signed in here,
-      // meanwhile: then the token is neither used nor shown.
-      if (sessionRef.current?.user.id === userId) {
-        epochRef.current += 1;
-        saveToken(issued.sign_in_token);
-        setIssuedOwnToken(issued);
-        recheckInBackground(true);
-      }
-      return issued;
-    });
-    ownRotationRef.current = rotation;
+    const pending: PendingRotation = {
+      userId,
+      otherAccountSignedIn: false,
+      promise: api.rotateSignInToken(userId).then((issued) => {
+        if (typeof issued?.sign_in_token !== "string" || issued.sign_in_token === "") {
+          throw new Error("The server's answer carried no sign-in token.");
+        }
+        // The server has replaced the token: the old one is refused from now
+        // on, and this one is the only one that signs in as this user.
+        const now = sessionRef.current;
+        if (now?.user.id === userId) {
+          // Switch at once, in this browser too, whatever page is open.
+          epochRef.current += 1;
+          saveToken(issued.sign_in_token);
+          keepOwnToken({ issued, ownerId: userId });
+          recheckInBackground(true);
+        } else if (!now && !pending.otherAccountSignedIn) {
+          // Signed out meanwhile, here or in another tab: the browser stays
+          // signed out (the token is not saved), and the sign-in page shows
+          // it, as losing it would lock the user out.
+          keepOwnToken({ issued, ownerId: userId });
+        }
+        // Otherwise another account is, or was meanwhile, signed in here: the
+        // token is neither saved nor shown.
+        return issued;
+      }),
+    };
+    ownRotationRef.current = pending;
     // Registered first, so it runs before anyone waiting on the rotation.
     const settled = () => {
-      if (ownRotationRef.current === rotation) ownRotationRef.current = null;
+      if (ownRotationRef.current === pending) ownRotationRef.current = null;
     };
-    rotation.then(settled, settled);
-    return rotation;
-  }, [recheckInBackground, saveToken]);
+    pending.promise.then(settled, settled);
+    return pending.promise;
+  }, [keepOwnToken, recheckInBackground, saveToken]);
 
-  const acknowledgeIssuedOwnToken = useCallback(() => setIssuedOwnToken(null), []);
+  const acknowledgeIssuedOwnToken = useCallback(() => keepOwnToken(null), [keepOwnToken]);
+  const issuedOwnToken = ownToken?.issued ?? null;
 
   const value = useMemo<SessionContextValue>(
     () => ({

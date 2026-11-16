@@ -1,5 +1,6 @@
 import { AppShell } from "./app/AppShell";
 import { ErrorBoundary } from "./app/ErrorBoundary";
+import { IssuedTokenCallout } from "./app/IssuedTokenCallout";
 import { matchPath, useHashLocation } from "./app/router";
 import { SessionProvider, useSession } from "./app/session";
 import { AdminPage } from "./pages/AdminPage";
@@ -36,7 +37,7 @@ function NoMatter() {
 }
 
 function AppRoutes() {
-  const { session, restoreError } = useSession();
+  const { session, restoreError, issuedOwnToken, acknowledgeIssuedOwnToken } = useSession();
   const location = useHashLocation();
 
   if (session === undefined) {
@@ -44,7 +45,23 @@ function AppRoutes() {
     return restoreError ? <SessionRetryPage /> : <div className="loading">Restoring session…</div>;
   }
   if (session === null) {
-    return <SignInPage />;
+    // Signed out (here or in another tab) before saving the new token of
+    // your own rotation: it is not used, but still shown, until Done, as it
+    // is the only one that signs in as you now (review identity:2).
+    return (
+      <SignInPage>
+        {issuedOwnToken && (
+          <IssuedTokenCallout
+            key={issuedOwnToken.sign_in_token}
+            account={issuedOwnToken}
+            reason="rotated"
+            self
+            signedOut
+            onDone={() => acknowledgeIssuedOwnToken?.()}
+          />
+        )}
+      </SignInPage>
+    );
   }
 
   let content;

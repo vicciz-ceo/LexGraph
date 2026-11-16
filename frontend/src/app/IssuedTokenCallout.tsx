@@ -3,7 +3,8 @@
 // issued). The admin console shows it for an account it created or rotated.
 // The app shell shows it for a rotation of your own token, which the session
 // keeps until you click Done, whatever page you are on by the time the
-// answer arrives (review identity:2).
+// answer arrives (review identity:2); the sign-in page shows it if you were
+// signed out before that (`signedOut`).
 
 import { useState } from "react";
 
@@ -17,11 +18,19 @@ export interface IssuedTokenCalloutProps {
   reason: "created" | "rotated";
   /** The signed-in user's own token: this browser already signs in with it. */
   self?: boolean;
+  /** With `self`: the user is signed out, so this browser does not use it. */
+  signedOut?: boolean;
   onDone: () => void;
 }
 
 /** Render it with `key` = the token, so the copy state starts over for each one. */
-export function IssuedTokenCallout({ account, reason, self = false, onDone }: IssuedTokenCalloutProps) {
+export function IssuedTokenCallout({
+  account,
+  reason,
+  self = false,
+  signedOut = false,
+  onDone,
+}: IssuedTokenCalloutProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const token = account.sign_in_token;
 
@@ -59,9 +68,9 @@ export function IssuedTokenCallout({ account, reason, self = false, onDone }: Is
       )}
       {self ? (
         <p className="adm-issued__warning">
-          Shown only once: copy it now and keep it private. You need it to sign in on
-          another device or after signing out. Only a hash is stored, so it cannot be
-          shown again, and anyone who has it can sign in as you.
+          Shown only once: copy it now and keep it private. You need it to sign in
+          {signedOut ? " again" : " on another device or after signing out"}. Only a hash is
+          stored, so it cannot be shown again, and anyone who has it can sign in as you.
         </p>
       ) : (
         <p className="adm-issued__warning">
@@ -73,10 +82,16 @@ export function IssuedTokenCallout({ account, reason, self = false, onDone }: Is
       {reason === "rotated" && !self && (
         <p className="muted adm-issued__hint">The previous token no longer works.</p>
       )}
-      {self && (
+      {self && !signedOut && (
         <p className="muted adm-issued__hint">
           This is your own account: this browser now signs in with the new token, and the
           previous one no longer works anywhere.
+        </p>
+      )}
+      {self && signedOut && (
+        <p className="muted adm-issued__hint">
+          This is your own new token. You are signed out, so this browser does not use it:
+          sign in with it below. The previous token no longer works anywhere.
         </p>
       )}
       {reason === "created" && (

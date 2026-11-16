@@ -15,7 +15,9 @@
 // - review identity:1: a sign-out or a refused token in another tab signs
 //   this tab out with a message, instead of leaving it broken.
 // - review identity:2: rotating your own token survives leaving the admin
-//   page, and the new token is still shown once.
+//   page, and the new token is still shown once; signing out (in this tab or
+//   another) before it arrives keeps the browser signed out, and the sign-in
+//   page shows it instead of losing it.
 // - review identity:4: accounts whose id contains "/" are managed in-app.
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -898,6 +900,70 @@ describe("rotating your own token (review identity:2)", () => {
     await newTokenShownOnce();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
     expect(screen.queryByText(/no longer valid/i)).not.toBeInTheDocument();
+  });
+
+  /** The sign-in page shows the new token, which this browser does not use. */
+  async function newTokenShownWhileSignedOut() {
+    const callout = await screen.findByRole("status", { name: "New sign-in token" });
+    expect(callout).toHaveTextContent("tok-new-1");
+    expect(callout).toHaveTextContent(/shown only once/i);
+    expect(callout).toHaveTextContent(/you are signed out, so this browser does not use it/i);
+    expect(screen.getByLabelText("Sign-in token")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    return callout;
+  }
+
+  async function signInWith(token: string) {
+    fireEvent.change(screen.getByLabelText("Sign-in token"), { target: { value: token } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    return primaryNav();
+  }
+
+  it("signing out in another tab before the answer keeps the browser signed out, and this tab still shows the new token", async () => {
+    backend.holdRotations = true;
+    renderAppWithOtherTab({ hash: "#/admin" });
+    await screen.findByText("Riva Reviewer");
+    await waitFor(() => expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-in"));
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate sign-in token for Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm new sign-in token for Ada Admin" }));
+    await waitFor(() => expect(backend.count("/users/u-ada/sign-in-token")).toBe(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Other tab: sign out" }));
+    storageEventFromAnotherTab();
+    expect(await screen.findByLabelText("Sign-in token")).toBeInTheDocument();
+    expect(screen.getByText(/signed out in another tab/i)).toBeInTheDocument();
+
+    await act(async () => {
+      backend.releaseRotations();
+    });
+
+    await newTokenShownWhileSignedOut();
+    expect(screen.getByTestId("other-tab-state")).toHaveTextContent("signed-out");
+    expect(backend.tokens).toEqual(new Set(["tok-new-1"])); // the old one is refused
+
+    // The user signs in with it; it stays on screen until they say it is saved.
+    await signInWith("tok-new-1");
+    const callout = screen.getByRole("status", { name: "New sign-in token" });
+    expect(callout).toHaveTextContent(/this browser now signs in with the new token/i);
+    fireEvent.click(within(callout).getByRole("button", { name: /done, i have saved the token/i }));
+    expect(document.body).not.toHaveTextContent("tok-new-1");
+  });
+
+  it("signing out in this tab before the answer shows the new token on the sign-in page", async () => {
+    await startOwnRotation();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByLabelText("Sign-in token")).toBeInTheDocument();
+    await act(async () => {
+      backend.releaseRotations();
+    });
+
+    const callout = await newTokenShownWhileSignedOut();
+    fireEvent.click(within(callout).getByRole("button", { name: /done, i have saved the token/i }));
+    expect(document.body).not.toHaveTextContent("tok-new-1");
+    expect(screen.getByLabelText("Sign-in token")).toBeInTheDocument();
   });
 });
 

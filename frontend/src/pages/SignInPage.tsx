@@ -11,9 +11,12 @@
 // SessionRetryPage (same card) is shown instead when a saved sign-in could
 // not be checked (no response, 5xx, ...): the token is kept, so the user is
 // not presented as signed out (finding ui:18).
+//
+// `children` go above the form: App puts there the new token of your own
+// rotation when you were signed out before saving it (review identity:2).
 
 import { useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 
 import "../styles/pages/sign-in.css";
 
@@ -26,7 +29,7 @@ const UNKNOWN_TOKEN_MESSAGE =
 const NETWORK_MESSAGE =
   "Could not reach the LexGraph server. Check that the backend is running.";
 
-export function SignInPage() {
+export function SignInPage({ children }: { children?: ReactNode } = {}) {
   const { signIn, notice } = useSession();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [token, setToken] = useState("");
@@ -84,6 +87,8 @@ export function SignInPage() {
               </div>
             )
           )}
+
+          {children}
 
           <form className="signin__form" onSubmit={handleSubmit}>
             <div className="field">
