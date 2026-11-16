@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:manager"
 last_updated: "2026-07-26T11:07:18Z"
-lint: "PASS 228 2026-07-26T11:07:18Z"
+lint: "PASS 190 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 17
@@ -113,83 +113,45 @@ test name (file:
 `backend/tests/integration/test_qa_regression_local_first_platform.py`
 unless noted).
 
-- **A1** Raw-text columns + reversible migration + backfill. PASS — ran
-  `upgrade()`/`downgrade()`/`upgrade()` myself against a throwaway file DB
-  with a simulated pre-existing (pre-migration) row; backfill and column
-  drop/restore verified byte-exact. Regression: none needed (G3 fully
-  covers this).
-- **A2** Assertion write paths store raw + sanitized. PASS — live API
-  probe: create + PATCH with an `<appendix A>`-shaped proposition;
-  `proposition_raw` byte-exact, sanitized column correctly altered.
-  Regression: `test_proposition_raw_round_trips_unicode_emoji_and_crlf_byte_exact`.
+- **A1** Raw-text columns + reversible migration + backfill. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
+- **A2** Assertion write paths store raw + sanitized. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
 - **A3** Comment write paths store raw + sanitized. PASS — live API probe:
   comment create + list expose `comment_text_raw` byte-exact. Regression:
   `test_comment_raw_round_trips_unicode_emoji_and_crlf_byte_exact`.
-- **A4** Rating write paths store raw + sanitized rationale. PASS — live
-  API probe of PUT rating plus the visibility gate (peer/rater/reviewer).
-  Regression: `test_rating_list_nulls_rationale_for_unauthorized_peer_but_not_for_rater_or_reviewer`
-  (closes a real coverage gap — no prior test exercised the unauthorized
-  path for this gate).
+- **A4** Rating write paths store raw + sanitized rationale. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
 - **A5** G1 named-example round trip. PASS — 3/3 green; confirmed the
   fixture strings are issue #2's exact quoted examples. Regression: n/a
   (covered by A2/A8 boundary regression).
-- **A6** Search reads raw proposition, not sanitized. PASS — live API
-  probe: `q=appendix A` (a sanitizer-dropped term) finds the assertion via
-  the real endpoint. Regression: covered by
-  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`.
-- **A7** Frontend revision history + comparison render raw text nodes.
-  PASS — scoped vitest run (9/9) via real React Testing Library render;
-  `grep -rn dangerouslySetInnerHTML frontend/src` returns zero code hits
-  (one unrelated comment string in a test file). Regression: none needed
-  (component tests already exhaustive for this surface).
-- **A8** Length cap (100,000 chars) enforced at the API. PASS — 11/11
-  suite green. Regression:
-  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`
-  (boundary size composed with raw-fidelity in one case).
-- **A9** Stale-pin sweep. PASS — `git show db203ce` on both edited test
-  files confirms only the documented docstring updates + the one added
-  `proposition_raw` assertion; the sanitized-column assertions and all 3
-  `test_validation.py` browser-faithful pins are byte-identical to before.
-  Regression: n/a (historical-diff verification, not new behavior).
-- **B1** Enrichment CLI. PASS — ran the real CLI as a subprocess against a
-  seeded SQLite file DB: run 1 creates 1 draft `model_suggested` assertion
-  (confirmed via `GET /assertions`), run 2 is idempotent (0 created, DB
-  still holds exactly 1), unknown matter exits 1 with a clear stderr
-  message. Regression:
-  `test_enrich_cli_on_matter_with_zero_spans_creates_nothing_and_exits_zero`.
-- **B2** Offline heuristic suggester + live pipeline. PASS — same
-  subprocess trace confirms real `Assertion`/`AssertionRevision`/
-  `AssertionEvidence` rows, `origin=model_suggested`, `status=draft`,
-  never `accepted`. Regression:
-  `test_run_enrichment_on_matter_with_zero_spans_returns_empty_list`.
-- **B3** Pluggable `Enricher` protocol. PASS — 3/3 green; read
-  `pipeline.py`'s `enricher if enricher is not None else
-  HeuristicEnricher()` wiring directly. Regression: n/a (interface-level,
-  already exhaustive).
-- **C1** LexGraph MCP stdio server. PASS — confirmed
-  `test_mcp_tools_live.py`/`test_mcp_search_fetch_tools.py` dispatch
-  through the real `server.call_tool(...)` (not raw functions); booted
-  `python -m app.mcp.server` as a subprocess against a schema'd file DB
-  with stdin held open — stayed alive the full 5s bound, no traceback, no
-  crash. Regression: `test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`.
-- **C2** MCP registration docs. PASS — content read in full: `claude mcp
-  add` command matches `server.py`'s actual module path; Codex/Cursor/
-  Antigravity snippets present; no factual defects found. Regression: n/a
-  (doc-only, no behavior to pin).
+- **A6** Search reads raw proposition, not sanitized. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
+- **A7** Frontend revision history + comparison render raw text nodes. PASS.
+  Full entry: `-log.md` § "Archived from contract (2026-11-16)".
+- **A8** Length cap (100,000 chars) enforced at the API. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
+- **A9** Stale-pin sweep. PASS. Full entry: `-log.md` § "Archived from
+  contract (2026-11-16)".
+- **B1** Enrichment CLI. PASS. Full entry: `-log.md` § "Archived from contract
+  (2026-11-16)".
+- **B2** Offline heuristic suggester + live pipeline. PASS. Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
+- **B3** Pluggable `Enricher` protocol. PASS. Full entry: `-log.md` §
+  "Archived from contract (2026-11-16)".
+- **C1** LexGraph MCP stdio server. PASS. Full entry: `-log.md` § "Archived
+  from contract (2026-11-16)".
+- **C2** MCP registration docs. PASS. Full entry: `-log.md` § "Archived from
+  contract (2026-11-16)".
 - **D1** Local-first install runbook. PASS cycle 2 — probe = grep sweep
   (`grep -in vue docs/RUNBOOK.md` zero hits, `grep -in react` names the
   app correctly) + doc test rerun. Fix commit `0e66b73`.
 - **D2** (G8 E2E: seed → enrich → review → grade;
-  `backend/tests/e2e/test_local_first_platform_flow.py`; labeled "D3" in
-  the archived Dev Complete prose). PASS — 1/1 green; test body read in
-  full and matches gate G8 exactly against the real API, one local SQLite
-  file, no network. Regression: n/a (E2E-level, exhaustive by design).
-- **D3** (zero-network guardrail;
-  `backend/tests/unit/test_no_network_dependencies.py`; labeled "D2" in
-  the archived Dev Complete prose). PASS — manually grepped every import
-  in `app/enrich/` and `app/mcp/`; zero network-capable modules, matching
-  the AST-based test's verdict. Regression: n/a (static-analysis-level,
-  exhaustive).
+  `backend/tests/e2e/test_local_first_platform_flow.py`; labeled "D3" in the archived Dev
+  Complete prose). PASS. Full entry: `-log.md` § "Archived from contract (2026-11-16)".
+- **D3** (zero-network guardrail; `backend/tests/unit/test_no_network_dependencies.py`;
+  labeled "D2" in the archived Dev Complete prose). PASS. Full entry: `-log.md` §
+  "Archived from contract (2026-11-16)".
 
 ## Evaluation Notes
 

@@ -1006,3 +1006,31 @@ reproduced from R9's own numbers.
   longer code-only, now RUN-verified end to end.
 - **G7**: PASS — frontend 165/165 green, typecheck clean.
 
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract (`2026-08-02-us-state-law.md`) by a
+contract-hygiene pass, under the "move, never delete" rule. The contract's
+`lint:` stamp `PASS 320 2026-08-03T21:18:13Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check never ran
+under gawk, the awk CI uses: `awk -v` rewrote the entry regex's `\*\*` to
+`**`, so no `- **A1** ...` bullet counted as an entry. With the check fixed
+(LexGraph audit finding ops:0) the entries below exceeded the 3-line cap.
+Each is the exact prior contract text; nothing was summarized, reworded or
+dropped. The contract keeps each entry's opening words, verbatim, and a
+pointer to this section, where each entry has its own subsection. Its
+`lint:` stamp is now `PASS 316 2026-11-16T08:56:54Z`.
+
+### Completed, Item 3
+
+- **Item 3 — US jurisdiction profile [G2/G3].** Wave 7 (entry-splitter fix
+  for letter-led entries). QA cycle 5: PASS-with-limitation — live-path
+  verified the cycle-4 bounce is fixed (`Open-space purposes` recovered,
+  `Dispose` 26,715→286 chars); residual bloat/truncation quantified and
+  recorded as a known limitation, not re-bounced (see below).
+
+### Completed, Item 5
+
+- **Item 5 — US dataset ingester [G6].** Wave 5b fix. QA cycle 5: PASS —
+  R17's full 105-file/2,045,897-row corpus run independently spot-checked
+  (4 real files, DB counts match CLI exactly, 112 corpus-wide skips
+  reproduced exactly); no longer code-only, gate is RUN-verified.

@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-07-30T20:31:30Z"
-lint: "PASS 165 2026-07-30T20:31:46Z"
+lint: "PASS 146 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 1
@@ -120,27 +120,8 @@ Roots checked: `backend/tests/unit/`, `backend/tests/integration/`,
 ## Completed
 
 - [x] **L1 — deterministic definition-links status: "proposed" → "accepted".**
-  QA-verified (independent full run, commit 6a0c0f5): `pipeline.py:49`
-  `_STATUS == "accepted"`, `_ORIGIN` unchanged (`system_generated`);
-  `docs/RUNBOOK.md` synced (:160 by the Developer in 6a0c0f5, :140 by a
-  separate doc-sync commit 731fb25). Both re-pointed live tests
-  (`test_definition_links_cli.py`, `test_definition_links_pipeline_live.py`)
-  confirmed to drive the REAL CLI entrypoint / `run_definition_linking`
-  pipeline against real `Article`/`Definition`/`Assertion` ORM rows — no
-  mocking. Diff audit (`git diff --stat 3feaa41..73f52f3`): only
-  `pipeline.py`, the two owned test files, `RUNBOOK.md`, and sprint
-  bookkeeping changed — no leakage. Full evaluator (from repo root,
-  `backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run
-  test -- --run`): **backend 423 passed, frontend 62 passed**, 0 failures,
-  0 flakes. Regression: 1 new test added,
-  `backend/tests/integration/test_qa_regression_deterministic_assertions.py::test_definition_links_pipeline_never_persists_proposed_status_across_all_edge_subtypes`
-  — reads the persisted `Assertion.status` column (not the pipeline's
-  summary dict) for every sub-type in one run (`USES_DEFINITION`,
-  `DERIVES_FROM_LAW` resolved AND unresolved — the resolved-derivation case
-  had never had its `status` checked by any prior test) and pins
-  `status == "accepted"` / `status != "proposed"` explicitly. Verified RED
-  against a reverted `_STATUS = "proposed"` (sabotage-and-revert via `git
-  checkout`, no residual diff) before being committed green.
+  QA-verified (independent full run, commit 6a0c0f5). Full entry: `-log.md` §
+  "Archived from contract (2026-11-16)".
 
 ## Evaluation Notes
 

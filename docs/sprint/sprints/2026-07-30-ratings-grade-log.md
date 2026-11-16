@@ -260,3 +260,63 @@ unchanged, 69 passed.
 No deviations from the brief. No escalations. Verdict: PASS, both B1
 and UI1 move to Completed. `qa_cycles: 1`. Commit
 `test: QA regression … (sprint/2026-07-30-ratings-grade)`, pushed.
+
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract (`2026-07-30-ratings-grade.md`) by a
+contract-hygiene pass, under the "move, never delete" rule. The contract's
+`lint:` stamp `PASS 169 2026-07-30T21:13:19Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check did not
+recognize task-list entries (`- [x] **B1 ...`) under any awk, and under
+gawk, the awk CI uses, it measured no bullet entry at all (`awk -v` rewrote
+the entry regex's `\*\*` to `**`). With the check fixed (LexGraph audit
+finding ops:0) the entries below exceeded the 3-line cap. Each is the exact
+prior contract text; nothing was summarized, reworded or dropped. The
+contract keeps each entry's opening words, verbatim, and a pointer to this
+section, where each entry has its own subsection. Its `lint:` stamp is now
+`PASS 136 2026-11-16T08:56:54Z`.
+
+### Completed, B1
+
+- [x] **B1 — Derived standing/grade, exposed via the assertions API.**
+  QA-verified (independent pass, commits 5aaca94/ea6bd43): `backend/app/services/ratings.py`
+  (`band_for_median`, `compute_standing`), `backend/app/routers/assertions.py`
+  (`_rating_pairs_for_revision`, `_serialize_assertion` now emits
+  `"standing"` on every response — create/get/list/patch/submit/withdraw,
+  confirmed by reading every `_serialize_assertion(...)` call site). R3
+  confirmed: `git diff 7dd3a27..5aaca94 -- backend/app/models` is empty
+  (no schema/model change); `status` column never mutated by rating flows;
+  `standing` is derived at read time only, never persisted. Live-path
+  G1-G5 confirmed via `test_assertion_standing_api.py` (real `TestClient`
+  routes, no mocks) plus this cycle's own regression suite,
+  `backend/tests/integration/test_qa_regression_ratings_grade.py` (4
+  tests, all live-path): list route (`GET /assertions?matter_id=...`)
+  carries `standing` per-row (not just single-GET); author-rating
+  exclusion (G3) proven through the real PUT-rating route, not just the
+  unit-tested pure function (author rates 5, outsider rates 1 → "weak",
+  never the leaked-median "probable"); a PUT-overwrite (same rater, new
+  strength) recomputes the derived grade; `withdraw_assertion` (a code
+  path distinct from `_apply_decision`) overrides an existing "strong"
+  grade to `"withdrawn"`. Full evaluator: backend 461 passed (457 + 4
+  new), frontend 69 passed, 0 failures, 0 flakes.
+
+### Completed, UI1
+
+- [x] **UI1 — Standing (grade band) display in `AssertionCard` /
+  `AssertionDetailPanel`.** QA-verified: `frontend/src/components/AssertionCard.tsx`
+  (`data-testid="assertion-standing"`, guarded on `standing != null`),
+  `frontend/src/components/AssertionDetailPanel.tsx`
+  (`data-indicator="standing"`, unconditional `?? status` fallback,
+  never guarded). Render-guard scrutiny: `AssertionCard`'s guard exists
+  only to avoid a `getByText(/proposed/i)` collision with a pre-existing
+  synthetic fixture (`baseAssertion` in `AssertionCard.test.tsx`) that
+  predates this sprint and has no `standing` field; the live backend API
+  always emits `standing` (see B1 above), and this frontend codebase has
+  no page/container/data-fetch layer wiring the real API response into
+  `AssertionCardData` yet (`frontend/src/` is component-library-only —
+  `AssertionCard`/`AssertionDetailPanel` are referenced nowhere outside
+  their own files and tests) — so the guard cannot hide a grade on any
+  real app data path today. No test was weakened between the RED commit
+  (e702460) and the GREEN commit (5aaca94): `git diff e702460..5aaca94 --
+  <test files>` is empty. `AssertionCard.test.tsx` (+4) and
+  `AssertionDetailPanel.test.tsx` (+3) green.

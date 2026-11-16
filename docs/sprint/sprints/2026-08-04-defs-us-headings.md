@@ -8,7 +8,7 @@ locked_by: "claude-code:sprint-manager"
 locked_at: "2026-08-04T00:00:00Z"
 last_agent: "claude-code:sprint-manager-phase3"
 last_updated: "2026-08-04T00:00:00Z"
-lint: "PASS 395 2026-08-12T00:18:44Z"
+lint: "PASS 392 2026-11-16T08:56:54Z"
 program: "2026-08-04-definition-completeness"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
@@ -358,18 +358,15 @@ verification: 91.4% recognition (20,307/22,228), WA 74.3%→96.5%, FL
 (incl. the R-TRUNC/R-MISSPELL precision breakdown): `-log.md` §
 "Archived from contract (2026-08-12) — Dev Complete narrative".
 
-- **Item 1** — `rules/us_heading_variants.py` (dev `c986001`). 19 unit
-  tests passed; U3 role separation verified (one new app file, zero
-  test-dir diff). Full detail: `-log.md` § "Archived from contract
-  (2026-08-12) — Dev Complete, Item 1".
-- **Item 2** — composed deterministic-engine end-to-end, no extra code.
-  8 tests passed incl. 4 positive yields + 3 pinned zero-yield hand-offs.
-  Full detail: `-log.md` § "Archived from contract (2026-08-12) — Dev
-  Complete, Item 2".
+- **Item 1** — `rules/us_heading_variants.py` (dev `c986001`). 19 unit tests
+  passed; U3 role separation verified (one new app file, zero test-dir diff). Full
+  detail: `-log.md` § "Archived from contract (2026-08-12) — Dev Complete, Item 1".
+- **Item 2** — composed deterministic-engine end-to-end, no extra code. 8 tests
+  passed incl. 4 positive yields + 3 pinned zero-yield hand-offs. Full detail:
+  `-log.md` § "Archived from contract (2026-08-12) — Dev Complete, Item 2".
 - **Item 4** — `HeadingRule` self-registration (dev `f461371`). 2/2
-  registry-integration tests, live auto-discovery confirmed, full suite
-  729/1. Full detail: `-log.md` § "Archived from contract (2026-08-12) —
-  Dev Complete, Item 4".
+  registry-integration tests, live auto-discovery confirmed, full suite 729/1. Full
+  detail: `-log.md` § "Archived from contract (2026-08-12) — Dev Complete, Item 4".
 
 ## BLOCKED — two core-owned seam gaps (RESOLVED by ruling P-R8; historical)
 
