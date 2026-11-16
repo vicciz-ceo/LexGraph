@@ -19,7 +19,8 @@
 //   and the old token's 401s meanwhile do not sign you out. A sign-out, in
 //   this tab or another, before the answer or before Done keeps the browser
 //   signed out, but the tab that asked still shows the token until Done
-//   (never in another account's session).
+//   (never in another account's session, nor once the server is seen to
+//   refuse it: rotated again elsewhere, it is dead).
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +33,8 @@ const MATTER_KEY = "lexgraph.matter";
 
 const USER = { id: "u-1", email: "u1@firm.example", display_name: "User One" };
 const OTHER_USER = { id: "u-2", email: "u2@firm.example", display_name: "User Two" };
+/** User One's token after another admin (or User One in another browser) rotated it. */
+const ROTATED_ELSEWHERE = "tok-by-another-admin";
 
 function membership(id: string, role: string) {
   return { id, name: `Matter ${id}`, repository_id: "r-1", organization_id: "o-1", role };
@@ -48,20 +51,34 @@ class Server {
   matters = [membership("m-a", "admin"), membership("m-b", "viewer")];
   /** Hold the answers to POST /users/{id}/sign-in-token until released. */
   holdRotations = false;
+  /** Hold POST /users/{id}/sign-in-token before it commits, as if it were
+   * still on its way to the server, until released. */
+  holdRotationRequests = false;
+  /** Hold GET /me's answers that accept the token (given as the server stands
+   * when asked) until released. */
+  holdMeAnswers = false;
   rotationStatus = 200;
   issued = 0;
   calls: { method: string; path: string; auth?: string }[] = [];
   private held: (() => void)[] = [];
+  private heldRequests: (() => void)[] = [];
+  private heldMe: (() => void)[] = [];
 
   async handle(method: string, path: string, auth: string | undefined): Promise<Reply> {
+    const rotation = method === "POST" && /^\/users\/.+\/sign-in-token$/.test(path);
+    if (rotation && this.holdRotationRequests) {
+      await new Promise<void>((resolve) => this.heldRequests.push(resolve));
+    }
     const token = auth?.replace(/^Bearer /, "");
     if (!token) return { status: 401, body: { detail: "missing or malformed Authorization header" } };
     const user = this.tokens.get(token);
     if (!user) return { status: 401, body: { detail: "unknown sign-in token" } };
     if (method === "GET" && path === "/me") {
-      return { status: 200, body: { user, matters: this.matters } };
+      const reply = { status: 200, body: { user, matters: this.matters } };
+      if (!this.holdMeAnswers) return reply;
+      return new Promise((resolve) => this.heldMe.push(() => resolve(reply)));
     }
-    if (method === "POST" && /^\/users\/.+\/sign-in-token$/.test(path)) {
+    if (rotation) {
       if (this.rotationStatus !== 200) {
         return { status: this.rotationStatus, body: { detail: "rotation refused" } };
       }
@@ -83,6 +100,18 @@ class Server {
   releaseRotations() {
     const held = this.held;
     this.held = [];
+    for (const release of held) release();
+  }
+
+  releaseRotationRequests() {
+    const held = this.heldRequests;
+    this.heldRequests = [];
+    for (const release of held) release();
+  }
+
+  releaseMeAnswers() {
+    const held = this.heldMe;
+    this.heldMe = [];
     for (const release of held) release();
   }
 
@@ -166,6 +195,9 @@ function Tab({ name }: { name: string }) {
         onClick={() => void value.signIn(value.issuedOwnToken?.sign_in_token ?? "").catch(() => {})}
       >
         sign in with the new token
+      </button>
+      <button type="button" onClick={() => void value.signIn(ROTATED_ELSEWHERE).catch(() => {})}>
+        sign in with the token rotated elsewhere
       </button>
     </section>
   );
@@ -718,6 +750,127 @@ describe("rotating your own token (review identity:2)", () => {
     await waitFor(() => expect(field("tab 1", "state")).toBe("signed-out"), { timeout: 3_000 });
     expect(field("tab 1", "notice")).toBe("token_rejected");
     expect(field("tab 1", "issued")).toBe("");
+  });
+
+  // Signed out, the tab re-reads nothing, so it learns that the token it shows
+  // was rotated again elsewhere only from a sign-in: a 401 for that token, or
+  // the server accepting another token for its owner (an account has one
+  // token at a time). Either way the sign-in page stops offering a dead token.
+  describe("a token shown while signed out, then rotated again elsewhere", () => {
+    async function shownWhileSignedOut() {
+      renderTabs("tab 1");
+      await signedIn("tab 1");
+      await rotationStarted();
+      await waitFor(() => expect(field("tab 1", "issued")).toBe("tok-new-1"));
+      await settle();
+      click("tab 1", "sign out");
+      expect(field("tab 1", "issued")).toBe("tok-new-1"); // until Done, as documented
+      server.tokens = new Map([[ROTATED_ELSEWHERE, USER]]);
+    }
+
+    it("is forgotten when signing in with it is refused", async () => {
+      await shownWhileSignedOut();
+
+      click("tab 1", "sign in with the new token");
+
+      await waitFor(() => expect(field("tab 1", "issued")).toBe(""));
+      expect(field("tab 1", "state")).toBe("signed-out");
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    });
+
+    it("is forgotten when its owner signs in with the newer token", async () => {
+      await shownWhileSignedOut();
+
+      click("tab 1", "sign in with the token rotated elsewhere");
+
+      await signedIn("tab 1");
+      expect(field("tab 1", "user")).toBe("u-1");
+      expect(field("tab 1", "issued")).toBe("");
+    });
+
+    it("is forgotten when another tab's sign-in with it is refused", async () => {
+      await shownWhileSignedOut();
+      const asked = server.meAuths().length;
+
+      window.localStorage.setItem(TOKEN_KEY, "tok-new-1"); // pasted into another tab's sign-in form
+      deliverStorageEvent();
+
+      await waitFor(() => expect(server.meAuths().length).toBe(asked + 1));
+      await waitFor(() => expect(field("tab 1", "issued")).toBe(""));
+      // That sign-in is the other tab's to report: this tab is not flagged, and
+      // the token it saved is not removed from under it.
+      expect(field("tab 1", "state")).toBe("signed-out");
+      expect(field("tab 1", "notice")).toBe("");
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-1");
+    });
+
+    it("is forgotten when this tab follows another tab's sign-in with the newer token", async () => {
+      await shownWhileSignedOut();
+
+      window.localStorage.setItem(TOKEN_KEY, ROTATED_ELSEWHERE);
+      deliverStorageEvent();
+
+      await signedIn("tab 1");
+      expect(field("tab 1", "issued")).toBe("");
+    });
+  });
+
+  it("a token shown in one tab is forgotten there once another tab rotates it again", async () => {
+    renderTabs("tab 1", "tab 2");
+    await signedIn("tab 1", "tab 2");
+    await rotationStarted("tab 1");
+    await waitFor(() => expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-1"));
+    deliverStorageEvent();
+    await waitFor(() => expect(server.meAuths().slice(-2)).toEqual(["Bearer tok-new-1", "Bearer tok-new-1"]));
+    await settle();
+
+    click("tab 2", "rotate my token");
+    await waitFor(() => expect(window.localStorage.getItem(TOKEN_KEY)).toBe("tok-new-2"));
+    deliverStorageEvent();
+
+    await waitFor(() => expect(field("tab 1", "issued")).toBe(""));
+    expect(field("tab 2", "issued")).toBe("tok-new-2");
+    expect(field("tab 1", "state")).toBe("signed-in");
+    expect(field("tab 2", "state")).toBe("signed-in");
+  });
+
+  // The reverse order must never cost the new token: a sign-in with the old
+  // token that the server answered just before it committed the rotation, but
+  // that arrives after the rotation's answer. That 200 is older than the new
+  // token, so it proves nothing about it.
+  it("a sign-in with the old token answered before the rotation committed keeps the new token", async () => {
+    renderTabs("tab 1");
+    await signedIn("tab 1");
+    server.holdRotationRequests = true;
+    await rotationStarted(); // on its way: the server has not replaced "tok" yet
+    click("tab 1", "sign out");
+
+    server.holdMeAnswers = true;
+    const asked = server.count("GET", "/me");
+    click("tab 1", "sign in"); // with "tok", which the server still accepts
+    await waitFor(() => expect(server.count("GET", "/me")).toBe(asked + 1));
+    await act(async () => {
+      server.releaseRotationRequests(); // commits, then answers
+    });
+    await waitFor(() => expect(field("tab 1", "issued")).toBe("tok-new-1"));
+    server.holdMeAnswers = false;
+    await act(async () => {
+      server.releaseMeAnswers();
+    });
+    await settle();
+
+    expect(field("tab 1", "state")).toBe("signed-in");
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+
+    // "tok" no longer works: the next re-read signs out and the new token is
+    // still offered, so the user can sign in with it.
+    click("tab 1", "re-check");
+    await waitFor(() => expect(field("tab 1", "state")).toBe("signed-out"), { timeout: 3_000 });
+    expect(field("tab 1", "notice")).toBe("token_rejected");
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
+    click("tab 1", "sign in with the new token");
+    await signedIn("tab 1");
+    expect(field("tab 1", "issued")).toBe("tok-new-1");
   });
 
   it("signing out in this tab after the new token was shown keeps showing it until Done", async () => {

@@ -679,7 +679,10 @@ localhost or put TLS in front of it before exposing it on a network.
   shown once at the top of whatever page you are on, until you click
   **Done**. If you sign out before that, in that tab or another, the
   browser stays signed out and that tab's sign-in page shows the new
-  token instead, so you can still save it and sign in with it).
+  token instead, so you can still save it and sign in with it. If it is
+  rotated again meanwhile, by another admin or in another browser, the
+  page stops showing it once signing in with it is refused or you sign
+  in with the newer token).
 - **Lockouts (no admin can sign in).** With access to the database file,
   issue a new token from the command line. It prints the token once:
 

@@ -57,7 +57,13 @@
 // on its sign-in page, until Done. It is shown to its owner only: once
 // another account signs in in this tab, it is forgotten (and an answer that
 // arrives after that is neither saved nor shown), and so is a token the
-// server is then seen to refuse.
+// server is then seen to refuse. Rotated again elsewhere, it is dead, and a
+// signed-out tab re-reads nothing, so it is seen in a sign-in: GET /me
+// answering 401 for it (in this tab, or in another tab whose sign-in this
+// one would follow), or accepting another token for its owner (an account
+// has one token at a time). Only a request sent after the token was kept
+// counts for the latter: one already on its way may have been answered
+// before the rotation committed.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -152,7 +158,7 @@ interface SessionContextValue {
   rotateOwnToken?: () => Promise<IssuedSignIn>;
   /** The token your own last rotation issued, until acknowledged (it is
    * shown exactly once), also while signed out (the sign-in page shows it
-   * then); null otherwise. */
+   * then), unless the server is seen to refuse it; null otherwise. */
   issuedOwnToken?: IssuedSignIn | null;
   /** The user saved `issuedOwnToken`: stop showing it. */
   acknowledgeIssuedOwnToken?: () => void;
@@ -303,8 +309,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
+  /** Apply GET /me's answer `me` for `token`. `keptWhenAsked` is the own token
+   * kept (ownTokenRef) when that request was sent. */
   const apply = useCallback(
-    (me: Me) => {
+    (me: Me, token: string, keptWhenAsked: OwnToken | null) => {
       lastCheckRef.current = Date.now();
       const current = sessionRef.current;
       // Another account (signed in from another tab) starts like a sign-in.
@@ -313,8 +321,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { session: next, moved } = buildSession(me.user, me.matters, tabMatterId);
       if (moved && next.currentMatter) setStoredMatterId(next.currentMatter.id);
       // Your own new token is for your eyes only: never shown in another
-      // account's session, nor once one was signed in here.
-      if (ownTokenRef.current && ownTokenRef.current.ownerId !== me.user.id) keepOwnToken(null);
+      // account's session, nor once one was signed in here. An account has
+      // one sign-in token at a time, so the server accepting another one for
+      // its owner, asked after this one was kept, means it was rotated again
+      // since (elsewhere): the server refuses it now. One kept while the
+      // request was on its way may be the newer of the two, so it stays.
+      const own = ownTokenRef.current;
+      if (
+        own &&
+        (own.ownerId !== me.user.id || (own === keptWhenAsked && own.issued.sign_in_token !== token))
+      ) {
+        keepOwnToken(null);
+      }
       const rotation = ownRotationRef.current;
       if (rotation && rotation.userId !== me.user.id) rotation.otherAccountSignedIn = true;
       // Keep the same object when nothing changed, so consumers do not re-render.
@@ -369,11 +387,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       restoringRef.current += 1;
       commit(undefined);
       try {
+        const kept = ownTokenRef.current;
         const me = readMe(await api.me());
         if (epoch !== epochRef.current) return;
         setNotice(null);
         setRestoreError(null);
-        apply(me);
+        apply(me, token, kept);
         return;
       } catch (error) {
         if (epoch !== epochRef.current) return;
@@ -403,19 +422,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const epoch = ++epochRef.current;
       const value = token.trim();
       saveToken(value);
+      const kept = ownTokenRef.current;
       try {
         const me = readMe(await api.me());
         if (epoch !== epochRef.current) return;
         setNotice(null);
         setRestoreError(null);
-        apply(me);
+        apply(me, value, kept);
       } catch (error) {
+        // A refused token is dead: if it is the one kept to be shown, stop offering it.
+        if (isUnauthorized(error)) forgetOwnTokenIfRefused(value);
         // Unless another tab saved a token meanwhile: that one is not ours to drop.
         if (epoch === epochRef.current && getToken() === value) saveToken(null);
         throw error;
       }
     },
-    [apply, saveToken],
+    [apply, forgetOwnTokenIfRefused, saveToken],
   );
 
   const signOut = useCallback(() => {
@@ -445,8 +467,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           }
           // Another tab saved a new token: that change is re-read on its own.
           if (now !== token) return;
+          const kept = ownTokenRef.current;
           const me = readMe(await api.me());
-          if (epoch === epochRef.current && getToken() === token) apply(me);
+          if (epoch === epochRef.current && getToken() === token) apply(me, token, kept);
         } catch (error) {
           if (epoch !== epochRef.current) return;
           const now = getToken();
@@ -474,6 +497,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const epoch = epochRef.current;
     const seq = ++recheckSeqRef.current;
     lastCheckRef.current = Date.now();
+    const kept = ownTokenRef.current;
     let me: Me;
     try {
       me = readMe(await api.me());
@@ -493,7 +517,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       throw error;
     }
     if (epoch === epochRef.current && getToken() === token && seq === recheckSeqRef.current) {
-      apply(me);
+      apply(me, token, kept);
     }
   }, [apply, confirmUnauthorized, signedOutElsewhere]);
 
@@ -531,23 +555,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   /** Another tab saved a token while this one is signed out, restoring or
    * retrying: follow that sign-in, but only once /me accepts the token. Any
    * other answer leaves this tab as it is: the other tab may still be
-   * checking what was typed into its sign-in form, and that token is its own. */
+   * checking what was typed into its sign-in form, and that token is its own.
+   * Only a token kept here to be shown is forgotten if the server refuses it. */
   const followSignIn = useCallback(
     async (token: string) => {
       const epoch = epochRef.current;
+      const kept = ownTokenRef.current;
       let me: Me;
       try {
         me = readMe(await api.me());
-      } catch {
+      } catch (error) {
+        if (isUnauthorized(error)) forgetOwnTokenIfRefused(token);
         return;
       }
       if (epoch !== epochRef.current || getToken() !== token || sessionRef.current) return;
       epochRef.current += 1;
       setNotice(null);
       setRestoreError(null);
-      apply(me);
+      apply(me, token, kept);
     },
-    [apply],
+    [apply, forgetOwnTokenIfRefused],
   );
 
   /** localStorage changed in another tab (a `storage` event). */

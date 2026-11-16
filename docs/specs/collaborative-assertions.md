@@ -755,6 +755,11 @@ every tab out, and the browser does not save the token; that tab's sign-in
 page shows it instead. It is shown to its owner only: once another account
 signs in in that tab, it is forgotten (an answer arriving after that is
 neither saved nor shown), and so is a token the server is then seen to refuse.
+That includes a token rotated again elsewhere while that tab is signed out: it
+stops being shown when a sign-in with it answers 401 (in that tab, or in another
+tab whose sign-in it would follow), or when `GET /api/v1/me` accepts another
+token for its owner (an account has one token at a time) in a request sent
+after the token was shown.
 
 ==================================================
 13. API REQUIREMENTS
