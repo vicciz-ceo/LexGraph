@@ -25,8 +25,16 @@ G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
 - Reviving a `rejected` assertion (accept, dispute, request revision)
   re-applies the exact-duplicate rule, as submitting a draft does: if an
   identical live assertion was proposed meanwhile, the decision is a 409
-  naming it (`existing_assertion_id`), checked under the matter's write
-  lock.
+  naming it (`existing_assertion_id`), checked again under the matter's
+  write lock.
+- Every decision takes the matter's write lock after its unlocked checks
+  and re-reads the assertion (reviews authoring:2, workflow:0, workflow:2).
+  It stands only on the status and revision this request checked: if
+  another decision or edit committed meanwhile, it is refused with 409.
+  What else it depends on is read under the lock too -- the evidence an
+  accept without justification needs, the successor of a supersede -- so
+  a concurrent evidence removal or a crossing supersede cannot slip
+  between the check and the write.
 - The write is a conditional UPDATE on the status and revision this
   request checked, so a concurrent decision or edit that lands between
   the checks and the write is refused with 409 rather than overwritten.
@@ -36,7 +44,8 @@ G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
   `acceptance_justification`.
 - Supersede refuses the assertion itself, a successor from another
   matter, a successor that is a draft or withdrawn, rejected or
-  superseded, and any link that would close a supersede cycle.
+  superseded, and any link that would close a supersede cycle, checked
+  on the committed rows while the write lock is held.
 - Review text (the request-revision comment, the acceptance
   justification) gets the same length cap and sanitizer as every other
   stored text; the comment keeps its raw text in `comment_text_raw`, and
@@ -73,10 +82,12 @@ from app.models.assertion_comment import AssertionComment
 from app.models.assertion_revision import AssertionRevision
 from app.models.matter_role import MatterRole
 from app.routers.assertions import (
-    _blocking_duplicate_id,
+    DuplicateScan,
     _duplicate_conflict,
     _evidence_status,
     _serialize_assertion,
+    recheck_duplicate,
+    scan_for_duplicate,
 )
 from app.services.audit import new_correlation_id, record_audit_event
 from app.services.duplicates import ENDED_STATUSES
@@ -205,35 +216,59 @@ def _require_decidable(assertion: Assertion, new_status: str) -> None:
         raise HTTPException(status_code=409, detail=f"assertion is already '{new_status}'")
 
 
-def _require_no_live_duplicate(
-    db: Session, assertion: Assertion, new_status: str, body: DecisionBody | None
-) -> None:
+_CHANGED_MEANWHILE = (
+    "assertion was changed by another request; reload it and review the current revision"
+)
+
+
+def _scan_revival(db: Session, assertion: Assertion, new_status: str) -> DuplicateScan | None:
     """409 when the decision would revive an ended (rejected) assertion next
-    to an identical live one.
+    to an identical live one; else the scan for `_lock_and_recheck`.
 
     The exact-duplicate rule (spec section 8) lets an ended assertion's
     proposition be proposed again, so an identical live assertion may exist
     by now. Accepting, disputing or returning the rejected one would then
     leave two live copies, so this applies the rule that submitting a draft
-    applies: under the matter's write lock (held until the decision commits),
-    against committed state, with the preconditions re-checked on the
-    refreshed row.
+    applies: here against the whole matter, and again under the write lock
+    against what was committed since (review authoring:3).
     """
     if assertion.status not in ENDED_STATUSES or new_status in ENDED_STATUSES:
-        return
-    lock_assertion_writes(db, assertion.matter_id)
-    db.refresh(assertion)
-    _require_expected_revision(assertion, body)
-    _require_decidable(assertion, new_status)
-    if assertion.status not in ENDED_STATUSES:
-        return  # another request revived it meanwhile; the checks above held
-    blocker = _blocking_duplicate_id(
+        return None
+    blocker, scan = scan_for_duplicate(
         db, assertion.matter_id, assertion.proposition,
         owner_user_id=assertion.author_user_id, exclude_id=assertion.id, submitting=True,
     )
     if blocker is not None:
-        db.rollback()
         raise _duplicate_conflict(blocker)
+    return scan
+
+
+def _lock_and_recheck(
+    db: Session, assertion: Assertion, body: DecisionBody | None, scan: DuplicateScan | None
+) -> None:
+    """Take the matter's write lock, held until the decision commits, and
+    re-read `assertion`.
+
+    The decision stands only on the status and revision this request
+    checked: an edit or another decision committed since is a 409, never
+    overwritten (nor re-validated and decided on unseen). A revival is
+    re-checked for an identical live assertion committed since `scan`. A
+    refusal rolls back, releasing the lock.
+    """
+    checked = (assertion.status, assertion.current_revision_number)
+    lock_assertion_writes(db, assertion.matter_id)
+    db.refresh(assertion)
+    try:
+        _require_expected_revision(assertion, body)
+        if (assertion.status, assertion.current_revision_number) != checked:
+            raise HTTPException(status_code=409, detail=_CHANGED_MEANWHILE)
+        if scan is not None:
+            blocker = recheck_duplicate(db, scan, assertion.proposition)
+            if blocker is not None:
+                raise _duplicate_conflict(blocker)
+    except HTTPException:
+        db.rollback()
+        raise
 
 
 def _sanitized_text(raw: str | None, *, label: str) -> str | None:
@@ -255,10 +290,14 @@ def _sanitized_text(raw: str | None, *, label: str) -> str | None:
 
 
 def _validated_successor(db: Session, assertion: Assertion, successor_id: str) -> Assertion:
-    """Return the superseding assertion, or raise 404/422 if it cannot be one."""
+    """Return the superseding assertion, or raise 404/422 if it cannot be one.
+
+    Every row is read from the database, not from the session's identity
+    map, so the check run under the write lock sees what was committed by
+    then (review workflow:0)."""
     if successor_id == assertion.id:
         raise HTTPException(status_code=422, detail="an assertion cannot supersede itself")
-    successor = db.get(Assertion, successor_id)
+    successor = db.get(Assertion, successor_id, populate_existing=True)
     if successor is None:
         raise HTTPException(status_code=404, detail="superseding assertion not found")
     if successor.matter_id != assertion.matter_id:
@@ -285,7 +324,7 @@ def _validated_successor(db: Session, assertion: Assertion, successor_id: str) -
                 detail="superseding assertion leads back to this assertion (supersede cycle)",
             )
         seen.add(link)
-        next_row = db.get(Assertion, link)
+        next_row = db.get(Assertion, link, populate_existing=True)
         link = next_row.superseded_by_assertion_id if next_row is not None else None
     return successor
 
@@ -337,13 +376,7 @@ def _apply_decision(
     )
     if result.rowcount != 1:
         db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "assertion was changed by another request; reload it and review the "
-                "current revision"
-            ),
-        )
+        raise HTTPException(status_code=409, detail=_CHANGED_MEANWHILE)
 
 
 def _record_decision(
@@ -447,13 +480,19 @@ def accept_assertion(
     _require_permission(db, user_id, assertion, "assertion:accept")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "accepted")
-    _require_no_live_duplicate(db, assertion, "accepted", body)
+    scan = _scan_revival(db, assertion, "accepted")
 
     justification = _sanitized_text(
         body.acceptance_justification if body else None, label="acceptance_justification"
     )
     justification = justification.strip() if justification else None
+    # authoring:2 / workflow:2: the evidence is read under the lock the
+    # evidence routes take, so a removal of the last supporting span either
+    # commits first (this accept then needs a justification) or finds the
+    # assertion accepted and is refused.
+    _lock_and_recheck(db, assertion, body, scan)
     if justification is None and _evidence_status(db, assertion.id) != "evidenced":
+        db.rollback()
         raise HTTPException(
             status_code=422,
             detail=(
@@ -483,7 +522,7 @@ def reject_assertion(
     _require_permission(db, user_id, assertion, "assertion:reject")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "rejected")
-    _require_no_live_duplicate(db, assertion, "rejected", body)
+    _lock_and_recheck(db, assertion, body, _scan_revival(db, assertion, "rejected"))
     return _decide(db, user_id, assertion, "rejected", event_type="assertion.reject")
 
 
@@ -498,7 +537,7 @@ def dispute_assertion(
     _require_permission(db, user_id, assertion, "assertion:dispute")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "disputed")
-    _require_no_live_duplicate(db, assertion, "disputed", body)
+    _lock_and_recheck(db, assertion, body, _scan_revival(db, assertion, "disputed"))
     return _decide(db, user_id, assertion, "disputed", event_type="assertion.dispute")
 
 
@@ -516,10 +555,11 @@ def request_revision(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "revision_requested")
-    _require_no_live_duplicate(db, assertion, "revision_requested", body)
+    scan = _scan_revival(db, assertion, "revision_requested")
 
     raw_comment = body.comment if body else None
     comment_text = _sanitized_text(raw_comment, label="comment")
+    _lock_and_recheck(db, assertion, body, scan)
     return _decide(
         db,
         user_id,
@@ -542,9 +582,17 @@ def supersede_assertion(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "superseded")
-    _require_no_live_duplicate(db, assertion, "superseded", body)
+    _validated_successor(db, assertion, body.superseded_by_assertion_id)
 
-    successor = _validated_successor(db, assertion, body.superseded_by_assertion_id)
+    # workflow:0: validated again on what is committed once the lock is held,
+    # so of two crossing supersedes (A by B, B by A) the second finds its
+    # successor superseded (422) instead of closing a cycle.
+    _lock_and_recheck(db, assertion, body, None)
+    try:
+        successor = _validated_successor(db, assertion, body.superseded_by_assertion_id)
+    except HTTPException:
+        db.rollback()
+        raise
     return _decide(
         db,
         user_id,

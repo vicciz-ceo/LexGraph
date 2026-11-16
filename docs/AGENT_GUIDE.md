@@ -188,7 +188,11 @@ withdrawn or a superseded assertion, when it repeats the current status, and
 when it would make a rejected assertion live again next to an identical live
 assertion (the response names that one as `existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
-justification, which is kept in its history.
+justification, which is kept in its history. Of two requests that change one
+assertion at the same moment (two reviewers, or an author withdrawing or
+resubmitting while a reviewer decides), the one that comes second is refused
+with 409, or 403 for an author whose assertion was reviewed meanwhile, and
+changes nothing.
 
 The Review Queue, the assertion page and **Contested** send that revision for
 you. If the assertion changed after you opened it, the page tells you that your
