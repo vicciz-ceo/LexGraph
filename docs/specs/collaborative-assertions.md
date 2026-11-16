@@ -176,6 +176,12 @@ Rules:
 - The interface must show a complete revision history.
 - The user must be able to compare revisions.
 
+Implementation rules (2026-11-16):
+
+- Every assertion has a revision row for its current_revision_number, whatever wrote it. The persistence layer enforces this: when a transaction commits an inserted assertion that has no such row, an initial revision is recorded from the assertion's own fields (edited by its author; revision_reason "initial creation (system-generated)" for the definition-links pass), together with an "Assertion created" audit event. Writers that record revision 1 themselves (the REST/agent creation path, offline enrichment) are unaffected. This covers the deterministic definition-links pass, whose system_generated assertions are therefore ratable, keep their generated text as revision 1 when edited, and give review decisions a revision to name. Assertions stored without revision 1 before this rule are backfilled by a migration.
+- revision_number is unique per assertion (database constraint).
+- An edit that changes nothing material creates nothing. PATCH and POST /revisions first check permission (403), the stale base revision (409) and validity (422), then compare each submitted value with the stored one: the proposition with the authored text (the current revision's raw text), entities as {type, id}, effective dates as UTC instants, other fields as they are. When nothing differs, no revision or audit event is written and status, review metadata, ratings and updated_at stay as they were: PATCH answers 200 with the unchanged assertion, and POST /revisions answers 200 with the unchanged current revision (201 only when it created one). revision_reason, expected_revision_number and assertion_type_is_proposed_new are never changes on their own. POST /revisions takes PATCH's body with PATCH's semantics (omitted fields are kept, an explicit null clears an optional field).
+
 ==================================================
 4. USER STRENGTH RATINGS
 ==================================================
@@ -398,6 +404,16 @@ Requirements:
 - Raw HTML and scripts must be sanitized.
 - Submitted text must not be treated as system or model instructions.
 
+Implementation rules (2026-11-16):
+
+- Effective dates are UTC instants. An offset is applied before storage, never dropped; a value without an offset is read as UTC and a date as midnight UTC; responses give the UTC value without an offset. A value outside the years 1 to 9999 once converted to UTC is a 422. The range is checked on creation and whenever an edit sets a date; an edit that leaves both dates alone is not blocked by the stored range.
+- An edit keeps the assertion's own assertion_type without a vocabulary check, whether or not it is a proposed new type. An edit that changes the type follows the creation rule; PATCH and POST /revisions accept assertion_type_is_proposed_new for that.
+- The 100,000-character length caps are checked on the raw submitted text before it is sanitized: the proposition and explanation on creation, the proposition on PATCH and POST /revisions, comment text and rating rationales on their own routes.
+- A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored.
+- A creation payload that lists the same source span twice with the same evidence role is a 422.
+- POST /api/v1/assertions refuses any key it does not declare (422). The agent contract's agent and confidence keys get a 422 that names POST /api/v1/agent/assertions, so an agent payload sent to the lawyer endpoint is never stored as a lawyer's suggestion.
+- A number that is not finite (NaN, Infinity, or a literal such as 1e999 that overflows) is invalid wherever a number is expected: 422, on any route. The 422 body spells such a value as the string "NaN", "Infinity" or "-Infinity".
+
 The interface should warn the user when:
 
 - No evidence is attached.
@@ -432,6 +448,17 @@ Allow the user to:
 - Mark the new assertion as contradicting or qualifying an existing assertion
 
 Do not automatically merge assertions.
+
+Exact duplicates (2026-11-16). Two propositions are exact duplicates when they are equal after trimming surrounding whitespace and ignoring case, within one matter. An existing exact duplicate blocks (409, naming the existing assertion) when it is:
+
+- live: proposed, revision_requested, accepted or disputed, whoever wrote it; or
+- a draft by the same author as the assertion being created or edited.
+
+Withdrawn, rejected and superseded assertions never block, so an abandoned or decided claim can be proposed again (for example with new evidence); neither do other users' drafts, which are unsubmitted work. Non-blocking exact matches are returned in similar_assertions with match_kind exact_proposition. The same rule applies when an edit (PATCH or POST /revisions) changes the proposition, and when a draft is submitted; keeping the current proposition is never a duplicate. Submitting a draft is blocked only by live assertions, so of two identical drafts the first submitted wins.
+
+The duplicate 409 body is {"detail": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "existing_assertion_id": "<id>"}, wherever the rule applies (create, edit, submit). The detail text is unchanged. Other 409s, such as the stale-revision conflict, carry only detail.
+
+Similar assertions (2026-11-16). Every creation response (POST /api/v1/assertions and POST /api/v1/agent/assertions, so also the agent CLI and the MCP suggest_assertion tool) lists the 20 strongest matches in similar_assertions, ordered by score descending and then by assertion id. Each entry keeps assertion_id, match_kind (exact_proposition, same_subject_type_object or similar) and score. It also carries the matched assertion's proposition as display text (its stored proposition, cut to 300 characters ending in "…" when longer), its status and its assertion_type. Next to the list, similar_assertions_total counts all matches and similar_assertions_truncated says whether the list was cut. GET /api/v1/assertions/{id}/related returns the same entries for an existing assertion as a JSON list of at most 20, with the number of all matches in the X-Total-Count response header. The exact-duplicate check considers every match, not only the listed ones. A matter that holds definition-linking output can match thousands of generated assertions; the cap keeps those responses small, but comparing a proposition with every assertion of the matter still takes time in proportion to the matter's size.
 
 ==================================================
 9. ASSERTION DISCUSSION AND RATIONALES
@@ -615,6 +642,10 @@ Administrator:
 
 All permission checks must occur server-side.
 
+Evidence (2026-11-16). Attaching or removing evidence modifies the assertion, so it follows the edit rule: the author, with contributor membership, of a draft, proposed or revision_requested assertion, or a reviewer or admin for any assertion. Removing the last supporting span (supports, primary_basis or secondary_basis) of an accepted assertion is refused with 409; attach another supporting span first, or return the assertion to review. A source span is attached to an assertion at most once per role; attaching it again with the same role is a 409.
+
+Creation checks the caller's suggesting role (contributor, reviewer or admin) in the matter before anything else in the payload: a caller without one gets 403 whatever matter, repository or pairing it sends.
+
 ==================================================
 13. API REQUIREMENTS
 ==================================================
@@ -726,6 +757,8 @@ All mutation APIs must:
 - Use optimistic concurrency or revision checks
 - Prevent lost updates
 - Return the current assertion revision
+
+Concurrency (2026-11-16). The exact-duplicate check and revision numbering hold for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation a create, edit or draft submission takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. N identical concurrent submissions yield one 201 and N-1 duplicate 409s. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409.
 
 ==================================================
 14. FRONTEND PAGES AND COMPONENTS
@@ -965,6 +998,13 @@ confidence remains separate. Only draft/proposed states are allowed. Agent
 references must resolve to persisted, same-matter entities, and evidence must
 resolve to a same-matter document in the selected repository. Explanations are
 preserved as initial comments; creation and provenance audit are transactional.
+An explanation is stored as POST .../comments stores the same text (sanitized
+text plus the raw authored text), also when nothing survives sanitization; a
+blank explanation creates no comment (2026-11-16). Agent platform, model and run
+ID are sanitized like other submitted text before they are stored or returned; a
+value with no text left once markup is removed is a 422 (2026-11-16). The agent
+payload belongs to the agent endpoint: POST /api/v1/assertions refuses it (see
+section 7).
 
 Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
 provide actual source choices for the lawyer suggestion form. Evidence details
@@ -974,6 +1014,30 @@ remain supported by the human API; the agent interface requires persisted types.
 Lawyers edit through recorded revisions using `expected_revision_number`, can
 submit drafts/requested revisions and withdraw unreviewed suggestions. An author
 needs contributor membership and an unreviewed status; reviewers can revise
-reviewed assertions. Revisions retain prior ratings without copying them forward.
+reviewed assertions. Saving without a material change creates no revision (see
+section 3). Submitting clears reviewed_by and reviewed_at; the earlier decision
+stays in the audit trail. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Offline enrichment (2026-11-16)
+
+`python -m app.enrich.cli` suggests draft `model_suggested` assertions from a
+matter's stored source spans. Agent submissions share that origin. An
+enrichment row is one whose revision 1 has revision_reason "model-suggested
+(offline enrichment)"; an agent row carries `agent_provenance`. Enrichment is
+idempotent on its own output only. It skips a span that already backs an
+enrichment row, and it never suggests a proposition it already suggested in the
+matter, whatever became of that suggestion. It also applies the exact-duplicate
+rule of section 8 for the triggering user, checked under the write lock. A span
+that an agent or lawyer cites is still suggested.
+
+A span of up to 1,000 characters is suggested whole. From a longer span, such as
+an ingested statute section, the proposition quotes the sentence in which the
+heuristic matched, or the clause when that sentence is longer. A match that
+cannot be quoted within 1,000 characters is not suggested. Every enricher's text
+is held to the 100,000-character cap before it is sanitized. Its evidence is
+limited to the matter's own spans. The triggering user must exist and hold a
+contributor, reviewer or admin role in the matter; the CLI otherwise reports
+the problem and exits 1, as it does for an unknown matter, an unset or in-memory
+database URL, or a database without the LexGraph tables.

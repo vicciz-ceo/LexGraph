@@ -132,26 +132,46 @@ def test_user_cannot_edit_another_users_draft(client, matter_with_users):
     assert r.status_code == 403
 
 
-def test_editing_accepted_assertion_creates_new_proposed_revision(client, matter_with_users):
+def test_editing_accepted_assertion_creates_new_proposed_revision(client, matter_with_users, db_session):
+    """Spec section 3 / 18, with the 2026-09-16 rule on who may edit: the
+    author may no longer edit an accepted assertion; a reviewer's edit
+    creates a new proposed revision (audit finding review:18 -- this test
+    used to "accept" an unsupported assertion, got a 422 it never checked,
+    and then only ever edited a proposed one)."""
     m = matter_with_users
     create = client.post(
         "/api/v1/assertions",
-        json=assertion_payload(m["matter_id"], m["repository_id"], save_as="draft"),
+        json=assertion_payload(
+            m["matter_id"], m["repository_id"], save_as="draft",
+            evidence=[{"source_span_id": _real_span(db_session, m), "evidence_role": "supports"}],
+        ),
         headers=m["contributor_headers"],
     )
     assertion_id = create.json()["id"]
     client.post(f"/api/v1/assertions/{assertion_id}/submit", headers=m["contributor_headers"])
-    client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    accepted = client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    assert (accepted.status_code, accepted.json()["status"]) == (200, "accepted"), accepted.text
+
+    by_author = client.patch(
+        f"/api/v1/assertions/{assertion_id}",
+        json={"proposition": "An author's edit after acceptance."},
+        headers=m["contributor_headers"],
+    )
+    assert by_author.status_code == 403
 
     r = client.patch(
         f"/api/v1/assertions/{assertion_id}",
         json={"proposition": "A materially different proposition."},
-        headers=m["contributor_headers"],
+        headers=m["reviewer_headers"],
     )
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "proposed"
-    assert body["current_revision_number"] >= 2
+    assert body["current_revision_number"] == 2
+    assert body["reviewed_by"] is None
+    revisions = client.get(f"/api/v1/assertions/{assertion_id}/revisions", headers=m["reviewer_headers"]).json()
+    assert [rev["proposition"] for rev in revisions] == [
+        create.json()["proposition"], "A materially different proposition."]
 
 
 def test_original_revision_remains_available(client, matter_with_users):

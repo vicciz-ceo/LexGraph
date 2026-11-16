@@ -25,8 +25,11 @@ with: query-param search/sort/filter on the list endpoint (spec §17),
 proposition/date/type/entity validation plus sanitization and an inline
 duplicate check on create (`app/services/validation.py`,
 `app/services/duplicates.py`), a matter-scope check on attached evidence,
-and the new `GET .../related` route (ruling R10). B1's original handler
-bodies (submit/withdraw/patch/revisions) are unchanged.
+and the new `GET .../related` route (ruling R10). PATCH and
+`POST .../revisions` share one edit path (`_edit_assertion`): an edit that
+changes nothing material creates no revision (PATCH answers 200 with the
+unchanged assertion, POST .../revisions 200 with the unchanged current
+revision instead of 201).
 
 DB access is via a small local dependency reading `request.app.state.
 session_factory` (per sprint-harness instruction: no shared deps module).
@@ -45,9 +48,11 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
@@ -64,11 +69,19 @@ from app.models.matter import Matter
 from app.models.matter_role import MatterRole
 from app.models.repository import Repository
 from app.models.source_span import SourceSpan
-from app.services.duplicates import find_related_assertions
+from app.services.duplicates import (
+    DuplicateAssertionError,
+    blocks_exact_duplicate,
+    find_related_assertions,
+    first_blocking_duplicate,
+    normalize_proposition,
+    surface_similar,
+)
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
     ValidationError,
+    normalize_effective_datetime,
     sanitize_for_storage,
     validate_assertion_type,
     validate_effective_dates,
@@ -77,6 +90,7 @@ from app.services.validation import (
     validate_proposition_not_empty,
     validate_text_length,
 )
+from app.services.write_lock import lock_assertion_writes
 
 router = APIRouter(prefix="/api/v1/assertions", tags=["assertions"])
 
@@ -157,7 +171,17 @@ class EvidenceIn(BaseModel):
     ]
 
 
+#: Keys of the agent contract (`POST /api/v1/agent/assertions`) that the
+#: lawyer endpoint refuses with a pointer to the agent endpoint (agent:11).
+_AGENT_ONLY_FIELDS = ("agent", "confidence")
+
+
 class AssertionCreate(BaseModel):
+    # agent:11: an undeclared key is a 422, never silently dropped -- the
+    # agent JSON posted here used to be stored as a lawyer's user_suggested
+    # assertion without its provenance or confidence.
+    model_config = ConfigDict(extra="forbid")
+
     repository_id: str
     matter_id: str
     assertion_type: str = Field(min_length=1)
@@ -174,9 +198,29 @@ class AssertionCreate(BaseModel):
     # vocabulary (spec §7 "explicitly marked as a proposed new type").
     assertion_type_is_proposed_new: bool = False
 
+    @model_validator(mode="before")
+    @classmethod
+    def _agent_fields_go_to_the_agent_endpoint(cls, data):
+        # Inert for AgentAssertionCreate, which declares both fields.
+        if isinstance(data, dict):
+            sent = [key for key in _AGENT_ONLY_FIELDS if key in data and key not in cls.model_fields]
+            if sent:
+                raise PydanticCustomError(
+                    "agent_endpoint_required",
+                    " and ".join(sent) + (" is" if len(sent) == 1 else " are")
+                    + " not accepted on POST /api/v1/assertions: send agent suggestions, "
+                    "with their provenance and confidence, to POST /api/v1/agent/assertions",
+                    {"fields": sent},
+                )
+        return data
+
 
 class AssertionPatch(BaseModel):
     assertion_type: str | None = Field(default=None, min_length=1)
+    # api:21 / review:4: the edit-side counterpart of AssertionCreate's flag.
+    # Consulted only when assertion_type changes: an assertion keeps its own
+    # type, proposed-new or not, without it.
+    assertion_type_is_proposed_new: bool = False
     proposition: str | None = Field(default=None, min_length=1)
     subject_entity: EntityRef | None = None
     object_entity: EntityRef | None = None
@@ -375,12 +419,15 @@ def _comments_for_assertion(session: Session, assertion_id: str) -> list[dict]:
 
 
 def _current_revision(session: Session, assertion: Assertion) -> AssertionRevision | None:
+    # (assertion_id, revision_number) is unique, but a database that has not
+    # run the unique-index migration may still hold two rows with one
+    # number (api:0); read the newest instead of failing the whole matter.
     return session.execute(
         select(AssertionRevision).where(
             AssertionRevision.assertion_id == assertion.id,
             AssertionRevision.revision_number == assertion.current_revision_number,
-        )
-    ).scalar_one_or_none()
+        ).order_by(AssertionRevision.created_at.desc(), AssertionRevision.id.desc()).limit(1)
+    ).scalars().first()
 
 
 def _rating_strengths_for_revision(session: Session, revision_id: str | None) -> list[int]:
@@ -487,6 +534,142 @@ def _require_can_modify(session: Session, user_id: str, assertion: Assertion) ->
         raise HTTPException(403, "Only the author of an unreviewed assertion or a reviewer may modify it")
 
 
+# --- Conflict helpers (duplicates, stale revisions) -------------------------
+
+_STALE_REVISION_DETAIL = "assertion has been modified since expected_revision_number"
+
+
+def _stale_revision_conflict() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_STALE_REVISION_DETAIL)
+
+
+def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
+    # ui:5: the API answers the existing assertion's id as data next to the
+    # unchanged detail text (`existing_assertion_id`, app.request_guards).
+    return DuplicateAssertionError(existing_assertion_id)
+
+
+# Columns the duplicate/related scans compare and report: narrow rows, never
+# whole ORM objects of the matter (agent:2).
+_MATCH_COLUMNS = (
+    Assertion.id,
+    Assertion.proposition,
+    Assertion.assertion_type,
+    Assertion.subject_entity_type,
+    Assertion.subject_entity_id,
+    Assertion.object_entity_type,
+    Assertion.object_entity_id,
+    Assertion.status,
+    Assertion.author_user_id,
+)
+
+
+def _match_candidate(row) -> dict:
+    """`find_related_assertions`' view of an assertion (an ORM object or a
+    `_MATCH_COLUMNS` row)."""
+    return {
+        "id": row.id,
+        "proposition": row.proposition,
+        "assertion_type": row.assertion_type,
+        "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
+        "object_entity": (
+            {"type": row.object_entity_type, "id": row.object_entity_id}
+            if row.object_entity_type is not None
+            else None
+        ),
+    }
+
+
+def _blocking_duplicate_id(
+    session: Session,
+    matter_id: str,
+    proposition: str,
+    *,
+    owner_user_id: str,
+    exclude_id: str | None = None,
+    submitting: bool = False,
+) -> str | None:
+    """Exact-duplicate check against the committed state (spec §7/§8 and the
+    "Exact duplicates" rule): the oldest blocking assertion's id, or None.
+    Run it under `lock_assertion_writes` to make check-then-write atomic."""
+    rows = session.execute(
+        select(Assertion.id, Assertion.proposition, Assertion.status, Assertion.author_user_id)
+        .where(Assertion.matter_id == matter_id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
+    return first_blocking_duplicate(
+        proposition, rows, owner_user_id=owner_user_id, exclude_id=exclude_id, submitting=submitting
+    )
+
+
+def _revision_number_taken(session: Session, assertion_id: str, revision_number: int) -> bool:
+    return session.execute(
+        select(AssertionRevision.id).where(
+            AssertionRevision.assertion_id == assertion_id,
+            AssertionRevision.revision_number == revision_number,
+        ).limit(1)
+    ).first() is not None
+
+
+# --- Edit helpers -------------------------------------------------------------
+
+# Body fields that steer an edit but are not values of the assertion: on
+# their own they are never a change (api:18).
+_EDIT_CONTROL_FIELDS = {"expected_revision_number", "revision_reason", "assertion_type_is_proposed_new"}
+
+
+def _changed_fields(assertion: Assertion, current: AssertionRevision | None, updates: dict) -> list[str]:
+    """The submitted fields whose value differs from the stored one (api:18,
+    review:3, ui:11): the proposition as authored (the current revision's raw
+    text, else the stored proposition -- what the editor shows), entities as
+    {type, id}, effective dates as UTC instants, everything else as is."""
+    changed = []
+    for field, value in updates.items():
+        if field == "proposition":
+            stored = (current.proposition_raw if current is not None and current.proposition_raw is not None
+                      else assertion.proposition)
+        elif field in ("subject_entity", "object_entity"):
+            side = field.removesuffix("_entity")
+            entity_type = getattr(assertion, f"{side}_entity_type")
+            stored = (None if entity_type is None
+                      else {"type": entity_type, "id": getattr(assertion, f"{side}_entity_id")})
+        elif field in ("effective_from", "effective_to"):
+            stored = normalize_effective_datetime(getattr(assertion, field), label=field)
+        else:
+            stored = getattr(assertion, field)
+        if value != stored:
+            changed.append(field)
+    return changed
+
+
+# --- Evidence helpers ---------------------------------------------------------
+
+
+def _validate_distinct_evidence(items: list[EvidenceIn]) -> None:
+    """One span is attached at most once per role (api:11)."""
+    seen: set[tuple[str, str]] = set()
+    for item in items:
+        key = (item.source_span_id, item.evidence_role)
+        if key in seen:
+            raise ValidationError(
+                f"evidence lists source span {item.source_span_id} more than once "
+                f"with role '{item.evidence_role}'"
+            )
+        seen.add(key)
+
+
+def _evidence_exists(session: Session, assertion_id: str, *, exclude_id: str | None = None,
+                     source_span_id: str | None = None, roles: tuple[str, ...] | None = None) -> bool:
+    stmt = select(AssertionEvidence.id).where(AssertionEvidence.assertion_id == assertion_id)
+    if exclude_id is not None:
+        stmt = stmt.where(AssertionEvidence.id != exclude_id)
+    if source_span_id is not None:
+        stmt = stmt.where(AssertionEvidence.source_span_id == source_span_id)
+    if roles is not None:
+        stmt = stmt.where(AssertionEvidence.evidence_role.in_(roles))
+    return session.execute(stmt.limit(1)).first() is not None
+
+
 # --- Routes ------------------------------------------------------------------
 
 
@@ -501,20 +684,22 @@ def create_assertion(
 
 def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                       agent: dict | None = None, confidence: float | None = None) -> dict:
+    # review:17: authorize before reading anything else in the payload, so a
+    # caller without a suggesting role in the matter gets the same 403 for
+    # any matter, repository or pairing and learns nothing from the answer.
+    role = _matter_role(session, user_id, body.matter_id)
+    if role not in ("contributor", "reviewer", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
+        )
     matter = session.get(Matter, body.matter_id)
     if matter is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="matter not found")
     repository = session.get(Repository, body.repository_id)
     if repository is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="repository not found")
-
     if matter.repository_id != body.repository_id:
         raise HTTPException(422, "Repository does not belong to the selected matter")
-    role = _matter_role(session, user_id, body.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to suggest assertions"
-        )
 
     validate_entity(session, body.subject_entity, body.matter_id, strict=agent is not None)
     if body.object_entity:
@@ -526,15 +711,21 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     # Submitted text (proposition, etc.) is never treated as instructions —
     # sanitize_for_storage only strips active markup; validation errors are
     # surfaced as 422s, never silently corrected.
-    proposition = sanitize_for_storage(body.proposition)
     try:
-        # Track A, item A8 (issue #2 sub-item, gate G4): length cap is
-        # checked against the raw submitted text, before sanitization.
+        # Track A, item A8 (issue #2 sub-item, gate G4): length caps are
+        # checked against the raw submitted text, before sanitization: the
+        # sanitizer is super-linear on hostile markup, so over-cap text must
+        # never reach it (review:5).
         validate_text_length(body.proposition, label="proposition")
         if body.explanation is not None:
             validate_text_length(body.explanation, label="explanation")
+        proposition = sanitize_for_storage(body.proposition)
         validate_proposition_not_empty(proposition)
-        validate_effective_dates(body.effective_from, body.effective_to)
+        # agent:7 / api:19: stored as UTC instants, so an offset is applied
+        # rather than dropped and the stored range is the validated one.
+        effective_from = normalize_effective_datetime(body.effective_from, label="effective_from")
+        effective_to = normalize_effective_datetime(body.effective_to, label="effective_to")
+        validate_effective_dates(effective_from, effective_to)
         validate_assertion_type(
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
@@ -548,20 +739,27 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             validate_evidence_matter_scope(
                 span.matter_id if span is not None else None, body.matter_id
             )
+        _validate_distinct_evidence(body.evidence)
     except ValidationError as exc:
         raise HTTPException(
             status_code=422, detail=str(exc)
         ) from exc
+    # review:20: an explanation is preserved as the initial comment, stored
+    # as POST .../comments stores the same text (sanitized text plus the raw
+    # authored text) even when nothing survives sanitization. Only a blank
+    # explanation is no explanation. Sanitized here, before the write lock.
+    explanation_raw = body.explanation if body.explanation and body.explanation.strip() else None
+    explanation = sanitize_for_storage(explanation_raw) if explanation_raw is not None else None
 
     # --- B5: duplicate/related-assertion detection (spec §8) ---------------
     # Exact proposition matches block submission; every other match kind is
     # surfaced as a non-blocking warning (spec §7: "similarity warnings must
     # not prevent submission unless there is an exact duplicate").
-    existing_rows = (
-        session.execute(select(Assertion).where(Assertion.matter_id == body.matter_id))
-        .scalars()
-        .all()
-    )
+    existing_rows = session.execute(
+        select(*_MATCH_COLUMNS)
+        .where(Assertion.matter_id == body.matter_id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
     candidate = {
         "proposition": proposition,
         "assertion_type": body.assertion_type,
@@ -572,31 +770,36 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
             else None
         ),
     }
-    existing_candidates = [
-        {
-            "id": row.id,
-            "proposition": row.proposition,
-            "assertion_type": row.assertion_type,
-            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
-            "object_entity": (
-                {"type": row.object_entity_type, "id": row.object_entity_id}
-                if row.object_entity_type is not None
-                else None
-            ),
-        }
-        for row in existing_rows
-    ]
-    matches = find_related_assertions(candidate, existing_candidates)
-    exact_matches = [m for m in matches if m["match_kind"] == "exact_proposition"]
-    if exact_matches:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "duplicate: an identical proposition already exists in this matter "
-                f"(assertion {exact_matches[0]['assertion_id']})"
-            ),
+    matches = find_related_assertions(candidate, [_match_candidate(row) for row in existing_rows])
+    # api:16: only live assertions and the author's own drafts block; an
+    # exact match with a withdrawn/rejected/superseded assertion or another
+    # user's draft is returned below as a non-blocking similar assertion.
+    rows_by_id = {row.id: row for row in existing_rows}
+    blocking = [
+        m["assertion_id"]
+        for m in matches
+        if m["match_kind"] == "exact_proposition"
+        and blocks_exact_duplicate(
+            rows_by_id[m["assertion_id"]].status,
+            rows_by_id[m["assertion_id"]].author_user_id,
+            owner_user_id=user_id,
         )
-    similar_matches = [m for m in matches if m["match_kind"] != "exact_proposition"]
+    ]
+    if blocking:
+        raise _duplicate_conflict(blocking[0])
+    # agent:2 / ui:5: the strongest matches with their text, status and type;
+    # the count of all of them goes next to the list.
+    similar, similar_total = surface_similar(matches, rows_by_id)
+
+    # agent:1 / api:17: the scan above holds no lock, so another submitter
+    # (request, agent CLI or MCP server) may have stored the same
+    # proposition since. Serialize writers and re-check before inserting;
+    # the lock lasts until the commit below (or the rollback on 409).
+    lock_assertion_writes(session, body.matter_id)
+    blocker = _blocking_duplicate_id(session, body.matter_id, proposition, owner_user_id=user_id)
+    if blocker is not None:
+        session.rollback()
+        raise _duplicate_conflict(blocker)
 
     now = _now()
     assertion = Assertion(
@@ -615,8 +818,8 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         author_user_id=user_id,
         confidence=confidence if agent else None,
         jurisdiction=body.jurisdiction,
-        effective_from=body.effective_from,
-        effective_to=body.effective_to,
+        effective_from=effective_from,
+        effective_to=effective_to,
         created_at=now,
         updated_at=now,
         submitted_at=now if body.save_as == "proposed" else None,
@@ -672,10 +875,10 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                            assertion_id=assertion.id, assertion_revision_id=revision.id,
                            new_value=json.dumps(agent, ensure_ascii=False))
-    if body.explanation and sanitize_for_storage(body.explanation).strip():
+    if explanation_raw is not None:
         comment = AssertionComment(id=str(uuid.uuid4()), assertion_id=assertion.id,
-            user_id=user_id, comment_text=sanitize_for_storage(body.explanation),
-            comment_text_raw=body.explanation, created_at=now, updated_at=now)
+            user_id=user_id, comment_text=explanation,
+            comment_text_raw=explanation_raw, created_at=now, updated_at=now)
         session.add(comment)
         record_audit_event(session, actor_user_id=user_id, event_type="comment_created",
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
@@ -683,7 +886,9 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     session.commit()
     session.refresh(assertion)
     result = _serialize_assertion(session, assertion)
-    result["similar_assertions"] = similar_matches
+    result["similar_assertions"] = similar
+    result["similar_assertions_total"] = similar_total
+    result["similar_assertions_truncated"] = similar_total > len(similar)
     return result
 
 
@@ -790,48 +995,27 @@ def list_assertions(
 @router.get("/{assertion_id}/related")
 def get_related_assertions(
     assertion_id: str,
+    response: Response,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> list[dict]:
-    """B5 / ruling R10: duplicate/related-assertion surface (spec §8, §13)."""
+    """B5 / ruling R10: duplicate/related-assertion surface (spec §8, §13).
+
+    agent:2 / ui:5: the strongest matches (`surface_similar`), each with the
+    matched assertion's text, status and type; the X-Total-Count header
+    gives the number of all matches."""
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_matter_member(session, user_id, assertion.matter_id)
 
-    others = (
-        session.execute(
-            select(Assertion).where(
-                Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id
-            )
-        )
-        .scalars()
-        .all()
-    )
-    candidate = {
-        "id": assertion.id,
-        "proposition": assertion.proposition,
-        "assertion_type": assertion.assertion_type,
-        "subject_entity": {"type": assertion.subject_entity_type, "id": assertion.subject_entity_id},
-        "object_entity": (
-            {"type": assertion.object_entity_type, "id": assertion.object_entity_id}
-            if assertion.object_entity_type is not None
-            else None
-        ),
-    }
-    existing_candidates = [
-        {
-            "id": row.id,
-            "proposition": row.proposition,
-            "assertion_type": row.assertion_type,
-            "subject_entity": {"type": row.subject_entity_type, "id": row.subject_entity_id},
-            "object_entity": (
-                {"type": row.object_entity_type, "id": row.object_entity_id}
-                if row.object_entity_type is not None
-                else None
-            ),
-        }
-        for row in others
-    ]
-    return find_related_assertions(candidate, existing_candidates)  # type: ignore[return-value]
+    others = session.execute(
+        select(*_MATCH_COLUMNS)
+        .where(Assertion.matter_id == assertion.matter_id, Assertion.id != assertion.id)
+        .order_by(Assertion.created_at, Assertion.id)
+    ).all()
+    matches = find_related_assertions(_match_candidate(assertion), [_match_candidate(row) for row in others])
+    related, total = surface_similar(matches, {row.id: row for row in others})
+    response.headers["X-Total-Count"] = str(total)
+    return related
 
 
 @router.get("/{assertion_id}")
@@ -857,34 +1041,64 @@ def patch_assertion(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
+    assertion, _revision = _edit_assertion(assertion_id, body, session, user_id)
+    return _serialize_assertion(session, assertion)
+
+
+def _edit_assertion(
+    assertion_id: str, body: AssertionPatch, session: Session, user_id: str
+) -> tuple[Assertion, AssertionRevision | None]:
+    """Apply an edit (PATCH or POST .../revisions): return the assertion and
+    the revision the edit created, or None when nothing material changed.
+
+    Order: permission (403), stale base revision (409), validation (422),
+    then the no-op guard, then the duplicate rule and the write."""
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    # The revision this edit is based on: the caller's expected revision, or
+    # (when omitted) the one current when this request read the assertion.
+    base_revision_number = assertion.current_revision_number
 
     if (
         body.expected_revision_number is not None
-        and body.expected_revision_number != assertion.current_revision_number
+        and body.expected_revision_number != base_revision_number
     ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="assertion has been modified since expected_revision_number",
-        )
+        raise _stale_revision_conflict()
 
-    updates = body.model_dump(
-        exclude_unset=True, exclude={"expected_revision_number", "revision_reason"}
-    )
+    updates = body.model_dump(exclude_unset=True, exclude=_EDIT_CONTROL_FIELDS)
     if not updates:
-        return _serialize_assertion(session, assertion)
+        return assertion, None
 
+    new_proposition = None
     try:
         for field in ("proposition", "assertion_type", "subject_entity"):
             if field in updates and updates[field] is None:
                 raise ValidationError(f"{field} cannot be null")
         if "proposition" in updates:
-            validate_proposition_not_empty(sanitize_for_storage(body.proposition))
-        if "assertion_type" in updates:
-            validate_assertion_type(body.assertion_type)
-        validate_effective_dates(updates.get("effective_from", assertion.effective_from),
-                                 updates.get("effective_to", assertion.effective_to))
+            # Track A, item A8 (issue #2 sub-item, gate G4): length cap
+            # checked against the raw submitted text, before the sanitizer
+            # -- super-linear on hostile markup -- runs, once (review:5).
+            validate_text_length(body.proposition, label="proposition")
+            new_proposition = sanitize_for_storage(body.proposition)
+            validate_proposition_not_empty(new_proposition)
+        if "assertion_type" in updates and body.assertion_type != assertion.assertion_type:
+            # api:21 / review:4: the assertion's own type, proposed-new or
+            # not, is kept as is; a different type follows the creation rule.
+            validate_assertion_type(
+                body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
+            )
+        if "jurisdiction" in updates and body.jurisdiction is not None:
+            validate_jurisdiction(body.jurisdiction)
+        dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
+        for bound in dates_set:
+            # agent:7 / api:19: stored as UTC instants (offset applied).
+            updates[bound] = normalize_effective_datetime(updates[bound], label=bound)
+        if dates_set:
+            # Checked when the edit sets a date. An edit that leaves the dates
+            # alone is not blocked by the stored range, which a row written
+            # while offsets were still dropped may hold inverted (api:19).
+            validate_effective_dates(updates.get("effective_from", assertion.effective_from),
+                                     updates.get("effective_to", assertion.effective_to))
         for field in ("subject_entity", "object_entity"):
             entity = getattr(body, field)
             if entity is not None:
@@ -893,23 +1107,41 @@ def patch_assertion(
     except (ValidationError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
-    # Track A, item A8 (issue #2 sub-item, gate G4): length cap checked
-    # against the raw submitted text, before sanitization.
-    if "proposition" in updates and body.proposition is not None:
-        try:
-            validate_text_length(body.proposition, label="proposition")
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=422, detail=str(exc)
-            ) from exc
+    # api:18 / review:3 / review:8 / ui:11: "every material edit creates a
+    # new revision" (spec section 3) -- and nothing else does. When every
+    # submitted value equals the stored one (a revision_reason alone is not
+    # a change) nothing is written: no revision, no audit event, and an
+    # accepted assertion keeps its status, review metadata and ratings.
+    if not _changed_fields(assertion, _current_revision(session, assertion), updates):
+        return assertion, None
 
-    if "jurisdiction" in updates and body.jurisdiction is not None:
-        try:
-            validate_jurisdiction(body.jurisdiction)
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=422, detail=str(exc)
-            ) from exc
+    # api:17: an edit is held to the same exact-duplicate rule as creation
+    # (it may not take the proposition of another live assertion or of the
+    # author's own draft); keeping the current proposition is never a
+    # duplicate. Checked here without a lock, and again under it below.
+    takes_new_proposition = new_proposition is not None and (
+        normalize_proposition(new_proposition) != normalize_proposition(assertion.proposition)
+    )
+    duplicate_check = dict(owner_user_id=assertion.author_user_id, exclude_id=assertion.id)
+    if takes_new_proposition:
+        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+        if blocker is not None:
+            raise _duplicate_conflict(blocker)
+
+    # api:0: serialize writers, then re-read the assertion. A concurrent edit
+    # of the same base revision has committed if the number moved on; the
+    # unique (assertion_id, revision_number) index is the backstop below.
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    if assertion.current_revision_number != base_revision_number:
+        session.rollback()
+        raise _stale_revision_conflict()
+    _require_can_modify(session, user_id, assertion)
+    if takes_new_proposition:
+        blocker = _blocking_duplicate_id(session, assertion.matter_id, new_proposition, **duplicate_check)
+        if blocker is not None:
+            session.rollback()
+            raise _duplicate_conflict(blocker)
 
     # Track A, item A2 (issue #2, gate G1): carry the previous revision's
     # raw text forward when this PATCH doesn't touch proposition, so a new
@@ -918,12 +1150,12 @@ def patch_assertion(
     proposition_raw = previous_revision.proposition_raw if previous_revision else None
 
     now = _now()
-    new_revision_number = assertion.current_revision_number + 1
+    new_revision_number = base_revision_number + 1
 
     if "proposition" in updates:
         # B5 (qa-fail fix): sanitize like CREATE does -- PATCH is a storage
         # path for the proposition too (gate G10).
-        assertion.proposition = sanitize_for_storage(body.proposition)
+        assertion.proposition = new_proposition
         proposition_raw = body.proposition
     if "assertion_type" in updates:
         assertion.assertion_type = body.assertion_type
@@ -936,9 +1168,9 @@ def patch_assertion(
     if "jurisdiction" in updates:
         assertion.jurisdiction = body.jurisdiction
     if "effective_from" in updates:
-        assertion.effective_from = body.effective_from
+        assertion.effective_from = updates["effective_from"]
     if "effective_to" in updates:
-        assertion.effective_to = body.effective_to
+        assertion.effective_to = updates["effective_to"]
 
     assertion.current_revision_number = new_revision_number
     assertion.updated_at = now
@@ -969,14 +1201,21 @@ def patch_assertion(
         assertion.reviewed_by = None
         assertion.reviewed_at = None
     session.add(revision)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError as exc:
+        session.rollback()
+        if _revision_number_taken(session, assertion_id, new_revision_number):
+            raise _stale_revision_conflict() from exc
+        raise
     record_audit_event(session, actor_user_id=user_id, event_type="assertion_revised",
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
                        previous_value=str(new_revision_number - 1), new_value=str(new_revision_number))
     session.commit()
     session.refresh(assertion)
-    return _serialize_assertion(session, assertion)
+    session.refresh(revision)  # answer with stored values, as GET .../revisions does
+    return assertion, revision
 
 
 @router.post("/{assertion_id}/submit")
@@ -987,14 +1226,34 @@ def submit_assertion(
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
     _require_can_modify(session, user_id, assertion)
+    if assertion.status == "draft":
+        # api:16: a draft does not block other authors' identical
+        # propositions, so leaving draft is where it first claims one:
+        # serialize writers and check against the committed state.
+        lock_assertion_writes(session, assertion.matter_id)
+        session.refresh(assertion)
+        _require_can_modify(session, user_id, assertion)
 
     if assertion.status not in ("draft", "proposed", "revision_requested"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"cannot submit assertion in status '{assertion.status}'",
         )
+    if assertion.status == "draft":
+        blocker = _blocking_duplicate_id(
+            session, assertion.matter_id, assertion.proposition,
+            owner_user_id=assertion.author_user_id, exclude_id=assertion.id, submitting=True,
+        )
+        if blocker is not None:
+            session.rollback()
+            raise _duplicate_conflict(blocker)
 
     assertion.status = "proposed"
+    # api:29 / review:12: a proposal awaiting review names no reviewer, as
+    # after an edit that returns an assertion to proposed; the earlier
+    # decision (e.g. request-revision) stays in the audit trail.
+    assertion.reviewed_by = None
+    assertion.reviewed_at = None
     assertion.submitted_at = _now()
     assertion.updated_at = _now()
     session.commit()
@@ -1044,12 +1303,20 @@ def list_revisions(
 def create_revision(
     assertion_id: str,
     body: AssertionPatch,
+    response: Response,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    patch_assertion(assertion_id, body, session, user_id)
-    assertion = _get_assertion_or_404(session, assertion_id)
-    return _serialize_revision(_current_revision(session, assertion))
+    """PATCH's body and semantics, answering with a revision: 201 and the new
+    revision, or -- when nothing material changed, so none was created --
+    200 and the unchanged current revision, never 201 (api:18, review:3)."""
+    assertion, revision = _edit_assertion(assertion_id, body, session, user_id)
+    if revision is None:
+        response.status_code = status.HTTP_200_OK
+        revision = _current_revision(session, assertion)
+        if revision is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="revision not found")
+    return _serialize_revision(revision)
 
 
 @router.get("/{assertion_id}/evidence")
@@ -1078,11 +1345,10 @@ def add_evidence(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     assertion = _get_assertion_or_404(session, assertion_id)
-    role = _matter_role(session, user_id, assertion.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to attach evidence"
-        )
+    # api:11: attaching evidence changes what the assertion rests on, so it
+    # follows the edit rule (spec section 12): the author of an unreviewed
+    # assertion, or a reviewer/admin.
+    _require_can_modify(session, user_id, assertion)
 
     # B5: a resolvable source span must belong to this assertion's matter
     # (spec §7 "a user cannot attach evidence from another inaccessible
@@ -1095,6 +1361,19 @@ def add_evidence(
         raise HTTPException(
             status_code=422, detail=str(exc)
         ) from exc
+
+    # Serialize evidence writers so the checks below still hold at commit.
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    _require_can_modify(session, user_id, assertion)
+    if _evidence_exists(session, assertion_id, source_span_id=body.source_span_id,
+                        roles=(body.evidence_role,)):
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(f"source span {body.source_span_id} is already attached to this assertion "
+                    f"with role '{body.evidence_role}'"),
+        )
 
     evidence = AssertionEvidence(
         id=str(uuid.uuid4()),
@@ -1118,15 +1397,30 @@ def remove_evidence(
     user_id: str = Depends(get_current_user_id),
 ) -> None:
     assertion = _get_assertion_or_404(session, assertion_id)
-    role = _matter_role(session, user_id, assertion.matter_id)
-    if role is None or role not in ("contributor", "reviewer", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not permitted to remove evidence"
-        )
+    # api:11: removing evidence modifies the assertion: the author of an
+    # unreviewed assertion, or a reviewer/admin -- a contributor can no
+    # longer strip someone else's (accepted) assertion of its evidence.
+    _require_can_modify(session, user_id, assertion)
 
+    lock_assertion_writes(session, assertion.matter_id)
+    session.refresh(assertion)
+    _require_can_modify(session, user_id, assertion)
     evidence = session.get(AssertionEvidence, evidence_id)
     if evidence is None or evidence.assertion_id != assertion_id:
+        session.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="evidence not found")
+    # An accepted assertion stays supported (spec section 2: it cannot be
+    # accepted unsupported without a recorded reason, so it is not made
+    # unsupported afterwards either).
+    if (assertion.status == "accepted" and evidence.evidence_role in SUPPORTING_EVIDENCE_ROLES
+            and not _evidence_exists(session, assertion_id, exclude_id=evidence_id,
+                                     roles=SUPPORTING_EVIDENCE_ROLES)):
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("cannot remove the last supporting evidence of an accepted assertion; "
+                    "attach other supporting evidence first, or return the assertion to review"),
+        )
 
     session.delete(evidence)
     session.commit()

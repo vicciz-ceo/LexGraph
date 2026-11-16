@@ -110,6 +110,10 @@ def _get_assertion_or_404(session: Session, assertion_id: str) -> Assertion:
 def _get_revision_or_404(
     session: Session, assertion_id: str, revision_number: int
 ) -> AssertionRevision:
+    # Audit finding api:20: no revision has a number outside 1..INTEGER max,
+    # and binding a larger int raised OverflowError in SQLite (a 500).
+    if not 1 <= revision_number <= 2_147_483_647:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="revision not found")
     revision = session.execute(
         select(AssertionRevision).where(
             AssertionRevision.assertion_id == assertion_id,

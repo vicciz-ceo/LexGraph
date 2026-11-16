@@ -209,6 +209,29 @@ downgrade(engine)
 cd ..
 ```
 
+### Migration: Revision Invariants (2026-11-16)
+
+Databases created before 2026-11-16 need two idempotent migrations (each prints `True` when it changed something and `False` when there was nothing to do; a fresh database needs neither):
+
+- `m20261116_assertion_revision_number_unique` adds the unique index on `assertion_revisions (assertion_id, revision_number)`. Revision numbers that concurrent edits stored twice are first renumbered, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning.
+- `m20261116_backfill_initial_assertion_revisions` adds the missing revision 1 (and an `assertion_created` audit event marked `migration:<id>`) to assertions that were stored without one, i.e. definition-link output written before this date. Definition-link assertions edited before the fix keep only their later revisions: the original text was not stored.
+
+```bash
+cd backend
+.venv/bin/python -c "
+from app.config import get_settings
+from app.db import make_engine
+from app.migrations import m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions
+
+engine = make_engine(get_settings().database_url)
+for migration in (m20261116_assertion_revision_number_unique, m20261116_backfill_initial_assertion_revisions):
+    print(migration.MIGRATION_ID, migration.upgrade(engine))
+"
+cd ..
+```
+
+Effective dates are stored as UTC instants from 2026-11-16 on. Before that, a date submitted with a UTC offset (for example `2030-01-01T00:00:00+05:00`) was stored as its wall-clock part with the offset dropped. The offset is not recorded anywhere, so such values cannot be corrected automatically; an edit that leaves both dates alone still works, and resubmitting a date stores it correctly. Ranges that became inverted this way can be listed with `SELECT id FROM assertions WHERE effective_to < effective_from;`.
+
 ## Backend Server
 
 ### Starting the Backend
@@ -273,6 +296,8 @@ cd backend
 cd ..
 ```
 
+Each suggestion is a `draft`, `model_suggested` assertion authored by `--triggered-by-user-id`, which must be an existing user with a contributor, reviewer or admin role in the matter. The CLI prints `enrichment failed: ...` and exits 1 when that user is unknown or has no such role, and likewise for an unknown matter, an unset or in-memory `LEXGRAPH_DATABASE_URL`, or a database without the LexGraph tables. Rerunning it is idempotent: it skips spans it has already suggested from, never suggests the same proposition twice in a matter (two spans with one text give one draft, also after that draft is withdrawn or rejected), and does not store an exact duplicate of a live assertion or of the triggering user's own draft. Agent submissions share the `model_suggested` origin, but enrichment's rows are the ones whose revision 1 has the reason `model-suggested (offline enrichment)`. A span an agent or lawyer has cited is therefore still suggested. A span of up to 1,000 characters is suggested whole; from a longer one, such as an ingested statute section, the suggestion quotes the sentence that matched, and a match that cannot be quoted within 1,000 characters is skipped. Drafts suggested before 2026-11-16 from such spans keep the whole section as their proposition, and a rerun does not replace them because their spans count as suggested; list them with `SELECT a.id FROM assertions a JOIN assertion_revisions r ON r.assertion_id = a.id AND r.revision_number = 1 WHERE r.revision_reason = 'model-suggested (offline enrichment)' AND length(a.proposition) > 1000;` and withdraw or edit them.
+
 **Definition linking** (`app/definition_links/`, sprint 2026-07-29-definition-links) deterministically (regex/rule-based, no LLM/ML) connects articles within a law to the definitions the law contains, and connects laws to each other when a definition explicitly derives from another law (e.g. "כהגדרתו בחוק..."). It requires `Article` rows already ingested via `app.definition_links.ingest.ingest_wiki_law` (there is no ingestion CLI yet — call `ingest_wiki_law(session, ...)` directly, e.g. from a one-off script or a REPL, to load a `.wiki`-formatted law's text into `Document`/`Article`/`SourceSpan` rows for a matter):
 
 ```bash
@@ -282,7 +307,7 @@ cd backend
 cd ..
 ```
 
-This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 

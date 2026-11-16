@@ -352,18 +352,43 @@ def validate_text_length(text: str, *, label: str, max_length: int = 100_000) ->
         )
 
 
+def normalize_effective_datetime(
+    value: date | datetime | None, *, label: str
+) -> datetime | None:
+    """Return an effective date as an aware UTC datetime (audit findings
+    agent:7, api:19, api:20).
+
+    Effective dates are UTC instants. An offset is applied, never dropped:
+    the database stores the wall-clock part only, so storing
+    `2030-01-01T00:00:00+14:00` as given used to keep `2030-01-01 00:00`, 14
+    hours off, and could store a valid range inverted. A naive value is read
+    as UTC and a date as midnight UTC, as before. An instant outside the
+    representable years 1..9999 once in UTC (year 1 with a positive offset,
+    year 9999 with a negative one) is a ValidationError, not OverflowError.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.utcoffset() is None:
+            return value.replace(tzinfo=timezone.utc)
+        try:
+            return value.astimezone(timezone.utc)
+        except OverflowError as exc:
+            raise ValidationError(f"{label} is outside the supported date range") from exc
+    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+
+
 def validate_effective_dates(
     effective_from: date | datetime | None, effective_to: date | datetime | None
 ) -> None:
     """Raise ValidationError if the date range is not logically consistent.
 
+    The bounds are compared as UTC instants (`normalize_effective_datetime`).
     Open-ended ranges (either or both bounds `None`) are always consistent.
     """
-    def comparable(value):
-        if isinstance(value, datetime):
-            return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
-        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
-    if effective_from is not None and effective_to is not None and comparable(effective_to) < comparable(effective_from):
+    start = normalize_effective_datetime(effective_from, label="effective_from")
+    end = normalize_effective_datetime(effective_to, label="effective_to")
+    if start is not None and end is not None and end < start:
         raise ValidationError("effective_to cannot be before effective_from")
 
 
