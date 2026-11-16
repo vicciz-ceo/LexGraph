@@ -180,10 +180,10 @@ Upgrading /path/to/LexGraph/backend/dev.db
   20261116_revision_reason_raw                     applied
   20261116_sign_in_tokens                          applied
   20261116_users_email_unique                      applied
-Applied 9 of 12 migrations; the schema is current.
+Applied 10 of 13 migrations; the schema is current.
 ```
 
-- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 12 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
+- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 13 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
 - **One transaction per migration.** On SQLite the runner makes `ALTER TABLE` transactional too, so a migration that fails is rolled back completely. The run stops there and exits 1; migrations applied before it are kept. Fix the cause and run the same command again.
 - **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations add tables, columns and indexes and fill in missing values; they never delete or merge rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
 - **Some steps need an operator.** When stored rows stand in the way of a unique index (accounts sharing an email address), the migration leaves that index out and changes none of those rows. The run still exits 0, marks the migration `waiting for an operator` and ends by naming the rows and what to do. The server serves such a database meanwhile. Resolve them and run the command again (see "Upgrading: case-insensitive emails").
