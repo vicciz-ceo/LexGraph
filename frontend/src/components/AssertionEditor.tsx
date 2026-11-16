@@ -291,7 +291,10 @@ export function AssertionEditor({ detail, canReview, isAuthor, onSaved, onReload
             onChange={(e) => setFact("effectiveTo", e.target.value)} /></div>
       </div>
       <div className="field"><label htmlFor="edit-reason">Reason for revision</label>
-        <input id="edit-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+        {/* The API answers 422 for a revision_reason over 100,000 characters
+            (validate_text_length); maxLength counts UTF-16 units, so it never lets more through. */}
+        <input id="edit-reason" className="input" value={reason} maxLength={100000}
+          onChange={(e) => setReason(e.target.value)} /></div>
       {saveHint && <p className="field__hint">{saveHint}</p>}
       <button className="btn btn--primary"
         disabled={busy || !canEdit || !text.trim() || unchanged || superseded || invertedDates}

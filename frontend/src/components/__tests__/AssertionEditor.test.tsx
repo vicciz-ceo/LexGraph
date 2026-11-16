@@ -37,7 +37,7 @@ describe("AssertionEditor", () => {
   });
 
   describe("unchanged text (ui:11)", () => {
-    it("keeps Save disabled until the proposition differs from the current revision", () => {
+    it("keeps Save disabled until something changed (a reason alone is not a change)", () => {
       render(<AssertionEditor detail={{ ...detail, status: "accepted" }} canReview isAuthor={false} onSaved={vi.fn()} />);
       openEditor();
       const save = screen.getByText("Save revision");
@@ -93,6 +93,12 @@ describe("AssertionEditor", () => {
       fireEvent.click(screen.getByText("Cancel edit"));
       openEditor();
       expect(screen.getByLabelText("Reason for revision")).toHaveValue("");
+    });
+
+    it("takes at most the 100,000 characters the API accepts (it answers 422 above that)", () => {
+      render(<AssertionEditor detail={detail} canReview isAuthor={false} onSaved={vi.fn()} />);
+      openEditor();
+      expect(screen.getByLabelText("Reason for revision")).toHaveAttribute("maxlength", "100000");
     });
   });
 
