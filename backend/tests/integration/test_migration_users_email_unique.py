@@ -21,6 +21,8 @@ from sqlalchemy import create_engine, inspect, text
 from app.auth import hash_sign_in_token
 from app.db import Base
 from app.main import create_app
+from app.migrate import SchemaNotCurrentError, check_schema, inspect_schema
+from app.migrate import main as migrate_main
 from app.migrations import m20261116_users_email_unique as migration
 from app.routers.users import normalize_email
 from tests.conftest import auth_header
@@ -149,7 +151,55 @@ def test_the_migration_normalizes_exactly_like_the_api(raw):
     assert migration.normalize_email(raw) == normalize_email(raw)
 
 
-def test_unresolved_shared_addresses_answer_409_not_500(tmp_path, monkeypatch):
+def test_the_runner_upgrades_around_shared_addresses_and_finishes_once_resolved(tmp_path, capsys):
+    db_path = tmp_path / "shared.db"
+    engine = _old_db(
+        db_path, {"u1": "dana@example.test", "u2": "DANA@example.test", "u3": "Solo@Example.test"}
+    )
+    engine.dispose()
+
+    # Usable but not finished: exit 0, and the pending index is named with
+    # the accounts that block it (not reported as a missing migration).
+    assert migrate_main(["--db", str(db_path)]) == 0
+    out = capsys.readouterr().out
+    assert "1 unique index(es) wait for an operator" in out
+    assert "unique index ix_users_email" in out and "u1" in out and "u2" in out
+    engine = create_engine(f"sqlite:///{db_path}")
+    report, pending = check_schema(engine)
+    assert report.is_current and report.pending_uniques == ("(email) on users",)
+    assert list(pending) == ["ix_users_email"]
+    assert _emails(engine)["u3"] == "solo@example.test"
+
+    # After the operator's fix, the same command creates the index.
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE users SET email = 'dana.b@example.test' WHERE id = 'u2'"))
+    engine.dispose()
+    assert migrate_main(["--db", str(db_path)]) == 0
+    assert "the schema is current" in capsys.readouterr().out
+    engine = create_engine(f"sqlite:///{db_path}")
+    assert check_schema(engine) == (inspect_schema(engine), {})
+    assert inspect_schema(engine).is_current and _email_index(engine) is not None
+    engine.dispose()
+
+
+def test_only_the_index_waiting_for_an_operator_is_excused_at_startup(tmp_path, monkeypatch):
+    db_path = tmp_path / "shared-and-old.db"
+    engine = _old_db(db_path, {"u1": "dana@example.test", "u2": "Dana@example.test"})
+    with engine.begin() as conn:
+        conn.execute(text("DROP INDEX ix_users_sign_in_token_hash"))
+    engine.dispose()
+
+    monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{db_path}")
+    app = create_app()
+    try:
+        with pytest.raises(SchemaNotCurrentError, match=r"unique \(sign_in_token_hash\) on users"):
+            with TestClient(app):
+                pass
+    finally:
+        app.state.engine.dispose()
+
+
+def test_unresolved_shared_addresses_answer_409_not_500(tmp_path, monkeypatch, caplog):
     db_path = tmp_path / "unresolved.db"
     engine = _old_db(
         db_path,
@@ -179,7 +229,13 @@ def test_unresolved_shared_addresses_answer_409_not_500(tmp_path, monkeypatch):
     monkeypatch.setenv("LEXGRAPH_DATABASE_URL", f"sqlite:///{db_path}")
     app = create_app()
     try:
-        with TestClient(app) as client:
+        # The startup schema check accepts the database (spec section 12: the
+        # app keeps working until an operator resolves the shared addresses)
+        # and logs which accounts block the index.
+        with caplog.at_level(logging.WARNING, logger="uvicorn.error"), TestClient(app) as client:
+            startup = " ".join(r.getMessage() for r in caplog.records if r.name == "uvicorn.error")
+            assert "ix_users_email" in startup
+            assert all(user_id in startup for user_id in ("u1", "u2", "u3", "u4"))
             for email in ("Dana@Example.test", "exact@example.test"):
                 created = client.post(
                     "/api/v1/users",

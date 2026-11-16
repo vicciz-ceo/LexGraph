@@ -21,7 +21,11 @@ backs its duplicate check.
 - creates the unique index once no such group remains.
 
 Until the duplicates are resolved the app keeps working: lookups match
-every account of a group and answer 409 rather than guess.
+every account of a group and answer 409 rather than guess. `pending_uniques`
+tells the migration runner and the server's startup check
+(`app.migrate`) that the missing index is waiting for an operator, so the
+server still starts (logging the shared addresses) instead of refusing the
+database as out of date.
 
 Idempotent, per the migration convention (`MIGRATION_ID` + `upgrade`):
 
@@ -58,21 +62,43 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def upgrade(engine: Engine) -> bool:
+def _index_missing(engine: Engine) -> bool:
+    """True when there is a users table without the unique email index."""
     inspector = inspect(engine)
     if "users" not in inspector.get_table_names():
-        # Nothing to upgrade: create_all() builds the current schema.
-        return False
-    if any(index["name"] == _INDEX for index in inspector.get_indexes("users")):
+        return False  # nothing to upgrade: create_all() builds the current schema
+    return not any(index["name"] == _INDEX for index in inspector.get_indexes("users"))
+
+
+def _groups(conn) -> dict[str, list[tuple[str, str]]]:
+    """Normalized address -> every (user id, stored email) that has it."""
+    groups: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for user_id, email in conn.execute(text("SELECT id, email FROM users")).all():
+        groups[normalize_email(email)].append((user_id, email))
+    return groups
+
+
+def _shared_message(shared: dict[str, list[tuple[str, str]]]) -> str:
+    details = "; ".join(
+        f"{address}: " + ", ".join(f"{user_id} ({email!r})" for user_id, email in sorted(accounts))
+        for address, accounts in sorted(shared.items())
+    )
+    return (
+        f"{len(shared)} email address(es) are shared by more than one user account once letter "
+        "case and surrounding spaces are ignored. Those accounts were left unchanged and the "
+        "unique email index was not created yet. Give each account its own address, then run "
+        "the migration again (docs/RUNBOOK.md, 'Upgrading: case-insensitive emails'). "
+        f"Shared: {details}"
+    )
+
+
+def upgrade(engine: Engine) -> bool:
+    if not _index_missing(engine):
         return False
 
     changed = False
     with engine.begin() as conn:
-        rows = conn.execute(text("SELECT id, email FROM users")).all()
-        groups: dict[str, list[tuple[str, str]]] = defaultdict(list)
-        for user_id, email in rows:
-            groups[normalize_email(email)].append((user_id, email))
-
+        groups = _groups(conn)
         for address, accounts in groups.items():
             if len(accounts) == 1 and accounts[0][1] != address:
                 conn.execute(
@@ -86,17 +112,23 @@ def upgrade(engine: Engine) -> bool:
             conn.execute(text(f"CREATE UNIQUE INDEX {_INDEX} ON users (email)"))
             return True
 
-    details = "; ".join(
-        f"{address}: " + ", ".join(f"{user_id} ({email!r})" for user_id, email in sorted(accounts))
-        for address, accounts in sorted(shared.items())
-    )
-    logger.warning(
-        "%d email address(es) are shared by more than one user account once letter case "
-        "and surrounding spaces are ignored. Those accounts were left unchanged and the "
-        "unique email index was not created yet. Give each account its own address, then "
-        "run this migration again (docs/RUNBOOK.md, 'Upgrading: case-insensitive emails'). "
-        "Shared: %s",
-        len(shared),
-        details,
-    )
+    logger.warning("%s", _shared_message(shared))
     return changed
+
+
+def pending_uniques(engine: Engine) -> dict[str, str]:
+    """``{"ix_users_email": what to resolve}`` while accounts still share an
+    address, so the index cannot be created; otherwise ``{}``.
+
+    Part of the migration convention read by ``app.migrate``: the runner and
+    the server's startup check accept a database that lacks only this index
+    for this reason (the API answers 409 for a shared address meanwhile), and
+    report the message. With no shared address left, a missing index is an
+    ordinary out-of-date schema: the next ``python -m app.migrate`` creates it.
+    """
+    if not _index_missing(engine):
+        return {}
+    with engine.connect() as conn:
+        groups = _groups(conn)
+    shared = {address: accounts for address, accounts in groups.items() if len(accounts) > 1}
+    return {_INDEX: _shared_message(shared)} if shared else {}

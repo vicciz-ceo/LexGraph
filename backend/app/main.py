@@ -73,9 +73,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # LexGraph tables, or a schema from an older release) instead of starting
     # "healthy" and answering 500 on every endpoint. The error names the exact
     # `python -m app.bootstrap` / `python -m app.migrate` command to run.
-    ensure_schema_current(app.state.engine)
+    # A unique index that only waits for an operator (accounts sharing an
+    # email address) does not stop the server; it is reported instead.
+    log = logging.getLogger("uvicorn.error")
+    for index, action in sorted(ensure_schema_current(app.state.engine).items()):
+        log.warning("The database lacks the unique index %s until an operator acts: %s", index, action)
     if app.state.frontend_dist is not None:
-        logging.getLogger("uvicorn.error").info("Serving the web app from %s", app.state.frontend_dist)
+        log.info("Serving the web app from %s", app.state.frontend_dist)
     yield
 
 
