@@ -151,9 +151,9 @@ result, after `Error executing tool <name>: `. Payload schema violations add
   not a finite number such as `NaN` or `1e999`, a date outside the
   years 1–9999 once in UTC, one source span listed twice with the same role,
   text over 100,000 characters, provenance that is only markup, a proposed new
-  type of another shape, the agent
-  payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
-  escape such as `\ud800`, or input that is not UTF-8 JSON).
+  type of another shape, the agent payload sent to `POST /api/v1/assertions`,
+  JSON with an unpaired surrogate escape such as `\ud800`, or input that is not
+  UTF-8 JSON).
 - **409 duplicate:** no second assertion was created. The existing assertion's
   ID is in `existing_assertion_id` (CLI, MCP and REST alike) and in the error
   text; inspect that assertion. Do not retry with cosmetic rewording. This
