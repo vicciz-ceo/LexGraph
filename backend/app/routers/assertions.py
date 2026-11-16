@@ -53,7 +53,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.models.audit_event import AuditEvent
 from app.models.document import Document
-from app.services.audit import record_audit_event
+from app.services.audit import record_assertion_event, record_audit_event
 from app.services.source_access import validate_entity, validate_span
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
@@ -667,6 +667,9 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
                        new_value=assertion.status)
+    for evidence_row in _evidence_rows(session, assertion.id):  # audit api:4/review:2
+        record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_added",
+                               assertion_revision_id=revision.id, new_value=evidence_row.id)
     if agent:
         record_audit_event(session, actor_user_id=user_id, event_type="assertion_agent_provenance",
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
@@ -1105,6 +1108,8 @@ def add_evidence(
         created_at=_now(),
     )
     session.add(evidence)
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_added",
+                           new_value=evidence.id)
     session.commit()
     session.refresh(evidence)
     return _serialize_evidence(evidence, session)
@@ -1129,5 +1134,7 @@ def remove_evidence(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="evidence not found")
 
     session.delete(evidence)
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_removed",
+                           new_value=evidence_id)
     session.commit()
     return None

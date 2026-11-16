@@ -170,6 +170,7 @@ def create_comment(
         repository_id=assertion.repository_id,
         matter_id=assertion.matter_id,
         assertion_id=assertion_id,
+        new_value=comment.id,
     )
     session.commit()
     session.refresh(comment)
@@ -236,6 +237,7 @@ def update_comment(
         repository_id=assertion.repository_id,
         matter_id=assertion.matter_id,
         assertion_id=assertion_id,
+        new_value=comment.id,
     )
     session.commit()
     session.refresh(comment)
@@ -267,6 +269,7 @@ def delete_comment(
         repository_id=assertion.repository_id,
         matter_id=assertion.matter_id,
         assertion_id=assertion_id,
+        new_value=comment.id,
     )
     session.commit()
     return None

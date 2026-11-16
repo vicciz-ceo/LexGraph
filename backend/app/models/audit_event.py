@@ -10,6 +10,13 @@ nullable — spec: "Previous value where appropriate", "New value where
 appropriate", and not every audited event (e.g. future non-assertion
 events) need reference a specific assertion/revision. Schema only — B3
 owns `app.services.audit` (the code that writes these rows).
+
+`correlation_id` stays nullable in the schema (rows written before
+2026-11-16 may lack one), but no row is inserted without one any more:
+`app.services.audit.record_audit_event` always sets it, and a writer that
+builds an `AuditEvent` itself gets the Python-side default below -- the
+correlation id of the API request being served, else a fresh one (finding
+api:5). A Python-side default changes no DDL, so no migration is needed.
 """
 
 from __future__ import annotations
@@ -44,4 +51,13 @@ class AuditEvent(Base):
 
     previous_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
-    correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, default=lambda: _default_correlation_id()
+    )
+
+
+def _default_correlation_id() -> str:
+    # Imported lazily: app.services.audit imports this module.
+    from app.services.audit import new_correlation_id
+
+    return new_correlation_id()
