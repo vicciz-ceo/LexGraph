@@ -27,6 +27,9 @@ G5/G6/G8; the 2026-11-16 spec addendum "Review decision rules"):
   the checks and the write is refused with 409 rather than overwritten.
 - An "unsupported" assertion (zero `assertion_evidence` rows) cannot be
   accepted unless the request records an `acceptance_justification`.
+- Supersede refuses the assertion itself, a successor from another
+  matter, a successor that is a draft or withdrawn, rejected or
+  superseded, and any link that would close a supersede cycle.
 - A review decision records which assertion + revision was reviewed
   (`reviewed_by`, `reviewed_at`, and the current revision's id on the
   audit event this router writes, which carries a correlation id).
@@ -71,6 +74,12 @@ router = APIRouter(prefix="/api/v1/assertions", tags=["review"])
 DECIDABLE_STATUSES = frozenset(
     {"proposed", "revision_requested", "disputed", "accepted", "rejected"}
 )
+
+# Statuses an assertion may hold to supersede another one: submitted and
+# still live. A rejected, withdrawn or never-submitted assertion replaces
+# nothing, and refusing an already-superseded successor keeps every
+# supersede chain pointing at a current assertion.
+SUCCESSOR_STATUSES = frozenset({"proposed", "revision_requested", "disputed", "accepted"})
 
 _ACTION_VERB = {
     "accepted": "accept",
@@ -174,6 +183,42 @@ def _require_decidable(assertion: Assertion, new_status: str) -> None:
         )
     if assertion.status == new_status:
         raise HTTPException(status_code=409, detail=f"assertion is already '{new_status}'")
+
+
+def _validated_successor(db: Session, assertion: Assertion, successor_id: str) -> Assertion:
+    """Return the superseding assertion, or raise 404/422 if it cannot be one."""
+    if successor_id == assertion.id:
+        raise HTTPException(status_code=422, detail="an assertion cannot supersede itself")
+    successor = db.get(Assertion, successor_id)
+    if successor is None:
+        raise HTTPException(status_code=404, detail="superseding assertion not found")
+    if successor.matter_id != assertion.matter_id:
+        raise HTTPException(
+            status_code=422, detail="superseding assertion must belong to the same matter"
+        )
+    if successor.status not in SUCCESSOR_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "superseding assertion must be submitted and not rejected, withdrawn or "
+                f"superseded (it is '{successor.status}')"
+            ),
+        )
+    # Follow the successor's own supersede links (rows decided before this
+    # router enforced statuses can carry one without being superseded):
+    # reaching `assertion` again would close a cycle.
+    seen = {successor.id}
+    link = successor.superseded_by_assertion_id
+    while link is not None and link not in seen:
+        if link == assertion.id:
+            raise HTTPException(
+                status_code=422,
+                detail="superseding assertion leads back to this assertion (supersede cycle)",
+            )
+        seen.add(link)
+        next_row = db.get(Assertion, link)
+        link = next_row.superseded_by_assertion_id if next_row is not None else None
+    return successor
 
 
 def _current_revision(db: Session, assertion: Assertion) -> AssertionRevision | None:
@@ -413,14 +458,7 @@ def supersede_assertion(
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "superseded")
 
-    successor = db.get(Assertion, body.superseded_by_assertion_id)
-    if successor is None:
-        raise HTTPException(status_code=404, detail="superseding assertion not found")
-    if successor.matter_id != assertion.matter_id:
-        raise HTTPException(
-            status_code=422, detail="superseding assertion must belong to the same matter"
-        )
-
+    successor = _validated_successor(db, assertion, body.superseded_by_assertion_id)
     return _decide(
         db,
         user_id,

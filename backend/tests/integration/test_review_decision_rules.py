@@ -13,6 +13,8 @@ decision rules"):
   never on an unsubmitted draft, a withdrawn assertion or a superseded one,
   and never as a same-status repeat (double-click). Re-review between
   reviewed statuses stays allowed.
+- api:8 -- supersede refuses the assertion itself, cycles, and successors
+  that are drafts, withdrawn, rejected or superseded.
 - ui:35 -- every review route returns the full assertion, like the other
   assertion mutation routes.
 - new:review-audit-correlation-id -- decision audit rows carry a
@@ -489,6 +491,88 @@ def test_decision_clears_a_stale_superseded_by_link(client, matter_with_users, d
     assert r.status_code == 200, r.text
     assert r.json()["superseded_by_assertion_id"] is None
     assert _row(db_session, stale_id)["superseded_by_assertion_id"] is None
+
+
+# --- api:8: supersede successor rules -----------------------------------------
+
+
+def _assert_supersede_refused(client, db_session, m, assertion_id, successor_id):
+    before = _row(db_session, assertion_id)
+    events_before = _decision_events(db_session, assertion_id)
+    r = _post(
+        client, assertion_id, "supersede", m["reviewer_headers"],
+        {"superseded_by_assertion_id": successor_id},
+    )
+    assert r.status_code == 422, r.text
+    assert _row(db_session, assertion_id) == before
+    assert _decision_events(db_session, assertion_id) == events_before
+    return r
+
+
+def test_assertion_cannot_supersede_itself(client, matter_with_users, db_session):
+    m = matter_with_users
+    assertion_id = _drive_to(client, db_session, m, "accepted")
+    r = _assert_supersede_refused(client, db_session, m, assertion_id, assertion_id)
+    assert "itself" in r.json()["detail"]
+
+
+def test_supersede_refuses_a_direct_cycle(client, matter_with_users, db_session):
+    m = matter_with_users
+    a_id = _drive_to(client, db_session, m, "accepted")
+    b_id = _drive_to(client, db_session, m, "accepted")
+    first = _post(client, a_id, "supersede", m["reviewer_headers"], {"superseded_by_assertion_id": b_id})
+    assert first.status_code == 200, first.text
+
+    _assert_supersede_refused(client, db_session, m, b_id, a_id)
+    assert _row(db_session, b_id)["status"] == "accepted", "something accepted must remain"
+
+
+def test_supersede_refuses_a_cycle_through_a_stale_link(client, matter_with_users, db_session):
+    """A pre-fix row can carry a superseded_by link without being superseded."""
+    m = matter_with_users
+    a_id = _drive_to(client, db_session, m, "accepted")
+    b_id = _drive_to(client, db_session, m, "accepted")
+    c_id = _drive_to(client, db_session, m, "accepted")
+    db_session.execute(
+        text("UPDATE assertions SET superseded_by_assertion_id = :b WHERE id = :a"),
+        {"a": a_id, "b": b_id},
+    )
+    db_session.execute(
+        text("UPDATE assertions SET superseded_by_assertion_id = :c WHERE id = :b"),
+        {"b": b_id, "c": c_id},
+    )
+    db_session.commit()
+
+    r = _assert_supersede_refused(client, db_session, m, c_id, a_id)
+    assert "cycle" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("successor_status", ["draft", "withdrawn", "rejected", "superseded"])
+def test_supersede_refuses_an_ineligible_successor(
+    client, matter_with_users, db_session, successor_status
+):
+    m = matter_with_users
+    assertion_id = _drive_to(client, db_session, m, "accepted")
+    successor_id = _drive_to(client, db_session, m, successor_status)
+    r = _assert_supersede_refused(client, db_session, m, assertion_id, successor_id)
+    assert successor_status in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "successor_status", ["proposed", "revision_requested", "disputed", "accepted"]
+)
+def test_supersede_accepts_a_live_successor(client, matter_with_users, db_session, successor_status):
+    m = matter_with_users
+    assertion_id = _drive_to(client, db_session, m, "accepted")
+    successor_id = _drive_to(client, db_session, m, successor_status)
+    r = _post(
+        client, assertion_id, "supersede", m["reviewer_headers"],
+        {"superseded_by_assertion_id": successor_id},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["superseded_by_assertion_id"] == successor_id
+    event = _history_event(client, m, assertion_id, "assertion.supersede")
+    assert event["new_value"] == f"superseded; superseded_by_assertion_id={successor_id}"
 
 
 # --- ui:35: response shape ------------------------------------------------------
