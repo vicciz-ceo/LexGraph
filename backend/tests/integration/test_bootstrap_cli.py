@@ -36,6 +36,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
@@ -192,3 +194,143 @@ def test_bootstrap_refuses_on_db_seeded_by_a_different_tool(tmp_path):
     # No silent mutation: still exactly the seed's own users, nothing added.
     assert len(_rows(db_path, "users")) == seeded_user_count
     assert len(_rows(db_path, "organizations")) == 1
+
+
+# --- Database target and input validation (2026-11-16, findings api:26 /
+# ops:13) ---------------------------------------------------------------------
+#
+# Without --db or LEXGRAPH_DATABASE_URL the settings default is a throwaway
+# in-memory database: bootstrap used to report success and print a token
+# for an account that vanished on exit. Its flags were stored unvalidated,
+# and its "nothing was changed" refusal ran after create_all() had already
+# added the missing tables.
+
+OLD_USERS_DDL = (
+    "CREATE TABLE users (id VARCHAR(36) PRIMARY KEY, email VARCHAR(255) NOT NULL, "
+    "display_name VARCHAR(255) NOT NULL)"
+)
+
+
+def _env_without_database_url(**extra: str) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k != "LEXGRAPH_DATABASE_URL"}
+    env.update(extra)
+    return env
+
+
+def _tables(db_path: Path) -> list[str]:
+    conn = sqlite3.connect(db_path)
+    try:
+        return sorted(
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        )
+    finally:
+        conn.close()
+
+
+def test_bootstrap_refuses_the_in_memory_default():
+    result = _run_bootstrap([], env=_env_without_database_url())
+
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "--db" in result.stderr and "LEXGRAPH_DATABASE_URL" in result.stderr
+    assert "sign-in token" not in result.stdout
+    assert "Bootstrapped" not in result.stdout
+
+
+@pytest.mark.parametrize("url", ["sqlite:///:memory:", "sqlite://"])
+def test_bootstrap_refuses_an_explicit_in_memory_database_url(url):
+    result = _run_bootstrap([], env=_env_without_database_url(LEXGRAPH_DATABASE_URL=url))
+
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "in-memory" in result.stderr
+    assert "sign-in token" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "flag, value",
+    [
+        ("--user-email", "not-an-email"),
+        ("--user-name", "   "),
+        ("--org-name", ""),
+        ("--matter-name", "  "),
+        ("--org-name", "x" * 201),
+        ("--user-name", "x" * 256),
+    ],
+)
+def test_bootstrap_validates_its_inputs_before_touching_the_database(tmp_path, flag, value):
+    db_path = tmp_path / "invalid.db"
+
+    result = _run_bootstrap(["--db", str(db_path), flag, value])
+
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert flag in result.stderr
+    assert "sign-in token" not in result.stdout
+    assert not db_path.exists(), "invalid input must not create the database"
+
+
+def test_bootstrap_stores_the_admin_email_normalized(tmp_path):
+    db_path = tmp_path / "bootstrap.db"
+
+    result = _run_bootstrap(["--db", str(db_path), "--user-email", "  Root@ACME.Test "])
+
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert _rows(db_path, "users")[0][1] == "root@acme.test"
+
+
+def test_bootstrap_refusal_on_an_older_database_creates_no_tables(tmp_path):
+    db_path = tmp_path / "older.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(OLD_USERS_DDL)
+    conn.execute("INSERT INTO users VALUES ('u1', 'a@example.test', 'A')")
+    conn.commit()
+    conn.close()
+
+    result = _run_bootstrap(["--db", str(db_path)])
+
+    assert result.returncode == 1, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "nothing was changed" in result.stdout
+    assert _tables(db_path) == ["users"]
+
+
+def test_bootstrap_refuses_an_empty_but_outdated_users_table(tmp_path):
+    db_path = tmp_path / "outdated.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(OLD_USERS_DDL)
+    conn.commit()
+    conn.close()
+
+    result = _run_bootstrap(["--db", str(db_path)])
+
+    assert result.returncode == 1, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "upgrade" in (result.stdout + result.stderr).lower()
+    assert _tables(db_path) == ["users"]
+    assert _rows(db_path, "users") == []
+
+
+def test_bootstrap_rejects_a_db_path_in_a_missing_directory(tmp_path):
+    result = _run_bootstrap(["--db", str(tmp_path / "missing" / "dev.db")])
+
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "--db" in result.stderr
+    assert not (tmp_path / "missing").exists()
+
+
+def test_bootstrap_hints_name_the_real_database(tmp_path):
+    db_path = tmp_path / "hint.db"
+
+    result = _run_bootstrap(["--db", str(db_path), "--user-email", "root@acme.test"])
+
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "<same db>" not in result.stdout
+    assert f"LEXGRAPH_DATABASE_URL=sqlite:///{db_path} " in result.stdout
+    assert f"--db {db_path} --email root@acme.test" in result.stdout
+
+
+def test_bootstrap_hints_with_a_database_url_from_the_environment(tmp_path):
+    db_path = tmp_path / "env-hint.db"
+    url = f"sqlite:///{db_path}"
+
+    result = _run_bootstrap([], env=_env_without_database_url(LEXGRAPH_DATABASE_URL=url))
+
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "<same db>" not in result.stdout
+    assert f"LEXGRAPH_DATABASE_URL={url} " in result.stdout
