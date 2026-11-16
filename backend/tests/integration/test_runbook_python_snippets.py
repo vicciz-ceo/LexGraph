@@ -43,8 +43,31 @@ RAW_TEXT_COLUMNS = {
 }
 
 
+# Inside "...", bash treats a backslash as an escape only before $ ` " \ or a
+# newline; an unescaped $ or ` starts an expansion.
+_DOUBLE_QUOTED = re.compile(r'\\([$`"\\\n])|([$`])')
+# A database named in the code itself instead of read from LEXGRAPH_DATABASE_URL.
+_HARD_CODED_DATABASE = re.compile(r"sqlite:/|['\"][^'\"]*\.db['\"]|sqlite3\.connect")
+
+
+def as_bash_passes_it(quoted: str) -> str:
+    """The text bash hands to python for `-c "quoted"` (snippets are shell
+    commands). An expansion would depend on the reader's shell, so a snippet
+    may not contain one."""
+
+    def unquote(match: re.Match) -> str:
+        if match.group(2):
+            raise AssertionError(f"the shell would expand {match.group(2)!r} in this snippet:\n{quoted}")
+        return "" if match.group(1) == "\n" else match.group(1)
+
+    return _DOUBLE_QUOTED.sub(unquote, quoted)
+
+
 def runbook_snippets() -> list[str]:
-    return [textwrap.dedent(match.group("code")) for match in SNIPPET.finditer(RUNBOOK.read_text())]
+    return [
+        as_bash_passes_it(textwrap.dedent(match.group("code")))
+        for match in SNIPPET.finditer(RUNBOOK.read_text())
+    ]
 
 
 def _run(args: list[str], db: Path) -> subprocess.CompletedProcess[str]:
@@ -80,6 +103,31 @@ def test_the_runbook_still_documents_both_schema_snippets():
     snippets = runbook_snippets()
     assert any("create_all" in code for code in snippets), snippets
     assert any("downgrade(" in code for code in snippets), snippets
+
+
+def test_every_snippet_acts_on_the_database_the_reader_configured():
+    """Every LexGraph process reads LEXGRAPH_DATABASE_URL (RUNBOOK "Initialize
+    the Database"). A snippet that names its own file acts on a different
+    database than the reader's server, and here, run in backend/, it would
+    touch the checkout's own backend/dev.db."""
+    for code in runbook_snippets():
+        assert not _HARD_CODED_DATABASE.search(code), f"names a database itself:\n{code}"
+        if "make_engine(" in code:
+            assert "get_settings()" in code and ".database_url" in code, code
+
+
+@pytest.mark.parametrize(
+    ("quoted", "passed"),
+    [('print(\\"x\\")', 'print("x")'), ("a\\\\b", "a\\b"), ("a\\nb", "a\\nb"), ("one \\\ntwo", "one two")],
+)
+def test_snippets_are_read_the_way_bash_passes_them(quoted, passed):
+    assert as_bash_passes_it(quoted) == passed
+
+
+@pytest.mark.parametrize("quoted", ["print($HOME)", "x = `id`", "a\\\\$b"])
+def test_a_snippet_with_a_shell_expansion_is_refused(quoted):
+    with pytest.raises(AssertionError, match="the shell would expand"):
+        as_bash_passes_it(quoted)
 
 
 def test_every_runbook_python_snippet_runs_with_the_backend_interpreter(tmp_path):
