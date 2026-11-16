@@ -176,12 +176,13 @@ Upgrading /path/to/LexGraph/backend/dev.db
   20261116_assertion_revision_number_unique        applied
   20261116_backfill_initial_assertion_revisions    already applied
   20261116_durable_notifications                   applied
+  20261116_revision_reason_raw                     applied
   20261116_sign_in_tokens                          applied
   20261116_users_email_unique                      applied
-Applied 8 of 11 migrations; the schema is current.
+Applied 9 of 12 migrations; the schema is current.
 ```
 
-- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 11 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
+- **Safe to re-run.** Every migration changes only what is missing. On a current database the command changes nothing and ends with `Nothing to do: all 12 migrations were already applied; the schema is current.` Run it after every upgrade, and point it at the same file the server uses.
 - **One transaction per migration.** On SQLite the runner makes `ALTER TABLE` transactional too, so a migration that fails is rolled back completely. The run stops there and exits 1; migrations applied before it are kept. Fix the cause and run the same command again.
 - **It never creates or empties a database.** A missing file, or a file without LexGraph tables, is refused with exit status 1 and a pointer to `python -m app.bootstrap`. Migrations add tables, columns and indexes and fill in missing values; they never delete or merge rows. Copying the file first (`cp dev.db dev.db.bak`) is still cheap insurance.
 - **Some steps need an operator.** When stored rows stand in the way of a unique index (accounts sharing an email address), the migration leaves that index out and changes none of those rows. The run still exits 0, marks the migration `waiting for an operator` and ends by naming the rows and what to do. The server serves such a database meanwhile. Resolve them and run the command again (see "Upgrading: case-insensitive emails").
@@ -199,6 +200,7 @@ The migrations shipped so far, in the order they run (`backend/app/migrations/`;
 | `20261116_assertion_revision_number_unique` | unique index on `assertion_revisions (assertion_id, revision_number)` | a revision number that concurrent edits stored twice is renumbered first, never deleted: the row matching the assertion's current text becomes the newest, later numbers move up, ratings stay with the row they rated, and each move is logged as a warning |
 | `20261116_backfill_initial_assertion_revisions` | none | an assertion stored without revision 1 (definition-link output written before 2026-11-16) gets it, plus an `assertion_created` audit event marked `migration:<id>`; one edited before then keeps only its later revisions, because the original text was not stored |
 | `20261116_durable_notifications` | `notifications` and `notification_preferences` tables | none: notifications raised before the upgrade lived only in the old server process |
+| `20261116_revision_reason_raw` | `assertion_revisions.revision_reason_raw` | `NULL`: a reason saved before keeps its stored text and has no separate raw copy |
 | `20261116_sign_in_tokens` | `users.sign_in_token_hash` and its unique index | every existing account gets a legacy token equal to its user id (see "Upgrading: sign-in tokens replace user-id sign-in") |
 | `20261116_users_email_unique` | unique index `ix_users_email` | stored addresses are lowercased; accounts that share one are reported and left for an operator (see "Upgrading: case-insensitive emails") |
 

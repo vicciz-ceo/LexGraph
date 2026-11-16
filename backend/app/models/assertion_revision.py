@@ -62,6 +62,11 @@ class AssertionRevision(Base):
     effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     revision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Review authoring:5: the exact reason an editor submitted; `revision_reason`
+    # holds its sanitized text (as `proposition_raw` / `proposition`). Null for
+    # reasons the system writes ("initial creation") and for revisions saved
+    # before migration 20261116_revision_reason_raw.
+    revision_reason_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
     edited_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
 

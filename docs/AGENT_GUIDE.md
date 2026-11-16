@@ -117,7 +117,9 @@ or proof of correctness.
 The canonical schema, the assertion types and the jurisdiction codes
 (`jurisdictions`) come from `schema` (over MCP, from `assertion_guide`), so agents
 need not hardcode them. Unknown assertion types require
-`assertion_type_is_proposed_new: true`. `jurisdiction` is optional and
+`assertion_type_is_proposed_new: true` and the vocabulary's shape: at most 100
+characters, letters and digits in upper case, words joined by single
+underscores (`CANCELLED_BY`). `jurisdiction` is optional and
 case-sensitive: `IL` is Israel, a US state is `US-<postal code>` (Illinois is
 `US-IL`), and `US-DC`, `US-PR` and `US-FED` complete the list. Omit it rather
 than guess. Effective dates are UTC instants: an
@@ -148,7 +150,8 @@ result, after `Error executing tool <name>: `. Payload schema violations add
   sources, wrong repository, invalid confidence or dates, a confidence that is
   not a finite number such as `NaN` or `1e999`, a date outside the
   years 1–9999 once in UTC, one source span listed twice with the same role,
-  text over 100,000 characters, provenance that is only markup, the agent
+  text over 100,000 characters, provenance that is only markup, a proposed new
+  type of another shape, the agent
   payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
   escape such as `\ud800`, or input that is not UTF-8 JSON).
 - **409 duplicate:** no second assertion was created. The existing assertion's

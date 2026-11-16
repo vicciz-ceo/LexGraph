@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import uuid
 import json
+import re
 import sqlite3
 from collections import namedtuple
 from collections.abc import Iterator
@@ -83,6 +84,7 @@ from app.services.duplicates import (
 from app.services.jurisdiction import JURISDICTION_CODES, validate_jurisdiction
 from app.services.ratings import compute_standing
 from app.services.validation import (
+    ALLOWED_ASSERTION_TYPES,
     ValidationError,
     normalize_effective_datetime,
     sanitize_for_storage,
@@ -336,6 +338,8 @@ def _serialize_revision(r: AssertionRevision) -> dict:
         "effective_from": r.effective_from,
         "effective_to": r.effective_to,
         "revision_reason": r.revision_reason,
+        # authoring:5: the exact reason the editor submitted (sanitized above).
+        "revision_reason_raw": r.revision_reason_raw,
         "edited_by_user_id": r.edited_by_user_id,
         "created_at": r.created_at,
     }
@@ -530,6 +534,30 @@ def _validate_jurisdiction(code: str) -> None:
         validate_jurisdiction(code)
     except ValidationError as exc:
         raise ValidationError(f"{exc}; {_JURISDICTION_HINT}") from exc
+
+
+#: The longest proposed new assertion type, as the Suggest form allows it
+#: (frontend NEW_ASSERTION_TYPE_MAX_LENGTH; the column holds 255).
+NEW_ASSERTION_TYPE_MAX_LENGTH = 100
+# Letters and digits of any script, words joined by single underscores: what
+# the form's normalizeAssertionType produces (with upper case checked apart).
+_NEW_ASSERTION_TYPE_SHAPE = re.compile(r"[^\W_]+(?:_[^\W_]+)*")
+
+
+def _validate_new_assertion_type(assertion_type: str) -> None:
+    """A proposed new type (one outside the controlled vocabulary) has the
+    vocabulary's shape (review authoring:5): any text used to pass, markup,
+    spaces and half a megabyte included, served to every member as a type."""
+    if assertion_type in ALLOWED_ASSERTION_TYPES:
+        return
+    if (len(assertion_type) > NEW_ASSERTION_TYPE_MAX_LENGTH
+            or assertion_type != assertion_type.upper()
+            or not _NEW_ASSERTION_TYPE_SHAPE.fullmatch(assertion_type)):
+        raise ValidationError(
+            f"a proposed new assertion_type must be at most {NEW_ASSERTION_TYPE_MAX_LENGTH} characters: "
+            "letters and digits in upper case, with words joined by single underscores (for example "
+            "CANCELLED_BY)"
+        )
 
 
 def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
@@ -846,6 +874,7 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
         validate_assertion_type(
             body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
         )
+        _validate_new_assertion_type(body.assertion_type)
         if body.jurisdiction is not None:
             _validate_jurisdiction(body.jurisdiction)
         validate_matter_scoped_entity_id(body.subject_entity.id, label="subject_entity")
@@ -1108,9 +1137,21 @@ def _edit_assertion(
     ):
         raise _stale_revision_conflict()
 
+    # authoring:5: the reason is submitted text like any other. Its cap is
+    # checked on the raw text (422), even when nothing else is sent, before
+    # the sanitizer runs; the revision keeps the exact text next to it.
+    try:
+        validate_text_length(body.revision_reason, label="revision_reason")
+    except ValidationError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
     updates = body.model_dump(exclude_unset=True, exclude=_EDIT_CONTROL_FIELDS)
     if not updates:
         return assertion, None
+
+    reason_raw = body.revision_reason if body.revision_reason and body.revision_reason.strip() else None
+    reason = sanitize_for_storage(reason_raw) if reason_raw is not None else None
+    reason = reason if reason and reason.strip() else None  # nothing readable: no reason
 
     new_proposition = None
     try:
@@ -1130,6 +1171,7 @@ def _edit_assertion(
             validate_assertion_type(
                 body.assertion_type, is_proposed_new=body.assertion_type_is_proposed_new
             )
+            _validate_new_assertion_type(body.assertion_type)
         if "jurisdiction" in updates and body.jurisdiction is not None:
             _validate_jurisdiction(body.jurisdiction)
         dates_set = [bound for bound in ("effective_from", "effective_to") if bound in updates]
@@ -1242,7 +1284,8 @@ def _edit_assertion(
         jurisdiction=assertion.jurisdiction,
         effective_from=assertion.effective_from,
         effective_to=assertion.effective_to,
-        revision_reason=body.revision_reason,
+        revision_reason=reason,
+        revision_reason_raw=reason_raw,
         edited_by_user_id=user_id,
         created_at=now,
     )
