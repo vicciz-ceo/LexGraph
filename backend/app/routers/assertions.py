@@ -58,7 +58,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthHeaderError, get_bearer_user_id
 from app.models.audit_event import AuditEvent
 from app.models.document import Document
-from app.services.audit import record_audit_event
+from app.services.audit import record_assertion_event, record_audit_event
 from app.services.source_access import validate_entity, validate_span
 from app.models.assertion import Assertion
 from app.models.assertion_comment import AssertionComment
@@ -870,6 +870,9 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
                        new_value=assertion.status)
+    for evidence_row in _evidence_rows(session, assertion.id):  # audit api:4/review:2
+        record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_added",
+                               assertion_revision_id=revision.id, new_value=evidence_row.id)
     if agent:
         record_audit_event(session, actor_user_id=user_id, event_type="assertion_agent_provenance",
                            repository_id=assertion.repository_id, matter_id=assertion.matter_id,
@@ -1174,6 +1177,7 @@ def _edit_assertion(
 
     assertion.current_revision_number = new_revision_number
     assertion.updated_at = now
+    previous_status = assertion.status
     # Editing an accepted assertion creates a new proposed revision rather
     # than silently modifying the accepted assertion (spec §3).
     if assertion.status == "accepted":
@@ -1212,6 +1216,10 @@ def _edit_assertion(
                        repository_id=assertion.repository_id, matter_id=assertion.matter_id,
                        assertion_id=assertion.id, assertion_revision_id=revision.id,
                        previous_value=str(new_revision_number - 1), new_value=str(new_revision_number))
+    if assertion.status != previous_status:  # accepted -> proposed (audit api:4/review:2)
+        record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_status_changed",
+                               assertion_revision_id=revision.id, previous_value=previous_status,
+                               new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     session.refresh(revision)  # answer with stored values, as GET .../revisions does
@@ -1248,6 +1256,7 @@ def submit_assertion(
             session.rollback()
             raise _duplicate_conflict(blocker)
 
+    previous_status = assertion.status
     assertion.status = "proposed"
     # api:29 / review:12: a proposal awaiting review names no reviewer, as
     # after an edit that returns an assertion to proposed; the earlier
@@ -1256,6 +1265,8 @@ def submit_assertion(
     assertion.reviewed_at = None
     assertion.submitted_at = _now()
     assertion.updated_at = _now()
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_submitted",
+                           previous_value=previous_status, new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -1272,8 +1283,11 @@ def withdraw_assertion(
 
     if assertion.status not in ("draft", "proposed", "revision_requested"):
         raise HTTPException(409, "Only an unreviewed assertion can be withdrawn")
+    previous_status = assertion.status
     assertion.status = "withdrawn"
     assertion.updated_at = _now()
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="assertion_withdrawn",
+                           previous_value=previous_status, new_value=assertion.status)
     session.commit()
     session.refresh(assertion)
     return _serialize_assertion(session, assertion)
@@ -1384,6 +1398,8 @@ def add_evidence(
         created_at=_now(),
     )
     session.add(evidence)
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_added",
+                           new_value=evidence.id)
     session.commit()
     session.refresh(evidence)
     return _serialize_evidence(evidence, session)
@@ -1423,5 +1439,7 @@ def remove_evidence(
         )
 
     session.delete(evidence)
+    record_assertion_event(session, assertion, actor_user_id=user_id, event_type="evidence_removed",
+                           new_value=evidence_id)
     session.commit()
     return None

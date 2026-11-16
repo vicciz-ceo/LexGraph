@@ -3,10 +3,11 @@
     GET /api/v1/assertions/{assertion_id}/history
 
 Read-only, audit-backed timeline for one assertion: every `audit_events`
-row referencing the assertion (written by this track's comment routes,
-this track's `app.audit_middleware`, and directly by other tracks' own
-routers -- e.g. B4's `app/routers/review.py` review decisions), ordered
-oldest-first. Each event is annotated with `assertion_revision_number`
+row referencing the assertion (written through `app.services.audit` by the
+mutation routes themselves -- assertions, evidence, submit/withdraw, edits,
+comments, ratings, review decisions -- in each mutation's own transaction;
+the event types and value conventions are listed in spec section 16),
+ordered oldest-first. Each event is annotated with `assertion_revision_number`
 (via a left join on `assertion_revisions`) when the audit row references a
 specific revision -- consumed by
 `tests/integration/test_review_workflow.py::
