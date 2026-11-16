@@ -216,9 +216,10 @@ export function ProfilePage() {
     api.notifications().then(
       (items) => {
         if (cancelled) return;
-        setNotifications(
-          [...items].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-        );
+        // Newest first, by instant: "…Z" and "+00:00" spellings do not
+        // compare as strings.
+        const at = (n: AppNotification) => parseApiInstant(n.created_at)?.getTime() ?? 0;
+        setNotifications([...items].sort((a, b) => at(b) - at(a)));
       },
       () => {
         if (!cancelled) setNotifications("error");
