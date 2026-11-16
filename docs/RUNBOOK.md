@@ -82,7 +82,7 @@ cd ..
 
 ### Frontend Environment Setup
 
-Install frontend dependencies:
+The web app's toolchain (Vite 8, Vitest 5) needs Node.js 22 (22.12 or later) or 24; CI uses 24. Install frontend dependencies:
 
 ```bash
 npm --prefix frontend ci
@@ -417,6 +417,7 @@ Open `http://localhost:8000` and sign in. At startup the backend logs `Serving t
 - `/assets/*` serves the build's content-hashed files, which browsers may cache for a year.
 - `/api/v1/*`, `/docs`, `/redoc`, `/openapi.json` and `/healthz` answer exactly as without the web app. An unknown `/api/...` path is still a JSON 404, and a wrong method is still a 405.
 - `LEXGRAPH_FRONTEND_DIST=/path/to/dist` serves a build from another directory, for example when the backend is installed as a package. Set it to an empty value to serve the API only. If the directory has no `index.html`, the backend exits at startup with the command to build it.
+- The build uses Vite 8's default browser target, `baseline-widely-available`: Chrome and Edge 111+, Firefox 114+, Safari 16.4+ (iOS 16.4+).
 
 To check a build without the backend serving it, run `npm --prefix frontend run preview`. Vite's preview server serves `frontend/dist`, proxies `/api` to `http://127.0.0.1:8000` (or `LEXGRAPH_API_PROXY`) like the dev server, and prints the URL to open. It is a local check, not a production server.
 

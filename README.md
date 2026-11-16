@@ -54,6 +54,8 @@ script. Copy the printed sign-in id, then start the servers:
 cd backend && LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
 ```
 
+The web app needs Node.js 22 (22.12 or later) or 24; CI uses 24.
+
 ```bash
 npm --prefix frontend install && npm --prefix frontend run dev
 ```
@@ -108,7 +110,7 @@ local development and mockup data, not for a real deployment.
 
 The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest + the production build on Node 24, and `scripts/contract_lint.sh` over the sprint contracts.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every PR and push to `main`: backend pytest on Python 3.12/3.13, frontend `tsc --noEmit` + Vitest + the production build on Node 24, `npm audit` of the frontend dependencies (fails on high and critical advisories), and `scripts/contract_lint.sh` over the sprint contracts.
 
 ## Local agents and lawyer authoring
 
