@@ -173,7 +173,7 @@ def _read_input(path: str) -> str:
         except OSError as exc:
             raise HTTPException(400, f"Cannot read --input {path}: {exc.strerror or exc}") from exc
     if isinstance(data, str):
-        return data.removeprefix("﻿")
+        return data.removeprefix("\ufeff")
     try:
         return data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:

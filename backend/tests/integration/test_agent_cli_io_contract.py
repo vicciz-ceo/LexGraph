@@ -67,7 +67,7 @@ def test_escaped_stdin_is_committed_once_and_reported_as_success(cli, db_session
 @pytest.mark.parametrize("bom", [False, True])
 def test_utf8_input_file_is_read_as_utf8_under_the_c_locale(cli, db_session, payload, tmp_path, bom):
     path = tmp_path / "suggestion.json"
-    path.write_bytes(("﻿" if bom else "").encode("utf-8") + json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    path.write_bytes(("\ufeff" if bom else "").encode("utf-8") + json.dumps(payload, ensure_ascii=False).encode("utf-8"))
     cli_json(cli("suggest", "--input", str(path), **C_LOCALE))
     assert _stored(db_session) == [LEGAL_TEXT]
 
