@@ -143,9 +143,10 @@ Manually, the same demo seed is:
 (cd backend && .venv/bin/python -m app.seed_demo --db dev.db)
 ```
 
-It refuses a file that already exists, such as a workspace from
-`app.bootstrap`. Its `--reset` flag deletes the file first, whatever it
-holds, so use `--reset` only on a demo database.
+It refuses a file that already exists. `--reset` reseeds a demo database
+from scratch (or replaces an empty file); any other file, such as a
+workspace from `app.bootstrap`, is refused and left untouched, with or
+without `--reset`.
 
 The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second
 matter) ships assertions in every status with ratings, comments, and
