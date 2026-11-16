@@ -117,7 +117,7 @@ or proof of correctness.
 The canonical schema, the assertion types and the jurisdiction codes
 (`jurisdictions`) come from `schema` (over MCP, from `assertion_guide`), so agents
 need not hardcode them. Unknown assertion types require
-`assertion_type_is_proposed_new: true` and the vocabulary's shape: at most 100
+`assertion_type_is_proposed_new: true` and the vocabulary's shape: at most 255
 characters, letters and digits in upper case, words joined by single
 underscores (`CANCELLED_BY`). `jurisdiction` is optional and
 case-sensitive: `IL` is Israel, a US state is `US-<postal code>` (Illinois is

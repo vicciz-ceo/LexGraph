@@ -9,18 +9,33 @@ to every viewer), and with `assertion_type_is_proposed_new` any text at all
 was accepted as a type: markup, half a megabyte, or more than the 255
 characters the column holds. A proposed new type must now have the shape
 the Suggest form gives it (letters and digits in upper case, words joined
-by single underscores, at most 100 characters); the reason is capped at
-100,000 characters, stored sanitized, and its exact text kept in
-`revision_reason_raw`.
+by single underscores, at most the 255 characters the column holds); the
+reason is capped at 100,000 characters, stored sanitized, and its exact text
+kept in `revision_reason_raw`.
+
+Every name the Suggest form saves passes the rule (second round of the
+review): upper case can make a name longer than the 100 characters the form
+lets a person type (60 x "ß" is saved as 120 x "S"), and the browser can know
+letters of a newer Unicode version than the server's Python.
 """
 
 from __future__ import annotations
+
+import re
+import unicodedata
+from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
 
 from app.models.assertion import Assertion
+from app.routers.assertions import NEW_ASSERTION_TYPE_MAX_LENGTH
 from tests.conftest import assertion_payload, seed_document
+
+# CJK UNIFIED IDEOGRAPH-323B0, a letter since Unicode 17 (CJK Extension J):
+# Node 24 and current browsers know it, Python 3.14 lists it as unassigned.
+NEWER_UNICODE_LETTER = "\U000323b0"
+ASSERTION_TYPES_TS = Path(__file__).resolve().parents[3] / "frontend" / "src" / "constants" / "assertionTypes.ts"
 
 OVER_CAP = "x" * 100_001
 MARKUP_REASON = "<img src=x onerror=alert(1)><script>alert(2)</script>Fixed the clause number."
@@ -126,12 +141,16 @@ def test_initial_revisions_have_no_authored_reason(client, matter_with_users):
 @pytest.mark.parametrize("assertion_type", [
     "<script>alert(3)</script>" + "T" * 500_000,
     "<img src=x onerror=alert(9)>",
-    "T" * 101,
+    "T" * 256,  # more than the column holds
     "cancelled_by",
     "CANCELLED BY",
     "CANCELLED__BY",
     "_CANCELLED_BY",
     "CANCELLED-BY",
+    "CANCELLED﷐BY",  # a noncharacter, never a letter
+    "CANCELLED\U000e0080BY",  # reserved for invisible formatting
+    "CANCELLED⁥BY",  # reserved for invisible formatting
+    "CANCELLEDBY",  # private use
 ])
 @pytest.mark.parametrize("route", ["/api/v1/assertions", "/api/v1/agent/assertions"])
 def test_a_proposed_new_type_must_have_the_vocabulary_s_shape(client, db_session, matter_with_users,
@@ -150,11 +169,34 @@ def test_a_proposed_new_type_must_have_the_vocabulary_s_shape(client, db_session
     assert db_session.scalar(select(func.count()).select_from(Assertion)) == 0
 
 
-@pytest.mark.parametrize("assertion_type", ["CANCELLED_BY", "T" * 100, "SECTION_12A", "מבוטל_על_ידי", "ÜBERSCHREIBT"])
+@pytest.mark.parametrize("assertion_type", [
+    "CANCELLED_BY", "T" * 100, "SECTION_12A", "מבוטל_על_ידי", "ÜBERSCHREIBT",
+    "S" * 120,  # what the form saves for 60 x "ß", typed within its 100 characters
+    "T" * 255,  # what the column holds; the form cuts a longer saved name here
+    f"X{NEWER_UNICODE_LETTER}Y",
+])
 def test_a_well_formed_proposed_new_type_is_accepted(client, matter_with_users, assertion_type):
     m = matter_with_users
     created = _created(client, m, assertion_type=assertion_type, assertion_type_is_proposed_new=True)
     assert created["assertion_type"] == assertion_type
+
+
+def test_a_code_point_this_python_lists_as_unassigned_counts_as_a_letter(client, matter_with_users):
+    """The form keeps every character its browser knows as a letter, and the
+    browser's Unicode can be newer than this Python's, so an unassigned code
+    point where letters are encoded is checked as a letter."""
+    unassigned = next(chr(code) for code in range(0x323B0, 0x3FFFE) if unicodedata.category(chr(code)) == "Cn")
+    m = matter_with_users
+    created = _created(client, m, assertion_type=f"X{unassigned}Y", assertion_type_is_proposed_new=True)
+    assert created["assertion_type"] == f"X{unassigned}Y"
+
+
+def test_the_form_cuts_the_saved_name_where_the_api_stops():
+    """frontend ASSERTION_TYPE_STORED_MAX_LENGTH is this rule's cap."""
+    source = ASSERTION_TYPES_TS.read_text(encoding="utf-8")
+    match = re.search(r"export const ASSERTION_TYPE_STORED_MAX_LENGTH = (\d+);", source)
+    assert match is not None, "ASSERTION_TYPE_STORED_MAX_LENGTH not found in assertionTypes.ts"
+    assert int(match.group(1)) == NEW_ASSERTION_TYPE_MAX_LENGTH == 255
 
 
 def test_an_edit_to_a_proposed_new_type_follows_the_same_rule(client, matter_with_users):

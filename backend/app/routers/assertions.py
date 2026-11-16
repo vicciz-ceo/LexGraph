@@ -46,6 +46,7 @@ import uuid
 import json
 import re
 import sqlite3
+import unicodedata
 from collections import namedtuple
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -536,28 +537,52 @@ def _validate_jurisdiction(code: str) -> None:
         raise ValidationError(f"{exc}; {_JURISDICTION_HINT}") from exc
 
 
-#: The longest proposed new assertion type, as the Suggest form allows it
-#: (frontend NEW_ASSERTION_TYPE_MAX_LENGTH; the column holds 255).
-NEW_ASSERTION_TYPE_MAX_LENGTH = 100
+#: The longest proposed new assertion type, in characters: the 255 the
+#: column holds (frontend ASSERTION_TYPE_STORED_MAX_LENGTH). The Suggest form
+#: limits the name a person types to 100 characters, but upper case can make
+#: it longer (ß becomes SS, ﬃ becomes FFI), and the form cuts the name it
+#: saves at this length.
+NEW_ASSERTION_TYPE_MAX_LENGTH = 255
 # Letters and digits of any script, words joined by single underscores: what
 # the form's normalizeAssertionType produces (with upper case checked apart).
 _NEW_ASSERTION_TYPE_SHAPE = re.compile(r"[^\W_]+(?:_[^\W_]+)*")
 
 
+def _is_letter_of_a_newer_unicode(character: str) -> bool:
+    """A code point that this Python's Unicode database lists as unassigned
+    but a newer Unicode version may have made a letter: the browser running
+    the form can know a newer version (Node 24 knows Unicode 17, Python 3.14
+    knows 16, and 4,803 characters came in between). Letters are only ever
+    encoded in planes 0 to 3; noncharacters and the code points reserved for
+    invisible formatting (U+2065, U+FFF0 to U+FFF8) never become letters."""
+    code = ord(character)
+    return (
+        code <= 0x3FFFF
+        and unicodedata.category(character) == "Cn"
+        and not 0xFDD0 <= code <= 0xFDEF
+        and code & 0xFFFE != 0xFFFE
+        and code != 0x2065
+        and not 0xFFF0 <= code <= 0xFFF8
+    )
+
+
 def _validate_new_assertion_type(assertion_type: str) -> None:
     """A proposed new type (one outside the controlled vocabulary) has the
     vocabulary's shape (review authoring:5): any text used to pass, markup,
-    spaces and half a megabyte included, served to every member as a type."""
+    spaces and half a megabyte included, served to every member as a type.
+    Every name the Suggest form saves has it."""
     if assertion_type in ALLOWED_ASSERTION_TYPES:
         return
-    if (len(assertion_type) > NEW_ASSERTION_TYPE_MAX_LENGTH
-            or assertion_type != assertion_type.upper()
-            or not _NEW_ASSERTION_TYPE_SHAPE.fullmatch(assertion_type)):
-        raise ValidationError(
-            f"a proposed new assertion_type must be at most {NEW_ASSERTION_TYPE_MAX_LENGTH} characters: "
-            "letters and digits in upper case, with words joined by single underscores (for example "
-            "CANCELLED_BY)"
-        )
+    if len(assertion_type) <= NEW_ASSERTION_TYPE_MAX_LENGTH:
+        # A letter this Python does not know yet is checked as an "A".
+        shape = "".join("A" if _is_letter_of_a_newer_unicode(c) else c for c in assertion_type)
+        if shape == shape.upper() and _NEW_ASSERTION_TYPE_SHAPE.fullmatch(shape):
+            return
+    raise ValidationError(
+        f"a proposed new assertion_type must be at most {NEW_ASSERTION_TYPE_MAX_LENGTH} characters: "
+        "letters and digits in upper case, with words joined by single underscores (for example "
+        "CANCELLED_BY)"
+    )
 
 
 def _duplicate_conflict(existing_assertion_id: str) -> HTTPException:
