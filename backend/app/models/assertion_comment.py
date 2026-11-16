@@ -18,6 +18,7 @@ from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.db_types import UtcDateTime
 
 
 class AssertionComment(Base):
@@ -38,6 +39,6 @@ class AssertionComment(Base):
     # `proposition_raw` for the nullability rationale.
     comment_text_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(), nullable=True)

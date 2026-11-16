@@ -283,6 +283,8 @@ The backend provides REST APIs at `/api/v1/` for managing assertions, comments, 
 
 Both pages load files from the backend only. Their Content-Security-Policy makes the browser refuse any third-party request, including the attribution logo Redoc would otherwise fetch from its CDN.
 
+`GET /api/v1/assertions?matter_id=<id>` accepts the search, filter and sort parameters listed in [the spec](specs/collaborative-assertions.md#listing-statistics-graph-bounds-and-timestamps-2026-11-16) and pages with `limit` (1–500) and `offset`. `total` in the response always counts every match. Without `limit` every match is returned, which can be tens of megabytes for a matter holding pipeline output, so scripts should page. Unknown query parameters and sort keys return 422. `GET /api/v1/matters/<id>/graph` returns at most `limit` edges (default 1000) together with `total`, and `GET /api/v1/matters/<id>/assertion-stats` returns matter-level counts. Every timestamp the API returns is UTC with an explicit offset; `effective_from`/`effective_to` are calendar dates without one.
+
 ### Offline Pipelines (CLI-only, no frontend UI)
 
 Two deterministic, offline batch passes run against a matter's already-stored data and write draft/accepted assertions directly to the database (no LLM/network calls). Both read `LEXGRAPH_DATABASE_URL` the same way the backend server does, so point them at the same database file the server uses.
@@ -307,7 +309,7 @@ cd backend
 cd ..
 ```
 
-This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint).
+This writes `USES_DEFINITION` (an article uses a term defined elsewhere in the same law) and `DERIVES_FROM_LAW` (a definition explicitly derives from another law) assertions with `origin=system_generated`, `status=accepted`. An unresolved cross-law derivation (the target law was never ingested into this matter) is still recorded, with a null object entity and the raw matched law-reference text preserved in the proposition — never dropped, never a fabricated resolution. An article whose text shows reversed-word-order (bidi-degraded) artifacts is flagged and skipped, never auto-corrected. Each assertion is stored with revision 1 (its generated proposition) and an `assertion_created` audit event naming the triggering user, so it can be rated and its original text survives an edit; it carries no evidence rows yet. Databases linked before 2026-11-16 need the revision backfill below. The pass is idempotent — rerunning it over unchanged articles creates no additional rows. Results are visible via the existing `GET /api/v1/assertions?matter_id=<id>&origin=system_generated` endpoint (no dedicated route or frontend UI this sprint); add `&limit=100&offset=<n>` to page through a large run.
 
 ### Ingesting US statutes (`vaquill/open-us-law` dataset)
 
@@ -487,13 +489,13 @@ The app will be available at `http://localhost:5173` (or the port specified by V
 
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
-- **Knowledge Base** — searchable accepted-assertion table with CSV export
+- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. The topbar search opens it on all statuses, and submitting the same query again re-runs it
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
 - **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
 - **Contested** — adjudication queue for disputed assertions
-- **Analytics** — per-matter dashboard computed live from the assertion list
+- **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
 - **Admin** — user account provisioning and matter member/role management (admin role required)
-- **Profile** — your activity, notifications, and matters
+- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), notifications, and matters
 
 ### Provisioning users & access
 

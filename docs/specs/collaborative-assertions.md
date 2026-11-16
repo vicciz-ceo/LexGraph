@@ -1055,3 +1055,62 @@ limited to the matter's own spans. The triggering user must exist and hold a
 contributor, reviewer or admin role in the matter; the CLI otherwise reports
 the problem and exits 1, as it does for an unknown matter, an unset or in-memory
 database URL, or a database without the LexGraph tables.
+
+## Listing, statistics, graph bounds and timestamps (2026-11-16)
+
+`GET /api/v1/assertions?matter_id=…` returns `{"items", "total", "limit",
+"offset"}`. `limit` (1–500) and `offset` page the result; without `limit`
+every match is returned, as before. `total` always counts every match. Filters
+(§10, §17): `q` (current revision's raw proposition, case-insensitive), `origin`,
+`status`, `assertion_type`, `author_user_id`, `subject_entity_type`,
+`subject_entity_id`, `object_entity_type`, `object_entity_id`, `jurisdiction`,
+`evidence_status`, `created_from`/`created_to` and
+`last_activity_from`/`last_activity_to` (instants, half-open `[from, to)`),
+`effective_on` (in effect on that date; an open bound is unbounded),
+`min_average_rating`, `min_rating_count`, `unrated_by_me` and `my_rating` (1–5).
+`sort` takes `created_at`, `updated_at`, `last_activity`, `proposition`,
+`assertion_type`, `subject`, `object`, `origin`, `author`, `status`,
+`evidence_status`, `average_rating`, `rating_count`, `my_rating`,
+`jurisdiction`, `effective_from` or `effective_to`. A `-` prefix sorts
+descending, and several keys are comma-separated. Missing values sort last in
+both directions, and ties keep insertion order. Rating sorts reflect user
+opinion, not legal authority. Unknown query parameters and sort keys are
+rejected with 422. Potential-duplicate and potential-conflict filters are not
+implemented. Besides the detail serializer's fields, each item carries
+`ratings_summary` (the current revision's aggregate over every rating, the
+author's included, or null), `current_user_rating` and `last_activity_at` (the
+later of `updated_at` and the newest audit event).
+
+`GET /api/v1/matters/{id}/assertion-stats` accepts the same filters except
+`q`. It returns counts by status, origin, origin and status, type, evidence
+status and author, model confidence by origin, and the current-revision rating
+aggregates. With `created_bucket_edges` (comma-separated instants) it also
+returns creation counts per bucket. Unknown query parameters are rejected with
+422.
+
+`GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
+`show_unreviewed=true` it adds proposed, disputed, rejected and superseded
+ones. Drafts, withdrawn assertions and those returned for revision never
+appear. Each request builds its own projection from the matter's rows and
+returns at most `limit` edges (default 1000, maximum 5000) after `offset`,
+with `total`. Unknown query parameters are rejected with 422.
+
+Every instant the API returns is UTC with an explicit offset (`…Z` or
+`+00:00`). `effective_from` and `effective_to` are calendar dates and carry no
+offset.
+
+No page of the web UI downloads a whole matter. The Knowledge Base requests
+50 rows at a time and returns to the first page whenever the matter, search,
+a filter or the sort changes. It shows accepted assertions by default and
+offers every review status. Its rating sorts state that the order reflects
+user opinion, not legal authority (§17). Its CSV export requests every match
+500 rows at a time. Each cell that begins with `=`, `+`, `-` or `@` (also
+after leading whitespace), a tab or a carriage return gets a leading
+apostrophe, so a spreadsheet never evaluates contributor text as a formula.
+The topbar search opens the Knowledge Base on all statuses, and submitting
+the same query again runs it again. Analytics reads `assertion-stats`, with
+`created_bucket_edges` at the viewer's local Monday midnights for its weekly
+chart. Profile reads `assertion-stats?author_user_id=<user>` for its counts,
+and lists the user's suggestions (most recently updated first) and the
+proposed assertions they have not rated, 50 at a time. The UI reads an
+instant that has no offset as UTC.

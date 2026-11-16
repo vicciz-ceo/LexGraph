@@ -895,104 +895,29 @@ def _create_assertion(body: AssertionCreate, session: Session, user_id: str, *,
     return result
 
 
-_SORT_KEYS = {
-    "created_at": lambda a: a.created_at,
-    "updated_at": lambda a: a.updated_at,
-    "proposition": lambda a: a.proposition,
-    "assertion_type": lambda a: a.assertion_type,
-}
+from app.services.assertion_listing import (  # noqa: E402 - list endpoint section
+    AssertionListQuery,
+    assertion_list_query,
+    list_assertions_page,
+)
 
 
 @router.get("")
 def list_assertions(
-    matter_id: str,
-    q: str | None = None,
-    origin: str | None = None,
-    status_: str | None = Query(default=None, alias="status"),
-    evidence_status: str | None = None,
-    jurisdiction: str | None = None,
-    min_average_rating: float | None = None,
-    min_rating_count: int | None = None,
-    unrated_by_me: bool | None = None,
-    my_rating: int | None = None,
-    sort: str | None = None,
-    session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
+    query: AssertionListQuery = Depends(assertion_list_query),
+    session: Session = Depends(get_session),
 ) -> dict:
-    """B5: search/filter/sort (spec §17) on top of B1's matter-scoped list.
+    """Search, filter, sort and page a matter's assertions (spec §13, §17).
 
-    `status` is aliased to avoid shadowing the `fastapi.status` module used
-    throughout this file.
+    Query parameters, validation, the SQL and the batched serialization live
+    in `app.services.assertion_listing` (audit findings api:13, api:14, ui:1).
+    Returns ``{"items", "total", "limit", "offset"}``: without ``limit``
+    every match comes back, as before; ``total`` always counts every match.
+    Unknown parameters and sort keys get a 422 instead of being ignored.
     """
-    _require_matter_member(session, user_id, matter_id)
-
-    stmt = select(Assertion).where(Assertion.matter_id == matter_id)
-    if origin:
-        stmt = stmt.where(Assertion.origin == origin)
-    if status_:
-        stmt = stmt.where(Assertion.status == status_)
-    if jurisdiction:
-        try:
-            validate_jurisdiction(jurisdiction)
-        except ValidationError as exc:
-            raise HTTPException(
-                status_code=422, detail=str(exc)
-            ) from exc
-        stmt = stmt.where(Assertion.jurisdiction == jurisdiction)
-    assertions = session.execute(stmt).scalars().all()
-
-    if q:
-        # Track A, item A6 (issue #2, gate G1): match against the current
-        # revision's RAW proposition, not the (possibly lossy) sanitized
-        # `proposition` column -- a search term the sanitizer legitimately
-        # dropped (e.g. "appendix A") must still find the assertion.
-        needle = q.strip().lower()
-
-        def _matches(a: Assertion) -> bool:
-            revision = _current_revision(session, a)
-            raw = revision.proposition_raw if revision else None
-            haystack = raw if raw is not None else a.proposition
-            return needle in (haystack or "").lower()
-
-        assertions = [a for a in assertions if _matches(a)]
-
-    if evidence_status:
-        assertions = [a for a in assertions if _evidence_status(session, a.id) == evidence_status]
-
-    if (
-        min_average_rating is not None
-        or min_rating_count is not None
-        or unrated_by_me is not None
-        or my_rating is not None
-    ):
-        kept = []
-        for a in assertions:
-            revision = _current_revision(session, a)
-            strengths = _rating_strengths_for_revision(session, revision.id if revision else None)
-            if min_rating_count is not None and len(strengths) < min_rating_count:
-                continue
-            if min_average_rating is not None:
-                if not strengths or (sum(strengths) / len(strengths)) < min_average_rating:
-                    continue
-            if unrated_by_me or my_rating is not None:
-                user_rating = _user_rating_for_revision(
-                    session, revision.id if revision else None, user_id
-                )
-                if unrated_by_me and user_rating is not None:
-                    continue
-                if my_rating is not None and user_rating != my_rating:
-                    continue
-            kept.append(a)
-        assertions = kept
-
-    if sort:
-        reverse = sort.startswith("-")
-        key_name = sort[1:] if reverse else sort
-        keyfn = _SORT_KEYS.get(key_name, _SORT_KEYS["created_at"])
-        assertions = sorted(assertions, key=keyfn, reverse=reverse)
-
-    items = [_serialize_assertion(session, a) for a in assertions]
-    return {"items": items, "total": len(items)}
+    _require_matter_member(session, user_id, query.filters.matter_id)
+    return list_assertions_page(session, query, user_id=user_id)
 
 
 @router.get("/{assertion_id}/related")

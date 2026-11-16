@@ -137,7 +137,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const onSearch = (event: FormEvent) => {
     event.preventDefault();
     const q = search.trim();
+    const before = window.location.hash;
     navigate(q ? `/knowledge?q=${encodeURIComponent(q)}` : "/knowledge");
+    // Same URL, so no hashchange: signal one to re-run the search (ui:22).
+    if (window.location.hash === before) window.dispatchEvent(new HashChangeEvent("hashchange"));
   };
 
   return (

@@ -23,6 +23,7 @@ import type {
   Revision,
   UserInfo,
 } from "./types";
+import type { AssertionStats, AssertionStatsParams } from "./types";
 
 const TOKEN_KEY = "lexgraph.token";
 const MATTER_KEY = "lexgraph.matter";
@@ -156,6 +157,11 @@ export const api = {
   listAssertions: (matterId: string, params: AssertionListParams = {}) =>
     request<AssertionList>("GET", "/assertions", {
       query: { matter_id: matterId, ...params },
+    }),
+
+  assertionStats: (matterId: string, params: AssertionStatsParams = {}) =>
+    request<AssertionStats>("GET", `/matters/${matterId}/assertion-stats`, {
+      query: { ...params },
     }),
 
   getAssertion: (id: string) => request<AssertionDetail>("GET", `/assertions/${id}`),

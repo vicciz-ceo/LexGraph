@@ -216,6 +216,21 @@
   margin-top: var(--space-sm);
 }
 
+/* Lists are server pages: "Showing n of total" + Show more. */
+.pf-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.pf-more__error {
+  color: var(--status-rejected-fg);
+}
+
 /* --- Notifications -------------------------------------------------------- */
 
 .pf-notifs {

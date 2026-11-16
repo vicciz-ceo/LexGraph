@@ -18,7 +18,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppNotification, Assertion, AssertionListParams } from "../../api/types";
+import type {
+  AppNotification,
+  Assertion,
+  AssertionListParams,
+  AssertionStats,
+} from "../../api/types";
 
 vi.mock("../../app/session", () => ({
   useActiveSession: () => ({
@@ -45,6 +50,7 @@ vi.mock("../../app/session", () => ({
 
 vi.mock("../../api/client", () => ({
   api: {
+    assertionStats: vi.fn(),
     listAssertions: vi.fn(),
     notifications: vi.fn(),
   },
@@ -64,6 +70,19 @@ beforeEach(() => {
     async (_matterId: string, _params: AssertionListParams = {}) => ({ items: [], total: 0 }),
   );
   mockedApi.notifications.mockResolvedValue([] as AppNotification[]);
+  mockedApi.assertionStats.mockResolvedValue({
+    matter_id: "m-1",
+    total: 0,
+    by_status: {},
+    by_origin: {},
+    by_origin_status: {},
+    by_type: {},
+    by_evidence_status: {},
+    authors: [],
+    confidence_by_origin: {},
+    ratings: { rated_assertions: 0, ratings: 0, average_of_averages: null },
+    created_buckets: [],
+  } satisfies AssertionStats);
 });
 
 async function renderPage() {

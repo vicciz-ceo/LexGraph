@@ -1,12 +1,15 @@
 // ProfilePage — the signed-in user's activity in the current matter.
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AppNotification,
   Assertion,
+  AssertionList,
   AssertionListParams,
+  AssertionStats,
+  AssertionStatsParams,
   MatterRoleName,
 } from "../../api/types";
 
@@ -41,6 +44,7 @@ vi.mock("../../app/session", () => ({
 
 vi.mock("../../api/client", () => ({
   api: {
+    assertionStats: vi.fn(),
     listAssertions: vi.fn(),
     notifications: vi.fn(),
   },
@@ -163,15 +167,65 @@ const notificationItems: AppNotification[] = [
   },
 ];
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocks.role = "reviewer";
+/** A stand-in for the server over `matter` (all of the matter's assertions)
+ * and `unrated` (what unrated_by_me returns): it filters by author, sorts by
+ * -updated_at and pages like GET /assertions, and aggregates like
+ * GET /matters/{id}/assertion-stats. */
+function serve(matter: Assertion[], unrated: Assertion[]) {
   mockedApi.listAssertions.mockImplementation(
-    async (_matterId: string, params: AssertionListParams = {}) =>
-      params.unrated_by_me
-        ? { items: awaitingItems, total: 2 }
-        : { items: matterItems, total: matterItems.length },
+    async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
+      let rows = params.unrated_by_me ? unrated : matter;
+      if (params.author_user_id) rows = rows.filter((a) => a.author_user_id === params.author_user_id);
+      if (params.sort === "-updated_at") {
+        rows = [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      }
+      const offset = params.offset ?? 0;
+      const end = params.limit === undefined ? rows.length : offset + params.limit;
+      return { items: rows.slice(offset, end), total: rows.length, limit: params.limit ?? null, offset };
+    },
   );
+  mockedApi.assertionStats.mockImplementation(
+    async (_matterId: string, params: AssertionStatsParams = {}): Promise<AssertionStats> => {
+      const rows = matter.filter(
+        (a) => !params.author_user_id || a.author_user_id === params.author_user_id,
+      );
+      const byStatus: AssertionStats["by_status"] = {};
+      for (const a of rows) byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
+      return {
+        matter_id: "m-1",
+        total: rows.length,
+        by_status: byStatus,
+        by_origin: {},
+        by_origin_status: {},
+        by_type: {},
+        by_evidence_status: {},
+        authors: [],
+        confidence_by_origin: {},
+        ratings: { rated_assertions: 0, ratings: 0, average_of_averages: null },
+        created_buckets: [],
+      };
+    },
+  );
+}
+
+function mine(count: number): Assertion[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeAssertion({
+      id: `mine-${i}`,
+      proposition: `My suggestion number ${i}.`,
+      status: i % 3 === 0 ? "accepted" : "proposed",
+      // Newest first is mine-0, mine-1, …
+      updated_at: new Date(Date.UTC(2026, 6, 20) - i * 60_000).toISOString(),
+    }),
+  );
+}
+
+beforeEach(() => {
+  // Reset, not just clear: a once-only rejection a test did not consume
+  // must not leak into the next one.
+  vi.resetAllMocks();
+  mocks.role = "reviewer";
+  serve(matterItems, awaitingItems);
   mockedApi.notifications.mockResolvedValue(notificationItems);
 });
 
@@ -181,14 +235,25 @@ async function renderPage() {
 }
 
 describe("ProfilePage", () => {
-  it("renders identity from the session and stats computed from the matter's assertions", async () => {
+  it("renders identity from the session and stats from my aggregates in the matter", async () => {
     await renderPage();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {});
+    // ui:1: counts come from the stats endpoint filtered by author, and the
+    // lists are bounded server pages; the matter is never downloaded.
+    expect(mockedApi.assertionStats).toHaveBeenCalledWith("m-1", { author_user_id: "u-me" });
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      author_user_id: "u-me",
+      sort: "-updated_at",
+      limit: 50,
+      offset: 0,
+    });
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
       status: "proposed",
       unrated_by_me: true,
+      limit: 50,
+      offset: 0,
     });
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
 
     // Identity header: name + role badge + email + matter scope.
     expect(screen.getByRole("heading", { name: /Noa Levi/ })).toBeInTheDocument();
@@ -228,7 +293,22 @@ describe("ProfilePage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
 
+    // The server filters by author and orders newest first.
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith(
+      "m-1",
+      expect.objectContaining({ author_user_id: "u-me", sort: "-updated_at" }),
+    );
     const panel = screen.getByRole("tabpanel");
+    expect(
+      within(panel)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual([
+      "The guarantee covers obligations incurred before closing.",
+      "Termination requires 90 days' written notice.",
+      "The 2021 lease amendment extends the term to 2030.",
+      "Renewal rent resets to fair market value.",
+    ]);
     expect(within(panel).getByText("Accepted")).toBeInTheDocument();
     expect(within(panel).getByText("Rejected")).toBeInTheDocument();
     expect(within(panel).getByText("Proposed")).toBeInTheDocument();
@@ -259,7 +339,13 @@ describe("ProfilePage", () => {
     await renderPage();
 
     expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {});
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      author_user_id: "u-me",
+      sort: "-updated_at",
+      limit: 50,
+      offset: 0,
+    });
+    expect(mockedApi.assertionStats).toHaveBeenCalledTimes(1);
 
     expect(screen.queryByRole("tab", { name: /Awaiting my rating/ })).not.toBeInTheDocument();
     expect(screen.queryByTestId("pf-stat-awaiting")).not.toBeInTheDocument();
@@ -273,12 +359,7 @@ describe("ProfilePage", () => {
   });
 
   it("renders empty states and an em-dash acceptance rate when I authored nothing", async () => {
-    mockedApi.listAssertions.mockImplementation(
-      async (_matterId: string, params: AssertionListParams = {}) =>
-        params.unrated_by_me
-          ? { items: [], total: 0 }
-          : { items: [matterItems[4]], total: 1 },
-    );
+    serve([matterItems[4]], []);
     await renderPage();
 
     expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^0$/);
@@ -294,13 +375,98 @@ describe("ProfilePage", () => {
   });
 
   it("shows an error banner with a retry control when loading fails", async () => {
-    mockedApi.listAssertions.mockRejectedValueOnce(new Error("backend unreachable"));
+    mockedApi.assertionStats.mockRejectedValueOnce(new Error("backend unreachable"));
     render(<ProfilePage />);
 
     expect(await screen.findByText(/backend unreachable/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByTestId("pf-stat-suggestions")).toBeInTheDocument();
+  });
+
+  it("counts every suggestion of a large matter from the aggregates, listing 50 at a time", async () => {
+    const authored = mine(4_321);
+    serve([...authored, matterItems[4]], awaitingItems);
+    await renderPage();
+
+    expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^4,321$/);
+    // mine-0, 3, 6, … are accepted: 1,441 of 4,321; nothing rejected.
+    expect(screen.getByTestId("pf-stat-accepted")).toHaveTextContent(/^1,441$/);
+    expect(screen.getByTestId("pf-stat-acceptance")).toHaveTextContent(/^100%$/);
+    for (const [, params] of mockedApi.listAssertions.mock.calls) {
+      expect(params?.limit).toBe(50);
+    }
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(screen.getByRole("tab", { name: /My suggestions/ })).toHaveTextContent("4,321");
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getAllByRole("link")).toHaveLength(50);
+    expect(within(panel).getByText("Showing 50 of 4,321")).toBeInTheDocument();
+  });
+
+  it("loads more of my suggestions on demand, 50 at a time", async () => {
+    serve(mine(120), awaitingItems);
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    const panel = () => screen.getByRole("tabpanel");
+    expect(within(panel()).getAllByRole("link")).toHaveLength(50);
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() => expect(within(panel()).getAllByRole("link")).toHaveLength(100));
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m-1", {
+      author_user_id: "u-me",
+      sort: "-updated_at",
+      limit: 50,
+      offset: 50,
+    });
+    expect(within(panel()).getByText("Showing 100 of 120")).toBeInTheDocument();
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() => expect(within(panel()).getAllByRole("link")).toHaveLength(120));
+    const links = within(panel()).getAllByRole("link");
+    expect(links[0]).toHaveTextContent("My suggestion number 0.");
+    expect(links[119]).toHaveTextContent("My suggestion number 119.");
+    expect(within(panel()).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+  });
+
+  it("loads more of the proposed assertions awaiting my rating", async () => {
+    const queue = Array.from({ length: 75 }, (_, i) =>
+      makeAssertion({
+        id: `queue-${i}`,
+        proposition: `Awaiting number ${i}.`,
+        author_user_id: "u-other",
+      }),
+    );
+    serve(matterItems, queue);
+    await renderPage();
+
+    expect(screen.getByTestId("pf-stat-awaiting")).toHaveTextContent(/^75$/);
+    const panel = () => screen.getByRole("tabpanel");
+    expect(within(panel()).getAllByRole("link", { name: "Rate" })).toHaveLength(50);
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() =>
+      expect(within(panel()).getAllByRole("link", { name: "Rate" })).toHaveLength(75),
+    );
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m-1", {
+      status: "proposed",
+      unrated_by_me: true,
+      limit: 50,
+      offset: 50,
+    });
+  });
+
+  it("reports a failed Show more and keeps what is listed", async () => {
+    serve(mine(60), awaitingItems);
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    mockedApi.listAssertions.mockRejectedValueOnce(new Error("timed out"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load more: timed out");
+    expect(within(screen.getByRole("tabpanel")).getAllByRole("link")).toHaveLength(50);
+    expect(screen.getByRole("button", { name: "Show more" })).toBeEnabled();
   });
 
   it("lists my matters with roles and highlights the current one", async () => {
@@ -316,5 +482,39 @@ describe("ProfilePage", () => {
     expect(otherRow).toHaveTextContent("viewer");
     expect(otherRow).not.toHaveTextContent("Current");
     expect(within(matters).getByText(/Switch the active matter/)).toBeInTheDocument();
+  });
+});
+
+describe("ProfilePage in Asia/Tokyo", () => {
+  // ui:3: an offset-less timestamp is UTC. Read as local time it showed
+  // the UTC date and time as the viewer's (here a day early).
+  beforeAll(() => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("shows local dates and times for offset-less instants", async () => {
+    const naive = "2026-11-15T20:16:17.835814";
+    serve(
+      [makeAssertion({ id: "a-naive", proposition: "Mine, edited late UTC.", updated_at: naive })],
+      [makeAssertion({ id: "aw-naive", author_user_id: "u-other", submitted_at: naive })],
+    );
+    mockedApi.notifications.mockResolvedValue([{ ...notificationItems[0], created_at: naive }]);
+    await renderPage();
+
+    // 20:16 UTC on Nov 15 is 05:16 on Nov 16 in Tokyo.
+    expect(within(screen.getByRole("tabpanel")).getByText(/submitted Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(within(screen.getByRole("tabpanel")).getByText(/updated Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    expect(
+      within(screen.getByRole("tabpanel")).getByText(
+        new Date(Date.UTC(2026, 10, 15, 20, 16, 17, 835)).toLocaleString(),
+      ),
+    ).toBeInTheDocument();
   });
 });
