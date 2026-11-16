@@ -308,6 +308,27 @@ def test_crossing_supersedes_cannot_close_a_cycle(client, db_session, matter_wit
     assert [len(_events(db_session, a["id"], "assertion.supersede")) for a in (first, second)] in ([1, 0], [0, 1])
 
 
+def test_a_supersede_held_while_its_successor_is_withdrawn_is_refused(client, db_session, matter_with_users,
+                                                                     monkeypatch):
+    """The successor is checked again on what is committed under the lock: one
+    withdrawn meanwhile is refused as it is in sequence, never linked to."""
+    m = matter_with_users
+    superseded, successor = _create(client, db_session, m), _create(client, db_session, m)
+    reached, release = _hold_first_call(monkeypatch, review_router, "_validated_successor")
+
+    supersede = _Request(lambda: _post(client, superseded["id"], "supersede", m["reviewer_headers"],
+                                       {"superseded_by_assertion_id": successor["id"]}))
+    assert reached.wait(timeout=WAIT)
+    assert _post(client, successor["id"], "withdraw", m["contributor_headers"]).status_code == 200
+    release.set()
+
+    refused = supersede.result()
+    assert refused.status_code == 422, refused.text
+    assert "withdrawn" in refused.json()["detail"]
+    assert _row(db_session, superseded["id"]) == {
+        "status": "proposed", "reviewed_by": None, "reviewed_at": None, "superseded_by_assertion_id": None}
+
+
 # --- one submission, one transition, one notice (workflow:3) ----------------------------------
 
 
