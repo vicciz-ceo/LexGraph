@@ -1,26 +1,45 @@
-"""Bare FastAPI app factory (R2 scaffolding — no routes registered).
+"""FastAPI app factory: `create_app()`, plus the module-level `app` that
+`uvicorn app.main:app` serves.
 
-`create_app()` returns a working FastAPI instance with NO business routers
-included. Every `/api/v1/...` request therefore currently 404s — that is
-the intended RED signal for every backend integration test until a
-Developer track includes its router (see `app/routers/__init__.py` for
-per-track ownership).
+`create_app()` includes every router (see `app/routers/__init__.py` for
+per-track ownership). Developer tracks call `app.include_router(...)`
+inside this factory, in the append-only R6 zones below; do not scatter
+`include_router` calls elsewhere. Around the routers it adds:
 
-Developer tracks call `app.include_router(...)` inside this factory (or
-register via an `app.state`-based composition the track introduces) —
-do not scatter `include_router` calls elsewhere.
+- a lifespan that refuses to start on a database this version cannot use
+  (no file, no LexGraph tables, or an older schema) and prints the command
+  that fixes it (`app.migrate.ensure_schema_current`);
+- /docs (Swagger UI) and /redoc (Redoc) served from vendored assets so they
+  work offline, and an openapi.json that declares the bearer credential so
+  Swagger UI's "Authorize" can call the API.
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db import Base, make_engine, make_session_factory
 from app.migrate import ensure_schema_current
+
+# Swagger UI / Redoc, vendored by scripts/vendor_api_docs.sh: /docs and /redoc
+# must work without an internet connection (no CDN, no web fonts).
+API_DOCS_ASSETS = Path(__file__).resolve().parent / "static" / "api-docs"
+API_DOCS_STATIC_PATH = "/docs/static"
+# Same-origin only, for every resource type. Redoc 2 renders its "API docs by
+# Redocly" logo from cdn.redoc.ly with no option to turn it off; this makes the
+# browser skip that request (Redoc hides the image) so the docs pages never
+# contact a third party. Inline scripts/styles stay allowed: FastAPI's
+# templates and Redoc's styled-components need them.
+API_DOCS_CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'"
+BEARER_SCHEME = "HTTPBearer"  # FastAPI's own name for fastapi.security.HTTPBearer
 
 
 @asynccontextmanager
@@ -33,11 +52,101 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+def _register_api_docs(app: FastAPI) -> None:
+    """Serve /docs and /redoc from the vendored assets (FastAPI's defaults load
+    them from cdn.jsdelivr.net, plus fonts.googleapis.com for Redoc)."""
+    app.mount(API_DOCS_STATIC_PATH, StaticFiles(directory=API_DOCS_ASSETS), name="api-docs-static")
+
+    def _prefix(request: Request) -> str:
+        # Behind a reverse proxy mounted under a sub-path (uvicorn --root-path).
+        return request.scope.get("root_path", "").rstrip("/")
+
+    @app.get("/docs", include_in_schema=False)
+    def swagger_ui(request: Request) -> HTMLResponse:
+        root = _prefix(request)
+        static = f"{root}{API_DOCS_STATIC_PATH}"
+        page = get_swagger_ui_html(
+            openapi_url=f"{root}{app.openapi_url}",
+            title=f"{app.title} - Swagger UI",
+            swagger_js_url=f"{static}/swagger-ui-bundle.js",
+            swagger_css_url=f"{static}/swagger-ui.css",
+            swagger_favicon_url=f"{static}/favicon-32x32.png",
+            # Keep the token across reloads (the web app keeps its own in
+            # localStorage the same way); never contact validator.swagger.io.
+            swagger_ui_parameters={"persistAuthorization": True, "validatorUrl": None},
+        )
+        page.headers["Content-Security-Policy"] = API_DOCS_CSP
+        return page
+
+    @app.get("/redoc", include_in_schema=False)
+    def redoc(request: Request) -> HTMLResponse:
+        root = _prefix(request)
+        static = f"{root}{API_DOCS_STATIC_PATH}"
+        page = get_redoc_html(
+            openapi_url=f"{root}{app.openapi_url}",
+            title=f"{app.title} - ReDoc",
+            redoc_js_url=f"{static}/redoc.standalone.js",
+            redoc_favicon_url=f"{static}/favicon-32x32.png",
+            with_google_fonts=False,
+        )
+        page.headers["Content-Security-Policy"] = API_DOCS_CSP
+        return page
+
+
+def _declare_bearer_auth(app: FastAPI) -> None:
+    """Declare the bearer credential in openapi.json so Swagger UI's
+    "Authorize" sends it.
+
+    The routers read ``Authorization`` from the request themselves (see
+    ``app/auth.py``), which FastAPI cannot see, so the generated schema had no
+    security scheme. It is declared once at the root: every operation requires
+    it (each one answers 401 without it) unless it opts out with
+    ``openapi_extra={"security": []}``, as ``/healthz`` does. A route that
+    uses ``fastapi.security.HTTPBearer()`` directly shares the same scheme
+    name, so the two merge.
+    """
+    generate = app.openapi
+
+    def openapi() -> dict:
+        if app.openapi_schema is None:
+            schema = generate()
+            schemes = schema.setdefault("components", {}).setdefault("securitySchemes", {})
+            schemes.setdefault(
+                BEARER_SCHEME,
+                {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "description": (
+                        "Your LexGraph sign-in credential: what you enter on the web app's "
+                        "sign-in page (`python -m app.bootstrap` prints the first admin's). "
+                        "Sent as `Authorization: Bearer <credential>`."
+                    ),
+                },
+            )
+            schema.setdefault("security", [{BEARER_SCHEME: []}])
+            for path_item in schema.get("paths", {}).values():
+                for method, operation in path_item.items():
+                    if method in {"get", "put", "post", "delete", "options", "head", "patch", "trace"}:
+                        if operation.get("security") != []:
+                            operation.setdefault("responses", {}).setdefault(
+                                "401", {"description": "Missing or invalid bearer credential."}
+                            )
+        return app.openapi_schema
+
+    app.openapi = openapi
+
+
 def create_app() -> FastAPI:
     from app import models  # register ORM mappings
 
     settings = get_settings()
-    app = FastAPI(title="LexGraph API", version="0.1.0", lifespan=_lifespan)
+    app = FastAPI(
+        title="LexGraph API",
+        version="0.1.0",
+        lifespan=_lifespan,
+        docs_url=None,  # served offline by _register_api_docs
+        redoc_url=None,
+    )
 
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
@@ -105,9 +214,12 @@ def create_app() -> FastAPI:
     app.include_router(agents.router)
     app.include_router(sources.router)
 
-    @app.get("/healthz")
+    @app.get("/healthz", openapi_extra={"security": []})
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    _register_api_docs(app)
+    _declare_bearer_auth(app)
 
     return app
 

@@ -227,7 +227,13 @@ Run the printed command, then start the server again.
 
 ### Backend REST API
 
-The backend provides REST APIs at `/api/v1/` for managing assertions, comments, ratings, and the graph. See the API documentation at `http://localhost:8000/docs` when the server is running.
+The backend provides REST APIs at `/api/v1/` for managing assertions, comments, ratings, and the graph. The backend serves its own interactive API documentation. It works with no internet connection: Swagger UI and Redoc are bundled in `backend/app/static/api-docs/`, refreshed with `scripts/vendor_api_docs.sh`.
+
+- `http://localhost:8000/docs` (Swagger UI): click **Authorize** and paste your sign-in credential, the same value you enter on the web app's sign-in page. **Try it out** then sends it as `Authorization: Bearer <credential>` with every call. The credential is kept in the browser's local storage across reloads until you click **Logout** in the same dialog.
+- `http://localhost:8000/redoc` (Redoc): read-only reference.
+- `http://localhost:8000/openapi.json`: the OpenAPI 3.1 schema. It declares the bearer scheme (`HTTPBearer`) for every operation except `/healthz`, and documents the 401 each one returns without it.
+
+Both pages load files from the backend only. Their Content-Security-Policy makes the browser refuse any third-party request, including the attribution logo Redoc would otherwise fetch from its CDN.
 
 ### Offline Pipelines (CLI-only, no frontend UI)
 

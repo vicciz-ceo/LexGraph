@@ -29,6 +29,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+# Self-hosted Swagger UI / Redoc for /docs and /redoc (scripts/vendor_api_docs.sh).
+app = ["static/api-docs/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
