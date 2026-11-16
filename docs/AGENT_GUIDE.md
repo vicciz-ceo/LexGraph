@@ -120,3 +120,19 @@ resubmitted. Explanations appear as comments. Ratings never accept an assertion;
 formal acceptance remains a reviewer action.
 
 See [MCP registration](mcp-registration.md) for agent-client configuration.
+
+## Suggesting and editing in the web app
+
+In **Suggest Assertion** the type is picked from the controlled vocabulary or
+named under **Propose a new type…**, which saves it in upper case with
+underscores and marks it as a proposed new type. **Further evidence needed**
+adds a note to the explanation. The jurisdiction starts at the default chosen on
+the **Profile** page. Similar assertions found on saving are listed by their
+text, each linked; an exact duplicate is refused with a link to the existing
+assertion. A matter without imported documents shows how sources are imported
+([RUNBOOK](RUNBOOK.md#getting-sources-into-a-matter)) instead of the form.
+
+In **Edit assertion**, Save stays disabled until the proposition differs from
+the current revision, and the reason starts empty for each edit. If a newer
+revision was saved meanwhile, the editor keeps your text, shows the newer one,
+and lets you save yours as the next revision or start again from the latest.

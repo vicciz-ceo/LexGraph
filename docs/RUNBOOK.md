@@ -298,6 +298,45 @@ the 109 Parquet files first (e.g. via `huggingface_hub.hf_hub_download` or
 the Hugging Face CLI) into one local directory and point `--input-dir` (or
 `--input` for a single file) at it.
 
+### Getting sources into a matter
+
+Every assertion is anchored to a document or article of its matter and cites
+that matter's source passages as evidence, so a matter needs imported sources
+before anyone can suggest assertions in it. A freshly bootstrapped matter has
+none; its **Suggest Assertion** page then explains this and shows the matter
+and repository IDs instead of the form. Sources cannot be uploaded through the
+web app or the REST API: an administrator imports them on the server, into the
+database file the backend serves (same `LEXGRAPH_DATABASE_URL`):
+
+- **US statutes** (Parquet files of the `vaquill/open-us-law` dataset): run
+  `app.definition_links.ingest_us_statutes_cli` as shown in "Ingesting US
+  statutes" above, with `--matter-id` and `--repository-id` of the target
+  matter. Each file becomes one document with one article and one source
+  passage per row.
+- **Laws in `.wiki` format** (the Hebrew corpus): there is no command yet; call
+  `ingest_wiki_law` from a short Python script run in `backend/`:
+
+  ```python
+  from pathlib import Path
+  from sqlalchemy.orm import Session
+  from app.config import get_settings
+  from app.db import make_engine
+  from app.definition_links.ingest import ingest_wiki_law
+
+  with Session(make_engine(get_settings().database_url)) as session:
+      ingest_wiki_law(session, repository_id="<repository-id>", matter_id="<matter-id>",
+                      title="<law title>", wiki_text=Path("<law>.wiki").read_text(encoding="utf-8"))
+  ```
+
+  It stores one document plus an article and a source passage per parsed
+  article, and commits.
+
+The matter and repository IDs are shown on the empty **Suggest Assertion**
+page and returned by `GET /api/v1/me`. Imported documents and articles appear
+in the page's source pickers at once (use **Check again** on the empty page,
+or reload). The demo seed (`app.seed_demo`) creates its own sample documents
+for local testing only.
+
 ## Web Application
 
 ### Starting the Web App

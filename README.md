@@ -101,6 +101,9 @@ Repository-level `AGENTS.md` and `CLAUDE.md` make the workflow discoverable.
 Lawyers can search sources, suggest assertions, edit through recorded revisions,
 submit/withdraw drafts, and rate each revision with a preserved rationale.
 Agent provenance and exact evidence quotes are visible on assertion detail.
+Sources (documents, articles and their passages) are imported into a matter on
+the server, not uploaded in the app; a new matter has none until then. See
+[docs/RUNBOOK.md](docs/RUNBOOK.md#getting-sources-into-a-matter).
 
 ## Status
 
