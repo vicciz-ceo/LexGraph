@@ -25,7 +25,8 @@ same CLI is `.venv/bin/python -m app.agent_cli`.
 - Every CLI failure is one JSON object with `status` and `error` on stderr
   (exit 1); MCP returns the same object after `Error executing tool <name>: `.
   A 500 is a local database or installation problem: report it to the user
-  rather than changing the payload.
+  rather than changing the payload. Over REST, a 503 means the database was
+  locked by another process: retry after the `Retry-After` seconds.
 
 For development, authoritative behavior is in `docs/specs/`. Keep code, tests
 and user/agent guides aligned. Test with `backend/.venv/bin/pytest backend/tests`
