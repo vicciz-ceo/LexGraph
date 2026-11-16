@@ -112,6 +112,37 @@ export interface AssertionListParams {
   offset?: number;
 }
 
+/** GET /matters/{id}/assertion-stats takes the list filters except q, sort,
+ * limit and offset, plus creation-count bucket edges. */
+export interface AssertionStatsParams
+  extends Omit<AssertionListParams, "q" | "sort" | "limit" | "offset"> {
+  /** Comma-separated, strictly increasing ISO instants (2–101): N edges give
+   * N − 1 half-open buckets. */
+  created_bucket_edges?: string;
+}
+
+/** Matter-level aggregates over every assertion matching the filters. */
+export interface AssertionStats {
+  matter_id: string;
+  total: number;
+  by_status: Partial<Record<AssertionStatus, number>>;
+  by_origin: Partial<Record<AssertionOrigin, number>>;
+  by_origin_status: Partial<Record<AssertionOrigin, Partial<Record<AssertionStatus, number>>>>;
+  by_type: Record<string, number>;
+  by_evidence_status: Partial<Record<EvidenceStatus, number>>;
+  /** Every author, by total descending, then user id. */
+  authors: {
+    user_id: string;
+    total: number;
+    by_status: Partial<Record<AssertionStatus, number>>;
+  }[];
+  /** Mean model confidence per origin, over assertions that carry one. */
+  confidence_by_origin: Partial<Record<AssertionOrigin, { count: number; average: number }>>;
+  /** Current-revision ratings: rated assertions, ratings, mean of their averages. */
+  ratings: { rated_assertions: number; ratings: number; average_of_averages: number | null };
+  created_buckets: { start: string; end: string; count: number }[];
+}
+
 export interface Evidence {
   quote_text?: string | null;
   document_title?: string | null;
