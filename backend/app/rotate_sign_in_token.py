@@ -44,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     from app.config import get_settings
     from app.db import make_engine, make_session_factory
     from app.models.user import User
+    from app.routers.users import find_users_by_email
 
     url = f"sqlite:///{args.db}" if args.db else get_settings().database_url
     if url in ("sqlite://", "sqlite:///:memory:"):
@@ -85,9 +86,16 @@ def main(argv: list[str] | None = None) -> int:
             if args.user_id is not None:
                 user = session.get(User, args.user_id)
             else:
-                user = session.execute(
-                    select(User).where(User.email == args.email.strip())
-                ).scalar_one_or_none()
+                # Emails compare normalized, as everywhere (finding api:24).
+                matches = find_users_by_email(session, args.email)
+                if len(matches) > 1:
+                    print(
+                        "error: several accounts share that email address (ignoring letter "
+                        "case): " + ", ".join(u.id for u in matches) + "; pass --user-id",
+                        file=sys.stderr,
+                    )
+                    return 1
+                user = matches[0] if matches else None
             if user is None:
                 print("error: no such user account", file=sys.stderr)
                 return 1

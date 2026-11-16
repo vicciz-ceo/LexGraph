@@ -9,6 +9,12 @@ credential is a separate secret token; only its sha256 hex digest is
 stored, in `sign_in_token_hash` (unique, indexed; NULL = no credential).
 See `app.auth` and the `m20261116_sign_in_tokens` migration, which adds
 this column to databases created before it existed.
+
+`email` is stored normalized (stripped, lowercased; see
+`app.routers.users.normalize_email`) and is unique (index
+`ix_users_email`), so uniqueness is case-insensitive. The
+`m20261116_users_email_unique` migration normalizes older databases and
+adds the index once no two accounts share an address.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     sign_in_token_hash: Mapped[str | None] = mapped_column(
         String(64), nullable=True, unique=True, index=True

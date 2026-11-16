@@ -97,3 +97,15 @@ def test_cli_errors_are_explicit(tmp_path):
     conn.close()
     unmigrated = _run("app.rotate_sign_in_token", "--db", str(old), "--list-legacy")
     assert unmigrated.returncode == 1 and "upgrade it first" in unmigrated.stderr
+
+
+def test_rotating_by_email_ignores_letter_case_and_padding(tmp_path, monkeypatch):
+    # Emails are compared normalized (findings api:24 / ui:25), here too.
+    db_path = tmp_path / "case.db"
+    boot = _run("app.bootstrap", "--db", str(db_path), "--user-email", "root@acme.test")
+    assert boot.returncode == 0, boot.stderr
+
+    rotated = _run("app.rotate_sign_in_token", "--db", str(db_path), "--email", "  ROOT@Acme.TEST ")
+
+    assert rotated.returncode == 0, rotated.stderr
+    assert _signs_in(db_path, monkeypatch, rotated.stdout.strip().splitlines()[-1])

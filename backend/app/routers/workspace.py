@@ -15,6 +15,11 @@ endpoints (no changes to existing routers):
   the design's Admin console. Guarded so a matter can never lose its
   last admin (no lockout).
 
+Concurrency (2026-11-16, finding api:24): adding a member looks the
+account up by normalized email (``app.routers.users.find_users_by_email``),
+and a request that loses a race to a concurrent add of the same member
+gets the sequential 409, not a 500.
+
 Follows the established per-router conventions: local session/auth
 dependencies, no shared deps module, roles from ``matter_roles``.
 """
@@ -27,6 +32,7 @@ from collections.abc import Iterator
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
@@ -34,6 +40,7 @@ from app.models.matter import Matter
 from app.models.matter_role import VALID_ROLES, MatterRole
 from app.models.repository import Repository
 from app.models.user import User
+from app.routers.users import find_users_by_email
 
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
 
@@ -128,12 +135,19 @@ def _admin_count(session: Session, matter_id: str) -> int:
     return len(rows)
 
 
+_LAST_ADMIN = "a matter must keep at least one admin"
+_ALREADY_MEMBER = "user is already a member of this matter"
+
+
 def _forbid_removing_last_admin(session: Session, membership: MatterRole) -> None:
     if membership.role == "admin" and _admin_count(session, membership.matter_id) <= 1:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="a matter must keep at least one admin",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
+
+
+def _membership(session: Session, user_id: str, matter_id: str) -> MatterRole | None:
+    return session.execute(
+        select(MatterRole).where(MatterRole.user_id == user_id, MatterRole.matter_id == matter_id)
+    ).scalar_one_or_none()
 
 
 # --- Routes ------------------------------------------------------------------
@@ -202,32 +216,44 @@ def add_member(
     _require_admin(session, user_id, matter_id)
     _validate_role(body.role)
 
-    target = session.execute(
-        select(User).where(User.email == body.email)
-    ).scalar_one_or_none()
-    if target is None:
+    # Case-insensitive, whitespace-tolerant (finding api:24 / ui:25).
+    matches = find_users_by_email(session, body.email)
+    if not matches:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="no user account with that email",
         )
-
-    existing = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == target.id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
+    if len(matches) > 1:
+        # Older accounts that share an address in different letter case
+        # (see the m20261116_users_email_unique migration): never guess
+        # which person gets access.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="user is already a member of this matter",
+            detail=(
+                "several user accounts share that email address (ignoring letter case); "
+                "an operator must give each its own address first"
+            ),
         )
+    target = matches[0]
+
+    if _membership(session, target.id, matter_id) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_ALREADY_MEMBER)
 
     session.add(
         MatterRole(
             id=str(uuid.uuid4()), user_id=target.id, matter_id=matter_id, role=body.role
         )
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # A concurrent request added this member after the check above.
+        session.rollback()
+        if _membership(session, target.id, matter_id) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_ALREADY_MEMBER
+            ) from None
+        raise
     return {"user": _serialize_user(target), "role": body.role}
 
 
@@ -243,11 +269,7 @@ def set_member_role(
     _require_admin(session, user_id, matter_id)
     _validate_role(body.role)
 
-    membership = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == member_user_id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
+    membership = _membership(session, member_user_id, matter_id)
     if membership is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="not a member of this matter"
@@ -261,7 +283,7 @@ def set_member_role(
 
     target = session.get(User, member_user_id)
     assert target is not None  # FK guarantees the account exists
-    return {"user": _serialize_user(target), "role": membership.role}
+    return {"user": _serialize_user(target), "role": body.role}
 
 
 @router.delete(
@@ -277,11 +299,7 @@ def remove_member(
     _get_matter_or_404(session, matter_id)
     _require_admin(session, user_id, matter_id)
 
-    membership = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == member_user_id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
+    membership = _membership(session, member_user_id, matter_id)
     if membership is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="not a member of this matter"
