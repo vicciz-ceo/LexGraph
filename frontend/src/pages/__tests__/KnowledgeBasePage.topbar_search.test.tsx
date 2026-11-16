@@ -217,3 +217,28 @@ describe("topbar global search", () => {
     });
   });
 });
+
+// AppShell signals a hashchange when the nav link of the page shown is
+// clicked (that click changes nothing in the URL; the Review Queue re-reads
+// its proposals on it). The Knowledge Base then applies its URL afresh, as for
+// the same topbar search submitted again: its default filters, read again.
+describe("the Knowledge Base link of the page shown", () => {
+  it("reads the Knowledge Base again with its default filters", async () => {
+    await setHash("#/knowledge");
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText("No assertions found")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Status"), "revision_requested");
+    expect(await screen.findByText(fee.proposition)).toBeInTheDocument();
+    const calls = mockedApi.listAssertions.mock.calls.length;
+
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    await user.click(within(nav).getByRole("link", { name: "Knowledge Base" }));
+
+    await waitFor(() => expect(mockedApi.listAssertions.mock.calls.length).toBe(calls + 1));
+    expect(mockedApi.listAssertions.mock.lastCall?.[1]).toMatchObject({ status: "accepted" });
+    expect(screen.getByLabelText("Status")).toHaveValue("accepted");
+    expect(await screen.findByText("No assertions found")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/knowledge");
+  });
+});

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { api, ApiError } from "../../api/client";
@@ -682,5 +682,97 @@ describe("ReviewQueuePage pipeline-generated assertions", () => {
     expect(
       card.getByLabelText("Justification for accepting without supporting evidence"),
     ).toBeInTheDocument();
+  });
+});
+
+// Acceptance run (release candidate): the queue re-read only after a decision
+// or a filter change, so a proposal a contributor submitted while the queue
+// was open appeared only after leaving the page and coming back, or a reload.
+// Clicking the queue's own nav link changes nothing in the URL (AppShell
+// signals a hashchange then), and returning to the tab or window is another
+// natural moment to look again.
+describe("ReviewQueuePage shows proposals submitted meanwhile", () => {
+  const submitted = makeAssertion({
+    id: "a9",
+    created_at: "2026-08-01T09:00:00Z",
+    proposition: "A proposal submitted while the queue was open.",
+  });
+
+  /** A contributor submits `submitted`: every later read of the proposed inbox lists it. */
+  function submitMeanwhile() {
+    const before = vi.mocked(api.listAssertions).getMockImplementation()!;
+    vi.mocked(api.listAssertions).mockImplementation(async (matterId, params = {}) => {
+      const page = await before(matterId, params);
+      if (params.status !== "proposed") return page;
+      return { items: params.limit === 1 ? page.items : [submitted, ...page.items], total: page.total + 1 };
+    });
+  }
+
+  function cardFor(proposition: string): HTMLElement {
+    const card = screen.getByText(proposition).closest("article");
+    if (!card) throw new Error(`no queue card shows "${proposition}"`);
+    return card;
+  }
+
+  const returns: [string, () => void][] = [
+    ["its own nav link is clicked", () => window.dispatchEvent(new HashChangeEvent("hashchange"))],
+    ["the window regains focus", () => window.dispatchEvent(new Event("focus"))],
+    ["the tab is shown again", () => document.dispatchEvent(new Event("visibilitychange"))],
+  ];
+
+  it.each(returns)("re-reads the queue when %s", async (_when, comeBack) => {
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    expect(screen.queryByText(submitted.proposition)).not.toBeInTheDocument();
+    submitMeanwhile();
+
+    act(comeBack);
+
+    expect(await screen.findByText(submitted.proposition)).toBeInTheDocument();
+    expect(screen.getByText("3 pending")).toBeInTheDocument();
+    expect(screen.getByText(modelAssertion.proposition)).toBeInTheDocument();
+  });
+
+  it("keeps an open decision form, and what was typed in it, through the re-read", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    const card = within(cardFor(modelAssertion.proposition));
+    await user.click(card.getByRole("button", { name: "Request revision" }));
+    await user.type(card.getByLabelText("Comment explaining the requested revision"), "Cite clause 8.4.");
+    submitMeanwhile();
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(await screen.findByText(submitted.proposition)).toBeInTheDocument();
+    const reread = within(cardFor(modelAssertion.proposition));
+    expect(reread.getByLabelText("Comment explaining the requested revision")).toHaveValue("Cite clause 8.4.");
+    await waitFor(() => expect(reread.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  });
+
+  it("clears an earlier notice when its own nav link is clicked, and keeps it on returning to the tab", async () => {
+    vi.mocked(api.rejectAssertion).mockRejectedValue(
+      new ApiError(409, "assertion has been modified since expected_revision_number"),
+    );
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    await user.click(within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not recorded/);
+    await waitFor(() => expect(screen.queryByText("Loading review queue…")).not.toBeInTheDocument());
+
+    const reads = vi.mocked(api.listAssertions).mock.calls.length;
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(reads));
+    expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+
+    act(() => {
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });

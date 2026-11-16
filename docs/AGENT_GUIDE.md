@@ -197,7 +197,9 @@ workflow rules for cooperating clients, not an OS-level security boundary.
 ## Lawyer workflow
 
 In **Review Queue**, lawyers can inspect model proposals, source quotations and
-self-reported provenance. Reviewers can edit any assertion through **Edit
+self-reported provenance. The queue is read again when a lawyer clicks
+**Review Queue** in the sidebar or comes back to its tab or window, so a
+suggestion submitted meanwhile appears. Reviewers can edit any assertion through **Edit
 assertion**; contributors can edit their own unreviewed submissions. Saving an
 edit creates a revision and checks for stale edits. An accepted assertion returns
 to proposed status after a material edit. Saving without a material change

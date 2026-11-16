@@ -29,6 +29,7 @@ import type { IconName } from "../app/icons";
 import { Icon } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
+import { useRefreshOnReturn } from "../app/useRefreshOnReturn";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
 import type { AssertionRatingDistributionSummary } from "../components/AssertionRatingDistribution";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
@@ -298,6 +299,24 @@ export function ReviewQueuePage() {
     setLoading(true);
     setReloadKey((key) => key + 1);
   }
+
+  // The queue is read again when the reviewer comes back to it, so proposals
+  // submitted meanwhile show up: on a click of its own nav link (which also
+  // clears the notice of an earlier decision, as opening the page does) and
+  // on returning to this tab or window. The cards on screen stay mounted, with
+  // any decision form and its text. Not during a decision, whose own re-read
+  // follows, and a return while a read is on its way adds none (one return
+  // can bring both a focus and a visibilitychange event).
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+  useRefreshOnReturn((cause) => {
+    if (decidingRef.current || (cause === "return" && loadingRef.current)) return;
+    if (cause === "link") setActionError(null);
+    loadingRef.current = true;
+    reloadAfterDecision();
+  });
 
   /** Records one decision; resolves to whether it was recorded. */
   async function runReviewAction(
