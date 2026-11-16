@@ -314,13 +314,13 @@ The app will be available at `http://localhost:5173` (or the port specified by V
 
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
 - **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
-- **Knowledge Base** — searchable accepted-assertion table with CSV export
+- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. The topbar search opens it on all statuses, and submitting the same query again re-runs it
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
 - **Assertion detail** — evidence, comments, revision history, ratings, and role-gated review actions
 - **Contested** — adjudication queue for disputed assertions
-- **Analytics** — per-matter dashboard computed live from the assertion list
+- **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
 - **Admin** — user account provisioning and matter member/role management (admin role required)
-- **Profile** — your activity, notifications, and matters
+- **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), notifications, and matters
 
 ### Provisioning users & access
 

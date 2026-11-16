@@ -1020,3 +1020,19 @@ with `total`. Unknown query parameters are rejected with 422.
 Every instant the API returns is UTC with an explicit offset (`…Z` or
 `+00:00`). `effective_from` and `effective_to` are calendar dates and carry no
 offset.
+
+No page of the web UI downloads a whole matter. The Knowledge Base requests
+50 rows at a time and returns to the first page whenever the matter, search,
+a filter or the sort changes. It shows accepted assertions by default and
+offers every review status. Its rating sorts state that the order reflects
+user opinion, not legal authority (§17). Its CSV export requests every match
+500 rows at a time. Each cell that begins with `=`, `+`, `-` or `@` (also
+after leading whitespace), a tab or a carriage return gets a leading
+apostrophe, so a spreadsheet never evaluates contributor text as a formula.
+The topbar search opens the Knowledge Base on all statuses, and submitting
+the same query again runs it again. Analytics reads `assertion-stats`, with
+`created_bucket_edges` at the viewer's local Monday midnights for its weekly
+chart. Profile reads `assertion-stats?author_user_id=<user>` for its counts,
+and lists the user's suggestions (most recently updated first) and the
+proposed assertions they have not rated, 50 at a time. The UI reads an
+instant that has no offset as UTC.

@@ -99,8 +99,8 @@ The design assumed capabilities the API did not have. Added (additively, in
   `unrated_by_me=true`); thumbs became rating shortcuts; expertise/weighting
   chips removed ("ratings never gain weight" is a domain rule); Agreement %
   became suggestion-acceptance %.
-- **analytics_dashboard** → `AnalyticsPage`. Matter-scoped, computed
-  client-side from the assertions list (no fake platform metrics): status
+- **analytics_dashboard** → `AnalyticsPage`. Matter-scoped, computed from
+  the matter's real assertions (no fake platform metrics): status
   mix, acceptance rate by origin and by assertion type, strength vs. model
   confidence (kept separate), top contributors from real members.
 
@@ -111,8 +111,8 @@ The design assumed capabilities the API did not have. Added (additively, in
 - Notifications remain in-process (existing platform limitation).
 - The sign-in seam is the documented test-token scheme; a real IdP is a
   deployment concern, out of scope here.
-- Analytics aggregates are computed client-side from the matter's assertion
-  list; fine at demo/matter scale, a stats endpoint would be the next step.
+- Analytics aggregates were computed client-side from the matter's assertion
+  list; since 2026-11-16 Analytics and Profile read `assertion-stats` instead.
 
 ## Local authoring completion (2026-09-16)
 
