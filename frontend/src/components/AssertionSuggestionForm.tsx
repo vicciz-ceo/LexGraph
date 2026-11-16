@@ -2,7 +2,16 @@ import { SourcePicker } from "./SourcePicker";
 import { useState } from "react";
 import type { ChangeEvent, ReactElement } from "react";
 
+import { Link } from "../app/router";
+import {
+  ASSERTION_TYPES,
+  NEW_ASSERTION_TYPE_MAX_LENGTH,
+  assertionTypeLabel,
+  isRecognizedAssertionType,
+  normalizeAssertionType,
+} from "../constants/assertionTypes";
 import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
+import { FURTHER_EVIDENCE_NOTE } from "../constants/suggestion";
 
 // UI2 — assertion suggestion form (spec §6). Supports Method A (create
 // from selected text — repository/matter/document/provision/quotation
@@ -11,8 +20,12 @@ import { JURISDICTION_OPTIONS } from "../constants/jurisdictions";
 // submit-for-review / cancel / preview, multiple evidence spans with
 // supporting/contradicting roles, a standalone-proposition option when
 // there is no object entity, and a "needs further evidence" indicator.
-// Types are local to this file (sprint ruling R7) — no shared types
-// module this sprint.
+// The assertion type is picked from the controlled vocabulary, or named
+// as a proposed new type (spec §7). Types are local to this file (sprint
+// ruling R7) — no shared types module this sprint.
+
+/** Value of the type select's "Propose a new type…" option. */
+const PROPOSE_NEW_TYPE = "__propose_new_type__";
 
 export type AssertionSuggestionMethod = "selected_text" | "graph_entities";
 export type EvidenceRole = "supports" | "contradicts";
@@ -33,12 +46,16 @@ export interface GraphEntitiesPrefill {
   matterId: string;
   subjectEntityId?: string;
   objectEntityId?: string;
+  /** Display names for the entities (shown instead of their ids). */
+  subjectEntityLabel?: string;
+  objectEntityLabel?: string;
 }
 
 export type AssertionSuggestionPrefill = SelectedTextPrefill | GraphEntitiesPrefill;
 
 export interface SimilarAssertion {
   id: string;
+  /** "" when the text is not known; such matches are counted, never quoted. */
   proposition: string;
 }
 
@@ -56,7 +73,10 @@ export interface AssertionSuggestionSubmission {
   subjectEntityId?: string;
   objectEntityId?: string;
   standalone: boolean;
+  /** A recognized type, or the normalized name of a proposed new type. */
   assertionType: string;
+  /** True when `assertionType` is a new type the author proposes (spec §7). */
+  assertionTypeIsProposedNew: boolean;
   proposition: string;
   explanation: string;
   jurisdiction?: string;
@@ -74,6 +94,11 @@ export interface AssertionSuggestionFormProps {
   onSubmit: (submission: AssertionSuggestionSubmission) => void;
   onCancel?: () => void;
   similarAssertions?: SimilarAssertion[];
+  /** Every similar match, when more exist than `similarAssertions` lists. */
+  similarAssertionsTotal?: number;
+  /** Initial jurisdiction (e.g. the user's profile default); ignored unless
+   * it is in the controlled vocabulary. */
+  defaultJurisdiction?: string;
 }
 
 interface EvidenceRow {
@@ -96,6 +121,8 @@ export function AssertionSuggestionForm({
   onSubmit,
   onCancel,
   similarAssertions = [],
+  similarAssertionsTotal,
+  defaultJurisdiction,
 }: AssertionSuggestionFormProps): ReactElement {
   const quotation = prefill.method === "selected_text" ? prefill.quotation : undefined;
   const documentVersionId = prefill.method === "selected_text" ? prefill.documentVersionId : undefined;
@@ -105,9 +132,16 @@ export function AssertionSuggestionForm({
   const objectEntityId = prefill.method === "graph_entities" ? prefill.objectEntityId : undefined;
 
   const [proposition, setProposition] = useState("");
-  const [assertionType, setAssertionType] = useState("");
+  // The select's value: a recognized type, PROPOSE_NEW_TYPE, or "" (none).
+  const [typeChoice, setTypeChoice] = useState("");
+  const [newTypeName, setNewTypeName] = useState("");
   const [explanation, setExplanation] = useState("");
-  const [jurisdiction, setJurisdiction] = useState("");
+  const [jurisdiction, setJurisdiction] = useState(() =>
+    defaultJurisdiction && JURISDICTION_OPTIONS.some((option) => option.value === defaultJurisdiction)
+      ? defaultJurisdiction
+      : "",
+  );
+  const jurisdictionFromProfile = jurisdiction !== "" && jurisdiction === defaultJurisdiction;
   const [effectiveStartDate, setEffectiveStartDate] = useState("");
   const [effectiveEndDate, setEffectiveEndDate] = useState("");
   const [standalone, setStandalone] = useState(false);
@@ -117,7 +151,17 @@ export function AssertionSuggestionForm({
     sourceSpanId ? [{ id: nextRowId(), sourceSpanId, evidenceRole: "supports" }] : []
   );
 
-  const hasExactDuplicate = similarAssertions.some(
+  const proposingNewType = typeChoice === PROPOSE_NEW_TYPE;
+  const normalizedNewType = normalizeAssertionType(newTypeName);
+  const assertionType = proposingNewType ? normalizedNewType : typeChoice;
+  const assertionTypeIsProposedNew =
+    proposingNewType && normalizedNewType !== "" && !isRecognizedAssertionType(normalizedNewType);
+
+  // Only matches whose text is known are quoted; the rest are counted.
+  const namedSimilar = similarAssertions.filter((candidate) => candidate.proposition.trim() !== "");
+  const similarTotal = Math.max(similarAssertionsTotal ?? 0, similarAssertions.length);
+  const unnamedSimilarCount = similarTotal - namedSimilar.length;
+  const hasExactDuplicate = namedSimilar.some(
     (candidate) => candidate.proposition.trim().toLowerCase() === proposition.trim().toLowerCase()
   );
   const propositionMissing = proposition.trim() === "";
@@ -153,6 +197,7 @@ export function AssertionSuggestionForm({
     objectEntityId: standalone ? undefined : objectEntityId,
     standalone,
     assertionType,
+    assertionTypeIsProposedNew,
     proposition,
     explanation,
     jurisdiction: jurisdiction || undefined,
@@ -222,13 +267,13 @@ export function AssertionSuggestionForm({
             {subjectEntityId ? (
               <>
                 <dt>Subject entity</dt>
-                <dd>{subjectEntityId}</dd>
+                <dd title={subjectEntityId}>{prefill.subjectEntityLabel || subjectEntityId}</dd>
               </>
             ) : null}
             {objectEntityId ? (
               <>
                 <dt>Object entity</dt>
-                <dd>{objectEntityId}</dd>
+                <dd title={objectEntityId}>{prefill.objectEntityLabel || objectEntityId}</dd>
               </>
             ) : null}
           </dl>
@@ -246,13 +291,41 @@ export function AssertionSuggestionForm({
 
       <div className="assertion-suggestion-form__field">
         <label htmlFor="assertion-type">Assertion type</label>
-        <input
+        <select
           id="assertion-type"
-          type="text"
-          value={assertionType}
-          onChange={(event) => setAssertionType(event.target.value)}
-        />
+          value={typeChoice}
+          onChange={(event) => setTypeChoice(event.target.value)}
+        >
+          <option value="">Select assertion type…</option>
+          {ASSERTION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {assertionTypeLabel(type)} ({type})
+            </option>
+          ))}
+          <option value={PROPOSE_NEW_TYPE}>Propose a new type…</option>
+        </select>
       </div>
+
+      {proposingNewType ? (
+        <div className="assertion-suggestion-form__field assertion-suggestion-form__new-type">
+          <label htmlFor="assertion-type-new">New type name</label>
+          <input
+            id="assertion-type-new"
+            type="text"
+            maxLength={NEW_ASSERTION_TYPE_MAX_LENGTH}
+            value={newTypeName}
+            aria-describedby="assertion-type-new-hint"
+            onChange={(event) => setNewTypeName(event.target.value)}
+          />
+          <p id="assertion-type-new-hint" className="assertion-suggestion-form__hint">
+            {normalizedNewType === ""
+              ? "Name the relationship, for example “cancelled by”. It is saved in upper case with underscores."
+              : isRecognizedAssertionType(normalizedNewType)
+                ? `${normalizedNewType} is already a recognized type; it will be saved as ${normalizedNewType}.`
+                : `Will be saved as ${normalizedNewType}, marked as a proposed new type.`}
+          </p>
+        </div>
+      ) : null}
 
       <div className="assertion-suggestion-form__field">
         <label htmlFor="assertion-proposition">Proposition</label>
@@ -263,12 +336,28 @@ export function AssertionSuggestionForm({
         />
       </div>
 
-      {similarAssertions.length > 0 ? (
+      {similarTotal > 0 ? (
         <div role="alert" className="assertion-suggestion-form__similarity-warning">
           <p>
-            This proposition may be a similar assertion to one that already exists:{" "}
-            {similarAssertions.map((candidate) => `"${candidate.proposition}"`).join(", ")}
+            This proposition may repeat a similar assertion that already exists in this matter
+            {namedSimilar.length > 0 ? ":" : "."}
           </p>
+          {namedSimilar.length > 0 ? (
+            <ul>
+              {namedSimilar.map((candidate) => (
+                <li key={candidate.id}>
+                  <Link to={`/assertions/${candidate.id}`}>&ldquo;{candidate.proposition}&rdquo;</Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {unnamedSimilarCount > 0 ? (
+            <p>
+              {namedSimilar.length > 0
+                ? `…and ${unnamedSimilarCount} more.`
+                : `${unnamedSimilarCount} existing ${unnamedSimilarCount === 1 ? "assertion" : "assertions"} matched.`}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -286,6 +375,7 @@ export function AssertionSuggestionForm({
         <select
           id="assertion-jurisdiction"
           value={jurisdiction}
+          aria-describedby={jurisdictionFromProfile ? "assertion-jurisdiction-hint" : undefined}
           onChange={(event) => setJurisdiction(event.target.value)}
         >
           <option value="">Select jurisdiction…</option>
@@ -295,6 +385,12 @@ export function AssertionSuggestionForm({
             </option>
           ))}
         </select>
+        {jurisdictionFromProfile ? (
+          <p id="assertion-jurisdiction-hint" className="assertion-suggestion-form__hint">
+            Pre-selected from the default in your profile. Change it, or choose
+            &ldquo;Select jurisdiction…&rdquo; to leave it unset.
+          </p>
+        ) : null}
       </div>
 
       <fieldset className="assertion-suggestion-form__effective-dates">
@@ -352,15 +448,27 @@ export function AssertionSuggestionForm({
           id="assertion-further-evidence-needed"
           type="checkbox"
           checked={needsFurtherEvidence}
+          aria-describedby="assertion-further-evidence-hint"
           onChange={(event) => setNeedsFurtherEvidence(event.target.checked)}
         />
       </div>
+      <p id="assertion-further-evidence-hint" className="assertion-suggestion-form__hint">
+        Adds a note to the explanation, which is saved as the first comment, so reviewers
+        see that more evidence is needed.
+      </p>
 
       {showPreview ? (
         <section className="assertion-suggestion-form__preview" aria-label="Preview">
           <h3>Preview</h3>
           <p>{proposition || "No proposition entered yet."}</p>
+          {assertionType !== "" ? (
+            <p>
+              Type: {assertionType}
+              {assertionTypeIsProposedNew ? " (proposed new type)" : ""}
+            </p>
+          ) : null}
           <p>{explanation}</p>
+          {needsFurtherEvidence ? <p>{FURTHER_EVIDENCE_NOTE}</p> : null}
         </section>
       ) : null}
 

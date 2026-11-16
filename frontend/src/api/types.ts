@@ -253,9 +253,23 @@ export interface RelatedMatch {
   assertion_id: string;
   match_kind: "exact_proposition" | "same_subject_type_object" | "similar" | string;
   score: number;
+  /** Display fields of the matched assertion (absent from older backends). */
   proposition?: string;
   status?: AssertionStatus;
+  assertion_type?: string;
 }
+
+/** Similar-assertion warnings returned next to a created assertion: at most
+ * the top matches by score (score desc, then id); `similar_assertions_total`
+ * counts every match before that cap. Older backends send only the list. */
+export interface SimilarAssertionsPayload {
+  similar_assertions?: RelatedMatch[];
+  similar_assertions_total?: number;
+  similar_assertions_truncated?: boolean;
+}
+
+/** POST /assertions (and POST /agent/assertions) response. */
+export type CreateAssertionResult = Assertion & SimilarAssertionsPayload;
 
 export interface AppNotification {
   id: string;

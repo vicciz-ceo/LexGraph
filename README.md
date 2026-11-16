@@ -172,6 +172,9 @@ The detail page also attaches and removes evidence (for the author of an
 unreviewed assertion, or a reviewer), threads the discussion with replies and
 edits or deletes one's own comments, compares any two revisions field by field,
 and lets reviewers mark an accepted assertion superseded by another accepted one.
+Sources (documents, articles and their passages) are imported into a matter on
+the server, not uploaded in the app; a new matter has none until then. See
+[docs/RUNBOOK.md](docs/RUNBOOK.md#getting-sources-into-a-matter).
 
 ## Status
 

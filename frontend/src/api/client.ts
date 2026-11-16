@@ -14,6 +14,7 @@ import type {
   AssertionDetail,
   AssertionList,
   AssertionListParams,
+  CreateAssertionResult,
   Evidence,
   HistoryEvent,
   IssuedSignIn,
@@ -43,6 +44,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     detail: string,
+    /** The parsed error response body, for structured fields beside `detail`. */
+    public body: unknown = null,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -127,6 +130,7 @@ async function request<T>(
     throw new ApiError(
       response.status,
       detailFromBody(payload, `${method} ${path} failed (${response.status})`),
+      payload,
     );
   }
 
@@ -191,7 +195,7 @@ export const api = {
   getAssertion: (id: string) => request<AssertionDetail>("GET", `/assertions/${id}`),
 
   createAssertion: (body: Record<string, unknown>) =>
-    request<Assertion & { similar_assertions?: { id: string; proposition: string }[] }>(
+    request<CreateAssertionResult>(
       "POST",
       "/assertions",
       { body },

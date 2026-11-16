@@ -1,0 +1,35 @@
+/* SourcePicker (components/SourcePicker.tsx): search box, source select,
+ * selected quote and pager. A `.field` column; every control stays within
+ * the width of its container, whatever the length of the option labels. */
+
+.source-picker {
+  min-width: 0;
+}
+
+.source-picker input,
+.source-picker select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.source-picker__quote {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--outline-variant);
+  background: var(--surface-container-low);
+  font: italic 400 13px/18px var(--font-family);
+  color: var(--on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.source-picker__pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.source-picker__pager .field__hint {
+  margin-right: auto;
+}

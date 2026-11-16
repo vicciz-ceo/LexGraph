@@ -385,6 +385,16 @@ The creation form must support:
 - Create a standalone proposition without an object entity
 - Indicate that further evidence is needed
 
+Web suggestion form and revision editor (2026-11-16):
+
+- Subject and object are chosen from the matter's documents and articles (`GET /matters/{id}/entities`). A link `#/suggest?subject=<id>&subject_type=<Type>` (likewise `object`, `object_type`) pre-selects them. A stated type is sent as given and validated by the API on save. Without a type the id is looked up among the matter's documents and articles, then its assertions; an id that cannot be found is not filled in, and the page says so, rather than being sent under a guessed type.
+- A matter without documents shows how sources are imported (docs/RUNBOOK.md, "Getting sources into a matter") and the matter and repository IDs, instead of the form.
+- The assertion type is chosen from the controlled vocabulary or named under "Propose a new type…". A new name is saved in upper case with underscores ("cancelled by" becomes CANCELLED_BY) and sent with `assertion_type_is_proposed_new: true`, unless it is already a recognized type.
+- "Further evidence needed" appends a fixed note to the explanation, which is stored as the assertion's first comment; the API has no separate field for it.
+- The jurisdiction starts at the default chosen on the Profile page (stored in the browser per user), when that value is in the controlled vocabulary.
+- Similar assertions returned on creation are listed by proposition and status, each linked to the assertion: at most 20, highest score first (then id), followed by "and N more" when more matched. When a response lacks the text (older backends), the page loads it per listed assertion. The exact-duplicate 409 is explained with a link to the existing assertion.
+- The revision editor keeps Save disabled until the proposition differs from the current revision (line endings aside), and the reason field starts empty for each edit. After a stale-revision 409 the typed text and reason are kept, the assertion is reloaded, and the newer revision's text is shown with two choices: save the typed text as the next revision, or discard it and start from the latest. A duplicate 409 links to the existing assertion. When submitting or withdrawing is refused because the assertion changed meanwhile, the page reloads it and says so.
+
 ==================================================
 7. USER-SUGGESTED ASSERTION VALIDATION
 ==================================================
