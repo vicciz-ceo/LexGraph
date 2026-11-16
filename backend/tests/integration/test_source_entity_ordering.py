@@ -70,6 +70,22 @@ def test_mixed_statute_numbering_sorts_naturally(client, db_session, matter_with
     assert [label.split(" / ")[1].split()[0] for label in labels] == numbers
 
 
+def test_every_page_is_a_slice_of_one_ordering(client, db_session, matter_with_users):
+    m = matter_with_users
+    _document(db_session, m, "Beta Code", ["3", "1", "2"])
+    _document(db_session, m, "Alpha Code", ["2", "10"])
+    _document(db_session, m, "Gamma Code", [])
+    for q in ("", "code", "beta", "/ 2", "missing"):
+        full = _page(client, m, q=q, limit=100)
+        assert full["total"] == len(full["items"])
+        for limit in (1, 2, 3, 5):
+            for offset in range(full["total"] + 2):
+                page = _page(client, m, q=q, limit=limit, offset=offset)
+                assert page == {"items": full["items"][offset:offset + limit], "total": full["total"]}, (q, limit, offset)
+    assert [i["label"] for i in _page(client, m, q="/ 2")["items"]] == [
+        "Alpha Code / 2 Record keeping duty 2", "Beta Code / 2 Record keeping duty 2"]
+
+
 def test_labels_have_no_dangling_whitespace(client, db_session, matter_with_users):
     m = matter_with_users
     _document(db_session, m, "Code", ["5"], heading="")

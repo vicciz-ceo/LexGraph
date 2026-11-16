@@ -1,6 +1,6 @@
 """Bounded, matter-authorized source discovery for people and local agents."""
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import String, func, select, union_all, literal
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.models.article import Article
@@ -24,25 +24,37 @@ def _matter(session, user_id, matter_id):
 def list_entities(matter_id: str, q: str = "", limit: int = Query(50, ge=1, le=100),
                   offset: int = Query(0, ge=0), session: Session = Depends(get_session),
                   user_id: str = Depends(get_current_user_id)) -> dict:
-    """Documents first, then each document's articles in natural number order."""
+    """Documents first (by title), then each document's articles in natural number order.
+
+    Articles are counted per document, and only documents overlapping the page
+    are sorted, so the natural-order key is not computed for the whole matter."""
     matter = _matter(session, user_id, matter_id)
     in_scope = (Document.matter_id == matter_id, Document.repository_id == matter.repository_id)
-    docs = select(literal("Document").label("type"), Document.id.label("id"), Document.title.label("label"),
-                  literal(0).label("rank"), Document.title.label("document_title"),
-                  Document.id.label("document_id"), literal(None, String).label("number")).where(*in_scope)
-    article_label = Document.title + " / " + func.trim(Article.number + " " + func.coalesce(Article.heading, ""))
-    articles = select(literal("Article"), Article.id, article_label, literal(1), Document.title, Document.id,
-                      Article.number).join(Document, Article.document_id == Document.id).where(
+    by_title = (Document.title, Document.id)
+    label = Document.title + " / " + func.trim(Article.number + " " + func.coalesce(Article.heading, ""))
+    documents = select(Document.id, Document.title).where(*in_scope)
+    articles = select(Article.id, label).join(Document, Article.document_id == Document.id).where(
         Article.matter_id == matter_id, *in_scope)
-    rows = union_all(docs, articles).subquery()
-    stmt = select(rows.c.type, rows.c.id, rows.c.label)
     if q.strip():
-        stmt = stmt.where(contains_text(rows.c.label, q))
-    total = session.scalar(select(func.count()).select_from(stmt.subquery()))
-    order = (rows.c.rank, rows.c.document_title, rows.c.document_id, NaturalOrder(rows.c.number),
-             rows.c.number, rows.c.id)
-    items = session.execute(stmt.order_by(*order).limit(limit).offset(offset)).mappings().all()
-    return {"items": [dict(row) for row in items], "total": total}
+        documents = documents.where(contains_text(Document.title, q))
+        articles = articles.where(contains_text(label, q))
+    matching = session.execute(documents.order_by(*by_title)).all()
+    per_document = dict(session.execute(
+        articles.with_only_columns(Article.document_id, func.count()).group_by(Article.document_id)).all())
+    items = [{"type": "Document", "id": doc_id, "label": title} for doc_id, title in matching[offset:offset + limit]]
+    skip = max(0, offset - len(matching))
+    for doc_id in session.scalars(select(Document.id).where(*in_scope).order_by(*by_title)):
+        if len(items) == limit:
+            break
+        count = per_document.get(doc_id, 0)
+        if skip >= count:
+            skip -= count
+            continue
+        page = articles.where(Article.document_id == doc_id).order_by(
+            NaturalOrder(Article.number), Article.number, Article.id).offset(skip).limit(limit - len(items))
+        items += [{"type": "Article", "id": art_id, "label": text} for art_id, text in session.execute(page)]
+        skip = 0
+    return {"items": items, "total": len(matching) + sum(per_document.values())}
 
 
 @router.get("/{matter_id}/source-spans")
