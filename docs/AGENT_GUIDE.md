@@ -90,7 +90,9 @@ returned by `context` and the example proposition with your grounded claim:
 ```
 
 Input and output are UTF-8 JSON whatever the locale, code page (such as
-cp1252) or `PYTHONIOENCODING`; a UTF-8 byte-order mark is accepted. Success prints one JSON object (with the
+cp1252) or `PYTHONIOENCODING`; a UTF-8 byte-order mark is accepted. Text
+arguments such as `--query` are read as UTF-8 too, and an `--input` file name
+opens the file you named whatever characters it holds. Success prints one JSON object (with the
 assertion ID) on stdout and exits 0. Every error, including a command-line
 mistake, prints one JSON object on stderr and exits 1. `--user-id USER_ID`,
 before or after the subcommand, overrides the actor environment variable.
@@ -136,21 +138,34 @@ No agent-submission operation accepts assertions or creates ratings.
 
 Failures carry a `status` and an `error` message. The CLI prints them as one
 JSON object on stderr; MCP returns the same object as the text of an error
-result, after `Error executing tool <name>: `. Payload schema violations add
+result, after `Error executing tool <name>: `, also when it refuses the call
+before the tool runs (arguments that do not match the tool's parameters, or a
+tool the server does not offer). Payload and argument schema violations add
 `issues`, a list of `field` and `message` pairs.
 
-- **400:** the command line is wrong or the `--input` file cannot be read.
-- **401:** no actor is configured, or the actor ID is not a user.
-- **403:** actor lacks the required matter role. An admin must grant access.
-- **404:** a suggestion names a matter or repository that does not exist. Use
-  IDs from `context` (which answers 403 for a matter you cannot see).
+- **400:** the command line is wrong or the `--input` file cannot be read; over
+  MCP, the call names a tool the server does not offer.
+- **401:** no actor is configured, or the actor ID is not a user. Over MCP,
+  `agent_context` and `suggest_assertion` answer 401 on a server started
+  without `LEXGRAPH_AGENT_USER_ID`.
+- **403:** the actor lacks a contributor, reviewer or admin role in the matter.
+  A matter ID that does not exist answers 403 too, so the answer never reveals
+  whether a matter exists: check the IDs against `context` before you ask an
+  admin to grant access.
+- **404:** a suggestion names a repository that does not exist. Use IDs from
+  `context`.
 - **422:** fix the reported validation issue (including missing/cross-matter
   sources, wrong repository, invalid confidence or dates, a confidence that is
   not a finite number such as `NaN` or `1e999`, a date outside the
   years 1–9999 once in UTC, one source span listed twice with the same role,
   text over 100,000 characters, provenance that is only markup, the agent
-  payload sent to `POST /api/v1/assertions`, JSON with an unpaired surrogate
-  escape such as `\ud800`, or input that is not UTF-8 JSON).
+  payload sent to `POST /api/v1/assertions`, input that is not UTF-8 JSON, or
+  MCP arguments that do not match the tool's parameters, such as the
+  submission's fields sent beside `payload` instead of inside it). JSON with an
+  unpaired surrogate escape such as `\ud800` is a 422 from the CLI and REST.
+  Over MCP the SDK's stdio transport drops such a request without any answer,
+  so the call waits until the client times out: do not send unpaired surrogate
+  escapes.
 - **409 duplicate:** no second assertion was created. The existing assertion's
   ID is in `existing_assertion_id` (CLI, MCP and REST alike) and in the error
   text; inspect that assertion. Do not retry with cosmetic rewording. This

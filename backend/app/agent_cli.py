@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.db import make_session_factory
 from app.models.assertion import Assertion
 from app.models.assertion_revision import AssertionRevision
+from app.models.user import User
 from app.notifications import notify_submission
 from app.routers.agents import AgentAssertionCreate, suggest_assertion
 from app.routers.sources import list_entities, list_spans
@@ -109,6 +110,12 @@ def context(session, user_id: str, matter_id: str | None = None, q: str = "", li
     }
 
 
+def require_actor(session, user_id: str) -> None:
+    """401 unless `user_id` names a user, as `context` and REST (an unknown sign-in token) answer."""
+    if session.get(User, user_id) is None:
+        raise HTTPException(401, "unknown user")
+
+
 class _UsageError(Exception):
     """A command-line mistake; argparse would print usage text and exit 2."""
 
@@ -116,6 +123,12 @@ class _UsageError(Exception):
 class _Parser(argparse.ArgumentParser):
     def error(self, message):
         raise _UsageError(message)
+
+
+def validation_issues(exc: ValidationError) -> list[dict]:
+    """One {field, message} per pydantic error, without the rejected input (the caller's data)."""
+    return [{"field": ".".join(str(part) for part in err["loc"]) or "payload", "message": err["msg"]}
+            for err in exc.errors(include_url=False, include_context=False, include_input=False)]
 
 
 def error_body(exc: BaseException) -> dict:
@@ -127,8 +140,7 @@ def error_body(exc: BaseException) -> dict:
             body["existing_assertion_id"] = existing  # as the REST 409 body carries it
         return body
     if isinstance(exc, ValidationError):
-        issues = [{"field": ".".join(str(part) for part in err["loc"]) or "payload", "message": err["msg"]}
-                  for err in exc.errors(include_url=False, include_context=False, include_input=False)]
+        issues = validation_issues(exc)
         summary = "; ".join(issue["message"] if issue["field"] == "payload" else f"{issue['field']}: {issue['message']}"
                             for issue in issues)
         return {"error": f"Invalid payload: {summary}", "status": 422, "issues": issues}
@@ -162,15 +174,22 @@ def _parser() -> _Parser:
     return parser
 
 
-def _utf8_args(argv: list[str]) -> list[str]:
-    """Undo a non-UTF-8 POSIX locale's decoding of UTF-8 arguments."""
-    decoded = []
-    for arg in argv:
-        try:
-            decoded.append(os.fsencode(arg).decode("utf-8"))
-        except UnicodeError:
-            decoded.append(arg)
-    return decoded
+def _utf8(text: str) -> str:
+    """Undo a non-UTF-8 POSIX locale's decoding of UTF-8 argument bytes."""
+    try:
+        return os.fsencode(text).decode("utf-8")
+    except UnicodeError:
+        return text
+
+
+def _parse(argv: list[str]) -> argparse.Namespace:
+    """The arguments as text (so `--query übergabe` works under C), except the `--input`
+    file name: that is OS bytes, which the string Python decoded it to already
+    round-trips to, and re-decoding it named another file (review agent:0)."""
+    args = _parser().parse_args([_utf8(arg) for arg in argv])
+    if getattr(args, "input", "-") != "-":
+        args.input = _parser().parse_args(argv).input
+    return args
 
 
 def _read_input(path: str) -> str:
@@ -180,8 +199,9 @@ def _read_input(path: str) -> str:
     else:
         try:
             data = Path(path).read_bytes()
-        except OSError as exc:
-            raise HTTPException(400, f"Cannot read --input {path}: {exc.strerror or exc}") from exc
+        except (OSError, ValueError) as exc:  # ValueError: a name the file system cannot encode
+            reason = getattr(exc, "strerror", None) or exc
+            raise HTTPException(400, f"Cannot read --input {_utf8(path)}: {reason}") from exc
     if isinstance(data, str):
         return data.removeprefix("\ufeff")
     try:
@@ -214,7 +234,7 @@ def _run(argv: list[str]) -> int:
     engine = None
     created_id = None
     try:
-        args = _parser().parse_args(_utf8_args(argv))
+        args = _parse(argv)
         if args.command == "schema":
             result = guide()
         else:
@@ -222,6 +242,7 @@ def _run(argv: list[str]) -> int:
                 raise HTTPException(401, "Set LEXGRAPH_AGENT_USER_ID or --user-id")
             engine = open_database(get_settings().database_url)
             with make_session_factory(engine)() as session:
+                require_actor(session, args.user_id)  # before suggest's 403 for a matter without a role
                 if args.command == "context":
                     result = context(session, args.user_id, args.matter_id, args.query, args.limit, args.offset)
                 else:

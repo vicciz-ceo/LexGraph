@@ -104,3 +104,9 @@ followed by the JSON object the CLI prints, for example
 `{"error": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "status": 409, "existing_assertion_id": "<id>"}`.
 Schema violations add `issues` (`field` and `message` for each). The statuses
 mean the same as in the [agent guide](AGENT_GUIDE.md#persistence-and-errors).
+The same holds when the server refuses a call before the tool runs: arguments
+that do not match the tool's parameters (422, with `issues`) and a tool it does
+not offer (400; 401 for `agent_context` and `suggest_assertion` when no
+`LEXGRAPH_AGENT_USER_ID` is registered). A request holding an unpaired surrogate
+escape such as `\ud800` gets no answer at all, because the SDK's stdio transport
+drops it, so the call times out.

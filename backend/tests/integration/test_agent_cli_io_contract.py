@@ -4,10 +4,13 @@ JSON input and output are UTF-8 whatever the locale or PYTHONIOENCODING, and a
 committed suggestion is never reported as a failure. Every error is exactly
 one JSON object on stderr with exit 1: usage errors included, no warning text
 before it, and environment failures are not labelled 422 ("fix the payload").
+Text arguments are re-decoded as UTF-8 under a legacy locale; the `--input`
+file name is not, because it names OS bytes (review agent:0).
 """
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -17,13 +20,34 @@ from sqlalchemy import func, select
 
 from app.models.assertion import Assertion
 from app.models.assertion_revision import AssertionRevision
-from tests.conftest import seed_document, seed_source_span
+from tests.conftest import new_id, seed_document, seed_source_span
 from tests.integration.agent_surface_helpers import BACKEND, agent_env, cli_error, cli_json, run_cli
 
 LEGAL_TEXT = "§ 8 Confidentiality survives termination — per the “survival” clause (Acme ↔ Blue Ridge)."
 C_LOCALE = {"LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
 ENCODINGS = [{"PYTHONIOENCODING": "latin-1"}, {"PYTHONIOENCODING": "cp1252"},
              {"PYTHONIOENCODING": "ascii"}, C_LOCALE]
+
+
+@pytest.fixture(scope="module")
+def latin1_locale(tmp_path_factory) -> dict[str, str]:
+    """A legacy 8-bit POSIX locale (de_DE.ISO-8859-1), compiled into a scratch LOCPATH."""
+    if shutil.which("localedef") is None:
+        pytest.skip("needs localedef to compile a Latin-1 locale")
+    root = tmp_path_factory.mktemp("locales")
+    name = "de_DE.ISO-8859-1"
+    subprocess.run(["localedef", "-c", "-i", "de_DE", "-f", "ISO-8859-1", str(root / name)],
+                   capture_output=True, timeout=120)
+    env = {"LOCPATH": str(root), "LC_ALL": name, "LANG": name, "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
+    probe = subprocess.run([sys.executable, "-c", "import sys; print(sys.getfilesystemencoding())"],
+                           capture_output=True, text=True, env={**agent_env(), **env}, timeout=60)
+    if probe.stdout.strip() != "iso8859-1":
+        pytest.skip(f"could not build a Latin-1 locale: {probe.stdout.strip() or probe.stderr}")
+    return env
+
+
+def _locale(request, name: str) -> dict[str, str]:
+    return C_LOCALE if name == "C" else request.getfixturevalue("latin1_locale")
 
 
 @pytest.fixture
@@ -98,6 +122,56 @@ def test_non_ascii_arguments_survive_a_c_locale(cli, payload, matter_with_users)
     # Under a C/ASCII locale Python decodes argv bytes as ASCII + surrogateescape.
     result = cli("context", "--matter-id", matter_with_users["matter_id"], "--query", "über übergabe", **C_LOCALE)
     assert cli_json(result)["entities"]["items"][0]["label"] == "Vertrag über Übergabe — Acme ↔ Blue Ridge"
+
+
+def test_non_ascii_arguments_survive_a_latin1_locale(cli, payload, matter_with_users, latin1_locale):
+    # Under Latin-1 every byte decodes, so UTF-8 argv bytes arrive as mojibake ("Ã¼ber").
+    result = cli("context", "--matter-id", matter_with_users["matter_id"], "--query", "über übergabe", **latin1_locale)
+    assert cli_json(result)["entities"]["items"][0]["label"] == "Vertrag über Übergabe — Acme ↔ Blue Ridge"
+
+
+@pytest.mark.parametrize("name", ["Übergabe.json", "Übergabe ↔ סיכום.json"])
+@pytest.mark.parametrize("locale_name", ["C", "Latin-1"])
+def test_a_non_ascii_input_path_names_the_file_the_caller_passed(request, cli, db_session, payload, tmp_path,
+                                                                 locale_name, name):
+    # review agent:0: re-decoding the path as UTF-8 named another file (Latin-1: 400 "No such file")
+    # or one that could not be encoded at all (422 "codec can't encode").
+    path = tmp_path / name
+    path.write_bytes(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    cli_json(cli("suggest", "--input", str(path), **_locale(request, locale_name)))
+    assert _stored(db_session) == [LEGAL_TEXT]
+
+
+def test_a_usage_error_quotes_a_non_ascii_argument_readably_under_a_c_locale(cli):
+    body = cli_error(cli("context", "--limit", "äbc", **C_LOCALE))
+    assert body["status"] == 400 and "'äbc'" in body["error"], body
+
+
+@pytest.mark.parametrize("locale_name", ["C", "Latin-1"])
+def test_a_missing_non_ascii_input_path_is_400_and_named_readably(request, cli, db_session, tmp_path, locale_name):
+    body = cli_error(cli("suggest", "--input", str(tmp_path / "Übergabe.json"), **_locale(request, locale_name)))
+    assert body["status"] == 400 and f"Cannot read --input {tmp_path / 'Übergabe.json'}:" in body["error"], body
+    assert db_session.scalar(select(func.count()).select_from(Assertion)) == 0
+
+
+@pytest.mark.parametrize(("actor", "change", "expected"), [
+    # The actor is checked first, as `context`, the MCP server and REST (401 for an unknown token) do.
+    ("nobody", {}, {"error": "unknown user", "status": 401}),
+    # Authorize first (spec, review:17): a matter that does not exist is one you have no role in.
+    (None, {"matter_id": "no-such-matter"}, {"error": "not permitted to suggest assertions", "status": 403}),
+    (None, {"repository_id": "no-such-repository"}, {"error": "repository not found", "status": 404}),
+])
+def test_suggest_answers_the_documented_status_for_a_mistyped_id(cli, db_session, payload, actor, change, expected):
+    # review agent:1: an unknown actor answered 403 "not permitted", sending the agent to an admin.
+    options = ("--user-id", actor) if actor else ()
+    body = cli_error(cli(*options, "suggest", stdin=json.dumps({**payload, **change}).encode()))
+    assert body == expected
+    assert db_session.scalar(select(func.count()).select_from(Assertion)) == 0
+
+
+def test_an_actor_that_is_not_a_user_is_401_before_the_input_is_read(cli, tmp_path):
+    body = cli_error(cli("--user-id", new_id(), "suggest", "--input", str(tmp_path / "missing.json")))
+    assert body == {"error": "unknown user", "status": 401}
 
 
 @pytest.mark.parametrize("encoding", ENCODINGS, ids=["latin-1", "cp1252", "ascii", "C-locale"])
