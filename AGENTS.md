@@ -25,3 +25,6 @@ using `.venv/bin/python`.
 For development, authoritative behavior is in `docs/specs/`. Keep code, tests
 and user/agent guides aligned. Test with `backend/.venv/bin/pytest backend/tests`
 and `npm --prefix frontend test -- --run`; build with `npm --prefix frontend run build`.
+The Claude Code preview (`.claude/launch.json`) runs `backend` on port 8000
+(`scripts/dev-backend.sh`: serves `backend/dev.db`, seeding the demo workspace
+into it on first run) and `frontend` on port 5173, which proxies `/api` to it.
