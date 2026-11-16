@@ -62,10 +62,12 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         columns = {column["name"] for column in inspector.get_columns("users")}
         if "sign_in_token_hash" not in columns:
+            from app.migrate import upgrade_command
+
             print(
-                "error: this database predates sign-in tokens; upgrade it first "
-                "(python -m app.migrate --db PATH; see docs/RUNBOOK.md, "
-                "'Upgrading: sign-in tokens replace user-id sign-in')",
+                "error: this database predates sign-in tokens; upgrade it first (see "
+                "docs/RUNBOOK.md, 'Upgrading: sign-in tokens replace user-id sign-in'):\n"
+                f"    {upgrade_command(url)}",
                 file=sys.stderr,
             )
             return 1

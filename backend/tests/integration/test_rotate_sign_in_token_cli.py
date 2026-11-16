@@ -109,3 +109,21 @@ def test_rotating_by_email_ignores_letter_case_and_padding(tmp_path, monkeypatch
 
     assert rotated.returncode == 0, rotated.stderr
     assert _signs_in(db_path, monkeypatch, rotated.stdout.strip().splitlines()[-1])
+
+
+def test_a_database_that_predates_sign_in_tokens_is_refused_with_the_upgrade_command(tmp_path):
+    db_path = tmp_path / "old.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE users (id VARCHAR(36) PRIMARY KEY, email VARCHAR(255) NOT NULL, "
+                 "display_name VARCHAR(255) NOT NULL)")
+    conn.execute("INSERT INTO users VALUES ('u1', 'a@example.test', 'A')")
+    conn.commit()
+    conn.close()
+    before = db_path.read_bytes()
+
+    result = _run("app.rotate_sign_in_token", "--db", str(db_path), "--list-legacy")
+
+    assert result.returncode == 1, result
+    assert "predates sign-in tokens" in result.stderr
+    assert f"-m app.migrate --db {db_path}" in result.stderr, result.stderr
+    assert db_path.read_bytes() == before
