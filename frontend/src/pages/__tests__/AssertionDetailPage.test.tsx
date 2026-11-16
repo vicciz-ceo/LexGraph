@@ -223,8 +223,10 @@ describe("AssertionDetailPage", () => {
     fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
     fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
 
+    // The untouched rationale box is left out (review listing:0): "" would
+    // remove a rationale stored meanwhile, e.g. from another tab.
     await waitFor(() =>
-      expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, ""),
+      expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, undefined),
     );
     // Summary is refreshed after the save (initial load + post-save).
     await waitFor(() => expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(2));

@@ -26,6 +26,12 @@ import { AssertionRatingDistribution } from "../components/AssertionRatingDistri
 import type { AssertionRatingDistributionSummary } from "../components/AssertionRatingDistribution";
 import { SUPPORTING_EVIDENCE_ROLES } from "../constants/evidence";
 import {
+  isSystemDerived,
+  SYSTEM_DERIVED_LABEL,
+  SYSTEM_DERIVED_NO_EVIDENCE,
+} from "../constants/pipeline";
+import {
+  REVIEW_EVIDENCE_REMOVED_MESSAGE,
   reviewConflictNotice,
   reviewTextProblem,
   reviewTextTooLongMessage,
@@ -56,6 +62,10 @@ const EVIDENCE_BADGES: Record<Assertion["evidence_status"], { className: string;
   unsupported: { className: "badge badge--rejected", label: "Unsupported" },
   awaiting_evidence: { className: "badge badge--pending", label: "Awaiting evidence" },
 };
+
+/** fe-review-detail:5 (ui:4): a definition-linking pipeline row without
+ * evidence, labelled as on the assertion page. */
+const SYSTEM_DERIVED_BADGE = { className: "badge badge--neutral", label: SYSTEM_DERIVED_LABEL };
 
 function evidenceRoleClass(role: string): string {
   if (SUPPORTING_EVIDENCE_ROLES.has(role)) return "badge badge--accepted";
@@ -162,6 +172,8 @@ export function ContestedPage() {
       aliveRef.current = false;
     };
   }, []);
+  // The newest evidence request per assertion: an older answer is dropped.
+  const evidenceRequests = useRef<Record<string, number>>({});
   // One ruling at a time: also stops a second click that lands before the
   // disabled buttons are rendered.
   const rulingRef = useRef(false);
@@ -248,24 +260,37 @@ export function ContestedPage() {
     return requested;
   }
 
+  function loadEvidence(id: string) {
+    const request = (evidenceRequests.current[id] ?? 0) + 1;
+    evidenceRequests.current[id] = request;
+    const current = () => aliveRef.current && evidenceRequests.current[id] === request;
+    setEvidence((prev) => ({ ...prev, [id]: "loading" }));
+    api.listEvidence(id).then(
+      (list) => {
+        if (current()) setEvidence((prev) => ({ ...prev, [id]: list }));
+      },
+      () => {
+        if (current()) setEvidence((prev) => ({ ...prev, [id]: "error" }));
+      },
+    );
+  }
+
   function toggleExpand(assertion: AssertionListItem) {
     const next = expandedId === assertion.id ? null : assertion.id;
     setExpandedId(next);
     resetAction();
-    if (next !== null && evidence[assertion.id] === undefined) {
-      setEvidence((prev) => ({ ...prev, [assertion.id]: "loading" }));
-      api.listEvidence(assertion.id).then(
-        (list) => {
-          if (aliveRef.current) setEvidence((prev) => ({ ...prev, [assertion.id]: list }));
-        },
-        () => {
-          if (aliveRef.current) setEvidence((prev) => ({ ...prev, [assertion.id]: "error" }));
-        },
-      );
-    }
+    if (next !== null && evidence[assertion.id] === undefined) loadEvidence(assertion.id);
   }
 
-  async function runRuling(call: () => Promise<unknown>) {
+  /**
+   * Records one ruling. `acceptWithoutJustificationOf` names the assertion of
+   * an acceptance sent without a justification (its row showed supporting
+   * evidence).
+   */
+  async function runRuling(
+    call: () => Promise<unknown>,
+    { acceptWithoutJustificationOf }: { acceptWithoutJustificationOf?: string } = {},
+  ) {
     if (rulingRef.current) return;
     rulingRef.current = true;
     setActionBusy(true);
@@ -292,6 +317,25 @@ export function ContestedPage() {
         setExpandedId(null);
         resetAction();
         setEvidence({});
+        setReloadKey((k) => k + 1);
+        return;
+      }
+      if (
+        error instanceof ApiError &&
+        error.status === 422 &&
+        acceptWithoutJustificationOf !== undefined
+      ) {
+        // fe-review-detail:2: the drawer still showed supporting evidence
+        // that was removed meanwhile (that changes neither the revision nor
+        // updated_at). Nothing was recorded: say so above the table, re-read
+        // the row and its evidence with the drawer kept open, and ask for
+        // the justification. `loading` is set in this render, so the drawer
+        // stays disabled until the reloaded row is shown.
+        setRulingNotice(REVIEW_EVIDENCE_REMOVED_MESSAGE);
+        setActionError(null);
+        setPendingAction("accept");
+        loadEvidence(acceptWithoutJustificationOf);
+        setLoading(true);
         setReloadKey((k) => k + 1);
         return;
       }
@@ -363,7 +407,11 @@ export function ContestedPage() {
                 ) : evidenceState === "error" ? (
                   <p className="muted">Could not load evidence for this assertion.</p>
                 ) : evidenceState.length === 0 ? (
-                  <p className="muted">No evidence spans linked.</p>
+                  <p className="muted">
+                    {assertion.origin === "system_generated"
+                      ? SYSTEM_DERIVED_NO_EVIDENCE
+                      : "No evidence spans linked."}
+                  </p>
                 ) : (
                   <ul className="ctd-evidence">
                     {evidenceState.map((item) => (
@@ -415,12 +463,14 @@ export function ContestedPage() {
                         setPendingAction("accept");
                         setActionError(null);
                       } else {
-                        void runRuling(() =>
-                          api.acceptAssertion(
-                            assertion.id,
-                            undefined,
-                            assertion.current_revision_number,
-                          ),
+                        void runRuling(
+                          () =>
+                            api.acceptAssertion(
+                              assertion.id,
+                              undefined,
+                              assertion.current_revision_number,
+                            ),
+                          { acceptWithoutJustificationOf: assertion.id },
                         );
                       }
                     }}
@@ -614,7 +664,9 @@ export function ContestedPage() {
                 {items.map((assertion) => {
                   const expanded = expandedId === assertion.id;
                   const originChip = ORIGIN_CHIPS[assertion.origin];
-                  const evidenceBadge = EVIDENCE_BADGES[assertion.evidence_status];
+                  const evidenceBadge = isSystemDerived(assertion)
+                    ? SYSTEM_DERIVED_BADGE
+                    : EVIDENCE_BADGES[assertion.evidence_status];
                   return (
                     <Fragment key={assertion.id}>
                       <tr className={expanded ? "ctd-row ctd-row--open" : "ctd-row"}>

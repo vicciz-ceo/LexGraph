@@ -286,3 +286,217 @@ describe("AssertionDetailPage review actions", () => {
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 });
+
+// Review fe-review-detail:0: the decision is recorded before the page shows
+// it. Until the re-read record is on screen the page still shows the old
+// status, so the panel must stay disabled until then: a double-click must
+// not send a second decision (which the API refuses with 409, shown as a
+// false "not recorded" banner), and no other decision may be sent against a
+// status the reviewer never saw.
+describe("one decision until the page shows its result (fe-review-detail:0)", () => {
+  /** Holds every further GET /assertions/{id} (the re-read after a decision). */
+  function holdReread() {
+    let release: (detail: AssertionDetail) => void = () => {};
+    const held = new Promise<AssertionDetail>((resolve) => {
+      release = resolve;
+    });
+    mockedApi.getAssertion.mockImplementation(() => held);
+    return (detail: AssertionDetail) => release(detail);
+  }
+
+  /** The first call records the decision; a repeat is refused like the API does. */
+  function refuseRepeat(method: "acceptAssertion" | "rejectAssertion", status: string) {
+    let calls = 0;
+    mockedApi[method].mockImplementation(async () => {
+      calls += 1;
+      if (calls > 1) throw new ApiError(409, `assertion is already '${status}'`);
+      return {} as never;
+    });
+  }
+
+  it("keeps Reject disabled after the decision is recorded, until the re-read record is shown", async () => {
+    refuseRepeat("rejectAssertion", "rejected");
+    await renderPage();
+    const release = holdReread();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    // The decision was recorded and the record is being read again.
+    await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+
+    // The second click of a double-click lands while the old status is shown.
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(mockedApi.rejectAssertion).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => release(makeDetail({ status: "rejected", standing: "rejected" })));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Dispute" })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockedApi.rejectAssertion).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends no other decision against the status on screen while the re-read is pending", async () => {
+    await renderPage();
+    const release = holdReread();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+
+    // The badge still reads Proposed: a Dispute now would apply to "rejected".
+    expect(screen.getByRole("button", { name: "Dispute" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Dispute" }));
+    expect(mockedApi.disputeAssertion).not.toHaveBeenCalled();
+
+    await act(async () => release(makeDetail({ status: "rejected", standing: "rejected" })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Dispute" })).toBeEnabled());
+    expect(mockedApi.disputeAssertion).not.toHaveBeenCalled();
+  });
+
+  it("records one acceptance of an evidenced assertion on a double-click", async () => {
+    refuseRepeat("acceptAssertion", "accepted");
+    await renderPage();
+    const release = holdReread();
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await act(async () => release(makeDetail({ status: "accepted", standing: "accepted" })));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no review decision after a supersede until the superseded record is shown", async () => {
+    mockedApi.supersedeAssertion.mockResolvedValue({} as never);
+    mockedApi.relatedAssertions.mockResolvedValue([
+      {
+        assertion_id: "a-9",
+        match_kind: "similar",
+        score: 0.8,
+        proposition: "A newer accepted reading.",
+        status: "accepted",
+      },
+    ]);
+    await renderPage(makeDetail({ status: "accepted", standing: "accepted" }));
+    const release = holdReread();
+
+    fireEvent.click(screen.getByRole("button", { name: /Mark as superseded/ }));
+    fireEvent.click(await screen.findByLabelText("A newer accepted reading."));
+    fireEvent.click(screen.getByRole("button", { name: "Supersede with selected assertion" }));
+    await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+
+    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(mockedApi.rejectAssertion).not.toHaveBeenCalled();
+
+    await act(async () =>
+      release(
+        makeDetail({ status: "superseded", standing: "superseded", superseded_by_assertion_id: "a-9" }),
+      ),
+    );
+    await waitFor(() => expect(decisionButtons()).toEqual([]));
+    expect(screen.getByText(/no review decision/i)).toBeInTheDocument();
+    expect(mockedApi.rejectAssertion).not.toHaveBeenCalled();
+  });
+
+  it("re-enables the decisions when one fails without changing anything", async () => {
+    mockedApi.rejectAssertion.mockRejectedValue(new Error("network down"));
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("network down");
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(mockedApi.getAssertion).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Review fe-review-detail:2: removing evidence changes neither the revision
+// nor updated_at, so an Accept sent without a justification from a page that
+// still shows "Evidenced" is refused with 422. That is a stale view: the page
+// says so, re-reads the record and asks for the justification.
+describe("Accept refused because the evidence was removed meanwhile (fe-review-detail:2)", () => {
+  const NO_EVIDENCE_REFUSAL =
+    "unsupported assertion (no supporting evidence attached) cannot be accepted without a recorded acceptance_justification";
+  const supporting = {
+    id: "ev-1",
+    assertion_id: "a-1",
+    source_span_id: "span-1",
+    quote_text: "The tenant must deliver statements by 31 March.",
+    document_title: "Master Services Agreement",
+    evidence_role: "supports",
+    added_by_user_id: "u-2",
+    created_at: "2026-07-01T10:05:00Z",
+  };
+
+  it("re-reads the record, says why nothing was recorded and opens the justification form", async () => {
+    // Refused while no justification is sent, recorded once one is.
+    mockedApi.acceptAssertion.mockImplementation(async (_id, justification) => {
+      if (!justification) throw new ApiError(422, NO_EVIDENCE_REFUSAL);
+      return {} as never;
+    });
+    await renderPage(makeDetail({ evidence_status: "evidenced", evidence: [supporting] }));
+    expect(screen.getByText("Evidenced")).toBeInTheDocument();
+    // Someone removes the passage; the next read shows it.
+    mockedApi.getAssertion.mockResolvedValue(
+      makeDetail({ evidence_status: "awaiting_evidence", evidence: [] }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    await waitFor(() => expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2));
+    const textarea = await screen.findByLabelText(
+      "Justification for accepting without supporting evidence",
+    );
+    expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Awaiting evidence")).toBeInTheDocument();
+    expect(screen.queryByText("The tenant must deliver statements by 31 March.")).not.toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/not recorded/);
+    expect(alert).toHaveTextContent(/no longer has supporting evidence/);
+    expect(alert).not.toHaveTextContent(/acceptance_justification/);
+
+    fireEvent.change(textarea, { target: { value: "  Admitted in the reply brief. " } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(mockedApi.acceptAssertion).toHaveBeenLastCalledWith(
+        "a-1",
+        "Admitted in the reply brief.",
+        2,
+      ),
+    );
+    expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the API's reason, without asking again, for a refused acceptance that carried a justification", async () => {
+    mockedApi.acceptAssertion.mockRejectedValue(new ApiError(422, NO_EVIDENCE_REFUSAL));
+    await renderPage(makeDetail({ evidence_status: "awaiting_evidence" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    fireEvent.change(
+      screen.getByLabelText("Justification for accepting without supporting evidence"),
+      { target: { value: "<b></b>" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(NO_EVIDENCE_REFUSAL);
+    // The form keeps the typed text for another try.
+    expect(
+      screen.getByLabelText("Justification for accepting without supporting evidence"),
+    ).toHaveValue("<b></b>");
+  });
+});

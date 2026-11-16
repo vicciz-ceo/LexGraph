@@ -253,6 +253,30 @@ describe("AssertionReviewPanel decision rules", () => {
     expect(screen.queryByLabelText(/justification/i)).not.toBeInTheDocument();
   });
 
+  // Review fe-review-detail:2: the page showed supporting evidence that was
+  // removed meanwhile, so the API asked for a justification after all.
+  it("opens the justification form when an acceptance turns out to need one", async () => {
+    const onAccept = vi
+      .fn()
+      .mockResolvedValueOnce("needs-justification")
+      .mockResolvedValueOnce(true);
+    renderPanel({ evidenceStatus: "evidenced" }, { onAccept });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    });
+    expect(onAccept).toHaveBeenCalledWith({});
+    const textarea = screen.getByLabelText(/justification/i);
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+
+    fireEvent.change(textarea, { target: { value: "  Counsel confirmed the clause.  " } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    });
+    expect(onAccept).toHaveBeenLastCalledWith({ justification: "Counsel confirmed the clause." });
+    expect(screen.queryByLabelText(/justification/i)).not.toBeInTheDocument();
+  });
+
   it("gives every panel its own form ids, so each label points at its own textarea", () => {
     const props = {
       onAccept: vi.fn(),

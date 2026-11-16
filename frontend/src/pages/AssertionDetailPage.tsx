@@ -64,7 +64,9 @@ import { AssertionRatingWidget } from "../components/AssertionRatingWidget";
 import type { AssertionRatingWidgetSaveData } from "../components/AssertionRatingWidget";
 import { AssertionReviewHistory } from "../components/AssertionReviewHistory";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
-import { reviewConflictNotice } from "../constants/review";
+import type { ReviewDecisionOutcome } from "../components/AssertionReviewPanel";
+import { isSystemDerived, SYSTEM_DERIVED_LABEL } from "../constants/pipeline";
+import { REVIEW_EVIDENCE_REMOVED_MESSAGE, reviewConflictNotice } from "../constants/review";
 
 const ORIGIN_CHIP: Record<AssertionOrigin, { className: string; label: string }> = {
   user_suggested: { className: "chip chip--user", label: "Colleague" },
@@ -82,8 +84,9 @@ const EVIDENCE_STATUS_BADGE: Record<EvidenceStatus, { className: string; label: 
 // definition-linking pipeline (backend/app/definition_links), which stores
 // them accepted, without evidence spans and without a revision record. They
 // are not "awaiting evidence", and the user the pipeline run is attributed to
-// did not author them.
-const SYSTEM_DERIVED_BADGE = { className: "badge badge--neutral", label: "System-derived" };
+// did not author them. The Review Queue and Contested say the same
+// (constants/pipeline.ts).
+const SYSTEM_DERIVED_BADGE = { className: "badge badge--neutral", label: SYSTEM_DERIVED_LABEL };
 
 /** Entity types the backend persists, and therefore labels (ui:30). */
 const PERSISTED_ENTITY_TYPES = new Set(["Document", "Article", "Definition", "SourceSpan", "Assertion"]);
@@ -311,6 +314,18 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Review fe-review-detail:0: from a review decision until the page shows
+  // the record re-read after it, the review panel stays disabled. Until then
+  // the page still shows the old status, so a second click of a double-click
+  // would repeat the decision (refused with 409) or apply another one to a
+  // status the reviewer never saw. Only a read started after the decision
+  // settled (awaitingDecisionReload was set) ends it.
+  const [deciding, setDeciding] = useState(false);
+  const awaitingDecisionReload = useRef(false);
+  // Review fe-review-detail:7: bumped whenever the page re-reads the current
+  // revision's ratings, so that revision's ratings under Activity, once
+  // loaded, are read again and agree with the Ratings card.
+  const [ratingsVersion, setRatingsVersion] = useState(0);
   // Finding ui:31 / review:11: the assertion last shown in the active matter,
   // and the one this page already switched matter for. A link into another of
   // the user's matters switches once; a user who then switches matter away
@@ -319,6 +334,16 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const switchedForRef = useRef<string | null>(null);
 
   const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+
+  // The current revision's ratings were read again (on every load of the
+  // record and after the user rates): its ratings under Activity, once
+  // loaded, and an open comparison that includes it follow (fe-review-detail:7).
+  const showRevisionRatings = (id: string, revision: number, sum: RatingSummary | null) => {
+    setRatingsVersion((version) => version + 1);
+    if (sum === null) return;
+    const key = `${id}:${revision}`;
+    setRevisionSummaries((current) => (key in current ? { ...current, [key]: sum } : current));
+  };
 
   // Hard reset when the target assertion (or active matter) changes.
   useEffect(() => {
@@ -334,12 +359,15 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     setUnavailable(null);
     setOtherMatter(null);
     setActionError(null);
+    setDeciding(false);
     setLoading(true);
   }, [assertionId, session.currentMatter.id]);
 
   useEffect(() => {
     let cancelled = false;
     const matterId = session.currentMatter.id;
+    // This read shows the result of a review decision that has just settled.
+    const showsDecision = awaitingDecisionReload.current;
     setError(null);
     (async () => {
       try {
@@ -384,6 +412,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
         setRelated(rel);
         setSummary(sum);
         setRatings(rows);
+        if (revision != null) showRevisionRatings(assertionId, revision, sum);
         setHistory(events);
         setSuccessor(replacement);
         // A failed roster refresh keeps the names already known.
@@ -402,7 +431,14 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
           setError(err instanceof Error ? err.message : "Failed to load assertion.");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          // In the render that shows the re-read record (or why it failed).
+          if (showsDecision) {
+            awaitingDecisionReload.current = false;
+            setDeciding(false);
+          }
+        }
       }
     })();
     return () => {
@@ -466,11 +502,14 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
       setDetail(fresh);
       setSummary(sum);
       setRatings(rows);
+      if (revision != null) showRevisionRatings(id, revision, sum);
     } catch {
       refresh();
     }
   };
 
+  // listing:0: `rationale` is present only when the user edited the box, so
+  // an untouched one leaves the stored rationale as it is (spec §13).
   const handleSaveRating = async ({ strength, rationale }: AssertionRatingWidgetSaveData) => {
     if (!detail || detail.current_revision_number == null) return;
     await api.putRating(detail.id, detail.current_revision_number, strength, rationale);
@@ -483,25 +522,47 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
     await reloadRatings(detail.id);
   };
 
+  // Re-reads the record after a review decision settled; the review panel
+  // stays disabled (`deciding`) until the page shows it.
+  const reloadAfterDecision = () => {
+    awaitingDecisionReload.current = true;
+    refresh();
+  };
+
   // Resolves to whether the decision was recorded; the review panel keeps
-  // its form (and blocks a second decision) until it settles.
-  const runReview = async (action: () => Promise<unknown>): Promise<boolean> => {
+  // its form (and blocks a second decision) until it settles, and the page
+  // keeps the panel disabled until the record re-read after it is shown.
+  const runReview = async (
+    action: () => Promise<unknown>,
+    { acceptWithoutJustification = false }: { acceptWithoutJustification?: boolean } = {},
+  ): Promise<ReviewDecisionOutcome> => {
     setActionError(null);
+    setDeciding(true);
     try {
       await action();
-      refresh();
-      return true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         // Stale record (edited, withdrawn or decided meanwhile): nothing was
         // recorded. Say so and show the current version.
         setActionError(reviewConflictNotice(err.message));
-        refresh();
-      } else {
-        setActionError(err instanceof Error ? err.message : "Review action failed.");
+        reloadAfterDecision();
+        return false;
       }
+      if (err instanceof ApiError && err.status === 422 && acceptWithoutJustification) {
+        // fe-review-detail:2: the page showed supporting evidence that was
+        // removed after it loaded (that changes neither the revision nor
+        // updated_at). Nothing was recorded: say so, show the current
+        // evidence and ask for the justification.
+        setActionError(REVIEW_EVIDENCE_REMOVED_MESSAGE);
+        reloadAfterDecision();
+        return "needs-justification";
+      }
+      setDeciding(false);
+      setActionError(err instanceof Error ? err.message : "Review action failed.");
       return false;
     }
+    reloadAfterDecision();
+    return true;
   };
 
   // --- Comments (spec §9). AssertionComments shows a refused action's reason
@@ -578,20 +639,25 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   // review decisions it names the revision on screen, so the API refuses it
   // (409) if the assertion changed meanwhile; the page then says the
   // decision was not recorded and shows the current version. The panel
-  // shows the server's reason for any refusal and keeps the choice.
+  // shows the server's reason for any refusal and keeps the choice. The
+  // review panel stays disabled until the page shows the result
+  // (fe-review-detail:0).
   const handleSupersede = async (successorId: string) => {
     if (!detail) return;
     setActionError(null);
+    setDeciding(true);
     try {
       await api.supersedeAssertion(detail.id, successorId, detail.current_revision_number);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setActionError(reviewConflictNotice(err.message));
-        refresh();
+        reloadAfterDecision();
+      } else {
+        setDeciding(false);
       }
       throw err;
     }
-    refresh();
+    reloadAfterDecision();
   };
 
   // --- Revision comparison (spec §3): both revisions' rating summaries are
@@ -691,10 +757,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
 
   const origin = ORIGIN_CHIP[detail.origin];
   const isSystem = detail.origin === "system_generated";
-  const evidenceStatus =
-    isSystem && detail.evidence.length === 0
-      ? SYSTEM_DERIVED_BADGE
-      : EVIDENCE_STATUS_BADGE[detail.evidence_status];
+  const evidenceStatus = isSystemDerived(detail)
+    ? SYSTEM_DERIVED_BADGE
+    : EVIDENCE_STATUS_BADGE[detail.evidence_status];
   const showStanding = detail.standing !== detail.status;
   const isModelOrigin =
     detail.origin === "model_suggested" || detail.origin === "system_generated";
@@ -717,6 +782,29 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   const priorRatingCount = summary?.prior_revision_rating_count ?? 0;
   const hasRatingsOnPriorRevision =
     summary !== null && summary.count === 0 && priorRatingCount > 0;
+
+  // listing:0: the rating editor starts from the viewer's stored rating of
+  // the current revision: the summary's current_user_rating, else their row
+  // in the rating list (which lists every rating of the revision, with the
+  // rater's own rationale). When neither could be read the stored rating is
+  // unknown, and the page offers no editor that would replace it blind.
+  const ownRow = ratings?.find((row) => row.user_id === session.user.id) ?? null;
+  const ownRating: { strength: number | null; rationale: string } | null =
+    summary !== null
+      ? {
+          strength: summary.current_user_rating?.strength ?? null,
+          // review:7: the exact text, as written.
+          rationale:
+            summary.current_user_rating?.rationale_raw ??
+            summary.current_user_rating?.rationale ??
+            "",
+        }
+      : ratings !== null
+        ? {
+            strength: ownRow?.strength ?? null,
+            rationale: ownRow?.rationale_raw ?? ownRow?.rationale ?? "",
+          }
+        : null;
 
   const authorLabel = isSystem
     ? "System (definition-linking pipeline)"
@@ -1042,6 +1130,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         revision={revisionNumber}
                         currentUserId={session.user.id}
                         nameFor={nameFor}
+                        version={revisionNumber === ratedRevision ? ratingsVersion : undefined}
                       />
                     )}
                   />
@@ -1108,7 +1197,8 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
               )}
               <AssertionRatingRationales
                 ratings={ratings}
-                ratingCount={summary?.count ?? 0}
+                // Without a summary the list itself counts the ratings.
+                ratingCount={summary?.count ?? ratings?.length ?? 0}
                 rationaleCount={summary?.rationale_count ?? null}
                 currentUserId={session.user.id}
                 nameFor={nameFor}
@@ -1130,19 +1220,22 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                   <h3 className="adp-subhead">
                     Your rating (v{ratedRevision})
                   </h3>
-                  <AssertionRatingWidget
-                    key={`${detail.id}:${ratedRevision}`}
-                    currentUserRating={summary?.current_user_rating?.strength ?? null}
-                    // review:7: prefill the exact text, so a strength-only
-                    // update sends it back unchanged.
-                    currentRationale={
-                      summary?.current_user_rating?.rationale_raw ??
-                      summary?.current_user_rating?.rationale ??
-                      ""
-                    }
-                    onSave={handleSaveRating}
-                    onRemove={handleRemoveRating}
-                  />
+                  {ownRating ? (
+                    <AssertionRatingWidget
+                      key={`${detail.id}:${ratedRevision}`}
+                      currentUserRating={ownRating.strength}
+                      currentRationale={ownRating.rationale}
+                      onSave={handleSaveRating}
+                      onRemove={handleRemoveRating}
+                    />
+                  ) : (
+                    <div className="error-banner" role="alert">
+                      Your rating could not be loaded.{" "}
+                      <button type="button" className="btn btn--sm btn--secondary" onClick={refresh}>
+                        Retry
+                      </button>
+                    </div>
+                  )}
                   <p className="adp-note">
                     Ratings inform standing only — they never change the review status.
                   </p>
@@ -1171,15 +1264,18 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         : detail.evidence_status,
                     currentRevisionNumber: detail.current_revision_number ?? undefined,
                   }}
-                  onAccept={(payload) =>
-                    runReview(() =>
-                      api.acceptAssertion(
-                        detail.id,
-                        payload?.justification?.trim() || undefined,
-                        detail.current_revision_number,
-                      ),
-                    )
-                  }
+                  onAccept={(payload) => {
+                    const justification = payload?.justification?.trim() || undefined;
+                    return runReview(
+                      () =>
+                        api.acceptAssertion(
+                          detail.id,
+                          justification,
+                          detail.current_revision_number,
+                        ),
+                      { acceptWithoutJustification: justification === undefined },
+                    );
+                  }}
                   onReject={() =>
                     runReview(() => api.rejectAssertion(detail.id, detail.current_revision_number))
                   }
@@ -1196,6 +1292,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                     )
                   }
                   hasRatingsOnPriorRevision={hasRatingsOnPriorRevision}
+                  // fe-review-detail:0: until the record re-read after a
+                  // decision is on screen.
+                  busy={deciding}
                 />
               </div>
             </section>
@@ -1269,32 +1368,59 @@ function RevisionRatings({
   revision,
   currentUserId,
   nameFor,
+  version,
 }: {
   assertionId: string;
   revision: number;
   currentUserId: string;
   nameFor: (userId: string) => string;
+  /**
+   * The current revision only: changes whenever the page re-read this
+   * revision's ratings (after the user rates, and on every reload). Once
+   * loaded, the panel then reads them again, so it agrees with the Ratings
+   * card (review fe-review-detail:7).
+   */
+  version?: number;
 }) {
   const [summary, setSummary] = useState<RatingSummary | null>(null);
   const [ratings, setRatings] = useState<Rating[] | null>([]);
   const [loadingRatings, setLoadingRatings] = useState(false);
   const [error, setError] = useState("");
+  // Whether the user asked for these ratings, and the newest request: an
+  // older answer that lands later is dropped.
+  const requested = useRef(false);
+  const latestRequest = useRef(0);
   const load = async () => {
+    requested.current = true;
+    const request = ++latestRequest.current;
     setLoadingRatings(true);
     try {
       const [sum, rows] = await Promise.all([
         api.ratingSummary(assertionId, revision),
         api.listRatings(assertionId, revision).catch(() => null),
       ]);
+      if (request !== latestRequest.current) return;
       setSummary(sum);
       setRatings(rows);
       setError("");
     } catch (e) {
+      if (request !== latestRequest.current) return;
+      // Ratings shown earlier may no longer hold: show the error and the
+      // button instead.
+      setSummary(null);
+      setRatings([]);
       setError(e instanceof Error ? e.message : "Unable to load ratings");
     } finally {
-      setLoadingRatings(false);
+      if (request === latestRequest.current) setLoadingRatings(false);
     }
   };
+  const seenVersion = useRef(version);
+  useEffect(() => {
+    if (seenVersion.current === version) return;
+    seenVersion.current = version;
+    if (version !== undefined && requested.current) void load();
+    // load reads this render's props, which `version` changed with.
+  }, [version]);
   return (
     <div className="adp-revision-ratings">
       {summary ? (

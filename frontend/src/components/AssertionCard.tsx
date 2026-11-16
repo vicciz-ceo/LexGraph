@@ -35,7 +35,7 @@ export interface AssertionCardData {
 
 export interface AssertionCardProps {
   assertion: AssertionCardData;
-  onRatingSave?: (data: { strength: number; rationale: string }) => void | Promise<void>;
+  onRatingSave?: (data: { strength: number; rationale?: string }) => void | Promise<void>;
   onRatingRemove?: () => void | Promise<void>;
 }
 

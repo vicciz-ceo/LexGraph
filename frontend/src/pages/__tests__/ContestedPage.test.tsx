@@ -503,3 +503,105 @@ describe("ContestedPage against the paged list", () => {
     expect(mockedApi.rejectAssertion).toHaveBeenCalledTimes(1);
   });
 });
+
+// Review fe-review-detail:2: removing evidence changes neither the revision
+// nor updated_at, so a drawer that still shows the passage sends Accept
+// without a justification and the API refuses it with 422.
+describe("ContestedPage acceptance refused because the evidence was removed meanwhile", () => {
+  it("reloads the row and its evidence, keeps the drawer open and asks for the justification", async () => {
+    mockedApi.acceptAssertion.mockImplementation(async (_id, justification) => {
+      if (!justification) {
+        throw new ApiError(
+          422,
+          "unsupported assertion (no supporting evidence attached) cannot be accepted without a recorded acceptance_justification",
+        );
+      }
+      return makeAssertion({ status: "accepted" });
+    });
+    await renderQueue();
+    fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
+    expect(await screen.findAllByText(/Source span unavailable/)).toHaveLength(2);
+    // Both passages are removed: the next reads show it.
+    mockedApi.listAssertions.mockResolvedValue({
+      items: [{ ...evidencedAssertion, evidence_status: "awaiting_evidence" }, unsupportedAssertion],
+      total: 2,
+    });
+    mockedApi.listEvidence.mockResolvedValue([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    await waitFor(() =>
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2),
+    );
+    const textarea = await screen.findByLabelText("Acceptance justification");
+    await waitFor(() => expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2));
+    expect(mockedApi.listEvidence).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText("No evidence spans linked.")).toBeInTheDocument();
+    expect(screen.queryByText(/Source span unavailable/)).not.toBeInTheDocument();
+    expect(screen.getByText("Awaiting evidence")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse row" })).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/not recorded/);
+    expect(alert).toHaveTextContent(/no longer has supporting evidence/);
+    expect(alert).not.toHaveTextContent(/acceptance_justification/);
+
+    fireEvent.change(textarea, { target: { value: "  Confirmed in the board minutes. " } });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Confirm accept" })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm accept" }));
+
+    await waitFor(() =>
+      expect(mockedApi.acceptAssertion).toHaveBeenLastCalledWith(
+        "a-1",
+        "Confirmed in the board minutes.",
+        2,
+      ),
+    );
+    expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Review fe-review-detail:5 (ui:4 on Contested): a system_generated row
+// without evidence was derived by the definition-linking pipeline; it is not
+// "awaiting evidence", as the assertion page and the Knowledge Base say.
+describe("ContestedPage pipeline-generated assertions", () => {
+  it("labels a pipeline row without evidence System-derived and says where it came from", async () => {
+    mockedApi.listAssertions.mockResolvedValue({
+      items: [
+        makeAssertion({
+          id: "s-1",
+          origin: "system_generated",
+          assertion_type: "USES_DEFINITION",
+          proposition: 'Article 796 uses the definition of "Branch office".',
+          evidence_status: "awaiting_evidence",
+          author_user_id: "admin",
+          confidence: 0.95,
+          current_revision_number: 1,
+        }),
+        makeAssertion({ id: "a-5", evidence_status: "awaiting_evidence", proposition: "A colleague's reading." }),
+      ],
+      total: 2,
+    });
+    mockedApi.listEvidence.mockResolvedValue([]);
+    render(<ContestedPage />);
+    await screen.findByText('Article 796 uses the definition of "Branch office".');
+
+    const pipelineRow = screen
+      .getByText('Article 796 uses the definition of "Branch office".')
+      .closest("tr") as HTMLElement;
+    expect(within(pipelineRow).getByText("System-derived")).toBeInTheDocument();
+    expect(within(pipelineRow).queryByText("Awaiting evidence")).not.toBeInTheDocument();
+    const colleagueRow = screen.getByText("A colleague's reading.").closest("tr") as HTMLElement;
+    expect(within(colleagueRow).getByText("Awaiting evidence")).toBeInTheDocument();
+
+    fireEvent.click(within(pipelineRow).getByRole("button", { name: "Expand row" }));
+    expect(
+      await screen.findByText(/definition-linking pipeline generated this assertion automatically/),
+    ).toBeInTheDocument();
+    // Accepting it still needs a justification: it has no supporting evidence.
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    expect(mockedApi.acceptAssertion).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Acceptance justification")).toBeInTheDocument();
+  });
+});
