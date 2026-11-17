@@ -207,12 +207,15 @@ does nothing: no revision is created, and status and ratings stay as they were.
 Previous revision text and rating summaries remain available in **Activity**.
 
 Review decisions (accept, reject, dispute, request revision, supersede) can send
-the revision the reviewer saw as `expected_revision_number`. If the assertion
-has been edited since, the API returns 409 and changes nothing; reload it and
-review the current revision. A decision is also refused with 409 on a draft, a
-withdrawn or a superseded assertion, when it repeats the current status, and
-when it would make a rejected assertion live again next to an identical live
-assertion (the response names that one as `existing_assertion_id`).
+the revision the reviewer saw as `expected_revision_number` and the status they
+saw as `expected_status`. If the assertion has been edited since, or its status
+has changed (for example, someone else already decided it: a decision changes
+the status but creates no revision), the API returns 409 and changes nothing;
+reload it and review the current version. A decision is also refused with 409
+on a draft, a withdrawn or a superseded assertion, when it repeats the current
+status, and when it would make a rejected assertion live again next to an
+identical live assertion (the response names that one as
+`existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
 justification, which is kept in its history. Of two requests that change one
 assertion at the same moment (two reviewers, or an author withdrawing or
