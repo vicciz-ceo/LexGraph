@@ -350,3 +350,52 @@ def test_the_api_docs_describe_both_fields_on_every_decision(client, action):
     assert len(enums) == 1 and set(enums[0]) == ALL_STATUSES
     assert "409" in status["description"] and "status" in status["description"]
     assert "409" in revision["description"] and "revision" in revision["description"]
+
+
+def _docs_example(spec: dict, schema: dict):
+    """The example value /docs and /redoc show for `schema`, and that Swagger
+    UI's "Try it out" starts from, for the shapes the decision bodies use.
+
+    Both bundled pages (app/static/api-docs: Swagger UI 5, and Redoc 2 with
+    openapi-sampler) take a schema's own example first, `examples[0]`;
+    without one, the first alternative of an anyOf, an enum's first value,
+    an integer's minimum (else 0) and "string" for text."""
+    if schema.get("examples"):
+        return schema["examples"][0]
+    ref = schema.get("$ref")
+    if ref:
+        return _docs_example(spec, spec["components"]["schemas"][ref.rsplit("/", 1)[1]])
+    for combined in ("oneOf", "anyOf"):
+        if schema.get(combined):
+            return _docs_example(spec, schema[combined][0])
+    if schema.get("enum"):
+        return schema["enum"][0]
+    if "properties" in schema:
+        return {name: _docs_example(spec, sub) for name, sub in schema["properties"].items()}
+    return {"integer": int(schema.get("minimum", 0)), "string": "string"}.get(schema.get("type"))
+
+
+@pytest.mark.parametrize("action", ACTIONS)
+def test_the_api_docs_example_body_records_the_decision_on_a_new_proposal(
+    client, matter_with_users, db_session, action
+):
+    """Acceptance run 2, second round: with no example of its own,
+    expected_status was shown as the enum's first value, 'draft', a status no
+    decision applies to. Try it out's body was therefore always refused with
+    409 "assertion status has changed since expected_status: it is now
+    'proposed'" although nothing had changed; before the field existed, the
+    same body recorded the decision. The docs now name what a new proposal
+    has: revision 1 and the status 'proposed'."""
+    m = matter_with_users
+    spec = client.get("/openapi.json").json()
+    operation = spec["paths"][f"/api/v1/assertions/{{assertion_id}}/{action}"]["post"]
+    body = _docs_example(spec, operation["requestBody"]["content"]["application/json"]["schema"])
+    assertion_id = _supported(client, db_session, m)  # proposed, revision 1
+    if action == "supersede":  # the docs can only show a placeholder id
+        body["superseded_by_assertion_id"] = _supported(client, db_session, m)
+
+    r = _post(client, assertion_id, action, m["reviewer_headers"], body)
+
+    assert r.status_code == 200, (body, r.text)
+    assert r.json()["status"] == RESULT[action]
+    assert (body["expected_revision_number"], body["expected_status"]) == (1, "proposed")

@@ -183,6 +183,12 @@ class DecisionBody(BaseModel):
     )
     expected_status: AssertionStatusName | None = Field(
         default=None,
+        # The example /docs and /redoc show, and that Swagger UI's "Try it out"
+        # body starts from: the status of a new proposal, whose revision, 1, is
+        # the example they show for expected_revision_number (its minimum).
+        # With no example they showed the first status, 'draft', which no
+        # decision applies to, so the offered body was always refused with 409.
+        examples=["proposed"],
         description=(
             "The status the reviewer saw. A decision changes the status without creating "
             "a revision, so this is what tells that someone else decided, withdrew or "
