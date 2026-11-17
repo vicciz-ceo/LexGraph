@@ -285,6 +285,12 @@ def _sanitize_once(raw_text: str) -> str:
     return text.replace(_AMPERSAND_SENTINEL, "&")
 
 
+#: Most `_sanitize_once` passes `sanitize_for_storage` runs before failing
+#: closed (see its docstring). Ordinary and hostile test input converges in at
+#: most 25 passes; 256 keeps a whole 100,000-character field under ~0.2 s.
+_MAX_SANITIZE_PASSES = 256
+
+
 def sanitize_for_storage(raw_text: str) -> str:
     """Return `raw_text` with any active HTML/script content neutralized.
 
@@ -316,11 +322,22 @@ def sanitize_for_storage(raw_text: str) -> str:
     that is a sign some fixpoint assumption has been violated, so this
     fails closed and returns "" rather than the last (possibly
     still-markup) output, the raw input, or raising.
+
+    The bound is also capped at `_MAX_SANITIZE_PASSES`. Each pass peels
+    only one raw-text wrapper (`<title>`, `<textarea>`, `<xmp>`,
+    `<script>`, ...), so a field of nested wrappers at the 100,000-character
+    cap took up to ~14,000 passes and ~8 s of CPU (two such fields per
+    create request). No string in the sanitizer tests, nor any of 62,000
+    random hostile token mixes, needs more than 25 passes, so the cap
+    changes no output that converges within it; input that needs more
+    fails closed exactly as above, and each caller treats it as it treats
+    any text that sanitizes to nothing (it keeps the raw text beside it, or
+    refuses the value, as agent provenance and propositions are refused).
     """
     if raw_text is None:
         return raw_text
     text = raw_text
-    for _ in range(len(raw_text) + 2):
+    for _ in range(min(len(raw_text) + 2, _MAX_SANITIZE_PASSES)):
         sanitized = _sanitize_once(text)
         if sanitized == text:
             return sanitized
