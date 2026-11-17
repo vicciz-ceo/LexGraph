@@ -50,6 +50,52 @@ describe("AssertionRatingDistribution", () => {
     expect(screen.getByText(/no ratings yet/i)).toBeInTheDocument();
   });
 
+  it("gives every bucket an accessible name, so a value and its count are never read as one number", () => {
+    render(
+      <AssertionRatingDistribution
+        summary={{ count: 2, average: 5, median: 5, distribution: { "5": 2 } }}
+        modelConfidence={null}
+      />
+    );
+    expect(screen.getByTestId("rating-distribution-bucket-5")).toHaveAccessibleName(
+      "5 (Very strong): 2 of 2 ratings"
+    );
+    expect(screen.getByTestId("rating-distribution-bucket-1")).toHaveAccessibleName(
+      "1 (Very weak): 0 of 2 ratings"
+    );
+    // The compact layout used by the review queue and contested drawer adds no text.
+    expect(screen.queryByText("Very strong")).not.toBeInTheDocument();
+  });
+
+  it("detailed layout names each strength and sizes each bar by its share", () => {
+    const { container } = render(
+      <AssertionRatingDistribution summary={summary} modelConfidence={null} detailed />
+    );
+    expect(screen.getByText("Plausible or mixed")).toBeInTheDocument();
+    const fills = container.querySelectorAll<HTMLElement>(
+      ".assertion-rating-distribution__bucket-fill"
+    );
+    // 1, 1, 2, 5, 3 of 12 ratings.
+    expect(Array.from(fills, (fill) => fill.style.width)).toEqual([
+      `${(1 / 12) * 100}%`,
+      `${(1 / 12) * 100}%`,
+      `${(2 / 12) * 100}%`,
+      `${(5 / 12) * 100}%`,
+      `${(3 / 12) * 100}%`,
+    ]);
+  });
+
+  it("draws no bar for a bucket nobody chose", () => {
+    const { container } = render(
+      <AssertionRatingDistribution
+        summary={{ count: 1, average: 4, median: 4, distribution: { "4": 1 } }}
+        modelConfidence={null}
+        detailed
+      />
+    );
+    expect(container.querySelectorAll(".assertion-rating-distribution__bucket-fill")).toHaveLength(1);
+  });
+
   it("rounds the displayed average to one decimal place without rounding the source value", () => {
     render(
       <AssertionRatingDistribution

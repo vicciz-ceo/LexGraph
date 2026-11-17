@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git config user.email | grep -q noreply || echo \"WARN: git email not noreply — push will fail GH007\"; [ -d backend/.venv ] || echo \"WARN: no backend/.venv in this worktree\"",
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null); [ -f \"$r/backend/pyproject.toml\" ] || r=${CLAUDE_PROJECT_DIR:-$PWD}; if command -v git >/dev/null 2>&1; then e=$(git -C \"$r\" config user.email 2>/dev/null); case \"$e\" in *noreply*) ;; *) echo \"WARN: git user.email (${e:-unset}) is not a GitHub noreply address. If the GitHub account you push with blocks command-line pushes that expose a private email, the push is rejected (GH007).\" ;; esac; fi; [ -x \"$r/backend/.venv/bin/python\" ] || echo \"WARN: no backend virtualenv in this worktree ($r/backend/.venv). Create it with: (cd \\\"$r/backend\\\" && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]')\"; exit 0",
             "timeout": 30
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *.py|*.ts|*.tsx|*.js|*.jsx) awk 'END{if(NR>300) print FILENAME\": \"NR\" lines — exceeds 300-line style gate\"}' \"$f\";; esac; } 2>/dev/null || true"
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null); case \"$f\" in *.py|*.ts|*.tsx|*.js|*.jsx) d=$(dirname \"$f\"); t=$(git -C \"$d\" rev-parse --show-toplevel 2>/dev/null); n=$(awk 'END { print NR }' \"$f\" 2>/dev/null); if [ -f \"$t/backend/pyproject.toml\" ] && [ \"${n:-0}\" -gt 300 ]; then b=$(git -C \"$d\" show \"HEAD:./$(basename \"$f\")\" 2>/dev/null | awk 'END { print NR }'); if [ \"${b:-0}\" -le 300 ] || [ \"$n\" -gt \"$b\" ]; then if [ \"${b:-0}\" -gt 0 ]; then h=\"$b at HEAD\"; else h=\"not in HEAD\"; fi; jq -cn --arg m \"$f: $n lines ($h) exceeds the repository's 300-line-per-file convention. Advisory, not enforced by any check: put added code in a new or smaller module where practical; do not split or restructure existing code unless the task asks.\" '{hookSpecificOutput: {hookEventName: \"PostToolUse\", additionalContext: $m}}'; fi; fi ;; esac; exit 0"
           }
         ]
       }

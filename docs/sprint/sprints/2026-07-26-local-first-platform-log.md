@@ -877,3 +877,128 @@ Track D (C2+D1+D2+D3), Developer solo pass (doc-only items), dev-complete
   per the gates above. Issue #2 body is authoritative for G1–G4 detail:
   https://github.com/vicciz-ceo/LexGraph/issues/2
 ```
+
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract
+(`2026-07-26-local-first-platform.md`) by a contract-hygiene pass, under the
+"move, never delete" rule. The contract's `lint:` stamp
+`PASS 228 2026-07-26T11:07:18Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check never ran
+under gawk, the awk CI uses: `awk -v` rewrote the entry regex's `\*\*` to
+`**`, so no `- **A1** ...` bullet counted as an entry. With the check fixed
+(LexGraph audit finding ops:0) the entries below exceeded the 3-line cap.
+Each is the exact prior contract text; nothing was summarized, reworded or
+dropped. The contract keeps each entry's opening words, verbatim, and a
+pointer to this section, where each entry has its own subsection. Its
+`lint:` stamp is now `PASS 190 2026-11-16T08:56:54Z`.
+
+### Completed, A1
+
+- **A1** Raw-text columns + reversible migration + backfill. PASS — ran
+  `upgrade()`/`downgrade()`/`upgrade()` myself against a throwaway file DB
+  with a simulated pre-existing (pre-migration) row; backfill and column
+  drop/restore verified byte-exact. Regression: none needed (G3 fully
+  covers this).
+
+### Completed, A2
+
+- **A2** Assertion write paths store raw + sanitized. PASS — live API
+  probe: create + PATCH with an `<appendix A>`-shaped proposition;
+  `proposition_raw` byte-exact, sanitized column correctly altered.
+  Regression: `test_proposition_raw_round_trips_unicode_emoji_and_crlf_byte_exact`.
+
+### Completed, A4
+
+- **A4** Rating write paths store raw + sanitized rationale. PASS — live
+  API probe of PUT rating plus the visibility gate (peer/rater/reviewer).
+  Regression: `test_rating_list_nulls_rationale_for_unauthorized_peer_but_not_for_rater_or_reviewer`
+  (closes a real coverage gap — no prior test exercised the unauthorized
+  path for this gate).
+
+### Completed, A6
+
+- **A6** Search reads raw proposition, not sanitized. PASS — live API
+  probe: `q=appendix A` (a sanitizer-dropped term) finds the assertion via
+  the real endpoint. Regression: covered by
+  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`.
+
+### Completed, A7
+
+- **A7** Frontend revision history + comparison render raw text nodes.
+  PASS — scoped vitest run (9/9) via real React Testing Library render;
+  `grep -rn dangerouslySetInnerHTML frontend/src` returns zero code hits
+  (one unrelated comment string in a test file). Regression: none needed
+  (component tests already exhaustive for this surface).
+
+### Completed, A8
+
+- **A8** Length cap (100,000 chars) enforced at the API. PASS — 11/11
+  suite green. Regression:
+  `test_proposition_at_cap_boundary_containing_angle_brackets_round_trips_raw`
+  (boundary size composed with raw-fidelity in one case).
+
+### Completed, A9
+
+- **A9** Stale-pin sweep. PASS — `git show db203ce` on both edited test
+  files confirms only the documented docstring updates + the one added
+  `proposition_raw` assertion; the sanitized-column assertions and all 3
+  `test_validation.py` browser-faithful pins are byte-identical to before.
+  Regression: n/a (historical-diff verification, not new behavior).
+
+### Completed, B1
+
+- **B1** Enrichment CLI. PASS — ran the real CLI as a subprocess against a
+  seeded SQLite file DB: run 1 creates 1 draft `model_suggested` assertion
+  (confirmed via `GET /assertions`), run 2 is idempotent (0 created, DB
+  still holds exactly 1), unknown matter exits 1 with a clear stderr
+  message. Regression:
+  `test_enrich_cli_on_matter_with_zero_spans_creates_nothing_and_exits_zero`.
+
+### Completed, B2
+
+- **B2** Offline heuristic suggester + live pipeline. PASS — same
+  subprocess trace confirms real `Assertion`/`AssertionRevision`/
+  `AssertionEvidence` rows, `origin=model_suggested`, `status=draft`,
+  never `accepted`. Regression:
+  `test_run_enrichment_on_matter_with_zero_spans_returns_empty_list`.
+
+### Completed, B3
+
+- **B3** Pluggable `Enricher` protocol. PASS — 3/3 green; read
+  `pipeline.py`'s `enricher if enricher is not None else
+  HeuristicEnricher()` wiring directly. Regression: n/a (interface-level,
+  already exhaustive).
+
+### Completed, C1
+
+- **C1** LexGraph MCP stdio server. PASS — confirmed
+  `test_mcp_tools_live.py`/`test_mcp_search_fetch_tools.py` dispatch
+  through the real `server.call_tool(...)` (not raw functions); booted
+  `python -m app.mcp.server` as a subprocess against a schema'd file DB
+  with stdin held open — stayed alive the full 5s bound, no traceback, no
+  crash. Regression: `test_mcp_fetch_of_nonexistent_assertion_id_does_not_crash`.
+
+### Completed, C2
+
+- **C2** MCP registration docs. PASS — content read in full: `claude mcp
+  add` command matches `server.py`'s actual module path; Codex/Cursor/
+  Antigravity snippets present; no factual defects found. Regression: n/a
+  (doc-only, no behavior to pin).
+
+### Completed, D2
+
+- **D2** (G8 E2E: seed → enrich → review → grade;
+  `backend/tests/e2e/test_local_first_platform_flow.py`; labeled "D3" in
+  the archived Dev Complete prose). PASS — 1/1 green; test body read in
+  full and matches gate G8 exactly against the real API, one local SQLite
+  file, no network. Regression: n/a (E2E-level, exhaustive by design).
+
+### Completed, D3
+
+- **D3** (zero-network guardrail;
+  `backend/tests/unit/test_no_network_dependencies.py`; labeled "D2" in
+  the archived Dev Complete prose). PASS — manually grepped every import
+  in `app/enrich/` and `app/mcp/`; zero network-capable modules, matching
+  the AST-based test's verdict. Regression: n/a (static-analysis-level,
+  exhaustive).

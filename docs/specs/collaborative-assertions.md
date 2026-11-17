@@ -176,6 +176,13 @@ Rules:
 - The interface must show a complete revision history.
 - The user must be able to compare revisions.
 
+Implementation rules (2026-11-16):
+
+- Every assertion has a revision row for its current_revision_number, whatever wrote it. The persistence layer enforces this: when a transaction commits an inserted assertion that has no such row, an initial revision is recorded from the assertion's own fields (edited by its author; revision_reason "initial creation (system-generated)" for the definition-links pass), together with an "Assertion created" audit event. Writers that record revision 1 themselves (the REST/agent creation path, offline enrichment) are unaffected. This covers the deterministic definition-links pass, whose system_generated assertions are therefore ratable, keep their generated text as revision 1 when edited, and give review decisions a revision to name. Assertions stored without revision 1 before this rule are backfilled by a migration.
+- revision_number is unique per assertion (database constraint).
+- The revision_reason an editor submits is stored like other submitted text: revision_reason holds it with active markup removed (null when no readable text is left) and revision_reason_raw holds the exact text; revision payloads return both. Reasons the system writes, such as "initial creation", have no raw text, and neither do revisions saved before migration `20261116_revision_reason_raw`.
+- An edit that changes nothing material creates nothing. PATCH and POST /revisions first check permission (403), the stale base revision (409) and validity (422), then compare each submitted value with the stored one: the proposition with the authored text (the current revision's raw text), entities as {type, id}, effective dates as UTC instants, other fields as they are. When nothing differs, no revision or audit event is written and status, review metadata, ratings and updated_at stay as they were: PATCH answers 200 with the unchanged assertion, and POST /revisions answers 200 with the unchanged current revision (201 only when it created one). revision_reason, expected_revision_number and assertion_type_is_proposed_new are never changes on their own. POST /revisions takes PATCH's body with PATCH's semantics (omitted fields are kept, an explicit null clears an optional field).
+
 ==================================================
 4. USER STRENGTH RATINGS
 ==================================================
@@ -379,6 +386,16 @@ The creation form must support:
 - Create a standalone proposition without an object entity
 - Indicate that further evidence is needed
 
+Web suggestion form and revision editor (2026-11-16):
+
+- Subject and object are chosen from the matter's documents and articles (`GET /matters/{id}/entities`). A link `#/suggest?subject=<id>&subject_type=<Type>` (likewise `object`, `object_type`) pre-selects them. A stated type is sent as given and validated by the API on save. Without a type the id is looked up among the matter's documents and articles, then its assertions; an id that cannot be found is not filled in, and the page says so, rather than being sent under a guessed type.
+- A matter without documents shows how sources are imported (docs/RUNBOOK.md, "Getting sources into a matter") and the matter and repository IDs, instead of the form.
+- The assertion type is chosen from the controlled vocabulary or named under "Propose a new type…". A new name is saved in upper case with underscores ("cancelled by" becomes CANCELLED_BY) and sent with `assertion_type_is_proposed_new: true`, unless it is already a recognized type. The name typed is at most 100 characters; upper case can lengthen it (ß becomes SS), and a saved name longer than the 255 characters the API stores is cut there.
+- "Further evidence needed" appends a fixed note to the explanation, which is stored as the assertion's first comment; the API has no separate field for it.
+- The jurisdiction starts at the default chosen on the Profile page (stored in the browser per user), when that value is in the controlled vocabulary.
+- Similar assertions returned on creation are listed by proposition and status, each linked to the assertion: at most 20, highest score first (then id), followed by "and N more" when more matched. When a response lacks the text (older backends), the page loads it per listed assertion. The exact-duplicate 409 is explained with a link to the existing assertion.
+- The revision editor edits the proposition, the assertion type (from the controlled vocabulary; a current type outside it stays selectable), the jurisdiction (a vocabulary code or none; a current code outside the vocabulary stays selectable) and effective from and to (calendar dates). Subject and object are not editable there. Save stays disabled until the proposition (line endings aside) or one of those fields differs from the revision the edit started from, and while effective_to is before effective_from ("The effective end date cannot be before the start date."). Saving sends only the fields that changed, the proposition included, a cleared jurisdiction or date as null, so saving over a newer revision keeps that revision's other values, its text included. Like any material edit (section 3), a change to the type, the jurisdiction or a date alone creates a revision and returns an accepted assertion to proposed. The reason field starts empty for each edit. After a stale-revision 409 the assertion is reloaded and the draft and reason are kept; a newer revision that reaches an open editor is handled the same way. The draft is rebased onto the newer revision: each field the user changed keeps the user's value, and every other field, the proposition included, shows the newer revision's value. The panel shows the newer text, lists the user's changes ("Jurisdiction: none → New York (US-NY)") and offers two choices: save those changes as the next revision, or discard them and start from the latest. Saving therefore never puts back a value the user did not change. A duplicate 409 links to the existing assertion. When submitting or withdrawing is refused because the assertion changed meanwhile, the page reloads it and says so.
+
 ==================================================
 7. USER-SUGGESTED ASSERTION VALIDATION
 ==================================================
@@ -397,6 +414,18 @@ Requirements:
 - Assertion type must come from an allowed controlled vocabulary or be explicitly marked as a proposed new type.
 - Raw HTML and scripts must be sanitized.
 - Submitted text must not be treated as system or model instructions.
+
+Implementation rules (2026-11-16):
+
+- Effective dates are UTC instants. An offset is applied before storage, never dropped; a value without an offset is read as UTC and a date as midnight UTC; responses give the UTC value without an offset. A value outside the years 1 to 9999 once converted to UTC is a 422. The range is checked on creation and whenever an edit sets a date; an edit that leaves both dates alone is not blocked by the stored range.
+- An edit keeps the assertion's own assertion_type without a vocabulary check, whether or not it is a proposed new type. An edit that changes the type follows the creation rule; PATCH and POST /revisions accept assertion_type_is_proposed_new for that.
+- The 100,000-character length caps are checked on the raw submitted text before it is sanitized: the proposition and explanation on creation, the proposition and revision_reason on PATCH and POST /revisions (the reason also when nothing else is sent), comment text and rating rationales on their own routes.
+- Sanitizing is bounded. Markup is removed by repeating one sanitizing pass until the text stops changing, and each pass peels one raw-text wrapper such as `<title>`, `<textarea>`, `<xmp>` or `<script>`. Text that is still changing after 256 passes (hundreds of nested wrappers; no ordinary or test input needs more than 25) fails closed: it is treated as text that sanitizes to nothing, so a proposition, comment or agent provenance made of it is refused with 422, and a field that keeps raw text keeps it beside an empty sanitized copy. One field therefore costs at most a fraction of a second of CPU.
+- A proposed new assertion type (one outside the vocabulary, sent with assertion_type_is_proposed_new) must have the vocabulary's shape, as the Suggest form writes it: at most 255 characters (what the column holds), letters and digits of any script in upper case, words joined by single underscores (CANCELLED_BY, SECTION_12A). Every name the form saves has it. A code point that the server's Unicode database lists as unassigned counts as a letter, because the browser that wrote the name may know a newer Unicode version, unless it is a noncharacter, outside planes 0 to 3, or reserved for invisible formatting. Anything else, markup or spaces included, is a 422, on creation (REST, agent endpoint, CLI and MCP) and on an edit that changes the type.
+- A request body that contains an unpaired UTF-16 surrogate (for example the JSON escape \ud800) in any key or value, on any route, is rejected with 422 before validation; nothing is stored. The rule holds in every encoding a JSON body is read in: UTF-8, UTF-16 or UTF-32, with or without a byte-order mark. A body that cannot be read as JSON (it does not decode, or is not sent as JSON) is a 400 or 422, never a 500.
+- A creation payload that lists the same source span twice with the same evidence role is a 422.
+- POST /api/v1/assertions refuses any key it does not declare (422). The agent contract's agent and confidence keys get a 422 that names POST /api/v1/agent/assertions, so an agent payload sent to the lawyer endpoint is never stored as a lawyer's suggestion.
+- A number that is not finite (NaN, Infinity, or a literal such as 1e999 that overflows) is invalid wherever a number is expected: 422, on any route. The 422 body spells such a value as the string "NaN", "Infinity" or "-Infinity".
 
 The interface should warn the user when:
 
@@ -433,6 +462,17 @@ Allow the user to:
 
 Do not automatically merge assertions.
 
+Exact duplicates (2026-11-16). Two propositions are exact duplicates when they are equal after trimming surrounding whitespace and ignoring case, within one matter. An existing exact duplicate blocks (409, naming the existing assertion) when it is:
+
+- live: proposed, revision_requested, accepted or disputed, whoever wrote it; or
+- a draft by the same author as the assertion being created or edited.
+
+Withdrawn, rejected and superseded assertions never block, so an abandoned or decided claim can be proposed again (for example with new evidence); neither do other users' drafts, which are unsubmitted work. Non-blocking exact matches are returned in similar_assertions with match_kind exact_proposition. The same rule applies when an edit (PATCH or POST /revisions) changes the proposition, and when a draft is submitted; keeping the current proposition is never a duplicate. Submitting a draft is blocked only by live assertions, so of two identical drafts the first submitted wins.
+
+The duplicate 409 body is {"detail": "duplicate: an identical proposition already exists in this matter (assertion <id>)", "existing_assertion_id": "<id>"}, wherever the rule applies (create, edit, submit). The detail text is unchanged. Other 409s, such as the stale-revision conflict, carry only detail.
+
+Similar assertions (2026-11-16). Every creation response (POST /api/v1/assertions and POST /api/v1/agent/assertions, so also the agent CLI and the MCP suggest_assertion tool) lists the 20 strongest matches in similar_assertions, ordered by score descending and then by assertion id. Each entry keeps assertion_id, match_kind (exact_proposition, same_subject_type_object or similar) and score. It also carries the matched assertion's proposition as display text (its stored proposition, cut to 300 characters ending in "…" when longer), its status and its assertion_type. Next to the list, similar_assertions_total counts all matches and similar_assertions_truncated says whether the list was cut. GET /api/v1/assertions/{id}/related returns the same entries for an existing assertion as a JSON list of at most 20, with the number of all matches in the X-Total-Count response header. The exact-duplicate check considers every match, not only the listed ones. A matter that holds definition-linking output can match thousands of generated assertions; the cap keeps those responses small, but comparing a proposition with every assertion of the matter still takes time in proportion to the matter's size.
+
 ==================================================
 9. ASSERTION DISCUSSION AND RATIONALES
 ==================================================
@@ -460,7 +500,10 @@ Requirements:
 - Comments must be matter-scoped.
 - Comments must be audited.
 - Users may edit or delete their own comments.
+- Posting, editing and deleting comments requires `assertion:comment` (contributor, reviewer, administrator). Viewers can read comments but cannot post, edit or delete them, including comments they wrote before they became viewers.
+- A comment must contain text once markup is removed: blank and markup-only comments are rejected on create and on edit (422).
 - Deleted comments should be soft-deleted where audit requirements apply.
+- A reply must target a live comment on the same assertion; replying to a deleted comment is rejected (409). A deleted comment that still has live replies is listed as a tombstone (`deleted_at` set, `comment_text` empty, `comment_text_raw` null), so replies are never orphaned. A deleted comment without live replies is not listed.
 - Reviewer comments should be visually distinguishable.
 - Comments are not evidence unless explicitly converted into or linked to an AssertionEvidence record.
 
@@ -608,12 +651,118 @@ Reviewer:
 - Review assertions
 - Accept, reject, dispute, or request revision
 - Modify assertions through recorded revisions
+- Read other users' rating rationales (`assertion:view_rating_rationales`)
 
 Administrator:
 - All Reviewer permissions
 - Manage assertion types and permissions
 
 All permission checks must occur server-side.
+
+Evidence (2026-11-16). Attaching or removing evidence modifies the assertion, so it follows the edit rule: the author, with contributor membership, of a draft, proposed or revision_requested assertion, or a reviewer or admin for any assertion. Removing the last supporting span (supports, primary_basis or secondary_basis) of an accepted assertion is refused with 409; attach another supporting span first, or return the assertion to review. A source span is attached to an assertion at most once per role; attaching it again with the same role is a 409.
+
+Creation checks the caller's suggesting role (contributor, reviewer or admin) in the matter before anything else in the payload: a caller without one gets 403 whatever matter, repository or pairing it sends.
+
+Authentication and identity (2026-11-16):
+
+- A user id is a public reference. It appears in member rosters and as
+  author, reviewer, commenter, rater and audit actor, and it is never a
+  credential.
+- Each user signs in with a secret sign-in token sent as
+  `Authorization: Bearer <token>`. As in HTTP, the scheme name is
+  case-insensitive (`bearer <token>` is read too); any other scheme, or
+  no token after it, is rejected with 401. Tokens are random
+  (`secrets.token_urlsafe`, 32 bytes), and only their SHA-256 hex digest
+  is stored (`users.sign_in_token_hash`, unique; NULL means the account
+  cannot sign in). An unknown token is rejected with 401.
+- A token is returned exactly once, when it is issued: by bootstrap, by
+  `POST /api/v1/users` (`sign_in_token`), or by
+  `POST /api/v1/users/{user_id}/sign-in-token`, which replaces the
+  account's token at once. No other response contains a token or a hash.
+- Rotating another account's token requires the admin role on every
+  matter that account belongs to, because the caller learns the new
+  credential; any admin may rotate their own token or an account with no
+  memberships. Operators with database access use
+  `python -m app.rotate_sign_in_token`.
+- Databases created before sign-in tokens are upgraded by migration
+  `20261116_sign_in_tokens`, which gives each existing account a legacy
+  token equal to its user id. Legacy tokens are reported at startup and as
+  `sign_in_status: "legacy"` in `GET /api/v1/users`, and should be
+  rotated.
+- The local agent CLI and MCP server act as `LEXGRAPH_AGENT_USER_ID`
+  through direct database access, so the user id is enough there. The REST
+  agent endpoint requires the agent account's sign-in token.
+
+Accounts and membership (2026-11-16):
+
+- Email addresses are normalized (surrounding whitespace removed,
+  lowercased) when stored and whenever they are compared, and are unique
+  (`users.email`, index `ix_users_email`). `POST /api/v1/users` with an
+  address another account has, in any letter case, is 409; adding a
+  member by email matches it case-insensitively. Migration
+  `20261116_users_email_unique` normalizes older databases; accounts that
+  already share an address are reported and left unchanged, and until an
+  operator resolves them both endpoints answer 409 for that address. The
+  unique index is created on the first migration run after that. Meanwhile
+  the server still starts on the database (its startup schema check accepts
+  this one missing index and logs the shared addresses), and `python -m
+  app.migrate` reports the index as waiting for an operator.
+- A caller-chosen user id is 1-36 ASCII letters, digits, `.`, `_` or `-`,
+  starting with a letter or digit, so that it fits `users.id` and works in
+  URL paths; anything else, or an id already in use, is 422. `email` is
+  at most 254 characters and `display_name` at most 255 (422).
+- Accounts created before that rule keep their ids. One containing `/`
+  (`team/lead`) is still addressed by
+  `POST /api/v1/users/{user_id}/sign-in-token` and by `PUT` and `DELETE`
+  `/api/v1/matters/{matter_id}/members/{user_id}`: clients send the id
+  percent-encoded as one path segment (`team%2Flead`), and these routes
+  take the rest of the path as the id, so such an account is rotated,
+  re-roled and removed like any other.
+- A request that loses a race to an equivalent concurrent request gets the
+  answer the later of two sequential requests would get (409 for a
+  duplicate email or membership, 422 for a duplicate id), never a 500.
+- A matter always keeps at least one admin: demoting or removing its last
+  admin is 409, including when two admins demote each other at the same
+  moment.
+- `python -m app.bootstrap` requires a persistent database (`--db` or
+  `LEXGRAPH_DATABASE_URL`; an in-memory URL is refused with exit code 2)
+  and checks its flags with the rules above (exit code 2), before it
+  touches the database.
+
+Web app session (2026-11-16): the app keeps the sign-in token in the
+browser and signs the user out only when `GET /api/v1/me` answers 401.
+If restoring a saved sign-in fails in any other way (no response, 5xx,
+404, 429, or a body that is not a session), the token is kept and a retry
+screen is shown. While signed in, the app re-reads `GET /api/v1/me` after
+any request refused with 401 or 403, when the tab regains focus and every
+minute, so role-gated UI follows role changes made elsewhere.
+
+The tabs of one browser share the saved token. Each tab keeps the matter it
+shows: a re-read applies the fresh role on it, and moves the tab to another
+matter only when the user no longer belongs to that one. The matter last
+chosen in any tab is only where a new tab, a reload or a sign-in starts.
+Signing out in one tab signs the browser's other tabs out at once, and a
+token the server refuses in one tab signs all of them out; the sign-in page
+says which of the two happened. A token saved by another tab (rotating your
+own token there, or signing in) is re-read with `GET /api/v1/me`, and a
+signed-out tab follows such a sign-in once the server accepts the token.
+Rotating your own token switches the browser to the new token as soon as
+the server answers, even if the admin page was left meanwhile, and the new
+token is shown once above whatever page is open. While that answer is on its
+way, a 401 for the old token signs the user out only if the rotation fails.
+From the server's commit on, the new token is the only one that signs in as
+that user, so it is never dropped unseen: the tab that asked for it keeps
+showing it until the user confirms it is saved. A sign-out, in that tab or
+another, before the answer arrives or before that confirmation still signs
+every tab out, and the browser does not save the token; that tab's sign-in
+page shows it instead. It is shown to its owner only: once another account
+signs in in that tab, it is forgotten (an answer arriving after that is
+neither saved nor shown), and so is a token the server is then seen to refuse.
+That includes a token rotated again elsewhere while that tab is signed out: it
+stops being shown when a sign-in with it answers 401 (in that tab, or in another
+tab whose sign-in it would follow), or when `GET /api/v1/me` accepts another
+token for its owner (an account has one token at a time) in a request sent
+after the token was shown.
 
 ==================================================
 13. API REQUIREMENTS
@@ -637,13 +786,21 @@ DELETE /api/v1/assertions/{assertion_id}/evidence/{evidence_id}
 GET    /api/v1/assertions/{assertion_id}/related
 GET    /api/v1/assertions/{assertion_id}/history
 
+`GET /assertions/{assertion_id}` gives `subject_entity` and `object_entity` a `label`: a document's title, `"<document title> / <number> <heading>"` for an article, a definition's quoted terms followed by the article that defines them, a source span's quote, or an assertion's proposition. Only persisted entities of the assertion's own matter are labelled. A legacy opaque reference (for example `Provision`), a missing row or a row of another matter gets `null`. Labels longer than 240 characters are shortened. Labels belong to this detail response only: list items and the responses of the create, edit, submit, withdraw and review routes keep the bare `{type, id}` reference. Each `GET .../related` match carries the related assertion's `proposition` and `status` next to `assertion_id`, `match_kind` and `score`.
+
 Ratings:
 
-PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_id}/rating
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings/summary
-GET    /api/v1/assertions/{assertion_id}/revisions/{revision_id}/ratings
+PUT    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+DELETE /api/v1/assertions/{assertion_id}/revisions/{revision_number}/rating
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings/summary
+GET    /api/v1/assertions/{assertion_id}/revisions/{revision_number}/ratings
+
+`{revision_number}` is the assertion's revision number (`revision_number` in `GET .../revisions`, `current_revision_number` on the assertion), not the revision UUID; a UUID there is rejected (422). This corrects the original `{revision_id}` wording (2026-11-16). Rating rows and summaries identify the revision both ways, as `assertion_revision_id` and `assertion_revision_number`.
+
+Rating requests: `strength` must be a JSON integer from 1 to 5; booleans, strings and floats (including `4.0`) are rejected (422). Omitting `rationale` keeps the stored rationale (a new rating has none), so a strength-only update never changes it. `null`, an empty string or whitespace-only text removes it. Any other text replaces it: `rationale_raw` stores it exactly and `rationale` stores the sanitized text. The summary's `current_user_rating` includes `rationale_raw`, and `rationale_count` counts the ratings whose sanitized rationale contains text. `GET .../ratings` lists ratings in creation order. Roles holding `assertion:view_rating_rationales` (reviewer, administrator) see every rater's rationale. Other roles see their own rationale and `null` in place of other raters' rationale text.
+
+The summary also reports `prior_revision_rating_count`: the number of ratings recorded against the assertion's revisions numbered below `{revision_number}`. Those ratings stay with their own revision. The count lets a client tell users that the revision in front of them has not been rated while earlier revisions were (§10).
 
 Comments:
 
@@ -727,6 +884,8 @@ All mutation APIs must:
 - Prevent lost updates
 - Return the current assertion revision
 
+Concurrency (2026-11-16). The exact-duplicate check and revision numbering hold for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation a create, edit or draft submission takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. N identical concurrent submissions yield one 201 and N-1 duplicate 409s. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409. The locked re-check of the exact-duplicate rule reads only what was committed after the unlocked check began (assertions inserted since, and assertions with an audit row since, which every change of a proposition or status writes), so it takes milliseconds however large the matter. On SQLite a COMMIT anywhere in the database waits for the statements that are reading when it begins, for at most the 5 s busy timeout. The unlocked check therefore reads a matter in statements of at most 50,000 assertions, each encoded by SQLite without an allocation per row, so a COMMIT waits for the statements in progress, never for a whole large matter. Measured on a matter of 220,000 assertions with 12 agent submissions at once in one server, a comment posted in another matter every half second succeeded every time (35 of 35 in 6 bursts, slowest COMMIT 2.2 s); with the earlier single statement, such a comment failed with "database is locked" in each of 6 bursts. No load is guaranteed to pass, because the busy timeout still bounds every wait: writers take the write lock one at a time, and with 14 submissions at once, 1 of 42 waited past the timeout for it and failed with "database is locked" (over REST, the 503 below) instead of answering 201 or 409. Every status transition is atomic too. Submit and withdraw take the write lock, re-read the assertion and re-check it, then write only while it still has the status and revision they re-read: a review decision that landed meanwhile is never overwritten, and the late request gets the answer it would get afterwards (403 for an author whose assertion is now reviewed, 409 otherwise, both changing nothing). Of two simultaneous submits of one draft, one moves it into review and notifies the reviewers; the other records proposed → proposed and notifies nobody. A review decision takes the lock after its checks and is refused with 409 if the assertion's status or revision changed since it read them, or no longer is the `expected_status` or `expected_revision_number` the request names; an accept reads the evidence it depends on, and a supersede its successor and the successor's links, under the lock, so removing the last supporting span while an accept is in flight cannot leave an accepted assertion without support or justification, and two crossing supersedes (A by B, B by A) cannot close a cycle: the second gets 422. Concurrent rating writes by one user are applied one after the other and answer as in sequence: 201 for the first rating, 200 for each later PUT, 204 and then 404 for two removals, never a 500. A write whose COMMIT fails (on SQLite, "database is locked" when another connection keeps a read lock past the busy timeout) is rolled back completely in every process: it stores nothing, leaves the database unlocked for the other processes, and retrying it is safe. Over REST, a request that meets such a lock past the busy timeout (taking the write lock, writing, committing or reading) answers 503 with a JSON `detail` saying that the database is locked, a `Retry-After` header (in seconds) and `X-Request-ID`, once its transaction has been rolled back; any other database error is the bare 500 of section 16. The CLI and MCP report a locked database as status 500 (see "Local agent authoring and lawyer completion").
+
 ==================================================
 14. FRONTEND PAGES AND COMPONENTS
 ==================================================
@@ -792,6 +951,21 @@ The MVP may implement in-application notifications only.
 
 Do not send a notification for every rating by default. Allow configurable notification preferences or digest behavior.
 
+Implementation (2026-11-16):
+
+- Notifications are rows in the `notifications` table, one per recipient: recipient, actor, event type, matter, assertion, a JSON payload, `created_at` and `read_at`. Read state is stored, so it holds across reloads, restarts and API workers. Databases created earlier receive the tables through migration `20261116_durable_notifications`.
+- Events and recipients. "Participants" of an assertion are its author, the editors of its revisions, whoever attached evidence, the authors of its comments that are not deleted, the raters of any of its revisions, and its last reviewer.
+  - `assertion_submitted`: the matter's reviewers and admins, whenever the assertion enters `proposed`. That covers creation as proposed through `POST /api/v1/assertions` or `POST /api/v1/agent/assertions`, and `POST .../submit` from draft or revision_requested (`payload.previous_status` tells a resubmission apart).
+  - `revision_requested`, `assertion_accepted`, `assertion_rejected`, `assertion_disputed`, `assertion_superseded`: the author, when a reviewer changes the status. A supersede also carries `superseded_by_assertion_id`.
+  - `revision_created` (PATCH or `POST .../revisions` that creates a revision) and `evidence_added`: the participants, plus the matter's reviewers and admins while the assertion is `proposed`.
+  - `comment_added`: the participants and the author of the comment replied to.
+  - `assertion_rated` (a rating created or changed): the author, only if they opted in.
+- The actor is never notified of their own action, and only current members of the matter are notified. Notifications follow the committed state change. Saving a draft, re-submitting an assertion that is already proposed, a decision that changes nothing and an edit that creates no revision notify nobody. A recipient gets at most one `assertion_submitted` per submission.
+- `GET /api/v1/notifications` returns the caller's notifications, newest first (`limit` 1–200, default 50; `offset`; `unread_only`). Each has `id`, `event_type`, `actor_user_id`, `recipient_user_id`, `assertion_id`, `matter_id`, `link` (the web-app route `/assertions/{id}`), `payload`, `context`, `created_at`, `read` and `read_at`. `context` holds the current proposition (excerpted to at most 280 characters), the assertion's status and origin, the matter name and the actor's display name. `link` and `context` are null once the recipient is no longer a member of the matter. Payloads hold references and event facts only, never comment or document text. Timestamps carry a UTC offset.
+- `GET /api/v1/notifications/unread-count` returns `{"unread_count": n}`. `POST /api/v1/notifications/{id}/read` marks one notification read; the first read time is kept, and an unknown id or another user's notification returns 404. `POST /api/v1/notifications/read-all` marks the caller's unread notifications read and returns `{"marked_read": n, "unread_count": m}`. Its optional `last_read_at` leaves notifications created after that instant unread.
+- Preferences: `GET` and `PUT /api/v1/notifications/preferences` (`{"preferences": {event_type: bool}}`) switch each event type per user. Every event is on by default except `assertion_rated`. An unknown event type returns 422 and nothing is changed. Overlapping writes, including a user's first choices for an event type, are applied one after the other: each succeeds and the later one wins.
+- Delivery: middleware writes notifications in their own transaction right after the mutation commits. A notification failure is logged and never changes the mutation's response. The response waits for the notices, so working out the recipients reads only the assertion's own rows, through indexes: its cost does not grow with other assertions' ratings and comments. The agent CLI and the MCP server propose outside HTTP; each calls `app.notifications.notify_submission` once a suggestion is stored, so their proposals notify the reviewers and admins like a REST one. It is idempotent per submission and never raises.
+
 ==================================================
 16. AUDIT REQUIREMENTS
 ==================================================
@@ -826,6 +1000,20 @@ Audit records must include:
 - Request or correlation ID
 
 Do not include confidential full-document content in routine audit logs.
+
+Implementation (2026-11-16). Every audited mutation writes its audit rows in its own database transaction, so a mutation and its audit rows commit or roll back together and a refused request writes none. `GET /api/v1/assertions/{assertion_id}/history` returns an assertion's rows oldest first, each with its `assertion_revision_number`, `previous_value`, `new_value` and `correlation_id`. Event types, with previous value → new value (— for none):
+
+- `assertion_created`: — → the initial status. Agent suggestions also get `assertion_agent_provenance`: — → the self-reported provenance as JSON.
+- `evidence_added` and `evidence_removed`: — → the evidence id, both for evidence attached when the assertion is created (the only evidence path for agents) and for the evidence routes.
+- `assertion_submitted`: the previous status → `proposed`, on every submit, including a resubmission after a revision request.
+- `assertion_withdrawn`: the previous status → `withdrawn`. The actor is the user who withdrew it, whether the author or a reviewer.
+- `assertion_revised`: the previous → the new revision number, on every edit.
+- `assertion_status_changed`: `accepted` → `proposed`, when an edit returns an accepted assertion to review. It is written with the edit's `assertion_revised`.
+- `rating_created` (— → the strength), `rating_changed` (the previous → the new strength) and `rating_removed` (the removed strength → —). `rating_changed` is written for every update of an existing rating, including one that only changes the rationale.
+- `comment_created`, `comment_updated` and `comment_deleted`: — → the comment id, never the comment text. The explanation saved with a new assertion is a comment too.
+- Review decisions (`assertion.accept`, `assertion.reject`, `assertion.dispute`, `assertion.request_revision`, `assertion.supersede`): the previous → the new status, followed by the decision's note, if any.
+
+A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header, including a refusal answered before routing (the 422 for an unpaired surrogate) and the 503 for a locked database (section 13). The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
 
 ==================================================
 17. SEARCH AND SORTING
@@ -965,15 +1153,341 @@ confidence remains separate. Only draft/proposed states are allowed. Agent
 references must resolve to persisted, same-matter entities, and evidence must
 resolve to a same-matter document in the selected repository. Explanations are
 preserved as initial comments; creation and provenance audit are transactional.
+An explanation is stored as POST .../comments stores the same text (sanitized
+text plus the raw authored text), also when nothing survives sanitization; a
+blank explanation creates no comment (2026-11-16). Agent platform, model and run
+ID are sanitized like other submitted text before they are stored or returned; a
+value with no text left once markup is removed is a 422 (2026-11-16). The agent
+payload belongs to the agent endpoint: POST /api/v1/assertions refuses it (see
+section 7).
+
+The CLI and MCP report a failure as one JSON object `{"error", "status"}`, plus
+`issues` (field and message) for schema violations. The CLI prints it on stderr
+and exits 1, MCP returns it as the text of an error result. That includes a call
+the MCP SDK refuses before the tool body runs: arguments that do not match the
+tool's signature (422 with `issues`), a tool the server does not offer (400), and
+`agent_context` or `suggest_assertion` on a server started without an actor
+(401). The statuses are 400 (command line, unreadable input, unknown tool), 401
+(no actor, or the actor is not a user), 403 (no suggesting role in the matter,
+also for a matter that does not exist: section 12 authorizes first), 404 (a
+repository that does not exist), 409 (duplicate, naming the existing assertion
+in the text and as `existing_assertion_id`), 422 (payload or arguments) and 500
+(local database or installation, including a database locked past the busy
+timeout, which REST answers with 503: section 13). An unpaired surrogate escape is the CLI's and
+REST's 422 (section 7); the MCP SDK's stdio transport drops such a request
+without an answer.
+CLI input and output are UTF-8 regardless of locale, and so are text arguments
+such as `--query`; the `--input` file name reaches the file system as given.
+Both interfaces check the database before use: an unset, in-memory, missing or
+uninitialized database is refused with the resolved path, and no file is ever
+created. A database created
+by an older release is refused too, by the API server's schema check, with the
+`python -m app.migrate` command that upgrades it. The MCP server exits at
+startup in those cases, and when `LEXGRAPH_AGENT_USER_ID` names no user.
+The submission guide (CLI `schema`, MCP `assertion_guide`) names the operations
+of its own interface and lists the assertion types and jurisdiction codes.
 
 Matter-authorized, paginated `GET /matters/{id}/entities` and `/source-spans`
 provide actual source choices for the lawyer suggestion form. Evidence details
 include quote text and document title. Legacy opaque graph entity references
 remain supported by the human API; the agent interface requires persisted types.
+Entities list documents first, by title, then each document's articles in
+natural number order, labelled `title / number heading`. Query filters there,
+in MCP search/explore and in agent context match a case-insensitive literal
+substring with the same Unicode case folding as REST assertion search.
+Propositions match on the current revision's submitted text.
 
 Lawyers edit through recorded revisions using `expected_revision_number`, can
 submit drafts/requested revisions and withdraw unreviewed suggestions. An author
 needs contributor membership and an unreviewed status; reviewers can revise
-reviewed assertions. Revisions retain prior ratings without copying them forward.
+reviewed assertions. Saving without a material change creates no revision (see
+section 3). Submitting clears reviewed_by and reviewed_at; the earlier decision
+stays in the audit trail. Revisions retain prior ratings without copying them forward.
 The UI displays prior revision text and loads its rating summary on demand.
 The current rating rationale is preserved when updating a rating.
+
+## Offline enrichment (2026-11-16)
+
+`python -m app.enrich.cli` suggests draft `model_suggested` assertions from a
+matter's stored source spans. Agent submissions share that origin. An
+enrichment row is one whose revision 1 has revision_reason "model-suggested
+(offline enrichment)"; an agent row carries `agent_provenance`. Enrichment is
+idempotent on its own output only. It skips a span that already backs an
+enrichment row, and it never suggests a proposition it already suggested in the
+matter, whatever became of that suggestion. It also applies the exact-duplicate
+rule of section 8 for the triggering user, checked under the write lock. A span
+that an agent or lawyer cites is still suggested.
+
+A span of up to 1,000 characters is suggested whole. From a longer span, such as
+an ingested statute section, the proposition quotes the sentence in which the
+heuristic matched, or the clause when that sentence is longer. A match that
+cannot be quoted within 1,000 characters is not suggested. Every enricher's text
+is held to the 100,000-character cap before it is sanitized. Its evidence is
+limited to the matter's own spans. The triggering user must exist and hold a
+contributor, reviewer or admin role in the matter; the CLI otherwise reports
+the problem and exits 1, as it does for an unknown matter and for every
+database the agent CLI's check refuses: an unset or in-memory database URL, a
+database file that does not exist (nothing is created), a database without the
+LexGraph tables, and one created by an older release (naming the
+`python -m app.migrate` command).
+
+## Listing, statistics, graph bounds and timestamps (2026-11-16)
+
+`GET /api/v1/assertions?matter_id=…` returns `{"items", "total", "limit",
+"offset"}`. `limit` (1–500) and `offset` page the result; without `limit`
+every match is returned, as before. `total` always counts every match. On this
+and every other paged route (`/matters/{id}/entities`, `/source-spans`,
+`/graph`, `/notifications`, and the agent `context`), `offset` is at most
+2,147,483,647; a larger one is a 422. Filters
+(§10, §17): `q` (current revision's raw proposition, case-insensitive), `origin`,
+`status`, `assertion_type`, `author_user_id`, `subject_entity_type`,
+`subject_entity_id`, `object_entity_type`, `object_entity_id`, `jurisdiction`,
+`evidence_status`, `created_from`/`created_to` and
+`last_activity_from`/`last_activity_to` (instants, half-open `[from, to)`),
+`effective_on` (in effect on that date; an open bound is unbounded),
+`min_average_rating` (1–5), `min_rating_count` (0–2,147,483,647),
+`unrated_by_me` and `my_rating` (1–5).
+`sort` takes `created_at`, `updated_at`, `last_activity`, `proposition`,
+`assertion_type`, `subject`, `object`, `origin`, `author`, `status`,
+`evidence_status`, `average_rating`, `rating_count`, `my_rating`,
+`jurisdiction`, `effective_from` or `effective_to`. A `-` prefix sorts
+descending, and several keys are comma-separated. Missing values sort last in
+both directions, and ties keep insertion order. Rating sorts reflect user
+opinion, not legal authority. Unknown query parameters and sort keys are
+rejected with 422, and so is a sort key given twice. An invalid filter value is
+a 422 too: a number out of its range or not finite, an instant that is outside
+the years 1 to 9999 once converted to UTC (an offset is applied; an instant
+without one is UTC), or an `effective_on` that is not a `YYYY-MM-DD` date.
+Potential-duplicate and potential-conflict filters are not implemented.
+Besides the detail serializer's fields, each item carries
+`ratings_summary` (the current revision's aggregate over every rating, the
+author's included, or null), `current_user_rating` and `last_activity_at` (the
+later of `updated_at` and the newest audit event).
+
+`GET /api/v1/matters/{id}/assertion-stats` accepts the same filters except
+`q`. It returns counts by status, origin, origin and status, type, evidence
+status and author, model confidence by origin, and the current-revision rating
+aggregates. With `created_bucket_edges` (comma-separated instants) it also
+returns creation counts per bucket. Unknown query parameters are rejected with
+422, as are invalid filter values and bucket edges that are not strictly
+increasing instants within the years 1 to 9999 in UTC.
+
+`GET /api/v1/matters/{id}/graph` shows accepted assertions by default. With
+`show_unreviewed=true` it adds proposed, disputed, rejected and superseded
+ones. Drafts, withdrawn assertions and those returned for revision never
+appear. Each request builds its own projection from the matter's rows and
+returns at most `limit` edges (default 1000, maximum 5000) after `offset`,
+with `total`. Unknown query parameters are rejected with 422.
+
+Every instant the API returns is UTC with an explicit offset (`…Z` or
+`+00:00`). `effective_from` and `effective_to` are calendar dates and carry no
+offset.
+
+No page of the web UI downloads a whole matter. The Knowledge Base requests
+50 rows at a time and returns to the first page whenever the matter, search,
+a filter or the sort changes. It shows accepted assertions by default and
+offers every review status. Its rating sorts state that the order reflects
+user opinion, not legal authority (§17). Its CSV export requests every match
+500 rows at a time. Rows can join or leave the result set while it runs, so
+it does not step an offset through it. It pages in an order no row can move
+in: creation time for the two creation-time sorts, otherwise insertion order
+(no `sort`), after which the lines are sorted as the server sorts (code
+point order, missing ratings last, ties in insertion order). It only writes
+rows that come after the last row it wrote, so the lines keep that order.
+It holds back the last 20 rows of each full page, and the next request starts
+20 rows before those. The export continues after the last row it wrote or,
+if that row has left, at the first of those 20 rows that is still there; a
+row that the page holds before that point joined after the export passed
+it, and is left out. When neither that row nor any of the 20 is in the page
+(40 or more rows before them left between two requests, more than 480
+joined before them, or they all left), it starts over, up to three times,
+and then reports the export as failed rather than download part of it.
+Every row that matches throughout the export is therefore written exactly
+once, in the table's order; a row that joins or leaves meanwhile may or may
+not be. The file is UTF-8 with a byte-order mark, which Excel needs to open
+it directly. Each cell that begins with `=`, `+`,
+`-` or `@` (also after leading whitespace), a tab or a carriage return gets
+a leading apostrophe, so a spreadsheet never evaluates contributor text as a
+formula. The topbar search opens the Knowledge Base on all statuses, and
+submitting the same query again runs it again. Analytics reads
+`assertion-stats`, with `created_bucket_edges` at the viewer's local Monday
+midnights for its weekly chart. Profile reads
+`assertion-stats?author_user_id=<user>` for its counts, and lists the user's
+suggestions (most recently updated first) and the proposed assertions they
+have not rated, 50 at a time. Its Notifications tab lists every notification,
+50 at a time with Show more; the tab and the list take the unread count from
+`GET /notifications/unread-count`, which covers notifications not loaded
+yet. The UI reads an instant that has no offset as UTC.
+
+## Review decision rules (2026-11-16)
+
+Every review decision (`accept`, `reject`, `dispute`, `request-revision`,
+`supersede`) accepts an optional `expected_revision_number`, the revision the
+reviewer looked at, and an optional `expected_status`, the status the reviewer
+saw (one of the assertion statuses; any other value is 422). If the assertion
+has moved on to another revision, or its status is no longer `expected_status`,
+the decision is refused with 409 and nothing changes. A decision changes the
+status but creates no revision, so only `expected_status` shows that someone
+else decided, withdrew or resubmitted the assertion after the reviewer's page
+loaded it; that refusal's `detail` is `assertion status has changed since
+expected_status: it is now '<status>'`. A stale revision is reported first, and
+a decision that the current status refuses anyway (a repeat, or a draft,
+withdrawn or superseded assertion, below) gives that reason instead. A decision
+that carries both fields therefore applies to, and is audited against, the
+revision and the status that were reviewed. Both fields are optional, as
+`expected_revision_number` is on PATCH. Once the request body is well-formed,
+checks run in this order: 404 (unknown assertion), 403 (permission), 409 (stale
+revision or status), 422 (invalid request content). The write only succeeds
+while the assertion still has the status and revision that were checked. A
+concurrent decision or edit therefore gets 409 rather than being overwritten.
+The decision takes the database write lock after those checks and re-reads the
+assertion: the revision and status the request names are checked again then, so
+a decision or edit committed meanwhile is refused with the same reason, and the
+rules below that depend on other rows (the evidence an accept needs, a
+supersede's successor, a live copy of a revived assertion) are checked on what
+is committed when the decision is written.
+
+Decisions are recorded only on assertions that are proposed,
+revision_requested, disputed, accepted or rejected. A draft must be submitted
+first, and withdrawn and superseded assertions take no decision. Repeating the
+current status, for example accepting an accepted assertion, also returns 409.
+Reviewers may still move an assertion between the reviewed statuses. A rejected
+assertion does not block its proposition (§8), so an identical live assertion
+may have been proposed since. Accepting, disputing or returning the rejected
+one would make it live again, so those decisions apply the exact-duplicate rule
+that submitting a draft applies: with an identical live assertion in the
+matter, the decision is refused with 409 and `existing_assertion_id` names it.
+
+An assertion can be accepted without a justification only if its
+`evidence_status` is `evidenced`, meaning at least one evidence row has the role
+supports, primary_basis or secondary_basis. Otherwise `acceptance_justification`
+must still contain text after sanitization and trimming. If it is missing, blank
+or contains only markup, the response is 422.
+
+The successor named in a supersede must be a different assertion in the same
+matter. It must be proposed, revision_requested, disputed or accepted, and its
+own supersede links must not lead back to the assertion being superseded.
+Otherwise the response is 422, or 404 for an unknown successor id.
+`superseded_by_assertion_id` is set only while an assertion is superseded, and
+any other decision clears it.
+
+Review text follows the same rules as all other stored text: at most 100,000
+characters (422 above that), with active markup removed. The request-revision
+comment is stored like any other comment: sanitized `comment_text`, exact
+`comment_text_raw` and a `comment_created` audit event. A comment that contains
+only markup stores nothing. The decision's own audit event holds only the
+sanitized text, as `revision_requested; comment=…` or
+`accepted; acceptance_justification=…`. All audit rows written by one decision
+share a `correlation_id`. The review routes return the full assertion, as the
+other assertion mutation routes do.
+
+The web UI applies the same rules. The Review Queue, the assertion detail page
+and the Contested page send the revision and the status on screen as
+`expected_revision_number` and `expected_status` with every decision. When a
+decision is refused with 409, the page says that nothing was recorded, gives
+the API's reason in plain words (the `detail` names request fields such as
+`expected_revision_number`; the page says "it was edited", and for a status
+that changed meanwhile "someone else already decided it" with the status it has
+now, or that its author withdrew it, that it was superseded or that it was
+resubmitted for review) and reloads, so the reviewer sees the current version
+and status before deciding again. A decision refused because it would make a
+rejected assertion live next to an identical live one says so instead.
+Adding or removing evidence changes neither the revision nor `updated_at`, so a
+page can still show supporting evidence that was removed after it loaded. An
+acceptance it sends without a justification is then refused with 422, and the
+page treats that as a stale view as well: it says that nothing was recorded
+because the assertion no longer has supporting evidence, reloads the assertion
+(and, on Contested, its evidence) and opens the justification form. The review
+panel offers no decision on a draft, withdrawn or superseded assertion, hides
+the decision that would repeat the current status, and sends one decision at a
+time: after a decision, including a supersede on the detail page, its decisions
+stay disabled until the page shows the assertion re-read after it. Confirm stays
+disabled until the acceptance justification (required unless the assertion is
+`evidenced`) or the request-revision comment has text after trimming and is at
+most 100,000 characters; the trimmed text is sent.
+
+## Assertion detail page (2026-11-16)
+
+The detail page names people from the matter roster (`GET /matters/{id}/members`,
+which every member may read) and never shows a user id as a person's name. A
+user no longer on the roster is shown as "Former member"; if the roster cannot
+be loaded, people are shown as "Team member". The header names the author and
+the last reviewer with the decision date. A Review history card lists the review
+decisions from `GET .../history`, newest first: accept, reject, dispute, request
+revision and supersede, plus submit and withdraw when the feed records them. Each
+entry shows the reviewer, the revision, the time and the acceptance justification
+or revision comment. Other audit rows, including ratings, are not listed.
+
+The Ratings card says which revision its team ratings belong to. When the
+current revision is unrated but earlier revisions were rated, it says how many
+earlier ratings exist; the reviewer's Review card says so too. The card shows the
+distribution with each strength's name and count, how many ratings include a
+rationale, and the rationales the API returns to the viewer: every rationale for
+reviewers and administrators, otherwise the viewer's own. It also states that
+ratings are individual assessments, not formal legal conclusions. A prior
+revision's ratings and rationales load under Activity. The rating editor is
+prefilled with the rater's own rating and exact text (`rationale_raw`), from the
+summary's `current_user_rating` or, when the summary cannot be loaded, from the
+rater's row in `GET .../ratings`. A save sends the rationale only when the rater
+edited it, so changing only the strength keeps the stored rationale, also when
+another tab changed it meanwhile; an emptied box removes it. When neither
+request can be loaded, the page says that the rating could not be loaded and
+offers Retry instead of an editor that would replace a rating it never showed.
+
+Subject, object and related assertions are shown by label, proposition and
+status. A legacy reference without a label is marked as an external reference.
+Opening a link to an assertion of another matter the user belongs to switches
+the active matter to that matter. If the user then switches away, the page
+offers to switch back instead of switching on its own. A user who is not a
+member of the assertion's matter is told so.
+
+System-generated assertions (written by the definition-linking pipeline) are
+shown as such. The pipeline is named as the author, and the user the run is
+attributed to (`--triggered-by-user-id`) is named only as that. The evidence
+badge reads "System-derived" instead of "Awaiting evidence". The Review Queue and
+Contested show these assertions the same way: a queue card reads "Generated by
+the definition-linking pipeline · run attributed to …" instead of "Suggested
+by …", and both label one without evidence "System-derived". Accepting one
+without evidence still requires a justification. Every such assertion
+has a revision 1 record (written by the persistence-layer invariant, or by the
+backfill migration for databases linked earlier), so it can be rated. Should a
+current revision have no stored record all the same (a row written outside the
+application), the page says so and offers no rating.
+
+Evidence can be attached and removed after creation (§6, §8, §10). **Attach
+evidence** searches the matter's source passages (`GET /matters/{id}/source-spans`)
+and offers the six evidence roles. Supports, Primary basis and Secondary basis
+count as supporting evidence. Removing a passage asks for confirmation. The page
+offers these controls under the edit rule (§12): to the author, with contributor
+membership, of a draft, proposed or revision-requested assertion, and to
+reviewers and administrators for any assertion. Everyone else sees the evidence
+read-only. The page does not attach a passage again with a role it already has,
+and it keeps the last supporting passage of an accepted assertion. When the API
+refuses a change, the page shows the API's reason.
+
+Comments are shown as threads (§9). A reply appears under the comment it
+answers, and a deleted comment that still has replies keeps its place as
+"[comment removed]". Comments by members who now hold the reviewer or
+administrator role carry a Reviewer or Admin badge. Members who may comment can
+reply to a live comment, and edit or delete their own comments. An edit starts
+from the text exactly as written (`comment_text_raw`), and a deletion asks for
+confirmation. An edited comment is marked "(edited)". When the API refuses an
+action, the form stays open with the text and the API's reason.
+
+Activity lists every revision with its text, editor, time and reason, and loads
+each revision's ratings on request. With two or more revisions, any two can be
+compared side by side (§3). The comparison shows the text and the recorded
+fields (assertion type, subject, object, jurisdiction, effective from and to)
+and marks every field that differs as Changed. It also shows each revision's
+reason and that revision's own team ratings. Whenever the page reads the
+current revision's ratings again for the Ratings card (after the user rates or
+removes a rating, and on every reload), the current revision's ratings under
+Activity, once loaded, are read again too, and an open comparison that includes
+the current revision shows its new summary, so all of them agree.
+
+On an accepted assertion, reviewers and administrators can mark it superseded by
+another accepted assertion of the same matter (§1, §10). They choose the
+replacement from the related accepted assertions or by searching the matter's
+accepted assertions. The assertion itself, and an assertion whose supersede link
+already points back to it, are not offered. A superseded assertion's page links
+to the assertion that replaced it and shows that assertion's status.

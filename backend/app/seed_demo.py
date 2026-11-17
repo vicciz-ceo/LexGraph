@@ -4,16 +4,27 @@ Usage (from ``backend/``, after ``pip install -e '.[dev]'`` — the seeder
 drives the real HTTP API via Starlette's TestClient, which needs httpx):
 
     .venv/bin/python -m app.seed_demo            # writes ./dev.db
-    .venv/bin/python -m app.seed_demo --reset    # start over
+    .venv/bin/python -m app.seed_demo --reset    # start a demo database over
+
+`--reset` replaces only a demo database (one holding the demo accounts) or an
+empty file; any other existing file, such as a bootstrapped workspace, is
+refused and left untouched. `--quiet` prints nothing when the seed succeeds:
+scripts/demo.sh and scripts/dev-backend.sh serve the database themselves, on
+ports of their own, and say so. Ctrl-C stops the seed at once.
 
 Then serve it:
 
     LEXGRAPH_DATABASE_URL=sqlite:///dev.db .venv/bin/uvicorn app.main:app --port 8000
 
-Sign in from the frontend with one of the seeded user ids (the bearer
-token IS the user id — ``app/auth.py`` test-token seam):
+Sign in from the frontend with one of the demo sign-in tokens:
 
     admin · reviewer · contributor · viewer
+
+Demo only: each demo account's sign-in token is its role name, which is
+also its public user id, so anyone can sign in as any demo account. The
+admin console flags these as legacy sign-ins and the server logs a
+warning at startup. Real deployments use ``app.bootstrap`` and the Users
+API, which issue random tokens (``app/auth.py``).
 
 Everything domain-side (assertions, submissions, reviews, ratings,
 comments, evidence) is created through the real API endpoints, so
@@ -28,6 +39,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
+import sqlite3
 import sys
 import uuid
 from pathlib import Path
@@ -54,26 +67,63 @@ DPA_QUOTES = [
 ]
 
 
-def _auth(user_id: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {user_id}"}
+def _auth(demo_token: str) -> dict[str, str]:
+    """Bearer header for a demo account (its token is its role name)."""
+    return {"Authorization": f"Bearer {demo_token}"}
 
 
 def _entity(kind: str) -> dict:
     return {"type": kind, "id": str(uuid.uuid4())}
 
 
+def database_kind(path: Path) -> str:
+    """What an existing file at `path` holds: "empty" (0 bytes), "demo" (the
+    seeded demo accounts, the test scripts/demo.sh applies too), "other" (a
+    LexGraph workspace without them, such as one from app.bootstrap) or
+    "foreign" (not a LexGraph database). Opened read-only."""
+    if path.stat().st_size == 0:
+        return "empty"
+    try:
+        db = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            user_ids = {row[0] for row in db.execute("SELECT id FROM users")}
+        finally:
+            db.close()
+    except sqlite3.DatabaseError:
+        return "foreign"
+    return "demo" if {user[0] for user in DEMO_USERS} <= user_ids else "other"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", default="dev.db", help="SQLite file to create (default: dev.db)")
-    parser.add_argument("--reset", action="store_true", help="delete the DB file first")
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="replace an existing demo database (or an empty file); any other file is refused",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="print nothing when the seed succeeds, for a script that serves the database "
+        "itself and prints its own instructions (a refusal is still explained)",
+    )
     args = parser.parse_args(argv)
 
     db_path = Path(args.db)
-    if args.reset and db_path.exists():
-        db_path.unlink()
     if db_path.exists():
-        print(f"{db_path} already exists — pass --reset to reseed from scratch.")
-        return 1
+        kind = database_kind(db_path)
+        if kind in ("other", "foreign"):
+            # --reset used to unlink whatever it was given, so following the
+            # hint deleted a real workspace (ops new:seed-reset-warning).
+            what = ("a LexGraph workspace without the demo accounts (for example one from "
+                    "app.bootstrap)" if kind == "other" else "not a LexGraph database")
+            print(f"{db_path} is {what}; it was left untouched, and --reset does not replace it. "
+                  "Seed the demo into another file, for example --db demo.db.")
+            return 1
+        if not args.reset:
+            print(f"{db_path} already exists ({'the demo workspace' if kind == 'demo' else 'an empty file'})"
+                  " — pass --reset to reseed it from scratch.")
+            return 1
+        db_path.unlink()
 
     os.environ["LEXGRAPH_DATABASE_URL"] = f"sqlite:///{db_path}"
 
@@ -81,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     # demo database.
     from fastapi.testclient import TestClient
 
+    from app.auth import hash_sign_in_token
     from app.db import Base
     from app.main import create_app
     from app.models.assertion import Assertion
@@ -104,15 +155,27 @@ def main(argv: list[str] | None = None) -> int:
         repository_id=repo.id,
         name="MSA — Acme ↔ Blue Ridge Logistics",
     )
+    # GET /me lists a user's matters by name and the web app opens the first
+    # one when the browser has no matter saved yet, so the second matter's
+    # name sorts after the showcase's: admin and reviewer, who belong to both,
+    # start on the populated MSA matter like everyone else (acceptance run 2).
     dpa = Matter(
         id=str(uuid.uuid4()),
         repository_id=repo.id,
-        name="Data Processing Addendum — Acme",
+        name="Vendor DPA — Acme",
     )
     session.add_all([org, repo, msa, dpa])
 
     for user_id, email, display_name, _role in DEMO_USERS:
-        session.add(User(id=user_id, email=email, display_name=display_name))
+        # Demo token = role name = user id (documented in README/RUNBOOK).
+        session.add(
+            User(
+                id=user_id,
+                email=email,
+                display_name=display_name,
+                sign_in_token_hash=hash_sign_in_token(user_id),
+            )
+        )
     for user_id, _email, _display_name, role in DEMO_USERS:
         session.add(
             MatterRole(id=str(uuid.uuid4()), user_id=user_id, matter_id=msa.id, role=role)
@@ -394,13 +457,26 @@ def main(argv: list[str] | None = None) -> int:
 
     session.close()
 
+    if args.quiet:
+        return 0
     total = len(MSA_QUOTES) + len(DPA_QUOTES)
     print(f"Seeded {db_path} — 2 matters, {len(DEMO_USERS)} users, {total} source spans.")
     print("Serve it:")
     print(f"  LEXGRAPH_DATABASE_URL=sqlite:///{db_path} .venv/bin/uvicorn app.main:app --port 8000")
-    print("Sign-in ids (token = user id): " + ", ".join(u for u, *_ in DEMO_USERS))
+    print(
+        "Demo sign-in tokens (demo only; each equals the public user id): "
+        + ", ".join(u for u, *_ in DEMO_USERS)
+    )
     return 0
 
 
 if __name__ == "__main__":
+    # Ctrl-C ends the process at once, as an uncaught KeyboardInterrupt would.
+    # As a KeyboardInterrupt it could land while the TestClient above was
+    # starting a request's event-loop thread (anyio's start_blocking_portal),
+    # and the main thread then waited for that thread forever: the seed, and
+    # scripts/demo.sh waiting for it, hung until a second Ctrl-C. Nothing here
+    # needs cleaning up: SQLite rolls back an unfinished write, and the scripts
+    # discard an unfinished seed.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(main())

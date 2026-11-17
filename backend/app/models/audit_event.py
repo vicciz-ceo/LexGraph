@@ -10,6 +10,13 @@ nullable — spec: "Previous value where appropriate", "New value where
 appropriate", and not every audited event (e.g. future non-assertion
 events) need reference a specific assertion/revision. Schema only — B3
 owns `app.services.audit` (the code that writes these rows).
+
+`correlation_id` stays nullable in the schema (rows written before
+2026-11-16 may lack one), but no row is inserted without one any more:
+`app.services.audit.record_audit_event` always sets it, and a writer that
+builds an `AuditEvent` itself gets the Python-side default below -- the
+correlation id of the API request being served, else a fresh one (finding
+api:5). A Python-side default changes no DDL, so no migration is needed.
 """
 
 from __future__ import annotations
@@ -17,19 +24,23 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.db_types import UtcDateTime
 
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
+    # History, last activity and review history read an assertion's events
+    # (migration 20261116_assertion_read_indexes).
+    __table_args__ = (Index("ix_audit_events_assertion_id_event_type", "assertion_id", "event_type"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     actor_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     event_type: Mapped[str] = mapped_column(String(128), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
 
     repository_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("repositories.id"), nullable=False
@@ -44,4 +55,13 @@ class AuditEvent(Base):
 
     previous_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
-    correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, default=lambda: _default_correlation_id()
+    )
+
+
+def _default_correlation_id() -> str:
+    # Imported lazily: app.services.audit imports this module.
+    from app.services.audit import new_correlation_id
+
+    return new_correlation_id()

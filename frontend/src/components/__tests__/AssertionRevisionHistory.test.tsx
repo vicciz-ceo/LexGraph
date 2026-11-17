@@ -38,6 +38,51 @@ describe("AssertionRevisionHistory", () => {
     expect(screen.getByText("Clarified scope")).toBeInTheDocument();
   });
 
+  // Findings ui:15 / pipeline:8: mounted as the detail page's Activity
+  // timeline, which marks the current revision and shows each revision's
+  // ratings below it.
+  it("marks the current revision and renders the caller's footer per revision", () => {
+    render(
+      <AssertionRevisionHistory
+        revisions={revisions}
+        currentRevisionNumber={2}
+        onCompare={vi.fn()}
+        renderFooter={(n) => <button type="button">{`Ratings of ${n}`}</button>}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items[1]).toHaveTextContent("current");
+    expect(items[0]).not.toHaveTextContent("current");
+    expect(screen.getByRole("button", { name: "Ratings of 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ratings of 2" })).toBeInTheDocument();
+  });
+
+  it("enables Compare only with exactly two revisions selected, keeping the latest two", () => {
+    const onCompare = vi.fn();
+    render(
+      <AssertionRevisionHistory
+        revisions={[...revisions, { revisionNumber: 3, proposition: "Third.", editedBy: "Reviewer B" }]}
+        onCompare={onCompare}
+      />,
+    );
+    const compare = screen.getByRole("button", { name: "Compare selected revisions" });
+    expect(compare).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Select revision 3 for comparison"));
+    expect(compare).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Select revision 1 for comparison"));
+    fireEvent.click(screen.getByLabelText("Select revision 2 for comparison"));
+    // Selecting a third revision drops the first one selected.
+    expect(screen.getByLabelText("Select revision 3 for comparison")).not.toBeChecked();
+    fireEvent.click(compare);
+    expect(onCompare).toHaveBeenCalledWith(1, 2);
+  });
+
+  it("offers no comparison for a single revision", () => {
+    render(<AssertionRevisionHistory revisions={[revisions[0]]} onCompare={vi.fn()} />);
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /compare/i })).not.toBeInTheDocument();
+  });
+
   // Track A, item A7 (issue #2 / gate G1): revision history is a
   // diff/compare-classified read path, so it must render the RAW authored
   // proposition -- byte-exact, including angle-bracket prose the sanitizer

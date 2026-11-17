@@ -1,21 +1,25 @@
 // ProfilePage — the signed-in user's activity in the current matter.
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AppNotification,
   Assertion,
+  AssertionList,
   AssertionListParams,
+  AssertionStats,
+  AssertionStatsParams,
   MatterRoleName,
 } from "../../api/types";
 
 const mocks = vi.hoisted(() => ({
   role: "reviewer" as MatterRoleName,
+  selectMatter: vi.fn(),
 }));
 
-vi.mock("../../app/session", () => ({
-  useActiveSession: () => {
+vi.mock("../../app/session", () => {
+  const useActiveSession = () => {
     const current = {
       id: "m-1",
       name: "Acme v. Zenith",
@@ -36,17 +40,27 @@ vi.mock("../../app/session", () => ({
       currentMatter: current,
       role: mocks.role,
     };
-  },
-}));
+  };
+  return {
+    useActiveSession,
+    // The notifications tab's links switch matter through useSession().
+    useSession: () => ({ session: useActiveSession(), selectMatter: mocks.selectMatter }),
+  };
+});
 
 vi.mock("../../api/client", () => ({
   api: {
+    assertionStats: vi.fn(),
     listAssertions: vi.fn(),
     notifications: vi.fn(),
+    unreadNotificationCount: vi.fn(),
+    markNotificationRead: vi.fn(),
+    markAllNotificationsRead: vi.fn(),
   },
 }));
 
 import { api } from "../../api/client";
+import { NOTIFICATIONS_CHANGED_EVENT } from "../../constants/notifications";
 import { ProfilePage } from "../ProfilePage";
 
 const mockedApi = vi.mocked(api);
@@ -163,16 +177,76 @@ const notificationItems: AppNotification[] = [
   },
 ];
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocks.role = "reviewer";
+/** A stand-in for the server over `matter` (all of the matter's assertions)
+ * and `unrated` (what unrated_by_me returns): it filters by author and
+ * origin, sorts by -updated_at and pages like GET /assertions, and
+ * aggregates like GET /matters/{id}/assertion-stats. */
+function serve(matter: Assertion[], unrated: Assertion[]) {
   mockedApi.listAssertions.mockImplementation(
-    async (_matterId: string, params: AssertionListParams = {}) =>
-      params.unrated_by_me
-        ? { items: awaitingItems, total: 2 }
-        : { items: matterItems, total: matterItems.length },
+    async (_matterId: string, params: AssertionListParams = {}): Promise<AssertionList> => {
+      let rows = params.unrated_by_me ? unrated : matter;
+      if (params.author_user_id) rows = rows.filter((a) => a.author_user_id === params.author_user_id);
+      if (params.origin) rows = rows.filter((a) => a.origin === params.origin);
+      if (params.sort === "-updated_at") {
+        rows = [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      }
+      const offset = params.offset ?? 0;
+      const end = params.limit === undefined ? rows.length : offset + params.limit;
+      return { items: rows.slice(offset, end), total: rows.length, limit: params.limit ?? null, offset };
+    },
   );
+  mockedApi.assertionStats.mockImplementation(
+    async (_matterId: string, params: AssertionStatsParams = {}): Promise<AssertionStats> => {
+      const rows = matter.filter(
+        (a) => !params.author_user_id || a.author_user_id === params.author_user_id,
+      );
+      const byStatus: AssertionStats["by_status"] = {};
+      const byOrigin: AssertionStats["by_origin"] = {};
+      const byOriginStatus: AssertionStats["by_origin_status"] = {};
+      for (const a of rows) {
+        byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
+        byOrigin[a.origin] = (byOrigin[a.origin] ?? 0) + 1;
+        const statuses = (byOriginStatus[a.origin] ??= {});
+        statuses[a.status] = (statuses[a.status] ?? 0) + 1;
+      }
+      return {
+        matter_id: "m-1",
+        total: rows.length,
+        by_status: byStatus,
+        by_origin: byOrigin,
+        by_origin_status: byOriginStatus,
+        by_type: {},
+        by_evidence_status: {},
+        authors: [],
+        confidence_by_origin: {},
+        ratings: { rated_assertions: 0, ratings: 0, average_of_averages: null },
+        created_buckets: [],
+      };
+    },
+  );
+}
+
+function mine(count: number): Assertion[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeAssertion({
+      id: `mine-${i}`,
+      proposition: `My suggestion number ${i}.`,
+      status: i % 3 === 0 ? "accepted" : "proposed",
+      // Newest first is mine-0, mine-1, …
+      updated_at: new Date(Date.UTC(2026, 6, 20) - i * 60_000).toISOString(),
+    }),
+  );
+}
+
+beforeEach(() => {
+  // Reset, not just clear: a once-only rejection a test did not consume
+  // must not leak into the next one.
+  vi.resetAllMocks();
+  mocks.role = "reviewer";
+  window.location.hash = "";
+  serve(matterItems, awaitingItems);
   mockedApi.notifications.mockResolvedValue(notificationItems);
+  mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 1 });
 });
 
 async function renderPage() {
@@ -181,14 +255,30 @@ async function renderPage() {
 }
 
 describe("ProfilePage", () => {
-  it("renders identity from the session and stats computed from the matter's assertions", async () => {
+  it("renders identity from the session and stats from my aggregates in the matter", async () => {
     await renderPage();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {});
+    // ui:1: counts come from the stats endpoint filtered by author, and the
+    // lists are bounded server pages; the matter is never downloaded.
+    expect(mockedApi.assertionStats).toHaveBeenCalledWith("m-1", { author_user_id: "u-me" });
+    // My suggestions: my colleague-style and AI-deduced assertions (the
+    // endpoint filters one origin at a time), newest first.
+    for (const origin of ["user_suggested", "model_suggested"]) {
+      expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+        author_user_id: "u-me",
+        origin,
+        sort: "-updated_at",
+        limit: 50,
+        offset: 0,
+      });
+    }
     expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
       status: "proposed",
       unrated_by_me: true,
+      limit: 50,
+      offset: 0,
     });
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(3);
 
     // Identity header: name + role badge + email + matter scope.
     expect(screen.getByRole("heading", { name: /Noa Levi/ })).toBeInTheDocument();
@@ -228,7 +318,22 @@ describe("ProfilePage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
 
+    // The server filters by author and orders newest first.
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith(
+      "m-1",
+      expect.objectContaining({ author_user_id: "u-me", sort: "-updated_at" }),
+    );
     const panel = screen.getByRole("tabpanel");
+    expect(
+      within(panel)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual([
+      "The guarantee covers obligations incurred before closing.",
+      "Termination requires 90 days' written notice.",
+      "The 2021 lease amendment extends the term to 2030.",
+      "Renewal rent resets to fair market value.",
+    ]);
     expect(within(panel).getByText("Accepted")).toBeInTheDocument();
     expect(within(panel).getByText("Rejected")).toBeInTheDocument();
     expect(within(panel).getByText("Proposed")).toBeInTheDocument();
@@ -241,7 +346,7 @@ describe("ProfilePage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lists notifications newest first with humanized event types and the reset note", async () => {
+  it("lists notifications newest first with humanized event types and the storage note", async () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
@@ -251,15 +356,240 @@ describe("ProfilePage", () => {
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("Rating added");
     expect(items[1]).toHaveTextContent("Assertion accepted");
-    expect(within(panel).getByText(/reset when the server restarts/)).toBeInTheDocument();
+    // Notifications are stored server-side now (pipeline:9); the old
+    // "reset when the server restarts" note is no longer true.
+    expect(within(panel).getByText(/kept until you read them/)).toBeInTheDocument();
+    expect(within(panel).queryByText(/reset when the server restarts/)).not.toBeInTheDocument();
+  });
+
+  it("links notifications to their assertion, marks them read and switches matter when needed", async () => {
+    const context = {
+      proposition: "Clause 9 restricts assignment without consent.",
+      assertion_status: "rejected" as const,
+      assertion_origin: "user_suggested" as const,
+      matter_name: "Acme v. Zenith",
+      actor_display_name: "Riva Reviewer",
+    };
+    mockedApi.notifications.mockResolvedValue([
+      {
+        id: "n-here",
+        event_type: "assertion_rejected",
+        actor_user_id: "u-reviewer",
+        recipient_user_id: "u-me",
+        payload: { assertion_id: "a-1", matter_id: "m-1" },
+        assertion_id: "a-1",
+        matter_id: "m-1",
+        link: "/assertions/a-1",
+        context,
+        created_at: "2026-07-26T10:00:00Z",
+        read: false,
+      },
+      {
+        id: "n-there",
+        event_type: "assertion_submitted",
+        actor_user_id: "u-other",
+        recipient_user_id: "u-me",
+        payload: { assertion_id: "a-9", matter_id: "m-2" },
+        assertion_id: "a-9",
+        matter_id: "m-2",
+        link: "/assertions/a-9",
+        context: { ...context, matter_name: "Estate of Harel", actor_display_name: "Dan" },
+        created_at: "2026-07-25T10:00:00Z",
+        read: false,
+      },
+    ]);
+    mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 2 });
+    mockedApi.markNotificationRead.mockResolvedValue({} as AppNotification);
+    mockedApi.markAllNotificationsRead.mockResolvedValue({ marked_read: 1, unread_count: 0 });
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    const panel = screen.getByRole("tabpanel");
+
+    expect(await within(panel).findByText("2 unread")).toBeInTheDocument();
+    const here = within(panel).getByRole("link", { name: /Assertion rejected/ });
+    expect(here).toHaveAttribute("href", "#/assertions/a-1");
+    expect(here).toHaveTextContent("Clause 9 restricts assignment without consent.");
+    expect(here).toHaveTextContent("Riva Reviewer · Acme v. Zenith");
+
+    fireEvent.click(here);
+    expect(mockedApi.markNotificationRead).toHaveBeenCalledWith("n-here");
+    expect(mocks.selectMatter).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#/assertions/a-1");
+    expect(within(panel).getByText("1 unread")).toBeInTheDocument();
+
+    // What the server reports once both are read.
+    mockedApi.unreadNotificationCount.mockResolvedValue({ unread_count: 0 });
+    fireEvent.click(within(panel).getByRole("link", { name: /submitted for review/ }));
+    expect(mocks.selectMatter).toHaveBeenCalledWith("m-2");
+    expect(window.location.hash).toBe("#/assertions/a-9");
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+    // Each write is followed by one re-read of the server's unread count.
+    await waitFor(() => expect(mockedApi.unreadNotificationCount).toHaveBeenCalledTimes(3));
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+  });
+
+  it("marks everything shown as read in one call", async () => {
+    mockedApi.markAllNotificationsRead.mockResolvedValue({ marked_read: 1, unread_count: 0 });
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    const panel = screen.getByRole("tabpanel");
+
+    fireEvent.click(await within(panel).findByRole("button", { name: "Mark all as read" }));
+    // The newest notification shown bounds what is marked.
+    expect(mockedApi.markAllNotificationsRead).toHaveBeenCalledWith("2026-07-25T10:00:00Z");
+    expect(within(panel).getByText("All read")).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Mark all as read" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Notifications/ })).not.toHaveTextContent(/unread/));
+  });
+
+  // Review fe-shell-authoring:2: GET /notifications returns 50 by default, and
+  // the tab listed and counted only those, so older notices could not be
+  // reached and the unread figures stopped at 50.
+  describe("notifications beyond the first 50", () => {
+    /** `count` notices, newest first, a minute apart; `isUnread(i)` says which. */
+    function notices(count: number, isUnread: (i: number) => boolean): AppNotification[] {
+      return Array.from({ length: count }, (_, i) => ({
+        id: `nt-${i}`,
+        event_type: "assertion_submitted",
+        actor_user_id: "u-other",
+        recipient_user_id: "u-me",
+        payload: {},
+        assertion_id: null,
+        matter_id: "m-1",
+        link: null,
+        context: {
+          proposition: `Notice number ${i}.`,
+          assertion_status: "proposed",
+          assertion_origin: "user_suggested",
+          matter_name: "Acme v. Zenith",
+          actor_display_name: "Dan",
+        },
+        created_at: new Date(Date.UTC(2026, 10, 16, 12) - i * 60_000).toISOString(),
+        read: !isUnread(i),
+      }));
+    }
+
+    /** The notification routes over `store` (newest first), like the server:
+     * limit (default 50) and offset, the unread count, and both read writes. */
+    function serveNotifications(store: AppNotification[]) {
+      mockedApi.notifications.mockImplementation(async (params = {}) => {
+        const offset = params.offset ?? 0;
+        return store.slice(offset, offset + (params.limit ?? 50)).map((n) => ({ ...n }));
+      });
+      const unread = () => store.filter((n) => !n.read).length;
+      mockedApi.unreadNotificationCount.mockImplementation(async () => ({ unread_count: unread() }));
+      mockedApi.markNotificationRead.mockImplementation(async (id: string) => {
+        const n = store.find((x) => x.id === id)!;
+        n.read = true;
+        return { ...n };
+      });
+      mockedApi.markAllNotificationsRead.mockImplementation(async (lastReadAt?: string) => {
+        let marked = 0;
+        for (const n of store) {
+          if (!n.read && (lastReadAt === undefined || Date.parse(n.created_at) <= Date.parse(lastReadAt))) {
+            n.read = true;
+            marked += 1;
+          }
+        }
+        return { marked_read: marked, unread_count: unread() };
+      });
+    }
+
+    const tab = () => screen.getByRole("tab", { name: /Notifications/ });
+    const rows = () => within(screen.getByRole("tabpanel")).getAllByRole("listitem");
+
+    it("counts every unread notice and lists them all, 50 at a time", async () => {
+      serveNotifications(notices(93, (i) => i >= 16)); // 77 unread
+      await renderPage();
+
+      await waitFor(() => expect(tab()).toHaveTextContent("77 unread"));
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      expect(within(panel).getByText("77 unread")).toBeInTheDocument();
+      expect(rows()).toHaveLength(50);
+      expect(mockedApi.notifications).toHaveBeenCalledWith({ limit: 50, offset: 0 });
+      expect(within(panel).getByText("Showing the newest 50")).toBeInTheDocument();
+
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(93));
+      expect(mockedApi.notifications).toHaveBeenLastCalledWith({ limit: 50, offset: 50 });
+      expect(within(panel).getByText("Notice number 92.")).toBeInTheDocument();
+      // The last page came back short: everything is listed.
+      expect(within(panel).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+    });
+
+    it("keeps Mark all as read available while unread notices lie past the loaded ones", async () => {
+      serveNotifications(notices(77, (i) => i >= 50)); // the 27 oldest are unread
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+
+      expect(await within(panel).findByText("27 unread")).toBeInTheDocument();
+      expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
+      const markAll = within(panel).getByRole("button", { name: "Mark all as read" });
+      expect(markAll).toBeEnabled();
+
+      fireEvent.click(markAll);
+      expect(mockedApi.markAllNotificationsRead).toHaveBeenCalledWith(new Date(Date.UTC(2026, 10, 16, 12)).toISOString());
+      expect(await within(panel).findByText("All read")).toBeInTheDocument();
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(77));
+      // The older notices were marked as well.
+      expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
+      expect(tab()).not.toHaveTextContent(/unread/);
+    });
+
+    it("keeps the longer list when the bell reports a change", async () => {
+      const store = notices(93, (i) => i >= 16);
+      serveNotifications(store);
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      fireEvent.click(await within(panel).findByRole("button", { name: "Show more" }));
+      await waitFor(() => expect(rows()).toHaveLength(93));
+
+      // The bell marks everything read and says so.
+      for (const n of store) n.read = true;
+      act(() => {
+        window.dispatchEvent(new CustomEvent(NOTIFICATIONS_CHANGED_EVENT, { detail: { source: "menu" } }));
+      });
+
+      expect(await within(panel).findByText("All read")).toBeInTheDocument();
+      await waitFor(() => expect(within(panel).queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument());
+      expect(rows()).toHaveLength(93);
+      // One request re-read every notice shown.
+      expect(mockedApi.notifications).toHaveBeenLastCalledWith({ limit: 93, offset: 0 });
+    });
+
+    it("lists a notice once when a new arrival shifts the next page", async () => {
+      const store = notices(60, () => false);
+      serveNotifications(store);
+      await renderPage();
+      fireEvent.click(tab());
+      const panel = screen.getByRole("tabpanel");
+      await waitFor(() => expect(rows()).toHaveLength(50));
+
+      store.unshift({ ...store[0], id: "nt-new", created_at: "2026-11-16T12:30:00.000Z" });
+      fireEvent.click(within(panel).getByRole("button", { name: "Show more" }));
+
+      await waitFor(() => expect(rows()).toHaveLength(60));
+      const texts = rows().map((row) => row.textContent);
+      expect(new Set(texts).size).toBe(60);
+      expect(within(panel).getByText("Notice number 59.")).toBeInTheDocument();
+    });
   });
 
   it("hides rating work entirely from viewers and skips the unrated query", async () => {
     mocks.role = "viewer";
     await renderPage();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(1);
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {});
+    // Only my suggestions' two lists: no unrated query.
+    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
+    for (const [, params] of mockedApi.listAssertions.mock.calls) {
+      expect(params).toMatchObject({ author_user_id: "u-me", sort: "-updated_at", limit: 50 });
+      expect(params).not.toHaveProperty("unrated_by_me");
+    }
+    expect(mockedApi.assertionStats).toHaveBeenCalledTimes(1);
 
     expect(screen.queryByRole("tab", { name: /Awaiting my rating/ })).not.toBeInTheDocument();
     expect(screen.queryByTestId("pf-stat-awaiting")).not.toBeInTheDocument();
@@ -273,12 +603,7 @@ describe("ProfilePage", () => {
   });
 
   it("renders empty states and an em-dash acceptance rate when I authored nothing", async () => {
-    mockedApi.listAssertions.mockImplementation(
-      async (_matterId: string, params: AssertionListParams = {}) =>
-        params.unrated_by_me
-          ? { items: [], total: 0 }
-          : { items: [matterItems[4]], total: 1 },
-    );
+    serve([matterItems[4]], []);
     await renderPage();
 
     expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^0$/);
@@ -294,13 +619,132 @@ describe("ProfilePage", () => {
   });
 
   it("shows an error banner with a retry control when loading fails", async () => {
-    mockedApi.listAssertions.mockRejectedValueOnce(new Error("backend unreachable"));
+    mockedApi.assertionStats.mockRejectedValueOnce(new Error("backend unreachable"));
     render(<ProfilePage />);
 
     expect(await screen.findByText(/backend unreachable/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByTestId("pf-stat-suggestions")).toBeInTheDocument();
+  });
+
+  it("counts every suggestion of a large matter from the aggregates, listing 50 at a time", async () => {
+    const authored = mine(4_321);
+    serve([...authored, matterItems[4]], awaitingItems);
+    await renderPage();
+
+    expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^4,321$/);
+    // mine-0, 3, 6, … are accepted: 1,441 of 4,321; nothing rejected.
+    expect(screen.getByTestId("pf-stat-accepted")).toHaveTextContent(/^1,441$/);
+    expect(screen.getByTestId("pf-stat-acceptance")).toHaveTextContent(/^100%$/);
+    for (const [, params] of mockedApi.listAssertions.mock.calls) {
+      expect(params?.limit).toBe(50);
+    }
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(screen.getByRole("tab", { name: /My suggestions/ })).toHaveTextContent("4,321");
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getAllByRole("link")).toHaveLength(50);
+    expect(within(panel).getByText("Showing 50 of 4,321")).toBeInTheDocument();
+  });
+
+  it("loads more of my suggestions on demand, 50 at a time", async () => {
+    serve(mine(120), awaitingItems);
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    const panel = () => screen.getByRole("tabpanel");
+    expect(within(panel()).getAllByRole("link")).toHaveLength(50);
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() => expect(within(panel()).getAllByRole("link")).toHaveLength(100));
+    // The newest 100 of each origin, merged.
+    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {
+      author_user_id: "u-me",
+      origin: "user_suggested",
+      sort: "-updated_at",
+      limit: 100,
+      offset: 0,
+    });
+    expect(within(panel()).getByText("Showing 100 of 120")).toBeInTheDocument();
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() => expect(within(panel()).getAllByRole("link")).toHaveLength(120));
+    const links = within(panel()).getAllByRole("link");
+    expect(links[0]).toHaveTextContent("My suggestion number 0.");
+    expect(links[119]).toHaveTextContent("My suggestion number 119.");
+    expect(within(panel()).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+  });
+
+  // ui:4: the definition-linking pipeline stores its output under the user
+  // who ran it; none of it is that user's suggestion.
+  it("leaves pipeline output generated under my account out of my suggestions", async () => {
+    const pipeline = Array.from({ length: 60 }, (_, i) =>
+      makeAssertion({
+        id: `gen-${i}`,
+        proposition: `Generated definition link ${i}.`,
+        origin: "system_generated",
+        status: "accepted",
+        standing: "accepted",
+        // Newer than all of mine: a plain list would show only these.
+        updated_at: new Date(Date.UTC(2026, 7, 1) + i * 60_000).toISOString(),
+      }),
+    );
+    serve([...matterItems, ...pipeline], awaitingItems);
+    await renderPage();
+
+    // Still 4 suggestions, 1 accepted and 1 rejected: 50%.
+    expect(screen.getByTestId("pf-stat-suggestions")).toHaveTextContent(/^4$/);
+    expect(screen.getByTestId("pf-stat-accepted")).toHaveTextContent(/^1$/);
+    expect(screen.getByTestId("pf-stat-acceptance")).toHaveTextContent(/^50%$/);
+    expect(
+      screen.getByText(/60 assertions generated by the definition-linking pipeline under your account/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(screen.getByRole("tab", { name: /My suggestions/ })).toHaveTextContent("4");
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getAllByRole("link")).toHaveLength(4);
+    expect(within(panel).queryByText(/Generated definition link/)).not.toBeInTheDocument();
+  });
+
+  it("loads more of the proposed assertions awaiting my rating", async () => {
+    const queue = Array.from({ length: 75 }, (_, i) =>
+      makeAssertion({
+        id: `queue-${i}`,
+        proposition: `Awaiting number ${i}.`,
+        author_user_id: "u-other",
+      }),
+    );
+    serve(matterItems, queue);
+    await renderPage();
+
+    expect(screen.getByTestId("pf-stat-awaiting")).toHaveTextContent(/^75$/);
+    const panel = () => screen.getByRole("tabpanel");
+    expect(within(panel()).getAllByRole("link", { name: "Rate" })).toHaveLength(50);
+
+    fireEvent.click(within(panel()).getByRole("button", { name: "Show more" }));
+    await waitFor(() =>
+      expect(within(panel()).getAllByRole("link", { name: "Rate" })).toHaveLength(75),
+    );
+    expect(mockedApi.listAssertions).toHaveBeenLastCalledWith("m-1", {
+      status: "proposed",
+      unrated_by_me: true,
+      limit: 50,
+      offset: 50,
+    });
+  });
+
+  it("reports a failed Show more and keeps what is listed", async () => {
+    serve(mine(60), awaitingItems);
+    await renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    mockedApi.listAssertions.mockRejectedValueOnce(new Error("timed out"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load more: timed out");
+    expect(within(screen.getByRole("tabpanel")).getAllByRole("link")).toHaveLength(50);
+    expect(screen.getByRole("button", { name: "Show more" })).toBeEnabled();
   });
 
   it("lists my matters with roles and highlights the current one", async () => {
@@ -316,5 +760,39 @@ describe("ProfilePage", () => {
     expect(otherRow).toHaveTextContent("viewer");
     expect(otherRow).not.toHaveTextContent("Current");
     expect(within(matters).getByText(/Switch the active matter/)).toBeInTheDocument();
+  });
+});
+
+describe("ProfilePage in Asia/Tokyo", () => {
+  // ui:3: an offset-less timestamp is UTC. Read as local time it showed
+  // the UTC date and time as the viewer's (here a day early).
+  beforeAll(() => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("shows local dates and times for offset-less instants", async () => {
+    const naive = "2026-11-15T20:16:17.835814";
+    serve(
+      [makeAssertion({ id: "a-naive", proposition: "Mine, edited late UTC.", updated_at: naive })],
+      [makeAssertion({ id: "aw-naive", author_user_id: "u-other", submitted_at: naive })],
+    );
+    mockedApi.notifications.mockResolvedValue([{ ...notificationItems[0], created_at: naive }]);
+    await renderPage();
+
+    // 20:16 UTC on Nov 15 is 05:16 on Nov 16 in Tokyo.
+    expect(within(screen.getByRole("tabpanel")).getByText(/submitted Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /My suggestions/ }));
+    expect(within(screen.getByRole("tabpanel")).getByText(/updated Nov 16, 2026/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /Notifications/ }));
+    expect(
+      within(screen.getByRole("tabpanel")).getByText(
+        new Date(Date.UTC(2026, 10, 15, 20, 16, 17, 835)).toLocaleString(),
+      ),
+    ).toBeInTheDocument();
   });
 });

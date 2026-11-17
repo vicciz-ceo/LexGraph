@@ -83,6 +83,16 @@ ol {
   overflow: hidden;
 }
 
+/* Narrow-viewport navigation (see Responsive): the mobile bar with its
+ * menu button, the drawer's close button and its backdrop exist only
+ * below 768px. (`.sidebar .sidebar__close` outranks `.topbar__action`,
+ * which the close button also carries.) */
+.mobile-bar,
+.sidebar-backdrop,
+.sidebar .sidebar__close {
+  display: none;
+}
+
 .page {
   flex: 1;
   overflow-y: auto;
@@ -714,6 +724,20 @@ ol {
   color: var(--on-surface-variant);
 }
 
+/* Error boundary fallback (app/ErrorBoundary.tsx). */
+.error-state {
+  max-width: 640px;
+  margin: var(--space-lg) auto;
+}
+
+.error-state__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -901,13 +925,15 @@ ol {
   font: 500 14px/20px var(--font-family);
 }
 
-.assertion-review-actions button:first-child {
+/* Each decision is styled by what it does, not by its position: the panel
+ * offers only the decisions valid for the current status. */
+.assertion-review-actions .assertion-review-action--accept {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--on-primary);
 }
 
-.assertion-review-actions button:nth-child(2) {
+.assertion-review-actions .assertion-review-action--reject {
   color: var(--error);
   border-color: var(--error);
 }
@@ -981,11 +1007,100 @@ ol {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The sidebar was simply hidden here, leaving no navigation, matter
+   * switcher, profile or sign-out at all (finding ui:26). It is now an
+   * off-canvas drawer that the mobile bar's menu button opens
+   * (app/navDrawer.tsx); hidden, it is also out of the tab order. */
   .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(288px, 85vw);
+    box-shadow: var(--shadow-popover);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  .sidebar--open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar .sidebar__close {
+    display: grid;
+    margin-left: auto;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.32);
+  }
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 6px var(--space-md);
+    background: var(--surface-container-lowest);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-bar__title {
+    min-width: 0;
+    font: var(--title-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Under the mobile bar the topbar holds only the search, the bell and
+   * help: the search takes the row instead of sharing it with the spacer. */
+  .topbar {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .topbar__search {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .topbar__spacer {
     display: none;
+  }
+
+  /* The bell sits near the right edge here: its 360px panel, hung from the
+   * bell, ran off the left of a phone screen. It spans the topbar instead. */
+  .topbar {
+    position: relative;
+  }
+
+  .notifications {
+    position: static;
+  }
+
+  .notifications__panel {
+    left: var(--space-md);
+    right: var(--space-md);
+    width: auto;
+    max-height: min(420px, 70vh);
   }
 
   .page-header__title {
     font: var(--headline-sm);
+  }
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar--open {
+    transition: none;
   }
 }

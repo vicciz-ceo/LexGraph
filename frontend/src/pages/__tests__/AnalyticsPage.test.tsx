@@ -1,15 +1,16 @@
-// AnalyticsPage — matter-scoped dashboard computed client-side.
+// AnalyticsPage — matter-scoped dashboard over server-side aggregates.
 //
 // The page is read-only (no review/rating/suggest actions), so there is no
 // role-gated UI to cover; the tests instead verify that every displayed
-// metric is honestly derived from the single assertions fetch, that model
-// confidence and strength ratings stay separate, and that the rating-summary
-// N+1 is capped.
+// metric comes from GET /matters/{id}/assertion-stats (never from
+// downloading the matter's assertions or one rating summary per assertion,
+// audit finding ui:1), and that model confidence and strength ratings stay
+// separate.
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Assertion, RatingSummary } from "../../api/types";
+import type { AssertionStats, AssertionStatsParams } from "../../api/types";
 
 vi.mock("../../app/session", () => ({
   useActiveSession: () => {
@@ -42,6 +43,7 @@ vi.mock("../../api/client", () => {
   return {
     ApiError,
     api: {
+      assertionStats: vi.fn(),
       listAssertions: vi.fn(),
       listMatterMembers: vi.fn(),
       ratingSummary: vi.fn(),
@@ -54,128 +56,57 @@ import { AnalyticsPage } from "../AnalyticsPage";
 
 const mockedApi = vi.mocked(api);
 
-function daysAgo(days: number): string {
-  return new Date(Date.now() - days * 86_400_000).toISOString();
-}
+// The aggregates of a 6-assertion matter: total 6, accepted 2, rejected 1,
+// open 3 (proposed + revision_requested + disputed), acceptance 2/3 ≈ 67%.
+// Model confidence: mean(0.9, 0.7, 0.8) = 0.8 → 80%. Two assertions are
+// rated (averages 4.0 and 3.0) → mean of averages 3.5.
+const statsFixture: Omit<AssertionStats, "created_buckets"> = {
+  matter_id: "m-1",
+  total: 6,
+  by_status: { accepted: 2, proposed: 1, rejected: 1, disputed: 1, revision_requested: 1 },
+  by_origin: { user_suggested: 3, model_suggested: 3 },
+  by_origin_status: {
+    user_suggested: { accepted: 1, rejected: 1, revision_requested: 1 },
+    model_suggested: { accepted: 1, proposed: 1, disputed: 1 },
+  },
+  by_type: { obligation: 3, definition: 2, fact: 1 },
+  by_evidence_status: { evidenced: 6 },
+  authors: [
+    { user_id: "u-anna", total: 3, by_status: { accepted: 2, revision_requested: 1 } },
+    { user_id: "u-boris", total: 2, by_status: { proposed: 1, rejected: 1 } },
+    { user_id: "u-ghost", total: 1, by_status: { disputed: 1 } },
+  ],
+  confidence_by_origin: { model_suggested: { count: 3, average: 0.8 } },
+  ratings: { rated_assertions: 2, ratings: 5, average_of_averages: 3.5 },
+};
 
-function makeAssertion(overrides: Partial<Assertion> = {}): Assertion {
-  return {
-    id: "a-1",
-    organization_id: "o-1",
-    repository_id: "r-1",
-    matter_id: "m-1",
-    assertion_type: "obligation",
-    proposition: "The 2021 lease amendment extends the term to 2030.",
-    proposition_raw: null,
-    subject_entity: { type: "document", id: "doc-1" },
-    object_entity: null,
-    origin: "user_suggested",
-    status: "proposed",
-    standing: "proposed",
-    author_user_id: "u-anna",
-    confidence: null,
-    jurisdiction: null,
-    effective_from: null,
-    effective_to: null,
-    created_at: daysAgo(2),
-    updated_at: daysAgo(1),
-    submitted_at: daysAgo(2),
-    reviewed_by: null,
-    reviewed_at: null,
-    superseded_by_assertion_id: null,
-    current_revision_number: 1,
-    evidence_status: "evidenced",
-    ...overrides,
+/** Weekly creation counts the fake server reports, oldest week first. */
+const WEEKLY_COUNTS = [0, 0, 0, 1, 0, 1, 1, 3];
+
+/** A stand-in for the stats endpoint: `stats`, plus one bucket per pair of
+ * the edges the page sent. */
+function serveStats(stats = statsFixture, counts = WEEKLY_COUNTS) {
+  return async (_matterId: string, params: AssertionStatsParams = {}): Promise<AssertionStats> => {
+    const edges = (params.created_bucket_edges ?? "").split(",").filter(Boolean);
+    return {
+      ...stats,
+      created_buckets: edges.slice(0, -1).map((start, i) => ({
+        start,
+        end: edges[i + 1],
+        count: counts[i] ?? 0,
+      })),
+    };
   };
 }
 
-function makeSummary(overrides: Partial<RatingSummary> = {}): RatingSummary {
-  return {
-    count: 0,
-    average: null,
-    median: null,
-    distribution: {},
-    assertion_id: "a-1",
-    assertion_revision_id: "rev-1",
-    current_user_rating: null,
-    rationale_count: 0,
-    ...overrides,
-  };
+function requestedEdges(): Date[] {
+  const params = mockedApi.assertionStats.mock.calls[0][1] as AssertionStatsParams;
+  return (params.created_bucket_edges ?? "").split(",").map((edge) => new Date(edge));
 }
-
-// 6 assertions → total 6, accepted 2, rejected 1, open 3 (proposed +
-// revision_requested + disputed), acceptance 2/3 ≈ 67%. Model confidence:
-// mean(0.9, 0.7, 0.8) = 0.8 → 80%. a-4 has no current revision, so no
-// rating-summary fetch for it.
-const fixtures: Assertion[] = [
-  makeAssertion({
-    id: "a-1",
-    status: "accepted",
-    origin: "user_suggested",
-    author_user_id: "u-anna",
-    assertion_type: "obligation",
-    current_revision_number: 2,
-    created_at: daysAgo(2),
-    reviewed_by: "u-boris",
-    reviewed_at: daysAgo(1),
-  }),
-  makeAssertion({
-    id: "a-2",
-    status: "accepted",
-    origin: "model_suggested",
-    confidence: 0.9,
-    author_user_id: "u-anna",
-    assertion_type: "obligation",
-    current_revision_number: 1,
-    created_at: daysAgo(9),
-    reviewed_by: "u-boris",
-    reviewed_at: daysAgo(8),
-  }),
-  makeAssertion({
-    id: "a-3",
-    status: "proposed",
-    origin: "model_suggested",
-    confidence: 0.7,
-    author_user_id: "u-boris",
-    assertion_type: "definition",
-    current_revision_number: 1,
-    created_at: daysAgo(16),
-  }),
-  makeAssertion({
-    id: "a-4",
-    status: "rejected",
-    origin: "user_suggested",
-    author_user_id: "u-boris",
-    assertion_type: "definition",
-    current_revision_number: null,
-    created_at: daysAgo(3),
-    reviewed_by: "u-boris",
-    reviewed_at: daysAgo(2),
-  }),
-  makeAssertion({
-    id: "a-5",
-    status: "disputed",
-    origin: "model_suggested",
-    confidence: 0.8,
-    author_user_id: "u-ghost",
-    assertion_type: "fact",
-    current_revision_number: 1,
-    created_at: daysAgo(30),
-  }),
-  makeAssertion({
-    id: "a-6",
-    status: "revision_requested",
-    origin: "user_suggested",
-    author_user_id: "u-anna",
-    assertion_type: "obligation",
-    current_revision_number: 1,
-    created_at: daysAgo(1),
-  }),
-];
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedApi.listAssertions.mockResolvedValue({ items: fixtures, total: fixtures.length });
+  mockedApi.assertionStats.mockImplementation(serveStats());
   // Backend GET /matters/{id}/members returns a bare JSON array (see
   // backend/app/routers/workspace.py::list_members), not { items: [...] }.
   mockedApi.listMatterMembers.mockResolvedValue([
@@ -188,27 +119,6 @@ beforeEach(() => {
       role: "reviewer",
     },
   ]);
-  mockedApi.ratingSummary.mockImplementation(async (id: string) => {
-    if (id === "a-1") {
-      return makeSummary({
-        assertion_id: "a-1",
-        count: 3,
-        average: 4.0,
-        median: 4,
-        distribution: { "4": 3 },
-      });
-    }
-    if (id === "a-2") {
-      return makeSummary({
-        assertion_id: "a-2",
-        count: 2,
-        average: 3.0,
-        median: 3,
-        distribution: { "3": 2 },
-      });
-    }
-    return makeSummary({ assertion_id: id });
-  });
 });
 
 async function renderLoaded() {
@@ -217,10 +127,13 @@ async function renderLoaded() {
 }
 
 describe("AnalyticsPage", () => {
-  it("fetches the matter's assertions and members and derives the KPI cards", async () => {
+  it("fetches the matter's aggregates and members and derives the KPI cards", async () => {
     await renderLoaded();
 
-    expect(mockedApi.listAssertions).toHaveBeenCalledWith("m-1", {});
+    expect(mockedApi.assertionStats).toHaveBeenCalledTimes(1);
+    expect(mockedApi.assertionStats).toHaveBeenCalledWith("m-1", {
+      created_bucket_edges: expect.any(String),
+    });
     expect(mockedApi.listMatterMembers).toHaveBeenCalledWith("m-1");
     expect(screen.getByText(/Computed live from this matter/)).toBeInTheDocument();
 
@@ -230,13 +143,35 @@ describe("AnalyticsPage", () => {
     expect(screen.getByTestId("ana-kpi-acceptance")).toHaveTextContent("67%");
   });
 
+  it("never downloads the matter's assertions or one rating summary per assertion", async () => {
+    // ui:1: a matter with 20,000 assertions used to download every one of
+    // them (and 50 summaries) to compute these cards.
+    mockedApi.assertionStats.mockImplementation(
+      serveStats({
+        ...statsFixture,
+        total: 20_000,
+        by_status: { accepted: 19_000, proposed: 1_000 },
+        ratings: { rated_assertions: 1_234, ratings: 4_000, average_of_averages: 3.25 },
+      }),
+    );
+    await renderLoaded();
+
+    expect(screen.getByTestId("ana-kpi-total")).toHaveTextContent("20,000");
+    expect(screen.getByTestId("ana-kpi-accepted")).toHaveTextContent("19,000");
+    // The strength KPI covers every rated assertion, not the first 50.
+    expect(screen.getByTestId("ana-kpi-strength")).toHaveTextContent("3.3 / 5");
+    expect(screen.getByText("1–5 scale · 1,234 rated")).toBeInTheDocument();
+    expect(mockedApi.listAssertions).not.toHaveBeenCalled();
+    expect(mockedApi.ratingSummary).not.toHaveBeenCalled();
+    expect(mockedApi.assertionStats).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps strength ratings and model confidence as separate KPIs", async () => {
     await renderLoaded();
 
     // Avg strength rating = mean of per-assertion averages (4.0 and 3.0).
-    await waitFor(() =>
-      expect(screen.getByTestId("ana-kpi-strength")).toHaveTextContent("3.5 / 5"),
-    );
+    expect(screen.getByTestId("ana-kpi-strength")).toHaveTextContent("3.5 / 5");
+    expect(screen.getByText("1–5 scale · 2 rated")).toBeInTheDocument();
     // Avg model confidence = mean confidence of model_suggested only, as %.
     expect(screen.getByTestId("ana-kpi-confidence")).toHaveTextContent("80%");
     expect(screen.getByTestId("ana-kpi-confidence")).not.toHaveTextContent("/ 5");
@@ -244,28 +179,37 @@ describe("AnalyticsPage", () => {
     expect(screen.getByText("AI-deduced assertions only")).toBeInTheDocument();
   });
 
-  it("requests rating summaries only for assertions with a current revision", async () => {
+  it("asks for weekly creation counts bounded by local Mondays", async () => {
     await renderLoaded();
 
-    await waitFor(() => expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(5));
-    expect(mockedApi.ratingSummary).toHaveBeenCalledWith("a-1", 2);
-    expect(mockedApi.ratingSummary).toHaveBeenCalledWith("a-6", 1);
-    expect(mockedApi.ratingSummary).not.toHaveBeenCalledWith("a-4", expect.anything());
+    // 8 weeks need 9 edges: each a local Monday midnight, 7 days apart,
+    // the last one after now.
+    const edges = requestedEdges();
+    expect(edges).toHaveLength(9);
+    for (const edge of edges) {
+      expect(edge.getDay()).toBe(1);
+      expect([edge.getHours(), edge.getMinutes(), edge.getSeconds()]).toEqual([0, 0, 0]);
+    }
+    for (let i = 1; i < edges.length; i++) {
+      const gapDays = Math.round((edges[i].getTime() - edges[i - 1].getTime()) / 86_400_000);
+      expect(gapDays).toBe(7);
+    }
+    const now = Date.now();
+    expect(edges[7].getTime()).toBeLessThanOrEqual(now);
+    expect(edges[8].getTime()).toBeGreaterThan(now);
+
+    // The chart shows the server's counts, oldest week first.
+    expect(
+      screen.getByRole("img", {
+        name: "Assertions created per week, oldest to newest: 0, 0, 0, 1, 0, 1, 1, 3",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/peak 3\/wk/)).toBeInTheDocument();
+    const firstLabel = edges[0].toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    expect(screen.getByText(firstLabel)).toBeInTheDocument();
   });
 
-  it("caps rating-summary fetches at the first 50 rated assertions", async () => {
-    const bulk = Array.from({ length: 55 }, (_, i) =>
-      makeAssertion({ id: `bulk-${i}`, current_revision_number: 1 }),
-    );
-    mockedApi.listAssertions.mockResolvedValue({ items: bulk, total: bulk.length });
-
-    await renderLoaded();
-
-    await waitFor(() => expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(50));
-    expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(50);
-  });
-
-  it("renders honestly aggregated charts from the fetched assertions", async () => {
+  it("renders honestly aggregated charts from the aggregates", async () => {
     await renderLoaded();
 
     expect(
@@ -282,29 +226,63 @@ describe("AnalyticsPage", () => {
     expect(screen.getByRole("img", { name: "obligation: 3" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "definition: 2" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "fact: 1" })).toBeInTheDocument();
-    // Review activity chart is present (weekly buckets depend on "now").
+    // Review activity chart is present.
     expect(screen.getByText("Review activity")).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: /Assertions created per week/ }),
     ).toBeInTheDocument();
   });
 
-  it("resolves contributor names via the members map and falls back to the raw id", async () => {
+  it("shows the six most common types, most common first", async () => {
+    mockedApi.assertionStats.mockImplementation(
+      serveStats({
+        ...statsFixture,
+        by_type: { a_type: 1, b_type: 9, c_type: 4, d_type: 4, e_type: 2, f_type: 7, g_type: 3 },
+      }),
+    );
     await renderLoaded();
 
-    // u-anna authored 3 (a-1, a-2, a-6), 2 of them accepted.
-    const annaRow = screen.getByText("Anna Levi").closest("tr");
+    const names = screen
+      .getAllByRole("img", { name: /^[a-g]_type: \d+$/ })
+      .map((img) => img.getAttribute("aria-label"));
+    expect(names).toEqual([
+      "b_type: 9",
+      "f_type: 7",
+      "c_type: 4",
+      "d_type: 4",
+      "g_type: 3",
+      "e_type: 2",
+    ]);
+  });
+
+  it("resolves contributor names via the members map and never shows a user id", async () => {
+    await renderLoaded();
+
+    // u-anna authored 3, 2 of them accepted.
+    const annaRow = (await screen.findByText("Anna Levi")).closest("tr");
     expect(annaRow).not.toBeNull();
     const annaCells = within(annaRow as HTMLElement).getAllByRole("cell");
     expect(annaCells[1]).toHaveTextContent("3");
     expect(annaCells[2]).toHaveTextContent("2");
 
-    // u-ghost is not a matter member — the raw user id is shown instead.
-    const ghostRow = screen.getByText("u-ghost").closest("tr");
+    // u-ghost is no longer a matter member: a neutral label, never the id
+    // (ui:0, as on the assertion page).
+    const ghostRow = screen.getByText("Former member").closest("tr");
     expect(ghostRow).not.toBeNull();
     const ghostCells = within(ghostRow as HTMLElement).getAllByRole("cell");
     expect(ghostCells[1]).toHaveTextContent("1");
     expect(ghostCells[2]).toHaveTextContent("0");
+    expect(screen.queryByText("u-ghost")).not.toBeInTheDocument();
+  });
+
+  it("labels contributors neutrally when the roster cannot be read", async () => {
+    mockedApi.listMatterMembers.mockRejectedValue(new Error("offline"));
+    await renderLoaded();
+
+    // The signed-in user (u-anna) is still named, from the session.
+    expect(screen.getByText("Anna Levi")).toBeInTheDocument();
+    expect(screen.getAllByText("Team member")).toHaveLength(2);
+    expect(screen.queryByText(/^u-/)).not.toBeInTheDocument();
   });
 
   it("renders contributor display names from the bare members array (D2)", async () => {
@@ -318,17 +296,100 @@ describe("AnalyticsPage", () => {
     expect(screen.queryByText("u-anna")).not.toBeInTheDocument();
   });
 
-  it("shows em-dashes when nothing is reviewed, rated, or AI-deduced", async () => {
-    mockedApi.listAssertions.mockResolvedValue({
-      items: [
-        makeAssertion({ id: "p-1", status: "proposed", origin: "user_suggested" }),
+  it("lists at most eight contributors, most prolific first", async () => {
+    mockedApi.assertionStats.mockImplementation(
+      serveStats({
+        ...statsFixture,
+        authors: Array.from({ length: 10 }, (_, i) => ({
+          user_id: `u-${i}`,
+          total: 10 - i,
+          by_status: { accepted: 1 },
+        })),
+      }),
+    );
+    mockedApi.listMatterMembers.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => ({
+        user: { id: `u-${i}`, email: `u${i}@example.com`, display_name: `Member ${i}` },
+        role: "contributor" as const,
+      })),
+    );
+    await renderLoaded();
+
+    await screen.findByText("Member 0");
+    const names = screen.getAllByText(/^Member \d$/).map((cell) => cell.textContent);
+    expect(names).toEqual([
+      "Member 0",
+      "Member 1",
+      "Member 2",
+      "Member 3",
+      "Member 4",
+      "Member 5",
+      "Member 6",
+      "Member 7",
+    ]);
+  });
+
+  // ui:4: the definition-linking pipeline stores its output accepted under
+  // the user who ran it; nobody suggested or reviewed it.
+  it("credits nobody with pipeline output and leaves it out of the acceptance rate", async () => {
+    const withPipeline = {
+      ...statsFixture,
+      total: 106,
+      by_status: { ...statsFixture.by_status, accepted: 102 },
+      by_origin: { ...statsFixture.by_origin, system_generated: 100 },
+      by_origin_status: { ...statsFixture.by_origin_status, system_generated: { accepted: 100 } },
+      authors: [
+        { user_id: "u-boris", total: 102, by_status: { accepted: 100, proposed: 1, rejected: 1 } },
+        { user_id: "u-anna", total: 3, by_status: { accepted: 2, revision_requested: 1 } },
+        { user_id: "u-ghost", total: 1, by_status: { disputed: 1 } },
       ],
-      total: 1,
-    });
+    };
+    const pipelineOnly = {
+      ...statsFixture,
+      total: 100,
+      by_status: { accepted: 100 },
+      by_origin: { system_generated: 100 },
+      by_origin_status: { system_generated: { accepted: 100 } },
+      authors: [{ user_id: "u-boris", total: 100, by_status: { accepted: 100 } }],
+    };
+    mockedApi.assertionStats.mockImplementation(async (matterId, params = {}) =>
+      params.origin === "system_generated"
+        ? serveStats(pipelineOnly)(matterId, params)
+        : serveStats(withPipeline)(matterId, params),
+    );
+    await renderLoaded();
+
+    expect(mockedApi.assertionStats).toHaveBeenCalledWith("m-1", { origin: "system_generated" });
+    // Status mix and the Accepted KPI still count every accepted assertion.
+    expect(screen.getByTestId("ana-kpi-accepted")).toHaveTextContent("102");
+    // Reviewed by people: 2 accepted, 1 rejected.
+    expect(screen.getByTestId("ana-kpi-acceptance")).toHaveTextContent("67%");
+    expect(screen.getByText("of 3 reviewed")).toBeInTheDocument();
+    // Boris authored 2 himself; Anna (3) leads.
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("Anna Levi")).toBeInTheDocument();
+    const borisCells = within(screen.getByText("Boris Katz").closest("tr") as HTMLElement).getAllByRole("cell");
+    expect(borisCells[1]).toHaveTextContent("2");
+    expect(borisCells[2]).toHaveTextContent("0");
+    expect(screen.getByText(/generated by the definition-linking pipeline are not credited/)).toBeInTheDocument();
+  });
+
+  it("shows em-dashes when nothing is reviewed, rated, or AI-deduced", async () => {
+    mockedApi.assertionStats.mockImplementation(
+      serveStats({
+        ...statsFixture,
+        total: 1,
+        by_status: { proposed: 1 },
+        by_origin: { user_suggested: 1 },
+        by_origin_status: { user_suggested: { proposed: 1 } },
+        by_type: { obligation: 1 },
+        authors: [{ user_id: "u-anna", total: 1, by_status: { proposed: 1 } }],
+        confidence_by_origin: {},
+        ratings: { rated_assertions: 0, ratings: 0, average_of_averages: null },
+      }),
+    );
 
     await renderLoaded();
-    // Let the (count 0) rating summary land before asserting.
-    await waitFor(() => expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(1));
 
     expect(screen.getByTestId("ana-kpi-acceptance")).toHaveTextContent("—");
     expect(screen.getByTestId("ana-kpi-strength")).toHaveTextContent("—");
@@ -338,7 +399,23 @@ describe("AnalyticsPage", () => {
   });
 
   it("renders a friendly empty dashboard when the matter has no assertions", async () => {
-    mockedApi.listAssertions.mockResolvedValue({ items: [], total: 0 });
+    mockedApi.assertionStats.mockImplementation(
+      serveStats(
+        {
+          ...statsFixture,
+          total: 0,
+          by_status: {},
+          by_origin: {},
+          by_origin_status: {},
+          by_type: {},
+          by_evidence_status: {},
+          authors: [],
+          confidence_by_origin: {},
+          ratings: { rated_assertions: 0, ratings: 0, average_of_averages: null },
+        },
+        [],
+      ),
+    );
     render(<AnalyticsPage />);
 
     expect(await screen.findByText("No assertions yet")).toBeInTheDocument();
@@ -349,13 +426,13 @@ describe("AnalyticsPage", () => {
   });
 
   it("shows an error banner with a retry control when the fetch fails", async () => {
-    mockedApi.listAssertions.mockRejectedValueOnce(new Error("backend unreachable"));
+    mockedApi.assertionStats.mockRejectedValueOnce(new Error("backend unreachable"));
     render(<AnalyticsPage />);
 
     expect(await screen.findByText(/backend unreachable/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByTestId("ana-kpi-total")).toHaveTextContent("6");
-    expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockedApi.assertionStats).toHaveBeenCalledTimes(2));
   });
 });

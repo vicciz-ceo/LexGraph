@@ -101,7 +101,12 @@ def test_review_decision_never_erases_ratings(client, matter_with_users):
         json={"strength": 4, "rationale": "Good support."},
         headers=m["rater_headers"],
     )
-    client.post(f"/api/v1/assertions/{assertion_id}/accept", headers=m["reviewer_headers"])
+    accepted = client.post(
+        f"/api/v1/assertions/{assertion_id}/accept",
+        json={"acceptance_justification": "Accepted on the rater's cited clause."},
+        headers=m["reviewer_headers"],
+    )
+    assert (accepted.status_code, accepted.json()["status"]) == (200, "accepted"), accepted.text
     r = client.get(
         f"/api/v1/assertions/{assertion_id}/revisions/1/ratings", headers=m["reviewer_headers"]
     )

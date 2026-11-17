@@ -504,6 +504,45 @@ def test_validate_effective_dates_accepts_none_none():
     validate_effective_dates(None, None)
 
 
+# --- Effective dates are UTC instants (audit findings agent:7, api:19, api:20)
+
+
+def test_normalize_effective_datetime_applies_the_offset():
+    from datetime import datetime, timedelta, timezone
+
+    from app.services.validation import normalize_effective_datetime
+
+    plus14 = timezone(timedelta(hours=14))
+    assert normalize_effective_datetime(datetime(2030, 1, 1, tzinfo=plus14), label="x") == datetime(
+        2029, 12, 31, 10, tzinfo=timezone.utc)
+    assert normalize_effective_datetime(datetime(2030, 1, 1), label="x") == datetime(2030, 1, 1, tzinfo=timezone.utc)
+    assert normalize_effective_datetime(date(2030, 1, 1), label="x") == datetime(2030, 1, 1, tzinfo=timezone.utc)
+    assert normalize_effective_datetime(None, label="x") is None
+
+
+@pytest.mark.parametrize("value", ["0001-01-01T00:00:00+14:00", "9999-12-31T23:59:59-12:00",
+                                   "0001-01-01T00:00:00+00:01"])
+def test_an_unrepresentable_utc_instant_is_a_validation_error(value):
+    from datetime import datetime
+
+    from app.services.validation import normalize_effective_datetime
+
+    with pytest.raises(ValidationError, match="effective_to is outside the supported date range"):
+        normalize_effective_datetime(datetime.fromisoformat(value), label="effective_to")
+    with pytest.raises(ValidationError, match="outside the supported date range"):
+        validate_effective_dates(datetime.fromisoformat(value), None)
+
+
+def test_validate_effective_dates_compares_instants_across_naive_and_aware_values():
+    from datetime import datetime, timedelta, timezone
+
+    plus5 = timezone(timedelta(hours=5))
+    # 03:00+05:00 is 22:00 UTC the day before: an earlier instant than midnight.
+    with pytest.raises(ValidationError, match="effective_to cannot be before effective_from"):
+        validate_effective_dates(datetime(2025, 1, 1), datetime(2025, 1, 1, 3, tzinfo=plus5))
+    validate_effective_dates(datetime(2025, 1, 1, 3, tzinfo=plus5), datetime(2025, 1, 1))
+
+
 # --- Post-review independent audit finding (2026-07-26): entity/charref -----
 # --- reconstruction corrupts ordinary authored text (R16(a), --------------
 # --- AUDIT-FAIL: B5) --------------------------------------------------------

@@ -1,0 +1,168 @@
+/* Notifications (components/NotificationsMenu.tsx): rows shared by the
+   topbar panel and the Profile tab, the panel's header actions and the
+   settings view. The popover frame is .notifications__* in app.css; the
+   Profile rows also keep .pf-notif* from pages/profile.css. */
+
+.notif-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.notif-panel__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.notif-panel__text-button {
+  font: var(--label-md);
+  color: var(--primary);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.notif-panel__text-button:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+
+.notif-panel__text-button:disabled {
+  color: var(--on-surface-variant);
+  cursor: default;
+}
+
+.notif-panel__icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.notif-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.notif-row__link:hover .notifications__item-title,
+.notif-row__link:hover .pf-notif__title {
+  text-decoration: underline;
+}
+
+.notif-row__link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.notif-row--unread .notifications__item-title {
+  font-weight: 600;
+}
+
+.notif-row--unread .notifications__item-title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--secondary);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.notif-row__context {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.notif-row__byline {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.notif-row__side {
+  display: inline-flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+}
+
+.notif-feed__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.notif-feed__count {
+  font: var(--label-md);
+  color: var(--on-surface-variant);
+}
+
+.notif-prefs {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.notif-prefs__intro,
+.notif-prefs__status {
+  margin: 0 0 var(--space-sm);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.notif-prefs__status {
+  padding: var(--space-md);
+}
+
+.notif-prefs__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-prefs__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font: var(--body-sm);
+  cursor: pointer;
+}
+
+.notif-prefs__option input {
+  margin-top: 3px;
+}
+
+.notif-prefs__hint {
+  color: var(--on-surface-variant);
+}
+
+.notif-prefs__error {
+  margin: var(--space-sm) 0 0;
+  font: var(--body-sm);
+  color: var(--error);
+}

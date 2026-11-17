@@ -1,11 +1,20 @@
-// AnalyticsPage — matter-scoped dashboard computed entirely client-side.
+// AnalyticsPage — matter-scoped dashboard.
 //
-// No analytics/stats endpoints exist, so every number here is honestly
-// derived from ONE assertions fetch for the current matter, plus the
-// member list (names) and a capped batch of rating summaries. The three
-// platform signals stay strictly separate: user strength ratings (1–5),
-// model confidence (0–1, AI-deduced only, shown as %), and review status.
-// Charts are hand-rolled inline SVG driven by design tokens — no chart lib.
+// Every number comes from ONE GET /matters/{id}/assertion-stats request, which
+// aggregates the whole matter on the server, plus the member list (names).
+// Downloading every assertion and 50 rating summaries instead took minutes
+// at pipeline scale, and averaged ratings over the first 50 assertions only
+// (audit finding ui:1). The three platform signals stay strictly separate:
+// user strength ratings (1–5), model confidence (0–1, AI-deduced only, shown
+// as %), and review status. Charts are hand-rolled inline SVG driven by
+// design tokens — no chart lib.
+//
+// Assertions the definition-linking pipeline generated (origin
+// system_generated) are stored accepted under the user who ran it, but nobody
+// suggested or reviewed them (ui:4): they count in the status mix, and are
+// left out of the acceptance rate and of the contributors table. Their
+// per-author counts come from a second stats request, made only when the
+// matter has any.
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -13,11 +22,9 @@ import type { ReactNode } from "react";
 import "../styles/pages/analytics.css";
 
 import { api } from "../api/client";
-import type { Assertion, RatingSummary, UserInfo } from "../api/types";
+import type { AssertionStats, AssertionStatus, UserInfo } from "../api/types";
 import { useActiveSession } from "../app/session";
 
-/** Rating summaries are an N+1 fetch — bound it for dashboard use. */
-const RATING_SUMMARY_CAP = 50;
 const ACTIVITY_WEEKS = 8;
 const TOP_TYPES = 6;
 const TOP_CONTRIBUTORS = 8;
@@ -34,18 +41,6 @@ const STATUS_BUCKETS = [
 
 type StatusBucketKey = (typeof STATUS_BUCKETS)[number]["key"];
 
-function bucketOf(status: Assertion["status"]): StatusBucketKey {
-  if (
-    status === "accepted" ||
-    status === "proposed" ||
-    status === "disputed" ||
-    status === "rejected"
-  ) {
-    return status;
-  }
-  return "other";
-}
-
 /** Local midnight on the Monday of the given date's ISO week. */
 function startOfIsoWeek(date: Date): Date {
   const d = new Date(date);
@@ -54,26 +49,96 @@ function startOfIsoWeek(date: Date): Date {
   return d;
 }
 
-function weeklyBuckets(
-  items: Assertion[],
-  weeks: number,
-): { starts: Date[]; counts: number[] } {
-  const currentStart = startOfIsoWeek(new Date());
-  const starts: Date[] = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const d = new Date(currentStart);
+/** Bucket edges for the last `weeks` ISO weeks in the viewer's timezone: the
+ * local Monday midnight that starts each week, oldest first, then the next
+ * Monday. The server counts assertions created in each [edge, next edge). */
+function weekEdges(weeks: number, now = new Date()): Date[] {
+  const current = startOfIsoWeek(now);
+  const edges: Date[] = [];
+  for (let i = weeks - 1; i >= -1; i--) {
+    const d = new Date(current);
     d.setDate(d.getDate() - i * 7);
-    starts.push(d);
+    edges.push(d);
   }
-  const indexByTime = new Map(starts.map((d, i) => [d.getTime(), i]));
-  const counts = new Array<number>(weeks).fill(0);
-  for (const item of items) {
-    const created = new Date(item.created_at);
-    if (Number.isNaN(created.getTime())) continue;
-    const index = indexByTime.get(startOfIsoWeek(created).getTime());
-    if (index !== undefined) counts[index] += 1;
-  }
-  return { starts, counts };
+  return edges;
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+/** Everything the dashboard shows, from the server's aggregates; `pipeline`
+ * holds the system_generated assertions' own aggregates (null: none). */
+function deriveStats(stats: AssertionStats, weekStarts: Date[], pipeline: AssertionStats | null) {
+  const count = (status: AssertionStatus) => stats.by_status[status] ?? 0;
+  const statusCounts: Record<StatusBucketKey, number> = {
+    accepted: count("accepted"),
+    proposed: count("proposed"),
+    disputed: count("disputed"),
+    rejected: count("rejected"),
+    other: 0,
+  };
+  statusCounts.other = Math.max(
+    0,
+    stats.total -
+      statusCounts.accepted -
+      statusCounts.proposed -
+      statusCounts.disputed -
+      statusCounts.rejected,
+  );
+  const open = count("proposed") + count("revision_requested") + count("disputed");
+  // Decisions people made: pipeline output is accepted without a review.
+  const pipelineStatus = stats.by_origin_status.system_generated ?? {};
+  const reviewedAccepted = Math.max(0, statusCounts.accepted - (pipelineStatus.accepted ?? 0));
+  const reviewedRejected = Math.max(0, statusCounts.rejected - (pipelineStatus.rejected ?? 0));
+  const reviewed = reviewedAccepted + reviewedRejected;
+  const decisions = (origin: "user_suggested" | "model_suggested") => ({
+    accepted: stats.by_origin_status[origin]?.accepted ?? 0,
+    rejected: stats.by_origin_status[origin]?.rejected ?? 0,
+  });
+  const topTypes = Object.entries(stats.by_type)
+    .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+    .slice(0, TOP_TYPES);
+  // Each author's own assertions, without the pipeline output run under
+  // their name.
+  const pipelineByAuthor = new Map((pipeline?.authors ?? []).map((a) => [a.user_id, a]));
+  const topContributors: ContributorRow[] = stats.authors
+    .map((author) => {
+      const generated = pipelineByAuthor.get(author.user_id);
+      return {
+        userId: author.user_id,
+        authored: author.total - (generated?.total ?? 0),
+        accepted: (author.by_status.accepted ?? 0) - (generated?.by_status.accepted ?? 0),
+      };
+    })
+    .filter((row) => row.authored > 0)
+    .sort((x, y) => y.authored - x.authored || x.userId.localeCompare(y.userId))
+    .slice(0, TOP_CONTRIBUTORS);
+
+  return {
+    total: stats.total,
+    accepted: statusCounts.accepted,
+    open,
+    reviewed,
+    acceptanceRate: reviewed > 0 ? reviewedAccepted / reviewed : null,
+    pipelineCount: stats.by_origin.system_generated ?? 0,
+    avgConfidence: stats.confidence_by_origin.model_suggested?.average ?? null,
+    // Mean of the per-assertion averages over every rated current revision.
+    avgStrength: stats.ratings.average_of_averages,
+    ratedCount: stats.ratings.rated_assertions,
+    statusCounts,
+    topTypes,
+    originGroups: {
+      user_suggested: decisions("user_suggested"),
+      model_suggested: decisions("model_suggested"),
+    },
+    topContributors,
+    // Buckets come back in the order of the edges that were sent.
+    activity: {
+      starts: weekStarts,
+      counts: weekStarts.map((_, i) => stats.created_buckets[i]?.count ?? 0),
+    },
+  };
 }
 
 interface ContributorRow {
@@ -311,18 +376,21 @@ export function AnalyticsPage() {
   const session = useActiveSession();
   const matterId = session.currentMatter.id;
 
-  const [items, setItems] = useState<Assertion[] | null>(null);
+  const [loaded, setLoaded] = useState<{
+    stats: AssertionStats;
+    weekStarts: Date[];
+    pipeline: AssertionStats | null;
+  } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [members, setMembers] = useState<Record<string, UserInfo>>({});
-  const [summaries, setSummaries] = useState<Record<string, RatingSummary | null>>({});
+  // null until the roster has loaded (or when it could not be loaded).
+  const [members, setMembers] = useState<Record<string, UserInfo> | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    setItems(null);
+    setLoaded(null);
     setLoadError(null);
-    setMembers({});
-    setSummaries({});
+    setMembers(null);
 
     api.listMatterMembers(matterId).then(
       (res) => {
@@ -330,130 +398,43 @@ export function AnalyticsPage() {
         setMembers(Object.fromEntries(res.map((m) => [m.user.id, m.user])));
       },
       () => {
-        /* Names are a nicety — fall back to raw user ids. */
+        /* Names are a nicety: contributors get a neutral label, never an id. */
       },
     );
 
-    api.listAssertions(matterId, {}).then(
-      (list) => {
-        if (cancelled) return;
-        setItems(list.items);
-        const rated = list.items
-          .filter((a) => a.current_revision_number !== null)
-          .slice(0, RATING_SUMMARY_CAP);
-        for (const assertion of rated) {
-          const revision = assertion.current_revision_number;
-          if (revision === null) continue;
-          api.ratingSummary(assertion.id, revision).then(
-            (summary) => {
-              if (!cancelled) {
-                setSummaries((prev) => ({ ...prev, [assertion.id]: summary }));
-              }
-            },
-            () => {
-              if (!cancelled) {
-                setSummaries((prev) => ({ ...prev, [assertion.id]: null }));
-              }
-            },
+    const edges = weekEdges(ACTIVITY_WEEKS);
+    api
+      .assertionStats(matterId, {
+        created_bucket_edges: edges.map((edge) => edge.toISOString()).join(","),
+      })
+      .then(async (result) => {
+        const pipeline =
+          !cancelled && (result.by_origin.system_generated ?? 0) > 0
+            ? await api.assertionStats(matterId, { origin: "system_generated" })
+            : null;
+        return { result, pipeline };
+      })
+      .then(
+        ({ result, pipeline }) => {
+          if (!cancelled) setLoaded({ stats: result, weekStarts: edges.slice(0, -1), pipeline });
+        },
+        (error: unknown) => {
+          if (cancelled) return;
+          setLoadError(
+            error instanceof Error ? error.message : "Failed to load analytics.",
           );
-        }
-      },
-      (error: unknown) => {
-        if (cancelled) return;
-        setLoadError(
-          error instanceof Error ? error.message : "Failed to load assertions.",
-        );
-      },
-    );
+        },
+      );
 
     return () => {
       cancelled = true;
     };
   }, [matterId, reloadKey]);
 
-  const stats = useMemo(() => {
-    if (items === null) return null;
-
-    const statusCounts: Record<StatusBucketKey, number> = {
-      accepted: 0,
-      proposed: 0,
-      disputed: 0,
-      rejected: 0,
-      other: 0,
-    };
-    let open = 0;
-    let confidenceSum = 0;
-    let confidenceCount = 0;
-    const typeCounts = new Map<string, number>();
-    const originGroups = {
-      user_suggested: { accepted: 0, rejected: 0 },
-      model_suggested: { accepted: 0, rejected: 0 },
-    };
-    const contributorMap = new Map<string, { authored: number; accepted: number }>();
-
-    for (const a of items) {
-      statusCounts[bucketOf(a.status)] += 1;
-      if (
-        a.status === "proposed" ||
-        a.status === "revision_requested" ||
-        a.status === "disputed"
-      ) {
-        open += 1;
-      }
-      typeCounts.set(a.assertion_type, (typeCounts.get(a.assertion_type) ?? 0) + 1);
-      if (a.origin === "user_suggested" || a.origin === "model_suggested") {
-        if (a.status === "accepted") originGroups[a.origin].accepted += 1;
-        if (a.status === "rejected") originGroups[a.origin].rejected += 1;
-      }
-      if (a.origin === "model_suggested" && a.confidence !== null) {
-        confidenceSum += a.confidence;
-        confidenceCount += 1;
-      }
-      const contributor = contributorMap.get(a.author_user_id) ?? {
-        authored: 0,
-        accepted: 0,
-      };
-      contributor.authored += 1;
-      if (a.status === "accepted") contributor.accepted += 1;
-      contributorMap.set(a.author_user_id, contributor);
-    }
-
-    const reviewed = statusCounts.accepted + statusCounts.rejected;
-    const topTypes = [...typeCounts.entries()]
-      .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
-      .slice(0, TOP_TYPES);
-    const topContributors: ContributorRow[] = [...contributorMap.entries()]
-      .map(([userId, counts]) => ({ userId, ...counts }))
-      .sort((x, y) => y.authored - x.authored || x.userId.localeCompare(y.userId))
-      .slice(0, TOP_CONTRIBUTORS);
-
-    return {
-      total: items.length,
-      accepted: statusCounts.accepted,
-      open,
-      reviewed,
-      acceptanceRate: reviewed > 0 ? statusCounts.accepted / reviewed : null,
-      avgConfidence: confidenceCount > 0 ? confidenceSum / confidenceCount : null,
-      statusCounts,
-      topTypes,
-      originGroups,
-      topContributors,
-      activity: weeklyBuckets(items, ACTIVITY_WEEKS),
-    };
-  }, [items]);
-
-  const ratedAverages = useMemo(
-    () =>
-      Object.values(summaries).filter(
-        (s): s is RatingSummary => s !== null && s.count > 0 && s.average !== null,
-      ),
-    [summaries],
+  const stats = useMemo(
+    () => (loaded === null ? null : deriveStats(loaded.stats, loaded.weekStarts, loaded.pipeline)),
+    [loaded],
   );
-  const avgStrength =
-    ratedAverages.length > 0
-      ? ratedAverages.reduce((sum, s) => sum + (s.average ?? 0), 0) /
-        ratedAverages.length
-      : null;
 
   const header = (
     <header className="page-header">
@@ -484,7 +465,7 @@ export function AnalyticsPage() {
     );
   }
 
-  if (items === null || stats === null) {
+  if (stats === null) {
     return (
       <div className="ana-page">
         {header}
@@ -493,7 +474,7 @@ export function AnalyticsPage() {
     );
   }
 
-  if (items.length === 0) {
+  if (stats.total === 0) {
     return (
       <div className="ana-page">
         {header}
@@ -515,12 +496,22 @@ export function AnalyticsPage() {
       {header}
 
       <div className="ana-kpis">
-        <KpiCard id="total" label="Total assertions" value={stats.total} caption="all statuses" />
-        <KpiCard id="accepted" label="Accepted" value={stats.accepted} caption="review status" />
+        <KpiCard
+          id="total"
+          label="Total assertions"
+          value={formatCount(stats.total)}
+          caption="all statuses"
+        />
+        <KpiCard
+          id="accepted"
+          label="Accepted"
+          value={formatCount(stats.accepted)}
+          caption="review status"
+        />
         <KpiCard
           id="open"
           label="Open"
-          value={stats.open}
+          value={formatCount(stats.open)}
           caption="proposed · revision requested · disputed"
         />
         <KpiCard
@@ -533,17 +524,17 @@ export function AnalyticsPage() {
           }
           caption={
             stats.reviewed > 0
-              ? `of ${stats.reviewed} reviewed`
+              ? `of ${formatCount(stats.reviewed)} reviewed`
               : "no reviewed assertions yet"
           }
         />
         <KpiCard
           id="strength"
           label="Avg strength rating"
-          value={avgStrength === null ? "—" : `${avgStrength.toFixed(1)} / 5`}
+          value={stats.avgStrength === null ? "—" : `${stats.avgStrength.toFixed(1)} / 5`}
           caption={
-            ratedAverages.length > 0
-              ? `1–5 scale · ${ratedAverages.length} rated`
+            stats.avgStrength !== null && stats.ratedCount > 0
+              ? `1–5 scale · ${formatCount(stats.ratedCount)} rated`
               : "no ratings yet"
           }
         />
@@ -608,7 +599,14 @@ export function AnalyticsPage() {
             </thead>
             <tbody>
               {stats.topContributors.map((c) => {
-                const user = members[c.userId];
+                const user =
+                  members?.[c.userId] ?? (c.userId === session.user.id ? session.user : undefined);
+                // A user id is never a person's label (ui:0).
+                const name = user
+                  ? user.display_name
+                  : members === null
+                    ? "Team member"
+                    : "Former member";
                 return (
                   <tr key={c.userId}>
                     <td>
@@ -616,21 +614,24 @@ export function AnalyticsPage() {
                         <span className="avatar" aria-hidden="true">
                           {initialsOf(user?.display_name)}
                         </span>
-                        {user ? (
-                          <span className="ana-contrib__name">{user.display_name}</span>
-                        ) : (
-                          <span className="mono">{c.userId}</span>
-                        )}
+                        <span className={user ? "ana-contrib__name" : "ana-contrib__name muted"}>
+                          {name}
+                        </span>
                       </span>
                     </td>
-                    <td className="ana-num">{c.authored}</td>
-                    <td className="ana-num">{c.accepted}</td>
+                    <td className="ana-num">{formatCount(c.authored)}</td>
+                    <td className="ana-num">{formatCount(c.accepted)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        {stats.pipelineCount > 0 && (
+          <p className="ana-chart-note ana-contrib-note">
+            {`The ${formatCount(stats.pipelineCount)} assertions generated by the definition-linking pipeline are not credited to the person who ran it, and are left out of the acceptance rate.`}
+          </p>
+        )}
       </div>
     </div>
   );

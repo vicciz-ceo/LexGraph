@@ -38,7 +38,9 @@
 
 .sa-entity-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): a source select sized by a long option label must not
+   * widen its column past the card. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0 var(--space-md);
   padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--border);
@@ -47,18 +49,27 @@
 
 @media (max-width: 700px) {
   .sa-entity-fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-md);
   }
 }
 
 .sa-entity-fields .field {
   margin-bottom: 0;
+  min-width: 0;
 }
 
-.sa-entity-fields input {
-  font-family: var(--font-mono);
-  font-size: 13px;
+.sa-link-status,
+.sa-link-notice {
+  font: var(--body-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.sa-link-notice {
+  background: var(--status-pending-bg);
+  color: var(--status-pending-fg);
+  border-radius: var(--radius);
+  padding: 8px 12px;
 }
 
 /* --- Embedded AssertionSuggestionForm skin ------------------------------ */
@@ -136,12 +147,35 @@
   font: 500 13px/18px var(--font-family);
 }
 
+.sa-form-card .assertion-suggestion-form__hint {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-form-card .assertion-suggestion-form__further-evidence + .assertion-suggestion-form__hint {
+  margin-top: calc(-1 * var(--space-sm));
+}
+
 .sa-form-card .assertion-suggestion-form__similarity-warning {
   background: var(--status-pending-bg);
   color: var(--status-pending-fg);
   border-radius: var(--radius);
   padding: 10px 14px;
   font: var(--body-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sa-form-card .assertion-suggestion-form__similarity-warning ul {
+  list-style: disc;
+  padding-left: 20px;
+}
+
+.sa-form-card .assertion-suggestion-form__similarity-warning a {
+  color: inherit;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
 }
 
 .sa-form-card .assertion-suggestion-form__effective-dates {
@@ -186,14 +220,22 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row label {
+/* The row's own controls (source-span id input, role select, Remove) sit
+ * inline. These rules target direct children only: the browsable
+ * SourcePicker below is a column of its own, where a flex-basis would turn
+ * into a height and `width: auto` would size the select to its longest
+ * option label (review:1). */
+.sa-form-card .assertion-suggestion-form__evidence-row > label {
   font: var(--body-sm);
   color: var(--on-surface-variant);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row input {
+.sa-form-card .assertion-suggestion-form__evidence-row > input {
   flex: 1 1 180px;
   width: auto;
   margin-top: 0;
@@ -201,9 +243,30 @@
   font-size: 12px;
 }
 
-.sa-form-card .assertion-suggestion-form__evidence-row select {
+.sa-form-card .assertion-suggestion-form__evidence-row > select {
   width: auto;
   margin-top: 0;
+}
+
+/* Browsable evidence source: takes the whole row; the role select and the
+ * Remove button wrap beneath it. */
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker label {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+/* `.assertion-suggestion-form select` (app.css) resets the background that
+ * draws the `.field select` arrow, which left this select looking like a
+ * text box; use the native arrow, like the form's other selects. */
+.sa-form-card .assertion-suggestion-form__evidence-row > .source-picker select {
+  appearance: auto;
+  padding-right: 12px;
 }
 
 .sa-form-card .assertion-suggestion-form__evidence button,
@@ -216,9 +279,14 @@
   font: 500 13px/18px var(--font-family);
 }
 
-.sa-form-card .assertion-suggestion-form__evidence button:hover,
-.sa-form-card .assertion-suggestion-form__evidence-row button:hover {
+.sa-form-card .assertion-suggestion-form__evidence button:hover:not(:disabled),
+.sa-form-card .assertion-suggestion-form__evidence-row button:hover:not(:disabled) {
   background: var(--row-hover);
+}
+
+.sa-form-card .assertion-suggestion-form__evidence button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sa-form-card .assertion-suggestion-form__preview {
@@ -304,9 +372,60 @@
   overflow-wrap: anywhere;
 }
 
+.sa-similar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.sa-similar__more {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+  margin-bottom: var(--space-md);
+}
+
 .sa-similar__actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* --- Exact-duplicate refusal -------------------------------------------- */
+
+.sa-duplicate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+/* --- Matter without sources (ui:33) ------------------------------------- */
+
+.sa-empty .card__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  color: var(--on-surface-variant);
+}
+
+.sa-empty__ids {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px var(--space-md);
+}
+
+.sa-empty__ids dt {
+  font: var(--label-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sa-empty__ids dd {
+  color: var(--on-surface);
+  overflow-wrap: anywhere;
 }
 
 /* --- Guidance rail ------------------------------------------------------ */

@@ -34,6 +34,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.auth import hash_sign_in_token
 from app.db import Base
 from app.main import create_app
 
@@ -68,12 +69,26 @@ def db_session(app) -> Iterator[Session]:
         session.close()
 
 
-# --- Auth header helper (app/auth.py test-token seam) ---------------------
+# --- Auth header helpers (app/auth.py sign-in tokens) ---------------------
 
 
 def auth_header(user_id: str) -> dict[str, str]:
-    """Build a test-scheme Authorization header for `user_id` (app/auth.py)."""
+    """Authorization header for a user seeded by `seed_user` (or any fixture
+    built on it, e.g. `matter_with_users`).
+
+    Production sign-in tokens are random secrets (app/auth.py). Test users
+    created through `seed_user` are given the legacy credential instead
+    (hash = sha256(user id), the state the m20261116_sign_in_tokens
+    migration leaves pre-existing accounts in), so their id doubles as
+    their token here. Users created through POST /api/v1/users get a real
+    random token, returned once as `sign_in_token`; use `token_header`.
+    """
     return {"Authorization": f"Bearer {user_id}"}
+
+
+def token_header(sign_in_token: str) -> dict[str, str]:
+    """Authorization header for a real sign-in token (POST /users, rotate)."""
+    return {"Authorization": f"Bearer {sign_in_token}"}
 
 
 def new_id() -> str:
@@ -134,8 +149,17 @@ def seed_user(
 ) -> str:
     user_id = id or new_id()
     session.execute(
-        text("INSERT INTO users (id, email, display_name) VALUES (:id, :email, :display_name)"),
-        {"id": user_id, "email": email or f"{user_id}@example.test", "display_name": display_name},
+        text(
+            "INSERT INTO users (id, email, display_name, sign_in_token_hash) "
+            "VALUES (:id, :email, :display_name, :sign_in_token_hash)"
+        ),
+        {
+            "id": user_id,
+            "email": email or f"{user_id}@example.test",
+            "display_name": display_name,
+            # Legacy credential (token == id) so `auth_header(user_id)` works.
+            "sign_in_token_hash": hash_sign_in_token(user_id),
+        },
     )
     session.commit()
     return user_id

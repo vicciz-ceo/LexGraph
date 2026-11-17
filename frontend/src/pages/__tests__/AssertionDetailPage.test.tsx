@@ -29,6 +29,9 @@ vi.mock("../../api/client", () => {
       getAssertion: vi.fn(),
       relatedAssertions: vi.fn(),
       ratingSummary: vi.fn(),
+      listRatings: vi.fn(),
+      history: vi.fn(),
+      listMatterMembers: vi.fn(),
       putRating: vi.fn(),
       deleteRating: vi.fn(),
       addComment: vi.fn(),
@@ -55,6 +58,7 @@ vi.mock("../../app/session", () => ({
     role,
     matters: [],
   }),
+  useSession: () => ({ selectMatter: vi.fn() }),
 }));
 
 import { ApiError, api } from "../../api/client";
@@ -166,6 +170,14 @@ beforeEach(() => {
   mockedApi.getAssertion.mockResolvedValue(detailFixture);
   mockedApi.relatedAssertions.mockResolvedValue(relatedFixture);
   mockedApi.ratingSummary.mockResolvedValue(summaryFixture);
+  mockedApi.listRatings.mockResolvedValue([]);
+  mockedApi.history.mockResolvedValue([]);
+  mockedApi.listMatterMembers.mockResolvedValue([
+    {
+      user: { id: "u-2", email: "grace@example.com", display_name: "Grace Hopper" },
+      role: "contributor",
+    },
+  ]);
   mockedApi.putRating.mockResolvedValue({} as Rating);
   mockedApi.deleteRating.mockResolvedValue(undefined);
   mockedApi.addComment.mockResolvedValue({} as never);
@@ -192,8 +204,10 @@ describe("AssertionDetailPage", () => {
     // with ratings — it sits in its own card).
     expect(screen.getByText("82%")).toBeInTheDocument();
 
-    // Evidence span, comment, revision reason, related match.
-    expect(screen.getByText("span-123")).toBeInTheDocument();
+    // Evidence span, comment, revision reason, related match. A source is
+    // named by its document title or quote, never by its span id (ui:30).
+    expect(screen.getByText("Quoted source")).toBeInTheDocument();
+    expect(screen.queryByText("span-123")).not.toBeInTheDocument();
     expect(screen.getByText("The tenant must deliver statements by 31 March.")).toBeInTheDocument();
     expect(screen.getByText("Please double-check the deadline.")).toBeInTheDocument();
     expect(screen.getByText("Corrected the delivery deadline")).toBeInTheDocument();
@@ -209,8 +223,10 @@ describe("AssertionDetailPage", () => {
     fireEvent.click(screen.getByRole("radio", { name: "4 - Strong" }));
     fireEvent.click(screen.getByRole("button", { name: "Save rating" }));
 
+    // The untouched rationale box is left out (review listing:0): "" would
+    // remove a rationale stored meanwhile, e.g. from another tab.
     await waitFor(() =>
-      expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, ""),
+      expect(mockedApi.putRating).toHaveBeenCalledWith("a-1", 2, 4, undefined),
     );
     // Summary is refreshed after the save (initial load + post-save).
     await waitFor(() => expect(mockedApi.ratingSummary).toHaveBeenCalledTimes(2));
@@ -223,7 +239,7 @@ describe("AssertionDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
     await waitFor(() =>
-      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined),
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2, "proposed"),
     );
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });

@@ -85,8 +85,8 @@ defect class), D-MAP (the (row, term) anchor is the product). Program doc:
 ## Known traps (from the program handoff — do not rediscover)
 
 - `qa_g7_common.INTEGRATION_SHA` must be re-pinned and evidence regenerated
-  whenever `backend/app` moves, or the G7 evaluator fail-closes without
-  measuring anything.
+  whenever the measured seam (`qa_g7_common.MEASURED_PRODUCTION_PATHS`)
+  moves, or the G7 evaluator fail-closes without measuring anything.
 - Worktree venv: use the main checkout's venv with `PYTHONPATH=.:backend`
   from the worktree root (verified safe); worktrees share ONE stash stack —
   `git stash` is forbidden.

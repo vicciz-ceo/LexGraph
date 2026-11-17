@@ -22,12 +22,21 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from app.migrations import has_column, has_table
 
-def upgrade(engine: Engine) -> None:
+MIGRATION_ID = "20260804_add_assertion_subject_unit_path_column"
+
+
+def upgrade(engine: Engine) -> bool:
+    """Add the column unless it is already there (idempotent)."""
     with engine.begin() as conn:
+        if not has_table(conn, "assertions") or has_column(conn, "assertions", "subject_unit_path"):
+            return False
         conn.execute(text("ALTER TABLE assertions ADD COLUMN subject_unit_path TEXT"))
+        return True
 
 
 def downgrade(engine: Engine) -> None:
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE assertions DROP COLUMN subject_unit_path"))
+        if has_column(conn, "assertions", "subject_unit_path"):
+            conn.execute(text("ALTER TABLE assertions DROP COLUMN subject_unit_path"))

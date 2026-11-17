@@ -112,3 +112,167 @@ def test_evidence_from_inaccessible_matter_cannot_be_attached(client, matter_wit
         headers=m["contributor_headers"],
     )
     assert r.status_code in (403, 404, 422)
+
+
+# --- Which existing assertions an exact duplicate collides with (api:16,
+# api:17). Only LIVE assertions -- proposed, revision_requested, accepted,
+# disputed -- and the author's own drafts block; withdrawn, rejected and
+# superseded ones and other users' drafts are returned as non-blocking
+# `similar_assertions`. The same rule guards create, edit (PATCH and
+# POST /revisions) and submitting a draft.
+
+import pytest  # noqa: E402
+
+from tests.conftest import new_id  # noqa: E402
+
+_TEXT = "The notice period is thirty days."
+
+
+def _create(client, m, proposition=_TEXT, *, save_as="proposed", headers=None):
+    return client.post(
+        "/api/v1/assertions",
+        json=assertion_payload(m["matter_id"], m["repository_id"], proposition=proposition, save_as=save_as),
+        headers=headers or m["contributor_headers"],
+    )
+
+
+def _accept(client, m, assertion_id):
+    r = client.post(f"/api/v1/assertions/{assertion_id}/accept",
+                    json={"acceptance_justification": "Checked against the clause text."},
+                    headers=m["reviewer_headers"])
+    assert r.status_code == 200, r.text
+
+
+def _move_to(client, m, assertion_id, status):
+    path = f"/api/v1/assertions/{assertion_id}"
+    if status == "withdrawn":
+        r = client.post(path + "/withdraw", headers=m["contributor_headers"])
+    elif status == "rejected":
+        r = client.post(path + "/reject", headers=m["reviewer_headers"])
+    elif status == "disputed":
+        r = client.post(path + "/dispute", headers=m["reviewer_headers"])
+    elif status == "revision_requested":
+        r = client.post(path + "/request-revision", json={"comment": "Cite the clause."},
+                        headers=m["reviewer_headers"])
+    elif status == "accepted":
+        return _accept(client, m, assertion_id)
+    elif status == "superseded":
+        _accept(client, m, assertion_id)
+        successor = _create(client, m, "A narrower successor proposition.").json()["id"]
+        _accept(client, m, successor)
+        r = client.post(path + "/supersede", json={"superseded_by_assertion_id": successor},
+                        headers=m["reviewer_headers"])
+    else:
+        return None
+    assert r.status_code == 200, r.text
+    assert client.get(path, headers=m["reviewer_headers"]).json()["status"] == status
+
+
+@pytest.mark.parametrize("ended", ["withdrawn", "rejected", "superseded"])
+def test_an_ended_assertion_does_not_block_proposing_the_same_text_again(client, matter_with_users, ended):
+    m = matter_with_users
+    old = _create(client, m).json()["id"]
+    _move_to(client, m, old, ended)
+
+    again = _create(client, m, "  the notice period is THIRTY days.  ")
+
+    assert again.status_code == 201, again.text
+    # Each entry also carries the matched assertion's text, status and type
+    # (agent:2 / ui:5).
+    assert {"assertion_id": old, "match_kind": "exact_proposition", "score": 1.0, "proposition": _TEXT,
+            "status": ended, "assertion_type": "CREATES_EXCEPTION_TO"} in again.json()["similar_assertions"]
+
+
+@pytest.mark.parametrize("live", ["proposed", "revision_requested", "accepted", "disputed"])
+def test_a_live_assertion_blocks_an_exact_duplicate_from_any_user(client, matter_with_users, live):
+    m = matter_with_users
+    old = _create(client, m).json()["id"]
+    _move_to(client, m, old, live)
+
+    duplicate = _create(client, m, _TEXT.upper(), save_as="draft", headers=m["rater_headers"])
+
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == (
+        f"duplicate: an identical proposition already exists in this matter (assertion {old})")
+
+
+def test_another_users_draft_does_not_block_but_cannot_be_submitted_over_a_live_twin(client, matter_with_users):
+    m = matter_with_users
+    draft = _create(client, m, save_as="draft", headers=m["rater_headers"]).json()["id"]
+
+    mine = _create(client, m)
+    assert mine.status_code == 201, mine.text
+    assert draft in {s["assertion_id"] for s in mine.json()["similar_assertions"]}
+
+    submit = client.post(f"/api/v1/assertions/{draft}/submit", headers=m["rater_headers"])
+    assert submit.status_code == 409
+    assert mine.json()["id"] in submit.json()["detail"]
+    assert client.get(f"/api/v1/assertions/{draft}", headers=m["rater_headers"]).json()["status"] == "draft"
+
+
+def test_an_authors_own_draft_blocks_an_identical_new_assertion_until_it_is_withdrawn(client, matter_with_users):
+    m = matter_with_users
+    draft = _create(client, m, save_as="draft").json()["id"]
+    for save_as in ("draft", "proposed"):
+        r = _create(client, m, save_as=save_as)
+        assert r.status_code == 409 and draft in r.json()["detail"], r.text
+
+    assert client.post(f"/api/v1/assertions/{draft}/submit", headers=m["contributor_headers"]).status_code == 200
+    assert client.post(f"/api/v1/assertions/{draft}/withdraw", headers=m["contributor_headers"]).status_code == 200
+    assert _create(client, m).status_code == 201
+
+
+@pytest.mark.parametrize("route", ["patch", "revisions"])
+def test_an_edit_cannot_copy_a_live_assertions_proposition(client, matter_with_users, route):
+    m = matter_with_users
+    target = _create(client, m, "Clause 4 limits liability to fees paid.").json()["id"]
+    edited = _create(client, m, "Clause 4 limits liability.").json()["id"]
+    body = {"proposition": "  clause 4 LIMITS liability to fees paid. ", "expected_revision_number": 1}
+
+    if route == "patch":
+        r = client.patch(f"/api/v1/assertions/{edited}", json=body, headers=m["contributor_headers"])
+    else:
+        r = client.post(f"/api/v1/assertions/{edited}/revisions", json=body, headers=m["contributor_headers"])
+
+    assert r.status_code == 409
+    assert r.json()["detail"] == (
+        f"duplicate: an identical proposition already exists in this matter (assertion {target})")
+    after = client.get(f"/api/v1/assertions/{edited}", headers=m["contributor_headers"]).json()
+    assert (after["current_revision_number"], after["proposition"]) == (1, "Clause 4 limits liability.")
+
+
+def test_an_edit_may_take_an_ended_assertions_text_and_keep_its_own(client, db_session, matter_with_users):
+    from datetime import datetime, timezone
+
+    from app.models.assertion import Assertion
+
+    m = matter_with_users
+    ended = _create(client, m, "Old wording.").json()["id"]
+    _move_to(client, m, ended, "withdrawn")
+    edited = _create(client, m, "New wording.").json()["id"]
+    path = f"/api/v1/assertions/{edited}"
+
+    r = client.patch(path, json={"proposition": "Old wording.", "expected_revision_number": 1},
+                     headers=m["contributor_headers"])
+    assert r.status_code == 200, r.text
+
+    # A live twin left behind by the old unguarded paths does not stop edits
+    # that keep the proposition (here: only its case changes).
+    now = datetime.now(timezone.utc)
+    db_session.add(Assertion(
+        id=new_id(), organization_id=m["organization_id"], repository_id=m["repository_id"],
+        matter_id=m["matter_id"], assertion_type="CREATES_EXCEPTION_TO", proposition="Old wording.",
+        subject_entity_type="Provision", subject_entity_id=new_id(), origin="user_suggested",
+        status="proposed", author_user_id=m["rater_id"], created_at=now, updated_at=now,
+        current_revision_number=1,
+    ))
+    db_session.commit()
+    r = client.patch(path, json={"proposition": "OLD WORDING.", "expected_revision_number": 2},
+                     headers=m["contributor_headers"])
+    assert r.status_code == 200, r.text
+    r = client.patch(path, json={"proposition": "Fresh wording.", "expected_revision_number": 3},
+                     headers=m["contributor_headers"])
+    assert r.status_code == 200, r.text
+    r = client.patch(path, json={"proposition": "Old wording.", "expected_revision_number": 4},
+                     headers=m["contributor_headers"])
+    assert r.status_code == 409, r.text

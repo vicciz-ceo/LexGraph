@@ -17,8 +17,8 @@ from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -27,6 +27,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.db_types import UtcDateTime
 
 
 class AssertionRating(Base):
@@ -36,6 +37,9 @@ class AssertionRating(Base):
             "user_id", "assertion_revision_id", name="uq_assertion_ratings_user_revision"
         ),
         CheckConstraint("strength BETWEEN 1 AND 5", name="ck_assertion_ratings_strength_range"),
+        # Ratings are read per revision; the unique index above leads with
+        # user_id, so it cannot serve that (migration 20261116_assertion_read_indexes).
+        Index("ix_assertion_ratings_assertion_revision_id", "assertion_revision_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -62,5 +66,5 @@ class AssertionRating(Base):
     # `rationale` itself is nullable (rationale is optional).
     rationale_raw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(), nullable=False)

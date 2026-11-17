@@ -1,0 +1,22 @@
+/* AssertionReviewPanel (components/AssertionReviewPanel.tsx).
+ *
+ * The panel's base look, including each decision's colour by what it does
+ * (.assertion-review-action--accept / --reject), lives in app.css. */
+
+/* Disabled while a decision is being recorded, or while a required text is
+ * blank. */
+.assertion-review-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assertion-review-unavailable,
+.assertion-review-hint {
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
+.assertion-review-error {
+  font: var(--body-sm);
+  color: var(--error);
+}

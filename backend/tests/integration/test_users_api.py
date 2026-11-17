@@ -13,13 +13,18 @@ Every `/api/v1/...` route not yet registered 404s today (see
 fails on a 404 instead of the intended status code -- the right RED
 reason until a Developer track adds and registers the router.
 
-Response shape pin (R3 + UI1 note): bare JSON, exact field names
-`{id, email, display_name}` -- no `{"items": [...]}` envelope on the list,
-matching `list_members`'s bare-array convention in workspace.py.
+Response shape pin (UI1 note; sign-in tokens 2026-11-16): bare JSON,
+exact field names `{id, email, display_name, sign_in_status}`, plus a
+one-time `sign_in_token` on creation -- no `{"items": [...]}` envelope on
+the list, matching `list_members`'s bare-array convention in workspace.py.
 """
 
 from __future__ import annotations
 
+import pytest
+from sqlalchemy import event, text
+
+from app.models.user import User
 from tests.conftest import auth_header, seed_matter_role, seed_user
 
 
@@ -46,9 +51,12 @@ def test_list_users_returns_bare_array_with_exact_fields(client, matter_with_use
     assert m["contributor_id"] in ids
 
     row = next(row for row in body if row["id"] == admin_id)
-    assert set(row.keys()) == {"id", "email", "display_name"}
+    # sign_in_status (2026-11-16): active | legacy | none, for the admin
+    # console's legacy badge. Never the token or its hash.
+    assert set(row.keys()) == {"id", "email", "display_name", "sign_in_status"}
     assert row["email"] == "global-admin@example.test"
     assert row["display_name"] == "Global Admin"
+    assert row["sign_in_status"] == "legacy"  # seed_user's token == id
 
 
 def test_list_users_requires_admin_on_at_least_one_matter(client, matter_with_users):
@@ -87,9 +95,12 @@ def test_list_users_unknown_token_is_401(client, matter_with_users):
 # --- POST /api/v1/users -------------------------------------------------
 
 
-def test_admin_creates_account_and_response_surfaces_id_prominently(
+def test_admin_creates_account_and_response_surfaces_its_sign_in_token_once(
     client, matter_with_users, db_session
 ):
+    # Re-pointed 2026-11-16 (findings api:2/ui:0): the id is no longer the
+    # credential (it is shown to every matter member), so the creation
+    # response now carries a separate random sign-in token, shown once.
     m = matter_with_users
     admin_id = _make_admin(db_session, m["matter_id"])
 
@@ -100,10 +111,13 @@ def test_admin_creates_account_and_response_surfaces_id_prominently(
     )
     assert r.status_code == 201
     body = r.json()
-    assert set(body.keys()) == {"id", "email", "display_name"}
+    assert set(body.keys()) == {"id", "email", "display_name", "sign_in_status", "sign_in_token"}
     assert body["email"] == "new.hire@example.test"
     assert body["display_name"] == "New Hire"
     assert isinstance(body["id"], str) and body["id"] != ""
+    assert isinstance(body["sign_in_token"], str) and len(body["sign_in_token"]) >= 32
+    assert body["sign_in_token"] != body["id"]
+    assert body["sign_in_status"] == "active"
 
     listed = client.get("/api/v1/users", headers=auth_header(admin_id)).json()
     assert any(row["id"] == body["id"] for row in listed)
@@ -213,3 +227,142 @@ def test_create_account_duplicate_caller_chosen_id_is_422(client, matter_with_us
         headers=auth_header(admin_id),
     )
     assert r.status_code == 422
+
+
+# --- Account input rules (2026-11-16, findings api:24 / ui:25) -------------
+#
+# Emails are normalized (stripped, lowercased) on write and lookup, so
+# "Ada@Firm.example" and "ada@firm.example" are one address; the unique
+# index on users.email backs the API-level check, so a request that loses
+# a creation race gets 409, not a second account (or a later 500 from
+# MultipleResultsFound). Caller-chosen ids must be usable in the URL paths
+# that manage an account and fit users.id (VARCHAR(36)).
+
+
+def _create(client, admin_id, **body):
+    return client.post("/api/v1/users", json=body, headers=auth_header(admin_id))
+
+
+def test_create_account_duplicate_email_differing_only_by_case_is_409(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+
+    r = _create(client, admin_id, email="Global-Admin@Example.TEST", display_name="Dup")
+
+    assert r.status_code == 409
+    emails = [row["email"].lower() for row in client.get(
+        "/api/v1/users", headers=auth_header(admin_id)
+    ).json()]
+    assert emails.count("global-admin@example.test") == 1
+
+
+def test_create_account_stores_the_email_normalized(client, matter_with_users, db_session):
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+
+    r = _create(client, admin_id, email="  New.Hire@Example.TEST ", display_name="New Hire")
+
+    assert r.status_code == 201
+    assert r.json()["email"] == "new.hire@example.test"
+    listed = client.get("/api/v1/users", headers=auth_header(admin_id)).json()
+    assert [row["email"] for row in listed if row["id"] == r.json()["id"]] == [
+        "new.hire@example.test"
+    ]
+
+
+@pytest.mark.parametrize(
+    "bad_id",
+    [
+        "a" * 37,  # longer than users.id (VARCHAR(36))
+        "דנה",  # not ASCII
+        "team/lead",  # cannot be addressed in /users/{id}/... or /members/{id}
+        "who?me",
+        "has space",
+        "50%",
+        "..",
+        ".hidden",
+        "-dash",
+    ],
+)
+def test_create_account_rejects_caller_chosen_ids_that_cannot_be_used(
+    client, matter_with_users, db_session, bad_id
+):
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+
+    r = _create(client, admin_id, id=bad_id, email="odd@example.test", display_name="Odd")
+
+    assert r.status_code == 422, r.text
+    listed = client.get("/api/v1/users", headers=auth_header(admin_id)).json()
+    assert all(row["email"] != "odd@example.test" for row in listed)
+
+
+@pytest.mark.parametrize("good_id", ["a" * 36, "Root.Admin_2-x", "9lives"])
+def test_create_account_accepts_url_safe_caller_chosen_ids(
+    client, matter_with_users, db_session, good_id
+):
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+
+    r = _create(client, admin_id, id=good_id, email="fine@example.test", display_name="Fine")
+
+    assert r.status_code == 201, r.text
+    assert r.json()["id"] == good_id
+    # The id works in the URL paths that manage the account.
+    rotated = client.post(
+        f"/api/v1/users/{good_id}/sign-in-token", headers=auth_header(admin_id)
+    )
+    assert rotated.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [("email", "x" * 250 + "@example.test"), ("display_name", "x" * 256)],
+)
+def test_create_account_overlong_fields_are_422(client, matter_with_users, db_session, field, value):
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+    body = {"email": "long@example.test", "display_name": "Long", field: value}
+
+    r = _create(client, admin_id, **body)
+
+    assert r.status_code == 422, r.text
+
+
+def test_create_account_that_loses_a_concurrent_creation_race_is_409_not_500(
+    app, client, matter_with_users, db_session
+):
+    # Eight concurrent POST /users with one email used to create two
+    # accounts. Replay that interleaving deterministically: a concurrent
+    # request commits the same address after this request's duplicate check
+    # ran, just before this request commits.
+    m = matter_with_users
+    admin_id = _make_admin(db_session, m["matter_id"])
+    fired = []
+
+    def concurrent_request_commits_first(session):
+        pending = [o for o in session.new if isinstance(o, User) and o.email.lower() == "race@example.test"]
+        if pending and not fired:
+            fired.append(True)
+            with app.state.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO users (id, email, display_name) "
+                        "VALUES ('race-winner', 'race@example.test', 'Winner')"
+                    )
+                )
+
+    event.listen(app.state.session_factory, "before_commit", concurrent_request_commits_first)
+    try:
+        r = _create(client, admin_id, email="race@example.test", display_name="Loser")
+    finally:
+        event.remove(app.state.session_factory, "before_commit", concurrent_request_commits_first)
+
+    assert fired, "the simulated concurrent request never ran"
+    assert r.status_code == 409, r.text
+    count = db_session.execute(
+        text("SELECT count(*) FROM users WHERE lower(email) = 'race@example.test'")
+    ).scalar_one()
+    assert count == 1

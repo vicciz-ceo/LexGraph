@@ -332,3 +332,62 @@ an unbounded formal regex length (see the Dev Complete entry's derivation
 walkthrough). Ready for QA; gates 2 (230-row corpus sweep) and 3
 (corpus-wide anchor-loss delta) remain explicitly out of this sprint's
 scope per the manager's own note above and are not re-litigated here.
+
+## Archived from contract (2026-11-16)
+
+Moved verbatim from the sprint contract
+(`2026-08-10-core-g4-discriminator-perf.md`) by a contract-hygiene pass,
+under the "move, never delete" rule. The contract's `lint:` stamp
+`PASS 298 2026-08-12T00:18:44Z` had not been earned:
+`scripts/contract_lint.sh`'s "Completed entry <= 3 lines" check did not
+recognize task-list entries (`- [x] **B1 ...`) under any awk, and under
+gawk, the awk CI uses, it measured no bullet entry at all (`awk -v` rewrote
+the entry regex's `\*\*` to `**`). With the check fixed (LexGraph audit
+finding ops:0) the entries below exceeded the 3-line cap. Each is the exact
+prior contract text; nothing was summarized, reworded or dropped. The
+contract keeps each entry's opening words, verbatim, and a pointer to this
+section, where each entry has its own subsection. Its `lint:` stamp is now
+`PASS 261 2026-11-16T08:56:55Z`.
+
+### Completed, Item 1
+
+- [x] **Item 1 (COMPLETED, commit `4c0ff01`, QA-verified 2026-08-10) --
+  bound the G4 discriminator's five suffix-regex probes to a fixed
+  512-char lookback window.** `_citation_or_xref_context`
+  (`us_profile.py:1488-1552`) now calls each of the five suffix regexes as
+  `PATTERN.search(body, max(0, trimmed_end - _SUFFIX_PROBE_WINDOW),
+  trimmed_end)` instead of `PATTERN.search(body, 0, trimmed_end)` -- `pos`
+  is no longer the literal constant `0`. Only the call site and a new
+  module-level `_SUFFIX_PROBE_WINDOW = 512` constant changed; matching
+  semantics, branch order, and the five patterns themselves are untouched,
+  as is everything outside `_citation_or_xref_context` (G2 ladder-defer
+  logic at 1665-1672 and `_US_PERIOD_UNIT_MARKER_RE` not touched).
+
+  **Window derivation (512 chars), not copied from any test constant:**
+  `_STRUCTURAL_UNIT_WORD_SUFFIX_RE` is a closed, finite word alternation
+  with no quantifier -- longest member "subdivision" = 11 chars, already
+  bounded. The other four patterns all end in the same
+  `\d+(?:[.\-]\d+)*\Z` numeric pin-cite tail; the longest,
+  `_FULL_USC_CITATION_SUFFIX_RE`
+  (`\d+\s+U\.S\.C\.\s+§\s*\d+(?:[.\-]\d+)*\Z`), has 7 fixed literal chars
+  ("U.S.C." + "§") plus four variable spans that are only ever a
+  citation's own digits/whitespace in real statute text: a leading US Code
+  title number (titles run 1-54, budgeted 4 chars), three inter-token
+  whitespace runs (ordinarily one space, budgeted 8 each), and the
+  trailing numeric chain (real citations chain at most a handful of
+  dot/hyphen-separated components, e.g. "115-6-2"; budgeted 10 components
+  x 5 chars = 50) -- sum 85 chars. The other three citation-suffix
+  patterns are strict subsets of that shape, so none exceeds 85 either.
+  512 is ~6x that derived 85-char bound, independently corroborated by
+  this contract's own "well under 100 chars" measurement and the RED
+  tests' 4096-char ceiling (~40x that same ~100-char figure), while
+  staying 8x under that 4096 ceiling.
+
+  Files touched: `backend/app/definition_links/us_profile.py` only (54
+  insertions, 7 deletions -- the probe call sites plus the derivation
+  comment and docstring update). No test file touched. Sprint contract
+  updated in this same pass.
+
+  See Evaluation Notes below for the before/after suite numbers, the
+  measured timing improvement, and the QA Verification Notes for
+  independent gate-by-gate confirmation.

@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-07-30T21:13:19Z"
-lint: "PASS 169 2026-07-30T21:13:19Z"
+lint: "PASS 136 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run"
 total_items: 2
@@ -99,44 +99,11 @@ existing test's wording collides with the new `standing`/`weak`/
 ## Completed
 
 - [x] **B1 — Derived standing/grade, exposed via the assertions API.**
-  QA-verified (independent pass, commits 5aaca94/ea6bd43): `backend/app/services/ratings.py`
-  (`band_for_median`, `compute_standing`), `backend/app/routers/assertions.py`
-  (`_rating_pairs_for_revision`, `_serialize_assertion` now emits
-  `"standing"` on every response — create/get/list/patch/submit/withdraw,
-  confirmed by reading every `_serialize_assertion(...)` call site). R3
-  confirmed: `git diff 7dd3a27..5aaca94 -- backend/app/models` is empty
-  (no schema/model change); `status` column never mutated by rating flows;
-  `standing` is derived at read time only, never persisted. Live-path
-  G1-G5 confirmed via `test_assertion_standing_api.py` (real `TestClient`
-  routes, no mocks) plus this cycle's own regression suite,
-  `backend/tests/integration/test_qa_regression_ratings_grade.py` (4
-  tests, all live-path): list route (`GET /assertions?matter_id=...`)
-  carries `standing` per-row (not just single-GET); author-rating
-  exclusion (G3) proven through the real PUT-rating route, not just the
-  unit-tested pure function (author rates 5, outsider rates 1 → "weak",
-  never the leaked-median "probable"); a PUT-overwrite (same rater, new
-  strength) recomputes the derived grade; `withdraw_assertion` (a code
-  path distinct from `_apply_decision`) overrides an existing "strong"
-  grade to `"withdrawn"`. Full evaluator: backend 461 passed (457 + 4
-  new), frontend 69 passed, 0 failures, 0 flakes.
+  QA-verified (independent pass, commits 5aaca94/ea6bd43). Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
 - [x] **UI1 — Standing (grade band) display in `AssertionCard` /
-  `AssertionDetailPanel`.** QA-verified: `frontend/src/components/AssertionCard.tsx`
-  (`data-testid="assertion-standing"`, guarded on `standing != null`),
-  `frontend/src/components/AssertionDetailPanel.tsx`
-  (`data-indicator="standing"`, unconditional `?? status` fallback,
-  never guarded). Render-guard scrutiny: `AssertionCard`'s guard exists
-  only to avoid a `getByText(/proposed/i)` collision with a pre-existing
-  synthetic fixture (`baseAssertion` in `AssertionCard.test.tsx`) that
-  predates this sprint and has no `standing` field; the live backend API
-  always emits `standing` (see B1 above), and this frontend codebase has
-  no page/container/data-fetch layer wiring the real API response into
-  `AssertionCardData` yet (`frontend/src/` is component-library-only —
-  `AssertionCard`/`AssertionDetailPanel` are referenced nowhere outside
-  their own files and tests) — so the guard cannot hide a grade on any
-  real app data path today. No test was weakened between the RED commit
-  (e702460) and the GREEN commit (5aaca94): `git diff e702460..5aaca94 --
-  <test files>` is empty. `AssertionCard.test.tsx` (+4) and
-  `AssertionDetailPanel.test.tsx` (+3) green.
+  `AssertionDetailPanel`.** QA-verified. Full entry: `-log.md` § "Archived
+  from contract (2026-11-16)".
 
 ## Evaluation Notes
 

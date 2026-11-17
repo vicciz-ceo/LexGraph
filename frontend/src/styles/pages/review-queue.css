@@ -45,6 +45,17 @@
   gap: var(--space-md);
 }
 
+/* "Showing the newest N of M" + Show more, under the cards. */
+.rq-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
+}
+
 .rq-card__body {
   display: flex;
   flex-direction: column;
@@ -90,6 +101,13 @@
 .rq-evidence--awaiting_evidence {
   background: var(--status-pending-bg);
   color: var(--status-pending-fg);
+}
+
+/* Pipeline output without evidence ("System-derived"): neither pending nor a
+ * problem, as on the assertion page. */
+.rq-evidence--system {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
 }
 
 /* Model confidence chip — outlined, model-colored; deliberately styled

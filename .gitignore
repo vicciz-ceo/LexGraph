@@ -31,5 +31,20 @@ coverage/
 .claude/worktrees/
 .codegraph/
 
-# Local demo database (recreate with: python -m app.seed_demo)
-backend/dev.db
+# Local SQLite databases, wherever a command created them: dev.db and
+# lexgraph.db (README, RUNBOOK, scripts/demo.sh) from backend/ or the
+# repository root, their side files, and backups such as the RUNBOOK's
+# `cp dev.db dev.db.bak`. They hold user ids, which are the sign-in
+# credentials, so never commit one. (Recreate the demo with scripts/demo.sh.)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.db.bak
+*.sqlite
+*.sqlite3
+
+# Coverage data and reports (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/

@@ -215,7 +215,7 @@
 
 .ctd-evidence__item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-sm);
   padding: 8px 10px;
   background: var(--surface-container-lowest);
@@ -227,6 +227,41 @@
 .ctd-evidence__item .icon {
   flex: none;
   color: var(--on-surface-variant);
+}
+
+/* An item shows its role and document, then the quoted span text. */
+.ctd-evidence__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.ctd-evidence__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ctd-evidence__source {
+  font: 500 13px/18px var(--font-family);
+  color: var(--on-surface);
+}
+
+.ctd-evidence__quote {
+  margin: 0;
+  padding-left: var(--space-sm);
+  border-left: 3px solid var(--border);
+  color: var(--on-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ctd-evidence__missing {
+  color: var(--on-surface-variant);
+  font-style: italic;
+  overflow-wrap: anywhere;
 }
 
 /* --- Adjudication footer ------------------------------------------------- */
@@ -265,6 +300,11 @@
   color: var(--status-pending-fg);
 }
 
+.ctd-confirm__error {
+  font: var(--body-sm);
+  color: var(--error);
+}
+
 .ctd-confirm__actions {
   display: flex;
   gap: var(--space-sm);
@@ -288,4 +328,29 @@
   .ctd-drawer__grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* On a phone the six-column table scrolls sideways inside its card, and
+ * expanding a row scrolls it to the toggle at the far right. The drawer
+ * stays pinned to the visible part of the card, as wide as the card. */
+@media (max-width: 767px) {
+  .ctd-drawer {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: calc(100vw - 2 * var(--space-md) - 2px);
+    padding: var(--space-md);
+  }
+}
+
+/* "Showing N of M" + Show more, under the table. */
+.ctd-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--outline-variant);
+  font: var(--body-sm);
+  color: var(--on-surface-variant);
 }

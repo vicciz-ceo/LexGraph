@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { api, ApiError } from "../../api/client";
@@ -128,6 +128,9 @@ const awaitingEvidenceAssertion = makeAssertion({
   proposition: "The notice period runs from the date of mailing, not receipt.",
 });
 
+/** Each status list is read newest first, one page of 50 at a time. */
+const FIRST_PAGE = { sort: "-created_at", limit: 50, offset: 0 };
+
 const summaryA1: RatingSummary = {
   count: 5,
   average: 3.8,
@@ -202,7 +205,9 @@ describe("ReviewQueuePage", () => {
 
     expect(await screen.findByText(modelAssertion.proposition)).toBeInTheDocument();
     expect(screen.getByText(userAssertion.proposition)).toBeInTheDocument();
-    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed" });
+    // The newest page of the proposed inbox, and its total for the chip.
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed", ...FIRST_PAGE });
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "proposed", limit: 1 });
     expect(api.listMatterMembers).toHaveBeenCalledWith("m1");
 
     // Pending chip reflects the full proposed inbox.
@@ -232,19 +237,22 @@ describe("ReviewQueuePage", () => {
     expect(screen.getByText(disputedAssertion.proposition)).toBeInTheDocument();
     expect(api.listAssertions).toHaveBeenCalledWith("m1", {
       status: "revision_requested",
+      ...FIRST_PAGE,
     });
-    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "disputed" });
+    expect(api.listAssertions).toHaveBeenCalledWith("m1", { status: "disputed", ...FIRST_PAGE });
 
     await user.click(screen.getByRole("button", { name: "AI-deduced" }));
     await waitFor(() =>
       expect(api.listAssertions).toHaveBeenCalledWith("m1", {
         status: "proposed",
         origin: "model_suggested",
+        ...FIRST_PAGE,
       }),
     );
     expect(api.listAssertions).toHaveBeenCalledWith("m1", {
       status: "disputed",
       origin: "model_suggested",
+      ...FIRST_PAGE,
     });
   });
 
@@ -257,7 +265,7 @@ describe("ReviewQueuePage", () => {
     // First card is the newest (a1, evidenced) — accept goes straight through.
     await user.click(screen.getAllByRole("button", { name: "Accept" })[0]);
 
-    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined));
+    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1, "proposed"));
     await waitFor(() =>
       expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(callsBefore),
     );
@@ -282,6 +290,8 @@ describe("ReviewQueuePage", () => {
       expect(api.acceptAssertion).toHaveBeenCalledWith(
         "a2",
         "Counsel confirmed the clause against the executed original.",
+        2,
+        "proposed",
       ),
     );
   });
@@ -340,6 +350,8 @@ describe("ReviewQueuePage", () => {
       expect(api.acceptAssertion).toHaveBeenCalledWith(
         "a5",
         "Confirmed via opposing counsel's admission letter.",
+        1,
+        "proposed",
       ),
     );
   });
@@ -386,5 +398,383 @@ describe("ReviewQueuePage", () => {
     const banner = await screen.findByRole("alert");
     expect(banner).toHaveTextContent("Couldn't load the review queue.");
     expect(banner).toHaveTextContent("network down");
+  });
+});
+
+// Review decisions from a queue card (spec addendum "Review decision rules
+// (2026-11-16)"): ui:2 (revision on screen, 409), ui:8 (justification),
+// ui:9 (status, double submit), ui:24 (per-card form ids).
+describe("ReviewQueuePage review decisions", () => {
+  function cardFor(proposition: string): HTMLElement {
+    const card = screen.getByText(proposition).closest("article");
+    if (!card) throw new Error(`no queue card shows "${proposition}"`);
+    return card;
+  }
+
+  async function waitForReload(callsBefore: number) {
+    await waitFor(() =>
+      expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(callsBefore),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Loading review queue…")).not.toBeInTheDocument(),
+    );
+  }
+
+  it.each([
+    ["Reject", "rejectAssertion"],
+    ["Dispute", "disputeAssertion"],
+  ] as const)("%s sends the revision shown on the card", async (buttonName, method) => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+
+    await user.click(
+      within(cardFor(userAssertion.proposition)).getByRole("button", { name: buttonName }),
+    );
+
+    // a2 is shown at revision 2.
+    await waitFor(() => expect(api[method]).toHaveBeenCalledWith("a2", 2, "proposed"));
+  });
+
+  it("sends the trimmed revision comment with the revision shown on the card", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const card = within(cardFor(userAssertion.proposition));
+
+    await user.click(card.getByRole("button", { name: "Request revision" }));
+    const confirm = card.getByRole("button", { name: "Confirm" });
+    expect(confirm).toBeDisabled();
+    await user.type(
+      card.getByLabelText("Comment explaining the requested revision"),
+      "  Cite the clause.  ",
+    );
+    await user.click(confirm);
+
+    await waitFor(() =>
+      expect(api.requestRevision).toHaveBeenCalledWith("a2", "Cite the clause.", 2, "proposed"),
+    );
+  });
+
+  it("never sends a blank justification and sends the typed one trimmed", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const card = within(cardFor(userAssertion.proposition));
+
+    // a2 is unsupported: Accept opens the justification form.
+    await user.click(card.getByRole("button", { name: "Accept" }));
+    const textarea = card.getByLabelText("Justification for accepting without supporting evidence");
+    const confirm = card.getByRole("button", { name: "Confirm" });
+
+    await user.type(textarea, "   ");
+    expect(confirm).toBeDisabled();
+    await user.click(confirm);
+    expect(api.acceptAssertion).not.toHaveBeenCalled();
+
+    await user.type(textarea, "Counsel confirmed it.  ");
+    await user.click(confirm);
+    await waitFor(() =>
+      expect(api.acceptAssertion).toHaveBeenCalledWith("a2", "Counsel confirmed it.", 2, "proposed"),
+    );
+  });
+
+  it("explains a refusal because the card is stale (409), reloads the queue and keeps the notice", async () => {
+    vi.mocked(api.acceptAssertion).mockRejectedValue(
+      new ApiError(409, "assertion has been modified since expected_revision_number"),
+    );
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    const callsBefore = vi.mocked(api.listAssertions).mock.calls.length;
+
+    await user.click(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Accept" }),
+    );
+
+    expect(await screen.findByText(/changed after you opened it/)).toBeInTheDocument();
+    await waitForReload(callsBefore);
+    expect(screen.getByText(modelAssertion.proposition)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/changed after you opened it/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+    // In plain words, without the API's field name (acceptance run).
+    expect(screen.getByRole("alert")).toHaveTextContent("Reason: it was edited.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("expected_revision_number");
+  });
+
+  it("records one decision when Reject is double-clicked", async () => {
+    vi.mocked(api.rejectAssertion).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+
+    await user.dblClick(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }),
+    );
+
+    expect(api.rejectAssertion).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the decisions on every card while one is being recorded", async () => {
+    vi.mocked(api.rejectAssertion).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+
+    await user.click(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }),
+    );
+
+    const accepts = screen.getAllByRole("button", { name: "Accept" });
+    expect(accepts).toHaveLength(2);
+    for (const button of accepts) expect(button).toBeDisabled();
+  });
+
+  it("offers on each card only the decisions its status allows", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    await user.click(screen.getByRole("button", { name: "All open" }));
+    await screen.findByText(revisionAssertion.proposition);
+
+    const revisionCard = within(cardFor(revisionAssertion.proposition));
+    expect(
+      revisionCard.queryByRole("button", { name: "Request revision" }),
+    ).not.toBeInTheDocument();
+    expect(revisionCard.getByRole("button", { name: "Accept" })).toBeInTheDocument();
+
+    const disputedCard = within(cardFor(disputedAssertion.proposition));
+    expect(disputedCard.queryByRole("button", { name: "Dispute" })).not.toBeInTheDocument();
+    expect(disputedCard.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+  });
+
+  it("links each card's form label to that card's own textarea", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(userAssertion.proposition);
+    const cards = [cardFor(modelAssertion.proposition), cardFor(userAssertion.proposition)];
+
+    for (const card of cards) {
+      await user.click(within(card).getByRole("button", { name: "Request revision" }));
+    }
+    for (const card of cards) {
+      const label = within(card).getByText("Comment explaining the requested revision");
+      expect(card).toContainElement((label as HTMLLabelElement).control as HTMLElement);
+    }
+
+    await user.click(within(cards[1]).getByText("Comment explaining the requested revision"));
+    expect(within(cards[1]).getByRole("textbox")).toHaveFocus();
+  });
+
+  // Review fe-review-detail:2: removing evidence changes neither the revision
+  // nor updated_at, so the card still reads "Evidenced" and its Accept is
+  // sent without a justification; the API refuses it with 422.
+  it("reloads a card whose evidence was removed meanwhile and asks for the justification (422)", async () => {
+    vi.mocked(api.acceptAssertion).mockImplementation(async (_id, justification) => {
+      if (!justification) {
+        throw new ApiError(
+          422,
+          "unsupported assertion (no supporting evidence attached) cannot be accepted without a recorded acceptance_justification",
+        );
+      }
+      return makeAssertion({ id: "a1", status: "accepted" });
+    });
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    expect(within(cardFor(modelAssertion.proposition)).getByText("Evidenced")).toBeInTheDocument();
+    // The supporting passage is removed: the next read of the queue shows it.
+    const withoutEvidence = { ...modelAssertion, evidence_status: "awaiting_evidence" as const };
+    vi.mocked(api.listAssertions).mockImplementation(
+      async (_matterId: string, params: AssertionListParams = {}) =>
+        params.status === "proposed"
+          ? { items: [withoutEvidence, userAssertion], total: 2 }
+          : { items: [], total: 0 },
+    );
+    const callsBefore = vi.mocked(api.listAssertions).mock.calls.length;
+
+    await user.click(
+      within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Accept" }),
+    );
+
+    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1, "proposed"));
+    await waitForReload(callsBefore);
+    const card = within(cardFor(modelAssertion.proposition));
+    expect(card.getByText("Awaiting evidence")).toBeInTheDocument();
+    const textarea = card.getByLabelText("Justification for accepting without supporting evidence");
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/not recorded/);
+    expect(alert).toHaveTextContent(/no longer has supporting evidence/);
+    expect(alert).not.toHaveTextContent(/acceptance_justification/);
+
+    await user.type(textarea, "  Counsel confirmed the clause.  ");
+    await user.click(card.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(api.acceptAssertion).toHaveBeenLastCalledWith("a1", "Counsel confirmed the clause.", 1, "proposed"),
+    );
+    expect(api.acceptAssertion).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Review fe-review-detail:5 (ui:4 on the queue): a system_generated row comes
+// from the definition-linking pipeline. The user the run is attributed to did
+// not suggest it, and a row without evidence is "System-derived", as on the
+// assertion page and in the Knowledge Base.
+describe("ReviewQueuePage pipeline-generated assertions", () => {
+  const pipelineRow = makeAssertion({
+    id: "s1",
+    origin: "system_generated",
+    assertion_type: "USES_DEFINITION",
+    evidence_status: "awaiting_evidence",
+    author_user_id: "admin",
+    confidence: 0.95,
+    proposition: 'Article 796 uses the definition of "Branch office". (reviewed wording)',
+  });
+
+  beforeEach(() => {
+    vi.mocked(api.listMatterMembers).mockResolvedValue([
+      { user: { id: "admin", email: "ada@example.com", display_name: "Ada Admin" }, role: "admin" },
+      { user: { id: "u2", email: "noa@example.com", display_name: "Noa Contributor" }, role: "contributor" },
+    ]);
+    vi.mocked(api.listAssertions).mockImplementation(
+      async (_matterId: string, params: AssertionListParams = {}) =>
+        params.status === "proposed"
+          ? { items: [pipelineRow, awaitingEvidenceAssertion], total: 2 }
+          : { items: [], total: 0 },
+    );
+  });
+
+  function cardFor(proposition: string): HTMLElement {
+    const card = screen.getByText(proposition).closest("article");
+    if (!card) throw new Error(`no queue card shows "${proposition}"`);
+    return card;
+  }
+
+  it("names the pipeline, and the user the run is attributed to only as that", async () => {
+    render(<ReviewQueuePage />);
+    await screen.findByText(pipelineRow.proposition);
+    const card = within(cardFor(pipelineRow.proposition));
+
+    expect(
+      card.getByText(/^Generated by the definition-linking pipeline · run attributed to Ada Admin · /),
+    ).toBeInTheDocument();
+    expect(card.queryByText(/Suggested by/)).not.toBeInTheDocument();
+    // Other cards keep their byline.
+    expect(
+      within(cardFor(awaitingEvidenceAssertion.proposition)).getByText(/^Suggested by Noa Contributor · /),
+    ).toBeInTheDocument();
+  });
+
+  it("labels a pipeline row without evidence System-derived, and still asks for a justification to accept it", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(pipelineRow.proposition);
+    const card = within(cardFor(pipelineRow.proposition));
+
+    expect(card.getByText("System-derived")).toBeInTheDocument();
+    expect(card.queryByText("Awaiting evidence")).not.toBeInTheDocument();
+    // A colleague's row without evidence is still awaiting it.
+    expect(
+      within(cardFor(awaitingEvidenceAssertion.proposition)).getByText("Awaiting evidence"),
+    ).toBeInTheDocument();
+
+    await user.click(card.getByRole("button", { name: "Accept" }));
+    expect(api.acceptAssertion).not.toHaveBeenCalled();
+    expect(
+      card.getByLabelText("Justification for accepting without supporting evidence"),
+    ).toBeInTheDocument();
+  });
+});
+
+// Acceptance run (release candidate): the queue re-read only after a decision
+// or a filter change, so a proposal a contributor submitted while the queue
+// was open appeared only after leaving the page and coming back, or a reload.
+// Clicking the queue's own nav link changes nothing in the URL (AppShell
+// signals a hashchange then), and returning to the tab or window is another
+// natural moment to look again.
+describe("ReviewQueuePage shows proposals submitted meanwhile", () => {
+  const submitted = makeAssertion({
+    id: "a9",
+    created_at: "2026-08-01T09:00:00Z",
+    proposition: "A proposal submitted while the queue was open.",
+  });
+
+  /** A contributor submits `submitted`: every later read of the proposed inbox lists it. */
+  function submitMeanwhile() {
+    const before = vi.mocked(api.listAssertions).getMockImplementation()!;
+    vi.mocked(api.listAssertions).mockImplementation(async (matterId, params = {}) => {
+      const page = await before(matterId, params);
+      if (params.status !== "proposed") return page;
+      return { items: params.limit === 1 ? page.items : [submitted, ...page.items], total: page.total + 1 };
+    });
+  }
+
+  function cardFor(proposition: string): HTMLElement {
+    const card = screen.getByText(proposition).closest("article");
+    if (!card) throw new Error(`no queue card shows "${proposition}"`);
+    return card;
+  }
+
+  const returns: [string, () => void][] = [
+    ["its own nav link is clicked", () => window.dispatchEvent(new HashChangeEvent("hashchange"))],
+    ["the window regains focus", () => window.dispatchEvent(new Event("focus"))],
+    ["the tab is shown again", () => document.dispatchEvent(new Event("visibilitychange"))],
+  ];
+
+  it.each(returns)("re-reads the queue when %s", async (_when, comeBack) => {
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    expect(screen.queryByText(submitted.proposition)).not.toBeInTheDocument();
+    submitMeanwhile();
+
+    act(comeBack);
+
+    expect(await screen.findByText(submitted.proposition)).toBeInTheDocument();
+    expect(screen.getByText("3 pending")).toBeInTheDocument();
+    expect(screen.getByText(modelAssertion.proposition)).toBeInTheDocument();
+  });
+
+  it("keeps an open decision form, and what was typed in it, through the re-read", async () => {
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    const card = within(cardFor(modelAssertion.proposition));
+    await user.click(card.getByRole("button", { name: "Request revision" }));
+    await user.type(card.getByLabelText("Comment explaining the requested revision"), "Cite clause 8.4.");
+    submitMeanwhile();
+
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(await screen.findByText(submitted.proposition)).toBeInTheDocument();
+    const reread = within(cardFor(modelAssertion.proposition));
+    expect(reread.getByLabelText("Comment explaining the requested revision")).toHaveValue("Cite clause 8.4.");
+    await waitFor(() => expect(reread.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  });
+
+  it("clears an earlier notice when its own nav link is clicked, and keeps it on returning to the tab", async () => {
+    vi.mocked(api.rejectAssertion).mockRejectedValue(
+      new ApiError(409, "assertion has been modified since expected_revision_number"),
+    );
+    const user = userEvent.setup();
+    render(<ReviewQueuePage />);
+    await screen.findByText(modelAssertion.proposition);
+    await user.click(within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Reject" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not recorded/);
+    await waitFor(() => expect(screen.queryByText("Loading review queue…")).not.toBeInTheDocument());
+
+    const reads = vi.mocked(api.listAssertions).mock.calls.length;
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(reads));
+    expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+
+    act(() => {
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });

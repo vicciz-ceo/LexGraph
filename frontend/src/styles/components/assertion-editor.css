@@ -1,0 +1,43 @@
+/* AssertionEditor (components/AssertionEditor.tsx): the stale-revision
+ * conflict panel shown above the user's unsaved text. */
+
+.assertion-editor__conflict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.assertion-editor__conflict .btn {
+  margin-top: var(--space-xs);
+}
+
+/* The user's own changes, which are all that saving over a newer revision sends. */
+.assertion-editor__changes {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.assertion-editor__latest {
+  margin: 0;
+  align-self: stretch;
+  padding: 8px 12px;
+  border-left: 3px solid var(--outline-variant);
+  background: var(--surface-container-lowest);
+  color: var(--on-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Type, jurisdiction and effective dates, two per row (one on a phone). */
+.assertion-editor__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-md);
+}
+
+@media (max-width: 767px) {
+  .assertion-editor__facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

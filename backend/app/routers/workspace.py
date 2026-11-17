@@ -4,16 +4,25 @@ Three gaps the Stitch design exposed, closed here with minimal additive
 endpoints (no changes to existing routers):
 
 - ``GET /api/v1/me`` — resolve the caller's identity + matter memberships.
-  The UI needs this at sign-in: the bearer token IS the user id
-  (``app/auth.py`` test-token seam), so "signing in" = proving the token
-  resolves to a real user, then learning which matters (and roles) the
-  account has.
+  The UI needs this at sign-in: "signing in" = proving the bearer sign-in
+  token resolves to a real user (``app/auth.py``), then learning the
+  account's PUBLIC user id and which matters (and roles) it has.
 - ``GET /api/v1/matters/{matter_id}/members`` — member roster for a
   matter (any member may view; there is no user-enumeration endpoint
-  outside a shared matter).
+  outside a shared matter). Roster ids are public references, not
+  credentials, so showing them to every member is safe.
 - Admin role management (``POST``/``PUT``/``DELETE`` members) — powers
   the design's Admin console. Guarded so a matter can never lose its
   last admin (no lockout).
+
+Concurrency (2026-11-16, finding api:24 and new:last-admin-race): adding
+a member looks the account up by normalized email
+(``app.routers.users.find_users_by_email``), and a request that loses a
+race to a concurrent add of the same member gets the sequential 409, not
+a 500. The last-admin guard is re-checked inside the demoting or
+removing statement itself, so two admins demoting each other at the same
+moment cannot both succeed (they used to, every time, leaving the matter
+with no admin).
 
 Follows the established per-router conventions: local session/auth
 dependencies, no shared deps module, roles from ``matter_roles``.
@@ -26,7 +35,8 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, exists, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import AuthHeaderError, get_bearer_user_id
@@ -34,6 +44,7 @@ from app.models.matter import Matter
 from app.models.matter_role import VALID_ROLES, MatterRole
 from app.models.repository import Repository
 from app.models.user import User
+from app.routers.users import find_users_by_email
 
 router = APIRouter(prefix="/api/v1", tags=["workspace"])
 
@@ -116,7 +127,7 @@ def _require_admin(session: Session, user_id: str, matter_id: str) -> None:
 def _validate_role(role: str) -> None:
     if role not in VALID_ROLES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail=f"role must be one of {', '.join(VALID_ROLES)}",
         )
 
@@ -128,12 +139,38 @@ def _admin_count(session: Session, matter_id: str) -> int:
     return len(rows)
 
 
+_LAST_ADMIN = "a matter must keep at least one admin"
+_ALREADY_MEMBER = "user is already a member of this matter"
+
+
 def _forbid_removing_last_admin(session: Session, membership: MatterRole) -> None:
     if membership.role == "admin" and _admin_count(session, membership.matter_id) <= 1:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="a matter must keep at least one admin",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
+
+
+def _unless_last_admin(membership: MatterRole):
+    """WHERE clause that lets a demoting/removing statement touch
+    ``membership`` only if it is not an admin row or another admin row
+    remains on the matter.
+
+    The read-then-write check above can see a stale count when two admins
+    demote each other at the same moment. Evaluated inside the UPDATE or
+    DELETE, the check runs under the database's write lock (SQLite admits
+    one writer at a time), so the second statement sees the first one's
+    committed change and matches no row.
+    """
+    other_admin = exists().where(
+        MatterRole.matter_id == membership.matter_id,
+        MatterRole.role == "admin",
+        MatterRole.id != membership.id,
+    )
+    return (MatterRole.id == membership.id) & ((MatterRole.role != "admin") | other_admin)
+
+
+def _membership(session: Session, user_id: str, matter_id: str) -> MatterRole | None:
+    return session.execute(
+        select(MatterRole).where(MatterRole.user_id == user_id, MatterRole.matter_id == matter_id)
+    ).scalar_one_or_none()
 
 
 # --- Routes ------------------------------------------------------------------
@@ -202,36 +239,52 @@ def add_member(
     _require_admin(session, user_id, matter_id)
     _validate_role(body.role)
 
-    target = session.execute(
-        select(User).where(User.email == body.email)
-    ).scalar_one_or_none()
-    if target is None:
+    # Case-insensitive, whitespace-tolerant (finding api:24 / ui:25).
+    matches = find_users_by_email(session, body.email)
+    if not matches:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="no user account with that email",
         )
-
-    existing = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == target.id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
+    if len(matches) > 1:
+        # Older accounts that share an address in different letter case
+        # (see the m20261116_users_email_unique migration): never guess
+        # which person gets access.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="user is already a member of this matter",
+            detail=(
+                "several user accounts share that email address (ignoring letter case); "
+                "an operator must give each its own address first"
+            ),
         )
+    target = matches[0]
+
+    if _membership(session, target.id, matter_id) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_ALREADY_MEMBER)
 
     session.add(
         MatterRole(
             id=str(uuid.uuid4()), user_id=target.id, matter_id=matter_id, role=body.role
         )
     )
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # A concurrent request added this member after the check above.
+        session.rollback()
+        if _membership(session, target.id, matter_id) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_ALREADY_MEMBER
+            ) from None
+        raise
     return {"user": _serialize_user(target), "role": body.role}
 
 
-@router.put("/matters/{matter_id}/members/{member_user_id}")
+# `:path` on the member id: an id created before the api:24 rules may contain
+# "/" ("team/lead"). Clients send it as %2F, which the server decodes before
+# routing, so a plain segment parameter answered 404 and such a membership
+# could not be changed or removed in-app (review identity:4).
+@router.put("/matters/{matter_id}/members/{member_user_id:path}")
 def set_member_role(
     matter_id: str,
     member_user_id: str,
@@ -243,29 +296,34 @@ def set_member_role(
     _require_admin(session, user_id, matter_id)
     _validate_role(body.role)
 
-    membership = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == member_user_id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
+    membership = _membership(session, member_user_id, matter_id)
     if membership is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="not a member of this matter"
         )
 
-    if body.role != "admin":
+    if body.role != "admin" and membership.role == "admin":
         _forbid_removing_last_admin(session, membership)
-
-    membership.role = body.role
+        demoted = session.execute(
+            update(MatterRole)
+            .where(_unless_last_admin(membership))
+            .values(role=body.role)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        if not demoted:
+            session.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
+    else:
+        membership.role = body.role
     session.commit()
 
     target = session.get(User, member_user_id)
     assert target is not None  # FK guarantees the account exists
-    return {"user": _serialize_user(target), "role": membership.role}
+    return {"user": _serialize_user(target), "role": body.role}
 
 
 @router.delete(
-    "/matters/{matter_id}/members/{member_user_id}",
+    "/matters/{matter_id}/members/{member_user_id:path}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_member(
@@ -277,11 +335,7 @@ def remove_member(
     _get_matter_or_404(session, matter_id)
     _require_admin(session, user_id, matter_id)
 
-    membership = session.execute(
-        select(MatterRole).where(
-            MatterRole.user_id == member_user_id, MatterRole.matter_id == matter_id
-        )
-    ).scalar_one_or_none()
+    membership = _membership(session, member_user_id, matter_id)
     if membership is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="not a member of this matter"
@@ -289,5 +343,12 @@ def remove_member(
 
     _forbid_removing_last_admin(session, membership)
 
-    session.delete(membership)
+    removed = session.execute(
+        delete(MatterRole)
+        .where(_unless_last_admin(membership))
+        .execution_options(synchronize_session=False)
+    ).rowcount
+    if not removed:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LAST_ADMIN)
     session.commit()

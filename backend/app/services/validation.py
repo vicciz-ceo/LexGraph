@@ -285,6 +285,12 @@ def _sanitize_once(raw_text: str) -> str:
     return text.replace(_AMPERSAND_SENTINEL, "&")
 
 
+#: Most `_sanitize_once` passes `sanitize_for_storage` runs before failing
+#: closed (see its docstring). Ordinary and hostile test input converges in at
+#: most 25 passes; 256 keeps a whole 100,000-character field under ~0.2 s.
+_MAX_SANITIZE_PASSES = 256
+
+
 def sanitize_for_storage(raw_text: str) -> str:
     """Return `raw_text` with any active HTML/script content neutralized.
 
@@ -316,11 +322,22 @@ def sanitize_for_storage(raw_text: str) -> str:
     that is a sign some fixpoint assumption has been violated, so this
     fails closed and returns "" rather than the last (possibly
     still-markup) output, the raw input, or raising.
+
+    The bound is also capped at `_MAX_SANITIZE_PASSES`. Each pass peels
+    only one raw-text wrapper (`<title>`, `<textarea>`, `<xmp>`,
+    `<script>`, ...), so a field of nested wrappers at the 100,000-character
+    cap took up to ~14,000 passes and ~8 s of CPU (two such fields per
+    create request). No string in the sanitizer tests, nor any of 62,000
+    random hostile token mixes, needs more than 25 passes, so the cap
+    changes no output that converges within it; input that needs more
+    fails closed exactly as above, and each caller treats it as it treats
+    any text that sanitizes to nothing (it keeps the raw text beside it, or
+    refuses the value, as agent provenance and propositions are refused).
     """
     if raw_text is None:
         return raw_text
     text = raw_text
-    for _ in range(len(raw_text) + 2):
+    for _ in range(min(len(raw_text) + 2, _MAX_SANITIZE_PASSES)):
         sanitized = _sanitize_once(text)
         if sanitized == text:
             return sanitized
@@ -352,18 +369,43 @@ def validate_text_length(text: str, *, label: str, max_length: int = 100_000) ->
         )
 
 
+def normalize_effective_datetime(
+    value: date | datetime | None, *, label: str
+) -> datetime | None:
+    """Return an effective date as an aware UTC datetime (audit findings
+    agent:7, api:19, api:20).
+
+    Effective dates are UTC instants. An offset is applied, never dropped:
+    the database stores the wall-clock part only, so storing
+    `2030-01-01T00:00:00+14:00` as given used to keep `2030-01-01 00:00`, 14
+    hours off, and could store a valid range inverted. A naive value is read
+    as UTC and a date as midnight UTC, as before. An instant outside the
+    representable years 1..9999 once in UTC (year 1 with a positive offset,
+    year 9999 with a negative one) is a ValidationError, not OverflowError.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.utcoffset() is None:
+            return value.replace(tzinfo=timezone.utc)
+        try:
+            return value.astimezone(timezone.utc)
+        except OverflowError as exc:
+            raise ValidationError(f"{label} is outside the supported date range") from exc
+    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
+
+
 def validate_effective_dates(
     effective_from: date | datetime | None, effective_to: date | datetime | None
 ) -> None:
     """Raise ValidationError if the date range is not logically consistent.
 
+    The bounds are compared as UTC instants (`normalize_effective_datetime`).
     Open-ended ranges (either or both bounds `None`) are always consistent.
     """
-    def comparable(value):
-        if isinstance(value, datetime):
-            return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
-        return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
-    if effective_from is not None and effective_to is not None and comparable(effective_to) < comparable(effective_from):
+    start = normalize_effective_datetime(effective_from, label="effective_from")
+    end = normalize_effective_datetime(effective_to, label="effective_to")
+    if start is not None and end is not None and end < start:
         raise ValidationError("effective_to cannot be before effective_from")
 
 

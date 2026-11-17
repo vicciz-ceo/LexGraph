@@ -1,8 +1,11 @@
 // Thin typed client over the LexGraph REST API.
 //
-// Auth follows the backend's test-token seam (backend/app/auth.py): the
-// bearer token IS the user id. The token lives in localStorage so a
-// reload keeps the session; there is no server-side session state.
+// Auth (backend/app/auth.py): the bearer token is the user's secret
+// sign-in token, NOT the public user id (the signed-in user's id comes from
+// GET /me). The token lives in localStorage so a reload keeps the session;
+// there is no server-side session state. The key predates sign-in tokens:
+// a value stored then (the user id) is accepted by an upgraded backend as a
+// legacy token until an admin rotates it, so it needs no client migration.
 
 import type {
   AppNotification,
@@ -11,18 +14,26 @@ import type {
   AssertionDetail,
   AssertionList,
   AssertionListParams,
+  AssertionStatus,
+  CreateAssertionResult,
   Evidence,
   HistoryEvent,
+  IssuedSignIn,
   MatterGraph,
   MatterMember,
   MatterRoleName,
   Me,
+  NotificationListParams,
+  NotificationPreference,
   Rating,
   RatingSummary,
   RelatedMatch,
+  RelatedMatchList,
   Revision,
-  UserInfo,
+  UserAccount,
 } from "./types";
+import type { AssertionStats, AssertionStatsParams } from "./types";
+import { reportAuthFailure } from "./authEvents";
 
 const TOKEN_KEY = "lexgraph.token";
 const MATTER_KEY = "lexgraph.matter";
@@ -34,6 +45,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     detail: string,
+    /** The parsed error response body, for structured fields beside `detail`. */
+    public body: unknown = null,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -73,11 +86,19 @@ function detailFromBody(body: unknown, fallback: string): string {
   return fallback;
 }
 
-async function request<T>(
+type RequestOptions = { body?: unknown; query?: Record<string, unknown> };
+
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  return (await send(method, path, options)).payload as T;
+}
+
+/** A successful response's parsed body, with the response itself for its
+ * headers; any other status throws ApiError. */
+async function send(
   method: string,
   path: string,
-  options: { body?: unknown; query?: Record<string, unknown> } = {},
-): Promise<T> {
+  options: RequestOptions = {},
+): Promise<{ payload: unknown; response: Response }> {
   const url = new URL(API_BASE + path, window.location.origin);
   if (options.query) {
     for (const [key, value] of Object.entries(options.query)) {
@@ -98,10 +119,12 @@ async function request<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  if (response.status === 204) return undefined as T;
+  // Read the body even when there is none (204): Chromium reports a
+  // response whose body is never read as a failed, aborted request.
+  const text = await response.text();
+  if (response.status === 204) return { payload: undefined, response };
 
   let payload: unknown = null;
-  const text = await response.text();
   if (text) {
     try {
       payload = JSON.parse(text);
@@ -111,13 +134,39 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    // Lets the session re-check GET /me (authEvents.ts, ui:18/ui:19).
+    if (response.status === 401 || response.status === 403) {
+      reportAuthFailure({ status: response.status, method, path });
+    }
     throw new ApiError(
       response.status,
       detailFromBody(payload, `${method} ${path} failed (${response.status})`),
+      payload,
     );
   }
 
-  return payload as T;
+  return { payload, response };
+}
+
+/** What the reviewer saw, as a review decision's `expected_revision_number`
+ * and `expected_status` fields, each present only when known. */
+function expectedVersion(
+  expectedRevisionNumber: number | null | undefined,
+  expectedStatus: AssertionStatus | null | undefined,
+): { expected_revision_number?: number; expected_status?: AssertionStatus } {
+  return {
+    ...(expectedRevisionNumber != null ? { expected_revision_number: expectedRevisionNumber } : {}),
+    ...(expectedStatus != null ? { expected_status: expectedStatus } : {}),
+  };
+}
+
+/** The body of a decision that sends nothing else: none when nothing is known. */
+function seenOnlyBody(
+  expectedRevisionNumber: number | null | undefined,
+  expectedStatus: AssertionStatus | null | undefined,
+): { expected_revision_number?: number; expected_status?: AssertionStatus } | undefined {
+  const body = expectedVersion(expectedRevisionNumber, expectedStatus);
+  return Object.keys(body).length > 0 ? body : undefined;
 }
 
 export const api = {
@@ -128,7 +177,7 @@ export const api = {
     request<MatterMember[]>("GET", `/matters/${matterId}/members`),
 
   setMatterMemberRole: (matterId: string, userId: string, role: MatterRoleName) =>
-    request<MatterMember>("PUT", `/matters/${matterId}/members/${userId}`, {
+    request<MatterMember>("PUT", `/matters/${matterId}/members/${encodeURIComponent(userId)}`, {
       body: { role },
     }),
 
@@ -138,15 +187,20 @@ export const api = {
     }),
 
   removeMatterMember: (matterId: string, userId: string) =>
-    request<void>("DELETE", `/matters/${matterId}/members/${userId}`),
+    request<void>("DELETE", `/matters/${matterId}/members/${encodeURIComponent(userId)}`),
 
   // --- user accounts (B2/UI1: admin-on-any-matter gate, backend/app/routers/users.py) ---
-  listUsers: () => request<UserInfo[]>("GET", "/users"),
+  listUsers: () => request<UserAccount[]>("GET", "/users"),
 
+  /** The response carries the new account's sign-in token, shown once. */
   createUser: (email: string, displayName: string, id?: string) =>
-    request<UserInfo>("POST", "/users", {
+    request<IssuedSignIn>("POST", "/users", {
       body: { email, display_name: displayName, ...(id ? { id } : {}) },
     }),
+
+  /** Replace an account's sign-in token; the old one stops working. */
+  rotateSignInToken: (userId: string) =>
+    request<IssuedSignIn>("POST", `/users/${encodeURIComponent(userId)}/sign-in-token`),
 
   sources: (matterId: string, kind: "entities" | "source-spans", q = "", offset = 0) =>
     request<{ items: { id: string; type?: string; label?: string; document_title?: string; quote_text?: string }[]; total: number }>(
@@ -158,10 +212,15 @@ export const api = {
       query: { matter_id: matterId, ...params },
     }),
 
+  assertionStats: (matterId: string, params: AssertionStatsParams = {}) =>
+    request<AssertionStats>("GET", `/matters/${matterId}/assertion-stats`, {
+      query: { ...params },
+    }),
+
   getAssertion: (id: string) => request<AssertionDetail>("GET", `/assertions/${id}`),
 
   createAssertion: (body: Record<string, unknown>) =>
-    request<Assertion & { similar_assertions?: { id: string; proposition: string }[] }>(
+    request<CreateAssertionResult>(
       "POST",
       "/assertions",
       { body },
@@ -175,31 +234,81 @@ export const api = {
   withdrawAssertion: (id: string) =>
     request<Assertion>("POST", `/assertions/${id}/withdraw`),
 
-  relatedAssertions: (id: string) =>
-    request<RelatedMatch[]>("GET", `/assertions/${id}/related`),
+  /** The strongest matches (the server lists at most 20); the array's
+   * `total` is every match it found (X-Total-Count), when it says. */
+  relatedAssertions: async (id: string): Promise<RelatedMatchList> => {
+    const { payload, response } = await send("GET", `/assertions/${id}/related`);
+    const matches = (Array.isArray(payload) ? payload : []) as RelatedMatch[];
+    const total = Number(response.headers?.get("X-Total-Count") ?? Number.NaN);
+    // Not enumerable: the value still compares and spreads as a plain list.
+    return Number.isInteger(total) && total >= matches.length
+      ? Object.defineProperty(matches, "total", { value: total, enumerable: false })
+      : matches;
+  },
 
   // --- review (reviewer/admin) -------------------------------------------
-  acceptAssertion: (id: string, acceptanceJustification?: string) =>
+  // `expectedRevisionNumber` and `expectedStatus` are the revision and the
+  // status the reviewer saw. A decision changes the status but creates no
+  // revision, so only the status shows that someone else decided meanwhile.
+  // When either is no longer current the API refuses the decision with 409
+  // and changes nothing.
+  acceptAssertion: (
+    id: string,
+    acceptanceJustification?: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/accept`, {
-      body: acceptanceJustification
-        ? { acceptance_justification: acceptanceJustification }
-        : {},
+      body: {
+        ...(acceptanceJustification
+          ? { acceptance_justification: acceptanceJustification }
+          : {}),
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
+      },
     }),
 
-  rejectAssertion: (id: string) =>
-    request<Assertion>("POST", `/assertions/${id}/reject`),
+  rejectAssertion: (
+    id: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
+    request<Assertion>("POST", `/assertions/${id}/reject`, {
+      body: seenOnlyBody(expectedRevisionNumber, expectedStatus),
+    }),
 
-  disputeAssertion: (id: string) =>
-    request<Assertion>("POST", `/assertions/${id}/dispute`),
+  disputeAssertion: (
+    id: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
+    request<Assertion>("POST", `/assertions/${id}/dispute`, {
+      body: seenOnlyBody(expectedRevisionNumber, expectedStatus),
+    }),
 
-  requestRevision: (id: string, comment?: string) =>
+  requestRevision: (
+    id: string,
+    comment?: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/request-revision`, {
-      body: comment ? { comment } : {},
+      body: {
+        ...(comment ? { comment } : {}),
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
+      },
     }),
 
-  supersedeAssertion: (id: string, supersededByAssertionId: string) =>
+  supersedeAssertion: (
+    id: string,
+    supersededByAssertionId: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/supersede`, {
-      body: { superseded_by_assertion_id: supersededByAssertionId },
+      body: {
+        superseded_by_assertion_id: supersededByAssertionId,
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
+      },
     }),
 
   // --- evidence / revisions / comments / history --------------------------
@@ -226,12 +335,23 @@ export const api = {
       body: { comment_text: commentText, parent_comment_id: parentCommentId ?? null },
     }),
 
+  // Own comments only; needs assertion:comment (contributor, reviewer, admin).
+  updateComment: (id: string, commentId: string, commentText: string) =>
+    request<AssertionComment>("PATCH", `/assertions/${id}/comments/${commentId}`, {
+      body: { comment_text: commentText },
+    }),
+
+  deleteComment: (id: string, commentId: string) =>
+    request<void>("DELETE", `/assertions/${id}/comments/${commentId}`),
+
   history: (id: string) => request<HistoryEvent[]>("GET", `/assertions/${id}/history`),
 
   // --- ratings -------------------------------------------------------------
-  putRating: (id: string, revision: number, strength: number, rationale: string) =>
+  // Spec §13: an omitted `rationale` keeps the stored one (and its raw text),
+  // "" or blank text removes it, other text replaces it (review listing:0).
+  putRating: (id: string, revision: number, strength: number, rationale?: string) =>
     request<Rating>("PUT", `/assertions/${id}/revisions/${revision}/rating`, {
-      body: { strength, rationale },
+      body: rationale === undefined ? { strength } : { strength, rationale },
     }),
 
   deleteRating: (id: string, revision: number) =>
@@ -247,7 +367,28 @@ export const api = {
   matterGraph: (matterId: string) =>
     request<MatterGraph>("GET", `/matters/${matterId}/graph`),
 
-  notifications: () => request<AppNotification[]>("GET", "/notifications"),
+  notifications: (params: NotificationListParams = {}) =>
+    request<AppNotification[]>("GET", "/notifications", { query: { ...params } }),
+
+  unreadNotificationCount: () =>
+    request<{ unread_count: number }>("GET", "/notifications/unread-count"),
+
+  markNotificationRead: (id: string) =>
+    request<AppNotification>("POST", `/notifications/${encodeURIComponent(id)}/read`),
+
+  /** Notices created after `lastReadAt` (ISO) stay unread; omit it to mark all. */
+  markAllNotificationsRead: (lastReadAt?: string) =>
+    request<{ marked_read: number; unread_count: number }>("POST", "/notifications/read-all", {
+      body: lastReadAt ? { last_read_at: lastReadAt } : {},
+    }),
+
+  notificationPreferences: () =>
+    request<NotificationPreference[]>("GET", "/notifications/preferences"),
+
+  updateNotificationPreferences: (preferences: Record<string, boolean>) =>
+    request<NotificationPreference[]>("PUT", "/notifications/preferences", {
+      body: { preferences },
+    }),
 };
 
 export type Api = typeof api;

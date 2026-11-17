@@ -51,9 +51,12 @@ Two gaps closed here:
    measurement the contract certifies against. This test is a cheap
    (single-file JSON load + one sha256 pass, no corpus re-measurement)
    integrity pin: the committed summary counts and the `changed.jsonl`
-   checksum it records must never silently drift, and `backend/app/` at
-   HEAD must stay byte-identical to `f267644` (the tree that measurement
-   ran against) -- both independently re-verified by hand during this QA
+   checksum it records must never silently drift, and the production seam
+   that measurement can load (`qa_g7_common.MEASURED_PRODUCTION_PATHS` /
+   `MEASURED_SHARED_SYMBOLS` -- the definition_links import closure, not
+   all of `backend/app/`) must stay byte-identical at HEAD to `f267644`
+   (the tree that measurement ran against) -- both independently
+   re-verified by hand during this QA
    pass (28,654 distinct anchors: 27,568 pure-added / 64 pure-removed /
    1,022 both; decomposes to 6,309 primary-engine + 7,768 in-scope-fallback
    + 13,491 out-of-scope-fallback per `expansion_precision_2.md`'s census,
@@ -68,8 +71,9 @@ sprint's own M-R107/no-flip-to-red-trap discipline: each pins the REQUIRED
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
-import subprocess
+import sys
 from pathlib import Path
 
 from app.definition_links.ingest_us_statutes import ingest_us_statute_rows
@@ -219,7 +223,15 @@ def test_single_letter_fallback_term_survives_live_persistence_altitude_novel_ca
 _SCRIPTS_DIR = ROOT / "docs/sprint/sprints/2026-08-20-defs-boundary-idioms-scripts"
 _SUMMARY_PATH = _SCRIPTS_DIR / "run/compare/summary.json"
 _CHANGED_PATH = _SCRIPTS_DIR / "run/compare/changed.jsonl"
-_CERTIFIED_TREE_SHA = "f267644"
+_CERTIFIED_TREE_SHA = "f26764435e14c7506aa8dec52527d5f19efb202e"  # f267644
+_G7_SCRIPTS_DIR = ROOT / "docs/sprint/sprints/2026-08-04-defs-us-preamble-scripts"
+
+
+def _g7_common():
+    """The one declaration of the frozen seam, shared with the G7 harness."""
+    if str(_G7_SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(_G7_SCRIPTS_DIR))
+    return importlib.import_module("qa_g7_common")
 
 
 def test_gate2_certificate_summary_composition_is_unchanged():
@@ -258,20 +270,24 @@ def test_gate2_certificate_changed_jsonl_checksum_matches_summary():
     )
 
 
-def test_gate2_certificate_still_stands_backend_app_byte_identical_to_certified_tree():
+def test_gate2_certificate_still_stands_measured_production_byte_identical_to_certified_tree():
     """Gate 2 / P-R11's own standing condition: the `cc51c49` combined
     measurement was executed against `f267644`. It remains the valid
-    certificate for HEAD only as long as `backend/app/` stays byte-identical
-    to that tree (contract Context Dump: 'git diff f267644..HEAD --
-    backend/app/ is empty -- re-verify independently'). A future change to
-    `backend/app/` without a fresh gate-2 run must fail this test, not ship
-    silently uncertified."""
-    diff = subprocess.run(
-        ["git", "-C", str(ROOT), "diff", f"{_CERTIFIED_TREE_SHA}..HEAD", "--", "backend/app/"],
-        check=True, capture_output=True, text=True,
-    ).stdout
-    assert diff == "", (
-        f"backend/app/ has diverged from the certified tree {_CERTIFIED_TREE_SHA} -- "
-        f"the cc51c49 gate-2 certificate no longer stands under P-R11 until a fresh "
-        f"combined run is executed and re-certified:\n{diff[:2000]}"
+    certificate for HEAD only as long as the implementation it measured
+    stays byte-identical to that tree. That implementation is the import
+    closure of the measurement harness -- `qa_g7_common`'s
+    MEASURED_PRODUCTION_PATHS (the definition_links package + the
+    jurisdiction vocabulary) and MEASURED_SHARED_SYMBOLS, whose coverage of
+    the live closure `tests/unit/test_certification_freeze_scope.py`
+    enforces -- not every file under
+    `backend/app/`: the routers, MCP server and agent CLI are not imported
+    by a measurement run, and pinning them failed this test on an unrelated
+    agent-authoring commit (83efb55). A future change to the measured seam
+    without a fresh gate-2 run must fail this test, not ship silently
+    uncertified."""
+    drift = _g7_common().measured_production_drift(_CERTIFIED_TREE_SHA)
+    assert drift == [], (
+        f"the measured production seam has diverged from the certified tree "
+        f"{_CERTIFIED_TREE_SHA} -- the cc51c49 gate-2 certificate no longer stands "
+        f"under P-R11 until a fresh combined run is executed and re-certified: {drift}"
     )

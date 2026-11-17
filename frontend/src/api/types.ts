@@ -19,6 +19,9 @@ export type EvidenceStatus = "evidenced" | "unsupported" | "awaiting_evidence";
 export interface EntityRef {
   type: string | null;
   id: string | null;
+  /** GET /assertions/{id} only: a same-matter entity's title, quote or
+   * proposition; null for legacy opaque references. */
+  label?: string | null;
 }
 
 export interface Assertion {
@@ -52,9 +55,34 @@ export interface Assertion {
   evidence_status: EvidenceStatus;
 }
 
+/** Current-revision rating aggregate embedded in every GET /assertions item:
+ * all ratings, the author's included. Null when the revision is unrated or
+ * the assertion has no revision row (definition-link pipeline output). */
+export interface ListRatingsSummary {
+  assertion_id: string;
+  assertion_revision_id: string;
+  average: number;
+  median: number;
+  count: number;
+  distribution: Record<string, number>;
+}
+
+/** A GET /assertions item: the detail serializer's fields plus list-only ones
+ * (optional here so fixtures built from a plain Assertion still type-check). */
+export interface AssertionListItem extends Assertion {
+  ratings_summary?: ListRatingsSummary | null;
+  current_user_rating?: CurrentUserRating | null;
+  /** UTC instant: the later of updated_at and the newest audit event. */
+  last_activity_at?: string;
+}
+
 export interface AssertionList {
-  items: Assertion[];
+  items: AssertionListItem[];
+  /** Every match, whatever limit/offset returned. */
   total: number;
+  /** The request's page size; null when it set none (every match returned). */
+  limit?: number | null;
+  offset?: number;
 }
 
 export interface AssertionListParams {
@@ -67,11 +95,60 @@ export interface AssertionListParams {
   min_rating_count?: number;
   unrated_by_me?: boolean;
   my_rating?: number;
+  /** Comma-separated sort keys; a "-" prefix sorts descending. */
   sort?: string;
+  assertion_type?: string;
+  author_user_id?: string;
+  subject_entity_type?: string;
+  subject_entity_id?: string;
+  object_entity_type?: string;
+  object_entity_id?: string;
+  /** ISO instants; each range is half-open, [from, to). */
+  created_from?: string;
+  created_to?: string;
+  last_activity_from?: string;
+  last_activity_to?: string;
+  /** YYYY-MM-DD: in effect on that date. */
+  effective_on?: string;
+  /** Page size, 1–500. Without it every match is returned. */
+  limit?: number;
+  offset?: number;
+}
+
+/** GET /matters/{id}/assertion-stats takes the list filters except q, sort,
+ * limit and offset, plus creation-count bucket edges. */
+export interface AssertionStatsParams
+  extends Omit<AssertionListParams, "q" | "sort" | "limit" | "offset"> {
+  /** Comma-separated, strictly increasing ISO instants (2–101): N edges give
+   * N − 1 half-open buckets. */
+  created_bucket_edges?: string;
+}
+
+/** Matter-level aggregates over every assertion matching the filters. */
+export interface AssertionStats {
+  matter_id: string;
+  total: number;
+  by_status: Partial<Record<AssertionStatus, number>>;
+  by_origin: Partial<Record<AssertionOrigin, number>>;
+  by_origin_status: Partial<Record<AssertionOrigin, Partial<Record<AssertionStatus, number>>>>;
+  by_type: Record<string, number>;
+  by_evidence_status: Partial<Record<EvidenceStatus, number>>;
+  /** Every author, by total descending, then user id. */
+  authors: {
+    user_id: string;
+    total: number;
+    by_status: Partial<Record<AssertionStatus, number>>;
+  }[];
+  /** Mean model confidence per origin, over assertions that carry one. */
+  confidence_by_origin: Partial<Record<AssertionOrigin, { count: number; average: number }>>;
+  /** Current-revision ratings: rated assertions, ratings, mean of their averages. */
+  ratings: { rated_assertions: number; ratings: number; average_of_averages: number | null };
+  created_buckets: { start: string; end: string; count: number }[];
 }
 
 export interface Evidence {
   quote_text?: string | null;
+  document_id?: string | null;
   document_title?: string | null;
   id: string;
   assertion_id: string;
@@ -107,7 +184,8 @@ export interface AssertionComment {
   comment_text_raw: string | null;
   created_at: string;
   updated_at: string | null;
-  deleted_at: string | null;
+  /** Absent on the comments embedded in GET /assertions/{id} (never deleted). */
+  deleted_at?: string | null;
 }
 
 export interface HistoryEvent {
@@ -124,6 +202,8 @@ export interface HistoryEvent {
 export interface CurrentUserRating {
   strength: number;
   rationale: string | null;
+  /** The user's exact text (prefill editors with this, not `rationale`). */
+  rationale_raw?: string | null;
   updated_at: string | null;
 }
 
@@ -134,14 +214,18 @@ export interface RatingSummary {
   distribution: Record<string, number>;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   current_user_rating: CurrentUserRating | null;
   rationale_count: number;
+  /** Ratings recorded against this assertion's lower-numbered revisions. */
+  prior_revision_rating_count?: number;
 }
 
 export interface Rating {
   id: string;
   assertion_id: string;
   assertion_revision_id: string;
+  assertion_revision_number?: number;
   user_id: string;
   strength: number;
   rationale: string | null;
@@ -169,7 +253,27 @@ export interface RelatedMatch {
   assertion_id: string;
   match_kind: "exact_proposition" | "same_subject_type_object" | "similar" | string;
   score: number;
+  /** Display fields of the matched assertion (absent from older backends). */
+  proposition?: string;
+  status?: AssertionStatus;
+  assertion_type?: string;
 }
+
+/** GET /assertions/{id}/related: at most the 20 strongest matches. `total`
+ * (from X-Total-Count) counts every match, when the server sends it. */
+export type RelatedMatchList = RelatedMatch[] & { total?: number };
+
+/** Similar-assertion warnings returned next to a created assertion: at most
+ * the top matches by score (score desc, then id); `similar_assertions_total`
+ * counts every match before that cap. Older backends send only the list. */
+export interface SimilarAssertionsPayload {
+  similar_assertions?: RelatedMatch[];
+  similar_assertions_total?: number;
+  similar_assertions_truncated?: boolean;
+}
+
+/** POST /assertions (and POST /agent/assertions) response. */
+export type CreateAssertionResult = Assertion & SimilarAssertionsPayload;
 
 export interface AppNotification {
   id: string;
@@ -179,6 +283,35 @@ export interface AppNotification {
   payload: Record<string, unknown>;
   created_at: string;
   read: boolean;
+  /** The assertion the notice is about (also in payload.assertion_id). */
+  assertion_id?: string | null;
+  matter_id?: string | null;
+  /** App route of that assertion ("/assertions/<id>"); null once the
+   * recipient can no longer open it. */
+  link?: string | null;
+  /** Read-time context; null once the recipient left the matter. */
+  context?: NotificationContext | null;
+  read_at?: string | null;
+}
+
+export interface NotificationContext {
+  proposition: string | null;
+  assertion_status: AssertionStatus | null;
+  assertion_origin: AssertionOrigin | null;
+  matter_name: string | null;
+  actor_display_name: string | null;
+}
+
+export interface NotificationListParams {
+  limit?: number;
+  offset?: number;
+  unread_only?: boolean;
+}
+
+export interface NotificationPreference {
+  event_type: string;
+  enabled: boolean;
+  default: boolean;
 }
 
 export interface GraphEdge {
@@ -200,12 +333,33 @@ export interface GraphEdge {
 export interface MatterGraph {
   matter_id: string;
   edges: GraphEdge[];
+  /** Every edge of the view; `edges` holds at most `limit` (default 1000) after `offset`. */
+  total?: number;
+  limit?: number;
+  offset?: number;
 }
 
 export interface UserInfo {
   id: string;
   email: string;
   display_name: string;
+}
+
+/** How an account signs in (backend/app/routers/users.py): `active` = a
+ * generated sign-in token; `legacy` = the token is still the account's
+ * public user id (left by the upgrade migration; rotate it); `none` = no
+ * sign-in credential. */
+export type SignInStatus = "active" | "legacy" | "none";
+
+/** GET /users row (admin console). Never carries a token or its hash. */
+export interface UserAccount extends UserInfo {
+  sign_in_status: SignInStatus;
+}
+
+/** POST /users and POST /users/{id}/sign-in-token: the account plus its
+ * new sign-in token, which the API returns exactly once. */
+export interface IssuedSignIn extends UserAccount {
+  sign_in_token: string;
 }
 
 export type MatterRoleName = "viewer" | "contributor" | "reviewer" | "admin";

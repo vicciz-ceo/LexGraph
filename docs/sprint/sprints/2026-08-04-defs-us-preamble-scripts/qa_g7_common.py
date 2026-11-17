@@ -7,6 +7,7 @@ independent raw denominator and does not import Q-D1; Q-D3 reads artifacts.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import subprocess
@@ -34,6 +35,29 @@ SNAPSHOT_ID = "301000fc3465374ee0f23c3c6953a8a861e95cad"
 # seeds the D-PFP-400 sample rank, so the sample and all G7 hashes recorded
 # against the old pin are void and must be regenerated.
 INTEGRATION_SHA = "79e34c860b28ad3f8a838977fc557341d82e0b2c"
+# What the pin freezes: the production seam a certification run can actually
+# load -- the import closure of capture_row() (identical to the gate-2
+# harness's capture() closure): the definition_links package plus the
+# jurisdiction vocabulary its profile registry is built from. Nothing else
+# under backend/app (routers, MCP, agent CLI, enrich, models, ...) is in a
+# run's import closure, so changing it does not move the certified
+# implementation and needs no re-pin. The original scope was all of
+# backend/app, which made an unrelated app change (83efb55, agent authoring)
+# fail-close both certification and the evaluator.
+# backend/tests/unit/test_certification_freeze_scope.py asserts that the live
+# import closure stays inside these two declarations.
+MEASURED_PRODUCTION_PATHS = (
+    "backend/app/__init__.py",
+    "backend/app/definition_links",
+    "backend/app/services/__init__.py",
+    "backend/app/services/jurisdiction.py",
+)
+# Shared modules the seam imports for the listed names ONLY (jurisdiction.py
+# raises validation.ValidationError). The rest of such a file is API-layer
+# code and may change; the definitions the seam binds may not.
+MEASURED_SHARED_SYMBOLS = {
+    "backend/app/services/validation.py": ("ValidationError",),
+}
 EXPECTED_FILE_COUNT = 53
 EXPECTED_ROW_COUNT = 2_038_247
 REQUIRED_COLUMNS = ("act_id", "section_title", "text", "chapter", "section_number")
@@ -137,19 +161,67 @@ def validate_corpus(snapshot: Path) -> tuple[list[Path], int, dict[str, int]]:
     return files, total, by_file
 
 
-def validate_integration() -> None:
-    """Certify the fixed production integration and reject later app changes."""
+def _git(*args: str) -> str:
+    return subprocess.run(["git", "-C", str(ROOT), *args], check=True, capture_output=True, text=True).stdout
+
+
+def _source_at(ref: str | None, path: str) -> str:
+    """File text at commit ``ref`` (working tree when None); empty if absent."""
     try:
-        subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{INTEGRATION_SHA}^{{commit}}"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(ROOT), "merge-base", "--is-ancestor", INTEGRATION_SHA, "HEAD"], check=True, capture_output=True)
-        changed = subprocess.run(
-            ["git", "-C", str(ROOT), "diff", "--name-only", f"{INTEGRATION_SHA}..HEAD", "--", "backend/app"],
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
+        return (ROOT / path).read_text() if ref is None else _git("show", f"{ref}:{path}")
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+def _symbol_dumps(source: str, names: tuple[str, ...]) -> dict[str, str | None]:
+    """AST of every top-level statement that defines ``name`` or, outside a
+    def/class body, mentions it (a rebinding or mutation moves the symbol too).
+    Other functions merely USING the name -- every validator raises
+    ValidationError -- are deliberately not part of the pin."""
+    body = ast.parse(source).body
+    dumps: dict[str, str | None] = {}
+    for name in names:
+        hits = []
+        for node in body:
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name == name:
+                    hits.append(ast.dump(node))
+            elif any(name in (getattr(sub, "id", None), getattr(sub, "name", None)) for sub in ast.walk(node)):
+                hits.append(ast.dump(node))
+        dumps[name] = "\n".join(hits) or None
+    return dumps
+
+
+def measured_production_drift(base: str, *, include_worktree: bool = False) -> list[str]:
+    """Everything in the measured seam that differs from commit ``base``.
+
+    Committed drift is ``base..HEAD`` restricted to MEASURED_PRODUCTION_PATHS,
+    plus any MEASURED_SHARED_SYMBOLS definition that changed.  A certification
+    RUN imports the working tree, not HEAD, so ``include_worktree`` also
+    reports uncommitted edits and untracked files (``rules/`` auto-imports
+    every module it finds, tracked or not).
+    """
+    drift = set(_git("diff", "--name-only", f"{base}..HEAD", "--", *MEASURED_PRODUCTION_PATHS).splitlines())
+    if include_worktree:
+        drift |= set(_git("diff", "--name-only", base, "--", *MEASURED_PRODUCTION_PATHS).splitlines())
+        drift |= set(_git("ls-files", "--others", "--exclude-standard", "--", *MEASURED_PRODUCTION_PATHS).splitlines())
+    for path, names in MEASURED_SHARED_SYMBOLS.items():
+        pinned = _symbol_dumps(_source_at(base, path), names)
+        current = _symbol_dumps(_source_at(None if include_worktree else "HEAD", path), names)
+        drift |= {f"{path}::{name}" for name in names if pinned[name] is None or pinned[name] != current[name]}
+    return sorted(drift)
+
+
+def validate_integration() -> None:
+    """Certify the pinned production seam and reject any later change to it."""
+    try:
+        _git("cat-file", "-e", f"{INTEGRATION_SHA}^{{commit}}")
+        _git("merge-base", "--is-ancestor", INTEGRATION_SHA, "HEAD")
+        changed = measured_production_drift(INTEGRATION_SHA, include_worktree=True)
     except subprocess.CalledProcessError as exc:
         raise CertificationError(f"integration SHA {INTEGRATION_SHA} is unavailable or not ancestral") from exc
     if changed:
-        raise CertificationError(f"production changed after pinned integration SHA: {changed}")
+        raise CertificationError(f"measured production changed after pinned integration SHA: {', '.join(changed)}")
 
 
 def jurisdiction_for(path: Path) -> str:

@@ -1,18 +1,21 @@
 // Application chrome: sidebar (brand, matter selector, nav, user block)
 // + topbar (global assertion search, notifications, help), per the
-// Consensus design's shared layout.
+// Consensus design's shared layout. Below 768px the sidebar becomes a
+// drawer opened from the mobile bar's menu button (navDrawer.tsx).
+// Above every page it shows the token of a rotation of your own sign-in
+// token until you click Done, wherever you are when it arrives (review
+// identity:2).
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 
-import { api } from "../api/client";
-import type { AppNotification } from "../api/types";
+import { NotificationsMenu } from "../components/NotificationsMenu";
 import { Icon } from "./icons";
 import type { IconName } from "./icons";
+import { IssuedTokenCallout } from "./IssuedTokenCallout";
 import { Link, navigate, useHashLocation } from "./router";
 import { useSession } from "./session";
-
-const NOTIFICATION_POLL_MS = 30_000;
+import { MenuIcon, useNavDrawer } from "./navDrawer";
 
 interface NavItem {
   to: string;
@@ -44,82 +47,11 @@ function initials(name: string): string {
     .join("");
 }
 
-function describeNotification(n: AppNotification): string {
-  const label = n.event_type.replace(/_/g, " ");
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function NotificationsBell() {
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const poll = () => {
-      api
-        .notifications()
-        .then((res) => {
-          if (!cancelled) setItems(res);
-        })
-        .catch(() => {
-          /* notification polling is best-effort */
-        });
-    };
-    poll();
-    const timer = window.setInterval(poll, NOTIFICATION_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
-  }, [open]);
-
-  const hasUnread = items.some((n) => !n.read);
-
-  return (
-    <div className="notifications" ref={containerRef}>
-      <button
-        type="button"
-        className="topbar__action"
-        aria-label={hasUnread ? "Notifications (unread)" : "Notifications"}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Icon name="notifications" />
-        {hasUnread && <span className="topbar__badge" />}
-      </button>
-      {open && (
-        <div className="notifications__panel" role="dialog" aria-label="Notifications">
-          <div className="notifications__header">Notifications</div>
-          {items.length === 0 ? (
-            <div className="notifications__empty">No notifications yet.</div>
-          ) : (
-            items.slice(0, 20).map((n) => (
-              <div key={n.id} className="notifications__item">
-                <div className="notifications__item-title">{describeNotification(n)}</div>
-                <div className="notifications__item-time">
-                  {new Date(n.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
-  const { session, signOut, selectMatter } = useSession();
+  const { session, signOut, selectMatter, issuedOwnToken, acknowledgeIssuedOwnToken } =
+    useSession();
+  // Below 768px the sidebar is a drawer behind the mobile bar's menu button (ui:26).
+  const drawer = useNavDrawer();
   const location = useHashLocation();
   const [search, setSearch] = useState("");
 
@@ -137,17 +69,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   const onSearch = (event: FormEvent) => {
     event.preventDefault();
     const q = search.trim();
+    const before = window.location.hash;
     navigate(q ? `/knowledge?q=${encodeURIComponent(q)}` : "/knowledge");
+    // Same URL, so no hashchange: signal one to re-run the search (ui:22).
+    if (window.location.hash === before) window.dispatchEvent(new HashChangeEvent("hashchange"));
   };
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside
+        id="app-sidebar"
+        ref={drawer.drawerRef}
+        className={drawer.open ? "sidebar sidebar--open" : "sidebar"}
+        onClick={drawer.onDrawerClick}
+      >
         <div className="sidebar__brand">
           <span className="sidebar__brand-mark" aria-hidden="true">
             <Icon name="link" size={18} />
           </span>
           LexGraph
+          <button
+            type="button"
+            className="topbar__action sidebar__close"
+            aria-label="Close navigation"
+            onClick={drawer.closeDrawer}
+          >
+            <Icon name="close" />
+          </button>
         </div>
 
         <div className="sidebar__matter">
@@ -186,6 +134,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                       active ? "sidebar__link sidebar__link--active" : "sidebar__link"
                     }
                     aria-current={active ? "page" : undefined}
+                    onClick={() => {
+                      // The link of the page shown leaves the URL as it is, so
+                      // no hashchange: signal one, so the page reads afresh what
+                      // it lists (the Review Queue, proposals submitted meanwhile).
+                      if (window.location.hash === `#${item.to}`) {
+                        window.dispatchEvent(new HashChangeEvent("hashchange"));
+                      }
+                    }}
                   >
                     <Icon name={item.icon} />
                     {item.label}
@@ -216,8 +172,27 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
+      {drawer.open && (
+        <div className="sidebar-backdrop" aria-hidden="true" onClick={drawer.dismiss} />
+      )}
 
       <div className="app-main">
+        <div className="mobile-bar">
+          <button
+            ref={drawer.menuButtonRef}
+            type="button"
+            className="topbar__action"
+            aria-label="Open navigation"
+            aria-expanded={drawer.open}
+            aria-controls="app-sidebar"
+            onClick={drawer.openDrawer}
+          >
+            <MenuIcon />
+          </button>
+          <span className="mobile-bar__title">
+            {session.currentMatter?.name ?? "LexGraph"}
+          </span>
+        </div>
         <header className="topbar">
           <form className="topbar__search" role="search" onSubmit={onSearch}>
             <Icon name="search" size={16} />
@@ -230,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </form>
           <div className="topbar__spacer" />
-          <NotificationsBell />
+          <NotificationsMenu />
           <a
             className="topbar__action"
             href="https://github.com/vicciz-ceo/LexGraph#readme"
@@ -242,7 +217,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </a>
         </header>
         <main className="page">
-          <div className="page__inner">{children}</div>
+          <div className="page__inner">
+            {issuedOwnToken && (
+              <IssuedTokenCallout
+                key={issuedOwnToken.sign_in_token}
+                account={issuedOwnToken}
+                reason="rotated"
+                self
+                onDone={() => acknowledgeIssuedOwnToken?.()}
+              />
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

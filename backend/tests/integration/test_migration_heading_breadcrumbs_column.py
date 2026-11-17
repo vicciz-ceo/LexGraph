@@ -49,7 +49,8 @@ def pre_g9_article_engine(tmp_path):
                 "chapter": "Existing chapter",
             },
         )
-    return engine
+    yield engine
+    engine.dispose()  # see test_migration_raw_text_columns.py's fixture
 
 
 def _columns(engine) -> set[str]:

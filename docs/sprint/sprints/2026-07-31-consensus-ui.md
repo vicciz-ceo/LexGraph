@@ -7,7 +7,7 @@ locked_by: null
 locked_at: null
 last_agent: "claude-code:qa"
 last_updated: "2026-07-31T11:50:25Z"
-lint: "PASS 179 2026-07-31T11:08:11Z"
+lint: "PASS 132 2026-11-16T08:56:54Z"
 evaluator: custom
 evaluator_command: "backend/.venv/bin/pytest backend/tests -v && npm --prefix frontend run test -- --run && npm --prefix frontend run typecheck"
 total_items: 11
@@ -80,64 +80,17 @@ commit onward, standard role separation applies.
 
 ## Completed
 
-- **F1 — Frontend foundation** (pre-harness, manager-authored): app shell,
-  hash router, session context, typed API client (field-verified against
-  backend serializers), design tokens + shared CSS, inline icons, Inter
-  bundling, vite proxy, page stubs. Files: frontend/index.html,
-  frontend/src/{main.tsx,App.tsx}, frontend/src/api/*,
-  frontend/src/app/*, frontend/src/styles/*. Verified: `tsc --noEmit`
-  clean; 69 pre-existing component tests green; production build succeeds.
-  QA: confirmed all files present, App.tsx wires every page route, page
-  mocks match backend serializer shapes exactly (spot-checked 5 page test
-  files against client.ts/types.ts).
+- **F1 — Frontend foundation** (pre-harness, manager-authored). Full entry:
+  `-log.md` § "Archived from contract (2026-11-16)".
 - **W1 — Backend workspace surface + demo seed** (pre-harness,
-  manager-authored): GET /api/v1/me, matter member roster + admin role
-  management with last-admin lockout guard; seed script driving the real
-  API (17 assertions across all 8 statuses, 2 matters, 4 role-named users);
-  scripts/demo.sh. Files: backend/app/routers/workspace.py,
-  backend/app/seed_demo.py, backend/tests/integration/test_workspace.py,
-  scripts/demo.sh. Verified: 479/479 backend tests pass (18 new); seed
-  executed against a scratch DB and API-smoke-checked.
-  QA: extra-scrutiny sweep of workspace.py found 6 untested error paths
-  (empty bearer token; unknown-matter ordering ahead of role validation on
-  POST members; unknown-matter on PUT/DELETE members; role-change/removal
-  of a non-member) — all confirmed correct on read, now pinned with 6 new
-  tests in test_workspace.py (24/24 green). Seed re-verified independently:
-  actual assertion count is 17 (not 15) across 8 distinct statuses — minor
-  stale figure in this bullet's own text, not in any user-facing doc, so
-  not a G4 finding; noted for the next edit of this line.
+  manager-authored). Full entry: `-log.md` § "Archived from contract
+  (2026-11-16)".
 - **D1+D2 — members-shape fix** and **D3 — awaiting-evidence justification
-  gating** (walkthrough defects): RED tests committed by Planner (9b99ce4,
-  tests-only, 15 RED), fixed by Developer (6c155f6, 6 files, minimal diff,
-  manager-read in full). Suite 148/148 + typecheck + backend 479/479
-  re-verified by manager independently. Live re-verification: AdminPage
-  renders + add-member + last-admin 409 banner; Analytics KPIs
-  arithmetically verified against seed+live actions; queue/analytics show
-  display names; Accept on awaiting_evidence opens the justification form
-  pre-flight. G1 walkthrough COMPLETE across all screens and roles.
-  QA: bug-fix pin verified by reading the 9b99ce4→6c155f6 diff pair (no
-  fresh worktree/npm-install needed — the RED tests mock the real bare-array
-  shape and assert `res.items`-style code throws before the fix, `res`-style
-  code passes after; confirmed by inspection, method=diff-reading). One
-  finding: the D3 code comments/log describe the backend as requiring
-  justification for both "unsupported" and "awaiting_evidence" — empirically
-  (live client fixture probe) the backend's `_has_evidence` gate only fires
-  on zero evidence rows (true `awaiting_evidence`); an assertion with only
-  non-supporting evidence (`evidence_status="unsupported"`) accepts fine
-  with no justification. This is pre-existing UI behavior unchanged by
-  6c155f6 (harmless over-conservatism, not a regression) — not a QA-FAIL,
-  flagged for the director/manager as a comment-accuracy nit.
+  gating** (walkthrough defects). Full entry: `-log.md` § "Archived from
+  contract (2026-11-16)".
 
-- **UI1–UI9 — nine screens** (workflow wf_dfea95a4-a7c, commit d11ff9e):
-  SignIn, ReviewQueue, KnowledgeBase, AssertionDetail, SuggestAssertion,
-  Contested, Admin, Profile, Analytics — each page + namespaced CSS + Vitest
-  coverage (75 new tests; suite 144/144, typecheck clean). Manager G1 live
-  walkthrough verified sign-in, queue+review actions, detail+rating,
-  knowledge search, contested adjudication incl. justification flow, suggest
-  submission, profile stats, viewer role gating. See
-  2026-07-31-consensus-ui-log.md for the full walkthrough record.
-  QA: files/commit verified on disk and in history; App.tsx routes all 9
-  pages; page tests render real components via RTL (not stubs).
+- **UI1–UI9 — nine screens** (workflow wf_dfea95a4-a7c, commit d11ff9e). Full
+  entry: `-log.md` § "Archived from contract (2026-11-16)".
 
 ## Stale-pin sweep
 

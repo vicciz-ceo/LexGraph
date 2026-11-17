@@ -114,7 +114,12 @@ def pre_migration_engine(tmp_path):
                 "rationale": "Strong support.",
             },
         )
-    return engine
+    yield engine
+    # Close the pooled sqlite3 connection: left to the garbage collector it
+    # raises ResourceWarning "unclosed database" inside a finalizer, which
+    # pytest reports as PytestUnraisableExceptionWarning against whatever
+    # test happens to be running then.
+    engine.dispose()
 
 
 def _columns(engine, table: str) -> set[str]:

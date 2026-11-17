@@ -7,6 +7,9 @@ last admin).
 
 from __future__ import annotations
 
+from sqlalchemy import event, text
+
+from app.models.matter_role import MatterRole
 from tests.conftest import auth_header, seed_matter_role, seed_user
 
 
@@ -294,3 +297,146 @@ def test_remove_non_member_is_404(client, matter_with_users, db_session):
         headers=auth_header(admin_id),
     )
     assert r.status_code == 404
+
+
+# --- Email lookup and races (2026-11-16, findings api:24 / ui:25) -----------
+
+
+def _admins_left(db_session, matter_id: str) -> int:
+    return db_session.execute(
+        text("SELECT count(*) FROM matter_roles WHERE matter_id = :m AND role = 'admin'"),
+        {"m": matter_id},
+    ).scalar_one()
+
+
+def test_add_member_finds_the_account_whatever_the_email_case_or_padding(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    vera = seed_user(db_session, display_name="Vera", email="vera.viewer@example.test")
+
+    r = client.post(
+        f"/api/v1/matters/{m['matter_id']}/members",
+        json={"email": "  Vera.Viewer@Example.TEST ", "role": "viewer"},
+        headers=auth_header(admin_id),
+    )
+
+    assert r.status_code == 201, r.text
+    assert r.json()["user"]["id"] == vera
+
+
+def test_add_member_email_shared_by_two_older_accounts_is_409(
+    client, matter_with_users, db_session
+):
+    # Accounts created before emails were normalized can share an address
+    # in different letter case until an operator resolves them; granting
+    # access by that address must not guess which account is meant.
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    seed_user(db_session, display_name="Dana A", email="dana@example.test")
+    seed_user(db_session, display_name="Dana B", email="Dana@Example.test")
+
+    r = client.post(
+        f"/api/v1/matters/{m['matter_id']}/members",
+        json={"email": "dana@example.test", "role": "viewer"},
+        headers=auth_header(admin_id),
+    )
+
+    assert r.status_code == 409, r.text
+    assert "several" in r.json()["detail"]
+
+
+def test_add_member_that_loses_a_concurrent_add_race_is_409_not_500(
+    app, client, matter_with_users, db_session
+):
+    # Concurrent adds of one user used to 500 (IntegrityError on
+    # uq_matter_roles_user_matter). Replay the interleaving: a concurrent
+    # request adds the membership after this request's "already a member"
+    # check, just before this request commits.
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    outsider = m["outsider_id"]
+    fired = []
+
+    def concurrent_request_commits_first(session):
+        pending = [o for o in session.new if isinstance(o, MatterRole) and o.user_id == outsider]
+        if pending and not fired:
+            fired.append(True)
+            with app.state.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO matter_roles (id, user_id, matter_id, role) "
+                        "VALUES ('race-winner', :u, :m, 'viewer')"
+                    ),
+                    {"u": outsider, "m": m["matter_id"]},
+                )
+
+    event.listen(app.state.session_factory, "before_commit", concurrent_request_commits_first)
+    try:
+        r = client.post(
+            f"/api/v1/matters/{m['matter_id']}/members",
+            json={"email": f"{outsider}@example.test", "role": "reviewer"},
+            headers=auth_header(admin_id),
+        )
+    finally:
+        event.remove(app.state.session_factory, "before_commit", concurrent_request_commits_first)
+
+    assert fired, "the simulated concurrent request never ran"
+    assert r.status_code == 409, r.text
+    roles = db_session.execute(
+        text("SELECT role FROM matter_roles WHERE user_id = :u AND matter_id = :m"),
+        {"u": outsider, "m": m["matter_id"]},
+    ).scalars().all()
+    assert roles == ["viewer"]
+
+
+def test_a_demotion_that_read_a_stale_admin_count_cannot_remove_the_last_admin(
+    client, matter_with_users, db_session, monkeypatch
+):
+    # new:last-admin-race. Two admins demoting each other at the same
+    # moment both counted two admins before either committed; live, 10 of
+    # 10 such races left the matter with no admin at all. The guard must
+    # hold when the write happens, so replay the stale read.
+    from app.routers import workspace
+
+    m = matter_with_users
+    admin_id = _seed_admin(db_session, m["matter_id"])
+    monkeypatch.setattr(workspace, "_admin_count", lambda session, matter_id: 2)
+
+    demote = client.put(
+        f"/api/v1/matters/{m['matter_id']}/members/{admin_id}",
+        json={"role": "viewer"},
+        headers=auth_header(admin_id),
+    )
+    assert demote.status_code == 409, demote.text
+    assert _admins_left(db_session, m["matter_id"]) == 1
+
+    remove = client.delete(
+        f"/api/v1/matters/{m['matter_id']}/members/{admin_id}",
+        headers=auth_header(admin_id),
+    )
+    assert remove.status_code == 409, remove.text
+    assert _admins_left(db_session, m["matter_id"]) == 1
+
+
+def test_an_admin_can_still_step_down_while_another_admin_remains(
+    client, matter_with_users, db_session
+):
+    m = matter_with_users
+    first_admin = _seed_admin(db_session, m["matter_id"])
+    second_admin = seed_user(db_session, display_name="Second Admin")
+    seed_matter_role(db_session, user_id=second_admin, matter_id=m["matter_id"], role="admin")
+
+    r = client.put(
+        f"/api/v1/matters/{m['matter_id']}/members/{first_admin}",
+        json={"role": "viewer"},
+        headers=auth_header(first_admin),
+    )
+    assert r.status_code == 200 and r.json()["role"] == "viewer"
+    removed = client.delete(
+        f"/api/v1/matters/{m['matter_id']}/members/{first_admin}",
+        headers=auth_header(second_admin),
+    )
+    assert removed.status_code == 204
+    assert _admins_left(db_session, m["matter_id"]) == 1
