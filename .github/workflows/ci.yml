@@ -46,7 +46,7 @@ jobs:
         run: python -m pytest tests
 
   frontend:
-    name: frontend (typecheck + vitest + build)
+    name: frontend (typecheck + vitest)  # name is a required status check on main; it also builds
     runs-on: ubuntu-latest
     defaults:
       run:
