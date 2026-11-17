@@ -90,8 +90,16 @@ Sign in at http://localhost:5173 with the demo sign-in token `admin`,
 they're fixtures for exercising the UI locally). Each demo token is also
 that account's public user id, so anyone can sign in as any demo account:
 the server logs a legacy-credential warning at startup and the admin
-console badges them "Legacy sign-in". Never use the demo seed for real
-data. The seeder
+console badges them "Legacy sign-in". Every demo account starts on the
+"MSA — Acme ↔ Blue Ridge Logistics" matter, which holds the populated review
+queue, knowledge base and contested queue; `admin` and `reviewer` also belong
+to the smaller "Vendor DPA — Acme" and can switch to it in the matter picker.
+(When the browser has no matter saved yet, the app opens the first one
+`GET /api/v1/me` lists, and that list is in name order.) A demo database
+seeded by an earlier release named the second matter "Data Processing
+Addendum — Acme", which comes first, so there admin and reviewer start on it:
+pick the MSA matter, or reseed with `app.seed_demo --reset`.
+Never use the demo seed for real data. The seeder
 (`backend/app/seed_demo.py`) drives the real API, so the demo data carries
 genuine revisions, ratings, comments, audit events and the notifications
 those actions raised (stored in the database like any others: the admin,

@@ -155,10 +155,14 @@ def main(argv: list[str] | None = None) -> int:
         repository_id=repo.id,
         name="MSA — Acme ↔ Blue Ridge Logistics",
     )
+    # GET /me lists a user's matters by name and the web app opens the first
+    # one when the browser has no matter saved yet, so the second matter's
+    # name sorts after the showcase's: admin and reviewer, who belong to both,
+    # start on the populated MSA matter like everyone else (acceptance run 2).
     dpa = Matter(
         id=str(uuid.uuid4()),
         repository_id=repo.id,
-        name="Data Processing Addendum — Acme",
+        name="Vendor DPA — Acme",
     )
     session.add_all([org, repo, msa, dpa])
 
