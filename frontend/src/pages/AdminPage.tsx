@@ -509,7 +509,7 @@ export function AdminPage() {
     return (
       <>
         {banner && <div className="error-banner">{banner}</div>}
-        <div className="card">
+        <div className="card adm-table-card">
           <div className="table-wrap">
             <table className="table adm-table">
               <thead>
@@ -560,13 +560,13 @@ export function AdminPage() {
                     {canManage && (
                       <td className="adm-actions-col">
                         {pendingRemoval === member.user.id ? (
-                          <div className="adm-remove-confirm">
-                            <span className="adm-remove-confirm__question">
+                          <div className="adm-confirm">
+                            <span className="adm-confirm__question">
                               {member.user.id === session.user.id
                                 ? "Remove yourself? You lose access to this matter."
                                 : "Remove from this matter?"}
                             </span>
-                            <span className="adm-remove-confirm__actions">
+                            <span className="adm-confirm__actions">
                               <button
                                 type="button"
                                 className="btn btn--danger btn--sm"
@@ -707,7 +707,7 @@ export function AdminPage() {
           </div>
         )}
         {rotateError && <div className="error-banner">{rotateError}</div>}
-        <div className="card">
+        <div className="card adm-table-card">
           <div className="table-wrap">
             <table className="table adm-table">
               <thead>
@@ -746,27 +746,31 @@ export function AdminPage() {
                       </td>
                       <td className="adm-token-col">
                         {pendingRotation === account.id ? (
-                          <div className="adm-rotate-confirm">
+                          <div className="adm-confirm">
                             {account.sign_in_status !== "none" && (
-                              <span className="muted">Current token stops working.</span>
+                              <span className="muted adm-confirm__question">
+                                Current token stops working.
+                              </span>
                             )}
-                            <button
-                              type="button"
-                              className="btn btn--sm btn--primary"
-                              disabled={rotateBusy}
-                              aria-label={`Confirm new sign-in token for ${account.display_name}`}
-                              onClick={() => void rotateToken(account)}
-                            >
-                              {verb}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn--sm btn--ghost"
-                              disabled={rotateBusy}
-                              onClick={() => setPendingRotation(null)}
-                            >
-                              Cancel
-                            </button>
+                            <span className="adm-confirm__actions">
+                              <button
+                                type="button"
+                                className="btn btn--sm btn--primary"
+                                disabled={rotateBusy}
+                                aria-label={`Confirm new sign-in token for ${account.display_name}`}
+                                onClick={() => void rotateToken(account)}
+                              >
+                                {verb}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn--sm btn--ghost"
+                                disabled={rotateBusy}
+                                onClick={() => setPendingRotation(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
                           </div>
                         ) : (
                           <button

@@ -717,3 +717,23 @@ describe("AdminPage", () => {
     });
   });
 });
+
+// Acceptance run (release candidate): at 375px the member table scrolled
+// sideways inside its card, with every role select and Remove button past its
+// edge (and so did the account list's token buttons, also beside the sidebar
+// on a tablet). The tables now stack, one block per person, wherever their
+// card is too narrow for them: each table's card is a size container, and
+// admin.css restyles the tables' rows under a container query. Layout needs
+// a browser (Chromium measured it at 320-1600px, with every confirmation
+// open); jsdom loads no CSS, so this checks that both tables are in such a
+// card.
+describe("AdminPage tables on a narrow screen", () => {
+  it("puts the member and account tables in cards that stack them when narrow", async () => {
+    await renderPage();
+    expect(screen.getByRole("table").closest(".adm-table-card")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    await screen.findByText("Dana Cohen");
+    expect(screen.getByRole("table").closest(".adm-table-card")).not.toBeNull();
+  });
+});

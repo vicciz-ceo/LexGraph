@@ -571,7 +571,7 @@ The UI implements the Consensus design system (see [docs/design/consensus-ui-rev
 - **Assertion detail** — evidence (attach and remove, under the edit rule), threaded comments (reply; edit or delete your own), review history, revision history with a side-by-side comparison of any two revisions, ratings with rationales, and role-gated review actions, including superseding an accepted assertion
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
-- **Admin** — user account provisioning and matter member/role management (admin role required)
+- **Admin** — user account provisioning and matter member/role management (admin role required). Where the member or account table does not fit its card (on a phone, or on a tablet beside the sidebar), each person is shown as a block with the role, Remove and token controls below their name
 - **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), all your notifications (50 at a time, with your unread count), and matters
 
 ### Notifications
