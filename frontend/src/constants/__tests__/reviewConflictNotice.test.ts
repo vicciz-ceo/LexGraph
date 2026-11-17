@@ -8,6 +8,15 @@ import { REVIEW_CONFLICT_MESSAGE, reviewConflictNotice } from "../review";
 
 const API_DETAILS: Record<string, string> = {
   stale: "assertion has been modified since expected_revision_number",
+  // Acceptance run 2: the status on screen was replaced meanwhile.
+  decidedAccepted: "assertion status has changed since expected_status: it is now 'accepted'",
+  decidedRejected: "assertion status has changed since expected_status: it is now 'rejected'",
+  decidedDisputed: "assertion status has changed since expected_status: it is now 'disputed'",
+  decidedRevision:
+    "assertion status has changed since expected_status: it is now 'revision_requested'",
+  nowSuperseded: "assertion status has changed since expected_status: it is now 'superseded'",
+  nowWithdrawn: "assertion status has changed since expected_status: it is now 'withdrawn'",
+  nowResubmitted: "assertion status has changed since expected_status: it is now 'proposed'",
   raced: "assertion was changed by another request; reload it and review the current revision",
   alreadyAccepted: "assertion is already 'accepted'",
   alreadyRevision: "assertion is already 'revision_requested'",
@@ -23,6 +32,13 @@ describe("reviewConflictNotice", () => {
   });
 
   it.each([
+    ["decidedAccepted", "someone else already decided it (it is now accepted)"],
+    ["decidedRejected", "someone else already decided it (it is now rejected)"],
+    ["decidedDisputed", "someone else already decided it (it is now disputed)"],
+    ["decidedRevision", "someone else already decided it (a revision of it is now requested)"],
+    ["nowSuperseded", "it was superseded by another assertion"],
+    ["nowWithdrawn", "its author withdrew it"],
+    ["nowResubmitted", "it was resubmitted for review"],
     ["raced", "someone else changed it at the same moment"],
     ["alreadyAccepted", "it is already accepted"],
     ["alreadyRevision", "a revision of it is already requested"],

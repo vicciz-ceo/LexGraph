@@ -1381,12 +1381,15 @@ share a `correlation_id`. The review routes return the full assertion, as the
 other assertion mutation routes do.
 
 The web UI applies the same rules. The Review Queue, the assertion detail page
-and the Contested page send the revision on screen as
-`expected_revision_number` with every decision. When a decision is refused with
-409, the page says that nothing was recorded, gives the API's reason in plain
-words (the `detail` names request fields such as `expected_revision_number`;
-the page says "it was edited") and reloads, so the reviewer sees the current
-version before deciding again. A decision refused because it would make a
+and the Contested page send the revision and the status on screen as
+`expected_revision_number` and `expected_status` with every decision. When a
+decision is refused with 409, the page says that nothing was recorded, gives
+the API's reason in plain words (the `detail` names request fields such as
+`expected_revision_number`; the page says "it was edited", and for a status
+that changed meanwhile "someone else already decided it" with the status it has
+now, or that its author withdrew it, that it was superseded or that it was
+resubmitted for review) and reloads, so the reviewer sees the current version
+and status before deciding again. A decision refused because it would make a
 rejected assertion live next to an identical live one says so instead.
 Adding or removing evidence changes neither the revision nor `updated_at`, so a
 page can still show supporting evidence that was removed after it loaded. An

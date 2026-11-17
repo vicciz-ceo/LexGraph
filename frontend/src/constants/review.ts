@@ -59,8 +59,11 @@ export function reviewTextTooLongMessage(text: string): string {
 
 /**
  * Notice for a decision the API refused with 409: the assertion was edited,
- * withdrawn or decided by someone else after the page loaded it. The page
- * reloads it, so the reviewer sees the current version before deciding again.
+ * withdrawn or decided by someone else after the page loaded it. The pages
+ * send the revision and the status on screen with every decision, so the API
+ * refuses both an edit and another reviewer's decision made meanwhile. The
+ * page reloads it, so the reviewer sees the current version before deciding
+ * again.
  */
 export const REVIEW_CONFLICT_MESSAGE =
   "Your decision was not recorded: this assertion changed after you opened it " +
@@ -80,6 +83,29 @@ const ALREADY_REASONS: Record<string, string> = {
   revision_requested: "a revision of it is already requested",
 };
 
+/** The API's refusal of a decision made on a status the assertion no longer
+ * has (the pages send the status on screen as `expected_status`). */
+const STATUS_CHANGED_DETAIL = /^assertion status has changed since expected_status: it is now '([a-z_]+)'$/;
+
+/**
+ * Why the status on screen is out of date, from the status the assertion has
+ * now. A decision changes the status but creates no revision, so this is how
+ * a decision someone else recorded after the page loaded shows up (acceptance
+ * run 2). Withdrawn and superseded read as they do when the API names them as
+ * statuses that take no decision; proposed means it went back into review.
+ */
+function statusChangedReason(status: string): string {
+  if (Object.prototype.hasOwnProperty.call(UNDECIDABLE_REASONS, status)) {
+    return UNDECIDABLE_REASONS[status];
+  }
+  if (status === "proposed") return "it was resubmitted for review";
+  const now =
+    status === "revision_requested"
+      ? "a revision of it is now requested"
+      : `it is now ${status.replace(/_/g, " ")}`;
+  return `someone else already decided it (${now})`;
+}
+
 /**
  * The reason a review decision was refused with 409, in the words of the
  * review pages, from the API's `detail` (backend/app/routers/review.py). The
@@ -89,6 +115,8 @@ const ALREADY_REASONS: Record<string, string> = {
  */
 function conflictReason(detail: string): string {
   if (/\bmodified since expected_revision_number$/.test(detail)) return "it was edited";
+  const statusChanged = STATUS_CHANGED_DETAIL.exec(detail);
+  if (statusChanged) return statusChangedReason(statusChanged[1]);
   if (detail.startsWith("assertion was changed by another request")) {
     return "someone else changed it at the same moment";
   }

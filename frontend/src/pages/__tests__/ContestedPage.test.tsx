@@ -219,7 +219,7 @@ describe("ContestedPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
 
     await waitFor(() =>
-      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2),
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2, "disputed"),
     );
     await waitFor(() => expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2));
   });
@@ -248,6 +248,7 @@ describe("ContestedPage", () => {
         "a-2",
         "Confirmed against the signed engagement letter.",
         1,
+        "disputed",
       ),
     );
   });
@@ -273,6 +274,7 @@ describe("ContestedPage", () => {
         "a-1",
         "Please cite the amendment clause.",
         2,
+        "disputed",
       ),
     );
   });
@@ -323,7 +325,7 @@ describe("ContestedPage rulings and evidence", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Expand row" })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
-    await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2));
+    await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2, "disputed"));
   });
 
   it("explains a refusal because the drawer is stale (409) above the queue, and keeps it through the reload", async () => {
@@ -534,7 +536,7 @@ describe("ContestedPage acceptance refused because the evidence was removed mean
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
     await waitFor(() =>
-      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2),
+      expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2, "disputed"),
     );
     const textarea = await screen.findByLabelText("Acceptance justification");
     await waitFor(() => expect(mockedApi.listAssertions).toHaveBeenCalledTimes(2));
@@ -559,6 +561,7 @@ describe("ContestedPage acceptance refused because the evidence was removed mean
         "a-1",
         "Confirmed in the board minutes.",
         2,
+        "disputed",
       ),
     );
     expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(2);

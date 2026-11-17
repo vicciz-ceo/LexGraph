@@ -265,7 +265,7 @@ describe("ReviewQueuePage", () => {
     // First card is the newest (a1, evidenced) — accept goes straight through.
     await user.click(screen.getAllByRole("button", { name: "Accept" })[0]);
 
-    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1));
+    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1, "proposed"));
     await waitFor(() =>
       expect(vi.mocked(api.listAssertions).mock.calls.length).toBeGreaterThan(callsBefore),
     );
@@ -291,6 +291,7 @@ describe("ReviewQueuePage", () => {
         "a2",
         "Counsel confirmed the clause against the executed original.",
         2,
+        "proposed",
       ),
     );
   });
@@ -350,6 +351,7 @@ describe("ReviewQueuePage", () => {
         "a5",
         "Confirmed via opposing counsel's admission letter.",
         1,
+        "proposed",
       ),
     );
   });
@@ -431,7 +433,7 @@ describe("ReviewQueuePage review decisions", () => {
     );
 
     // a2 is shown at revision 2.
-    await waitFor(() => expect(api[method]).toHaveBeenCalledWith("a2", 2));
+    await waitFor(() => expect(api[method]).toHaveBeenCalledWith("a2", 2, "proposed"));
   });
 
   it("sends the trimmed revision comment with the revision shown on the card", async () => {
@@ -450,7 +452,7 @@ describe("ReviewQueuePage review decisions", () => {
     await user.click(confirm);
 
     await waitFor(() =>
-      expect(api.requestRevision).toHaveBeenCalledWith("a2", "Cite the clause.", 2),
+      expect(api.requestRevision).toHaveBeenCalledWith("a2", "Cite the clause.", 2, "proposed"),
     );
   });
 
@@ -473,7 +475,7 @@ describe("ReviewQueuePage review decisions", () => {
     await user.type(textarea, "Counsel confirmed it.  ");
     await user.click(confirm);
     await waitFor(() =>
-      expect(api.acceptAssertion).toHaveBeenCalledWith("a2", "Counsel confirmed it.", 2),
+      expect(api.acceptAssertion).toHaveBeenCalledWith("a2", "Counsel confirmed it.", 2, "proposed"),
     );
   });
 
@@ -595,7 +597,7 @@ describe("ReviewQueuePage review decisions", () => {
       within(cardFor(modelAssertion.proposition)).getByRole("button", { name: "Accept" }),
     );
 
-    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1));
+    await waitFor(() => expect(api.acceptAssertion).toHaveBeenCalledWith("a1", undefined, 1, "proposed"));
     await waitForReload(callsBefore);
     const card = within(cardFor(modelAssertion.proposition));
     expect(card.getByText("Awaiting evidence")).toBeInTheDocument();
@@ -609,7 +611,7 @@ describe("ReviewQueuePage review decisions", () => {
     await user.click(card.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
-      expect(api.acceptAssertion).toHaveBeenLastCalledWith("a1", "Counsel confirmed the clause.", 1),
+      expect(api.acceptAssertion).toHaveBeenLastCalledWith("a1", "Counsel confirmed the clause.", 1, "proposed"),
     );
     expect(api.acceptAssertion).toHaveBeenCalledTimes(2);
   });

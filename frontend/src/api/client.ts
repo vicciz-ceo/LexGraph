@@ -14,6 +14,7 @@ import type {
   AssertionDetail,
   AssertionList,
   AssertionListParams,
+  AssertionStatus,
   CreateAssertionResult,
   Evidence,
   HistoryEvent,
@@ -147,11 +148,25 @@ async function send(
   return { payload, response };
 }
 
-/** The `expected_revision_number` field of a review decision, present only when known. */
-function expectedRevision(
+/** What the reviewer saw, as a review decision's `expected_revision_number`
+ * and `expected_status` fields, each present only when known. */
+function expectedVersion(
   expectedRevisionNumber: number | null | undefined,
-): { expected_revision_number?: number } {
-  return expectedRevisionNumber != null ? { expected_revision_number: expectedRevisionNumber } : {};
+  expectedStatus: AssertionStatus | null | undefined,
+): { expected_revision_number?: number; expected_status?: AssertionStatus } {
+  return {
+    ...(expectedRevisionNumber != null ? { expected_revision_number: expectedRevisionNumber } : {}),
+    ...(expectedStatus != null ? { expected_status: expectedStatus } : {}),
+  };
+}
+
+/** The body of a decision that sends nothing else: none when nothing is known. */
+function seenOnlyBody(
+  expectedRevisionNumber: number | null | undefined,
+  expectedStatus: AssertionStatus | null | undefined,
+): { expected_revision_number?: number; expected_status?: AssertionStatus } | undefined {
+  const body = expectedVersion(expectedRevisionNumber, expectedStatus);
+  return Object.keys(body).length > 0 ? body : undefined;
 }
 
 export const api = {
@@ -232,46 +247,67 @@ export const api = {
   },
 
   // --- review (reviewer/admin) -------------------------------------------
-  // `expectedRevisionNumber` is the revision the reviewer saw; when it is no
-  // longer current the API refuses the decision with 409 and changes nothing.
+  // `expectedRevisionNumber` and `expectedStatus` are the revision and the
+  // status the reviewer saw. A decision changes the status but creates no
+  // revision, so only the status shows that someone else decided meanwhile.
+  // When either is no longer current the API refuses the decision with 409
+  // and changes nothing.
   acceptAssertion: (
     id: string,
     acceptanceJustification?: string,
     expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
   ) =>
     request<Assertion>("POST", `/assertions/${id}/accept`, {
       body: {
         ...(acceptanceJustification
           ? { acceptance_justification: acceptanceJustification }
           : {}),
-        ...expectedRevision(expectedRevisionNumber),
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
       },
     }),
 
-  rejectAssertion: (id: string, expectedRevisionNumber?: number | null) =>
+  rejectAssertion: (
+    id: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/reject`, {
-      body: expectedRevisionNumber != null ? expectedRevision(expectedRevisionNumber) : undefined,
+      body: seenOnlyBody(expectedRevisionNumber, expectedStatus),
     }),
 
-  disputeAssertion: (id: string, expectedRevisionNumber?: number | null) =>
+  disputeAssertion: (
+    id: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/dispute`, {
-      body: expectedRevisionNumber != null ? expectedRevision(expectedRevisionNumber) : undefined,
+      body: seenOnlyBody(expectedRevisionNumber, expectedStatus),
     }),
 
-  requestRevision: (id: string, comment?: string, expectedRevisionNumber?: number | null) =>
+  requestRevision: (
+    id: string,
+    comment?: string,
+    expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
+  ) =>
     request<Assertion>("POST", `/assertions/${id}/request-revision`, {
-      body: { ...(comment ? { comment } : {}), ...expectedRevision(expectedRevisionNumber) },
+      body: {
+        ...(comment ? { comment } : {}),
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
+      },
     }),
 
   supersedeAssertion: (
     id: string,
     supersededByAssertionId: string,
     expectedRevisionNumber?: number | null,
+    expectedStatus?: AssertionStatus | null,
   ) =>
     request<Assertion>("POST", `/assertions/${id}/supersede`, {
       body: {
         superseded_by_assertion_id: supersededByAssertionId,
-        ...expectedRevision(expectedRevisionNumber),
+        ...expectedVersion(expectedRevisionNumber, expectedStatus),
       },
     }),
 

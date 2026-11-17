@@ -542,8 +542,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
       await action();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // Stale record (edited, withdrawn or decided meanwhile): nothing was
-        // recorded. Say so and show the current version.
+        // Stale record (edited, withdrawn or decided meanwhile, which the
+        // status it sent shows): nothing was recorded. Say so and show the
+        // current version.
         setActionError(reviewConflictNotice(err.message));
         reloadAfterDecision();
         return false;
@@ -636,18 +637,23 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
   };
 
   // --- Supersede (reviewers and admins, accepted assertions). Like the other
-  // review decisions it names the revision on screen, so the API refuses it
-  // (409) if the assertion changed meanwhile; the page then says the
-  // decision was not recorded and shows the current version. The panel
-  // shows the server's reason for any refusal and keeps the choice. The
-  // review panel stays disabled until the page shows the result
-  // (fe-review-detail:0).
+  // review decisions it names the revision and the status on screen, so the
+  // API refuses it (409) if the assertion was edited or decided meanwhile;
+  // the page then says the decision was not recorded and shows the current
+  // version. The panel shows the server's reason for any refusal and keeps
+  // the choice. The review panel stays disabled until the page shows the
+  // result (fe-review-detail:0).
   const handleSupersede = async (successorId: string) => {
     if (!detail) return;
     setActionError(null);
     setDeciding(true);
     try {
-      await api.supersedeAssertion(detail.id, successorId, detail.current_revision_number);
+      await api.supersedeAssertion(
+        detail.id,
+        successorId,
+        detail.current_revision_number,
+        detail.status,
+      );
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setActionError(reviewConflictNotice(err.message));
@@ -1264,6 +1270,9 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         : detail.evidence_status,
                     currentRevisionNumber: detail.current_revision_number ?? undefined,
                   }}
+                  // Every decision names the revision and the status on
+                  // screen, so the API refuses it (409) if the assertion was
+                  // edited or someone else decided it meanwhile.
                   onAccept={(payload) => {
                     const justification = payload?.justification?.trim() || undefined;
                     return runReview(
@@ -1272,15 +1281,20 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                           detail.id,
                           justification,
                           detail.current_revision_number,
+                          detail.status,
                         ),
                       { acceptWithoutJustification: justification === undefined },
                     );
                   }}
                   onReject={() =>
-                    runReview(() => api.rejectAssertion(detail.id, detail.current_revision_number))
+                    runReview(() =>
+                      api.rejectAssertion(detail.id, detail.current_revision_number, detail.status),
+                    )
                   }
                   onDispute={() =>
-                    runReview(() => api.disputeAssertion(detail.id, detail.current_revision_number))
+                    runReview(() =>
+                      api.disputeAssertion(detail.id, detail.current_revision_number, detail.status),
+                    )
                   }
                   onRequestRevision={(payload) =>
                     runReview(() =>
@@ -1288,6 +1302,7 @@ export function AssertionDetailPage({ assertionId }: { assertionId: string }) {
                         detail.id,
                         payload.comment,
                         detail.current_revision_number,
+                        detail.status,
                       ),
                     )
                   }

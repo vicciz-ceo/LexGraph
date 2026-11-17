@@ -333,8 +333,9 @@ export function ReviewQueuePage() {
       return true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // The card was stale (edited, withdrawn or decided meanwhile):
-        // nothing was recorded. Say so and show the queue as it now is.
+        // The card was stale (edited, withdrawn or decided meanwhile, which
+        // the status it sent shows): nothing was recorded. Say so and show
+        // the queue as it now is.
         setActionError(reviewConflictNotice(err.message));
         reloadAfterDecision();
       } else if (err instanceof ApiError && err.status === 422 && acceptWithoutJustification) {
@@ -579,8 +580,9 @@ export function ReviewQueuePage() {
                                 currentRevisionNumber:
                                   assertion.current_revision_number ?? undefined,
                               }}
-                              // Every decision names the revision this card shows,
-                              // so the API refuses it (409) if the text changed.
+                              // Every decision names the revision and the status
+                              // this card shows, so the API refuses it (409) if the
+                              // text changed or someone else decided it meanwhile.
                               onAccept={(payload) => {
                                 const justification =
                                   payload?.justification?.trim() || undefined;
@@ -590,6 +592,7 @@ export function ReviewQueuePage() {
                                       assertion.id,
                                       justification,
                                       assertion.current_revision_number,
+                                      assertion.status,
                                     ),
                                   { acceptWithoutJustification: justification === undefined },
                                 );
@@ -599,6 +602,7 @@ export function ReviewQueuePage() {
                                   api.rejectAssertion(
                                     assertion.id,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }
@@ -607,6 +611,7 @@ export function ReviewQueuePage() {
                                   api.disputeAssertion(
                                     assertion.id,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }
@@ -616,6 +621,7 @@ export function ReviewQueuePage() {
                                     assertion.id,
                                     comment,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }
