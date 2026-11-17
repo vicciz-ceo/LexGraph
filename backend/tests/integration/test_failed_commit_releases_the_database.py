@@ -108,7 +108,12 @@ def test_a_create_whose_commit_failed_leaves_the_database_unlocked_and_unchanged
 
         with _reader_holding_shared(database):
             failed = client.post("/api/v1/assertions", json=payload, headers=m["contributor_headers"])
-        assert failed.status_code == 500, failed.text
+        # A JSON 503 that names the locked database, not the bare plain-text 500
+        # (test_database_busy_answers_503.py covers the other ways to meet the lock).
+        assert failed.status_code == 503, failed.text
+        assert "database is locked" in failed.json()["detail"]
+        assert int(failed.headers["retry-after"]) >= 1
+        assert failed.headers.get("x-request-id")
 
         _assert_database_released(database)
         assert _stored(database, payload["proposition"]) == 0

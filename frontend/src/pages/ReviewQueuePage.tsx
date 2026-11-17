@@ -29,6 +29,7 @@ import type { IconName } from "../app/icons";
 import { Icon } from "../app/icons";
 import { Link } from "../app/router";
 import { useActiveSession } from "../app/session";
+import { useRefreshOnReturn } from "../app/useRefreshOnReturn";
 import { AssertionRatingDistribution } from "../components/AssertionRatingDistribution";
 import type { AssertionRatingDistributionSummary } from "../components/AssertionRatingDistribution";
 import { AssertionReviewPanel } from "../components/AssertionReviewPanel";
@@ -299,6 +300,24 @@ export function ReviewQueuePage() {
     setReloadKey((key) => key + 1);
   }
 
+  // The queue is read again when the reviewer comes back to it, so proposals
+  // submitted meanwhile show up: on a click of its own nav link (which also
+  // clears the notice of an earlier decision, as opening the page does) and
+  // on returning to this tab or window. The cards on screen stay mounted, with
+  // any decision form and its text. Not during a decision, whose own re-read
+  // follows, and a return while a read is on its way adds none (one return
+  // can bring both a focus and a visibilitychange event).
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+  useRefreshOnReturn((cause) => {
+    if (decidingRef.current || (cause === "return" && loadingRef.current)) return;
+    if (cause === "link") setActionError(null);
+    loadingRef.current = true;
+    reloadAfterDecision();
+  });
+
   /** Records one decision; resolves to whether it was recorded. */
   async function runReviewAction(
     action: () => Promise<unknown>,
@@ -314,8 +333,9 @@ export function ReviewQueuePage() {
       return true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // The card was stale (edited, withdrawn or decided meanwhile):
-        // nothing was recorded. Say so and show the queue as it now is.
+        // The card was stale (edited, withdrawn or decided meanwhile, which
+        // the status it sent shows): nothing was recorded. Say so and show
+        // the queue as it now is.
         setActionError(reviewConflictNotice(err.message));
         reloadAfterDecision();
       } else if (err instanceof ApiError && err.status === 422 && acceptWithoutJustification) {
@@ -560,8 +580,9 @@ export function ReviewQueuePage() {
                                 currentRevisionNumber:
                                   assertion.current_revision_number ?? undefined,
                               }}
-                              // Every decision names the revision this card shows,
-                              // so the API refuses it (409) if the text changed.
+                              // Every decision names the revision and the status
+                              // this card shows, so the API refuses it (409) if the
+                              // text changed or someone else decided it meanwhile.
                               onAccept={(payload) => {
                                 const justification =
                                   payload?.justification?.trim() || undefined;
@@ -571,6 +592,7 @@ export function ReviewQueuePage() {
                                       assertion.id,
                                       justification,
                                       assertion.current_revision_number,
+                                      assertion.status,
                                     ),
                                   { acceptWithoutJustification: justification === undefined },
                                 );
@@ -580,6 +602,7 @@ export function ReviewQueuePage() {
                                   api.rejectAssertion(
                                     assertion.id,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }
@@ -588,6 +611,7 @@ export function ReviewQueuePage() {
                                   api.disputeAssertion(
                                     assertion.id,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }
@@ -597,6 +621,7 @@ export function ReviewQueuePage() {
                                     assertion.id,
                                     comment,
                                     assertion.current_revision_number,
+                                    assertion.status,
                                   ),
                                 )
                               }

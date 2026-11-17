@@ -176,12 +176,19 @@ tool the server does not offer). Payload and argument schema violations add
   (proposed, revision-requested, accepted, disputed) assertions and the actor's
   own drafts block; withdrawn, rejected or superseded ones and other users'
   drafts are listed in `similar_assertions` instead.
-- **500:** a local database or installation problem, not a payload problem: the
-  message names it (database file not found, not a LexGraph database, created
-  by an older release and needing `python -m app.migrate`, database locked).
-  Report it to the user; retry later only for a locked database. If the
-  CLI cannot print a result after committing, this error has `committed: true`
-  and the new `id`, so do not resubmit.
+- **500:** a local database or installation problem, not a payload problem.
+  From the CLI and MCP the message names it (database file not found, not a
+  LexGraph database, created by an older release and needing
+  `python -m app.migrate`, database locked). Report it to the user; retry
+  later only for a locked database. If the CLI cannot print a result after
+  committing, this error has `committed: true` and the new `id`, so do not
+  resubmit. The API server checks its database before it starts, so over REST
+  a 500 is an unexpected server error, answered as plain text: report it too.
+- **503:** over REST, the database is locked: another process kept it busy
+  longer than the server waits (5 seconds), for example while many submissions
+  run at once. The JSON `detail` says so, `Retry-After` gives the seconds to
+  wait before you retry, and `X-Request-ID` identifies the request. Retrying is
+  safe: identical submissions are never stored twice (see 409).
 
 Do not write assertion tables directly, even if the agent has SQL access.
 The local file owner can bypass application permissions; these interfaces enforce
@@ -190,7 +197,9 @@ workflow rules for cooperating clients, not an OS-level security boundary.
 ## Lawyer workflow
 
 In **Review Queue**, lawyers can inspect model proposals, source quotations and
-self-reported provenance. Reviewers can edit any assertion through **Edit
+self-reported provenance. The queue is read again when a lawyer clicks
+**Review Queue** in the sidebar or comes back to its tab or window, so a
+suggestion submitted meanwhile appears. Reviewers can edit any assertion through **Edit
 assertion**; contributors can edit their own unreviewed submissions. Saving an
 edit creates a revision and checks for stale edits. An accepted assertion returns
 to proposed status after a material edit. Saving without a material change
@@ -198,12 +207,15 @@ does nothing: no revision is created, and status and ratings stay as they were.
 Previous revision text and rating summaries remain available in **Activity**.
 
 Review decisions (accept, reject, dispute, request revision, supersede) can send
-the revision the reviewer saw as `expected_revision_number`. If the assertion
-has been edited since, the API returns 409 and changes nothing; reload it and
-review the current revision. A decision is also refused with 409 on a draft, a
-withdrawn or a superseded assertion, when it repeats the current status, and
-when it would make a rejected assertion live again next to an identical live
-assertion (the response names that one as `existing_assertion_id`).
+the revision the reviewer saw as `expected_revision_number` and the status they
+saw as `expected_status`. If the assertion has been edited since, or its status
+has changed (for example, someone else already decided it: a decision changes
+the status but creates no revision), the API returns 409 and changes nothing;
+reload it and review the current version. A decision is also refused with 409
+on a draft, a withdrawn or a superseded assertion, when it repeats the current
+status, and when it would make a rejected assertion live again next to an
+identical live assertion (the response names that one as
+`existing_assertion_id`).
 Accepting an assertion that has no supporting evidence requires a written
 justification, which is kept in its history. Of two requests that change one
 assertion at the same moment (two reviewers, or an author withdrawing or
@@ -211,11 +223,14 @@ resubmitting while a reviewer decides), the one that comes second is refused
 with 409, or 403 for an author whose assertion was reviewed meanwhile, and
 changes nothing.
 
-The Review Queue, the assertion page and **Contested** send that revision for
-you. If the assertion changed after you opened it, the page tells you that your
-decision was not recorded and shows the current version. The same happens to an
-acceptance when the assertion's supporting evidence was removed after you
-opened it; the page then also asks for the justification. They offer only the
+The Review Queue, the assertion page and **Contested** send that revision and
+status for you. If the assertion changed after you opened it, the page tells you
+that your decision was not recorded and why (for example, it was edited, or
+someone else already decided it), and shows the current version and status. The
+same happens to an acceptance when the assertion's supporting evidence was
+removed after you opened it; the page then also asks for the justification. When
+a decision would make a rejected assertion live next to an identical live one,
+the page says that this is why it was not recorded. The pages offer only the
 decisions that apply to the assertion's status, and the next decision only once
 they show the result of the last one. Confirm stays disabled until the required
 justification or revision comment has text. The Contested drawer shows each

@@ -101,12 +101,15 @@ def issue_sign_in_token(user: Any) -> str:
 def parse_bearer_token(authorization: str | None) -> str:
     """Return the raw token from ``Authorization: Bearer <token>``.
 
+    The scheme name is case-insensitive, as HTTP defines it (RFC 9110
+    section 11.1): ``bearer <token>`` and ``BEARER <token>`` are read too.
     Raises AuthHeaderError on a missing, malformed, or empty header. It
     does not say whether the token is valid; see ``get_bearer_user_id``.
     """
-    if not authorization or not authorization.startswith("Bearer "):
+    scheme, space, token = (authorization or "").partition(" ")
+    if not space or scheme.lower() != "bearer":
         raise AuthHeaderError("missing or malformed Authorization header")
-    token = authorization[len("Bearer ") :].strip()
+    token = token.strip()
     if not token:
         raise AuthHeaderError("empty bearer token")
     return token

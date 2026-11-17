@@ -39,6 +39,7 @@ from pathlib import Path
 import pytest
 
 from app.seed_demo import DEMO_USERS
+from tests.integration._held_seed import wait_until_held, write_hold_script
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROOT = BACKEND_DIR.parent
@@ -356,6 +357,12 @@ def test_first_run_seeds_the_demo_and_serves_it_on_the_configured_ports(demo):
     status, body = _get(f"http://127.0.0.1:{demo.frontend_port}/healthz")
     assert (status, json.loads(body)) == (200, {"status": "ok"})
     assert f"http://localhost:{demo.frontend_port}" in demo.text()
+    # Only the demo's own instructions, with its own ports: the seeder's
+    # standalone "Serve it" hint named port 8000 and a database path inside
+    # the scratch directory the seed is moved out of.
+    assert f"http://127.0.0.1:{demo.backend_port}/docs" in demo.text()
+    for hint in ("Serve it", "uvicorn app.main:app", "--port 8000"):
+        assert hint not in demo.text(), demo.text()
 
     assert demo.process is not None
     demo.process.send_signal(signal.SIGTERM)  # the script's pid only, as `kill <pid>` does
@@ -381,6 +388,34 @@ def test_ctrl_c_stops_both_servers_and_an_existing_demo_is_upgraded_not_reseeded
 
     assert demo.wait_for_exit() == 130
     demo.assert_ports_free()
+
+
+def test_one_ctrl_c_during_the_seed_stops_the_demo_and_leaves_no_partial_database(demo, tmp_path):
+    """Acceptance run (release candidate): a Ctrl-C that landed while the
+    seeder's TestClient was starting a request's event-loop thread hung the
+    seeder, and demo.sh, which runs its INT trap only once the seed exits,
+    hung with it until a second Ctrl-C. The seeder is held in that window
+    here (tests/integration/_held_seed.py), so the Ctrl-C lands there."""
+    demo.install_backend()
+    demo.install_frontend()
+    marker = tmp_path / "held"
+    hold = write_hold_script(tmp_path)
+    _write_exec(demo.root / "backend" / ".venv" / "bin" / "python", f"""#!/bin/sh
+if [ "$1 $2" = "-m app.seed_demo" ]; then exec "{sys.executable}" "{hold}" "{marker}" "$@"; fi
+exec "{sys.executable}" "$@"
+""")
+
+    demo.start()
+    assert demo.process is not None
+    wait_until_held(marker, demo.process)
+    os.killpg(demo.process.pid, signal.SIGINT)  # Ctrl-C reaches the terminal's whole process group
+
+    assert demo.wait_for_exit(timeout=20) == 130
+    assert "Seeding the demo workspace into backend/dev.db" in demo.text()
+    assert not demo.db.exists()
+    assert not (demo.root / "backend" / ".dev.db.seeding").exists()
+    assert demo.vite() is None
+    assert not _listening(demo.backend_port)
 
 
 @pytest.mark.parametrize("taken", ["backend", "frontend"])

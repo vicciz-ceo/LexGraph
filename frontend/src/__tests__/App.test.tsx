@@ -77,6 +77,8 @@ class FakeBackend {
    * the real server, the rotation itself has taken effect by then. */
   holdRotations = false;
   matters: Matter[] = [{ id: "m-msa", name: "MSA", role: "admin" }];
+  /** What GET /assertions lists, whatever the filters. */
+  assertions: Record<string, unknown>[] = [];
   members: Record<string, Member[]> = {
     "m-msa": [
       { user: ADA, role: "admin" },
@@ -117,7 +119,9 @@ class FakeBackend {
       };
     }
     if (path === "/notifications") return { status: 200, body: [] };
-    if (path === "/assertions" && method === "GET") return { status: 200, body: { items: [], total: 0 } };
+    if (path === "/assertions" && method === "GET") {
+      return { status: 200, body: { items: this.assertions, total: this.assertions.length } };
+    }
     if (path === "/users" && method === "GET") return { status: 200, body: this.accounts };
     if (path === "/users" && method === "POST") {
       const account: Account = {
@@ -428,6 +432,7 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     await screen.findByText("Riva Reviewer");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Admin" })); // it asks first
 
     await waitFor(() =>
       expect(screen.queryByRole("option", { name: "MSA" })).not.toBeInTheDocument(),
@@ -442,6 +447,7 @@ describe("changing your own membership in the admin console (ui:19)", () => {
     await screen.findByText("Riva Reviewer");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Admin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Admin" })); // it asks first
 
     expect(await screen.findByText("No matter access")).toBeInTheDocument();
     expect(screen.queryByText(/demo seed/i)).not.toBeInTheDocument();
@@ -986,6 +992,7 @@ describe("accounts whose id contains '/' (review identity:4)", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Members & roles" }));
     fireEvent.click(await screen.findByRole("button", { name: "Remove Team Lead" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm removing Team Lead" })); // it asks first
     await waitFor(() => expect(screen.queryByText("Team Lead")).not.toBeInTheDocument());
 
     // Each id went out as one percent-encoded path segment.
@@ -995,5 +1002,67 @@ describe("accounts whose id contains '/' (review identity:4)", () => {
       "POST /users/team%2Flead/sign-in-token",
       "DELETE /matters/m-msa/members/team%2Flead",
     ]);
+  });
+});
+
+// Acceptance run (release candidate): with the Review Queue open, a proposal
+// submitted from another browser did not appear when the reviewer clicked
+// "Review Queue" in the sidebar: the URL does not change, so nothing re-read
+// the queue until the reviewer left the page and came back.
+describe("the Review Queue link of the page shown (acceptance run)", () => {
+  const proposal = {
+    id: "a-new",
+    organization_id: "o-1",
+    repository_id: "r-1",
+    matter_id: "m-msa",
+    assertion_type: "APPLIES_TO",
+    proposition: "A proposal submitted from another browser.",
+    proposition_raw: null,
+    subject_entity: { type: "Provision", id: "p-1" },
+    object_entity: null,
+    origin: "user_suggested",
+    status: "proposed",
+    standing: "proposed",
+    author_user_id: RIVA.id,
+    confidence: null,
+    jurisdiction: null,
+    effective_from: null,
+    effective_to: null,
+    created_at: "2026-11-17T08:00:00Z",
+    updated_at: "2026-11-17T08:00:00Z",
+    submitted_at: "2026-11-17T08:00:00Z",
+    reviewed_by: null,
+    reviewed_at: null,
+    superseded_by_assertion_id: null,
+    current_revision_number: 1,
+    evidence_status: "evidenced",
+    ratings_summary: null,
+  };
+
+  const queueReads = () => backend.calls.filter((c) => c.path === "/assertions").length;
+
+  it("re-reads the queue when it is clicked, and stays on the queue", async () => {
+    // An earlier test's route would fire its hashchange after the page loads.
+    if (window.location.hash !== "#/review") {
+      await new Promise<void>((resolve) => {
+        window.addEventListener("hashchange", () => resolve(), { once: true });
+        window.location.hash = "#/review";
+      });
+    }
+    renderApp({ hash: "#/review" });
+    expect(await screen.findByText("Queue clear")).toBeInTheDocument();
+    backend.assertions = [proposal];
+    const reads = queueReads();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    // Nothing reads the queue again by itself.
+    expect(queueReads()).toBe(reads);
+    expect(screen.queryByText(proposal.proposition)).not.toBeInTheDocument();
+
+    fireEvent.click(within(await primaryNav()).getByRole("link", { name: "Review Queue" }));
+
+    expect(await screen.findByText(proposal.proposition)).toBeInTheDocument();
+    expect(queueReads()).toBeGreaterThan(reads);
+    expect(screen.getByText(/Suggested by Riva Reviewer/)).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/review");
   });
 });

@@ -163,6 +163,12 @@ def test_backend_configuration_seeds_the_demo_workspace_then_serves_it(project, 
     assert _status(f"http://127.0.0.1:{port}/api/v1/me", token="no-such-user") == 401
     assert f"sqlite:///{database}" in backend.log.read_text()
     assert sorted(p.name for p in database.parent.iterdir()) == [".venv", "app", "dev.db"]
+    # The script says where it serves and how to sign in; the seeder's own
+    # "Serve it ... --port 8000" hint contradicted any other port.
+    log = backend.log.read_text()
+    assert f"http://127.0.0.1:{port}" in log and "admin, reviewer, contributor or viewer" in log, log
+    for hint in ("Serve it", "uvicorn app.main:app", "--port 8000"):
+        assert hint not in log, log
 
     os.kill(backend.pid, signal.SIGTERM)  # the launched process itself is the server
     backend.wait(15)

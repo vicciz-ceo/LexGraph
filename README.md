@@ -146,11 +146,14 @@ from scratch (or replaces an empty file); any other file, such as a
 workspace from `app.bootstrap`, is refused and left untouched, with or
 without `--reset`.
 
-The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a second
-matter) ships assertions in every status with ratings, comments, and
-evidence, so the review queue, knowledge base, contested queue, analytics,
-and admin console are all populated for exercising the UI — useful for
-local development and mockup data, not for a real deployment.
+The demo workspace ("MSA — Acme ↔ Blue Ridge Logistics" plus a smaller
+second matter, "Vendor DPA — Acme") ships assertions in every status with
+ratings, comments, and evidence, so the review queue, knowledge base,
+contested queue, analytics, and admin console are all populated for
+exercising the UI — useful for local development and mockup data, not for a
+real deployment. Every demo account starts on the MSA matter; `admin` and
+`reviewer` also belong to the second one and can switch to it in the matter
+picker.
 
 The web UI (React, `frontend/src/pages/`) implements the Consensus design system — review queue, knowledge base, suggest-assertion flow, assertion detail, contested-queue adjudication, per-matter analytics, admin console, and profile/activity. [docs/design/consensus-ui-review.md](docs/design/consensus-ui-review.md) records the design review: what the mockups got wrong about the domain (votes/quorums vs. strength ratings, fabricated identity data, CDN dependencies) and how each screen was adapted.
 

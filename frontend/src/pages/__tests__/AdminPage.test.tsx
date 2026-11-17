@@ -1,7 +1,7 @@
 // AdminPage — matter administration: member roster + role management,
 // add-by-email flow, and the read-only review-policy reference.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -200,6 +200,7 @@ describe("AdminPage", () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Stern" })); // it asks first
 
     expect(
       await screen.findByText("a matter must keep at least one admin"),
@@ -213,11 +214,60 @@ describe("AdminPage", () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Boaz Levi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Boaz Levi" })); // it asks first
 
     await waitFor(() =>
       expect(mockedApi.removeMatterMember).toHaveBeenCalledWith("m-1", "u-2"),
     );
     await waitFor(() => expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(2));
+  });
+
+  // --- Removal asks first (acceptance run, release candidate) ---------------
+  //
+  // "Remove" deleted the membership with one click, while removing evidence,
+  // deleting a comment and rotating a token all ask for confirmation first.
+
+  const rowOf = (name: string) => screen.getByText(name).closest("tr") as HTMLElement;
+
+  it("asks before removing a member, and Keep leaves the membership as it is", async () => {
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Boaz Levi" }));
+
+    expect(mockedApi.removeMatterMember).not.toHaveBeenCalled();
+    expect(within(rowOf("Boaz Levi")).getByText("Remove from this matter?")).toBeInTheDocument();
+    expect(screen.getAllByText("Remove from this matter?")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Remove Boaz Levi" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Carmel Noy" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep Boaz Levi" }));
+
+    expect(screen.queryByText("Remove from this matter?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Boaz Levi" })).toBeInTheDocument();
+    expect(mockedApi.removeMatterMember).not.toHaveBeenCalled();
+    expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a member only once the removal is confirmed", async () => {
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Carmel Noy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Carmel Noy" }));
+
+    await waitFor(() => expect(mockedApi.removeMatterMember).toHaveBeenCalledWith("m-1", "u-3"));
+    expect(mockedApi.removeMatterMember).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockedApi.listMatterMembers).toHaveBeenCalledTimes(2));
+  });
+
+  it("says that removing yourself ends your access to the matter", async () => {
+    await renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+
+    expect(
+      within(rowOf("Ada Stern")).getByText("Remove yourself? You lose access to this matter."),
+    ).toBeInTheDocument();
+    expect(mockedApi.removeMatterMember).not.toHaveBeenCalled();
   });
 
   // --- Changing your own membership (finding ui:19) -------------------------
@@ -248,6 +298,7 @@ describe("AdminPage", () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Stern" })); // it asks first
 
     await waitFor(() => expect(mocks.refreshSession).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(window.location.hash).toBe("#/review"));
@@ -274,6 +325,7 @@ describe("AdminPage", () => {
     await renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Ada Stern" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing Ada Stern" })); // it asks first
 
     expect(await screen.findByText("a matter must keep at least one admin")).toBeInTheDocument();
     expect(mocks.refreshSession).not.toHaveBeenCalled();
@@ -663,5 +715,25 @@ describe("AdminPage", () => {
       ).not.toBeInTheDocument();
       expect(mockedUsersApi.listUsers).not.toHaveBeenCalled();
     });
+  });
+});
+
+// Acceptance run (release candidate): at 375px the member table scrolled
+// sideways inside its card, with every role select and Remove button past its
+// edge (and so did the account list's token buttons, also beside the sidebar
+// on a tablet). The tables now stack, one block per person, wherever their
+// card is too narrow for them: each table's card is a size container, and
+// admin.css restyles the tables' rows under a container query. Layout needs
+// a browser (Chromium measured it at 320-1600px, with every confirmation
+// open); jsdom loads no CSS, so this checks that both tables are in such a
+// card.
+describe("AdminPage tables on a narrow screen", () => {
+  it("puts the member and account tables in cards that stack them when narrow", async () => {
+    await renderPage();
+    expect(screen.getByRole("table").closest(".adm-table-card")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "User accounts" }));
+    await screen.findByText("Dana Cohen");
+    expect(screen.getByRole("table").closest(".adm-table-card")).not.toBeNull();
   });
 });

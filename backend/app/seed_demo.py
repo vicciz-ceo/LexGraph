@@ -8,7 +8,9 @@ drives the real HTTP API via Starlette's TestClient, which needs httpx):
 
 `--reset` replaces only a demo database (one holding the demo accounts) or an
 empty file; any other existing file, such as a bootstrapped workspace, is
-refused and left untouched.
+refused and left untouched. `--quiet` prints nothing when the seed succeeds:
+scripts/demo.sh and scripts/dev-backend.sh serve the database themselves, on
+ports of their own, and say so. Ctrl-C stops the seed at once.
 
 Then serve it:
 
@@ -37,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sqlite3
 import sys
 import uuid
@@ -98,6 +101,11 @@ def main(argv: list[str] | None = None) -> int:
         "--reset", action="store_true",
         help="replace an existing demo database (or an empty file); any other file is refused",
     )
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="print nothing when the seed succeeds, for a script that serves the database "
+        "itself and prints its own instructions (a refusal is still explained)",
+    )
     args = parser.parse_args(argv)
 
     db_path = Path(args.db)
@@ -147,10 +155,14 @@ def main(argv: list[str] | None = None) -> int:
         repository_id=repo.id,
         name="MSA — Acme ↔ Blue Ridge Logistics",
     )
+    # GET /me lists a user's matters by name and the web app opens the first
+    # one when the browser has no matter saved yet, so the second matter's
+    # name sorts after the showcase's: admin and reviewer, who belong to both,
+    # start on the populated MSA matter like everyone else (acceptance run 2).
     dpa = Matter(
         id=str(uuid.uuid4()),
         repository_id=repo.id,
-        name="Data Processing Addendum — Acme",
+        name="Vendor DPA — Acme",
     )
     session.add_all([org, repo, msa, dpa])
 
@@ -445,6 +457,8 @@ def main(argv: list[str] | None = None) -> int:
 
     session.close()
 
+    if args.quiet:
+        return 0
     total = len(MSA_QUOTES) + len(DPA_QUOTES)
     print(f"Seeded {db_path} — 2 matters, {len(DEMO_USERS)} users, {total} source spans.")
     print("Serve it:")
@@ -457,4 +471,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Ctrl-C ends the process at once, as an uncaught KeyboardInterrupt would.
+    # As a KeyboardInterrupt it could land while the TestClient above was
+    # starting a request's event-loop thread (anyio's start_blocking_portal),
+    # and the main thread then waited for that thread forever: the seed, and
+    # scripts/demo.sh waiting for it, hung until a second Ctrl-C. Nothing here
+    # needs cleaning up: SQLite rolls back an unfinished write, and the scripts
+    # discard an unfinished seed.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(main())

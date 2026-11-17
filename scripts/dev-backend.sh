@@ -28,12 +28,14 @@ if [ ! -x .venv/bin/python ]; then
 fi
 
 if [ ! -e dev.db ]; then
-  echo "dev-backend: $backend/dev.db does not exist; seeding the demo workspace into it"
+  echo "dev-backend: $backend/dev.db does not exist; seeding the demo workspace into it" \
+    "(sign in with the demo sign-in token admin, reviewer, contributor or viewer)"
   # The file is this run's own: a failed or interrupted seed removes it, so the
   # next start seeds again instead of serving a half-seeded workspace.
+  # --quiet: the seeder's own "Serve it" hint names port 8000, not $port.
   trap 'rm -f dev.db dev.db-journal dev.db-wal dev.db-shm' EXIT
   trap 'exit 1' HUP INT TERM
-  .venv/bin/python -m app.seed_demo --db dev.db
+  .venv/bin/python -m app.seed_demo --db dev.db --quiet
   trap - EXIT HUP INT TERM
 fi
 

@@ -310,9 +310,10 @@ export function ContestedPage() {
       if (!aliveRef.current) return;
       setActionBusy(false);
       if (error instanceof ApiError && error.status === 409) {
-        // The drawer was stale (edited, withdrawn or decided meanwhile):
-        // nothing was recorded. Say so above the table, close the drawer
-        // and reload the queue as it now is.
+        // The drawer was stale (edited, withdrawn or decided meanwhile; each
+        // ruling sends the revision and the status the row shows): nothing
+        // was recorded. Say so above the table, close the drawer and reload
+        // the queue as it now is.
         setRulingNotice(reviewConflictNotice(error.message));
         setExpandedId(null);
         resetAction();
@@ -469,6 +470,7 @@ export function ContestedPage() {
                               assertion.id,
                               undefined,
                               assertion.current_revision_number,
+                              assertion.status,
                             ),
                           { acceptWithoutJustificationOf: assertion.id },
                         );
@@ -483,7 +485,11 @@ export function ContestedPage() {
                     disabled={busy}
                     onClick={() =>
                       void runRuling(() =>
-                        api.rejectAssertion(assertion.id, assertion.current_revision_number),
+                        api.rejectAssertion(
+                          assertion.id,
+                          assertion.current_revision_number,
+                          assertion.status,
+                        ),
                       )
                     }
                   >
@@ -533,6 +539,7 @@ export function ContestedPage() {
                               assertion.id,
                               justification.trim(),
                               assertion.current_revision_number,
+                              assertion.status,
                             ),
                           )
                         }
@@ -578,6 +585,7 @@ export function ContestedPage() {
                               assertion.id,
                               revisionComment.trim(),
                               assertion.current_revision_number,
+                              assertion.status,
                             ),
                           )
                         }

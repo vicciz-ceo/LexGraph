@@ -163,12 +163,14 @@ PY
 
 # Seed into a scratch directory next to the target and move the finished file
 # into place, so an interrupted seed never leaves a half-built demo database.
+# --quiet: the seeder's own "Serve it" hint names port 8000 and the scratch
+# path; this script serves the database itself and prints where.
 seed_demo_db() {
   echo "» Seeding the demo workspace into $DEMO_DB…"
   SEED_DIR=$DB_DIR/.$DB_NAME.seeding
   mkdir "$SEED_DIR"
   (cd "$SEED_DIR" && PYTHONPATH="$ROOT/backend${PYTHONPATH:+:$PYTHONPATH}" \
-    "$ROOT/backend/.venv/bin/python" -m app.seed_demo --db "$DB_NAME")
+    "$ROOT/backend/.venv/bin/python" -m app.seed_demo --db "$DB_NAME" --quiet)
   mv "$SEED_DIR/$DB_NAME" "$DB"
   rm -rf "$SEED_DIR"
   SEED_DIR=""

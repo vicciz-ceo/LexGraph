@@ -59,18 +59,101 @@ export function reviewTextTooLongMessage(text: string): string {
 
 /**
  * Notice for a decision the API refused with 409: the assertion was edited,
- * withdrawn or decided by someone else after the page loaded it. The page
- * reloads it, so the reviewer sees the current version before deciding again.
+ * withdrawn or decided by someone else after the page loaded it. The pages
+ * send the revision and the status on screen with every decision, so the API
+ * refuses both an edit and another reviewer's decision made meanwhile. The
+ * page reloads it, so the reviewer sees the current version before deciding
+ * again.
  */
 export const REVIEW_CONFLICT_MESSAGE =
   "Your decision was not recorded: this assertion changed after you opened it " +
   "(it was edited, withdrawn or decided by someone else). The current version is " +
   "now shown; review it before deciding.";
 
-/** REVIEW_CONFLICT_MESSAGE followed by the API's own reason, when it gave one. */
+/** Why a decision cannot be recorded on an assertion in a status that takes
+ * none (the API's "cannot <verb> an assertion in status '<status>'"). */
+const UNDECIDABLE_REASONS: Record<string, string> = {
+  draft: "it is a draft that has not been submitted for review",
+  withdrawn: "its author withdrew it",
+  superseded: "it was superseded by another assertion",
+};
+
+/** The status a decision would repeat (the API's "assertion is already '<status>'"). */
+const ALREADY_REASONS: Record<string, string> = {
+  revision_requested: "a revision of it is already requested",
+};
+
+/** The API's refusal of a decision made on a status the assertion no longer
+ * has (the pages send the status on screen as `expected_status`). */
+const STATUS_CHANGED_DETAIL = /^assertion status has changed since expected_status: it is now '([a-z_]+)'$/;
+
+/**
+ * Why the status on screen is out of date, from the status the assertion has
+ * now. A decision changes the status but creates no revision, so this is how
+ * a decision someone else recorded after the page loaded shows up (acceptance
+ * run 2). Withdrawn and superseded read as they do when the API names them as
+ * statuses that take no decision; proposed means it went back into review.
+ */
+function statusChangedReason(status: string): string {
+  if (Object.prototype.hasOwnProperty.call(UNDECIDABLE_REASONS, status)) {
+    return UNDECIDABLE_REASONS[status];
+  }
+  if (status === "proposed") return "it was resubmitted for review";
+  const now =
+    status === "revision_requested"
+      ? "a revision of it is now requested"
+      : `it is now ${status.replace(/_/g, " ")}`;
+  return `someone else already decided it (${now})`;
+}
+
+/**
+ * The reason a review decision was refused with 409, in the words of the
+ * review pages, from the API's `detail` (backend/app/routers/review.py). The
+ * API names its own request fields and status values there ("assertion has
+ * been modified since expected_revision_number"), which mean nothing to a
+ * reviewer. A detail this does not know is kept as the API gave it.
+ */
+function conflictReason(detail: string): string {
+  if (/\bmodified since expected_revision_number$/.test(detail)) return "it was edited";
+  const statusChanged = STATUS_CHANGED_DETAIL.exec(detail);
+  if (statusChanged) return statusChangedReason(statusChanged[1]);
+  if (detail.startsWith("assertion was changed by another request")) {
+    return "someone else changed it at the same moment";
+  }
+  const already = /^assertion is already '([a-z_]+)'$/.exec(detail);
+  if (already) {
+    const status = already[1];
+    return ALREADY_REASONS[status] ?? `it is already ${status.replace(/_/g, " ")}`;
+  }
+  const undecidable = /^cannot .+ an assertion in status '([a-z_]+)'/.exec(detail);
+  if (undecidable) {
+    const status = undecidable[1];
+    return UNDECIDABLE_REASONS[status] ?? `it is now ${status.replace(/_/g, " ")}`;
+  }
+  return detail;
+}
+
+/** The API's exact-duplicate 409 (services/duplicates.py). */
+const DUPLICATE_DETAIL = /^duplicate: an identical proposition already exists in this matter(?: \((assertion [^)\s]+)\))?$/;
+
+/**
+ * Notice for a review decision the API refused with 409: REVIEW_CONFLICT_MESSAGE
+ * and the reason in plain words. Reviving a rejected assertion is also refused
+ * when an identical proposition went live meanwhile; that notice says so
+ * instead, as nothing about this assertion changed.
+ */
 export function reviewConflictNotice(detail: string): string {
-  const reason = detail.trim().replace(/\.+$/, "");
-  return reason ? `${REVIEW_CONFLICT_MESSAGE} Reason: ${reason}.` : REVIEW_CONFLICT_MESSAGE;
+  const text = detail.trim().replace(/\.+$/, "");
+  const duplicate = DUPLICATE_DETAIL.exec(text);
+  if (duplicate) {
+    const existing = duplicate[1] ? ` (${duplicate[1]})` : "";
+    return (
+      "Your decision was not recorded: an identical proposition is already live in this " +
+      `matter${existing}, and this decision would make a second one live. The current ` +
+      "version is now shown."
+    );
+  }
+  return text ? `${REVIEW_CONFLICT_MESSAGE} Reason: ${conflictReason(text)}.` : REVIEW_CONFLICT_MESSAGE;
 }
 
 /**

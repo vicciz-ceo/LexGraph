@@ -668,7 +668,9 @@ Authentication and identity (2026-11-16):
   author, reviewer, commenter, rater and audit actor, and it is never a
   credential.
 - Each user signs in with a secret sign-in token sent as
-  `Authorization: Bearer <token>`. Tokens are random
+  `Authorization: Bearer <token>`. As in HTTP, the scheme name is
+  case-insensitive (`bearer <token>` is read too); any other scheme, or
+  no token after it, is rejected with 401. Tokens are random
   (`secrets.token_urlsafe`, 32 bytes), and only their SHA-256 hex digest
   is stored (`users.sign_in_token_hash`, unique; NULL means the account
   cannot sign in). An unknown token is rejected with 401.
@@ -755,6 +757,11 @@ every tab out, and the browser does not save the token; that tab's sign-in
 page shows it instead. It is shown to its owner only: once another account
 signs in in that tab, it is forgotten (an answer arriving after that is
 neither saved nor shown), and so is a token the server is then seen to refuse.
+That includes a token rotated again elsewhere while that tab is signed out: it
+stops being shown when a sign-in with it answers 401 (in that tab, or in another
+tab whose sign-in it would follow), or when `GET /api/v1/me` accepts another
+token for its owner (an account has one token at a time) in a request sent
+after the token was shown.
 
 ==================================================
 13. API REQUIREMENTS
@@ -876,7 +883,7 @@ All mutation APIs must:
 - Prevent lost updates
 - Return the current assertion revision
 
-Concurrency (2026-11-16). The exact-duplicate check and revision numbering hold for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation a create, edit or draft submission takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. N identical concurrent submissions yield one 201 and N-1 duplicate 409s. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409. The locked re-check of the exact-duplicate rule reads only what was committed after the unlocked check began (assertions inserted since, and assertions with an audit row since, which every change of a proposition or status writes), so it takes milliseconds however large the matter. On SQLite a COMMIT anywhere in the database waits for the statements that are reading when it begins, for at most the 5 s busy timeout. The unlocked check therefore reads a matter in statements of at most 50,000 assertions, each encoded by SQLite without an allocation per row, so a COMMIT waits for the statements in progress, never for a whole large matter. Measured on a matter of 220,000 assertions with 12 agent submissions at once in one server, a comment posted in another matter every half second succeeded every time (35 of 35 in 6 bursts, slowest COMMIT 2.2 s); with the earlier single statement, such a comment failed with "database is locked" in each of 6 bursts. No load is guaranteed to pass, because the busy timeout still bounds every wait: writers take the write lock one at a time, and with 14 submissions at once, 1 of 42 waited past the timeout for it and failed with "database is locked" instead of answering 201 or 409. Every status transition is atomic too. Submit and withdraw take the write lock, re-read the assertion and re-check it, then write only while it still has the status and revision they re-read: a review decision that landed meanwhile is never overwritten, and the late request gets the answer it would get afterwards (403 for an author whose assertion is now reviewed, 409 otherwise, both changing nothing). Of two simultaneous submits of one draft, one moves it into review and notifies the reviewers; the other records proposed → proposed and notifies nobody. A review decision takes the lock after its checks and is refused with 409 if the assertion's status or revision changed since it read them; an accept reads the evidence it depends on, and a supersede its successor and the successor's links, under the lock, so removing the last supporting span while an accept is in flight cannot leave an accepted assertion without support or justification, and two crossing supersedes (A by B, B by A) cannot close a cycle: the second gets 422. Concurrent rating writes by one user are applied one after the other and answer as in sequence: 201 for the first rating, 200 for each later PUT, 204 and then 404 for two removals, never a 500. A write whose COMMIT fails (on SQLite, "database is locked" when another connection keeps a read lock past the busy timeout) is rolled back completely in every process: it stores nothing, leaves the database unlocked for the other processes, and retrying it is safe.
+Concurrency (2026-11-16). The exact-duplicate check and revision numbering hold for concurrent writers in any process (API workers, the agent CLI, MCP servers): after its unlocked validation a create, edit or draft submission takes the database write lock (on SQLite, BEGIN IMMEDIATE) and re-checks before writing. N identical concurrent submissions yield one 201 and N-1 duplicate 409s. Of concurrent edits based on the same revision, one succeeds and the others receive the stale-revision 409 ("assertion has been modified since expected_revision_number"), also when expected_revision_number was omitted: an edit without it is based on the revision current when the request was read. A revision-number collision rejected by the database constraint is reported with the same 409. The locked re-check of the exact-duplicate rule reads only what was committed after the unlocked check began (assertions inserted since, and assertions with an audit row since, which every change of a proposition or status writes), so it takes milliseconds however large the matter. On SQLite a COMMIT anywhere in the database waits for the statements that are reading when it begins, for at most the 5 s busy timeout. The unlocked check therefore reads a matter in statements of at most 50,000 assertions, each encoded by SQLite without an allocation per row, so a COMMIT waits for the statements in progress, never for a whole large matter. Measured on a matter of 220,000 assertions with 12 agent submissions at once in one server, a comment posted in another matter every half second succeeded every time (35 of 35 in 6 bursts, slowest COMMIT 2.2 s); with the earlier single statement, such a comment failed with "database is locked" in each of 6 bursts. No load is guaranteed to pass, because the busy timeout still bounds every wait: writers take the write lock one at a time, and with 14 submissions at once, 1 of 42 waited past the timeout for it and failed with "database is locked" (over REST, the 503 below) instead of answering 201 or 409. Every status transition is atomic too. Submit and withdraw take the write lock, re-read the assertion and re-check it, then write only while it still has the status and revision they re-read: a review decision that landed meanwhile is never overwritten, and the late request gets the answer it would get afterwards (403 for an author whose assertion is now reviewed, 409 otherwise, both changing nothing). Of two simultaneous submits of one draft, one moves it into review and notifies the reviewers; the other records proposed → proposed and notifies nobody. A review decision takes the lock after its checks and is refused with 409 if the assertion's status or revision changed since it read them, or no longer is the `expected_status` or `expected_revision_number` the request names; an accept reads the evidence it depends on, and a supersede its successor and the successor's links, under the lock, so removing the last supporting span while an accept is in flight cannot leave an accepted assertion without support or justification, and two crossing supersedes (A by B, B by A) cannot close a cycle: the second gets 422. Concurrent rating writes by one user are applied one after the other and answer as in sequence: 201 for the first rating, 200 for each later PUT, 204 and then 404 for two removals, never a 500. A write whose COMMIT fails (on SQLite, "database is locked" when another connection keeps a read lock past the busy timeout) is rolled back completely in every process: it stores nothing, leaves the database unlocked for the other processes, and retrying it is safe. Over REST, a request that meets such a lock past the busy timeout (taking the write lock, writing, committing or reading) answers 503 with a JSON `detail` saying that the database is locked, a `Retry-After` header (in seconds) and `X-Request-ID`, once its transaction has been rolled back; any other database error is the bare 500 of section 16. The CLI and MCP report a locked database as status 500 (see "Local agent authoring and lawyer completion").
 
 ==================================================
 14. FRONTEND PAGES AND COMPONENTS
@@ -1005,7 +1012,7 @@ Implementation (2026-11-16). Every audited mutation writes its audit rows in its
 - `comment_created`, `comment_updated` and `comment_deleted`: — → the comment id, never the comment text. The explanation saved with a new assertion is a comment too.
 - Review decisions (`assertion.accept`, `assertion.reject`, `assertion.dispute`, `assertion.request_revision`, `assertion.supersede`): the previous → the new status, followed by the decision's note, if any.
 
-A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header, including a refusal answered before routing (the 422 for an unpaired surrogate). The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
+A row's revision is the revision its event concerns. For rating events that is the rated revision, for `assertion_revised` and `assertion_status_changed` the revision the edit created, and for every other event the assertion's current revision at the time. The correlation id identifies one unit of work. Every HTTP request gets a fresh server-generated id, which is recorded on every audit row the request writes and returned in the `X-Request-ID` response header, including a refusal answered before routing (the 422 for an unpaired surrogate) and the 503 for a locked database (section 13). The exception is the bare 500 response to an unhandled server error, whose transaction is rolled back and leaves no audit rows. An `X-Request-ID` sent by the client is ignored. Outside HTTP (the agent CLI, the MCP server and offline pipelines), the rows written in one database transaction share one id.
 
 ==================================================
 17. SEARCH AND SORTING
@@ -1164,7 +1171,8 @@ tool's signature (422 with `issues`), a tool the server does not offer (400), an
 also for a matter that does not exist: section 12 authorizes first), 404 (a
 repository that does not exist), 409 (duplicate, naming the existing assertion
 in the text and as `existing_assertion_id`), 422 (payload or arguments) and 500
-(local database or installation). An unpaired surrogate escape is the CLI's and
+(local database or installation, including a database locked past the busy
+timeout, which REST answers with 503: section 13). An unpaired surrogate escape is the CLI's and
 REST's 422 (section 7); the MCP SDK's stdio transport drops such a request
 without an answer.
 CLI input and output are UTF-8 regardless of locale, and so are text arguments
@@ -1314,18 +1322,29 @@ yet. The UI reads an instant that has no offset as UTC.
 
 Every review decision (`accept`, `reject`, `dispute`, `request-revision`,
 `supersede`) accepts an optional `expected_revision_number`, the revision the
-reviewer looked at. If the assertion has moved on to another revision, the
-decision is refused with 409 and nothing changes. A decision that carries the
-field therefore applies to, and is audited against, the revision that was
-reviewed. The field is optional, as on PATCH. Once the request body is
-well-formed, checks run in this order: 404 (unknown assertion), 403
-(permission), 409 (stale revision or status), 422 (invalid request content). The
-write only succeeds while the assertion still has the status and revision that
-were checked. A concurrent decision or edit therefore gets 409 rather than being
-overwritten. The decision takes the database write lock after those checks and
-re-reads the assertion, so the rules below that depend on other rows (the
-evidence an accept needs, a supersede's successor, a live copy of a revived
-assertion) are checked on what is committed when the decision is written.
+reviewer looked at, and an optional `expected_status`, the status the reviewer
+saw (one of the assertion statuses; any other value is 422). If the assertion
+has moved on to another revision, or its status is no longer `expected_status`,
+the decision is refused with 409 and nothing changes. A decision changes the
+status but creates no revision, so only `expected_status` shows that someone
+else decided, withdrew or resubmitted the assertion after the reviewer's page
+loaded it; that refusal's `detail` is `assertion status has changed since
+expected_status: it is now '<status>'`. A stale revision is reported first, and
+a decision that the current status refuses anyway (a repeat, or a draft,
+withdrawn or superseded assertion, below) gives that reason instead. A decision
+that carries both fields therefore applies to, and is audited against, the
+revision and the status that were reviewed. Both fields are optional, as
+`expected_revision_number` is on PATCH. Once the request body is well-formed,
+checks run in this order: 404 (unknown assertion), 403 (permission), 409 (stale
+revision or status), 422 (invalid request content). The write only succeeds
+while the assertion still has the status and revision that were checked. A
+concurrent decision or edit therefore gets 409 rather than being overwritten.
+The decision takes the database write lock after those checks and re-reads the
+assertion: the revision and status the request names are checked again then, so
+a decision or edit committed meanwhile is refused with the same reason, and the
+rules below that depend on other rows (the evidence an accept needs, a
+supersede's successor, a live copy of a revived assertion) are checked on what
+is committed when the decision is written.
 
 Decisions are recorded only on assertions that are proposed,
 revision_requested, disputed, accepted or rejected. A draft must be submitted
@@ -1362,10 +1381,16 @@ share a `correlation_id`. The review routes return the full assertion, as the
 other assertion mutation routes do.
 
 The web UI applies the same rules. The Review Queue, the assertion detail page
-and the Contested page send the revision on screen as
-`expected_revision_number` with every decision. When a decision is refused with
-409, the page says that nothing was recorded, shows the API's reason and
-reloads, so the reviewer sees the current version before deciding again.
+and the Contested page send the revision and the status on screen as
+`expected_revision_number` and `expected_status` with every decision. When a
+decision is refused with 409, the page says that nothing was recorded, gives
+the API's reason in plain words (the `detail` names request fields such as
+`expected_revision_number`; the page says "it was edited", and for a status
+that changed meanwhile "someone else already decided it" with the status it has
+now, or that its author withdrew it, that it was superseded or that it was
+resubmitted for review) and reloads, so the reviewer sees the current version
+and status before deciding again. A decision refused because it would make a
+rejected assertion live next to an identical live one says so instead.
 Adding or removing evidence changes neither the revision nor `updated_at`, so a
 page can still show supporting evidence that was removed after it loaded. An
 acceptance it sends without a justification is then refused with 422, and the

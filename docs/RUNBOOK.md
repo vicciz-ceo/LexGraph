@@ -90,8 +90,16 @@ Sign in at http://localhost:5173 with the demo sign-in token `admin`,
 they're fixtures for exercising the UI locally). Each demo token is also
 that account's public user id, so anyone can sign in as any demo account:
 the server logs a legacy-credential warning at startup and the admin
-console badges them "Legacy sign-in". Never use the demo seed for real
-data. The seeder
+console badges them "Legacy sign-in". Every demo account starts on the
+"MSA — Acme ↔ Blue Ridge Logistics" matter, which holds the populated review
+queue, knowledge base and contested queue; `admin` and `reviewer` also belong
+to the smaller "Vendor DPA — Acme" and can switch to it in the matter picker.
+(When the browser has no matter saved yet, the app opens the first one
+`GET /api/v1/me` lists, and that list is in name order.) A demo database
+seeded by an earlier release named the second matter "Data Processing
+Addendum — Acme", which comes first, so there admin and reviewer start on it:
+pick the MSA matter, or reseed with `app.seed_demo --reset`.
+Never use the demo seed for real data. The seeder
 (`backend/app/seed_demo.py`) drives the real API, so the demo data carries
 genuine revisions, ratings, comments, audit events and the notifications
 those actions raised (stored in the database like any others: the admin,
@@ -288,11 +296,11 @@ Run the printed command, then start the server again.
 
 The backend provides REST APIs at `/api/v1/` for managing assertions, comments, ratings, and the graph. The backend serves its own interactive API documentation. It works with no internet connection: Swagger UI and Redoc are bundled in `backend/app/static/api-docs/`, refreshed with `scripts/vendor_api_docs.sh`.
 
-- `http://localhost:8000/docs` (Swagger UI): click **Authorize** and paste your sign-in credential, the same value you enter on the web app's sign-in page. **Try it out** then sends it as `Authorization: Bearer <credential>` with every call. The credential is kept in the browser's local storage across reloads until you click **Logout** in the same dialog.
+- `http://localhost:8000/docs` (Swagger UI): click **Authorize** and paste your sign-in credential, the same value you enter on the web app's sign-in page. **Try it out** then sends it as `Authorization: Bearer <credential>` with every call. The credential is kept in the browser's local storage across reloads until you click **Logout** in the same dialog. For a review decision (`accept`, `reject`, `dispute`, `request-revision`, `supersede`), **Try it out** starts from an example body whose `expected_revision_number` and `expected_status` are revision 1 and `proposed`, what a newly proposed assertion has. For any other assertion, set them to the `current_revision_number` and `status` that `GET /api/v1/assertions/{assertion_id}` returns, or delete them (both are optional): a decision that names a revision or a status the assertion does not have is refused with 409 and changes nothing.
 - `http://localhost:8000/redoc` (Redoc): read-only reference.
 - `http://localhost:8000/openapi.json`: the OpenAPI 3.1 schema. It declares the bearer scheme (`HTTPBearer`) for every operation except `/healthz`, and documents the 401 each one returns without it.
 
-Both pages load files from the backend only. Their Content-Security-Policy makes the browser refuse any third-party request, including the attribution logo Redoc would otherwise fetch from its CDN.
+Both pages load files from the backend only, and their Content-Security-Policy makes the browser refuse any third-party request. Redoc would load the logo of its "API docs by Redocly" footer from its CDN, so the backend serves Redoc's bundle with that address emptied: the footer shows the text alone, and no request or console error results. Each operation's `operationId` is FastAPI's default name in camelCase (the function, path and method, such as `meApiV1MeGet` for `GET /api/v1/me`), so a Swagger UI link to an operation, such as `/docs#/workspace/meApiV1MeGet`, opens it without a console warning.
 
 `GET /api/v1/assertions?matter_id=<id>` accepts the search, filter and sort parameters listed in [the spec](specs/collaborative-assertions.md#listing-statistics-graph-bounds-and-timestamps-2026-11-16) and pages with `limit` (1–500) and `offset`. `total` in the response always counts every match. Without `limit` every match is returned, which can be tens of megabytes for a matter holding pipeline output, so scripts should page. Unknown query parameters and sort keys return 422. `GET /api/v1/matters/<id>/graph` returns at most `limit` edges (default 1000) together with `total`, and `GET /api/v1/matters/<id>/assertion-stats` returns matter-level counts. Every timestamp the API returns is UTC with an explicit offset; `effective_from`/`effective_to` are calendar dates without one.
 
@@ -565,13 +573,13 @@ show the sign-in page with the same message. On a narrow screen
 left.
 
 The UI implements the Consensus design system (see [docs/design/consensus-ui-review.md](design/consensus-ui-review.md)):
-- **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions
-- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, in the table's order, as UTF-8 with a byte-order mark (Excel opens it directly, Hebrew included; a program reading it should decode `utf-8-sig`), with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. Assertions reviewed, edited or rated while it runs never make it skip one that matches the whole time, and never put a line out of order (one that starts matching meanwhile is either in its place or left out); if very many change at once it starts over, and if that happens three times it fails and says so rather than download part of the list. The topbar search opens it on all statuses, and submitting the same query again re-runs it
+- **Review Queue** — proposed assertions with strength-rating summaries; reviewers accept/reject/dispute/request revisions. The queue is read again when you click **Review Queue** in the sidebar while it is shown and when you come back to its tab or window, so proposals submitted meanwhile appear; an open decision form keeps its text
+- **Knowledge Base** — the matter's accepted assertions by default (the Status filter shows any status), 50 rows per page, sortable by rating (user opinion, not legal authority); CSV export downloads every match, in the table's order, as UTF-8 with a byte-order mark (Excel opens it directly, Hebrew included; a program reading it should decode `utf-8-sig`), with spreadsheet formula triggers (`=`, `+`, `-`, `@`, tab, carriage return) neutralized by a leading apostrophe. Assertions reviewed, edited or rated while it runs never make it skip one that matches the whole time, and never put a line out of order (one that starts matching meanwhile is either in its place or left out); if very many change at once it starts over, and if that happens three times it fails and says so rather than download part of the list. The topbar search opens it on all statuses, and submitting the same query again re-runs it; clicking **Knowledge Base** in the sidebar while it is shown likewise reads it again with its default filters
 - **Suggest Assertion** — contributor submission flow with evidence spans and duplicate warnings
 - **Assertion detail** — evidence (attach and remove, under the edit rule), threaded comments (reply; edit or delete your own), review history, revision history with a side-by-side comparison of any two revisions, ratings with rationales, and role-gated review actions, including superseding an accepted assertion
 - **Contested** — adjudication queue for disputed assertions
 - **Analytics** — per-matter dashboard computed live by the server (`GET /api/v1/matters/<id>/assertion-stats`), with weekly counts in your timezone
-- **Admin** — user account provisioning and matter member/role management (admin role required)
+- **Admin** — user account provisioning and matter member/role management (admin role required). Where the member or account table does not fit its card (on a phone, or on a tablet beside the sidebar), each person is shown as a block with the role, Remove and token controls below their name
 - **Profile** — your activity (counts from the same statistics; your suggestions and the proposed assertions awaiting your rating, 50 at a time), all your notifications (50 at a time, with your unread count), and matters
 
 ### Notifications
@@ -644,9 +652,11 @@ people is entirely in-app; no CLI or DB access is required:
    (any admin-of-some-matter can list/create user accounts, per the users
    API's access model). The email is matched case-insensitively. A matter
    always keeps at least one admin, even when two admins demote each other
-   at the same moment. Changing your own role or removing yourself takes
-   effect in your browser at once: the app leaves the admin console and
-   shows your new access.
+   at the same moment. **Remove** asks for confirmation in the member's row
+   (**Remove member** or **Keep**) before it deletes the membership.
+   Changing your own role or removing yourself takes effect in your
+   browser at once: the app leaves the admin console and shows your new
+   access.
 3. **They sign in.** The new user enters the token from step 1 on the
    sign-in page and immediately sees the UI appropriate to the role(s)
    they were granted.
@@ -679,7 +689,10 @@ localhost or put TLS in front of it before exposing it on a network.
   shown once at the top of whatever page you are on, until you click
   **Done**. If you sign out before that, in that tab or another, the
   browser stays signed out and that tab's sign-in page shows the new
-  token instead, so you can still save it and sign in with it).
+  token instead, so you can still save it and sign in with it. If it is
+  rotated again meanwhile, by another admin or in another browser, the
+  page stops showing it once signing in with it is refused or you sign
+  in with the newer token).
 - **Lockouts (no admin can sign in).** With access to the database file,
   issue a new token from the command line. It prints the token once:
 
@@ -936,6 +949,7 @@ above:
 ## Troubleshooting
 
 - **Database connection errors**: Ensure `LEXGRAPH_DATABASE_URL` is set correctly and the file path is writable.
+- **A request answers 503 "The database is busy" (`database is locked`)**: another process kept the SQLite database locked for longer than the server waits for it (5 seconds), for example many agent submissions at once, a long pipeline batch, or a `sqlite3` shell left inside a transaction. Nothing is left half-written: a write that could not finish is rolled back, so repeat the request a moment later (the response's `Retry-After` header gives the seconds; in the web app, which shows the message, try the action again). The server logs a warning with the request's `X-Request-ID` for each one; if they keep coming, find the process that holds the database open in a transaction. The agent CLI and MCP server report the same condition as status 500 with `database is locked` in the error.
 - **`LexGraph cannot start: ...` / `Application startup failed`**: the server checked the database and printed the fix. Run the `python -m app.bootstrap` or `python -m app.migrate` command it names (see "Upgrading an existing database"), then start it again.
 - **Sign-in says "Could not reach the LexGraph server" although the backend is running**: the page is not being served by the backend (or by a proxy that forwards `/api/` to it). See "Serving the web app in production". "Unknown sign-in token" is the backend itself refusing the token: check it, or have it rotated. With the dev or preview server, first check that it forwards to your backend (see "Port already in use" below): another backend on port 8000 refuses your token too.
 - **An agent CLI or MCP error says the database was created by an older version of LexGraph**: run the `python -m app.migrate --db PATH` command it names. Both run the server's schema check before they touch the database.

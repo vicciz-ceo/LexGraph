@@ -134,6 +134,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                       active ? "sidebar__link sidebar__link--active" : "sidebar__link"
                     }
                     aria-current={active ? "page" : undefined}
+                    onClick={() => {
+                      // The link of the page shown leaves the URL as it is, so
+                      // no hashchange: signal one, so the page reads afresh what
+                      // it lists (the Review Queue, proposals submitted meanwhile).
+                      if (window.location.hash === `#${item.to}`) {
+                        window.dispatchEvent(new HashChangeEvent("hashchange"));
+                      }
+                    }}
                   >
                     <Icon name={item.icon} />
                     {item.label}

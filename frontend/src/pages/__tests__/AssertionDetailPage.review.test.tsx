@@ -146,7 +146,7 @@ describe("AssertionDetailPage review actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: buttonName }));
 
-    await waitFor(() => expect(mockedApi[method]).toHaveBeenCalledWith("a-1", 2));
+    await waitFor(() => expect(mockedApi[method]).toHaveBeenCalledWith("a-1", 2, "proposed"));
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 
@@ -160,7 +160,7 @@ describe("AssertionDetailPage review actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
-      expect(mockedApi.requestRevision).toHaveBeenCalledWith("a-1", "Cite the audit clause.", 2),
+      expect(mockedApi.requestRevision).toHaveBeenCalledWith("a-1", "Cite the audit clause.", 2, "proposed"),
     );
   });
 
@@ -186,6 +186,7 @@ describe("AssertionDetailPage review actions", () => {
           "a-1",
           "Admitted in the reply brief.",
           2,
+          "proposed",
         ),
       );
     },
@@ -199,9 +200,12 @@ describe("AssertionDetailPage review actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reject" }));
 
-    await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2));
+    await waitFor(() => expect(mockedApi.rejectAssertion).toHaveBeenCalledWith("a-1", 2, "proposed"));
     expect(await screen.findByText(/changed after you opened it/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/not recorded/);
+    // In plain words, without the API's field name (acceptance run).
+    expect(screen.getByRole("alert")).toHaveTextContent("Reason: it was edited.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("expected_revision_number");
     await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
   });
 
@@ -243,7 +247,7 @@ describe("AssertionDetailPage review actions", () => {
       await chooseReplacement();
 
       await waitFor(() =>
-        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2, "accepted"),
       );
       await waitFor(() => expect(mockedApi.getAssertion).toHaveBeenCalledTimes(2));
     });
@@ -255,7 +259,7 @@ describe("AssertionDetailPage review actions", () => {
       await chooseReplacement();
 
       await waitFor(() =>
-        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2),
+        expect(mockedApi.supersedeAssertion).toHaveBeenCalledWith("a-1", "a-9", 2, "accepted"),
       );
       expect(await screen.findByText(/changed after you opened it/)).toHaveTextContent(
         /not recorded/,
@@ -457,7 +461,7 @@ describe("Accept refused because the evidence was removed meanwhile (fe-review-d
 
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
-    await waitFor(() => expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2));
+    await waitFor(() => expect(mockedApi.acceptAssertion).toHaveBeenCalledWith("a-1", undefined, 2, "proposed"));
     const textarea = await screen.findByLabelText(
       "Justification for accepting without supporting evidence",
     );
@@ -477,6 +481,7 @@ describe("Accept refused because the evidence was removed meanwhile (fe-review-d
         "a-1",
         "Admitted in the reply brief.",
         2,
+        "proposed",
       ),
     );
     expect(mockedApi.acceptAssertion).toHaveBeenCalledTimes(2);

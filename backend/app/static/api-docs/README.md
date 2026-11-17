@@ -3,7 +3,9 @@
 Served by `backend/app/main.py` at `/docs/static/` so `/docs` (Swagger UI) and
 `/redoc` (Redoc) work without an internet connection. Byte-identical copies
 of published npm packages. Do not edit; regenerate with
-`scripts/vendor_api_docs.sh`.
+`scripts/vendor_api_docs.sh`. The backend serves `redoc.standalone.js` with
+one change, made in memory: the CDN address of the logo in Redoc's footer is
+emptied (`REDOC_CDN_LOGO` in `backend/app/main.py`).
 
 | Package | Version | License |
 |---|---|---|

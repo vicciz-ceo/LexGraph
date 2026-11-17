@@ -15,9 +15,13 @@ G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
   admin) may change review status; a role with no matter access at all
   (no matter_roles row) is treated as having no permissions.
 - Every decision body may carry `expected_revision_number`, the revision
-  the reviewer looked at. A stale value is refused with 409 before
-  anything changes, so a decision always applies to the revision that
-  was reviewed. Checks run in the order 404 -> 403 -> 409 -> 422.
+  the reviewer looked at, and `expected_status`, the status they saw. A
+  stale value is refused with 409 before anything changes, so a decision
+  always applies to the revision and the status that were reviewed. A
+  decision changes the status but creates no revision, so only
+  `expected_status` tells that someone else decided the assertion after
+  the reviewer's page loaded it (acceptance run 2). Checks run in the
+  order 404 -> 403 -> 409 -> 422.
 - A decision is only recorded from a reviewable status: never on an
   unsubmitted `draft`, a `withdrawn` assertion or a `superseded` one, and
   never as a repeat of the current status (409). Moving between the
@@ -30,7 +34,9 @@ G5/G6/G8/G10; the 2026-11-16 spec addendum "Review decision rules"):
 - Every decision takes the matter's write lock after its unlocked checks
   and re-reads the assertion (reviews authoring:2, workflow:0, workflow:2).
   It stands only on the status and revision this request checked: if
-  another decision or edit committed meanwhile, it is refused with 409.
+  another decision or edit committed meanwhile, it is refused with 409
+  (with the stale-revision or stale-status reason when the body named
+  what the reviewer saw).
   What else it depends on is read under the lock too -- the evidence an
   accept without justification needs, the successor of a supersede -- so
   a concurrent evidence removal or a crossing supersede cannot slip
@@ -70,6 +76,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -142,15 +149,56 @@ def get_current_user_id(request: Request) -> str:
 # --- Request bodies --------------------------------------------------------
 
 
-class DecisionBody(BaseModel):
-    """Fields every review decision accepts.
+#: Every status an assertion can have (spec §2): the values `expected_status` takes.
+AssertionStatusName = Literal[
+    "draft",
+    "proposed",
+    "revision_requested",
+    "accepted",
+    "rejected",
+    "disputed",
+    "superseded",
+    "withdrawn",
+]
 
-    `expected_revision_number` is the revision the reviewer was looking at.
-    It is optional, as on PATCH; when supplied and no longer the current
-    revision the decision is refused with 409 before anything changes.
+
+class DecisionBody(BaseModel):
+    """Fields every review decision accepts: what the reviewer saw.
+
+    `expected_revision_number` is the revision the reviewer was looking at,
+    `expected_status` the status it had on their screen. Both are optional,
+    as `expected_revision_number` is on PATCH; when one is supplied and the
+    assertion no longer matches it the decision is refused with 409 before
+    anything changes.
     """
 
-    expected_revision_number: int | None = Field(default=None, ge=1)
+    expected_revision_number: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "The revision the reviewer looked at. If the assertion's current revision is "
+            "another one (it was edited since), the decision is refused with 409 and "
+            "nothing changes. Optional."
+        ),
+    )
+    expected_status: AssertionStatusName | None = Field(
+        default=None,
+        # The example /docs and /redoc show, and that Swagger UI's "Try it out"
+        # body starts from: the status of a new proposal, whose revision, 1, is
+        # the example they show for expected_revision_number (its minimum).
+        # With no example they showed the first status, 'draft', which no
+        # decision applies to, so the offered body was always refused with 409.
+        examples=["proposed"],
+        description=(
+            "The status the reviewer saw. A decision changes the status without creating "
+            "a revision, so this is what tells that someone else decided, withdrew or "
+            "resubmitted the assertion meanwhile: if its status is no longer this one, the "
+            "decision is refused with 409 (\"assertion status has changed since "
+            "expected_status: it is now '<status>'\") and nothing changes. A decision that "
+            "repeats the current status, or that a draft, withdrawn or superseded assertion "
+            "takes none of, is refused with that reason instead. Optional."
+        ),
+    )
 
 
 class AcceptBody(DecisionBody):
@@ -198,6 +246,24 @@ def _require_expected_revision(assertion: Assertion, body: DecisionBody | None) 
         raise HTTPException(
             status_code=409,
             detail="assertion has been modified since expected_revision_number",
+        )
+
+
+_STATUS_CHANGED = "assertion status has changed since expected_status"
+
+
+def _require_expected_status(assertion: Assertion, body: DecisionBody | None) -> None:
+    """409 when the reviewer decided on a status the assertion no longer has.
+
+    A decision changes the status but not the revision, so a page that still
+    shows the status another reviewer has replaced names the current revision
+    (acceptance run 2): only the status tells the two apart. Runs after
+    `_require_decidable`, whose reasons (a repeat, a withdrawn or superseded
+    assertion) say more precisely what happened."""
+    expected = body.expected_status if body is not None else None
+    if expected is not None and expected != assertion.status:
+        raise HTTPException(
+            status_code=409, detail=f"{_STATUS_CHANGED}: it is now '{assertion.status}'"
         )
 
 
@@ -251,7 +317,9 @@ def _lock_and_recheck(
 
     The decision stands only on the status and revision this request
     checked: an edit or another decision committed since is a 409, never
-    overwritten (nor re-validated and decided on unseen). A revival is
+    overwritten (nor re-validated and decided on unseen). When the body
+    names the revision or the status the reviewer saw, the refusal gives
+    that reason, as the unlocked checks would have. A revival is
     re-checked for an identical live assertion committed since `scan`. A
     refusal rolls back, releasing the lock.
     """
@@ -260,6 +328,7 @@ def _lock_and_recheck(
     db.refresh(assertion)
     try:
         _require_expected_revision(assertion, body)
+        _require_expected_status(assertion, body)
         if (assertion.status, assertion.current_revision_number) != checked:
             raise HTTPException(status_code=409, detail=_CHANGED_MEANWHILE)
         if scan is not None:
@@ -480,6 +549,7 @@ def accept_assertion(
     _require_permission(db, user_id, assertion, "assertion:accept")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "accepted")
+    _require_expected_status(assertion, body)
     scan = _scan_revival(db, assertion, "accepted")
 
     justification = _sanitized_text(
@@ -522,6 +592,7 @@ def reject_assertion(
     _require_permission(db, user_id, assertion, "assertion:reject")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "rejected")
+    _require_expected_status(assertion, body)
     _lock_and_recheck(db, assertion, body, _scan_revival(db, assertion, "rejected"))
     return _decide(db, user_id, assertion, "rejected", event_type="assertion.reject")
 
@@ -537,6 +608,7 @@ def dispute_assertion(
     _require_permission(db, user_id, assertion, "assertion:dispute")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "disputed")
+    _require_expected_status(assertion, body)
     _lock_and_recheck(db, assertion, body, _scan_revival(db, assertion, "disputed"))
     return _decide(db, user_id, assertion, "disputed", event_type="assertion.dispute")
 
@@ -555,6 +627,7 @@ def request_revision(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "revision_requested")
+    _require_expected_status(assertion, body)
     scan = _scan_revival(db, assertion, "revision_requested")
 
     raw_comment = body.comment if body else None
@@ -582,6 +655,7 @@ def supersede_assertion(
     _require_permission(db, user_id, assertion, "assertion:review")
     _require_expected_revision(assertion, body)
     _require_decidable(assertion, "superseded")
+    _require_expected_status(assertion, body)
     _validated_successor(db, assertion, body.superseded_by_assertion_id)
 
     # workflow:0: validated again on what is committed once the lock is held,
